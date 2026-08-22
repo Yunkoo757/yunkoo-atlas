@@ -17,20 +17,6 @@ import './StageOwnershipRepairView.css'
 
 type Feedback = { kind: 'error' | 'success'; message: string }
 
-function repairState(): StageOwnershipRepairState {
-  const state = useStore.getState()
-  return {
-    liveStages: state.liveStages,
-    currentLiveStageId: state.currentLiveStageId,
-    trades: state.trades,
-    weeklyReviews: state.weeklyReviews,
-    weeklyRiskPreparations: state.weeklyRiskPreparations,
-    riskPolicyVersions: state.riskPolicyVersions,
-    monthlyRiskLimits: state.monthlyRiskLimits,
-    riskOverrideEvents: state.riskOverrideEvents,
-  }
-}
-
 function usePendingOwnership() {
   const liveStages = useStore((state) => state.liveStages)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
@@ -67,6 +53,10 @@ function domainFailureMessage(error: StageOwnershipRepairError): string {
     case 'target-stage-not-found': return '目标阶段已不存在，请重新选择。'
     case 'target-stage-invalid': return '目标阶段资料无效，无法保存归属。'
     case 'ownership-conflict': return '目标阶段已有同周期记录，请核对已有记录或选择其他阶段。'
+    case 'relationship-conflict': return '关联实体与目标阶段不一致或已不存在，请核对关系后重试。'
+    case 'dependency-pending': return '关联实体仍在待整理队列，请先完成其阶段归属。'
+    case 'missing-fingerprint': return '缺少待整理项校验信息，请刷新页面后重试。'
+    case 'rollback-conflict': return '回滚目标已被其他操作修改，未覆盖最新资料；请重新打开应用核对资料库。'
     case 'already-assigned': return '该项目已在其他操作中完成归属，请刷新核对。'
     case 'entity-not-found': return '该项目已不存在，请刷新核对。'
     case 'wrong-entity-type': return '该项目类型已经变化，请刷新核对。'
@@ -83,6 +73,7 @@ export function StageOwnershipRepairView() {
   const pending = usePendingOwnership()
   const liveStages = useStore((state) => state.liveStages)
   const assignOwnership = useStore((state) => state.assignPendingStageOwnership)
+  const rollbackOwnership = useStore((state) => state.rollbackAssignedStageOwnership)
   const [selections, setSelections] = useState<Record<string, string>>({})
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({})
   const [pageStatus, setPageStatus] = useState('')
@@ -104,12 +95,12 @@ export function StageOwnershipRepairView() {
     setSavingItem(item)
     setPageStatus('')
     setFeedback((current) => ({ ...current, [key]: { kind: 'success', message: '正在保存阶段归属…' } }))
-    let before: StageOwnershipRepairState
+    let stageName = liveStageId
     try {
-      // 先把编辑器草稿和既有待保存状态冲洗进 Store/资料库，再捕获可回滚边界。
-      // 否则后续失败会用草稿冲洗前的旧数组覆盖新正文，而草稿本身已经被清除。
+      // 先把编辑器草稿和既有待保存状态冲洗进 Store/资料库；后续失败只会在最新
+      // Store 上 CAS 反向修改本次目标的 ownership，不会用旧数组覆盖并发正文。
       await flushPersistNow()
-      before = repairState()
+      stageName = useStore.getState().liveStages.find((stage) => stage.id === liveStageId)?.name ?? liveStageId
       assignOwnership({
         entityType: item.entityType,
         entityId: item.entityId,
@@ -136,7 +127,6 @@ export function StageOwnershipRepairView() {
 
     try {
       await flushPersistNow()
-      const stageName = before.liveStages.find((stage) => stage.id === liveStageId)?.name ?? liveStageId
       setPageStatus(`阶段归属已保存：${item.reference} 已归入 ${stageName}。`)
       setFeedback((current) => ({ ...current, [key]: { kind: 'success', message: '阶段归属已保存。' } }))
       setSelections((current) => {
@@ -145,14 +135,26 @@ export function StageOwnershipRepairView() {
         return next
       })
     } catch (saveError) {
-      useStore.setState({
-        trades: before.trades,
-        weeklyReviews: before.weeklyReviews,
-        weeklyRiskPreparations: before.weeklyRiskPreparations,
-        riskPolicyVersions: before.riskPolicyVersions,
-        monthlyRiskLimits: before.monthlyRiskLimits,
-        riskOverrideEvents: before.riskOverrideEvents,
-      })
+      try {
+        rollbackOwnership({
+          entityType: item.entityType,
+          entityId: item.entityId,
+          assignedLiveStageId: liveStageId,
+        })
+      } catch (rollbackError) {
+        const recoveryMessage = rollbackError instanceof StageOwnershipRepairError
+          ? domainFailureMessage(rollbackError)
+          : '回滚目标已发生变化，未覆盖最新资料；请重新打开应用核对资料库。'
+        setPageStatus(recoveryMessage)
+        setFeedback((current) => ({
+          ...current,
+          [key]: {
+            kind: 'error',
+            message: recoveryMessage,
+          },
+        }))
+        return
+      }
       try {
         await flushPersistNow()
         setFeedback((current) => ({

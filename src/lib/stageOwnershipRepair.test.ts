@@ -2,6 +2,7 @@ import type { Trade } from '@/data/trades'
 import {
   assignPendingStageOwnership,
   listPendingStageOwnership,
+  rollbackAssignedStageOwnership,
   StageOwnershipRepairError,
   type StageOwnershipEntityType,
   type StageOwnershipRepairState,
@@ -101,6 +102,12 @@ function pendingState(): StageOwnershipRepairState {
       liveStageId: null,
       sourceWeekStart: '2026-06-08',
       effectiveTradingDay: '2026-06-09',
+    }, {
+      ...fixture.riskPolicyVersions[0]!,
+      id: 'policy-source',
+      liveStageId: 'stage-old',
+      sourceWeekStart: '2026-06-01',
+      effectiveTradingDay: '2026-06-02',
     }],
     monthlyRiskLimits: [{
       ...fixture.monthlyRiskLimits[0]!,
@@ -234,6 +241,7 @@ export function testPendingTradeMovesIntoExactlyOneSelectedScopeAfterRepair(): v
     entityType: 'live-trade',
     entityId: pendingTrade.id,
     liveStageId: 'stage-old',
+    expectedFingerprint: listPendingStageOwnership(state).find((item) => item.entityId === pendingTrade.id)!.fingerprint,
   })
   assert(filterStageTrades(repaired.trades, { kind: 'pending' }).every((item) => item.id !== 'live'), '成功修复后必须离开 pending scope')
   assert(filterStageTrades(repaired.trades, { kind: 'current', stageId: 'stage-current' }).every((item) => item.id !== 'live'), '选择历史阶段后不得进入当前 scope')
@@ -263,13 +271,13 @@ export function testAssignmentRejectsEveryInvalidOrStaleRequestWithoutPartialMut
   }
   const duplicate = { ...state, trades: [...state.trades, { ...state.trades.find((item) => item.id === 'live')! }] }
 
-  expectRepairError('entity-not-found', () => assignPendingStageOwnership(state, { entityType: 'live-trade', entityId: 'missing', liveStageId: 'stage-old' }))
-  expectRepairError('wrong-entity-type', () => assignPendingStageOwnership(state, { entityType: 'case-trade', entityId: 'live', liveStageId: 'stage-old' }))
-  expectRepairError('already-assigned', () => assignPendingStageOwnership(assigned, { entityType: 'live-trade', entityId: 'live', liveStageId: 'stage-old' }))
-  expectRepairError('paper-trade', () => assignPendingStageOwnership(state, { entityType: 'live-trade', entityId: 'paper', liveStageId: 'stage-old' }))
-  expectRepairError('invalid-ownership', () => assignPendingStageOwnership(undefinedOwnership, { entityType: 'live-trade', entityId: 'live', liveStageId: 'stage-old' }))
-  expectRepairError('target-stage-not-found', () => assignPendingStageOwnership(state, { entityType: 'live-trade', entityId: 'live', liveStageId: 'missing-stage' }))
-  expectRepairError('target-stage-invalid', () => assignPendingStageOwnership(invalidStages, { entityType: 'live-trade', entityId: 'live', liveStageId: 'stage-old' }))
+  expectRepairError('entity-not-found', () => assignPendingStageOwnership(state, { entityType: 'live-trade', entityId: 'missing', liveStageId: 'stage-old', expectedFingerprint: 'missing' }))
+  expectRepairError('wrong-entity-type', () => assignPendingStageOwnership(state, { entityType: 'case-trade', entityId: 'live', liveStageId: 'stage-old', expectedFingerprint: fingerprint }))
+  expectRepairError('already-assigned', () => assignPendingStageOwnership(assigned, { entityType: 'live-trade', entityId: 'live', liveStageId: 'stage-old', expectedFingerprint: fingerprint }))
+  expectRepairError('paper-trade', () => assignPendingStageOwnership(state, { entityType: 'live-trade', entityId: 'paper', liveStageId: 'stage-old', expectedFingerprint: 'paper' }))
+  expectRepairError('invalid-ownership', () => assignPendingStageOwnership(undefinedOwnership, { entityType: 'live-trade', entityId: 'live', liveStageId: 'stage-old', expectedFingerprint: fingerprint }))
+  expectRepairError('target-stage-not-found', () => assignPendingStageOwnership(state, { entityType: 'live-trade', entityId: 'live', liveStageId: 'missing-stage', expectedFingerprint: fingerprint }))
+  expectRepairError('target-stage-invalid', () => assignPendingStageOwnership(invalidStages, { entityType: 'live-trade', entityId: 'live', liveStageId: 'stage-old', expectedFingerprint: fingerprint }))
   expectRepairError('stale-request', () => assignPendingStageOwnership(stale, {
     entityType: 'live-trade',
     entityId: 'live',
@@ -280,6 +288,7 @@ export function testAssignmentRejectsEveryInvalidOrStaleRequestWithoutPartialMut
     entityType: 'live-trade',
     entityId: 'live',
     liveStageId: 'stage-old',
+    expectedFingerprint: fingerprint,
   }))
   assert(JSON.stringify(state) === before, '任何拒绝路径都不得部分修改原 state')
 }
@@ -366,7 +375,172 @@ export function testAssignmentRejectsTargetStagePeriodCollisionsBeforeMutation()
       entityType: testCase.entityType,
       entityId: testCase.entityId,
       liveStageId: 'stage-old',
+      expectedFingerprint: listPendingStageOwnership(testCase.state)
+        .find((item) => item.entityType === testCase.entityType && item.entityId === testCase.entityId)!.fingerprint,
     }))
     assert(JSON.stringify(testCase.state) === before, `${testCase.entityType} 周期冲突不得部分修改 state`)
   }
+}
+
+export function testAssignmentRequiresFingerprintAtRuntime(): void {
+  const state = pendingState()
+  const request = {
+    entityType: 'live-trade',
+    entityId: 'live',
+    liveStageId: 'stage-old',
+  } as unknown as Parameters<typeof assignPendingStageOwnership>[1]
+
+  expectRepairError('missing-fingerprint', () => assignPendingStageOwnership(state, request))
+  const unchanged = state.trades.find((item) => item.id === 'live')
+  assert(unchanged?.tradeKind !== 'paper' && unchanged?.liveStageId === null, '缺少 fingerprint 不得修改 ownership')
+}
+
+export function testDependentEntityRepairRequiresAssignedSameStageReferences(): void {
+  const cases: Array<{
+    entityType: StageOwnershipEntityType
+    entityId: string
+    target: string
+    makeState: () => StageOwnershipRepairState
+    code: StageOwnershipRepairError['code']
+  }> = [
+    {
+      entityType: 'case-trade', entityId: 'case', target: 'stage-current', code: 'relationship-conflict',
+      makeState: pendingState,
+    },
+    {
+      entityType: 'weekly-risk-preparation', entityId: 'preparation', target: 'stage-current', code: 'relationship-conflict',
+      makeState: pendingState,
+    },
+    {
+      entityType: 'monthly-risk-limit', entityId: 'limit', target: 'stage-current', code: 'relationship-conflict',
+      makeState: pendingState,
+    },
+    {
+      entityType: 'risk-override-event', entityId: 'override', target: 'stage-current', code: 'relationship-conflict',
+      makeState: pendingState,
+    },
+    {
+      entityType: 'monthly-risk-limit', entityId: 'limit', target: 'stage-old', code: 'dependency-pending',
+      makeState: () => {
+        const state = pendingState()
+        state.riskPolicyVersions = state.riskPolicyVersions.map((item) => (
+          item.id === 'policy-source' ? { ...item, liveStageId: null } : item
+        ))
+        return state
+      },
+    },
+    {
+      entityType: 'risk-override-event', entityId: 'override', target: 'stage-old', code: 'relationship-conflict',
+      makeState: () => {
+        const state = pendingState()
+        state.trades = state.trades.filter((item) => item.id !== 'source')
+        return state
+      },
+    },
+  ]
+
+  for (const testCase of cases) {
+    const state = testCase.makeState()
+    const item = listPendingStageOwnership(state)
+      .find((candidate) => candidate.entityType === testCase.entityType && candidate.entityId === testCase.entityId)!
+    const before = JSON.stringify(state)
+    expectRepairError(testCase.code, () => assignPendingStageOwnership(state, {
+      entityType: testCase.entityType,
+      entityId: testCase.entityId,
+      liveStageId: testCase.target,
+      expectedFingerprint: item.fingerprint,
+    }))
+    assert(JSON.stringify(state) === before, `${testCase.entityType} 引用冲突不得部分修改 state`)
+  }
+}
+
+export function testReferencedEntityRepairRejectsAlreadyAssignedDependentsFromAnotherStage(): void {
+  const policyState = pendingState()
+  policyState.monthlyRiskLimits = policyState.monthlyRiskLimits.map((item) => ({
+    ...item,
+    liveStageId: 'stage-old',
+    sourcePolicyVersionId: 'policy',
+  }))
+  const policyItem = listPendingStageOwnership(policyState).find((item) => item.entityId === 'policy')!
+  expectRepairError('relationship-conflict', () => assignPendingStageOwnership(policyState, {
+    entityType: 'risk-policy-version',
+    entityId: 'policy',
+    liveStageId: 'stage-current',
+    expectedFingerprint: policyItem.fingerprint,
+  }))
+
+  const tradeState = pendingState()
+  tradeState.trades = tradeState.trades.map((item) => item.id === 'source'
+    ? { ...item, liveStageId: null }
+    : item.id === 'case' ? { ...item, liveStageId: 'stage-old' } : item)
+  const sourceItem = listPendingStageOwnership(tradeState).find((item) => item.entityId === 'source')!
+  expectRepairError('relationship-conflict', () => assignPendingStageOwnership(tradeState, {
+    entityType: 'live-trade',
+    entityId: 'source',
+    liveStageId: 'stage-current',
+    expectedFingerprint: sourceItem.fingerprint,
+  }))
+}
+
+export function testRollbackUsesLatestStateAndOnlyReversesTargetOwnership(): void {
+  const initial = pendingState()
+  const item = listPendingStageOwnership(initial).find((candidate) => candidate.entityId === 'live')!
+  const assigned = assignPendingStageOwnership(initial, {
+    entityType: item.entityType,
+    entityId: item.entityId,
+    liveStageId: 'stage-current',
+    expectedFingerprint: item.fingerprint,
+  })
+  const latest = {
+    ...assigned,
+    trades: assigned.trades.map((candidate) => candidate.id === 'live'
+      ? { ...candidate, note: '<p>保存期间并发修改目标正文</p>' }
+      : candidate.id === 'source'
+        ? { ...candidate, note: '<p>保存期间并发修改无关交易</p>' }
+        : candidate),
+    weeklyReviews: assigned.weeklyReviews.map((review) => ({ ...review, contentHtml: '<p>并发周复盘草稿</p>' })),
+  }
+
+  const rolledBack = rollbackAssignedStageOwnership(latest, {
+    entityType: item.entityType,
+    entityId: item.entityId,
+    assignedLiveStageId: 'stage-current',
+  })
+  const target = rolledBack.trades.find((candidate) => candidate.id === 'live')
+  const unrelated = rolledBack.trades.find((candidate) => candidate.id === 'source')
+  assert(target?.tradeKind === 'live' && target.liveStageId === null, '回滚必须只把本次目标归属恢复为 null')
+  assert(target?.note.includes('目标正文'), '回滚必须基于最新 Store 保留目标实体并发字段')
+  assert(unrelated?.note.includes('无关交易'), '回滚必须保留无关交易并发修改')
+  assert(rolledBack.weeklyReviews[0]?.contentHtml.includes('周复盘草稿'), '回滚必须保留其他 slice 的并发修改')
+}
+
+export function testRollbackRejectsOwnershipCasConflictWithoutMutation(): void {
+  const initial = pendingState()
+  const conflicting = {
+    ...initial,
+    trades: initial.trades.map((candidate) => candidate.id === 'live'
+      ? { ...candidate, liveStageId: 'stage-old' }
+      : candidate),
+  }
+  expectRepairError('rollback-conflict', () => rollbackAssignedStageOwnership(conflicting, {
+    entityType: 'live-trade',
+    entityId: 'live',
+    assignedLiveStageId: 'stage-current',
+  }))
+  const latest = conflicting.trades.find((candidate) => candidate.id === 'live')
+  assert(latest?.tradeKind !== 'paper' && latest?.liveStageId === 'stage-old', 'CAS 冲突不得覆盖新的归属')
+
+  expectRepairError('rollback-conflict', () => rollbackAssignedStageOwnership({
+    ...initial,
+    trades: initial.trades.filter((candidate) => candidate.id !== 'live'),
+  }, {
+    entityType: 'live-trade',
+    entityId: 'live',
+    assignedLiveStageId: 'stage-current',
+  }))
+  expectRepairError('rollback-conflict', () => rollbackAssignedStageOwnership(conflicting, {
+    entityType: 'case-trade',
+    entityId: 'live',
+    assignedLiveStageId: 'stage-old',
+  }))
 }

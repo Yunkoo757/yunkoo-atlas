@@ -382,6 +382,7 @@ export function testStoreRepairActionAssignsOnePendingEntityAndOrdinaryEditingPr
       entityType: 'live-trade',
       entityId: 'pending-repair',
       liveStageId: 'stage-old',
+      expectedFingerprint: JSON.stringify(useStore.getState().getById('pending-repair')),
     })
     assert(result.liveStageId === 'stage-old', 'Store 修复动作必须返回实际写入的阶段 ID')
     const sibling = useStore.getState().getById('pending-sibling')

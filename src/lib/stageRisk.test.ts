@@ -55,6 +55,21 @@ export function testCurrentStagePolicyConfiguresOnlyItsOwnStage(): void {
   assert(riskSetupStateForStage(state, 'stage-other', '2026-08-17') === 'unconfigured', '策略不得跨阶段生效')
 }
 
+export function testRepairedNullPrefixMonthlyLimitConfiguresStageByOwnershipAndSource(): void {
+  const repairedLimit = {
+    ...monthlyLimit('stage-current'),
+    id: 'monthly-risk-limit:null:2026-08',
+  }
+
+  assert(
+    riskSetupStateForStage({
+      riskPolicyVersions: [policy('stage-current')],
+      monthlyRiskLimits: [repairedLimit],
+    }, 'stage-current', '2026-08-17') === 'configured',
+    '修复后的 null 前缀月限额必须按归属字段、月份与来源策略被风险建档消费，不得依赖实体 ID 猜归属',
+  )
+}
+
 export function testRiskSetupRequiresActiveValidPolicyAndLockedCurrentMonth(): void {
   const valid = policy('stage-current')
   const base = { monthlyRiskLimits: [monthlyLimit('stage-current')] }

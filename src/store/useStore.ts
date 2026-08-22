@@ -88,7 +88,9 @@ import { scheduleStageRollover } from '@/lib/stageRollover'
 import type { StageRolloverPublishState } from '@/types/journalBridge'
 import {
   assignPendingStageOwnership as applyPendingStageOwnership,
+  rollbackAssignedStageOwnership as applyOwnershipRollback,
   type AssignPendingStageOwnershipRequest,
+  type RollbackAssignedStageOwnershipRequest,
 } from '@/lib/stageOwnershipRepair'
 
 export type LivePerformanceRestartPreview = {
@@ -539,6 +541,7 @@ interface State {
   publishPostponedRollover: (scheduled: ScheduledStageRollover) => void
   publishCommittedStageRollover: (publish: StageRolloverPublishState) => void
   assignPendingStageOwnership: (request: AssignPendingStageOwnershipRequest) => AssignPendingStageOwnershipRequest
+  rollbackAssignedStageOwnership: (request: RollbackAssignedStageOwnershipRequest) => RollbackAssignedStageOwnershipRequest
   setStatus: (id: string, status: TradeStatus) => SetTradeStatusResult
   requestTradeOpen: (id: string, returnFocus?: HTMLElement | null) => TradeOpenRequestResult
   cancelTradeOpen: () => void
@@ -939,6 +942,10 @@ export const useStore = create<State>()((set, get) => ({
       }),
       assignPendingStageOwnership: (request) => {
         set((state) => applyPendingStageOwnership(state, request))
+        return { ...request }
+      },
+      rollbackAssignedStageOwnership: (request) => {
+        set((state) => applyOwnershipRollback(state, request))
         return { ...request }
       },
       upsertWeeklyReview: (review) =>

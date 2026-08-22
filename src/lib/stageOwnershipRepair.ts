@@ -57,7 +57,14 @@ export interface AssignPendingStageOwnershipRequest {
   entityId: string
   liveStageId: string
   /** UI 捕获待整理项时的完整实体指纹；变化后拒绝覆盖并要求刷新。 */
-  expectedFingerprint?: string
+  expectedFingerprint: string
+}
+
+export interface RollbackAssignedStageOwnershipRequest {
+  entityType: StageOwnershipEntityType
+  entityId: string
+  /** 本次写入的阶段 ID；只在最新实体仍持有该值时反向恢复 null。 */
+  assignedLiveStageId: string
 }
 
 export type StageOwnershipRepairErrorCode =
@@ -70,6 +77,10 @@ export type StageOwnershipRepairErrorCode =
   | 'target-stage-invalid'
   | 'ownership-conflict'
   | 'stale-request'
+  | 'missing-fingerprint'
+  | 'relationship-conflict'
+  | 'dependency-pending'
+  | 'rollback-conflict'
 
 export class StageOwnershipRepairError extends Error {
   constructor(
@@ -374,15 +385,130 @@ function validateTargetPeriodAvailability(
   }
 }
 
+function requireReferenceStage(
+  entity: unknown,
+  targetId: string,
+  label: string,
+): void {
+  const liveStageId = typeof entity === 'object' && entity !== null && 'liveStageId' in entity
+    ? entity.liveStageId
+    : undefined
+  if (liveStageId === undefined) {
+    throw new StageOwnershipRepairError('relationship-conflict', `${label}不存在或不属于实盘阶段，请先核对关系`)
+  }
+  if (liveStageId === null) {
+    throw new StageOwnershipRepairError('dependency-pending', `${label}仍在阶段待整理队列，请先完成其归属`)
+  }
+  if (liveStageId !== targetId) {
+    throw new StageOwnershipRepairError('relationship-conflict', `${label}与目标阶段不一致，不能跨阶段建立关系`)
+  }
+}
+
+function requireAssignedDependentStage(
+  entity: unknown,
+  targetId: string,
+  label: string,
+): void {
+  const liveStageId = typeof entity === 'object' && entity !== null && 'liveStageId' in entity
+    ? entity.liveStageId
+    : undefined
+  // 待归属的下游实体尚未选择阶段，允许先修复来源；已有归属则必须同阶段。
+  if (liveStageId === null) return
+  if (liveStageId === undefined || liveStageId !== targetId) {
+    throw new StageOwnershipRepairError('relationship-conflict', `${label}已归入其他阶段，不能把其来源分配到目标阶段`)
+  }
+}
+
+function validateRelationshipGraph(
+  state: StageOwnershipRepairState,
+  located: LocatedEntity,
+  targetId: string,
+): void {
+  switch (located.entityType) {
+    case 'case-trade': {
+      const entity = located.entity as Extract<Trade, { tradeKind: 'case' }>
+      if (entity.sourceTradeId) {
+        const source = state.trades.find((candidate) => candidate.id === entity.sourceTradeId && candidate.tradeKind !== 'paper')
+        requireReferenceStage(source, targetId, '来源交易')
+      }
+      break
+    }
+    case 'weekly-risk-preparation': {
+      const entity = located.entity as WeeklyRiskPreparation
+      if (entity.confirmedPolicyVersionId) {
+        requireReferenceStage(
+          state.riskPolicyVersions.find((candidate) => candidate.id === entity.confirmedPolicyVersionId),
+          targetId,
+          '已确认政策版本',
+        )
+      }
+      break
+    }
+    case 'monthly-risk-limit': {
+      const entity = located.entity as MonthlyRiskLimit
+      requireReferenceStage(
+        state.riskPolicyVersions.find((candidate) => candidate.id === entity.sourcePolicyVersionId),
+        targetId,
+        '来源政策版本',
+      )
+      break
+    }
+    case 'risk-override-event': {
+      const entity = located.entity as RiskOverrideEvent
+      requireReferenceStage(
+        state.trades.find((candidate) => candidate.id === entity.tradeId && candidate.tradeKind !== 'paper'),
+        targetId,
+        '关联交易',
+      )
+      if (entity.policyVersionId) {
+        requireReferenceStage(
+          state.riskPolicyVersions.find((candidate) => candidate.id === entity.policyVersionId),
+          targetId,
+          '关联政策版本',
+        )
+      }
+      break
+    }
+    case 'live-trade':
+    case 'missed-trade':
+      break
+    case 'risk-policy-version': {
+      const id = located.entity.id
+      for (const preparation of state.weeklyRiskPreparations.filter((candidate) => candidate.confirmedPolicyVersionId === id)) {
+        requireAssignedDependentStage(preparation, targetId, '引用该政策的周风险准备')
+      }
+      for (const limit of state.monthlyRiskLimits.filter((candidate) => candidate.sourcePolicyVersionId === id)) {
+        requireAssignedDependentStage(limit, targetId, '引用该政策的月度风险限额')
+      }
+      for (const override of state.riskOverrideEvents.filter((candidate) => candidate.policyVersionId === id)) {
+        requireAssignedDependentStage(override, targetId, '引用该政策的风险覆盖记录')
+      }
+      break
+    }
+    case 'weekly-review':
+      break
+  }
+
+  if (located.entityType === 'live-trade' || located.entityType === 'missed-trade' || located.entityType === 'case-trade') {
+    const id = located.entity.id
+    for (const reviewCase of state.trades.filter((candidate) => candidate.tradeKind === 'case' && candidate.sourceTradeId === id)) {
+      requireAssignedDependentStage(reviewCase, targetId, '引用该交易的案例')
+    }
+    for (const override of state.riskOverrideEvents.filter((candidate) => candidate.tradeId === id)) {
+      requireAssignedDependentStage(override, targetId, '引用该交易的风险覆盖记录')
+    }
+  }
+}
+
 function replaceOwnership<T extends { id: string; liveStageId?: string | null }>(
   records: T[],
   entityId: string,
-  liveStageId: string,
+  liveStageId: string | null,
 ): T[] {
   return records.map((entity) => entity.id === entityId ? { ...entity, liveStageId } : entity)
 }
 
-function replaceTradeOwnership(records: Trade[], entityId: string, liveStageId: string): Trade[] {
+function replaceTradeOwnership(records: Trade[], entityId: string, liveStageId: string | null): Trade[] {
   return records.map((trade) => (
     trade.id === entityId && trade.tradeKind !== 'paper'
       ? { ...trade, liveStageId }
@@ -401,13 +527,14 @@ export function assignPendingStageOwnership<T extends StageOwnershipRepairState>
   if (located.entity.liveStageId !== null) {
     throw new StageOwnershipRepairError('already-assigned', '实体已经完成阶段归属，请刷新后核对')
   }
-  if (
-    request.expectedFingerprint !== undefined &&
-    request.expectedFingerprint !== itemForLocated(state, located).fingerprint
-  ) {
+  if (!request.expectedFingerprint) {
+    throw new StageOwnershipRepairError('missing-fingerprint', '缺少待整理项指纹，不能执行归属修复')
+  }
+  if (request.expectedFingerprint !== itemForLocated(state, located).fingerprint) {
     throw new StageOwnershipRepairError('stale-request', '待整理项在选择后发生变化，请刷新上下文再保存')
   }
   validateTargetStage(state, request.liveStageId)
+  validateRelationshipGraph(state, located, request.liveStageId)
   validateTargetPeriodAvailability(state, located, request.liveStageId)
 
   switch (located.slice) {
@@ -423,5 +550,40 @@ export function assignPendingStageOwnership<T extends StageOwnershipRepairState>
       return { ...state, monthlyRiskLimits: replaceOwnership(state.monthlyRiskLimits, request.entityId, request.liveStageId) } as T
     case 'riskOverrideEvents':
       return { ...state, riskOverrideEvents: replaceOwnership(state.riskOverrideEvents, request.entityId, request.liveStageId) } as T
+  }
+}
+
+export function rollbackAssignedStageOwnership<T extends StageOwnershipRepairState>(
+  state: T,
+  request: RollbackAssignedStageOwnershipRequest,
+): T {
+  let located: LocatedEntity
+  try {
+    located = locateForAssignment(state, {
+      entityType: request.entityType,
+      entityId: request.entityId,
+      liveStageId: request.assignedLiveStageId,
+      expectedFingerprint: '__rollback_identity_only__',
+    })
+  } catch {
+    throw new StageOwnershipRepairError('rollback-conflict', '回滚目标已删除或类型已变化，未覆盖最新资料')
+  }
+  if (located.entity.liveStageId !== request.assignedLiveStageId) {
+    throw new StageOwnershipRepairError('rollback-conflict', '回滚目标的阶段归属已变化，未覆盖最新资料')
+  }
+
+  switch (located.slice) {
+    case 'trades':
+      return { ...state, trades: replaceTradeOwnership(state.trades, request.entityId, null) } as T
+    case 'weeklyReviews':
+      return { ...state, weeklyReviews: replaceOwnership(state.weeklyReviews, request.entityId, null) } as T
+    case 'weeklyRiskPreparations':
+      return { ...state, weeklyRiskPreparations: replaceOwnership(state.weeklyRiskPreparations, request.entityId, null) } as T
+    case 'riskPolicyVersions':
+      return { ...state, riskPolicyVersions: replaceOwnership(state.riskPolicyVersions, request.entityId, null) } as T
+    case 'monthlyRiskLimits':
+      return { ...state, monthlyRiskLimits: replaceOwnership(state.monthlyRiskLimits, request.entityId, null) } as T
+    case 'riskOverrideEvents':
+      return { ...state, riskOverrideEvents: replaceOwnership(state.riskOverrideEvents, request.entityId, null) } as T
   }
 }

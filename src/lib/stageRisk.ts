@@ -27,8 +27,6 @@ export function riskSetupStateForStage(
   return state.monthlyRiskLimits.some((limit) =>
     limit.liveStageId === liveStageId &&
     limit.monthKey === monthKey &&
-    (limit.id === `monthly-risk-limit:${monthKey}` ||
-      limit.id === `monthly-risk-limit:${liveStageId}:${monthKey}`) &&
     Number.isFinite(limit.limitR) &&
     limit.limitR > 0 &&
     isCanonicalIsoInstant(limit.lockedAt) &&
