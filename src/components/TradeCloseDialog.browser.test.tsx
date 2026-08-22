@@ -125,11 +125,13 @@ async function run(): Promise<void> {
     assert(restored.openedAt === '2026-07-16', '旧 Toast 不得覆盖动作后的非 touched 字段')
     assert(useStore.getState().undoStack.some((action) => action.actionId === laterActionId), '旧 Toast 不得误撤新的栈顶动作')
 
-    // 开仓日在当前边界内，平仓日落到重置前：必须先确认归属变化。
+    // 日期越过旧周期边界也必须直接保存，并保留显式 stage 归属。
     const archiveCandidate: Trade = {
       ...trade,
+      tradeKind: 'live',
       id: 'close-to-archive',
       ref: 'TRD-ARCHIVE',
+      liveStageId: previous.currentLiveStageId,
       openedAt: '2026-08-05',
       closedAt: '2026-07-01',
     }
@@ -151,17 +153,12 @@ async function run(): Promise<void> {
     assert(archiveSubmit, '迁移场景缺少提交按钮')
     await waitFor(() => !archiveSubmit.disabled, '迁移场景填写结果后提交按钮必须可用')
     archiveSubmit.click()
-    await waitFor(() => document.body.textContent?.includes('保存后将离开当前归档') ?? false, '跨边界平仓必须先请求归属确认')
-    const beforeCancel = JSON.stringify(useStore.getState().trades)
-    ;[...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '取消')?.click()
-    await waitFor(() => Boolean([...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '保存并待复盘')), '取消确认后必须回到平仓表单')
-    assert(JSON.stringify(useStore.getState().trades) === beforeCancel, '取消归属确认不得写入 Store')
-    ;[...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '保存并待复盘')?.click()
-    await waitFor(() => Boolean([...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '确认保存')), '再次提交必须仍要求归属确认')
-    ;[...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '确认保存')?.click()
-    await waitFor(() => useStore.getState().closeTradeRequest === null, '确认后才应提交平仓')
-    assert(useStore.getState().trades[0]?.status === 'win', '确认后必须完成平仓')
-    assert(useStore.getState().trades[0]?.closedTradingDayKey === '2026-07-01', '确认后必须按选择的平仓日归属历史范围')
+    await waitFor(() => useStore.getState().closeTradeRequest === null, '跨旧周期边界的日期编辑必须一次提交完成')
+    assert(!document.body.textContent?.includes('归属将改变'), '普通日期编辑不得显示重新归属提示')
+    assert(useStore.getState().trades[0]?.status === 'win', '保存后必须完成平仓')
+    assert(useStore.getState().trades[0]?.closedTradingDayKey === '2026-07-01', '保存后必须更新平仓业务日事实')
+    const savedArchiveCandidate = useStore.getState().trades[0]
+    assert(savedArchiveCandidate?.tradeKind === 'live' && savedArchiveCandidate.liveStageId === previous.currentLiveStageId, '平仓日期编辑必须保留原 stage ID')
   } finally {
     root.unmount()
     returnFocus.remove()

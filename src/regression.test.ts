@@ -1943,6 +1943,23 @@ export function testTradeDetailReturnRemembersListView(): void {
     '优先使用详情路由 state 的自定义视图查询',
   )
 
+  for (const tradeKind of ['live', 'case'] as const) {
+    const archiveBoardReturn = resolveTradeDetailReturn({
+      from: {
+        pathname: '/live-history/board',
+        search: '?liveStage=stage-old&tab=cases&status=loss',
+        restoreSearch: '?liveStage=stage-old&tab=cases&status=loss&anchor=case-1',
+        anchorTradeId: 'case-1',
+      },
+      tradeKind,
+    })
+    assert(archiveBoardReturn.pathname === '/live-history/board', `${tradeKind} 历史看板详情必须返回原 board 路径`)
+    assert(
+      archiveBoardReturn.search === '?liveStage=stage-old&tab=cases&status=loss&anchor=case-1',
+      `${tradeKind} 历史看板详情必须保留 stage、tab、筛选与滚动锚点`,
+    )
+  }
+
   const dashboardReturn = resolveTradeDetailReturn({
     from: { pathname: '/dashboard', search: '?kind=live&range=all&statsCycle=current' },
     tradeKind: 'live',
@@ -2090,6 +2107,17 @@ export async function testTradeDetailSourceCopyNamesRiskRepairCenter(): Promise<
   assert(missedCopy.breadcrumb === '错过的机会', '其他详情来源的面包屑不得改变')
   assert(missedCopy.backAriaLabel === '返回错过的机会', '其他详情来源的返回标签不得改变')
   assert(missedCopy.returnDestinationLabel === '错过的机会', '其他详情来源的空状态动作不得改变')
+
+  for (const tradeKind of ['live', 'case'] as const) {
+    const historyBoardCopy = resolveTradeDetailSourceCopy({
+      fromPathname: '/live-history/board',
+      returnPathname: '/live-history/board',
+      tradeKind,
+    })
+    assert(historyBoardCopy.breadcrumb === '历史实盘', `${tradeKind} 历史 board 详情必须显示历史实盘来源`)
+    assert(historyBoardCopy.backAriaLabel === '返回历史实盘', `${tradeKind} 历史 board 返回按钮必须使用历史实盘名称`)
+    assert(historyBoardCopy.returnDestinationLabel === '历史实盘', `${tradeKind} 历史 board 缺失记录动作必须返回历史实盘`)
+  }
 
   const fs = await import('node:fs/promises')
   const detailView = await fs.readFile('src/views/DetailView.tsx', 'utf8')

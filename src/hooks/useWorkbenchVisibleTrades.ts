@@ -24,6 +24,7 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
   totalCount: number
   workspaceCount: number
   businessDateAnchor: ReturnType<typeof useBusinessDateAnchor>
+  stageScope: StageScope | undefined
 } {
   const storedTrades = useStore((state) => state.trades)
   const display = useStore((state) => state.display)
@@ -77,12 +78,14 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
   const { totalCount, workspaceCount } = useMemo(() => {
     let total = 0
     let workspace = 0
+    for (const trade of storedTrades) {
+      if (!trade.deletedAt) total += 1
+    }
     const workspaceTrades = stageScope
       ? filterStageOwnedRecords(storedTrades, stageScope)
       : storedTrades
     for (const trade of workspaceTrades) {
       if (trade.deletedAt) continue
-      total += 1
       if (filter.tradeKind ? trade.tradeKind === filter.tradeKind : isAccountTrade(trade)) {
         workspace += 1
       }
@@ -93,5 +96,5 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
     }
   }, [storedTrades, filter.tradeKind, filter.historicalLiveScope, stageScope, trades.length])
 
-  return { trades, visible, facets, totalCount, workspaceCount, businessDateAnchor }
+  return { trades, visible, facets, totalCount, workspaceCount, businessDateAnchor, stageScope }
 }

@@ -99,8 +99,6 @@ import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { getDetailNavigation } from '@/shortcuts/listNav'
 import { collectImageSrcsFromHtml } from '@/shortcuts/images'
-import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
-import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { buildPerformanceSelection } from '@/lib/performanceSelection'
 import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
@@ -193,7 +191,6 @@ export function DetailView() {
   const reviewTemplates = useStore((s) => s.reviewTemplates)
   const reviewContextPinned = useStore((s) => s.display.reviewContextPinned ?? true)
   const privacyMode = useStore((s) => s.display.privacyMode)
-  const livePerformanceCycles = useStore((s) => s.livePerformanceCycles)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
   const businessDateAnchor = useBusinessDateAnchor()
   const performanceSelection = useMemo(
@@ -225,7 +222,6 @@ export function DetailView() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [caseCreating, setCaseCreating] = useState(false)
   const [reviewIssue, setReviewIssue] = useState<string | null>(null)
-  const [pendingArchivePatch, setPendingArchivePatch] = useState<Partial<Trade> | null>(null)
   const [noteLoad, setNoteLoad] = useState<{
     tradeId: string | null
     state: DetailNoteLoadResult | { status: 'loading' }
@@ -558,24 +554,6 @@ export function DetailView() {
   }
 
   const requestTradeDataUpdate = (patch: Partial<Trade>) => {
-    const next = {
-      ...trade,
-      ...patch,
-      ...('closedAt' in patch
-        ? {
-            closedTradingDayKey: closedTradingDayKeyFromClosedAt(
-              patch.closedAt ?? null,
-              tradingDayStartHour,
-            ) ?? undefined,
-          }
-        : {}),
-    }
-    const before = resolveLiveRecordBucket(trade, livePerformanceCycles, tradingDayStartHour)
-    const after = resolveLiveRecordBucket(next, livePerformanceCycles, tradingDayStartHour)
-    if ((before === 'current' || before === 'archive') && before !== after) {
-      setPendingArchivePatch(patch)
-      return
-    }
     updateTradeData(trade.id, patch)
   }
 
@@ -1557,31 +1535,6 @@ export function DetailView() {
         </>
       )}
       />
-      {pendingArchivePatch && (
-        <ModalShell
-          title="保存后将离开当前归档"
-          description="这次平仓事实修正会改变它所属的实盘范围。交易与关联案例不会被删除；确认后会按平仓业务日重新归属。"
-          size="compact"
-          onClose={() => setPendingArchivePatch(null)}
-          footer={(
-            <>
-              <button type="button" className="ui-btn ui-btn-bordered" data-autofocus onClick={() => setPendingArchivePatch(null)}>
-                取消
-              </button>
-              <button
-                type="button"
-                className="ui-btn ui-btn-solid"
-                onClick={() => {
-                  updateTradeData(trade.id, pendingArchivePatch)
-                  setPendingArchivePatch(null)
-                }}
-              >
-                确认保存
-              </button>
-            </>
-          )}
-        />
-      )}
     </>
   )
 }

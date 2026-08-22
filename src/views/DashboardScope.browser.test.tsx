@@ -3,10 +3,11 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { LiveStage } from '@/lib/liveStages'
+import { getTradingDayKey } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 import { Dashboard } from '@/views/Dashboard'
 import { DetailView } from '@/views/DetailView'
-import { TradeLogPage } from '@/App'
+import { PeriodPage, TradeLogPage } from '@/App'
 
 declare global {
   interface Window {
@@ -126,6 +127,10 @@ async function run(): Promise<void> {
     await waitFor(() => document.body.textContent?.includes('+$100') ?? false, 'Dashboard 必须统计当前 stage 的已编辑事实')
     assert(!document.body.textContent?.includes('+$900'), '历史 stage 即使日期较新也不得进入当前 Dashboard')
     assert(!document.body.textContent?.includes('+$1,000'), 'legacy 周期不得重新合并跨 stage 数据')
+    const currentRangeHeading = document.querySelector<HTMLElement>('[data-dashboard-current-range]')
+    const weekContext = document.querySelector<HTMLElement>('[aria-label="本周交易分析"]')
+    assert(currentRangeHeading && weekContext, 'Dashboard 必须同时标明当前分析范围与本周上下文')
+    assert(Boolean(currentRangeHeading.compareDocumentPosition(weekContext) & Node.DOCUMENT_POSITION_FOLLOWING), '当前分析范围标题必须先于本周上下文')
 
     const currentLink = document.querySelector<HTMLAnchorElement>('[data-current-live-trade-link]')
     assert(currentLink?.getAttribute('href') === '/list?kind=live&range=all&liveStage=current', '查看交易必须携带显式 current stage')
@@ -144,6 +149,112 @@ async function run(): Promise<void> {
     await waitFor(() => Boolean(document.querySelector('[aria-label="返回列表"]')), '当前 stage 行必须继续使用原详情路径')
     document.querySelector<HTMLAnchorElement>('[aria-label="返回列表"]')?.click()
     await waitFor(() => document.querySelector('[data-testid="location"]')?.textContent === '/list?kind=live&range=all&liveStage=current', '详情返回必须恢复 stage 与过滤查询')
+
+    const currentDay = getTradingDayKey(new Date(), useStore.getState().display.tradingDayStartHour)
+    const usdLive = liveTrade('currency-usd', 'stage-current', 100, currentDay)
+    const cnyLive = { ...liveTrade('currency-cny', 'stage-current', 900, currentDay), cashCurrency: 'CNY' } satisfies Trade
+    const unknownLive = { ...liveTrade('currency-unknown', 'stage-current', 50, currentDay), cashCurrency: null } satisfies Trade
+    root.unmount()
+    useStore.setState({
+      trades: [usdLive, cnyLive, unknownLive],
+      profile: { ...useStore.getState().profile, legacyCashCurrencyAssumption: null },
+    })
+    root = createRoot(element)
+    root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=live&range=all&liveStage=current']}>
+        <Routes><Route path="/dashboard" element={<Dashboard />} /></Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => Boolean(document.querySelector('[data-currency-merge-status="usd-with-exclusions"]')), '混合/未知币种必须显示独立覆盖状态')
+    const currencyHealth = document.querySelector('[data-currency-merge-status]')?.textContent ?? ''
+    assert(currencyHealth.includes('USD 覆盖 1/3 笔'), 'Dashboard 必须显示 USD 覆盖数量')
+    assert(currencyHealth.includes('CNY 1 笔') && currencyHealth.includes('币种未知 1 笔'), 'Dashboard 必须解释被排除币种与 unknown')
+    assert(document.body.textContent?.includes('+$100'), 'Dashboard 净盈亏只能合并 USD')
+    assert(!document.body.textContent?.includes('+$1,050'), 'Dashboard 不得把不同币种相加')
+
+    const openLive = {
+      ...liveTrade('open-current', 'stage-current', 0, currentDay),
+      status: 'open',
+      exit: null,
+      pnl: null,
+      rMultiple: null,
+      resultSource: undefined,
+      closedAt: null,
+      closedTradingDayKey: undefined,
+    } satisfies Trade
+    root.unmount()
+    useStore.setState({ trades: [openLive] })
+    root = createRoot(element)
+    root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=live&range=this-week&liveStage=current']}>
+        <Routes>
+          <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
+          <Route path="/active" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => [...document.querySelectorAll<HTMLButtonElement>('button')].some((button) => button.textContent?.trim() === '查看进行中交易'), '当前 stage 只有持仓时必须显示查看进行中交易空状态')
+    ;[...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '查看进行中交易')?.click()
+    await waitFor(() => document.querySelector('[data-testid="location"]')?.textContent === '/active', '空状态按钮必须打开进行中交易入口')
+
+    root.unmount()
+    useStore.setState({ trades: [usdLive] })
+    root = createRoot(element)
+    root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=live&range=all&liveStage=current&symbol=BTCUSDT']}>
+        <Routes>
+          <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
+          <Route path="/trade/:id" element={<><DetailView /><LocationProbe /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => Boolean(document.querySelector('summary')), 'Dashboard 必须提供累计盈亏数据表入口')
+    document.querySelector('summary')?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await waitFor(() => Boolean(document.querySelector<HTMLAnchorElement>('a[href="/trade/TRD-currency-usd"]')), 'Dashboard 数据表必须提供详情链接')
+    document.querySelector<HTMLAnchorElement>('a[href="/trade/TRD-currency-usd"]')?.click()
+    await waitFor(() => Boolean(document.querySelector('.dv-back')), 'Dashboard 交易详情必须显示返回入口')
+    document.querySelector<HTMLAnchorElement>('.dv-back')?.click()
+    await waitFor(() => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?kind=live&range=all&liveStage=current&symbol=BTCUSDT', 'Dashboard 详情返回必须恢复 stage、range 与过滤查询')
+
+    root.unmount()
+    useStore.setState({ trades: [usdLive] })
+    root = createRoot(element)
+    root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=live&range=ytd&liveStage=current']}>
+        <Routes>
+          <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
+          <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => Boolean(document.querySelector('[data-kpi-drilldown]')), '本年 Dashboard 必须显示 KPI 下钻')
+    const ytdDrilldown = document.querySelector<HTMLAnchorElement>('[data-kpi-drilldown]')
+    assert(ytdDrilldown?.getAttribute('href') === '/list?kind=live&range=ytd&liveStage=current', '本年下钻必须保留 YTD 与 current stage')
+    ytdDrilldown.click()
+    await waitFor(() => document.querySelectorAll('[data-trade-id]').length === 1, '本年下钻列表必须与 Dashboard stage 集合一致')
+    assert(document.querySelector('[data-trade-id="currency-usd"]'), '本年下钻必须显示同一当前 stage 交易')
+
+    root.unmount()
+    root = createRoot(element)
+    root.render(
+      <MemoryRouter initialEntries={['/period/ytd']}>
+        <Routes><Route path="/period/:slug" element={<><PeriodPage /><LocationProbe /></>} /></Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => document.querySelector('h1')?.textContent === '本年' && document.querySelectorAll('[data-trade-id]').length === 1, '/period/ytd 必须保留本年标题与真实列表')
+    assert(document.querySelector('[data-testid="location"]')?.textContent === '/period/ytd', '/period/ytd 不得静默跳转到 today')
+    assert(document.body.textContent?.includes('按开仓日'), '/period/ytd 必须说明日历范围按开仓日')
+
+    root.unmount()
+    root = createRoot(element)
+    root.render(
+      <MemoryRouter initialEntries={['/period/bad/board?symbol=BTCUSDT']}>
+        <Routes><Route path="/period/:slug/board" element={<><PeriodPage /><LocationProbe /></>} /></Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => Boolean(document.querySelector('[data-invalid-period]')), '非法 period slug 必须显示可解释恢复页')
+    assert(document.body.textContent?.includes('/period/bad/board?symbol=BTCUSDT'), '恢复页必须保留并解释原始 pathname/query')
+    assert(document.querySelector('[data-testid="location"]')?.textContent === '/period/bad/board?symbol=BTCUSDT', '非法 period 不得静默跳转或丢失 board/query')
   } finally {
     root.unmount()
     useStore.setState({
@@ -153,6 +264,7 @@ async function run(): Promise<void> {
       currentLiveStageId: previous.currentLiveStageId,
       liveStatsStartTradingDayKey: previous.liveStatsStartTradingDayKey,
       livePerformanceCycles: previous.livePerformanceCycles,
+      profile: previous.profile,
     })
   }
 }

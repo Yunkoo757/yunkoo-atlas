@@ -69,7 +69,7 @@ export function resolveWorkbenchEmptyState(options: {
     return {
       kind: 'workspace',
       title: `当前工作区暂无${recordLabel}`,
-      hint: `资料库中已有其他类型的记录；你可以新建${recordLabel}，开始积累这一类复盘样本。`,
+      hint: `资料库中已有其他阶段或类型的记录；你可以新建${recordLabel}，开始积累这一类复盘样本。`,
       action: 'create',
       actionLabel: `新建${recordLabel}`,
       primaryAction,

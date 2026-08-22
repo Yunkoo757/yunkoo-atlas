@@ -78,3 +78,24 @@
 .live-archive-card-list article p,
 .live-archive-empty { color: var(--text-tertiary); font-size: var(--type-metadata-size); }
 .live-archive-card-list article p { margin: var(--sp-3) 0 0; }
+.live-archive-integrity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-top: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-6);
+  background: var(--bg-elevated);
+}
+.live-archive-integrity > div { display: grid; gap: 2px; }
+.live-archive-integrity strong { color: var(--text-primary); font-size: var(--type-metadata-size); }
+.live-archive-integrity span { color: var(--text-tertiary); font-size: var(--type-metadata-size); }
+.live-archive-integrity.has-conflict,
+.live-archive-integrity[data-currency-merge-status='usd-with-exclusions'] { border-color: color-mix(in srgb, var(--warn) 28%, var(--border-default)); }
+.live-archive-breakdown,
+.live-archive-risk-sections { margin-top: var(--sp-5); }
+.live-archive-breakdown h3,
+.live-archive-risk-sections h3 { margin: 0 0 var(--sp-3); color: var(--text-secondary); font-size: var(--type-section-title-size); }
+.live-archive-risk-sections { display: grid; gap: var(--sp-5); }

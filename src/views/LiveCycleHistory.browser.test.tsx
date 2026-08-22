@@ -5,6 +5,8 @@ import { TradeRow } from '@/components/trades/TradeRow'
 import { TradeFilters } from '@/components/trades/TradeFilters'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import { useStore } from '@/store/useStore'
+import { BoardView } from '@/views/BoardView'
+import { ListView } from '@/views/ListView'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
 import '@/components/trades/TradeList.css'
@@ -97,11 +99,16 @@ function HistoryProbe() {
 
 function NoCycleProbe() {
   const filter = { type: 'all', tradeKind: 'live' } as const
-  const { trades, visible } = useWorkbenchVisibleTrades(filter)
+  const { trades, visible, totalCount, workspaceCount } = useWorkbenchVisibleTrades(filter)
   return (
     <>
       <TradeFilters filter={filter} trades={trades} strategies={[]} />
-      <div data-no-cycle-probe data-visible-refs={visible.map((trade) => trade.ref).join(',')} />
+      <div
+        data-no-cycle-probe
+        data-visible-refs={visible.map((trade) => trade.ref).join(',')}
+        data-total-count={totalCount}
+        data-workspace-count={workspaceCount}
+      />
     </>
   )
 }
@@ -213,6 +220,31 @@ async function run(): Promise<void> {
       '筛选面板未打开',
     )
     assert(!document.querySelector('[aria-label="实盘周期"]'), '未启用周期时不得提供规则前筛选项')
+
+    useStore.setState({ trades: [{ ...oldLiveTrade, tradeKind: 'live', liveStageId: 'stage-archived' }] })
+    await waitFor(
+      () => document.querySelector('[data-no-cycle-probe]')?.getAttribute('data-visible-refs') === '',
+      '当前 stage 为空时不得显示历史记录',
+    )
+    assert(document.querySelector('[data-no-cycle-probe]')?.getAttribute('data-total-count') === '1', 'totalCount 必须保留整个非删除资料库')
+    assert(document.querySelector('[data-no-cycle-probe]')?.getAttribute('data-workspace-count') === '0', 'workspaceCount 必须只统计当前 stage')
+
+    root.render(
+      <MemoryRouter key="current-empty-list">
+        <ListView title="交易日志" view="list" onView={() => undefined} filter={{ type: 'all', tradeKind: 'live' }} />
+      </MemoryRouter>,
+    )
+    await waitFor(() => document.body.textContent?.includes('当前工作区暂无交易') ?? false, 'List 当前 stage 为空时必须显示工作区空态')
+    assert(!document.body.textContent?.includes('还没有任何记录'), 'List 不得把 current-empty/history-present 误判为资料库空')
+
+    root.render(
+      <MemoryRouter key="current-empty-board">
+        <BoardView title="交易日志" view="board" onView={() => undefined} onOpen={() => undefined} filter={{ type: 'all', tradeKind: 'live' }} />
+      </MemoryRouter>,
+    )
+    await waitFor(() => document.body.textContent?.includes('当前工作区暂无交易') ?? false, 'Board 当前 stage 为空时必须显示工作区空态')
+    assert(document.body.textContent?.includes('其他阶段或类型'), 'Board 工作区空态必须准确说明资料库可能有其他 stage')
+    assert(!document.body.textContent?.includes('还没有任何记录'), 'Board 不得把 current-empty/history-present 误判为资料库空')
 
     useStore.setState((state) => ({ trades: [{ ...mistakeCase, liveStageId: state.currentLiveStageId }] }))
     root.render(

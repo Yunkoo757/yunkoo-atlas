@@ -9,6 +9,19 @@
 
 ## RED / GREEN
 
+### Fix Round 1（独立审查）
+
+按 `task-8-fix-1-brief.md` 逐项先补回归再修改实现：
+
+1. `stageArchive.test.ts` 先以“历史 stage 的新日期 + 当前 stage 的旧日期”复现 strategy membership 错误，并以 USD/CNY/unknown 数值样本复现跨币种相加；新增单一 `buildStagePerformanceProjection` / `buildStageArchiveOverview` 后转绿。
+2. `TradeCloseDialog.browser.test.tsx` 先复现日期修改触发“归属将改变”二次确认；删除 Detail/CloseDialog 的日期周期归属检查后，编辑一次提交且 `liveStageId` 保持不变。
+3. `regression.test.ts` 先复现 `/live-history/board` 被判为非法详情来源；修复后 live/case board 均返回原 stage/tab/filter/mode，并恢复锚点焦点。
+4. `LiveArchiveView.browser.test.tsx` 先复现 overview 跨币种相加、硬编码 `$`、weekly 隐私泄漏、risk 只有计数；改用统一 USD 资格、隐私格式化、stage 策略拆分和实际风险实体后转绿。
+5. `DashboardScope.browser.test.tsx` 恢复独立删除的 mixed/unknown currency、空状态/持仓入口、Dashboard 详情返回、Dashboard/List 一致性、YTD/非法 period、范围标题层级覆盖；成员资格只按 stage ID。
+6. `LiveCycleHistory.browser.test.tsx` 先复现当前 stage 为空、历史有记录时 `totalCount=0`；修复为资料库 `totalCount=1`、stage `workspaceCount=0`。
+7. 完整 browser 首轮额外捕获 `TradeList` 叶组件直接依赖 Router 的 5 个桌面 viewport 回归；改为工作台显式下传 `StageScope` 后，四个聚焦 viewport 与完整矩阵均转绿。
+8. 提交前独立复核捕获四项遗漏：Board 空状态误用 stage 内数量、paper 策略预览缺省扩大到全部实盘、历史 board 详情来源文案未识别、跨 stage 空状态提示不准确。分别补 RED 后统一使用资料库 `totalCount`、把缺省/paper 策略投影限定当前 stage、识别 `/live-history/board`，并改为中性“其他阶段或类型”提示；聚焦及完整矩阵转绿。
+
 ### 第一组四文件 RED
 
 先建立以下四个聚焦测试，再写实现：
@@ -72,6 +85,8 @@ GREEN 后覆盖：
 - live/cases 复用原 `TradesPage`、详情和 store 编辑链路；浏览器测试覆盖详情返回后的 stage/filter/mode/scroll anchor 恢复。
 - overview 使用当前事实实时重算；weekly card 只显示 `metricsSnapshot`，并标记 snapshot/unavailable 来源。
 - risk 按同一 stage scope 汇总周准备、策略版本、月度限额与覆盖事件。
+- risk 除汇总外可浏览 stage 内周准备、策略版本、月度限额与覆盖事件的实际事实，且风险现金字段遵守隐私模式。
+- overview 使用统一表现资格与 USD 合并口径，不相加不同币种；显示结果、现金覆盖、日期完整性和 stage 内策略拆分。
 
 ### Task 7 deferred weekly 歧义
 
@@ -85,6 +100,9 @@ GREEN 后覆盖：
 为迁移直接消费者，最小更新了：
 
 - Dashboard、历史 archive/mode hierarchy、Today、Sidebar、missed、策略导航浏览器夹具。
+- 独立 DashboardScope 重新覆盖 mixed/unknown currency、空状态入口、Dashboard 详情返回、Dashboard/List 集合、YTD/非法 period 与标题层级；没有恢复 legacy 周期成员路由。
+- 历史页覆盖 live/case board 详情返回、USD 覆盖/排除、隐私 weekly snapshot、stage 策略拆分和四类风险实体。
+- TradeCloseDialog 与 store ownership 覆盖日期编辑一次提交并保持原 `liveStageId`；workbench 覆盖 current-empty/history-present 的双计数语义。
 - 旧 LiveCycle history/dashboard/navigation 测试改为验证显式 stage 合同及旧字段不影响投影。
 - workspace facet / regression 的旧周期断言改为 current stage 断言。
 - weekly presentation 增加同周跨 stage 聚合展示断言。
@@ -105,7 +123,7 @@ GREEN 后覆盖：
 
 命令：`node scripts/run-regression-tests.mjs --unit-only`
 
-结果：`1328 PASS / 0 FAIL`。
+结果：`1331 PASS / 0 FAIL`。
 
 ### 类型检查
 
@@ -117,13 +135,13 @@ GREEN 后覆盖：
 
 归档 375×812、768×900、1280×900、1920×1080；Dashboard 960×640、1440×900、1920×1080；另含 archive hierarchy、Sidebar Today、Today primary、Today review/detail return。
 
-结果：`11 PASS / 0 FAIL`。
+Fix Round 受影响矩阵：archive、Dashboard、LiveCycle history、TradeClose、strategy truth/navigation 与 TradeList 四个桌面 viewport，全部通过。
 
 直接受影响的旧周期/导航/missed/weekly 六组复跑：`6 PASS / 0 FAIL`。Sidebar 三组复跑：`3 PASS / 0 FAIL`。
 
 ### 完整 browser
 
-结果：`121 PASS / 2 已知 FAIL`。
+最终新鲜结果：`121 PASS / 2 已知 FAIL`。
 
 已知、与 Task 8 无关且按 brief 隔离：
 
@@ -135,6 +153,10 @@ Task 8 相关 browser 无新增失败。
 ## 自审与 concerns
 
 - `git diff --check`：通过；仅 Windows 工作区行尾转换提示，无 whitespace error。
+- Fix Round 对 `StrategyHeader`、`StrategiesPanel`、`TradeList`、历史页、workbench、Detail/CloseDialog 检索 `resolveLiveRoute`、`filterLiveLogRecords`、`resolveLiveArchiveScope`、`resolveLiveRecordBucket`、`livePerformanceCycles`、`liveStatsStartTradingDayKey`：无运行时归属依赖。
+- `TradeList` 不在叶组件读取路由；由 workbench hook 显式传递 stage，paper/独立组件缺省都限定 current stage，避免策略统计扩大到全部实盘。
+- 历史 overview/weekly/risk 所有现金均走 `fmtMoney(..., privacyMode)`；跨币种只展示覆盖与排除，不生成伪总数。
+- requesting-code-review 提交前复核只检查本 Fix Round 范围；发现的 Board 计数、paper 策略投影、历史 board 来源文案与跨 stage 提示四项均已补回归并修复；CAS/WebStorage 两项按 brief 保持 deferred，未越界修改。
 - 对当前/历史消费者检索日期与旧周期依赖：stage resolver、workbench hook、Today、missed、Dashboard、历史页均无日期归属逻辑。
 - `Sidebar` 运行时已停止订阅 `liveStatsStartTradingDayKey` / `livePerformanceCycles`；保存视图 helper 与 workbench options 仍保留兼容类型/旧 URL 清理能力，未参与任何 stage 投影，留待 Task 12 删除。
 - Dashboard 仍保留统计周期管理 UI/兼容数据本体；它不再决定 Dashboard、下钻或任何当前/历史成员集合。
@@ -143,4 +165,4 @@ Task 8 相关 browser 无新增失败。
 
 ## 短状态合同
 
-完成：四种 stage 投影唯一化；全部当前消费者统一 `currentLiveStageId`；历史 stage 导航与五 tab 独立；overview 实时、weekly 冻结；详情返回保留现场；weekly 同周跨 stage 明确聚合；完整 unit/typecheck 绿，full browser 仅保留两项已知红。
+完成：四种 stage 投影唯一化；strategy/current/history membership 只认 stage；日期编辑保持归属；历史 overview 使用统一 USD/完整性/策略口径，weekly 冻结且隐私安全，risk 可浏览实体；live/case board 返回保留现场；Dashboard 独立回归恢复；完整 unit/typecheck 绿，full browser 仅保留两项已登记红。

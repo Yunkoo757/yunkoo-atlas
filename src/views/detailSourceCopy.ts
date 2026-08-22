@@ -21,6 +21,7 @@ export function resolveTradeDetailSourceCopy(options: {
 
   const fromMissedOpportunities = options.fromPathname === '/missed'
   const fromLiveArchive = options.fromPathname === '/live-history'
+    || options.fromPathname === '/live-history/board'
     || options.fromPathname === '/live-archive'
     || options.fromPathname?.startsWith('/live-archive/')
   const fromWeeklyReview = options.returnPathname === '/weekly-review'

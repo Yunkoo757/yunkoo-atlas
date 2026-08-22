@@ -1,7 +1,10 @@
 import type { Trade } from '@/data/trades'
 import {
+  buildStageArchiveOverview,
   buildStageArchiveSummary,
+  buildStagePerformanceProjection,
   filterStageTrades,
+  resolveStrategyStageScope,
   resolveStageScope,
 } from '@/lib/stageArchive'
 import type { LiveStage } from '@/lib/liveStages'
@@ -118,4 +121,84 @@ export function testArchiveSummaryRecomputesFromEditedHistoricalFacts(): void {
 
   assert(before.totalPnl === 100, '历史 overview 初始指标必须来自所选 stage 的当前事实')
   assert(after.totalPnl === 250 && after.averageR === 2.5, '编辑历史事实后 overview 必须实时重算')
+}
+
+const anchor = {
+  now: new Date('2026-08-22T12:00:00.000Z'),
+  tradingDayStartHour: 0,
+  currentTradingDayKey: '2026-08-22',
+}
+
+export function testStagePerformanceMembershipIgnoresEditedDateDirection(): void {
+  const historicalNewDate = {
+    ...liveTrade('historical-new-date', 'stage-old'),
+    pnl: 300,
+    openedAt: '2026-08-21',
+    closedAt: '2026-08-21',
+    closedTradingDayKey: '2026-08-21',
+  }
+  const currentOldDate = {
+    ...liveTrade('current-old-date', 'stage-current'),
+    pnl: 40,
+    openedAt: '2020-01-01',
+    closedAt: '2020-01-01',
+    closedTradingDayKey: '2020-01-01',
+  }
+  const trades = [historicalNewDate, currentOldDate]
+  const current = buildStagePerformanceProjection({
+    trades,
+    stageScope: { kind: 'current', stageId: 'stage-current' },
+    analysisScope: { kind: 'live', range: 'all' },
+    anchor,
+    legacyCashCurrencyAssumption: null,
+  })
+  const historical = buildStagePerformanceProjection({
+    trades,
+    stageScope: { kind: 'stage', stageId: 'stage-old' },
+    analysisScope: { kind: 'live', range: 'all' },
+    anchor,
+    legacyCashCurrencyAssumption: null,
+  })
+
+  assert(current.records.map((trade) => trade.id).join() === 'current-old-date', '当前策略统计必须保留当前 stage 的旧日期记录')
+  assert(current.selection.eligibleMetricIds.length === 1, '当前策略统计数值样本必须是 1')
+  assert(historical.records.map((trade) => trade.id).join() === 'historical-new-date', '历史策略统计必须保留历史 stage 的新日期记录')
+  assert(historical.selection.eligibleMetricIds.length === 1, '历史策略统计数值样本必须是 1')
+}
+
+export function testStageArchiveOverviewUsesUsdCoverageWithoutAddingUnlikeCurrencies(): void {
+  const usd = { ...liveTrade('usd', 'stage-old'), pnl: 100, cashCurrency: 'USD' as const }
+  const cny = { ...liveTrade('cny', 'stage-old'), pnl: 700, cashCurrency: 'CNY' as const }
+  const unknown = { ...liveTrade('unknown', 'stage-old'), pnl: 50, cashCurrency: null }
+  const overview = buildStageArchiveOverview({
+    trades: [usd, cny, unknown],
+    strategies: [{ id: 'strategy', name: '策略', icon: 'target', color: '#5e6ad2' }],
+    stageScope: { kind: 'stage', stageId: 'stage-old' },
+    anchor,
+    legacyCashCurrencyAssumption: null,
+  })
+
+  assert(overview.stats.totalPnl === 100, '历史 overview 只能合并 USD，不得把 CNY/未知币种相加')
+  assert(overview.performance.currencyMergeStatus === 'usd-with-exclusions', '混合币种必须暴露排除状态')
+  assert(overview.performance.usdCoveredCount === 1, 'USD 覆盖数必须是 1')
+  assert(overview.performance.excludedCurrencyCounts[0]?.currency === 'CNY', '必须明确报告排除的 CNY')
+  assert(overview.performance.excludedUnknownCount === 1, '必须明确报告一个未知币种')
+  assert(overview.strategyStats[0]?.totalPnl === 100, '策略 breakdown 也不得合并不同币种')
+}
+
+export function testPaperStrategyPreviewKeepsCurrentStageScope(): void {
+  const stageScope = resolveStrategyStageScope(undefined, 'stage-current')
+  const projection = buildStagePerformanceProjection({
+    trades: [
+      { ...liveTrade('current-live', 'stage-current'), pnl: 100 },
+      { ...liveTrade('archived-live', 'stage-old'), pnl: 900 },
+    ],
+    stageScope,
+    analysisScope: { kind: 'live', range: 'all' },
+    anchor,
+    legacyCashCurrencyAssumption: null,
+  })
+
+  assert(stageScope.kind === 'current', 'paper 列表策略预览必须保持基线 current 实盘口径')
+  assert(projection.selection.pnlIds.join() === 'current-live', 'paper 列表策略预览不得扩大到归档 live stage')
 }

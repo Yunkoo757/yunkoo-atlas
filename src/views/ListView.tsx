@@ -81,7 +81,7 @@ export function ListView({
 
   useListContextSync(filter)
   useTradeReturnAnchor()
-  const { trades, visible, totalCount, workspaceCount, businessDateAnchor } = useWorkbenchVisibleTrades(filter)
+  const { trades, visible, totalCount, workspaceCount, businessDateAnchor, stageScope } = useWorkbenchVisibleTrades(filter)
 
   const openTrade = useCallback((trade: Trade) => {
     const inheritedFrom = (location.state as TradeDetailLocationState | null)?.from
@@ -370,6 +370,7 @@ export function ListView({
             onContextMenu={openContextMenu}
             onCreate={openComposer}
             recordLabel={filter.tradeKind === 'case' ? '案例记录' : '交易'}
+            strategyStageScope={stageScope}
           />
         )}
       </div>

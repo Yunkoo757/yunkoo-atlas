@@ -15,8 +15,11 @@ import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { buildDashboardStats } from '@/lib/dashboardStats'
-import { buildPerformanceSelection } from '@/lib/performanceSelection'
-import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
+import {
+  buildStagePerformanceProjection,
+  resolveStrategyStageScope,
+  type StageScope,
+} from '@/lib/stageArchive'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
 import { TradeRow } from '@/components/trades/TradeRow'
@@ -170,6 +173,7 @@ export function TradeList({
   renderRow,
   selectionEnabled = true,
   overscan = 14,
+  strategyStageScope,
 }: {
   groups: TradeListGroup[]
   strategies: Strategy[]
@@ -190,12 +194,14 @@ export function TradeList({
   selectionEnabled?: boolean
   /** 预渲染行数；聚合视图可提高该值，保证快速滚动与返回定位稳定。 */
   overscan?: number
+  /** 策略表现的显式 stage；paper/省略时保持当前实盘预览口径。 */
+  strategyStageScope?: StageScope
 }) {
   const listRef = useRef<HTMLDivElement>(null)
   const [selectionMode, setSelectionMode] = useState(false)
   const symbolIcons = useStore((state) => state.symbolIcons) as SymbolIconsMap
   const allTrades = useStore((state) => state.trades)
-  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const profile = useStore((state) => state.profile)
   const businessDateAnchor = useBusinessDateAnchor()
@@ -290,26 +296,27 @@ export function TradeList({
     () => flattenGroups(groups, openProgressByGroup),
     [groups, openProgressByGroup],
   )
-  const strategyPerformanceSelection = useMemo(
-    () => buildPerformanceSelection(allTrades, {
-      scope: { kind: 'live', range: 'all' },
-      liveScope: resolveLiveArchiveScope(livePerformanceCycles, null),
+  const strategyPerformanceProjection = useMemo(
+    () => buildStagePerformanceProjection({
+      trades: allTrades,
+      stageScope: resolveStrategyStageScope(strategyStageScope, currentLiveStageId),
+      analysisScope: { kind: 'live', range: 'all' },
       anchor: businessDateAnchor,
       legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption,
     }),
-    [allTrades, businessDateAnchor, livePerformanceCycles, profile.legacyCashCurrencyAssumption],
+    [allTrades, businessDateAnchor, currentLiveStageId, profile.legacyCashCurrencyAssumption, strategyStageScope],
   )
   const strategyStatsById = useMemo(
     () => new Map(
       buildDashboardStats(
-        allTrades,
+        strategyPerformanceProjection.records,
         strategies,
-        strategyPerformanceSelection.eligibleMetricIds,
+        strategyPerformanceProjection.selection.eligibleMetricIds,
         tradingDayStartHour,
-        strategyPerformanceSelection.pnlIds,
+        strategyPerformanceProjection.selection.pnlIds,
       ).strategies.map((stats) => [stats.id, stats]),
     ),
-    [allTrades, strategies, strategyPerformanceSelection.eligibleMetricIds, strategyPerformanceSelection.pnlIds, tradingDayStartHour],
+    [strategies, strategyPerformanceProjection, tradingDayStartHour],
   )
   const stickyIndexes = useMemo(
     () =>

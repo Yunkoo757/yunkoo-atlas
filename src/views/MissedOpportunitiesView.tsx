@@ -201,6 +201,7 @@ export function MissedOpportunitiesView() {
                 scrollParentRef={listScrollRef}
                 selectionEnabled={false}
                 overscan={18}
+                strategyStageScope={{ kind: 'current', stageId: currentLiveStageId }}
                 renderRow={(trade, context) => (
                   <MissedOpportunityRow
                     item={itemByPrimaryId.get(trade.id)!}

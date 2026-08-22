@@ -17,8 +17,7 @@ import { Tooltip } from '@/components/ui/Tooltip'
 import { Select } from '@/components/ui/Select'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
-import { buildPerformanceSelection } from '@/lib/performanceSelection'
-import { filterLiveLogRecords, resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
+import { buildStagePerformanceProjection } from '@/lib/stageArchive'
 import '@/views/StrategiesView.css'
 
 export function StrategiesPanel() {
@@ -28,26 +27,18 @@ export function StrategiesPanel() {
   const updateStrategy = useStore((s) => s.updateStrategy)
   const removeStrategy = useStore((s) => s.removeStrategy)
   const legacyCashCurrencyAssumption = useStore((s) => s.profile.legacyCashCurrencyAssumption)
-  const livePerformanceCycles = useStore((s) => s.livePerformanceCycles)
-  const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
+  const currentLiveStageId = useStore((s) => s.currentLiveStageId)
   const businessDateAnchor = useBusinessDateAnchor()
 
-  const currentLiveScope = useMemo(
-    () => resolveLiveArchiveScope(livePerformanceCycles, null),
-    [livePerformanceCycles],
-  )
-  const performanceSelection = useMemo(
-    () => buildPerformanceSelection(trades, {
-      scope: { kind: 'live', range: 'all' },
-      liveScope: currentLiveScope,
+  const performanceProjection = useMemo(
+    () => buildStagePerformanceProjection({
+      trades,
+      stageScope: { kind: 'current', stageId: currentLiveStageId },
+      analysisScope: { kind: 'live', range: 'all' },
       anchor: businessDateAnchor,
       legacyCashCurrencyAssumption,
     }),
-    [trades, currentLiveScope, businessDateAnchor, legacyCashCurrencyAssumption],
-  )
-  const currentLiveAssociations = useMemo(
-    () => filterLiveLogRecords(trades, currentLiveScope, tradingDayStartHour),
-    [trades, currentLiveScope, tradingDayStartHour],
+    [trades, currentLiveStageId, businessDateAnchor, legacyCashCurrencyAssumption],
   )
 
   const [modalOpen, setModalOpen] = useState(false)
@@ -61,10 +52,10 @@ export function StrategiesPanel() {
       [...strategies]
         .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
         .map((s) => {
-          const stats = computeStrategyStats(currentLiveAssociations, s.id, {
+          const stats = computeStrategyStats(performanceProjection.records, s.id, {
             tradeKind: 'live',
             legacyCashCurrencyAssumption,
-            eligibility: performanceSelection,
+            eligibility: performanceProjection.selection,
           })
           return {
             ...s,
@@ -79,7 +70,7 @@ export function StrategiesPanel() {
             stats,
           }
         }),
-    [strategies, trades, currentLiveAssociations, performanceSelection, legacyCashCurrencyAssumption],
+    [strategies, trades, performanceProjection, legacyCashCurrencyAssumption],
   )
 
   const existingNames = strategies.map((s) => s.name)

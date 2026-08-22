@@ -1,5 +1,11 @@
 import type { Trade } from '@/data/trades'
+import type { Strategy } from '@/data/strategies'
+import type { AnalysisScope } from '@/lib/analysisScope'
+import { buildDashboardStats } from '@/lib/dashboardStats'
 import type { LiveStage } from '@/lib/liveStages'
+import type { BusinessDateAnchor } from '@/lib/periods'
+import { buildPerformanceSelection } from '@/lib/performanceSelection'
+import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 
 export type StageScope =
   | { kind: 'current'; stageId: string }
@@ -57,6 +63,65 @@ export function filterStageOwnedRecords(trades: readonly Trade[], scope: StageSc
   return trades.filter((trade) => (
     trade.tradeKind === 'paper' || matchesStageScope(trade, scope)
   ))
+}
+
+/** 未应用 stage 的 paper 工作台仍沿用当前实盘策略预览，不扩大到全部历史 live。 */
+export function resolveStrategyStageScope(
+  stageScope: StageScope | undefined,
+  currentLiveStageId: string,
+): StageScope {
+  return stageScope ?? { kind: 'current', stageId: currentLiveStageId }
+}
+
+export function buildStagePerformanceProjection(options: {
+  trades: readonly Trade[]
+  stageScope?: StageScope
+  analysisScope: AnalysisScope
+  anchor: BusinessDateAnchor
+  legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null
+}) {
+  const records = options.stageScope
+    ? filterStageOwnedRecords(options.trades, options.stageScope)
+    : [...options.trades]
+  const selection = buildPerformanceSelection(records, {
+    scope: options.analysisScope,
+    liveScope: null,
+    anchor: options.anchor,
+    legacyCashCurrencyAssumption: options.legacyCashCurrencyAssumption,
+  })
+  return { records, selection }
+}
+
+export function buildStageArchiveOverview(options: {
+  trades: readonly Trade[]
+  strategies: readonly Strategy[]
+  stageScope: StageScope
+  anchor: BusinessDateAnchor
+  legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null
+}) {
+  const projection = buildStagePerformanceProjection({
+    trades: options.trades,
+    stageScope: options.stageScope,
+    analysisScope: { kind: 'live', range: 'all' },
+    anchor: options.anchor,
+    legacyCashCurrencyAssumption: options.legacyCashCurrencyAssumption,
+  })
+  const stats = buildDashboardStats(
+    projection.records,
+    [...options.strategies],
+    projection.selection.eligibleMetricIds,
+    options.anchor.tradingDayStartHour,
+    projection.selection.pnlIds,
+  )
+  return {
+    summary: buildStageArchiveSummary(options.trades, options.stageScope),
+    performance: projection.selection,
+    stats,
+    strategyStats: stats.strategies.map((strategy) => ({
+      ...strategy,
+      totalPnl: strategy.pnl,
+    })),
+  }
 }
 
 export interface StageArchiveSummary {

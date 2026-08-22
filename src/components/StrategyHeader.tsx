@@ -1,5 +1,4 @@
-import { useEffect, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useMemo } from 'react'
 import { useStore } from '@/store/useStore'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { computeStrategyStats, formatStrategyMetricCoverage } from '@/lib/strategies'
@@ -9,9 +8,7 @@ import {
 } from '@/lib/analysisScope'
 import { filterTradesByFacets } from '@/lib/tradeView'
 import { parseTradeFacets } from '@/lib/workbenchTrades'
-import { resolveLiveRoute } from '@/lib/livePerformanceCycleRoute'
-import { filterLiveLogRecords } from '@/lib/liveStatisticsArchive'
-import { buildPerformanceSelection } from '@/lib/performanceSelection'
+import { buildStagePerformanceProjection } from '@/lib/stageArchive'
 import { Tooltip } from '@/components/ui/Tooltip'
 import './StrategyHeader.css'
 
@@ -29,9 +26,8 @@ export function StrategyHeader({
   const trades = useStore((s) => s.trades)
   const privacyMode = useStore((s) => s.display.privacyMode)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
-  const livePerformanceCycles = useStore((s) => s.livePerformanceCycles)
+  const currentLiveStageId = useStore((s) => s.currentLiveStageId)
   const legacyCashCurrencyAssumption = useStore((s) => s.profile.legacyCashCurrencyAssumption)
-  const [, setSearchParams] = useSearchParams()
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
   const facets = useMemo(() => {
@@ -40,41 +36,29 @@ export function StrategyHeader({
       ? { ...parsed, tradeKind: undefined }
       : parsed
   }, [analysisScope?.kind, search])
-  const performanceRoute = resolveLiveRoute(search, livePerformanceCycles, 'strategy')
-  const canonicalPerformanceSearch = performanceRoute.canonicalSearch
-  const needsPerformanceReplace = performanceRoute.needsReplace
-
-  useEffect(() => {
-    if (!needsPerformanceReplace) return
-    setSearchParams(new URLSearchParams(canonicalPerformanceSearch), { replace: true })
-  }, [canonicalPerformanceSearch, needsPerformanceReplace, setSearchParams])
-
   const stats = useMemo(() => {
-    if (performanceRoute.target.kind === 'archive-home') {
-      return computeStrategyStats([], strategyId, {
-        tradeKind: analysisScope?.kind ?? 'live',
-        eligibility: { eligibleMetricIds: [], pnlIds: [], rIds: [] },
-      })
-    }
     const facetScoped = filterTradesByFacets(trades, facets, tradingDayStartHour, businessDateAnchor)
     const scope = analysisScope ?? { kind: 'live' as const, range: 'all' as const }
-    const selection = buildPerformanceSelection(facetScoped, {
-      scope,
-      liveScope: scope.kind === 'paper' ? null : performanceRoute.target.scope,
+    const projection = buildStagePerformanceProjection({
+      trades: facetScoped,
+      stageScope: scope.kind === 'paper'
+        ? undefined
+        : { kind: 'current', stageId: currentLiveStageId },
+      analysisScope: scope,
       anchor: businessDateAnchor,
       legacyCashCurrencyAssumption,
     })
-    const eligibleIds = new Set(selection.eligibleMetricIds)
+    const eligibleIds = new Set(projection.selection.eligibleMetricIds)
     const associationTrades = analysisScope
-      ? facetScoped.filter((trade) => eligibleIds.has(trade.id))
-      : filterLiveLogRecords(facetScoped, performanceRoute.target.scope, tradingDayStartHour)
+      ? projection.records.filter((trade) => eligibleIds.has(trade.id))
+      : projection.records
     return computeStrategyStats(
       associationTrades,
       strategyId,
       {
         tradeKind: scope.kind,
         legacyCashCurrencyAssumption,
-        eligibility: selection,
+        eligibility: projection.selection,
       },
     )
   }, [
@@ -87,9 +71,7 @@ export function StrategyHeader({
       localDateKey,
       businessDateAnchor,
       tradingDayStartHour,
-      livePerformanceCycles,
-      canonicalPerformanceSearch,
-      performanceRoute.target,
+      currentLiveStageId,
       legacyCashCurrencyAssumption,
     ])
 

@@ -13,8 +13,6 @@ import { useStore } from '@/store/useStore'
 import { getTradingDayKey } from '@/lib/periods'
 import { Button } from '@/components/ui/Button'
 import { ModalShell } from '@/components/ui/ModalShell'
-import { resolveLiveRecordBucket } from '@/lib/liveStatisticsArchive'
-import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import './TradeCloseDialog.css'
 
 const OUTCOMES: Array<{ value: CloseOutcome; label: string }> = [
@@ -55,7 +53,6 @@ export function TradeCloseDialog() {
   const completeTradeClose = useStore((state) => state.completeTradeClose)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
-  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
   const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
   const [outcome, setOutcome] = useState<CloseOutcome>('win')
   const [pnl, setPnl] = useState('')
@@ -64,10 +61,6 @@ export function TradeCloseDialog() {
     toTradingDay(new Date(), useStore.getState().display.tradingDayStartHour),
   )
   const [error, setError] = useState('')
-  const [archiveConfirm, setArchiveConfirm] = useState<{
-    status: CloseOutcome
-    patch: Partial<Trade>
-  } | null>(null)
 
   useEffect(() => {
     if (!trade || !request) return
@@ -82,7 +75,6 @@ export function TradeCloseDialog() {
     setRMultiple(trade.rMultiple == null ? '' : String(Math.abs(trade.rMultiple)))
     setClosedAt(trade.closedAt ?? toTradingDay(new Date(), tradingDayStartHour))
     setError('')
-    setArchiveConfirm(null)
   }, [trade?.id, request?.targetStatus, tradingDayStartHour])
 
   const previewResult = useMemo(() => {
@@ -125,17 +117,6 @@ export function TradeCloseDialog() {
       setError(result.error)
       return
     }
-    const before = resolveLiveRecordBucket(trade, livePerformanceCycles, tradingDayStartHour)
-    const after = resolveLiveRecordBucket({
-      ...trade,
-      ...result.patch,
-      status: result.status,
-      closedTradingDayKey: closedTradingDayKeyFromClosedAt(result.patch.closedAt ?? null, tradingDayStartHour) ?? undefined,
-    }, livePerformanceCycles, tradingDayStartHour)
-    if ((before === 'current' || before === 'archive') && before !== after) {
-      setArchiveConfirm({ status: result.status, patch: result.patch })
-      return
-    }
     commitClose(result.status, result.patch)
   }
 
@@ -173,26 +154,14 @@ export function TradeCloseDialog() {
           <span>保存后进入「待复盘」</span>
           <div>
             <Button type="button" variant="bordered" size="lg" onClick={() => {
-              if (archiveConfirm) setArchiveConfirm(null)
-              else cancelTradeClose()
+              cancelTradeClose()
             }}>取消</Button>
-            {archiveConfirm ? (
-              <Button type="button" variant="primary" size="lg" onClick={() => commitClose(archiveConfirm.status, archiveConfirm.patch)}>确认保存</Button>
-            ) : (
-              <Button type="submit" form="trade-close-form" variant="primary" size="lg" disabled={!preview}>保存并待复盘</Button>
-            )}
+            <Button type="submit" form="trade-close-form" variant="primary" size="lg" disabled={!preview}>保存并待复盘</Button>
           </div>
         </>
       )}
     >
       <form id="trade-close-form" className="trade-close-form" onSubmit={submit}>
-          {archiveConfirm ? (
-            <section className="trade-close-section" aria-live="polite">
-              <span className="trade-close-label">归属将改变</span>
-              <p>保存后将离开当前归档。交易与关联案例不会删除，系统会按平仓业务日重新归属。</p>
-            </section>
-          ) : (
-            <>
           <section className="trade-close-section">
             <span className="trade-close-label">交易结果</span>
             <div className="trade-close-outcomes" role="radiogroup" aria-label="交易结果">
@@ -264,8 +233,6 @@ export function TradeCloseDialog() {
           <div className={`trade-close-summary${error ? ' is-error' : ''}`} role={error ? 'alert' : 'status'}>
             {summary}
           </div>
-            </>
-          )}
       </form>
     </ModalShell>
   )

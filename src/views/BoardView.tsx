@@ -81,7 +81,7 @@ export function BoardView({
   const location = useLocation()
   useListContextSync(filter)
   useTradeReturnAnchor()
-  const { trades, visible, workspaceCount, businessDateAnchor } = useWorkbenchVisibleTrades(filter)
+  const { trades, visible, totalCount, workspaceCount, businessDateAnchor } = useWorkbenchVisibleTrades(filter)
 
   const cols = useMemo(() => {
     const map = new Map<TradeStatus, Trade[]>()
@@ -99,7 +99,7 @@ export function BoardView({
   const isReviewCaseView = filter.tradeKind === 'case'
   const recordLabel = isReviewCaseView ? '案例记录' : '交易'
   const emptyState = resolveWorkbenchEmptyState({
-    totalCount: trades.length,
+    totalCount,
     workspaceCount,
     visibleCount: visible.length,
     recordKind: filter.tradeKind,

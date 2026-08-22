@@ -1,10 +1,14 @@
 import { useEffect, useMemo } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Topbar } from '@/components/Topbar'
+import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
+import { describeDashboardResultHealth } from '@/lib/dashboardStats'
+import { fmtMoney } from '@/lib/format'
+import { PERFORMANCE_REPORT_CURRENCY } from '@/lib/performanceSelection'
 import type { ReviewCaseScope } from '@/lib/tradeFilters'
 import { pathWithWorkbenchMode, workbenchModeFromPathname } from '@/lib/routeContext'
 import {
-  buildStageArchiveSummary,
+  buildStageArchiveOverview,
   matchesStageScope,
   resolveStageScope,
   type StageScope,
@@ -96,18 +100,72 @@ function ArchiveNavigation({
 
 function ArchiveOverview({ scope }: { scope: StageScope }) {
   const trades = useStore((state) => state.trades)
-  const summary = useMemo(() => buildStageArchiveSummary(trades, scope), [scope, trades])
-  const evaluated = summary.winCount + summary.lossCount + summary.breakevenCount
-  const winRate = evaluated === 0 ? null : summary.winCount / evaluated * 100
+  const strategies = useStore((state) => state.strategies)
+  const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
+  const privacyMode = useStore((state) => state.display.privacyMode)
+  const anchor = useBusinessDateAnchor()
+  const overview = useMemo(() => buildStageArchiveOverview({
+    trades,
+    strategies,
+    stageScope: scope,
+    anchor,
+    legacyCashCurrencyAssumption,
+  }), [anchor, legacyCashCurrencyAssumption, scope, strategies, trades])
+  const { summary, performance, stats, strategyStats } = overview
+  const excludedCurrencyLabel = [
+    ...performance.excludedCurrencyCounts.map(({ currency, count }) => `${currency} ${count} 笔`),
+    ...(performance.excludedUnknownCount > 0 ? [`未知币种 ${performance.excludedUnknownCount} 笔`] : []),
+  ].join(' · ')
+  const cashFactCount = performance.usdCoveredCount
+    + performance.excludedCurrencyCounts.reduce((total, item) => total + item.count, 0)
+    + performance.excludedUnknownCount
+  const closeDayIssueCount = performance.missingCloseDayIds.length
+    + performance.invalidCloseDayIds.length
+    + performance.futureCloseDayIds.length
   return (
     <section className="live-archive-panel" aria-label="历史阶段概览">
       <header><span>按当前已编辑历史事实实时重算</span><h2>阶段概览</h2></header>
       <div className="live-archive-summary-grid">
         <div><span>实盘记录</span><strong>{summary.tradeCount}</strong><small>{summary.closedCount} 笔已平仓</small></div>
-        <div><span>净盈亏</span><strong>{summary.pnlCount ? `$${summary.totalPnl.toFixed(0)}` : '—'}</strong><small>{summary.pnlCount}/{summary.closedCount} 笔含盈亏</small></div>
-        <div><span>胜率</span><strong>{winRate === null ? '—' : `${winRate.toFixed(0)}%`}</strong><small>{summary.winCount} 赢 · {summary.lossCount} 亏</small></div>
-        <div><span>平均 R</span><strong>{summary.averageR === null ? '—' : summary.averageR.toFixed(2)}</strong><small>{summary.rCount}/{summary.closedCount} 笔含 R</small></div>
+        <div><span>USD 净盈亏</span><strong data-archive-total-pnl>{stats.pnlCount ? fmtMoney(stats.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode) : '—'}</strong><small>{stats.pnlCount}/{summary.closedCount} 笔含 USD 盈亏</small></div>
+        <div><span>胜率</span><strong>{stats.winRate === null ? '—' : `${stats.winRate.toFixed(0)}%`}</strong><small>{stats.winCount} 赢 · {stats.lossCount} 亏</small></div>
+        <div><span>平均 R</span><strong>{stats.averageR === null ? '—' : stats.averageR.toFixed(2)}</strong><small>{stats.rCount}/{summary.closedCount} 笔含 R</small></div>
         <div><span>关联案例</span><strong>{summary.caseCount}</strong><small>按案例 stage 归属</small></div>
+      </div>
+      {summary.closedCount > 0 ? (
+        <div className="live-archive-integrity" data-archive-result-health>
+          <div><strong>数据完整度</strong><span>盈亏 {stats.pnlCount}/{summary.closedCount} · R {stats.rCount}/{summary.closedCount}</span></div>
+          <span>{describeDashboardResultHealth({ conflictCount: performance.conflictResultIds.length, missingResultCount: performance.missingResultIds.length })}</span>
+        </div>
+      ) : null}
+      {cashFactCount > 0 ? (
+        <div className="live-archive-integrity" data-currency-merge-status={performance.currencyMergeStatus}>
+          <div><strong>USD 现金汇总</strong><span>USD 覆盖 {performance.usdCoveredCount}/{cashFactCount} 笔</span></div>
+          <span>{performance.currencyMergeStatus === 'usd-only'
+            ? '仅合并 USD'
+            : performance.currencyMergeStatus === 'no-usd-data'
+              ? `暂无 USD 现金数据${excludedCurrencyLabel ? ` · 已排除 ${excludedCurrencyLabel}` : ''}`
+              : `仅合并 USD · 已排除 ${excludedCurrencyLabel}`}</span>
+        </div>
+      ) : null}
+      {closeDayIssueCount > 0 ? (
+        <div className="live-archive-integrity has-conflict" data-archive-close-day-health>
+          <strong>统计日期完整度</strong>
+          <span>{closeDayIssueCount} 笔缺少、无效或晚于当前交易日的平仓日期，未计入表现指标</span>
+        </div>
+      ) : null}
+      <div className="live-archive-breakdown">
+        <h3>策略表现</h3>
+        {strategyStats.length === 0 ? <p className="live-archive-empty">所选历史范围暂无可统计策略。</p> : (
+          <div className="live-archive-card-list">
+            {strategyStats.map((strategy) => (
+              <article key={strategy.id} data-archive-strategy-id={strategy.id}>
+                <div><strong>{strategy.name}</strong><span>{strategy.n}/{strategy.closedCount} 笔结果有效</span></div>
+                <p>胜率 {strategy.winRate === null ? '—' : `${strategy.winRate.toFixed(0)}%`} · USD 盈亏 {strategy.pnlCount ? fmtMoney(strategy.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode) : '—'} · 平均 R {strategy.averageR?.toFixed(2) ?? '—'}</p>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )
@@ -115,6 +173,7 @@ function ArchiveOverview({ scope }: { scope: StageScope }) {
 
 function ArchiveWeekly({ scope }: { scope: StageScope }) {
   const reviews = useStore((state) => state.weeklyReviews)
+  const privacyMode = useStore((state) => state.display.privacyMode)
   const scoped = useMemo(
     () => reviews
       .filter((review) => matchesStageScope(review, scope))
@@ -132,7 +191,7 @@ function ArchiveWeekly({ scope }: { scope: StageScope }) {
               <article key={review.id} data-weekly-source={metrics ? 'snapshot' : 'unavailable'}>
                 <div><strong>{review.weekStart} — {review.weekEnd}</strong><span>{review.status === 'completed' ? '已完成' : '草稿'}</span></div>
                 {metrics ? (
-                  <p>{metrics.tradeCount} 笔 · 胜率 {metrics.winRate === null ? '—' : `${metrics.winRate.toFixed(0)}%`} · 净盈亏 {metrics.pnlCount ? `$${metrics.totalPnl.toFixed(0)}` : '—'} · 平均 R {metrics.averageR?.toFixed(2) ?? '—'}</p>
+                  <p>{metrics.tradeCount} 笔 · 胜率 {metrics.winRate === null ? '—' : `${metrics.winRate.toFixed(0)}%`} · USD 净盈亏 {metrics.pnlCount ? fmtMoney(metrics.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode) : '—'} · 平均 R {metrics.averageR?.toFixed(2) ?? '—'}</p>
                 ) : <p>该复盘没有冻结指标快照。</p>}
               </article>
             )
@@ -148,18 +207,49 @@ function ArchiveRisk({ scope }: { scope: StageScope }) {
   const policies = useStore((state) => state.riskPolicyVersions)
   const limits = useStore((state) => state.monthlyRiskLimits)
   const overrides = useStore((state) => state.riskOverrideEvents)
-  const counts = [
-    ['周准备', preparations.filter((item) => matchesStageScope(item, scope)).length],
-    ['策略版本', policies.filter((item) => matchesStageScope(item, scope)).length],
-    ['月度限额', limits.filter((item) => matchesStageScope(item, scope)).length],
-    ['覆盖事件', overrides.filter((item) => matchesStageScope(item, scope)).length],
-  ] as const
+  const privacyMode = useStore((state) => state.display.privacyMode)
+  const scopedPreparations = preparations.filter((item) => matchesStageScope(item, scope)).sort((left, right) => right.weekStart.localeCompare(left.weekStart))
+  const scopedPolicies = policies.filter((item) => matchesStageScope(item, scope)).sort((left, right) => right.effectiveTradingDay.localeCompare(left.effectiveTradingDay))
+  const scopedLimits = limits.filter((item) => matchesStageScope(item, scope)).sort((left, right) => right.monthKey.localeCompare(left.monthKey))
+  const scopedOverrides = overrides.filter((item) => matchesStageScope(item, scope)).sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+  const counts = [['周准备', scopedPreparations.length], ['策略版本', scopedPolicies.length], ['月度限额', scopedLimits.length], ['覆盖事件', scopedOverrides.length]] as const
+  const empty = counts.every(([, count]) => count === 0)
   return (
     <section className="live-archive-panel" aria-label="历史风险记录">
       <header><span>按 stage ID 读取归档风险事实</span><h2>风险记录</h2></header>
       <div className="live-archive-summary-grid is-risk">
         {counts.map(([label, count]) => <div key={label}><span>{label}</span><strong>{count}</strong><small>条记录</small></div>)}
       </div>
+      {empty ? <p className="live-archive-empty">所选历史范围暂无风险记录。</p> : (
+        <div className="live-archive-risk-sections">
+          {scopedPreparations.length > 0 ? <section><h3>周准备</h3><div className="live-archive-card-list">{scopedPreparations.map((item) => (
+            <article key={item.id} data-risk-preparation-id={item.id}>
+              <div><strong>{item.weekStart}</strong><span>{item.reviewedAt ? '已复核' : '草稿'}</span></div>
+              <p>本金 {fmtMoney(item.draft.capitalBase, PERFORMANCE_REPORT_CURRENCY, privacyMode)} · 单笔风险 {fmtMoney(item.draft.riskAmount, PERFORMANCE_REPORT_CURRENCY, privacyMode)} · 周上限 {item.draft.weeklyLossLimitR}R</p>
+              <p>{item.draft.disciplineText || '未填写风险纪律'}</p>
+            </article>
+          ))}</div></section> : null}
+          {scopedPolicies.length > 0 ? <section><h3>策略版本</h3><div className="live-archive-card-list">{scopedPolicies.map((item) => (
+            <article key={item.id} data-risk-policy-id={item.id}>
+              <div><strong>{item.effectiveTradingDay}</strong><span>风险 {item.riskPercent}%</span></div>
+              <p>本金 {fmtMoney(item.capitalBase, PERFORMANCE_REPORT_CURRENCY, privacyMode)} · 单笔风险 {fmtMoney(item.riskAmount, PERFORMANCE_REPORT_CURRENCY, privacyMode)} · 日/周/月 {item.dailyLossLimitR}R / {item.weeklyLossLimitR}R / {item.monthlyLossLimitRDefault}R</p>
+              <p>{item.disciplineText || '未填写风险纪律'}</p>
+            </article>
+          ))}</div></section> : null}
+          {scopedLimits.length > 0 ? <section><h3>月度限额</h3><div className="live-archive-card-list">{scopedLimits.map((item) => (
+            <article key={item.id} data-risk-limit-id={item.id}>
+              <div><strong>{item.monthKey}</strong><span>{item.limitR}R</span></div>
+              <p>来源策略版本 {item.sourcePolicyVersionId}</p>
+            </article>
+          ))}</div></section> : null}
+          {scopedOverrides.length > 0 ? <section><h3>覆盖事件</h3><div className="live-archive-card-list">{scopedOverrides.map((item) => (
+            <article key={item.id} data-risk-override-id={item.id}>
+              <div><strong>{item.tradeIdentityAtDecision.ref} · {item.tradeIdentityAtDecision.symbol}</strong><span>{item.decisionType === 'triggered' ? '已触发' : '数据未知'}</span></div>
+              <p>{item.tradingDayKeyAtDecision} · {item.reason}</p>
+            </article>
+          ))}</div></section> : null}
+        </div>
+      )}
     </section>
   )
 }

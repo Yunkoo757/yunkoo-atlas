@@ -125,12 +125,7 @@ async function run(): Promise<void> {
     useStore.setState({
       trades: truthTrades(),
       strategies: [strategy],
-      livePerformanceCycles: [{
-        id: 'truth-current',
-        name: '当前段',
-        startTradingDayKey: '2026-08-01',
-        createdAt: '2026-08-01T00:00:00.000Z',
-      }],
+      livePerformanceCycles: [],
       profile: { ...previous.profile, legacyCashCurrencyAssumption: null },
       display: { ...previous.display, tradingDayStartHour: 6 },
     })
@@ -147,13 +142,13 @@ async function run(): Promise<void> {
     )
     await waitFor(() => document.querySelector('.sh') !== null, 'StrategyHeader 未渲染')
     const headerText = document.querySelector('.sh')?.textContent ?? ''
-    assert(headerText.includes('6 笔当前实盘关联 · 4 笔绩效样本'), `StrategyHeader 必须分开关联数与资格样本数：${headerText}`)
+    assert(headerText.includes('8 笔当前实盘关联 · 4 笔绩效样本'), `StrategyHeader 必须按 stage 统计关联并分开绩效资格样本：${headerText}`)
     assert(headerText.includes('+$200') && headerText.includes('+11.0R'), 'StrategyHeader 必须分别消费 pnlIds 与 rIds')
 
     root.render(<MemoryRouter><StrategiesPanel /></MemoryRouter>)
     await waitFor(() => document.querySelector('.st-row') !== null, 'StrategiesPanel 未渲染')
     const panelText = document.querySelector('.st-row')?.textContent ?? ''
-    assert(panelText.includes('6 笔当前实盘关联 · 4 笔绩效样本'), 'StrategiesPanel 必须分开关联数与资格样本数')
+    assert(panelText.includes('8 笔当前实盘关联 · 4 笔绩效样本'), 'StrategiesPanel 必须按 stage 统计关联并分开绩效资格样本')
     assert(panelText.includes('+11.0R') && !panelText.includes('900'), 'StrategiesPanel 不得纳入未来或冲突绩效')
 
     date.set(new Date('2026-08-04T12:00:00').getTime())
