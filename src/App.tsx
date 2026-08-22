@@ -13,9 +13,10 @@ import { Suspense, lazy, useEffect, useRef, useState, useCallback } from 'react'
 import { useStore } from './store/useStore'
 import { useShortcutStore } from './store/shortcutStore'
 import { bootstrapStorage } from './storage'
-import { flushPersistNow, hasPendingChanges, setPreFlushCallback } from './storage/persist'
+import { flushPersistNow, hasPendingChanges, pickPersisted, setPreFlushCallback } from './storage/persist'
 import { flushNoteDraftsToStore, hasPendingNoteDrafts } from './storage/noteDrafts'
 import { isStorageHydrated } from './storage'
+import { flushStorageBeforeCutover } from './storage/cutover'
 import { shouldPreventAppUnload } from './storage/unloadGuard'
 import { isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
@@ -43,7 +44,7 @@ import { TradeTrashView } from './views/TradeTrashView'
 import { StrategyHeader } from './components/StrategyHeader'
 import { getStrategyName } from './lib/strategies'
 import { resolveTradeLogFilter, type ReviewCaseScope } from './lib/tradeFilters'
-import { isValidPeriodSlug, PERIOD_LABELS } from './lib/periods'
+import { getTradingDayKey, isValidPeriodSlug, parseLocalDate, PERIOD_LABELS } from './lib/periods'
 import { routeWithSearch } from './lib/tradeView'
 import { listPathFromLegacyTablePath } from './lib/routeContext'
 import { useShortcutHost } from './shortcuts/ShortcutHost'
@@ -51,9 +52,70 @@ import { cleanExpiredTradeTrash } from './lib/trashCleanup'
 import { lockBottomChrome, unlockBottomChrome } from './lib/toast'
 import { parseAnalysisScope } from './lib/analysisScope'
 import { resolveLiveRoute, resolveLiveRouteNavigation } from './lib/livePerformanceCycleRoute'
+import { weekStartFor } from './data/weeklyReviews'
+import {
+  createStageRolloverCheck,
+  executeDueStageRollover,
+  STAGE_MANAGEMENT_OPEN_EVENT,
+} from './lib/stageRolloverCommit'
 import './App.css'
 
 const CLOSE_SAVE_RECEIPT_MS = 560
+
+const checkDueStageRollover = createStageRolloverCheck(async () => {
+  if (!isElectron() || !isStorageHydrated()) return { kind: 'not-scheduled' }
+  const result = await executeDueStageRollover({
+    captureLatest: () => {
+      const state = useStore.getState()
+      const now = new Date()
+      return {
+        state,
+        snapshot: pickPersisted(state, useShortcutStore.getState().bindings),
+        currentTradingDayKey: getTradingDayKey(now, state.display.tradingDayStartHour),
+        now: now.toISOString(),
+        nextStageId: crypto.randomUUID(),
+      }
+    },
+    flushBeforeCommit: async () => {
+      const complete = await flushNoteDraftsToStore()
+      if (!complete) throw new Error('笔记中的图片尚未保存完成')
+      await flushStorageBeforeCutover()
+    },
+    commitDurably: (input) => window.journalBridge!.commitStageRollover(input),
+    postpone: async (scheduled) => {
+      const previous = useStore.getState().scheduledStageRollover
+      useStore.getState().publishPostponedRollover(scheduled)
+      try {
+        await flushPersistNow()
+      } catch (error) {
+        useStore.setState({ scheduledStageRollover: previous })
+        try { await flushPersistNow() } catch { /* 保留旧 UI 状态并由错误提示要求用户重试。 */ }
+        throw error
+      }
+    },
+    publish: (candidate) => {
+      useStore.setState({
+        liveStages: candidate.liveStages,
+        currentLiveStageId: candidate.currentLiveStageId,
+        scheduledStageRollover: null,
+      })
+    },
+  })
+  if (result.kind === 'committed') {
+    toast('已安全切换到新的实盘阶段', { dedupeKey: 'stage-rollover-committed' })
+  } else if (result.kind === 'postponed') {
+    toast('阶段切换条件尚未满足，已顺延到下周', { dedupeKey: 'stage-rollover-postponed' })
+  } else if (result.kind === 'failed') {
+    toast(result.message, { tone: 'error', dedupeKey: `stage-rollover-${result.reason}` })
+  }
+  return result
+})
+
+function currentBusinessWeek(): string {
+  const state = useStore.getState()
+  const tradingDayKey = getTradingDayKey(new Date(), state.display.tradingDayStartHour)
+  return weekStartFor(parseLocalDate(tradingDayKey))
+}
 
 type CloseSaveState =
   | { phase: 'idle' }
@@ -548,6 +610,7 @@ export function App() {
       }
       // Normal bootstrap
       await bootstrapStorage()
+      await checkDueStageRollover()
 
       // 等字体就绪再亮屏，避免 Inter swap 导致列表从左到右重排
       await waitForUiFonts()
@@ -575,6 +638,7 @@ export function App() {
     document.documentElement.removeAttribute('data-ui-settled')
     try {
       await bootstrapStorage()
+      await checkDueStageRollover()
       await waitForUiFonts()
     } catch (e) {
       console.error('Storage bootstrap failed after welcome', e)
@@ -597,6 +661,7 @@ export function App() {
     document.documentElement.removeAttribute('data-ui-settled')
     try {
       await bootstrapStorage()
+      await checkDueStageRollover()
       setReady(true)
       requestAnimationFrame(() => {
         document.documentElement.dataset.uiSettled = '1'
@@ -621,6 +686,7 @@ export function App() {
       if (!isStorageHydrated()) return
       flushPersistNow().catch(() => {})
     }
+    let lastVisibleBusinessWeek = currentBusinessWeek()
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (shouldPreventAppUnload(hasPendingChanges(), hasPendingNoteDrafts())) {
         e.preventDefault()
@@ -631,10 +697,18 @@ export function App() {
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         safeFlush()
+      } else if (document.visibilityState === 'visible') {
+        const visibleBusinessWeek = currentBusinessWeek()
+        if (visibleBusinessWeek !== lastVisibleBusinessWeek) {
+          lastVisibleBusinessWeek = visibleBusinessWeek
+          void checkDueStageRollover()
+        }
       }
     }
+    const onStageManagementOpen = () => { void checkDueStageRollover() }
     window.addEventListener('beforeunload', onBeforeUnload)
     document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener(STAGE_MANAGEMENT_OPEN_EVENT, onStageManagementOpen)
 
     // Electron 主进程关闭前触发 flush
     if (isElectron()) {
@@ -701,6 +775,7 @@ export function App() {
         setPreFlushCallback(null)
         window.removeEventListener('beforeunload', onBeforeUnload)
         document.removeEventListener('visibilitychange', onVisibilityChange)
+        window.removeEventListener(STAGE_MANAGEMENT_OPEN_EVENT, onStageManagementOpen)
         unsubscribeBeforeClose?.()
         unsubscribeCloseError?.()
         unsubscribeAutoBackupFailure?.()
@@ -713,6 +788,7 @@ export function App() {
       setPreFlushCallback(null)
       window.removeEventListener('beforeunload', onBeforeUnload)
       document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener(STAGE_MANAGEMENT_OPEN_EVENT, onStageManagementOpen)
     }
   }, [])
 

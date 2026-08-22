@@ -17,6 +17,7 @@ import { discardAllNoteDrafts } from '@/storage/noteDrafts'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
 import { clearWebWriteConflictAfterReload } from '@/storage/webWriteGuard'
 import { buildLivePerformanceRestartPreview, useStore } from '@/store/useStore'
+import { notifyStageManagementOpened } from '@/lib/stageRolloverCommit'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { ModalShell } from '@/components/ui/ModalShell'
 import './LivePerformanceCycleManager.css'
@@ -49,6 +50,7 @@ export function LivePerformanceCycleManager({ currentTradingDayKey, onClose, onC
     : null, [cycles, startReason, startTradingDayKey, trades, tradingDayStartHour])
 
   useEffect(() => {
+    notifyStageManagementOpened()
     document.querySelector<HTMLButtonElement>('button[aria-label="开始日期"]')?.focus()
   }, [])
 

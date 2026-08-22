@@ -42,6 +42,11 @@ import { randomUUID } from 'node:crypto'
 import { assertExitWithinDeadline, releaseThenFinalizeWithRollback } from '../quitCoordinator'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import { beginOperation } from '../operationLogger'
+import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
+import type {
+  StageRolloverCommitInput,
+  StageRolloverCommitResult,
+} from '../../src/types/journalBridge'
 
 let storage: LibraryStorage | null = null
 let openingStorage: Promise<LibraryStorage> | null = null
@@ -532,6 +537,77 @@ export function registerLibraryIpc(): void {
     lib.saveSnapshot(snapshot)
     return true
   }))
+
+  ipcMain.handle('stage:commitRollover', async (
+    _e,
+    input: StageRolloverCommitInput,
+  ): Promise<StageRolloverCommitResult> => {
+    const operation = beginOperation('stage-rollover', { stage: 'reload', revisionBefore: 0 })
+    let result: StageRolloverCommitResult
+    try {
+      result = await operationGate.runExclusive(async () => {
+        let lib: LibraryStorage
+        let current: ReturnType<LibraryStorage['loadSnapshot']>
+        try {
+          lib = await ensureStorage()
+          current = lib.loadSnapshot()
+        } catch (error) {
+          safeConsoleError('stage-rollover-reload-failed', error)
+          return { ok: false, reason: 'write-failed', message: '无法读取当前阶段状态' }
+        }
+        if (
+          !current ||
+          current.currentLiveStageId !== input.expectedCurrentStageId ||
+          current.scheduledStageRollover?.id !== input.expectedRolloverId
+        ) {
+          return { ok: false, reason: 'stale', message: '资料库中的阶段状态已经变化' }
+        }
+
+        const backupPath = createBackup(lib)
+        if (!backupPath) {
+          return { ok: false, reason: 'backup-failed', message: '无法创建重置前备份' }
+        }
+        let verification: Awaited<ReturnType<typeof verifyBackupAtPath>>
+        try {
+          verification = await verifyBackupAtPath(lib.getLibraryPath(), path.basename(backupPath))
+        } catch (error) {
+          safeConsoleError('stage-rollover-backup-verification-failed', error)
+          return { ok: false, reason: 'backup-failed', message: '重置前备份验证失败' }
+        }
+        if (verification.status !== 'verified') {
+          return {
+            ok: false,
+            reason: 'backup-failed',
+            message: verification.error ?? '重置前备份验证失败',
+          }
+        }
+
+        try {
+          assertValidPersistedSnapshot(input.snapshot, 'Stage rollover snapshot')
+        } catch (error) {
+          safeConsoleError('stage-rollover-candidate-validation-failed', error)
+          return { ok: false, reason: 'validation-failed', message: '阶段切换候选验证失败' }
+        }
+        try {
+          lib.saveSnapshot(input.snapshot)
+        } catch (error) {
+          safeConsoleError('stage-rollover-write-failed', error)
+          return { ok: false, reason: 'write-failed', message: '阶段切换写入失败' }
+        }
+        return { ok: true }
+      })
+    } catch (error) {
+      safeConsoleError('stage-rollover-exclusive-commit-failed', error)
+      result = { ok: false, reason: 'write-failed', message: '阶段切换提交失败' }
+    }
+
+    if (result.ok) operation.success({ stage: 'committed', code: 'stage-rollover-committed' })
+    else operation.failure(
+      { code: `stage-rollover-${result.reason}` },
+      { stage: result.reason, code: `stage-rollover-${result.reason}` },
+    )
+    return result
+  })
 
   ipcMain.handle('storage:saveAsset', async (_e, payload: { data: ArrayBuffer; mime: string }) => withStorage(async (lib) => {
     const id = await lib.saveAssetAsync(

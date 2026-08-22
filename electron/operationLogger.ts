@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { logDiagnostic } from './diagnostics'
 
-export type OperationKind = 'archive' | 'import' | 'gc' | 'quit'
+export type OperationKind = 'archive' | 'import' | 'gc' | 'quit' | 'stage-rollover'
 export type OperationStatus = 'start' | 'success' | 'failure'
 
 export interface OperationLogDetail {

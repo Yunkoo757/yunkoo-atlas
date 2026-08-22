@@ -30,6 +30,20 @@ export type BackupRestoreResult =
   | { ok: true; committed: true; snapshot: PersistedSnapshot }
   | { ok: false; committed: boolean; error?: string }
 
+export interface StageRolloverCommitInput {
+  expectedCurrentStageId: string
+  expectedRolloverId: string
+  snapshot: PersistedSnapshot
+}
+
+export type StageRolloverCommitResult =
+  | { ok: true }
+  | {
+      ok: false
+      reason: 'stale' | 'backup-failed' | 'validation-failed' | 'write-failed'
+      message: string
+    }
+
 export type WindowFrameState = {
   x?: number
   y?: number
@@ -90,6 +104,7 @@ export interface JournalBridge {
   getManifest(): Promise<LibraryManifest>
   loadSnapshot(): Promise<PersistedSnapshot | null>
   saveSnapshot(snapshot: PersistedSnapshot): Promise<boolean>
+  commitStageRollover(input: StageRolloverCommitInput): Promise<StageRolloverCommitResult>
   saveAsset(data: ArrayBuffer, mime: string): Promise<string>
   getAssetBytes(id: string): Promise<{ id: string; mime: string; bytes: Uint8Array } | null>
   getAssetStats(ids: string[]): Promise<{ count: number; totalBytes: number; missingCount: number }>

@@ -11,6 +11,8 @@ export type {
   BackupVerificationResult,
   JournalBridge,
   LibraryLocationState,
+  StageRolloverCommitInput,
+  StageRolloverCommitResult,
   WindowFrameState,
   WindowsCloseChoice,
   WindowsClosePreference,
@@ -89,6 +91,7 @@ const bridge: JournalBridge = {
   getManifest: () => ipcRenderer.invoke('storage:getManifest'),
   loadSnapshot: () => ipcRenderer.invoke('storage:loadSnapshot'),
   saveSnapshot: (snapshot) => ipcRenderer.invoke('storage:saveSnapshot', snapshot),
+  commitStageRollover: (input) => ipcRenderer.invoke('stage:commitRollover', input),
   saveAsset: (data, mime) =>
     ipcRenderer.invoke('storage:saveAsset', { data, mime }),
   getAssetBytes: (id) => ipcRenderer.invoke('storage:getAssetBytes', id),

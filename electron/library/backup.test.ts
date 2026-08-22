@@ -14,6 +14,7 @@ import {
 import { getLibraryPaths } from './paths'
 import { validateLibraryDatabaseFile } from './journalZip'
 import { SCHEMA_VERSION } from '../../src/storage/types'
+import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import { createHash } from 'node:crypto'
 
 function assert(condition: unknown, message: string): void {
@@ -51,18 +52,29 @@ async function createVerifiableBackup(
         created_at TEXT NOT NULL
       );
     `)
+    const baseSnapshot = createEmptyPersistedSnapshot()
     const trades = options.referencedAssetId
       ? [{
           id: 'trade-1',
           ref: 'TRD-1',
           symbol: 'BTCUSDT',
+          tradeKind: 'live' as const,
+          liveStageId: baseSnapshot.currentLiveStageId,
           strategyId: 'strategy-1',
           openedAt: '2026-07-14',
+          closedAt: null,
           side: 'long',
-          status: 'open',
-          conviction: 'medium',
+          status: 'open' as const,
+          conviction: 'medium' as const,
           entry: 1,
+          exit: null,
           size: 1,
+          pnl: null,
+          rMultiple: null,
+          tags: [],
+          mistakeTags: [],
+          reviewStatus: 'unreviewed' as const,
+          reviewCategory: 'normal' as const,
           note: `<p><img src="journal-asset://${options.referencedAssetId}"></p>`,
         }]
       : []
@@ -70,17 +82,8 @@ async function createVerifiableBackup(
       db.run('INSERT INTO meta (key, value) VALUES (?, ?)', [
         'snapshot',
         JSON.stringify({
+          ...baseSnapshot,
           trades,
-          weeklyRiskPreparations: [],
-          riskPolicyVersions: [],
-          monthlyRiskLimits: [],
-          riskOverrideEvents: [],
-          livePerformanceCycles: [],
-          strategies: [],
-          starredIds: [],
-          subscribedIds: [],
-          pinnedStrategyIds: [],
-          display: {},
         }),
       ])
       db.run('INSERT INTO meta (key, value) VALUES (?, ?)', [
