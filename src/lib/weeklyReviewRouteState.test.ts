@@ -229,3 +229,21 @@ export function testWeeklyReviewInvalidVerifiedReturnReviewIdIsRemoved(): void {
     '失效 return review ID 必须清理且不得跨阶段恢复历史实体',
   )
 }
+
+export function testWeeklyReviewRouteRejectsPendingOwnershipReviewIds(): void {
+  const result = resolveWeeklyReviewRouteState(
+    `?week=${historyWeek}&review=pending-review`,
+    {
+      currentWeek,
+      availableWeeks,
+      availableReviews: [
+        { id: 'pending-review', weekStart: historyWeek, liveStageId: null },
+        { id: 'review-current-stage', weekStart: historyWeek, liveStageId: 'stage-current' },
+      ],
+      currentLiveStageId: 'stage-current',
+    },
+  )
+  assert(result.state.selectedWeek === currentWeek, 'pending 复盘深链必须回到安全当前周')
+  assert(result.state.selectedReviewId === undefined, 'pending 复盘不得成为路由候选')
+  assert(result.canonicalSearch === '', 'pending 复盘参数必须从规范地址移除')
+}

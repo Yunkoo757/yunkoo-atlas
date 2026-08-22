@@ -222,6 +222,10 @@ export function WeeklyReviewView() {
   const liveStages = useStore((state) => state.liveStages)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const reviews = useStore((state) => state.weeklyReviews)
+  const assignedReviews = useMemo(
+    () => reviews.filter((review) => typeof review.liveStageId === 'string'),
+    [reviews],
+  )
   const upsertReview = useStore((state) => state.upsertWeeklyReview)
   const updateReview = useStore((state) => state.updateWeeklyReview)
   const completeWeeklyReview = useStore((state) => state.completeWeeklyReview)
@@ -254,13 +258,13 @@ export function WeeklyReviewView() {
   const availableWeeks = useMemo(
     () => deriveWeeklyReviewWeeks(
       currentStageTrades,
-      reviews,
+      assignedReviews,
       currentWeek,
       tradingDayStartHour,
       12,
       businessDateAnchor.currentTradingDayKey,
     ),
-    [currentStageTrades, reviews, currentWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey],
+    [assignedReviews, currentStageTrades, currentWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey],
   )
   const routeResolution = useMemo(
     () => resolveWeeklyReviewRouteState(
@@ -268,7 +272,7 @@ export function WeeklyReviewView() {
       {
         currentWeek,
         availableWeeks,
-        availableReviews: reviews.map((review) => ({
+        availableReviews: assignedReviews.map((review) => ({
           id: review.id,
           weekStart: review.weekStart,
           liveStageId: review.liveStageId,
@@ -278,7 +282,7 @@ export function WeeklyReviewView() {
         verifiedReturnReviewId: verifiedReturnReviewIdRef.current,
       },
     ),
-    [availableWeeks, currentLiveStageId, currentWeek, location.search, returnRequest?.restoreSearch, reviews],
+    [assignedReviews, availableWeeks, currentLiveStageId, currentWeek, location.search, returnRequest?.restoreSearch],
   )
   const { selectedWeek, selectedReviewId, tab } = routeResolution.state
   const [editorHtml, setEditorHtml] = useState('')
@@ -370,8 +374,8 @@ export function WeeklyReviewView() {
   ])
 
   const storedReview = selectedReviewId
-    ? reviews.find((item) => item.id === selectedReviewId)
-    : reviews.find((item) =>
+    ? assignedReviews.find((item) => item.id === selectedReviewId)
+    : assignedReviews.find((item) =>
         item.weekStart === selectedWeek && item.liveStageId === currentLiveStageId,
       )
   const reviewLiveStageId = storedReview?.liveStageId ?? currentLiveStageId
@@ -438,7 +442,7 @@ export function WeeklyReviewView() {
     .filter(([tag]) => !WEEKLY_MISTAKE_DIMENSIONS.includes(tag as typeof WEEKLY_MISTAKE_DIMENSIONS[number]))
     .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], 'zh-CN'))
   const locked = review.status === 'completed'
-  const previousReview = reviews
+  const previousReview = assignedReviews
     .filter((item) =>
       item.liveStageId === reviewLiveStageId &&
       item.weekStart < selectedWeek &&
@@ -458,7 +462,7 @@ export function WeeklyReviewView() {
     [businessDateAnchor.currentTradingDayKey, currentStageTrades, currentWeek, tradingDayStartHour],
   )
   const historyItems = useMemo(() => availableWeeks.flatMap((week) => {
-    const weekReviews = reviews
+    const weekReviews = assignedReviews
       .filter((candidate) => candidate.weekStart === week)
       .sort((left, right) => {
         const leftCurrent = left.liveStageId === currentLiveStageId ? 0 : 1
@@ -481,7 +485,7 @@ export function WeeklyReviewView() {
         review: item,
       })),
     ]
-  }), [availableWeeks, currentLiveStageId, currentStageWeeks, reviews])
+  }), [assignedReviews, availableWeeks, currentLiveStageId, currentStageWeeks])
   const selectedHistoryIndex = historyItems.findIndex((item) => selectedReviewId
     ? item.review?.id === selectedReviewId
     : item.week === selectedWeek && item.liveStageId === currentLiveStageId)
@@ -642,7 +646,7 @@ export function WeeklyReviewView() {
   }
 
   const year = parseLocalDate(selectedWeek).getFullYear()
-  const yearReviews = reviews
+  const yearReviews = assignedReviews
     .filter((item) => item.weekStart.startsWith(`${year}-`))
     .sort((left, right) => left.weekStart.localeCompare(right.weekStart))
   const scopedYearReviews = trendLiveStageId === undefined

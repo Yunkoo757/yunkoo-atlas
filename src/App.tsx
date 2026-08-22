@@ -271,6 +271,9 @@ const DisplaySettingsPanel = lazy(() =>
 const DataSettingsPanel = lazy(() =>
   import('./views/settings/DataSettingsPanel').then((module) => ({ default: module.DataSettingsPanel })),
 )
+const StageOwnershipRepairView = lazy(() =>
+  import('./views/StageOwnershipRepairView').then((module) => ({ default: module.StageOwnershipRepairView })),
+)
 const ProfileSettingsPanel = lazy(() =>
   import('./views/settings/ProfileSettingsPanel').then((module) => ({ default: module.ProfileSettingsPanel })),
 )
@@ -553,6 +556,7 @@ function Shell() {
             <Route path="dispute-types" element={<Navigate to="/settings/tags" replace />} />
             <Route path="display" element={<DisplaySettingsPanel />} />
             <Route path="data" element={<DataSettingsPanel />} />
+            <Route path="data/stage-ownership-repair" element={<StageOwnershipRepairView />} />
             <Route path="updates" element={<UpdatesSettingsPanel />} />
           </Route>
           <Route path="/strategies" element={<Navigate to="/settings/strategies" replace />} />

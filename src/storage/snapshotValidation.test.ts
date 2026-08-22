@@ -35,26 +35,62 @@ export function testSnapshotValidationEnforcesV12StageOwnershipAcrossEntities():
   const invalidSnapshots = [
     { ...full, trades: [{ ...full.trades[0]!, liveStageId: unknown }] },
     { ...full, trades: [{ ...full.trades[0]!, liveStageId: undefined }] },
-    { ...full, weeklyReviews: [{ ...full.weeklyReviews![0]!, liveStageId: null }] },
+    { ...full, weeklyReviews: [{ ...full.weeklyReviews![0]!, liveStageId: undefined }] },
     { ...full, weeklyRiskPreparations: [{ ...full.weeklyRiskPreparations[0]!, liveStageId: undefined }] },
     { ...full, riskPolicyVersions: [{ ...full.riskPolicyVersions[0]!, liveStageId: unknown }] },
-    { ...full, monthlyRiskLimits: [{ ...full.monthlyRiskLimits[0]!, liveStageId: null }] },
+    { ...full, monthlyRiskLimits: [{ ...full.monthlyRiskLimits[0]!, liveStageId: undefined }] },
     { ...full, riskOverrideEvents: [{ ...full.riskOverrideEvents[0]!, liveStageId: unknown }] },
   ]
   for (const snapshot of invalidSnapshots) {
     let rejected = false
     try { assertValidPersistedSnapshot(snapshot) } catch { rejected = true }
-    assert(rejected, 'v12 未定义、null 或未知阶段归属必须按实体规则拒绝')
+    assert(rejected, 'v12 未定义或未知阶段归属必须按实体规则拒绝')
   }
 
   assertValidPersistedSnapshot({ ...full, trades: [{ ...full.trades[0]!, liveStageId: null }] })
   const caseTrade = { ...full.trades[0]!, id: 'case-pending', tradeKind: 'case' as const, liveStageId: null }
   assertValidPersistedSnapshot({ ...full, trades: [caseTrade] })
+  assertValidPersistedSnapshot({ ...full, weeklyReviews: [{ ...full.weeklyReviews![0]!, liveStageId: null }] })
+  assertValidPersistedSnapshot({ ...full, weeklyRiskPreparations: [{ ...full.weeklyRiskPreparations[0]!, liveStageId: null }] })
+  assertValidPersistedSnapshot({ ...full, riskPolicyVersions: [{ ...full.riskPolicyVersions[0]!, liveStageId: null }] })
+  assertValidPersistedSnapshot({ ...full, monthlyRiskLimits: [{ ...full.monthlyRiskLimits[0]!, liveStageId: null }] })
+  assertValidPersistedSnapshot({ ...full, riskOverrideEvents: [{ ...full.riskOverrideEvents[0]!, liveStageId: null }] })
 
   const paperWithOwnership = { ...full.trades[0]!, tradeKind: 'paper' as const, liveStageId: full.currentLiveStageId }
   let rejectedPaper = false
   try { assertValidPersistedSnapshot({ ...full, trades: [paperWithOwnership] }) } catch { rejectedPaper = true }
   assert(rejectedPaper, '纸面交易必须拒绝 liveStageId 字段')
+}
+
+export function testSnapshotValidationKeepsPendingStableRiskIdsValidAfterExplicitAssignment(): void {
+  const full = createFullPersistedSnapshotFixture()
+  const weekStart = full.weeklyRiskPreparations[0]!.weekStart
+  const monthKey = full.monthlyRiskLimits[0]!.monthKey
+  const pending = {
+    ...full,
+    weeklyRiskPreparations: [{
+      ...full.weeklyRiskPreparations[0]!,
+      id: `weekly-risk-preparation:null:${weekStart}`,
+      liveStageId: null,
+    }],
+    monthlyRiskLimits: [{
+      ...full.monthlyRiskLimits[0]!,
+      id: `monthly-risk-limit:null:${monthKey}`,
+      liveStageId: null,
+    }],
+  }
+  assertValidPersistedSnapshot(pending)
+  assertValidPersistedSnapshot({
+    ...pending,
+    weeklyRiskPreparations: pending.weeklyRiskPreparations.map((item) => ({
+      ...item,
+      liveStageId: full.currentLiveStageId,
+    })),
+    monthlyRiskLimits: pending.monthlyRiskLimits.map((item) => ({
+      ...item,
+      liveStageId: full.currentLiveStageId,
+    })),
+  })
 }
 
 export function testRiskPeriodUniquenessIsScopedByLiveStage(): void {

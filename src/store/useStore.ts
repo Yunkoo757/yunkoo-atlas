@@ -86,6 +86,10 @@ import {
 } from '@/lib/liveStages'
 import { scheduleStageRollover } from '@/lib/stageRollover'
 import type { StageRolloverPublishState } from '@/types/journalBridge'
+import {
+  assignPendingStageOwnership as applyPendingStageOwnership,
+  type AssignPendingStageOwnershipRequest,
+} from '@/lib/stageOwnershipRepair'
 
 export type LivePerformanceRestartPreview = {
   startTradingDayKey: string
@@ -534,6 +538,7 @@ interface State {
   renameLiveStage: (id: string, name: string) => boolean
   publishPostponedRollover: (scheduled: ScheduledStageRollover) => void
   publishCommittedStageRollover: (publish: StageRolloverPublishState) => void
+  assignPendingStageOwnership: (request: AssignPendingStageOwnershipRequest) => AssignPendingStageOwnershipRequest
   setStatus: (id: string, status: TradeStatus) => SetTradeStatusResult
   requestTradeOpen: (id: string, returnFocus?: HTMLElement | null) => TradeOpenRequestResult
   cancelTradeOpen: () => void
@@ -932,6 +937,10 @@ export const useStore = create<State>()((set, get) => ({
         pendingTradeOpenRequest: null,
         riskSetupTradeOpenRequest: null,
       }),
+      assignPendingStageOwnership: (request) => {
+        set((state) => applyPendingStageOwnership(state, request))
+        return { ...request }
+      },
       upsertWeeklyReview: (review) =>
         set((state) => {
           const currentLiveStageId = currentLiveStageIdForWrite(state)

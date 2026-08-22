@@ -88,7 +88,9 @@ export function resolveWeeklyReviewRouteState(
 ): WeeklyReviewRouteResolution {
   const params = new URLSearchParams(search)
   const requestedWeek = params.get('week')
-  const availableReviews = options.availableReviews ?? []
+  const availableReviews = (options.availableReviews ?? []).filter(
+    (review) => typeof review.liveStageId === 'string',
+  )
   const hasRequestedReviewParam = params.has('review')
   const requestedReviewId = params.get('review')
   const requestedReview = requestedReviewId

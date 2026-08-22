@@ -507,11 +507,21 @@ function isRiskPolicyDraft(value: unknown): boolean {
     typeof value.disciplineText === 'string'
 }
 
+function isStableStagePeriodId(
+  id: unknown,
+  prefix: string,
+  liveStageId: unknown,
+  periodKey: string,
+): boolean {
+  return id === `${prefix}:${periodKey}` ||
+    id === `${prefix}:${liveStageId}:${periodKey}` ||
+    id === `${prefix}:null:${periodKey}`
+}
+
 function isWeeklyRiskPreparation(value: unknown): boolean {
   return isRecord(value) &&
     isCanonicalDate(value.weekStart) &&
-    (value.id === `weekly-risk-preparation:${value.weekStart}` ||
-      value.id === `weekly-risk-preparation:${value.liveStageId}:${value.weekStart}`) &&
+    isStableStagePeriodId(value.id, 'weekly-risk-preparation', value.liveStageId, value.weekStart) &&
     isRiskPolicyDraft(value.draft) &&
     (value.reviewedAt === null || isTimestamp(value.reviewedAt)) &&
     (value.confirmedPolicyVersionId === null || isNonEmptyString(value.confirmedPolicyVersionId)) &&
@@ -535,8 +545,7 @@ function isRiskPolicyVersion(value: unknown): boolean {
 function isMonthlyRiskLimit(value: unknown): boolean {
   return isRecord(value) &&
     isCanonicalMonth(value.monthKey) &&
-    (value.id === `monthly-risk-limit:${value.monthKey}` ||
-      value.id === `monthly-risk-limit:${value.liveStageId}:${value.monthKey}`) &&
+    isStableStagePeriodId(value.id, 'monthly-risk-limit', value.liveStageId, value.monthKey) &&
     isPositiveFiniteNumber(value.limitR) &&
     isNonEmptyString(value.sourcePolicyVersionId) &&
     isTimestamp(value.lockedAt)
@@ -640,6 +649,14 @@ function assertValidRiskEntities(value: Record<string, unknown>, label: string):
   }
 }
 
+function assertKnownOrPendingStageId(
+  value: unknown,
+  ids: ReadonlySet<string>,
+  message: string,
+): void {
+  if (value !== null && (typeof value !== 'string' || !ids.has(value))) throw new Error(message)
+}
+
 function assertRequiredKnownStageId(
   value: unknown,
   ids: ReadonlySet<string>,
@@ -663,7 +680,7 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
     }
   }
   for (const review of snapshot.weeklyReviews ?? []) {
-    assertRequiredKnownStageId(
+    assertKnownOrPendingStageId(
       review.liveStageId,
       ids,
       `${label}.weeklyReviews contains an unknown liveStageId`,
@@ -682,7 +699,7 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
     'riskOverrideEvents',
   ] as const) {
     for (const entity of snapshot[field]) {
-      assertRequiredKnownStageId(
+      assertKnownOrPendingStageId(
         entity.liveStageId,
         ids,
         `${label}.${field} contains an unknown liveStageId`,

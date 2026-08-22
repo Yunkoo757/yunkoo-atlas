@@ -1,5 +1,6 @@
 import { ICON_LG, ICON_SM } from '@/icons/iconSize'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { DataIOContent } from '@/components/DataIOContent'
 import { LivePerformanceCycleControl } from '@/components/LivePerformanceCycleControl'
 import { LiveStageManager } from '@/components/LiveStageManager'
@@ -34,6 +35,7 @@ import { clearReviewSessionStorage } from '@/lib/reviewSession'
 import { useSaveStatus } from '@/store/saveStatus'
 import { buildWebJournalArchiveBlob } from '@/lib/importExport'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
+import { listPendingStageOwnership } from '@/lib/stageOwnershipRepair'
 
 const ASSET_PURGE_COMMIT_ENABLED = import.meta.env.VITE_ENABLE_ASSET_PURGE_COMMIT !== 'false'
 
@@ -55,6 +57,50 @@ function fmtBackupSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+export function StageOwnershipHealthEntry() {
+  const liveStages = useStore((state) => state.liveStages)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
+  const trades = useStore((state) => state.trades)
+  const weeklyReviews = useStore((state) => state.weeklyReviews)
+  const weeklyRiskPreparations = useStore((state) => state.weeklyRiskPreparations)
+  const riskPolicyVersions = useStore((state) => state.riskPolicyVersions)
+  const monthlyRiskLimits = useStore((state) => state.monthlyRiskLimits)
+  const riskOverrideEvents = useStore((state) => state.riskOverrideEvents)
+  const pendingCount = useMemo(() => listPendingStageOwnership({
+    liveStages,
+    currentLiveStageId,
+    trades,
+    weeklyReviews,
+    weeklyRiskPreparations,
+    riskPolicyVersions,
+    monthlyRiskLimits,
+    riskOverrideEvents,
+  }).length, [
+    currentLiveStageId,
+    liveStages,
+    monthlyRiskLimits,
+    riskOverrideEvents,
+    riskPolicyVersions,
+    trades,
+    weeklyReviews,
+    weeklyRiskPreparations,
+  ])
+
+  return (
+    <Link
+      className={`health-card${pendingCount > 0 ? ' health-warn' : ''}`}
+      data-stage-ownership-health-entry
+      to="/settings/data/stage-ownership-repair"
+      aria-label={`阶段待整理，${pendingCount} 项`}
+    >
+      {pendingCount > 0 ? <AlertCircle size={ICON_LG} /> : <CheckCircle size={ICON_LG} />}
+      <span className="health-label">阶段待整理</span>
+      <span className="health-value">{pendingCount} 项</span>
+      <span className="health-note">{pendingCount > 0 ? '打开并逐项选择目标阶段' : '所有迁移数据均已归属'}</span>
+    </Link>
+  )
 }
 
 export function DataSettingsPanel({
@@ -395,6 +441,10 @@ export function DataSettingsPanel({
           <p className="settings-section-desc">
             监控数据规模，及时发现膨胀风险。
           </p>
+        </div>
+
+        <div className="health-grid">
+          <StageOwnershipHealthEntry />
         </div>
 
         {healthError && (

@@ -515,6 +515,19 @@ async function run(): Promise<void> {
     await waitFor(() => document.querySelectorAll('.wr-trade-row').length === 3, '同周其他阶段交易污染了当前阶段证据')
     assert(document.body.textContent?.includes('+$100'), '同周其他阶段盈亏污染了当前阶段实时指标')
     useStore.setState((state) => ({ trades: state.trades.filter((trade) => trade.id !== otherStageTrade.id) }))
+    const pendingReview = {
+      ...createWeeklyReview(activeWeekStart, useStore.getState().currentLiveStageId),
+      id: 'pending-review',
+      liveStageId: null,
+      contentHtml: '<p>PENDING-REVIEW-MUST-STAY-HIDDEN</p>',
+    }
+    useStore.setState({ weeklyReviews: [pendingReview] })
+    await waitForFrames(2)
+    assert(document.querySelector('[data-review-id="pending-review"]') === null, 'pending 复盘泄漏到正常历史列表')
+    assert(document.querySelector('.wr-history') === null, 'pending 复盘不得制造当前阶段历史入口')
+    assert(!document.body.textContent?.includes('PENDING-REVIEW-MUST-STAY-HIDDEN'), 'pending 复盘正文泄漏到当前页')
+    useStore.setState({ weeklyReviews: [] })
+    await waitForFrames(2)
     if (new URLSearchParams(location.search).has('visual')) {
       await new Promise<void>(() => {})
     }

@@ -300,6 +300,35 @@ export function testVersionTwelveCodecRequiresCanonicalStageFields(): void {
   }
 }
 
+export function testVersionTwelveCodecAndJsonImportPreservePendingOwnershipAcrossEveryEntityFamily(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const assets = Object.values(FULL_SNAPSHOT_ASSET_IDS).map((id, index) => ({
+    id,
+    mime: 'image/png',
+    data: Buffer.from([index, 61, 62, 63]).toString('base64'),
+  }))
+  const pending = {
+    ...fixture,
+    trades: fixture.trades.map((trade) => trade.tradeKind === 'paper' ? trade : { ...trade, liveStageId: null }),
+    weeklyReviews: fixture.weeklyReviews?.map((review) => ({ ...review, liveStageId: null })),
+    weeklyRiskPreparations: fixture.weeklyRiskPreparations.map((item) => ({ ...item, liveStageId: null })),
+    riskPolicyVersions: fixture.riskPolicyVersions.map((item) => ({ ...item, liveStageId: null })),
+    monthlyRiskLimits: fixture.monthlyRiskLimits.map((item) => ({ ...item, liveStageId: null })),
+    riskOverrideEvents: fixture.riskOverrideEvents.map((item) => ({ ...item, liveStageId: null })),
+  }
+  const decoded = decodeCanonicalSnapshot(pending, { version: SCHEMA_VERSION })
+  const imported = parseImportJson(JSON.stringify({ version: SCHEMA_VERSION, ...pending, assets }))
+
+  assert(decoded.trades[0]?.tradeKind !== 'paper' && decoded.trades[0]?.liveStageId === null, 'codec 必须保留待整理交易')
+  assert(decoded.weeklyReviews?.[0]?.liveStageId === null, 'codec 必须保留待整理周复盘')
+  assert(decoded.weeklyRiskPreparations[0]?.liveStageId === null, 'codec 必须保留待整理周风险准备')
+  assert(decoded.riskPolicyVersions[0]?.liveStageId === null, 'codec 必须保留待整理风险政策')
+  assert(decoded.monthlyRiskLimits[0]?.liveStageId === null, 'codec 必须保留待整理月限额')
+  assert(decoded.riskOverrideEvents[0]?.liveStageId === null, 'codec 必须保留待整理风险覆盖')
+  assert(imported.ok, `JSON import 必须接受迁移产生的 null 归属：${imported.ok ? '' : imported.error}`)
+  assert(imported.data.weeklyReviews?.[0]?.liveStageId === null, 'JSON import 必须逐字保留待整理归属')
+}
+
 export function testVersionTenSnapshotWithoutPerformanceCyclesUsesEmptyBoundaries(): void {
   const fixture = createFullPersistedSnapshotFixture()
   const missing = { ...fixture }

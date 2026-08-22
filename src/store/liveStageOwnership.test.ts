@@ -371,6 +371,32 @@ export function testEditingHistoricalDateDoesNotMoveStage(): void {
   }
 }
 
+export function testStoreRepairActionAssignsOnePendingEntityAndOrdinaryEditingPreservesIt(): void {
+  const previous = useStore.getState()
+  try {
+    seedStore([
+      plannedLiveTrade('pending-repair', null),
+      plannedLiveTrade('pending-sibling', null),
+    ])
+    const result = useStore.getState().assignPendingStageOwnership({
+      entityType: 'live-trade',
+      entityId: 'pending-repair',
+      liveStageId: 'stage-old',
+    })
+    assert(result.liveStageId === 'stage-old', 'Store 修复动作必须返回实际写入的阶段 ID')
+    const sibling = useStore.getState().getById('pending-sibling')
+    assert(sibling?.tradeKind === 'live' && sibling.liveStageId === null, 'Store 修复动作不得改写同队列其他实体')
+
+    useStore.getState().updateTradeData('pending-repair', { openedAt: '2099-12-31' })
+    useStore.getState().updateNote('pending-repair', '<p>修复后的普通编辑</p>')
+    const edited = useStore.getState().getById('pending-repair')
+    assert(edited?.tradeKind === 'live' && edited.liveStageId === 'stage-old', '普通编辑必须保留修复后的 stage ID')
+    assert(edited?.openedAt === '2099-12-31' && edited.note.includes('修复后'), '普通事实编辑仍必须正常生效')
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
 export function testOrdinaryUpsertCannotMoveHistoricalOrNullOwnership(): void {
   const previous = useStore.getState()
   try {
