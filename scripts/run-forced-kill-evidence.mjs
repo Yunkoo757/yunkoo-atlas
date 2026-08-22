@@ -6,7 +6,10 @@ import path from 'node:path'
 import initSqlJs from 'sql.js'
 
 import { SCHEMA_VERSION } from '../src/storage/types.ts'
-import { readGitProvenance } from './git-provenance.mjs'
+import {
+  readRepositoryBuildExpectation,
+  validateBundleBuildIdentityEvidence,
+} from './bundle-build-identity.mjs'
 import { detectFileSystem } from './file-system-type.mjs'
 
 const require = createRequire(import.meta.url)
@@ -129,6 +132,18 @@ try {
   if (!fs.existsSync(path.join(root, 'dist-electron', 'main.js'))) {
     throw new Error('缺少 dist-electron/main.js；请先运行 pnpm build:app')
   }
+  const buildExpectation = await readRepositoryBuildExpectation(root)
+  const identityRun = await runElectronMain('identity')
+  const identityMessage = identityRun.messages.find((message) => message?.type === 'identity')
+  if (identityRun.code !== 0 || !identityMessage?.buildIdentity) {
+    throw new Error(`无法读取实际 Electron main bundle identity：${identityRun.stderr}`)
+  }
+  const bundleIdentity = {
+    bundles: { main: identityMessage.buildIdentity },
+    repository: buildExpectation.repository,
+    ci: buildExpectation.ci,
+  }
+  validateBundleBuildIdentityEvidence(bundleIdentity, ['main'])
   const seed = await runElectronMain('seed')
   if (seed.code !== 0 || !seed.messages.some((message) => message?.type === 'seeded')) {
     throw new Error(`无法建立最后确认 revision：${seed.stderr}`)
@@ -198,7 +213,6 @@ try {
     schemaMigration.push(await forceKillMigrationAt(boundary))
   }
   const schemaMigrationRecovered = schemaMigration.every((result) => result.status === 'pass')
-  const provenance = await readGitProvenance(root)
   const fileSystem = detectFileSystem(libraryRoot)
   const report = {
     version: 1,
@@ -209,11 +223,12 @@ try {
     release: os.release(),
     architecture: os.arch(),
     fileSystem,
-    gitCommit: provenance.gitCommit,
-    gitTree: provenance.gitTree,
-    workingTreeDirty: provenance.workingTreeDirty,
-    sourceFingerprint: provenance.sourceFingerprint,
-    sourceIdentity: provenance.sourceIdentity,
+    gitCommit: buildExpectation.repository.head,
+    gitTree: buildExpectation.repository.tree,
+    workingTreeDirty: buildExpectation.repository.dirty,
+    sourceFingerprint: buildExpectation.repository.sourceFingerprint,
+    sourceIdentity: buildExpectation.repository.sourceIdentity,
+    bundleIdentity,
     process: {
       runtime: saveStartingMessage?.runtime ?? null,
       electronVersion: saveStartingMessage?.electronVersion ?? null,

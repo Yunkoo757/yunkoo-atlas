@@ -21,7 +21,7 @@
 | `src/lib/stageMigration.ts` | `livePerformanceCycles`、`liveStatsStartTradingDayKey` | 读取 v11 输入、生成确定性 v12 stage 图并删除旧字段的纯迁移边界。 |
 | `src/storage/snapshotCodec.ts` | `livePerformanceCycles`、`liveStatsStartTradingDayKey` | 仅在 manifest <= 11 时解码并交给迁移；v12 明确拒绝旧字段。 |
 
-精确搜索结果只有上述两个文件。`重置实盘统计` 与 `重置统计` 在可执行生产源中为 0；`node scripts/check-governance.mjs` 输出 `GOV PASS：65 个场景，859 个 UTF-8 文本文件`。
+精确搜索结果只有上述两个文件。`重置实盘统计` 与 `重置统计` 在可执行生产源中为 0；`node scripts/check-governance.mjs` 输出 `GOV PASS`，场景清单以 `scripts/quality-scenarios.json` 为权威来源。
 
 新增质量场景：
 
@@ -53,7 +53,7 @@
 
 TDD 收口：视觉 fixture 现在只导出一个 `{ schemaVersion, snapshot }` envelope；renderer 与 Electron 均消费同一 snapshot，矩阵测试逐项断言 schema=12、唯一 current stage、全部实盘实体/周复盘拥有有效 stage、无旧字段。没有增加任何 30 秒 timeout。
 
-复现证据：普通 renderer 及移动原 Vite cache 后的冷 cache renderer 均通过；冷 cache 分别约 16.4/16.6 秒完成 120 captures，排除“冷编译需要更长等待”的假设。
+复现证据：普通 renderer 及移动原 Vite cache 后的冷 cache renderer 均完成完整截图矩阵，排除“冷编译需要更长等待”的假设。
 
 ### 4.2 Electron `/live-history` 超时与假绿
 
@@ -65,6 +65,13 @@ TDD 收口：矩阵合同明确锁定 `/live-history` 的 ready selector 为 `.l
 
 - `.gstack/qa-reports/desktop-visual-convergence/renderer-report.json`
 - `.gstack/qa-reports/desktop-visual-convergence/electron-report.json`
+
+### 4.3 clean-HEAD bundle identity 合同
+
+- Vite 同一次配置求值把 `{ commit, dirty }` 分别编译进 renderer 与 Electron main；两者都来自实际 bundle，而不是运行门禁时临时读取并覆盖。
+- Electron visual 在创建测试资料库和截图前，从 renderer `window.__ATLAS_BUILD_IDENTITY__` 与 main runtime 分别读取身份；任一 bundle 缺失、dirty、落后于 repository HEAD，或与 CI 的精确 `GITHUB_SHA` 不一致都会立即失败，报告不得生成。
+- forced-kill 在 seed/强杀前先启动实际 main bundle 的 `identity` 模式并验证同一合同；报告的 `bundleIdentity`、`gitCommit` 与 `workingTreeDirty` 均来自这次验证后的权威证据。
+- packaged visual 复用相同 repository/CI expectation reader，并校验已打包 renderer 的嵌入身份。最终权威 SHA 与 clean 状态应直接读取各 JSON evidence，不在本报告复制易陈旧的提交值。
 
 ## 5. 删除审计与覆盖强度
 
@@ -84,24 +91,24 @@ TDD 收口：矩阵合同明确锁定 `/live-history` 的 ready selector 为 `.l
 | `pnpm qa:desktop-visual --renderer` | PASS | 120 captures；0 console/page error；0 overflow；字体/分组几何全绿。 |
 | `pnpm qa:desktop-visual:electron` | PASS | 120 captures；0 console/page error；0 overflow；隔离临时资料库已清理。 |
 | `pnpm qa:desktop-visual:packaged` | PASS | `test-results/desktop-visual-packaged/win32-x64-scale-100/report.json`；原生平台/缩放/字体/分组几何/文件选择/错误恢复/关闭到托盘全绿。 |
-| `pnpm benchmark:persistence` | PASS | `test-results/persistence-benchmark/persistence-smoke.json`。20k Web/Electron median save 289.0/1076.9ms；quit median 1522.8ms。 |
+| `pnpm benchmark:persistence` | PASS | 权威结果与各规模采样：`test-results/persistence-benchmark/persistence-smoke.json`。 |
 | `pnpm test:forced-kill:electron` | PASS | `test-results/forced-kill/forced-kill-windows-ntfs.json`；schema v12；真实 Electron SIGKILL；三迁移边界、stage scope、revision 恢复全绿。 |
 | `pnpm test:asset-lifecycle:electron` | PASS | 4/4；`test-results/platform-evidence/asset-lifecycle-windows-ntfs.json`。 |
 | `pnpm test:electron-safety:platform` | PASS | 2/2；`test-results/platform-evidence/electron-safety-windows-ntfs.json`。 |
 | `pnpm test:live-stage:desktop` | PASS | schema migration、stage rollover、library switch 37 项全绿。 |
-| `pnpm dist:win` | PASS | build:app + electron-builder NSIS x64 exit 0。 |
+| `pnpm dist:win` | PASS | build:app + electron-builder NSIS x64 exit 0；产物哈希与字节数见 packaged evidence。 |
 
 强杀门禁另外发现并修复了一个证据 bug：seed 先对保存前对象取哈希、verify 对解码规范化后的对象取哈希，语义相同仍会 revision 不同。现在 seed 保存后立即重读已持久化 snapshot 再取期望 revision；原有强杀恢复断言未放宽。
 
-## 7. Windows 产物元数据
+## 7. Windows 产物权威证据
 
-本轮 `dist:win` 起点后生成：
+最终 clean HEAD 的 `dist:win` 必须重新生成并验证以下文件均非空且晚于该轮构建起点：
 
-| 产物 | 字节 | UTC 修改时间 | 晚于构建起点 |
-| --- | ---: | --- | --- |
-| `release/Trader-Atlas-1.4.1-win-x64.exe` | 121,937,781 | 2026-08-22T16:34:32.5918505Z | 是 |
-| `release/Trader-Atlas-1.4.1-win-x64.exe.blockmap` | 127,636 | 2026-08-22T16:34:35.9880910Z | 是 |
-| `release/latest.yml` | 357 | 2026-08-22T16:34:36.0056417Z | 是 |
+- `release/Trader-Atlas-1.4.1-win-x64.exe`
+- `release/Trader-Atlas-1.4.1-win-x64.exe.blockmap`
+- `release/latest.yml`
+
+不在 tracked 报告复制会随每次打包变化的字节数和时间戳。安装器、解包 executable 的实际 `bytes`、`sha256`、路径、运行平台检查及嵌入身份，以 `test-results/desktop-visual-packaged/win32-x64-scale-100/report.json` 为权威证据；最终交接同时记录本轮文件元数据。
 
 ## 8. macOS workflow 静态复核
 

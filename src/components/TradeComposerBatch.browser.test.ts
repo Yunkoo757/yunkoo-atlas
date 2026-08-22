@@ -39,8 +39,8 @@ function findButton(label: string): HTMLButtonElement | undefined {
     .find((button) => button.textContent?.trim() === label)
 }
 
-function candidateTrade(id: string, imageHtml: string): Trade {
-  return {
+function candidateTrade(id: string, imageHtml: string, attachCurrentStage = true): Trade {
+  const candidate: Trade = {
     id,
     ref: 'TRD-1',
     symbol: 'BTCUSDT',
@@ -49,7 +49,6 @@ function candidateTrade(id: string, imageHtml: string): Trade {
     conviction: 'medium',
     strategyId: useStore.getState().strategies[0]?.id ?? '',
     tradeKind: 'live',
-    liveStageId: useStore.getState().currentLiveStageId,
     tags: [],
     mistakeTags: [],
     reviewStatus: 'unreviewed',
@@ -66,6 +65,9 @@ function candidateTrade(id: string, imageHtml: string): Trade {
     closedAt: null,
     note: imageHtml,
   }
+  return attachCurrentStage
+    ? { ...candidate, liveStageId: useStore.getState().currentLiveStageId }
+    : candidate
 }
 
 async function run(): Promise<void> {
@@ -101,7 +103,11 @@ async function run(): Promise<void> {
         images: [{ file: new Blob(['composer-image'], { type: 'image/png' }), mime: 'image/png' }],
         storage: staleComposer,
         createAssetId: () => 'composer-stale-asset',
-        buildTrade: (_state, imageHtml) => candidateTrade('composer-stale-trade', imageHtml),
+        buildTrade: (_state, imageHtml) => {
+          const candidate = candidateTrade('composer-stale-trade', imageHtml, false)
+          assert(!Object.prototype.hasOwnProperty.call(candidate, 'liveStageId'), 'stale 候选不得预填阶段')
+          return candidate
+        },
       })
     } catch (caught) {
       error = caught

@@ -1,6 +1,7 @@
 import { createFullPersistedSnapshotFixture } from '../src/storage/fixtures/fullPersistedSnapshot'
 import { LibraryStorage } from './library/storage'
 import { createHash } from 'node:crypto'
+import { ELECTRON_BUILD_IDENTITY } from './buildIdentity'
 
 function snapshotRevision(snapshot: unknown): string {
   return createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')
@@ -56,6 +57,7 @@ function snapshot(label: string, noteBytes = 0) {
 function send(message: Record<string, unknown>): void {
   process.send?.({
     ...message,
+    buildIdentity: ELECTRON_BUILD_IDENTITY,
     runtime: 'electron-main',
     electronVersion: process.versions.electron,
     processId: process.pid,
@@ -63,6 +65,10 @@ function send(message: Record<string, unknown>): void {
 }
 
 export async function runElectronForcedKillMode(mode: string, libraryRoot: string): Promise<void> {
+  if (mode === 'identity') {
+    send({ type: 'identity' })
+    return
+  }
   const storage = new LibraryStorage(libraryRoot, {
     ensureDirectories: mode === 'seed',
     allowCreate: mode === 'seed',

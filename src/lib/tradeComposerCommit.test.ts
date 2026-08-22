@@ -146,6 +146,41 @@ export async function testComposerCommitFailurePublishesNeitherTradeNorAssets():
   }
 }
 
+export async function testComposerBoundaryInjectsCurrentStageBeforeStrictSnapshotCommit(): Promise<void> {
+  const previous = useStore.getState()
+  const currentLiveStageId = previous.currentLiveStageId
+  let candidateHadStage: boolean | undefined
+  let committedSnapshot: PersistedSnapshot | undefined
+  useStore.setState({ trades: [] })
+  try {
+    await commitComposerTradeBatch({
+      targetTradeId: 'composer-stage-injection',
+      images: [],
+      storage: {
+        commitImport: async (snapshot: PersistedSnapshot) => { committedSnapshot = snapshot },
+      } as unknown as StorageAdapter,
+      buildTrade: (_state, imageHtml) => {
+        const candidate = {
+          ...existingTrade,
+          id: 'composer-stage-injection',
+          note: imageHtml,
+        }
+        candidateHadStage = Object.prototype.hasOwnProperty.call(candidate, 'liveStageId')
+        return candidate
+      },
+    })
+
+    assert(candidateHadStage === false, '测试候选必须真实省略 liveStageId')
+    const committedTrade = committedSnapshot?.trades[0]
+    assert(
+      committedTrade?.tradeKind === 'live' && committedTrade.liveStageId === currentLiveStageId,
+      'Composer 生产提交边界必须在严格 v12 校验前注入当前阶段',
+    )
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
 export async function testComposerCandidatePatchCommitsTradeAndLegacyFocusStarAtomically(): Promise<void> {
   const previous = useStore.getState()
   const initialTrades = [legacyFocusCase]

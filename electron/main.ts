@@ -64,8 +64,16 @@ import {
   LifecycleDisposalError,
   ResourceInitializationError,
 } from './lifecycleDisposal'
+import { ELECTRON_BUILD_IDENTITY } from './buildIdentity'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+Object.defineProperty(globalThis, '__ATLAS_BUILD_IDENTITY__', {
+  value: ELECTRON_BUILD_IDENTITY,
+  configurable: false,
+  enumerable: false,
+  writable: false,
+})
 
 /** 与 tokens.css --bg-app (lch 1.82% 272) 对齐，避免窗口加载前露出白边 */
 const WINDOW_BG = '#050506'

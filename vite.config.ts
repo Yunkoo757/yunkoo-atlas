@@ -38,6 +38,7 @@ export default defineConfig({
             },
             define: {
               'process.env.ATLAS_ENABLE_ASSET_PURGE_COMMIT': JSON.stringify(assetPurgeCommitFlag),
+              '__ATLAS_BUILD_IDENTITY__': JSON.stringify(embeddedBuildIdentity),
             },
             build: {
               rolldownOptions: {

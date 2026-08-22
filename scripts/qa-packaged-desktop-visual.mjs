@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
   existsSync,
@@ -31,6 +30,10 @@ import {
   DESKTOP_VISUAL_VIEWPORTS,
 } from './desktop-visual-scenarios.mjs'
 import { createDesktopVisualSnapshot } from './fixtures/desktop-visual-seed.mjs'
+import {
+  readRepositoryBuildExpectation,
+  validateBundleBuildIdentityEvidence,
+} from './bundle-build-identity.mjs'
 
 const SCHEMA_VERSION = 1
 const TYPOGRAPHY_PROBE_SELECTORS = Object.freeze({
@@ -68,10 +71,6 @@ const outputRoot = assertSafePackagedVisualOutputPath({
 })
 rmSync(outputRoot, { recursive: true, force: true })
 mkdirSync(outputRoot, { recursive: true })
-
-function git(args) {
-  return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim()
-}
 
 function sha256(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex').toUpperCase()
@@ -263,8 +262,9 @@ let typography = null
 const captures = []
 const checks = []
 let identityEvidence = null
-const repositoryHead = git(['rev-parse', 'HEAD'])
-const githubSha = process.env.GITHUB_SHA ?? null
+const buildExpectation = await readRepositoryBuildExpectation(root)
+const repositoryHead = buildExpectation.repository.head
+const githubSha = buildExpectation.ci.githubSha
 
 function record(id, pass, detail) {
   checks.push({ id, pass, detail })
@@ -290,6 +290,11 @@ try {
   await page.waitForLoadState('domcontentloaded')
   identityEvidence = await collectPackagedBuildIdentity(page, repositoryHead, githubSha)
   validatePackagedIdentityEvidence(identityEvidence)
+  validateBundleBuildIdentityEvidence({
+    bundles: { renderer: identityEvidence.source },
+    repository: buildExpectation.repository,
+    ci: buildExpectation.ci,
+  }, ['renderer'])
   let diagnostics = bindDiagnostics(page)
 
   const runtime = await application.evaluate(({ app, BrowserWindow, Menu, screen }) => {

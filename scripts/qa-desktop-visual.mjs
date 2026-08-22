@@ -24,6 +24,10 @@ import {
   buildTypographyCheckResult,
   hasExactDesktopVisualCaptureMatrix,
 } from './packaged-desktop-visual-contract.mjs'
+import {
+  collectElectronBundleIdentity,
+  readRepositoryBuildExpectation,
+} from './bundle-build-identity.mjs'
 
 const require = createRequire(import.meta.url)
 const REPORT_SCHEMA_VERSION = 1
@@ -406,7 +410,7 @@ async function runRendererQa({ root, runtimeRoot, build, seed }) {
   }
 }
 
-async function runElectronQa({ root, runtimeRoot, build, snapshot, packageJson }) {
+async function runElectronQa({ root, runtimeRoot, build, snapshot, packageJson, buildExpectation }) {
   for (const required of ['dist/index.html', 'dist-electron/main.js']) {
     if (!existsSync(resolve(root, required))) {
       throw new Error(`${required} is missing; run pnpm build:app before Electron visual QA`)
@@ -444,6 +448,18 @@ async function runElectronQa({ root, runtimeRoot, build, snapshot, packageJson }
       timeout: 30_000,
     })
     const page = await application.firstWindow({ timeout: 30_000 })
+    const bundleIdentity = await collectElectronBundleIdentity({
+      page,
+      application,
+      expectation: buildExpectation,
+    })
+    build = {
+      ...build,
+      commit: bundleIdentity.bundles.renderer.commit,
+      dirty: bundleIdentity.bundles.renderer.dirty,
+      status: [],
+      bundleIdentity,
+    }
     const diagnostics = bindDiagnostics(page)
     actualUserDataPath = await application.evaluate(({ app }) => app.getPath('userData'))
     assertSafeElectronIsolationPaths({
@@ -508,6 +524,7 @@ async function runElectronQa({ root, runtimeRoot, build, snapshot, packageJson }
     rmSync(temporaryRoot, { recursive: true, force: true })
   }
   return {
+    build,
     captures,
     typography,
     isolation: {
@@ -543,6 +560,7 @@ export async function runDesktopVisualQa({
   const resolvedRoot = resolve(root)
   const packageJson = JSON.parse(readFileSync(resolve(resolvedRoot, 'package.json'), 'utf8'))
   const build = sourceBuild(resolvedRoot, packageJson)
+  const buildExpectation = await readRepositoryBuildExpectation(resolvedRoot)
   const seed = createDesktopVisualSeedEnvelope()
   const output = ensureRuntimeOutput(outputRoot, runtime)
   const result = runtime === 'renderer'
@@ -553,11 +571,13 @@ export async function runDesktopVisualQa({
         build,
         snapshot: seed.snapshot,
         packageJson,
+        buildExpectation,
       })
+  const reportBuild = result.build ?? build
   const report = normalizeScreenshotPaths({
     schemaVersion: REPORT_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
-    build,
+    build: reportBuild,
     runtime,
     machine: { platform: platform(), release: release(), arch: arch(), node: process.version },
     viewport: DESKTOP_VISUAL_VIEWPORTS,
