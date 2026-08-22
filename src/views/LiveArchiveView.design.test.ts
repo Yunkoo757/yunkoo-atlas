@@ -46,11 +46,11 @@ export function testHistoricalQuickViewsReplaceIdentityWithoutLeakingOldFilters(
 
 export function testHistoricalLiveUsesSharedWorkbenchSubtitleContract(): void {
   assert(
-    getTradesPageSubtitle({ type: 'all', tradeKind: 'live', historicalLiveScope: 'trades' }) === '重置起点前的实盘交易',
-    '历史实盘必须通过共享 Topbar 副标题说明数据范围',
+    getTradesPageSubtitle({ type: 'all', tradeKind: 'live', historicalLiveScope: 'trades' }) === '历史阶段的实盘交易',
+    '历史实盘必须通过共享 Topbar 副标题使用阶段语言说明数据范围',
   )
   assert(
-    getTradesPageSubtitle({ type: 'all', tradeKind: 'case', historicalLiveScope: 'cases' }) === '重置起点前实盘的关联案例',
-    '历史案例必须通过共享 Topbar 副标题说明来源范围',
+    getTradesPageSubtitle({ type: 'all', tradeKind: 'case', historicalLiveScope: 'cases' }) === '历史阶段的关联案例',
+    '历史案例必须通过共享 Topbar 副标题使用阶段语言说明来源范围',
   )
 }

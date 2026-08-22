@@ -193,7 +193,7 @@ export function appendLivePerformanceCycle(
   return next
 }
 
-/** 重置实盘统计：只保留一条新起点，旧多轮边界折叠进统一「重置前」历史。 */
+/** 旧版实盘统计边界兼容：只保留一条新起点，旧多轮边界折叠进统一历史。 */
 export function createLiveStatisticsResetEpoch(
   startTradingDayKey: string,
   currentTradingDayKey: string,

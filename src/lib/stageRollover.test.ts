@@ -5,6 +5,7 @@ import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
 import {
   buildStageRolloverCandidate,
   inspectDueStageRollover,
+  listStageRolloverBlockers,
   postponeStageRollover,
   scheduleStageRollover,
   type StageRolloverState,
@@ -144,6 +145,15 @@ export function testDueRolloverListsEveryBlockerAndPostpones(): void {
   assert(inspection.blockers.map((item) => item.code).join(',') === 'planned-trades,open-trades,weekly-review-incomplete', 'all domain blockers must be stable')
   const postponed = postponeStageRollover(blockedState().scheduledStageRollover!, '2026-08-31')
   assert(postponed.effectiveWeekStart === '2026-09-07' && postponed.postponedCount === 1, 'blocked rollover must move one week')
+}
+
+export function testCurrentBlockersCanBeShownBeforeTheScheduleIsDue(): void {
+  const state = blockedState()
+  const blockers = listStageRolloverBlockers(state, state.scheduledStageRollover!.effectiveWeekStart)
+  assert(
+    blockers.map((item) => item.code).join(',') === 'planned-trades,open-trades,weekly-review-incomplete',
+    '预约确认与未到期 banner 必须复用权威阻断规则并展示全部当前阻断项',
+  )
 }
 
 export function testPrecedingReviewMustBeCompletedAndOwnedByCurrentStage(): void {

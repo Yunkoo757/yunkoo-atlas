@@ -84,6 +84,25 @@ function isCurrentStageTrade(trade: Trade, currentLiveStageId: string, status: '
     trade.status === status
 }
 
+export function listStageRolloverBlockers(
+  state: StageRolloverState,
+  effectiveWeekStart: string,
+): StageRolloverBlocker[] {
+  const currentStage = getCurrentLiveStage([...state.liveStages], state.currentLiveStageId)
+  const blockers: StageRolloverBlocker[] = []
+  if (state.trades.some((trade) => isCurrentStageTrade(trade, currentStage.id, 'planned'))) {
+    blockers.push({ code: 'planned-trades' })
+  }
+  if (state.trades.some((trade) => isCurrentStageTrade(trade, currentStage.id, 'open'))) {
+    blockers.push({ code: 'open-trades' })
+  }
+  const preceding = precedingWeek(effectiveWeekStart)
+  if (!isStageWeekCompleted(state.weeklyReviews, currentStage.id, preceding.weekStart)) {
+    blockers.push({ code: 'weekly-review-incomplete' })
+  }
+  return blockers
+}
+
 export function scheduleStageRollover(
   currentTradingDayKey: string,
   requestedAt: string,
@@ -105,21 +124,7 @@ export function inspectDueStageRollover(
   if (!scheduled) throw new Error('没有待执行的实盘阶段切换')
   if (currentTradingDayKey < scheduled.effectiveWeekStart) return { kind: 'not-due', scheduled }
 
-  const currentStage = getCurrentLiveStage([...state.liveStages], state.currentLiveStageId)
-  const blockers: StageRolloverBlocker[] = []
-  if (state.trades.some((trade) => isCurrentStageTrade(trade, currentStage.id, 'planned'))) {
-    blockers.push({ code: 'planned-trades' })
-  }
-  if (state.trades.some((trade) => isCurrentStageTrade(trade, currentStage.id, 'open'))) {
-    blockers.push({ code: 'open-trades' })
-  }
-  const preceding = precedingWeek(scheduled.effectiveWeekStart)
-  const hasCompletedPrecedingReview = isStageWeekCompleted(
-    state.weeklyReviews,
-    currentStage.id,
-    preceding.weekStart,
-  )
-  if (!hasCompletedPrecedingReview) blockers.push({ code: 'weekly-review-incomplete' })
+  const blockers = listStageRolloverBlockers(state, scheduled.effectiveWeekStart)
 
   return blockers.length > 0
     ? { kind: 'blocked', scheduled, blockers }

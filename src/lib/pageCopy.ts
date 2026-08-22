@@ -7,8 +7,8 @@ export function getTradesPageSubtitle(
   filter: ListFilter,
   businessDateAnchor?: BusinessDateAnchor,
 ): string | undefined {
-  if (filter.historicalLiveScope === 'trades') return '重置起点前的实盘交易'
-  if (filter.historicalLiveScope === 'cases') return '重置起点前实盘的关联案例'
+  if (filter.historicalLiveScope === 'trades') return '历史阶段的实盘交易'
+  if (filter.historicalLiveScope === 'cases') return '历史阶段的关联案例'
   if (filter.analysisScope) {
     return `仪表盘绩效下钻 · ${describeListFilterDateField(filter)}`
   }

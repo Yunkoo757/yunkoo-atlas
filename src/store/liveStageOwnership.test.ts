@@ -4,6 +4,9 @@ import type { StageRolloverPublishState } from '@/types/journalBridge'
 import { applySnapshotToStore } from '@/lib/importExport'
 import { haveSamePersistedReferences } from '@/storage/bootstrap'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
+import { pickPersisted } from '@/storage/persist'
+import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
+import { SCHEMA_VERSION } from '@/storage/types'
 import {
   applyTradeUpsertsToSlice,
   currentLiveStageIdForWrite,
@@ -112,6 +115,48 @@ export function testStorePublishesOnlyOneScheduledRolloverUntilCancelled(): void
 
     useStore.getState().cancelLiveStageRollover()
     assert(useStore.getState().scheduledStageRollover === null, '取消必须清空预约')
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
+export function testRenameLiveStageChangesOnlyTheNameAndSurvivesSnapshotRoundTrip(): void {
+  const previous = useStore.getState()
+  try {
+    seedStore([plannedLiveTrade('owned-by-old', 'stage-old')])
+    useStore.setState({
+      scheduledStageRollover: {
+        id: 'rollover-rename-contract',
+        requestedAt: '2026-08-20T00:00:00.000Z',
+        effectiveWeekStart: '2026-08-24',
+        postponedCount: 1,
+      },
+    })
+    const before = useStore.getState()
+    const beforeStage = before.liveStages[0]!
+    const beforeSchedule = before.scheduledStageRollover
+    const beforeTrade = before.trades[0]
+
+    useStore.getState().renameLiveStage('stage-old', '  我的第一阶段  ')
+
+    const renamed = useStore.getState()
+    const renamedStage = renamed.liveStages[0]!
+    assert(renamedStage.name === '我的第一阶段', '阶段名称必须自由编辑并规范去除首尾空白')
+    assert(renamedStage.id === beforeStage.id, '重命名不得改变阶段 ID')
+    assert(renamedStage.sequence === beforeStage.sequence, '重命名不得改变阶段序号')
+    assert(renamedStage.status === beforeStage.status, '重命名不得改变阶段状态')
+    assert(renamedStage.startsOn === beforeStage.startsOn && renamedStage.endsOn === beforeStage.endsOn, '重命名不得改变阶段日期')
+    assert(renamedStage.createdAt === beforeStage.createdAt && renamedStage.archivedAt === beforeStage.archivedAt, '重命名不得改变阶段时间戳')
+    assert(renamed.currentLiveStageId === before.currentLiveStageId, '重命名不得改变当前阶段指针')
+    assert(renamed.scheduledStageRollover === beforeSchedule, '重命名不得改变或重建阶段预约')
+    assert(renamed.trades[0] === beforeTrade, '重命名不得改变实体归属或重建交易')
+
+    const snapshot = pickPersisted(renamed)
+    const roundTripped = decodeCanonicalSnapshot(structuredClone(snapshot), { version: SCHEMA_VERSION })
+    assert(roundTripped.liveStages[0]?.name === '我的第一阶段', '阶段名称必须通过规范快照往返持久化')
+
+    useStore.getState().renameLiveStage('stage-old', '   ')
+    assert(useStore.getState().liveStages[0] === renamedStage, '空白名称必须被拒绝且不得重建阶段')
   } finally {
     useStore.setState(previous)
   }

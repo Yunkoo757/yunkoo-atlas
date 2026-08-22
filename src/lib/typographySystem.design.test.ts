@@ -819,7 +819,8 @@ export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promi
   const businessNumericFiles = [
     'src/components/LiveCycleSettings.css',
     'src/components/LivePerformanceCycleControl.css',
-    'src/components/LivePerformanceCycleManager.css',
+    'src/components/LiveStageManager.css',
+    'src/components/StageRolloverBanner.css',
     'src/components/RiskStatusStrip.css',
     'src/components/TradeOpenRiskDialog.css',
     'src/components/WeeklyRiskPreparationCard.css',
@@ -841,7 +842,8 @@ export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promi
   const numericRoleSelectors: Array<readonly [string, string]> = [
     ['src/components/LiveCycleSettings.css', '.live-cycle-preview-list > div'],
     ['src/components/LivePerformanceCycleControl.css', '.live-performance-cycle-current strong'],
-    ['src/components/LivePerformanceCycleManager.css', '.live-performance-cycle-row span'],
+    ['src/components/LiveStageManager.css', '.live-stage-manager-counts strong'],
+    ['src/components/StageRolloverBanner.css', '.stage-rollover-banner-title strong'],
     ['src/components/RiskStatusStrip.css', '.risk-status-values'],
     ['src/components/TradeOpenRiskDialog.css', '.trade-open-risk-periods strong'],
     ['src/components/WeeklyRiskPreparationCard.css', '.risk-preparation-risk-amount'],

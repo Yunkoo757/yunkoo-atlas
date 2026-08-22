@@ -224,12 +224,13 @@ async function run(): Promise<void> {
     const moreActions = document.querySelector<HTMLButtonElement>('[aria-label="更多统计操作"]')
     assert(moreActions, '无周期时必须保留统计管理入口')
     moreActions.click()
-    await waitFor(() => text().includes('管理统计周期'), '统计管理动作必须进入溢出菜单')
+    await waitFor(() => text().includes('开启新实盘阶段'), '阶段管理动作必须进入溢出菜单')
     const manage = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
-      .find((button) => button.textContent?.trim() === '管理统计周期')
-    assert(manage, '溢出菜单必须提供管理统计周期动作')
+      .find((button) => button.textContent?.trim() === '开启新实盘阶段')
+    assert(manage, '溢出菜单必须提供开启新实盘阶段动作')
     manage.click()
-    await waitFor(() => Boolean(document.querySelector('[role="dialog"]')), '统计管理动作必须打开对话框')
+    await waitFor(() => Boolean(document.querySelector('[data-live-stage-manager]')), '阶段管理动作必须打开预约对话框')
+    assert(!text().includes('重置实盘统计') && !text().includes('重置统计'), 'Dashboard 不得继续暴露旧重置入口')
   } finally {
     mounted?.root.unmount()
     useStore.setState({ trades: previous.trades, strategies: previous.strategies, livePerformanceCycles: previous.livePerformanceCycles })

@@ -26,6 +26,7 @@ import { isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
 import { AppFrame } from './components/ui/AppFrame'
+import { StageRolloverBanner } from './components/StageRolloverBanner'
 import { CommandPalette } from './components/CommandPalette'
 import { TradeComposer } from './components/TradeComposer'
 import { TradeCloseDialog } from './components/TradeCloseDialog'
@@ -450,6 +451,7 @@ function Shell() {
       <AppFrame
         sidebar={<Sidebar onOpenSearch={() => openCmdk()} />}
       >
+        <StageRolloverBanner />
         <RouteErrorBoundary resetKey={`${location.pathname}${location.search}`}>
           <Suspense fallback={<DelayedRouteFallback />}>
             <Routes>

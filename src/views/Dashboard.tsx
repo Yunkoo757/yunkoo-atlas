@@ -14,7 +14,7 @@ import {
 } from 'recharts'
 import { Topbar } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
-import { LivePerformanceCycleManager } from '@/components/LivePerformanceCycleManager'
+import { LiveStageManager } from '@/components/LiveStageManager'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Menu } from '@/components/Menu'
 import { IconButton } from '@/components/ui/IconButton'
@@ -83,7 +83,7 @@ export function Dashboard() {
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
   const openComposer = useStore((s) => s.openComposer)
   const [curveDataOpen, setCurveDataOpen] = useState(false)
-  const [cycleManagerOpen, setCycleManagerOpen] = useState(false)
+  const [stageManagerOpen, setStageManagerOpen] = useState(false)
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
   const parsedScope = useMemo(() => parseAnalysisScope(searchParams).scope, [searchParams])
@@ -218,8 +218,6 @@ export function Dashboard() {
     setSearchParams(writeAnalysisScope(searchParams, { ...scope, ...patch, kind: 'live' }), { replace: true })
   }
 
-  const showRestartedPerformanceCycle = () => undefined
-
   const openTrade = (tradeId: string) => {
     const t = tradeById.get(tradeId)
     navigate(t ? tradeDetailPath(t) : `/trade/${tradeId}`, {
@@ -262,17 +260,16 @@ export function Dashboard() {
                   <MoreHorizontal size={ICON_MD} aria-hidden />
                 </IconButton>
               )}
-              options={[{ value: 'manage-cycle', label: '管理统计周期' }]}
-              onSelect={() => setCycleManagerOpen(true)}
+              options={[{ value: 'manage-stage', label: '开启新实盘阶段' }]}
+              onSelect={() => setStageManagerOpen(true)}
             />
           </div>
         </div>
 
-        {cycleManagerOpen ? (
-          <LivePerformanceCycleManager
+        {stageManagerOpen ? (
+          <LiveStageManager
             currentTradingDayKey={localDateKey}
-            onClose={() => setCycleManagerOpen(false)}
-            onCreated={showRestartedPerformanceCycle}
+            onClose={() => setStageManagerOpen(false)}
           />
         ) : null}
 
@@ -372,7 +369,7 @@ export function Dashboard() {
                 ? '当前时间范围暂无已平仓实盘'
                 : '还没有已平仓交易'}
             hint={selectedPerformanceCycleIsEmpty
-                  ? '重置前记录仍完整保留，可从历史实盘查看。'
+                  ? '历史阶段记录仍完整保留，可从历史实盘查看。'
               : hasPerformanceBounds
                 ? '当前实盘有已平仓记录，可以切换时间范围查看。'
                 : '平仓并填写结果后，这里会生成盈亏曲线与策略表现。'}

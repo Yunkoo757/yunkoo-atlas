@@ -1,7 +1,8 @@
 import { ICON_LG, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useState, useCallback } from 'react'
 import { DataIOContent } from '@/components/DataIOContent'
-import { LiveCycleSettings } from '@/components/LiveCycleSettings'
+import { LivePerformanceCycleControl } from '@/components/LivePerformanceCycleControl'
+import { LiveStageManager } from '@/components/LiveStageManager'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { BackupInfo } from '@/types/journal-bridge'
@@ -80,6 +81,7 @@ export function DataSettingsPanel({
   const [purgeArchiveReady, setPurgeArchiveReady] = useState(false)
   const [purgeAuthorization, setPurgeAuthorization] = useState<string | null>(null)
   const [purgeConfirmed, setPurgeConfirmed] = useState(false)
+  const [stageManagerOpen, setStageManagerOpen] = useState(false)
   const trades = useStore((s) => s.trades)
   const weeklyReviews = useStore((s) => s.weeklyReviews)
   const quickNotes = useStore((s) => s.quickNotes)
@@ -370,7 +372,21 @@ export function DataSettingsPanel({
           void refreshHealth()
         }}
       />
-      <LiveCycleSettings variant="settings" currentTradingDayKey={currentTradingDayKey} />
+      <section className="settings-page-section">
+        <div className="settings-page-head">
+          <h2 className="settings-section-title">实盘阶段</h2>
+          <p className="settings-section-desc">
+            管理当前与历史阶段名称，并预约在下一个交易周安全开启新阶段。
+          </p>
+        </div>
+        <LivePerformanceCycleControl onManage={() => setStageManagerOpen(true)} />
+      </section>
+      {stageManagerOpen ? (
+        <LiveStageManager
+          currentTradingDayKey={currentTradingDayKey}
+          onClose={() => setStageManagerOpen(false)}
+        />
+      ) : null}
 
       {/* 存储健康面板 */}
       <section className="settings-page-section">

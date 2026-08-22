@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client'
+import { MemoryRouter } from 'react-router-dom'
 import { DataSettingsPanel } from '@/views/settings/DataSettingsPanel'
 import { createQuickNote } from '@/data/quickNotes'
 import { bootstrapStorage, getStorage } from '@/storage'
@@ -83,8 +84,19 @@ async function run(): Promise<void> {
   const container = document.getElementById('root')!
   const root = createRoot(container)
   try {
-    root.render(<DataSettingsPanel />)
+    root.render(<MemoryRouter><DataSettingsPanel /></MemoryRouter>)
     await waitFor(() => container.textContent?.includes('1 张 · 3 B') === true, 'QuickNote-only 附件未计入健康清单')
+    const stageEntry = [...container.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.trim() === '开启新实盘阶段')
+    assert(stageEntry, '数据设置必须提供统一的开启新实盘阶段入口')
+    assert(!container.textContent?.includes('风险数据起算日'), '数据设置不得继续暴露任意起算日选择作为正常入口')
+    stageEntry.click()
+    await waitFor(() => Boolean(document.querySelector('[data-live-stage-manager]')), '数据设置阶段入口必须打开预约对话框')
+    const closeStageManager = [...document.body.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.trim() === '关闭')
+    assert(closeStageManager, '阶段管理弹窗必须可关闭')
+    closeStageManager.click()
+    await waitFor(() => !document.querySelector('[data-live-stage-manager]'), '阶段管理弹窗关闭失败')
     assert(container.textContent?.includes('1 张当前库孤立附件'), '孤立附件未展示')
     assert(container.textContent?.includes('1 个未知或非法附件项'), 'foreign 未展示')
     assert(container.textContent?.includes('1 个未完成临时附件'), 'temp 未展示')
@@ -140,7 +152,7 @@ async function run(): Promise<void> {
     assert(Number(commitCalls) === 2 && cancelCalls >= cancelCallsBefore + 2, '取消预览必须零写入并撤销归档前后的 adapter preview')
 
     // 默认未开闸：只展示预览与导出，不出现永久删除主 CTA
-    root.render(<DataSettingsPanel assetPurgeCommitEnabled={false} />)
+    root.render(<MemoryRouter><DataSettingsPanel assetPurgeCommitEnabled={false} /></MemoryRouter>)
     await waitFor(
       () => container.textContent?.includes('当前已关闭永久清理') === true,
       '显式关闭时必须说明只保留预览与恢复归档',

@@ -1,0 +1,86 @@
+.stage-rollover-banner {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-surface));
+}
+
+.stage-rollover-banner.has-blockers {
+  border-bottom-color: color-mix(in srgb, var(--warn) 34%, var(--border-subtle));
+  background: color-mix(in srgb, var(--warn) 7%, var(--bg-surface));
+}
+
+.stage-rollover-banner-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  margin-top: 1px;
+  color: var(--accent-readable);
+}
+
+.stage-rollover-banner.has-blockers .stage-rollover-banner-icon {
+  color: var(--warn);
+}
+
+.stage-rollover-banner-copy {
+  display: grid;
+  flex: 1;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.stage-rollover-banner-title,
+.stage-rollover-banner-detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.stage-rollover-banner-title strong {
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--type-row-size);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
+}
+
+.stage-rollover-banner-title > span,
+.stage-rollover-banner-detail,
+.stage-rollover-banner-copy p {
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+}
+
+.stage-rollover-banner-title > span::before {
+  content: '·';
+  margin-right: var(--sp-2);
+}
+
+.stage-rollover-banner-chip,
+.stage-rollover-banner-clear {
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--warn) 10%, var(--bg-surface));
+  color: var(--warn);
+  white-space: nowrap;
+}
+
+.stage-rollover-banner-clear {
+  background: color-mix(in srgb, var(--pos) 10%, var(--bg-surface));
+  color: var(--pos);
+}
+
+.stage-rollover-banner-copy p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+@media (max-width: 1099px) {
+  .stage-rollover-banner {
+    padding-inline: var(--sp-3);
+  }
+}

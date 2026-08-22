@@ -530,6 +530,7 @@ interface State {
   resetLiveStatistics: (startTradingDayKey: string, currentTradingDayKey: string) => void
   scheduleLiveStageRollover: (currentTradingDayKey: string, now: string) => void
   cancelLiveStageRollover: () => void
+  renameLiveStage: (id: string, name: string) => boolean
   publishPostponedRollover: (scheduled: ScheduledStageRollover) => void
   publishCommittedStageRollover: (publish: StageRolloverPublishState) => void
   setStatus: (id: string, status: TradeStatus) => SetTradeStatusResult
@@ -897,6 +898,22 @@ export const useStore = create<State>()((set, get) => ({
         ),
       })),
       cancelLiveStageRollover: () => set({ scheduledStageRollover: null }),
+      renameLiveStage: (id, name) => {
+        const normalizedName = name.trim()
+        if (!normalizedName) return false
+        let renamed = false
+        set((state) => {
+          const target = state.liveStages.find((stage) => stage.id === id)
+          if (!target || target.name === normalizedName) return state
+          const liveStages = state.liveStages.map((stage) =>
+            stage.id === id ? { ...stage, name: normalizedName } : stage,
+          )
+          assertValidLiveStageState({ liveStages, currentLiveStageId: state.currentLiveStageId })
+          renamed = true
+          return { liveStages }
+        })
+        return renamed
+      },
       publishPostponedRollover: (scheduled) => set({ scheduledStageRollover: scheduled }),
       publishCommittedStageRollover: (publish) => set({
         liveStages: publish.liveStages,

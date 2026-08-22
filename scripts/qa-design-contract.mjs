@@ -33,6 +33,7 @@ const sidebarComponent = read('src/components/Sidebar.tsx')
 const sidebarWorkspaceStyles = read('src/components/sidebar/SidebarWorkspace.css')
 const tradeListStyles = read('src/components/trades/TradeList.css')
 const tradeListComponent = read('src/components/trades/TradeList.tsx')
+const tradesPageModule = read('src/views/TradesPage.tsx')
 const app = read('src/App.tsx')
 const tradesPageStart = app.indexOf('function TradesPage(')
 const strategyPageMatchers = [
@@ -129,7 +130,10 @@ const checks = [
   ['trade row height', tokens.includes('--trade-row-height: 44px')],
   [
     'default trade route uses canonical list',
-    tradesPage !== null && tradesPage.includes('<ListView'),
+    (tradesPage !== null && tradesPage.includes('<ListView')) || (
+      app.includes("import { TradesPage } from './views/TradesPage'") &&
+      tradesPageModule.includes('<ListView')
+    ),
   ],
   [
     'native form controls inherit the UI font',

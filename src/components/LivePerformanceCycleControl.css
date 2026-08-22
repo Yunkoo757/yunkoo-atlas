@@ -16,6 +16,11 @@
   white-space: nowrap;
 }
 
+.live-performance-cycle-current > span {
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+}
+
 .live-performance-cycle-current strong {
   min-width: 0;
   overflow: hidden;

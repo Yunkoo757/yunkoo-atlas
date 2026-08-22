@@ -3,11 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="atlas-browser-viewports" content="1280x900, 375x812" />
-    <title>Live performance cycle manager browser test</title>
+    <meta name="atlas-browser-viewports" content="960x900, 1280x900, 1920x1080" />
+    <title>Live stage manager browser test</title>
     <style>
       html, body, #root { width: 100%; min-height: 100%; margin: 0; }
-      #root { display: flex; min-height: 100vh; }
+      #root { min-height: 100vh; }
     </style>
   </head>
   <body>
@@ -16,6 +16,6 @@
       window.$RefreshReg$ = function () {}
       window.$RefreshSig$ = function () { return function (type) { return type } }
     </script>
-    <script type="module" src="/src/components/LivePerformanceCycleManager.browser.test.tsx"></script>
+    <script type="module" src="/src/components/LiveStageManager.browser.test.tsx"></script>
   </body>
 </html>

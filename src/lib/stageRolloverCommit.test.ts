@@ -261,7 +261,7 @@ export async function testConcurrentAutomaticChecksShareOneInFlightPromise(): Pr
 export async function testDesktopLifecycleInvokesChecksAtEveryRequiredBoundary(): Promise<void> {
   const [app, manager] = await Promise.all([
     fs.readFile('src/App.tsx', 'utf8'),
-    fs.readFile('src/components/LivePerformanceCycleManager.tsx', 'utf8'),
+    fs.readFile('src/components/LiveStageManager.tsx', 'utf8'),
   ])
   assert(app.includes('flushNoteDraftsToStore'), 'rollover check must flush note drafts before the durable boundary')
   assert(app.includes('flushStorageBeforeCutover'), 'rollover check must flush persistence before recapture')
