@@ -1,9 +1,8 @@
-import type { ScheduledStageRollover } from '@/lib/liveStages'
+import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
+import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import {
-  buildStageRolloverCandidate,
   inspectDueStageRollover,
   postponeStageRollover,
-  type StageRolloverCandidate,
   type StageRolloverState,
 } from '@/lib/stageRollover'
 import { lockStorageCutoverInteraction } from '@/storage/cutover'
@@ -11,6 +10,7 @@ import type { PersistedSnapshot } from '@/storage/types'
 import type {
   StageRolloverCommitInput,
   StageRolloverCommitResult,
+  StageRolloverPublishState,
 } from '@/types/journalBridge'
 
 export const STAGE_MANAGEMENT_OPEN_EVENT = 'atlas:stage-management-open'
@@ -21,17 +21,14 @@ export function notifyStageManagementOpened(): void {
 
 export interface StageRolloverCapture {
   state: StageRolloverState
-  snapshot: PersistedSnapshot
   currentTradingDayKey: string
-  now: string
-  nextStageId: string
 }
 
 export interface ExecuteDueStageRolloverDependencies {
   captureLatest(): StageRolloverCapture
   flushBeforeCommit(): Promise<void>
   commitDurably(input: StageRolloverCommitInput): Promise<StageRolloverCommitResult>
-  publish(candidate: StageRolloverCandidate): void
+  publish(state: StageRolloverPublishState): Promise<void> | void
   postpone(scheduled: ScheduledStageRollover): Promise<void>
   lockInteraction?: () => () => void
 }
@@ -46,6 +43,61 @@ export type StageRolloverExecutionResult =
       reason: Exclude<StageRolloverCommitResult, { ok: true }>['reason']
       message: string
     }
+
+export interface ReconcileCommittedStageRolloverDependencies {
+  reloadAuthoritativeSnapshot(): Promise<PersistedSnapshot | null>
+  publishDurableSnapshot(
+    snapshot: PersistedSnapshot,
+    publish: StageRolloverPublishState,
+  ): Promise<void> | void
+}
+
+function sameStage(left: LiveStage, right: LiveStage): boolean {
+  return left.id === right.id &&
+    left.sequence === right.sequence &&
+    left.name === right.name &&
+    left.status === right.status &&
+    left.startsOn === right.startsOn &&
+    left.endsOn === right.endsOn &&
+    left.createdAt === right.createdAt &&
+    left.archivedAt === right.archivedAt
+}
+
+function sameCycle(left: LivePerformanceCycle, right: LivePerformanceCycle): boolean {
+  return left.id === right.id &&
+    left.name === right.name &&
+    left.startTradingDayKey === right.startTradingDayKey &&
+    left.createdAt === right.createdAt
+}
+
+function snapshotMatchesPublish(
+  snapshot: PersistedSnapshot,
+  publish: StageRolloverPublishState,
+): boolean {
+  const cycles = snapshot.livePerformanceCycles ?? []
+  return snapshot.currentLiveStageId === publish.currentLiveStageId &&
+    snapshot.scheduledStageRollover === null &&
+    snapshot.liveStatsStartTradingDayKey === publish.liveStatsStartTradingDayKey &&
+    snapshot.liveStages.length === publish.liveStages.length &&
+    snapshot.liveStages.every((stage, index) => sameStage(stage, publish.liveStages[index]!)) &&
+    cycles.length === publish.livePerformanceCycles.length &&
+    cycles.every((cycle, index) => sameCycle(cycle, publish.livePerformanceCycles[index]!))
+}
+
+/**
+ * durable ok 后重新读取完整权威快照，使 renderer 的非阶段字段也与主进程 reload 基线对齐。
+ * 五个阶段字段必须与 commit 返回的安全 publish payload 完全一致。
+ */
+export async function reconcileCommittedStageRollover(
+  publish: StageRolloverPublishState,
+  dependencies: ReconcileCommittedStageRolloverDependencies,
+): Promise<void> {
+  const snapshot = await dependencies.reloadAuthoritativeSnapshot()
+  if (!snapshot || !snapshotMatchesPublish(snapshot, publish)) {
+    throw new Error('阶段切换后的权威状态无法确认')
+  }
+  await dependencies.publishDurableSnapshot(snapshot, publish)
+}
 
 /** 同一时刻只执行一次自动检查；完成后允许下一次业务周或管理入口触发。 */
 export function createStageRolloverCheck(
@@ -67,32 +119,8 @@ export function createStageRolloverCheck(
   }
 }
 
-function candidateSnapshot(
-  snapshot: PersistedSnapshot,
-  candidate: StageRolloverCandidate,
-): PersistedSnapshot {
-  const current = candidate.liveStages.find((stage) => stage.id === candidate.currentLiveStageId)
-  if (!current) throw new Error('阶段切换候选缺少当前阶段')
-  return {
-    ...snapshot,
-    liveStages: candidate.liveStages,
-    currentLiveStageId: candidate.currentLiveStageId,
-    scheduledStageRollover: candidate.scheduledStageRollover,
-    trades: [...candidate.trades],
-    weeklyReviews: [...candidate.weeklyReviews],
-    riskPolicyVersions: [...candidate.riskPolicyVersions],
-    liveStatsStartTradingDayKey: current.startsOn,
-    livePerformanceCycles: [{
-      id: `legacy-stage-${current.sequence}`,
-      name: current.name,
-      startTradingDayKey: current.startsOn,
-      createdAt: current.createdAt,
-    }],
-  }
-}
-
 /**
- * Renderer 只负责准备候选并在耐久提交成功后发布；备份与文件写入只能由主进程完成。
+ * Renderer 只发送 stale 预期，并在耐久提交成功后发布主进程权威状态。
  */
 export async function executeDueStageRollover(
   dependencies: ExecuteDueStageRolloverDependencies,
@@ -125,31 +153,21 @@ export async function executeDueStageRollover(
       return { kind: 'postponed', blockers: inspection.blockers.map((item) => item.code) }
     }
 
-    let candidate: StageRolloverCandidate
-    let snapshot: PersistedSnapshot
-    try {
-      candidate = buildStageRolloverCandidate(latest.state, {
-        effectiveWeekStart: inspection.scheduled.effectiveWeekStart,
-        now: latest.now,
-        nextStageId: latest.nextStageId,
-      })
-      snapshot = candidateSnapshot(latest.snapshot, candidate)
-    } catch {
-      return { kind: 'failed', reason: 'validation-failed', message: '阶段切换候选无效' }
-    }
-
     let committed: StageRolloverCommitResult
     try {
       committed = await dependencies.commitDurably({
         expectedCurrentStageId: latest.state.currentLiveStageId,
-        expectedRolloverId: inspection.scheduled.id,
-        snapshot,
+        expectedRollover: { ...inspection.scheduled },
       })
     } catch {
       return { kind: 'failed', reason: 'write-failed', message: '阶段切换提交失败' }
     }
     if (!committed.ok) return { kind: 'failed', reason: committed.reason, message: committed.message }
-    dependencies.publish(candidate)
+    try {
+      await dependencies.publish(committed.publish)
+    } catch {
+      return { kind: 'failed', reason: 'write-failed', message: '阶段已保存，界面刷新失败，请重新打开应用' }
+    }
     return { kind: 'committed' }
   } finally {
     unlock()

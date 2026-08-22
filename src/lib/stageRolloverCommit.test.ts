@@ -1,8 +1,10 @@
 import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
+import type { StageRolloverPublishState } from '@/types/journalBridge'
 import fs from 'node:fs/promises'
 import {
   createStageRolloverCheck,
   executeDueStageRollover,
+  reconcileCommittedStageRollover,
   type StageRolloverCapture,
 } from '@/lib/stageRolloverCommit'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
@@ -59,12 +61,34 @@ function eligibleCapture(overrides: Partial<StageRolloverCapture> = {}): StageRo
   }]
   return {
     state: stageState(snapshot),
-    snapshot,
     currentTradingDayKey: '2026-08-31',
-    now: '2026-08-31T00:10:00.000Z',
-    nextStageId: 'stage-2',
     ...overrides,
   }
+}
+
+const authoritativePublish: StageRolloverPublishState = {
+  liveStages: [{
+    ...currentStage,
+    status: 'archived',
+    endsOn: '2026-08-30',
+    archivedAt: '2026-08-31T00:10:00.000Z',
+  }, {
+    ...currentStage,
+    id: 'stage-main-2',
+    sequence: 2,
+    name: '实盘阶段 2',
+    startsOn: '2026-08-31',
+    createdAt: '2026-08-31T00:10:00.000Z',
+  }],
+  currentLiveStageId: 'stage-main-2',
+  scheduledStageRollover: null,
+  liveStatsStartTradingDayKey: '2026-08-31',
+  livePerformanceCycles: [{
+    id: 'legacy-stage-2',
+    name: '实盘阶段 2',
+    startTradingDayKey: '2026-08-31',
+    createdAt: '2026-08-31T00:10:00.000Z',
+  }],
 }
 
 function stageState(snapshot: ReturnType<typeof createEmptyPersistedSnapshot>): StageRolloverCapture['state'] {
@@ -86,11 +110,14 @@ export async function testPublishOccursOnlyAfterDurableCommit(): Promise<void> {
     commitDurably: async (input) => {
       events.push('commit')
       assert(input.expectedCurrentStageId === 'stage-1', 'durable commit must carry the inspected stage ID')
-      assert(input.expectedRolloverId === 'rollover-1', 'durable commit must carry the inspected rollover ID')
-      assert(input.snapshot.currentLiveStageId === 'stage-2', 'durable candidate must select the new stage')
-      return { ok: true }
+      assert(input.expectedRollover.id === 'rollover-1', 'durable commit must carry the full inspected schedule')
+      assert(!('snapshot' in input), 'renderer durable intent must not include a candidate snapshot')
+      return { ok: true, publish: authoritativePublish }
     },
-    publish: () => { events.push('publish') },
+    publish: (publish) => {
+      events.push('publish')
+      assert(publish === authoritativePublish, 'renderer must publish the main-process authoritative state')
+    },
     postpone: async () => { throw new Error('not expected') },
   })
   assert(result.kind === 'committed', 'eligible rollover must commit')
@@ -114,6 +141,29 @@ export async function testCommitFailureNeverPublishesCandidate(): Promise<void> 
   assert(!published, 'failed durable commit must preserve old UI state')
 }
 
+export async function testAuthoritativeReloadMustMatchSafePublishPayload(): Promise<void> {
+  let published = false
+  let rejected = false
+  try {
+    await reconcileCommittedStageRollover(authoritativePublish, {
+      reloadAuthoritativeSnapshot: async () => eligibleSnapshotForReload(),
+      publishDurableSnapshot: () => { published = true },
+    })
+  } catch {
+    rejected = true
+  }
+  assert(rejected, 'an unrelated reloaded snapshot must not be published')
+  assert(!published, 'mismatched reload must stop before Store publication')
+}
+
+function eligibleSnapshotForReload() {
+  const snapshot = createEmptyPersistedSnapshot()
+  snapshot.liveStages = [{ ...currentStage }]
+  snapshot.currentLiveStageId = currentStage.id
+  snapshot.scheduledStageRollover = { ...scheduled }
+  return snapshot
+}
+
 export async function testFlushIsFollowedByFreshCaptureAndInspection(): Promise<void> {
   const events: string[] = []
   let captureCount = 0
@@ -127,7 +177,7 @@ export async function testFlushIsFollowedByFreshCaptureAndInspection(): Promise<
     flushBeforeCommit: async () => { events.push('flush') },
     commitDurably: async () => {
       events.push('commit')
-      return { ok: true }
+      return { ok: true, publish: authoritativePublish }
     },
     publish: () => { events.push('publish') },
     postpone: async () => { throw new Error('not expected') },
@@ -141,7 +191,9 @@ export async function testFlushIsFollowedByFreshCaptureAndInspection(): Promise<
 
 export async function testBlockedRolloverPersistsOnlyPostponedSchedule(): Promise<void> {
   const capture = eligibleCapture()
-  capture.snapshot.trades = [{
+  capture.state = {
+    ...capture.state,
+    trades: [{
     id: 'planned-trade',
     ref: 'TRD-planned-trade',
     symbol: 'BTCUSDT',
@@ -163,9 +215,9 @@ export async function testBlockedRolloverPersistsOnlyPostponedSchedule(): Promis
     openedAt: '2026-08-31',
     closedAt: null,
     note: '',
-  }]
-  capture.state = stageState(capture.snapshot)
-  const originalStages = capture.snapshot.liveStages
+    }],
+  }
+  const originalStages = capture.state.liveStages
   const postponed: ScheduledStageRollover[] = []
   let committed = false
   let published = false
@@ -174,7 +226,7 @@ export async function testBlockedRolloverPersistsOnlyPostponedSchedule(): Promis
     flushBeforeCommit: async () => {},
     commitDurably: async () => {
       committed = true
-      return { ok: true }
+      return { ok: true, publish: authoritativePublish }
     },
     publish: () => { published = true },
     postpone: async (next) => { postponed.push(next) },
@@ -182,7 +234,7 @@ export async function testBlockedRolloverPersistsOnlyPostponedSchedule(): Promis
   assert(result.kind === 'postponed', 'domain blocker must postpone the rollover')
   assert(postponed[0]?.effectiveWeekStart === '2026-09-07', 'postponement must move exactly one week')
   assert(postponed[0]?.postponedCount === 1, 'postponement counter must advance once')
-  assert(capture.snapshot.liveStages === originalStages, 'blocked rollover must retain the old stage graph')
+  assert(capture.state.liveStages === originalStages, 'blocked rollover must retain the old stage graph')
   assert(!committed && !published, 'blocked rollover must not commit or publish a stage candidate')
 }
 
@@ -217,5 +269,7 @@ export async function testDesktopLifecycleInvokesChecksAtEveryRequiredBoundary()
   assert(app.includes("document.visibilityState === 'visible'"), 'visibility restoration must be observed')
   assert(app.includes('lastVisibleBusinessWeek'), 'visibility restoration must compare the business week')
   assert(app.includes('STAGE_MANAGEMENT_OPEN_EVENT'), 'App must listen for stage management opening')
+  assert(app.includes('reconcileCommittedStageRollover'), 'App must reload and bind the full authoritative snapshot')
+  assert(app.includes('publishDurableStoreRefresh'), 'App must replace the autosave baseline during durable refresh')
   assert(manager.includes('notifyStageManagementOpened'), 'stage management must request an immediate due check when opened')
 }

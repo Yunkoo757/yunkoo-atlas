@@ -1,5 +1,6 @@
 import type { Trade } from '@/data/trades'
 import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
+import type { StageRolloverPublishState } from '@/types/journalBridge'
 import { applySnapshotToStore } from '@/lib/importExport'
 import { haveSamePersistedReferences } from '@/storage/bootstrap'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
@@ -111,6 +112,58 @@ export function testStorePublishesOnlyOneScheduledRolloverUntilCancelled(): void
 
     useStore.getState().cancelLiveStageRollover()
     assert(useStore.getState().scheduledStageRollover === null, '取消必须清空预约')
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
+export function testStorePublishesEveryAuthoritativeDurableStageFieldTogether(): void {
+  const previous = useStore.getState()
+  try {
+    seedStore()
+    useStore.setState({
+      liveStatsStartTradingDayKey: '2026-08-01',
+      livePerformanceCycles: [{
+        id: 'legacy-before',
+        name: '旧镜像',
+        startTradingDayKey: '2026-08-01',
+        createdAt: '2026-08-01T00:00:00.000Z',
+      }],
+    })
+    const publish: StageRolloverPublishState = {
+      liveStages: [{ ...stages[0]! }, {
+        id: 'stage-next',
+        sequence: 3,
+        name: '新阶段',
+        status: 'current',
+        startsOn: '2026-08-31',
+        endsOn: null,
+        createdAt: '2026-08-31T00:00:00.000Z',
+        archivedAt: null,
+      }],
+      currentLiveStageId: 'stage-next',
+      scheduledStageRollover: null,
+      liveStatsStartTradingDayKey: '2026-08-31',
+      livePerformanceCycles: [{
+        id: 'legacy-stage-3',
+        name: '新阶段',
+        startTradingDayKey: '2026-08-31',
+        createdAt: '2026-08-31T00:00:00.000Z',
+      }],
+    }
+    useStore.getState().publishCommittedStageRollover(publish)
+    const state = useStore.getState()
+    assert(state.liveStages === publish.liveStages, 'Store must publish authoritative stages')
+    assert(state.currentLiveStageId === publish.currentLiveStageId, 'Store must publish authoritative stage pointer')
+    assert(state.scheduledStageRollover === null, 'Store must publish the cleared schedule')
+    assert(
+      state.liveStatsStartTradingDayKey === publish.liveStatsStartTradingDayKey,
+      'Store must publish compatibility start key',
+    )
+    assert(
+      state.livePerformanceCycles === publish.livePerformanceCycles,
+      'Store must publish compatibility cycles atomically',
+    )
   } finally {
     useStore.setState(previous)
   }

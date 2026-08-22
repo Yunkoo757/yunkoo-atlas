@@ -47,6 +47,7 @@ import type {
   StageRolloverCommitInput,
   StageRolloverCommitResult,
 } from '../../src/types/journalBridge'
+import { commitDueStageRollover } from './stageRolloverCommit'
 
 let storage: LibraryStorage | null = null
 let openingStorage: Promise<LibraryStorage> | null = null
@@ -545,56 +546,20 @@ export function registerLibraryIpc(): void {
     const operation = beginOperation('stage-rollover', { stage: 'reload', revisionBefore: 0 })
     let result: StageRolloverCommitResult
     try {
-      result = await operationGate.runExclusive(async () => {
-        let lib: LibraryStorage
-        let current: ReturnType<LibraryStorage['loadSnapshot']>
-        try {
-          lib = await ensureStorage()
-          current = lib.loadSnapshot()
-        } catch (error) {
-          safeConsoleError('stage-rollover-reload-failed', error)
-          return { ok: false, reason: 'write-failed', message: '无法读取当前阶段状态' }
-        }
-        if (
-          !current ||
-          current.currentLiveStageId !== input.expectedCurrentStageId ||
-          current.scheduledStageRollover?.id !== input.expectedRolloverId
-        ) {
-          return { ok: false, reason: 'stale', message: '资料库中的阶段状态已经变化' }
-        }
-
-        const backupPath = createBackup(lib)
-        if (!backupPath) {
-          return { ok: false, reason: 'backup-failed', message: '无法创建重置前备份' }
-        }
-        let verification: Awaited<ReturnType<typeof verifyBackupAtPath>>
-        try {
-          verification = await verifyBackupAtPath(lib.getLibraryPath(), path.basename(backupPath))
-        } catch (error) {
-          safeConsoleError('stage-rollover-backup-verification-failed', error)
-          return { ok: false, reason: 'backup-failed', message: '重置前备份验证失败' }
-        }
-        if (verification.status !== 'verified') {
-          return {
-            ok: false,
-            reason: 'backup-failed',
-            message: verification.error ?? '重置前备份验证失败',
-          }
-        }
-
-        try {
-          assertValidPersistedSnapshot(input.snapshot, 'Stage rollover snapshot')
-        } catch (error) {
-          safeConsoleError('stage-rollover-candidate-validation-failed', error)
-          return { ok: false, reason: 'validation-failed', message: '阶段切换候选验证失败' }
-        }
-        try {
-          lib.saveSnapshot(input.snapshot)
-        } catch (error) {
-          safeConsoleError('stage-rollover-write-failed', error)
-          return { ok: false, reason: 'write-failed', message: '阶段切换写入失败' }
-        }
-        return { ok: true }
+      result = await commitDueStageRollover(input, {
+        runExclusive: (commit) => operationGate.runExclusive(commit),
+        loadStorage: () => ensureStorage(),
+        createBackup: (lib) => createBackup(lib as LibraryStorage),
+        verifyBackup: (lib, backupReference) => verifyBackupAtPath(
+          (lib as LibraryStorage).getLibraryPath(),
+          path.basename(backupReference),
+        ),
+        validateSnapshot: (snapshot) => {
+          assertValidPersistedSnapshot(snapshot, 'Stage rollover snapshot')
+        },
+        now: () => new Date(),
+        createStageId: () => randomUUID(),
+        reportError: (event, error) => safeConsoleError(event, error),
       })
     } catch (error) {
       safeConsoleError('stage-rollover-exclusive-commit-failed', error)

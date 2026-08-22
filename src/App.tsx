@@ -12,10 +12,14 @@ import {
 import { Suspense, lazy, useEffect, useRef, useState, useCallback } from 'react'
 import { useStore } from './store/useStore'
 import { useShortcutStore } from './store/shortcutStore'
-import { bootstrapStorage } from './storage'
-import { flushPersistNow, hasPendingChanges, pickPersisted, setPreFlushCallback } from './storage/persist'
+import {
+  bootstrapStorage,
+  getStorage,
+  isStorageHydrated,
+  publishDurableStoreRefresh,
+} from './storage'
+import { flushPersistNow, hasPendingChanges, setPreFlushCallback } from './storage/persist'
 import { flushNoteDraftsToStore, hasPendingNoteDrafts } from './storage/noteDrafts'
-import { isStorageHydrated } from './storage'
 import { flushStorageBeforeCutover } from './storage/cutover'
 import { shouldPreventAppUnload } from './storage/unloadGuard'
 import { isElectron } from './storage/runtime'
@@ -56,6 +60,7 @@ import { weekStartFor } from './data/weeklyReviews'
 import {
   createStageRolloverCheck,
   executeDueStageRollover,
+  reconcileCommittedStageRollover,
   STAGE_MANAGEMENT_OPEN_EVENT,
 } from './lib/stageRolloverCommit'
 import './App.css'
@@ -70,10 +75,7 @@ const checkDueStageRollover = createStageRolloverCheck(async () => {
       const now = new Date()
       return {
         state,
-        snapshot: pickPersisted(state, useShortcutStore.getState().bindings),
         currentTradingDayKey: getTradingDayKey(now, state.display.tradingDayStartHour),
-        now: now.toISOString(),
-        nextStageId: crypto.randomUUID(),
       }
     },
     flushBeforeCommit: async () => {
@@ -93,13 +95,16 @@ const checkDueStageRollover = createStageRolloverCheck(async () => {
         throw error
       }
     },
-    publish: (candidate) => {
-      useStore.setState({
-        liveStages: candidate.liveStages,
-        currentLiveStageId: candidate.currentLiveStageId,
-        scheduledStageRollover: null,
-      })
-    },
+    publish: (authoritative) => reconcileCommittedStageRollover(authoritative, {
+      reloadAuthoritativeSnapshot: () => getStorage().loadSnapshot(),
+      publishDurableSnapshot: async (snapshot, publish) => {
+        const { applySnapshotToStore } = await import('./lib/importExport')
+        publishDurableStoreRefresh(() => {
+          applySnapshotToStore(snapshot)
+          useStore.getState().publishCommittedStageRollover(publish)
+        })
+      },
+    }),
   })
   if (result.kind === 'committed') {
     toast('已安全切换到新的实盘阶段', { dedupeKey: 'stage-rollover-committed' })

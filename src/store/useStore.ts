@@ -84,6 +84,7 @@ import {
   type ScheduledStageRollover,
 } from '@/lib/liveStages'
 import { scheduleStageRollover } from '@/lib/stageRollover'
+import type { StageRolloverPublishState } from '@/types/journalBridge'
 
 export type LivePerformanceRestartPreview = {
   startTradingDayKey: string
@@ -515,6 +516,7 @@ interface State {
   scheduleLiveStageRollover: (currentTradingDayKey: string, now: string) => void
   cancelLiveStageRollover: () => void
   publishPostponedRollover: (scheduled: ScheduledStageRollover) => void
+  publishCommittedStageRollover: (publish: StageRolloverPublishState) => void
   setStatus: (id: string, status: TradeStatus) => SetTradeStatusResult
   requestTradeOpen: (id: string, returnFocus?: HTMLElement | null) => TradeOpenRequestResult
   cancelTradeOpen: () => void
@@ -867,6 +869,13 @@ export const useStore = create<State>()((set, get) => ({
       })),
       cancelLiveStageRollover: () => set({ scheduledStageRollover: null }),
       publishPostponedRollover: (scheduled) => set({ scheduledStageRollover: scheduled }),
+      publishCommittedStageRollover: (publish) => set({
+        liveStages: publish.liveStages,
+        currentLiveStageId: publish.currentLiveStageId,
+        scheduledStageRollover: publish.scheduledStageRollover,
+        liveStatsStartTradingDayKey: publish.liveStatsStartTradingDayKey,
+        livePerformanceCycles: publish.livePerformanceCycles,
+      }),
       upsertWeeklyReview: (review) =>
         set((state) => {
           const existing = state.weeklyReviews.find((item) =>

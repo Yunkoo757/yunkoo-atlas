@@ -22,12 +22,17 @@ import { normalizeQuickNotes } from '@/data/quickNotes'
 import { assertValidLiveStageState } from '@/lib/liveStages'
 import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
 import {
+  createPersistedSnapshotCoordinator,
+  type PersistedSnapshotCoordinator,
+} from '@/storage/persistedSnapshotCoordinator'
+import {
   getWebWriteGuardState,
   initializeWebWriterOwnership,
 } from '@/storage/webWriteGuard'
 
 let hydrated = false
 let bootstrapPromise: Promise<void> | null = null
+let persistedSnapshotCoordinator: PersistedSnapshotCoordinator | null = null
 
 /**
  * Zustand 内的持久化字段均采用不可变更新；引用未变化代表无需重写全量快照。
@@ -42,6 +47,12 @@ export function haveSamePersistedReferences(
 
 export function isStorageHydrated(): boolean {
   return hydrated
+}
+
+/** 在完整权威快照刷新期间抑制订阅回写，并把刷新后的 Store 设为新耐久基线。 */
+export function publishDurableStoreRefresh(publish: () => void): void {
+  if (persistedSnapshotCoordinator) persistedSnapshotCoordinator.publishDurable(publish)
+  else publish()
 }
 
 async function runBootstrapStorage(): Promise<void> {
@@ -117,22 +128,25 @@ async function runBootstrapStorage(): Promise<void> {
   // 启动后保持 idle，避免顶栏立刻插入「已保存」把视图按钮挤一下
   useSaveStatus.getState().reset()
 
-  let lastPersisted = pickPersisted(useStore.getState(), useShortcutStore.getState().bindings)
+  const capturePersisted = () => pickPersisted(useStore.getState(), useShortcutStore.getState().bindings)
+  const initialPersisted = capturePersisted()
+  const coordinator = createPersistedSnapshotCoordinator(initialPersisted, {
+    capture: capturePersisted,
+    schedule: schedulePersist,
+  })
+  persistedSnapshotCoordinator = coordinator
   useStore.subscribe((state) => {
     if (!hydrated) return
     const nextPersisted = pickPersisted(state, useShortcutStore.getState().bindings)
-    if (haveSamePersistedReferences(lastPersisted, nextPersisted)) return
-    lastPersisted = nextPersisted
-    schedulePersist(nextPersisted)
+    coordinator.observe(nextPersisted)
   })
 
   useShortcutStore.subscribe((state, prev) => {
     if (!hydrated) return
     if (state.bindings === prev.bindings) return
-    lastPersisted = pickPersisted(useStore.getState(), state.bindings)
-    schedulePersist(lastPersisted)
+    coordinator.observe(pickPersisted(useStore.getState(), state.bindings))
   })
-  if (reconciledWindowHotkeyConflict) schedulePersist(lastPersisted)
+  if (reconciledWindowHotkeyConflict) schedulePersist(capturePersisted())
 }
 
 export function bootstrapStorage(): Promise<void> {

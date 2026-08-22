@@ -5,6 +5,8 @@ import type { WindowSizePresetId } from '@/lib/windowBounds'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import type { PhysicalAssetRecord } from '@/storage/adapter'
 import type { AssetPurgePreview, AssetPurgeRecovery, AssetPurgeResult } from '@/storage/adapter'
+import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
+import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
 
 export interface BackupInfo {
   name: string
@@ -32,12 +34,20 @@ export type BackupRestoreResult =
 
 export interface StageRolloverCommitInput {
   expectedCurrentStageId: string
-  expectedRolloverId: string
-  snapshot: PersistedSnapshot
+  expectedRollover: ScheduledStageRollover
+}
+
+/** 主进程完成耐久写入后，renderer 唯一允许发布的安全阶段视图。 */
+export interface StageRolloverPublishState {
+  liveStages: LiveStage[]
+  currentLiveStageId: string
+  scheduledStageRollover: null
+  liveStatsStartTradingDayKey: string
+  livePerformanceCycles: LivePerformanceCycle[]
 }
 
 export type StageRolloverCommitResult =
-  | { ok: true }
+  | { ok: true; publish: StageRolloverPublishState }
   | {
       ok: false
       reason: 'stale' | 'backup-failed' | 'validation-failed' | 'write-failed'
