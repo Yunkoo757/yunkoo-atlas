@@ -81,7 +81,7 @@ export function buildStagePerformanceProjection(options: {
   legacyCashCurrencyAssumption: LegacyCashCurrencyAssumption | null
 }) {
   const records = options.stageScope
-    ? filterStageOwnedRecords(options.trades, options.stageScope)
+    ? filterStageTrades(options.trades, options.stageScope)
     : [...options.trades]
   const selection = buildPerformanceSelection(records, {
     scope: options.analysisScope,

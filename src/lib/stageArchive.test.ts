@@ -1,4 +1,4 @@
-import type { Trade } from '@/data/trades'
+import type { LiveTrade, PaperTrade, Trade } from '@/data/trades'
 import {
   buildStageArchiveOverview,
   buildStageArchiveSummary,
@@ -13,7 +13,7 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-function liveTrade(id: string, liveStageId: string | null): Trade {
+function liveTrade(id: string, liveStageId: string | null): LiveTrade {
   return {
     id,
     ref: `TRD-${id}`,
@@ -40,6 +40,11 @@ function liveTrade(id: string, liveStageId: string | null): Trade {
     closedTradingDayKey: '2026-01-10',
     note: '',
   }
+}
+
+function paperTrade(id: string): PaperTrade {
+  const { liveStageId: _liveStageId, ...base } = liveTrade(id, 'stage-current')
+  return { ...base, tradeKind: 'paper' }
 }
 
 const stages: LiveStage[] = [
@@ -184,6 +189,33 @@ export function testStageArchiveOverviewUsesUsdCoverageWithoutAddingUnlikeCurren
   assert(overview.performance.excludedCurrencyCounts[0]?.currency === 'CNY', '必须明确报告排除的 CNY')
   assert(overview.performance.excludedUnknownCount === 1, '必须明确报告一个未知币种')
   assert(overview.strategyStats[0]?.totalPnl === 100, '策略 breakdown 也不得合并不同币种')
+}
+
+export function testStageArchiveIntegrityExcludesPaperCloseDayDefects(): void {
+  const selectedLive = liveTrade('selected-live', 'stage-old')
+  const paperBase = paperTrade('paper-base')
+  const overview = buildStageArchiveOverview({
+    trades: [
+      selectedLive,
+      { ...paperBase, id: 'paper-missing', closedAt: null, closedTradingDayKey: undefined },
+      { ...paperBase, id: 'paper-invalid', closedTradingDayKey: 'not-a-day' },
+      { ...paperBase, id: 'paper-future', closedTradingDayKey: '2099-01-01' },
+    ],
+    strategies: [{ id: 'strategy', name: '策略', icon: 'target', color: '#5e6ad2' }],
+    stageScope: { kind: 'stage', stageId: 'stage-old' },
+    anchor,
+    legacyCashCurrencyAssumption: null,
+  })
+
+  const integrityIds = JSON.stringify({
+    missing: overview.performance.missingCloseDayIds,
+    invalid: overview.performance.invalidCloseDayIds,
+    future: overview.performance.futureCloseDayIds,
+  })
+  assert(
+    integrityIds === '{"missing":[],"invalid":[],"future":[]}',
+    `历史 stage 完整性不得包含 paper 的缺少、无效、未来平仓日：${integrityIds}`,
+  )
 }
 
 export function testPaperStrategyPreviewKeepsCurrentStageScope(): void {

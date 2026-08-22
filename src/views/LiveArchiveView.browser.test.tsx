@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import type { Trade } from '@/data/trades'
+import type { PaperTrade, Trade } from '@/data/trades'
 import type { LiveStage } from '@/lib/liveStages'
 import { useStore } from '@/store/useStore'
 import { LiveArchiveView } from '@/views/LiveArchiveView'
@@ -69,6 +69,13 @@ function trade(id: string, day: string, patch: Partial<Trade> = {}): Trade {
   }
 }
 
+function paperTrade(id: string, day: string, patch: Partial<PaperTrade> = {}): PaperTrade {
+  const base = trade(id, day)
+  if (base.tradeKind !== 'live') throw new Error('paper fixture base must be live')
+  const { liveStageId: _liveStageId, tradeKind: _tradeKind, ...fields } = base
+  return { ...fields, ...patch, tradeKind: 'paper' }
+}
+
 function WorkbenchRoutes() {
   return (
     <Routes>
@@ -95,6 +102,14 @@ async function run() {
   const historicalCny = trade('historical-cny', '2026-08-17', { liveStageId: 'stage-2', pnl: 700, cashCurrency: 'CNY' })
   const historicalUnknown = trade('historical-unknown', '2026-08-18', { liveStageId: 'stage-2', pnl: 50, cashCurrency: undefined })
   const current = trade('current', '2026-02-15')
+  const paperMissingCloseDay = paperTrade('paper-missing-close-day', '2026-08-18', {
+    closedAt: null,
+    closedTradingDayKey: undefined,
+  })
+  const paperInvalidCloseDay = paperTrade('paper-invalid-close-day', '2026-08-18', {
+    closedTradingDayKey: 'not-a-day',
+  })
+  const paperFutureCloseDay = paperTrade('paper-future-close-day', '2099-01-01')
   const frozenReview = {
     ...createWeeklyReview('2026-01-12', 'stage-2'),
     status: 'completed' as const,
@@ -195,6 +210,9 @@ async function run() {
         historicalCny,
         historicalUnknown,
         current,
+        paperMissingCloseDay,
+        paperInvalidCloseDay,
+        paperFutureCloseDay,
         trade('case-mistake', '2026-01-15', {
           ref: 'CAS-MISTAKE',
           tradeKind: 'case',
@@ -298,6 +316,7 @@ async function run() {
     assert(document.body.textContent?.includes('USD 覆盖 2/4 笔'), '历史 overview 必须展示 USD 覆盖率')
     assert(document.body.textContent?.includes('CNY 1 笔') && document.body.textContent?.includes('未知币种 1 笔'), '历史 overview 必须列出被排除币种且不得相加')
     assert(document.querySelector('[data-archive-strategy-id="strategy"]')?.textContent?.includes('$0'), '历史 overview 必须展示 stage 内策略拆分')
+    assert(!document.querySelector('[data-archive-close-day-health]'), '外部 paper 的缺少、无效、未来平仓日不得污染所选历史 stage 完整性')
     useStore.setState((state) => ({
       trades: state.trades.map((item) => item.id === historicalLoss.id ? { ...item, pnl: -300 } : item),
     }))

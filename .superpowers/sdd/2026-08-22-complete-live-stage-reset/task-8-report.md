@@ -9,6 +9,15 @@
 
 ## RED / GREEN
 
+### Fix Round 2（paper 完整性污染）
+
+按 `task-8-fix-2-brief.md` 建立 canonical paper 夹具（不含 `liveStageId`），先复现再修改实现：
+
+1. `stageArchive.test.ts` RED 同时捕获所选归档 stage 外的 `paper-missing`、`paper-invalid`、`paper-future`，实际三组完整性数组分别泄漏对应 ID。
+2. `LiveArchiveView.browser.test.tsx` RED 在所选 stage 的 live 记录日期均有效时，仍因三个外部 paper 记录错误显示 `data-archive-close-day-health` 警告。
+3. 最小 GREEN：`buildStagePerformanceProjection` 在进入表现/完整性选择器前使用 `filterStageTrades` 建立 live-only stage 集合；其他继续使用 `filterStageOwnedRecords` 的 paper 工作区消费者不变。
+4. GREEN 后 `missingCloseDayIds`、`invalidCloseDayIds`、`futureCloseDayIds` 均为空，归档 overview 不再显示外部 paper 导致的日期完整性警告。
+
 ### Fix Round 1（独立审查）
 
 按 `task-8-fix-1-brief.md` 逐项先补回归再修改实现：
@@ -102,6 +111,7 @@ GREEN 后覆盖：
 - Dashboard、历史 archive/mode hierarchy、Today、Sidebar、missed、策略导航浏览器夹具。
 - 独立 DashboardScope 重新覆盖 mixed/unknown currency、空状态入口、Dashboard 详情返回、Dashboard/List 集合、YTD/非法 period 与标题层级；没有恢复 legacy 周期成员路由。
 - 历史页覆盖 live/case board 详情返回、USD 覆盖/排除、隐私 weekly snapshot、stage 策略拆分和四类风险实体。
+- 历史 overview 增加 canonical paper 的 missing/invalid/future 平仓日污染回归，同时断言三组完整性数组与真实警告 UI。
 - TradeCloseDialog 与 store ownership 覆盖日期编辑一次提交并保持原 `liveStageId`；workbench 覆盖 current-empty/history-present 的双计数语义。
 - 旧 LiveCycle history/dashboard/navigation 测试改为验证显式 stage 合同及旧字段不影响投影。
 - workspace facet / regression 的旧周期断言改为 current stage 断言。
@@ -123,7 +133,7 @@ GREEN 后覆盖：
 
 命令：`node scripts/run-regression-tests.mjs --unit-only`
 
-结果：`1331 PASS / 0 FAIL`。
+结果：`1332 PASS / 0 FAIL`。
 
 ### 类型检查
 
@@ -136,6 +146,8 @@ GREEN 后覆盖：
 归档 375×812、768×900、1280×900、1920×1080；Dashboard 960×640、1440×900、1920×1080；另含 archive hierarchy、Sidebar Today、Today primary、Today review/detail return。
 
 Fix Round 受影响矩阵：archive、Dashboard、LiveCycle history、TradeClose、strategy truth/navigation 与 TradeList 四个桌面 viewport，全部通过。
+
+Fix Round 2 归档受影响矩阵：默认、375×812、768×900、1280×900、1920×1080，`5 PASS / 0 FAIL`。
 
 直接受影响的旧周期/导航/missed/weekly 六组复跑：`6 PASS / 0 FAIL`。Sidebar 三组复跑：`3 PASS / 0 FAIL`。
 
@@ -156,6 +168,7 @@ Task 8 相关 browser 无新增失败。
 - Fix Round 对 `StrategyHeader`、`StrategiesPanel`、`TradeList`、历史页、workbench、Detail/CloseDialog 检索 `resolveLiveRoute`、`filterLiveLogRecords`、`resolveLiveArchiveScope`、`resolveLiveRecordBucket`、`livePerformanceCycles`、`liveStatsStartTradingDayKey`：无运行时归属依赖。
 - `TradeList` 不在叶组件读取路由；由 workbench hook 显式传递 stage，paper/独立组件缺省都限定 current stage，避免策略统计扩大到全部实盘。
 - 历史 overview/weekly/risk 所有现金均走 `fmtMoney(..., privacyMode)`；跨币种只展示覆盖与排除，不生成伪总数。
+- 历史表现与日期完整性在选择器前先收窄为所选 stage 的 live 集合；外部 paper 不会进入 missing/invalid/future 任一数组，paper 工作区过滤语义未改变。
 - requesting-code-review 提交前复核只检查本 Fix Round 范围；发现的 Board 计数、paper 策略投影、历史 board 来源文案与跨 stage 提示四项均已补回归并修复；CAS/WebStorage 两项按 brief 保持 deferred，未越界修改。
 - 对当前/历史消费者检索日期与旧周期依赖：stage resolver、workbench hook、Today、missed、Dashboard、历史页均无日期归属逻辑。
 - `Sidebar` 运行时已停止订阅 `liveStatsStartTradingDayKey` / `livePerformanceCycles`；保存视图 helper 与 workbench options 仍保留兼容类型/旧 URL 清理能力，未参与任何 stage 投影，留待 Task 12 删除。
@@ -165,4 +178,4 @@ Task 8 相关 browser 无新增失败。
 
 ## 短状态合同
 
-完成：四种 stage 投影唯一化；strategy/current/history membership 只认 stage；日期编辑保持归属；历史 overview 使用统一 USD/完整性/策略口径，weekly 冻结且隐私安全，risk 可浏览实体；live/case board 返回保留现场；Dashboard 独立回归恢复；完整 unit/typecheck 绿，full browser 仅保留两项已登记红。
+完成：四种 stage 投影唯一化；strategy/current/history membership 只认 stage；日期编辑保持归属；历史 overview 使用 live-only stage 的统一 USD/完整性/策略口径，外部 paper 不污染日期警告，weekly 冻结且隐私安全，risk 可浏览实体；live/case board 返回保留现场；Dashboard 独立回归恢复；完整 unit/typecheck 绿，full browser 仅保留两项已登记红。
