@@ -111,7 +111,7 @@ interface ScheduledStageRollover {
 
 ### 5.3 显式阶段归属
 
-以下实体新增 `liveStageId`：
+以下实体新增 `liveStageId: string | null`：
 
 - `Trade` 中的实盘交易和错过机会。
 - `Trade` 中的案例。
@@ -128,6 +128,7 @@ interface ScheduledStageRollover {
 - 独立创建的案例使用创建时的当前阶段 ID。
 - 新建周复盘和风险实体使用当前阶段 ID。
 - 模拟盘不写入实盘阶段 ID。
+- 新建或正常编辑产生的阶段化实体不得写入 `null`；`null` 只表示旧版迁移无法可靠归属的待整理数据。
 - 阶段 ID 不随开仓日、平仓日、记录时间或复盘时间的编辑而变化。
 
 ### 5.4 资料库级状态
@@ -146,7 +147,8 @@ interface PersistedSnapshot {
 
 - `currentLiveStageId` 指向存在且状态为 `current` 的阶段。
 - 阶段序号、ID 和名称满足唯一性要求。
-- 所有阶段化实体都指向存在的阶段。
+- 所有非 `null` 的实体阶段 ID 都指向存在的阶段。
+- `null` 阶段 ID 只允许出现在旧版迁移生成的待整理实体中。
 - 不允许多个当前阶段或没有当前阶段。
 
 ## 6. 数据范围
