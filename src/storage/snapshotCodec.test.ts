@@ -153,6 +153,40 @@ export function testVersionElevenSnapshotMigratesToCanonicalStageOwnership(): vo
   assert(decoded.weeklyReviews[0]?.liveStageId === 'codec-stage-2', 'v11 周复盘必须按 weekStart 归属')
 }
 
+export function testVersionElevenCodecDisambiguatesNormalizedStageNames(): void {
+  const legacy = structuredClone(createFullPersistedSnapshotFixture()) as unknown as Record<string, unknown>
+  delete legacy.liveStages
+  delete legacy.currentLiveStageId
+  delete legacy.scheduledStageRollover
+  legacy.livePerformanceCycles = [
+    { id: 'nfkc-first', name: 'Ａｌｐｈａ', startTradingDayKey: '2026-06-01', createdAt: '2026-06-01T00:00:00.000Z' },
+    { id: 'suffix', name: 'alpha (2)', startTradingDayKey: '2026-06-08', createdAt: '2026-06-08T00:00:00.000Z' },
+    { id: 'trim', name: '  alpha  ', startTradingDayKey: '2026-06-15', createdAt: '2026-06-15T00:00:00.000Z' },
+    { id: 'case', name: 'Alpha', startTradingDayKey: '2026-06-22', createdAt: '2026-06-22T00:00:00.000Z' },
+  ]
+
+  const decoded = decodeCanonicalSnapshot(legacy, {
+    version: 11,
+    stageMigration: {
+      now: '2026-08-22T00:00:00.000Z',
+      currentTradingDayKey: '2026-08-22',
+      idFactory: (sequence) => `codec-collision-stage-${sequence}`,
+    },
+  })
+
+  assert(
+    decoded.liveStages.map((stage) => stage.name).join('|') ===
+      'Ａｌｐｈａ|alpha (2)|alpha (3)|Alpha (4)',
+    'v11 canonical codec 必须在 v12 严格校验前稳定消歧 NFKC/trim/case 名称',
+  )
+  assert(
+    decoded.liveStages.map((stage) => stage.id).join(',') ===
+      'codec-collision-stage-1,codec-collision-stage-2,codec-collision-stage-3,codec-collision-stage-4' &&
+      decoded.currentLiveStageId === 'codec-collision-stage-4',
+    'codec 名称消歧不得改变确定性 ID、顺序或当前指针',
+  )
+}
+
 export function testVersionSixTradeWithoutKindNormalizesToPaperBeforeStageOwnership(): void {
   const fixture = createFullPersistedSnapshotFixture()
   const sourceTrade = fixture.trades[0]! as typeof fixture.trades[number] & { liveStageId?: unknown }

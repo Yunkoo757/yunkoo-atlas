@@ -5,11 +5,21 @@
 - 状态：完成。
 - 基线：`b3dd86c`。
 - Fix Round 1 基线：`cea8627`；独立审查的 3 个 Major 与 1 个 Minor 已全部修复。
+- Fix Round 2 基线：`8510119`；legacy v11→v12 归一化名称碰撞已在迁移层稳定消歧，native v12 仍严格拒绝。
 - 平台范围：Windows / macOS 桌面客户端；新界面只验证 960、1280、1920 桌面宽度，没有新增 mobile、iPad 或浏览器产品分支。
 - 用户入口：仪表盘阶段操作与“设置 → 数据 → 实盘阶段”统一为“开启新实盘阶段”。
 - 调度真相：预约日期、到期检查、阻断、顺延和耐久提交继续由 Task 4/5 的 `stageRollover` / `stageRolloverCommit` / Store / persistence 链路负责；UI 没有另建日期或 rollover 真相。
 
 ## RED / GREEN 证据
+
+### Fix Round 2：legacy v11 名称兼容
+
+- RED 1：合法 v11 周期包含 NFKC、trim、case 归一化重名时，`migrateLegacyStageSnapshot` 在最终 v12 中央校验抛出“阶段名称必须唯一”，导致旧库、codec 和 import 无法打开。
+- GREEN 1：仅在 `migrateLegacyStageSnapshot` 的阶段定义构建中运行稳定消歧。每个 normalized key 的首个显示名逐字保留；后续冲突以 trim 后的原名为基底追加 ` (2)`、` (3)` 等后缀。
+- RED 2：若归一化冲突项先于合法 legacy 名 `alpha (2)` 出现，单纯按已处理名称探测会提前占用 `(2)`，迫使原本唯一的 suffix 名改成不稳定的 `alpha (2) (2)`。
+- GREEN 2：命名器预留全部 legacy 原始 normalized key，再为冲突项探测候选；因此未来才出现的既有 suffix 也不会被抢占。测试同时锁定自动“更早记录”、既有“更早记录 (2)”、NFKC 全角字母、首尾空格、大小写以及连续 suffix 跳号。
+- 不变量：消歧只改迁移产物的 `LiveStage.name`；ID、sequence/order、startsOn/endsOn、status、current pointer 及 trade/review/risk ownership 均不变。原生 v12 不经过此路径，中央 validator 与 JSON import 继续拒绝 normalized duplicate。
+- 执行边界：direct migration、canonical snapshot codec、Electron v11 schema migration + `LibraryStorage.open()`、legacy JSON backup import 均有真实回归；另有 native v12 JSON 明确拒绝合同。
 
 ### Fix Round 1：独立审查修复
 
@@ -79,6 +89,7 @@ Fix Round 聚焦 unit 首轮准确得到 4 个预期失败：case blocker、离�
 - 已有预约禁用确认按钮并显示取消入口；Store 的单预约合同继续防止直接重复调用覆盖。
 - current/history 阶段均可改名；Store/快照回归锁定日期、序号、状态、指针、schedule 和实体 ownership 不变。
 - 名称唯一键由中央 `normalizeLiveStageName` 定义；Store、validator、Manager 和自动默认名共同使用，不存在 UI/导入两套归一化规则。
+- legacy v11→v12 迁移复用同一 `normalizeLiveStageName`，只在旧周期投影成 v12 stage 时消歧；native v12 validator 不做修复或静默改名。
 
 ## 文件
 
@@ -100,6 +111,7 @@ Fix Round 聚焦 unit 首轮准确得到 4 个预期失败：case blocker、离�
 - `src/lib/stageRollover.ts/.test.ts`
 - `src/store/useStore.ts`
 - `src/store/liveStageOwnership.test.ts`
+- Fix Round 2：`src/lib/stageMigration.ts/.test.ts`，以及 `snapshotCodec`、Electron schema/open、JSON import 的边界测试。
 - 直接受影响的 Dashboard、Data Settings、archive copy、lifecycle、typography 与 QA 契约测试。
 
 ## 实际验证输出
@@ -108,6 +120,7 @@ Fix Round 聚焦 unit 首轮准确得到 4 个预期失败：case blocker、离�
 
 - `node scripts/run-regression-tests.mjs --unit-only src/lib/stageRollover.test.ts src/store/liveStageOwnership.test.ts`：`24 PASS / 0 FAIL`。
 - Fix Round 最终命令：`node scripts/run-regression-tests.mjs --unit-only src/lib/stageRollover.test.ts src/lib/stageRolloverCommit.test.ts src/lib/liveStages.test.ts src/store/liveStageOwnership.test.ts src/storage/snapshotValidation.test.ts src/storage/snapshotCodec.test.ts`：全部通过。
+- Fix Round 2 聚焦命令：`node scripts/run-regression-tests.mjs --unit-only src/lib/stageMigration.test.ts src/storage/snapshotCodec.test.ts electron/library/schemaMigration.test.ts src/lib/importExportAssets.test.ts`：direct/codec/Electron open/JSON import 全部通过。
 - `node scripts/run-browser-tests.mjs . vite.config.ts` 的新组件 requested IDs：Manager/Banner 默认流程全部通过。
 - 新组件桌面矩阵：默认、960×900、1280×900、1920×1080，共 `8 PASS / 0 FAIL`。
 - Fix Round 的同一 `8 PASS / 0 FAIL` 矩阵包含 Manager 的真实 persistence success/busy/failure/rollback/conflict 路径，以及 Banner 的共享 live-only blocker/count 路径。
@@ -147,6 +160,7 @@ Fix Round 聚焦 unit 首轮准确得到 4 个预期失败：case blocker、离�
 - blocker mutation check：若 live-only 选择器重新接受 case，领域用例失败；若 Manager/Banner 自行分叉计数，两者现已直接消费同一选择器，类型与 browser 数量合同同时失效。
 - Manager persistence fixture 只替换最外层慢/故障 adapter，真实 controller、状态切换、snapshot capture、`flushPersistNow` 与组件回滚全部保留；断言面向保存快照、Store、busy/save status 与用户提示，不以 mock 调用本身充当成功证据。
 - 名称 mutation check：移除中央 normalized-name set 会同时击穿 stage、Store 与 snapshot validation；移除 UX 判别会击穿 Manager browser；默认名碰撞也有候选回归。
+- legacy migration mutation check：移除迁移消歧会在 direct test 重新触发中央 v12 唯一性失败；只检查已处理名称会击穿“suffix 出现在后方”的预留测试；若把消歧错误用于 native v12，JSON 严格拒绝测试会失败。
 - Banner 是 App shell 直接消费者，不依赖 Dashboard/settings 生命周期；跨路由测试已验证持续存在。
 - Banner 只展示状态，不设置禁用、inert 或 overlay；预约期间“新建交易”浏览器动作已实际执行。
 - duplicate schedule 同时由 UI disabled 与既有 Store 单预约合同保护；cancel/rename 都在耐久失败时恢复旧状态。
@@ -158,4 +172,4 @@ Fix Round 聚焦 unit 首轮准确得到 4 个预期失败：case blocker、离�
 
 ## 短状态合同
 
-完成：所有标准入口改为预约开启新实盘阶段；下周一、离线多周后的顺延和提交复用 Task 4/5 当前日真相；只有当前 stage 的真实 live 计划/持仓可阻断，Manager/Banner 共用同一选择器；全局持久 banner 不锁正常工作；Manager 的真实写盘/忙碌/失败/回滚/conflict 边界有桌面矩阵覆盖；阶段名中央归一化唯一且默认名安全避碰；旧 reset/date-picker 正常入口已移除；完整 unit/design/type 绿，完整 browser 仅保留两项已登记 deferred 红。
+完成：所有标准入口改为预约开启新实盘阶段；下周一、离线多周后的顺延和提交复用 Task 4/5 当前日真相；只有当前 stage 的真实 live 计划/持仓可阻断，Manager/Banner 共用同一选择器；全局持久 banner 不锁正常工作；Manager 的真实写盘/忙碌/失败/回滚/conflict 边界有桌面矩阵覆盖；阶段名中央归一化唯一且默认名安全避碰；legacy v11 在迁移层稳定消歧并保留全部非名称边界，native v12 继续严格拒绝；旧 reset/date-picker 正常入口已移除；完整 unit/design/type 绿，完整 browser 仅保留两项已登记 deferred 红。

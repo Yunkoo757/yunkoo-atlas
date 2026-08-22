@@ -6,7 +6,7 @@ import {
   type LivePerformanceCycle,
 } from '@/lib/livePerformanceCycles'
 import type { LiveStage } from '@/lib/liveStages'
-import { assertValidLiveStageState } from '@/lib/liveStages'
+import { assertValidLiveStageState, normalizeLiveStageName } from '@/lib/liveStages'
 import { isExecutedClosed, isMissed } from '@/lib/tradeStatus'
 import { createBusinessDateAnchor } from '@/lib/periods'
 import type { PersistedSnapshot } from '@/storage/types'
@@ -104,6 +104,27 @@ function stageForDay(stages: readonly LiveStage[], day: string | null): LiveStag
   )) ?? null
 }
 
+function disambiguateLegacyStageNames<T extends { name: string }>(definitions: readonly T[]): T[] {
+  const reservedNames = new Set(definitions.map((definition) => normalizeLiveStageName(definition.name)))
+  const usedNames = new Set<string>()
+  return definitions.map((definition) => {
+    let name = definition.name
+    if (usedNames.has(normalizeLiveStageName(name))) {
+      const baseName = name.trim()
+      let suffix = 2
+      do {
+        name = `${baseName} (${suffix})`
+        suffix += 1
+      } while (
+        usedNames.has(normalizeLiveStageName(name)) ||
+        reservedNames.has(normalizeLiveStageName(name))
+      )
+    }
+    usedNames.add(normalizeLiveStageName(name))
+    return name === definition.name ? definition : { ...definition, name }
+  })
+}
+
 function buildStages(
   raw: LegacyStageSnapshot,
   options: LegacyStageMigrationOptions,
@@ -116,7 +137,7 @@ function buildStages(
   )
   const recordDays = collectReliableLegacyStageRecordDays(raw)
   const preCycleDays = recordDays.filter((day) => day < firstStart).sort()
-  const definitions = [
+  const definitions = disambiguateLegacyStageNames([
     ...(preCycleDays.length > 0 ? [{
       name: '更早记录',
       startsOn: preCycleDays[0]!,
@@ -133,7 +154,7 @@ function buildStages(
           startsOn: firstStart,
           createdAt: options.now,
         }]),
-  ]
+  ])
 
   const liveStages = definitions.map((definition, index): LiveStage => {
     const sequence = index + 1

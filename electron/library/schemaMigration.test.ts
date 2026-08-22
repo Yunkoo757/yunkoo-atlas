@@ -140,7 +140,10 @@ function stripV12StageFields(snapshot: Record<string, unknown>): void {
   }
 }
 
-async function createV11LibraryFixture(options: { withoutLegacyBoundary?: boolean } = {}): Promise<V8LibraryFixture> {
+async function createV11LibraryFixture(options: {
+  withoutLegacyBoundary?: boolean
+  normalizedNameCollisions?: boolean
+} = {}): Promise<V8LibraryFixture> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-schema-v11-'))
   const storage = new LibraryStorage(root)
   await storage.open()
@@ -157,6 +160,14 @@ async function createV11LibraryFixture(options: { withoutLegacyBoundary?: boolea
       const trade = (snapshot.trades as Array<Record<string, unknown>>)[0]!
       trade.closedAt = '2026-07-17'
       trade.closedTradingDayKey = '2026-07-17'
+    }
+    if (options.normalizedNameCollisions) {
+      snapshot.livePerformanceCycles = [
+        { id: 'nfkc-first', name: 'Ａｌｐｈａ', startTradingDayKey: '2026-06-01', createdAt: '2026-06-01T00:00:00.000Z' },
+        { id: 'suffix', name: 'alpha (2)', startTradingDayKey: '2026-06-08', createdAt: '2026-06-08T00:00:00.000Z' },
+        { id: 'trim', name: '  alpha  ', startTradingDayKey: '2026-06-15', createdAt: '2026-06-15T00:00:00.000Z' },
+        { id: 'case', name: 'Alpha', startTradingDayKey: '2026-06-22', createdAt: '2026-06-22T00:00:00.000Z' },
+      ]
     }
     db.run("INSERT INTO meta (key, value) VALUES ('snapshot', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(snapshot)])
     db.run("INSERT INTO meta (key, value) VALUES ('schemaVersion', '11') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
@@ -187,6 +198,35 @@ export async function testNormalV11OpenMigratesCanonicalStageOwnership(): Promis
     assert(
       migrated.trades[0]?.tradeKind === 'live' && migrated.trades[0].liveStageId === 'legacy-live-stage-1',
       'v11 实盘交易必须获得显式阶段归属',
+    )
+    storage.release()
+  } finally { fs.rmSync(library.path, { recursive: true, force: true }) }
+}
+
+export async function testV11OpenDisambiguatesNormalizedStageNamesBeforeV12Validation(): Promise<void> {
+  const library = await createV11LibraryFixture({ normalizedNameCollisions: true })
+  try {
+    const storage = new LibraryStorage(library.path, {
+      allowCreate: false,
+      now: () => new Date('2026-08-22T10:00:00.000Z'),
+    })
+    await storage.open()
+    const migrated = storage.loadSnapshot()!
+    assert(storage.readManifest().schemaVersion === 12, '归一化重名的合法 v11 库必须能完成 v12 schema/open')
+    assert(
+      migrated.liveStages.map((stage) => stage.name).join('|') ===
+        'Ａｌｐｈａ|alpha (2)|alpha (3)|Alpha (4)',
+      'Electron 打开 v11 库必须在 v12 校验前稳定消歧阶段名',
+    )
+    assert(
+      migrated.liveStages.map((stage) => stage.id).join(',') ===
+        'legacy-live-stage-1,legacy-live-stage-2,legacy-live-stage-3,legacy-live-stage-4' &&
+        migrated.currentLiveStageId === 'legacy-live-stage-4',
+      'Electron schema 迁移不得因名称消歧改变 ID、顺序或当前指针',
+    )
+    assert(
+      migrated.trades[0]?.tradeKind === 'live' && migrated.trades[0].liveStageId === 'legacy-live-stage-4',
+      'Electron schema 名称消歧不得改变实体归属',
     )
     storage.release()
   } finally { fs.rmSync(library.path, { recursive: true, force: true }) }

@@ -63,6 +63,63 @@ export function testV11CyclesBecomeStableV12Stages(): void {
   )
 }
 
+export function testV11StageMigrationDeterministicallyDisambiguatesNormalizedNames(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const migrated = migrateLegacyStageSnapshot(v11Snapshot({
+    trades: [{
+      ...fixture.trades[0]!,
+      id: 'pre-cycle-live',
+      closedAt: '2026-06-20',
+      closedTradingDayKey: '2026-06-20',
+    }],
+    livePerformanceCycles: [
+      { id: 'older-suffix', name: '更早记录 (2)', startTradingDayKey: '2026-07-01', createdAt: '2026-07-01T00:00:00.000Z' },
+      { id: 'older-collision', name: '  更早记录  ', startTradingDayKey: '2026-07-08', createdAt: '2026-07-08T00:00:00.000Z' },
+      { id: 'nfkc-first', name: 'Ａｌｐｈａ', startTradingDayKey: '2026-07-15', createdAt: '2026-07-15T00:00:00.000Z' },
+      { id: 'trim-collision', name: '  alpha  ', startTradingDayKey: '2026-07-22', createdAt: '2026-07-22T00:00:00.000Z' },
+      { id: 'alpha-suffix', name: 'alpha (2)', startTradingDayKey: '2026-07-29', createdAt: '2026-07-29T00:00:00.000Z' },
+      { id: 'case-collision', name: 'Alpha', startTradingDayKey: '2026-08-05', createdAt: '2026-08-05T00:00:00.000Z' },
+    ],
+  }), deterministicOptions)
+
+  assert(
+    migrated.liveStages.map((stage) => stage.name).join('|') ===
+      '更早记录|更早记录 (2)|更早记录 (3)|Ａｌｐｈａ|alpha (3)|alpha (2)|Alpha (4)',
+    'v11→v12 必须保留首个显示名，并为后续 NFKC/trim/case 碰撞预留全部 legacy 原名后稳定编号',
+  )
+  assert(
+    migrated.liveStages.map((stage) => stage.id).join(',') ===
+      'stage-1,stage-2,stage-3,stage-4,stage-5,stage-6,stage-7',
+    '名称消歧不得改变确定性阶段 ID 或顺序',
+  )
+  assert(
+    migrated.liveStages.map((stage) => stage.sequence).join(',') === '1,2,3,4,5,6,7' &&
+      migrated.currentLiveStageId === 'stage-7',
+    '名称消歧不得改变序号或当前阶段指针',
+  )
+  assert(
+    migrated.liveStages[0]?.startsOn === '2026-06-20' &&
+      migrated.liveStages[0]?.endsOn === '2026-06-30' &&
+      migrated.liveStages[0]?.status === 'archived' &&
+      migrated.liveStages[0]?.archivedAt === '2026-07-01T00:00:00.000Z' &&
+      migrated.liveStages.at(-1)?.startsOn === '2026-08-05' &&
+      migrated.liveStages.at(-1)?.status === 'current' &&
+      migrated.liveStages.at(-1)?.endsOn === null,
+    '名称消歧不得改变迁移得到的日期、归档时间或阶段状态',
+  )
+  assert(
+    migrated.trades[0]?.tradeKind === 'live' && migrated.trades[0].liveStageId === 'stage-1',
+    '名称消歧不得改变实体阶段归属',
+  )
+  assert(
+    migrated.weeklyRiskPreparations.every((item) => item.liveStageId === 'stage-7') &&
+      migrated.riskPolicyVersions.every((item) => item.liveStageId === 'stage-7') &&
+      migrated.monthlyRiskLimits.every((item) => item.liveStageId === 'stage-7') &&
+      migrated.riskOverrideEvents.every((item) => item.liveStageId === 'stage-7'),
+    '名称消歧不得改变风险实体统一归入当前阶段的迁移结果',
+  )
+}
+
 export function testUnreliableLegacyMembershipBecomesPending(): void {
   const migrated = migrateLegacyStageSnapshot(
     v11Snapshot({ trades: [liveTradeWithoutUsableDates()] }),

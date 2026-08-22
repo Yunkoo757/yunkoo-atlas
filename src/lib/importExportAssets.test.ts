@@ -615,6 +615,90 @@ export function testLegacyJsonImportUsesExplicitCurrentTradingDayForStageMigrati
   assert(parsed.data.liveStages?.[0]?.name === '更早记录', 'JSON import 必须分离历史记录')
 }
 
+export function testLegacyJsonImportDisambiguatesNormalizedStageNames(): void {
+  const legacy = structuredClone(createFullPersistedSnapshotFixture()) as unknown as Record<string, unknown>
+  delete legacy.liveStages
+  delete legacy.currentLiveStageId
+  delete legacy.scheduledStageRollover
+  legacy.livePerformanceCycles = [
+    { id: 'nfkc-first', name: 'Ａｌｐｈａ', startTradingDayKey: '2026-06-01', createdAt: '2026-06-01T00:00:00.000Z' },
+    { id: 'suffix', name: 'alpha (2)', startTradingDayKey: '2026-06-08', createdAt: '2026-06-08T00:00:00.000Z' },
+    { id: 'trim', name: '  alpha  ', startTradingDayKey: '2026-06-15', createdAt: '2026-06-15T00:00:00.000Z' },
+    { id: 'case', name: 'Alpha', startTradingDayKey: '2026-06-22', createdAt: '2026-06-22T00:00:00.000Z' },
+  ]
+  legacy.quickNotes = []
+  for (const trade of legacy.trades as Array<Record<string, unknown>>) {
+    delete trade.liveStageId
+    trade.note = ''
+    delete trade.sourceNoteHtml
+  }
+  for (const review of legacy.weeklyReviews as Array<Record<string, unknown>>) {
+    delete review.liveStageId
+    review.contentHtml = ''
+  }
+  for (const field of ['weeklyRiskPreparations', 'riskPolicyVersions', 'monthlyRiskLimits', 'riskOverrideEvents']) {
+    for (const entity of legacy[field] as Array<Record<string, unknown>>) delete entity.liveStageId
+  }
+
+  const parsed = parseImportJson(JSON.stringify({ version: 11, ...legacy }), {
+    now: '2026-08-22T10:00:00.000Z',
+    currentTradingDayKey: '2026-08-22',
+    idFactory: (sequence) => `json-collision-stage-${sequence}`,
+  })
+
+  assert(parsed.ok, '归一化重名但精确字符串不同的 v11 JSON 备份必须仍可导入')
+  if (!parsed.ok) return
+  assert(
+    parsed.data.liveStages?.map((stage) => stage.name).join('|') ===
+      'Ａｌｐｈａ|alpha (2)|alpha (3)|Alpha (4)',
+    'v11 JSON import 必须在 v12 校验前稳定消歧阶段名',
+  )
+  assert(
+    parsed.data.liveStages?.map((stage) => stage.id).join(',') ===
+      'json-collision-stage-1,json-collision-stage-2,json-collision-stage-3,json-collision-stage-4' &&
+      parsed.data.currentLiveStageId === 'json-collision-stage-4',
+    'JSON 名称消歧不得改变迁移 ID、顺序或当前指针',
+  )
+}
+
+export function testNativeV12JsonImportRejectsNormalizedDuplicateStageNames(): void {
+  const fixture = structuredClone(createFullPersistedSnapshotFixture())
+  fixture.quickNotes = []
+  for (const trade of fixture.trades) {
+    trade.note = ''
+    if (trade.tradeKind === 'case') trade.sourceNoteHtml = ''
+  }
+  for (const review of fixture.weeklyReviews ?? []) review.contentHtml = ''
+  const current = { ...fixture.liveStages[0]!, sequence: 2, name: 'Alpha 阶段' }
+  const archived = {
+    ...current,
+    id: 'native-v12-archived',
+    sequence: 1,
+    name: '历史阶段',
+    status: 'archived' as const,
+    startsOn: '2026-07-01',
+    endsOn: '2026-07-12',
+    createdAt: '2026-07-01T00:00:00.000Z',
+    archivedAt: '2026-07-13T00:00:00.000Z',
+  }
+  const valid = parseImportJson(JSON.stringify({
+    version: 12,
+    ...fixture,
+    liveStages: [archived, current],
+  }))
+  assert(valid.ok, 'v12 native JSON 拒绝测试的非名称字段必须先构成合法快照')
+
+  const duplicate = parseImportJson(JSON.stringify({
+    version: 12,
+    ...fixture,
+    liveStages: [{ ...archived, name: '  ＡＬＰＨＡ 阶段  ' }, current],
+  }))
+  assert(
+    !duplicate.ok && duplicate.code === 'json-contract-invalid',
+    'native v12 JSON 的 NFKC/trim/case 重名必须继续由中央合同明确拒绝，不能套用 legacy 消歧',
+  )
+}
+
 export async function testPathAWrongTypeMatrixRejectsEveryRegisteredField(): Promise<void> {
   const expected = createFullPersistedSnapshotFixture()
   const payload = await buildExportPayloadFromState(expected, async (id) => ({
