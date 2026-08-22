@@ -106,11 +106,106 @@
 }
 
 .review-session-intro p,
-.review-session-finished p {
+.review-session-finished p,
+.review-session-empty-selection p {
   margin: var(--sp-3) 0 0;
   color: var(--text-tertiary);
   font-size: var(--fs-sm);
   line-height: 1.7;
+}
+
+.review-session-stage-source-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.review-session-active-source {
+  margin: 0 0 var(--sp-3);
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+}
+
+.review-session-stage-source-filter > label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+}
+
+.review-session-stage-source-select {
+  width: 270px;
+}
+
+.review-session-stage-source-select .ui-select-trigger {
+  min-height: 32px;
+}
+
+.review-session-stage-options {
+  display: grid;
+  max-height: 228px;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 0;
+}
+
+.review-session-stage-options legend {
+  width: 100%;
+  margin-bottom: 7px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+}
+
+.review-session-stage-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+  background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+  cursor: pointer;
+}
+
+.review-session-stage-option:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+
+.review-session-stage-option input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.review-session-stage-option > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.review-session-stage-option strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-session-stage-option small,
+.review-session-stage-options p {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
 }
 
 .review-session-settings-sources {
@@ -238,6 +333,11 @@
 .review-session-start-footer strong { font-size: var(--fs-sm); }
 .review-session-start-footer span { color: var(--text-tertiary); font-size: var(--fs-xs); }
 
+.review-session-start-footer .review-session-stage-source-summary {
+  margin-top: var(--sp-1);
+  color: var(--text-secondary);
+}
+
 .review-session-start-actions {
   display: flex;
   align-items: center;
@@ -301,6 +401,15 @@
   font-size: var(--fs-xs);
   font-variant-numeric: var(--numeric-tabular);
   font-feature-settings: "tnum" 1, "kern" 1;
+  white-space: nowrap;
+}
+
+.review-session-origin {
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -572,6 +681,26 @@ button.review-session-gallery-slot.is-ready {
   text-align: center;
 }
 
+.review-session-empty-selection {
+  display: flex;
+  width: min(560px, calc(100% - 40px));
+  margin: auto;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: 42px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-14);
+  background: var(--bg-elevated);
+}
+
+.review-session-empty-selection h1 {
+  margin: 0;
+  font-size: var(--type-page-title-size);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--type-page-title-line-height);
+}
+
 .review-session-finished-icon {
   display: grid;
   width: 50px;
@@ -613,6 +742,7 @@ button.review-session-gallery-slot.is-ready {
 
 @media (max-width: 1024px) {
   .review-session-summary { flex-wrap: wrap; }
+  .review-session-item-primary { flex-wrap: wrap; }
   .review-session-assessment { align-items: flex-start; flex-direction: column; gap: 10px; }
   .review-session-assessment-actions { width: 100%; }
   .review-session-assessment-actions button { flex: 1; }

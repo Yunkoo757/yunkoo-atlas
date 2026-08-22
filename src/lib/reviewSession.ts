@@ -9,6 +9,18 @@ import {
   type ReviewCaseScope,
 } from '@/lib/reviewCaseScope'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
+import type { LiveStage } from '@/lib/liveStages'
+
+export type ReviewStageSource =
+  | 'current-and-history'
+  | 'current'
+  | 'all-history'
+  | { stageIds: string[] }
+
+export type ReviewStageContext = {
+  liveStages: readonly LiveStage[]
+  currentLiveStageId: string
+}
 
 export type ReviewSessionFilters = {
   includeCases: boolean
@@ -16,12 +28,14 @@ export type ReviewSessionFilters = {
   caseScope: ReviewCaseScope
   requireContent: boolean
   reviewTiming: ReviewTiming
+  stageSource: ReviewStageSource
 }
 
 export type ReviewTiming = 'due' | 'all'
 
-type StoredReviewSessionFilters = Omit<ReviewSessionFilters, 'reviewTiming'> & {
+type StoredReviewSessionFilters = Omit<ReviewSessionFilters, 'reviewTiming' | 'stageSource'> & {
   reviewTiming?: ReviewTiming
+  stageSource?: ReviewStageSource
 }
 
 type StoredReviewSessionSnapshot = Omit<ReviewSessionSnapshot, 'filters'> & {
@@ -109,6 +123,21 @@ export const DEFAULT_REVIEW_SESSION_FILTERS: ReviewSessionFilters = {
   caseScope: 'all',
   requireContent: false,
   reviewTiming: 'due',
+  stageSource: 'current-and-history',
+}
+
+export function normalizeReviewStageSource(
+  stageSource: ReviewStageSource,
+  liveStages: readonly LiveStage[],
+): ReviewStageSource {
+  if (typeof stageSource === 'string') return stageSource
+  const selected = new Set(stageSource.stageIds)
+  return {
+    stageIds: [...liveStages]
+      .sort((left, right) => left.sequence - right.sequence || left.id.localeCompare(right.id))
+      .filter((stage) => selected.has(stage.id))
+      .map((stage) => stage.id),
+  }
 }
 
 export function reviewFiltersForNextRound(
@@ -155,9 +184,26 @@ export function buildReviewSessionPool(
   starredIds: ReadonlySet<string>,
   currentTradingDayKey: string,
   tradingDayStartHour: number,
+  stageContext: ReviewStageContext,
 ): Trade[] {
+  const stageSource = normalizeReviewStageSource(
+    filters.stageSource ?? DEFAULT_REVIEW_SESSION_FILTERS.stageSource,
+    stageContext.liveStages,
+  )
+  const stageById = new Map(stageContext.liveStages.map((stage) => [stage.id, stage]))
   return trades.filter((trade) => {
     if (trade.deletedAt) return false
+    if (trade.tradeKind !== 'paper') {
+      const stage = typeof trade.liveStageId === 'string'
+        ? stageById.get(trade.liveStageId)
+        : undefined
+      if (!stage) return false
+      if (stageSource === 'current' && stage.id !== stageContext.currentLiveStageId) return false
+      if (stageSource === 'all-history' && (
+        stage.status !== 'archived' || stage.id === stageContext.currentLiveStageId
+      )) return false
+      if (typeof stageSource === 'object' && !stageSource.stageIds.includes(stage.id)) return false
+    }
     const content = getReviewSessionContent(trade)
     if (filters.requireContent && !hasEffectiveReviewContent(content)) return false
     if (trade.tradeKind === 'case') {
@@ -245,18 +291,26 @@ export function reconcileReviewSession(
   starredIds: ReadonlySet<string>,
   currentTradingDayKey: string,
   tradingDayStartHour: number,
+  stageContext: ReviewStageContext,
 ): ReviewSessionSnapshot | null {
+  const stageSource = normalizeReviewStageSource(
+    snapshot.filters.stageSource ?? DEFAULT_REVIEW_SESSION_FILTERS.stageSource,
+    stageContext.liveStages,
+  )
   const eligibleIds = new Set(
     buildReviewSessionPool(
       trades,
-      snapshot.filters,
+      { ...snapshot.filters, stageSource: 'current-and-history' },
       starredIds,
       currentTradingDayKey,
       tradingDayStartHour,
+      stageContext,
     ).map((trade) => trade.id),
   )
   const ids = snapshot.ids.filter((id) => eligibleIds.has(id))
-  if (ids.length === 0) return null
+  if (ids.length === 0 && !(typeof stageSource === 'object' && stageSource.stageIds.length === 0)) {
+    return null
+  }
 
   const cursor = snapshot.cursor >= snapshot.ids.length
     ? ids.length
@@ -265,7 +319,7 @@ export function reconcileReviewSession(
   return {
     ids,
     cursor: Math.min(cursor, ids.length),
-    filters: snapshot.filters,
+    filters: { ...snapshot.filters, stageSource },
     assessments: Object.fromEntries(
       Object.entries(snapshot.assessments).filter(([id]) => eligibleIds.has(id)),
     ),
@@ -303,6 +357,7 @@ export function saveReviewSession(
         ...(snapshot.restoredLegacyReviewTiming
           ? {}
           : { reviewTiming: snapshot.filters.reviewTiming }),
+        stageSource: snapshot.filters.stageSource,
       },
       assessments: snapshot.assessments,
     }))
@@ -332,6 +387,7 @@ export function loadReviewSession(
       filters: {
         ...value.filters,
         reviewTiming: value.filters.reviewTiming ?? 'all',
+        stageSource: value.filters.stageSource ?? 'current-and-history',
       },
       ...(restoredLegacyReviewTiming ? { restoredLegacyReviewTiming: true } : {}),
     }
@@ -390,6 +446,18 @@ function isReviewSessionFilters(value: unknown): value is StoredReviewSessionFil
     typeof filters.includeAccountTrades === 'boolean' &&
     typeof filters.requireContent === 'boolean' &&
     (filters.reviewTiming === undefined || filters.reviewTiming === 'due' || filters.reviewTiming === 'all') &&
+    (filters.stageSource === undefined || isReviewStageSource(filters.stageSource)) &&
     REVIEW_SESSION_SCOPES.includes(filters.caseScope as ReviewCaseScope)
   )
+}
+
+function isReviewStageSource(value: unknown): value is ReviewStageSource {
+  if (
+    value === 'current-and-history' ||
+    value === 'current' ||
+    value === 'all-history'
+  ) return true
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const stageIds = (value as { stageIds?: unknown }).stageIds
+  return Array.isArray(stageIds) && stageIds.every((id) => typeof id === 'string' && id.length > 0)
 }

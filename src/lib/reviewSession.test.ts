@@ -19,7 +19,7 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
-const baseTrade: Trade = {
+const baseTrade: Extract<Trade, { tradeKind: 'live' }> = {
   id: 'live-1',
   ref: 'TRD-1',
   symbol: 'BTCUSDT',
@@ -40,10 +40,65 @@ const baseTrade: Trade = {
   openedAt: '2026-07-01',
   closedAt: '2026-07-02',
   note: '<p>等待确认后入场</p>',
+  liveStageId: 'stage-current',
 }
 
 const FIXED_TRADING_DAY_KEY = '2026-08-11'
 const FIXED_TRADING_DAY_START_HOUR = 6
+const REVIEW_STAGE_CONTEXT = {
+  liveStages: [
+    {
+      id: 'stage-oldest',
+      sequence: 1,
+      name: '早期实盘',
+      status: 'archived' as const,
+      startsOn: '2026-01-01',
+      endsOn: '2026-03-31',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      archivedAt: '2026-04-01T00:00:00.000Z',
+    },
+    {
+      id: 'stage-previous',
+      sequence: 2,
+      name: '突破训练',
+      status: 'archived' as const,
+      startsOn: '2026-04-01',
+      endsOn: '2026-07-31',
+      createdAt: '2026-04-01T00:00:00.000Z',
+      archivedAt: '2026-08-01T00:00:00.000Z',
+    },
+    {
+      id: 'stage-current',
+      sequence: 3,
+      name: '当前执行',
+      status: 'current' as const,
+      startsOn: '2026-08-01',
+      endsOn: null,
+      createdAt: '2026-08-01T00:00:00.000Z',
+      archivedAt: null,
+    },
+  ],
+  currentLiveStageId: 'stage-current',
+}
+
+function buildPool(
+  trades: readonly Trade[],
+  filterPatch: Record<string, unknown> = {},
+): Trade[] {
+  return buildReviewSessionPool(
+    trades,
+    { ...DEFAULT_REVIEW_SESSION_FILTERS, ...filterPatch },
+    new Set(),
+    FIXED_TRADING_DAY_KEY,
+    FIXED_TRADING_DAY_START_HOUR,
+    REVIEW_STAGE_CONTEXT,
+  )
+}
+
+function paperTrade(id: string): Trade {
+  const { liveStageId: _liveStageId, ...withoutStage } = baseTrade
+  return { ...withoutStage, id, ref: `PAPER-${id}`, tradeKind: 'paper' }
+}
 
 class MemoryStorage {
   private values = new Map<string, string>()
@@ -59,6 +114,76 @@ class MemoryStorage {
   removeItem(key: string): void {
     this.values.delete(key)
   }
+}
+
+export function testDefaultReviewPoolIncludesCurrentAndEveryHistoricalStageByOwnership(): void {
+  const trades: Trade[] = [
+    { ...baseTrade, id: 'oldest', ref: 'CAS-OLDEST', tradeKind: 'case', liveStageId: 'stage-oldest', openedAt: '2099-01-01' },
+    { ...baseTrade, id: 'previous', ref: 'CAS-PREVIOUS', tradeKind: 'case', liveStageId: 'stage-previous', openedAt: '1999-01-01' },
+    { ...baseTrade, id: 'current', ref: 'CAS-CURRENT', tradeKind: 'case', liveStageId: 'stage-current', openedAt: '2001-01-01' },
+    { ...baseTrade, id: 'pending-null', ref: 'CAS-NULL', tradeKind: 'case', liveStageId: null },
+    { ...baseTrade, id: 'pending-undefined', ref: 'CAS-UNDEFINED', tradeKind: 'case', liveStageId: undefined },
+    { ...baseTrade, id: 'unknown-stage', ref: 'CAS-UNKNOWN', tradeKind: 'case', liveStageId: 'stage-missing' },
+  ]
+
+  const pool = buildPool(trades)
+
+  assert(
+    pool.map((trade) => trade.id).join(',') === 'oldest,previous,current',
+    '默认阶段来源必须按实体归属覆盖当前及全部历史，并排除待整理或未知阶段；编辑日期不得改变成员关系',
+  )
+}
+
+export function testReviewStageSourcesSelectExactStageOwnedMembership(): void {
+  const trades: Trade[] = [
+    { ...baseTrade, id: 'oldest', ref: 'CAS-OLDEST', tradeKind: 'case', liveStageId: 'stage-oldest' },
+    { ...baseTrade, id: 'previous', ref: 'CAS-PREVIOUS', tradeKind: 'case', liveStageId: 'stage-previous' },
+    { ...baseTrade, id: 'current', ref: 'CAS-CURRENT', tradeKind: 'case', liveStageId: 'stage-current' },
+  ]
+
+  assert(
+    buildPool(trades, { stageSource: 'current' }).map((trade) => trade.id).join(',') === 'current',
+    '仅当前阶段必须只保留 currentLiveStageId 的实体',
+  )
+  assert(
+    buildPool(trades, { stageSource: 'all-history' }).map((trade) => trade.id).join(',') === 'oldest,previous',
+    '全部历史阶段必须排除当前阶段',
+  )
+  assert(
+    buildPool(trades, { stageSource: { stageIds: ['stage-current', 'stage-previous', 'stage-previous', 'missing'] } })
+      .map((trade) => trade.id).join(',') === 'previous,current',
+    '自选阶段必须去重、剔除缺失 ID，并按稳定阶段顺序选择精确成员',
+  )
+  assert(
+    buildPool(trades, { stageSource: { stageIds: [] } }).length === 0,
+    '空的自选阶段不得静默扩大到默认范围',
+  )
+}
+
+export function testStageSourceLeavesPaperChoiceIndependentAndPreservesEligibility(): void {
+  const trades: Trade[] = [
+    { ...baseTrade, id: 'eligible-history', ref: 'CAS-ELIGIBLE', tradeKind: 'case', liveStageId: 'stage-previous' },
+    { ...baseTrade, id: 'eligible-current', ref: 'CAS-CURRENT', tradeKind: 'case', liveStageId: 'stage-current' },
+    { ...baseTrade, id: 'deleted-history', ref: 'CAS-DELETED', tradeKind: 'case', liveStageId: 'stage-previous', deletedAt: '2026-08-10T00:00:00.000Z' },
+    { ...baseTrade, id: 'mastered-history', ref: 'CAS-MASTERED', tradeKind: 'case', liveStageId: 'stage-previous', masteryState: 'mastered' },
+    { ...baseTrade, id: 'future-history', ref: 'CAS-FUTURE', tradeKind: 'case', liveStageId: 'stage-previous', nextReviewAt: '2099-01-01' },
+    { ...baseTrade, id: 'empty-live-history', ref: 'LIVE-EMPTY', tradeKind: 'live', liveStageId: 'stage-previous', note: '<p>&nbsp;</p>' },
+    paperTrade('paper-independent'),
+  ]
+
+  const historyWithAccounts = buildPool(trades, {
+    stageSource: 'all-history',
+    includeAccountTrades: true,
+  })
+  assert(
+    historyWithAccounts.map((trade) => trade.id).join(',') === 'eligible-history,paper-independent',
+    '阶段来源只过滤阶段实体；删除、掌握、到期与复盘内容资格继续生效，模拟盘仍由账户交易选项独立纳入',
+  )
+  assert(
+    buildPool(trades, { stageSource: 'all-history', includeAccountTrades: false })
+      .map((trade) => trade.id).join(',') === 'eligible-history',
+    '关闭账户交易选项必须独立排除模拟盘',
+  )
 }
 
 export function testReviewSessionTimingFiltersDueCasesDeterministically(): void {
@@ -91,6 +216,7 @@ export function testReviewSessionTimingFiltersDueCasesDeterministically(): void 
     new Set(),
     FIXED_TRADING_DAY_KEY,
     FIXED_TRADING_DAY_START_HOUR,
+    REVIEW_STAGE_CONTEXT,
   )
   assert(
     duePool.map((trade) => trade.id).join(',') === 'today,overdue,missing,invalid,invalid-ymd,legacy-due,account',
@@ -103,6 +229,7 @@ export function testReviewSessionTimingFiltersDueCasesDeterministically(): void 
     new Set(),
     FIXED_TRADING_DAY_KEY,
     FIXED_TRADING_DAY_START_HOUR,
+    REVIEW_STAGE_CONTEXT,
   )
   assert(
     allPool.map((trade) => trade.id).join(',') === 'today,overdue,future,mastered,missing,invalid,invalid-ymd,legacy-due,legacy-future,account',
@@ -130,6 +257,7 @@ export function testReviewSessionRejectsLooseLegacyDateStringsAsDue(): void {
     new Set(),
     FIXED_TRADING_DAY_KEY,
     FIXED_TRADING_DAY_START_HOUR,
+    REVIEW_STAGE_CONTEXT,
   )
 
   assert(
@@ -151,14 +279,14 @@ export function testReviewSessionDefaultPoolIncludesCasesOnly(): void {
     },
   ]
 
-  const defaultPool = buildReviewSessionPool(trades, DEFAULT_REVIEW_SESSION_FILTERS, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR)
+  const defaultPool = buildReviewSessionPool(trades, DEFAULT_REVIEW_SESSION_FILTERS, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR, REVIEW_STAGE_CONTEXT)
   assert(defaultPool.map((trade) => trade.id).join(',') === 'case-1',
     '默认随机复盘池只能包含案例')
 
   const expandedPool = buildReviewSessionPool(trades, {
     ...DEFAULT_REVIEW_SESSION_FILTERS,
     includeAccountTrades: true,
-  }, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR)
+  }, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR, REVIEW_STAGE_CONTEXT)
   assert(expandedPool.map((trade) => trade.id).join(',') === 'live-1,paper-1,case-1',
     '复盘设置仍应允许显式加入账户交易')
 }
@@ -182,7 +310,7 @@ export function testReviewSessionAccountTradesRequireClosedReviewedContent(): vo
   const pool = buildReviewSessionPool(trades, {
     ...DEFAULT_REVIEW_SESSION_FILTERS,
     includeAccountTrades: true,
-  }, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR)
+  }, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR, REVIEW_STAGE_CONTEXT)
 
   assert(pool.map((trade) => trade.id).join(',') === 'eligible,missed',
     '账户交易必须已结束、已正式复盘且有有效内容才可进入随机复盘')
@@ -200,7 +328,7 @@ export function testReviewSessionContentFilterKeepsTextAndImageNotes(): void {
     { ...baseTrade, id: 'image', note: '<p></p><img src="journal-asset://chart-1">' },
   ]
 
-  const pool = buildReviewSessionPool(trades, filters, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR)
+  const pool = buildReviewSessionPool(trades, filters, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR, REVIEW_STAGE_CONTEXT)
 
   assert(pool.map((trade) => trade.id).join(',') === 'text,image',
     '仅含有效图文应保留正文笔记和纯图片笔记')
@@ -237,7 +365,7 @@ export function testReviewSessionCaseScopeUsesSharedStarredFocusRule(): void {
     ...DEFAULT_REVIEW_SESSION_FILTERS,
     includeAccountTrades: false,
     caseScope: 'focus',
-  }, new Set(['starred-case']), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR)
+  }, new Set(['starred-case']), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR, REVIEW_STAGE_CONTEXT)
 
   assert(pool.map((trade) => trade.id).join(',') === 'starred-case',
     '重点 scope 应与案例页一致地包含星标案例')
@@ -271,7 +399,7 @@ export function testReviewSessionMistakesScopeExcludesMissedCases(): void {
     ...DEFAULT_REVIEW_SESSION_FILTERS,
     includeAccountTrades: false,
     caseScope: 'mistakes',
-  }, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR)
+  }, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR, REVIEW_STAGE_CONTEXT)
 
   assert(pool.map((trade) => trade.id).join(',') === 'mistake-case',
     '随机复盘错题 scope 不得抽到带错误标签的错过机会')
@@ -348,6 +476,7 @@ export function testReviewSessionStorageIsVersionedAndIsolatedByLibrary(): void 
     new Set(),
     FIXED_TRADING_DAY_KEY,
     FIXED_TRADING_DAY_START_HOUR,
+    REVIEW_STAGE_CONTEXT,
   )
   assert(reconciledLegacy?.ids.join(',') === 'future-case', '旧会话的未来或已掌握成员不得在恢复时被静默删减')
 
@@ -369,12 +498,165 @@ export function testReviewSessionStorageIsVersionedAndIsolatedByLibrary(): void 
     { ...baseTrade, id: 'today-case', tradeKind: 'case', caseType: 'mistake', masteryState: 'new', nextReviewAt: FIXED_TRADING_DAY_KEY },
     { ...baseTrade, id: 'future-case', tradeKind: 'case', caseType: 'mistake', masteryState: 'new', nextReviewAt: '2099-01-01' },
     { ...baseTrade, id: 'mastered-case', tradeKind: 'case', caseType: 'mistake', masteryState: 'mastered', nextReviewAt: FIXED_TRADING_DAY_KEY },
-  ], nextFilters, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR)
+  ], nextFilters, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR, REVIEW_STAGE_CONTEXT)
   assert(nextRoundPool.map((trade) => trade.id).join() === 'today-case', '旧轮后的新轮必须排除未来与已掌握案例')
   assert(
     reviewFiltersForNextRound({ ...legacy, restoredLegacyReviewTiming: undefined }).reviewTiming === 'all',
     '显式选择 all 的现代轮次结束后必须保留用户筛选，不能被 legacy 兼容逻辑重置',
   )
+}
+
+export function testReviewSessionStageSourcePersistsAndMissingFieldMigratesToDefault(): void {
+  const storage = new MemoryStorage()
+  const snapshot: ReviewSessionSnapshot = {
+    ids: ['case-1'],
+    cursor: 0,
+    filters: {
+      ...DEFAULT_REVIEW_SESSION_FILTERS,
+      stageSource: { stageIds: ['stage-previous', 'stage-current'] },
+    },
+    assessments: {},
+  }
+
+  assert(saveReviewSession('stage-source-library', snapshot, storage), '阶段来源会话必须可保存')
+  const raw = JSON.parse(storage.getItem(reviewSessionStorageKey('stage-source-library')) ?? '{}')
+  assert(
+    raw.filters?.stageSource?.stageIds?.join(',') === 'stage-previous,stage-current',
+    '会话存储必须逐轮保存自选阶段来源',
+  )
+  const restored = loadReviewSession('stage-source-library', storage)
+  assert(
+    typeof restored?.filters.stageSource === 'object' &&
+      restored.filters.stageSource.stageIds.join(',') === 'stage-previous,stage-current',
+    '自选阶段来源必须完成 storage round-trip',
+  )
+
+  storage.setItem(reviewSessionStorageKey('legacy-stage-source'), JSON.stringify({
+    ids: ['case-1'],
+    cursor: 0,
+    filters: {
+      includeCases: true,
+      includeAccountTrades: false,
+      caseScope: 'all',
+      requireContent: false,
+      reviewTiming: 'due',
+    },
+    assessments: {},
+  }))
+  assert(
+    loadReviewSession('legacy-stage-source', storage)?.filters.stageSource === 'current-and-history',
+    '旧会话缺少 stageSource 时必须确定性迁移为当前阶段加全部历史',
+  )
+}
+
+export function testReconcilePrunesMissingStageIdsWithoutCancellingSurvivingRound(): void {
+  const snapshot: ReviewSessionSnapshot = {
+    ids: ['removed-stage-case', 'surviving-case', 'paper-survivor'],
+    cursor: 1,
+    filters: {
+      ...DEFAULT_REVIEW_SESSION_FILTERS,
+      includeAccountTrades: true,
+      stageSource: {
+        stageIds: ['stage-current', 'stage-removed', 'stage-previous', 'stage-current'],
+      },
+    },
+    assessments: { 'removed-stage-case': 'mastered', 'surviving-case': 'recheck' },
+  }
+  const trades: Trade[] = [
+    { ...baseTrade, id: 'removed-stage-case', ref: 'CAS-REMOVED', tradeKind: 'case', liveStageId: 'stage-removed' },
+    { ...baseTrade, id: 'surviving-case', ref: 'CAS-SURVIVING', tradeKind: 'case', liveStageId: 'stage-current' },
+    paperTrade('paper-survivor'),
+  ]
+
+  const restored = reconcileReviewSession(
+    snapshot,
+    trades,
+    new Set(),
+    FIXED_TRADING_DAY_KEY,
+    FIXED_TRADING_DAY_START_HOUR,
+    REVIEW_STAGE_CONTEXT,
+  )
+
+  assert(restored?.ids.join(',') === 'surviving-case,paper-survivor', '缺失阶段只能移除其失效实体，存活实体与模拟盘必须保留')
+  assert(restored?.cursor === 0, '移除当前卡之前的失效实体后必须继续停留在同一张存活卡')
+  assert(restored?.assessments['surviving-case'] === 'recheck', '存活实体的本轮评估必须保留')
+  assert(restored?.assessments['removed-stage-case'] === undefined, '失效阶段实体的评估必须同步剪枝')
+  assert(
+    typeof restored?.filters.stageSource === 'object' &&
+      restored.filters.stageSource.stageIds.join(',') === 'stage-previous,stage-current',
+    '自选阶段必须剔除缺失与重复 ID，并按阶段 sequence 稳定排序',
+  )
+}
+
+export function testReconcileKeepsExplicitEmptySelectionInsteadOfBroadeningScope(): void {
+  const snapshot: ReviewSessionSnapshot = {
+    ids: ['removed-stage-case'],
+    cursor: 0,
+    filters: {
+      ...DEFAULT_REVIEW_SESSION_FILTERS,
+      stageSource: { stageIds: ['stage-removed'] },
+    },
+    assessments: {},
+  }
+
+  const restored = reconcileReviewSession(
+    snapshot,
+    [{ ...baseTrade, id: 'removed-stage-case', tradeKind: 'case', liveStageId: 'stage-removed' }],
+    new Set(),
+    FIXED_TRADING_DAY_KEY,
+    FIXED_TRADING_DAY_START_HOUR,
+    REVIEW_STAGE_CONTEXT,
+  )
+
+  assert(restored !== null, '全部自选阶段消失时必须保留可呈现的显式空范围状态')
+  assert(restored?.ids.length === 0 && restored.cursor === 0, '显式空范围必须清空失效队列而不伪造完成进度')
+  assert(
+    typeof restored?.filters.stageSource === 'object' && restored.filters.stageSource.stageIds.length === 0,
+    '显式空范围不得回退到默认阶段来源',
+  )
+}
+
+export function testReconcilePreservesActiveItemsAcrossSuccessfulStageRollover(): void {
+  const snapshot: ReviewSessionSnapshot = {
+    ids: ['former-current-case'],
+    cursor: 0,
+    filters: { ...DEFAULT_REVIEW_SESSION_FILTERS, stageSource: 'current' },
+    assessments: {},
+  }
+  const stageContextAfterRollover = {
+    liveStages: [
+      ...REVIEW_STAGE_CONTEXT.liveStages.slice(0, 2),
+      {
+        ...REVIEW_STAGE_CONTEXT.liveStages[2]!,
+        status: 'archived' as const,
+        endsOn: '2026-08-21',
+        archivedAt: '2026-08-22T00:00:00.000Z',
+      },
+      {
+        id: 'stage-next',
+        sequence: 4,
+        name: '下一阶段',
+        status: 'current' as const,
+        startsOn: '2026-08-22',
+        endsOn: null,
+        createdAt: '2026-08-22T00:00:00.000Z',
+        archivedAt: null,
+      },
+    ],
+    currentLiveStageId: 'stage-next',
+  }
+
+  const restored = reconcileReviewSession(
+    snapshot,
+    [{ ...baseTrade, id: 'former-current-case', tradeKind: 'case', liveStageId: 'stage-current' }],
+    new Set(),
+    FIXED_TRADING_DAY_KEY,
+    FIXED_TRADING_DAY_START_HOUR,
+    stageContextAfterRollover,
+  )
+
+  assert(restored?.ids.join(',') === 'former-current-case', '阶段交接只改变阶段状态时不得取消进行中的当前阶段轮次')
+  assert(restored?.filters.stageSource === 'current', 'rollover 保活不得改写用户为下一轮保存的阶段来源')
 }
 
 export function testReviewAssessmentSchedulesFromBusinessDayBeforeAndAfterBoundary(): void {
@@ -449,6 +731,7 @@ export function testReviewSessionRestoreDropsUnavailableRecordsWithoutLosingCurr
     new Set(),
     FIXED_TRADING_DAY_KEY,
     FIXED_TRADING_DAY_START_HOUR,
+    REVIEW_STAGE_CONTEXT,
   )
 
   assert(restored?.ids.join(',') === 'case-1,live-1', '恢复时应剔除删除或不存在的记录')

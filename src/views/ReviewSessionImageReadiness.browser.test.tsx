@@ -145,8 +145,12 @@ async function run(): Promise<void> {
   }
 
   clearReviewSessionStorage(manifest.libraryId)
+  const stageOwnedCases = cases.map((item) => ({
+    ...item,
+    liveStageId: previous.currentLiveStageId,
+  }))
   useStore.setState({
-    trades: cases,
+    trades: stageOwnedCases,
     strategies: [strategy],
     starredIds: [],
     composerOpen: false,
@@ -158,7 +162,7 @@ async function run(): Promise<void> {
     modalOverlayCount: 0,
   })
   assert(saveReviewSession(manifest.libraryId, {
-    ids: cases.map((item) => item.id),
+    ids: stageOwnedCases.map((item) => item.id),
     cursor: 0,
     filters: DEFAULT_REVIEW_SESSION_FILTERS,
     assessments: {},

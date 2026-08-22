@@ -59,7 +59,7 @@ const strategy: Strategy = {
   color: '#5e6ad2',
 }
 
-const trade: Trade = {
+const trade: Extract<Trade, { tradeKind: 'live' }> = {
   id: 'review-session-trade',
   ref: 'TRD-RANDOM-1',
   symbol: 'BTCUSDT',
@@ -117,9 +117,9 @@ async function run(): Promise<void> {
   const previous = useStore.getState()
   const previousShortcuts = useShortcutStore.getState()
   clearReviewSessionStorage(manifest.libraryId)
-  const accountTrade = trade
+  const accountTrade: Trade = { ...trade, liveStageId: previous.currentLiveStageId }
   const reviewCase: Trade = {
-    ...trade,
+    ...accountTrade,
     id: 'review-session-case',
     ref: 'CAS-RANDOM-1',
     symbol: 'SOLUSDT',

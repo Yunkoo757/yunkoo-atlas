@@ -30,6 +30,7 @@ import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { getStrategyName } from '@/lib/strategies'
+import type { LiveStage } from '@/lib/liveStages'
 import {
   settleReviewImageGroup,
   type ReviewImageCandidate,
@@ -43,6 +44,7 @@ import {
   getReviewSessionContent,
   hasEffectiveReviewContent,
   loadReviewSession,
+  normalizeReviewStageSource,
   reconcileReviewSession,
   reviewFiltersForNextRound,
   saveReviewSession,
@@ -50,6 +52,7 @@ import {
   type ReviewSessionAssessment,
   type ReviewSessionFilters,
   type ReviewSessionSnapshot,
+  type ReviewStageSource,
 } from '@/lib/reviewSession'
 import type { ReviewCaseScope } from '@/lib/reviewCaseScope'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
@@ -86,6 +89,13 @@ const REVIEW_TIMING_OPTIONS = [
   { value: 'all', label: '全部案例（含未到期与已掌握）' },
 ]
 
+const REVIEW_STAGE_SOURCE_OPTIONS = [
+  { value: 'current-and-history', label: '当前阶段 + 全部历史' },
+  { value: 'current', label: '仅当前阶段' },
+  { value: 'all-history', label: '全部历史阶段' },
+  { value: 'custom', label: '自选阶段' },
+]
+
 const ASSESSMENT_OPTIONS: Array<{
   actionId: string
   value: ReviewSessionAssessment
@@ -101,6 +111,45 @@ const EMPTY_NOTE_STATE: ResolvedNoteState = {
   tradeId: null,
   status: 'idle',
   html: '',
+}
+
+function stageSourceSelectValue(stageSource: ReviewStageSource): string {
+  return typeof stageSource === 'object' ? 'custom' : stageSource
+}
+
+function reviewStageSourceLabel(stageSource: ReviewStageSource): string {
+  if (stageSource === 'current-and-history') return '当前阶段 + 全部历史'
+  if (stageSource === 'current') return '仅当前阶段'
+  if (stageSource === 'all-history') return '全部历史阶段'
+  return stageSource.stageIds.length === 0
+    ? '尚未选择实盘阶段'
+    : `自选 ${stageSource.stageIds.length} 个阶段`
+}
+
+function haveSameReviewFilters(left: ReviewSessionFilters, right: ReviewSessionFilters): boolean {
+  if (
+    left.includeCases !== right.includeCases ||
+    left.includeAccountTrades !== right.includeAccountTrades ||
+    left.caseScope !== right.caseScope ||
+    left.requireContent !== right.requireContent ||
+    left.reviewTiming !== right.reviewTiming
+  ) return false
+  if (typeof left.stageSource !== 'object' || typeof right.stageSource !== 'object') {
+    return left.stageSource === right.stageSource
+  }
+  return left.stageSource.stageIds.join('\u0000') === right.stageSource.stageIds.join('\u0000')
+}
+
+function reviewStageOriginLabel(
+  trade: Trade,
+  liveStages: readonly LiveStage[],
+  currentLiveStageId: string,
+): string {
+  if (trade.tradeKind === 'paper') return '模拟盘'
+  const stage = liveStages.find((candidate) => candidate.id === trade.liveStageId)
+  return stage?.id === currentLiveStageId && stage.status === 'current'
+    ? '当前阶段'
+    : stage?.name ?? '未知阶段'
 }
 
 export function createReviewSessionShortcutHandlers({
@@ -147,6 +196,8 @@ export function splitReviewNoteHtml(html: string): ReviewNotePresentation {
 export function ReviewSessionView() {
   const navigate = useNavigate()
   const trades = useStore((state) => state.trades)
+  const liveStages = useStore((state) => state.liveStages)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const strategies = useStore((state) => state.strategies)
   const starredIds = useStore((state) => state.starredIds)
   const privacyMode = useStore((state) => state.display.privacyMode)
@@ -177,8 +228,9 @@ export function ReviewSessionView() {
       starred,
       businessDateAnchor.currentTradingDayKey,
       tradingDayStartHour,
+      { liveStages, currentLiveStageId },
     ),
-    [businessDateAnchor.currentTradingDayKey, filters, starred, trades, tradingDayStartHour],
+    [businessDateAnchor.currentTradingDayKey, currentLiveStageId, filters, liveStages, starred, trades, tradingDayStartHour],
   )
   const settingsPoolSize = useMemo(
     () => settingsDraft ? buildReviewSessionPool(
@@ -187,8 +239,9 @@ export function ReviewSessionView() {
       starred,
       businessDateAnchor.currentTradingDayKey,
       tradingDayStartHour,
+      { liveStages, currentLiveStageId },
     ).length : 0,
-    [businessDateAnchor.currentTradingDayKey, settingsDraft, starred, trades, tradingDayStartHour],
+    [businessDateAnchor.currentTradingDayKey, currentLiveStageId, liveStages, settingsDraft, starred, trades, tradingDayStartHour],
   )
   const tradeById = useMemo(
     () => new Map(trades.filter((trade) => !trade.deletedAt).map((trade) => [trade.id, trade])),
@@ -197,7 +250,15 @@ export function ReviewSessionView() {
   const current = session && session.cursor < session.ids.length
     ? tradeById.get(session.ids[session.cursor] ?? '')
     : undefined
-  const roundEnded = Boolean(session && session.cursor >= session.ids.length)
+  const hasExplicitEmptySelection = Boolean(
+    session &&
+    session.ids.length === 0 &&
+    typeof session.filters.stageSource === 'object' &&
+    session.filters.stageSource.stageIds.length === 0,
+  )
+  const roundEnded = Boolean(
+    session && !hasExplicitEmptySelection && session.cursor >= session.ids.length,
+  )
   const assessedCount = session ? Object.keys(session.assessments).length : 0
 
   useEffect(() => {
@@ -212,6 +273,7 @@ export function ReviewSessionView() {
           latestStarredRef.current,
           businessDateAnchor.currentTradingDayKey,
           tradingDayStartHour,
+          { liveStages, currentLiveStageId },
         )
         : null
       setLibraryId(manifest.libraryId)
@@ -397,6 +459,52 @@ export function ReviewSessionView() {
 
   const openSettings = (next = filters) => setSettingsDraft({ ...next })
 
+  const applySettings = () => {
+    if (!settingsDraft) return
+    const nextFilters: ReviewSessionFilters = {
+      ...settingsDraft,
+      stageSource: normalizeReviewStageSource(settingsDraft.stageSource, liveStages),
+    }
+    if (session && session.ids.length > 0 && !roundEnded && !haveSameReviewFilters(session.filters, nextFilters)) {
+      const confirmed = window.confirm('应用新范围会结束当前进度并重新生成本轮，是否继续？')
+      if (!confirmed) return
+      const nextPool = buildReviewSessionPool(
+        trades,
+        nextFilters,
+        starred,
+        businessDateAnchor.currentTradingDayKey,
+        tradingDayStartHour,
+        { liveStages, currentLiveStageId },
+      )
+      focusAfterTransitionRef.current = true
+      setFilters(nextFilters)
+      setSettingsDraft(null)
+      if (
+        nextPool.length === 0 &&
+        !(typeof nextFilters.stageSource === 'object' && nextFilters.stageSource.stageIds.length === 0)
+      ) {
+        if (libraryId) clearReviewSessionStorage(libraryId)
+        setSession(null)
+        setResolvedNote(EMPTY_NOTE_STATE)
+        return
+      }
+      setSession({
+        ids: shuffleReviewSessionIds(nextPool.map((trade) => trade.id)),
+        cursor: 0,
+        filters: nextFilters,
+        assessments: {},
+      })
+      return
+    }
+    setFilters(nextFilters)
+    setSettingsDraft(null)
+    if (session?.ids.length === 0) {
+      if (libraryId) clearReviewSessionStorage(libraryId)
+      setSession(null)
+      setResolvedNote(EMPTY_NOTE_STATE)
+    }
+  }
+
   const reshuffle = () => {
     if (!session) return
     const nextFilters = reviewFiltersForNextRound(session)
@@ -406,6 +514,7 @@ export function ReviewSessionView() {
       starred,
       businessDateAnchor.currentTradingDayKey,
       tradingDayStartHour,
+      { liveStages, currentLiveStageId },
     )
     if (nextPool.length === 0) {
       clearActiveSession(nextFilters)
@@ -460,12 +569,13 @@ export function ReviewSessionView() {
           <RotateCcw size={ICON_MD} aria-hidden />
           <strong>随机复盘</strong>
         </div>
-        {session && !roundEnded ? (
+        {session && session.ids.length > 0 && !roundEnded ? (
           <div className="review-session-topbar-end">
             <span className="review-session-assessed">已评 {assessedCount}</span>
             <span className="review-session-progress" aria-live="polite">
               {session.cursor + 1} / {session.ids.length}
             </span>
+            <Button type="button" variant="bordered" onClick={() => openSettings(session.filters)}>调整范围</Button>
             <Button type="button" variant="bordered" onClick={() => clearActiveSession(reviewFiltersForNextRound(session))}>结束本轮</Button>
           </div>
         ) : <span />}
@@ -479,6 +589,8 @@ export function ReviewSessionView() {
 
       {!session ? (
         <ReviewSessionStart filters={filters} poolSize={pool.length} onOpenSettings={openSettings} onStart={start} />
+      ) : hasExplicitEmptySelection ? (
+        <ReviewSessionEmptySelection onAdjust={() => openSettings(session.filters)} />
       ) : roundEnded ? (
         <ReviewSessionFinished
           session={session}
@@ -500,17 +612,19 @@ export function ReviewSessionView() {
           onOpenDetail={openDetail}
           privacyMode={privacyMode}
           legacyCashCurrencyAssumption={legacyCashCurrencyAssumption}
+          originLabel={reviewStageOriginLabel(current, liveStages, currentLiveStageId)}
         />
       )}
       {settingsDraft ? (
         <ReviewSessionSettingsModal
           filters={settingsDraft}
+          liveStages={liveStages}
+          currentLiveStageId={currentLiveStageId}
+          hasActiveSession={Boolean(session && session.ids.length > 0 && !roundEnded)}
+          activeStageSource={session && session.ids.length > 0 && !roundEnded ? session.filters.stageSource : null}
           poolSize={settingsPoolSize}
           onChange={setSettingsDraft}
-          onApply={() => {
-            setFilters(settingsDraft)
-            setSettingsDraft(null)
-          }}
+          onApply={applySettings}
           onClose={() => setSettingsDraft(null)}
         />
       ) : null}
@@ -534,9 +648,13 @@ function ReviewSessionStart({
     filters.includeAccountTrades === DEFAULT_REVIEW_SESSION_FILTERS.includeAccountTrades &&
     filters.caseScope === DEFAULT_REVIEW_SESSION_FILTERS.caseScope &&
     filters.requireContent === DEFAULT_REVIEW_SESSION_FILTERS.requireContent &&
-    filters.reviewTiming === DEFAULT_REVIEW_SESSION_FILTERS.reviewTiming
+    filters.reviewTiming === DEFAULT_REVIEW_SESSION_FILTERS.reviewTiming &&
+    filters.stageSource === DEFAULT_REVIEW_SESSION_FILTERS.stageSource
   )
-  const emptyMessage = usesDefaultFilters
+  const hasEmptyStageSelection = typeof filters.stageSource === 'object' && filters.stageSource.stageIds.length === 0
+  const emptyMessage = hasEmptyStageSelection
+    ? '尚未选择实盘阶段'
+    : usesDefaultFilters
     ? '还没有可复盘的案例，请先创建案例'
     : '当前复盘设置下没有可复盘内容，请调整复盘设置'
   const emptyHint = '你可以在复盘设置中调整随机范围。'
@@ -553,6 +671,7 @@ function ReviewSessionStart({
         <div>
           <strong>{poolSize > 0 ? `可随机复盘 ${poolSize} 条` : emptyMessage}</strong>
           <span>{poolSize > 0 ? '使用当前设置直接开始，本轮随机排序且不重复。' : emptyHint}</span>
+          <span className="review-session-stage-source-summary">阶段来源：{reviewStageSourceLabel(filters.stageSource)}</span>
         </div>
         <div className="review-session-start-actions">
           <Button type="button" variant="primary" size="lg" disabled={poolSize === 0} onClick={onStart}>
@@ -573,12 +692,20 @@ function ReviewSessionStart({
 
 function ReviewSessionSettingsModal({
   filters,
+  liveStages,
+  currentLiveStageId,
+  hasActiveSession,
+  activeStageSource,
   poolSize,
   onChange,
   onApply,
   onClose,
 }: {
   filters: ReviewSessionFilters
+  liveStages: readonly LiveStage[]
+  currentLiveStageId: string
+  hasActiveSession: boolean
+  activeStageSource: ReviewStageSource | null
   poolSize: number
   onChange: (filters: ReviewSessionFilters) => void
   onApply: () => void
@@ -586,11 +713,38 @@ function ReviewSessionSettingsModal({
 }) {
   const patchFilters = (patch: Partial<ReviewSessionFilters>) => onChange({ ...filters, ...patch })
   const noSources = !filters.includeCases && !filters.includeAccountTrades
+  const orderedStages = [...liveStages]
+    .sort((left, right) => left.sequence - right.sequence || left.id.localeCompare(right.id))
+  const selectedStageIds = typeof filters.stageSource === 'object'
+    ? new Set(filters.stageSource.stageIds)
+    : new Set<string>()
+
+  const changeStageSource = (value: string) => {
+    patchFilters({
+      stageSource: value === 'custom'
+        ? { stageIds: [] }
+        : value as Exclude<ReviewStageSource, { stageIds: string[] }>,
+    })
+  }
+
+  const toggleStage = (stageId: string, selected: boolean) => {
+    const nextIds = new Set(selectedStageIds)
+    if (selected) nextIds.add(stageId)
+    else nextIds.delete(stageId)
+    patchFilters({
+      stageSource: normalizeReviewStageSource(
+        { stageIds: [...nextIds] },
+        orderedStages,
+      ),
+    })
+  }
 
   return (
     <ModalShell
       title="复盘设置"
-      description="只影响接下来开启的这一轮复盘。"
+      description={hasActiveSession
+        ? '应用新范围会重新生成当前轮次，并在确认后丢弃本轮进度。'
+        : '只影响接下来开启的这一轮复盘。'}
       size="compact"
       onClose={onClose}
       footer={<>
@@ -598,6 +752,47 @@ function ReviewSessionSettingsModal({
         <Button type="button" variant="primary" disabled={noSources} onClick={onApply}>应用设置</Button>
       </>}
     >
+      {activeStageSource ? (
+        <p
+          className="review-session-active-source"
+          data-active-stage-source={stageSourceSelectValue(activeStageSource)}
+        >
+          当前轮次：{reviewStageSourceLabel(activeStageSource)}
+        </p>
+      ) : null}
+      <div className="review-session-stage-source-filter">
+        <label>
+          <span>阶段来源</span>
+          <Select
+            className="review-session-stage-source-select"
+            value={stageSourceSelectValue(filters.stageSource)}
+            ariaLabel="阶段来源"
+            options={REVIEW_STAGE_SOURCE_OPTIONS}
+            onValueChange={changeStageSource}
+          />
+        </label>
+        {typeof filters.stageSource === 'object' ? (
+          <fieldset className="review-session-stage-options">
+            <legend>选择一个或多个实盘阶段</legend>
+            {orderedStages.map((stage) => (
+              <label className="review-session-stage-option" key={stage.id}>
+                <input
+                  type="checkbox"
+                  checked={selectedStageIds.has(stage.id)}
+                  onChange={(event) => toggleStage(stage.id, event.target.checked)}
+                />
+                <span>
+                  <strong>{stage.name} · {stage.id === currentLiveStageId && stage.status === 'current' ? '当前阶段' : '已归档'}</strong>
+                  <small>{stage.startsOn}{stage.endsOn ? ` — ${stage.endsOn}` : ' — 至今'}</small>
+                </span>
+              </label>
+            ))}
+            {filters.stageSource.stageIds.length === 0 ? (
+              <p>尚未选择实盘阶段；不会自动扩大到其他阶段。</p>
+            ) : null}
+          </fieldset>
+        ) : null}
+      </div>
       <fieldset className="review-session-settings-sources">
         <legend>随机范围</legend>
         <label className={filters.includeCases ? 'is-selected' : undefined}>
@@ -659,6 +854,17 @@ function ReviewSessionSettingsModal({
   )
 }
 
+function ReviewSessionEmptySelection({ onAdjust }: { onAdjust: () => void }) {
+  return (
+    <section className="review-session-empty-selection" data-review-session-start-focus tabIndex={-1} role="status">
+      <span className="review-session-eyebrow">自选阶段</span>
+      <h1>尚未选择实盘阶段</h1>
+      <p>原先选择的阶段已不存在，或当前没有选择任何阶段。范围保持为空，不会自动扩大。</p>
+      <Button type="button" variant="primary" onClick={onAdjust}>重新选择阶段</Button>
+    </section>
+  )
+}
+
 function metricTone(value: number | null | undefined): 'zero' | 'positive' | 'negative' {
   return value == null || value === 0 ? 'zero' : value > 0 ? 'positive' : 'negative'
 }
@@ -697,6 +903,7 @@ function ReviewSessionItem({
   onOpenDetail,
   privacyMode,
   legacyCashCurrencyAssumption,
+  originLabel,
 }: {
   trade: Trade
   strategyName: string
@@ -708,6 +915,7 @@ function ReviewSessionItem({
   onOpenDetail: () => void
   privacyMode: boolean
   legacyCashCurrencyAssumption: import('@/storage/types').LegacyCashCurrencyAssumption | null
+  originLabel: string
 }) {
   const rTone = metricTone(trade.rMultiple)
   const rawPnlTone = metricTone(trade.pnl)
@@ -723,6 +931,7 @@ function ReviewSessionItem({
         <header className="review-session-item-header">
           <div className="review-session-item-primary">
             <Chip size="sm" variant="soft">{TRADE_KIND_META[trade.tradeKind].label}</Chip>
+            <span className="review-session-origin">来源 · {originLabel}</span>
             <h1>{trade.symbol}</h1>
             <Chip size="sm" variant="outline">
               {trade.tradeKind === 'case'
