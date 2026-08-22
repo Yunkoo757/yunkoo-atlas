@@ -184,4 +184,48 @@ export function testWeeklyReviewLegacyWeekOnlyRoutePrefersCurrentStageReview(): 
     result.canonicalSearch === `?week=${historyWeek}&review=review-current-stage`,
     '旧 week-only 地址必须升级为无歧义规范地址',
   )
+
+  const historicalFallback = resolveWeeklyReviewRouteState(`?week=${historyWeek}`, {
+    currentWeek,
+    availableWeeks,
+    availableReviews: [{ id: 'review-old-stage', weekStart: historyWeek, liveStageId: 'stage-old' }],
+    currentLiveStageId: 'stage-current',
+  })
+  assert(historicalFallback.state.selectedReviewId === 'review-old-stage', '无 review 参数的旧地址必须保留历史 fallback 兼容')
+}
+
+export function testWeeklyReviewInvalidExplicitReviewIdNeverFallsAcrossStages(): void {
+  const result = resolveWeeklyReviewRouteState(
+    `?week=${historyWeek}&review=missing-review&visual=desktop`,
+    {
+      currentWeek,
+      availableWeeks,
+      availableReviews: [{ id: 'review-old-stage', weekStart: historyWeek, liveStageId: 'stage-old' }],
+      currentLiveStageId: 'stage-current',
+    },
+  )
+  assert(result.state.selectedWeek === currentWeek, '显式失效 review ID 必须回到安全当前周')
+  assert(result.state.selectedReviewId === undefined, '显式失效 review ID 不得退化为任意历史阶段实体')
+  assert(
+    result.canonicalSearch === '?visual=desktop',
+    '显式失效 review ID 必须从规范地址移除且规范化到安全当前周',
+  )
+}
+
+export function testWeeklyReviewInvalidVerifiedReturnReviewIdIsRemoved(): void {
+  const result = resolveWeeklyReviewRouteState(
+    `?week=${historyWeek}&review=deleted-return-review&tab=year`,
+    {
+      currentWeek,
+      availableWeeks,
+      availableReviews: [{ id: 'review-old-stage', weekStart: historyWeek, liveStageId: 'stage-old' }],
+      currentLiveStageId: 'stage-current',
+      verifiedReturnReviewId: 'deleted-return-review',
+    },
+  )
+  assert(result.state.selectedReviewId === undefined, '已删除的 return review ID 不得被 verified 标志继续保留')
+  assert(
+    result.state.selectedWeek === currentWeek && result.canonicalSearch === '?tab=year',
+    '失效 return review ID 必须清理且不得跨阶段恢复历史实体',
+  )
 }

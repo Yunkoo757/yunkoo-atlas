@@ -89,11 +89,12 @@ export function resolveWeeklyReviewRouteState(
   const params = new URLSearchParams(search)
   const requestedWeek = params.get('week')
   const availableReviews = options.availableReviews ?? []
+  const hasRequestedReviewParam = params.has('review')
   const requestedReviewId = params.get('review')
   const requestedReview = requestedReviewId
     ? availableReviews.find((review) => review.id === requestedReviewId)
     : undefined
-  const verifiedReview = requestedReviewId && requestedReviewId === options.verifiedReturnReviewId
+  const invalidRequestedReview = hasRequestedReviewParam && !requestedReview
   const acceptedRequestedWeek = requestedWeek &&
     isMondayWeekStart(requestedWeek) &&
     (
@@ -104,16 +105,18 @@ export function resolveWeeklyReviewRouteState(
     : undefined
   const selectedWeek = requestedReview
     ? requestedReview.weekStart
-    : acceptedRequestedWeek ?? options.currentWeek
+    : invalidRequestedReview
+      ? options.currentWeek
+      : acceptedRequestedWeek ?? options.currentWeek
   const selectedReview = requestedReview ?? (
-    !acceptedRequestedWeek
+    !acceptedRequestedWeek || hasRequestedReviewParam
       ? undefined
       : availableReviews.find((review) =>
           review.weekStart === selectedWeek && review.liveStageId === options.currentLiveStageId,
         ) ?? availableReviews.find((review) => review.weekStart === selectedWeek)
   )
   const tab: WeeklyReviewTab = params.get('tab') === 'year' ? 'year' : 'review'
-  const selectedReviewId = selectedReview?.id ?? (verifiedReview ? requestedReviewId : undefined)
+  const selectedReviewId = selectedReview?.id
   const state = { selectedWeek, ...(selectedReviewId ? { selectedReviewId } : {}), tab }
   const canonicalSearch = buildWeeklyReviewSearch(search, state, options.currentWeek)
   return {
