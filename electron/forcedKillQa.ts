@@ -1,10 +1,15 @@
 import { createFullPersistedSnapshotFixture } from '../src/storage/fixtures/fullPersistedSnapshot'
+import { mapTradeRichText } from '../src/storage/tradeRichText'
 import { LibraryStorage } from './library/storage'
 import { createHash } from 'node:crypto'
 import { ELECTRON_BUILD_IDENTITY } from './buildIdentity'
 
 function snapshotRevision(snapshot: unknown): string {
   return createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')
+}
+
+function stripUnseededAssetImages(html: string): string {
+  return html.replace(/<img\b[^>]*\bsrc=(["'])journal-asset:\/\/[^"']+\1[^>]*>/gi, '')
 }
 
 export function createForcedKillSnapshot(label: string, noteBytes = 0) {
@@ -41,9 +46,12 @@ export function createForcedKillSnapshot(label: string, noteBytes = 0) {
     }
   }
   value.trades = [
-    ...value.trades.map((trade) => ({ ...trade, liveStageId: currentStage.id })),
+    ...value.trades.map((trade) => ({
+      ...mapTradeRichText(trade, stripUnseededAssetImages),
+      liveStageId: currentStage.id,
+    })),
     {
-      ...value.trades[0],
+      ...mapTradeRichText(value.trades[0]!, stripUnseededAssetImages),
       id: 'trade-archive-contract',
       ref: 'TRD-ARCHIVE-CONTRACT',
       openedAt: '2026-07-11T08:00:00.000Z',
@@ -70,7 +78,12 @@ export function createForcedKillSnapshot(label: string, noteBytes = 0) {
   }))
   value.weeklyReviews = value.weeklyReviews?.map((review) => ({
     ...review,
+    contentHtml: stripUnseededAssetImages(review.contentHtml),
     liveStageId: currentStage.id,
+  }))
+  value.quickNotes = value.quickNotes?.map((note) => ({
+    ...note,
+    contentHtml: stripUnseededAssetImages(note.contentHtml),
   }))
   return value
 }
