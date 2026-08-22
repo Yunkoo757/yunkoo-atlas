@@ -57,6 +57,8 @@ export interface RiskPeriodOutcomeSnapshot {
 
 export interface WeeklyRiskPreparation {
   id: string
+  /** v12 stage ownership; undefined is accepted only while decoding v1-v11. */
+  liveStageId?: string | null
   weekStart: string
   draft: RiskPolicyDraft
   reviewedAt: string | null
@@ -67,6 +69,8 @@ export interface WeeklyRiskPreparation {
 
 export interface RiskPolicyVersion {
   id: string
+  /** v12 stage ownership; undefined is accepted only while decoding v1-v11. */
+  liveStageId?: string | null
   sourceWeekStart: string
   effectiveTradingDay: string
   capitalBase: number
@@ -81,6 +85,8 @@ export interface RiskPolicyVersion {
 
 export interface MonthlyRiskLimit {
   id: string
+  /** v12 stage ownership; undefined is accepted only while decoding v1-v11. */
+  liveStageId?: string | null
   monthKey: string
   limitR: number
   sourcePolicyVersionId: string
@@ -91,6 +97,8 @@ export type RiskDecisionType = 'triggered' | 'unknown'
 
 export interface RiskOverrideEvent {
   id: string
+  /** v12 stage ownership; undefined is accepted only while decoding v1-v11. */
+  liveStageId?: string | null
   tradeId: string
   tradeIdentityAtDecision: {
     ref: string

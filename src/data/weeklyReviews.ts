@@ -60,6 +60,8 @@ export interface WeeklyReviewEvidenceSnapshot {
 
 export interface WeeklyReview {
   id: string
+  /** v12 stage ownership; undefined is accepted only while decoding v1-v11. */
+  liveStageId?: string | null
   weekStart: string
   weekEnd: string
   status: WeeklyReviewStatus

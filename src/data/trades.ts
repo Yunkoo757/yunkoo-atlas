@@ -68,6 +68,8 @@ export interface ActivityEvent {
 
 export interface Trade {
   id: string
+  /** v12 stage ownership; undefined is accepted only while decoding v1-v11. */
+  liveStageId?: string | null
   ref: string // 形如 TRD-128
   symbol: string // 标的，如 BTC/AAPL
   side: TradeSide
