@@ -717,10 +717,11 @@ export function assertValidPersistedSnapshot(
     if (hasDuplicateStringId(value.weeklyReviews)) {
       throw new Error(`${label} contains duplicate weekly review ids`)
     }
-    const weeks = new Set<string>()
+    const stageWeeks = new Set<string>()
     for (const review of value.weeklyReviews) {
-      if (weeks.has(review.weekStart)) throw new Error(`${label} contains duplicate weekly review weeks`)
-      weeks.add(review.weekStart)
+      const key = `${review.liveStageId}:${review.weekStart}`
+      if (stageWeeks.has(key)) throw new Error(`${label} contains duplicate weekly review stage weeks`)
+      stageWeeks.add(key)
     }
   }
   if (value.quickNotes !== undefined) {

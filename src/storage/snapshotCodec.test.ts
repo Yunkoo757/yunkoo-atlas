@@ -99,6 +99,36 @@ export function testCanonicalCodecAllowsSameRiskPeriodKeyAcrossStages(): void {
   assert(decoded.monthlyRiskLimits.length === 2, 'codec 必须保留跨阶段同月限额')
 }
 
+export function testCanonicalCodecAllowsSameWeeklyReviewWeekAcrossStages(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const currentStage = { ...fixture.liveStages[0]!, sequence: 2 }
+  const archivedStage = {
+    ...currentStage,
+    id: 'codec-review-archived-stage',
+    sequence: 1,
+    name: '历史阶段',
+    status: 'archived' as const,
+    startsOn: '2026-07-01',
+    endsOn: '2026-07-12',
+    createdAt: '2026-07-01T00:00:00.000Z',
+    archivedAt: '2026-07-13T00:00:00.000Z',
+  }
+  const currentReview = fixture.weeklyReviews![0]!
+  const archivedReview = {
+    ...currentReview,
+    id: `weekly-review:${archivedStage.id}:${currentReview.weekStart}`,
+    liveStageId: archivedStage.id,
+  }
+
+  const decoded = decodeCanonicalSnapshot({
+    ...fixture,
+    liveStages: [archivedStage, currentStage],
+    weeklyReviews: [currentReview, archivedReview],
+  }, { version: SCHEMA_VERSION })
+
+  assert(decoded.weeklyReviews.length === 2, 'codec 必须保留同周跨阶段的两篇复盘')
+}
+
 export function testVersionElevenSnapshotMigratesToCanonicalStageOwnership(): void {
   const legacy = structuredClone(createFullPersistedSnapshotFixture()) as unknown as Record<string, unknown>
   delete legacy.liveStages

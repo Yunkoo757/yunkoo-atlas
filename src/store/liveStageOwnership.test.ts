@@ -231,12 +231,15 @@ export function testWeeklyReviewPatchCannotChangeStageOwnership(): void {
     if (Date.now() < 0) {
       // @ts-expect-error 普通周复盘 patch 不得包含阶段归属
       useStore.getState().updateWeeklyReview(review.id, { liveStageId: 'stage-current' })
+      // @ts-expect-error 普通周复盘 patch 不得修改周期结构
+      useStore.getState().updateWeeklyReview(review.id, { weekEnd: '2099-12-31' })
     }
     useStore.getState().updateWeeklyReview(
       review.id,
-      { liveStageId: 'stage-current' } as never,
+      { liveStageId: 'stage-current', weekEnd: '2099-12-31' } as never,
     )
     assert(useStore.getState().weeklyReviews[0]?.liveStageId === 'stage-old', '运行时周复盘 patch 不得改写阶段归属')
+    assert(useStore.getState().weeklyReviews[0]?.weekEnd === review.weekEnd, '运行时周复盘 patch 不得改写周期结构')
   } finally {
     useStore.setState(previous)
   }

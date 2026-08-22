@@ -137,3 +137,51 @@ export function testWeeklyReviewRouteFollowsRolloverUnlessHistoryIsPinned(): voi
   })
   assert(unavailableResult.state.selectedWeek === nextCurrentWeek, '不可用的合法周日期必须回退当前周')
 }
+
+export function testWeeklyReviewRouteDeepLinksSameWeekReviewsByStableIdentity(): void {
+  const reviews = [
+    { id: 'review-current-stage', weekStart: historyWeek, liveStageId: 'stage-current' },
+    { id: 'review-old-stage', weekStart: historyWeek, liveStageId: 'stage-old' },
+  ]
+  const explicitHistorical = resolveWeeklyReviewRouteState(
+    `?week=${historyWeek}&review=review-old-stage`,
+    {
+      currentWeek,
+      availableWeeks,
+      availableReviews: reviews,
+      currentLiveStageId: 'stage-current',
+    },
+  )
+  assert(explicitHistorical.state.selectedWeek === historyWeek, '显式历史复盘必须恢复所属周')
+  assert(explicitHistorical.state.selectedReviewId === 'review-old-stage', '同周历史复盘必须按稳定 ID 恢复')
+  assert(
+    explicitHistorical.canonicalSearch === `?week=${historyWeek}&review=review-old-stage`,
+    '同周历史复盘规范地址必须保留稳定 ID',
+  )
+
+  const roundTrip = resolveWeeklyReviewRouteState(explicitHistorical.canonicalSearch, {
+    currentWeek,
+    availableWeeks,
+    availableReviews: reviews,
+    currentLiveStageId: 'stage-current',
+  })
+  assert(roundTrip.state.selectedReviewId === 'review-old-stage', '刷新/重挂载后不得切回同周其他阶段')
+}
+
+export function testWeeklyReviewLegacyWeekOnlyRoutePrefersCurrentStageReview(): void {
+  const reviews = [
+    { id: 'review-old-stage', weekStart: historyWeek, liveStageId: 'stage-old' },
+    { id: 'review-current-stage', weekStart: historyWeek, liveStageId: 'stage-current' },
+  ]
+  const result = resolveWeeklyReviewRouteState(`?week=${historyWeek}`, {
+    currentWeek,
+    availableWeeks,
+    availableReviews: reviews,
+    currentLiveStageId: 'stage-current',
+  })
+  assert(result.state.selectedReviewId === 'review-current-stage', '旧 week-only 地址必须优先当前阶段复盘')
+  assert(
+    result.canonicalSearch === `?week=${historyWeek}&review=review-current-stage`,
+    '旧 week-only 地址必须升级为无歧义规范地址',
+  )
+}

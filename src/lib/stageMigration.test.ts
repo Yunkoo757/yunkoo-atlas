@@ -103,6 +103,7 @@ export function testLegacyMembershipUsesLifecycleSpecificDatesAndCaseSource(): v
 
 export function testPreCycleArchiveWeeklyReviewsAndRiskOwnershipAreMigrated(): void {
   const fixture = createFullPersistedSnapshotFixture()
+  const riskEvent = fixture.riskOverrideEvents[0]!
   const preCycleTrade = {
     ...fixture.trades[0]!,
     id: 'pre-cycle-live',
@@ -114,13 +115,33 @@ export function testPreCycleArchiveWeeklyReviewsAndRiskOwnershipAreMigrated(): v
     livePerformanceCycles: [
       { id: 'current', name: '当前', startTradingDayKey: '2026-08-03', createdAt: '2026-08-03T00:00:00.000Z' },
     ],
-    weeklyReviews: [{ ...fixture.weeklyReviews![0]!, weekStart: '2026-07-20', weekEnd: '2026-07-26' }],
+    weeklyReviews: [{
+      ...fixture.weeklyReviews![0]!,
+      weekStart: '2026-07-20',
+      weekEnd: '2026-07-26',
+      riskSnapshot: {
+        policyVersions: fixture.riskPolicyVersions,
+        dailyOutcomes: [{ ...riskEvent.outcomesAtDecision.day, date: '2026-07-20' }],
+        weeklyOutcome: riskEvent.outcomesAtDecision.week,
+        monthlyOutcomeAtCompletion: riskEvent.outcomesAtDecision.month,
+        overrideEvents: fixture.riskOverrideEvents,
+        frozenAt: fixture.weeklyReviews![0]!.completedAt!,
+      },
+    }],
   }), deterministicOptions)
 
   assert(migrated.liveStages.length === 2, '存在周期前记录时必须创建额外归档')
   assert(migrated.liveStages[0]?.name === '更早记录', '周期前归档必须使用规定名称')
   assert(migrated.trades[0]?.tradeKind === 'live' && migrated.trades[0].liveStageId === 'stage-1', '周期前交易必须归入更早记录')
   assert(migrated.weeklyReviews?.[0]?.liveStageId === 'stage-1', '周复盘必须按 weekStart 归属')
+  assert(
+    migrated.weeklyReviews?.[0]?.riskSnapshot?.policyVersions.every((item) => item.liveStageId === 'stage-1'),
+    '历史周复盘的冻结风险策略必须与外层复盘归属一致',
+  )
+  assert(
+    migrated.weeklyReviews?.[0]?.riskSnapshot?.overrideEvents.every((item) => item.liveStageId === 'stage-1'),
+    '历史周复盘的冻结风险事件必须与外层复盘归属一致',
+  )
   assert(migrated.weeklyRiskPreparations.every((item) => item.liveStageId === migrated.currentLiveStageId), '风险实体必须归入当前阶段')
   assert(migrated.riskPolicyVersions.every((item) => item.liveStageId === migrated.currentLiveStageId), '风险政策必须归入当前阶段')
   assert(migrated.monthlyRiskLimits.every((item) => item.liveStageId === migrated.currentLiveStageId), '月度限额必须归入当前阶段')

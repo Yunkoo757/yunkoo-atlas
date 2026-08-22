@@ -97,6 +97,72 @@ function mergeWeeklyPreparations(
   return [...byId.values()]
 }
 
+function weeklyReviewStageWeekKey(
+  review: NonNullable<PersistedSlice['weeklyReviews']>[number],
+): string {
+  return `${review.liveStageId ?? 'legacy'}:${review.weekStart}`
+}
+
+function completedReviewFrozenTuple(
+  review: NonNullable<PersistedSlice['weeklyReviews']>[number],
+): unknown {
+  return {
+    metricsSnapshot: review.metricsSnapshot,
+    evidenceSnapshot: review.evidenceSnapshot,
+    riskSnapshot: review.riskSnapshot,
+    completedAt: review.completedAt,
+  }
+}
+
+function mergeWeeklyReviews(
+  current: NonNullable<PersistedSlice['weeklyReviews']>,
+  imported: NonNullable<PersistedSlice['weeklyReviews']>,
+): NonNullable<PersistedSlice['weeklyReviews']> {
+  const byStageWeek = new Map(
+    normalizeWeeklyReviews(current).map((review) => [weeklyReviewStageWeekKey(review), review]),
+  )
+  for (const importedReview of normalizeWeeklyReviews(imported)) {
+    const key = weeklyReviewStageWeekKey(importedReview)
+    const local = byStageWeek.get(key)
+    if (!local) {
+      byStageWeek.set(key, importedReview)
+      continue
+    }
+    if (local.status === 'completed') {
+      if (
+        importedReview.status === 'completed' &&
+        canonicalJson(completedReviewFrozenTuple(local)) !== canonicalJson(completedReviewFrozenTuple(importedReview))
+      ) {
+        throw new OperationalError(
+          'import-immutable-entity-conflict',
+          `导入冲突：已完成周复盘 ${local.id} 的冻结事实与导入记录不同。请先显式重开本地复盘再合并。`,
+        )
+      }
+      const editableSource = Date.parse(importedReview.updatedAt) > Date.parse(local.updatedAt)
+        ? importedReview
+        : local
+      byStageWeek.set(key, {
+        ...editableSource,
+        id: local.id,
+        liveStageId: local.liveStageId,
+        weekStart: local.weekStart,
+        weekEnd: local.weekEnd,
+        status: local.status,
+        metricsSnapshot: local.metricsSnapshot,
+        evidenceSnapshot: local.evidenceSnapshot,
+        riskSnapshot: local.riskSnapshot,
+        createdAt: local.createdAt,
+        completedAt: local.completedAt,
+      })
+      continue
+    }
+    if (Date.parse(importedReview.updatedAt) > Date.parse(local.updatedAt)) {
+      byStageWeek.set(key, importedReview)
+    }
+  }
+  return normalizeWeeklyReviews([...byStageWeek.values()])
+}
+
 function identitySummary(trade: Trade): RiskOverrideEvent['tradeIdentityAtDecision'] | null {
   if (trade.tradeKind !== 'live') return null
   return { ref: trade.ref, symbol: trade.symbol, tradeKind: 'live' }
@@ -155,6 +221,7 @@ function rewriteTradeReferences(
       followUpTradeIds: rewriteIds(review.followUpTradeIds),
       evidenceSnapshot: review.evidenceSnapshot
         ? {
+            ...review.evidenceSnapshot,
             trades: rewriteEvidenceTrades(review.evidenceSnapshot.trades),
             missedTrades: rewriteEvidenceTrades(review.evidenceSnapshot.missedTrades),
           }
@@ -226,10 +293,10 @@ export function mergeRiskImport(
       rewritten.riskOverrideEvents ?? [],
       '风险覆盖事件',
     ),
-    weeklyReviews: normalizeWeeklyReviews([
-      ...(current.weeklyReviews ?? []),
-      ...(rewritten.weeklyReviews ?? []),
-    ]),
+    weeklyReviews: mergeWeeklyReviews(
+      current.weeklyReviews ?? [],
+      rewritten.weeklyReviews ?? [],
+    ),
     starredIds: [...new Set([...current.starredIds, ...rewritten.starredIds])],
     subscribedIds: [...new Set([...current.subscribedIds, ...rewritten.subscribedIds])],
   }

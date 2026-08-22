@@ -475,6 +475,45 @@ export function testSnapshotValidationRejectsDuplicateEntityIds(): void {
   }
 }
 
+export function testSnapshotValidationScopesWeeklyReviewUniquenessToStageAndWeek(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const currentStage = { ...fixture.liveStages[0]!, sequence: 2 }
+  const archivedStage = {
+    ...currentStage,
+    id: 'weekly-review-archived-stage',
+    sequence: 1,
+    name: '历史阶段',
+    status: 'archived' as const,
+    startsOn: '2026-07-01',
+    endsOn: '2026-07-12',
+    createdAt: '2026-07-01T00:00:00.000Z',
+    archivedAt: '2026-07-13T00:00:00.000Z',
+  }
+  const currentReview = fixture.weeklyReviews![0]!
+  const archivedReview = {
+    ...currentReview,
+    id: `weekly-review:${archivedStage.id}:${currentReview.weekStart}`,
+    liveStageId: archivedStage.id,
+  }
+  const base = {
+    ...fixture,
+    liveStages: [archivedStage, currentStage],
+  }
+
+  assertValidPersistedSnapshot({ ...base, weeklyReviews: [currentReview, archivedReview] })
+
+  let rejected = false
+  try {
+    assertValidPersistedSnapshot({
+      ...base,
+      weeklyReviews: [currentReview, { ...currentReview, id: 'same-stage-duplicate' }],
+    })
+  } catch {
+    rejected = true
+  }
+  assert(rejected, '同一阶段同一周的重复复盘必须拒绝')
+}
+
 function snapshotWithWeeklyRiskReview() {
   const fixture = createFullPersistedSnapshotFixture()
   const event = fixture.riskOverrideEvents[0]!

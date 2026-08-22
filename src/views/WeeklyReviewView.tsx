@@ -114,7 +114,21 @@ const UNSAVED_CONTENT_ISSUE: WeeklyVisualIssue = {
   message: '正文或图片尚未保存，请重试',
 }
 
-type ReviewPatch = Partial<Omit<WeeklyReview, 'id' | 'weekStart' | 'createdAt'>>
+type ReviewPatch = Partial<Pick<
+  WeeklyReview,
+  | 'executionScore'
+  | 'riskScore'
+  | 'emotionScore'
+  | 'strengthTags'
+  | 'mistakeTags'
+  | 'highlightTradeIds'
+  | 'mistakeTradeIds'
+  | 'followUpTradeIds'
+  | 'contentHtml'
+  | 'commitmentText'
+  | 'commitmentCriteria'
+  | 'previousCommitmentResult'
+>>
 
 function addDays(ymd: string, days: number): string {
   const next = parseLocalDate(ymd)
@@ -220,10 +234,15 @@ export function WeeklyReviewView() {
     location.state,
   )
   const verifiedReturnWeekRef = useRef<string | undefined>(undefined)
+  const verifiedReturnReviewIdRef = useRef<string | undefined>(undefined)
   const requestedReturnWeek = returnRequest?.restoreSearch === undefined
     ? null
     : new URLSearchParams(returnRequest.restoreSearch).get('week')
+  const requestedReturnReviewId = returnRequest?.restoreSearch === undefined
+    ? null
+    : new URLSearchParams(returnRequest.restoreSearch).get('review')
   if (requestedReturnWeek) verifiedReturnWeekRef.current = requestedReturnWeek
+  if (requestedReturnReviewId) verifiedReturnReviewIdRef.current = requestedReturnReviewId
   const [returnRestoreActive, setReturnRestoreActive] = useState(Boolean(returnRequest))
   const currentStageTrades = useMemo(
     () => trades.filter((trade) =>
@@ -248,12 +267,19 @@ export function WeeklyReviewView() {
       {
         currentWeek,
         availableWeeks,
+        availableReviews: reviews.map((review) => ({
+          id: review.id,
+          weekStart: review.weekStart,
+          liveStageId: review.liveStageId,
+        })),
+        currentLiveStageId,
         verifiedReturnWeek: verifiedReturnWeekRef.current,
+        verifiedReturnReviewId: verifiedReturnReviewIdRef.current,
       },
     ),
-    [availableWeeks, currentWeek, location.search, returnRequest?.restoreSearch],
+    [availableWeeks, currentLiveStageId, currentWeek, location.search, returnRequest?.restoreSearch, reviews],
   )
-  const { selectedWeek, tab } = routeResolution.state
+  const { selectedWeek, selectedReviewId, tab } = routeResolution.state
   const [editorHtml, setEditorHtml] = useState('')
   const mainContentRef = useRef<HTMLElement>(null)
   const [overrideEventsOpen, setOverrideEventsOpen] = useState(false)
@@ -342,9 +368,11 @@ export function WeeklyReviewView() {
     routeResolution.needsReplace,
   ])
 
-  const storedReview = reviews.find((item) =>
-    item.weekStart === selectedWeek && item.liveStageId === currentLiveStageId,
-  ) ?? reviews.find((item) => item.weekStart === selectedWeek)
+  const storedReview = selectedReviewId
+    ? reviews.find((item) => item.id === selectedReviewId)
+    : reviews.find((item) =>
+        item.weekStart === selectedWeek && item.liveStageId === currentLiveStageId,
+      )
   const reviewLiveStageId = storedReview?.liveStageId ?? currentLiveStageId
   const review = storedReview ?? createWeeklyReview(selectedWeek, reviewLiveStageId)
   const reviewTrades = useMemo(
@@ -417,10 +445,48 @@ export function WeeklyReviewView() {
     )
     .sort((left, right) => right.weekStart.localeCompare(left.weekStart))[0]
 
-  const selectedWeekIndex = availableWeeks.indexOf(selectedWeek)
-  const olderWeek = selectedWeekIndex >= 0 ? availableWeeks[selectedWeekIndex + 1] : undefined
-  const newerWeek = selectedWeekIndex > 0 ? availableWeeks[selectedWeekIndex - 1] : undefined
-  const hasReviewHistory = availableWeeks.length > 1
+  const currentStageWeeks = useMemo(
+    () => deriveWeeklyReviewWeeks(
+      currentStageTrades,
+      [],
+      currentWeek,
+      tradingDayStartHour,
+      12,
+      businessDateAnchor.currentTradingDayKey,
+    ),
+    [businessDateAnchor.currentTradingDayKey, currentStageTrades, currentWeek, tradingDayStartHour],
+  )
+  const historyItems = useMemo(() => availableWeeks.flatMap((week) => {
+    const weekReviews = reviews
+      .filter((candidate) => candidate.weekStart === week)
+      .sort((left, right) => {
+        const leftCurrent = left.liveStageId === currentLiveStageId ? 0 : 1
+        const rightCurrent = right.liveStageId === currentLiveStageId ? 0 : 1
+        return leftCurrent - rightCurrent || left.id.localeCompare(right.id)
+      })
+    const needsCurrentStagePlaceholder = currentStageWeeks.includes(week) &&
+      !weekReviews.some((candidate) => candidate.liveStageId === currentLiveStageId)
+    return [
+      ...(needsCurrentStagePlaceholder ? [{
+        key: `pending:${currentLiveStageId}:${week}`,
+        week,
+        liveStageId: currentLiveStageId,
+        review: undefined,
+      }] : []),
+      ...weekReviews.map((item) => ({
+        key: item.id,
+        week,
+        liveStageId: item.liveStageId ?? currentLiveStageId,
+        review: item,
+      })),
+    ]
+  }), [availableWeeks, currentLiveStageId, currentStageWeeks, reviews])
+  const selectedHistoryIndex = historyItems.findIndex((item) => selectedReviewId
+    ? item.review?.id === selectedReviewId
+    : item.week === selectedWeek && item.liveStageId === currentLiveStageId)
+  const olderHistoryItem = selectedHistoryIndex >= 0 ? historyItems[selectedHistoryIndex + 1] : undefined
+  const newerHistoryItem = selectedHistoryIndex > 0 ? historyItems[selectedHistoryIndex - 1] : undefined
+  const hasReviewHistory = historyItems.length > 1
   const weeklyFieldIssues = useMemo(
     () => getWeeklyVisualIssues(review),
     [
@@ -436,7 +502,7 @@ export function WeeklyReviewView() {
 
   useEffect(() => {
     setVisualIssues([])
-  }, [selectedWeek])
+  }, [selectedReviewId, selectedWeek])
 
   useEffect(() => {
     const pendingIssue = pendingIssueFocusRef.current
@@ -500,10 +566,14 @@ export function WeeklyReviewView() {
     }, 500)
   }, [review.id, reviewLiveStageId, selectedWeek, upsertReview])
 
-  const replaceRouteState = useCallback((nextWeek: string, nextTab: WeeklyReviewTab) => {
+  const replaceRouteState = useCallback((
+    nextWeek: string,
+    nextTab: WeeklyReviewTab,
+    nextReviewId?: string,
+  ) => {
     const search = buildWeeklyReviewSearch(
       location.search,
-      { selectedWeek: nextWeek, tab: nextTab },
+      { selectedWeek: nextWeek, ...(nextReviewId ? { selectedReviewId: nextReviewId } : {}), tab: nextTab },
       currentWeek,
     )
     navigate(
@@ -517,27 +587,33 @@ export function WeeklyReviewView() {
     search: routeResolution.canonicalSearch,
     restoreSearch: buildWeeklyReviewReturnSearch(
       location.search,
-      { selectedWeek, tab },
+      { selectedWeek, ...(selectedReviewId ? { selectedReviewId } : {}), tab },
     ),
     anchorTradeId,
-  }), [location.pathname, location.search, routeResolution.canonicalSearch, selectedWeek, tab])
+  }), [location.pathname, location.search, routeResolution.canonicalSearch, selectedReviewId, selectedWeek, tab])
 
-  const changeWeek = async (week: string) => {
+  const changeReview = async (item: typeof historyItems[number]) => {
     const intentGeneration = ++routeIntentGenerationRef.current
-    if (week === selectedWeek) return
+    if (
+      item.week === selectedWeek &&
+      (item.review?.id ?? undefined) === selectedReviewId
+    ) return
     const draftSaved = await flushNoteDraftToStore(draftId)
     if (intentGeneration !== routeIntentGenerationRef.current) return
     if (!draftSaved) {
       toast('正文尚未保存，请重试')
       return
     }
-    replaceRouteState(week, tab)
+    const nextReviewId = item.week === currentWeek && item.liveStageId === currentLiveStageId
+      ? undefined
+      : item.review?.id
+    replaceRouteState(item.week, tab, nextReviewId)
   }
 
   const changeTab = (nextTab: WeeklyReviewTab) => {
     routeIntentGenerationRef.current += 1
     if (nextTab === tab) return
-    replaceRouteState(selectedWeek, nextTab)
+    replaceRouteState(selectedWeek, nextTab, selectedReviewId)
   }
 
   const completeReview = async () => {
@@ -580,20 +656,25 @@ export function WeeklyReviewView() {
         {hasReviewHistory ? (
           <aside className="wr-history" aria-label="周复盘历史">
             <div className="wr-history-title">复盘记录</div>
-            {availableWeeks.map((week) => {
-              const item = reviews.find((candidate) => candidate.weekStart === week)
+            {historyItems.map((item) => {
+              const stageName = liveStages.find((stage) => stage.id === item.liveStageId)?.name ?? '未知阶段'
+              const isActive = selectedReviewId
+                ? item.review?.id === selectedReviewId
+                : item.week === selectedWeek && item.liveStageId === currentLiveStageId
               return (
                 <button
-                  key={week}
+                  key={item.key}
                   type="button"
-                  className={week === selectedWeek ? 'is-active' : ''}
-                  data-review-week={week}
-                  data-review-week-state={item?.status ?? 'pending'}
-                  onClick={() => void changeWeek(week)}
+                  className={isActive ? 'is-active' : ''}
+                  data-review-week={item.week}
+                  data-review-id={item.review?.id ?? ''}
+                  data-review-stage-id={item.liveStageId}
+                  data-review-week-state={item.review?.status ?? 'pending'}
+                  onClick={() => void changeReview(item)}
                 >
-                  <span>{weekLabel(week, currentWeek)}</span>
-                  <small>{item ? week.slice(5).replace('-', '.') : '待补做'}</small>
-                  <i className={item?.status === 'completed' ? 'is-complete' : item ? 'is-draft' : 'is-pending'} />
+                  <span>{weekLabel(item.week, currentWeek)}</span>
+                  <small>{stageName}{item.review ? '' : ' · 待补做'}</small>
+                  <i className={item.review?.status === 'completed' ? 'is-complete' : item.review ? 'is-draft' : 'is-pending'} />
                 </button>
               )
             })}
@@ -609,10 +690,10 @@ export function WeeklyReviewView() {
           <header className="wr-page-head">
             <div className="wr-page-head-inner">
               <div>
-                <div className="wr-kicker">{hasReviewHistory ? '' : '首次周复盘 · '}{selectedWeek.slice(0, 4)} · 第 {getIsoWeek(selectedWeek)} 周</div>
+                <div className="wr-kicker">{hasReviewHistory ? '' : '首次周复盘 · '}{selectedWeek.slice(0, 4)} · 第 {getIsoWeek(selectedWeek)} 周 · {liveStages.find((stage) => stage.id === reviewLiveStageId)?.name ?? '未知阶段'}</div>
                 <h1>{formatWeekRange(selectedWeek)}</h1>
                 <p>
-                  {selectedWeek === currentWeek ? '本周进行中 · ' : ''}实盘结果按平仓日 · 错过机会按标记日单列
+                  {selectedWeek === currentWeek && reviewLiveStageId === currentLiveStageId ? '本周进行中 · ' : ''}实盘结果按平仓日 · 错过机会按标记日单列
                 </p>
               </div>
               <div className="wr-head-actions">
@@ -622,8 +703,8 @@ export function WeeklyReviewView() {
                 </div>
                 {hasReviewHistory ? (
                   <>
-                    <IconButton label="上一条复盘" size="md" disabled={!olderWeek} onClick={() => olderWeek && void changeWeek(olderWeek)}><ChevronLeft size={ICON_MD} /></IconButton>
-                    <IconButton label="下一条复盘" size="md" disabled={!newerWeek} onClick={() => newerWeek && void changeWeek(newerWeek)}><ChevronRight size={ICON_MD} /></IconButton>
+                    <IconButton label="上一条复盘" size="md" disabled={!olderHistoryItem} onClick={() => olderHistoryItem && void changeReview(olderHistoryItem)}><ChevronLeft size={ICON_MD} /></IconButton>
+                    <IconButton label="下一条复盘" size="md" disabled={!newerHistoryItem} onClick={() => newerHistoryItem && void changeReview(newerHistoryItem)}><ChevronRight size={ICON_MD} /></IconButton>
                   </>
                 ) : null}
               </div>
@@ -724,7 +805,7 @@ export function WeeklyReviewView() {
                   search: routeResolution.canonicalSearch,
                   restoreSearch: buildWeeklyReviewReturnSearch(
                     location.search,
-                    { selectedWeek, tab },
+                    { selectedWeek, ...(selectedReviewId ? { selectedReviewId } : {}), tab },
                   ),
                 }}
                 overrideEventsOpen={overrideEventsOpen}

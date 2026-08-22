@@ -629,7 +629,9 @@ interface State {
       | 'id'
       | 'liveStageId'
       | 'weekStart'
+      | 'weekEnd'
       | 'createdAt'
+      | 'updatedAt'
       | 'status'
       | 'metricsSnapshot'
       | 'evidenceSnapshot'
@@ -952,7 +954,9 @@ export const useStore = create<State>()((set, get) => ({
             id: _id,
             liveStageId: _liveStageId,
             weekStart: _weekStart,
+            weekEnd: _weekEnd,
             createdAt: _createdAt,
+            updatedAt: _updatedAt,
             status: _status,
             metricsSnapshot: _metricsSnapshot,
             evidenceSnapshot: _evidenceSnapshot,

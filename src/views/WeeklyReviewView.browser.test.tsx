@@ -895,8 +895,8 @@ async function run(): Promise<void> {
     await waitFor(() => document.body.textContent?.includes('上一周真实复盘') ?? false, '切换历史周后正文没有更新')
     await waitFor(
       () => document.querySelector('[data-testid="weekly-route-probe"]')
-        ?.getAttribute('data-search') === `?week=${priorReview.weekStart}`,
-      '切换历史周后 URL 没有写入 week',
+        ?.getAttribute('data-search') === `?week=${priorReview.weekStart}&review=${encodeURIComponent(priorReview.id)}`,
+      '切换历史周后 URL 没有写入稳定复盘 ID',
     )
     assert(
       document.querySelector('[data-testid="weekly-route-probe"]')
@@ -908,14 +908,14 @@ async function run(): Promise<void> {
 
     await waitFor(
       () => document.querySelector('[data-testid="weekly-route-probe"]')
-        ?.getAttribute('data-search') === `?week=${priorReview.weekStart}&tab=year`,
+        ?.getAttribute('data-search') === `?week=${priorReview.weekStart}&review=${encodeURIComponent(priorReview.id)}&tab=year`,
       '年度趋势没有保留历史周并写入 tab=year',
     )
 
     clickButton('本周复盘')
     await waitFor(
       () => document.querySelector('[data-testid="weekly-route-probe"]')
-        ?.getAttribute('data-search') === `?week=${priorReview.weekStart}`,
+        ?.getAttribute('data-search') === `?week=${priorReview.weekStart}&review=${encodeURIComponent(priorReview.id)}`,
       '返回复盘详情后没有清理默认 tab',
     )
     historyButtons[0]?.click()
@@ -937,9 +937,84 @@ async function run(): Promise<void> {
     )
     assert(
       document.querySelector('[data-testid="weekly-route-probe"]')
-        ?.getAttribute('data-search') === `?week=${priorReview.weekStart}&tab=year&visual=mobile`,
+        ?.getAttribute('data-search') === `?week=${priorReview.weekStart}&review=${encodeURIComponent(priorReview.id)}&tab=year&visual=mobile`,
       '重挂载后没有保留历史周、页签和无关参数',
     )
+
+    const routeCurrentStageId = useStore.getState().currentLiveStageId
+    const routeCurrentStage = useStore.getState().liveStages.find((stage) => stage.id === routeCurrentStageId)!
+    const sameWeekHistoricalStageId = 'browser-same-week-history-stage'
+    const sameWeekHistoricalReview = {
+      ...createWeeklyReview(activeWeekStart, sameWeekHistoricalStageId),
+      contentHtml: '<p>同周历史阶段正文</p>',
+    }
+    const sameWeekHistoricalTrade = {
+      ...makeTrade('same-week-history-trade', 'win', 777),
+      liveStageId: sameWeekHistoricalStageId,
+    }
+    useStore.setState((state) => ({
+      liveStages: [{
+        ...routeCurrentStage,
+        id: sameWeekHistoricalStageId,
+        sequence: Math.max(1, routeCurrentStage.sequence - 1),
+        name: '同周历史阶段',
+        status: 'archived' as const,
+        endsOn: addDays(activeWeekStart, 6),
+        archivedAt: addDays(activeWeekStart, 7) + 'T00:00:00.000Z',
+      }, ...state.liveStages],
+      trades: [...state.trades, sameWeekHistoricalTrade],
+      weeklyReviews: [...state.weeklyReviews, sameWeekHistoricalReview],
+    }))
+    const sameWeekHistoricalSearch = `?review=${encodeURIComponent(sameWeekHistoricalReview.id)}`
+    root.render(
+      <MemoryRouter key="same-week-history-route" initialEntries={[`/weekly-review${sameWeekHistoricalSearch}`]}>
+        <Routes>
+          <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /></>} />
+          <Route path="/trade/:id" element={<DetailFixture />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => document.body.textContent?.includes('同周历史阶段正文') ?? false, '同周历史阶段深链没有打开对应正文')
+    assert(
+      document.querySelector(`[data-review-id="${sameWeekHistoricalReview.id}"]`)?.classList.contains('is-active'),
+      '同周历史阶段深链的侧栏活动项与正文不一致',
+    )
+    assert(
+      document.querySelector('[data-testid="weekly-route-probe"]')?.getAttribute('data-search') === sameWeekHistoricalSearch,
+      '同周历史阶段深链没有稳定往返',
+    )
+    document.querySelector<HTMLAnchorElement>(
+      '[data-trade-id="weekly-trade:same-week-history-trade"] [data-trade-primary-action]',
+    )?.click()
+    await waitFor(() => document.querySelector('[data-testid="weekly-detail"]') !== null, '同周历史阶段交易无法打开详情')
+    clickLink('返回复盘')
+    await waitFor(() => document.body.textContent?.includes('同周历史阶段正文') ?? false, '交易详情返回后切换了同周阶段')
+    await waitFor(
+      () => document.querySelector('[data-testid="weekly-route-probe"]')?.getAttribute('data-search') === sameWeekHistoricalSearch,
+      '交易详情返回没有恢复同周历史复盘 ID',
+    )
+    document.querySelector<HTMLButtonElement>(
+      `[data-review-week="${activeWeekStart}"][data-review-stage-id="${routeCurrentStageId}"]`,
+    )?.click()
+    await waitFor(() => !document.body.textContent?.includes('同周历史阶段正文'), '同周当前阶段入口仍显示历史阶段正文')
+    await waitFor(
+      () => document.querySelector('[data-testid="weekly-route-probe"]')?.getAttribute('data-search') === '',
+      '当前周当前阶段必须回到紧凑默认地址',
+    )
+    root.render(
+      <MemoryRouter key="same-week-history-refresh" initialEntries={[`/weekly-review${sameWeekHistoricalSearch}`]}>
+        <Routes>
+          <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /></>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await waitFor(() => document.body.textContent?.includes('同周历史阶段正文') ?? false, '刷新同周历史深链后正文发生漂移')
+
+    useStore.setState((state) => ({
+      liveStages: state.liveStages.filter((stage) => stage.id !== sameWeekHistoricalStageId),
+      trades: state.trades.filter((trade) => trade.id !== sameWeekHistoricalTrade.id),
+      weeklyReviews: [completed],
+    }))
     root.render(
       <MemoryRouter
         key="invalid-weekly-route"
@@ -1408,11 +1483,11 @@ async function run(): Promise<void> {
     await waitForFrames(4)
     assert(
       document.querySelector('[data-testid="weekly-route-probe"]')
-        ?.getAttribute('data-search') === `?week=${intentWeekB}`,
+        ?.getAttribute('data-search') === `?week=${intentWeekB}&review=${encodeURIComponent(`weekly-review:${useStore.getState().currentLiveStageId}:${intentWeekB}`)}`,
       '连续周切换没有保留最后一次周选择',
     )
     assert(
-      !weekThenWeekWrites.includes(`?week=${intentWeekA}`),
+      !weekThenWeekWrites.some((search) => search.includes(`week=${intentWeekA}`)),
       '连续周切换期间较旧的周 A 仍曾写入路由',
     )
     unsubscribeWeekThenWeek()

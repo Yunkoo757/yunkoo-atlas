@@ -77,6 +77,10 @@ function importedCollisionFixture(): PersistedSlice {
       mistakeTradeIds: [imported.id],
       followUpTradeIds: [imported.id],
       evidenceSnapshot: {
+        legacyCashCurrencyAssumption: {
+          currency: 'USD',
+          confirmedAt: '2026-07-27T08:00:00.000Z',
+        },
         trades: [{
           id: imported.id,
           ref: imported.ref,
@@ -108,6 +112,77 @@ function uniqueTradeIds(snapshot: PersistedSlice): string[] {
   return [...new Set(snapshot.trades.map((trade) => trade.id))]
 }
 
+function completedReviewMergeFixtures(): { current: PersistedSlice; imported: PersistedSlice } {
+  const current = createFullPersistedSnapshotFixture()
+  const localReview = {
+    ...current.weeklyReviews![0]!,
+    id: 'weekly-review:shared-stage-week',
+    contentHtml: '<p>本地内容</p>',
+    updatedAt: '2026-07-19T08:00:00.000Z',
+  }
+  current.weeklyReviews = [localReview]
+  const imported = createFullPersistedSnapshotFixture()
+  imported.weeklyReviews = [{
+    ...localReview,
+    contentHtml: '<p>导入的新内容</p>',
+    executionScore: 5,
+    updatedAt: '2026-07-20T08:00:00.000Z',
+  }]
+  return { current, imported }
+}
+
+export function testCompletedReviewWithSameFrozenTupleMergesEditableContent(): void {
+  const { current, imported } = completedReviewMergeFixtures()
+  const local = current.weeklyReviews![0]!
+  const merged = mergeRiskImport(current, imported, 'sha256-completed-same-freeze')
+  const review = merged.weeklyReviews![0]!
+  assert(review.contentHtml === '<p>导入的新内容</p>', '相同冻结元组必须允许合并较新的自由内容')
+  assert(review.executionScore === 5, '相同冻结元组必须允许合并评分')
+  assert(review.status === 'completed', '内容合并不得改变完成状态')
+  assert(review.completedAt === local.completedAt, '内容合并不得改变完成时间')
+  assert(canonicalImportValue(review.metricsSnapshot) === canonicalImportValue(local.metricsSnapshot), '内容合并不得改变指标快照')
+  assert(canonicalImportValue(review.evidenceSnapshot) === canonicalImportValue(local.evidenceSnapshot), '内容合并不得改变证据快照')
+  assert(canonicalImportValue(review.riskSnapshot) === canonicalImportValue(local.riskSnapshot), '内容合并不得改变风险快照')
+}
+
+export function testCompletedReviewWithDifferentFrozenTupleRejectsAtomically(): void {
+  const { current, imported } = completedReviewMergeFixtures()
+  imported.weeklyReviews = imported.weeklyReviews!.map((review) => ({
+    ...review,
+    completedAt: '2026-07-21T08:00:00.000Z',
+  }))
+  const before = canonicalImportValue(current)
+  let code = ''
+  try {
+    mergeRiskImport(current, imported, 'sha256-completed-conflict')
+  } catch (error) {
+    code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : ''
+  }
+  assert(code === 'import-immutable-entity-conflict', '不同冻结元组必须按不可变实体冲突协议拒绝')
+  assert(canonicalImportValue(current) === before, '冲突拒绝必须保持原输入原子不变')
+}
+
+export function testImportedDraftCannotDowngradeLocalCompletedReview(): void {
+  const { current, imported } = completedReviewMergeFixtures()
+  const local = current.weeklyReviews![0]!
+  imported.weeklyReviews = imported.weeklyReviews!.map((review) => ({
+    ...review,
+    status: 'draft' as const,
+    metricsSnapshot: null,
+    evidenceSnapshot: undefined,
+    riskSnapshot: undefined,
+    completedAt: null,
+    contentHtml: '<p>草稿导入内容</p>',
+  }))
+  const review = mergeRiskImport(current, imported, 'sha256-completed-vs-draft').weeklyReviews![0]!
+  assert(review.contentHtml === '<p>草稿导入内容</p>', '较新的草稿仍可提供自由内容')
+  assert(review.status === 'completed', '导入草稿不得降级本地完成态')
+  assert(review.completedAt === local.completedAt, '导入草稿不得清除本地完成时间')
+  assert(canonicalImportValue(review.metricsSnapshot) === canonicalImportValue(local.metricsSnapshot), '导入草稿不得清除指标快照')
+  assert(canonicalImportValue(review.evidenceSnapshot) === canonicalImportValue(local.evidenceSnapshot), '导入草稿不得清除证据快照')
+  assert(canonicalImportValue(review.riskSnapshot) === canonicalImportValue(local.riskSnapshot), '导入草稿不得清除风险快照')
+}
+
 export function testSameKindDifferentIdentityRemapsEveryReference(): void {
   const merged = mergeRiskImport(localFixture(), importedCollisionFixture(), 'sha256-a')
   const importedTrade = merged.trades.find((trade) => trade.ref === 'IMPORTED-1')
@@ -120,6 +195,10 @@ export function testSameKindDifferentIdentityRemapsEveryReference(): void {
   assert(review?.followUpTradeIds[0] === importedTrade?.id, '跟进交易列表必须重映射')
   assert(review?.evidenceSnapshot?.trades[0]?.id === importedTrade?.id, '冻结交易证据必须重映射')
   assert(review?.evidenceSnapshot?.missedTrades[0]?.id === importedTrade?.id, '冻结错过机会证据必须重映射')
+  assert(
+    review?.evidenceSnapshot?.legacyCashCurrencyAssumption?.confirmedAt === '2026-07-27T08:00:00.000Z',
+    '冻结证据重映射必须保留非实体字段',
+  )
   assert(merged.starredIds[0] === importedTrade?.id, '收藏交易 ID 必须重映射')
   assert(merged.subscribedIds[0] === importedTrade?.id, '订阅交易 ID 必须重映射')
   assert(merged.trades.find((trade) => trade.id === 'case-1')?.sourceTradeId === importedTrade?.id, '案例来源必须重映射')

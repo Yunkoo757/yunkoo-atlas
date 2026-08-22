@@ -329,6 +329,81 @@ export async function testImmutableRiskConflictRejectsBeforeCommitWithoutPartial
   }
 }
 
+export async function testCompletedReviewConflictRejectsBeforeCommitWithoutPartialState(): Promise<void> {
+  let commitCount = 0
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      journalBridge: {
+        isElectron: true,
+        commitImport: async () => {
+          commitCount += 1
+          return true
+        },
+        saveSnapshot: async () => true,
+      },
+    },
+  })
+
+  const current = fullFixtureWithTradeIdentity()
+  current.weeklyReviews = current.weeklyReviews!.map((review) => ({
+    ...review,
+    liveStageId: current.currentLiveStageId,
+    riskSnapshot: review.riskSnapshot
+      ? {
+          ...review.riskSnapshot,
+          policyVersions: review.riskSnapshot.policyVersions.map((item) => ({
+            ...item,
+            liveStageId: current.currentLiveStageId,
+          })),
+          overrideEvents: review.riskSnapshot.overrideEvents.map((item) => ({
+            ...item,
+            liveStageId: current.currentLiveStageId,
+          })),
+        }
+      : undefined,
+  }))
+  useStore.setState({ ...current })
+  const imported = fullFixtureWithTradeIdentity()
+  imported.weeklyReviews = current.weeklyReviews.map((review) => ({
+    ...review,
+    contentHtml: '<p>允许合并的自由内容</p>',
+    updatedAt: '2026-07-22T08:00:00.000Z',
+    completedAt: '2026-07-22T09:00:00.000Z',
+  }))
+  const originalReviews = useStore.getState().weeklyReviews
+  const originalCanonical = canonicalContractJson(originalReviews)
+
+  enablePersistWrites()
+  try {
+    let code: unknown
+    let message = ''
+    try {
+      await applyImport({
+        version: 12,
+        ...imported,
+        trades: imported.trades.map((trade) => ({ ...trade, note: '' })),
+        quickNotes: [],
+        assets: [],
+      })
+    } catch (error) {
+      code = error && typeof error === 'object' && 'code' in error ? error.code : undefined
+      message = error instanceof Error ? error.message : String(error)
+    }
+
+    assert(
+      code === 'import-immutable-entity-conflict',
+      `真实 applyImport 必须拒绝已完成复盘冻结元组冲突；实际 code=${String(code)} commit=${commitCount} message=${message}`,
+    )
+    assert(commitCount === 0, '已完成复盘冲突必须在 commitImport 前拒绝')
+    assert(useStore.getState().weeklyReviews === originalReviews, '冲突导入不得发布新的周复盘数组')
+    assert(canonicalContractJson(useStore.getState().weeklyReviews) === originalCanonical, '冲突导入后完成复盘必须原子不变')
+  } finally {
+    disablePersistWrites()
+    Reflect.deleteProperty(globalThis, 'window')
+  }
+}
+
 interface ConcurrentImmutableRiskScenario {
   label: string
   mutate: (current: PersistedSnapshot) => string | number

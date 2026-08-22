@@ -191,8 +191,8 @@ function migrateWeeklyReviews(
     const riskSnapshot = review.riskSnapshot
       ? {
           ...review.riskSnapshot,
-          policyVersions: review.riskSnapshot.policyVersions.map((item) => ({ ...item, liveStageId: currentLiveStageId })),
-          overrideEvents: review.riskSnapshot.overrideEvents.map((item) => ({ ...item, liveStageId: currentLiveStageId })),
+          policyVersions: review.riskSnapshot.policyVersions.map((item) => ({ ...item, liveStageId })),
+          overrideEvents: review.riskSnapshot.overrideEvents.map((item) => ({ ...item, liveStageId })),
         }
       : undefined
     return { ...review, liveStageId, ...(riskSnapshot ? { riskSnapshot } : {}) }
