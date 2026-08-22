@@ -76,11 +76,25 @@ function reliableCaseDay(trade: Trade, startHour: number): string | null {
 }
 
 function reliableTradeDay(trade: Trade, startHour: number): string | null {
-  if (trade.tradeKind === 'paper') return null
+  if (trade.tradeKind !== 'live' && trade.tradeKind !== 'case') return null
   if (trade.tradeKind === 'case') return reliableCaseDay(trade, startHour)
   return isExecutedClosed(trade.status) || isMissed(trade.status)
     ? resolveLivePerformanceCloseTradingDayKey(trade, startHour)
     : openedTradingDayKey(trade, startHour)
+}
+
+export function collectReliableLegacyStageRecordDays(
+  raw: LegacyStageSnapshot,
+): string[] {
+  const startHour = tradingDayStartHour(raw)
+  const trades = Array.isArray(raw.trades) ? raw.trades : []
+  const weeklyReviews = Array.isArray(raw.weeklyReviews) ? raw.weeklyReviews : []
+  return [
+    ...trades.map((trade) => reliableTradeDay(trade, startHour)),
+    ...weeklyReviews.map((review) => (
+      isValidLiveCycleDayKey(review.weekStart) ? review.weekStart : null
+    )),
+  ].filter((day): day is string => day !== null)
 }
 
 function stageForDay(stages: readonly LiveStage[], day: string | null): LiveStage | null {
@@ -93,7 +107,6 @@ function stageForDay(stages: readonly LiveStage[], day: string | null): LiveStag
 function buildStages(
   raw: LegacyStageSnapshot,
   options: LegacyStageMigrationOptions,
-  startHour: number,
 ): { liveStages: LiveStage[]; currentLiveStageId: string } {
   const cycles = legacyCycles(raw)
   const firstStart = cycles[0]?.startTradingDayKey ?? (
@@ -101,12 +114,7 @@ function buildStages(
       ? raw.liveStatsStartTradingDayKey
       : options.currentTradingDayKey
   )
-  const recordDays = [
-    ...(raw.trades ?? []).map((trade) => reliableTradeDay(trade, startHour)),
-    ...(raw.weeklyReviews ?? []).map((review) => (
-      isValidLiveCycleDayKey(review.weekStart) ? review.weekStart : null
-    )),
-  ].filter((day): day is string => day !== null)
+  const recordDays = collectReliableLegacyStageRecordDays(raw)
   const preCycleDays = recordDays.filter((day) => day < firstStart).sort()
   const definitions = [
     ...(preCycleDays.length > 0 ? [{
@@ -210,7 +218,7 @@ export function migrateLegacyStageSnapshot(
     throw new Error('旧快照 weeklyReviews 必须是数组')
   }
   const startHour = tradingDayStartHour(raw)
-  const { liveStages, currentLiveStageId } = buildStages(raw, options, startHour)
+  const { liveStages, currentLiveStageId } = buildStages(raw, options)
   const trades = migrateTrades(raw.trades ?? [], liveStages, startHour)
   const weeklyReviews = migrateWeeklyReviews(raw.weeklyReviews ?? [], liveStages, currentLiveStageId)
 

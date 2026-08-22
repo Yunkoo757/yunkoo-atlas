@@ -14,7 +14,11 @@ import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { normalizeTradingDayStartHour } from '@/lib/periods'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 import { cloneLivePerformanceCycles } from '@/lib/livePerformanceCycles'
-import { migrateLegacyStageSnapshot, type LegacyStageMigrationOptions } from '@/lib/stageMigration'
+import {
+  collectReliableLegacyStageRecordDays,
+  migrateLegacyStageSnapshot,
+  type LegacyStageMigrationOptions,
+} from '@/lib/stageMigration'
 import { migrateShortcutBindings } from '@/shortcuts/migrate'
 import type { ActivePersistedSnapshotKey } from '@/storage/persistedKeys'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
@@ -166,17 +170,7 @@ function defaultStageMigrationOptions(raw: Record<string, unknown>): LegacyStage
     : isValidLiveCycleDayKey(raw.liveStatsStartTradingDayKey)
       ? raw.liveStatsStartTradingDayKey
       : null
-  const recordDays = [
-    ...(Array.isArray(raw.trades) ? raw.trades : []).flatMap((trade) => {
-      if (!isRecord(trade)) return []
-      return [trade.closedTradingDayKey, trade.closedAt, trade.openedAt]
-        .map((value) => typeof value === 'string' ? value.slice(0, 10) : '')
-        .filter(isValidLiveCycleDayKey)
-    }),
-    ...(Array.isArray(raw.weeklyReviews) ? raw.weeklyReviews : []).flatMap((review) => (
-      isRecord(review) && isValidLiveCycleDayKey(review.weekStart) ? [review.weekStart] : []
-    )),
-  ].sort()
+  const recordDays = collectReliableLegacyStageRecordDays(raw).sort()
   const latestRecordDay = recordDays.at(-1)
   const inferredCurrentDay = latestRecordDay === undefined
     ? '2000-01-03'

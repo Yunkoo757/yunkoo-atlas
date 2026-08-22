@@ -125,6 +125,65 @@ export function testContextFreeLegacyCodecUsesRecordsForDeterministicStageBounda
   assert(decoded.trades[0]?.tradeKind === 'live' && decoded.trades[0].liveStageId === 'legacy-live-stage-1', '历史交易不得永久归入当前阶段')
 }
 
+export function testContextFreeLegacyCodecUsesCaseRecordedAtForDeterministicBoundary(): void {
+  const fixture = structuredClone(createFullPersistedSnapshotFixture()) as unknown as Record<string, unknown>
+  delete fixture.liveStages
+  delete fixture.currentLiveStageId
+  delete fixture.scheduledStageRollover
+  fixture.liveStatsStartTradingDayKey = null
+  fixture.livePerformanceCycles = []
+  fixture.weeklyReviews = []
+  const trade = (fixture.trades as Array<Record<string, unknown>>)[0]!
+  trade.tradeKind = 'case'
+  delete trade.liveStageId
+  delete trade.closedTradingDayKey
+  trade.closedAt = null
+  trade.openedAt = 'not-a-date'
+  trade.recordedAt = '2026-07-17T12:00:00'
+  delete trade.activities
+
+  const decoded = decodeCanonicalSnapshot(fixture, { version: 11 })
+
+  assert(decoded.liveStages.length === 2, '仅 recordedAt 可靠的案例也必须与当前阶段分开')
+  assert(decoded.liveStages[0]?.name === '更早记录', '案例 recordedAt 必须创建更早记录')
+  assert(decoded.liveStages[1]?.startsOn === '2026-07-18', '案例 recordedAt 的确定性边界必须是可靠日期次日')
+  assert(decoded.trades[0]?.tradeKind === 'case' && decoded.trades[0].liveStageId === 'legacy-live-stage-1', '案例必须归入更早记录')
+}
+
+export function testContextFreeLegacyCodecUsesOpenActivityForDeterministicBoundary(): void {
+  const fixture = structuredClone(createFullPersistedSnapshotFixture()) as unknown as Record<string, unknown>
+  delete fixture.liveStages
+  delete fixture.currentLiveStageId
+  delete fixture.scheduledStageRollover
+  fixture.liveStatsStartTradingDayKey = null
+  fixture.livePerformanceCycles = []
+  fixture.weeklyReviews = []
+  const trade = (fixture.trades as Array<Record<string, unknown>>)[0]!
+  delete trade.liveStageId
+  delete trade.closedTradingDayKey
+  delete trade.recordedAt
+  trade.status = 'open'
+  trade.openedAt = 'not-a-date'
+  trade.closedAt = null
+  trade.exit = null
+  trade.pnl = null
+  trade.rMultiple = null
+  delete trade.resultSource
+  trade.activities = [{
+    id: 'only-reliable-open',
+    kind: 'status',
+    status: 'open',
+    timestamp: '2026-07-17T12:00:00',
+  }]
+
+  const decoded = decodeCanonicalSnapshot(fixture, { version: 11 })
+
+  assert(decoded.liveStages.length === 2, '仅活动时间可靠的实盘交易也必须与当前阶段分开')
+  assert(decoded.liveStages[0]?.name === '更早记录', '开仓活动时间必须创建更早记录')
+  assert(decoded.liveStages[1]?.startsOn === '2026-07-18', '活动时间的确定性边界必须是可靠日期次日')
+  assert(decoded.trades[0]?.tradeKind === 'live' && decoded.trades[0].liveStageId === 'legacy-live-stage-1', '活动日期对应交易必须归入更早记录')
+}
+
 export function testVersionTwelveCodecRequiresCanonicalStageFields(): void {
   const fixture = structuredClone(createFullPersistedSnapshotFixture()) as unknown as Record<string, unknown>
   for (const field of ['liveStages', 'currentLiveStageId', 'scheduledStageRollover']) {
