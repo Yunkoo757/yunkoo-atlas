@@ -80,3 +80,47 @@ stage-source 浏览器测试最初用 `[aria-label="阶段来源"]` 查询 Selec
 ## 短状态合同
 
 `默认当前+全部历史；stage ID 决定成员；pending 永不进入；paper 独立；显式空不扩容；缺失阶段只剪枝；rollover 保活；历史评估原地写回；会话按资料库持久化。`
+
+---
+
+## Fix Round 1：移除原生阻塞确认
+
+### 修复结果
+
+- 基线：`70a8a36`。
+- 活动轮次改变筛选时不再调用 `window.confirm`。`ReviewSessionView` 保存归一化后的精确 pending filters，并切换到项目标准 `ModalShell` 确认流程。
+- 确认弹层明确说明本轮已评进度会被丢弃，安全动作“保留当前轮次”先获得焦点；Escape 与显式取消均返回原设置草稿。
+- 取消不会改变活动轮次、当前条目、设置草稿或 library-scoped sessionStorage；焦点返回“应用设置”。
+- “重新生成轮次”使用原生 form/submit 语义，聚焦后可由 Enter 提交。确认后只应用捕获的 pending filters，单次重新随机、单次建立新轮次并由既有 session effect 持久化，最后将焦点放回新活动条目。
+- 提交先进入 `ModalShell busy`，panel inert、确认按钮 disabled/`aria-busy`；同步 guard 拒绝同一帧内的第二次 form submit，busy 时 Escape 被消费但不能关闭弹层。
+- `productFlowPolish` 静态合同已纳入 `ReviewSessionView.tsx`，禁止随机复盘范围确认重新引入 `window.confirm`，并要求继续复用 `ModalShell`。
+
+### TDD：RED
+
+1. 静态合同先加入 `ReviewSessionView.tsx`：`testConfirmationsUseTheSharedModalLanguage` 以“随机复盘范围确认不得退回系统原生弹窗”准确失败。
+2. stage-source 浏览器 fixture 先删除 `window.confirm` monkeypatch，改为真实 DOM 操作：首跑停在“活动轮次来源切换没有打开项目统一确认弹层”。
+3. 测试覆盖真实 dialog title/copy、安全焦点、Escape、显式取消、草稿/会话/持久化不变、原生 submit、busy、busy Escape、防双 submit、精确队列/持久化与确认后焦点。
+4. GREEN 过程中发现空自选断言会被退出动画 clone 的旧文案提前满足；收紧为等待真实 `[role=dialog]` 消失与 `.review-session-empty-selection` 出现，不添加生产延迟或规避。
+
+### GREEN 与完整门禁
+
+- 聚焦 unit：`reviewSession.test.ts`、`reviewSessionActions.test.ts`、`productFlowPolish.test.ts`，`39 PASS / 0 FAIL`。
+- 受影响 browser：ReviewSession、ReviewSessionImageReadiness、ReviewSessionStageSource 的默认、960×640、1280×860、1920×1080，`12 PASS / 0 FAIL`。
+- 完整 unit：`1369 PASS / 0 FAIL`。
+- `pnpm typecheck`：退出码 0。
+- `pnpm qa:design`：退出码 0，`PASS: Trader Atlas design contract`。
+- 完整 browser：`132 PASS / 2 FAIL`；仅保留获准延后的 TradeComposerBatch typed CAS conflict 与 WebStorageConflict 远端边界集合两项，Task 11 及其他 fixture 均通过。
+- `git diff --check`：通过；严格 UTF-8 解码与 no-BOM 检查通过。
+
+### Fix Round 1 自审
+
+- exact-pending 边界：点击“应用设置”时先归一化并捕获 filters；确认期间不再从可变化的设置控件重算。
+- cancel 边界：Escape/按钮只清 pending，原 `settingsDraft` 保留；测试比较确认前后的完整 session snapshot 与原始 sessionStorage 字符串。
+- single-apply 边界：同步 ref 在 React busy render 前就封锁第二次 submit；测试同帧提交两次并只观察到一次 `shuffleReviewSessionIds`。
+- focus/keyboard 边界：ModalShell 管 Escape、trap、busy inert；确认使用标准 submit button + form；安全取消与确认后的两个焦点目标都有真实浏览器断言。
+- mutation check：删除 pending modal、取消时清草稿、移除 autofocus/form/busy/guard/persistence/focus 任一分支，均会击穿对应浏览器断言；重新引入 `window.confirm` 会击穿静态合同。
+- 范围边界：没有修改 stage pool/session codec、CAS/WebStorage 或移动端代码。
+
+## Fix Round 1 短状态合同
+
+`活动范围先保存精确 pending filters；统一 ModalShell 确认；取消零写入并保留草稿；Enter/按钮单次提交；busy 防双击且不可关闭；确认一次再生成、持久化并恢复活动焦点。`

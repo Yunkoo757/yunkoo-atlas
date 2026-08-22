@@ -117,10 +117,11 @@ async function run(): Promise<void> {
   const previousShortcuts = useShortcutStore.getState()
   const historical = reviewCase('historical-case', 'CAS-HISTORY', 'ETHUSDT', archivedStage.id)
   const current = reviewCase('current-case', 'CAS-CURRENT', 'BTCUSDT', currentStage.id)
+  const currentTwo = reviewCase('current-case-two', 'CAS-CURRENT-2', 'XRPUSDT', currentStage.id)
   const pending = { ...reviewCase('pending-case', 'CAS-PENDING', 'SOLUSDT', currentStage.id), liveStageId: null }
   clearReviewSessionStorage(manifest.libraryId)
   useStore.setState({
-    trades: [current, historical, pending],
+    trades: [current, historical, currentTwo, pending],
     liveStages: [archivedStage, currentStage],
     currentLiveStageId: currentStage.id,
     strategies: [{ id: 'stage-source-strategy', name: '结构确认', icon: 'target', color: '#5e6ad2' }],
@@ -131,7 +132,15 @@ async function run(): Promise<void> {
   useShortcutStore.setState({ bindings: {}, lightbox: null, cmdkOpen: false, modalOverlayCount: 0 })
 
   const originalRandom = Math.random
-  Math.random = () => 0
+  let randomValue = 0
+  let traceRandom = false
+  let regenerationShuffleCalls = 0
+  Math.random = () => {
+    if (traceRandom && new Error('random call').stack?.includes('shuffleReviewSessionIds')) {
+      regenerationShuffleCalls += 1
+    }
+    return randomValue
+  }
   const root = createRoot(rootElement)
   root.render(
     <MemoryRouter
@@ -143,7 +152,7 @@ async function run(): Promise<void> {
   )
 
   try {
-    await waitFor(() => document.body.textContent?.includes('可随机复盘 2 条') === true, '默认池没有覆盖当前与历史阶段')
+    await waitFor(() => document.body.textContent?.includes('可随机复盘 3 条') === true, '默认池没有覆盖当前与历史阶段')
     assert(document.body.textContent?.includes('当前阶段 + 全部历史'), '开始页没有显示默认阶段来源')
     assert(!document.body.textContent?.includes('CAS-PENDING'), '待整理案例不得进入复盘入口')
     assert(document.documentElement.scrollWidth <= window.innerWidth, `${window.innerWidth}px 开始页不得横向溢出`)
@@ -172,7 +181,7 @@ async function run(): Promise<void> {
     stageInputs[0]?.click()
     stageInputs[1]?.click()
     findButton('应用设置')?.click()
-    await waitFor(() => document.body.textContent?.includes('可随机复盘 2 条') === true, '自选两个阶段没有生成精确候选池')
+    await waitFor(() => document.body.textContent?.includes('可随机复盘 3 条') === true, '自选两个阶段没有生成精确候选池')
 
     findButton('开启一轮新的复盘')?.click()
     await waitFor(() => document.body.textContent?.includes('CAS-HISTORY') === true, '固定随机源没有先展示历史案例')
@@ -187,7 +196,7 @@ async function run(): Promise<void> {
     assert(!accepted, '历史案例掌握度快捷键必须被复盘作用域消费')
     await waitFor(() => useStore.getState().trades.find((trade) => trade.id === historical.id)?.masteryState === 'mastered', '历史案例评估没有写回原实体')
     const assessedHistorical = useStore.getState().trades.find((trade) => trade.id === historical.id)
-    assert(useStore.getState().trades.length === 3, '历史案例评估不得复制实体')
+    assert(useStore.getState().trades.length === 4, '历史案例评估不得复制实体')
     assert(
       assessedHistorical?.tradeKind === 'case' &&
         assessedHistorical.id === historical.id &&
@@ -210,34 +219,86 @@ async function run(): Promise<void> {
       () => document.querySelector<HTMLButtonElement>('button[aria-label="阶段来源"]')?.textContent?.includes('仅当前阶段') === true,
       '活动轮次来源选择没有提交到设置草稿',
     )
-    const originalConfirm = window.confirm
-    let confirmCalls = 0
-    let confirmResult = false
-    window.confirm = () => {
-      confirmCalls += 1
-      return confirmResult
-    }
+    const sessionKey = `yunkoo-atlas:review-session:v2:${encodeURIComponent(manifest.libraryId)}`
+    const activeBeforeConfirmation = JSON.stringify(loadReviewSession(manifest.libraryId))
+    const persistedBeforeConfirmation = sessionStorage.getItem(sessionKey)
     const activeApply = findButton('应用设置')
     assert(activeApply && !activeApply.disabled, '活动轮次设置缺少可用的应用按钮')
     activeApply.click()
-    await waitFor(() => confirmCalls === 1, '活动轮次来源切换必须请求一次丢弃进度确认')
-    assert(loadReviewSession(manifest.libraryId)?.ids.length === 2, '拒绝确认后不得丢弃活动轮次')
-    assert(document.querySelector('.modal-shell'), '拒绝确认后必须保留设置草稿')
-    assert(typeof loadReviewSession(manifest.libraryId)?.filters.stageSource === 'object', '拒绝确认后不得提前提交阶段来源')
-    confirmResult = true
-    const confirmedApply = findButton('应用设置')
-    assert(confirmedApply && !confirmedApply.disabled, '拒绝确认后应用按钮必须继续可用')
-    confirmedApply.click()
-    await waitFor(() => confirmCalls === 2, '确认后必须再次执行同一活动轮次切换流程')
+    await waitFor(
+      () => document.querySelector('[role="dialog"] h2')?.textContent?.trim() === '重新生成当前轮次？',
+      '活动轮次来源切换没有打开项目统一确认弹层',
+    )
+    assert(document.body.textContent?.includes('本轮已评进度会被丢弃'), '确认弹层没有清楚说明丢弃进度后果')
+    await waitFor(() => document.activeElement?.textContent?.trim() === '保留当前轮次', '确认弹层没有优先聚焦安全取消动作')
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    window.dispatchEvent(escape)
+    assert(escape.defaultPrevented, '确认弹层必须消费 Escape')
+    await waitFor(
+      () => document.querySelector('[role="dialog"] h2')?.textContent?.trim() === '复盘设置',
+      'Escape 取消后没有返回原设置草稿',
+    )
+    assert(JSON.stringify(loadReviewSession(manifest.libraryId)) === activeBeforeConfirmation, 'Escape 取消不得改变活动轮次')
+    assert(sessionStorage.getItem(sessionKey) === persistedBeforeConfirmation, 'Escape 取消不得写入持久化会话')
+    assert(
+      document.querySelector<HTMLButtonElement>('button[aria-label="阶段来源"]')?.textContent?.includes('仅当前阶段') === true,
+      'Escape 取消不得丢失待确认的设置草稿',
+    )
+    await waitFor(() => document.activeElement === findButton('应用设置'), 'Escape 取消后没有把焦点恢复到设置应用动作')
+
+    findButton('应用设置')?.click()
+    await waitFor(() => Boolean(findButton('保留当前轮次')), '设置草稿无法再次进入确认弹层')
+    findButton('保留当前轮次')?.click()
+    await waitFor(
+      () => document.querySelector('[role="dialog"] h2')?.textContent?.trim() === '复盘设置',
+      '显式取消后没有返回原设置草稿',
+    )
+    assert(JSON.stringify(loadReviewSession(manifest.libraryId)) === activeBeforeConfirmation, '显式取消不得改变活动轮次')
+    assert(sessionStorage.getItem(sessionKey) === persistedBeforeConfirmation, '显式取消不得写入持久化会话')
+    assert(document.body.textContent?.includes('CAS-CURRENT-2'), '取消确认不得改变当前活动条目')
+
+    findButton('应用设置')?.click()
+    await waitFor(() => Boolean(findButton('重新生成轮次')), '第三次应用没有打开确认弹层')
+    const confirmationForm = document.querySelector<HTMLFormElement>('#review-session-regeneration-confirm-form')
+    const confirmRegeneration = findButton('重新生成轮次')
+    assert(confirmationForm && confirmRegeneration, '确认弹层缺少可提交表单或明确确认动作')
+    assert(
+      confirmRegeneration.type === 'submit' && confirmRegeneration.getAttribute('form') === confirmationForm.id,
+      '确认动作必须使用可由 Enter 提交的原生表单语义',
+    )
+    confirmRegeneration.focus()
+    assert(document.activeElement === confirmRegeneration, '确认动作必须可通过键盘焦点到达')
+    const confirmEnter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    confirmRegeneration.dispatchEvent(confirmEnter)
+    assert(!confirmEnter.defaultPrevented, '确认动作不得阻止原生 Enter 表单提交语义')
+    randomValue = 0.999
+    traceRandom = true
+    confirmationForm.requestSubmit(confirmRegeneration)
+    confirmationForm.requestSubmit(confirmRegeneration)
+    await waitFor(
+      () => document.querySelector('[role="dialog"]')?.getAttribute('aria-busy') === 'true',
+      '确认提交后没有进入 busy 状态',
+    )
+    assert(confirmRegeneration.disabled, 'busy 时确认动作必须禁用以防重复应用')
+    const busyEscape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    window.dispatchEvent(busyEscape)
+    assert(busyEscape.defaultPrevented, 'busy 时确认弹层仍必须消费 Escape')
+    assert(document.querySelector('[role="dialog"]'), 'busy 时 Escape 不得关闭确认弹层')
     await waitFor(() => !document.querySelector('.modal-shell'), '确认切换来源后设置弹层没有关闭')
     await waitFor(() => document.body.textContent?.includes('CAS-CURRENT') === true, '确认切换来源后没有展示当前阶段队列')
     await waitFor(() => loadReviewSession(manifest.libraryId)?.filters.stageSource === 'current',
-      `确认切换来源后没有持久化新阶段来源：${sessionStorage.getItem(`yunkoo-atlas:review-session:v2:${encodeURIComponent(manifest.libraryId)}`)}`)
+      `确认切换来源后没有持久化新阶段来源：${sessionStorage.getItem(sessionKey)}`)
     assert(
-      loadReviewSession(manifest.libraryId)?.ids.join(',') === current.id,
+      new Set(loadReviewSession(manifest.libraryId)?.ids).size === 2 &&
+        loadReviewSession(manifest.libraryId)?.ids.every((id) => id === current.id || id === currentTwo.id),
       `确认切换来源后队列错误：${loadReviewSession(manifest.libraryId)?.ids.join(',') ?? 'null'}`,
     )
-    window.confirm = originalConfirm
+    assert(regenerationShuffleCalls === 1, `双重提交只能随机并再生成一次活动轮次：${regenerationShuffleCalls}`)
+    traceRandom = false
+    await waitFor(
+      () => document.activeElement === document.querySelector('[data-review-session-focus]'),
+      '确认再生成后没有把焦点恢复到新活动条目',
+    )
     await waitFor(() => document.body.textContent?.includes('来源 · 当前阶段') === true, '当前阶段案例没有显示来源标签')
 
     findButton('打开详情')?.click()
@@ -255,10 +316,12 @@ async function run(): Promise<void> {
       () => document.querySelectorAll<HTMLInputElement>('.review-session-stage-option input').length === 2,
       '恢复后切换自选阶段没有渲染空多选列表',
     )
-    window.confirm = () => true
     findButton('应用设置')?.click()
-    await waitFor(() => document.body.textContent?.includes('尚未选择实盘阶段') === true, '空自选没有呈现清晰筛选状态')
-    assert(loadReviewSession(manifest.libraryId)?.ids.length === 0, '空自选活动轮次没有持久化为空队列')
+    await waitFor(() => Boolean(findButton('重新生成轮次')), '空自选变更没有进入确认弹层')
+    findButton('重新生成轮次')?.click()
+    await waitFor(() => !document.querySelector('[role="dialog"]'), '空自选确认后设置弹层没有关闭')
+    await waitFor(() => Boolean(document.querySelector('.review-session-empty-selection')), '空自选没有呈现清晰筛选状态')
+    await waitFor(() => loadReviewSession(manifest.libraryId)?.ids.length === 0, '空自选活动轮次没有持久化为空队列')
     assert(document.documentElement.scrollWidth <= window.innerWidth, `${window.innerWidth}px 空状态不得横向溢出`)
 
     findButton('重新选择阶段')?.click()
@@ -271,7 +334,7 @@ async function run(): Promise<void> {
       '空状态重新选择没有提交当前阶段草稿',
     )
     findButton('应用设置')?.click()
-    await waitFor(() => document.body.textContent?.includes('可随机复盘 1 条') === true, '空状态选择有效阶段后没有返回可开始状态')
+    await waitFor(() => document.body.textContent?.includes('可随机复盘 2 条') === true, '空状态选择有效阶段后没有返回可开始状态')
     findButton('开启一轮新的复盘')?.click()
     await waitFor(() => document.body.textContent?.includes('来源 · 当前阶段') === true, '空状态恢复后无法开启当前阶段新轮次')
   } finally {

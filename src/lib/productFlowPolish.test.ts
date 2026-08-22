@@ -111,15 +111,16 @@ export async function testConfirmationsUseTheSharedModalLanguage(): Promise<void
     fs.readFile('src/components/DataIOContent.tsx', 'utf8'),
     fs.readFile('src/views/settings/DataSettingsPanel.tsx', 'utf8'),
     fs.readFile('src/views/DetailView.tsx', 'utf8'),
+    fs.readFile('src/views/ReviewSessionView.tsx', 'utf8'),
   ])
 
   assert(
     sources.every((source) => !source.includes('window.confirm')),
-    '资料库、备份和复盘追记确认不得退回系统原生弹窗',
+    '资料库、备份、复盘追记和随机复盘范围确认不得退回系统原生弹窗',
   )
   assert(
     sources.every((source) => source.includes('ModalShell')),
-    '资料库、备份和复盘追记确认应复用统一弹窗语汇',
+    '资料库、备份、复盘追记和随机复盘范围确认应复用统一弹窗语汇',
   )
 }
 

@@ -208,6 +208,8 @@ export function ReviewSessionView() {
   const businessDateAnchor = useBusinessDateAnchor()
   const [filters, setFilters] = useState<ReviewSessionFilters>(DEFAULT_REVIEW_SESSION_FILTERS)
   const [settingsDraft, setSettingsDraft] = useState<ReviewSessionFilters | null>(null)
+  const [pendingFilters, setPendingFilters] = useState<ReviewSessionFilters | null>(null)
+  const [pendingFiltersBusy, setPendingFiltersBusy] = useState(false)
   const [session, setSession] = useState<ReviewSessionSnapshot | null>(null)
   const [libraryId, setLibraryId] = useState<string | null>(null)
   const [restoreStatus, setRestoreStatus] = useState<RestoreStatus>('loading')
@@ -216,6 +218,9 @@ export function ReviewSessionView() {
   const latestTradesRef = useRef(trades)
   const latestStarredRef = useRef(starred)
   const focusAfterTransitionRef = useRef(false)
+  const focusSettingsApplyAfterCancelRef = useRef(false)
+  const pendingFiltersApplyRef = useRef(false)
+  const pendingFiltersFrameRef = useRef<number | null>(null)
   const sessionRef = useRef(session)
   latestTradesRef.current = trades
   latestStarredRef.current = starred
@@ -433,6 +438,21 @@ export function ReviewSessionView() {
   }, [current, roundEnded, session?.cursor, settingsDraft])
 
   useEffect(() => {
+    if (!focusSettingsApplyAfterCancelRef.current || pendingFilters || !settingsDraft) return
+    focusSettingsApplyAfterCancelRef.current = false
+    const frame = requestAnimationFrame(() => {
+      document.querySelector<HTMLButtonElement>('[data-review-settings-apply]')?.focus()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [pendingFilters, settingsDraft])
+
+  useEffect(() => () => {
+    if (pendingFiltersFrameRef.current !== null) {
+      cancelAnimationFrame(pendingFiltersFrameRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!session || roundEnded || !current) return
     return registerShortcutHandlers(createReviewSessionShortcutHandlers({
       current,
@@ -466,8 +486,31 @@ export function ReviewSessionView() {
       stageSource: normalizeReviewStageSource(settingsDraft.stageSource, liveStages),
     }
     if (session && session.ids.length > 0 && !roundEnded && !haveSameReviewFilters(session.filters, nextFilters)) {
-      const confirmed = window.confirm('应用新范围会结束当前进度并重新生成本轮，是否继续？')
-      if (!confirmed) return
+      setPendingFilters(nextFilters)
+      return
+    }
+    setFilters(nextFilters)
+    setSettingsDraft(null)
+    if (session?.ids.length === 0) {
+      if (libraryId) clearReviewSessionStorage(libraryId)
+      setSession(null)
+      setResolvedNote(EMPTY_NOTE_STATE)
+    }
+  }
+
+  const cancelPendingFilters = () => {
+    if (pendingFiltersBusy) return
+    focusSettingsApplyAfterCancelRef.current = true
+    setPendingFilters(null)
+  }
+
+  const confirmPendingFilters = () => {
+    if (!pendingFilters || pendingFiltersApplyRef.current) return
+    const nextFilters = pendingFilters
+    pendingFiltersApplyRef.current = true
+    setPendingFiltersBusy(true)
+    pendingFiltersFrameRef.current = requestAnimationFrame(() => {
+      pendingFiltersFrameRef.current = null
       const nextPool = buildReviewSessionPool(
         trades,
         nextFilters,
@@ -479,6 +522,7 @@ export function ReviewSessionView() {
       focusAfterTransitionRef.current = true
       setFilters(nextFilters)
       setSettingsDraft(null)
+      setPendingFilters(null)
       if (
         nextPool.length === 0 &&
         !(typeof nextFilters.stageSource === 'object' && nextFilters.stageSource.stageIds.length === 0)
@@ -486,23 +530,17 @@ export function ReviewSessionView() {
         if (libraryId) clearReviewSessionStorage(libraryId)
         setSession(null)
         setResolvedNote(EMPTY_NOTE_STATE)
-        return
+      } else {
+        setSession({
+          ids: shuffleReviewSessionIds(nextPool.map((trade) => trade.id)),
+          cursor: 0,
+          filters: nextFilters,
+          assessments: {},
+        })
       }
-      setSession({
-        ids: shuffleReviewSessionIds(nextPool.map((trade) => trade.id)),
-        cursor: 0,
-        filters: nextFilters,
-        assessments: {},
-      })
-      return
-    }
-    setFilters(nextFilters)
-    setSettingsDraft(null)
-    if (session?.ids.length === 0) {
-      if (libraryId) clearReviewSessionStorage(libraryId)
-      setSession(null)
-      setResolvedNote(EMPTY_NOTE_STATE)
-    }
+      pendingFiltersApplyRef.current = false
+      setPendingFiltersBusy(false)
+    })
   }
 
   const reshuffle = () => {
@@ -615,7 +653,14 @@ export function ReviewSessionView() {
           originLabel={reviewStageOriginLabel(current, liveStages, currentLiveStageId)}
         />
       )}
-      {settingsDraft ? (
+      {settingsDraft && pendingFilters ? (
+        <ReviewSessionRegenerationConfirmation
+          filters={pendingFilters}
+          busy={pendingFiltersBusy}
+          onCancel={cancelPendingFilters}
+          onConfirm={confirmPendingFilters}
+        />
+      ) : settingsDraft ? (
         <ReviewSessionSettingsModal
           filters={settingsDraft}
           liveStages={liveStages}
@@ -749,7 +794,13 @@ function ReviewSessionSettingsModal({
       onClose={onClose}
       footer={<>
         <Button type="button" variant="ghost" onClick={onClose}>取消</Button>
-        <Button type="button" variant="primary" disabled={noSources} onClick={onApply}>应用设置</Button>
+        <Button
+          type="button"
+          variant="primary"
+          data-review-settings-apply
+          disabled={noSources}
+          onClick={onApply}
+        >应用设置</Button>
       </>}
     >
       {activeStageSource ? (
@@ -850,6 +901,58 @@ function ReviewSessionSettingsModal({
       <p className="review-session-settings-count" role="status">
         {noSources ? '请选择至少一个来源' : `当前设置可复盘 ${poolSize} 条`}
       </p>
+    </ModalShell>
+  )
+}
+
+function ReviewSessionRegenerationConfirmation({
+  filters,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  filters: ReviewSessionFilters
+  busy: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const formId = 'review-session-regeneration-confirm-form'
+
+  return (
+    <ModalShell
+      title="重新生成当前轮次？"
+      description="应用新的复盘范围会重新生成随机队列。"
+      size="compact"
+      busy={busy}
+      initialFocusSelector="[data-review-regeneration-cancel]"
+      onClose={onCancel}
+      footer={<>
+        <Button
+          type="button"
+          variant="bordered"
+          data-review-regeneration-cancel
+          disabled={busy}
+          onClick={onCancel}
+        >保留当前轮次</Button>
+        <Button
+          type="submit"
+          form={formId}
+          variant="primary"
+          busy={busy}
+          disabled={busy}
+        >重新生成轮次</Button>
+      </>}
+    >
+      <form
+        id={formId}
+        onSubmit={(event) => {
+          event.preventDefault()
+          onConfirm()
+        }}
+      >
+        <p className="review-session-active-source">本轮已评进度会被丢弃，且无法从本轮恢复。</p>
+        <p className="review-session-settings-count">新阶段来源：{reviewStageSourceLabel(filters.stageSource)}</p>
+      </form>
     </ModalShell>
   )
 }
