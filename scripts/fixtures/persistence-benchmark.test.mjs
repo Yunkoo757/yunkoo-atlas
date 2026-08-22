@@ -7,6 +7,7 @@ test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durabl
   const browser = readFileSync('src/benchmarks/persistenceBenchmark.browser.ts', 'utf8')
   const electron = readFileSync('electron/library/persistenceBenchmark.ts', 'utf8')
   const webZip = readFileSync('scripts/benchmark-web-zip.mjs', 'utf8')
+  const webZipBrowser = readFileSync('src/benchmarks/webZipBenchmark.browser.ts', 'utf8')
   const store = readFileSync('src/store/useStore.ts', 'utf8').replace(/\r\n/g, '\n')
 
   assert.match(browser, /new IndexedDbStorageAdapter/)
@@ -76,6 +77,10 @@ test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durabl
   assert.match(webZip, /runWebZipBenchmark/)
   assert.match(webZip, /512 \* MiB/)
   assert.match(webZip, /page\.on\('crash'/)
+  assert.match(webZipBrowser, /const currentLiveStageId = 'web-zip-benchmark-stage'/)
+  assert.match(webZipBrowser, /liveStageId: currentLiveStageId/)
+  assert.match(webZipBrowser, /liveStages: \[\{[\s\S]*?id: currentLiveStageId[\s\S]*?startsOn: '2026-07-21'/)
+  assert.match(webZipBrowser, /currentLiveStageId,/)
 })
 
 test('release 性能门冻结 10K/20K、5+30 采样、硬 SLO 与证据字段', () => {

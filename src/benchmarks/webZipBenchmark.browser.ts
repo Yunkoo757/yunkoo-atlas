@@ -38,14 +38,27 @@ function currentHeap(): number {
 window.prepareWebZipBenchmark = async ({ assetSizes }) => {
   const ids = assetSizes.map((_, index) => `heap-asset-${index + 1}`)
   const note = ids.map((id) => `<img src="journal-asset://${id}">`).join('')
+  const currentLiveStageId = 'web-zip-benchmark-stage'
   const snapshot: PersistedSnapshot = {
     ...createEmptyPersistedSnapshot(),
     trades: [{
       id: 'heap-trade', ref: 'TRD-HEAP', symbol: 'BTCUSDT', side: 'long', status: 'open',
-      conviction: 'medium', strategyId: 'heap-strategy', tradeKind: 'live', tags: [], mistakeTags: [],
+      conviction: 'medium', strategyId: 'heap-strategy', tradeKind: 'live', liveStageId: currentLiveStageId,
+      tags: [], mistakeTags: [],
       reviewStatus: 'unreviewed', reviewCategory: 'normal', entry: 1, exit: null, size: 1,
       pnl: null, rMultiple: null, openedAt: '2026-07-23', closedAt: null, note,
     }],
+    liveStages: [{
+      id: currentLiveStageId,
+      sequence: 1,
+      name: 'Web ZIP benchmark stage',
+      status: 'current',
+      startsOn: '2026-07-21',
+      endsOn: null,
+      createdAt: '2026-07-21T00:00:00.000Z',
+      archivedAt: null,
+    }],
+    currentLiveStageId,
     strategies: [{ id: 'heap-strategy', name: 'Heap fixture', color: '#5e6ad2', icon: 'target' }],
     starredIds: [], subscribedIds: [], pinnedStrategyIds: [],
     display: DEFAULT_DISPLAY,

@@ -36,6 +36,7 @@
 - 永久删除会保护 pending case、pending top-level override、pending weekly review 所需的真实来源；旧 completed review 缺少自包含证据时也阻止删除。现代 completed review/assigned override 的冻结证据保持不可变且允许来源永久删除；draft 引用随删除原子清理。手动删除返回 `purgedIds/blockedIds`，30 天自动清理跳过阻塞项且不误报。
 - final artifact runner 的 subprocess timeout 具有 SIGKILL 后第二层 grace deadline；bridge 主错误不会被 cleanup 错误覆盖。
 - forced-kill 的真实 seed 现以完整合法的 archived/current 时间线建图，并把 weekly review、policy、preparation、monthly limit、override 与 current trade 原子归属到覆盖其日期的 current stage；专用 fixture 回归在启动 Electron 前先执行完整 v12 validator，并验证 seed 不会留下无物理附件的 rich-text 引用、可生成通过校验的 rollover 前置恢复点。
+- Web ZIP release benchmark 以确定性 current stage 覆盖其 live trade 日期并写入原生 ownership，避免随执行日期漂移后生成不合法 v12 归档。
 - Windows final-payload 安装与卸载均显式使用 NSIS `/currentuser`，且 `/D=<isolated-root>` 保持最后一个未加引号参数；已有 machine-wide 安装不会再触发 UAC、重定向 smoke 或让清理误选真实安装。
 - release workflow 将 release 文件与 final report 分离上传，publish 下载保持扁平；macOS matrix 三类诊断 artifact 均按 arch 唯一命名；forced-kill workflow 的 mac 报告路径与 fail-closed 上传合同已修正。
 
