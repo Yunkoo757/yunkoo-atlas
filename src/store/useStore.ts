@@ -321,6 +321,12 @@ function freezeUpsertedClosedTradingDay(
   }
 }
 
+function withoutLiveStageForPaper(trade: Trade): Trade {
+  if (trade.tradeKind !== 'paper') return trade
+  const { liveStageId: _liveStageId, ...paper } = trade as Trade & { liveStageId?: unknown }
+  return paper as Trade
+}
+
 function upsertTradeIntoSlice(
   s: TradeUpsertSlice,
   trade: Trade,
@@ -328,6 +334,7 @@ function upsertTradeIntoSlice(
 ): TradeUpsertSlice {
   const previousTrade = s.trades.find((t) => t.id === trade.id)
   if (previousTrade && (trade.tradeKind ?? 'live') !== previousTrade.tradeKind) return s
+  trade = withoutLiveStageForPaper(trade)
   if (previousTrade && previousTrade.tradeKind !== 'paper' && trade.tradeKind !== 'paper') {
     trade = { ...trade, liveStageId: previousTrade.liveStageId }
   }
@@ -405,12 +412,9 @@ export function applyTradeUpsertsToSlice(
   for (const trade of trades) {
     const existing = slice.trades.find((candidate) => candidate.id === trade.id)
     const owned = existing || !currentLiveStageId
-      ? trade
+      ? withoutLiveStageForPaper(trade)
       : trade.tradeKind === 'paper'
-        ? (() => {
-            const { liveStageId: _liveStageId, ...paper } = trade as Trade & { liveStageId?: unknown }
-            return paper as Trade
-          })()
+        ? withoutLiveStageForPaper(trade)
         : { ...trade, liveStageId: currentLiveStageId }
     slice = upsertTradeIntoSlice(slice, owned, tradingDayStartHour)
   }
@@ -597,7 +601,10 @@ interface State {
   isPinnedStrategy: (id: string) => boolean
   importData: (payload: ExportPayload) => void
   upsertWeeklyReview: (review: WeeklyReview) => void
-  updateWeeklyReview: (id: string, patch: Partial<Omit<WeeklyReview, 'id' | 'weekStart' | 'createdAt'>>) => void
+  updateWeeklyReview: (
+    id: string,
+    patch: Partial<Omit<WeeklyReview, 'id' | 'liveStageId' | 'weekStart' | 'createdAt'>>,
+  ) => void
   completeWeeklyReview: (id: string) => void
   reopenWeeklyReview: (id: string) => void
   upsertQuickNote: (note: QuickNote) => void
@@ -612,22 +619,15 @@ export function currentLiveStageIdForWrite(
 }
 
 function withCurrentStage(state: State, trade: Trade): Trade {
-  if (trade.tradeKind === 'paper') {
-    const { liveStageId: _liveStageId, ...paper } = trade as Trade & { liveStageId?: unknown }
-    return paper as Trade
-  }
-  const currentLiveStageId = currentLiveStageIdForWrite(state)
-  if (trade.liveStageId === undefined) return { ...trade, liveStageId: currentLiveStageId }
-  if (trade.liveStageId === null || !state.liveStages.some((stage) => stage.id === trade.liveStageId)) {
-    throw new Error('新记录的实盘阶段归属无效')
-  }
-  return trade
+  if (trade.tradeKind === 'paper') return withoutLiveStageForPaper(trade)
+  return { ...trade, liveStageId: currentLiveStageIdForWrite(state) }
 }
 
 function stageOwnedTradeForUpsert(state: State, trade: Trade): Trade {
   const previous = state.trades.find((candidate) => candidate.id === trade.id)
   if (!previous) return withCurrentStage(state, trade)
-  if (previous.tradeKind === 'paper' || trade.tradeKind === 'paper') return trade
+  if (trade.tradeKind === 'paper') return withCurrentStage(state, trade)
+  if (previous.tradeKind === 'paper') return trade
   return { ...trade, liveStageId: previous.liveStageId }
 }
 
@@ -872,13 +872,22 @@ export const useStore = create<State>()((set, get) => ({
           }
         }),
       updateWeeklyReview: (id, patch) =>
-        set((state) => ({
-          weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews.map((review) =>
-            review.id === id
-              ? { ...review, ...patch, updatedAt: new Date().toISOString() }
-              : review,
-          )),
-        })),
+        set((state) => {
+          const {
+            id: _id,
+            liveStageId: _liveStageId,
+            weekStart: _weekStart,
+            createdAt: _createdAt,
+            ...mutablePatch
+          } = patch as Partial<WeeklyReview>
+          return {
+            weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews.map((review) =>
+              review.id === id
+                ? { ...review, ...mutablePatch, updatedAt: new Date().toISOString() }
+                : review,
+            )),
+          }
+        }),
       completeWeeklyReview: (id) =>
         set((state) => ({
           weeklyReviews: completeWeeklyReviewCandidate(state, id).weeklyReviews,
@@ -1474,7 +1483,8 @@ export const useStore = create<State>()((set, get) => ({
           if (!previous) return s
           const result = applyTradeKindTransition(previous, target)
           if (!result.ok || !result.changed) return s
-          const updated = appendActivity(result.trade, {
+          const transitioned = withCurrentStage(s, result.trade)
+          const updated = appendActivity(transitioned, {
             kind: 'tradeKind',
             fromTradeKind: previous.tradeKind,
             toTradeKind: target,

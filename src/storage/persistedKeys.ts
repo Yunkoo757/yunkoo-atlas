@@ -51,11 +51,6 @@ export type PersistedSnapshotFieldsAreComplete = AssertNoMissingPersistedSnapsho
 export const PERSISTED_STATE_REFERENCE_KEYS = PERSISTED_SNAPSHOT_FIELDS.filter(
   (key): key is Exclude<
     ActivePersistedSnapshotKey,
-    'shortcuts' | 'liveStages' | 'currentLiveStageId' | 'scheduledStageRollover'
-  > => ![
-    'shortcuts',
-    'liveStages',
-    'currentLiveStageId',
-    'scheduledStageRollover',
-  ].includes(key),
+    'shortcuts'
+  > => key !== 'shortcuts',
 )

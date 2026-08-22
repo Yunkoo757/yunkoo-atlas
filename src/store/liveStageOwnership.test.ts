@@ -1,8 +1,13 @@
 import type { Trade } from '@/data/trades'
 import type { LiveStage } from '@/lib/liveStages'
 import { applySnapshotToStore } from '@/lib/importExport'
+import { haveSamePersistedReferences } from '@/storage/bootstrap'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
-import { currentLiveStageIdForWrite, useStore } from '@/store/useStore'
+import {
+  applyTradeUpsertsToSlice,
+  currentLiveStageIdForWrite,
+  useStore,
+} from '@/store/useStore'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -54,6 +59,13 @@ function plannedLiveTrade(id: string, liveStageId?: string | null): Trade {
   }
 }
 
+function plannedPaperTrade(id: string): Trade {
+  const live = plannedLiveTrade(id, 'stage-old')
+  if (live.tradeKind !== 'live') throw new Error('测试 fixture 必须是 live')
+  const { liveStageId: _liveStageId, ...paper } = live
+  return { ...paper, tradeKind: 'paper' }
+}
+
 function seedStore(trades: Trade[] = []): void {
   useStore.setState({
     trades,
@@ -73,6 +85,105 @@ export function testNewLiveTradeAlwaysUsesCurrentStage(): void {
     useStore.getState().upsertTrade(trade)
     const stored = useStore.getState().getById(trade.id)
     assert(stored?.tradeKind === 'live' && stored.liveStageId === 'stage-current', '新实盘交易必须使用当前阶段')
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
+export function testEveryCanonicalStageReferenceParticipatesInPersistenceRevision(): void {
+  const snapshot = createFullPersistedSnapshotFixture()
+  const changedStages = { ...snapshot, liveStages: [...snapshot.liveStages] }
+  const changedCurrent = { ...snapshot, currentLiveStageId: 'another-stage-id' }
+  const changedRollover = {
+    ...snapshot,
+    scheduledStageRollover: {
+      id: 'rollover-new',
+      requestedAt: '2026-08-20T00:00:00.000Z',
+      effectiveWeekStart: '2026-08-24',
+      postponedCount: 0,
+    },
+  }
+  assert(!haveSamePersistedReferences(snapshot, changedStages), 'liveStages 引用变化必须触发持久化')
+  assert(!haveSamePersistedReferences(snapshot, changedCurrent), 'currentLiveStageId 变化必须触发持久化')
+  assert(!haveSamePersistedReferences(snapshot, changedRollover), 'scheduledStageRollover 引用变化必须触发持久化')
+}
+
+export function testTradeKindTransitionsMaintainCanonicalStageShape(): void {
+  const previous = useStore.getState()
+  try {
+    seedStore([plannedLiveTrade('transition', 'stage-old')])
+    assert(useStore.getState().transitionTradeKind('transition', 'paper'), 'live→paper 应成功')
+    const paper = useStore.getState().getById('transition')
+    assert(paper?.tradeKind === 'paper', '转换后必须是 paper')
+    assert(!Object.prototype.hasOwnProperty.call(paper, 'liveStageId'), 'live→paper 必须移除 liveStageId')
+
+    assert(useStore.getState().transitionTradeKind('transition', 'live'), 'paper→live 应成功')
+    const live = useStore.getState().getById('transition')
+    assert(live?.tradeKind === 'live' && live.liveStageId === 'stage-current', 'paper→live 必须归当前阶段')
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
+export function testAccountCopiesAlwaysEnterCurrentStage(): void {
+  const previous = useStore.getState()
+  try {
+    seedStore([plannedLiveTrade('source-old', 'stage-old'), plannedLiveTrade('source-null', null)])
+    useStore.getState().upsertTrade({ ...plannedLiveTrade('source-old', 'stage-old'), id: 'copy-old' })
+    useStore.getState().upsertTrade({ ...plannedLiveTrade('source-null', null), id: 'copy-null' })
+    const historicalCopy = useStore.getState().getById('copy-old')
+    const nullCopy = useStore.getState().getById('copy-null')
+    assert(historicalCopy?.tradeKind === 'live' && historicalCopy.liveStageId === 'stage-current', '历史 live 副本必须归当前阶段')
+    assert(nullCopy?.tradeKind === 'live' && nullCopy.liveStageId === 'stage-current', '遗留 null live 副本必须归当前阶段')
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
+export function testWeeklyReviewPatchCannotChangeStageOwnership(): void {
+  const previous = useStore.getState()
+  try {
+    const review = {
+      ...createFullPersistedSnapshotFixture().weeklyReviews![0]!,
+      liveStageId: 'stage-old',
+    }
+    seedStore()
+    useStore.setState({ weeklyReviews: [review] })
+    if (Date.now() < 0) {
+      // @ts-expect-error 普通周复盘 patch 不得包含阶段归属
+      useStore.getState().updateWeeklyReview(review.id, { liveStageId: 'stage-current' })
+    }
+    useStore.getState().updateWeeklyReview(
+      review.id,
+      { liveStageId: 'stage-current' } as never,
+    )
+    assert(useStore.getState().weeklyReviews[0]?.liveStageId === 'stage-old', '运行时周复盘 patch 不得改写阶段归属')
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
+export function testExistingPaperUpsertRemovesInjectedStageField(): void {
+  const previous = useStore.getState()
+  try {
+    const paper = plannedPaperTrade('paper-existing')
+    seedStore([paper])
+    const injected = { ...paper, liveStageId: 'stage-old', note: 'edited' } as Trade
+    useStore.getState().upsertTrade(injected)
+    const stored = useStore.getState().getById(paper.id)
+    assert(stored?.tradeKind === 'paper' && stored.note === 'edited', '已有 paper 普通编辑必须成功')
+    assert(!Object.prototype.hasOwnProperty.call(stored, 'liveStageId'), '已有 paper upsert 必须清除注入的 liveStageId')
+    const direct = applyTradeUpsertsToSlice({
+      trades: [paper],
+      strategies: useStore.getState().strategies,
+      symbolCatalog: [],
+      tagPresets: [],
+      mistakeTagPresets: [],
+    }, [injected])
+    assert(
+      !Object.prototype.hasOwnProperty.call(direct.trades[0], 'liveStageId'),
+      '中央批量 upsert 也必须清除已有 paper 的注入字段',
+    )
   } finally {
     useStore.setState(previous)
   }

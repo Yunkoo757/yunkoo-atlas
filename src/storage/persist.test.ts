@@ -454,32 +454,62 @@ export async function testLiveArchiveBoundaryFlushNeverSerializesAPartialCycleSe
   const storage = getStorage()
   const originalSaveSnapshot = storage.saveSnapshot.bind(storage)
   const originalCycles = useStore.getState().livePerformanceCycles
-  let persistedCycleIds: string[] | null = null
+  const originalStages = useStore.getState().liveStages
+  const originalCurrentStageId = useStore.getState().currentLiveStageId
+  const originalRollover = useStore.getState().scheduledStageRollover
+  let persisted: PersistedSnapshot | null = null
 
   disablePersistWrites()
   setPreFlushCallback(null)
   useSaveStatus.getState().reset()
   storage.saveSnapshot = async (snapshot) => {
-    persistedCycleIds = snapshot.livePerformanceCycles?.map((cycle) => cycle.id) ?? null
+    persisted = snapshot
   }
 
   try {
-    useStore.getState().replaceLivePerformanceCycles([
-      { id: 'archive-before', name: '实盘-2026-08-01', startTradingDayKey: '2026-08-01', createdAt: '2026-08-01T00:00:00.000Z' },
-      { id: 'current-after', name: '实盘-2026-08-08', startTradingDayKey: '2026-08-08', createdAt: '2026-08-08T00:00:00.000Z' },
-    ])
+    useStore.setState({
+      liveStages: [{
+        id: 'archive-before', sequence: 1, name: '实盘-2026-08-01', status: 'archived',
+        startsOn: '2026-08-01', endsOn: '2026-08-07', createdAt: '2026-08-01T00:00:00.000Z',
+        archivedAt: '2026-08-08T00:00:00.000Z',
+      }, {
+        id: 'current-after', sequence: 2, name: '实盘-2026-08-08', status: 'current',
+        startsOn: '2026-08-08', endsOn: null, createdAt: '2026-08-08T00:00:00.000Z', archivedAt: null,
+      }],
+      currentLiveStageId: 'current-after',
+      scheduledStageRollover: null,
+      // 故意放入冲突旧镜像，证明 writer 只从规范阶段图派生兼容字段。
+      livePerformanceCycles: [{
+        id: 'stale-legacy-cycle', name: '旧镜像', startTradingDayKey: '2026-07-01',
+        createdAt: '2026-07-01T00:00:00.000Z',
+      }],
+    })
     enablePersistWrites()
     await flushPersistNow()
 
+    assert(persisted !== null, '显式 flush 必须写入快照')
+    const snapshot = persisted as PersistedSnapshot
     assert(
-      JSON.stringify(persistedCycleIds) === JSON.stringify(['archive-before', 'current-after']),
-      'Web 与 Electron 共用的快照写入必须携带完整旧/新边界集合，不能留下半提交集合',
+      snapshot.liveStages.map((stage) => stage.id).join(',') === 'archive-before,current-after',
+      'Web 与 Electron 共用的快照必须以规范阶段图完整保存旧/新边界',
+    )
+    assert(snapshot.currentLiveStageId === 'current-after', '规范当前阶段指针必须与完整阶段图一起保存')
+    assert(
+      snapshot.livePerformanceCycles?.length === 1
+        && snapshot.livePerformanceCycles[0]?.id === 'legacy-stage-2'
+        && snapshot.livePerformanceCycles[0]?.startTradingDayKey === '2026-08-08',
+      '兼容镜像必须由规范当前阶段派生，不得反向采用旧镜像',
     )
   } finally {
     disablePersistWrites()
     setPreFlushCallback(null)
     storage.saveSnapshot = originalSaveSnapshot
-    useStore.getState().replaceLivePerformanceCycles(originalCycles)
+    useStore.setState({
+      liveStages: originalStages,
+      currentLiveStageId: originalCurrentStageId,
+      scheduledStageRollover: originalRollover,
+      livePerformanceCycles: originalCycles,
+    })
     useSaveStatus.getState().reset()
   }
 }
