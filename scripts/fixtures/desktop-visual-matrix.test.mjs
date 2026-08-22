@@ -9,6 +9,7 @@ import {
 import {
   assertSafeElectronIsolationPaths,
   desktopVisualReportHasFailures,
+  removeTemporaryDirectoryBounded,
 } from '../qa-desktop-visual.mjs'
 import * as desktopVisualSeed from './desktop-visual-seed.mjs'
 
@@ -185,6 +186,42 @@ test('desktop typography diagnostics are snapshotted after the probe collection'
   assert.ok(typographyProbe >= 0, 'captureScenario must collect typography before diagnostics are frozen')
   assert.ok(typographyProbe < consoleSnapshot, 'probe console errors must belong to the current capture')
   assert.ok(typographyProbe < pageSnapshot, 'probe page errors must belong to the current capture')
+})
+
+test('desktop visual cleanup retries transient Windows profile locks within a hard bound', async () => {
+  let attempts = 0
+  await removeTemporaryDirectoryBounded('isolated-profile', {
+    timeoutMs: 50,
+    retryDelayMs: 1,
+    removeDirectory: async () => {
+      attempts += 1
+      if (attempts < 4) {
+        const error = new Error('profile is still locked')
+        error.code = 'EPERM'
+        throw error
+      }
+    },
+  })
+
+  assert.equal(attempts, 4)
+})
+
+test('desktop visual cleanup reports a persistent profile lock after the bounded window', async () => {
+  let attempts = 0
+  await assert.rejects(
+    () => removeTemporaryDirectoryBounded('isolated-profile', {
+      timeoutMs: 10,
+      retryDelayMs: 1,
+      removeDirectory: async () => {
+        attempts += 1
+        const error = new Error('profile remains locked')
+        error.code = 'EPERM'
+        throw error
+      },
+    }),
+    /profile remains locked/,
+  )
+  assert.ok(attempts > 1)
 })
 
 test('desktop visual seed envelope keeps schema v12 and native-stage ownership atomic', () => {

@@ -142,6 +142,8 @@ test('bounded Electron cleanup continues from close rejection through app exit a
   assert.equal(typeof bundleBuildIdentity.closeElectronApplicationBounded, 'function')
   const result = await bundleBuildIdentity.closeElectronApplicationBounded(application, {
     timeoutMs: 5,
+    mainProcessId: 4342,
+    processExists: () => !calls.includes('exit-observed'),
     killProcess: (pid) => {
       calls.push(`kill:${pid}`)
       queueMicrotask(() => {
@@ -152,7 +154,7 @@ test('bounded Electron cleanup continues from close rejection through app exit a
     },
   })
 
-  assert.deepEqual(calls, ['close', 'app-exit', 'kill:4242', 'exit-observed'])
+  assert.deepEqual(calls, ['close', 'app-exit', 'kill:4342', 'exit-observed'])
   assert.deepEqual(result, { forced: true, hardKilled: true, exitObserved: true })
 })
 
@@ -170,6 +172,8 @@ test('bounded Electron cleanup does not treat fulfilled close as exit evidence',
 
   const result = await bundleBuildIdentity.closeElectronApplicationBounded(application, {
     timeoutMs: 5,
+    mainProcessId: 4343,
+    processExists: () => !calls.includes('exit-observed'),
     killProcess: (pid) => {
       calls.push(`kill:${pid}`)
       queueMicrotask(() => {
@@ -180,7 +184,7 @@ test('bounded Electron cleanup does not treat fulfilled close as exit evidence',
     },
   })
 
-  assert.deepEqual(calls, ['close-fulfilled', 'app-exit', 'kill:4243', 'exit-observed'])
+  assert.deepEqual(calls, ['close-fulfilled', 'app-exit', 'kill:4343', 'exit-observed'])
   assert.deepEqual(result, { forced: true, hardKilled: true, exitObserved: true })
 })
 
@@ -203,6 +207,8 @@ test('bounded Electron cleanup returns after app-exit fallback observes child ex
 
   const result = await bundleBuildIdentity.closeElectronApplicationBounded(application, {
     timeoutMs: 5,
+    mainProcessId: 4344,
+    processExists: () => !calls.includes('exit-observed'),
     killProcess: () => { calls.push('hard-kill') },
   })
 
@@ -224,6 +230,8 @@ test('bounded Electron cleanup fails explicitly when PID kill produces no exit e
   await assert.rejects(
     () => bundleBuildIdentity.closeElectronApplicationBounded(application, {
       timeoutMs: 5,
+      mainProcessId: 4245,
+      processExists: () => true,
       killProcess: () => {},
     }),
     /child process 4245 exit was not observed after hard kill/i,

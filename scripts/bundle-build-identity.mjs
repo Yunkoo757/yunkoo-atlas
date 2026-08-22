@@ -89,13 +89,25 @@ export async function closeElectronApplication(application, timeoutMs = 2_000) {
 
 export async function closeElectronApplicationBounded(application, {
   timeoutMs = 2_000,
+  mainProcessId,
   killProcess = (pid) => process.kill(pid, 'SIGKILL'),
+  processExists = (pid) => {
+    if (!Number.isInteger(pid)) return false
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch (error) {
+      if (error?.code === 'ESRCH') return false
+      throw error
+    }
+  },
 } = {}) {
   if (!application) return { forced: false, hardKilled: false, exitObserved: true }
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     throw new Error('Electron application close timeout must be a positive number')
   }
   const child = application.process?.()
+  const targetProcessId = Number.isInteger(mainProcessId) ? mainProcessId : child?.pid
   let exitObserved = typeof child?.exitCode === 'number' || child?.signalCode != null
   const exited = exitObserved
     ? Promise.resolve()
@@ -117,14 +129,19 @@ export async function closeElectronApplicationBounded(application, {
   }
 
   async function exitObservedWithin() {
-    if (exitObserved) return true
-    let timer
-    await Promise.race([
-      exited,
-      new Promise((resolve) => { timer = setTimeout(resolve, timeoutMs) }),
-    ])
-    clearTimeout(timer)
-    return exitObserved
+    const deadline = Date.now() + timeoutMs
+    while (true) {
+      let targetExited = false
+      try {
+        targetExited = !processExists(targetProcessId)
+      } catch {}
+      if (exitObserved && targetExited) return true
+      const remaining = deadline - Date.now()
+      if (remaining <= 0) return false
+      const retryDelay = new Promise((resolve) => setTimeout(resolve, Math.min(25, remaining)))
+      if (exitObserved) await retryDelay
+      else await Promise.race([exited, retryDelay])
+    }
   }
 
   let closeOperation
@@ -147,13 +164,13 @@ export async function closeElectronApplicationBounded(application, {
 
   let killError
   try {
-    await killProcess(child?.pid)
+    await killProcess(targetProcessId)
   } catch (error) {
     killError = error
   }
   if (!await exitObservedWithin()) {
     const exitError = new Error(
-      `Electron cleanup failed: child process ${String(child?.pid)} exit was not observed after hard kill`,
+      `Electron cleanup failed: child process ${String(targetProcessId)} exit was not observed after hard kill`,
     )
     if (killError) {
       throw new AggregateError([killError, exitError], 'Electron hard-kill cleanup failed')

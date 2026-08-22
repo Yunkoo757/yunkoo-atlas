@@ -48,6 +48,33 @@ function isSameOrDescendant(target, root) {
   return delta === '' || (delta !== '..' && !delta.startsWith(`..${sep}`) && !isAbsolute(delta))
 }
 
+export async function removeTemporaryDirectoryBounded(directory, {
+  timeoutMs = 10_000,
+  retryDelayMs = 100,
+  removeDirectory = (target) => rmSync(target, { recursive: true, force: true }),
+} = {}) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new Error('Temporary directory cleanup timeout must be a positive number')
+  }
+  if (!Number.isFinite(retryDelayMs) || retryDelayMs <= 0) {
+    throw new Error('Temporary directory cleanup retry delay must be a positive number')
+  }
+  const deadline = Date.now() + timeoutMs
+  while (true) {
+    try {
+      await removeDirectory(directory)
+      return
+    } catch (error) {
+      if (!['EBUSY', 'ENOTEMPTY', 'EPERM'].includes(error?.code) || Date.now() >= deadline) {
+        throw error
+      }
+    }
+    await new Promise((resolveDelay) => {
+      setTimeout(resolveDelay, Math.min(retryDelayMs, Math.max(1, deadline - Date.now())))
+    })
+  }
+}
+
 export function assertSafeElectronIsolationPaths({
   userDataPath,
   libraryPath,
@@ -446,6 +473,7 @@ async function runElectronQa({
   let actualLibraryPath = null
   let page
   let diagnostics
+  let mainProcessId = null
   return runElectronVisualEvidenceRunner({
     readBundleIdentity: async () => {
       application = await electron.launch({
@@ -461,6 +489,7 @@ async function runElectronQa({
         timeout: 30_000,
       })
       page = await application.firstWindow({ timeout: 30_000 })
+      mainProcessId = await application.evaluate(() => process.pid)
       return collectElectronBundleIdentity({ page, application, expectation: buildExpectation })
     },
     createLibrary: async (bundleIdentity) => {
@@ -556,12 +585,12 @@ async function runElectronQa({
     cleanupEvidence: async () => {
       const errors = []
       try {
-        await closeElectronApplicationBounded(application)
+        await closeElectronApplicationBounded(application, { mainProcessId })
       } catch (error) {
         errors.push(error)
       }
       try {
-        rmSync(temporaryRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+        await removeTemporaryDirectoryBounded(temporaryRoot)
       } catch (error) {
         errors.push(error)
       }
