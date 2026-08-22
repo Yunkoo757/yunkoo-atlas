@@ -13,6 +13,7 @@ import {
 } from '@/storage/persist'
 import type { PersistedSnapshot } from '@/storage/types'
 import { PERSISTED_SNAPSHOT_FIELDS } from '@/storage/persistedKeys'
+import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
@@ -66,6 +67,33 @@ export function testPickPersistedAlwaysWritesEveryCanonicalField(): void {
   })
   const binding = custom.shortcuts['nav.list']
   assert(!Array.isArray(binding) && binding?.key === 'j', '自定义快捷键覆盖必须保留')
+}
+
+export function testPickPersistedUsesExplicitCurrentTradingDayForLegacyStageFallback(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const liveTrade = fixture.trades.find((trade) => trade.tradeKind === 'live')
+  assert(liveTrade !== undefined, '测试前提必须包含实盘交易')
+  const legacy = {
+    ...fixture,
+    trades: [{ ...liveTrade, closedAt: '2026-07-17', closedTradingDayKey: '2026-07-17' }],
+    liveStatsStartTradingDayKey: null,
+    livePerformanceCycles: [],
+    liveStages: undefined,
+    currentLiveStageId: undefined,
+    scheduledStageRollover: undefined,
+  }
+  const persisted = pickPersisted(
+    legacy as unknown as Parameters<typeof pickPersisted>[0],
+    {}, {
+    now: '2026-08-22T10:00:00.000Z',
+    currentTradingDayKey: '2026-08-22',
+    idFactory: (sequence) => `persist-stage-${sequence}`,
+    },
+  )
+
+  assert(persisted.liveStages.at(-1)?.startsOn === '2026-08-22', 'autosave fallback 必须使用显式当前交易日')
+  assert(persisted.liveStages[0]?.name === '更早记录', '历史记录必须与当前阶段分离')
+  assert(persisted.trades[0]?.tradeKind === 'live' && persisted.trades[0].liveStageId === 'persist-stage-1', '历史交易必须归入更早记录')
 }
 
 export async function testExplicitFlushPersistsChangesScheduledDuringAnActiveSave(): Promise<void> {

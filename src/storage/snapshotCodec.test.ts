@@ -84,6 +84,47 @@ export function testVersionElevenSnapshotMigratesToCanonicalStageOwnership(): vo
   assert(decoded.weeklyReviews[0]?.liveStageId === 'codec-stage-2', 'v11 周复盘必须按 weekStart 归属')
 }
 
+export function testVersionSixTradeWithoutKindNormalizesToPaperBeforeStageOwnership(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const sourceTrade = fixture.trades[0]! as typeof fixture.trades[number] & { liveStageId?: unknown }
+  const { tradeKind: _tradeKind, liveStageId: _liveStageId, ...legacyTrade } = sourceTrade
+  const decoded = decodeCanonicalSnapshot({
+    ...fixture,
+    trades: [legacyTrade],
+  }, {
+    version: 6,
+    stageMigration: {
+      now: '2026-08-22T00:00:00.000Z',
+      currentTradingDayKey: '2026-08-22',
+      idFactory: (sequence) => `missing-kind-stage-${sequence}`,
+    },
+  })
+
+  assert(decoded.trades[0]?.tradeKind === 'paper', 'v1-v6 缺失种类必须沿用旧 codec 语义归一为 paper')
+  assert(!Object.prototype.hasOwnProperty.call(decoded.trades[0]!, 'liveStageId'), 'paper 不得残留阶段字段')
+}
+
+export function testContextFreeLegacyCodecUsesRecordsForDeterministicStageBoundary(): void {
+  const fixture = structuredClone(createFullPersistedSnapshotFixture()) as unknown as Record<string, unknown>
+  delete fixture.liveStages
+  delete fixture.currentLiveStageId
+  delete fixture.scheduledStageRollover
+  fixture.liveStatsStartTradingDayKey = null
+  fixture.livePerformanceCycles = []
+  fixture.weeklyReviews = []
+  const trade = (fixture.trades as Array<Record<string, unknown>>)[0]!
+  delete trade.liveStageId
+  trade.closedAt = '2026-07-17'
+  trade.closedTradingDayKey = '2026-07-17'
+
+  const decoded = decodeCanonicalSnapshot(fixture, { version: 11 })
+
+  assert(decoded.liveStages.length === 2, '无调用方时钟时 codec 也必须把历史记录与推导边界分开')
+  assert(decoded.liveStages[0]?.name === '更早记录', 'codec 的确定性回退必须创建更早记录')
+  assert(decoded.liveStages[1]?.startsOn === '2026-07-18', 'codec 回退边界必须确定性地晚于最新可靠记录')
+  assert(decoded.trades[0]?.tradeKind === 'live' && decoded.trades[0].liveStageId === 'legacy-live-stage-1', '历史交易不得永久归入当前阶段')
+}
+
 export function testVersionTwelveCodecRequiresCanonicalStageFields(): void {
   const fixture = structuredClone(createFullPersistedSnapshotFixture()) as unknown as Record<string, unknown>
   for (const field of ['liveStages', 'currentLiveStageId', 'scheduledStageRollover']) {

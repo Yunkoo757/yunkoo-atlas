@@ -5,6 +5,7 @@ import type { Database } from 'sql.js'
 import type { LibraryManifest } from '../../src/storage/types'
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
+import { createLegacyStageMigrationOptions } from '../../src/lib/stageMigration'
 import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
 import type { getLibraryPaths } from './paths'
 
@@ -413,6 +414,7 @@ export function migrateOpenedLibraryV8ToV9(input: {
   db: Database
   paths: LibraryPaths
   manifest: LibraryManifest
+  now: Date
 }): void {
   if (SCHEMA_VERSION < 9) throw new Error('Electron v8 迁移协议需要 schema v9 或更新版本')
   if (![8, 9, 10, 11].includes(input.manifest.schemaVersion) || input.manifest.schemaVersion >= SCHEMA_VERSION) {
@@ -433,6 +435,7 @@ export function migrateOpenedLibraryV8ToV9(input: {
     const canonical = decodeCanonicalSnapshot(rawSnapshot, {
       version: input.manifest.schemaVersion,
       label: 'Electron v8 migration snapshot',
+      stageMigration: createLegacyStageMigrationOptions(rawSnapshot, input.now),
     })
     candidate = new DatabaseClass(input.db.export())
     candidate.run(

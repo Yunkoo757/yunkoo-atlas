@@ -140,7 +140,7 @@ function stripV12StageFields(snapshot: Record<string, unknown>): void {
   }
 }
 
-async function createV11LibraryFixture(): Promise<V8LibraryFixture> {
+async function createV11LibraryFixture(options: { withoutLegacyBoundary?: boolean } = {}): Promise<V8LibraryFixture> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-schema-v11-'))
   const storage = new LibraryStorage(root)
   await storage.open()
@@ -151,6 +151,13 @@ async function createV11LibraryFixture(): Promise<V8LibraryFixture> {
   try {
     const snapshot = createFullPersistedSnapshotFixture() as unknown as Record<string, unknown>
     stripV12StageFields(snapshot)
+    if (options.withoutLegacyBoundary) {
+      snapshot.liveStatsStartTradingDayKey = null
+      snapshot.livePerformanceCycles = []
+      const trade = (snapshot.trades as Array<Record<string, unknown>>)[0]!
+      trade.closedAt = '2026-07-17'
+      trade.closedTradingDayKey = '2026-07-17'
+    }
     db.run("INSERT INTO meta (key, value) VALUES ('snapshot', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(snapshot)])
     db.run("INSERT INTO meta (key, value) VALUES ('schemaVersion', '11') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
     fs.writeFileSync(dbFile, Buffer.from(db.export()))
@@ -165,15 +172,20 @@ async function createV11LibraryFixture(): Promise<V8LibraryFixture> {
 }
 
 export async function testNormalV11OpenMigratesCanonicalStageOwnership(): Promise<void> {
-  const library = await createV11LibraryFixture()
+  const library = await createV11LibraryFixture({ withoutLegacyBoundary: true })
   try {
-    const storage = new LibraryStorage(library.path, { allowCreate: false })
+    const storage = new LibraryStorage(library.path, {
+      allowCreate: false,
+      now: () => new Date('2026-08-22T10:00:00.000Z'),
+    })
     await storage.open()
     const migrated = storage.loadSnapshot()!
     assert(storage.readManifest().schemaVersion === 12, 'v11 manifest 必须在数据库候选快照验证后升至 v12')
-    assert(migrated.liveStages.length >= 1, 'v11 快照必须生成实盘阶段')
+    assert(migrated.liveStages.length === 2, '无旧边界但有历史记录时必须生成更早记录与当前阶段')
+    assert(migrated.liveStages[0]?.id === 'legacy-live-stage-1', '更早记录必须获得已知稳定阶段 ID')
+    assert(migrated.liveStages[1]?.startsOn === '2026-08-22', '当前阶段必须使用打开时的真实交易日')
     assert(
-      migrated.trades[0]?.tradeKind === 'live' && migrated.trades[0].liveStageId !== undefined,
+      migrated.trades[0]?.tradeKind === 'live' && migrated.trades[0].liveStageId === 'legacy-live-stage-1',
       'v11 实盘交易必须获得显式阶段归属',
     )
     storage.release()
@@ -190,7 +202,7 @@ async function assertV11CrashBoundaryRecovers(boundary: Extract<CrashBoundary, '
     assert(pair.manifest.schemaVersion === 12, `${boundary} 恢复后必须完成 v12 文件对`)
     assert(pair.decodedSchemaVersion === 12, `${boundary} 恢复后 journal.db 必须为 v12`)
     assert(
-      pair.snapshot.trades[0]?.tradeKind === 'live' && pair.snapshot.trades[0].liveStageId !== undefined,
+      pair.snapshot.trades[0]?.tradeKind === 'live' && pair.snapshot.trades[0].liveStageId === 'legacy-live-stage-2',
       `${boundary} 恢复后不得丢失阶段归属`,
     )
     reopened.release()
@@ -203,6 +215,34 @@ export async function testV11MigrationRecoversAfterDatabaseReplacement(): Promis
 
 export async function testV11MigrationRecoversAfterManifestReplacement(): Promise<void> {
   await assertV11CrashBoundaryRecovers('after-manifest-replace')
+}
+
+export async function testV11ManifestReplacementRecoversDamagedOrMissingDatabaseThenRemigrates(): Promise<void> {
+  for (const damage of ['corrupt', 'missing'] as const) {
+    const library = await createV11LibraryFixture()
+    try {
+      await assertInjectedCrash(library, 'after-manifest-replace')
+      const dbFile = path.join(library.path, 'journal.db')
+      if (damage === 'corrupt') fs.writeFileSync(dbFile, Buffer.from('not-a-sqlite-database'))
+      else fs.rmSync(dbFile)
+
+      const reopened = new LibraryStorage(library.path, {
+        allowCreate: false,
+        now: () => new Date('2026-08-22T10:00:00.000Z'),
+      })
+      await reopened.open()
+      const pair = await readAndDecodePair(library.path)
+      assert(pair.manifest.schemaVersion === 12, `${damage} v12 DB 恢复后必须重新迁移 manifest`)
+      assert(pair.decodedSchemaVersion === 12, `${damage} v12 DB 恢复后必须重新迁移数据库`)
+      assert(
+        pair.snapshot.trades[0]?.tradeKind === 'live' && pair.snapshot.trades[0].liveStageId === 'legacy-live-stage-2',
+        `${damage} v12 DB 恢复后必须保留已知阶段归属`,
+      )
+      reopened.release()
+    } finally {
+      fs.rmSync(library.path, { recursive: true, force: true })
+    }
+  }
 }
 
 export async function testNormalV10OpenAddsNullCurrencyAssumptionWithoutChangingTradeFacts(): Promise<void> {
@@ -766,6 +806,7 @@ async function assertInvalidRecoveryPreparationRejected(
       db: openedV8,
       paths: getLibraryPaths(library.path),
       manifest,
+      now: new Date('2026-08-22T10:00:00.000Z'),
     })
   } catch {
     rejected = true

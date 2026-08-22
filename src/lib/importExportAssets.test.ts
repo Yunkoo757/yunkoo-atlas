@@ -24,6 +24,7 @@ import {
   setNoteDraft,
 } from '@/storage/noteDrafts'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
+import type { PersistedSnapshot } from '@/storage/types'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -525,6 +526,64 @@ export async function testPathAWriterSerializesAllFieldsFromSparseRuntimeState()
       JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
     'Web ZIP portable writer 序列化后也必须显式拥有全部 22 字段',
   )
+}
+
+export function testPortableWriterUsesExplicitCurrentTradingDayForLegacyStageFallback(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const legacy = structuredClone(fixture) as unknown as Record<string, unknown>
+  delete legacy.liveStages
+  delete legacy.currentLiveStageId
+  delete legacy.scheduledStageRollover
+  legacy.livePerformanceCycles = []
+  legacy.liveStatsStartTradingDayKey = null
+  const trades = legacy.trades as PersistedSnapshot['trades']
+  legacy.trades = [{ ...trades[0]!, closedAt: '2026-07-17', closedTradingDayKey: '2026-07-17' }]
+
+  const snapshot = buildPortableSnapshotFromState(
+    legacy as unknown as Parameters<typeof buildPortableSnapshotFromState>[0],
+    {}, {
+    now: '2026-08-22T10:00:00.000Z',
+    currentTradingDayKey: '2026-08-22',
+    idFactory: (sequence) => `portable-stage-${sequence}`,
+    },
+  )
+
+  assert(snapshot.liveStages.at(-1)?.startsOn === '2026-08-22', 'portable writer fallback 必须使用显式当前交易日')
+  assert(snapshot.liveStages[0]?.name === '更早记录', 'portable writer 必须分离历史记录与当前阶段')
+  assert(snapshot.trades[0]?.tradeKind === 'live' && snapshot.trades[0].liveStageId === 'portable-stage-1', 'portable writer 必须保留历史归属')
+}
+
+export function testLegacyJsonImportUsesExplicitCurrentTradingDayForStageMigration(): void {
+  const legacy = structuredClone(createFullPersistedSnapshotFixture()) as unknown as Record<string, unknown>
+  delete legacy.liveStages
+  delete legacy.currentLiveStageId
+  delete legacy.scheduledStageRollover
+  legacy.liveStatsStartTradingDayKey = null
+  legacy.livePerformanceCycles = []
+  legacy.quickNotes = []
+  for (const trade of legacy.trades as Array<Record<string, unknown>>) {
+    delete trade.liveStageId
+    trade.note = ''
+    delete trade.sourceNoteHtml
+  }
+  for (const review of legacy.weeklyReviews as Array<Record<string, unknown>>) {
+    delete review.liveStageId
+    review.contentHtml = ''
+  }
+  for (const field of ['weeklyRiskPreparations', 'riskPolicyVersions', 'monthlyRiskLimits', 'riskOverrideEvents']) {
+    for (const entity of legacy[field] as Array<Record<string, unknown>>) delete entity.liveStageId
+  }
+
+  const parsed = parseImportJson(JSON.stringify({ version: 11, ...legacy }), {
+    now: '2026-08-22T10:00:00.000Z',
+    currentTradingDayKey: '2026-08-22',
+    idFactory: (sequence) => `json-stage-${sequence}`,
+  })
+
+  assert(parsed.ok, 'v11 JSON 必须使用显式业务日完成阶段迁移')
+  if (!parsed.ok) return
+  assert(parsed.data.liveStages?.at(-1)?.startsOn === '2026-08-22', 'JSON import 当前阶段必须使用显式业务日')
+  assert(parsed.data.liveStages?.[0]?.name === '更早记录', 'JSON import 必须分离历史记录')
 }
 
 export async function testPathAWrongTypeMatrixRejectsEveryRegisteredField(): Promise<void> {

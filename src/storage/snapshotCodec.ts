@@ -161,11 +161,31 @@ function defaultStageMigrationOptions(raw: Record<string, unknown>): LegacyStage
     ? raw.livePerformanceCycles.filter(isRecord)
     : []
   const latest = cycles.at(-1)
-  const currentTradingDayKey = isValidLiveCycleDayKey(latest?.startTradingDayKey)
+  const explicitBoundary = isValidLiveCycleDayKey(latest?.startTradingDayKey)
     ? latest.startTradingDayKey
     : isValidLiveCycleDayKey(raw.liveStatsStartTradingDayKey)
       ? raw.liveStatsStartTradingDayKey
-      : '1970-01-01'
+      : null
+  const recordDays = [
+    ...(Array.isArray(raw.trades) ? raw.trades : []).flatMap((trade) => {
+      if (!isRecord(trade)) return []
+      return [trade.closedTradingDayKey, trade.closedAt, trade.openedAt]
+        .map((value) => typeof value === 'string' ? value.slice(0, 10) : '')
+        .filter(isValidLiveCycleDayKey)
+    }),
+    ...(Array.isArray(raw.weeklyReviews) ? raw.weeklyReviews : []).flatMap((review) => (
+      isRecord(review) && isValidLiveCycleDayKey(review.weekStart) ? [review.weekStart] : []
+    )),
+  ].sort()
+  const latestRecordDay = recordDays.at(-1)
+  const inferredCurrentDay = latestRecordDay === undefined
+    ? '2000-01-03'
+    : (() => {
+        const date = new Date(`${latestRecordDay}T00:00:00.000Z`)
+        date.setUTCDate(date.getUTCDate() + 1)
+        return date.toISOString().slice(0, 10)
+      })()
+  const currentTradingDayKey = explicitBoundary ?? inferredCurrentDay
   const now = typeof latest?.createdAt === 'string' && !Number.isNaN(Date.parse(latest.createdAt))
     ? new Date(latest.createdAt).toISOString()
     : `${currentTradingDayKey}T00:00:00.000Z`

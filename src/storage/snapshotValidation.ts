@@ -469,6 +469,7 @@ function isScheduledStageRollover(value: unknown): boolean {
     isNonEmptyString(value.id) &&
     isCanonicalIsoInstant(value.requestedAt) &&
     isCanonicalDate(value.effectiveWeekStart) &&
+    new Date(`${String(value.effectiveWeekStart)}T00:00:00.000Z`).getUTCDay() === 1 &&
     Number.isInteger(value.postponedCount) && Number(value.postponedCount) >= 0
   )
 }

@@ -73,6 +73,7 @@ export function testSnapshotValidationValidatesStageStateAndScheduledRollover():
     { liveStages: [{ ...full.liveStages[0]!, status: 'archived' }] },
     { scheduledStageRollover: undefined },
     { scheduledStageRollover: { id: '', requestedAt: 'bad', effectiveWeekStart: '2026-02-30', postponedCount: -1 } },
+    { scheduledStageRollover: { id: 'rollover-tuesday', requestedAt: '2026-08-22T00:00:00.000Z', effectiveWeekStart: '2026-08-25', postponedCount: 0 } },
   ]) {
     let rejected = false
     try { assertValidPersistedSnapshot({ ...full, ...patch }) } catch { rejected = true }

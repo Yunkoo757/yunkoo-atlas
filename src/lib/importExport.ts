@@ -99,7 +99,11 @@ import {
 } from '@/lib/importLimits'
 import { OperationalError } from '@/lib/operationalError'
 import { cloneLivePerformanceCycles } from '@/lib/livePerformanceCycles'
-import { migrateLegacyStageSnapshot } from '@/lib/stageMigration'
+import {
+  createLegacyStageMigrationOptions,
+  migrateLegacyStageSnapshot,
+  type LegacyStageMigrationOptions,
+} from '@/lib/stageMigration'
 
 export const EXPORT_VERSION = SCHEMA_VERSION
 import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
@@ -150,6 +154,7 @@ interface PortableSnapshotState {
 export function buildPortableSnapshotFromState(
   state: PortableSnapshotState,
   shortcutBindings: Parameters<typeof bindingsForPersist>[0],
+  stageMigration?: LegacyStageMigrationOptions,
 ): PersistedSnapshot {
   const shortcuts = bindingsForPersist(shortcutBindings)
   const candidate = {
@@ -190,13 +195,10 @@ export function buildPortableSnapshotFromState(
         : null,
     }
   }
-  const latestCycle = candidate.livePerformanceCycles.at(-1)
-  const fallbackDay = latestCycle?.startTradingDayKey ?? candidate.liveStatsStartTradingDayKey ?? '1970-01-01'
-  return migrateLegacyStageSnapshot(candidate, {
-    now: latestCycle?.createdAt ?? `${fallbackDay}T00:00:00.000Z`,
-    currentTradingDayKey: fallbackDay,
-    idFactory: (sequence) => `legacy-live-stage-${sequence}`,
-  })
+  return migrateLegacyStageSnapshot(
+    candidate,
+    stageMigration ?? createLegacyStageMigrationOptions(candidate, new Date()),
+  )
 }
 
 export type ImportResult =
@@ -323,10 +325,11 @@ function normalizeAndValidateImportAssets(
 export async function buildExportPayloadFromState(
   state: ExportState,
   getAssetForExport: (id: string) => Promise<ExportAssetRecord | null>,
+  stageMigration?: LegacyStageMigrationOptions,
 ): Promise<ExportPayload> {
   const assetIds = new Set(collectAssetIdsFromSnapshot(state))
   const assets = await loadReferencedAssetsForExport(assetIds, getAssetForExport)
-  const portable = buildPortableSnapshotFromState(state, state.shortcuts ?? {})
+  const portable = buildPortableSnapshotFromState(state, state.shortcuts ?? {}, stageMigration)
   return {
     version: EXPORT_VERSION,
     ...portable,
@@ -700,7 +703,10 @@ function crc32(data: Uint8Array): number {
   return (crc ^ 0xffffffff) >>> 0
 }
 
-export function parseImportJson(text: string): ImportResult {
+export function parseImportJson(
+  text: string,
+  stageMigration?: LegacyStageMigrationOptions,
+): ImportResult {
   try {
     assertJsonFileByteBudget(utf8ByteLength(text))
   } catch (error) {
@@ -766,10 +772,13 @@ export function parseImportJson(text: string): ImportResult {
   let snapshotCandidate: PersistedSnapshot
   let assets: ExportAssetRecord[]
   try {
-    snapshotCandidate = decodeCanonicalSnapshot(
-      raw,
-      { version: raw.version, label: 'JSON backup' },
-    )
+    snapshotCandidate = decodeCanonicalSnapshot(raw, {
+      version: raw.version,
+      label: 'JSON backup',
+      stageMigration: raw.version <= 11
+        ? stageMigration ?? createLegacyStageMigrationOptions(raw, new Date())
+        : undefined,
+    })
     assets = normalizeAndValidateImportAssets([
       ...snapshotCandidate.trades.flatMap(tradeRichTextEntries),
       ...(snapshotCandidate.weeklyReviews ?? []).map((review) => review.contentHtml),

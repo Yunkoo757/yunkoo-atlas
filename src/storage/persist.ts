@@ -10,7 +10,11 @@ import { getStorage } from '@/storage/provider'
 import type { CanonicalSnapshot } from '@/storage/snapshotCodec'
 import type { PersistedSnapshot } from '@/storage/types'
 import { getCurrentLiveStage } from '@/lib/liveStages'
-import { migrateLegacyStageSnapshot } from '@/lib/stageMigration'
+import {
+  createLegacyStageMigrationOptions,
+  migrateLegacyStageSnapshot,
+  type LegacyStageMigrationOptions,
+} from '@/lib/stageMigration'
 
 type PersistableState = Omit<
   CanonicalSnapshot,
@@ -23,10 +27,9 @@ type PersistableState = Omit<
 export function pickPersisted(
   state: PersistableState,
   shortcutBindings?: Record<string, ShortcutBinding | null>,
+  stageMigration?: LegacyStageMigrationOptions,
 ): CanonicalSnapshot {
   const shortcuts = bindingsForPersist(shortcutBindings ?? {})
-  const latestCycle = state.livePerformanceCycles.at(-1)
-  const fallbackDay = latestCycle?.startTradingDayKey ?? state.liveStatsStartTradingDayKey ?? '1970-01-01'
   const hasCanonicalStageState = Boolean(
     state.liveStages && state.currentLiveStageId && state.scheduledStageRollover !== undefined,
   )
@@ -35,11 +38,10 @@ export function pickPersisted(
         CanonicalSnapshot,
         'liveStages' | 'currentLiveStageId' | 'scheduledStageRollover'
       >>
-    : migrateLegacyStageSnapshot(state as unknown as Record<string, unknown>, {
-        now: latestCycle?.createdAt ?? `${fallbackDay}T00:00:00.000Z`,
-        currentTradingDayKey: fallbackDay,
-        idFactory: (sequence) => `legacy-live-stage-${sequence}`,
-      }) as CanonicalSnapshot
+    : migrateLegacyStageSnapshot(
+        state as unknown as Record<string, unknown>,
+        stageMigration ?? createLegacyStageMigrationOptions(state, new Date()),
+      ) as CanonicalSnapshot
   const currentStage = getCurrentLiveStage(staged.liveStages, staged.currentLiveStageId)
   const compatibilityCycles = hasCanonicalStageState
     ? [{

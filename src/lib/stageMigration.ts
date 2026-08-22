@@ -8,6 +8,7 @@ import {
 import type { LiveStage } from '@/lib/liveStages'
 import { assertValidLiveStageState } from '@/lib/liveStages'
 import { isExecutedClosed, isMissed } from '@/lib/tradeStatus'
+import { createBusinessDateAnchor } from '@/lib/periods'
 import type { PersistedSnapshot } from '@/storage/types'
 
 export type LegacyStageSnapshot = Record<string, unknown> & Partial<PersistedSnapshot>
@@ -16,6 +17,22 @@ export interface LegacyStageMigrationOptions {
   now: string
   currentTradingDayKey: string
   idFactory(sequence: number): string
+}
+
+export function createLegacyStageMigrationOptions(
+  raw: unknown,
+  now: Date,
+  idFactory: LegacyStageMigrationOptions['idFactory'] = (sequence) => `legacy-live-stage-${sequence}`,
+): LegacyStageMigrationOptions {
+  const snapshot = typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+    ? raw as LegacyStageSnapshot
+    : {}
+  const anchor = createBusinessDateAnchor(now, snapshot.display?.tradingDayStartHour)
+  return {
+    now: anchor.now.toISOString(),
+    currentTradingDayKey: anchor.currentTradingDayKey,
+    idFactory,
+  }
 }
 
 function previousDay(day: string): string {
@@ -136,7 +153,7 @@ function migrateTrades(
 ): Trade[] {
   const migratedLive = new Map<string, string>()
   const firstPass = trades.map((trade): Trade => {
-    if (trade.tradeKind === 'paper') {
+    if (trade.tradeKind === 'paper' || trade.tradeKind === undefined) {
       const { liveStageId: _legacyOwnership, ...paper } = trade as Trade & { liveStageId?: unknown }
       return paper as Trade
     }

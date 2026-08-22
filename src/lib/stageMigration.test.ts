@@ -1,6 +1,9 @@
 import type { Trade } from '@/data/trades'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
-import { migrateLegacyStageSnapshot } from '@/lib/stageMigration'
+import {
+  createLegacyStageMigrationOptions,
+  migrateLegacyStageSnapshot,
+} from '@/lib/stageMigration'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -18,6 +21,15 @@ const deterministicOptions = {
   now: '2026-08-22T00:00:00.000Z',
   currentTradingDayKey: '2026-08-22',
   idFactory: (sequence: number) => `stage-${sequence}`,
+}
+
+export function testLegacyStageMigrationOptionsUseTradingDayStartHour(): void {
+  const options = createLegacyStageMigrationOptions(
+    v11Snapshot({ display: { tradingDayStartHour: 6 } }),
+    new Date(2026, 7, 22, 5, 30, 0),
+  )
+  assert(options.currentTradingDayKey === '2026-08-21', '凌晨六点前必须仍属于前一交易日')
+  assert(options.now === new Date(2026, 7, 22, 5, 30, 0).toISOString(), '迁移时间必须固定为调用方传入时刻')
 }
 
 function liveTradeWithoutUsableDates(): Trade {
@@ -113,4 +125,16 @@ export function testPreCycleArchiveWeeklyReviewsAndRiskOwnershipAreMigrated(): v
   assert(migrated.riskPolicyVersions.every((item) => item.liveStageId === migrated.currentLiveStageId), '风险政策必须归入当前阶段')
   assert(migrated.monthlyRiskLimits.every((item) => item.liveStageId === migrated.currentLiveStageId), '月度限额必须归入当前阶段')
   assert(migrated.riskOverrideEvents.every((item) => item.liveStageId === migrated.currentLiveStageId), '风险覆盖事件必须归入当前阶段')
+}
+
+export function testLegacyTradeWithoutKindRemainsPaperAndHasNoStageOwnership(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const { tradeKind: _tradeKind, liveStageId: _liveStageId, ...legacyTrade } = fixture.trades[0]! as Trade & { liveStageId?: unknown }
+  const migrated = migrateLegacyStageSnapshot(v11Snapshot({
+    trades: [legacyTrade],
+  }), deterministicOptions)
+  const trade = migrated.trades[0] as Trade & { tradeKind?: string; liveStageId?: unknown }
+
+  assert(trade.tradeKind === undefined, '阶段迁移不得把缺失种类的旧交易提前解释为实盘')
+  assert(!Object.prototype.hasOwnProperty.call(trade, 'liveStageId'), '缺失种类的旧交易不得携带阶段归属')
 }

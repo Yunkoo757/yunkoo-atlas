@@ -158,6 +158,7 @@ export class LibraryStorage {
     DatabaseClass: SqlDatabaseConstructor,
     data?: ArrayLike<number> | null,
   ) => Database
+  private readonly now: () => Date
   private assetPurgePreviews = new Map<string, {
     snapshotJson: string
     candidateIds: string[]
@@ -176,6 +177,7 @@ export class LibraryStorage {
         DatabaseClass: SqlDatabaseConstructor,
         data?: ArrayLike<number> | null,
       ) => Database
+      now?: () => Date
     } = {},
   ) {
     const resolved = path.resolve(libraryPath)
@@ -186,6 +188,7 @@ export class LibraryStorage {
     this.createDatabase = options.createDatabase ?? (
       (DatabaseClass, data) => new DatabaseClass(data)
     )
+    this.now = options.now ?? (() => new Date())
     this.paths = options.ensureDirectories === false
       ? getLibraryPaths(resolved)
       : ensureLibraryDirs(resolved)
@@ -222,7 +225,7 @@ export class LibraryStorage {
           this.closeDatabaseBestEffort()
           restoreVerifiedV8Pair(this.paths, schemaRecovery.marker)
           this.db = this.createDatabase(SQL.Database, this.readDatabaseFile(this.paths.dbFile))
-          assertOpenedPairVersion(this.db, this.readManifest(), 8, { requireSnapshot: true })
+          assertOpenedPairVersion(this.db, this.readManifest(), schemaRecovery.marker.fromVersion, { requireSnapshot: true })
         }
         removeMigrationRecovery(this.paths, schemaRecovery.marker)
         created = false
@@ -261,7 +264,7 @@ export class LibraryStorage {
           this.writeManifest({
             schemaVersion: SCHEMA_VERSION,
             libraryId: randomUUID(),
-            createdAt: new Date().toISOString(),
+            createdAt: this.now().toISOString(),
             platform: 'electron',
           })
         }
@@ -274,7 +277,12 @@ export class LibraryStorage {
 
       const manifest = this.readManifest()
       if (manifest.schemaVersion >= 8 && manifest.schemaVersion < SCHEMA_VERSION) {
-        migrateOpenedLibraryV8ToV9({ db: this.db, paths: this.paths, manifest })
+        migrateOpenedLibraryV8ToV9({
+          db: this.db,
+          paths: this.paths,
+          manifest,
+          now: this.now(),
+        })
         this.closeDatabaseBestEffort()
         this.db = this.createDatabase(SQL.Database, this.readDatabaseFile(this.paths.dbFile))
       }
