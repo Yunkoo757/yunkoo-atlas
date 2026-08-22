@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
+import { EventEmitter } from 'node:events'
 import test from 'node:test'
 
 import {
+  closeElectronApplication,
   collectElectronBundleIdentity,
   validateBundleBuildIdentityEvidence,
 } from '../bundle-build-identity.mjs'
@@ -92,4 +94,30 @@ test('all bundle evidence fails closed when the repository working tree is dirty
     }, ['renderer']),
     /repository working tree.*dirty/i,
   )
+})
+
+test('Electron visual identity failure cannot hang while closing the stale application', async () => {
+  let killed = false
+  let exited = false
+  const child = new EventEmitter()
+  child.kill = () => {
+    killed = true
+    return true
+  }
+  const application = {
+    close: async () => new Promise(() => {}),
+    evaluate: async () => {
+      setTimeout(() => {
+        exited = true
+        child.emit('exit')
+      }, 2)
+    },
+    process: () => child,
+  }
+
+  const result = await closeElectronApplication(application, 5)
+
+  assert.equal(result.forced, true)
+  assert.equal(killed, false, 'app.exit should release the process before a hard kill is needed')
+  assert.equal(exited, true, 'helper must wait for the exiting process to release its files')
 })

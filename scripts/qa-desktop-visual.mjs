@@ -25,6 +25,7 @@ import {
   hasExactDesktopVisualCaptureMatrix,
 } from './packaged-desktop-visual-contract.mjs'
 import {
+  closeElectronApplication,
   collectElectronBundleIdentity,
   readRepositoryBuildExpectation,
 } from './bundle-build-identity.mjs'
@@ -520,8 +521,8 @@ async function runElectronQa({ root, runtimeRoot, build, snapshot, packageJson, 
       }
     }
   } finally {
-    await application?.close().catch(() => {})
-    rmSync(temporaryRoot, { recursive: true, force: true })
+    await closeElectronApplication(application)
+    rmSync(temporaryRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
   }
   return {
     build,

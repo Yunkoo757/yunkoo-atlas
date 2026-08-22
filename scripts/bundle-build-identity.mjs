@@ -82,3 +82,49 @@ export async function collectElectronBundleIdentity({ page, application, expecta
   validateBundleBuildIdentityEvidence(evidence, ['renderer', 'main'])
   return evidence
 }
+
+export async function closeElectronApplication(application, timeoutMs = 2_000) {
+  if (!application) return { forced: false }
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new Error('Electron application close timeout must be a positive number')
+  }
+
+  async function settlesWithin(promise) {
+    let timer
+    const settled = await Promise.race([
+      promise.then(() => true, () => true),
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(false), timeoutMs)
+      }),
+    ])
+    clearTimeout(timer)
+    return settled
+  }
+
+  const closed = await settlesWithin(application.close())
+  if (closed) return { forced: false }
+
+  const child = application.process?.()
+  let processExited = typeof child?.exitCode === 'number'
+  const exited = processExited || typeof child?.once !== 'function'
+    ? Promise.resolve()
+    : new Promise((resolve) => {
+        child.once('exit', () => {
+          processExited = true
+          resolve()
+        })
+      })
+
+  application.evaluate?.(({ app }) => app.exit(1)).catch(() => {})
+  await settlesWithin(exited)
+  if (processExited) return { forced: true, hardKilled: false }
+
+  try {
+    if (Number.isInteger(child?.pid)) process.kill(child.pid, 'SIGKILL')
+    else child?.kill('SIGKILL')
+  } catch {
+    child?.kill('SIGKILL')
+  }
+  await settlesWithin(exited)
+  return { forced: true, hardKilled: true }
+}
