@@ -4,6 +4,20 @@ import {
   createNextLiveStage,
   getCurrentLiveStage,
 } from '@/lib/liveStages'
+import type { CaseTrade, LiveTrade, PaperTrade } from '@/data/trades'
+
+type Assert<T extends true> = T
+type HasKey<T, Key extends PropertyKey> = Key extends keyof T ? true : false
+
+type LiveTradeKeepsCompatibleStageOwnership = Assert<
+  LiveTrade['liveStageId'] extends string | null | undefined ? true : false
+>
+type CaseTradeKeepsCompatibleStageOwnership = Assert<
+  CaseTrade['liveStageId'] extends string | null | undefined ? true : false
+>
+type PaperTradeRejectsStageOwnership = Assert<
+  HasKey<PaperTrade, 'liveStageId'> extends false ? true : false
+>
 
 function assert(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message)

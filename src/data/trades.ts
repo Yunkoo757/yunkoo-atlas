@@ -66,10 +66,8 @@ export interface ActivityEvent {
   toTradeKind?: TradeKind
 }
 
-export interface Trade {
+interface TradeBase {
   id: string
-  /** v12 stage ownership; undefined is accepted only while decoding v1-v11. */
-  liveStageId?: string | null
   ref: string // 形如 TRD-128
   symbol: string // 标的，如 BTC/AAPL
   side: TradeSide
@@ -97,7 +95,6 @@ export interface Trade {
    * 通过 reviewCaseClassification 边界同步写入。
    */
   reviewCategory: ReviewCategory
-  tradeKind: TradeKind
   /** 案例来源交易；仅案例记录使用，保证知识条目可追溯。 */
   sourceTradeId?: string
   /** 关联来源交易最近一次成功保存的正文快照；仅案例记录使用。 */
@@ -127,6 +124,25 @@ export interface Trade {
   deletedAt?: string // 删除时间（ISO 格式），undefined 表示未删除
   deletedBy?: string // 删除操作来源（可选，用于审计）
 }
+
+/** 实盘交易的 v12 阶段归属；undefined 仅在解码 v1-v11 时接受。 */
+export type LiveTrade = TradeBase & {
+  tradeKind: 'live'
+  liveStageId?: string | null
+}
+
+/** 纸面交易不属于实盘阶段，持久化形状不得包含 liveStageId。 */
+export type PaperTrade = TradeBase & {
+  tradeKind: 'paper'
+}
+
+/** 案例在 v12 沿用其实盘来源的阶段归属；undefined 仅在解码 v1-v11 时接受。 */
+export type CaseTrade = TradeBase & {
+  tradeKind: 'case'
+  liveStageId?: string | null
+}
+
+export type Trade = LiveTrade | PaperTrade | CaseTrade
 
 /**
  * ISO 4217 active List One snapshot，发布日 2026-01-01。
