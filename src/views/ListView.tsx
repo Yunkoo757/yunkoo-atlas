@@ -35,14 +35,7 @@ import { BatchActionBar } from '@/components/ui/BatchActionBar'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import { useStore } from '@/store/useStore'
-import {
-  resolveLiveRoute,
-  resolveLiveRouteNavigation,
-  resolvePerformanceAnalysisRoute,
-  resolveTradeListPerformanceCycleRoute,
-} from '@/lib/livePerformanceCycleRoute'
-import { filterLiveLogRecords, resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
-import { LIVE_PERFORMANCE_CYCLE_RESERVED_IDS } from '@/lib/livePerformanceCycles'
+import { filterStageTrades } from '@/lib/stageArchive'
 import './ListView.css'
 
 export function ListView({
@@ -72,7 +65,6 @@ export function ListView({
   const upsertTrades = useStore((state) => state.upsertTrades)
   const toggleStar = useStore((state) => state.toggleStar)
   const isStarred = useStore((state) => state.isStarred)
-  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const [focusIndex, setFocusIndex] = useState(-1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -80,62 +72,12 @@ export function ListView({
   const listScrollRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const location = useLocation()
-  const liveRoute = useMemo(
-    () => filter.tradeKind === 'live' || (
-      filter.analysisScope !== undefined && filter.analysisScope.kind !== 'paper'
-    )
-      ? resolveLiveRoute(location.search, livePerformanceCycles, 'trade-list')
-      : null,
-    [filter.analysisScope, filter.tradeKind, livePerformanceCycles, location.search],
-  )
-  const paperAnalysisRoute = useMemo(
-    () => filter.analysisScope?.kind === 'paper'
-      ? resolvePerformanceAnalysisRoute(location.search, 'paper', livePerformanceCycles)
-      : null,
-    [filter.analysisScope?.kind, livePerformanceCycles, location.search],
-  )
-  const allArchivesAnalysisRoute = useMemo(() => {
-    if (!filter.analysisScope || filter.analysisScope.kind === 'paper') return null
-    const requested = new URLSearchParams(location.search).get('statsCycle')?.trim()
-    if (requested !== LIVE_PERFORMANCE_CYCLE_RESERVED_IDS.all) return null
-    return resolveTradeListPerformanceCycleRoute(
-      location.search,
-      livePerformanceCycles,
-      true,
-    )
-  }, [filter.analysisScope, livePerformanceCycles, location.search])
   const pendingCount = useMemo(() => {
     if (filter.tradeKind !== 'live') return 0
-    return filterLiveLogRecords(
-      storedTrades,
-      resolveLiveArchiveScope(livePerformanceCycles, 'pending'),
-      display.tradingDayStartHour,
-    ).length
-  }, [display.tradingDayStartHour, filter.tradeKind, livePerformanceCycles, storedTrades])
+    return filterStageTrades(storedTrades, { kind: 'pending' }).length
+  }, [filter.tradeKind, storedTrades])
   const showPendingLink = filter.tradeKind === 'live'
     && pendingCount > 0
-    && liveRoute?.target.kind !== 'pending'
-
-  useEffect(() => {
-    if (paperAnalysisRoute?.needsReplace) {
-      navigate({ search: paperAnalysisRoute.canonicalSearch }, { replace: true })
-      return
-    }
-    if (allArchivesAnalysisRoute) {
-      if (allArchivesAnalysisRoute.needsReplace) {
-        navigate({ search: allArchivesAnalysisRoute.canonicalSearch }, { replace: true })
-      }
-      return
-    }
-    if (!liveRoute) return
-    if (filter.analysisScope && liveRoute.needsReplace) {
-      navigate({ search: liveRoute.canonicalSearch }, { replace: true })
-      return
-    }
-    const leavesWorkbench = liveRoute.target.kind === 'archive-home'
-      || (liveRoute.target.kind === 'archive' && !filter.analysisScope)
-    if (leavesWorkbench) navigate(resolveLiveRouteNavigation(liveRoute), { replace: true })
-  }, [allArchivesAnalysisRoute, filter.analysisScope, liveRoute, navigate, paperAnalysisRoute])
 
   useListContextSync(filter)
   useTradeReturnAnchor()
@@ -374,9 +316,13 @@ export function ListView({
       setDisplay({ hideClosed: false })
     }
     if (filter.historicalLiveScope) {
+      const params = new URLSearchParams(location.search)
+      for (const key of [...params.keys()]) {
+        if (key !== 'liveStage' && key !== 'tab') params.delete(key)
+      }
       navigate({
         pathname: '/live-history',
-        search: filter.historicalLiveScope === 'cases' ? '?view=cases' : '',
+        search: params.toString(),
       }, { replace: true })
       return
     }
@@ -391,10 +337,10 @@ export function ListView({
           <Link
             data-pending-log-link
             className="list-pending-link"
-            to="/list?statsCycle=pending"
-            aria-label={`查看待整理记录，共 ${pendingCount} 条`}
+            to="/settings/data-health"
+            aria-label={`修复待归属记录，共 ${pendingCount} 条`}
           >
-            待整理 {pendingCount}
+            待归属 {pendingCount}
           </Link>
         </div>
       ) : null}

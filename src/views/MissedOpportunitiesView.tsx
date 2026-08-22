@@ -22,6 +22,7 @@ import {
 import { toast } from '@/lib/toast'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { useStore } from '@/store/useStore'
+import { filterStageOwnedRecords } from '@/lib/stageArchive'
 import './MissedOpportunitiesView.css'
 
 const EMPTY_SELECTION = new Set<string>()
@@ -34,6 +35,7 @@ const SOURCE_LABELS: Record<MissedOpportunitySource, string> = {
 
 export function MissedOpportunitiesView() {
   const trades = useStore((state) => state.trades)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const strategies = useStore((state) => state.strategies)
   const symbolCatalog = useStore((state) => state.symbolCatalog)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
@@ -57,7 +59,11 @@ export function MissedOpportunitiesView() {
   const sources: MissedOpportunitySource[] = existingScope?.target.kind === 'system'
     ? systemCapabilityWorkspaces(existingScope.target)
     : [...MISSED_OPPORTUNITY_SOURCES]
-  const summary = buildMissedOpportunitySummary(trades, sources)
+  const currentStageTrades = useMemo(
+    () => filterStageOwnedRecords(trades, { kind: 'current', stageId: currentLiveStageId }),
+    [currentLiveStageId, trades],
+  )
+  const summary = buildMissedOpportunitySummary(currentStageTrades, sources)
   const filters = parseMissedOpportunityFilters(searchParams)
   const visibleItems = filterMissedOpportunityItems(summary.items, filters, businessDateAnchor)
   const visibleResultKey = JSON.stringify([
@@ -113,7 +119,7 @@ export function MissedOpportunitiesView() {
       ? sources.filter((candidate) => candidate !== source)
       : [...sources, source]
     const nextVisibleItems = filterMissedOpportunityItems(
-      buildMissedOpportunitySummary(trades, nextSources).items,
+      buildMissedOpportunitySummary(currentStageTrades, nextSources).items,
       filters,
       businessDateAnchor,
     )

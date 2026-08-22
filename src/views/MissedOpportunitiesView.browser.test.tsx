@@ -386,6 +386,7 @@ function missedTrade(
     reviewStatus: 'unreviewed',
     reviewCategory: 'normal',
     tradeKind,
+    liveStageId: tradeKind === 'paper' ? undefined : useStore.getState().currentLiveStageId,
     entry: 100,
     exit: null,
     size: 1,

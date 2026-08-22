@@ -1263,10 +1263,10 @@ export function testCoreSidebarRouteCountsMatchRestoredWorkbenchFiltering(): voi
 
 export function testLiveWorkbenchAndSidebarCountsUseCurrentArchiveByDefault(): void {
   const trades: Trade[] = [
-    { ...trade, id: 'old-live', status: 'win', openedAt: '2026-07-20', closedAt: '2026-07-20', closedTradingDayKey: '2026-07-20' },
-    { ...trade, id: 'new-live', status: 'win', openedAt: '2026-07-27', closedAt: '2026-07-27', closedTradingDayKey: '2026-07-27' },
+    { ...trade, id: 'old-live', tradeKind: 'live', liveStageId: 'stage-old', status: 'win', openedAt: '2099-07-20', closedAt: '2099-07-20', closedTradingDayKey: '2099-07-20' },
+    { ...trade, id: 'new-live', tradeKind: 'live', liveStageId: 'stage-current', status: 'win', openedAt: '2020-07-27', closedAt: '2020-07-27', closedTradingDayKey: '2020-07-27' },
     { ...trade, id: 'paper', tradeKind: 'paper', status: 'open', openedAt: '2026-07-20' },
-    { ...trade, id: 'case', tradeKind: 'case', openedAt: '2026-07-20' },
+    { ...trade, id: 'case', tradeKind: 'case', liveStageId: 'stage-current', openedAt: '2026-07-20' },
   ]
   const context = {
     trades,
@@ -1274,16 +1274,19 @@ export function testLiveWorkbenchAndSidebarCountsUseCurrentArchiveByDefault(): v
     display: { ...DEFAULT_DISPLAY, hideClosed: false },
     liveStatsStartTradingDayKey: '2026-07-27',
     livePerformanceCycles: [{ id: 'current', name: '当前', startTradingDayKey: '2026-07-27', createdAt: '2026-07-27T00:00:00.000Z' }],
+    currentLiveStageId: 'stage-current',
   }
   const live = getWorkbenchVisibleTrades({
     ...context,
     filter: { type: 'all', tradeKind: 'live' },
     search: '',
+    stageScope: { kind: 'current' as const, stageId: 'stage-current' },
   })
   const currentCycle = getWorkbenchVisibleTrades({
     ...context,
     filter: { type: 'all', tradeKind: 'live' },
     search: '?statsCycle=current',
+    stageScope: { kind: 'current' as const, stageId: 'stage-current' },
   })
   const paper = getWorkbenchVisibleTrades({
     ...context,
@@ -1294,6 +1297,7 @@ export function testLiveWorkbenchAndSidebarCountsUseCurrentArchiveByDefault(): v
     ...context,
     filter: { type: 'all', tradeKind: 'case', reviewCaseScope: 'all' },
     search: '',
+    stageScope: { kind: 'current' as const, stageId: 'stage-current' },
   })
 
   assert(live.map((item) => item.id).join() === 'new-live', '交易日志缺省范围必须是当前实盘')
@@ -1304,27 +1308,27 @@ export function testLiveWorkbenchAndSidebarCountsUseCurrentArchiveByDefault(): v
   assert(cases.map((item) => item.id).join() === 'case', '案例计数不得受实盘周期影响')
 }
 
-export function testArchiveHomeRouteNeverFallsThroughToTheLiveWorkbench(): void {
-  const cycles: LivePerformanceCycle[] = [
-    { id: 'current', name: '当前', startTradingDayKey: '2026-07-01', createdAt: '2026-07-01T00:00:00.000Z' },
-  ]
+export function testLegacyCycleQueryCannotOverrideExplicitCurrentStageScope(): void {
   const options = {
-    trades: [{ ...trade, id: 'live', status: 'open' }] as Trade[],
+    trades: [
+      { ...trade, id: 'current-live', liveStageId: 'stage-current', status: 'open' },
+      { ...trade, id: 'historical-live', liveStageId: 'stage-old', status: 'open' },
+    ] as Trade[],
     filter: { type: 'all', tradeKind: 'live' } as const,
     starredIds: [],
     display: { ...DEFAULT_DISPLAY, hideClosed: false },
-    livePerformanceCycles: cycles,
+    livePerformanceCycles: [{ id: 'legacy', name: '旧周期', startTradingDayKey: '2099-01-01', createdAt: '2099-01-01T00:00:00.000Z' }],
+    stageScope: { kind: 'current' as const, stageId: 'stage-current' },
   }
   for (const requested of ['all', 'pre-cycle', 'missing']) {
     const derived = deriveWorkbenchVisibleTrades({ ...options, search: `?statsCycle=${requested}` })
-    assert(derived.visible.length === 0, `${requested} 不得回落为全部交易`)
-    assert(derived.archiveHome?.requestedKey === requested, `${requested} 必须暴露归档首页目标`)
+    assert(derived.visible.map((item) => item.id).join() === 'current-live', `${requested} 不得覆盖显式 current stage`)
   }
 }
 
-export function testPendingWorkbenchRouteStillFiltersWithoutArchiveBoundaries(): void {
-  const pending = { ...trade, id: 'pending-close-day', status: 'win' as const, closedAt: 'invalid', closedTradingDayKey: undefined }
-  const current = { ...trade, id: 'current-close-day', status: 'win' as const, closedAt: '2026-08-08', closedTradingDayKey: '2026-08-08' }
+export function testPendingWorkbenchScopeOnlyIncludesNullOwnership(): void {
+  const pending = { ...trade, id: 'pending-owner', liveStageId: null, status: 'win' as const }
+  const current = { ...trade, id: 'current-owner', liveStageId: 'stage-current', status: 'win' as const }
   const derived = deriveWorkbenchVisibleTrades({
     trades: [pending, current],
     filter: { type: 'all', tradeKind: 'live' },
@@ -1332,8 +1336,9 @@ export function testPendingWorkbenchRouteStillFiltersWithoutArchiveBoundaries():
     display: { ...DEFAULT_DISPLAY, hideClosed: false },
     livePerformanceCycles: [],
     search: '?statsCycle=pending',
+    stageScope: { kind: 'pending' },
   })
-  assert(derived.visible.map((item) => item.id).join() === 'pending-close-day', '无周期时待整理日志不得回退为全部实盘')
+  assert(derived.visible.map((item) => item.id).join() === 'pending-owner', 'pending scope 只能包含 null 归属')
 }
 
 export function testHistoricalLiveUsesTheSharedWorkbenchWithOnlyItsDataScopeChanged(): void {
@@ -1347,6 +1352,7 @@ export function testHistoricalLiveUsesTheSharedWorkbenchWithOnlyItsDataScopeChan
     openedAt: '2026-01-15',
     closedAt: '2026-01-15',
     closedTradingDayKey: '2026-01-15',
+    liveStageId: 'stage-old',
   }
   const current = {
     ...trade,
@@ -1354,17 +1360,20 @@ export function testHistoricalLiveUsesTheSharedWorkbenchWithOnlyItsDataScopeChan
     openedAt: '2026-02-15',
     closedAt: '2026-02-15',
     closedTradingDayKey: '2026-02-15',
+    liveStageId: 'stage-current',
   }
   const linkedCase = {
     ...trade,
     id: 'historical-case',
     tradeKind: 'case' as const,
     sourceTradeId: historical.id,
+    liveStageId: 'stage-old',
   }
   const currentCase = {
     ...linkedCase,
     id: 'current-case',
     sourceTradeId: current.id,
+    liveStageId: 'stage-current',
   }
   const options = {
     trades: [historical, current, linkedCase, currentCase],
@@ -1377,12 +1386,14 @@ export function testHistoricalLiveUsesTheSharedWorkbenchWithOnlyItsDataScopeChan
   const history = deriveWorkbenchVisibleTrades({
     ...options,
     filter: { type: 'all', tradeKind: 'live', historicalLiveScope: 'trades' },
+    stageScope: { kind: 'all-history', archivedStageIds: new Set(['stage-old']) },
   })
   assert(history.visible.map((item) => item.id).join() === 'historical-live', '历史实盘工作台只能显示重置前实盘')
 
   const cases = deriveWorkbenchVisibleTrades({
     ...options,
     filter: { type: 'all', tradeKind: 'case', historicalLiveScope: 'cases' },
+    stageScope: { kind: 'all-history', archivedStageIds: new Set(['stage-old']) },
   })
   assert(cases.visible.map((item) => item.id).join() === 'historical-case', '历史实盘案例工作台只能显示历史来源案例')
 }
@@ -1441,7 +1452,7 @@ export function testExplicitPerformanceCycleListRoutesStayStableAndClearInvalidI
   assert(removed.needsReplace, '失效周期清理必须使用 replace 规范化')
 }
 
-export function testPlainStrategyRoutesKeepListSemanticsWhileAnalysisRoutesUseCurrentCycle(): void {
+export function testPlainStrategyRoutesKeepListSemanticsWhileAnalysisRoutesUseCurrentStage(): void {
   const cycles: LivePerformanceCycle[] = [
     {
       id: 'old-strategy-cycle',
@@ -1461,6 +1472,7 @@ export function testPlainStrategyRoutesKeepListSemanticsWhileAnalysisRoutesUseCu
       ...trade,
       id: 'old-closed-strategy',
       tradeKind: 'live',
+      liveStageId: 'stage-old',
       status: 'win',
       openedAt: '2026-06-01',
       closedAt: '2026-06-02',
@@ -1473,6 +1485,7 @@ export function testPlainStrategyRoutesKeepListSemanticsWhileAnalysisRoutesUseCu
       ...trade,
       id: 'current-closed-strategy',
       tradeKind: 'live',
+      liveStageId: 'stage-current',
       status: 'win',
       openedAt: '2026-07-02',
       closedAt: '2026-07-03',
@@ -1485,6 +1498,7 @@ export function testPlainStrategyRoutesKeepListSemanticsWhileAnalysisRoutesUseCu
       ...trade,
       id: 'current-open-strategy',
       tradeKind: 'live',
+      liveStageId: 'stage-current',
       status: 'open',
       openedAt: '2026-07-04',
       closedAt: null,
@@ -1503,11 +1517,13 @@ export function testPlainStrategyRoutesKeepListSemanticsWhileAnalysisRoutesUseCu
     ...context,
     filter: { type: 'strategy', strategyId: strategy.id, tradeKind: 'live' },
     search: '',
+    stageScope: { kind: 'current', stageId: 'stage-current' },
   })
   const explicitCurrent = getWorkbenchVisibleTrades({
     ...context,
     filter: { type: 'strategy', strategyId: strategy.id, tradeKind: 'live' },
     search: '?statsCycle=current-strategy-cycle',
+    stageScope: { kind: 'current', stageId: 'stage-current' },
   })
   const dashboardAnalysis = getWorkbenchVisibleTrades({
     ...context,
@@ -1517,6 +1533,7 @@ export function testPlainStrategyRoutesKeepListSemanticsWhileAnalysisRoutesUseCu
       analysisScope: { kind: 'live', range: 'all' },
     },
     search: '?kind=live&range=all',
+    stageScope: { kind: 'current', stageId: 'stage-current' },
   })
 
   assert(
@@ -1530,7 +1547,7 @@ export function testPlainStrategyRoutesKeepListSemanticsWhileAnalysisRoutesUseCu
   )
   assert(
     dashboardAnalysis.map((item) => item.id).join() === 'current-closed-strategy',
-    'Dashboard 分析下钻仍必须用隐式当前周期分析语义',
+    'Dashboard 分析下钻仍必须用显式当前 stage 分析语义',
   )
 }
 

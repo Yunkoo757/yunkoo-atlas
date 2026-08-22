@@ -246,8 +246,8 @@ export function testWorkbenchAnalysisMatchesSelectorAcrossKindsRangesAndArchive(
     { id: 'archive-id', name: '历史', startTradingDayKey: '2026-04-01', createdAt: '2026-04-01T00:00:00.000Z' },
     { id: 'current-id', name: '当前', startTradingDayKey: '2026-08-01', createdAt: '2026-08-01T00:00:00.000Z' },
   ]
-  const archivedLive = { ...caseTrade, id: 'archived-live', ref: 'TRD-ARCHIVED', tradeKind: 'live' as const, openedAt: '2026-06-15', closedAt: '2026-06-15', closedTradingDayKey: '2026-06-15' }
-  const currentLive = { ...archivedLive, id: 'current-live', ref: 'TRD-CURRENT', openedAt: '2026-08-08', closedAt: '2026-08-08', closedTradingDayKey: '2026-08-08' }
+  const archivedLive = { ...caseTrade, id: 'archived-live', ref: 'TRD-ARCHIVED', tradeKind: 'live' as const, liveStageId: 'stage-old', openedAt: '2099-06-15', closedAt: '2099-06-15', closedTradingDayKey: '2099-06-15' }
+  const currentLive = { ...archivedLive, id: 'current-live', ref: 'TRD-CURRENT', liveStageId: 'stage-current', openedAt: '2026-08-08', closedAt: '2026-08-08', closedTradingDayKey: '2026-08-08' }
   const openCurrent = { ...currentLive, id: 'open-current', ref: 'TRD-OPEN', status: 'open' as const, closedAt: null, closedTradingDayKey: undefined, pnl: null, rMultiple: null, resultSource: undefined }
   const historicalPaper = { ...archivedLive, id: 'historical-paper', ref: 'TRD-PAPER', tradeKind: 'paper' as const }
   const trades = [archivedLive, currentLive, openCurrent, historicalPaper]
@@ -262,21 +262,21 @@ export function testWorkbenchAnalysisMatchesSelectorAcrossKindsRangesAndArchive(
     search: '',
     businessDateAnchor: anchor,
     livePerformanceCycles: cycles,
+    stageScope: { kind: 'current', stageId: 'stage-current' },
   })
   assert(ordinary.map((trade) => trade.id).sort().join() === 'current-live,open-current', '普通 /list 必须保留当前实盘日志并包含未平仓记录')
 
   const matrix = [
-    { search: '?kind=live&range=all', scope: { kind: 'live' as const, range: 'all' as const }, archiveKey: null },
-    { search: '?kind=paper&range=all', scope: { kind: 'paper' as const, range: 'all' as const }, archiveKey: null },
-    { search: '?kind=all&range=all', scope: { kind: 'all' as const, range: 'all' as const }, archiveKey: null },
-    { search: '?kind=all&range=30d', scope: { kind: 'all' as const, range: '30d' as const }, archiveKey: null },
-    { search: '?kind=live&range=all&statsCycle=archive-id', scope: { kind: 'live' as const, range: 'all' as const }, archiveKey: 'archive-id' },
-    { search: '?kind=live&range=all&statsCycle=all', scope: { kind: 'live' as const, range: 'all' as const }, archiveKey: 'all' },
+    { search: '?kind=live&range=all&liveStage=current', scope: { kind: 'live' as const, range: 'all' as const } },
+    { search: '?kind=paper&range=all', scope: { kind: 'paper' as const, range: 'all' as const } },
+    { search: '?kind=all&range=all&liveStage=current', scope: { kind: 'all' as const, range: 'all' as const } },
+    { search: '?kind=all&range=30d&liveStage=current', scope: { kind: 'all' as const, range: '30d' as const } },
   ]
   for (const entry of matrix) {
-    const expected = buildPerformanceSelection(trades, {
+    const stageTrades = trades.filter((item) => item.tradeKind === 'paper' || item.liveStageId === 'stage-current')
+    const expected = buildPerformanceSelection(stageTrades, {
       scope: entry.scope,
-      liveScope: resolveLiveArchiveScope(cycles, entry.archiveKey),
+      liveScope: null,
       anchor,
       legacyCashCurrencyAssumption: { currency: 'USD', confirmedAt: '2026-08-09T04:00:00.000Z' },
     }).eligibleMetricIds
@@ -288,6 +288,7 @@ export function testWorkbenchAnalysisMatchesSelectorAcrossKindsRangesAndArchive(
       search: entry.search,
       businessDateAnchor: anchor,
       livePerformanceCycles: cycles,
+      stageScope: { kind: 'current', stageId: 'stage-current' },
     }).map((trade) => trade.id)
     const expectedIds = new Set(expected)
     const actualIds = new Set(actual)

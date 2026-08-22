@@ -48,15 +48,15 @@ export function testStrategyAnalysisHrefPreservesDashboardScope(): void {
   )
 }
 
-export function testStrategyAnalysisHrefCarriesCanonicalStatsCycleWhenProvided(): void {
+export function testStrategyAnalysisHrefCarriesCanonicalLiveStageWhenProvided(): void {
   const href = strategyAnalysisHref('breakout alpha', {
     kind: 'live',
     range: 'all',
-  }, 'old-id')
+  }, 'stage-current')
 
   assert(
-    href === '/strategy/breakout%20alpha?kind=live&range=all&statsCycle=old-id',
-    '策略分析链接必须可携带已规范的统计周期',
+    href === '/strategy/breakout%20alpha?kind=live&range=all&liveStage=stage-current',
+    '策略分析链接必须携带显式实盘 stage ID',
   )
 }
 
@@ -454,5 +454,43 @@ export function testEveryRelativeRangeUsesBothSidesOfTheFourAmBoundary(): void {
       assert(!afterIds.includes('prior-year'), `${range} 跨年后不得保留上一年度日期`)
     }
   }
+}
+
+export function testAnalysisScopeCannotUseEditedDatesToCrossLiveStages(): void {
+  const historicalWithCurrentDates = {
+    ...closedLiveTrade,
+    id: 'historical-with-current-dates',
+    liveStageId: 'stage-old',
+    openedAt: '2027-01-01',
+    closedAt: '2027-01-02',
+    closedTradingDayKey: '2027-01-02',
+  }
+  const currentWithHistoricalDates = {
+    ...closedLiveTrade,
+    id: 'current-with-historical-dates',
+    liveStageId: 'stage-current',
+    openedAt: '2020-01-01',
+    closedAt: '2020-01-02',
+    closedTradingDayKey: '2020-01-02',
+  }
+  const filterWithStage = filterTradesByAnalysisScope as unknown as (
+    trades: readonly Trade[],
+    scope: { kind: 'live'; range: 'all' },
+    now: Date,
+    tradingDayStartHour: number,
+    performanceBounds: null,
+    stageScope: { kind: 'current'; stageId: string },
+  ) => Trade[]
+
+  const result = filterWithStage(
+    [historicalWithCurrentDates, currentWithHistoricalDates],
+    { kind: 'live', range: 'all' },
+    new Date('2027-01-03T12:00:00'),
+    0,
+    null,
+    { kind: 'current', stageId: 'stage-current' },
+  )
+
+  assert(result.map((trade) => trade.id).join() === 'current-with-historical-dates', 'Dashboard 实盘分析必须先按显式 stage ID 投影')
 }
 // Quality-Scenario: B-CALENDAR

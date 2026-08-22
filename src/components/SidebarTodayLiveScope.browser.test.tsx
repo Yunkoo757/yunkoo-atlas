@@ -44,6 +44,7 @@ const legacyPlan: Trade = {
   reviewStatus: 'unreviewed',
   reviewCategory: 'normal',
   tradeKind: 'live',
+  liveStageId: 'stage-old',
   entry: 1.1,
   exit: null,
   stopLoss: 1.09,
@@ -61,10 +62,17 @@ async function run(): Promise<void> {
   const previous = useStore.getState()
   const root = createRoot(rootElement)
   const today = toLocalDateKey()
+  const currentPlan: Trade = {
+    ...legacyPlan,
+    id: 'current-plan',
+    ref: 'TRD-2',
+    tradeKind: 'live',
+    liveStageId: previous.currentLiveStageId,
+  }
 
   try {
     useStore.setState((state) => ({
-      trades: [legacyPlan],
+      trades: [legacyPlan, currentPlan],
       strategies: [],
       savedTradeViews: [],
       liveStatsStartTradingDayKey: today,
@@ -93,8 +101,8 @@ async function run(): Promise<void> {
     )
     const count = document.querySelector<HTMLElement>('[data-primary-id="today"] .sb-item-count')
     assert(count, '缺少今日工作台侧栏计数')
-    assert(count.textContent?.trim() === '0', '重置前实盘不得占用今日工作台侧栏计数')
-    assert(count.getAttribute('aria-hidden') === 'true', '空的今日工作台计数应保持隐藏')
+    assert(count.textContent?.trim() === '1', '今日侧栏只能统计 currentLiveStageId，旧 stage 日期不得干扰')
+    assert(count.getAttribute('aria-hidden') === 'false', '当前 stage 有待办时计数必须可见')
   } finally {
     root.unmount()
     useStore.setState(previous, true)

@@ -11,6 +11,7 @@ import type { LivePerformanceCycleBounds } from '@/lib/livePerformanceCycles'
 import type { LiveArchiveScope } from '@/lib/liveStatisticsArchive'
 import { buildPerformanceSelection } from '@/lib/performanceSelection'
 import { writeAnalysisScope } from '@/lib/analysisScopeQuery'
+import { filterStageOwnedRecords, type StageScope } from '@/lib/stageArchive'
 
 export { writeAnalysisScope } from '@/lib/analysisScopeQuery'
 
@@ -61,6 +62,7 @@ export function filterTradesByAnalysisScope(
   now: Date | BusinessDateAnchor = new Date(),
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
   performanceBounds: LivePerformanceCycleBounds | null = null,
+  stageScope?: StageScope,
 ): Trade[] {
   const anchor = now instanceof Date
     ? createBusinessDateAnchor(now, tradingDayStartHour)
@@ -73,13 +75,14 @@ export function filterTradesByAnalysisScope(
         bounds: performanceBounds,
         label: '当前实盘',
       }
-  const eligibleIds = new Set(buildPerformanceSelection(trades, {
+  const stageTrades = stageScope ? filterStageOwnedRecords(trades, stageScope) : trades
+  const eligibleIds = new Set(buildPerformanceSelection(stageTrades, {
     scope,
     liveScope,
     anchor,
     legacyCashCurrencyAssumption: null,
   }).eligibleMetricIds)
-  return trades.filter((trade) => eligibleIds.has(trade.id))
+  return stageTrades.filter((trade) => eligibleIds.has(trade.id))
 }
 
 export function intersectLiveScopeWithNaturalRange(
@@ -113,11 +116,11 @@ export function intersectLiveScopeWithNaturalRange(
 export function strategyAnalysisHref(
   strategyId: string,
   scope: AnalysisScope,
-  statsCycle?: string,
+  liveStage?: string,
 ): string {
   const params = new URLSearchParams()
   params.set('kind', scope.kind)
   params.set('range', scope.range)
-  if (statsCycle) params.set('statsCycle', statsCycle)
+  if (liveStage) params.set('liveStage', liveStage)
   return `/strategy/${encodeURIComponent(strategyId)}?${params.toString()}`
 }

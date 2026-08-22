@@ -18,6 +18,7 @@ import { parseAnalysisScope } from '@/lib/analysisScope'
 import { buildMissedOpportunitySummary } from '@/lib/missedOpportunities'
 import { countWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
 import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
+import { filterStageOwnedRecords, type StageScope } from '@/lib/stageArchive'
 
 /** 可跨工作区配置可见范围的侧栏能力 */
 export type SidebarCapabilityId = 'missed' | 'active'
@@ -84,6 +85,7 @@ export type SidebarCountContext = {
   businessDateAnchor?: BusinessDateAnchor
   liveStatsStartTradingDayKey?: string | null
   livePerformanceCycles?: readonly LivePerformanceCycle[]
+  currentLiveStageId?: string
 }
 
 export const MAX_PINNED_SIDEBAR_ITEMS = 8
@@ -660,7 +662,9 @@ export function countSidebarTarget(
   if (target.invalid) return undefined
   if (target.item.target.kind === 'system' && target.item.target.id === 'missed') {
     return buildMissedOpportunitySummary(
-      context.trades,
+      context.currentLiveStageId
+        ? filterStageOwnedRecords(context.trades, { kind: 'current', stageId: context.currentLiveStageId })
+        : context.trades,
       systemCapabilityWorkspaces(target.item.target),
     ).aggregateTotal
   }
@@ -674,9 +678,13 @@ export function countSidebarRoute(
 ): number | undefined {
   const filter = listTargetForPath(pathname, search)
   if (!filter) return undefined
+  const stageScope: StageScope | undefined = context.currentLiveStageId && filter.tradeKind !== 'paper'
+    ? { kind: 'current', stageId: context.currentLiveStageId }
+    : undefined
   return countWorkbenchVisibleTrades({
     ...context,
     filter,
     search,
+    stageScope,
   })
 }

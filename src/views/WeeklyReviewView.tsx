@@ -21,6 +21,7 @@ import {
   buildWeeklyReviewMetrics,
   buildWeeklyReviewTradeSelection,
   buildWeeklyReviewTrend,
+  aggregateWeeklyReviewScoresForWeek,
   createWeeklyReview,
   deriveWeeklyReviewWeeks,
   missingWeeklyReviewSnapshotCategories,
@@ -1007,14 +1008,15 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
           {Array.from({ length: 53 }, (_, index) => {
             const start = weekStartFor(new Date(year, 0, 1))
             const week = addDays(start, index * 7)
-            const review = reviews.find((item) => item.weekStart === week)
-            const score = review ? weeklyReviewScoreAverage(review) : null
-            const tip = `${formatWeekRange(week)}${score ? ` · ${score.toFixed(1)} 分` : ''}`
+            const aggregate = aggregateWeeklyReviewScoresForWeek(reviews, week)
+            const score = aggregate.averageScore
+            const stageLabel = aggregate.completedCount > 1 ? ` · ${aggregate.completedCount} 个阶段聚合` : ''
+            const tip = `${formatWeekRange(week)}${score ? ` · ${score.toFixed(1)} 分${stageLabel}` : ''}`
             return (
               <Tooltip key={week} content={tip} label={tip}>
                 <i
                   style={{ '--level': score ? score / 5 : 0 } as CSSProperties}
-                  className={review?.status === 'completed' ? 'is-filled' : ''}
+                  className={aggregate.completedCount > 0 ? 'is-filled' : ''}
                 />
               </Tooltip>
             )

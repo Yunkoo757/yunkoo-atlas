@@ -67,6 +67,7 @@ function closedTrade(
     conviction: 'medium',
     strategyId,
     tradeKind: 'live',
+    liveStageId: useStore.getState().currentLiveStageId,
     tags: [],
     mistakeTags: [],
     reviewStatus: 'reviewed',
@@ -105,7 +106,9 @@ function buildFixture() {
       createdAt: `${currentWeekStart}T00:00:00.000Z`,
     },
   ]
-  const firstCycle = closedTrade('cycle-one', 100, historicalDay, strategies[0]!.id)
+  const firstCycle = closedTrade('cycle-one', 100, historicalDay, strategies[0]!.id, {
+    liveStageId: 'stage-archived',
+  })
   const secondCycle = closedTrade('cycle-two', 150, currentDay, strategies[1]!.id)
   const crossBoundary = closedTrade('cross-boundary', 100, currentDay, strategies[1]!.id, {
     openedAt: historicalDay,
@@ -115,6 +118,7 @@ function buildFixture() {
   })
   const copiedCase = closedTrade('copied-case', 999, historicalDay, strategies[0]!.id, {
     tradeKind: 'case',
+    liveStageId: 'stage-archived',
     sourceTradeId: firstCycle.id,
     caseType: 'exemplar',
     recordedAt: currentDay,
@@ -175,7 +179,7 @@ async function run(): Promise<void> {
     assert(!document.querySelector('button[role="combobox"]'), 'Dashboard 不得提供统计周期选择器')
     assert(text().includes('历史实盘'), 'Dashboard 必须提供历史实盘入口')
     assert(!text().includes('绩效阶段'), 'Dashboard 不得暴露绩效阶段术语')
-    assert(document.querySelector<HTMLAnchorElement>('[data-current-live-trade-link]')?.getAttribute('href') === '/list?kind=live&range=all', '当前实盘链接必须跟随当前范围')
+    assert(document.querySelector<HTMLAnchorElement>('[data-current-live-trade-link]')?.getAttribute('href') === '/list?kind=live&range=all&liveStage=current', '当前实盘链接必须携带规范 stage')
     assert(document.querySelector<HTMLAnchorElement>('a.db-strat')?.getAttribute('href')?.includes('statsCycle=') === false, '策略下钻不得固定历史归档 ID')
 
     mounted.root.unmount()
@@ -204,8 +208,8 @@ async function run(): Promise<void> {
     mounted.root.unmount()
     useStore.setState({ trades: [missingCloseDay, missedMissingCloseDay] })
     mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
-    await waitFor(() => text().includes('待整理 1'), '绩效待整理必须只包含已执行平仓且缺少可靠日期的记录')
-    assert(!text().includes('待整理 2'), 'missed 属于机会复盘，不得进入现金绩效待整理')
+    await waitFor(() => text().includes('待补平仓日期') && text().includes('修复数据 1'), '平仓日期健康提示必须只包含当前 stage 的已执行平仓记录')
+    assert(!text().includes('修复数据 2'), 'missed 属于机会复盘，不得进入现金绩效日期健康提示')
 
     const resultConflict = closedTrade('result-conflict', 50, getTradingDayKey(new Date(), previous.display.tradingDayStartHour), strategies[0]!.id, { status: 'loss', rMultiple: 1, resultSource: 'imported' })
     mounted.root.unmount()
@@ -216,7 +220,7 @@ async function run(): Promise<void> {
     mounted.root.unmount()
     useStore.setState({ trades: [], livePerformanceCycles: [] })
     mounted = mountDashboard(rootElement, '/dashboard?kind=live&range=all')
-    await waitFor(() => text().includes('还没有已平仓交易'), '无周期且无已平仓交易必须保留通用空状态')
+    await waitFor(() => text().includes('当前实盘暂无已平仓记录'), '当前 stage 无已平仓交易必须保留准确空状态')
     const moreActions = document.querySelector<HTMLButtonElement>('[aria-label="更多统计操作"]')
     assert(moreActions, '无周期时必须保留统计管理入口')
     moreActions.click()

@@ -10,6 +10,11 @@ import {
 import type { TradeFacetFilters } from '@/lib/tradeView'
 import { useStore } from '@/store/useStore'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
+import {
+  filterStageOwnedRecords,
+  resolveStageScope,
+  type StageScope,
+} from '@/lib/stageArchive'
 
 /** 三视图共用：路由过滤 + 显示偏好 + URL 分面筛选 */
 export function useWorkbenchVisibleTrades(filter: ListFilter): {
@@ -23,13 +28,25 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
   const storedTrades = useStore((state) => state.trades)
   const display = useStore((state) => state.display)
   const starredIds = useStore((state) => state.starredIds)
-  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
-  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
+  const liveStages = useStore((state) => state.liveStages)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const [searchParams] = useSearchParams()
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
 
   const facets = useMemo<TradeFacetFilters>(() => parseTradeFacets(searchParams), [searchParams])
+  const stageScope = useMemo<StageScope | undefined>(() => {
+    if (filter.tradeKind === 'paper' || filter.analysisScope?.kind === 'paper') return undefined
+    if (filter.historicalLiveScope) {
+      return resolveStageScope(
+        searchParams.get('liveStage'),
+        liveStages,
+        currentLiveStageId,
+        'history',
+      )
+    }
+    return { kind: 'current', stageId: currentLiveStageId }
+  }, [currentLiveStageId, filter.analysisScope?.kind, filter.historicalLiveScope, filter.tradeKind, liveStages, searchParams])
 
   const derived = useMemo(() => deriveWorkbenchVisibleTrades({
     trades: storedTrades,
@@ -38,8 +55,7 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
     display,
     search: searchParams,
     businessDateAnchor,
-    liveStatsStartTradingDayKey,
-    livePerformanceCycles,
+    stageScope,
   }), [
     storedTrades,
     filter.type,
@@ -53,8 +69,7 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
     localDateKey,
     starredIds,
     display,
-    liveStatsStartTradingDayKey,
-    livePerformanceCycles,
+    stageScope,
     searchParams,
   ])
   const { trades, visible } = derived
@@ -62,7 +77,10 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
   const { totalCount, workspaceCount } = useMemo(() => {
     let total = 0
     let workspace = 0
-    for (const trade of storedTrades) {
+    const workspaceTrades = stageScope
+      ? filterStageOwnedRecords(storedTrades, stageScope)
+      : storedTrades
+    for (const trade of workspaceTrades) {
       if (trade.deletedAt) continue
       total += 1
       if (filter.tradeKind ? trade.tradeKind === filter.tradeKind : isAccountTrade(trade)) {
@@ -73,7 +91,7 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
       totalCount: total,
       workspaceCount: filter.historicalLiveScope ? trades.length : workspace,
     }
-  }, [storedTrades, filter.tradeKind, filter.historicalLiveScope, trades.length])
+  }, [storedTrades, filter.tradeKind, filter.historicalLiveScope, stageScope, trades.length])
 
   return { trades, visible, facets, totalCount, workspaceCount, businessDateAnchor }
 }

@@ -69,13 +69,13 @@ const mistakeCase: Trade = {
 }
 
 function HistoryProbe() {
-  const { visible } = useWorkbenchVisibleTrades({ type: 'all', tradeKind: 'live' })
+  const { visible } = useWorkbenchVisibleTrades({ type: 'all', tradeKind: 'live', historicalLiveScope: 'trades' })
   const navigate = useNavigate()
   return (
     <>
-      <button type="button" onClick={() => navigate('?statsCycle=current')}>当前实盘</button>
-      <button type="button" onClick={() => navigate('?statsCycle=archive-cycle')}>历史归档</button>
-      <button type="button" onClick={() => navigate('?statsCycle=pending')}>待整理</button>
+      <button type="button" onClick={() => navigate('?liveStage=all-history')}>全部历史</button>
+      <button type="button" onClick={() => navigate('?liveStage=stage-archived')}>历史归档</button>
+      <button type="button" onClick={() => navigate('?liveStage=missing')}>非法阶段</button>
       <div data-visible-refs={visible.map((trade) => trade.ref).join(',')}>
         {visible.map((trade) => (
           <TradeRow
@@ -140,24 +140,33 @@ async function run(): Promise<void> {
   const root = createRoot(element)
   try {
     useStore.setState((state) => ({
-      trades: [oldLiveTrade, currentLiveTrade, pendingLiveTrade],
+      trades: [
+        { ...oldLiveTrade, liveStageId: 'stage-archived' },
+        { ...currentLiveTrade, liveStageId: state.currentLiveStageId },
+        { ...pendingLiveTrade, liveStageId: null },
+      ],
+      liveStages: [{
+        id: 'stage-archived', sequence: 1, name: '实盘阶段 1', status: 'archived',
+        startsOn: '2026-07-25', endsOn: '2026-07-27', createdAt: '2026-07-25T00:00:00.000Z',
+        archivedAt: '2026-07-28T00:00:00.000Z',
+      }, ...state.liveStages],
       livePerformanceCycles: [
         { id: 'archive-cycle', name: '实盘-2026-07-25', startTradingDayKey: '2026-07-25', createdAt: '2026-07-25T00:00:00.000Z' },
         { id: 'current-cycle', name: '实盘-2026-07-28', startTradingDayKey: '2026-07-28', createdAt: '2026-07-28T00:00:00.000Z' },
       ],
       display: { ...state.display, hideClosed: false, tradingDayStartHour: 0 },
     }))
-    root.render(<MemoryRouter><HistoryProbe /></MemoryRouter>)
+    root.render(<MemoryRouter initialEntries={['/live-history?liveStage=all-history']}><HistoryProbe /></MemoryRouter>)
 
     await waitFor(
-      () => document.querySelector('[data-visible-refs]')?.getAttribute('data-visible-refs') === 'TRD-CURRENT-LIVE',
-      '交易日志缺省范围必须默认当前实盘',
+      () => document.querySelector('[data-visible-refs]')?.getAttribute('data-visible-refs') === 'TRD-OLD-LIVE',
+      '全部历史必须只包含已归档阶段',
     )
     ;[...document.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent === '当前实盘')?.click()
+      .find((button) => button.textContent === '全部历史')?.click()
     await waitFor(
-      () => document.querySelector('[data-visible-refs]')?.getAttribute('data-visible-refs') === 'TRD-CURRENT-LIVE',
-      '显式 current 兼容链接必须只显示当前实盘',
+      () => document.querySelector('[data-visible-refs]')?.getAttribute('data-visible-refs') === 'TRD-OLD-LIVE',
+      '显式 all-history 必须只显示归档阶段',
     )
     ;[...document.querySelectorAll<HTMLButtonElement>('button')]
       .find((button) => button.textContent === '历史归档')?.click()
@@ -167,15 +176,18 @@ async function run(): Promise<void> {
     )
     assert(!document.body.textContent?.includes('规则前'), '新日志范围不得暴露规则前实现术语')
     ;[...document.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent === '待整理')?.click()
+      .find((button) => button.textContent === '非法阶段')?.click()
     await waitFor(
-      () => document.querySelector('[data-visible-refs]')?.getAttribute('data-visible-refs') === 'TRD-PENDING-DAY',
-      '待整理范围必须只显示缺少可靠平仓日的记录',
+      () => document.querySelector('[data-visible-refs]')?.getAttribute('data-visible-refs') === 'TRD-OLD-LIVE',
+      '非法历史阶段必须安全回退全部历史且不得混入 current/null',
     )
 
     useStore.setState((state) => ({
       livePerformanceCycles: [],
-      trades: [oldLiveTrade, currentLiveTrade],
+      trades: [
+        { ...oldLiveTrade, liveStageId: 'stage-archived' },
+        { ...currentLiveTrade, liveStageId: state.currentLiveStageId },
+      ],
       display: { ...state.display, hideClosed: false, tradingDayStartHour: 0 },
     }))
     root.render(
@@ -188,8 +200,8 @@ async function run(): Promise<void> {
       '未启用周期测试未完成渲染',
     )
     await waitFor(
-      () => document.querySelector('[data-visible-refs]')?.getAttribute('data-visible-refs') === 'TRD-CURRENT-LIVE,TRD-OLD-LIVE',
-      '没有边界时全部历史必须属于当前实盘',
+      () => document.querySelector('[data-visible-refs]')?.getAttribute('data-visible-refs') === 'TRD-CURRENT-LIVE',
+      '普通日志必须始终只显示当前 stage，兼容周期字段不得改变投影',
     )
     await waitFor(
       () => Boolean(document.querySelector<HTMLButtonElement>('.ui-filter-trigger')),
@@ -202,7 +214,7 @@ async function run(): Promise<void> {
     )
     assert(!document.querySelector('[aria-label="实盘周期"]'), '未启用周期时不得提供规则前筛选项')
 
-    useStore.setState({ trades: [mistakeCase] })
+    useStore.setState((state) => ({ trades: [{ ...mistakeCase, liveStageId: state.currentLiveStageId }] }))
     root.render(
       <MemoryRouter key="empty-case-scope">
         <EmptyCaseScopeProbe />
@@ -242,6 +254,8 @@ async function run(): Promise<void> {
     root.unmount()
     useStore.setState({
       trades: previous.trades,
+      liveStages: previous.liveStages,
+      currentLiveStageId: previous.currentLiveStageId,
       livePerformanceCycles: previous.livePerformanceCycles,
       display: previous.display,
     })

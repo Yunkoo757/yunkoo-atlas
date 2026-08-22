@@ -141,7 +141,12 @@ async function run(): Promise<void> {
     const reviewsBeforeScopeChange = JSON.stringify(useStore.getState().weeklyReviews)
     trendScope.value = ''
     trendScope.dispatchEvent(new Event('change', { bubbles: true }))
-    await waitFor(() => Boolean(document.querySelector('.wr-chart svg')), '全部阶段趋势没有包含其他阶段完成周')
+    await waitFor(
+      () => document.querySelector('.wr-trend-start strong')?.textContent === '3.3',
+      '全部阶段同周数据必须聚合为一个带 stage 维度的趋势点',
+    )
+    assert(!document.querySelector('.wr-chart'), '同周多 stage 聚合后仍只能产生一个周趋势点')
+    assert(document.querySelector('.wr-year-summary')?.textContent?.includes('2周'), '全部阶段摘要必须保留两个阶段的完成记录')
     assert(JSON.stringify(useStore.getState().weeklyReviews) === reviewsBeforeScopeChange, '切换趋势范围不得修改复盘实体')
     trendScope.value = previous.currentLiveStageId
     trendScope.dispatchEvent(new Event('change', { bubbles: true }))

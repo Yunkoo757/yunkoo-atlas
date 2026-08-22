@@ -1,4 +1,5 @@
 import {
+  aggregateWeeklyReviewScoresForWeek,
   buildWeeklyReviewTrend,
   createWeeklyReview,
 } from '@/data/weeklyReviews'
@@ -22,6 +23,33 @@ export function testWeeklyReviewTrendRequiresCompletedWeeksAndRoundsScores(): vo
 
   if (trend.length !== 1) throw new Error('年度趋势只能包含已完成周')
   if (trend[0]?.score !== 2.7) throw new Error(`趋势评分应保留一位小数，实际为 ${trend[0]?.score}`)
+}
+
+export function testAllStageTrendAndHeatmapKeepSameWeekStageDimension(): void {
+  const stageOne = {
+    ...createWeeklyReview('2026-07-13', 'stage-1'),
+    status: 'completed' as const,
+    executionScore: 2,
+    riskScore: 2,
+    emotionScore: 2,
+  }
+  const stageTwo = {
+    ...createWeeklyReview('2026-07-13', 'stage-2'),
+    status: 'completed' as const,
+    executionScore: 4,
+    riskScore: 4,
+    emotionScore: 4,
+  }
+
+  const trend = buildWeeklyReviewTrend([stageOne, stageTwo])
+  const heatmap = aggregateWeeklyReviewScoresForWeek([stageOne, stageTwo], '2026-07-13')
+
+  if (trend.length !== 1 || trend[0]?.liveStageId !== null || trend[0].stageCount !== 2 || trend[0].score !== 3) {
+    throw new Error('全部阶段趋势必须明确聚合同周所有 stage')
+  }
+  if (heatmap.completedCount !== 2 || heatmap.averageScore !== 3) {
+    throw new Error('全部阶段热力图必须明确聚合同周所有 stage，不能 find 后丢记录')
+  }
 }
 
 export function testWeeklyReviewTrendCanFilterOneStageWithoutMutatingReviews(): void {

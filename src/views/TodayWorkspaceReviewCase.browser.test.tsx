@@ -59,6 +59,7 @@ const source: Trade = {
   conviction: 'medium',
   strategyId: 'uncategorized',
   tradeKind: 'live',
+  liveStageId: useStore.getState().currentLiveStageId,
   tags: [],
   mistakeTags: [],
   reviewStatus: 'unreviewed',

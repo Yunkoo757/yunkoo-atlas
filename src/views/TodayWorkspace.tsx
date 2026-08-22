@@ -18,7 +18,7 @@ import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
 import { RiskStatusStrip } from '@/components/RiskStatusStrip'
 import { Button } from '@/components/ui/Button'
-import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
+import { filterStageOwnedRecords } from '@/lib/stageArchive'
 import './TodayWorkspace.css'
 
 function dateLabel(date: string): string {
@@ -107,29 +107,29 @@ export function TodayWorkspace() {
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
-  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const [queueFilter, setQueueFilter] = useState<QueueFilter>('all')
   const navigate = useNavigate()
   const location = useLocation()
   const today = useLocalDateKey()
-  const currentLiveScope = useMemo(
-    () => resolveLiveArchiveScope(livePerformanceCycles, null),
-    [livePerformanceCycles],
+  const currentStageTrades = useMemo(
+    () => filterStageOwnedRecords(trades, { kind: 'current', stageId: currentLiveStageId }),
+    [currentLiveStageId, trades],
   )
   const buckets = useMemo(
-    () => getTodayWorkflowBuckets(trades, today, tradingDayStartHour, currentLiveScope),
-    [trades, today, tradingDayStartHour, currentLiveScope],
+    () => getTodayWorkflowBuckets(currentStageTrades, today, tradingDayStartHour, null),
+    [currentStageTrades, today, tradingDayStartHour],
   )
   const todayMetrics = useMemo(
     () => buildTodayClosedMetrics(
-      trades,
+      currentStageTrades,
       today,
       tradingDayStartHour,
       legacyCashCurrencyAssumption,
-      currentLiveScope,
+      null,
     ),
-    [trades, today, tradingDayStartHour, legacyCashCurrencyAssumption, currentLiveScope],
+    [currentStageTrades, today, tradingDayStartHour, legacyCashCurrencyAssumption],
   )
   const visibleWorkflowGroups = useMemo(
     () => queueFilter === 'all'

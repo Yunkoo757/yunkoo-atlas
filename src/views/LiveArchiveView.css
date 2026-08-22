@@ -1,36 +1,80 @@
-.live-archive-mode-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  min-height: 44px;
-  padding: 0 15px;
+.live-archive-navigation {
   border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
 }
 
-.live-archive-mode-label {
+.live-archive-stage-rail {
+  display: flex;
+  gap: var(--sp-2);
+  min-height: 58px;
+  padding: var(--sp-3) 15px;
+  overflow-x: auto;
+}
+
+.live-archive-stage-rail button,
+.live-archive-tab-list button {
   color: var(--text-tertiary);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
-}
-
-.live-archive-mode-switch {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-6);
-  background: var(--bg-inset);
-}
-
-.live-archive-mode-switch .live-archive-mode-option {
-  height: 28px;
-  padding: 0 11px;
-  border: 0;
-  border-radius: var(--radius-4);
+  border: 1px solid transparent;
   background: transparent;
+  cursor: pointer;
 }
 
-.live-archive-mode-switch .live-archive-mode-option.is-active {
-  color: var(--text-primary);
-  background: var(--bg-selected);
+.live-archive-stage-rail button {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 2px;
+  min-width: 120px;
+  padding: 7px 10px;
+  text-align: left;
+  border-radius: var(--radius-6);
 }
+
+.live-archive-stage-rail button:first-child { place-items: center start; }
+.live-archive-stage-rail button span { color: inherit; font-weight: var(--font-weight-medium); }
+.live-archive-stage-rail button small { color: var(--text-tertiary); font-size: var(--fs-mini); }
+.live-archive-stage-rail button:hover,
+.live-archive-tab-list button:hover { color: var(--text-primary); background: var(--bg-hover); }
+.live-archive-stage-rail button.is-active { color: var(--text-primary); border-color: var(--border-default); background: var(--bg-selected); }
+
+.live-archive-tab-list {
+  display: flex;
+  gap: var(--sp-5);
+  min-height: 40px;
+  padding: 0 15px;
+}
+
+.live-archive-tab-list button {
+  position: relative;
+  padding: 0 2px;
+  border: 0;
+  font-size: var(--type-metadata-size);
+}
+
+.live-archive-tab-list button.is-active { color: var(--text-primary); }
+.live-archive-tab-list button.is-active::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--accent);
+  content: '';
+}
+
+.live-archive-scroll { min-height: 0; flex: 1; overflow: auto; padding: var(--sp-5); background: var(--bg-inset); }
+.live-archive-panel { max-width: 1120px; margin: 0 auto; padding: var(--sp-5); border: 1px solid var(--border-subtle); border-radius: var(--radius-8); background: var(--bg-surface); }
+.live-archive-panel > header span,
+.live-archive-summary-grid span,
+.live-archive-summary-grid small { display: block; color: var(--text-tertiary); font-size: var(--type-metadata-size); }
+.live-archive-panel > header h2 { margin: var(--sp-1) 0 var(--sp-5); font-size: var(--fs-h); }
+.live-archive-summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-6); background: var(--border-subtle); }
+.live-archive-summary-grid.is-risk { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.live-archive-summary-grid > div { padding: var(--sp-4); background: var(--bg-elevated); }
+.live-archive-summary-grid strong { display: block; margin: var(--sp-2) 0; color: var(--text-primary); font-size: var(--type-financial-size); font-variant-numeric: tabular-nums; }
+.live-archive-card-list { display: grid; gap: var(--sp-3); }
+.live-archive-card-list article { padding: var(--sp-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-6); background: var(--bg-elevated); }
+.live-archive-card-list article > div { display: flex; justify-content: space-between; gap: var(--sp-4); }
+.live-archive-card-list article span,
+.live-archive-card-list article p,
+.live-archive-empty { color: var(--text-tertiary); font-size: var(--type-metadata-size); }
+.live-archive-card-list article p { margin: var(--sp-3) 0 0; }

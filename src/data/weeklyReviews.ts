@@ -121,8 +121,11 @@ export interface CompleteWeeklyReviewCandidate {
 }
 
 export interface WeeklyReviewTrendPoint {
+  key: string
   week: string
   score: number
+  liveStageId: string | null
+  stageCount: number
 }
 
 function addDays(date: Date, days: number): Date {
@@ -565,12 +568,50 @@ export function buildWeeklyReviewTrend(
   reviews: WeeklyReview[],
   liveStageId?: string,
 ): WeeklyReviewTrendPoint[] {
-  return reviews.flatMap((review) => {
+  const scored = reviews.flatMap((review) => {
     if (review.status !== 'completed' || (liveStageId !== undefined && review.liveStageId !== liveStageId)) return []
     const score = weeklyReviewScoreAverage(review)
-    if (score === null) return []
-    return [{ week: review.weekStart.slice(5), score: Number(score.toFixed(1)) }]
+    return score === null ? [] : [{ review, score }]
   })
+  if (liveStageId !== undefined) {
+    return scored.map(({ review, score }) => ({
+      key: `${review.liveStageId ?? 'pending'}:${review.weekStart}`,
+      week: review.weekStart.slice(5),
+      score: Number(score.toFixed(1)),
+      liveStageId: review.liveStageId ?? null,
+      stageCount: 1,
+    }))
+  }
+
+  const byWeek = new Map<string, number[]>()
+  for (const { review, score } of scored) {
+    const scores = byWeek.get(review.weekStart) ?? []
+    scores.push(score)
+    byWeek.set(review.weekStart, scores)
+  }
+  return [...byWeek.entries()].map(([weekStart, scores]) => ({
+    key: `all:${weekStart}`,
+    week: weekStart.slice(5),
+    score: Number((scores.reduce((total, score) => total + score, 0) / scores.length).toFixed(1)),
+    liveStageId: null,
+    stageCount: scores.length,
+  }))
+}
+
+export function aggregateWeeklyReviewScoresForWeek(
+  reviews: readonly WeeklyReview[],
+  weekStart: string,
+): { completedCount: number; averageScore: number | null } {
+  const scores = reviews
+    .filter((review) => review.weekStart === weekStart && review.status === 'completed')
+    .map(weeklyReviewScoreAverage)
+    .filter((score): score is number => score !== null)
+  return {
+    completedCount: scores.length,
+    averageScore: scores.length === 0
+      ? null
+      : scores.reduce((total, score) => total + score, 0) / scores.length,
+  }
 }
 
 export function normalizeWeeklyReviews(value: WeeklyReview[] | undefined): WeeklyReview[] {

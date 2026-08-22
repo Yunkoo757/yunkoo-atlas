@@ -48,7 +48,7 @@ import {
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
-import { resolveLiveArchiveScope } from '@/lib/liveStatisticsArchive'
+import { filterStageOwnedRecords } from '@/lib/stageArchive'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
@@ -176,8 +176,7 @@ export function useSidebarNavigationModel() {
   const trades = useStore((state) => state.trades)
   const strategies = useStore((state) => state.strategies)
   const display = useStore((state) => state.display)
-  const liveStatsStartTradingDayKey = useStore((state) => state.liveStatsStartTradingDayKey)
-  const livePerformanceCycles = useStore((state) => state.livePerformanceCycles)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const starredIds = useStore((state) => state.starredIds)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const savedTradeViews = useStore((state) => state.savedTradeViews)
@@ -189,16 +188,14 @@ export function useSidebarNavigationModel() {
       starredIds,
       display,
       businessDateAnchor,
-      liveStatsStartTradingDayKey,
-      livePerformanceCycles,
+      currentLiveStageId,
     }),
     [
       trades,
       starredIds,
       display,
       businessDateAnchor,
-      liveStatsStartTradingDayKey,
-      livePerformanceCycles,
+      currentLiveStageId,
     ],
   )
 
@@ -206,7 +203,7 @@ export function useSidebarNavigationModel() {
     () => sidebarWorkspaceItems
       .map((item) => resolveSidebarWorkspaceItem(
         item,
-        { savedViews: savedTradeViews, strategies, livePerformanceCycles },
+        { savedViews: savedTradeViews, strategies },
         path,
       ))
       .filter((item) => !item.invalid)
@@ -228,7 +225,6 @@ export function useSidebarNavigationModel() {
       })),
     [
       countContext,
-      livePerformanceCycles,
       path,
       savedTradeViews,
       sidebarWorkspaceItems,
@@ -245,10 +241,10 @@ export function useSidebarNavigationModel() {
   const caseTarget = resolveWorkspaceNavTarget('case', workspaceMemory?.case)
   const counts = {
     today: getTodayWorkflowBuckets(
-      trades,
+      filterStageOwnedRecords(trades, { kind: 'current', stageId: currentLiveStageId }),
       businessDateAnchor.currentTradingDayKey,
       display.tradingDayStartHour,
-      resolveLiveArchiveScope(livePerformanceCycles, null),
+      null,
     ).actionCount,
     trades: countSidebarRoute(tradeTarget.pathname, tradeTarget.search, countContext),
     reviewCases: countSidebarRoute(caseTarget.pathname, caseTarget.search, countContext),

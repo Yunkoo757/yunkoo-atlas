@@ -55,7 +55,6 @@ import { useShortcutHost } from './shortcuts/ShortcutHost'
 import { cleanExpiredTradeTrash } from './lib/trashCleanup'
 import { lockBottomChrome, unlockBottomChrome } from './lib/toast'
 import { parseAnalysisScope } from './lib/analysisScope'
-import { resolveLiveRoute, resolveLiveRouteNavigation } from './lib/livePerformanceCycleRoute'
 import { weekStartFor } from './data/weeklyReviews'
 import {
   createStageRolloverCheck,
@@ -310,17 +309,19 @@ export function StrategyPage() {
   const title = getStrategyName(strategies, strategyId)
   const parsedScope = parseAnalysisScope(search)
   const analysisScope = parsedScope.explicit ? parsedScope.scope : undefined
-  const performanceCycles = useStore((s) => s.livePerformanceCycles)
-  const liveRoute = resolveLiveRoute(search, performanceCycles, 'strategy')
+  const params = new URLSearchParams(search)
   const liveRouteApplies = analysisScope?.kind !== 'paper'
-  if (liveRouteApplies && liveRoute.target.kind !== 'current') {
-    const destination = resolveLiveRouteNavigation(liveRoute)
-    return <Navigate to={`${destination.pathname}${destination.search}`} replace />
-  }
-  if (analysisScope?.kind === 'paper' && new URLSearchParams(search).has('statsCycle')) {
-    const params = new URLSearchParams(search)
+  const requestedStage = params.get('liveStage')
+  const hasLegacyScope = params.has('statsCycle') || params.has('liveCycle')
+  if (
+    (liveRouteApplies && requestedStage !== 'current')
+    || (!liveRouteApplies && requestedStage !== null)
+    || hasLegacyScope
+  ) {
     params.delete('statsCycle')
     params.delete('liveCycle')
+    if (liveRouteApplies) params.set('liveStage', 'current')
+    else params.delete('liveStage')
     const query = params.toString()
     return <Navigate to={`${listPath}${query ? `?${query}` : ''}`} replace />
   }
