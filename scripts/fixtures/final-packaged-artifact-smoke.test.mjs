@@ -132,7 +132,16 @@ test('final artifact report fails closed on every scenario payload identity and 
 
 test('final artifact runner materializes final formats and drives only installed or mounted payloads', () => {
   const source = readFileSync('scripts/run-final-packaged-artifact-smoke.mjs', 'utf8')
-  assert.match(source, /spawnBounded\(artifactPath,\s*\['\/S', `\/D=\$\{installRoot\}`\]/)
+  assert.match(
+    source,
+    /spawnBounded\(artifactPath,\s*\['\/S', '\/currentuser', `\/D=\$\{installRoot\}`\]/,
+    'NSIS smoke must force current-user mode so an existing per-machine install cannot trigger elevation or redirect the isolated /D target',
+  )
+  assert.match(
+    source,
+    /spawnBounded\(state\.uninstallerPath,\s*\['\/S', '\/currentuser'\]/,
+    'NSIS cleanup must target only the temporary current-user install when a machine-wide install also exists',
+  )
   assert.match(source, /hdiutil[\s\S]*attach[\s\S]*-mountpoint/)
   assert.match(source, /hdiutil[\s\S]*detach/)
   assert.match(source, /ditto[\s\S]*'-x'[\s\S]*'-k'/)

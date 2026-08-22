@@ -203,7 +203,11 @@ async function materializeFinalArtifact(options, temporaryRoot, state, trackedPr
       executablePath: path.join(installRoot, 'Trader Atlas.exe'),
       appAsarPath: path.join(installRoot, 'resources', 'app.asar'),
     })
-    await spawnBounded(artifactPath, ['/S', `/D=${installRoot}`], {
+    // Assisted NSIS reuses a discovered per-machine install mode before applying /D.
+    // Force the isolated current-user branch so an existing machine-wide installation
+    // cannot trigger UAC, redirect this smoke, or wait on the user's running app.
+    // /D must remain the final unquoted argument per the NSIS command-line contract.
+    await spawnBounded(artifactPath, ['/S', '/currentuser', `/D=${installRoot}`], {
       cwd: path.dirname(artifactPath),
       timeoutMs: 180_000,
       onSpawn: (child) => {
@@ -695,7 +699,9 @@ async function cleanupMaterializedPayload(options, temporaryRoot, state, tracked
       if (!state.uninstallerPath || !fs.existsSync(state.uninstallerPath)) {
         throw new Error('Installed NSIS payload is missing its uninstaller')
       }
-      await spawnBounded(state.uninstallerPath, ['/S'], {
+      // Both HKLM and this temporary HKCU install can exist. Pin cleanup to the
+      // current-user branch so it can never select the user's machine-wide app.
+      await spawnBounded(state.uninstallerPath, ['/S', '/currentuser'], {
         cwd: state.materializedRoot,
         timeoutMs: 120_000,
         onSpawn: (child) => {
