@@ -65,3 +65,21 @@ export function testLiveStageStateRejectsInvalidIdentityAndTimelineInvariants():
     assert(rejected, 'invalid stage identity, date, overlap, or current-stage state must be rejected')
   }
 }
+
+export function testLiveStageStateRejectsDuplicateNormalizedNames(): void {
+  const first = createInitialLiveStage('2026-08-24', '2026-08-24T00:00:00.000Z', 'stage-1')
+  const { archived, current } = createNextLiveStage(first, '2026-08-31', '2026-08-31T00:00:00.000Z', 'stage-2')
+  let rejected = false
+  try {
+    assertValidLiveStageState({
+      liveStages: [
+        { ...archived, name: '  Alpha 阶段  ' },
+        { ...current, name: 'alpha 阶段' },
+      ],
+      currentLiveStageId: current.id,
+    })
+  } catch {
+    rejected = true
+  }
+  assert(rejected, '阶段名称必须在 trim 与大小写归一化后保持唯一')
+}

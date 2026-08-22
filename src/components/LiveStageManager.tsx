@@ -2,9 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, Archive, CalendarDays, CheckCircle, Pencil } from '@/icons/appIcons'
 import { ICON_MD } from '@/icons/iconSize'
 import { fmtDate } from '@/lib/format'
-import { getCurrentLiveStage } from '@/lib/liveStages'
+import { getCurrentLiveStage, normalizeLiveStageName } from '@/lib/liveStages'
 import { notifyStageManagementOpened } from '@/lib/stageRolloverCommit'
-import { listStageRolloverBlockers, scheduleStageRollover } from '@/lib/stageRollover'
+import {
+  listCurrentStageLiveTrades,
+  listStageRolloverBlockers,
+  scheduleStageRollover,
+} from '@/lib/stageRollover'
 import { toast } from '@/lib/toast'
 import { flushPersistNow } from '@/storage/persist'
 import { useStore } from '@/store/useStore'
@@ -71,9 +75,7 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
     weeklyReviews,
   ])
 
-  const currentTrades = trades.filter((trade) =>
-    !trade.deletedAt && trade.tradeKind === 'live' && trade.liveStageId === currentStage.id,
-  )
+  const currentTrades = listCurrentStageLiveTrades(trades, currentStage.id)
   const currentCases = trades.filter((trade) =>
     !trade.deletedAt && trade.tradeKind === 'case' && trade.liveStageId === currentStage.id,
   )
@@ -157,6 +159,10 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
       const stage = previousStages.find((item) => item.id === stageId)
       if (!draft.trim()) toast('阶段名称不能为空')
       else if (stage?.name === draft.trim()) toast('阶段名称没有变化')
+      else if (previousStages.some((item) =>
+        item.id !== stageId &&
+        normalizeLiveStageName(item.name) === normalizeLiveStageName(draft),
+      )) toast('阶段名称已存在，请使用其他名称')
       else toast('阶段名称无法保存')
       finishOperation()
       return

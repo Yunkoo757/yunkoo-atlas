@@ -191,6 +191,7 @@ export async function testFlushIsFollowedByFreshCaptureAndInspection(): Promise<
 
 export async function testBlockedRolloverPersistsOnlyPostponedSchedule(): Promise<void> {
   const capture = eligibleCapture()
+  capture.currentTradingDayKey = '2026-09-24'
   capture.state = {
     ...capture.state,
     trades: [{
@@ -232,7 +233,7 @@ export async function testBlockedRolloverPersistsOnlyPostponedSchedule(): Promis
     postpone: async (next) => { postponed.push(next) },
   })
   assert(result.kind === 'postponed', 'domain blocker must postpone the rollover')
-  assert(postponed[0]?.effectiveWeekStart === '2026-09-07', 'postponement must move exactly one week')
+  assert(postponed[0]?.effectiveWeekStart === '2026-09-28', '离线多周后的权威执行必须从当前交易日选择下一周一')
   assert(postponed[0]?.postponedCount === 1, 'postponement counter must advance once')
   assert(capture.state.liveStages === originalStages, 'blocked rollover must retain the old stage graph')
   assert(!committed && !published, 'blocked rollover must not commit or publish a stage candidate')

@@ -139,6 +139,21 @@ export function testSnapshotValidationValidatesStageStateAndScheduledRollover():
     { scheduledStageRollover: undefined },
     { scheduledStageRollover: { id: '', requestedAt: 'bad', effectiveWeekStart: '2026-02-30', postponedCount: -1 } },
     { scheduledStageRollover: { id: 'rollover-tuesday', requestedAt: '2026-08-22T00:00:00.000Z', effectiveWeekStart: '2026-08-25', postponedCount: 0 } },
+    {
+      liveStages: [
+        { ...full.liveStages[0]!, name: '重复阶段' },
+        {
+          ...full.liveStages[0]!,
+          id: 'stage-duplicate-name',
+          sequence: 2,
+          name: '  重复阶段  ',
+          status: 'archived',
+          startsOn: '2026-06-01',
+          endsOn: '2026-07-12',
+          archivedAt: '2026-07-13T00:00:00.000Z',
+        },
+      ],
+    },
   ]) {
     let rejected = false
     try { assertValidPersistedSnapshot({ ...full, ...patch }) } catch { rejected = true }

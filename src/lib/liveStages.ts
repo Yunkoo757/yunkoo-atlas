@@ -33,6 +33,10 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
 }
 
+export function normalizeLiveStageName(name: string): string {
+  return name.normalize('NFKC').trim().toLowerCase()
+}
+
 function isCanonicalYmd(value: unknown): value is string {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
   const [year, month, day] = value.split('-').map(Number)
@@ -94,14 +98,18 @@ export function assertValidLiveStageState(value: unknown): asserts value is Live
 
   const ids = new Set<string>()
   const sequences = new Set<number>()
+  const normalizedNames = new Set<string>()
   const stages = value.liveStages
   let currentCount = 0
   for (const stage of stages) {
     assertValidLiveStage(stage)
     if (ids.has(stage.id)) fail('阶段 ID 必须唯一')
     if (sequences.has(stage.sequence)) fail('阶段序号必须唯一')
+    const normalizedName = normalizeLiveStageName(stage.name)
+    if (normalizedNames.has(normalizedName)) fail('阶段名称必须唯一')
     ids.add(stage.id)
     sequences.add(stage.sequence)
+    normalizedNames.add(normalizedName)
     if (stage.status === 'current') currentCount += 1
   }
 
@@ -143,6 +151,7 @@ export function createNextLiveStage(
   startsOn: string,
   createdAt: string,
   id: string,
+  existingStages: readonly LiveStage[] = [previous],
 ): { archived: LiveStage; current: LiveStage } {
   assertValidLiveStageState({ liveStages: [previous], currentLiveStageId: previous.id })
   if (!isCanonicalYmd(startsOn) || startsOn <= previous.startsOn) fail('新阶段必须晚于当前阶段开始日期')
@@ -154,10 +163,18 @@ export function createNextLiveStage(
     endsOn: previousDay(startsOn),
     archivedAt: createdAt,
   }
+  const baseName = `实盘阶段 ${previous.sequence + 1}`
+  const existingNames = new Set(existingStages.map((stage) => normalizeLiveStageName(stage.name)))
+  let name = baseName
+  let suffix = 2
+  while (existingNames.has(normalizeLiveStageName(name))) {
+    name = `${baseName} (${suffix})`
+    suffix += 1
+  }
   const current: LiveStage = {
     id,
     sequence: previous.sequence + 1,
-    name: `实盘阶段 ${previous.sequence + 1}`,
+    name,
     status: 'current',
     startsOn,
     endsOn: null,

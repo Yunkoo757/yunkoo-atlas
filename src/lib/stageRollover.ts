@@ -1,4 +1,4 @@
-import type { Trade } from '@/data/trades'
+import type { LiveTrade, Trade } from '@/data/trades'
 import type { RiskPolicyVersion } from '@/data/riskManagement'
 import type { WeeklyReview } from '@/data/weeklyReviews'
 import { isStageWeekCompleted } from '@/lib/weeklyReviewCompletion'
@@ -77,11 +77,15 @@ function precedingWeek(effectiveWeekStart: string): { weekStart: string; weekEnd
   }
 }
 
-function isCurrentStageTrade(trade: Trade, currentLiveStageId: string, status: 'planned' | 'open'): boolean {
-  return trade.tradeKind !== 'paper' &&
+export function listCurrentStageLiveTrades(
+  trades: readonly Trade[],
+  currentLiveStageId: string,
+): LiveTrade[] {
+  return trades.filter((trade): trade is LiveTrade =>
+    trade.tradeKind === 'live' &&
     !trade.deletedAt &&
-    trade.liveStageId === currentLiveStageId &&
-    trade.status === status
+    trade.liveStageId === currentLiveStageId,
+  )
 }
 
 export function listStageRolloverBlockers(
@@ -89,11 +93,12 @@ export function listStageRolloverBlockers(
   effectiveWeekStart: string,
 ): StageRolloverBlocker[] {
   const currentStage = getCurrentLiveStage([...state.liveStages], state.currentLiveStageId)
+  const currentLiveTrades = listCurrentStageLiveTrades(state.trades, currentStage.id)
   const blockers: StageRolloverBlocker[] = []
-  if (state.trades.some((trade) => isCurrentStageTrade(trade, currentStage.id, 'planned'))) {
+  if (currentLiveTrades.some((trade) => trade.status === 'planned')) {
     blockers.push({ code: 'planned-trades' })
   }
-  if (state.trades.some((trade) => isCurrentStageTrade(trade, currentStage.id, 'open'))) {
+  if (currentLiveTrades.some((trade) => trade.status === 'open')) {
     blockers.push({ code: 'open-trades' })
   }
   const preceding = precedingWeek(effectiveWeekStart)
@@ -133,11 +138,11 @@ export function inspectDueStageRollover(
 
 export function postponeStageRollover(
   scheduled: ScheduledStageRollover,
-  _currentTradingDayKey: string,
+  currentTradingDayKey: string,
 ): ScheduledStageRollover {
   return {
     ...scheduled,
-    effectiveWeekStart: addDays(scheduled.effectiveWeekStart, 7),
+    effectiveWeekStart: followingMonday(currentTradingDayKey),
     postponedCount: scheduled.postponedCount + 1,
   }
 }
@@ -150,7 +155,13 @@ export function buildStageRolloverCandidate(
     throw new Error(`新实盘阶段 ID 已存在：${options.nextStageId}`)
   }
   const current = getCurrentLiveStage([...state.liveStages], state.currentLiveStageId)
-  const next = createNextLiveStage(current, options.effectiveWeekStart, options.now, options.nextStageId)
+  const next = createNextLiveStage(
+    current,
+    options.effectiveWeekStart,
+    options.now,
+    options.nextStageId,
+    state.liveStages,
+  )
   return {
     liveStages: state.liveStages.map((stage) => stage.id === current.id ? next.archived : stage).concat(next.current),
     currentLiveStageId: next.current.id,

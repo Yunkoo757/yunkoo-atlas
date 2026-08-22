@@ -162,6 +162,24 @@ export function testRenameLiveStageChangesOnlyTheNameAndSurvivesSnapshotRoundTri
   }
 }
 
+export function testRenameLiveStageRejectsAnotherStagesNormalizedName(): void {
+  const previous = useStore.getState()
+  try {
+    seedStore()
+    useStore.setState((state) => ({
+      liveStages: state.liveStages.map((stage) =>
+        stage.id === 'stage-old' ? { ...stage, name: 'Alpha 阶段' } : stage,
+      ),
+    }))
+    const before = useStore.getState().liveStages
+    const renamed = useStore.getState().renameLiveStage('stage-current', '  alpha 阶段  ')
+    assert(!renamed, '重命名为另一个阶段 trim/case 归一化后的名称必须返回 false')
+    assert(useStore.getState().liveStages === before, '重复名称被拒绝时不得重建或修改阶段数组')
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
 export function testStorePublishesEveryAuthoritativeDurableStageFieldTogether(): void {
   const previous = useStore.getState()
   try {

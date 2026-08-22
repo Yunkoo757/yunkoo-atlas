@@ -3,7 +3,7 @@ import { ICON_MD } from '@/icons/iconSize'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { fmtDate } from '@/lib/format'
 import { getCurrentLiveStage } from '@/lib/liveStages'
-import { listStageRolloverBlockers } from '@/lib/stageRollover'
+import { listCurrentStageLiveTrades, listStageRolloverBlockers } from '@/lib/stageRollover'
 import { useStore } from '@/store/useStore'
 import './StageRolloverBanner.css'
 
@@ -31,12 +31,9 @@ export function StageRolloverBanner({
     riskPolicyVersions,
   }, scheduled.effectiveWeekStart)
   const blockerCodes = new Set(blockers.map((blocker) => blocker.code))
-  const plannedCount = trades.filter((trade) =>
-    !trade.deletedAt && trade.tradeKind === 'live' && trade.liveStageId === currentStage.id && trade.status === 'planned',
-  ).length
-  const openCount = trades.filter((trade) =>
-    !trade.deletedAt && trade.tradeKind === 'live' && trade.liveStageId === currentStage.id && trade.status === 'open',
-  ).length
+  const currentLiveTrades = listCurrentStageLiveTrades(trades, currentStage.id)
+  const plannedCount = currentLiveTrades.filter((trade) => trade.status === 'planned').length
+  const openCount = currentLiveTrades.filter((trade) => trade.status === 'open').length
   const effectiveDay = fmtDate(scheduled.effectiveWeekStart)
   const due = (currentTradingDayKeyOverride ?? currentTradingDayKey) >= scheduled.effectiveWeekStart
 

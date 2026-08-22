@@ -80,6 +80,7 @@ import {
   assertValidLiveStageState,
   createInitialLiveStage,
   getCurrentLiveStage,
+  normalizeLiveStageName,
   type LiveStage,
   type ScheduledStageRollover,
 } from '@/lib/liveStages'
@@ -901,10 +902,17 @@ export const useStore = create<State>()((set, get) => ({
       renameLiveStage: (id, name) => {
         const normalizedName = name.trim()
         if (!normalizedName) return false
+        const normalizedKey = normalizeLiveStageName(normalizedName)
         let renamed = false
         set((state) => {
           const target = state.liveStages.find((stage) => stage.id === id)
-          if (!target || target.name === normalizedName) return state
+          if (
+            !target ||
+            target.name === normalizedName ||
+            state.liveStages.some((stage) =>
+              stage.id !== id && normalizeLiveStageName(stage.name) === normalizedKey,
+            )
+          ) return state
           const liveStages = state.liveStages.map((stage) =>
             stage.id === id ? { ...stage, name: normalizedName } : stage,
           )

@@ -52,6 +52,14 @@ function liveTrade(id: string, status: Trade['status'], liveStageId = currentSta
   }
 }
 
+function caseTrade(id: string, status: 'planned' | 'open'): Trade {
+  return {
+    ...liveTrade(id, status),
+    tradeKind: 'case',
+    sourceTradeId: 'source-live-trade',
+  }
+}
+
 function weeklyReview(status: WeeklyReview['status'], liveStageId = currentStage.id): WeeklyReview {
   return {
     id: 'weekly-review:2026-08-24',
@@ -147,6 +155,34 @@ export function testDueRolloverListsEveryBlockerAndPostpones(): void {
   assert(postponed.effectiveWeekStart === '2026-09-07' && postponed.postponedCount === 1, 'blocked rollover must move one week')
 }
 
+export function testPostponementUsesTheNextMondayAfterTheCurrentTradingDay(): void {
+  const oneWeekOverdue = postponeStageRollover(scheduled(), '2026-09-07')
+  assert(
+    oneWeekOverdue.effectiveWeekStart === '2026-09-14',
+    '启动时已逾期一周必须从当前交易日选择严格未来的周一，不能落在当前日或旧预约后一周',
+  )
+
+  const multipleWeeksOverdue = postponeStageRollover(scheduled(), '2026-09-24')
+  assert(
+    multipleWeeksOverdue.effectiveWeekStart === '2026-09-28',
+    '离线多周后必须从当前交易日选择下一规范周一，不能只给陈旧预约加七天',
+  )
+  assert(
+    oneWeekOverdue.postponedCount === 1 && multipleWeeksOverdue.postponedCount === 1,
+    '一次权威顺延检查只推进一次顺延计数',
+  )
+}
+
+export function testCaseRecordsNeverCreatePlannedOrOpenRolloverBlockers(): void {
+  const state = baseState()
+  state.trades = [caseTrade('planned-case', 'planned'), caseTrade('open-case', 'open')]
+  const blockers = listStageRolloverBlockers(state, state.scheduledStageRollover!.effectiveWeekStart)
+  assert(
+    blockers.length === 0,
+    '案例即使继承 planned/open 状态和当前阶段归属，也不得构成实盘阶段切换阻断项',
+  )
+}
+
 export function testCurrentBlockersCanBeShownBeforeTheScheduleIsDue(): void {
   const state = blockedState()
   const blockers = listStageRolloverBlockers(state, state.scheduledStageRollover!.effectiveWeekStart)
@@ -176,6 +212,20 @@ export function testSuccessfulCandidateArchivesOldAndCreatesBlankCurrent(): void
   assert(candidate.riskPolicyVersions.filter((item) => item.liveStageId === 'stage-2').length === 0, 'new stage risk must be empty')
   assert(candidate.liveStages[0]?.status === 'archived' && candidate.liveStages[1]?.id === 'stage-2', 'candidate must archive only the previous current stage and append a new one')
   assert(candidate.trades === state.trades && candidate.weeklyReviews === state.weeklyReviews, 'candidate must retain old entities without deleting or rewriting them')
+}
+
+export function testCandidateKeepsAutomaticStageNameUniqueAfterUserRenamesHistory(): void {
+  const state = eligibleState()
+  state.liveStages = [{ ...currentStage, name: '实盘阶段 2' }]
+  const candidate = buildStageRolloverCandidate(state, {
+    effectiveWeekStart: '2026-08-31',
+    now: '2026-08-31T00:00:00.000Z',
+    nextStageId: 'stage-2',
+  })
+  assert(
+    candidate.liveStages[1]?.name === '实盘阶段 2 (2)',
+    '用户已占用下一默认名称时，权威候选必须生成稳定且唯一的后缀名称',
+  )
 }
 
 export function testCandidateRejectsAnArchivedStageIdWithoutMutatingInput(): void {

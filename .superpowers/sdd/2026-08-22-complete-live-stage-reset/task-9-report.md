@@ -4,11 +4,31 @@
 
 - 状态：完成。
 - 基线：`b3dd86c`。
+- Fix Round 1 基线：`cea8627`；独立审查的 3 个 Major 与 1 个 Minor 已全部修复。
 - 平台范围：Windows / macOS 桌面客户端；新界面只验证 960、1280、1920 桌面宽度，没有新增 mobile、iPad 或浏览器产品分支。
 - 用户入口：仪表盘阶段操作与“设置 → 数据 → 实盘阶段”统一为“开启新实盘阶段”。
 - 调度真相：预约日期、到期检查、阻断、顺延和耐久提交继续由 Task 4/5 的 `stageRollover` / `stageRolloverCommit` / Store / persistence 链路负责；UI 没有另建日期或 rollover 真相。
 
 ## RED / GREEN 证据
+
+### Fix Round 1：独立审查修复
+
+1. **离线多周后的权威顺延**
+   - RED：`testPostponementUsesTheNextMondayAfterTheCurrentTradingDay` 在当前交易日为 `2026-09-07` 时得到陈旧的 `2026-09-07`，而不是严格未来的 `2026-09-14`；多周离线同样只给旧预约加七天。
+   - GREEN：`postponeStageRollover` 复用同一 `followingMonday(currentTradingDayKey)`，从当前交易/显示日计算下一规范周一。Task 5 执行链集成测试把陈旧 `2026-08-31` 预约在 `2026-09-24` 权威顺延到 `2026-09-28`。
+2. **case 永不构成 planned/open blocker**
+   - RED：当前阶段的 planned/open case 使 `listStageRolloverBlockers` 返回实盘 blocker。
+   - GREEN：新增唯一 live-only 选择器 `listCurrentStageLiveTrades`；authority、Manager 与 Banner 共同消费该选择器。case、paper、已删除和非当前阶段记录都不能进入 planned/open blocker 或展示计数，因此不会出现“有 blocker 但显示 0”的分叉。
+3. **恢复 Manager 耐久交互测试强度**
+   - RED：在旧 browser fixture 的 blanket `disablePersistWrites()` 下，重命名后保存状态仍为 idle，新增 saved 断言稳定失败。
+   - GREEN：fixture 改为在真实 `PersistenceController` / `flushPersistNow` 路径下启用写入，仅在外部 adapter 边界注入可控 save 行为；捕获并检查实际规范快照。
+   - 覆盖：rename 成功快照、schedule 保存中的 `aria-busy`/saving 与成功快照、cancel 首次失败后的内存恢复和回滚快照、cancel 成功、schedule typed `StorageRevisionConflictError` 加回滚失败及用户恢复提示、冲突后的显式重试、rename 首次失败后的内存/耐久回滚。测试结束才关闭写入，不再 blanket 绕过 Manager 持久化。
+4. **阶段名称中心化唯一性**
+   - RED：`assertValidLiveStageState` 接受 trim/case 归一化后重复的名称；Store 把当前阶段重命名为另一阶段名称并返回 true；v12 snapshot validation 也接受歧义阶段图；Manager 只显示笼统“无法保存”。
+   - GREEN：`normalizeLiveStageName` 统一执行 NFKC、trim 与大小写归一化；中央 stage validator 拒绝重复，Store 返回 false 且不重建数组，Manager 明确提示“阶段名称已存在，请使用其他名称”，snapshot validation/codec/import 通过中央校验拒绝歧义图。
+   - 为避免唯一性新约束阻断未来 rollover，自动阶段名若已被用户占用，会稳定生成 `实盘阶段 N (2)`、`(3)` 等唯一后缀；候选测试锁定该行为。
+
+Fix Round 聚焦 unit 首轮准确得到 4 个预期失败：case blocker、离线一周顺延、中央名称唯一性、Store 重名拒绝；修正独立 snapshot fixture 的时间线后，snapshot validation 也按预期 RED。Manager browser RED 则准确证明 blanket-disabled persistence 无法到达 saved。上述测试均在最小实现后转绿。
 
 ### 领域与 Store
 
@@ -43,6 +63,8 @@
 ### 复用 Task 4/5 权威逻辑
 
 - `listStageRolloverBlockers(state, effectiveWeekStart)` 是从既有 `inspectDueStageRollover` 原样抽出的纯函数；到期检查仍调用该函数，因此 dialog/banner 与耐久执行不会出现两套阻断规则。
+- `postponeStageRollover` 只从 Task 5 捕获的 `currentTradingDayKey` 计算严格未来周一；不再从可能陈旧的预约日期推导。
+- `listCurrentStageLiveTrades` 是 planned/open authority 与两处 UI 计数的共同 live-only 来源；case 不参与实际阻断。
 - 预计下周一通过既有 `scheduleStageRollover(currentTradingDayKey, ...)` 生成；界面没有日期输入，也没有自行计算 Monday。
 - 打开 Manager 调用既有 `notifyStageManagementOpened()`，继续触发 Task 5 的到期检查。
 - Task 5 在 due 后使用全局 cutover inert 锁；耐久执行开始后取消交互会被统一拦截。UI 自身没有绕过或复制该锁。
@@ -56,6 +78,7 @@
 - 阻断项区分计划中、持仓中、当前阶段周复盘未完成；明确“阻断不影响预约、到期自动顺延”。
 - 已有预约禁用确认按钮并显示取消入口；Store 的单预约合同继续防止直接重复调用覆盖。
 - current/history 阶段均可改名；Store/快照回归锁定日期、序号、状态、指针、schedule 和实体 ownership 不变。
+- 名称唯一键由中央 `normalizeLiveStageName` 定义；Store、validator、Manager 和自动默认名共同使用，不存在 UI/导入两套归一化规则。
 
 ## 文件
 
@@ -84,8 +107,10 @@
 ### 聚焦 unit / browser
 
 - `node scripts/run-regression-tests.mjs --unit-only src/lib/stageRollover.test.ts src/store/liveStageOwnership.test.ts`：`24 PASS / 0 FAIL`。
+- Fix Round 最终命令：`node scripts/run-regression-tests.mjs --unit-only src/lib/stageRollover.test.ts src/lib/stageRolloverCommit.test.ts src/lib/liveStages.test.ts src/store/liveStageOwnership.test.ts src/storage/snapshotValidation.test.ts src/storage/snapshotCodec.test.ts`：全部通过。
 - `node scripts/run-browser-tests.mjs . vite.config.ts` 的新组件 requested IDs：Manager/Banner 默认流程全部通过。
 - 新组件桌面矩阵：默认、960×900、1280×900、1920×1080，共 `8 PASS / 0 FAIL`。
+- Fix Round 的同一 `8 PASS / 0 FAIL` 矩阵包含 Manager 的真实 persistence success/busy/failure/rollback/conflict 路径，以及 Banner 的共享 live-only blocker/count 路径。
 - `src/views/LivePerformanceCycleDashboard.browser.test.html#__livePerformanceCycleDashboardTest`：通过。
 - `src/views/settings/DataSettingsAssetInventory.browser.test.html#__dataSettingsAssetInventoryTest`：通过。
 - `src/views/LiveArchiveView.design.test.ts`：`3 PASS / 0 FAIL`。
@@ -118,6 +143,10 @@
 ## 自审与 concerns
 
 - Manager 的 preview、dialog blocker、banner blocker、due inspection 分别只调用 Task 4 的 schedule/blocker API，没有复制日期计算、preceding-week 或周复盘完成判断。
+- 顺延 mutation check：若实现退回 `addDays(scheduled.effectiveWeekStart, 7)`，一周与多周离线用例及 Task 5 集成用例都会失败。
+- blocker mutation check：若 live-only 选择器重新接受 case，领域用例失败；若 Manager/Banner 自行分叉计数，两者现已直接消费同一选择器，类型与 browser 数量合同同时失效。
+- Manager persistence fixture 只替换最外层慢/故障 adapter，真实 controller、状态切换、snapshot capture、`flushPersistNow` 与组件回滚全部保留；断言面向保存快照、Store、busy/save status 与用户提示，不以 mock 调用本身充当成功证据。
+- 名称 mutation check：移除中央 normalized-name set 会同时击穿 stage、Store 与 snapshot validation；移除 UX 判别会击穿 Manager browser；默认名碰撞也有候选回归。
 - Banner 是 App shell 直接消费者，不依赖 Dashboard/settings 生命周期；跨路由测试已验证持续存在。
 - Banner 只展示状态，不设置禁用、inert 或 overlay；预约期间“新建交易”浏览器动作已实际执行。
 - duplicate schedule 同时由 UI disabled 与既有 Store 单预约合同保护；cancel/rename 都在耐久失败时恢复旧状态。
@@ -129,4 +158,4 @@
 
 ## 短状态合同
 
-完成：所有标准入口改为预约开启新实盘阶段；下周一、阻断、顺延和提交复用 Task 4/5 真相；全局持久 banner 跨路由展示且不锁正常工作；单预约可取消；当前/历史阶段名称只改 name 并可规范持久化；旧 reset/date-picker 正常入口已移除；完整 unit/design/type 绿，完整 browser 仅保留两项已登记 deferred 红。
+完成：所有标准入口改为预约开启新实盘阶段；下周一、离线多周后的顺延和提交复用 Task 4/5 当前日真相；只有当前 stage 的真实 live 计划/持仓可阻断，Manager/Banner 共用同一选择器；全局持久 banner 不锁正常工作；Manager 的真实写盘/忙碌/失败/回滚/conflict 边界有桌面矩阵覆盖；阶段名中央归一化唯一且默认名安全避碰；旧 reset/date-picker 正常入口已移除；完整 unit/design/type 绿，完整 browser 仅保留两项已登记 deferred 红。
