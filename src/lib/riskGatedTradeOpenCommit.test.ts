@@ -372,6 +372,14 @@ export async function testElectronPublishesOnlyAfterAtomicSnapshotCommit(): Prom
   assert(opened?.status === 'open', '持久化候选必须包含 open 状态')
   assert(opened.activities?.at(-1)?.status === 'open', '状态 activity 必须与状态同一快照')
   assert(persisted.riskOverrideEvents.at(-1)?.id === 'override-event', 'override event 必须与状态同一快照')
+  assert(
+    persisted.riskOverrideEvents.at(-1)?.liveStageId === original.currentLiveStageId,
+    '耐久 snapshot 的新 override event 必须属于当前阶段',
+  )
+  assert(
+    (published as PersistedSnapshot).riskOverrideEvents.at(-1)?.liveStageId === original.currentLiveStageId,
+    '发布 state 的新 override event 必须与耐久 snapshot 同阶段',
+  )
   assertValidPersistedSnapshot(persisted, 'risk gate committed snapshot')
   assert(!isStorageCutoverInteractionLocked(), '成功后必须释放全局交互锁')
   assert(getPersistSuspendDepth() === 0, '成功后必须恢复 autosave')

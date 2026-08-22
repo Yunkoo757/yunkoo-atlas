@@ -30,6 +30,7 @@ import type { PersistedSnapshot } from '@/storage/types'
 
 export interface RiskGateCommitState {
   trades: Trade[]
+  currentLiveStageId: string
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]
   riskOverrideEvents: RiskOverrideEvent[]
@@ -144,6 +145,7 @@ function sameCanonicalSnapshot(
 function stateMatchesSnapshot(state: RiskGateCommitState, snapshot: PersistedSnapshot): boolean {
   return canonicalJson({
     trades: state.trades,
+    currentLiveStageId: state.currentLiveStageId,
     riskPolicyVersions: state.riskPolicyVersions,
     monthlyRiskLimits: state.monthlyRiskLimits,
     riskOverrideEvents: state.riskOverrideEvents,
@@ -151,6 +153,7 @@ function stateMatchesSnapshot(state: RiskGateCommitState, snapshot: PersistedSna
     tradingDayStartHour: state.display.tradingDayStartHour,
   }) === canonicalJson({
     trades: snapshot.trades,
+    currentLiveStageId: snapshot.currentLiveStageId,
     riskPolicyVersions: snapshot.riskPolicyVersions,
     monthlyRiskLimits: snapshot.monthlyRiskLimits,
     riskOverrideEvents: snapshot.riskOverrideEvents,
@@ -217,6 +220,7 @@ function buildOpenedSnapshot<State extends RiskGateCommitState>(
   }
   const event = freezeRiskOverrideEvent({
     id: eventId,
+    liveStageId: baseline.state.currentLiveStageId,
     tradeId: trade.id,
     tradeIdentityAtDecision: {
       ref: trade.ref,

@@ -147,7 +147,7 @@ function buildStorePatch(
     symbolCatalog: state.symbolCatalog,
     tagPresets: state.tagPresets,
     mistakeTagPresets: state.mistakeTagPresets,
-  }, importedTrades, state.display.tradingDayStartHour)
+  }, importedTrades, state.display.tradingDayStartHour, state.currentLiveStageId)
 }
 
 function buildSnapshot(
@@ -211,6 +211,9 @@ export async function commitNotionImportBatch(
       ? patch
       : buildStorePatch(latest.state, importedTrades, newStrategies)
     useStore.setState(finalPatch)
+    const committedImportedTrades = importedTrades.map((trade) =>
+      finalPatch.trades.find((candidate) => candidate.id === trade.id) ?? trade,
+    )
 
     let trailingSaveFailed = false
     if (sameRevision(revision, latest)) {
@@ -231,7 +234,7 @@ export async function commitNotionImportBatch(
     }
 
     return {
-      importedTrades,
+      importedTrades: committedImportedTrades,
       newStrategies,
       imageCount: prepared.assets.length,
       trailingSaveFailed,

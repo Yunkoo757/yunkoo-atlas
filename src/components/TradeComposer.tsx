@@ -5,7 +5,7 @@ import { Plus, X } from '@/icons/appIcons'
 import { Select } from '@/components/ui/Select'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { SymbolIcon } from '@/components/SymbolIcon'
-import { useStore } from '@/store/useStore'
+import { currentLiveStageIdForWrite, useStore } from '@/store/useStore'
 import {
   CASE_TYPE_META,
   TIMEFRAME_PRESETS,
@@ -259,6 +259,9 @@ export function TradeComposer() {
             status: 'planned',
             conviction: 'medium',
             tradeKind: kind,
+            ...(kind === 'paper'
+              ? {}
+              : { liveStageId: currentLiveStageIdForWrite(state) }),
             tags: [],
             mistakeTags: [],
             reviewStatus: 'unreviewed',

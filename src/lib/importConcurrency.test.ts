@@ -556,6 +556,9 @@ export async function testConcurrentLivePerformanceCycleEditRetriesAndKeepsLates
     display: { ...DEFAULT_DISPLAY }, tagPresets: [], mistakeTagPresets: [], savedTradeViews: [],
     symbolIcons: {}, symbolCatalog: [], livePerformanceCycles: [],
   })
+  const canonicalStage = useStore.getState().liveStages.find((stage) =>
+    stage.id === useStore.getState().currentLiveStageId,
+  )!
 
   enablePersistWrites()
   try {
@@ -572,7 +575,14 @@ export async function testConcurrentLivePerformanceCycleEditRetriesAndKeepsLates
 
     assert(commitCount === 2, '并发本地周期修改必须触发基于最新状态的重试')
     assert(useStore.getState().livePerformanceCycles[0]?.id === localDuringImport.id, '最终状态必须保留最新本地周期配置')
-    assert(savedSnapshots.at(-1)?.livePerformanceCycles?.[0]?.id === localDuringImport.id, '最终落盘必须保留最新本地周期配置')
+    assert(
+      savedSnapshots.at(-1)?.currentLiveStageId === canonicalStage.id,
+      '最终落盘必须保留规范当前阶段',
+    )
+    assert(
+      savedSnapshots.at(-1)?.livePerformanceCycles?.[0]?.id === `legacy-stage-${canonicalStage.sequence}`,
+      '过渡兼容镜像必须从规范阶段派生，不得反向覆盖阶段真相',
+    )
     assert(result.summary.includes('保留当前统计与历史归档设置'), '本地设置保留时摘要必须使用可理解的当前统计与历史归档文案')
   } finally {
     disablePersistWrites()

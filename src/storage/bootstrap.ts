@@ -19,6 +19,7 @@ import type { PersistedSnapshot } from '@/storage/types'
 import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 import { normalizeReviewTemplates } from '@/data/reviewTemplates'
 import { normalizeQuickNotes } from '@/data/quickNotes'
+import { assertValidLiveStageState } from '@/lib/liveStages'
 import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
 import {
   getWebWriteGuardState,
@@ -70,10 +71,17 @@ async function runBootstrapStorage(): Promise<void> {
   const snapshot = await adapter.loadSnapshot()
   let reconciledWindowHotkeyConflict = false
   if (snapshot) {
+    // 阶段图是全部运行时写入的归属根；无效快照必须在开启持久化前终止启动。
+    assertValidLiveStageState(snapshot)
     const normalized = normalizeTradeStrategyReferences(snapshot.trades, snapshot.strategies)
     const trades = normalizeTrades(normalized.trades)
     useStore.setState({
       trades,
+      liveStages: snapshot.liveStages.map((stage) => ({ ...stage })),
+      currentLiveStageId: snapshot.currentLiveStageId,
+      scheduledStageRollover: snapshot.scheduledStageRollover
+        ? { ...snapshot.scheduledStageRollover }
+        : null,
       weeklyRiskPreparations: snapshot.weeklyRiskPreparations,
       riskPolicyVersions: snapshot.riskPolicyVersions,
       monthlyRiskLimits: snapshot.monthlyRiskLimits,

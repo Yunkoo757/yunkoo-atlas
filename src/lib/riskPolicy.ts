@@ -12,6 +12,8 @@ import { formatYmd, parseLocalDate } from '@/lib/periods'
 import { weekStartFor } from '@/data/weeklyReviews'
 
 export interface RiskPolicyState {
+  /** Store 写入路径必须提供；纯计算旧调用可暂不提供以兼容历史测试。 */
+  currentLiveStageId?: string
   weeklyRiskPreparations: WeeklyRiskPreparation[]
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]
@@ -103,6 +105,7 @@ export function confirmWeeklyRiskPreparation(
     : nextTradingDay(input.currentTradingDayKey)
   const policy: RiskPolicyVersion = {
     id: input.policyVersionId,
+    ...(state.currentLiveStageId ? { liveStageId: state.currentLiveStageId } : {}),
     sourceWeekStart: input.weekStart,
     effectiveTradingDay,
     ...policyValues,
@@ -112,6 +115,11 @@ export function confirmWeeklyRiskPreparation(
   const existingPreparation = state.weeklyRiskPreparations.find((item) => item.id === preparationId)
   const preparation: WeeklyRiskPreparation = {
     id: preparationId,
+    ...(existingPreparation?.liveStageId !== undefined
+      ? { liveStageId: existingPreparation.liveStageId }
+      : state.currentLiveStageId
+        ? { liveStageId: state.currentLiveStageId }
+        : {}),
     weekStart: input.weekStart,
     draft: { ...input.draft, riskAmount: policy.riskAmount },
     reviewedAt: input.confirmedAt,
@@ -137,6 +145,11 @@ function appendLockedMonthlyLimit(
     ...state,
     monthlyRiskLimits: [...state.monthlyRiskLimits, {
       id: `monthly-risk-limit:${monthKey}`,
+      ...(state.currentLiveStageId
+        ? { liveStageId: state.currentLiveStageId }
+        : policy.liveStageId !== undefined
+          ? { liveStageId: policy.liveStageId }
+          : {}),
       monthKey,
       limitR: policy.monthlyLossLimitRDefault,
       sourcePolicyVersionId: policy.id,

@@ -104,6 +104,8 @@ import {
   migrateLegacyStageSnapshot,
   type LegacyStageMigrationOptions,
 } from '@/lib/stageMigration'
+import { assertValidLiveStageState } from '@/lib/liveStages'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
 export const EXPORT_VERSION = SCHEMA_VERSION
 import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
@@ -1215,10 +1217,16 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
 }
 
 export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
+  assertValidLiveStageState(snapshot)
   const normalized = normalizeTradeStrategyReferences(snapshot.trades, snapshot.strategies)
   const trades = normalizeTrades(normalized.trades)
   useStore.setState({
     trades,
+    liveStages: snapshot.liveStages.map((stage) => ({ ...stage })),
+    currentLiveStageId: snapshot.currentLiveStageId,
+    scheduledStageRollover: snapshot.scheduledStageRollover
+      ? { ...snapshot.scheduledStageRollover }
+      : null,
     weeklyRiskPreparations: snapshot.weeklyRiskPreparations,
     riskPolicyVersions: snapshot.riskPolicyVersions,
     monthlyRiskLimits: snapshot.monthlyRiskLimits,
@@ -1252,8 +1260,12 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
 
 /** 空库 / 新建库时重置到默认内存状态。 */
 export function resetEmptyLibraryIntoStore(): void {
+  const empty = createEmptyPersistedSnapshot()
   useStore.setState({
     trades: [],
+    liveStages: empty.liveStages,
+    currentLiveStageId: empty.currentLiveStageId,
+    scheduledStageRollover: empty.scheduledStageRollover,
     weeklyRiskPreparations: [],
     riskPolicyVersions: [],
     monthlyRiskLimits: [],

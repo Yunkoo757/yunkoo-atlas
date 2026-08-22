@@ -56,6 +56,7 @@ import {
 } from '@/lib/liveStatisticsArchive'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import {
+  assignWeeklyReviewStage,
   completeWeeklyReviewCandidate,
   normalizeWeeklyReviews,
   reopenCompletedReview,
@@ -75,6 +76,13 @@ import {
   normalizeQuickNotes,
   type QuickNote,
 } from '@/data/quickNotes'
+import {
+  assertValidLiveStageState,
+  createInitialLiveStage,
+  getCurrentLiveStage,
+  type LiveStage,
+  type ScheduledStageRollover,
+} from '@/lib/liveStages'
 
 export type LivePerformanceRestartPreview = {
   startTradingDayKey: string
@@ -320,6 +328,9 @@ function upsertTradeIntoSlice(
 ): TradeUpsertSlice {
   const previousTrade = s.trades.find((t) => t.id === trade.id)
   if (previousTrade && (trade.tradeKind ?? 'live') !== previousTrade.tradeKind) return s
+  if (previousTrade && previousTrade.tradeKind !== 'paper' && trade.tradeKind !== 'paper') {
+    trade = { ...trade, liveStageId: previousTrade.liveStageId }
+  }
   const strategies = s.strategies.length > 0 ? s.strategies : createDefaultStrategies()
   const strategyId = strategies.some((strategy) => strategy.id === trade.strategyId)
     ? trade.strategyId
@@ -388,10 +399,20 @@ export function applyTradeUpsertsToSlice(
   initial: TradeUpsertSlice,
   trades: Trade[],
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
+  currentLiveStageId?: string,
 ): TradeUpsertSlice {
   let slice = initial
   for (const trade of trades) {
-    slice = upsertTradeIntoSlice(slice, trade, tradingDayStartHour)
+    const existing = slice.trades.find((candidate) => candidate.id === trade.id)
+    const owned = existing || !currentLiveStageId
+      ? trade
+      : trade.tradeKind === 'paper'
+        ? (() => {
+            const { liveStageId: _liveStageId, ...paper } = trade as Trade & { liveStageId?: unknown }
+            return paper as Trade
+          })()
+        : { ...trade, liveStageId: currentLiveStageId }
+    slice = upsertTradeIntoSlice(slice, owned, tradingDayStartHour)
   }
   return slice
 }
@@ -410,6 +431,9 @@ function updateOwnedNoteActivity(trade: Trade, note: string): Trade {
 
 interface State {
   trades: Trade[]
+  liveStages: LiveStage[]
+  currentLiveStageId: string
+  scheduledStageRollover: ScheduledStageRollover | null
   weeklyReviews: WeeklyReview[]
   weeklyRiskPreparations: WeeklyRiskPreparation[]
   riskPolicyVersions: RiskPolicyVersion[]
@@ -581,8 +605,44 @@ interface State {
   removeQuickNote: (id: string) => void
 }
 
+export function currentLiveStageIdForWrite(
+  state: Pick<State, 'liveStages' | 'currentLiveStageId'>,
+): string {
+  return getCurrentLiveStage(state.liveStages, state.currentLiveStageId).id
+}
+
+function withCurrentStage(state: State, trade: Trade): Trade {
+  if (trade.tradeKind === 'paper') {
+    const { liveStageId: _liveStageId, ...paper } = trade as Trade & { liveStageId?: unknown }
+    return paper as Trade
+  }
+  const currentLiveStageId = currentLiveStageIdForWrite(state)
+  if (trade.liveStageId === undefined) return { ...trade, liveStageId: currentLiveStageId }
+  if (trade.liveStageId === null || !state.liveStages.some((stage) => stage.id === trade.liveStageId)) {
+    throw new Error('新记录的实盘阶段归属无效')
+  }
+  return trade
+}
+
+function stageOwnedTradeForUpsert(state: State, trade: Trade): Trade {
+  const previous = state.trades.find((candidate) => candidate.id === trade.id)
+  if (!previous) return withCurrentStage(state, trade)
+  if (previous.tradeKind === 'paper' || trade.tradeKind === 'paper') return trade
+  return { ...trade, liveStageId: previous.liveStageId }
+}
+
+const initialStageTimestamp = new Date().toISOString()
+const initialStage = createInitialLiveStage(
+  getTradingDayKey(new Date(), DEFAULT_TRADING_DAY_START_HOUR),
+  initialStageTimestamp,
+  'live-stage-initial',
+)
+
 export const useStore = create<State>()((set, get) => ({
       trades: [],
+      liveStages: [initialStage],
+      currentLiveStageId: initialStage.id,
+      scheduledStageRollover: null,
       weeklyReviews: [],
       weeklyRiskPreparations: [],
       riskPolicyVersions: [],
@@ -795,12 +855,22 @@ export const useStore = create<State>()((set, get) => ({
       symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
       reviewTemplates: createDefaultReviewTemplates(),
       upsertWeeklyReview: (review) =>
-        set((state) => ({
-          weeklyReviews: normalizeWeeklyReviews([
-            ...state.weeklyReviews.filter((item) => item.id !== review.id && item.weekStart !== review.weekStart),
+        set((state) => {
+          const existing = state.weeklyReviews.find((item) =>
+            item.id === review.id || item.weekStart === review.weekStart,
+          )
+          const owned = assignWeeklyReviewStage(
             review,
-          ]),
-        })),
+            currentLiveStageIdForWrite(state),
+            existing,
+          )
+          return {
+            weeklyReviews: normalizeWeeklyReviews([
+              ...state.weeklyReviews.filter((item) => item.id !== review.id && item.weekStart !== review.weekStart),
+              owned,
+            ]),
+          }
+        }),
       updateWeeklyReview: (id, patch) =>
         set((state) => ({
           weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews.map((review) =>
@@ -1032,6 +1102,7 @@ export const useStore = create<State>()((set, get) => ({
           const contentChanged = existing ? !sameRiskPolicyDraft(existing.draft, draft) : false
           const preparation: WeeklyRiskPreparation = {
             id,
+            liveStageId: existing ? existing.liveStageId : currentLiveStageIdForWrite(s),
             weekStart,
             draft: { ...draft },
             reviewedAt: contentChanged ? null : existing?.reviewedAt ?? null,
@@ -1051,6 +1122,7 @@ export const useStore = create<State>()((set, get) => ({
         set((s) => {
           const isFirstPolicy = s.riskPolicyVersions.length === 0
           const riskState: RiskPolicyState = {
+            currentLiveStageId: currentLiveStageIdForWrite(s),
             weeklyRiskPreparations: s.weeklyRiskPreparations,
             riskPolicyVersions: s.riskPolicyVersions,
             monthlyRiskLimits: s.monthlyRiskLimits,
@@ -1075,6 +1147,7 @@ export const useStore = create<State>()((set, get) => ({
         }),
       ensureRiskPeriodRecords: (tradingDay) =>
         set((s) => ensureRiskPolicyPeriodRecords({
+          currentLiveStageId: currentLiveStageIdForWrite(s),
           weeklyRiskPreparations: s.weeklyRiskPreparations,
           riskPolicyVersions: s.riskPolicyVersions,
           monthlyRiskLimits: s.monthlyRiskLimits,
@@ -1236,8 +1309,12 @@ export const useStore = create<State>()((set, get) => ({
         const { getStorage } = await import('@/storage/provider')
         const snapshot = await getStorage().loadSnapshot()
         if (!snapshot) throw new Error('存储中没有可恢复的风险开仓快照')
+        assertValidLiveStageState(snapshot)
         set({
           trades: snapshot.trades,
+          liveStages: snapshot.liveStages,
+          currentLiveStageId: snapshot.currentLiveStageId,
+          scheduledStageRollover: snapshot.scheduledStageRollover,
           weeklyRiskPreparations: snapshot.weeklyRiskPreparations,
           riskPolicyVersions: snapshot.riskPolicyVersions,
           monthlyRiskLimits: snapshot.monthlyRiskLimits,
@@ -1529,7 +1606,11 @@ export const useStore = create<State>()((set, get) => ({
       upsertTrade: (trade) => {
         const existing = get().trades.find((item) => item.id === trade.id)
         if (upsertWouldBypassFirstOpenGate(existing, trade)) return 'requires-risk-gate'
-        set((s) => upsertTradeIntoSlice(s, trade, s.display.tradingDayStartHour))
+        set((s) => upsertTradeIntoSlice(
+          s,
+          stageOwnedTradeForUpsert(s, trade),
+          s.display.tradingDayStartHour,
+        ))
         return 'updated'
       },
       createReviewCaseFromTrade: (sourceId) => {
@@ -1547,8 +1628,14 @@ export const useStore = create<State>()((set, get) => ({
             now: new Date(),
             tradingDayStartHour: state.display.tradingDayStartHour,
           })
-          result = { status: 'created', reviewCase }
-          return upsertTradeIntoSlice(state, reviewCase, state.display.tradingDayStartHour)
+          const sourceStageId = source.tradeKind === 'paper'
+            ? currentLiveStageIdForWrite(state)
+            : source.liveStageId === undefined
+              ? currentLiveStageIdForWrite(state)
+              : source.liveStageId
+          const ownedReviewCase = { ...reviewCase, liveStageId: sourceStageId } as Trade
+          result = { status: 'created', reviewCase: ownedReviewCase }
+          return upsertTradeIntoSlice(state, ownedReviewCase, state.display.tradingDayStartHour)
         })
         return result
       },
@@ -1565,7 +1652,11 @@ export const useStore = create<State>()((set, get) => ({
             symbolCatalog: s.symbolCatalog,
             tagPresets: s.tagPresets,
             mistakeTagPresets: s.mistakeTagPresets,
-          }, trades, s.display.tradingDayStartHour))
+          },
+          trades.map((trade) => stageOwnedTradeForUpsert(s, trade)),
+          s.display.tradingDayStartHour,
+          currentLiveStageIdForWrite(s),
+        ))
         return 'updated'
       },
       upsertTradesFromNonInteractiveImport: (trades) =>
@@ -1577,7 +1668,11 @@ export const useStore = create<State>()((set, get) => ({
             symbolCatalog: s.symbolCatalog,
             tagPresets: s.tagPresets,
             mistakeTagPresets: s.mistakeTagPresets,
-          }, trades, s.display.tradingDayStartHour)
+          },
+          trades.map((trade) => stageOwnedTradeForUpsert(s, trade)),
+          s.display.tradingDayStartHour,
+          currentLiveStageIdForWrite(s),
+        )
         }),
       removeTrade: (id) => get().removeTrades([id]),
       removeTrades: (ids) =>

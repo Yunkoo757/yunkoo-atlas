@@ -261,6 +261,55 @@ export async function testNotionSuccessPublishesOnlyTheAtomicallyCommittedBatch(
   assert(getPersistSuspendDepth() === 0, '成功提交后必须恢复自动保存')
 }
 
+export async function testNotionImportAssignsCurrentStageByTargetKind(): Promise<void> {
+  disablePersistWrites()
+  const previous = useStore.getState()
+  const stageState = createEmptyPersistedSnapshot()
+  const adapter = new AtomicMemoryAdapter(snapshot('旧快照'))
+  try {
+    seedStore()
+    useStore.setState({
+      liveStages: stageState.liveStages,
+      currentLiveStageId: stageState.currentLiveStageId,
+      scheduledStageRollover: null,
+    })
+    const live = await commitNotionImportBatch([previewWithImages(0)], {
+      storage: adapter,
+      now: new Date('2026-08-20T01:00:00.000Z'),
+    })
+    useStore.setState({ trades: [] })
+    const reviewCase = await commitNotionImportBatch([previewWithImages(0)], {
+      storage: adapter,
+      targetKind: 'case',
+      now: new Date('2026-08-20T02:00:00.000Z'),
+    })
+    useStore.setState({ trades: [] })
+    const paper = await commitNotionImportBatch([previewWithImages(0)], {
+      storage: adapter,
+      targetKind: 'paper',
+      now: new Date('2026-08-20T03:00:00.000Z'),
+    })
+
+    assert(
+      live.importedTrades[0]?.tradeKind === 'live'
+        && live.importedTrades[0].liveStageId === stageState.currentLiveStageId,
+      'Notion live 必须显式进入当前阶段',
+    )
+    assert(
+      reviewCase.importedTrades[0]?.tradeKind === 'case'
+        && reviewCase.importedTrades[0].liveStageId === stageState.currentLiveStageId,
+      'Notion 独立案例必须显式进入当前阶段',
+    )
+    assert(
+      paper.importedTrades[0]?.tradeKind === 'paper'
+        && !Object.prototype.hasOwnProperty.call(paper.importedTrades[0], 'liveStageId'),
+      'Notion paper 不得写 liveStageId',
+    )
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
 export async function testNotionTerminalWithOnlyOpenDateStaysWithoutCloseDayAtCommitBoundary(): Promise<void> {
   disablePersistWrites()
   const previous = useStore.getState()

@@ -165,6 +165,17 @@ export function createWeeklyReview(weekStart: string, now = new Date()): WeeklyR
   }
 }
 
+/** Store 写入边界使用：新周复盘归当前阶段，已有复盘的归属（包括 null）保持不变。 */
+export function assignWeeklyReviewStage(
+  review: WeeklyReview,
+  currentLiveStageId: string,
+  existing?: WeeklyReview,
+): WeeklyReview {
+  return existing
+    ? { ...review, liveStageId: existing.liveStageId }
+    : { ...review, liveStageId: currentLiveStageId }
+}
+
 export function tradesClosedInWeek(
   trades: Trade[],
   weekStart: string,
