@@ -10,15 +10,74 @@ function assert(condition: unknown, message: string): void {
 }
 
 const valid = {
+  liveStages: [{
+    id: 'stage-current', sequence: 1, name: '实盘阶段 1', status: 'current',
+    startsOn: '2026-07-01', endsOn: null, createdAt: '2026-07-01T00:00:00.000Z', archivedAt: null,
+  }],
+  currentLiveStageId: 'stage-current',
+  scheduledStageRollover: null,
   trades: [{
     id: 'trade-1', ref: 'TRD-1', symbol: 'BTCUSDT', side: 'long', status: 'open',
     conviction: 'medium', strategyId: 'strategy-1', tags: [], mistakeTags: [],
     tradeKind: 'live', entry: 100, exit: null, size: 1, pnl: null, rMultiple: null,
-    openedAt: '2026-07-14', closedAt: null, note: '',
+    openedAt: '2026-07-14', closedAt: null, note: '', liveStageId: 'stage-current',
   }],
   strategies: [{ id: 'strategy-1', name: '趋势', icon: 'trending-up', color: '#5e6ad2' }],
   starredIds: [], subscribedIds: [], pinnedStrategyIds: [],
   weeklyRiskPreparations: [], riskPolicyVersions: [], monthlyRiskLimits: [], riskOverrideEvents: [],
+}
+
+export function testSnapshotValidationEnforcesV12StageOwnershipAcrossEntities(): void {
+  const full = createFullPersistedSnapshotFixture()
+  assertValidPersistedSnapshot(full)
+
+  const unknown = 'missing-stage'
+  const invalidSnapshots = [
+    { ...full, trades: [{ ...full.trades[0]!, liveStageId: unknown }] },
+    { ...full, trades: [{ ...full.trades[0]!, liveStageId: undefined }] },
+    { ...full, weeklyReviews: [{ ...full.weeklyReviews![0]!, liveStageId: null }] },
+    { ...full, weeklyRiskPreparations: [{ ...full.weeklyRiskPreparations[0]!, liveStageId: undefined }] },
+    { ...full, riskPolicyVersions: [{ ...full.riskPolicyVersions[0]!, liveStageId: unknown }] },
+    { ...full, monthlyRiskLimits: [{ ...full.monthlyRiskLimits[0]!, liveStageId: null }] },
+    { ...full, riskOverrideEvents: [{ ...full.riskOverrideEvents[0]!, liveStageId: unknown }] },
+  ]
+  for (const snapshot of invalidSnapshots) {
+    let rejected = false
+    try { assertValidPersistedSnapshot(snapshot) } catch { rejected = true }
+    assert(rejected, 'v12 未定义、null 或未知阶段归属必须按实体规则拒绝')
+  }
+
+  assertValidPersistedSnapshot({ ...full, trades: [{ ...full.trades[0]!, liveStageId: null }] })
+  const caseTrade = { ...full.trades[0]!, id: 'case-pending', tradeKind: 'case' as const, liveStageId: null }
+  assertValidPersistedSnapshot({ ...full, trades: [caseTrade] })
+
+  const paperWithOwnership = { ...full.trades[0]!, tradeKind: 'paper' as const, liveStageId: full.currentLiveStageId }
+  let rejectedPaper = false
+  try { assertValidPersistedSnapshot({ ...full, trades: [paperWithOwnership] }) } catch { rejectedPaper = true }
+  assert(rejectedPaper, '纸面交易必须拒绝 liveStageId 字段')
+}
+
+export function testSnapshotValidationValidatesStageStateAndScheduledRollover(): void {
+  const full = createFullPersistedSnapshotFixture()
+  assertValidPersistedSnapshot({
+    ...full,
+    scheduledStageRollover: {
+      id: 'rollover-1',
+      requestedAt: '2026-08-22T00:00:00.000Z',
+      effectiveWeekStart: '2026-08-24',
+      postponedCount: 0,
+    },
+  })
+  for (const patch of [
+    { currentLiveStageId: 'missing-stage' },
+    { liveStages: [{ ...full.liveStages[0]!, status: 'archived' }] },
+    { scheduledStageRollover: undefined },
+    { scheduledStageRollover: { id: '', requestedAt: 'bad', effectiveWeekStart: '2026-02-30', postponedCount: -1 } },
+  ]) {
+    let rejected = false
+    try { assertValidPersistedSnapshot({ ...full, ...patch }) } catch { rejected = true }
+    assert(rejected, '损坏的阶段状态或计划轮换不得进入 v12 快照')
+  }
 }
 
 export function testSnapshotValidationAcceptsOpenTradesAndLegacyOptionalFields(): void {
@@ -73,6 +132,7 @@ export function testSnapshotValidationValidatesLivePerformanceCycles(): void {
 export function testSnapshotValidationAcceptsLegacyWeeklyMetricsAndRejectsMalformedExecutionGaps(): void {
   const review = {
     ...createWeeklyReview('2026-07-13'),
+    liveStageId: 'stage-current',
     metricsSnapshot: buildWeeklyReviewMetrics([]),
   }
   const legacyMetrics: Record<string, unknown> = { ...review.metricsSnapshot }
@@ -106,6 +166,7 @@ export function testSnapshotValidationAcceptsLegacyWeeklyMetricsAndRejectsMalfor
 export function testSnapshotValidationRejectsMalformedWeeklyEvidenceSnapshots(): void {
   const review = {
     ...createWeeklyReview('2026-07-13'),
+    liveStageId: 'stage-current',
     evidenceSnapshot: {
       trades: [{ ...valid.trades[0] }],
       missedTrades: [{ ...valid.trades[0] }],
@@ -432,6 +493,7 @@ export function testSnapshotValidationRejectsMalformedRiskEntities(): void {
     ...valid,
     weeklyRiskPreparations: [{
       id: 'weekly-risk-preparation:2026-07-27',
+      liveStageId: 'stage-current',
       weekStart: '2026-07-27',
       draft: {
         capitalBase: 10000,
@@ -449,6 +511,7 @@ export function testSnapshotValidationRejectsMalformedRiskEntities(): void {
     }],
     riskPolicyVersions: [{
       id: 'risk-policy:1',
+      liveStageId: 'stage-current',
       sourceWeekStart: '2026-07-27',
       effectiveTradingDay: '2026-07-27',
       capitalBase: 10000,
@@ -462,6 +525,7 @@ export function testSnapshotValidationRejectsMalformedRiskEntities(): void {
     }],
     monthlyRiskLimits: [{
       id: 'monthly-risk-limit:2026-07',
+      liveStageId: 'stage-current',
       monthKey: '2026-07',
       limitR: 10,
       sourcePolicyVersionId: 'risk-policy:1',
@@ -469,6 +533,7 @@ export function testSnapshotValidationRejectsMalformedRiskEntities(): void {
     }],
     riskOverrideEvents: [{
       id: 'risk-override:1',
+      liveStageId: 'stage-current',
       tradeId: 'trade-1',
       tradeIdentityAtDecision: { ref: 'TRD-1', symbol: 'BTCUSDT', tradeKind: 'live' },
       linkState: 'resolved',

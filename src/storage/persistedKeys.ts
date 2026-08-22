@@ -9,6 +9,9 @@ export type ActivePersistedSnapshotKey = Exclude<keyof PersistedSnapshot, Deprec
  */
 export const PERSISTED_SNAPSHOT_FIELDS = [
   'trades',
+  'liveStages',
+  'currentLiveStageId',
+  'scheduledStageRollover',
   'weeklyRiskPreparations',
   'riskPolicyVersions',
   'monthlyRiskLimits',
@@ -46,5 +49,13 @@ export type PersistedSnapshotFieldsAreComplete = AssertNoMissingPersistedSnapsho
  * Notion 导入 revision、JSON 导入 revision、bootstrap 订阅去抖共用同一套，避免分叉漏检。
  */
 export const PERSISTED_STATE_REFERENCE_KEYS = PERSISTED_SNAPSHOT_FIELDS.filter(
-  (key): key is Exclude<ActivePersistedSnapshotKey, 'shortcuts'> => key !== 'shortcuts',
+  (key): key is Exclude<
+    ActivePersistedSnapshotKey,
+    'shortcuts' | 'liveStages' | 'currentLiveStageId' | 'scheduledStageRollover'
+  > => ![
+    'shortcuts',
+    'liveStages',
+    'currentLiveStageId',
+    'scheduledStageRollover',
+  ].includes(key),
 )

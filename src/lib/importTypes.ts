@@ -16,6 +16,9 @@ import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
 
 export interface ExportPayload {
   version: number
+  liveStages?: PersistedSnapshot['liveStages']
+  currentLiveStageId?: PersistedSnapshot['currentLiveStageId']
+  scheduledStageRollover?: PersistedSnapshot['scheduledStageRollover']
   liveStatsStartTradingDayKey?: string | null
   livePerformanceCycles?: PersistedSnapshot['livePerformanceCycles']
   trades: (Trade & { strategy?: string })[]
@@ -48,6 +51,9 @@ export interface ImportIdentityPayload {
 
 export interface PersistedSlice {
   trades: Trade[]
+  liveStages?: PersistedSnapshot['liveStages']
+  currentLiveStageId?: PersistedSnapshot['currentLiveStageId']
+  scheduledStageRollover?: PersistedSnapshot['scheduledStageRollover']
   liveStatsStartTradingDayKey?: string | null
   livePerformanceCycles?: PersistedSnapshot['livePerformanceCycles']
   weeklyRiskPreparations?: WeeklyRiskPreparation[]

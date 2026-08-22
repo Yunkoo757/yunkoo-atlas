@@ -60,6 +60,43 @@ export function testSnapshotCodecNormalizesVersionsOneThroughEightToAllContractF
   }
 }
 
+export function testVersionElevenSnapshotMigratesToCanonicalStageOwnership(): void {
+  const legacy = structuredClone(createFullPersistedSnapshotFixture()) as unknown as Record<string, unknown>
+  delete legacy.liveStages
+  delete legacy.currentLiveStageId
+  delete legacy.scheduledStageRollover
+  legacy.livePerformanceCycles = [
+    { id: 'legacy-old', name: '旧阶段', startTradingDayKey: '2026-07-01', createdAt: '2026-07-01T00:00:00.000Z' },
+    { id: 'legacy-current', name: '当前阶段', startTradingDayKey: '2026-07-13', createdAt: '2026-07-13T00:00:00.000Z' },
+  ]
+  const decoded = decodeCanonicalSnapshot(legacy, {
+    version: 11,
+    stageMigration: {
+      now: '2026-08-22T00:00:00.000Z',
+      currentTradingDayKey: '2026-08-22',
+      idFactory: (sequence) => `codec-stage-${sequence}`,
+    },
+  })
+
+  assert(decoded.liveStages.length === 2, 'v11 codec 必须将旧周期迁移为阶段')
+  assert(decoded.currentLiveStageId === 'codec-stage-2', 'v11 codec 必须保留当前阶段指针')
+  assert(decoded.trades[0]?.tradeKind === 'live' && decoded.trades[0].liveStageId === 'codec-stage-2', 'v11 实盘交易必须按平仓日归属')
+  assert(decoded.weeklyReviews[0]?.liveStageId === 'codec-stage-2', 'v11 周复盘必须按 weekStart 归属')
+}
+
+export function testVersionTwelveCodecRequiresCanonicalStageFields(): void {
+  const fixture = structuredClone(createFullPersistedSnapshotFixture()) as unknown as Record<string, unknown>
+  for (const field of ['liveStages', 'currentLiveStageId', 'scheduledStageRollover']) {
+    const missing = { ...fixture }
+    delete missing[field]
+    assertThrowsMatching(
+      () => decodeCanonicalSnapshot(missing, { version: 12 }),
+      /stage|Stage|阶段/,
+      `v12 缺少 ${field} 必须拒绝`,
+    )
+  }
+}
+
 export function testVersionTenSnapshotWithoutPerformanceCyclesUsesEmptyBoundaries(): void {
   const fixture = createFullPersistedSnapshotFixture()
   const missing = { ...fixture }

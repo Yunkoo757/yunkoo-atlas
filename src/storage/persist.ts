@@ -9,35 +9,79 @@ import {
 import { getStorage } from '@/storage/provider'
 import type { CanonicalSnapshot } from '@/storage/snapshotCodec'
 import type { PersistedSnapshot } from '@/storage/types'
+import { getCurrentLiveStage } from '@/lib/liveStages'
+import { migrateLegacyStageSnapshot } from '@/lib/stageMigration'
+
+type PersistableState = Omit<
+  CanonicalSnapshot,
+  'shortcuts' | 'liveStages' | 'currentLiveStageId' | 'scheduledStageRollover'
+> & Partial<Pick<
+  CanonicalSnapshot,
+  'liveStages' | 'currentLiveStageId' | 'scheduledStageRollover'
+>>
 
 export function pickPersisted(
-  state: Omit<CanonicalSnapshot, 'shortcuts'>,
+  state: PersistableState,
   shortcutBindings?: Record<string, ShortcutBinding | null>,
 ): CanonicalSnapshot {
   const shortcuts = bindingsForPersist(shortcutBindings ?? {})
+  const latestCycle = state.livePerformanceCycles.at(-1)
+  const fallbackDay = latestCycle?.startTradingDayKey ?? state.liveStatsStartTradingDayKey ?? '1970-01-01'
+  const hasCanonicalStageState = Boolean(
+    state.liveStages && state.currentLiveStageId && state.scheduledStageRollover !== undefined,
+  )
+  const staged = hasCanonicalStageState
+    ? state as PersistableState & Required<Pick<
+        CanonicalSnapshot,
+        'liveStages' | 'currentLiveStageId' | 'scheduledStageRollover'
+      >>
+    : migrateLegacyStageSnapshot(state as unknown as Record<string, unknown>, {
+        now: latestCycle?.createdAt ?? `${fallbackDay}T00:00:00.000Z`,
+        currentTradingDayKey: fallbackDay,
+        idFactory: (sequence) => `legacy-live-stage-${sequence}`,
+      }) as CanonicalSnapshot
+  const currentStage = getCurrentLiveStage(staged.liveStages, staged.currentLiveStageId)
+  const compatibilityCycles = hasCanonicalStageState
+    ? [{
+        id: `legacy-stage-${currentStage.sequence}`,
+        name: currentStage.name,
+        startTradingDayKey: currentStage.startsOn,
+        createdAt: currentStage.createdAt,
+      }]
+    : state.livePerformanceCycles.map((cycle) => {
+        const stage = staged.liveStages.find((candidate) => candidate.startsOn === cycle.startTradingDayKey)
+        return stage
+          ? { ...cycle, startTradingDayKey: stage.startsOn, createdAt: stage.createdAt }
+          : { ...cycle }
+      })
   return {
-    trades: state.trades,
-    weeklyRiskPreparations: state.weeklyRiskPreparations,
-    riskPolicyVersions: state.riskPolicyVersions,
-    monthlyRiskLimits: state.monthlyRiskLimits,
-    riskOverrideEvents: state.riskOverrideEvents,
-    liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey ?? null,
-    livePerformanceCycles: state.livePerformanceCycles ?? [],
-    weeklyReviews: state.weeklyReviews,
-    quickNotes: state.quickNotes,
-    strategies: state.strategies,
-    starredIds: state.starredIds,
-    subscribedIds: state.subscribedIds,
-    pinnedStrategyIds: state.pinnedStrategyIds,
-    display: state.display,
+    trades: staged.trades,
+    liveStages: staged.liveStages.map((stage) => ({ ...stage })),
+    currentLiveStageId: currentStage.id,
+    scheduledStageRollover: staged.scheduledStageRollover
+      ? { ...staged.scheduledStageRollover }
+      : null,
+    weeklyRiskPreparations: staged.weeklyRiskPreparations,
+    riskPolicyVersions: staged.riskPolicyVersions,
+    monthlyRiskLimits: staged.monthlyRiskLimits,
+    riskOverrideEvents: staged.riskOverrideEvents,
+    liveStatsStartTradingDayKey: currentStage.startsOn,
+    livePerformanceCycles: compatibilityCycles,
+    weeklyReviews: staged.weeklyReviews,
+    quickNotes: staged.quickNotes,
+    strategies: staged.strategies,
+    starredIds: staged.starredIds,
+    subscribedIds: staged.subscribedIds,
+    pinnedStrategyIds: staged.pinnedStrategyIds,
+    display: staged.display,
     shortcuts,
-    tagPresets: state.tagPresets,
-    mistakeTagPresets: state.mistakeTagPresets,
-    profile: state.profile,
-    savedTradeViews: state.savedTradeViews,
-    symbolIcons: state.symbolIcons,
-    symbolCatalog: state.symbolCatalog,
-    reviewTemplates: state.reviewTemplates,
+    tagPresets: staged.tagPresets,
+    mistakeTagPresets: staged.mistakeTagPresets,
+    profile: staged.profile,
+    savedTradeViews: staged.savedTradeViews,
+    symbolIcons: staged.symbolIcons,
+    symbolCatalog: staged.symbolCatalog,
+    reviewTemplates: staged.reviewTemplates,
   }
 }
 

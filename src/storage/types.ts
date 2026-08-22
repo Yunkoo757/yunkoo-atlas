@@ -7,6 +7,7 @@ import type { WeeklyReview } from '@/data/weeklyReviews'
 import type { ReviewTemplate } from '@/data/reviewTemplates'
 import type { LivePerformanceCycle } from '@/lib/livePerformanceCycles'
 import type { QuickNote } from '@/data/quickNotes'
+import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
 import type {
   MonthlyRiskLimit,
   RiskOverrideEvent,
@@ -28,7 +29,7 @@ export type PersistedTrade = Trade & {
   importProvenance?: NotionTradeImportProvenance
 }
 
-export const SCHEMA_VERSION = 11
+export const SCHEMA_VERSION = 12
 
 export interface LibraryManifest {
   schemaVersion: number
@@ -60,6 +61,10 @@ export interface UserProfile {
 
 export interface PersistedSnapshot {
   trades: PersistedTrade[]
+  /** v12：实盘阶段是交易、复盘与风险数据归属的唯一持久化真相。 */
+  liveStages: LiveStage[]
+  currentLiveStageId: string
+  scheduledStageRollover: ScheduledStageRollover | null
   weeklyRiskPreparations: WeeklyRiskPreparation[]
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]

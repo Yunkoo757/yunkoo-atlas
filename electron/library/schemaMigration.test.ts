@@ -129,6 +129,82 @@ async function createV10LibraryFixture(): Promise<V8LibraryFixture> {
   return { path: root, originalDatabase: fs.readFileSync(dbFile), originalManifest: fs.readFileSync(manifestFile) }
 }
 
+function stripV12StageFields(snapshot: Record<string, unknown>): void {
+  delete snapshot.liveStages
+  delete snapshot.currentLiveStageId
+  delete snapshot.scheduledStageRollover
+  for (const trade of snapshot.trades as Array<Record<string, unknown>>) delete trade.liveStageId
+  for (const review of snapshot.weeklyReviews as Array<Record<string, unknown>>) delete review.liveStageId
+  for (const field of ['weeklyRiskPreparations', 'riskPolicyVersions', 'monthlyRiskLimits', 'riskOverrideEvents']) {
+    for (const entity of snapshot[field] as Array<Record<string, unknown>>) delete entity.liveStageId
+  }
+}
+
+async function createV11LibraryFixture(): Promise<V8LibraryFixture> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-schema-v11-'))
+  const storage = new LibraryStorage(root)
+  await storage.open()
+  storage.release()
+  const dbFile = path.join(root, 'journal.db')
+  const SQL = await sqlRuntime()
+  const db = new SQL.Database(fs.readFileSync(dbFile))
+  try {
+    const snapshot = createFullPersistedSnapshotFixture() as unknown as Record<string, unknown>
+    stripV12StageFields(snapshot)
+    db.run("INSERT INTO meta (key, value) VALUES ('snapshot', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(snapshot)])
+    db.run("INSERT INTO meta (key, value) VALUES ('schemaVersion', '11') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+    fs.writeFileSync(dbFile, Buffer.from(db.export()))
+  } finally {
+    db.close()
+  }
+  const manifestFile = path.join(root, 'manifest.json')
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8')) as Record<string, unknown>
+  manifest.schemaVersion = 11
+  fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2), 'utf8')
+  return { path: root, originalDatabase: fs.readFileSync(dbFile), originalManifest: fs.readFileSync(manifestFile) }
+}
+
+export async function testNormalV11OpenMigratesCanonicalStageOwnership(): Promise<void> {
+  const library = await createV11LibraryFixture()
+  try {
+    const storage = new LibraryStorage(library.path, { allowCreate: false })
+    await storage.open()
+    const migrated = storage.loadSnapshot()!
+    assert(storage.readManifest().schemaVersion === 12, 'v11 manifest 必须在数据库候选快照验证后升至 v12')
+    assert(migrated.liveStages.length >= 1, 'v11 快照必须生成实盘阶段')
+    assert(
+      migrated.trades[0]?.tradeKind === 'live' && migrated.trades[0].liveStageId !== undefined,
+      'v11 实盘交易必须获得显式阶段归属',
+    )
+    storage.release()
+  } finally { fs.rmSync(library.path, { recursive: true, force: true }) }
+}
+
+async function assertV11CrashBoundaryRecovers(boundary: Extract<CrashBoundary, 'after-database-replace' | 'after-manifest-replace'>): Promise<void> {
+  const library = await createV11LibraryFixture()
+  try {
+    await assertInjectedCrash(library, boundary)
+    const reopened = new LibraryStorage(library.path, { allowCreate: false })
+    await reopened.open()
+    const pair = await readAndDecodePair(library.path)
+    assert(pair.manifest.schemaVersion === 12, `${boundary} 恢复后必须完成 v12 文件对`)
+    assert(pair.decodedSchemaVersion === 12, `${boundary} 恢复后 journal.db 必须为 v12`)
+    assert(
+      pair.snapshot.trades[0]?.tradeKind === 'live' && pair.snapshot.trades[0].liveStageId !== undefined,
+      `${boundary} 恢复后不得丢失阶段归属`,
+    )
+    reopened.release()
+  } finally { fs.rmSync(library.path, { recursive: true, force: true }) }
+}
+
+export async function testV11MigrationRecoversAfterDatabaseReplacement(): Promise<void> {
+  await assertV11CrashBoundaryRecovers('after-database-replace')
+}
+
+export async function testV11MigrationRecoversAfterManifestReplacement(): Promise<void> {
+  await assertV11CrashBoundaryRecovers('after-manifest-replace')
+}
+
 export async function testNormalV10OpenAddsNullCurrencyAssumptionWithoutChangingTradeFacts(): Promise<void> {
   const library = await createV10LibraryFixture()
   try {

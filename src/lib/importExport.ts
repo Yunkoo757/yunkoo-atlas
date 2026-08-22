@@ -99,6 +99,7 @@ import {
 } from '@/lib/importLimits'
 import { OperationalError } from '@/lib/operationalError'
 import { cloneLivePerformanceCycles } from '@/lib/livePerformanceCycles'
+import { migrateLegacyStageSnapshot } from '@/lib/stageMigration'
 
 export const EXPORT_VERSION = SCHEMA_VERSION
 import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
@@ -121,6 +122,9 @@ interface ExportState extends PersistedSlice {
 
 interface PortableSnapshotState {
   trades: PersistedSnapshot['trades']
+  liveStages?: PersistedSnapshot['liveStages']
+  currentLiveStageId?: PersistedSnapshot['currentLiveStageId']
+  scheduledStageRollover?: PersistedSnapshot['scheduledStageRollover']
   liveStatsStartTradingDayKey?: PersistedSnapshot['liveStatsStartTradingDayKey']
   livePerformanceCycles?: PersistedSnapshot['livePerformanceCycles']
   weeklyRiskPreparations?: PersistedSnapshot['weeklyRiskPreparations']
@@ -134,12 +138,12 @@ interface PortableSnapshotState {
   subscribedIds: string[]
   pinnedStrategyIds: string[]
   display: PersistedSnapshot['display']
-  tagPresets: string[]
-  mistakeTagPresets: string[]
-  profile: PersistedSnapshot['profile']
-  savedTradeViews: PersistedSnapshot['savedTradeViews']
-  symbolIcons: PersistedSnapshot['symbolIcons']
-  symbolCatalog: PersistedSnapshot['symbolCatalog']
+  tagPresets?: string[]
+  mistakeTagPresets?: string[]
+  profile?: PersistedSnapshot['profile']
+  savedTradeViews?: PersistedSnapshot['savedTradeViews']
+  symbolIcons?: PersistedSnapshot['symbolIcons']
+  symbolCatalog?: PersistedSnapshot['symbolCatalog']
   reviewTemplates?: PersistedSnapshot['reviewTemplates']
 }
 
@@ -148,7 +152,7 @@ export function buildPortableSnapshotFromState(
   shortcutBindings: Parameters<typeof bindingsForPersist>[0],
 ): PersistedSnapshot {
   const shortcuts = bindingsForPersist(shortcutBindings)
-  return {
+  const candidate = {
     trades: state.trades,
     liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey ?? null,
     livePerformanceCycles: cloneLivePerformanceCycles(state.livePerformanceCycles),
@@ -172,6 +176,27 @@ export function buildPortableSnapshotFromState(
     reviewTemplates: normalizeReviewTemplates(state.reviewTemplates),
     shortcuts,
   }
+  if (
+    state.liveStages !== undefined &&
+    state.currentLiveStageId !== undefined &&
+    state.scheduledStageRollover !== undefined
+  ) {
+    return {
+      ...candidate,
+      liveStages: state.liveStages.map((stage) => ({ ...stage })),
+      currentLiveStageId: state.currentLiveStageId,
+      scheduledStageRollover: state.scheduledStageRollover
+        ? { ...state.scheduledStageRollover }
+        : null,
+    }
+  }
+  const latestCycle = candidate.livePerformanceCycles.at(-1)
+  const fallbackDay = latestCycle?.startTradingDayKey ?? candidate.liveStatsStartTradingDayKey ?? '1970-01-01'
+  return migrateLegacyStageSnapshot(candidate, {
+    now: latestCycle?.createdAt ?? `${fallbackDay}T00:00:00.000Z`,
+    currentTradingDayKey: fallbackDay,
+    idFactory: (sequence) => `legacy-live-stage-${sequence}`,
+  })
 }
 
 export type ImportResult =
@@ -301,30 +326,10 @@ export async function buildExportPayloadFromState(
 ): Promise<ExportPayload> {
   const assetIds = new Set(collectAssetIdsFromSnapshot(state))
   const assets = await loadReferencedAssetsForExport(assetIds, getAssetForExport)
+  const portable = buildPortableSnapshotFromState(state, state.shortcuts ?? {})
   return {
     version: EXPORT_VERSION,
-    trades: state.trades,
-    liveStatsStartTradingDayKey: state.liveStatsStartTradingDayKey ?? null,
-    livePerformanceCycles: cloneLivePerformanceCycles(state.livePerformanceCycles),
-    weeklyRiskPreparations: state.weeklyRiskPreparations ?? [],
-    riskPolicyVersions: state.riskPolicyVersions ?? [],
-    monthlyRiskLimits: state.monthlyRiskLimits ?? [],
-    riskOverrideEvents: state.riskOverrideEvents ?? [],
-    weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews),
-    quickNotes: normalizeQuickNotes(state.quickNotes),
-    strategies: state.strategies,
-    starredIds: state.starredIds,
-    subscribedIds: state.subscribedIds,
-    pinnedStrategyIds: state.pinnedStrategyIds,
-    display: state.display,
-    shortcuts: state.shortcuts ?? {},
-    tagPresets: state.tagPresets ?? [],
-    mistakeTagPresets: state.mistakeTagPresets ?? [],
-    profile: state.profile ?? createDefaultUserProfile(),
-    savedTradeViews: normalizeSavedTradeViews(state.savedTradeViews),
-    symbolIcons: normalizeSymbolIcons(state.symbolIcons),
-    symbolCatalog: normalizeSymbolCatalog(state.symbolCatalog),
-    reviewTemplates: normalizeReviewTemplates(state.reviewTemplates),
+    ...portable,
     assets,
   }
 }

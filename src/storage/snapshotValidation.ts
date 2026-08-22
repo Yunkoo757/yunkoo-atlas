@@ -5,6 +5,7 @@ import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
 import { closedTradingDayKeyFromClosedAt, toMoneyCents } from '@/lib/riskBudget'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 import { assertValidLivePerformanceCycles } from '@/lib/livePerformanceCycles'
+import { assertValidLiveStageState } from '@/lib/liveStages'
 
 const TRADE_SIDES = new Set(['long', 'short'])
 const TRADE_STATUSES = new Set(['planned', 'open', 'missed', 'win', 'loss', 'breakeven'])
@@ -462,6 +463,16 @@ function isWeeklyReview(value: unknown): boolean {
   )
 }
 
+function isScheduledStageRollover(value: unknown): boolean {
+  return value === null || (
+    isRecord(value) &&
+    isNonEmptyString(value.id) &&
+    isCanonicalIsoInstant(value.requestedAt) &&
+    isCanonicalDate(value.effectiveWeekStart) &&
+    Number.isInteger(value.postponedCount) && Number(value.postponedCount) >= 0
+  )
+}
+
 function isQuickNote(value: unknown): boolean {
   return isRecord(value) &&
     typeof value.id === 'string' && Boolean(value.id.trim()) &&
@@ -640,12 +651,71 @@ function assertValidRiskEntities(value: Record<string, unknown>, label: string):
   }
 }
 
+function assertRequiredKnownStageId(
+  value: unknown,
+  ids: ReadonlySet<string>,
+  message: string,
+): void {
+  if (typeof value !== 'string' || !ids.has(value)) throw new Error(message)
+}
+
+function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void {
+  const ids = new Set(snapshot.liveStages.map((stage) => stage.id))
+  for (const trade of snapshot.trades) {
+    if (trade.tradeKind === 'paper') {
+      if (Object.prototype.hasOwnProperty.call(trade, 'liveStageId')) {
+        throw new Error(`${label}.trades paper records must not contain liveStageId`)
+      }
+      continue
+    }
+    if (trade.tradeKind !== 'live' && trade.tradeKind !== 'case') continue
+    if (trade.liveStageId !== null && !ids.has(trade.liveStageId ?? '')) {
+      throw new Error(`${label}.trades contains an unknown liveStageId`)
+    }
+  }
+  for (const review of snapshot.weeklyReviews ?? []) {
+    assertRequiredKnownStageId(
+      review.liveStageId,
+      ids,
+      `${label}.weeklyReviews contains an unknown liveStageId`,
+    )
+    for (const policy of review.riskSnapshot?.policyVersions ?? []) {
+      assertRequiredKnownStageId(policy.liveStageId, ids, `${label}.weeklyReviews contains an unknown risk liveStageId`)
+    }
+    for (const event of review.riskSnapshot?.overrideEvents ?? []) {
+      assertRequiredKnownStageId(event.liveStageId, ids, `${label}.weeklyReviews contains an unknown risk liveStageId`)
+    }
+  }
+  for (const field of [
+    'weeklyRiskPreparations',
+    'riskPolicyVersions',
+    'monthlyRiskLimits',
+    'riskOverrideEvents',
+  ] as const) {
+    for (const entity of snapshot[field]) {
+      assertRequiredKnownStageId(
+        entity.liveStageId,
+        ids,
+        `${label}.${field} contains an unknown liveStageId`,
+      )
+    }
+  }
+}
+
 export function assertValidPersistedSnapshot(
   value: unknown,
   label = 'snapshot',
 ): asserts value is PersistedSnapshot {
   if (!isRecord(value) || !Array.isArray(value.trades) || !Array.isArray(value.strategies)) {
     throw new Error(`${label} is missing trades or strategies`)
+  }
+  try {
+    assertValidLiveStageState(value)
+  } catch (error) {
+    throw new Error(`${label}.liveStages ${error instanceof Error ? error.message : '无效'}`)
+  }
+  if (!Object.prototype.hasOwnProperty.call(value, 'scheduledStageRollover') || !isScheduledStageRollover(value.scheduledStageRollover)) {
+    throw new Error(`${label}.scheduledStageRollover is invalid`)
   }
   if (!value.trades.every(isValidPersistedTrade)) throw new Error(`${label} contains an invalid trade`)
   if (!value.strategies.every(isStrategy)) throw new Error(`${label} contains an invalid strategy`)
@@ -708,4 +778,5 @@ export function assertValidPersistedSnapshot(
       throw new Error(`${label}.${field} must be a string array`)
     }
   }
+  assertStageOwnership(value as unknown as PersistedSnapshot, label)
 }

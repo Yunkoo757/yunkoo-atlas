@@ -14,6 +14,7 @@ import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { normalizeTradingDayStartHour } from '@/lib/periods'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 import { cloneLivePerformanceCycles } from '@/lib/livePerformanceCycles'
+import { migrateLegacyStageSnapshot, type LegacyStageMigrationOptions } from '@/lib/stageMigration'
 import { migrateShortcutBindings } from '@/shortcuts/migrate'
 import type { ActivePersistedSnapshotKey } from '@/storage/persistedKeys'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
@@ -26,6 +27,7 @@ export type CanonicalSnapshot = {
 export interface SnapshotDecodeOptions {
   version: number
   label?: string
+  stageMigration?: LegacyStageMigrationOptions
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -154,6 +156,26 @@ function decodeProfile(raw: Record<string, unknown>, version: number): unknown {
   return value
 }
 
+function defaultStageMigrationOptions(raw: Record<string, unknown>): LegacyStageMigrationOptions {
+  const cycles = Array.isArray(raw.livePerformanceCycles)
+    ? raw.livePerformanceCycles.filter(isRecord)
+    : []
+  const latest = cycles.at(-1)
+  const currentTradingDayKey = isValidLiveCycleDayKey(latest?.startTradingDayKey)
+    ? latest.startTradingDayKey
+    : isValidLiveCycleDayKey(raw.liveStatsStartTradingDayKey)
+      ? raw.liveStatsStartTradingDayKey
+      : '1970-01-01'
+  const now = typeof latest?.createdAt === 'string' && !Number.isNaN(Date.parse(latest.createdAt))
+    ? new Date(latest.createdAt).toISOString()
+    : `${currentTradingDayKey}T00:00:00.000Z`
+  return {
+    now,
+    currentTradingDayKey,
+    idFactory: (sequence) => `legacy-live-stage-${sequence}`,
+  }
+}
+
 function backfillClosedTradingDayKeys(
   value: unknown,
   tradingDayStartHour: unknown,
@@ -203,6 +225,9 @@ export function decodeCanonicalSnapshot(
     : raw.trades
   const candidate: PersistedSnapshot = {
     trades: (versionedTrades === undefined ? [] : versionedTrades) as PersistedSnapshot['trades'],
+    liveStages: raw.liveStages as PersistedSnapshot['liveStages'],
+    currentLiveStageId: raw.currentLiveStageId as PersistedSnapshot['currentLiveStageId'],
+    scheduledStageRollover: raw.scheduledStageRollover as PersistedSnapshot['scheduledStageRollover'],
     weeklyRiskPreparations: decodeVersionedArray(raw, 'weeklyRiskPreparations', options.version) as PersistedSnapshot['weeklyRiskPreparations'],
     riskPolicyVersions: decodeVersionedArray(raw, 'riskPolicyVersions', options.version) as PersistedSnapshot['riskPolicyVersions'],
     monthlyRiskLimits: decodeVersionedArray(raw, 'monthlyRiskLimits', options.version) as PersistedSnapshot['monthlyRiskLimits'],
@@ -225,11 +250,17 @@ export function decodeCanonicalSnapshot(
     symbolCatalog: raw.symbolCatalog as PersistedSnapshot['symbolCatalog'],
     reviewTemplates: raw.reviewTemplates as PersistedSnapshot['reviewTemplates'],
   }
-  assertSnapshotContract(candidate, options.label ?? 'snapshot')
+  const stagedCandidate = options.version <= 11
+    ? migrateLegacyStageSnapshot(
+        candidate as unknown as Record<string, unknown>,
+        options.stageMigration ?? defaultStageMigrationOptions(raw),
+      )
+    : candidate
+  assertSnapshotContract(stagedCandidate, options.label ?? 'snapshot')
 
   const normalizedRelations = normalizeTradeStrategyReferences(
-    candidate.trades,
-    strategiesWereMissing ? undefined : candidate.strategies,
+    stagedCandidate.trades,
+    strategiesWereMissing ? undefined : stagedCandidate.strategies,
   )
   const trades = normalizeTrades(normalizedRelations.trades)
   const symbolIcons = normalizeSymbolIcons(candidate.symbolIcons)
@@ -239,13 +270,18 @@ export function decodeCanonicalSnapshot(
 
   const normalized: CanonicalSnapshot = {
     trades,
-    weeklyRiskPreparations: candidate.weeklyRiskPreparations.map((item) => ({
+    liveStages: stagedCandidate.liveStages.map((stage) => ({ ...stage })),
+    currentLiveStageId: stagedCandidate.currentLiveStageId,
+    scheduledStageRollover: stagedCandidate.scheduledStageRollover
+      ? { ...stagedCandidate.scheduledStageRollover }
+      : null,
+    weeklyRiskPreparations: stagedCandidate.weeklyRiskPreparations.map((item) => ({
       ...item,
       draft: { ...item.draft },
     })),
-    riskPolicyVersions: candidate.riskPolicyVersions.map((item) => ({ ...item })),
-    monthlyRiskLimits: candidate.monthlyRiskLimits.map((item) => ({ ...item })),
-    riskOverrideEvents: candidate.riskOverrideEvents.map((item) => ({
+    riskPolicyVersions: stagedCandidate.riskPolicyVersions.map((item) => ({ ...item })),
+    monthlyRiskLimits: stagedCandidate.monthlyRiskLimits.map((item) => ({ ...item })),
+    riskOverrideEvents: stagedCandidate.riskOverrideEvents.map((item) => ({
       ...item,
       tradeIdentityAtDecision: { ...item.tradeIdentityAtDecision },
       outcomesAtDecision: {
@@ -255,30 +291,30 @@ export function decodeCanonicalSnapshot(
       },
       unknownReasons: [...item.unknownReasons],
     })),
-    liveStatsStartTradingDayKey: candidate.liveStatsStartTradingDayKey ?? null,
-    livePerformanceCycles: cloneLivePerformanceCycles(candidate.livePerformanceCycles),
-    weeklyReviews: normalizeWeeklyReviews(candidate.weeklyReviews),
-    quickNotes: normalizeQuickNotes(candidate.quickNotes),
+    liveStatsStartTradingDayKey: stagedCandidate.liveStatsStartTradingDayKey ?? null,
+    livePerformanceCycles: cloneLivePerformanceCycles(stagedCandidate.livePerformanceCycles),
+    weeklyReviews: normalizeWeeklyReviews(stagedCandidate.weeklyReviews),
+    quickNotes: normalizeQuickNotes(stagedCandidate.quickNotes),
     strategies: normalizedRelations.strategies,
-    starredIds: [...candidate.starredIds],
-    subscribedIds: [...candidate.subscribedIds],
-    pinnedStrategyIds: [...candidate.pinnedStrategyIds],
-    display: normalizeDisplay(candidate.display),
-    shortcuts: migrateShortcutBindings(candidate.shortcuts),
-    tagPresets: mergeTagPresets(candidate.tagPresets),
-    mistakeTagPresets: mergeTagPresets(candidate.mistakeTagPresets),
-    profile: candidate.profile
+    starredIds: [...stagedCandidate.starredIds],
+    subscribedIds: [...stagedCandidate.subscribedIds],
+    pinnedStrategyIds: [...stagedCandidate.pinnedStrategyIds],
+    display: normalizeDisplay(stagedCandidate.display),
+    shortcuts: migrateShortcutBindings(stagedCandidate.shortcuts),
+    tagPresets: mergeTagPresets(stagedCandidate.tagPresets),
+    mistakeTagPresets: mergeTagPresets(stagedCandidate.mistakeTagPresets),
+    profile: stagedCandidate.profile
       ? {
-          ...candidate.profile,
-          legacyCashCurrencyAssumption: candidate.profile.legacyCashCurrencyAssumption
-            ? { ...candidate.profile.legacyCashCurrencyAssumption }
+          ...stagedCandidate.profile,
+          legacyCashCurrencyAssumption: stagedCandidate.profile.legacyCashCurrencyAssumption
+            ? { ...stagedCandidate.profile.legacyCashCurrencyAssumption }
             : null,
         }
       : createDefaultUserProfile(),
-    savedTradeViews: normalizeSavedTradeViews(candidate.savedTradeViews),
+    savedTradeViews: normalizeSavedTradeViews(stagedCandidate.savedTradeViews),
     symbolIcons,
     symbolCatalog: normalizeSymbolCatalog(symbolCatalogSource),
-    reviewTemplates: normalizeReviewTemplates(candidate.reviewTemplates),
+    reviewTemplates: normalizeReviewTemplates(stagedCandidate.reviewTemplates),
   }
   assertSnapshotContract(normalized, options.label ?? 'snapshot')
   return normalized

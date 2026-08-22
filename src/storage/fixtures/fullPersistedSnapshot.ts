@@ -62,6 +62,7 @@ export function createFullPersistedSnapshotFixture(
       reviewedAt: '2026-07-18T07:00:00.000Z',
       reviewCategory: 'focus',
       tradeKind: 'live',
+      liveStageId: 'live-stage-contract',
       entry: 101,
       exit: 97,
       stopLoss: 103,
@@ -78,6 +79,7 @@ export function createFullPersistedSnapshotFixture(
     }]),
     weeklyRiskPreparations: [{
       id: 'weekly-risk-preparation:2026-07-13',
+      liveStageId: 'live-stage-contract',
       weekStart: '2026-07-13',
       draft: {
         capitalBase: 12345.67,
@@ -95,6 +97,7 @@ export function createFullPersistedSnapshotFixture(
     }],
     riskPolicyVersions: [{
       id: 'risk-policy-contract',
+      liveStageId: 'live-stage-contract',
       sourceWeekStart: '2026-07-13',
       effectiveTradingDay: '2026-07-13',
       capitalBase: 12345.67,
@@ -108,6 +111,7 @@ export function createFullPersistedSnapshotFixture(
     }],
     monthlyRiskLimits: [{
       id: 'monthly-risk-limit:2026-07',
+      liveStageId: 'live-stage-contract',
       monthKey: '2026-07',
       limitR: 9.5,
       sourcePolicyVersionId: 'risk-policy-contract',
@@ -115,6 +119,7 @@ export function createFullPersistedSnapshotFixture(
     }],
     riskOverrideEvents: [{
       id: 'risk-override-contract',
+      liveStageId: 'live-stage-contract',
       tradeId: 'trade-contract',
       tradeIdentityAtDecision: {
         ref: 'TRD-CONTRACT',
@@ -177,6 +182,7 @@ export function createFullPersistedSnapshotFixture(
     }],
     weeklyReviews: [{
       ...weeklyReview,
+      liveStageId: 'live-stage-contract',
       status: 'completed',
       executionScore: 4,
       riskScore: 3,
@@ -257,5 +263,17 @@ export function createFullPersistedSnapshotFixture(
       name: '模板哨兵',
       content: 'HTF 合同哨兵',
     }],
+    liveStages: [{
+      id: 'live-stage-contract',
+      sequence: 1,
+      name: '合同实盘阶段',
+      status: 'current',
+      startsOn: '2026-07-13',
+      endsOn: null,
+      createdAt: '2026-07-13T00:00:00.000Z',
+      archivedAt: null,
+    }],
+    currentLiveStageId: 'live-stage-contract',
+    scheduledStageRollover: null,
   }
 }
