@@ -7,22 +7,23 @@ function snapshotRevision(snapshot: unknown): string {
   return createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')
 }
 
-function snapshot(label: string, noteBytes = 0) {
+export function createForcedKillSnapshot(label: string, noteBytes = 0) {
   const value = createFullPersistedSnapshotFixture()
   const archivedStage = {
     ...value.liveStages[0]!,
+    startsOn: '2026-07-06',
     status: 'archived' as const,
-    endsOn: '2026-07-13',
-    archivedAt: '2026-07-14T00:00:00.000Z',
+    endsOn: '2026-07-12',
+    archivedAt: '2026-07-13T00:00:00.000Z',
   }
   const currentStage = {
     id: 'live-stage-current-contract',
     sequence: 2,
     name: '当前强杀验证阶段',
     status: 'current' as const,
-    startsOn: '2026-07-14',
+    startsOn: '2026-07-13',
     endsOn: null,
-    createdAt: '2026-07-14T00:00:00.000Z',
+    createdAt: '2026-07-13T00:00:00.000Z',
     archivedAt: null,
   }
   value.liveStages = [archivedStage, currentStage]
@@ -45,12 +46,32 @@ function snapshot(label: string, noteBytes = 0) {
       ...value.trades[0],
       id: 'trade-archive-contract',
       ref: 'TRD-ARCHIVE-CONTRACT',
-      openedAt: '2026-07-12T08:00:00.000Z',
-      closedAt: '2026-07-13T08:00:00.000Z',
-      closedTradingDayKey: '2026-07-13',
+      openedAt: '2026-07-11T08:00:00.000Z',
+      closedAt: '2026-07-12T08:00:00.000Z',
+      closedTradingDayKey: '2026-07-12',
       liveStageId: archivedStage.id,
     },
   ]
+  value.weeklyRiskPreparations = value.weeklyRiskPreparations.map((entity) => ({
+    ...entity,
+    liveStageId: currentStage.id,
+  }))
+  value.riskPolicyVersions = value.riskPolicyVersions.map((entity) => ({
+    ...entity,
+    liveStageId: currentStage.id,
+  }))
+  value.monthlyRiskLimits = value.monthlyRiskLimits.map((entity) => ({
+    ...entity,
+    liveStageId: currentStage.id,
+  }))
+  value.riskOverrideEvents = value.riskOverrideEvents.map((entity) => ({
+    ...entity,
+    liveStageId: currentStage.id,
+  }))
+  value.weeklyReviews = value.weeklyReviews?.map((review) => ({
+    ...review,
+    liveStageId: currentStage.id,
+  }))
   return value
 }
 
@@ -81,7 +102,7 @@ export async function runElectronForcedKillMode(mode: string, libraryRoot: strin
   await storage.open()
 
   if (mode === 'seed') {
-    const confirmed = snapshot('confirmed-revision-1')
+    const confirmed = createForcedKillSnapshot('confirmed-revision-1')
     storage.saveSnapshot(confirmed)
     const confirmedStored = storage.loadSnapshot()
     if (!confirmedStored) {
@@ -99,7 +120,7 @@ export async function runElectronForcedKillMode(mode: string, libraryRoot: strin
   }
 
   if (mode === 'crash-save') {
-    const pending = snapshot('unconfirmed-revision-2', 128 * 1024 * 1024)
+    const pending = createForcedKillSnapshot('unconfirmed-revision-2', 128 * 1024 * 1024)
     send({ type: 'save-starting', pending: 'unconfirmed-revision-2' })
     await new Promise<void>((resolve) => setImmediate(resolve))
     storage.saveSnapshot(pending)
