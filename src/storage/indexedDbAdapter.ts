@@ -76,7 +76,10 @@ async function assertValidPersistedSnapshotCooperatively(
     tradeIds.add(trade.id)
   }
 
-  assertValidPersistedSnapshot({ ...snapshot, trades: [] }, label)
+  // Keep the complete graph for cross-entity ownership validation. Individual
+  // trades were already checked cooperatively above; the synchronous pass is
+  // intentionally repeated so references can resolve against their targets.
+  assertValidPersistedSnapshot(snapshot, label)
 }
 
 async function collectAssetIdsFromSnapshotCooperatively(

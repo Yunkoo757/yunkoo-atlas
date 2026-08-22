@@ -91,22 +91,43 @@ interface Harness {
 
 function createHarness(
   current: PersistedSnapshot | null = eligibleSnapshot(),
-  failures: Partial<Record<'reload' | 'backup' | 'verify-throw' | 'verify-invalid' | 'validate' | 'save', true>> = {},
+  failures: Partial<Record<
+    | 'reload'
+    | 'backup'
+    | 'verify-throw'
+    | 'verify-invalid'
+    | 'validate'
+    | 'save'
+    | 'save-committed-after-error'
+    | 'save-indeterminate',
+    true
+  >> = {},
 ): Harness {
   const events: string[] = []
   const saved: PersistedSnapshot[] = []
   const errors: string[] = []
   const backupSnapshots: PersistedSnapshot[] = []
+  let durableCurrent = current
   const storage: StageRolloverCommitStorage = {
     loadSnapshot: () => {
       events.push('reload')
       if (failures.reload) throw new Error('D:\\private\\journal.db')
-      return current ? structuredClone(current) : null
+      return durableCurrent ? structuredClone(durableCurrent) : null
     },
     saveSnapshot: (candidate) => {
       events.push('save')
       if (failures.save) throw new Error('D:\\private\\journal.db')
+      if (failures['save-indeterminate']) {
+        throw Object.assign(new Error('private recovery detail'), {
+          name: 'SnapshotSaveError',
+          outcome: 'indeterminate' as const,
+        })
+      }
       saved.push(structuredClone(candidate))
+      if (failures['save-committed-after-error']) {
+        durableCurrent = structuredClone(candidate)
+        return { kind: 'committed-after-write-error' as const }
+      }
     },
   }
   const deps: StageRolloverCommitDependencies = {
@@ -277,6 +298,30 @@ export async function testEveryDurabilityFailureIsNonSuccessAndNeverCommits(): P
     assert(harness.saved.length === 0, `${testCase.reason} must not commit a candidate`)
     assert(!result.message.includes('private') && !result.message.includes('\\'), 'failure result must not leak a path')
   }
+}
+
+export async function testCommittedAfterRenameReloadsAuthoritativeCandidateBeforeSuccess(): Promise<void> {
+  const harness = createHarness(eligibleSnapshot(), { 'save-committed-after-error': true })
+  const result = await commitDueStageRollover(commitInput(), harness.deps)
+  assert(result.ok, 'rename 后已观察到候选字节时必须协调为成功，而不是通用写入失败')
+  assert(
+    harness.events.filter((event) => event === 'reload').length === 3,
+    '原子写异常但候选已提交时，主进程必须额外 reload 一次权威磁盘快照',
+  )
+  assert(
+    result.publish.currentLiveStageId === harness.saved[0]?.currentLiveStageId,
+    '发布状态必须来自异常后的权威 reload 候选',
+  )
+}
+
+export async function testIndeterminateSnapshotWriteReturnsTypedRecoveryState(): Promise<void> {
+  const harness = createHarness(eligibleSnapshot(), { 'save-indeterminate': true })
+  const result = await commitDueStageRollover(commitInput(), harness.deps)
+  assert(
+    !result.ok && result.reason === 'recovery-required',
+    '无法对应候选或旧字节的写入结果必须返回 typed recovery-required',
+  )
+  assert(!result.message.includes('private'), '恢复提示不得泄漏底层路径或异常细节')
 }
 
 export async function testSuccessfulCommitOrderAndAuthoritativePublishState(): Promise<void> {

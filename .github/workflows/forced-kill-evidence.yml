@@ -13,6 +13,7 @@ on:
       - 'electron/library/assetGc.test.ts'
       - 'electron/library/assetInventory.test.ts'
       - 'electron/platformSafety.test.ts'
+      - 'scripts/bundle-build-identity.mjs'
       - 'scripts/run-forced-kill-evidence.mjs'
       - 'scripts/run-asset-lifecycle-platform.mjs'
       - 'scripts/run-electron-safety-platform.mjs'
@@ -38,10 +39,8 @@ jobs:
         include:
           - runner: macos-26
             arch: arm64
-            executable: release/mac-arm64/Trader Atlas.app/Contents/MacOS/Trader Atlas
           - runner: macos-26-intel
             arch: x64
-            executable: release/mac/Trader Atlas.app/Contents/MacOS/Trader Atlas
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     env:
@@ -82,18 +81,33 @@ jobs:
       - name: Package native macOS artifact
         run: pnpm exec electron-builder --mac zip --${{ matrix.arch }} --publish never
 
+      - name: Extract exact macOS artifact for packaged visual evidence
+        run: |
+          version=$(node -p "require('./package.json').version")
+          artifact="$PWD/release/Trader-Atlas-$version-mac-${{ matrix.arch }}.zip"
+          payload="$RUNNER_TEMP/trader-atlas-packaged-visual-${{ matrix.arch }}"
+          mkdir -p "$payload"
+          ditto -x -k "$artifact" "$payload"
+          echo "ATLAS_PACKAGED_ARTIFACT=$artifact" >> "$GITHUB_ENV"
+          echo "ATLAS_PACKAGED_EXECUTABLE=$payload/Trader Atlas.app/Contents/MacOS/Trader Atlas" >> "$GITHUB_ENV"
+          echo "ATLAS_PACKAGED_PAYLOAD_ROOT=$payload" >> "$GITHUB_ENV"
+
       - name: Run packaged visual and lifecycle evidence
         env:
-          ATLAS_PACKAGED_EXECUTABLE: ${{ matrix.executable }}
+          ATLAS_PACKAGED_SCALE_FACTOR: '2'
         run: pnpm qa:desktop-visual:packaged
+
+      - name: Remove extracted macOS visual payload
+        if: always()
+        run: rm -rf "$ATLAS_PACKAGED_PAYLOAD_ROOT"
 
       - name: Upload macOS packaged visual evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: desktop-visual-macOS-${{ matrix.arch }}-attempt-${{ github.run_attempt }}
-          path: test-results/desktop-visual-packaged/darwin-${{ matrix.arch }}/
-          if-no-files-found: warn
+          path: test-results/desktop-visual-packaged/darwin-${{ matrix.arch }}-scale-200/
+          if-no-files-found: error
           retention-days: 30
 
   platform-evidence:

@@ -24,7 +24,10 @@ export type ReviewStageContext = {
 
 export type ReviewSessionFilters = {
   includeCases: boolean
-  includeAccountTrades: boolean
+  includeLiveTrades: boolean
+  includePaperTrades: boolean
+  /** @deprecated 仅供旧调用方编译兼容；v3 不再持久化。 */
+  includeAccountTrades?: boolean
   caseScope: ReviewCaseScope
   requireContent: boolean
   reviewTiming: ReviewTiming
@@ -119,6 +122,8 @@ const REVIEW_SESSION_SCOPES: ReviewCaseScope[] = [
 
 export const DEFAULT_REVIEW_SESSION_FILTERS: ReviewSessionFilters = {
   includeCases: true,
+  includeLiveTrades: true,
+  includePaperTrades: false,
   includeAccountTrades: false,
   caseScope: 'all',
   requireContent: false,
@@ -212,7 +217,10 @@ export function buildReviewSessionPool(
       if (trade.masteryState === 'mastered') return false
       return isReviewCaseDue(trade.nextReviewAt, currentTradingDayKey, tradingDayStartHour)
     }
-    if (!filters.includeAccountTrades || (trade.tradeKind !== 'live' && trade.tradeKind !== 'paper')) return false
+    const includeLegacyAccounts = filters.includeAccountTrades === true
+    if (trade.tradeKind === 'live' && !filters.includeLiveTrades && !includeLegacyAccounts) return false
+    if (trade.tradeKind === 'paper' && !filters.includePaperTrades && !includeLegacyAccounts) return false
+    if (trade.tradeKind !== 'live' && trade.tradeKind !== 'paper') return false
     const executionState = resolveTradeTruth(trade).executionState
     return (
       (executionState === 'closed' || executionState === 'missed') &&
@@ -328,7 +336,15 @@ export function reconcileReviewSession(
 }
 
 export function reviewSessionStorageKey(libraryId: string): string {
-  return `yunkoo-atlas:review-session:v2:${encodeURIComponent(libraryId)}`
+  return `yunkoo-atlas:review-session:v3:${encodeURIComponent(libraryId)}`
+}
+
+function legacyReviewSessionStorageKeys(libraryId: string): string[] {
+  const encoded = encodeURIComponent(libraryId)
+  return [
+    `yunkoo-atlas:review-session:v2:${encoded}`,
+    `yunkoo-atlas:review-session:v1:${encoded}`,
+  ]
 }
 
 function browserSessionStorage(): ReviewSessionStorage | null {
@@ -351,7 +367,8 @@ export function saveReviewSession(
       cursor: snapshot.cursor,
       filters: {
         includeCases: snapshot.filters.includeCases,
-        includeAccountTrades: snapshot.filters.includeAccountTrades,
+        includeLiveTrades: snapshot.filters.includeLiveTrades,
+        includePaperTrades: snapshot.filters.includePaperTrades,
         caseScope: snapshot.filters.caseScope,
         requireContent: snapshot.filters.requireContent,
         ...(snapshot.restoredLegacyReviewTiming
@@ -374,23 +391,33 @@ export function loadReviewSession(
   if (!storage || !libraryId) return null
   const key = reviewSessionStorageKey(libraryId)
   try {
-    const raw = storage.getItem(key)
+    const sourceKey = [key, ...legacyReviewSessionStorageKeys(libraryId)]
+      .find((candidate) => storage.getItem(candidate) !== null)
+    if (!sourceKey) return null
+    const raw = storage.getItem(sourceKey)
     if (!raw) return null
     const value = JSON.parse(raw) as unknown
-    if (!isReviewSessionSnapshot(value)) {
-      try { storage.removeItem(key) } catch { /* storage may be read-only */ }
+    const normalized = normalizeStoredReviewSession(value)
+    if (!normalized) {
+      try { storage.removeItem(sourceKey) } catch { /* storage may be read-only */ }
       return null
     }
-    const restoredLegacyReviewTiming = value.filters.reviewTiming === undefined
-    return {
-      ...value,
+    const restoredLegacyReviewTiming = normalized.filters.reviewTiming === undefined
+    const restored: ReviewSessionSnapshot = {
+      ...normalized,
       filters: {
-        ...value.filters,
-        reviewTiming: value.filters.reviewTiming ?? 'all',
-        stageSource: value.filters.stageSource ?? 'current-and-history',
+        ...normalized.filters,
+        reviewTiming: normalized.filters.reviewTiming ?? 'all',
+        stageSource: normalized.filters.stageSource ?? 'current-and-history',
       },
       ...(restoredLegacyReviewTiming ? { restoredLegacyReviewTiming: true } : {}),
     }
+    if (sourceKey !== key && saveReviewSession(libraryId, restored, storage)) {
+      for (const legacyKey of legacyReviewSessionStorageKeys(libraryId)) {
+        try { storage.removeItem(legacyKey) } catch { /* v3 已先写入，旧键清理可重试 */ }
+      }
+    }
+    return restored
   } catch {
     try { storage.removeItem(key) } catch { /* storage may be unavailable */ }
     return null
@@ -404,6 +431,7 @@ export function clearReviewSessionStorage(
   if (!storage || !libraryId) return false
   try {
     storage.removeItem(reviewSessionStorageKey(libraryId))
+    for (const key of legacyReviewSessionStorageKeys(libraryId)) storage.removeItem(key)
     return true
   } catch {
     return false
@@ -430,6 +458,26 @@ function isReviewSessionSnapshot(value: unknown): value is StoredReviewSessionSn
   return new Set(snapshot.ids).size === snapshot.ids.length
 }
 
+function normalizeStoredReviewSession(value: unknown): StoredReviewSessionSnapshot | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const snapshot = value as { filters?: Record<string, unknown> }
+  const filters = snapshot.filters
+  if (!filters || typeof filters !== 'object' || Array.isArray(filters)) return null
+  if (
+    typeof filters.includeLiveTrades !== 'boolean' ||
+    typeof filters.includePaperTrades !== 'boolean'
+  ) {
+    if (typeof filters.includeAccountTrades !== 'boolean') return null
+    const legacyAccounts = filters.includeAccountTrades
+    snapshot.filters = {
+      ...filters,
+      includeLiveTrades: legacyAccounts,
+      includePaperTrades: legacyAccounts,
+    }
+  }
+  return isReviewSessionSnapshot(value) ? value : null
+}
+
 function isReviewSessionAssessments(
   value: unknown,
 ): value is Partial<Record<string, ReviewSessionAssessment>> {
@@ -443,7 +491,8 @@ function isReviewSessionFilters(value: unknown): value is StoredReviewSessionFil
   const filters = value as Partial<ReviewSessionFilters>
   return (
     typeof filters.includeCases === 'boolean' &&
-    typeof filters.includeAccountTrades === 'boolean' &&
+    typeof filters.includeLiveTrades === 'boolean' &&
+    typeof filters.includePaperTrades === 'boolean' &&
     typeof filters.requireContent === 'boolean' &&
     (filters.reviewTiming === undefined || filters.reviewTiming === 'due' || filters.reviewTiming === 'all') &&
     (filters.stageSource === undefined || isReviewStageSource(filters.stageSource)) &&

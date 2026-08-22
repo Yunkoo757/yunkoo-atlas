@@ -129,7 +129,8 @@ function reviewStageSourceLabel(stageSource: ReviewStageSource): string {
 function haveSameReviewFilters(left: ReviewSessionFilters, right: ReviewSessionFilters): boolean {
   if (
     left.includeCases !== right.includeCases ||
-    left.includeAccountTrades !== right.includeAccountTrades ||
+    left.includeLiveTrades !== right.includeLiveTrades ||
+    left.includePaperTrades !== right.includePaperTrades ||
     left.caseScope !== right.caseScope ||
     left.requireContent !== right.requireContent ||
     left.reviewTiming !== right.reviewTiming
@@ -690,7 +691,8 @@ function ReviewSessionStart({
 }) {
   const usesDefaultFilters = (
     filters.includeCases === DEFAULT_REVIEW_SESSION_FILTERS.includeCases &&
-    filters.includeAccountTrades === DEFAULT_REVIEW_SESSION_FILTERS.includeAccountTrades &&
+    filters.includeLiveTrades === DEFAULT_REVIEW_SESSION_FILTERS.includeLiveTrades &&
+    filters.includePaperTrades === DEFAULT_REVIEW_SESSION_FILTERS.includePaperTrades &&
     filters.caseScope === DEFAULT_REVIEW_SESSION_FILTERS.caseScope &&
     filters.requireContent === DEFAULT_REVIEW_SESSION_FILTERS.requireContent &&
     filters.reviewTiming === DEFAULT_REVIEW_SESSION_FILTERS.reviewTiming &&
@@ -700,7 +702,7 @@ function ReviewSessionStart({
   const emptyMessage = hasEmptyStageSelection
     ? '尚未选择实盘阶段'
     : usesDefaultFilters
-    ? '还没有可复盘的案例，请先创建案例'
+    ? '还没有可复盘的案例或实盘交易'
     : '当前复盘设置下没有可复盘内容，请调整复盘设置'
   const emptyHint = '你可以在复盘设置中调整随机范围。'
 
@@ -757,7 +759,7 @@ function ReviewSessionSettingsModal({
   onClose: () => void
 }) {
   const patchFilters = (patch: Partial<ReviewSessionFilters>) => onChange({ ...filters, ...patch })
-  const noSources = !filters.includeCases && !filters.includeAccountTrades
+  const noSources = !filters.includeCases && !filters.includeLiveTrades && !filters.includePaperTrades
   const orderedStages = [...liveStages]
     .sort((left, right) => left.sequence - right.sequence || left.id.localeCompare(right.id))
   const selectedStageIds = typeof filters.stageSource === 'object'
@@ -855,14 +857,23 @@ function ReviewSessionSettingsModal({
           <BookOpen size={ICON_XL} aria-hidden />
           <span><strong>案例记录</strong><small>优秀范例、错题与待复看案例</small></span>
         </label>
-        <label className={filters.includeAccountTrades ? 'is-selected' : undefined}>
+        <label className={filters.includeLiveTrades ? 'is-selected' : undefined}>
           <input
             type="checkbox"
-            checked={filters.includeAccountTrades}
-            onChange={(event) => patchFilters({ includeAccountTrades: event.target.checked })}
+            checked={filters.includeLiveTrades}
+            onChange={(event) => patchFilters({ includeLiveTrades: event.target.checked, includeAccountTrades: false })}
           />
           <ListTodo size={ICON_XL} aria-hidden />
-          <span><strong>账户交易</strong><small>实盘与模拟盘记录</small></span>
+          <span><strong>实盘交易</strong><small>当前阶段与历史阶段的已复盘记录</small></span>
+        </label>
+        <label className={filters.includePaperTrades ? 'is-selected' : undefined}>
+          <input
+            type="checkbox"
+            checked={filters.includePaperTrades}
+            onChange={(event) => patchFilters({ includePaperTrades: event.target.checked, includeAccountTrades: false })}
+          />
+          <ListTodo size={ICON_XL} aria-hidden />
+          <span><strong>模拟盘</strong><small>独立加入已完成复盘的模拟记录</small></span>
         </label>
       </fieldset>
       <div className="review-session-settings-options">

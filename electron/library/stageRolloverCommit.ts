@@ -15,7 +15,9 @@ import type {
 
 export interface StageRolloverCommitStorage {
   loadSnapshot(): PersistedSnapshot | null
-  saveSnapshot(snapshot: PersistedSnapshot): void
+  saveSnapshot(snapshot: PersistedSnapshot): void | {
+    kind: 'committed' | 'committed-after-write-error'
+  }
 }
 
 export interface StageRolloverCommitDependencies {
@@ -36,6 +38,19 @@ type CommitFailure = Exclude<StageRolloverCommitResult, { ok: true }>
 
 function failure(reason: CommitFailure['reason'], message: string): CommitFailure {
   return { ok: false, reason, message }
+}
+
+function snapshotSaveErrorOutcome(error: unknown): 'previous-unchanged' | 'indeterminate' | null {
+  if (typeof error !== 'object' || error === null) return null
+  const candidate = error as { name?: unknown; outcome?: unknown }
+  if (candidate.name !== 'SnapshotSaveError') return null
+  return candidate.outcome === 'previous-unchanged' || candidate.outcome === 'indeterminate'
+    ? candidate.outcome
+    : null
+}
+
+function sameSnapshot(left: PersistedSnapshot, right: PersistedSnapshot): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
 }
 
 function hasExactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
@@ -182,9 +197,33 @@ export async function commitDueStageRollover(
       }
 
       try {
-        storage.saveSnapshot(candidate)
+        const receipt = storage.saveSnapshot(candidate)
+        if (receipt?.kind === 'committed-after-write-error') {
+          let authoritative: PersistedSnapshot | null
+          try {
+            authoritative = storage.loadSnapshot()
+            if (!authoritative) throw new Error('committed snapshot missing after atomic recovery')
+            dependencies.validateSnapshot(authoritative)
+            if (!sameSnapshot(authoritative, candidate)) {
+              throw new Error('committed snapshot differs from rollover candidate')
+            }
+          } catch (error) {
+            dependencies.reportError('stage-rollover-committed-reload-failed', error)
+            return failure(
+              'recovery-required',
+              '阶段已写入但权威状态无法确认，请重新打开应用检查资料库',
+            )
+          }
+          candidate = authoritative
+        }
       } catch (error) {
         dependencies.reportError('stage-rollover-write-failed', error)
+        if (snapshotSaveErrorOutcome(error) === 'indeterminate') {
+          return failure(
+            'recovery-required',
+            '阶段写入结果无法确认，已停止继续保存，请重新打开应用检查资料库',
+          )
+        }
         return failure('write-failed', '阶段切换写入失败')
       }
       return { ok: true, publish: publishState(candidate) }

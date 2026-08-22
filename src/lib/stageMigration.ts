@@ -6,6 +6,7 @@ import { assertValidLiveStageState, normalizeLiveStageName } from '@/lib/liveSta
 import { isExecutedClosed, isMissed } from '@/lib/tradeStatus'
 import { createBusinessDateAnchor } from '@/lib/periods'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
+import { isCanonicalWeeklyReviewPeriod, stageContainsWeeklyReviewPeriod } from '@/lib/weeklyReviewPeriod'
 import type { PersistedSnapshot } from '@/storage/types'
 
 export interface LegacyPerformanceCycle {
@@ -104,7 +105,7 @@ export function collectReliableLegacyStageRecordDays(
   return [
     ...trades.map((trade) => reliableTradeDay(trade, startHour)),
     ...weeklyReviews.map((review) => (
-      isValidLiveCycleDayKey(review.weekStart) ? review.weekStart : null
+      isCanonicalWeeklyReviewPeriod(review.weekStart, review.weekEnd) ? review.weekStart : null
     )),
   ].filter((day): day is string => day !== null)
 }
@@ -216,11 +217,37 @@ function migrateTrades(
 function migrateWeeklyReviews(
   reviews: readonly WeeklyReview[],
   stages: readonly LiveStage[],
-  currentLiveStageId: string,
+  trades: readonly Trade[],
+  topLevelPolicies: readonly PersistedSnapshot['riskPolicyVersions'][number][],
+  topLevelRiskLiveStageId: string | null,
 ): WeeklyReview[] {
   return reviews.map((review) => {
-    const liveStageId = stageForDay(stages, isValidLiveCycleDayKey(review.weekStart) ? review.weekStart : null)?.id
-      ?? currentLiveStageId
+    const periodStage = stages.find((candidate) => (
+      stageContainsWeeklyReviewPeriod(candidate, review.weekStart, review.weekEnd)
+    )) ?? null
+    let stage = periodStage
+    const referencedTradeIds = new Set([
+      ...review.highlightTradeIds,
+      ...review.mistakeTradeIds,
+      ...review.followUpTradeIds,
+      ...(review.evidenceSnapshot?.trades.map((trade) => trade.id) ?? []),
+      ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
+      ...(review.riskSnapshot?.overrideEvents.map((event) => event.tradeId) ?? []),
+    ])
+    if (stage && [...referencedTradeIds].some((tradeId) => {
+      const trade = trades.find((candidate) => candidate.id === tradeId)
+      return !trade || trade.tradeKind === 'paper' || trade.liveStageId !== stage?.id
+    })) stage = null
+    if (stage && review.riskSnapshot?.overrideEvents.some((event) => {
+      if (event.policyVersionId === null) return false
+      const embedded = review.riskSnapshot?.policyVersions.some(
+        (policy) => policy.id === event.policyVersionId,
+      )
+      if (embedded) return false
+      const topLevel = topLevelPolicies.some((policy) => policy.id === event.policyVersionId)
+      return !topLevel || topLevelRiskLiveStageId !== stage?.id
+    })) stage = null
+    const liveStageId = stage?.id ?? null
     const riskSnapshot = review.riskSnapshot
       ? {
           ...review.riskSnapshot,
@@ -228,7 +255,13 @@ function migrateWeeklyReviews(
           overrideEvents: review.riskSnapshot.overrideEvents.map((item) => ({ ...item, liveStageId })),
         }
       : undefined
-    return { ...review, liveStageId, ...(riskSnapshot ? { riskSnapshot } : {}) }
+    const { legacyPeriodQuarantine: _legacyMarker, ...preserved } = review
+    return {
+      ...preserved,
+      liveStageId,
+      ...(periodStage === null ? { legacyPeriodQuarantine: true as const } : {}),
+      ...(riskSnapshot ? { riskSnapshot } : {}),
+    }
   })
 }
 
@@ -253,16 +286,41 @@ export function migrateLegacyStageSnapshot(
   const startHour = tradingDayStartHour(raw)
   const { liveStages, currentLiveStageId } = buildStages(raw, options)
   const trades = migrateTrades(raw.trades ?? [], liveStages, startHour)
-  const weeklyReviews = migrateWeeklyReviews(raw.weeklyReviews ?? [], liveStages, currentLiveStageId)
+  const riskReferenceStages = new Set<string>()
+  let riskReferencesReliable = true
+  const topLevelPolicyIds = new Set((raw.riskPolicyVersions ?? []).map((policy) => policy.id))
+  const referencedPolicyIds = [
+    ...(raw.weeklyRiskPreparations ?? []).map((preparation) => preparation.confirmedPolicyVersionId),
+    ...(raw.monthlyRiskLimits ?? []).map((limit) => limit.sourcePolicyVersionId),
+    ...(raw.riskOverrideEvents ?? []).map((event) => event.policyVersionId),
+  ].filter((policyId): policyId is string => typeof policyId === 'string')
+  if (referencedPolicyIds.some((policyId) => !topLevelPolicyIds.has(policyId))) {
+    riskReferencesReliable = false
+  }
+  for (const event of raw.riskOverrideEvents ?? []) {
+    const trade = trades.find((candidate) => candidate.id === event.tradeId)
+    if (!trade || trade.tradeKind === 'paper' || typeof trade.liveStageId !== 'string') riskReferencesReliable = false
+    else riskReferenceStages.add(trade.liveStageId)
+  }
+  const riskLiveStageId = riskReferencesReliable && riskReferenceStages.size <= 1
+    ? [...riskReferenceStages][0] ?? currentLiveStageId
+    : null
+  const weeklyReviews = migrateWeeklyReviews(
+    raw.weeklyReviews ?? [],
+    liveStages,
+    trades,
+    raw.riskPolicyVersions ?? [],
+    riskLiveStageId,
+  )
 
   const migrated = {
     ...(raw as unknown as Omit<PersistedSnapshot, 'trades' | 'weeklyReviews' | 'weeklyRiskPreparations' | 'riskPolicyVersions' | 'monthlyRiskLimits' | 'riskOverrideEvents'>),
     trades,
     weeklyReviews,
-    weeklyRiskPreparations: (raw.weeklyRiskPreparations ?? []).map((item) => ({ ...item, liveStageId: currentLiveStageId })),
-    riskPolicyVersions: (raw.riskPolicyVersions ?? []).map((item) => ({ ...item, liveStageId: currentLiveStageId })),
-    monthlyRiskLimits: (raw.monthlyRiskLimits ?? []).map((item) => ({ ...item, liveStageId: currentLiveStageId })),
-    riskOverrideEvents: (raw.riskOverrideEvents ?? []).map((item) => ({ ...item, liveStageId: currentLiveStageId })),
+    weeklyRiskPreparations: (raw.weeklyRiskPreparations ?? []).map((item) => ({ ...item, liveStageId: riskLiveStageId })),
+    riskPolicyVersions: (raw.riskPolicyVersions ?? []).map((item) => ({ ...item, liveStageId: riskLiveStageId })),
+    monthlyRiskLimits: (raw.monthlyRiskLimits ?? []).map((item) => ({ ...item, liveStageId: riskLiveStageId })),
+    riskOverrideEvents: (raw.riskOverrideEvents ?? []).map((item) => ({ ...item, liveStageId: riskLiveStageId })),
     liveStages,
     currentLiveStageId,
     scheduledStageRollover: null,

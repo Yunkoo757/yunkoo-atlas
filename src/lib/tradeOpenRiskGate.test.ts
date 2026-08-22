@@ -443,6 +443,21 @@ export function testOnlyValidHistoricalOpenActivityBypassesFirstGate(): void {
     ],
   }
   assert(!requiresFirstOpenGate(historical), '可信历史 open activity 应豁免重复 Gate')
+  const missingStageSetup = requestTradeOpenCandidate({
+    ...state,
+    trades: [historical],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+  }, historical.id)
+  assert(
+    missingStageSetup.kind === 'risk-setup-required',
+    '可信 open 历史只能跳过逐笔确认，不能绕过当前阶段政策与月限额建档',
+  )
+  const configuredCorrection = requestTradeOpenCandidate({ ...state, trades: [historical] }, historical.id)
+  assert(
+    configuredCorrection.kind === 'opened' && configuredCorrection.decision === 'not-required',
+    '阶段建档完成后，可信历史 open 才能跳过重复逐笔确认',
+  )
 
   const futureOpen = {
     ...target,

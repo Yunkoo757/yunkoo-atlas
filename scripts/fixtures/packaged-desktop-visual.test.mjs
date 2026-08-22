@@ -59,14 +59,30 @@ function createPackagedCaptures() {
 
 function createValidPackagedReport({ githubSha = null } = {}) {
   const commit = 'a'.repeat(40)
+  const payload = (path) => ({ path, bytes: 1024, sha256: 'b'.repeat(64) })
   return {
     schemaVersion: 1,
     runtime: 'packaged-electron',
     platform: 'darwin',
     scale: { requested: 2, devicePixelRatio: 2, displayScaleFactor: 2 },
-    source: { commit, dirty: false },
-    repository: { head: commit },
+    bundles: {
+      renderer: { commit, dirty: false },
+      main: { commit, dirty: false },
+    },
+    repository: { head: commit, dirty: false },
     ci: { githubSha },
+    payload: {
+      artifact: payload('release/Trader-Atlas.dmg'),
+      executable: payload('mounted/Trader Atlas'),
+      appAsar: payload('mounted/Resources/app.asar'),
+    },
+    cleanup: {
+      launcherProcessId: 4100,
+      mainProcessId: 4101,
+      launcherExitObserved: true,
+      mainProcessExitObserved: true,
+      temporaryProfileDeleted: true,
+    },
     captures: createPackagedCaptures(),
     checks: buildRequiredPlatformChecks('darwin').map((id) => ({ id, pass: true })),
     typography: { failureCount: 0 },
@@ -74,7 +90,7 @@ function createValidPackagedReport({ githubSha = null } = {}) {
 }
 
 function assertQaUsesCollectedBuildIdentity(qaSource) {
-  const collection = 'identityEvidence = await collectPackagedBuildIdentity(page, repositoryHead, githubSha)'
+  const collection = 'identityEvidence = await collectElectronBundleIdentity({'
   assert.equal(
     qaSource.split(collection).length - 1,
     1,
@@ -95,7 +111,7 @@ function assertQaUsesCollectedBuildIdentity(qaSource) {
   assert.doesNotMatch(qaSource, /\.\.\.identityEvidence/)
   assert.doesNotMatch(
     qaSource,
-    /\breport(?:\.(?:source|repository|ci)(?:\.commit)?|\[['"](?:source|repository|ci)['"]\])\s*=/,
+    /\breport(?:\.(?:bundles|repository|ci)(?:\.(?:renderer|main))?(?:\.commit)?|\[['"](?:bundles|repository|ci)['"]\])\s*=/,
     'QA must not mutate identity after the guarded report builder returns',
   )
 }
@@ -371,32 +387,41 @@ test('typography role metrics fail closed on every required size line height and
   }
 })
 
-test('packaged executable candidates cover native Windows and both macOS architectures', () => {
+test('packaged executable resolution requires the exact installed or mounted path', () => {
   const root = join('workspace', 'trader-atlas')
-  const windows = resolvePackagedExecutableCandidates({ root, platform: 'win32', arch: 'x64' })
-  const macArm = resolvePackagedExecutableCandidates({ root, platform: 'darwin', arch: 'arm64' })
-  const macIntel = resolvePackagedExecutableCandidates({ root, platform: 'darwin', arch: 'x64' })
-
-  assert.equal(windows.length, 1)
-  assert.match(windows[0], /release[\\/]win-unpacked[\\/]Trader Atlas\.exe$/)
-  assert.ok(macArm.some((candidate) => /release[\\/]mac-arm64[\\/]Trader Atlas\.app[\\/]Contents[\\/]MacOS[\\/]Trader Atlas$/.test(candidate)))
-  assert.ok(macIntel.some((candidate) => /release[\\/]mac[\\/]Trader Atlas\.app[\\/]Contents[\\/]MacOS[\\/]Trader Atlas$/.test(candidate)))
+  assert.throws(
+    () => resolvePackagedExecutableCandidates({ root, platform: 'win32', arch: 'x64' }),
+    /explicit packaged executable/i,
+  )
+  assert.throws(
+    () => resolvePackagedExecutableCandidates({ root, platform: 'darwin', arch: 'arm64' }),
+    /explicit packaged executable/i,
+  )
+  const exact = join(root, 'installed', 'Trader Atlas.exe')
+  assert.deepEqual(resolvePackagedExecutableCandidates({
+    root,
+    platform: 'win32',
+    arch: 'x64',
+    explicitPath: exact,
+  }), [join(process.cwd(), exact)])
 })
 
-test('packaged artifact candidates bind evidence to the package version and host architecture', () => {
+test('packaged artifact resolution requires the exact installer archive or image path', () => {
   const root = join('workspace', 'trader-atlas')
-  assert.match(
-    resolvePackagedArtifactCandidates({ root, platform: 'darwin', arch: 'arm64', version: '1.3.3' })[0],
-    /release[\\/]Trader-Atlas-1\.3\.3-mac-arm64\.zip$/,
-  )
-  assert.match(
-    resolvePackagedArtifactCandidates({ root, platform: 'darwin', arch: 'x64', version: '1.3.3' })[0],
-    /release[\\/]Trader-Atlas-1\.3\.3-mac-x64\.zip$/,
-  )
-  assert.match(
-    resolvePackagedArtifactCandidates({ root, platform: 'win32', arch: 'x64', version: '1.3.3' })[0],
-    /release[\\/]Trader-Atlas-1\.3\.3-win-x64\.exe$/,
-  )
+  for (const [platform, arch] of [['win32', 'x64'], ['darwin', 'arm64'], ['darwin', 'x64']]) {
+    assert.throws(
+      () => resolvePackagedArtifactCandidates({ root, platform, arch, version: '1.3.3' }),
+      /explicit packaged artifact/i,
+    )
+  }
+  const exact = join(root, 'release', 'exact-installer.exe')
+  assert.deepEqual(resolvePackagedArtifactCandidates({
+    root,
+    platform: 'win32',
+    arch: 'x64',
+    version: '1.3.3',
+    explicitPath: exact,
+  }), [join(process.cwd(), exact)])
 })
 
 test('platform check plans demand direct native lifecycle evidence', () => {
@@ -469,34 +494,36 @@ test('packaged typography diagnostics are captured in the same trade capture', (
   assert.ok(typographyProbe < diagnosticSnapshot, 'probe errors must be snapshotted in the trade capture')
 })
 
-test('packaged identity collector returns renderer source independently from repository HEAD', async () => {
-  const commitA = 'a'.repeat(40)
-  const commitB = 'b'.repeat(40)
-  assert.equal(typeof packagedVisualContract.collectPackagedBuildIdentity, 'function')
+test('packaged runner collects both renderer and Electron main identity through the shared contract', () => {
+  const source = readFileSync('scripts/qa-packaged-desktop-visual.mjs', 'utf8')
+  assertQaUsesCollectedBuildIdentity(source)
+  assert.match(source, /collectElectronBundleIdentity\(\{[\s\S]*page,[\s\S]*application,[\s\S]*expectation:\s*buildExpectation/)
+  assert.doesNotMatch(source, /collectPackagedBuildIdentity/)
+  assert.doesNotMatch(source, /validatePackagedIdentityEvidence/)
+})
 
-  const evidence = await packagedVisualContract.collectPackagedBuildIdentity(
-    { evaluate: async () => ({ commit: commitA, dirty: false }) },
-    commitB,
-    null,
+test('packaged runner uses actual-main-PID bounded cleanup and validates before writing PASS evidence', () => {
+  const source = readFileSync('scripts/qa-packaged-desktop-visual.mjs', 'utf8')
+  assert.match(source, /mainProcessId\s*=\s*await application\.evaluate\(\(\) => process\.pid\)/)
+  assert.match(source, /closeElectronApplicationBounded\(application,\s*\{[\s\S]*mainProcessId,[\s\S]*timeoutMs:\s*20_000/)
+  assert.match(source, /removeTemporaryDirectoryBounded\(temporaryRoot,\s*\{ timeoutMs:\s*20_000 \}\)/)
+  assert.doesNotMatch(source, /application\?\.close\(\)\.catch/)
+  assert.ok(
+    source.indexOf('validatePackagedVisualReport(report)') < source.indexOf('writeFileSync(reportPath'),
+    'invalid or incomplete cleanup evidence must never be written as PASS',
   )
-
-  assert.deepEqual(evidence, {
-    source: { commit: commitA, dirty: false },
-    repository: { head: commitB },
-    ci: { githubSha: null },
-  })
-  assert.throws(
-    () => packagedVisualContract.validatePackagedIdentityEvidence(evidence),
-    /embedded commit.*repository HEAD/i,
-  )
+  assert.match(source, /new AggregateError\(\[primaryError, cleanupError\]/)
 })
 
 test('packaged report builder rejects identity keys introduced before after or by a second spread', () => {
   const commitA = 'a'.repeat(40)
   const commitB = 'b'.repeat(40)
   const identityEvidence = {
-    source: { commit: commitA, dirty: false },
-    repository: { head: commitA },
+    bundles: {
+      renderer: { commit: commitA, dirty: false },
+      main: { commit: commitA, dirty: false },
+    },
+    repository: { head: commitA, dirty: false },
     ci: { githubSha: null },
   }
   const otherFields = { schemaVersion: 1, runtime: 'packaged-electron' }
@@ -504,21 +531,25 @@ test('packaged report builder rejects identity keys introduced before after or b
 
   const report = packagedVisualContract.buildPackagedVisualReport(identityEvidence, otherFields)
   assert.deepEqual(report, { ...otherFields, ...identityEvidence })
-  assert.notStrictEqual(report.source, identityEvidence.source)
+  assert.notStrictEqual(report.bundles, identityEvidence.bundles)
+  assert.notStrictEqual(report.bundles.renderer, identityEvidence.bundles.renderer)
 
-  const source = { commit: commitB, dirty: false }
-  const repository = { head: commitB }
+  const bundles = {
+    renderer: { commit: commitB, dirty: false },
+    main: { commit: commitB, dirty: false },
+  }
+  const repository = { head: commitB, dirty: false }
   const ci = { githubSha: commitB }
-  const secondIdentity = { source, repository, ci }
+  const secondIdentity = { bundles, repository, ci }
   const mutants = [
-    ['post-spread source and repository override', {
+    ['post-spread bundles and repository override', {
       ...otherFields,
       ...identityEvidence,
-      source,
+      bundles,
       ['repository']: repository,
     }],
     ['post-spread quoted CI override', { ...otherFields, ...identityEvidence, 'ci': ci }],
-    ['pre-spread source override', { source, ...otherFields }],
+    ['pre-spread bundles override', { bundles, ...otherFields }],
     ['second identity spread', { ...otherFields, ...identityEvidence, ...secondIdentity }],
   ]
   for (const [name, mutantFields] of mutants) {
@@ -534,12 +565,15 @@ test('packaged report builder clones and deep freezes its identity tree', () => 
   const commitA = 'a'.repeat(40)
   const commitB = 'b'.repeat(40)
   const identityEvidence = {
-    source: {
-      commit: commitA,
-      dirty: false,
-      provenance: { build: { channel: 'stable' } },
+    bundles: {
+      renderer: {
+        commit: commitA,
+        dirty: false,
+        provenance: { build: { channel: 'stable' } },
+      },
+      main: { commit: commitA, dirty: false },
     },
-    repository: { head: commitA },
+    repository: { head: commitA, dirty: false },
     ci: { githubSha: null, provenance: { provider: 'local' } },
   }
   const report = packagedVisualContract.buildPackagedVisualReport(identityEvidence, {
@@ -548,27 +582,30 @@ test('packaged report builder clones and deep freezes its identity tree', () => 
   })
 
   assert.equal(Object.isFrozen(report), true)
-  assert.equal(Object.isFrozen(report.source), true)
-  assert.equal(Object.isFrozen(report.source.provenance), true)
-  assert.equal(Object.isFrozen(report.source.provenance.build), true)
+  assert.equal(Object.isFrozen(report.bundles), true)
+  assert.equal(Object.isFrozen(report.bundles.renderer), true)
+  assert.equal(Object.isFrozen(report.bundles.main), true)
+  assert.equal(Object.isFrozen(report.bundles.renderer.provenance), true)
+  assert.equal(Object.isFrozen(report.bundles.renderer.provenance.build), true)
   assert.equal(Object.isFrozen(report.repository), true)
   assert.equal(Object.isFrozen(report.ci), true)
   assert.equal(Object.isFrozen(report.ci.provenance), true)
 
   for (const mutation of [
-    () => { report.source = { commit: commitB, dirty: false } },
+    () => { report.bundles = { renderer: { commit: commitB, dirty: false } } },
     () => { report.repository = { head: commitB } },
     () => { report.ci = { githubSha: commitB } },
-    () => { report.source.commit = commitB },
-    () => { report.source.provenance.build.channel = 'mutated' },
+    () => { report.bundles.main.commit = commitB },
+    () => { report.bundles.renderer.provenance.build.channel = 'mutated' },
   ]) {
     assert.throws(mutation, TypeError)
   }
-  identityEvidence.source.commit = commitB
+  identityEvidence.bundles.renderer.commit = commitB
   identityEvidence.ci.provenance.provider = 'mutated'
-  assert.equal(report.source.commit, commitA)
+  assert.equal(report.bundles.renderer.commit, commitA)
   assert.equal(report.ci.provenance.provider, 'local')
   assert.doesNotThrow(() => packagedVisualContract.validatePackagedVisualReport({
+    ...createValidPackagedReport(),
     ...report,
     platform: 'darwin',
     scale: { requested: 2, devicePixelRatio: 2, displayScaleFactor: 2 },
@@ -581,8 +618,11 @@ test('packaged report builder clones and deep freezes its identity tree', () => 
 test('packaged report builder rejects enumerable and non-enumerable symbol fields', () => {
   const commit = 'a'.repeat(40)
   const identityEvidence = {
-    source: { commit, dirty: false },
-    repository: { head: commit },
+    bundles: {
+      renderer: { commit, dirty: false },
+      main: { commit, dirty: false },
+    },
+    repository: { head: commit, dirty: false },
     ci: { githubSha: null },
   }
   for (const enumerable of [true, false]) {
@@ -598,9 +638,10 @@ test('packaged report builder rejects enumerable and non-enumerable symbol field
   }
 })
 
-test('packaged identity source is compiled into the renderer and report consumes its collector', () => {
+test('packaged identities are compiled into renderer and main and report consumes the shared collector', () => {
   const viteConfig = readFileSync('vite.config.ts', 'utf8')
   const rendererEntry = readFileSync('src/main.tsx', 'utf8')
+  const mainEntry = readFileSync('electron/main.ts', 'utf8')
   const qaSource = readFileSync('scripts/qa-packaged-desktop-visual.mjs', 'utf8')
 
   assert.match(
@@ -615,11 +656,12 @@ test('packaged identity source is compiled into the renderer and report consumes
   )
   assert.match(rendererEntry, /Object\.defineProperty\(window,\s*'__ATLAS_BUILD_IDENTITY__'/)
   assert.match(rendererEntry, /__ATLAS_BUILD_IDENTITY__/)
+  assert.match(mainEntry, /__ATLAS_BUILD_IDENTITY__/)
   assertQaUsesCollectedBuildIdentity(qaSource)
 
   const mutant = qaSource.replace(
     'const report = buildPackagedVisualReport(identityEvidence, {',
-    "const report = { ...buildPackagedVisualReport(identityEvidence, {}), source: process.env.SOURCE }\nconst ignoredReport = buildPackagedVisualReport(identityEvidence, {",
+    "const report = { ...buildPackagedVisualReport(identityEvidence, {}), bundles: process.env.BUNDLES }\nconst ignoredReport = buildPackagedVisualReport(identityEvidence, {",
   )
   assert.throws(
     () => assertQaUsesCollectedBuildIdentity(mutant),
@@ -627,7 +669,7 @@ test('packaged identity source is compiled into the renderer and report consumes
   )
   const assignmentMutant = qaSource.replace(
     'const reportPath = join(outputRoot, \'report.json\')',
-    "report.source.commit = process.env.SOURCE_COMMIT\nconst reportPath = join(outputRoot, 'report.json')",
+    "report.bundles.main.commit = process.env.SOURCE_COMMIT\nconst reportPath = join(outputRoot, 'report.json')",
   )
   assert.throws(
     () => assertQaUsesCollectedBuildIdentity(assignmentMutant),
@@ -788,8 +830,14 @@ test('report validation fails closed when screenshots or native platform checks 
     /typography-cjk-sans/,
   )
   assert.throws(
-    () => validatePackagedVisualReport({ ...complete, source: { ...complete.source, dirty: true } }),
-    /clean source commit/,
+    () => validatePackagedVisualReport({
+      ...complete,
+      bundles: {
+        ...complete.bundles,
+        main: { ...complete.bundles.main, dirty: true },
+      },
+    }),
+    /main bundle.*dirty/,
   )
   assert.throws(
     () => validatePackagedVisualReport({ ...complete, typography: undefined }),
@@ -869,26 +917,28 @@ test('packaged report identity rejects stale dirty malformed and CI-mismatched b
   assert.throws(
     () => validatePackagedVisualReport({
       ...local,
-      source: { commit: commitA, dirty: false },
-      repository: { head: commitB },
+      repository: { head: commitB, dirty: false },
     }),
-    /embedded commit.*repository HEAD/i,
+    /renderer bundle commit.*repository HEAD/i,
   )
   assert.throws(
     () => validatePackagedVisualReport({
       ...ci,
       ci: { githubSha: commitB },
     }),
-    /embedded commit.*GITHUB_SHA/i,
+    /repository HEAD.*GITHUB_SHA/i,
   )
   assert.throws(
     () => validatePackagedVisualReport({
       ...local,
-      source: { ...local.source, dirty: true },
+      bundles: {
+        ...local.bundles,
+        renderer: { ...local.bundles.renderer, dirty: true },
+      },
     }),
-    /embedded.*dirty/i,
+    /renderer bundle.*dirty/i,
   )
-  for (const source of [
+  for (const renderer of [
     undefined,
     {},
     { commit: 'not-a-sha', dirty: false },
@@ -896,20 +946,65 @@ test('packaged report identity rejects stale dirty malformed and CI-mismatched b
     { commit: commitA, dirty: 0 },
   ]) {
     assert.throws(
-      () => validatePackagedVisualReport({ ...local, source }),
-      /embedded identity/i,
+      () => validatePackagedVisualReport({
+        ...local,
+        bundles: { ...local.bundles, renderer },
+      }),
+      /renderer bundle/i,
     )
   }
-  for (const repository of [undefined, {}, { head: 'not-a-sha' }]) {
+  for (const repository of [undefined, {}, { head: 'not-a-sha' }, { head: commitA, dirty: true }]) {
     assert.throws(
       () => validatePackagedVisualReport({ ...local, repository }),
-      /repository HEAD/i,
+      /repository (?:HEAD|working tree)/i,
     )
   }
   for (const githubSha of [undefined, '', 'not-a-sha', true]) {
     assert.throws(
       () => validatePackagedVisualReport({ ...local, ci: { githubSha } }),
       /GITHUB_SHA/i,
+    )
+  }
+})
+
+test('packaged report binds non-empty SHA-256 evidence to artifact executable and app.asar', () => {
+  const complete = createValidPackagedReport()
+  assert.doesNotThrow(() => validatePackagedVisualReport(complete))
+
+  for (const key of ['artifact', 'executable', 'appAsar']) {
+    for (const mutant of [
+      undefined,
+      { ...complete.payload[key], bytes: 0 },
+      { ...complete.payload[key], sha256: 'not-a-sha256' },
+      { ...complete.payload[key], path: '' },
+    ]) {
+      assert.throws(
+        () => validatePackagedVisualReport({
+          ...complete,
+          payload: { ...complete.payload, [key]: mutant },
+        }),
+        new RegExp(key, 'i'),
+      )
+    }
+  }
+})
+
+test('packaged report passes only after launcher main process and temporary profile cleanup', () => {
+  const complete = createValidPackagedReport()
+  for (const [field, value] of [
+    ['launcherProcessId', null],
+    ['mainProcessId', 0],
+    ['launcherExitObserved', false],
+    ['mainProcessExitObserved', false],
+    ['temporaryProfileDeleted', false],
+  ]) {
+    assert.throws(
+      () => validatePackagedVisualReport({
+        ...complete,
+        cleanup: { ...complete.cleanup, [field]: value },
+      }),
+      /cleanup/i,
+      field,
     )
   }
 })
@@ -970,6 +1065,20 @@ test('macOS packaged workflow uploads both scale-200 artifacts and fails closed 
   assert.match(windowsUpload, /^\s{10}if-no-files-found:\s*warn\s*$/m)
 })
 
+test('forced-kill workflow uploads the actual macOS scale-200 packaged report fail closed', () => {
+  const workflow = readFileSync('.github/workflows/forced-kill-evidence.yml', 'utf8')
+  const macJob = workflow.match(
+    /^  macos-packaged-visual:\r?\n([\s\S]*?)(?=^  platform-evidence:)/m,
+  )?.[0] ?? ''
+  const uploadStart = macJob.indexOf('      - name: Upload macOS packaged visual evidence')
+  const upload = uploadStart >= 0 ? macJob.slice(uploadStart) : ''
+  assert.match(
+    upload,
+    /^\s{10}path:\s*test-results\/desktop-visual-packaged\/darwin-\$\{\{ matrix\.arch \}\}-scale-200\/\s*$/m,
+  )
+  assert.match(upload, /^\s{10}if-no-files-found:\s*error\s*$/m)
+})
+
 test('packaged Electron evidence workflows rerun when the Vite identity injection changes', () => {
   for (const workflowPath of [
     '.github/workflows/desktop-visual-evidence.yml',
@@ -984,5 +1093,23 @@ test('packaged Electron evidence workflows rerun when the Vite identity injectio
       /^\s{6}- 'vite\.config\.ts'\s*$/m,
       `${workflowPath} must include the build identity injection source`,
     )
+    assert.match(
+      pullRequestPaths,
+      /^\s{6}- 'scripts\/bundle-build-identity\.mjs'\s*$/m,
+      `${workflowPath} must rerun when shared identity or cleanup enforcement changes`,
+    )
+  }
+})
+
+test('packaged visual workflows pass exact artifact and installed or extracted executable paths', () => {
+  for (const workflowPath of [
+    '.github/workflows/desktop-visual-evidence.yml',
+    '.github/workflows/forced-kill-evidence.yml',
+  ]) {
+    const workflow = readFileSync(workflowPath, 'utf8')
+    assert.match(workflow, /ATLAS_PACKAGED_ARTIFACT/)
+    assert.match(workflow, /ATLAS_PACKAGED_EXECUTABLE/)
+    assert.doesNotMatch(workflow, /win-unpacked/)
+    assert.doesNotMatch(workflow, /executable:\s*release\/(?:mac|mac-arm64)/)
   }
 })

@@ -162,3 +162,25 @@ test('runner preserves the original identity failure together with cleanup failu
   ])
   assert.deepEqual(probe.calls, ['read-identity', 'cleanup'])
 })
+
+test('runner never writes a passing report when capture succeeds but cleanup fails', async () => {
+  const matching = evidence({
+    renderer: { commit: commitA, dirty: false },
+    main: { commit: commitA, dirty: false },
+  })
+  const probe = runnerDependencies(matching, {
+    cleanupError: new Error('launcher process residue remains'),
+  })
+
+  await assert.rejects(
+    () => visualRunnerModule.runElectronVisualEvidenceRunner(probe.dependencies),
+    /launcher process residue remains/,
+  )
+  assert.deepEqual(probe.calls, [
+    'read-identity',
+    'create-library',
+    'seed-library',
+    'capture',
+    'cleanup',
+  ])
+})

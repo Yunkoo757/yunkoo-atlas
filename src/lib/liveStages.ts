@@ -117,12 +117,22 @@ export function assertValidLiveStageState(value: unknown): asserts value is Live
   const current = stages.find((stage) => stage.id === value.currentLiveStageId)
   if (!current || current.status !== 'current') fail('当前实盘阶段无效')
 
-  const chronological = [...stages].sort((left, right) => left.startsOn.localeCompare(right.startsOn))
+  const chronological = [...stages].sort((left, right) => (
+    left.startsOn.localeCompare(right.startsOn) ||
+    left.sequence - right.sequence ||
+    left.status.localeCompare(right.status) ||
+    left.id.localeCompare(right.id)
+  ))
   for (let index = 1; index < chronological.length; index += 1) {
     const previous = chronological[index - 1]
     const stage = chronological[index]
+    if (previous.startsOn === stage.startsOn) fail('阶段开始日期必须唯一')
+    if (previous.sequence >= stage.sequence) fail('阶段序号必须按时间线严格递增')
     if (previous.endsOn === null || previous.endsOn >= stage.startsOn) fail('阶段时间线不能重叠')
   }
+  if (chronological.at(-1)?.id !== current.id) fail('当前阶段必须是时间线中的最新阶段')
+  const maxSequence = stages.reduce((maximum, stage) => Math.max(maximum, stage.sequence), 0)
+  if (current.sequence !== maxSequence) fail('当前阶段必须拥有最大序号')
 }
 
 export function getCurrentLiveStage(stages: readonly LiveStage[], currentId: string): LiveStage {
@@ -156,6 +166,10 @@ export function createNextLiveStage(
   assertValidLiveStageState({ liveStages: [previous], currentLiveStageId: previous.id })
   if (!isCanonicalYmd(startsOn) || startsOn <= previous.startsOn) fail('新阶段必须晚于当前阶段开始日期')
   if (id === previous.id) fail('新阶段 ID 必须不同于当前阶段')
+  const nextSequence = existingStages.reduce(
+    (maximum, stage) => Math.max(maximum, stage.sequence),
+    previous.sequence,
+  ) + 1
 
   const archived: LiveStage = {
     ...previous,
@@ -163,7 +177,7 @@ export function createNextLiveStage(
     endsOn: previousDay(startsOn),
     archivedAt: createdAt,
   }
-  const baseName = `实盘阶段 ${previous.sequence + 1}`
+  const baseName = `实盘阶段 ${nextSequence}`
   const existingNames = new Set(existingStages.map((stage) => normalizeLiveStageName(stage.name)))
   let name = baseName
   let suffix = 2
@@ -173,7 +187,7 @@ export function createNextLiveStage(
   }
   const current: LiveStage = {
     id,
-    sequence: previous.sequence + 1,
+    sequence: nextSequence,
     name,
     status: 'current',
     startsOn,

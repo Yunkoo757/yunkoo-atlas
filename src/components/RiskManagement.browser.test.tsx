@@ -212,9 +212,22 @@ async function run(): Promise<void> {
     )
     assert(status.querySelectorAll('a[href="/settings/risk"]').length === 1, '未复核状态必须只有一个设置恢复链接')
 
-    useStore.setState({ riskPolicyVersions: [], monthlyRiskLimits: [] })
-    assert(useStore.getState().requestTradeOpen('target') === 'requires-risk-setup', '未建档 fixture 必须返回设置要求')
-    await waitFor(() => Boolean(document.querySelector('[data-risk-setup-dialog]')), '未建档开仓没有显示风险设置引导')
+    useStore.setState((state) => ({
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+      trades: state.trades.map((item) => item.id === 'target'
+        ? {
+            ...item,
+            activities: [
+              { id: 'imported-historical-open', kind: 'status' as const, status: 'open' as const, timestamp: `${day}T00:15:00.000Z` },
+              { id: 'imported-historical-planned', kind: 'status' as const, status: 'planned' as const, timestamp: `${day}T00:30:00.000Z` },
+            ],
+          }
+        : item),
+    }))
+    assert(useStore.getState().requestTradeOpen('target') === 'requires-risk-setup', '带历史 open 的导入 planned fixture 也必须返回建档要求')
+    assert(useStore.getState().trades[0]?.status === 'planned', '导入历史不得在建档前改变交易状态')
+    await waitFor(() => Boolean(document.querySelector('[data-risk-setup-dialog]')), '带历史 open 的未建档开仓没有显示风险设置引导')
     assert(!document.querySelector('[aria-label="继续开仓原因"]'), '未建档引导绝不能提供填写原因绕过入口')
     assert(document.querySelector<HTMLAnchorElement>('[role="dialog"] a[href="/settings/risk"]'), '未建档引导必须链接风险设置')
     click('取消开仓')

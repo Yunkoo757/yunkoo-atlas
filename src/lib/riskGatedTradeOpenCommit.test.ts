@@ -66,6 +66,7 @@ function baseline(): PersistedSnapshot & RiskGateCommitState {
   return {
     ...snapshot,
     trades: [target, loss],
+    weeklyReviews: [],
     riskPolicyVersions: snapshot.riskPolicyVersions.map((item) => ({
       ...item,
       effectiveTradingDay: '2026-07-01',

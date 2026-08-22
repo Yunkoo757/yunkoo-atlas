@@ -2,6 +2,7 @@ import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
 import type { StageRolloverPublishState } from '@/types/journalBridge'
 import fs from 'node:fs/promises'
 import {
+  classifyUncertainStageRolloverSnapshot,
   createStageRolloverCheck,
   executeDueStageRollover,
   reconcileCommittedStageRollover,
@@ -134,6 +135,122 @@ export async function testCommitFailureNeverPublishesCandidate(): Promise<void> 
   assert(!published, 'failed durable commit must preserve old UI state')
 }
 
+export async function testLostCommitReplyReloadsAndPublishesCommittedDiskState(): Promise<void> {
+  const events: string[] = []
+  const result = await executeDueStageRollover({
+    captureLatest: () => eligibleCapture(),
+    flushBeforeCommit: async () => { events.push('flush') },
+    commitDurably: async () => {
+      events.push('commit-reply-lost')
+      throw new Error('reply channel closed after durable rename')
+    },
+    recoverAfterCommitError: async (input) => {
+      events.push('recover')
+      const snapshot = createEmptyPersistedSnapshot()
+      snapshot.liveStages = structuredClone(authoritativePublish.liveStages)
+      snapshot.currentLiveStageId = authoritativePublish.currentLiveStageId
+      snapshot.scheduledStageRollover = null
+      return classifyUncertainStageRolloverSnapshot(input, snapshot)
+    },
+    publish: (publish) => {
+      events.push('publish')
+      assert(publish.currentLiveStageId === 'stage-main-2', '丢失回包后必须发布磁盘上的新阶段')
+    },
+    postpone: async () => {},
+  })
+  assert(result.kind === 'committed', '耐久提交后 IPC 回包丢失必须协调为 committed')
+  assert(
+    events.join(',') === 'flush,commit-reply-lost,recover,publish',
+    '回包丢失后必须先重载磁盘真相再发布，不能保留陈旧 renderer 状态',
+  )
+}
+
+export async function testLostCommitReplyWithUnchangedDiskRemainsRetryable(): Promise<void> {
+  let published = false
+  const result = await executeDueStageRollover({
+    captureLatest: () => eligibleCapture(),
+    flushBeforeCommit: async () => {},
+    commitDurably: async () => { throw new Error('write failed before replace') },
+    recoverAfterCommitError: async (input) => classifyUncertainStageRolloverSnapshot(
+      input,
+      eligibleSnapshotForReload(),
+    ),
+    publish: () => { published = true },
+    postpone: async () => {},
+  })
+  assert(
+    result.kind === 'failed' && result.reason === 'write-failed',
+    '磁盘仍是完整旧预约时必须保持可重试 write-failed',
+  )
+  assert(!published, '旧磁盘状态不得误发布为已提交')
+}
+
+export async function testLostCommitReplyWithUnknownDiskRequiresRecovery(): Promise<void> {
+  const unknown = eligibleSnapshotForReload()
+  unknown.scheduledStageRollover = null
+  const recoveryMessages: string[] = []
+  const result = await executeDueStageRollover({
+    captureLatest: () => eligibleCapture(),
+    flushBeforeCommit: async () => {},
+    commitDurably: async () => { throw new Error('unknown commit reply') },
+    recoverAfterCommitError: async (input) => classifyUncertainStageRolloverSnapshot(input, unknown),
+    publish: () => { throw new Error('must not publish') },
+    postpone: async () => {},
+    enterRecoveryRequired: (message) => { recoveryMessages.push(message) },
+  })
+  assert(
+    result.kind === 'failed' && result.reason === 'recovery-required',
+    '既非旧预约也非合法新阶段的磁盘状态必须阻止 renderer 继续覆盖',
+  )
+  assert(recoveryMessages.length === 1, '无法判定磁盘结果时必须立即进入 renderer 停写恢复态')
+}
+
+export async function testDurableCommitFollowedByPublishFailureEntersFailClosedRecoveryBeforeUnlock(): Promise<void> {
+  const events: string[] = []
+  const result = await executeDueStageRollover({
+    captureLatest: () => eligibleCapture(),
+    flushBeforeCommit: async () => { events.push('flush') },
+    commitDurably: async () => {
+      events.push('durable-commit')
+      return { ok: true, publish: authoritativePublish }
+    },
+    publish: () => {
+      events.push('publish-failed')
+      throw new Error('renderer apply failed')
+    },
+    postpone: async () => {},
+    enterRecoveryRequired: () => { events.push('persist-disabled') },
+    lockInteraction: () => {
+      events.push('lock')
+      return () => { events.push('unlock') }
+    },
+  })
+
+  assert(
+    result.kind === 'failed' && result.reason === 'recovery-required',
+    '磁盘已提交但 renderer 发布失败不能降级成可重试 write-failed',
+  )
+  assert(
+    events.join(',') === 'lock,flush,durable-commit,publish-failed,persist-disabled,unlock',
+    '必须在解除交互锁之前先关闭持久化，避免陈旧 renderer 覆盖新磁盘状态',
+  )
+}
+
+export async function testRecoveryReloadFailureAlsoEntersFailClosedMode(): Promise<void> {
+  let enteredRecovery = 0
+  const result = await executeDueStageRollover({
+    captureLatest: () => eligibleCapture(),
+    flushBeforeCommit: async () => {},
+    commitDurably: async () => { throw new Error('lost reply') },
+    recoverAfterCommitError: async () => { throw new Error('reload failed') },
+    publish: () => { throw new Error('must not publish') },
+    postpone: async () => {},
+    enterRecoveryRequired: () => { enteredRecovery += 1 },
+  })
+  assert(result.kind === 'failed' && result.reason === 'recovery-required', '恢复重载失败必须返回 typed recovery-required')
+  assert(enteredRecovery === 1, '恢复重载失败必须同步关闭 renderer 持久化')
+}
+
 export async function testAuthoritativeReloadMustMatchSafePublishPayload(): Promise<void> {
   let published = false
   let rejected = false
@@ -263,7 +380,13 @@ export async function testDesktopLifecycleInvokesChecksAtEveryRequiredBoundary()
   assert(app.includes("document.visibilityState === 'visible'"), 'visibility restoration must be observed')
   assert(app.includes('lastVisibleBusinessWeek'), 'visibility restoration must compare the business week')
   assert(app.includes('STAGE_MANAGEMENT_OPEN_EVENT'), 'App must listen for stage management opening')
+  assert(app.includes('createForegroundStageRolloverScheduler'), '持续可见的桌面端必须使用前台边界调度器')
+  assert(app.includes("window.addEventListener('focus'"), '窗口 focus 必须立即重新核对到期阶段交接')
+  assert(app.includes('useStore.subscribe'), '资料库切换、预约/取消/顺延/提交和显示起点变化必须驱动边界重算')
+  assert(app.includes('rolloverScheduler.stop()'), '应用卸载必须清理阶段边界调度器')
   assert(app.includes('reconcileCommittedStageRollover'), 'App must reload and bind the full authoritative snapshot')
   assert(app.includes('publishDurableStoreRefresh'), 'App must replace the autosave baseline during durable refresh')
+  assert(app.includes('disablePersistWrites'), '不确定或已提交但发布失败时 App 必须关闭 renderer 持久化')
+  assert(app.includes('STAGE_ROLLOVER_RECOVERY_REQUIRED_EVENT'), 'App 必须显示不可原地重试的恢复界面')
   assert(manager.includes('notifyStageManagementOpened'), 'stage management must request an immediate due check when opened')
 }

@@ -48,6 +48,7 @@
   { "id": "LS-V11-MIGRATION", "testId": "src/lib/stageMigration.test.ts#testV11CyclesBecomeStableV12Stages", "evidence": ["src/lib/stageMigration.test.ts"] },
   { "id": "LS-OWNERSHIP-STABLE", "testId": "src/store/liveStageOwnership.test.ts#testEditingHistoricalDateDoesNotMoveStage", "evidence": ["src/store/liveStageOwnership.test.ts"] },
   { "id": "LS-ROLLOVER-ATOMIC", "testId": "electron/library/stageRolloverCommit.test.ts#testSuccessfulCommitOrderAndAuthoritativePublishState", "evidence": ["electron/library/stageRolloverCommit.test.ts"] },
+  { "id": "LS-SNAPSHOT-TRANSACTION", "testId": "electron/library/snapshotTransaction.test.ts#testSnapshotFailureAfterRenameAdoptsCandidateAndReopensAuthoritatively", "evidence": ["electron/library/snapshotTransaction.test.ts"] },
   { "id": "LS-HISTORY-SCOPE", "testId": "src/lib/stageArchive.test.ts#testAllHistoryExcludesCurrentAndPending", "evidence": ["src/lib/stageArchive.test.ts"] },
   { "id": "LS-REVIEW-DEFAULT", "testId": "src/lib/reviewSession.test.ts#testDefaultReviewPoolIncludesCurrentAndEveryHistoricalStageByOwnership", "evidence": ["src/lib/reviewSession.test.ts"] },
 
@@ -67,7 +68,8 @@
   { "id": "Q-PAGEERROR", "testId": "scripts/test-discovery.test.mjs#real browser runner exits nonzero when a page errors after its promise resolves", "evidence": ["scripts/test-discovery.test.mjs"] },
   { "id": "P-10K/20K", "mode": "release-gate", "testId": "scripts/fixtures/persistence-benchmark.test.mjs#release 性能门冻结 10K/20K、5+30 采样、硬 SLO 与证据字段", "evidence": ["scripts/fixtures/persistence-benchmark.test.mjs"] },
   { "id": "R-WIN-FAIL", "testId": "scripts/release-command.test.mjs#发布候选先认证精确 SHA，tag 流水线只做双平台安全构建", "evidence": ["scripts/release-command.test.mjs"] },
-  { "id": "R-MAC-FAIL", "testId": "scripts/release-command.test.mjs#macOS 构建产出四个工件，但不直接修改 GitHub Release", "evidence": ["scripts/release-command.test.mjs"] },
+  { "id": "R-MAC-FAIL", "testId": "scripts/release-command.test.mjs#macOS 在两个原生架构 runner 各自产出并验证 DMG 与 ZIP，但不直接修改 GitHub Release", "evidence": ["scripts/release-command.test.mjs"] },
+  { "id": "R-FINAL-PAYLOAD", "mode": "release-gate", "testId": "scripts/fixtures/final-packaged-artifact-smoke.test.mjs#release workflow gates upload on every exact final artifact smoke", "evidence": ["scripts/fixtures/final-packaged-artifact-smoke.test.mjs"] },
   { "id": "R-MISSING-ASSET", "testId": "scripts/release-artifacts.test.mjs#local manifest rejects missing, empty, and extra artifacts", "evidence": ["scripts/release-artifacts.test.mjs"] },
   { "id": "R-RERUN-HASH", "testId": "scripts/release-artifacts.test.mjs#release plan covers create, draft resume, public noop, and failure branches", "evidence": ["scripts/release-artifacts.test.mjs"] },
   { "id": "R-TRAIN-DRILLS", "testId": "scripts/fixtures/release-train-drills.test.mjs#四个 Release Train 都具备 stop、rollback、userRecovery 可执行证据", "evidence": ["scripts/fixtures/release-train-drills.test.mjs"] }

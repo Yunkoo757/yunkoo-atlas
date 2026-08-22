@@ -88,6 +88,9 @@ function pendingState(): StageOwnershipRepairState {
       liveStageId: null,
       weekStart: '2026-06-08',
       weekEnd: '2026-06-14',
+      highlightTradeIds: [],
+      mistakeTradeIds: [],
+      followUpTradeIds: [],
     }],
     weeklyRiskPreparations: [{
       ...fixture.weeklyRiskPreparations[0]!,
@@ -434,6 +437,10 @@ export function testDependentEntityRepairRequiresAssignedSameStageReferences(): 
       makeState: () => {
         const state = pendingState()
         state.trades = state.trades.filter((item) => item.id !== 'source')
+        state.riskOverrideEvents = state.riskOverrideEvents.map((event) => ({
+          ...event,
+          tradeIdentityAtDecision: { ...event.tradeIdentityAtDecision, ref: '' },
+        }))
         return state
       },
     },
@@ -480,6 +487,229 @@ export function testReferencedEntityRepairRejectsAlreadyAssignedDependentsFromAn
     liveStageId: 'stage-current',
     expectedFingerprint: sourceItem.fingerprint,
   }))
+}
+
+export function testWeeklyReviewRepairValidatesFrozenRiskAndTradeDependenciesBeforeAssignment(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const makeRiskSnapshot = (liveStageId: string | null) => ({
+    policyVersions: fixture.riskPolicyVersions.map((policy) => ({ ...policy, liveStageId })),
+    dailyOutcomes: [{ ...fixture.riskOverrideEvents[0]!.outcomesAtDecision.day, date: '2026-06-08' }],
+    weeklyOutcome: fixture.riskOverrideEvents[0]!.outcomesAtDecision.week,
+    monthlyOutcomeAtCompletion: fixture.riskOverrideEvents[0]!.outcomesAtDecision.month,
+    overrideEvents: [],
+    frozenAt: fixture.weeklyReviews![0]!.completedAt!,
+  })
+
+  const crossStage = pendingState()
+  crossStage.weeklyReviews = crossStage.weeklyReviews.map((review) => ({
+    ...review,
+    riskSnapshot: makeRiskSnapshot('stage-current'),
+  }))
+  const crossItem = listPendingStageOwnership(crossStage).find((item) => item.entityId === 'review')!
+  expectRepairError('relationship-conflict', () => assignPendingStageOwnership(crossStage, {
+    entityType: 'weekly-review', entityId: 'review', liveStageId: 'stage-old', expectedFingerprint: crossItem.fingerprint,
+  }))
+
+  const dependencyPending = pendingState()
+  dependencyPending.weeklyReviews = dependencyPending.weeklyReviews.map((review) => ({
+    ...review,
+    highlightTradeIds: ['live'],
+    riskSnapshot: makeRiskSnapshot(null),
+  }))
+  const pendingItem = listPendingStageOwnership(dependencyPending).find((item) => item.entityId === 'review')!
+  expectRepairError('dependency-pending', () => assignPendingStageOwnership(dependencyPending, {
+    entityType: 'weekly-review', entityId: 'review', liveStageId: 'stage-old', expectedFingerprint: pendingItem.fingerprint,
+  }))
+
+  dependencyPending.trades = dependencyPending.trades.map((candidate) => candidate.id === 'live'
+    ? { ...candidate, liveStageId: 'stage-old' }
+    : candidate)
+  const readyItem = listPendingStageOwnership(dependencyPending).find((item) => item.entityId === 'review')!
+  const repaired = assignPendingStageOwnership(dependencyPending, {
+    entityType: 'weekly-review', entityId: 'review', liveStageId: 'stage-old', expectedFingerprint: readyItem.fingerprint,
+  })
+  const repairedReview = repaired.weeklyReviews[0]!
+  assert(repairedReview.liveStageId === 'stage-old', '依赖先修后 outer review 必须可归属目标阶段')
+  assert(
+    repairedReview.riskSnapshot?.policyVersions.every((policy) => policy.liveStageId === 'stage-old'),
+    '纯嵌套 pending 冻结政策必须与 outer review 原子归属同一阶段',
+  )
+
+  const atomicEmbeddedGraph = pendingState()
+  atomicEmbeddedGraph.trades = atomicEmbeddedGraph.trades.map((candidate) => candidate.id === 'live'
+    ? { ...candidate, liveStageId: 'stage-old' }
+    : candidate)
+  atomicEmbeddedGraph.weeklyReviews = atomicEmbeddedGraph.weeklyReviews.map((review) => ({
+    ...review,
+    riskSnapshot: {
+      ...makeRiskSnapshot(null),
+      overrideEvents: [{
+        ...fixture.riskOverrideEvents[0]!,
+        liveStageId: null,
+        tradeId: 'live',
+        policyVersionId: fixture.riskPolicyVersions[0]!.id,
+      }],
+    },
+  }))
+  const atomicItem = listPendingStageOwnership(atomicEmbeddedGraph)
+    .find((item) => item.entityId === 'review')!
+  const atomicRepaired = assignPendingStageOwnership(atomicEmbeddedGraph, {
+    entityType: 'weekly-review',
+    entityId: 'review',
+    liveStageId: 'stage-old',
+    expectedFingerprint: atomicItem.fingerprint,
+  })
+  assert(
+    atomicRepaired.weeklyReviews[0]?.riskSnapshot?.policyVersions[0]?.liveStageId === 'stage-old' &&
+      atomicRepaired.weeklyReviews[0]?.riskSnapshot?.overrideEvents[0]?.liveStageId === 'stage-old',
+    '同一冻结图内的 pending policy/override 必须随 outer review 一次原子归属',
+  )
+}
+
+export function testPendingOverrideCanBeAssignedAfterSourcePurgeUsingFrozenIdentity(): void {
+  const state = pendingState()
+  state.trades = state.trades.filter((candidate) => candidate.id !== 'source')
+  const item = listPendingStageOwnership(state).find((candidate) => candidate.entityId === 'override')!
+
+  const repaired = assignPendingStageOwnership(state, {
+    entityType: 'risk-override-event',
+    entityId: 'override',
+    liveStageId: 'stage-old',
+    expectedFingerprint: item.fingerprint,
+  })
+  assert(
+    repaired.riskOverrideEvents.find((event) => event.id === 'override')?.liveStageId === 'stage-old',
+    '来源已永久删除时，完整 tradeIdentityAtDecision 必须足以修复顶层 override 归属',
+  )
+}
+
+export function testPendingReviewCanBeAssignedAfterSourcePurgeUsingFrozenEvidence(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const state = pendingState()
+  const deletedTradeId = 'deleted-frozen-trade'
+  state.weeklyReviews = state.weeklyReviews.map((review) => ({
+    ...review,
+    highlightTradeIds: [deletedTradeId],
+    evidenceSnapshot: {
+      trades: [{
+        id: deletedTradeId,
+        ref: 'TRD-DELETED-FROZEN',
+        symbol: 'BTCUSDT',
+        status: 'win' as const,
+        pnl: 100,
+        rMultiple: 1,
+        cashCurrency: 'USD' as const,
+      }],
+      missedTrades: [],
+      legacyCashCurrencyAssumption: null,
+    },
+    riskSnapshot: {
+      policyVersions: fixture.riskPolicyVersions.map((policy) => ({
+        ...policy,
+        liveStageId: null,
+      })),
+      dailyOutcomes: [{ ...fixture.riskOverrideEvents[0]!.outcomesAtDecision.day, date: '2026-06-10' }],
+      weeklyOutcome: fixture.riskOverrideEvents[0]!.outcomesAtDecision.week,
+      monthlyOutcomeAtCompletion: fixture.riskOverrideEvents[0]!.outcomesAtDecision.month,
+      overrideEvents: fixture.riskOverrideEvents.map((event) => ({
+        ...event,
+        liveStageId: null,
+        tradeId: deletedTradeId,
+        tradeIdentityAtDecision: {
+          ref: 'TRD-DELETED-FROZEN',
+          symbol: 'BTCUSDT',
+          tradeKind: 'live' as const,
+        },
+      })),
+      frozenAt: review.completedAt!,
+    },
+  }))
+  const item = listPendingStageOwnership(state).find((candidate) => candidate.entityId === 'review')!
+
+  const repaired = assignPendingStageOwnership(state, {
+    entityType: 'weekly-review',
+    entityId: 'review',
+    liveStageId: 'stage-old',
+    expectedFingerprint: item.fingerprint,
+  })
+  const review = repaired.weeklyReviews[0]!
+  assert(review.liveStageId === 'stage-old', '冻结 evidence 覆盖来源 ID 时必须允许修复 outer review')
+  assert(
+    review.riskSnapshot?.policyVersions.every((policy) => policy.liveStageId === 'stage-old') &&
+      review.riskSnapshot.overrideEvents.every((event) => event.liveStageId === 'stage-old'),
+    '源已删除的自包含冻结图仍必须与 outer review 原子归属',
+  )
+}
+
+export function testQuarantinedWeeklyReviewRequiresExplicitValidPeriodAndRollsBackRawFacts(): void {
+  const initial = pendingState()
+  initial.weeklyReviews = initial.weeklyReviews.map((review) => ({
+    ...review,
+    weekStart: '2026-02-30',
+    weekEnd: '2026-03-08',
+    legacyPeriodQuarantine: true,
+    riskSnapshot: undefined,
+  }))
+  const item = listPendingStageOwnership(initial).find((candidate) => candidate.entityId === 'review')!
+  assert(item.requiresWeeklyPeriodCorrection === true, '隔离周复盘必须在待整理列表显式标记日期修复')
+  assert(
+    item.weeklyPeriod?.weekStart === '2026-02-30' && item.weeklyPeriod.weekEnd === '2026-03-08',
+    '日期修复 UI 必须拿到原始日期，而不是迁移时猜测值',
+  )
+
+  const baseRequest = {
+    entityType: 'weekly-review' as const,
+    entityId: 'review',
+    liveStageId: 'stage-old',
+    expectedFingerprint: item.fingerprint,
+  }
+  expectRepairError('invalid-weekly-period', () => assignPendingStageOwnership(initial, baseRequest))
+  for (const correctedWeeklyPeriod of [
+    { weekStart: '2026-06-09', weekEnd: '2026-06-15' },
+    { weekStart: '2026-06-08', weekEnd: '2026-06-13' },
+    { weekStart: '2026-06-29', weekEnd: '2026-07-05' },
+  ]) {
+    expectRepairError('invalid-weekly-period', () => assignPendingStageOwnership(initial, {
+      ...baseRequest,
+      correctedWeeklyPeriod,
+    }))
+  }
+
+  const repaired = assignPendingStageOwnership(initial, {
+    ...baseRequest,
+    correctedWeeklyPeriod: { weekStart: '2026-06-08', weekEnd: '2026-06-14' },
+  })
+  const repairedReview = repaired.weeklyReviews[0]!
+  assert(
+    repairedReview.liveStageId === 'stage-old' &&
+      repairedReview.weekStart === '2026-06-08' &&
+      repairedReview.weekEnd === '2026-06-14' &&
+      !Object.prototype.hasOwnProperty.call(repairedReview, 'legacyPeriodQuarantine'),
+    '显式修复必须原子写入目标阶段、规范周区间并清除隔离标记',
+  )
+
+  const rolledBack = rollbackAssignedStageOwnership(repaired, {
+    entityType: 'weekly-review',
+    entityId: 'review',
+    assignedLiveStageId: 'stage-old',
+    weeklyReviewPrevious: {
+      weekStart: '2026-02-30',
+      weekEnd: '2026-03-08',
+      assignedWeekStart: '2026-06-08',
+      assignedWeekEnd: '2026-06-14',
+      legacyPeriodQuarantine: true,
+      pendingPolicyVersionIds: [],
+      pendingOverrideEventIds: [],
+    },
+  })
+  const restoredReview = rolledBack.weeklyReviews[0]!
+  assert(
+    restoredReview.liveStageId === null &&
+      restoredReview.weekStart === '2026-02-30' &&
+      restoredReview.weekEnd === '2026-03-08' &&
+      restoredReview.legacyPeriodQuarantine === true,
+    '耐久保存失败回滚必须恢复原始非法日期与隔离标记',
+  )
 }
 
 export function testRollbackUsesLatestStateAndOnlyReversesTargetOwnership(): void {

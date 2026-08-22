@@ -360,16 +360,15 @@ export function requestTradeOpenCandidate<State extends TradeOpenRiskGateState>(
     return { kind: 'not-current-stage', trade }
   }
   if (trade.status === 'open') return { kind: 'opened', decision: 'already-open', state, trade }
-  if (!requiresFirstOpenGate(trade)) {
-    return { kind: 'opened', decision: 'not-required', ...openedState(state, trade, options) }
-  }
-
   if (riskSetupStateForStage(
     state,
     state.currentLiveStageId,
     state.currentTradingDayKey,
   ) === 'unconfigured') {
     return { kind: 'risk-setup-required', trade }
+  }
+  if (!requiresFirstOpenGate(trade)) {
+    return { kind: 'opened', decision: 'not-required', ...openedState(state, trade, options) }
   }
   if (options.existingPending) {
     return { kind: 'pending-exists', request: options.existingPending }

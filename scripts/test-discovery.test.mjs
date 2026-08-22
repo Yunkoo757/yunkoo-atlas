@@ -11,7 +11,10 @@ import {
   settleBrowserDiagnostics,
   unexpectedBrowserDiagnostics,
 } from './test-discovery.mjs'
-import { runBrowserRegressionTests } from './run-browser-tests.mjs'
+import {
+  isTransientBrowserSocketExhaustion,
+  runBrowserRegressionTests,
+} from './run-browser-tests.mjs'
 
 test('desktop-only package scripts do not publish the retired mobile risk QA', async () => {
   const pkg = JSON.parse(await fs.readFile(path.resolve('package.json'), 'utf8'))
@@ -346,6 +349,17 @@ test('browser runner retries only the transient Windows socket exhaustion error'
   const source = await fs.readFile(path.resolve('scripts/run-browser-tests.mjs'), 'utf8')
   assert.match(source, /net::ERR_NO_BUFFER_SPACE/)
   assert.match(source, /attempt < 2/)
+  assert.equal(
+    isTransientBrowserSocketExhaustion(
+      new Error('page.goto: net::ERR_NO_BUFFER_SPACE'),
+      [],
+    ),
+    true,
+  )
+  assert.equal(
+    isTransientBrowserSocketExhaustion(new Error('ordinary navigation failure'), []),
+    false,
+  )
 })
 
 test('sidebar QA retries once in a fresh process', async () => {

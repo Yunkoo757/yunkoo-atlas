@@ -73,15 +73,22 @@ export function testCanonicalCodecAllowsSameRiskPeriodKeyAcrossStages(): void {
     createdAt: '2026-07-01T00:00:00.000Z',
     archivedAt: '2026-07-13T00:00:00.000Z',
   }
+  const archivedPolicy = {
+    ...fixture.riskPolicyVersions[0]!,
+    id: 'risk-policy-codec-archived',
+    liveStageId: archivedStage.id,
+  }
   const decoded = decodeCanonicalSnapshot({
     ...fixture,
     liveStages: [archivedStage, currentStage],
+    riskPolicyVersions: [fixture.riskPolicyVersions[0]!, archivedPolicy],
     weeklyRiskPreparations: [
       fixture.weeklyRiskPreparations[0]!,
       {
         ...fixture.weeklyRiskPreparations[0]!,
         id: `weekly-risk-preparation:${archivedStage.id}:${fixture.weeklyRiskPreparations[0]!.weekStart}`,
         liveStageId: archivedStage.id,
+        confirmedPolicyVersionId: archivedPolicy.id,
       },
     ],
     monthlyRiskLimits: [
@@ -90,6 +97,7 @@ export function testCanonicalCodecAllowsSameRiskPeriodKeyAcrossStages(): void {
         ...fixture.monthlyRiskLimits[0]!,
         id: `monthly-risk-limit:${archivedStage.id}:${fixture.monthlyRiskLimits[0]!.monthKey}`,
         liveStageId: archivedStage.id,
+        sourcePolicyVersionId: archivedPolicy.id,
       },
     ],
   }, { version: SCHEMA_VERSION })
@@ -98,7 +106,7 @@ export function testCanonicalCodecAllowsSameRiskPeriodKeyAcrossStages(): void {
   assert(decoded.monthlyRiskLimits.length === 2, 'codec 必须保留跨阶段同月限额')
 }
 
-export function testCanonicalCodecAllowsSameWeeklyReviewWeekAcrossStages(): void {
+export function testCanonicalCodecRejectsSameWeeklyReviewWeekAcrossStages(): void {
   const fixture = createFullPersistedSnapshotFixture()
   const currentStage = { ...fixture.liveStages[0]!, sequence: 2 }
   const archivedStage = {
@@ -119,13 +127,15 @@ export function testCanonicalCodecAllowsSameWeeklyReviewWeekAcrossStages(): void
     liveStageId: archivedStage.id,
   }
 
-  const decoded = decodeCanonicalSnapshot({
-    ...fixture,
-    liveStages: [archivedStage, currentStage],
-    weeklyReviews: [currentReview, archivedReview],
-  }, { version: SCHEMA_VERSION })
-
-  assert(decoded.weeklyReviews.length === 2, 'codec 必须保留同周跨阶段的两篇复盘')
+  let rejected = false
+  try {
+    decodeCanonicalSnapshot({
+      ...fixture,
+      liveStages: [archivedStage, currentStage],
+      weeklyReviews: [currentReview, archivedReview],
+    }, { version: SCHEMA_VERSION })
+  } catch { rejected = true }
+  assert(rejected, 'codec 必须拒绝不属于目标阶段的同周伪归属')
 }
 
 export function testVersionElevenSnapshotMigratesToCanonicalStageOwnership(): void {
@@ -337,16 +347,195 @@ export function testVersionElevenSnapshotWithoutCycleMetadataStillProducesCanoni
   delete (missing as unknown as Record<string, unknown>).scheduledStageRollover
   const decoded = decodeCanonicalSnapshot(missing, { version: 11 })
   assert(decoded.liveStages.length > 0, 'v11 缺少周期元数据也必须迁移为规范阶段图')
-  const stripOwnership = (review: Record<string, unknown>) => {
-    const { liveStageId: _liveStageId, ...facts } = review
-    return facts
-  }
   assert(
-    canonicalContractJson(decoded.weeklyReviews.map((review) => stripOwnership(review as unknown as Record<string, unknown>))) ===
-      canonicalContractJson((fixture.weeklyReviews ?? []).map((review) => stripOwnership(review as unknown as Record<string, unknown>))),
-    '补齐缺省边界除显式阶段归属外不得改写周复盘快照',
+    decoded.weeklyReviews.every((review, index) => (
+      review.weekStart === fixture.weeklyReviews?.[index]?.weekStart &&
+      review.weekEnd === fixture.weeklyReviews?.[index]?.weekEnd &&
+      review.contentHtml === fixture.weeklyReviews?.[index]?.contentHtml &&
+      review.completedAt === fixture.weeklyReviews?.[index]?.completedAt
+    )),
+    '补齐缺省边界必须保留周复盘原始日期、正文和完成事实',
   )
-  assert(decoded.weeklyReviews.every((review) => typeof review.liveStageId === 'string'), '迁移必须为周复盘建立显式阶段归属')
+  assert(
+    decoded.weeklyReviews.every((review) => (
+      typeof review.liveStageId === 'string' ||
+      (review.liveStageId === null && review.legacyPeriodQuarantine === true)
+    )),
+    '迁移只能建立可证明归属，否则必须显式进入 quarantine',
+  )
+}
+
+function legacyWeeklyRiskSnapshot(
+  fixture: PersistedSnapshot,
+  input: { tradeId: string; policyVersionId: string },
+) {
+  const event = fixture.riskOverrideEvents[0]!
+  const completedAt = fixture.weeklyReviews![0]!.completedAt!
+  return {
+    policyVersions: [],
+    dailyOutcomes: [{ ...event.outcomesAtDecision.day, date: '2026-07-17' }],
+    weeklyOutcome: event.outcomesAtDecision.week,
+    monthlyOutcomeAtCompletion: event.outcomesAtDecision.month,
+    overrideEvents: [{
+      ...event,
+      tradeId: input.tradeId,
+      policyVersionId: input.policyVersionId,
+    }],
+    frozenAt: completedAt,
+  }
+}
+
+function withoutV12StageFields(snapshot: PersistedSnapshot): Record<string, unknown> {
+  const legacy = structuredClone(snapshot) as unknown as Record<string, unknown>
+  delete legacy.liveStages
+  delete legacy.currentLiveStageId
+  delete legacy.scheduledStageRollover
+  return legacy
+}
+
+export function testVersionElevenQuarantinesReviewWhoseFrozenOverridePolicyIsMissing(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const tradeId = fixture.trades[0]!.id
+  const legacy = withoutV12StageFields({
+    ...fixture,
+    weeklyReviews: [{
+      ...fixture.weeklyReviews![0]!,
+      riskSnapshot: legacyWeeklyRiskSnapshot(fixture, {
+        tradeId,
+        policyVersionId: 'missing-policy',
+      }),
+    }],
+  })
+  legacy.livePerformanceCycles = [{
+    id: 'legacy-stage',
+    name: '旧实盘阶段',
+    startTradingDayKey: '2026-07-13',
+    createdAt: '2026-07-13T00:00:00.000Z',
+  }]
+
+  const decoded = decodeCanonicalSnapshot(legacy, { version: 11 })
+  const review = decoded.weeklyReviews[0]!
+  assert(review.liveStageId === null, '冻结 override 引用缺失 policy 时外层周复盘必须待修复')
+  assert(
+    !Object.prototype.hasOwnProperty.call(review, 'legacyPeriodQuarantine'),
+    'policy 关系待修复不得误标成周日期 quarantine',
+  )
+  assert(
+    review.riskSnapshot?.overrideEvents.every((event) => event.liveStageId === null) &&
+      review.riskSnapshot.policyVersions.every((policy) => policy.liveStageId === null),
+    'quarantine 必须原子清空全部嵌入风险归属，不能留下半迁移图',
+  )
+}
+
+export function testVersionElevenQuarantinesReviewWhoseTopLevelPolicyMigratesToAnotherStage(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const reviewTrade = fixture.trades[0]!
+  const laterTrade = {
+    ...reviewTrade,
+    id: 'later-risk-trade',
+    ref: 'TRD-LATER-RISK',
+    openedAt: '2026-08-12T08:00:00.000Z',
+    closedAt: '2026-08-12T09:00:00.000Z',
+    closedTradingDayKey: '2026-08-12',
+  }
+  const legacy = withoutV12StageFields({
+    ...fixture,
+    trades: [reviewTrade, laterTrade],
+    riskOverrideEvents: fixture.riskOverrideEvents.map((event) => ({
+      ...event,
+      tradeId: laterTrade.id,
+      tradeIdentityAtDecision: {
+        ref: laterTrade.ref,
+        symbol: laterTrade.symbol,
+        tradeKind: 'live' as const,
+      },
+      tradingDayKeyAtDecision: '2026-08-12',
+    })),
+    weeklyReviews: [{
+      ...fixture.weeklyReviews![0]!,
+      riskSnapshot: legacyWeeklyRiskSnapshot(fixture, {
+        tradeId: reviewTrade.id,
+        policyVersionId: fixture.riskPolicyVersions[0]!.id,
+      }),
+    }],
+  })
+  legacy.livePerformanceCycles = [
+    { id: 'old', name: '旧阶段', startTradingDayKey: '2026-07-13', createdAt: '2026-07-13T00:00:00.000Z' },
+    { id: 'current', name: '当前阶段', startTradingDayKey: '2026-08-10', createdAt: '2026-08-10T00:00:00.000Z' },
+  ]
+
+  const decoded = decodeCanonicalSnapshot(legacy, { version: 11 })
+  const review = decoded.weeklyReviews[0]!
+  assert(review.liveStageId === null, '顶层 policy 迁往另一阶段时引用它的旧周复盘必须待修复')
+  assert(
+    !Object.prototype.hasOwnProperty.call(review, 'legacyPeriodQuarantine'),
+    '跨阶段 policy 关系不得强迫用户修正本来合法的周区间',
+  )
+  assert(decoded.riskPolicyVersions[0]?.liveStageId === 'legacy-live-stage-2', '测试前提：顶层 policy 必须迁往后续阶段')
+  assert(
+    review.riskSnapshot?.overrideEvents.every((event) => event.liveStageId === null),
+    '跨阶段 policy 引用不得留下已分配的嵌入 override event',
+  )
+}
+
+function decodeV11WithDanglingTopLevelRiskPolicy(
+  patch: Partial<Pick<
+    PersistedSnapshot,
+    'weeklyRiskPreparations' | 'monthlyRiskLimits' | 'riskOverrideEvents'
+  >>,
+): CanonicalSnapshot {
+  const fixture = createFullPersistedSnapshotFixture()
+  const legacy = withoutV12StageFields({ ...fixture, ...patch })
+  legacy.livePerformanceCycles = [{
+    id: 'legacy-stage',
+    name: '旧实盘阶段',
+    startTradingDayKey: '2026-07-13',
+    createdAt: '2026-07-13T00:00:00.000Z',
+  }]
+  return decodeCanonicalSnapshot(legacy, { version: 11 })
+}
+
+function assertTopLevelRiskGraphIsPending(decoded: CanonicalSnapshot, message: string): void {
+  assert(
+    decoded.weeklyRiskPreparations.every((item) => item.liveStageId === null) &&
+      decoded.riskPolicyVersions.every((item) => item.liveStageId === null) &&
+      decoded.monthlyRiskLimits.every((item) => item.liveStageId === null) &&
+      decoded.riskOverrideEvents.every((item) => item.liveStageId === null),
+    message,
+  )
+}
+
+export function testVersionElevenMakesTopLevelRiskGraphPendingForMissingOverridePolicy(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const decoded = decodeV11WithDanglingTopLevelRiskPolicy({
+    riskOverrideEvents: fixture.riskOverrideEvents.map((event) => ({
+      ...event,
+      policyVersionId: 'missing-policy',
+    })),
+  })
+  assertTopLevelRiskGraphIsPending(decoded, 'override 引用缺失 policy 时顶层风险图必须整体待修复')
+}
+
+export function testVersionElevenMakesTopLevelRiskGraphPendingForMissingPreparationPolicy(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const decoded = decodeV11WithDanglingTopLevelRiskPolicy({
+    weeklyRiskPreparations: fixture.weeklyRiskPreparations.map((preparation) => ({
+      ...preparation,
+      confirmedPolicyVersionId: 'missing-policy',
+    })),
+  })
+  assertTopLevelRiskGraphIsPending(decoded, '风险准备引用缺失 policy 时顶层风险图必须整体待修复')
+}
+
+export function testVersionElevenMakesTopLevelRiskGraphPendingForMissingMonthlyLimitPolicy(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const decoded = decodeV11WithDanglingTopLevelRiskPolicy({
+    monthlyRiskLimits: fixture.monthlyRiskLimits.map((limit) => ({
+      ...limit,
+      sourcePolicyVersionId: 'missing-policy',
+    })),
+  })
+  assertTopLevelRiskGraphIsPending(decoded, '月度限额引用缺失 policy 时顶层风险图必须整体待修复')
 }
 
 export function testLegacySnapshotLoadsWithNoCashCurrencyAssumptionAndPreservesTradeFacts(): void {

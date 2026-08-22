@@ -49,6 +49,34 @@ export interface AssetBytes {
   bytes: Uint8Array
 }
 
+export type SnapshotSaveOutcome =
+  | 'previous-unchanged'
+  | 'indeterminate'
+
+export type SnapshotSaveResult =
+  | { kind: 'committed' }
+  | { kind: 'committed-after-write-error' }
+
+/**
+ * 原子替换抛错后的磁盘真相。indeterminate 会锁住当前实例，避免自动保存
+ * 覆盖尚待人工/重启恢复的数据库证据。
+ */
+export class SnapshotSaveError extends Error {
+  readonly outcome: SnapshotSaveOutcome
+  readonly cause: unknown
+
+  constructor(outcome: SnapshotSaveOutcome, cause: unknown) {
+    super(
+      outcome === 'previous-unchanged'
+        ? '资料库快照尚未写入，可安全重试'
+        : '资料库快照写入结果不确定，已停止继续读写',
+    )
+    this.name = 'SnapshotSaveError'
+    this.outcome = outcome
+    this.cause = cause
+  }
+}
+
 let sqlPromise: ReturnType<typeof initSqlJs> | null = null
 const electronApp =
   typeof electronRuntime === 'object' && electronRuntime !== null && 'app' in electronRuntime
@@ -149,16 +177,20 @@ async function getSql() {
 
 export class LibraryStorage {
   private db: Database | null = null
+  private DatabaseClass: SqlDatabaseConstructor | null = null
   private paths: ReturnType<typeof ensureLibraryDirs>
   private readonly allowCreate: boolean
   private readonly writeImportDatabase: typeof writeFileAtomicallySync
   private readonly beforeAtomicReplace?: (temporaryPath: string) => void
+  private readonly beforeSnapshotAtomicReplace?: (temporaryPath: string) => void
+  private readonly afterSnapshotAtomicReplace?: (targetPath: string) => void
   private readonly readDatabaseFile: (filePath: string) => Buffer
   private readonly createDatabase: (
     DatabaseClass: SqlDatabaseConstructor,
     data?: ArrayLike<number> | null,
   ) => Database
   private readonly now: () => Date
+  private snapshotWriteRecoveryError: SnapshotSaveError | null = null
   private assetPurgePreviews = new Map<string, {
     snapshotJson: string
     candidateIds: string[]
@@ -172,6 +204,8 @@ export class LibraryStorage {
       allowCreate?: boolean
       writeImportDatabase?: typeof writeFileAtomicallySync
       beforeAtomicReplace?: (temporaryPath: string) => void
+      beforeSnapshotAtomicReplace?: (temporaryPath: string) => void
+      afterSnapshotAtomicReplace?: (targetPath: string) => void
       readDatabaseFile?: (filePath: string) => Buffer
       createDatabase?: (
         DatabaseClass: SqlDatabaseConstructor,
@@ -184,6 +218,8 @@ export class LibraryStorage {
     this.allowCreate = options.allowCreate !== false
     this.writeImportDatabase = options.writeImportDatabase ?? writeFileAtomicallySync
     this.beforeAtomicReplace = options.beforeAtomicReplace
+    this.beforeSnapshotAtomicReplace = options.beforeSnapshotAtomicReplace
+    this.afterSnapshotAtomicReplace = options.afterSnapshotAtomicReplace
     this.readDatabaseFile = options.readDatabaseFile ?? ((filePath) => fs.readFileSync(filePath))
     this.createDatabase = options.createDatabase ?? (
       (DatabaseClass, data) => new DatabaseClass(data)
@@ -212,6 +248,7 @@ export class LibraryStorage {
         throw new Error('manifest.json 不存在，已阻止生成新的资料库身份')
       }
       const SQL = await getSql()
+      this.DatabaseClass = SQL.Database
       let created = false
 
       if (schemaRecovery.kind === 'pending-v9-validation') {
@@ -322,6 +359,7 @@ export class LibraryStorage {
   }
 
   private requireDb(): Database {
+    if (this.snapshotWriteRecoveryError) throw this.snapshotWriteRecoveryError
     if (!this.db) throw new Error('Library database not opened')
     return this.db
   }
@@ -380,19 +418,73 @@ export class LibraryStorage {
     })
   }
 
-  saveSnapshot(snapshot: PersistedSnapshot): void {
+  saveSnapshot(snapshot: PersistedSnapshot): SnapshotSaveResult {
     assertValidPersistedSnapshot(snapshot, 'Library snapshot')
-    const db = this.requireDb()
-    db.run(
-      `INSERT INTO meta (key, value) VALUES (?, ?)
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      [SNAPSHOT_KEY, JSON.stringify(snapshot)],
+    this.requireDb()
+    const DatabaseClass = this.DatabaseClass
+    if (!DatabaseClass) throw new Error('资料库 SQL 构造器尚未初始化')
+    const previousDiskBytes = this.readDatabaseFile(this.paths.dbFile)
+    const candidateDb = this.createDatabase(
+      DatabaseClass,
+      Buffer.from(previousDiskBytes),
     )
-    this.persistDb()
+    let candidateOwned = true
+    try {
+      candidateDb.run(
+        `INSERT INTO meta (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [SNAPSHOT_KEY, JSON.stringify(snapshot)],
+      )
+      const candidateBytes = Buffer.from(candidateDb.export())
+      try {
+        writeFileAtomicallySync(
+          this.paths.dbFile,
+          candidateBytes,
+          undefined,
+          this.beforeSnapshotAtomicReplace ?? this.beforeAtomicReplace,
+          this.afterSnapshotAtomicReplace,
+        )
+      } catch (cause) {
+        let observedBytes: Buffer
+        try {
+          observedBytes = this.readDatabaseFile(this.paths.dbFile)
+        } catch (readError) {
+          candidateDb.close()
+          candidateOwned = false
+          this.closeDatabaseBestEffort()
+          const failure = new SnapshotSaveError('indeterminate', { write: cause, read: readError })
+          this.snapshotWriteRecoveryError = failure
+          throw failure
+        }
+
+        if (observedBytes.equals(candidateBytes)) {
+          this.closeDatabaseBestEffort()
+          this.db = candidateDb
+          candidateOwned = false
+          return { kind: 'committed-after-write-error' }
+        }
+        if (observedBytes.equals(previousDiskBytes)) {
+          throw new SnapshotSaveError('previous-unchanged', cause)
+        }
+
+        candidateDb.close()
+        candidateOwned = false
+        this.closeDatabaseBestEffort()
+        const failure = new SnapshotSaveError('indeterminate', cause)
+        this.snapshotWriteRecoveryError = failure
+        throw failure
+      }
+
+      this.closeDatabaseBestEffort()
+      this.db = candidateDb
+      candidateOwned = false
+      return { kind: 'committed' }
+    } finally {
+      if (candidateOwned) candidateDb.close()
+    }
   }
 
   async saveAssetAsync(buffer: Buffer, mime: string): Promise<string> {
-    const db = this.requireDb()
     const id = randomUUID()
     const createdAt = new Date().toISOString()
 
@@ -412,18 +504,31 @@ export class LibraryStorage {
     const fileName = `${id}.${ext}`
     assertSafeAssetId(id)
     const filePath = resolveAttachmentWritePath(this.paths.attachments, fileName)
-    writeFileAtomicallySync(filePath, outBuffer)
 
-    db.run(
-      `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         mime = excluded.mime,
-         file_name = excluded.file_name,
-         byte_size = excluded.byte_size`,
-      [id, outMime, fileName, outBuffer.byteLength, createdAt],
-    )
-    this.persistDb()
+    // 图片处理会让出事件循环；期间同步快照提交可能以候选数据库替换并关闭
+    // 旧 sql.js 实例。因此只能在最后一个 await 之后取得当前数据库，并把
+    // 文件、行与数据库落盘保持在同一个不让出事件循环的临界区内。
+    const db = this.requireDb()
+    writeFileAtomicallySync(filePath, outBuffer)
+    try {
+      db.run(
+        `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           mime = excluded.mime,
+           file_name = excluded.file_name,
+           byte_size = excluded.byte_size`,
+        [id, outMime, fileName, outBuffer.byteLength, createdAt],
+      )
+      this.persistDb()
+    } catch (error) {
+      // INSERT 本身失败时不会有耐久数据库引用；及时移除刚写入的附件，避免
+      // 并发/关闭错误留下孤儿。persistDb 的精确磁盘失败另由原子写协议处理。
+      try {
+        if (readAssetFileName(db, id) === null && fs.existsSync(filePath)) fs.rmSync(filePath)
+      } catch { /* 数据库状态不可读时保留文件，交由附件 GC 的可恢复流程处理。 */ }
+      throw error
+    }
     return id
   }
 
@@ -691,6 +796,11 @@ export class LibraryStorage {
   }
 
   async commitAssetPurge(preview: AssetPurgePreview): Promise<AssetPurgeResult> {
+    // sql.js 初始化是本流程唯一会让出事件循环的步骤，必须发生在读取一次性
+    // preview、快照 CAS、活动数据库与附件状态之前。此后保持同步临界区，
+    // 避免 saveSnapshot 在 await 间隙替换并关闭已捕获的数据库，也避免新快照
+    // 重新引用候选附件后仍按旧引用集合删除。
+    const SQL = await getSql()
     const prepared = this.assetPurgePreviews.get(preview.operationId)
     this.assetPurgePreviews.delete(preview.operationId)
     if (
@@ -767,7 +877,6 @@ export class LibraryStorage {
         staged.push(file)
       }
       fsyncDirectorySync(operationDir)
-      const SQL = await getSql()
       nextDb = new SQL.Database(currentDb.export())
       nextDb.run('BEGIN TRANSACTION')
       for (const id of prepared.candidateIds) {

@@ -66,6 +66,8 @@ export interface WeeklyReview {
   id: string
   /** v12 stage ownership; undefined is accepted only while decoding v1-v11. */
   liveStageId?: string | null
+  /** v1-v11 无法验证的原始周边界；仅允许 pending，修复日期后移除。 */
+  legacyPeriodQuarantine?: true
   weekStart: string
   weekEnd: string
   status: WeeklyReviewStatus

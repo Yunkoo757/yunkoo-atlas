@@ -47,7 +47,7 @@ export type StageRolloverCommitResult =
   | { ok: true; publish: StageRolloverPublishState }
   | {
       ok: false
-      reason: 'stale' | 'backup-failed' | 'validation-failed' | 'write-failed'
+      reason: 'stale' | 'backup-failed' | 'validation-failed' | 'write-failed' | 'recovery-required'
       message: string
     }
 

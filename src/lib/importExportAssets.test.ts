@@ -489,9 +489,19 @@ export async function testPathAHistoricalMissingFieldMatrixIsExplicit(): Promise
   expected.quickNotes![0]!.contentHtml = '<p>随记正文哨兵</p>'
   const payload = await buildExportPayloadFromState(expected, async () => null)
 
+  const legacyRiskFields = [
+    'weeklyRiskPreparations',
+    'riskPolicyVersions',
+    'monthlyRiskLimits',
+    'riskOverrideEvents',
+  ] as const
   for (const field of PERSISTED_SNAPSHOT_FIELDS) {
     const candidate = { ...payload, version: 1 } as Record<string, unknown>
-    delete candidate[field]
+    if (legacyRiskFields.includes(field as (typeof legacyRiskFields)[number])) {
+      for (const riskField of legacyRiskFields) delete candidate[riskField]
+    } else {
+      delete candidate[field]
+    }
     const parsed = parseImportJson(JSON.stringify(candidate))
     assert(parsed.ok, `历史输入缺少 ${field} 时必须由中央规范化层补齐`)
     if (parsed.ok) {

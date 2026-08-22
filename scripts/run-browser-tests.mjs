@@ -30,6 +30,13 @@ async function withTimeout(promise, milliseconds, message) {
   }
 }
 
+export function isTransientBrowserSocketExhaustion(error, diagnostics) {
+  const thrownMessage = error instanceof Error ? error.message : String(error)
+  return [thrownMessage, ...diagnostics].some((message) => (
+    message.includes('net::ERR_NO_BUFFER_SPACE')
+  ))
+}
+
 export async function runBrowserRegressionTests(root, options = {}) {
   let failed = 0
   const passedEntries = new Set()
@@ -136,7 +143,7 @@ export async function runBrowserRegressionTests(root, options = {}) {
           onEvent({ type: 'pass', testId, attempt: attempt + 1 })
           break
         } catch (error) {
-          const retry = attempt === 0 && diagnostics.some((message) => message.includes('net::ERR_NO_BUFFER_SPACE'))
+          const retry = attempt === 0 && isTransientBrowserSocketExhaustion(error, diagnostics)
           if (!retry) {
             failed += 1
             failedTests.push(testId)

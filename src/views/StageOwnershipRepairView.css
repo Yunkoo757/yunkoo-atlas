@@ -77,6 +77,12 @@
 
 .stage-ownership-actions { display: grid; align-content: start; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2); }
 .stage-ownership-actions label { grid-column: 1 / -1; color: var(--text-secondary); font-size: var(--type-metadata-size); font-weight: var(--font-weight-medium); }
+.stage-ownership-period-correction { display: grid; grid-column: 1 / -1; grid-template-columns: 1fr 1fr; gap: var(--sp-2); min-width: 0; margin: 0 0 var(--sp-1); padding: var(--sp-3); border: 1px solid var(--warn-action); border-radius: var(--radius-6); }
+.stage-ownership-period-correction legend { padding: 0 var(--sp-1); color: var(--warn-action); font-size: var(--type-metadata-size); font-weight: var(--font-weight-medium); }
+.stage-ownership-period-correction p { grid-column: 1 / -1; margin: 0; color: var(--text-muted); font-size: var(--type-caption-size); overflow-wrap: anywhere; }
+.stage-ownership-period-correction label { grid-column: auto; }
+.stage-ownership-period-correction input { min-width: 0; height: var(--field-height-md); padding: 0 var(--sp-2); border: 1px solid var(--border-default); border-radius: var(--radius-6); background: var(--bg-surface); color: var(--text-primary); font: inherit; }
+.stage-ownership-period-correction input:focus-visible { outline: var(--focus-ring-outline); outline-offset: 1px; }
 .stage-ownership-actions select { min-width: 0; height: var(--field-height-md); padding: 0 var(--sp-2); border: 1px solid var(--border-default); border-radius: var(--radius-6); background: var(--bg-surface); color: var(--text-primary); font: inherit; font-size: var(--type-row-size); }
 .stage-ownership-actions select:focus-visible { outline: var(--focus-ring-outline); outline-offset: 1px; }
 .stage-ownership-feedback { grid-column: 1 / -1; min-height: 1.4em; margin: 0; color: var(--text-muted); font-size: var(--type-caption-size); line-height: 1.4; }

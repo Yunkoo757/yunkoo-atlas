@@ -118,6 +118,14 @@ async function run(): Promise<void> {
   const previousShortcuts = useShortcutStore.getState()
   clearReviewSessionStorage(manifest.libraryId)
   const accountTrade: Trade = { ...trade, liveStageId: previous.currentLiveStageId }
+  const paperTrade = {
+    ...accountTrade,
+    id: 'review-session-paper',
+    ref: 'PPR-RANDOM-1',
+    symbol: 'ETHUSDT',
+    tradeKind: 'paper' as const,
+  } as Trade & { liveStageId?: string | null }
+  delete paperTrade.liveStageId
   const reviewCase: Trade = {
     ...accountTrade,
     id: 'review-session-case',
@@ -136,7 +144,7 @@ async function run(): Promise<void> {
     nextReviewAt: '2099-01-01',
   }
   useStore.setState({
-    trades: [accountTrade, reviewCase, futureReviewCase],
+    trades: [accountTrade, reviewCase, futureReviewCase, paperTrade],
     strategies: [strategy],
     starredIds: [],
     composerOpen: false,
@@ -161,7 +169,7 @@ async function run(): Promise<void> {
 
   try {
     await waitFor(
-      () => document.body.textContent?.includes('可随机复盘 1 条') === true,
+      () => document.body.textContent?.includes('可随机复盘 2 条') === true,
       '随机复盘没有显示实时范围数量',
     )
     assert(!document.querySelector('.review-session-source-grid'), '开始页不得直接暴露来源表单')
@@ -173,46 +181,69 @@ async function run(): Promise<void> {
     findButton('复盘设置')?.click()
     await waitFor(() => document.body.textContent?.includes('只影响接下来开启的这一轮复盘。') === true, '没有打开复盘设置')
     const sourceInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-settings-sources input[type="checkbox"]')]
-    assert(sourceInputs.length === 2, '复盘设置缺少来源选项')
-    assert(sourceInputs[1]?.checked === false, '账户交易默认必须未选中')
+    assert(sourceInputs.length === 3, '复盘设置必须分别提供案例、实盘交易与模拟盘来源')
+    assert(sourceInputs[0]?.checked === true, '案例默认必须选中')
+    assert(sourceInputs[1]?.checked === true, '实盘交易默认必须选中')
+    assert(sourceInputs[2]?.checked === false, '模拟盘默认必须独立关闭')
+    assert(document.body.textContent?.includes('实盘交易') && document.body.textContent.includes('模拟盘'), '复盘设置缺少拆分后的来源标签')
     const timingSelect = document.querySelector<HTMLButtonElement>('[aria-label="复盘时间范围"]')
     assert(timingSelect, '复盘设置缺少时间范围')
     assert(timingSelect.textContent?.includes('到期案例'), '复盘设置必须默认明确显示到期案例')
     timingSelect.click()
     await waitFor(() => Boolean(findButton('全部案例（含未到期与已掌握）')), '复盘设置缺少全部案例时间范围')
     findButton('全部案例（含未到期与已掌握）')?.click()
-    await waitFor(() => document.body.textContent?.includes('当前设置可复盘 2 条') === true, '全部案例范围没有包含未来案例')
-    useStore.setState({ trades: [accountTrade, reviewCase] })
+    await waitFor(() => document.body.textContent?.includes('当前设置可复盘 3 条') === true, '全部案例范围没有包含未来案例与默认实盘')
+    useStore.setState({ trades: [accountTrade, reviewCase, paperTrade] })
     await waitFor(
-      () => document.body.textContent?.includes('当前设置可复盘 1 条') === true,
+      () => document.body.textContent?.includes('当前设置可复盘 2 条') === true,
       '移除未来案例后全部范围数量没有刷新',
     )
     const refreshedSourceInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-settings-sources input[type="checkbox"]')]
+    refreshedSourceInputs[0]?.click()
     refreshedSourceInputs[1]?.click()
-    await waitFor(() => refreshedSourceInputs[1]?.checked === true, '账户交易来源没有启用')
+    refreshedSourceInputs[2]?.click()
+    await waitFor(
+      () => refreshedSourceInputs[0]?.checked === false && refreshedSourceInputs[1]?.checked === false && refreshedSourceInputs[2]?.checked === true,
+      '只选模拟盘时三个来源没有保持独立',
+    )
     findButton('应用设置')?.click()
-    await waitFor(() => document.body.textContent?.includes('可随机复盘 2 条') === true, '启用账户交易后预览没有包含两条记录')
+    await waitFor(() => document.body.textContent?.includes('可随机复盘 1 条') === true, '只选模拟盘后预览没有精确包含模拟记录')
 
     findButton('更多')?.click()
     await waitFor(() => Boolean(findButton('复盘设置')), '更多菜单没有再次提供复盘设置')
     findButton('复盘设置')?.click()
     await waitFor(() => document.body.textContent?.includes('只影响接下来开启的这一轮复盘。') === true, '没有再次打开复盘设置')
     const reopenedSourceInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-settings-sources input[type="checkbox"]')]
-    assert(reopenedSourceInputs[1]?.checked === true, '应用后的账户交易设置没有保留到当前视图')
-    reopenedSourceInputs[1]?.click()
+    assert(
+      reopenedSourceInputs[0]?.checked === false && reopenedSourceInputs[1]?.checked === false && reopenedSourceInputs[2]?.checked === true,
+      '应用后的只选模拟盘设置没有保留到当前视图',
+    )
+    reopenedSourceInputs[0]?.click()
+    findButton('应用设置')?.click()
+    await waitFor(() => document.body.textContent?.includes('可随机复盘 2 条') === true, '案例与模拟盘组合没有同时进入预览')
+
+    findButton('更多')?.click()
+    await waitFor(() => Boolean(findButton('复盘设置')), '更多菜单没有第三次提供复盘设置')
+    findButton('复盘设置')?.click()
+    await waitFor(() => document.body.textContent?.includes('只影响接下来开启的这一轮复盘。') === true, '没有第三次打开复盘设置')
+    const finalSourceInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-settings-sources input[type="checkbox"]')]
+    assert(finalSourceInputs[0]?.checked === true && finalSourceInputs[1]?.checked === false && finalSourceInputs[2]?.checked === true, '案例与模拟盘组合没有保留')
+    finalSourceInputs[2]?.click()
     const contentOnlyInput = document.querySelector<HTMLInputElement>('.review-session-content-toggle input[type="checkbox"]')
     assert(contentOnlyInput?.checked === false, '仅含有效图文默认必须未选中')
     contentOnlyInput.click()
     findButton('应用设置')?.click()
-    await waitFor(() => document.body.textContent?.includes('可随机复盘 1 条') === true, '关闭账户交易后预览没有恢复案例数量')
+    await waitFor(() => document.body.textContent?.includes('可随机复盘 1 条') === true, '关闭实盘与模拟盘后预览没有恢复案例数量')
 
     findButton('开启一轮新的复盘')?.click()
     await waitFor(
       () => Boolean(document.querySelector('.review-session-workspace')),
       '开始后没有直接打开完整交易',
     )
-    assert(loadReviewSession(manifest.libraryId)?.filters.includeAccountTrades === false,
-      '非默认轮次快照不得包含账户交易')
+    assert(loadReviewSession(manifest.libraryId)?.filters.includeLiveTrades === false,
+      '非默认轮次快照必须保留关闭实盘交易')
+    assert(loadReviewSession(manifest.libraryId)?.filters.includePaperTrades === false,
+      '非默认轮次快照必须保留关闭模拟盘')
     assert(loadReviewSession(manifest.libraryId)?.filters.requireContent === true,
       '非默认轮次快照必须保留仅含有效图文设置')
     assert(loadReviewSession(manifest.libraryId)?.ids.join(',') === reviewCase.id,
@@ -368,7 +399,8 @@ async function run(): Promise<void> {
 
     findButton('再随机一轮')?.click()
     await waitFor(() => Boolean(document.querySelector('.review-session-workspace')), '无法再次随机开始')
-    assert(loadReviewSession(manifest.libraryId)?.filters.includeAccountTrades === false,
+    assert(loadReviewSession(manifest.libraryId)?.filters.includeLiveTrades === false &&
+      loadReviewSession(manifest.libraryId)?.filters.includePaperTrades === false,
       '再随机一轮必须沿用已完成轮次的筛选条件')
     assert(loadReviewSession(manifest.libraryId)?.filters.requireContent === true,
       '再随机一轮不得把非默认筛选快照硬编码回默认值')
@@ -411,7 +443,7 @@ async function run(): Promise<void> {
     )
     const resetSourceInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-settings-sources input[type="checkbox"]')]
     const resetContentOnlyInput = document.querySelector<HTMLInputElement>('.review-session-content-toggle input[type="checkbox"]')
-    assert(resetSourceInputs[1]?.checked === false, '重新设置必须恢复完成轮次的账户交易快照')
+    assert(resetSourceInputs[1]?.checked === false && resetSourceInputs[2]?.checked === false, '重新设置必须恢复完成轮次的实盘/模拟筛选快照')
     assert(resetContentOnlyInput?.checked === true, '重新设置必须恢复完成轮次的非默认图文快照')
     resetSourceInputs[1]?.click()
     resetContentOnlyInput.click()
@@ -426,13 +458,13 @@ async function run(): Promise<void> {
       '取消后再次打开设置没有恢复焦点')
     const cancelledSourceInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-settings-sources input[type="checkbox"]')]
     const cancelledContentOnlyInput = document.querySelector<HTMLInputElement>('.review-session-content-toggle input[type="checkbox"]')
-    assert(cancelledSourceInputs[1]?.checked === false, '取消后账户交易草稿污染了完成轮次快照')
+    assert(cancelledSourceInputs[1]?.checked === false && cancelledSourceInputs[2]?.checked === false, '取消后实盘/模拟草稿污染了完成轮次快照')
     assert(cancelledContentOnlyInput?.checked === true, '取消后图文草稿污染了完成轮次快照')
 
     cancelledSourceInputs[0]?.click()
     cancelledSourceInputs[1]?.click()
     findButton('应用设置')?.click()
-    await waitFor(() => document.body.textContent?.includes('可随机复盘 1 条') === true, '账户交易单独范围数量不准确')
+    await waitFor(() => document.body.textContent?.includes('可随机复盘 1 条') === true, '仅实盘交易范围数量不准确')
     findButton('开启一轮新的复盘')?.click()
     await waitFor(() => document.body.textContent?.includes(accountTrade.ref) === true, '账户交易没有进入随机复盘')
     assert(!findButton('还没掌握') && !findButton('基本理解') && !findButton('已经掌握'),

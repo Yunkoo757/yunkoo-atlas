@@ -73,7 +73,7 @@ TDD 收口：矩阵合同明确锁定 `/live-history` 的 ready selector 为 `.l
 - forced-kill 在 seed/强杀前先启动实际 main bundle 的 `identity` 模式并验证同一合同；报告的 `bundleIdentity`、`gitCommit` 与 `workingTreeDirty` 均来自这次验证后的权威证据。
 - Electron visual 与 forced-kill 现在都由同一受验证 runner 拥有执行顺序：先读取并验证实际 bundle identity，之后才允许创建资料库、seed、capture，cleanup 成功后才允许写报告。runner 级测试逐项证明 stale、dirty、`GITHUB_SHA` mismatch 在所有证据副作用前失败；把 validation 临时移到 capture 后，两组测试均转 RED。
 - Electron visual 的有界清理只在观察到 child `exit` 且确认实际 Electron main PID 已退出后成功。Playwright launcher child 与 Electron main PID 可能不同，因此在连接仍有效时从 main runtime 读取 PID，不能把 launcher 退出误当作应用退出。`application.close()` reject 或 fulfilled 但没有真实退出都会继续尝试 `app.exit` 和实际 PID hard kill；hard kill 后仍未观察到退出会显式失败。临时 profile 的 Windows 短暂句柄占用由独立的有界重试处理，profile 删除始终继续尝试；原身份错误与 cleanup 错误通过 `AggregateError` 同时保留，不互相遮蔽。
-- packaged visual 复用相同 repository/CI expectation reader，并校验已打包 renderer 的嵌入身份。最终权威 SHA 与 clean 状态应直接读取各 JSON evidence，不在本报告复制易陈旧的提交值。
+- packaged visual 复用相同 repository/CI expectation reader，直接从已安装/挂载 payload 读取并校验 renderer 与 Electron main 两份嵌入身份；报告同时绑定 installer/archive、实际 executable 与 `app.asar` 三组 SHA-256。最终权威 SHA 与 clean 状态应直接读取各 JSON evidence，不在本报告复制易陈旧的提交值。
 
 ## 5. 删除审计与覆盖强度
 
@@ -87,17 +87,18 @@ TDD 收口：矩阵合同明确锁定 `/live-history` 的 ready selector 为 `.l
 | 命令 | 结果 | 关键证据 |
 | --- | --- | --- |
 | `pnpm typecheck` | PASS | TS app + Electron 配置均 exit 0。 |
-| `pnpm test` | PASS | Node quality、unit、browser、治理全绿；治理 65 场景。 |
+| `pnpm test` | PASS | Node quality、unit、browser、治理全绿；67 个治理场景及 UTF-8/无 BOM 检查全部通过。 |
 | `pnpm build` | PASS | Vite build 与三项 bundle budget 全绿。 |
 | `pnpm qa:design` | PASS | Trader Atlas design contract 全绿。 |
 | `pnpm qa:desktop-visual --renderer` | PASS | 120 captures；0 console/page error；0 overflow；字体/分组几何全绿。 |
 | `pnpm qa:desktop-visual:electron` | PASS | 120 captures；0 console/page error；0 overflow；隔离临时资料库已清理。 |
 | `pnpm qa:desktop-visual:packaged` | PASS | `test-results/desktop-visual-packaged/win32-x64-scale-100/report.json`；原生平台/缩放/字体/分组几何/文件选择/错误恢复/关闭到托盘全绿。 |
+| `pnpm qa:final-payload -- --artifact <NSIS> --arch x64 --output test-results/final-packaged-artifact/windows-x64-nsis.json` | PASS | 静默安装最终 NSIS 后，从安装目录执行 identity、v11 migration、rollover、library switch、附件与强杀恢复场景；报告绑定安装器 SHA-256。 |
 | `pnpm benchmark:persistence` | PASS | 权威结果与各规模采样：`test-results/persistence-benchmark/persistence-smoke.json`。 |
 | `pnpm test:forced-kill:electron` | PASS | `test-results/forced-kill/forced-kill-windows-ntfs.json`；schema v12；真实 Electron SIGKILL；三迁移边界、stage scope、revision 恢复全绿。 |
 | `pnpm test:asset-lifecycle:electron` | PASS | 4/4；`test-results/platform-evidence/asset-lifecycle-windows-ntfs.json`。 |
 | `pnpm test:electron-safety:platform` | PASS | 2/2；`test-results/platform-evidence/electron-safety-windows-ntfs.json`。 |
-| `pnpm test:live-stage:desktop` | PASS | schema migration、stage rollover、library switch 37 项全绿。 |
+| `pnpm test:live-stage:desktop` | PASS | schema migration、stage rollover、library switch 39 项全绿。 |
 | `pnpm dist:win` | PASS | build:app + electron-builder NSIS x64 exit 0；产物哈希与字节数见 packaged evidence。 |
 
 强杀门禁另外发现并修复了一个证据 bug：seed 先对保存前对象取哈希、verify 对解码规范化后的对象取哈希，语义相同仍会 revision 不同。现在 seed 保存后立即重读已持久化 snapshot 再取期望 revision；原有强杀恢复断言未放宽。
@@ -110,11 +111,11 @@ TDD 收口：矩阵合同明确锁定 `/live-history` 的 ready selector 为 `.l
 - `release/Trader-Atlas-1.4.1-win-x64.exe.blockmap`
 - `release/latest.yml`
 
-不在 tracked 报告复制会随每次打包变化的字节数和时间戳。安装器、解包 executable 的实际 `bytes`、`sha256`、路径、运行平台检查及嵌入身份，以 `test-results/desktop-visual-packaged/win32-x64-scale-100/report.json` 为权威证据；最终交接同时记录本轮文件元数据。
+不在 tracked 报告复制会随每次打包变化的字节数和时间戳。安装器最终 smoke 以 `test-results/final-packaged-artifact/windows-x64-nsis.json` 为权威证据；安装器、安装后 executable 与 `app.asar` 的实际 `bytes`、`sha256`、路径、运行平台检查及双 bundle 身份，以该报告及 `test-results/desktop-visual-packaged/win32-x64-scale-100/report.json` 为权威证据；最终交接同时记录本轮文件元数据。
 
 ## 8. macOS workflow 静态复核
 
-`.github/workflows/release.yml` 的 `build-macos` job 使用 `macos-latest`，依次执行：
+`.github/workflows/release.yml` 的 `build-macos` job 使用两台原生 runner：`macos-26`/arm64 与 `macos-26-intel`/x64；每个 matrix job 依次执行：
 
 1. `pnpm build:app`
 2. `pnpm test:live-stage:desktop`（schema migration、stage rollover、library switching）
@@ -122,8 +123,10 @@ TDD 收口：矩阵合同明确锁定 `/live-history` 的 ready selector 为 `.l
 4. `pnpm test:asset-lifecycle:electron`
 5. `pnpm test:forced-kill:electron`
 6. `pnpm test:electron-safety:platform`
-7. `electron-builder --mac dmg zip --x64 --arm64 --publish never`
-8. x64/arm64 DMG/ZIP 非空校验与上传
+7. `electron-builder --mac dmg zip --${{ matrix.arch }} --publish never`
+8. 挂载最终 DMG，从其中 `.app` 执行 final-payload smoke
+9. 解压最终 ZIP，从其中 `.app` 执行 final-payload smoke
+10. final smoke 通过后才分别上传扁平 release 文件与独立报告 artifact；所有 matrix 证据名均含 arch，避免 `upload-artifact@v4` 同名竞态
 
 尚缺：在包含本 Task 12 提交的 macOS CI/主机上实际执行上述 job。没有运行 `pnpm dist:mac`，没有远程触发，也不报告 macOS PASS。
 
@@ -135,6 +138,7 @@ TDD 收口：矩阵合同明确锁定 `/live-history` 的 ready selector 为 `.l
 - [x] rollover 候选、备份、CAS、原子提交与强杀恢复全绿。
 - [x] legacy 字段不再是 runtime truth，allowlist 精确且有治理门禁。
 - [x] Windows correctness、视觉、耐久性与安装包通过。
+- [x] Windows 最终 NSIS 经隔离静默安装后执行最终 payload smoke；报告绑定安装器与实际 payload。
 - [ ] macOS 对这个精确提交的 runtime/package CI 证据待完成。
 
 唯一发布关注项是 macOS 实机/CI 尚未执行；在此证据到达前，设计状态不得提升为双平台“Implemented and verified”。

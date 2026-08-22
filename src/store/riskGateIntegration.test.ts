@@ -162,6 +162,36 @@ export function testFirstOpenIsBlockedUntilCurrentStageRiskSetup(): void {
   }
 }
 
+export function testHistoricalOpenActivityCannotBypassSetupThroughAnyPublicTransition(): void {
+  const previous = useStore.getState()
+  try {
+    const base = trade('imported-open-history', 'planned')
+    const target = {
+      ...base,
+      activities: [
+        { id: 'historical-open', kind: 'status' as const, status: 'open' as const, timestamp: `${today}T00:30:00.000Z` },
+        { id: 'historical-planned', kind: 'status' as const, status: 'planned' as const, timestamp: `${today}T01:00:00.000Z` },
+      ],
+    }
+    setGateFixture([target])
+    useStore.setState({ riskPolicyVersions: [], monthlyRiskLimits: [] })
+
+    assert(useStore.getState().requestTradeOpen(target.id) === 'requires-risk-setup', 'requestTradeOpen 不得被历史 open 绕过建档')
+    assert(useStore.getState().setStatus(target.id, 'open') === 'requires-risk-gate', 'setStatus 不得被历史 open 绕过建档')
+    assert(useStore.getState().upsertTrade({ ...target, status: 'open' }) === 'requires-risk-gate', 'upsertTrade 不得被历史 open 绕过建档')
+    assert(useStore.getState().upsertTrades([{ ...target, status: 'open' }]) === 'requires-risk-gate', 'upsertTrades 不得被历史 open 绕过建档')
+    assert(useStore.getState().trades[0]?.status === 'planned', '任何公开入口都不得提前写入 open')
+
+    useStore.setState((state) => ({
+      riskPolicyVersions: [{ ...policy, liveStageId: state.currentLiveStageId }],
+      monthlyRiskLimits: [{ ...monthlyLimit, liveStageId: state.currentLiveStageId }],
+    }))
+    assert(useStore.getState().requestTradeOpen(target.id) === 'opened', '建档后可信历史可免重复逐笔确认')
+  } finally {
+    restore(previous)
+  }
+}
+
 export function testRequestTradeOpenBranchesNeverEnterUndoOrRedoHistory(): void {
   const previous = useStore.getState()
   try {

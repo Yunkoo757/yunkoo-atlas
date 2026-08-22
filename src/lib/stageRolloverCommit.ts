@@ -13,6 +13,7 @@ import type {
 } from '@/types/journalBridge'
 
 export const STAGE_MANAGEMENT_OPEN_EVENT = 'atlas:stage-management-open'
+export const STAGE_ROLLOVER_RECOVERY_REQUIRED_EVENT = 'atlas:stage-rollover-recovery-required'
 
 export function notifyStageManagementOpened(): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(STAGE_MANAGEMENT_OPEN_EVENT))
@@ -27,8 +28,10 @@ export interface ExecuteDueStageRolloverDependencies {
   captureLatest(): StageRolloverCapture
   flushBeforeCommit(): Promise<void>
   commitDurably(input: StageRolloverCommitInput): Promise<StageRolloverCommitResult>
+  recoverAfterCommitError?(input: StageRolloverCommitInput): Promise<StageRolloverCommitResult>
   publish(state: StageRolloverPublishState): Promise<void> | void
   postpone(scheduled: ScheduledStageRollover): Promise<void>
+  enterRecoveryRequired?(message: string): void
   lockInteraction?: () => () => void
 }
 
@@ -70,6 +73,66 @@ function snapshotMatchesPublish(
     snapshot.scheduledStageRollover === null &&
     snapshot.liveStages.length === publish.liveStages.length &&
     snapshot.liveStages.every((stage, index) => sameStage(stage, publish.liveStages[index]!))
+}
+
+function previousCalendarDay(day: string): string {
+  const instant = new Date(`${day}T00:00:00.000Z`)
+  instant.setUTCDate(instant.getUTCDate() - 1)
+  return instant.toISOString().slice(0, 10)
+}
+
+/**
+ * IPC 回包丢失时只接受两种完整磁盘真相：原预约完全未变（可重试），或
+ * 原阶段已按预约边界归档且新 current 已落盘（可发布）。其他组合必须停写恢复。
+ */
+export function classifyUncertainStageRolloverSnapshot(
+  input: StageRolloverCommitInput,
+  snapshot: PersistedSnapshot | null,
+): StageRolloverCommitResult {
+  if (!snapshot) {
+    return {
+      ok: false,
+      reason: 'recovery-required',
+      message: '无法确认阶段写入结果，已停止继续保存，请重新打开应用检查资料库',
+    }
+  }
+  const scheduled = snapshot.scheduledStageRollover
+  if (
+    snapshot.currentLiveStageId === input.expectedCurrentStageId
+    && scheduled?.id === input.expectedRollover.id
+    && scheduled.requestedAt === input.expectedRollover.requestedAt
+    && scheduled.effectiveWeekStart === input.expectedRollover.effectiveWeekStart
+    && scheduled.postponedCount === input.expectedRollover.postponedCount
+  ) {
+    return { ok: false, reason: 'write-failed', message: '阶段切换尚未写入，可安全重试' }
+  }
+
+  const previous = snapshot.liveStages.find((stage) => stage.id === input.expectedCurrentStageId)
+  const current = snapshot.liveStages.find((stage) => stage.id === snapshot.currentLiveStageId)
+  if (
+    scheduled === null
+    && previous?.status === 'archived'
+    && previous.endsOn === previousCalendarDay(input.expectedRollover.effectiveWeekStart)
+    && current?.status === 'current'
+    && current.id !== input.expectedCurrentStageId
+    && current.startsOn === input.expectedRollover.effectiveWeekStart
+    && current.sequence > previous.sequence
+  ) {
+    return {
+      ok: true,
+      publish: {
+        liveStages: snapshot.liveStages,
+        currentLiveStageId: snapshot.currentLiveStageId,
+        scheduledStageRollover: null,
+      },
+    }
+  }
+
+  return {
+    ok: false,
+    reason: 'recovery-required',
+    message: '阶段写入结果无法确认，已停止继续保存，请重新打开应用检查资料库',
+  }
 }
 
 /**
@@ -141,20 +204,41 @@ export async function executeDueStageRollover(
       return { kind: 'postponed', blockers: inspection.blockers.map((item) => item.code) }
     }
 
+    const commitInput: StageRolloverCommitInput = {
+      expectedCurrentStageId: latest.state.currentLiveStageId,
+      expectedRollover: { ...inspection.scheduled },
+    }
     let committed: StageRolloverCommitResult
     try {
-      committed = await dependencies.commitDurably({
-        expectedCurrentStageId: latest.state.currentLiveStageId,
-        expectedRollover: { ...inspection.scheduled },
-      })
+      committed = await dependencies.commitDurably(commitInput)
     } catch {
-      return { kind: 'failed', reason: 'write-failed', message: '阶段切换提交失败' }
+      if (!dependencies.recoverAfterCommitError) {
+        return { kind: 'failed', reason: 'write-failed', message: '阶段切换提交失败' }
+      }
+      try {
+        committed = await dependencies.recoverAfterCommitError(commitInput)
+      } catch {
+        const message = '无法重新读取阶段写入结果，已停止继续保存，请重新打开应用检查资料库'
+        dependencies.enterRecoveryRequired?.(message)
+        return {
+          kind: 'failed',
+          reason: 'recovery-required',
+          message,
+        }
+      }
     }
-    if (!committed.ok) return { kind: 'failed', reason: committed.reason, message: committed.message }
+    if (!committed.ok) {
+      if (committed.reason === 'recovery-required') {
+        dependencies.enterRecoveryRequired?.(committed.message)
+      }
+      return { kind: 'failed', reason: committed.reason, message: committed.message }
+    }
     try {
       await dependencies.publish(committed.publish)
     } catch {
-      return { kind: 'failed', reason: 'write-failed', message: '阶段已保存，界面刷新失败，请重新打开应用' }
+      const message = '阶段已保存，但界面无法与磁盘真相对齐；已停止继续保存，请重新加载应用'
+      dependencies.enterRecoveryRequired?.(message)
+      return { kind: 'failed', reason: 'recovery-required', message }
     }
     return { kind: 'committed' }
   } finally {

@@ -7,6 +7,7 @@ import type {
 } from '@/data/riskManagement'
 import type { WeeklyReview } from '@/data/weeklyReviews'
 import { assertValidLiveStageState, type LiveStage } from '@/lib/liveStages'
+import { isCanonicalWeeklyReviewPeriod, stageContainsWeeklyReviewPeriod } from '@/lib/weeklyReviewPeriod'
 
 export type StageOwnershipEntityType =
   | 'live-trade'
@@ -50,6 +51,8 @@ export interface PendingStageOwnershipItem {
   source?: PendingStageOwnershipSource
   reason: string
   fingerprint: string
+  requiresWeeklyPeriodCorrection?: true
+  weeklyPeriod?: { weekStart: string; weekEnd: string }
 }
 
 export interface AssignPendingStageOwnershipRequest {
@@ -58,6 +61,7 @@ export interface AssignPendingStageOwnershipRequest {
   liveStageId: string
   /** UI 捕获待整理项时的完整实体指纹；变化后拒绝覆盖并要求刷新。 */
   expectedFingerprint: string
+  correctedWeeklyPeriod?: { weekStart: string; weekEnd: string }
 }
 
 export interface RollbackAssignedStageOwnershipRequest {
@@ -65,6 +69,15 @@ export interface RollbackAssignedStageOwnershipRequest {
   entityId: string
   /** 本次写入的阶段 ID；只在最新实体仍持有该值时反向恢复 null。 */
   assignedLiveStageId: string
+  weeklyReviewPrevious?: {
+    weekStart: string
+    weekEnd: string
+    assignedWeekStart: string
+    assignedWeekEnd: string
+    legacyPeriodQuarantine?: true
+    pendingPolicyVersionIds: string[]
+    pendingOverrideEventIds: string[]
+  }
 }
 
 export type StageOwnershipRepairErrorCode =
@@ -80,6 +93,7 @@ export type StageOwnershipRepairErrorCode =
   | 'missing-fingerprint'
   | 'relationship-conflict'
   | 'dependency-pending'
+  | 'invalid-weekly-period'
   | 'rollback-conflict'
 
 export class StageOwnershipRepairError extends Error {
@@ -195,6 +209,12 @@ function itemForLocated(state: StageOwnershipRepairState, located: LocatedEntity
         ],
         reason: MIGRATION_REASON,
         fingerprint: fingerprint(review),
+        ...(review.legacyPeriodQuarantine === true
+          ? {
+              requiresWeeklyPeriodCorrection: true as const,
+              weeklyPeriod: { weekStart: review.weekStart, weekEnd: review.weekEnd },
+            }
+          : {}),
       }
     }
     case 'weekly-risk-preparation': {
@@ -340,15 +360,17 @@ function validateTargetPeriodAvailability(
   state: StageOwnershipRepairState,
   located: LocatedEntity,
   targetId: string,
+  correctedWeeklyPeriod?: { weekStart: string; weekEnd: string },
 ): void {
   let occupied = false
   switch (located.entityType) {
     case 'weekly-review': {
       const entity = located.entity as WeeklyReview
+      const weekStart = correctedWeeklyPeriod?.weekStart ?? entity.weekStart
       occupied = state.weeklyReviews.some((candidate) => (
         candidate.id !== entity.id &&
         candidate.liveStageId === targetId &&
-        candidate.weekStart === entity.weekStart
+        candidate.weekStart === weekStart
       ))
       break
     }
@@ -385,6 +407,37 @@ function validateTargetPeriodAvailability(
   }
 }
 
+function weeklyReviewPeriodForAssignment(
+  state: StageOwnershipRepairState,
+  located: LocatedEntity,
+  request: AssignPendingStageOwnershipRequest,
+): { weekStart: string; weekEnd: string } | undefined {
+  if (located.entityType !== 'weekly-review') return undefined
+  const review = located.entity as WeeklyReview
+  if (review.legacyPeriodQuarantine === true && !request.correctedWeeklyPeriod) {
+    throw new StageOwnershipRepairError(
+      'invalid-weekly-period',
+      '原始周区间无效，必须显式修正周起始与周结束日期',
+    )
+  }
+  const period = request.correctedWeeklyPeriod ?? {
+    weekStart: review.weekStart,
+    weekEnd: review.weekEnd,
+  }
+  const target = state.liveStages.find((stage) => stage.id === request.liveStageId)
+  if (
+    !target ||
+    !isCanonicalWeeklyReviewPeriod(period.weekStart, period.weekEnd) ||
+    !stageContainsWeeklyReviewPeriod(target, period.weekStart, period.weekEnd)
+  ) {
+    throw new StageOwnershipRepairError(
+      'invalid-weekly-period',
+      '修正后的周区间必须是目标阶段内完整的周一至周日',
+    )
+  }
+  return period
+}
+
 function requireReferenceStage(
   entity: unknown,
   targetId: string,
@@ -417,6 +470,22 @@ function requireAssignedDependentStage(
   if (liveStageId === undefined || liveStageId !== targetId) {
     throw new StageOwnershipRepairError('relationship-conflict', `${label}已归入其他阶段，不能把其来源分配到目标阶段`)
   }
+}
+
+function hasCompleteFrozenOverrideIdentity(event: RiskOverrideEvent): boolean {
+  return event.tradeIdentityAtDecision.tradeKind === 'live' &&
+    event.tradeIdentityAtDecision.ref.trim().length > 0 &&
+    event.tradeIdentityAtDecision.symbol.trim().length > 0
+}
+
+function requireTradeReferenceOrFrozenIdentity(
+  entity: unknown,
+  targetId: string,
+  hasFrozenIdentity: boolean,
+  label: string,
+): void {
+  if (entity === undefined && hasFrozenIdentity) return
+  requireReferenceStage(entity, targetId, label)
 }
 
 function validateRelationshipGraph(
@@ -455,9 +524,10 @@ function validateRelationshipGraph(
     }
     case 'risk-override-event': {
       const entity = located.entity as RiskOverrideEvent
-      requireReferenceStage(
+      requireTradeReferenceOrFrozenIdentity(
         state.trades.find((candidate) => candidate.id === entity.tradeId && candidate.tradeKind !== 'paper'),
         targetId,
+        hasCompleteFrozenOverrideIdentity(entity),
         '关联交易',
       )
       if (entity.policyVersionId) {
@@ -486,6 +556,60 @@ function validateRelationshipGraph(
       break
     }
     case 'weekly-review':
+      {
+        const review = located.entity as WeeklyReview
+        const embeddedPolicies = review.riskSnapshot?.policyVersions ?? []
+        for (const policy of embeddedPolicies) {
+          if (policy.liveStageId !== null) requireReferenceStage(policy, targetId, '冻结风险政策')
+        }
+        for (const event of review.riskSnapshot?.overrideEvents ?? []) {
+          if (event.liveStageId !== null) requireReferenceStage(event, targetId, '冻结风险覆盖记录')
+          requireTradeReferenceOrFrozenIdentity(
+            state.trades.find((candidate) => candidate.id === event.tradeId && candidate.tradeKind !== 'paper'),
+            targetId,
+            hasCompleteFrozenOverrideIdentity(event),
+            '冻结风险覆盖关联交易',
+          )
+          if (event.policyVersionId) {
+            const embeddedPolicy = embeddedPolicies.find((candidate) => candidate.id === event.policyVersionId)
+            if (embeddedPolicy) {
+              // outer review 是冻结图的唯一修复边界；图内 pending policy 会在本次
+              // assignment 与 pending override 一起原子绑定，不存在可先行修复的独立队列项。
+              if (embeddedPolicy.liveStageId !== null) {
+                requireReferenceStage(embeddedPolicy, targetId, '冻结风险覆盖关联政策')
+              }
+            } else {
+              requireReferenceStage(
+                state.riskPolicyVersions.find((candidate) => candidate.id === event.policyVersionId),
+                targetId,
+                '冻结风险覆盖关联政策',
+              )
+            }
+          }
+        }
+        const frozenTradeIds = new Set([
+          ...(review.evidenceSnapshot?.trades.map((trade) => trade.id) ?? []),
+          ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
+          ...(review.riskSnapshot?.overrideEvents
+            .filter(hasCompleteFrozenOverrideIdentity)
+            .map((event) => event.tradeId) ?? []),
+        ])
+        const referencedTradeIds = new Set([
+          ...review.highlightTradeIds,
+          ...review.mistakeTradeIds,
+          ...review.followUpTradeIds,
+          ...(review.evidenceSnapshot?.trades.map((trade) => trade.id) ?? []),
+          ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
+        ])
+        for (const tradeId of referencedTradeIds) {
+          requireTradeReferenceOrFrozenIdentity(
+            state.trades.find((candidate) => candidate.id === tradeId && candidate.tradeKind !== 'paper'),
+            targetId,
+            frozenTradeIds.has(tradeId),
+            '周复盘引用交易',
+          )
+        }
+      }
       break
   }
 
@@ -534,14 +658,38 @@ export function assignPendingStageOwnership<T extends StageOwnershipRepairState>
     throw new StageOwnershipRepairError('stale-request', '待整理项在选择后发生变化，请刷新上下文再保存')
   }
   validateTargetStage(state, request.liveStageId)
+  const weeklyReviewPeriod = weeklyReviewPeriodForAssignment(state, located, request)
   validateRelationshipGraph(state, located, request.liveStageId)
-  validateTargetPeriodAvailability(state, located, request.liveStageId)
+  validateTargetPeriodAvailability(state, located, request.liveStageId, weeklyReviewPeriod)
 
   switch (located.slice) {
     case 'trades':
       return { ...state, trades: replaceTradeOwnership(state.trades, request.entityId, request.liveStageId) } as T
     case 'weeklyReviews':
-      return { ...state, weeklyReviews: replaceOwnership(state.weeklyReviews, request.entityId, request.liveStageId) } as T
+      return {
+        ...state,
+        weeklyReviews: state.weeklyReviews.map((review) => {
+          if (review.id !== request.entityId) return review
+          const { legacyPeriodQuarantine: _legacyPeriodQuarantine, ...reviewWithoutQuarantine } = review
+          return {
+            ...reviewWithoutQuarantine,
+            liveStageId: request.liveStageId,
+            weekStart: weeklyReviewPeriod?.weekStart ?? review.weekStart,
+            weekEnd: weeklyReviewPeriod?.weekEnd ?? review.weekEnd,
+            riskSnapshot: review.riskSnapshot
+              ? {
+                  ...review.riskSnapshot,
+                  policyVersions: review.riskSnapshot.policyVersions.map((policy) => (
+                    policy.liveStageId === null ? { ...policy, liveStageId: request.liveStageId } : policy
+                  )),
+                  overrideEvents: review.riskSnapshot.overrideEvents.map((event) => (
+                    event.liveStageId === null ? { ...event, liveStageId: request.liveStageId } : event
+                  )),
+                }
+              : undefined,
+          }
+        }),
+      } as T
     case 'weeklyRiskPreparations':
       return { ...state, weeklyRiskPreparations: replaceOwnership(state.weeklyRiskPreparations, request.entityId, request.liveStageId) } as T
     case 'riskPolicyVersions':
@@ -576,7 +724,47 @@ export function rollbackAssignedStageOwnership<T extends StageOwnershipRepairSta
     case 'trades':
       return { ...state, trades: replaceTradeOwnership(state.trades, request.entityId, null) } as T
     case 'weeklyReviews':
-      return { ...state, weeklyReviews: replaceOwnership(state.weeklyReviews, request.entityId, null) } as T
+      return {
+        ...state,
+        weeklyReviews: state.weeklyReviews.map((review) => {
+          if (review.id !== request.entityId) return review
+          const previous = request.weeklyReviewPrevious
+          if (!previous) return { ...review, liveStageId: null }
+          if (review.weekStart !== previous.assignedWeekStart || review.weekEnd !== previous.assignedWeekEnd) {
+            throw new StageOwnershipRepairError('rollback-conflict', '回滚目标的周区间已变化，未覆盖最新资料')
+          }
+          const pendingPolicies = new Set(previous.pendingPolicyVersionIds)
+          const pendingOverrides = new Set(previous.pendingOverrideEventIds)
+          for (const policy of review.riskSnapshot?.policyVersions ?? []) {
+            if (pendingPolicies.has(policy.id) && policy.liveStageId !== request.assignedLiveStageId) {
+              throw new StageOwnershipRepairError('rollback-conflict', '回滚目标的冻结风险政策已变化，未覆盖最新资料')
+            }
+          }
+          for (const event of review.riskSnapshot?.overrideEvents ?? []) {
+            if (pendingOverrides.has(event.id) && event.liveStageId !== request.assignedLiveStageId) {
+              throw new StageOwnershipRepairError('rollback-conflict', '回滚目标的冻结风险覆盖记录已变化，未覆盖最新资料')
+            }
+          }
+          return {
+            ...review,
+            liveStageId: null,
+            weekStart: previous.weekStart,
+            weekEnd: previous.weekEnd,
+            ...(previous.legacyPeriodQuarantine === true ? { legacyPeriodQuarantine: true as const } : {}),
+            riskSnapshot: review.riskSnapshot
+              ? {
+                  ...review.riskSnapshot,
+                  policyVersions: review.riskSnapshot.policyVersions.map((policy) => (
+                    pendingPolicies.has(policy.id) ? { ...policy, liveStageId: null } : policy
+                  )),
+                  overrideEvents: review.riskSnapshot.overrideEvents.map((event) => (
+                    pendingOverrides.has(event.id) ? { ...event, liveStageId: null } : event
+                  )),
+                }
+              : undefined,
+          }
+        }),
+      } as T
     case 'weeklyRiskPreparations':
       return { ...state, weeklyRiskPreparations: replaceOwnership(state.weeklyRiskPreparations, request.entityId, null) } as T
     case 'riskPolicyVersions':

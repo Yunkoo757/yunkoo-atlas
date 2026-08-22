@@ -124,19 +124,24 @@ export function TradeTrashView() {
 
   const confirmPurge = () => {
     if (!purgeRequest) return
-    const count = purgeRequest.ids.length
-    if (purgeRequest.kind === 'single') {
-      purgeTrade(purgeRequest.ids[0])
-    } else {
-      purgeTrades(purgeRequest.ids)
-    }
+    const result = purgeRequest.kind === 'single'
+      ? purgeTrade(purgeRequest.ids[0])
+      : purgeTrades(purgeRequest.ids)
     setSelected((prev) => {
       const next = new Set(prev)
-      for (const id of purgeRequest.ids) next.delete(id)
+      for (const id of result.purgedIds) next.delete(id)
       return next
     })
     setPurgeRequest(null)
-    toast(count === 1 ? '已彻底删除' : `已彻底删除 ${count} 笔交易`)
+    if (result.blockedIds.length > 0) {
+      toast(
+        result.purgedIds.length > 0
+          ? `已彻底删除 ${result.purgedIds.length} 笔；另有 ${result.blockedIds.length} 笔被旧版完成周复盘引用，请重新打开并完成对应复盘后再试`
+          : '该交易被旧版完成周复盘引用；请重新打开并完成对应复盘后再彻底删除',
+      )
+    } else {
+      toast(result.purgedIds.length === 1 ? '已彻底删除' : `已彻底删除 ${result.purgedIds.length} 笔交易`)
+    }
   }
 
   const handleBatchRestore = () => {

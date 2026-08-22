@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { arch, homedir, platform, release, tmpdir } from 'node:os'
-import { join, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 
 import { _electron as electron } from 'playwright'
 
@@ -17,12 +17,10 @@ import {
   assertSafePackagedVisualOutputPath,
   buildPackagedVisualReport,
   buildTypographyCheckResult,
-  collectPackagedBuildIdentity,
   isWindowRestorationVisible,
   normalizePackagedScaleFactor,
   resolvePackagedArtifactCandidates,
   resolvePackagedExecutableCandidates,
-  validatePackagedIdentityEvidence,
   validatePackagedVisualReport,
 } from './packaged-desktop-visual-contract.mjs'
 import {
@@ -31,8 +29,10 @@ import {
 } from './desktop-visual-scenarios.mjs'
 import { createDesktopVisualSnapshot } from './fixtures/desktop-visual-seed.mjs'
 import {
+  closeElectronApplicationBounded,
+  collectElectronBundleIdentity,
   readRepositoryBuildExpectation,
-  validateBundleBuildIdentityEvidence,
+  removeTemporaryDirectoryBounded,
 } from './bundle-build-identity.mjs'
 
 const SCHEMA_VERSION = 1
@@ -74,6 +74,33 @@ mkdirSync(outputRoot, { recursive: true })
 
 function sha256(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex').toUpperCase()
+}
+
+function payloadHash(path) {
+  const bytes = readFileSync(path).byteLength
+  if (bytes <= 0) throw new Error(`Packaged payload is empty: ${path}`)
+  return {
+    path: relative(root, path).replaceAll('\\', '/'),
+    bytes,
+    sha256: sha256(path),
+  }
+}
+
+function processExists(processId) {
+  if (!Number.isInteger(processId) || processId <= 0) return false
+  try {
+    process.kill(processId, 0)
+    return true
+  } catch (error) {
+    if (error?.code === 'ESRCH') return false
+    throw error
+  }
+}
+
+function resolveAppAsarPath(executable) {
+  return hostPlatform === 'darwin'
+    ? resolve(dirname(executable), '..', 'Resources', 'app.asar')
+    : resolve(dirname(executable), 'resources', 'app.asar')
 }
 
 function realApplicationDataRoots() {
@@ -263,8 +290,11 @@ const captures = []
 const checks = []
 let identityEvidence = null
 const buildExpectation = await readRepositoryBuildExpectation(root)
-const repositoryHead = buildExpectation.repository.head
-const githubSha = buildExpectation.ci.githubSha
+let launcherProcessId = null
+let mainProcessId = null
+let cleanupResult = null
+let primaryError = null
+let cleanupError = null
 
 function record(id, pass, detail) {
   checks.push({ id, pass, detail })
@@ -286,15 +316,15 @@ try {
     },
     timeout: 30_000,
   })
+  launcherProcessId = application.process()?.pid ?? null
+  mainProcessId = await application.evaluate(() => process.pid)
   page = await application.firstWindow({ timeout: 30_000 })
   await page.waitForLoadState('domcontentloaded')
-  identityEvidence = await collectPackagedBuildIdentity(page, repositoryHead, githubSha)
-  validatePackagedIdentityEvidence(identityEvidence)
-  validateBundleBuildIdentityEvidence({
-    bundles: { renderer: identityEvidence.source },
-    repository: buildExpectation.repository,
-    ci: buildExpectation.ci,
-  }, ['renderer'])
+  identityEvidence = await collectElectronBundleIdentity({
+    page,
+    application,
+    expectation: buildExpectation,
+  })
   let diagnostics = bindDiagnostics(page)
 
   const runtime = await application.evaluate(({ app, BrowserWindow, Menu, screen }) => {
@@ -509,12 +539,44 @@ try {
       `native Quit menu command invoked=${nativeQuitInvoked}; application exited=${applicationExitedByQuitCommand}`,
     )
   }
+} catch (error) {
+  primaryError = error
 } finally {
-  if (!applicationExitedByQuitCommand) await application?.close().catch(() => {})
-  rmSync(temporaryRoot, { recursive: true, force: true })
+  try {
+    const closeResult = await closeElectronApplicationBounded(application, {
+      mainProcessId,
+      timeoutMs: 20_000,
+    })
+    const launcherExitObserved = !processExists(launcherProcessId)
+    const mainProcessExitObserved = closeResult.exitObserved === true && !processExists(mainProcessId)
+    await removeTemporaryDirectoryBounded(temporaryRoot, { timeoutMs: 20_000 })
+    cleanupResult = {
+      launcherProcessId,
+      mainProcessId,
+      launcherExitObserved,
+      mainProcessExitObserved,
+      temporaryProfileDeleted: !existsSync(temporaryRoot),
+      forced: closeResult.forced,
+      hardKilled: closeResult.hardKilled,
+      applicationExitedByQuitCommand,
+    }
+    if (!launcherExitObserved || !mainProcessExitObserved || !cleanupResult.temporaryProfileDeleted) {
+      throw new Error(`Packaged visual cleanup evidence is incomplete: ${JSON.stringify(cleanupResult)}`)
+    }
+  } catch (error) {
+    cleanupError = error
+  }
 }
 
+if (primaryError && cleanupError) {
+  throw new AggregateError([primaryError, cleanupError], 'Packaged visual evidence failed and cleanup also failed')
+}
+if (primaryError) throw primaryError
+if (cleanupError) throw cleanupError
+
 const artifactPath = locateArtifact()
+const appAsarPath = resolveAppAsarPath(executablePath)
+if (!existsSync(appAsarPath)) throw new Error(`Packaged app.asar is missing: ${appAsarPath}`)
 const report = buildPackagedVisualReport(identityEvidence, {
   schemaVersion: SCHEMA_VERSION,
   generatedAt: new Date().toISOString(),
@@ -529,13 +591,12 @@ const report = buildPackagedVisualReport(identityEvidence, {
   },
   scale: scaleEvidence,
   typography,
-  artifact: {
-    path: relative(root, artifactPath).replaceAll('\\', '/'),
-    bytes: readFileSync(artifactPath).byteLength,
-    sha256: sha256(artifactPath),
-    executablePath: relative(root, executablePath).replaceAll('\\', '/'),
-    executableSha256: sha256(executablePath),
+  payload: {
+    artifact: payloadHash(artifactPath),
+    executable: payloadHash(executablePath),
+    appAsar: payloadHash(appAsarPath),
   },
+  cleanup: cleanupResult,
   isolation: {
     temporaryRoot,
     userDataPath,
@@ -550,6 +611,6 @@ const report = buildPackagedVisualReport(identityEvidence, {
 })
 
 const reportPath = join(outputRoot, 'report.json')
-writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
 validatePackagedVisualReport(report)
+writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
 process.stdout.write(`packaged desktop visual QA: PASS (${reportPath})\n`)

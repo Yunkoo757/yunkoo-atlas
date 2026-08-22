@@ -143,6 +143,12 @@ jobs:
             if ((Get-Item -LiteralPath $file).Length -le 0) { throw "Empty release asset: $file" }
           }
 
+      - name: Run installed NSIS final payload smoke
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          pnpm qa:final-payload -- --artifact "release/Trader-Atlas-$version-win-x64.exe" --arch x64 --output "test-results/final-packaged-artifact/windows-x64-nsis.json"
+
       - name: Upload Windows build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -154,9 +160,25 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Upload Windows final payload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-payload-windows-attempt-${{ github.run_attempt }}
+          path: test-results/final-packaged-artifact/windows-x64-nsis.json
+          if-no-files-found: error
+          retention-days: 30
+
   build-macos:
     needs: certification
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            arch: arm64
+          - runner: macos-26-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 75
     env:
       # 未配置 Apple 开发者证书时跳过签名，产出可手动安装的 DMG/ZIP。
@@ -211,7 +233,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: forced-kill-macOS-attempt-${{ github.run_attempt }}
+          name: forced-kill-macOS-${{ matrix.arch }}-attempt-${{ github.run_attempt }}
           path: test-results/forced-kill/*.json
           if-no-files-found: error
           retention-days: 30
@@ -220,7 +242,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: asset-lifecycle-macOS-attempt-${{ github.run_attempt }}
+          name: asset-lifecycle-macOS-${{ matrix.arch }}-attempt-${{ github.run_attempt }}
           path: test-results/platform-evidence/asset-lifecycle-*.json
           if-no-files-found: error
           retention-days: 30
@@ -229,7 +251,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: electron-safety-macOS-attempt-${{ github.run_attempt }}
+          name: electron-safety-macOS-${{ matrix.arch }}-attempt-${{ github.run_attempt }}
           path: test-results/platform-evidence/electron-safety-*.json
           if-no-files-found: error
           retention-days: 30
@@ -246,32 +268,46 @@ jobs:
           fi
 
       - name: Build macOS DMG and ZIP
-        run: pnpm exec electron-builder --mac dmg zip --x64 --arm64 --publish never
+        run: pnpm exec electron-builder --mac dmg zip --${{ matrix.arch }} --publish never
 
       - name: Validate macOS assets
         run: |
           version=$(node -p "require('./package.json').version")
           files=(
-            release/Trader-Atlas-"$version"-mac-arm64.dmg
-            release/Trader-Atlas-"$version"-mac-arm64.zip
-            release/Trader-Atlas-"$version"-mac-x64.dmg
-            release/Trader-Atlas-"$version"-mac-x64.zip
+            release/Trader-Atlas-"$version"-mac-${{ matrix.arch }}.dmg
+            release/Trader-Atlas-"$version"-mac-${{ matrix.arch }}.zip
           )
           for file in "${files[@]}"; do
             test -s "$file" || { echo "Missing or empty release asset: $file"; exit 1; }
           done
 
+      - name: Run mounted DMG final payload smoke
+        run: |
+          version=$(node -p "require('./package.json').version")
+          pnpm qa:final-payload -- --artifact "release/Trader-Atlas-$version-mac-${{ matrix.arch }}.dmg" --arch ${{ matrix.arch }} --output "test-results/final-packaged-artifact/macos-${{ matrix.arch }}-dmg.json"
+
+      - name: Run extracted ZIP final payload smoke
+        run: |
+          version=$(node -p "require('./package.json').version")
+          pnpm qa:final-payload -- --artifact "release/Trader-Atlas-$version-mac-${{ matrix.arch }}.zip" --arch ${{ matrix.arch }} --output "test-results/final-packaged-artifact/macos-${{ matrix.arch }}-zip.json"
+
       - name: Upload macOS build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-macos-attempt-${{ github.run_attempt }}
+          name: release-macos-${{ matrix.arch }}-attempt-${{ github.run_attempt }}
           path: |
-            release/Trader-Atlas-*-mac-arm64.dmg
-            release/Trader-Atlas-*-mac-arm64.zip
-            release/Trader-Atlas-*-mac-x64.dmg
-            release/Trader-Atlas-*-mac-x64.zip
+            release/Trader-Atlas-*-mac-${{ matrix.arch }}.dmg
+            release/Trader-Atlas-*-mac-${{ matrix.arch }}.zip
           if-no-files-found: error
           retention-days: 7
+
+      - name: Upload macOS final payload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-payload-macos-${{ matrix.arch }}-attempt-${{ github.run_attempt }}
+          path: test-results/final-packaged-artifact/macos-${{ matrix.arch }}-*.json
+          if-no-files-found: error
+          retention-days: 30
 
   publish:
     needs: [certification, build-windows, build-macos]

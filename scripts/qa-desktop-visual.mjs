@@ -28,10 +28,12 @@ import {
   closeElectronApplicationBounded,
   collectElectronBundleIdentity,
   readRepositoryBuildExpectation,
+  removeTemporaryDirectoryBounded,
 } from './bundle-build-identity.mjs'
 import { runElectronVisualEvidenceRunner } from './electron-evidence-runner.mjs'
 
 export { runElectronVisualEvidenceRunner } from './electron-evidence-runner.mjs'
+export { removeTemporaryDirectoryBounded } from './bundle-build-identity.mjs'
 
 const require = createRequire(import.meta.url)
 const REPORT_SCHEMA_VERSION = 1
@@ -46,33 +48,6 @@ const TYPOGRAPHY_PROBE_SELECTORS = Object.freeze({
 function isSameOrDescendant(target, root) {
   const delta = relative(resolve(root), resolve(target))
   return delta === '' || (delta !== '..' && !delta.startsWith(`..${sep}`) && !isAbsolute(delta))
-}
-
-export async function removeTemporaryDirectoryBounded(directory, {
-  timeoutMs = 10_000,
-  retryDelayMs = 100,
-  removeDirectory = (target) => rmSync(target, { recursive: true, force: true }),
-} = {}) {
-  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-    throw new Error('Temporary directory cleanup timeout must be a positive number')
-  }
-  if (!Number.isFinite(retryDelayMs) || retryDelayMs <= 0) {
-    throw new Error('Temporary directory cleanup retry delay must be a positive number')
-  }
-  const deadline = Date.now() + timeoutMs
-  while (true) {
-    try {
-      await removeDirectory(directory)
-      return
-    } catch (error) {
-      if (!['EBUSY', 'ENOTEMPTY', 'EPERM'].includes(error?.code) || Date.now() >= deadline) {
-        throw error
-      }
-    }
-    await new Promise((resolveDelay) => {
-      setTimeout(resolveDelay, Math.min(retryDelayMs, Math.max(1, deadline - Date.now())))
-    })
-  }
 }
 
 export function assertSafeElectronIsolationPaths({

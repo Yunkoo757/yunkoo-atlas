@@ -219,7 +219,7 @@ async function run(): Promise<void> {
       () => document.querySelector<HTMLButtonElement>('button[aria-label="阶段来源"]')?.textContent?.includes('仅当前阶段') === true,
       '活动轮次来源选择没有提交到设置草稿',
     )
-    const sessionKey = `yunkoo-atlas:review-session:v2:${encodeURIComponent(manifest.libraryId)}`
+    const sessionKey = `yunkoo-atlas:review-session:v3:${encodeURIComponent(manifest.libraryId)}`
     const activeBeforeConfirmation = JSON.stringify(loadReviewSession(manifest.libraryId))
     const persistedBeforeConfirmation = sessionStorage.getItem(sessionKey)
     const activeApply = findButton('应用设置')

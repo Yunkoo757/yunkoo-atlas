@@ -136,7 +136,7 @@ test('发布候选先认证精确 SHA，tag 流水线只做双平台安全构建
   assert.match(macos, /asset-lifecycle-macOS/)
   assert.doesNotMatch(macos, /needs:\s*build-windows/)
   assert.match(windows, /electron-builder --win nsis --x64 --publish never/)
-  assert.match(macos, /electron-builder --mac dmg zip --x64 --arm64 --publish never/)
+  assert.match(macos, /electron-builder --mac dmg zip --\$\{\{ matrix\.arch \}\} --publish never/)
   assert.doesNotMatch(workflow, /^  quality:\s*$/m)
   assert.doesNotMatch(workflow, /benchmark:persistence:release/)
   assert.doesNotMatch(workflow, /pnpm spike:generation/)
@@ -334,17 +334,22 @@ test('安装包文件名不含空格，必须与 latest.yml 下载地址一致',
   assert.equal(pkg.build?.mac?.artifactName, 'Trader-Atlas-${version}-mac-${arch}.${ext}')
 })
 
-test('macOS 构建产出四个工件，但不直接修改 GitHub Release', () => {
+test('macOS 在两个原生架构 runner 各自产出并验证 DMG 与 ZIP，但不直接修改 GitHub Release', () => {
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
   const macos = workflowJob(workflow, 'build-macos')
-  assert.match(macos, /runs-on:\s*macos-latest/)
-  for (const asset of [
-    'mac-arm64.dmg',
-    'mac-arm64.zip',
-    'mac-x64.dmg',
-    'mac-x64.zip',
-  ]) {
-    assert.match(macos, new RegExp(asset.replace('.', '\\.')))
+  assert.match(macos, /runner:\s*macos-26[\s\S]*arch:\s*arm64/)
+  assert.match(macos, /runner:\s*macos-26-intel[\s\S]*arch:\s*x64/)
+  assert.match(macos, /runs-on:\s*\$\{\{ matrix\.runner \}\}/)
+  assert.match(macos, /mac-\$\{\{ matrix\.arch \}\}\.dmg/)
+  assert.match(macos, /mac-\$\{\{ matrix\.arch \}\}\.zip/)
+  assert.match(macos, /macos-\$\{\{ matrix\.arch \}\}-dmg\.json/)
+  assert.match(macos, /macos-\$\{\{ matrix\.arch \}\}-zip\.json/)
+  for (const evidenceName of ['forced-kill', 'asset-lifecycle', 'electron-safety']) {
+    assert.match(
+      macos,
+      new RegExp(`name: ${evidenceName}-macOS-\\$\\{\\{ matrix\\.arch \\}\\}-attempt-\\$\\{\\{ github\\.run_attempt \\}\\}`),
+      `${evidenceName} 证据 artifact 必须按 matrix arch 唯一命名，避免 upload-artifact v4 的 409 竞态`,
+    )
   }
   assert.match(macos, /actions\/upload-artifact@v4/)
   assert.doesNotMatch(macos, /gh release/)

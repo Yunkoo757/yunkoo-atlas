@@ -106,6 +106,7 @@ import {
   type TradeOpenRequestResult,
 } from '@/lib/tradeOpenRiskGate'
 import type { RiskGatedTradeOpenCommitResult } from '@/lib/riskGatedTradeOpenCommit'
+import { riskSetupStateForStage } from '@/lib/stageRisk'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import {
   applyCaseClassificationMutation,
@@ -375,6 +376,24 @@ export function applyTradeUpsertsToSlice(
   return slice
 }
 
+function currentStageRiskSetupMissing(state: State): boolean {
+  return riskSetupStateForStage(
+    state,
+    state.currentLiveStageId,
+    getTradingDayKey(new Date(), state.display.tradingDayStartHour),
+  ) === 'unconfigured'
+}
+
+function upsertRequiresOpenGate(
+  state: State,
+  existing: Trade | undefined,
+  incoming: Trade,
+): boolean {
+  if ((incoming.tradeKind ?? 'live') !== 'live' || incoming.status !== 'open') return false
+  if (existing?.status === 'open') return false
+  return currentStageRiskSetupMissing(state) || upsertWouldBypassFirstOpenGate(existing, incoming)
+}
+
 function openTargetsAnotherLiveStage(
   existing: Trade | undefined,
   incoming: Trade,
@@ -476,7 +495,9 @@ interface State {
   renameLiveStage: (id: string, name: string) => boolean
   publishPostponedRollover: (scheduled: ScheduledStageRollover) => void
   publishCommittedStageRollover: (publish: StageRolloverPublishState) => void
-  assignPendingStageOwnership: (request: AssignPendingStageOwnershipRequest) => AssignPendingStageOwnershipRequest
+  assignPendingStageOwnership: (
+    request: AssignPendingStageOwnershipRequest,
+  ) => RollbackAssignedStageOwnershipRequest & AssignPendingStageOwnershipRequest
   rollbackAssignedStageOwnership: (request: RollbackAssignedStageOwnershipRequest) => RollbackAssignedStageOwnershipRequest
   setStatus: (id: string, status: TradeStatus) => SetTradeStatusResult
   requestTradeOpen: (id: string, returnFocus?: HTMLElement | null) => TradeOpenRequestResult
@@ -550,8 +571,8 @@ interface State {
   removeTrades: (ids: string[]) => void
   restoreTrade: (id: string) => void
   restoreTrades: (ids: string[]) => void
-  purgeTrade: (id: string) => void
-  purgeTrades: (ids: string[]) => void
+  purgeTrade: (id: string) => TradePurgeResult
+  purgeTrades: (ids: string[]) => TradePurgeResult
   createReviewCaseFromTrade: (sourceId: string) => CreateReviewCaseResult
   openComposer: (trade?: Trade | null, kind?: TradeKind | null) => void
   closeComposer: () => void
@@ -590,6 +611,85 @@ interface State {
   upsertQuickNote: (note: QuickNote) => void
   updateQuickNote: (id: string, patch: Partial<Pick<QuickNote, 'title' | 'titleMode' | 'contentHtml' | 'pinned'>>) => void
   removeQuickNote: (id: string) => void
+}
+
+export interface TradePurgeResult {
+  purgedIds: string[]
+  blockedIds: string[]
+}
+
+function frozenReviewEvidenceTradeIds(review: WeeklyReview): Set<string> {
+  return new Set([
+    ...(review.evidenceSnapshot?.trades.map((trade) => trade.id) ?? []),
+    ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
+    ...(review.riskSnapshot?.overrideEvents.map((event) => event.tradeId) ?? []),
+  ])
+}
+
+function tradePurgeBlockers(
+  state: Pick<State, 'trades' | 'weeklyReviews' | 'riskOverrideEvents'>,
+  candidateIds: ReadonlySet<string>,
+): Set<string> {
+  const blocked = new Set<string>()
+  for (const trade of state.trades) {
+    if (
+      trade.tradeKind === 'case' &&
+      typeof trade.liveStageId !== 'string' &&
+      typeof trade.sourceTradeId === 'string' &&
+      candidateIds.has(trade.sourceTradeId)
+    ) blocked.add(trade.sourceTradeId)
+  }
+  for (const event of state.riskOverrideEvents) {
+    if (typeof event.liveStageId !== 'string' && candidateIds.has(event.tradeId)) {
+      blocked.add(event.tradeId)
+    }
+  }
+  for (const review of state.weeklyReviews) {
+    const directIds = [
+      ...review.highlightTradeIds,
+      ...review.mistakeTradeIds,
+      ...review.followUpTradeIds,
+    ]
+    const allReviewTradeIds = [
+      ...directIds,
+      ...(review.evidenceSnapshot?.trades.map((trade) => trade.id) ?? []),
+      ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
+      ...(review.riskSnapshot?.overrideEvents.map((event) => event.tradeId) ?? []),
+    ]
+    if (typeof review.liveStageId !== 'string') {
+      for (const id of allReviewTradeIds) {
+        if (candidateIds.has(id)) blocked.add(id)
+      }
+      continue
+    }
+    if (review.status !== 'completed') continue
+    const frozenIds = frozenReviewEvidenceTradeIds(review)
+    for (const id of directIds) {
+      if (candidateIds.has(id) && !frozenIds.has(id)) blocked.add(id)
+    }
+  }
+  return blocked
+}
+
+function scrubDraftReviewTradeReferences(
+  reviews: readonly WeeklyReview[],
+  purgedIds: ReadonlySet<string>,
+): WeeklyReview[] {
+  let changed = false
+  const next = reviews.map((review) => {
+    if (review.status === 'completed') return review
+    const highlightTradeIds = review.highlightTradeIds.filter((id) => !purgedIds.has(id))
+    const mistakeTradeIds = review.mistakeTradeIds.filter((id) => !purgedIds.has(id))
+    const followUpTradeIds = review.followUpTradeIds.filter((id) => !purgedIds.has(id))
+    if (
+      highlightTradeIds.length === review.highlightTradeIds.length &&
+      mistakeTradeIds.length === review.mistakeTradeIds.length &&
+      followUpTradeIds.length === review.followUpTradeIds.length
+    ) return review
+    changed = true
+    return { ...review, highlightTradeIds, mistakeTradeIds, followUpTradeIds }
+  })
+  return changed ? next : reviews as WeeklyReview[]
 }
 
 export function currentLiveStageIdForWrite(
@@ -873,8 +973,35 @@ export const useStore = create<State>()((set, get) => ({
         riskSetupTradeOpenRequest: null,
       }),
       assignPendingStageOwnership: (request) => {
-        set((state) => applyPendingStageOwnership(state, request))
-        return { ...request }
+        let rollbackRequest: RollbackAssignedStageOwnershipRequest & AssignPendingStageOwnershipRequest = {
+          ...request,
+          assignedLiveStageId: request.liveStageId,
+        }
+        set((state) => {
+          if (request.entityType === 'weekly-review') {
+            const review = state.weeklyReviews.find((candidate) => candidate.id === request.entityId)
+            if (review) {
+              rollbackRequest = {
+                ...rollbackRequest,
+                weeklyReviewPrevious: {
+                  weekStart: review.weekStart,
+                  weekEnd: review.weekEnd,
+                  assignedWeekStart: request.correctedWeeklyPeriod?.weekStart ?? review.weekStart,
+                  assignedWeekEnd: request.correctedWeeklyPeriod?.weekEnd ?? review.weekEnd,
+                  ...(review.legacyPeriodQuarantine === true ? { legacyPeriodQuarantine: true as const } : {}),
+                  pendingPolicyVersionIds: review.riskSnapshot?.policyVersions
+                    .filter((policy) => policy.liveStageId === null)
+                    .map((policy) => policy.id) ?? [],
+                  pendingOverrideEventIds: review.riskSnapshot?.overrideEvents
+                    .filter((event) => event.liveStageId === null)
+                    .map((event) => event.id) ?? [],
+                },
+              }
+            }
+          }
+          return applyPendingStageOwnership(state, request)
+        })
+        return rollbackRequest
       },
       rollbackAssignedStageOwnership: (request) => {
         set((state) => applyOwnershipRollback(state, request))
@@ -1233,7 +1360,11 @@ export const useStore = create<State>()((set, get) => ({
           current.tradeKind === 'live' &&
           current.liveStageId !== get().currentLiveStageId
         ) return 'not-current-stage'
-        if (status === 'open' && requiresFirstOpenGate(current)) {
+        if (
+          status === 'open' &&
+          current.tradeKind === 'live' &&
+          (currentStageRiskSetupMissing(get()) || requiresFirstOpenGate(current))
+        ) {
           return 'requires-risk-gate'
         }
         let updatedStatus = false
@@ -1673,7 +1804,7 @@ export const useStore = create<State>()((set, get) => ({
       upsertTrade: (trade) => {
         const existing = get().trades.find((item) => item.id === trade.id)
         if (openTargetsAnotherLiveStage(existing, trade, get().currentLiveStageId)) return 'not-current-stage'
-        if (upsertWouldBypassFirstOpenGate(existing, trade)) return 'requires-risk-gate'
+        if (upsertRequiresOpenGate(get(), existing, trade)) return 'requires-risk-gate'
         set((s) => upsertTradeIntoSlice(
           s,
           stageOwnedTradeForUpsert(s, trade),
@@ -1715,7 +1846,8 @@ export const useStore = create<State>()((set, get) => ({
           trade,
           currentState.currentLiveStageId,
         ))) return 'not-current-stage'
-        if (trades.some((trade) => upsertWouldBypassFirstOpenGate(
+        if (trades.some((trade) => upsertRequiresOpenGate(
+          currentState,
           currentTrades.find((item) => item.id === trade.id),
           trade,
         ))) return 'requires-risk-gate'
@@ -1785,17 +1917,25 @@ export const useStore = create<State>()((set, get) => ({
           return changed ? { trades } : s
         }),
       purgeTrade: (id) => get().purgeTrades([id]),
-      purgeTrades: (ids) =>
-        set((s) => {
-          if (ids.length === 0) return s
-          const idSet = new Set(ids)
-          if (!s.trades.some((trade) => idSet.has(trade.id))) return s
-          return {
-            trades: s.trades.filter((trade) => !idSet.has(trade.id)),
-            starredIds: s.starredIds.filter((id) => !idSet.has(id)),
-            subscribedIds: s.subscribedIds.filter((id) => !idSet.has(id)),
-          }
-        }),
+      purgeTrades: (ids) => {
+        if (ids.length === 0) return { purgedIds: [], blockedIds: [] }
+        const state = get()
+        const existingIds = new Set(
+          state.trades.filter((trade) => ids.includes(trade.id)).map((trade) => trade.id),
+        )
+        const blocked = tradePurgeBlockers(state, existingIds)
+        const purgedIds = [...existingIds].filter((id) => !blocked.has(id))
+        const blockedIds = [...existingIds].filter((id) => blocked.has(id))
+        if (purgedIds.length === 0) return { purgedIds, blockedIds }
+        const purged = new Set(purgedIds)
+        set((s) => ({
+          trades: s.trades.filter((trade) => !purged.has(trade.id)),
+          weeklyReviews: scrubDraftReviewTradeReferences(s.weeklyReviews, purged),
+          starredIds: s.starredIds.filter((id) => !purged.has(id)),
+          subscribedIds: s.subscribedIds.filter((id) => !purged.has(id)),
+        }))
+        return { purgedIds, blockedIds }
+      },
       openComposer: (trade = null, kind = null) => {
         // 防御：若被直接绑到 onClick，会收到 MouseEvent，不能当 Trade 用
         const safe =

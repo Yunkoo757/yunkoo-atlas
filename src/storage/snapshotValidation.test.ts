@@ -47,12 +47,31 @@ export function testSnapshotValidationEnforcesV12StageOwnershipAcrossEntities():
     assert(rejected, 'v12 未定义或未知阶段归属必须按实体规则拒绝')
   }
 
-  assertValidPersistedSnapshot({ ...full, trades: [{ ...full.trades[0]!, liveStageId: null }] })
+  assertValidPersistedSnapshot({
+    ...full,
+    trades: [{ ...full.trades[0]!, liveStageId: null }],
+    weeklyReviews: [],
+    riskOverrideEvents: [],
+  })
   const caseTrade = { ...full.trades[0]!, id: 'case-pending', tradeKind: 'case' as const, liveStageId: null }
-  assertValidPersistedSnapshot({ ...full, trades: [caseTrade] })
-  assertValidPersistedSnapshot({ ...full, weeklyReviews: [{ ...full.weeklyReviews![0]!, liveStageId: null }] })
+  assertValidPersistedSnapshot({ ...full, trades: [caseTrade], weeklyReviews: [], riskOverrideEvents: [] })
+  assertValidPersistedSnapshot({
+    ...full,
+    weeklyReviews: [{
+      ...full.weeklyReviews![0]!,
+      liveStageId: null,
+      highlightTradeIds: [],
+      riskSnapshot: undefined,
+    }],
+  })
   assertValidPersistedSnapshot({ ...full, weeklyRiskPreparations: [{ ...full.weeklyRiskPreparations[0]!, liveStageId: null }] })
-  assertValidPersistedSnapshot({ ...full, riskPolicyVersions: [{ ...full.riskPolicyVersions[0]!, liveStageId: null }] })
+  assertValidPersistedSnapshot({
+    ...full,
+    weeklyRiskPreparations: full.weeklyRiskPreparations.map((item) => ({ ...item, liveStageId: null })),
+    riskPolicyVersions: [{ ...full.riskPolicyVersions[0]!, liveStageId: null }],
+    monthlyRiskLimits: full.monthlyRiskLimits.map((item) => ({ ...item, liveStageId: null })),
+    riskOverrideEvents: full.riskOverrideEvents.map((item) => ({ ...item, liveStageId: null })),
+  })
   assertValidPersistedSnapshot({ ...full, monthlyRiskLimits: [{ ...full.monthlyRiskLimits[0]!, liveStageId: null }] })
   assertValidPersistedSnapshot({ ...full, riskOverrideEvents: [{ ...full.riskOverrideEvents[0]!, liveStageId: null }] })
 
@@ -106,15 +125,22 @@ export function testRiskPeriodUniquenessIsScopedByLiveStage(): void {
     endsOn: '2026-07-12',
     archivedAt: currentStage.createdAt,
   }
+  const archivedPolicy = {
+    ...full.riskPolicyVersions[0]!,
+    id: 'risk-policy-archived',
+    liveStageId: archivedStage.id,
+  }
   const crossStage = {
     ...full,
     liveStages: [archivedStage, currentStage],
+    riskPolicyVersions: [full.riskPolicyVersions[0]!, archivedPolicy],
     weeklyRiskPreparations: [
       full.weeklyRiskPreparations[0]!,
       {
         ...full.weeklyRiskPreparations[0]!,
         id: `weekly-risk-preparation:${archivedStage.id}:${full.weeklyRiskPreparations[0]!.weekStart}`,
         liveStageId: archivedStage.id,
+        confirmedPolicyVersionId: archivedPolicy.id,
       },
     ],
     monthlyRiskLimits: [
@@ -123,6 +149,7 @@ export function testRiskPeriodUniquenessIsScopedByLiveStage(): void {
         ...full.monthlyRiskLimits[0]!,
         id: `monthly-risk-limit:${archivedStage.id}:${full.monthlyRiskLimits[0]!.monthKey}`,
         liveStageId: archivedStage.id,
+        sourcePolicyVersionId: archivedPolicy.id,
       },
     ],
   }
@@ -498,6 +525,34 @@ export function testSnapshotValidationRejectsDuplicateEntityIds(): void {
   }
 }
 
+export function testSnapshotValidationRequiresRealWeeklyCalendarBoundariesAndStageCoverage(): void {
+  const full = createFullPersistedSnapshotFixture()
+  const base = { ...full.weeklyReviews![0]!, liveStageId: full.currentLiveStageId }
+  for (const [weekStart, weekEnd] of [
+    ['2026-02-30', '2026-03-08'],
+    ['2026-08-04', '2026-08-10'],
+    ['2026-08-03', '2026-08-08'],
+    ['2000-01-03', '2000-01-09'],
+  ]) {
+    let rejected = false
+    try {
+      assertValidPersistedSnapshot({ ...full, weeklyReviews: [{ ...base, weekStart, weekEnd }] })
+    } catch { rejected = true }
+    assert(rejected, `原生 v12 必须拒绝非法或不属于目标阶段的周边界 ${weekStart}..${weekEnd}`)
+  }
+
+  assertValidPersistedSnapshot({
+    ...full,
+    weeklyReviews: [{
+      ...base,
+      liveStageId: null,
+      weekStart: '2026-02-30',
+      weekEnd: '2026-03-08',
+      legacyPeriodQuarantine: true,
+    }],
+  })
+}
+
 export function testSnapshotValidationScopesWeeklyReviewUniquenessToStageAndWeek(): void {
   const fixture = createFullPersistedSnapshotFixture()
   const currentStage = { ...fixture.liveStages[0]!, sequence: 2 }
@@ -523,7 +578,11 @@ export function testSnapshotValidationScopesWeeklyReviewUniquenessToStageAndWeek
     liveStages: [archivedStage, currentStage],
   }
 
-  assertValidPersistedSnapshot({ ...base, weeklyReviews: [currentReview, archivedReview] })
+  let crossStageRejected = false
+  try {
+    assertValidPersistedSnapshot({ ...base, weeklyReviews: [currentReview, archivedReview] })
+  } catch { crossStageRejected = true }
+  assert(crossStageRejected, '同一自然周不能被伪装成跨阶段复盘')
 
   let rejected = false
   try {
@@ -582,6 +641,54 @@ export function testSnapshotValidationStrictlyValidatesWeeklyRiskReviewSnapshots
       rejected = true
     }
     assert(rejected, '损坏的周复盘风险快照必须被中央验证器拒绝')
+  }
+}
+
+export function testSnapshotValidationRejectsCrossStageWeeklyRiskEvidenceAndDependencyGraphs(): void {
+  const full = snapshotWithWeeklyRiskReview()
+  const current = { ...full.liveStages[0]!, sequence: 2 }
+  const old = {
+    ...current,
+    id: 'risk-old-stage',
+    sequence: 1,
+    name: '旧风险阶段',
+    status: 'archived' as const,
+    startsOn: '2026-06-01',
+    endsOn: '2026-07-12',
+    archivedAt: '2026-07-13T00:00:00.000Z',
+  }
+  const review = full.weeklyReviews[0]!
+  const invalid = [
+    {
+      ...full,
+      liveStages: [old, current],
+      weeklyReviews: [{
+        ...review,
+        riskSnapshot: {
+          ...review.riskSnapshot!,
+          policyVersions: review.riskSnapshot!.policyVersions.map((policy) => ({ ...policy, liveStageId: old.id })),
+        },
+      }],
+    },
+    {
+      ...full,
+      liveStages: [old, current],
+      monthlyRiskLimits: full.monthlyRiskLimits.map((limit) => ({ ...limit, liveStageId: current.id })),
+      riskPolicyVersions: full.riskPolicyVersions.map((policy) => ({ ...policy, liveStageId: old.id })),
+    },
+    {
+      ...full,
+      liveStages: [old, current],
+      riskOverrideEvents: full.riskOverrideEvents.map((event) => ({ ...event, liveStageId: current.id })),
+      trades: full.trades.map((trade) => trade.id === full.riskOverrideEvents[0]!.tradeId
+        ? { ...trade, liveStageId: old.id }
+        : trade),
+    },
+  ]
+  for (const candidate of invalid) {
+    let rejected = false
+    try { assertValidPersistedSnapshot(candidate) } catch { rejected = true }
+    assert(rejected, '原生 v12 必须拒绝跨阶段冻结证据或风险依赖图')
   }
 }
 

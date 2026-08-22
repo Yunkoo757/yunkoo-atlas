@@ -7,6 +7,7 @@ import {
   StageOwnershipRepairError,
   STAGE_OWNERSHIP_ENTITY_LABELS,
   type PendingStageOwnershipItem,
+  type RollbackAssignedStageOwnershipRequest,
   type StageOwnershipRepairState,
 } from '@/lib/stageOwnershipRepair'
 import { StorageRevisionConflictError } from '@/storage/adapter'
@@ -55,6 +56,7 @@ function domainFailureMessage(error: StageOwnershipRepairError): string {
     case 'ownership-conflict': return '目标阶段已有同周期记录，请核对已有记录或选择其他阶段。'
     case 'relationship-conflict': return '关联实体与目标阶段不一致或已不存在，请核对关系后重试。'
     case 'dependency-pending': return '关联实体仍在待整理队列，请先完成其阶段归属。'
+    case 'invalid-weekly-period': return '修正后的周区间必须是目标阶段内完整的周一至周日。'
     case 'missing-fingerprint': return '缺少待整理项校验信息，请刷新页面后重试。'
     case 'rollback-conflict': return '回滚目标已被其他操作修改，未覆盖最新资料；请重新打开应用核对资料库。'
     case 'already-assigned': return '该项目已在其他操作中完成归属，请刷新核对。'
@@ -76,6 +78,7 @@ export function StageOwnershipRepairView() {
   const rollbackOwnership = useStore((state) => state.rollbackAssignedStageOwnership)
   const [selections, setSelections] = useState<Record<string, string>>({})
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({})
+  const [weeklyPeriodCorrections, setWeeklyPeriodCorrections] = useState<Record<string, { weekStart: string; weekEnd: string }>>({})
   const [pageStatus, setPageStatus] = useState('')
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [savingItem, setSavingItem] = useState<PendingStageOwnershipItem | null>(null)
@@ -96,16 +99,20 @@ export function StageOwnershipRepairView() {
     setPageStatus('')
     setFeedback((current) => ({ ...current, [key]: { kind: 'success', message: '正在保存阶段归属…' } }))
     let stageName = liveStageId
+    let rollbackRequest: RollbackAssignedStageOwnershipRequest | null = null
     try {
       // 先把编辑器草稿和既有待保存状态冲洗进 Store/资料库；后续失败只会在最新
       // Store 上 CAS 反向修改本次目标的 ownership，不会用旧数组覆盖并发正文。
       await flushPersistNow()
       stageName = useStore.getState().liveStages.find((stage) => stage.id === liveStageId)?.name ?? liveStageId
-      assignOwnership({
+      rollbackRequest = assignOwnership({
         entityType: item.entityType,
         entityId: item.entityId,
         liveStageId,
         expectedFingerprint: item.fingerprint,
+        ...(item.requiresWeeklyPeriodCorrection
+          ? { correctedWeeklyPeriod: weeklyPeriodCorrections[key] }
+          : {}),
       })
     } catch (error) {
       setFeedback((current) => ({
@@ -134,13 +141,15 @@ export function StageOwnershipRepairView() {
         delete next[key]
         return next
       })
+      setWeeklyPeriodCorrections((current) => {
+        const next = { ...current }
+        delete next[key]
+        return next
+      })
     } catch (saveError) {
       try {
-        rollbackOwnership({
-          entityType: item.entityType,
-          entityId: item.entityId,
-          assignedLiveStageId: liveStageId,
-        })
+        if (!rollbackRequest) throw new StageOwnershipRepairError('rollback-conflict', '缺少本次归属的回滚凭据')
+        rollbackOwnership(rollbackRequest)
       } catch (rollbackError) {
         const recoveryMessage = rollbackError instanceof StageOwnershipRepairError
           ? domainFailureMessage(rollbackError)
@@ -233,6 +242,10 @@ export function StageOwnershipRepairView() {
             const selected = selections[key] ?? ''
             const itemFeedback = feedback[key]
             const busy = busyKey === key
+            const weeklyPeriodCorrection = weeklyPeriodCorrections[key] ?? { weekStart: '', weekEnd: '' }
+            const correctionComplete = !item.requiresWeeklyPeriodCorrection || (
+              weeklyPeriodCorrection.weekStart.length > 0 && weeklyPeriodCorrection.weekEnd.length > 0
+            )
             return (
               <article
                 className="stage-ownership-row"
@@ -264,6 +277,38 @@ export function StageOwnershipRepairView() {
                   <p className="stage-ownership-reason"><AlertCircle size={ICON_MD} aria-hidden />{item.reason}</p>
                 </div>
                 <div className="stage-ownership-actions">
+                  {item.requiresWeeklyPeriodCorrection ? (
+                    <fieldset className="stage-ownership-period-correction">
+                      <legend>原始周区间无效，请显式修正</legend>
+                      <p>
+                        原始值：<code>{item.weeklyPeriod?.weekStart}</code> 至 <code>{item.weeklyPeriod?.weekEnd}</code>
+                      </p>
+                      <label htmlFor={`stage-ownership-week-start-${key}`}>修正周起始（周一）</label>
+                      <input
+                        id={`stage-ownership-week-start-${key}`}
+                        type="date"
+                        data-weekly-period-weekstart
+                        value={weeklyPeriodCorrection.weekStart}
+                        disabled={busyKey !== null}
+                        onChange={(event) => setWeeklyPeriodCorrections((current) => ({
+                          ...current,
+                          [key]: { ...weeklyPeriodCorrection, weekStart: event.target.value },
+                        }))}
+                      />
+                      <label htmlFor={`stage-ownership-week-end-${key}`}>修正周结束（周日）</label>
+                      <input
+                        id={`stage-ownership-week-end-${key}`}
+                        type="date"
+                        data-weekly-period-weekend
+                        value={weeklyPeriodCorrection.weekEnd}
+                        disabled={busyKey !== null}
+                        onChange={(event) => setWeeklyPeriodCorrections((current) => ({
+                          ...current,
+                          [key]: { ...weeklyPeriodCorrection, weekEnd: event.target.value },
+                        }))}
+                      />
+                    </fieldset>
+                  ) : null}
                   <label htmlFor={`stage-ownership-target-${key}`}>目标阶段</label>
                   <select
                     id={`stage-ownership-target-${key}`}
@@ -290,7 +335,7 @@ export function StageOwnershipRepairView() {
                   <Button
                     variant="primary"
                     busy={busy}
-                    disabled={busyKey !== null || !selected}
+                    disabled={busyKey !== null || !selected || !correctionComplete}
                     data-stage-ownership-save
                     onClick={() => void save(item)}
                   >保存归属</Button>

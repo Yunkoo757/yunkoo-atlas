@@ -266,7 +266,7 @@ export function testReviewSessionRejectsLooseLegacyDateStringsAsDue(): void {
   )
 }
 
-export function testReviewSessionDefaultPoolIncludesCasesOnly(): void {
+export function testReviewSessionDefaultPoolIncludesCasesAndLiveButNotPaper(): void {
   const trades: Trade[] = [
     baseTrade,
     { ...baseTrade, id: 'paper-1', ref: 'TRD-2', tradeKind: 'paper' },
@@ -280,8 +280,8 @@ export function testReviewSessionDefaultPoolIncludesCasesOnly(): void {
   ]
 
   const defaultPool = buildReviewSessionPool(trades, DEFAULT_REVIEW_SESSION_FILTERS, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR, REVIEW_STAGE_CONTEXT)
-  assert(defaultPool.map((trade) => trade.id).join(',') === 'case-1',
-    '默认随机复盘池只能包含案例')
+  assert(defaultPool.map((trade) => trade.id).join(',') === 'live-1,case-1',
+    '默认随机复盘池必须包含实盘与案例，但不得自动扩大到模拟盘')
 
   const expandedPool = buildReviewSessionPool(trades, {
     ...DEFAULT_REVIEW_SESSION_FILTERS,
@@ -445,7 +445,7 @@ export function testReviewSessionStorageIsVersionedAndIsolatedByLibrary(): void 
   assert(saveReviewSession('library-a', runtimeSnapshot, storage), '可用 sessionStorage 应保存成功')
   assert(loadReviewSession('library-a', storage)?.cursor === 1, '同一资料库应恢复当前进度')
   assert(loadReviewSession('library-b', storage) === null, '其他资料库不得读取当前队列')
-  assert(reviewSessionStorageKey('library-a').includes(':v2:'), '会话存储键必须包含版本')
+  assert(reviewSessionStorageKey('library-a').includes(':v3:'), '拆分实盘/模拟盘后的会话存储键必须使用 v3')
 
   const raw = storage.getItem(reviewSessionStorageKey('library-a')) ?? ''
   assert(Object.keys(JSON.parse(raw)).sort().join(',') === 'assessments,cursor,filters,ids',
@@ -504,6 +504,59 @@ export function testReviewSessionStorageIsVersionedAndIsolatedByLibrary(): void 
     reviewFiltersForNextRound({ ...legacy, restoredLegacyReviewTiming: undefined }).reviewTiming === 'all',
     '显式选择 all 的现代轮次结束后必须保留用户筛选，不能被 legacy 兼容逻辑重置',
   )
+}
+
+export function testReviewSessionV1V2AccountFilterMigratesWithoutBroadeningPaper(): void {
+  for (const version of [1, 2]) {
+    for (const includeAccountTrades of [false, true]) {
+      const storage = new MemoryStorage()
+      const libraryId = `legacy-v${version}-${String(includeAccountTrades)}`
+      const legacyKey = `yunkoo-atlas:review-session:v${version}:${encodeURIComponent(libraryId)}`
+      storage.setItem(legacyKey, JSON.stringify({
+        ids: ['preserved-current', 'preserved-next'],
+        cursor: 1,
+        filters: {
+          includeCases: true,
+          includeAccountTrades,
+          caseScope: 'all',
+          requireContent: false,
+          reviewTiming: 'due',
+          stageSource: 'current-and-history',
+        },
+        assessments: { 'preserved-current': 'recheck' },
+      }))
+
+      const restored = loadReviewSession(libraryId, storage)
+      if (!restored) throw new Error('旧会话必须成功迁移')
+      assert(restored.ids.join(',') === 'preserved-current,preserved-next', '迁移不得重建活动轮次 ID')
+      assert(restored.cursor === 1 && restored.assessments['preserved-current'] === 'recheck', '迁移必须保留 cursor 与 assessments')
+      assert(
+        restored.filters.includeLiveTrades === includeAccountTrades &&
+          restored.filters.includePaperTrades === includeAccountTrades,
+        '旧账户交易开关必须按原池语义确定性拆为 live/paper，不能静默扩大 paper',
+      )
+      assert(storage.getItem(reviewSessionStorageKey(libraryId)) !== null, '旧会话必须先耐久升级为 v3')
+      assert(storage.getItem(legacyKey) === null, 'v3 写入成功后必须清理旧会话键')
+    }
+  }
+}
+
+export function testReviewSessionLiveAndPaperSourcesAreIndependent(): void {
+  const trades = [baseTrade, paperTrade('paper-independent')]
+  const onlyLive = buildPool(trades, {
+    includeCases: false,
+    includeLiveTrades: true,
+    includePaperTrades: false,
+    includeAccountTrades: false,
+  })
+  const onlyPaper = buildPool(trades, {
+    includeCases: false,
+    includeLiveTrades: false,
+    includePaperTrades: true,
+    includeAccountTrades: false,
+  })
+  assert(onlyLive.map((trade) => trade.id).join(',') === 'live-1', '仅实盘开关不得包含模拟盘')
+  assert(onlyPaper.map((trade) => trade.id).join(',') === 'paper-independent', '仅模拟盘开关不得包含实盘')
 }
 
 export function testReviewSessionStageSourcePersistsAndMissingFieldMigratesToDefault(): void {

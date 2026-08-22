@@ -7,6 +7,7 @@ import * as bundleBuildIdentity from '../bundle-build-identity.mjs'
 import {
   closeElectronApplication,
   collectElectronBundleIdentity,
+  readRepositoryBuildExpectation,
   validateBundleBuildIdentityEvidence,
 } from '../bundle-build-identity.mjs'
 
@@ -23,6 +24,11 @@ function expectation(commit = commitA, githubSha = null) {
 function runtime(identity) {
   return { evaluate: async () => identity }
 }
+
+test('local build expectation records an absent GITHUB_SHA as explicit null', async () => {
+  const evidence = await readRepositoryBuildExpectation(process.cwd(), {})
+  assert.equal(evidence.ci.githubSha, null)
+})
 
 test('Electron visual rejects a stale renderer or main bundle before evidence collection', async () => {
   await assert.rejects(

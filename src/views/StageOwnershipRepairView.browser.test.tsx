@@ -156,6 +156,21 @@ function seed(): void {
       liveStageId: null,
       weekStart: '2026-06-08',
       weekEnd: '2026-06-14',
+      highlightTradeIds: [],
+      mistakeTradeIds: [],
+      followUpTradeIds: [],
+      riskSnapshot: undefined,
+    }, {
+      ...fixture.weeklyReviews![0]!,
+      id: 'invalid-review',
+      liveStageId: null,
+      weekStart: '2026-02-30',
+      weekEnd: '2026-03-08',
+      legacyPeriodQuarantine: true,
+      highlightTradeIds: [],
+      mistakeTradeIds: [],
+      followUpTradeIds: [],
+      riskSnapshot: undefined,
     }],
     weeklyRiskPreparations: [{
       ...fixture.weeklyRiskPreparations[0]!,
@@ -223,6 +238,15 @@ function saveButton(entityId: string): HTMLButtonElement {
   return button
 }
 
+function setDate(entityId: string, field: 'weekStart' | 'weekEnd', value: string): void {
+  const input = row(entityId).querySelector<HTMLInputElement>(`input[data-weekly-period-${field}]`)
+  assert(input, `${entityId} 缺少 ${field} 显式日期修复输入`)
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+  setter?.call(input, value)
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+  input.dispatchEvent(new Event('change', { bubbles: true }))
+}
+
 async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
@@ -252,7 +276,7 @@ async function run(): Promise<void> {
     assert(!view.textContent?.includes('推荐阶段'), '页面不得根据日期推荐阶段')
     const healthLink = document.querySelector<HTMLAnchorElement>('[data-stage-ownership-health-entry]')
     assert(healthLink?.getAttribute('href') === '/settings/data/stage-ownership-repair', '数据健康入口链接错误')
-    assert(healthLink.textContent?.includes('阶段待整理') && healthLink.textContent.includes('8'), '数据健康入口必须显示精确待整理数量')
+    assert(healthLink.textContent?.includes('阶段待整理') && healthLink.textContent.includes('9'), '数据健康入口必须显示精确待整理数量')
 
     const labels = ['实盘交易', '错过机会', '案例', '周复盘', '周风险准备', '风险政策版本', '月度风险限额', '风险覆盖记录']
     for (const label of labels) assert(view.textContent?.includes(label), `页面缺少实体类型：${label}`)
@@ -268,6 +292,43 @@ async function run(): Promise<void> {
       assert(options.some((option) => option.includes('历史训练期') && option.includes('历史阶段')), '选择框缺少历史阶段名称与状态')
     }
     assert(saveButton('live').disabled, '未显式选择阶段时不得保存')
+
+    const invalidReviewRow = row('invalid-review')
+    assert(invalidReviewRow.textContent?.includes('原始周区间无效') && invalidReviewRow.textContent.includes('修正'), '非法周复盘没有可发现的日期修复说明')
+    selectStage('invalid-review', 'stage-old')
+    assert(saveButton('invalid-review').disabled, '隔离周复盘未显式修正日期时不得保存')
+    setDate('invalid-review', 'weekStart', '2026-06-22')
+    setDate('invalid-review', 'weekEnd', '2026-06-28')
+    assert(!saveButton('invalid-review').disabled, '填写有效周区间并选择阶段后应允许保存')
+
+    let invalidRepairAttempts = 0
+    saveSnapshot = async (snapshot) => {
+      invalidRepairAttempts += 1
+      saved.push(structuredClone(snapshot))
+      if (invalidRepairAttempts === 2) throw new Error('repair persistence failure')
+    }
+    saveButton('invalid-review').click()
+    await waitFor(() => invalidRepairAttempts === 3, '非法周区间修复失败后没有持久化精确回滚')
+    await waitFor(() => row('invalid-review').textContent?.includes('保存失败'), '非法周区间修复失败没有显示可重试反馈')
+    const restoredInvalidReview = useStore.getState().weeklyReviews.find((item) => item.id === 'invalid-review')
+    assert(
+      restoredInvalidReview?.liveStageId === null &&
+        restoredInvalidReview.weekStart === '2026-02-30' &&
+        restoredInvalidReview.weekEnd === '2026-03-08' &&
+        restoredInvalidReview.legacyPeriodQuarantine === true,
+      '非法周区间保存失败后 Store 没有恢复原始日期与隔离标记',
+    )
+    saveSnapshot = async (snapshot) => { saved.push(structuredClone(snapshot)) }
+    saveButton('invalid-review').click()
+    await waitFor(() => document.querySelector('[data-stage-ownership-id="invalid-review"]') === null, '非法周区间修复重试没有成功')
+    const durableInvalidReview = saved.at(-1)?.weeklyReviews?.find((item) => item.id === 'invalid-review')
+    assert(
+      durableInvalidReview?.liveStageId === 'stage-old' &&
+        durableInvalidReview.weekStart === '2026-06-22' &&
+        durableInvalidReview.weekEnd === '2026-06-28' &&
+        !Object.prototype.hasOwnProperty.call(durableInvalidReview, 'legacyPeriodQuarantine'),
+      '耐久快照没有写入显式修正后的规范周区间',
+    )
 
     const gate: { release: (() => void) | null } = { release: null }
     let successAttempts = 0
@@ -349,13 +410,13 @@ async function run(): Promise<void> {
     saveButton('case').click()
     await waitFor(() => document.querySelector('[data-stage-ownership-id="case"]') === null, '冲突后的显式重试没有成功')
 
-    selectStage('review', 'stage-current')
+    selectStage('review', 'stage-old')
     useStore.setState((state) => ({
       weeklyReviews: state.weeklyReviews.map((item) => item.id === 'review' ? { ...item, contentHtml: '<p>并发更新</p>' } : item),
     }))
     saveButton('review').click()
     await waitFor(() => row('review').textContent?.includes('发生变化'), 'stale item 没有要求刷新上下文')
-    assert(useStore.getState().weeklyReviews[0]?.liveStageId === null, 'stale item 不得部分写入归属')
+    assert(useStore.getState().weeklyReviews.find((item) => item.id === 'review')?.liveStageId === null, 'stale item 不得部分写入归属')
 
     let rollbackFailureAttempts = 0
     saveSnapshot = async (snapshot) => {
@@ -437,7 +498,7 @@ async function run(): Promise<void> {
     disablePersistWrites()
     applySnapshotToStore(structuredClone(durable))
     const reloaded = useStore.getState()
-    assert(reloaded.weeklyReviews.some((item) => item.id === 'review' && matchesStageScope(item, { kind: 'current', stageId: 'stage-current' })), '重载后周复盘消费者没有读到修复归属')
+    assert(reloaded.weeklyReviews.some((item) => item.id === 'review' && matchesStageScope(item, { kind: 'stage', stageId: 'stage-old' })), '重载后周复盘归档消费者没有读到修复归属')
     assert(forLiveStage(reloaded.weeklyRiskPreparations, 'stage-current').some((item) => item.id === PREPARATION_ID), '重载后周风险准备消费者没有读到修复归属')
     assert(activeRiskPolicy(reloaded.riskPolicyVersions, currentTradingDayKey, 'stage-current')?.id === 'policy', '重载后活动风险政策消费者没有读到修复版本')
     assert(forLiveStage(reloaded.monthlyRiskLimits, 'stage-current').some((item) => item.id === repairedLimitId), '重载后月度风险限额消费者没有读到修复归属')

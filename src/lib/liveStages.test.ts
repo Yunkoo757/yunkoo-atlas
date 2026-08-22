@@ -49,6 +49,29 @@ export function testLiveStageCreationUsesCanonicalDatesAndDefaultNames(): void {
   assert(next.archived.endsOn === '2026-02-28', 'previous-day calculation must preserve local calendar boundaries')
 }
 
+export function testNextStageSequenceUsesTheGlobalMaximum(): void {
+  const current = createInitialLiveStage('2026-08-24', '2026-08-24T00:00:00.000Z', 'stage-current')
+  const historicalWithHigherSequence = {
+    ...current,
+    id: 'stage-historical',
+    sequence: 9,
+    name: '导入的历史阶段',
+    status: 'archived' as const,
+    startsOn: '2026-08-01',
+    endsOn: '2026-08-23',
+    archivedAt: current.createdAt,
+  }
+  const next = createNextLiveStage(
+    current,
+    '2026-08-31',
+    '2026-08-31T00:00:00.000Z',
+    'stage-next',
+    [historicalWithHigherSequence, current],
+  )
+  assert(next.current.sequence === 10, '新阶段序号必须使用全局最大序号 + 1')
+  assert(next.current.name === '实盘阶段 10', '自动名称必须与全局新序号一致')
+}
+
 export function testLiveStageStateRejectsInvalidIdentityAndTimelineInvariants(): void {
   const first = createInitialLiveStage('2026-08-24', '2026-08-24T00:00:00.000Z', 'stage-1')
   const { archived, current } = createNextLiveStage(first, '2026-08-31', '2026-08-31T00:00:00.000Z', 'stage-2')
@@ -82,4 +105,27 @@ export function testLiveStageStateRejectsDuplicateNormalizedNames(): void {
     rejected = true
   }
   assert(rejected, '阶段名称必须在 trim 与大小写归一化后保持唯一')
+}
+
+export function testLiveStageStateRequiresChronologicalSequenceMonotonicity(): void {
+  const first = createInitialLiveStage('2026-08-24', '2026-08-24T00:00:00.000Z', 'stage-1')
+  const { archived, current } = createNextLiveStage(
+    first,
+    '2026-08-31',
+    '2026-08-31T00:00:00.000Z',
+    'stage-2',
+  )
+  let rejected = false
+  try {
+    assertValidLiveStageState({
+      liveStages: [
+        { ...archived, sequence: 9 },
+        { ...current, sequence: 3 },
+      ],
+      currentLiveStageId: current.id,
+    })
+  } catch {
+    rejected = true
+  }
+  assert(rejected, '阶段序号必须按 startsOn 时间线严格递增，当前阶段必须拥有最大序号')
 }

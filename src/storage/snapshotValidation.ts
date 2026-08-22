@@ -5,6 +5,7 @@ import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { hasCanonicalRiskAmount } from '@/lib/riskPolicyValidity'
 import { assertValidLiveStageState } from '@/lib/liveStages'
+import { isCanonicalWeeklyReviewPeriod, stageContainsWeeklyReviewPeriod } from '@/lib/weeklyReviewPeriod'
 
 const TRADE_SIDES = new Set(['long', 'short'])
 const TRADE_STATUSES = new Set(['planned', 'open', 'missed', 'win', 'loss', 'breakeven'])
@@ -426,10 +427,14 @@ function isWeeklyReviewEvidenceSnapshot(value: unknown): boolean {
 
 function isWeeklyReview(value: unknown): boolean {
   if (!isRecord(value)) return false
+  const quarantinedPeriod = value.legacyPeriodQuarantine === true
   if (
     typeof value.id !== 'string' || !value.id.trim() ||
     typeof value.weekStart !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value.weekStart) ||
     typeof value.weekEnd !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value.weekEnd) ||
+    (value.legacyPeriodQuarantine !== undefined && !quarantinedPeriod) ||
+    (!quarantinedPeriod && !isCanonicalWeeklyReviewPeriod(value.weekStart, value.weekEnd)) ||
+    (quarantinedPeriod && value.liveStageId !== null) ||
     !WEEKLY_REVIEW_STATUSES.has(String(value.status)) ||
     typeof value.contentHtml !== 'string' ||
     typeof value.commitmentText !== 'string' ||
@@ -663,6 +668,14 @@ function assertRequiredKnownStageId(
   if (typeof value !== 'string' || !ids.has(value)) throw new Error(message)
 }
 
+function assertReferenceBelongsToStage(
+  entity: unknown,
+  targetStageId: string,
+  message: string,
+): void {
+  if (!isRecord(entity) || entity.liveStageId !== targetStageId) throw new Error(message)
+}
+
 function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void {
   const ids = new Set(snapshot.liveStages.map((stage) => stage.id))
   for (const trade of snapshot.trades) {
@@ -683,11 +696,80 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
       ids,
       `${label}.weeklyReviews contains an unknown liveStageId`,
     )
+    if (review.liveStageId !== null) {
+      const stage = snapshot.liveStages.find((candidate) => candidate.id === review.liveStageId)
+      if (
+        !stage ||
+        review.legacyPeriodQuarantine === true ||
+        !stageContainsWeeklyReviewPeriod(stage, review.weekStart, review.weekEnd)
+      ) {
+        throw new Error(`${label}.weeklyReviews contains a period outside its live stage`)
+      }
+    }
     for (const policy of review.riskSnapshot?.policyVersions ?? []) {
-      assertRequiredKnownStageId(policy.liveStageId, ids, `${label}.weeklyReviews contains an unknown risk liveStageId`)
+      assertKnownOrPendingStageId(policy.liveStageId, ids, `${label}.weeklyReviews contains an unknown risk liveStageId`)
+      if (policy.liveStageId !== review.liveStageId) {
+        throw new Error(`${label}.weeklyReviews contains cross-stage frozen policy evidence`)
+      }
     }
     for (const event of review.riskSnapshot?.overrideEvents ?? []) {
-      assertRequiredKnownStageId(event.liveStageId, ids, `${label}.weeklyReviews contains an unknown risk liveStageId`)
+      assertKnownOrPendingStageId(event.liveStageId, ids, `${label}.weeklyReviews contains an unknown risk liveStageId`)
+      if (event.liveStageId !== review.liveStageId) {
+        throw new Error(`${label}.weeklyReviews contains cross-stage frozen override evidence`)
+      }
+    }
+    if (typeof review.liveStageId === 'string') {
+      const embeddedPolicies = review.riskSnapshot?.policyVersions ?? []
+      for (const event of review.riskSnapshot?.overrideEvents ?? []) {
+        const sourceTrade = snapshot.trades.find(
+          (trade) => trade.id === event.tradeId && trade.tradeKind !== 'paper',
+        )
+        // override event 自带冻结交易身份；来源被永久删除后仍是完整历史证据。
+        if (sourceTrade) {
+          assertReferenceBelongsToStage(
+            sourceTrade,
+            review.liveStageId,
+            `${label}.weeklyReviews contains a cross-stage override trade reference`,
+          )
+        }
+        if (event.policyVersionId) {
+          assertReferenceBelongsToStage(
+            embeddedPolicies.find((policy) => policy.id === event.policyVersionId)
+              ?? snapshot.riskPolicyVersions.find((policy) => policy.id === event.policyVersionId),
+            review.liveStageId,
+            `${label}.weeklyReviews contains a cross-stage override policy reference`,
+          )
+        }
+      }
+      const frozenTradeIds = new Set([
+        ...(review.evidenceSnapshot?.trades.map((trade) => trade.id) ?? []),
+        ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
+        ...(review.riskSnapshot?.overrideEvents.map((event) => event.tradeId) ?? []),
+      ])
+      const directTradeIds = new Set([
+        ...review.highlightTradeIds,
+        ...review.mistakeTradeIds,
+        ...review.followUpTradeIds,
+      ])
+      const tradeIds = new Set([
+        ...directTradeIds,
+        ...(review.evidenceSnapshot?.trades.map((trade) => trade.id) ?? []),
+        ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
+      ])
+      for (const tradeId of tradeIds) {
+        const sourceTrade = snapshot.trades.find(
+          (trade) => trade.id === tradeId && trade.tradeKind !== 'paper',
+        )
+        if (sourceTrade) {
+          assertReferenceBelongsToStage(
+            sourceTrade,
+            review.liveStageId,
+            `${label}.weeklyReviews contains a cross-stage trade reference`,
+          )
+        } else if (!frozenTradeIds.has(tradeId)) {
+          throw new Error(`${label}.weeklyReviews contains a missing trade reference without frozen evidence`)
+        }
+      }
     }
   }
   for (const field of [
@@ -701,6 +783,46 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
         entity.liveStageId,
         ids,
         `${label}.${field} contains an unknown liveStageId`,
+      )
+    }
+  }
+  for (const preparation of snapshot.weeklyRiskPreparations) {
+    if (typeof preparation.liveStageId === 'string' && preparation.confirmedPolicyVersionId) {
+      assertReferenceBelongsToStage(
+        snapshot.riskPolicyVersions.find((policy) => policy.id === preparation.confirmedPolicyVersionId),
+        preparation.liveStageId,
+        `${label}.weeklyRiskPreparations contains a cross-stage policy reference`,
+      )
+    }
+  }
+  for (const limit of snapshot.monthlyRiskLimits) {
+    if (typeof limit.liveStageId === 'string') {
+      assertReferenceBelongsToStage(
+        snapshot.riskPolicyVersions.find((policy) => policy.id === limit.sourcePolicyVersionId),
+        limit.liveStageId,
+        `${label}.monthlyRiskLimits contains a cross-stage policy reference`,
+      )
+    }
+  }
+  for (const event of snapshot.riskOverrideEvents) {
+    if (typeof event.liveStageId !== 'string') continue
+    const sourceTrade = snapshot.trades.find(
+      (trade) => trade.id === event.tradeId && trade.tradeKind !== 'paper',
+    )
+    // 顶层 override event 的 tradeIdentityAtDecision 是自包含冻结证据；只有来源
+    // 仍存在时才需要验证其当前 stage，永久删除不得破坏历史风险图。
+    if (sourceTrade) {
+      assertReferenceBelongsToStage(
+        sourceTrade,
+        event.liveStageId,
+        `${label}.riskOverrideEvents contains a cross-stage trade reference`,
+      )
+    }
+    if (event.policyVersionId) {
+      assertReferenceBelongsToStage(
+        snapshot.riskPolicyVersions.find((policy) => policy.id === event.policyVersionId),
+        event.liveStageId,
+        `${label}.riskOverrideEvents contains a cross-stage policy reference`,
       )
     }
   }

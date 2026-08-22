@@ -5,18 +5,25 @@
 
 import type { Trade } from '@/data/trades'
 import { isTradeExpired } from '@/data/trades'
+import type { TradePurgeResult } from '@/store/useStore'
 
 export async function cleanExpiredTradeTrash(
   trades: Trade[],
-  purgeTrades: (ids: string[]) => void,
+  purgeTrades: (ids: string[]) => TradePurgeResult | void,
 ): Promise<number> {
   const expiredTrades = trades.filter((t) => isTradeExpired(t))
+  if (expiredTrades.length === 0) return 0
 
-  purgeTrades(expiredTrades.map((trade) => trade.id))
+  const result = purgeTrades(expiredTrades.map((trade) => trade.id))
+  const cleanedCount = result?.purgedIds.length ?? expiredTrades.length
+  const blockedCount = result?.blockedIds.length ?? 0
 
-  if (expiredTrades.length > 0) {
-    console.log(`[Trash Cleanup] Cleaned ${expiredTrades.length} expired trade(s)`)
+  if (cleanedCount > 0) console.log(`[Trash Cleanup] Cleaned ${cleanedCount} expired trade(s)`)
+  if (blockedCount > 0) {
+    console.warn(
+      `[Trash Cleanup] Kept ${blockedCount} expired trade(s) required by stage repair or legacy completed reviews`,
+    )
   }
 
-  return expiredTrades.length
+  return cleanedCount
 }

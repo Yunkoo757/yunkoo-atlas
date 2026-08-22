@@ -1,3 +1,5 @@
+import { rmSync } from 'node:fs'
+
 import { readGitProvenance } from './git-provenance.mjs'
 
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/
@@ -10,7 +12,7 @@ function normalizeCommit(value, label) {
 }
 
 function normalizeGithubSha(value) {
-  if (value == null || value === '') return null
+  if (value === null) return null
   return normalizeCommit(value, 'GITHUB_SHA')
 }
 
@@ -24,7 +26,11 @@ export async function readRepositoryBuildExpectation(root = process.cwd(), envir
       sourceFingerprint: provenance.sourceFingerprint,
       sourceIdentity: provenance.sourceIdentity,
     },
-    ci: { githubSha: normalizeGithubSha(environment.GITHUB_SHA) },
+    ci: {
+      githubSha: normalizeGithubSha(
+        environment.GITHUB_SHA === undefined ? null : environment.GITHUB_SHA,
+      ),
+    },
   }
 }
 
@@ -38,6 +44,9 @@ export function validateBundleBuildIdentityEvidence(evidence, requiredBundles) {
   const repositoryHead = normalizeCommit(evidence.repository?.head, 'repository HEAD')
   if (evidence.repository?.dirty !== false) {
     throw new Error('Repository working tree is dirty; bundle evidence requires a clean HEAD')
+  }
+  if (!evidence.ci || typeof evidence.ci !== 'object' || !Object.hasOwn(evidence.ci, 'githubSha')) {
+    throw new Error('GITHUB_SHA evidence must be explicit (null for a local run)')
   }
   const githubSha = normalizeGithubSha(evidence.ci?.githubSha)
   if (githubSha && repositoryHead !== githubSha) {
@@ -85,6 +94,33 @@ export async function collectElectronBundleIdentity({ page, application, expecta
 
 export async function closeElectronApplication(application, timeoutMs = 2_000) {
   return closeElectronApplicationBounded(application, { timeoutMs })
+}
+
+export async function removeTemporaryDirectoryBounded(directory, {
+  timeoutMs = 10_000,
+  retryDelayMs = 100,
+  removeDirectory = (target) => rmSync(target, { recursive: true, force: true }),
+} = {}) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new Error('Temporary directory cleanup timeout must be a positive number')
+  }
+  if (!Number.isFinite(retryDelayMs) || retryDelayMs <= 0) {
+    throw new Error('Temporary directory cleanup retry delay must be a positive number')
+  }
+  const deadline = Date.now() + timeoutMs
+  while (true) {
+    try {
+      await removeDirectory(directory)
+      return
+    } catch (error) {
+      if (!['EBUSY', 'ENOTEMPTY', 'EPERM'].includes(error?.code) || Date.now() >= deadline) {
+        throw error
+      }
+    }
+    await new Promise((resolveDelay) => {
+      setTimeout(resolveDelay, Math.min(retryDelayMs, Math.max(1, deadline - Date.now())))
+    })
+  }
 }
 
 export async function closeElectronApplicationBounded(application, {

@@ -300,7 +300,7 @@ export function testStatusChangeReopensACompletedReview(): void {
   const previous = useStore.getState()
   const reviewedTrade: Trade = {
     ...openTrade,
-    liveStageId: previous.currentLiveStageId,
+    tradeKind: 'paper',
     status: 'win',
     pnl: 500,
     resultSource: 'pnl',

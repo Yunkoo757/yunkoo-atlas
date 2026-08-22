@@ -112,11 +112,11 @@ export function testV11StageMigrationDeterministicallyDisambiguatesNormalizedNam
     '名称消歧不得改变实体阶段归属',
   )
   assert(
-    migrated.weeklyRiskPreparations.every((item) => item.liveStageId === 'stage-7') &&
-      migrated.riskPolicyVersions.every((item) => item.liveStageId === 'stage-7') &&
-      migrated.monthlyRiskLimits.every((item) => item.liveStageId === 'stage-7') &&
-      migrated.riskOverrideEvents.every((item) => item.liveStageId === 'stage-7'),
-    '名称消歧不得改变风险实体统一归入当前阶段的迁移结果',
+    migrated.weeklyRiskPreparations.every((item) => item.liveStageId === null) &&
+      migrated.riskPolicyVersions.every((item) => item.liveStageId === null) &&
+      migrated.monthlyRiskLimits.every((item) => item.liveStageId === null) &&
+      migrated.riskOverrideEvents.every((item) => item.liveStageId === null),
+    '风险图引用缺失交易时必须整体进入待修复，名称消歧不得猜测当前阶段',
   )
 }
 
@@ -174,6 +174,7 @@ export function testPreCycleArchiveWeeklyReviewsAndRiskOwnershipAreMigrated(): v
     ],
     weeklyReviews: [{
       ...fixture.weeklyReviews![0]!,
+      highlightTradeIds: [preCycleTrade.id],
       weekStart: '2026-07-20',
       weekEnd: '2026-07-26',
       riskSnapshot: {
@@ -181,7 +182,10 @@ export function testPreCycleArchiveWeeklyReviewsAndRiskOwnershipAreMigrated(): v
         dailyOutcomes: [{ ...riskEvent.outcomesAtDecision.day, date: '2026-07-20' }],
         weeklyOutcome: riskEvent.outcomesAtDecision.week,
         monthlyOutcomeAtCompletion: riskEvent.outcomesAtDecision.month,
-        overrideEvents: fixture.riskOverrideEvents,
+        overrideEvents: fixture.riskOverrideEvents.map((event) => ({
+          ...event,
+          tradeId: preCycleTrade.id,
+        })),
         frozenAt: fixture.weeklyReviews![0]!.completedAt!,
       },
     }],
@@ -199,10 +203,10 @@ export function testPreCycleArchiveWeeklyReviewsAndRiskOwnershipAreMigrated(): v
     migrated.weeklyReviews?.[0]?.riskSnapshot?.overrideEvents.every((item) => item.liveStageId === 'stage-1'),
     '历史周复盘的冻结风险事件必须与外层复盘归属一致',
   )
-  assert(migrated.weeklyRiskPreparations.every((item) => item.liveStageId === migrated.currentLiveStageId), '风险实体必须归入当前阶段')
-  assert(migrated.riskPolicyVersions.every((item) => item.liveStageId === migrated.currentLiveStageId), '风险政策必须归入当前阶段')
-  assert(migrated.monthlyRiskLimits.every((item) => item.liveStageId === migrated.currentLiveStageId), '月度限额必须归入当前阶段')
-  assert(migrated.riskOverrideEvents.every((item) => item.liveStageId === migrated.currentLiveStageId), '风险覆盖事件必须归入当前阶段')
+  assert(migrated.weeklyRiskPreparations.every((item) => item.liveStageId === null), '缺少被引用交易时风险实体必须待修复')
+  assert(migrated.riskPolicyVersions.every((item) => item.liveStageId === null), '缺少被引用交易时风险政策必须待修复')
+  assert(migrated.monthlyRiskLimits.every((item) => item.liveStageId === null), '缺少被引用交易时月度限额必须待修复')
+  assert(migrated.riskOverrideEvents.every((item) => item.liveStageId === null), '缺少被引用交易时风险覆盖事件必须待修复')
 }
 
 export function testLegacyTradeWithoutKindRemainsPaperAndHasNoStageOwnership(): void {
@@ -215,6 +219,33 @@ export function testLegacyTradeWithoutKindRemainsPaperAndHasNoStageOwnership(): 
 
   assert(trade.tradeKind === undefined, '阶段迁移不得把缺失种类的旧交易提前解释为实盘')
   assert(!Object.prototype.hasOwnProperty.call(trade, 'liveStageId'), '缺失种类的旧交易不得携带阶段归属')
+}
+
+export function testInvalidOrUnmatchableLegacyWeeklyPeriodsRemainRawAndPending(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const reviews = [
+    ['invalid-day', '2026-02-30', '2026-03-08'],
+    ['not-monday', '2026-08-04', '2026-08-10'],
+    ['bad-end', '2026-08-03', '2026-08-08'],
+    ['cross-stage', '2026-08-03', '2026-08-09'],
+  ].map(([id, weekStart, weekEnd]) => ({
+    ...fixture.weeklyReviews![0]!, id, weekStart, weekEnd,
+  }))
+  const migrated = migrateLegacyStageSnapshot(v11Snapshot({
+    livePerformanceCycles: [
+      { id: 'old', name: '旧阶段', startTradingDayKey: '2026-07-01', createdAt: '2026-07-01T00:00:00.000Z' },
+      { id: 'current', name: '当前阶段', startTradingDayKey: '2026-08-06', createdAt: '2026-08-06T00:00:00.000Z' },
+    ],
+    weeklyReviews: reviews,
+  }), deterministicOptions)
+
+  for (const [index, original] of reviews.entries()) {
+    const review = migrated.weeklyReviews?.[index]
+    assert(review?.liveStageId === null, `${original.id} 不得回退归入 current`)
+    assert(review.weekStart === original.weekStart && review.weekEnd === original.weekEnd, '迁移必须保留原始日期')
+    assert(review.legacyPeriodQuarantine === true, '不可证明的旧周边界必须显式进入 quarantine')
+  }
+  assert(!migrated.liveStages.some((stage) => stage.name === '更早记录'), '非法周日期不得创建推测的更早阶段')
 }
 
 // Quality-Scenario: LS-V11-MIGRATION

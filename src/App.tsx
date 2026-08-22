@@ -18,7 +18,7 @@ import {
   isStorageHydrated,
   publishDurableStoreRefresh,
 } from './storage'
-import { flushPersistNow, hasPendingChanges, setPreFlushCallback } from './storage/persist'
+import { disablePersistWrites, flushPersistNow, hasPendingChanges, setPreFlushCallback } from './storage/persist'
 import { flushNoteDraftsToStore, hasPendingNoteDrafts } from './storage/noteDrafts'
 import { flushStorageBeforeCutover } from './storage/cutover'
 import { shouldPreventAppUnload } from './storage/unloadGuard'
@@ -58,11 +58,14 @@ import { lockBottomChrome, unlockBottomChrome } from './lib/toast'
 import { parseAnalysisScope } from './lib/analysisScope'
 import { weekStartFor } from './data/weeklyReviews'
 import {
+  classifyUncertainStageRolloverSnapshot,
   createStageRolloverCheck,
   executeDueStageRollover,
   reconcileCommittedStageRollover,
   STAGE_MANAGEMENT_OPEN_EVENT,
+  STAGE_ROLLOVER_RECOVERY_REQUIRED_EVENT,
 } from './lib/stageRolloverCommit'
+import { createForegroundStageRolloverScheduler } from './lib/stageRolloverScheduler'
 import './App.css'
 
 const CLOSE_SAVE_RECEIPT_MS = 560
@@ -84,6 +87,10 @@ const checkDueStageRollover = createStageRolloverCheck(async () => {
       await flushStorageBeforeCutover()
     },
     commitDurably: (input) => window.journalBridge!.commitStageRollover(input),
+    recoverAfterCommitError: async (input) => classifyUncertainStageRolloverSnapshot(
+      input,
+      await getStorage().loadSnapshot(),
+    ),
     postpone: async (scheduled) => {
       const previous = useStore.getState().scheduledStageRollover
       useStore.getState().publishPostponedRollover(scheduled)
@@ -105,6 +112,10 @@ const checkDueStageRollover = createStageRolloverCheck(async () => {
         })
       },
     }),
+    enterRecoveryRequired: (message) => {
+      disablePersistWrites()
+      window.dispatchEvent(new CustomEvent(STAGE_ROLLOVER_RECOVERY_REQUIRED_EVENT, { detail: message }))
+    },
   })
   if (result.kind === 'committed') {
     toast('已安全切换到新的实盘阶段', { dedupeKey: 'stage-rollover-committed' })
@@ -583,6 +594,7 @@ export function App() {
   const [ready, setReady] = useState(false)
   const [needsWelcome, setNeedsWelcome] = useState(false)
   const [storageError, setStorageError] = useState<string | null>(null)
+  const [storageRecoveryRequired, setStorageRecoveryRequired] = useState(false)
   const [retryingStorage, setRetryingStorage] = useState(false)
   const [closeSaveState, setCloseSaveState] = useState<CloseSaveState>({ phase: 'idle' })
   const [windowsClosePromptOpen, setWindowsClosePromptOpen] = useState(false)
@@ -593,6 +605,21 @@ export function App() {
     if (closeSaveState.phase === 'idle') unlockBottomChrome()
     else lockBottomChrome()
   }, [closeSaveState.phase])
+
+  useEffect(() => {
+    const onRecoveryRequired = (event: Event) => {
+      disablePersistWrites()
+      const message = event instanceof CustomEvent && typeof event.detail === 'string'
+        ? event.detail
+        : '阶段切换结果无法安全确认，已停止继续保存。'
+      setStorageRecoveryRequired(true)
+      setStorageError(message)
+      setReady(false)
+      document.documentElement.dataset.uiSettled = '1'
+    }
+    window.addEventListener(STAGE_ROLLOVER_RECOVERY_REQUIRED_EVENT, onRecoveryRequired)
+    return () => window.removeEventListener(STAGE_ROLLOVER_RECOVERY_REQUIRED_EVENT, onRecoveryRequired)
+  }, [])
 
   useEffect(() => {
     const init = async () => {
@@ -698,6 +725,29 @@ export function App() {
       if (!isStorageHydrated()) return
       flushPersistNow().catch(() => {})
     }
+    const rolloverScheduler = createForegroundStageRolloverScheduler({
+      capture: () => {
+        const state = useStore.getState()
+        return {
+          visible: document.visibilityState === 'visible',
+          tradingDayStartHour: state.display.tradingDayStartHour,
+          scheduledStageRollover: state.scheduledStageRollover,
+        }
+      },
+      checkDue: checkDueStageRollover,
+      reportError: (error) => console.error('Scheduled stage rollover check failed', error),
+    })
+    rolloverScheduler.start()
+    const unsubscribeRolloverBoundary = useStore.subscribe((state, previous) => {
+      if (
+        state.scheduledStageRollover !== previous.scheduledStageRollover
+        || state.currentLiveStageId !== previous.currentLiveStageId
+        || state.liveStages !== previous.liveStages
+        || state.display.tradingDayStartHour !== previous.display.tradingDayStartHour
+      ) {
+        rolloverScheduler.notifyBoundaryChange()
+      }
+    })
     let lastVisibleBusinessWeek = currentBusinessWeek()
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (shouldPreventAppUnload(hasPendingChanges(), hasPendingNoteDrafts())) {
@@ -709,16 +759,19 @@ export function App() {
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         safeFlush()
+        rolloverScheduler.notifyBoundaryChange()
       } else if (document.visibilityState === 'visible') {
         const visibleBusinessWeek = currentBusinessWeek()
         if (visibleBusinessWeek !== lastVisibleBusinessWeek) {
           lastVisibleBusinessWeek = visibleBusinessWeek
-          void checkDueStageRollover()
         }
+        rolloverScheduler.notifyForeground()
       }
     }
+    const onWindowFocus = () => rolloverScheduler.notifyForeground()
     const onStageManagementOpen = () => { void checkDueStageRollover() }
     window.addEventListener('beforeunload', onBeforeUnload)
+    window.addEventListener('focus', onWindowFocus)
     document.addEventListener('visibilitychange', onVisibilityChange)
     window.addEventListener(STAGE_MANAGEMENT_OPEN_EVENT, onStageManagementOpen)
 
@@ -785,7 +838,10 @@ export function App() {
 
       return () => {
         setPreFlushCallback(null)
+        rolloverScheduler.stop()
+        unsubscribeRolloverBoundary()
         window.removeEventListener('beforeunload', onBeforeUnload)
+        window.removeEventListener('focus', onWindowFocus)
         document.removeEventListener('visibilitychange', onVisibilityChange)
         window.removeEventListener(STAGE_MANAGEMENT_OPEN_EVENT, onStageManagementOpen)
         unsubscribeBeforeClose?.()
@@ -798,7 +854,10 @@ export function App() {
 
     return () => {
       setPreFlushCallback(null)
+      rolloverScheduler.stop()
+      unsubscribeRolloverBoundary()
       window.removeEventListener('beforeunload', onBeforeUnload)
+      window.removeEventListener('focus', onWindowFocus)
       document.removeEventListener('visibilitychange', onVisibilityChange)
       window.removeEventListener(STAGE_MANAGEMENT_OPEN_EVENT, onStageManagementOpen)
     }
@@ -812,26 +871,38 @@ export function App() {
           tone="error"
           title={(
             <>
-              <span className="app-storage-error-eyebrow">本地资料库未打开</span>
+              <span className="app-storage-error-eyebrow">
+                {storageRecoveryRequired ? '本地资料库需要重新加载' : '本地资料库未打开'}
+              </span>
               <h1>已停止进入工作区，避免覆盖现有数据</h1>
             </>
           )}
           detail={(
             <>
               <span>{storageError}</span>
-              <small>软件不会在加载失败时创建空数据或继续保存。</small>
+              <small>
+                {storageRecoveryRequired
+                  ? '磁盘可能已经包含新的阶段状态；软件不会用当前界面的旧状态继续保存。'
+                  : '软件不会在加载失败时创建空数据或继续保存。'}
+              </small>
             </>
           )}
           action={(
             <div className="app-storage-error-actions">
-              <Button
-                size="lg"
-                variant="primary"
-                onClick={() => void handleStorageRetry()}
-                disabled={retryingStorage}
-              >
-                {retryingStorage ? '正在重试…' : '重试打开'}
-              </Button>
+              {storageRecoveryRequired ? (
+                <Button size="lg" variant="primary" onClick={() => window.location.reload()}>
+                  重新加载应用
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  variant="primary"
+                  onClick={() => void handleStorageRetry()}
+                  disabled={retryingStorage}
+                >
+                  {retryingStorage ? '正在重试…' : '重试打开'}
+                </Button>
+              )}
               {isElectron() && (
                 <Button
                   size="lg"

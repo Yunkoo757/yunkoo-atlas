@@ -5,6 +5,7 @@ import {
   DESKTOP_VISUAL_SCENARIOS,
   DESKTOP_VISUAL_VIEWPORTS,
 } from './desktop-visual-scenarios.mjs'
+import { validateBundleBuildIdentityEvidence } from './bundle-build-identity.mjs'
 
 export function isWindowRestorationVisible(bounds, workArea, platform) {
   if (!bounds || !workArea) return false
@@ -249,40 +250,27 @@ export function hasExactDesktopVisualCaptureMatrix(captures, { packaged = false 
 }
 
 export function resolvePackagedExecutableCandidates({
-  root,
   platform,
   arch,
   explicitPath,
 }) {
-  if (explicitPath) return [resolve(explicitPath)]
-  if (platform === 'win32' && arch === 'x64') {
-    return [join(resolve(root), 'release', 'win-unpacked', 'Trader Atlas.exe')]
+  const supported = (platform === 'win32' && arch === 'x64') ||
+    (platform === 'darwin' && (arch === 'arm64' || arch === 'x64'))
+  if (!supported) throw new Error(`Unsupported packaged executable target: ${platform}/${arch}`)
+  if (!explicitPath) {
+    throw new Error('An explicit packaged executable path is required; unpacked build fallbacks are forbidden')
   }
-  if (platform === 'darwin' && arch === 'arm64') {
-    return [
-      join(resolve(root), 'release', 'mac-arm64', 'Trader Atlas.app', 'Contents', 'MacOS', 'Trader Atlas'),
-      join(resolve(root), 'release', 'mac', 'Trader Atlas.app', 'Contents', 'MacOS', 'Trader Atlas'),
-    ]
-  }
-  if (platform === 'darwin' && arch === 'x64') {
-    return [
-      join(resolve(root), 'release', 'mac', 'Trader Atlas.app', 'Contents', 'MacOS', 'Trader Atlas'),
-      join(resolve(root), 'release', 'mac-x64', 'Trader Atlas.app', 'Contents', 'MacOS', 'Trader Atlas'),
-    ]
-  }
-  throw new Error(`Unsupported packaged executable target: ${platform}/${arch}`)
+  return [resolve(explicitPath)]
 }
 
-export function resolvePackagedArtifactCandidates({ root, platform, arch, version, explicitPath }) {
-  if (explicitPath) return [resolve(explicitPath)]
-  if (typeof version !== 'string' || !version.trim()) throw new Error('Package version is required')
-  if (platform === 'win32' && arch === 'x64') {
-    return [join(resolve(root), 'release', `Trader-Atlas-${version}-win-x64.exe`)]
+export function resolvePackagedArtifactCandidates({ platform, arch, explicitPath }) {
+  const supported = (platform === 'win32' && arch === 'x64') ||
+    (platform === 'darwin' && (arch === 'arm64' || arch === 'x64'))
+  if (!supported) throw new Error(`Unsupported packaged artifact target: ${platform}/${arch}`)
+  if (!explicitPath) {
+    throw new Error('An explicit packaged artifact path is required; inferred release artifacts are forbidden')
   }
-  if (platform === 'darwin' && (arch === 'arm64' || arch === 'x64')) {
-    return [join(resolve(root), 'release', `Trader-Atlas-${version}-mac-${arch}.zip`)]
-  }
-  throw new Error(`Unsupported packaged artifact target: ${platform}/${arch}`)
+  return [resolve(explicitPath)]
 }
 
 export function assertSafePackagedEvidencePaths({
@@ -311,21 +299,7 @@ export function assertSafePackagedEvidencePaths({
   }
 }
 
-const SOURCE_COMMIT_PATTERN = /^[0-9a-f]{40}$/
-
-export async function collectPackagedBuildIdentity(page, repositoryHead, githubSha) {
-  if (!page || typeof page.evaluate !== 'function') {
-    throw new Error('Packaged visual identity collection requires a running renderer page')
-  }
-  const source = await page.evaluate(() => window.__ATLAS_BUILD_IDENTITY__)
-  return {
-    source,
-    repository: { head: repositoryHead },
-    ci: { githubSha },
-  }
-}
-
-const PACKAGED_IDENTITY_FIELDS = new Set(['source', 'repository', 'ci'])
+const PACKAGED_IDENTITY_FIELDS = new Set(['bundles', 'repository', 'ci'])
 
 function deepFreezeIdentityTree(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value
@@ -345,41 +319,38 @@ export function buildPackagedVisualReport(identityEvidence, otherFields) {
       throw new Error(`Packaged visual report contains reserved identity field: ${field}`)
     }
   }
-  validatePackagedIdentityEvidence(identityEvidence)
+  validateBundleBuildIdentityEvidence(identityEvidence, ['renderer', 'main'])
   const immutableIdentity = deepFreezeIdentityTree(structuredClone({
-    source: identityEvidence.source,
+    bundles: identityEvidence.bundles,
     repository: identityEvidence.repository,
     ci: identityEvidence.ci,
   }))
   return Object.freeze({ ...otherFields, ...immutableIdentity })
 }
 
-export function validatePackagedIdentityEvidence({ source, repository, ci }) {
-  if (!source || typeof source !== 'object' ||
-      !SOURCE_COMMIT_PATTERN.test(source.commit ?? '') ||
-      typeof source.dirty !== 'boolean') {
-    throw new Error('Packaged visual evidence requires a valid embedded identity')
+function validatePayloadHash(value, label) {
+  if (!value || typeof value !== 'object' || typeof value.path !== 'string' || !value.path.trim()) {
+    throw new Error(`Packaged visual ${label} payload path is required`)
   }
-  if (source.dirty !== false) {
-    throw new Error('Embedded build is dirty; packaged visual evidence requires a clean source commit')
+  if (!Number.isSafeInteger(value.bytes) || value.bytes <= 0) {
+    throw new Error(`Packaged visual ${label} payload must contain non-empty bytes`)
   }
-  if (!repository || typeof repository !== 'object' ||
-      !SOURCE_COMMIT_PATTERN.test(repository.head ?? '')) {
-    throw new Error('Packaged visual evidence requires a valid repository HEAD')
+  if (typeof value.sha256 !== 'string' || !/^[0-9a-f]{64}$/i.test(value.sha256)) {
+    throw new Error(`Packaged visual ${label} payload requires a valid SHA-256`)
   }
-  if (source.commit !== repository.head) {
-    throw new Error('Packaged visual embedded commit must equal repository HEAD')
+}
+
+function validatePackagedCleanup(cleanup) {
+  if (!cleanup || typeof cleanup !== 'object') {
+    throw new Error('Packaged visual cleanup evidence is required')
   }
-  if (!ci || typeof ci !== 'object' || !Object.hasOwn(ci, 'githubSha')) {
-    throw new Error('Packaged visual GITHUB_SHA evidence must be explicit')
+  if (!Number.isSafeInteger(cleanup.launcherProcessId) || cleanup.launcherProcessId <= 0 ||
+      !Number.isSafeInteger(cleanup.mainProcessId) || cleanup.mainProcessId <= 0 ||
+      cleanup.launcherExitObserved !== true ||
+      cleanup.mainProcessExitObserved !== true ||
+      cleanup.temporaryProfileDeleted !== true) {
+    throw new Error('Packaged visual cleanup must observe launcher and main exit plus temporary profile deletion')
   }
-  if (ci.githubSha !== null && !SOURCE_COMMIT_PATTERN.test(ci.githubSha ?? '')) {
-    throw new Error('Packaged visual GITHUB_SHA must be null or a valid commit')
-  }
-  if (ci.githubSha !== null && source.commit !== ci.githubSha) {
-    throw new Error('Packaged visual embedded commit must equal GITHUB_SHA')
-  }
-  return { source, repository, ci }
 }
 
 export function validatePackagedVisualReport(report) {
@@ -387,7 +358,11 @@ export function validatePackagedVisualReport(report) {
   if (report.schemaVersion !== 1) throw new Error('Unsupported packaged visual report schema')
   if (report.runtime !== 'packaged-electron') throw new Error('Report runtime must be packaged-electron')
   const requiredChecks = buildRequiredPlatformChecks(report.platform)
-  validatePackagedIdentityEvidence(report)
+  validateBundleBuildIdentityEvidence(report, ['renderer', 'main'])
+  for (const key of ['artifact', 'executable', 'appAsar']) {
+    validatePayloadHash(report.payload?.[key], key)
+  }
+  validatePackagedCleanup(report.cleanup)
   if (!hasExactDesktopVisualCaptureMatrix(report.captures, { packaged: true })) {
     throw new Error('Packaged visual evidence requires the exact unique 5 by 7 capture matrix')
   }
