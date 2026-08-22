@@ -197,7 +197,7 @@ export function testSnapshotValidationValidatesLivePerformanceCycles(): void {
 
 export function testSnapshotValidationAcceptsLegacyWeeklyMetricsAndRejectsMalformedExecutionGaps(): void {
   const review = {
-    ...createWeeklyReview('2026-07-13'),
+    ...createWeeklyReview('2026-07-13', 'stage-current'),
     liveStageId: 'stage-current',
     metricsSnapshot: buildWeeklyReviewMetrics([]),
   }
@@ -231,7 +231,7 @@ export function testSnapshotValidationAcceptsLegacyWeeklyMetricsAndRejectsMalfor
 
 export function testSnapshotValidationRejectsMalformedWeeklyEvidenceSnapshots(): void {
   const review = {
-    ...createWeeklyReview('2026-07-13'),
+    ...createWeeklyReview('2026-07-13', 'stage-current'),
     liveStageId: 'stage-current',
     evidenceSnapshot: {
       trades: [{ ...valid.trades[0] }],

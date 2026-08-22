@@ -69,6 +69,7 @@ function trade(overrides: Partial<Trade>): Trade {
     conviction: 'medium',
     strategyId: strategy.id,
     tradeKind: 'live',
+    liveStageId: useStore.getState().currentLiveStageId,
     tags: [],
     mistakeTags: [],
     reviewStatus: 'reviewed',

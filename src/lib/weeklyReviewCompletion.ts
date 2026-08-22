@@ -18,3 +18,15 @@ export function getWeeklyReviewCompletionIssue(
   }
   return null
 }
+
+export function isStageWeekCompleted(
+  reviews: readonly WeeklyReview[],
+  liveStageId: string,
+  weekStart: string,
+): boolean {
+  return reviews.some((review) =>
+    review.liveStageId === liveStageId &&
+    review.weekStart === weekStart &&
+    review.status === 'completed',
+  )
+}

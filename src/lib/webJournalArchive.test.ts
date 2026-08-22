@@ -107,7 +107,7 @@ function makePayload(overrides: Record<string, unknown> = {}): Record<string, un
     },
     symbolCatalog: ['BTCUSDT', 'ETHUSDT'],
     weeklyReviews: [{
-      ...createWeeklyReview('2026-07-13', new Date('2026-07-18T08:00:00.000Z')),
+      ...createWeeklyReview('2026-07-13', 'stage-current', new Date('2026-07-18T08:00:00.000Z')),
       contentHtml: '<p>周复盘哨兵</p>',
       commitmentText: '等待确认',
     }],

@@ -379,7 +379,7 @@ export async function testNotionImportPreservesConcurrentQuickNotesWeeklyReviews
 
   const concurrentNote = { ...createQuickNote(new Date('2026-07-14T12:00:00.000Z')), title: '提交期间随记' }
   const concurrentReview = {
-    ...createWeeklyReview('2026-07-13', new Date('2026-07-14T12:00:00.000Z')),
+    ...createWeeklyReview('2026-07-13', 'stage-current', new Date('2026-07-14T12:00:00.000Z')),
     contentHtml: '<p>提交期间周复盘</p>',
   }
   const concurrentTemplate = createReviewTemplate('提交期间模板')

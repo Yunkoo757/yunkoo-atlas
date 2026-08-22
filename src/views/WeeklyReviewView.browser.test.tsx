@@ -507,6 +507,14 @@ async function run(): Promise<void> {
     assert(missedRow.querySelectorAll('button').length === 0, '错过机会不应显示不可用的交易角色按钮')
     assert(document.querySelectorAll('.wr-history button').length === 0, '首次复盘不应显示没有历史价值的周次栏')
     assert(document.body.textContent?.includes('首次周复盘'), '首次复盘缺少明确的首次使用提示')
+    const otherStageTrade = {
+      ...makeTrade('other-stage', 'win', 9_000),
+      liveStageId: 'stage-other',
+    }
+    useStore.setState((state) => ({ trades: [...state.trades, otherStageTrade] }))
+    await waitFor(() => document.querySelectorAll('.wr-trade-row').length === 3, '同周其他阶段交易污染了当前阶段证据')
+    assert(document.body.textContent?.includes('+$100'), '同周其他阶段盈亏污染了当前阶段实时指标')
+    useStore.setState((state) => ({ trades: state.trades.filter((trade) => trade.id !== otherStageTrade.id) }))
     if (new URLSearchParams(location.search).has('visual')) {
       await new Promise<void>(() => {})
     }
@@ -615,6 +623,65 @@ async function run(): Promise<void> {
     assert(completed?.metricsSnapshot?.missedCount === 1, '完成时没有冻结执行缺口数量')
     assert(completed?.metricsSnapshot?.mistakeTagCounts['情绪化'] === undefined, '错过机会标签污染了已执行交易错误统计')
     assert(completed.completedAt === completed.riskSnapshot?.frozenAt, '完成与风险冻结必须使用同一时间戳')
+    assert(document.body.textContent?.includes('完成周复盘时的数据'), '完成复盘没有明确标注冻结数据口径')
+    const frozenFields = JSON.stringify({
+      status: completed.status,
+      metricsSnapshot: completed.metricsSnapshot,
+      evidenceSnapshot: completed.evidenceSnapshot,
+      riskSnapshot: completed.riskSnapshot,
+      completedAt: completed.completedAt,
+    })
+    const completedEditor = document.querySelector<HTMLElement>('[aria-label="周复盘正文"]')
+    assert(completedEditor?.getAttribute('contenteditable') === 'true', '完成复盘正文必须保持可编辑')
+    const completedScoreButton = document.querySelector<HTMLButtonElement>(
+      '[data-weekly-field="score-execution"] [aria-label^="5 分"]',
+    )
+    assert(completedScoreButton && getComputedStyle(completedScoreButton).pointerEvents !== 'none', '完成复盘评分必须可由鼠标编辑')
+    const completedCommitment = document.querySelector<HTMLInputElement>('.wr-commitment input')
+    assert(completedCommitment && !completedCommitment.readOnly, '完成复盘承诺必须保持可编辑')
+    setInputValue(completedCommitment, '完成后调整的行动承诺')
+    completedScoreButton.click()
+    clickButton('逆势')
+    await waitFor(
+      () => useStore.getState().weeklyReviews[0]?.commitmentText === '完成后调整的行动承诺',
+      '完成复盘的可编辑内容没有保存',
+    )
+    useStore.getState().updateWeeklyReview(completed.id, {
+      status: 'draft',
+      metricsSnapshot: null,
+      evidenceSnapshot: undefined,
+      riskSnapshot: undefined,
+      completedAt: null,
+    } as never)
+    const editedCompleted = useStore.getState().weeklyReviews[0]
+    assert(editedCompleted?.executionScore === 5, '完成复盘评分必须允许自由编辑')
+    assert(editedCompleted?.mistakeTags.includes('逆势'), '完成复盘标签必须允许自由编辑')
+    assert(JSON.stringify({
+      status: editedCompleted?.status,
+      metricsSnapshot: editedCompleted?.metricsSnapshot,
+      evidenceSnapshot: editedCompleted?.evidenceSnapshot,
+      riskSnapshot: editedCompleted?.riskSnapshot,
+      completedAt: editedCompleted?.completedAt,
+    }) === frozenFields, '完成复盘普通编辑不得改写状态、三类快照或完成时间')
+    assert(editedCompleted, '完成复盘编辑后实体丢失')
+    useStore.getState().upsertWeeklyReview({
+      ...editedCompleted,
+      commitmentText: 'upsert 后的承诺',
+      status: 'draft',
+      metricsSnapshot: null,
+      evidenceSnapshot: undefined,
+      riskSnapshot: undefined,
+      completedAt: null,
+    })
+    const upsertedCompleted = useStore.getState().weeklyReviews[0]
+    assert(upsertedCompleted?.commitmentText === 'upsert 后的承诺', '完成复盘 upsert 必须保留可编辑内容')
+    assert(JSON.stringify({
+      status: upsertedCompleted?.status,
+      metricsSnapshot: upsertedCompleted?.metricsSnapshot,
+      evidenceSnapshot: upsertedCompleted?.evidenceSnapshot,
+      riskSnapshot: upsertedCompleted?.riskSnapshot,
+      completedAt: upsertedCompleted?.completedAt,
+    }) === frozenFields, '完成复盘 upsert 不得改写状态、三类快照或完成时间')
     assert(document.body.textContent?.includes('浏览器冻结规则'), '已完成复盘没有展示冻结规则')
     const risk = document.querySelector<HTMLElement>('.wr-risk-evidence')
     assert(risk, '已完成复盘没有展示冻结风控证据')
@@ -818,7 +885,7 @@ async function run(): Promise<void> {
     const priorDate = new Date(`${activeWeekStart}T12:00:00`)
     priorDate.setDate(priorDate.getDate() - 7)
     const priorReview = {
-      ...createWeeklyReview(weekStartFor(priorDate)),
+      ...createWeeklyReview(weekStartFor(priorDate), useStore.getState().currentLiveStageId),
       contentHtml: '<p>上一周真实复盘</p>',
     }
     useStore.getState().upsertWeeklyReview(priorReview)
@@ -912,8 +979,8 @@ async function run(): Promise<void> {
 
     useStore.setState({ trades: liveRecomputedTrades, weeklyReviews: [completed] })
     await waitFor(
-      () => document.body.textContent?.includes('完成时快照') ?? false,
-      '三类快照齐全的 completed 复盘未进入完成时快照展示态',
+      () => document.body.textContent?.includes('完成周复盘时的数据') ?? false,
+      '三类快照齐全的 completed 复盘未进入完成时数据展示态',
     )
     assert(document.querySelector('.wr-metrics')?.textContent?.includes('+$100'), '完整快照时指标必须来自完成时快照')
     assert(
@@ -1262,11 +1329,11 @@ async function run(): Promise<void> {
     const intentWeekA = addDays(activeWeekStart, -7)
     const intentWeekB = addDays(activeWeekStart, -14)
     const makeIntentReviews = () => [
-      createWeeklyReview(activeWeekStart),
-      createWeeklyReview(intentWeekA),
-      createWeeklyReview(intentWeekB),
+      createWeeklyReview(activeWeekStart, useStore.getState().currentLiveStageId),
+      createWeeklyReview(intentWeekA, useStore.getState().currentLiveStageId),
+      createWeeklyReview(intentWeekB, useStore.getState().currentLiveStageId),
     ]
-    const currentDraftId = `${WEEKLY_REVIEW_DRAFT_PREFIX}weekly-review:${activeWeekStart}`
+    const currentDraftId = `${WEEKLY_REVIEW_DRAFT_PREFIX}weekly-review:${useStore.getState().currentLiveStageId}:${activeWeekStart}`
 
     useStore.setState({ trades: [], weeklyReviews: makeIntentReviews() })
     const weekThenTabStarted = deferred<void>()

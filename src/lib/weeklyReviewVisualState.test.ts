@@ -3,7 +3,7 @@ import { createWeeklyReview } from '@/data/weeklyReviews'
 import { getWeeklyVisualIssues } from '@/lib/weeklyReviewVisualState'
 
 export function testWeeklyIssuesReturnStableDocumentOrder(): void {
-  const review = createWeeklyReview('2026-08-10')
+  const review = createWeeklyReview('2026-08-10', 'stage-current')
 
   assert.deepEqual(getWeeklyVisualIssues(review).map((issue) => issue.fieldId), [
     'score-execution',
@@ -16,7 +16,7 @@ export function testWeeklyIssuesReturnStableDocumentOrder(): void {
 
 export function testWeeklyIssuesOnlyContainInvalidFields(): void {
   const review = {
-    ...createWeeklyReview('2026-08-10'),
+    ...createWeeklyReview('2026-08-10', 'stage-current'),
     executionScore: 4,
     riskScore: 3,
     commitmentText: '等待确认后再入场',

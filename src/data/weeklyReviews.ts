@@ -141,10 +141,15 @@ export function weekEndFor(weekStart: string): string {
   return formatYmd(addDays(parseLocalDate(weekStart), 6))
 }
 
-export function createWeeklyReview(weekStart: string, now = new Date()): WeeklyReview {
+export function createWeeklyReview(
+  weekStart: string,
+  liveStageId: string,
+  now = new Date(),
+): WeeklyReview {
   const timestamp = now.toISOString()
   return {
-    id: `weekly-review:${weekStart}`,
+    id: `weekly-review:${liveStageId}:${weekStart}`,
+    liveStageId,
     weekStart,
     weekEnd: weekEndFor(weekStart),
     status: 'draft',
@@ -409,7 +414,9 @@ function buildWeeklyRiskReviewSnapshot(
   const completionTradingDay = getTradingDayKey(new Date(frozenAt), state.display.tradingDayStartHour)
   const outcomeEnd = completionTradingDay < review.weekEnd ? completionTradingDay : review.weekEnd
   const reviewDays = daysThrough(review.weekStart, outcomeEnd)
-  const riskTrades = state.trades.map((trade) => {
+  const riskTrades = state.trades
+    .filter((trade) => trade.tradeKind === 'live' && trade.liveStageId === liveStageId)
+    .map((trade) => {
     if (trade.closedTradingDayKey !== undefined) return trade
     const dayKey = closedTradingDayKey(trade, state.display.tradingDayStartHour)
     return dayKey ? { ...trade, closedTradingDayKey: dayKey } : trade
@@ -481,15 +488,18 @@ export function completeWeeklyReviewCandidate(
   }
   const completedAt = now.toISOString()
   const completionTradingDay = getTradingDayKey(now, state.display.tradingDayStartHour)
+  const stageTrades = state.trades.filter((trade) =>
+    trade.tradeKind === 'live' && trade.liveStageId === existing.liveStageId,
+  )
   const tradeSelection = buildWeeklyReviewTradeSelection(
-    state.trades,
+    stageTrades,
     existing.weekStart,
     state.display.tradingDayStartHour,
     completionTradingDay,
     state.profile.legacyCashCurrencyAssumption,
   )
   const missedTrades = missedTradesInWeek(
-    state.trades,
+    stageTrades,
     existing.weekStart,
     state.display.tradingDayStartHour,
     null,
@@ -551,9 +561,12 @@ export function weeklyReviewScoreAverage(review: WeeklyReview): number | null {
     : null
 }
 
-export function buildWeeklyReviewTrend(reviews: WeeklyReview[]): WeeklyReviewTrendPoint[] {
+export function buildWeeklyReviewTrend(
+  reviews: WeeklyReview[],
+  liveStageId?: string,
+): WeeklyReviewTrendPoint[] {
   return reviews.flatMap((review) => {
-    if (review.status !== 'completed') return []
+    if (review.status !== 'completed' || (liveStageId !== undefined && review.liveStageId !== liveStageId)) return []
     const score = weeklyReviewScoreAverage(review)
     if (score === null) return []
     return [{ week: review.weekStart.slice(5), score: Number(score.toFixed(1)) }]
@@ -562,7 +575,7 @@ export function buildWeeklyReviewTrend(reviews: WeeklyReview[]): WeeklyReviewTre
 
 export function normalizeWeeklyReviews(value: WeeklyReview[] | undefined): WeeklyReview[] {
   if (!value) return []
-  const byWeek = new Map<string, WeeklyReview>()
+  const byStageWeek = new Map<string, WeeklyReview>()
   for (const review of value) {
     let normalized: WeeklyReview = review.metricsSnapshot && (
       review.metricsSnapshot.pendingResultCount === undefined ||
@@ -596,8 +609,11 @@ export function normalizeWeeklyReviews(value: WeeklyReview[] | undefined): Weekl
         },
       }
     }
-    const current = byWeek.get(review.weekStart)
-    if (!current || normalized.updatedAt > current.updatedAt) byWeek.set(normalized.weekStart, normalized)
+    const key = `${review.liveStageId ?? 'legacy'}:${review.weekStart}`
+    const current = byStageWeek.get(key)
+    if (!current || normalized.updatedAt > current.updatedAt) byStageWeek.set(key, normalized)
   }
-  return [...byWeek.values()].sort((left, right) => right.weekStart.localeCompare(left.weekStart))
+  return [...byStageWeek.values()].sort((left, right) =>
+    right.weekStart.localeCompare(left.weekStart) || (right.liveStageId ?? '').localeCompare(left.liveStageId ?? ''),
+  )
 }

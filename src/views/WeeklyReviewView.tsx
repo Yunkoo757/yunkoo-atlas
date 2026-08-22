@@ -204,6 +204,8 @@ export function WeeklyReviewView() {
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
+  const liveStages = useStore((state) => state.liveStages)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const reviews = useStore((state) => state.weeklyReviews)
   const upsertReview = useStore((state) => state.upsertWeeklyReview)
   const updateReview = useStore((state) => state.updateWeeklyReview)
@@ -223,16 +225,22 @@ export function WeeklyReviewView() {
     : new URLSearchParams(returnRequest.restoreSearch).get('week')
   if (requestedReturnWeek) verifiedReturnWeekRef.current = requestedReturnWeek
   const [returnRestoreActive, setReturnRestoreActive] = useState(Boolean(returnRequest))
+  const currentStageTrades = useMemo(
+    () => trades.filter((trade) =>
+      trade.tradeKind === 'live' && trade.liveStageId === currentLiveStageId,
+    ),
+    [currentLiveStageId, trades],
+  )
   const availableWeeks = useMemo(
     () => deriveWeeklyReviewWeeks(
-      trades,
+      currentStageTrades,
       reviews,
       currentWeek,
       tradingDayStartHour,
       12,
       businessDateAnchor.currentTradingDayKey,
     ),
-    [trades, reviews, currentWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey],
+    [currentStageTrades, reviews, currentWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey],
   )
   const routeResolution = useMemo(
     () => resolveWeeklyReviewRouteState(
@@ -249,6 +257,7 @@ export function WeeklyReviewView() {
   const [editorHtml, setEditorHtml] = useState('')
   const mainContentRef = useRef<HTMLElement>(null)
   const [overrideEventsOpen, setOverrideEventsOpen] = useState(false)
+  const [trendLiveStageId, setTrendLiveStageId] = useState<string | undefined>(currentLiveStageId)
   const [visualIssues, setVisualIssues] = useState<WeeklyVisualIssue[]>([])
   const pendingIssueFocusRef = useRef<WeeklyVisualIssue | null>(null)
   const editorReadyRef = useRef(false)
@@ -333,28 +342,37 @@ export function WeeklyReviewView() {
     routeResolution.needsReplace,
   ])
 
-  const storedReview = reviews.find((item) => item.weekStart === selectedWeek)
-  const review = storedReview ?? createWeeklyReview(selectedWeek)
+  const storedReview = reviews.find((item) =>
+    item.weekStart === selectedWeek && item.liveStageId === currentLiveStageId,
+  ) ?? reviews.find((item) => item.weekStart === selectedWeek)
+  const reviewLiveStageId = storedReview?.liveStageId ?? currentLiveStageId
+  const review = storedReview ?? createWeeklyReview(selectedWeek, reviewLiveStageId)
+  const reviewTrades = useMemo(
+    () => trades.filter((trade) =>
+      trade.tradeKind === 'live' && trade.liveStageId === reviewLiveStageId,
+    ),
+    [trades, reviewLiveStageId],
+  )
   const weekTradeSelection = useMemo(
     () => buildWeeklyReviewTradeSelection(
-      trades,
+      reviewTrades,
       selectedWeek,
       tradingDayStartHour,
       businessDateAnchor.currentTradingDayKey,
       legacyCashCurrencyAssumption,
     ),
-    [trades, selectedWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey, legacyCashCurrencyAssumption],
+    [reviewTrades, selectedWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey, legacyCashCurrencyAssumption],
   )
   const weekTrades = weekTradeSelection.trades
   const weekMissedTrades = useMemo(
     () => missedTradesInWeek(
-      trades,
+      reviewTrades,
       selectedWeek,
       tradingDayStartHour,
       null,
       businessDateAnchor.currentTradingDayKey,
     ),
-    [trades, selectedWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey],
+    [reviewTrades, selectedWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey],
   )
   const liveMetrics = useMemo(
     () => buildWeeklyReviewMetrics(
@@ -392,7 +410,11 @@ export function WeeklyReviewView() {
     .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], 'zh-CN'))
   const locked = review.status === 'completed'
   const previousReview = reviews
-    .filter((item) => item.weekStart < selectedWeek && item.commitmentText.trim())
+    .filter((item) =>
+      item.liveStageId === reviewLiveStageId &&
+      item.weekStart < selectedWeek &&
+      item.commitmentText.trim(),
+    )
     .sort((left, right) => right.weekStart.localeCompare(left.weekStart))[0]
 
   const selectedWeekIndex = availableWeeks.indexOf(selectedWeek)
@@ -437,11 +459,12 @@ export function WeeklyReviewView() {
   }, [weeklyFieldIssues])
 
   const commitPatch = useCallback((patch: ReviewPatch) => {
-    const existing = useStore.getState().weeklyReviews.find((item) => item.weekStart === selectedWeek)
-    if (existing?.status === 'completed') return
+    const existing = useStore.getState().weeklyReviews.find((item) =>
+      item.weekStart === selectedWeek && item.liveStageId === reviewLiveStageId,
+    )
     if (existing) updateReview(existing.id, patch)
-    else upsertReview({ ...createWeeklyReview(selectedWeek), ...patch, updatedAt: new Date().toISOString() })
-  }, [selectedWeek, updateReview, upsertReview])
+    else upsertReview({ ...createWeeklyReview(selectedWeek, reviewLiveStageId), ...patch, updatedAt: new Date().toISOString() })
+  }, [reviewLiveStageId, selectedWeek, updateReview, upsertReview])
 
   const draftId = `${WEEKLY_REVIEW_DRAFT_PREFIX}${review.id}`
   useEffect(() => {
@@ -464,17 +487,18 @@ export function WeeklyReviewView() {
 
   const onEditorChange = useCallback((html: string) => {
     setEditorHtml(html)
-    if (useStore.getState().weeklyReviews.find((item) => item.weekStart === selectedWeek)?.status === 'completed') return
     if (!editorReadyRef.current) return
-    const existing = useStore.getState().weeklyReviews.find((item) => item.weekStart === selectedWeek)
-    if (!existing) upsertReview(createWeeklyReview(selectedWeek))
+    const existing = useStore.getState().weeklyReviews.find((item) =>
+      item.weekStart === selectedWeek && item.liveStageId === reviewLiveStageId,
+    )
+    if (!existing) upsertReview(createWeeklyReview(selectedWeek, reviewLiveStageId))
     setNoteDraft(`${WEEKLY_REVIEW_DRAFT_PREFIX}${review.id}`, html)
     if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
     noteTimerRef.current = setTimeout(() => {
       noteTimerRef.current = null
       void flushNoteDraftToStore(`${WEEKLY_REVIEW_DRAFT_PREFIX}${review.id}`)
     }, 500)
-  }, [review.id, selectedWeek, upsertReview])
+  }, [review.id, reviewLiveStageId, selectedWeek, upsertReview])
 
   const replaceRouteState = useCallback((nextWeek: string, nextTab: WeeklyReviewTab) => {
     const search = buildWeeklyReviewSearch(
@@ -518,7 +542,9 @@ export function WeeklyReviewView() {
 
   const completeReview = async () => {
     const draftSaved = await flushNoteDraftToStore(draftId)
-    const latest = useStore.getState().weeklyReviews.find((item) => item.weekStart === selectedWeek) ?? review
+    const latest = useStore.getState().weeklyReviews.find((item) =>
+      item.weekStart === selectedWeek && item.liveStageId === reviewLiveStageId,
+    ) ?? review
     const issue = getWeeklyReviewCompletionIssue(latest, draftSaved)
     if (issue) {
       const nextIssues = draftSaved
@@ -542,7 +568,10 @@ export function WeeklyReviewView() {
   const yearReviews = reviews
     .filter((item) => item.weekStart.startsWith(`${year}-`))
     .sort((left, right) => left.weekStart.localeCompare(right.weekStart))
-  const trendData = buildWeeklyReviewTrend(yearReviews)
+  const scopedYearReviews = trendLiveStageId === undefined
+    ? yearReviews
+    : yearReviews.filter((item) => item.liveStageId === trendLiveStageId)
+  const trendData = buildWeeklyReviewTrend(yearReviews, trendLiveStageId)
 
   return (
     <>
@@ -602,9 +631,22 @@ export function WeeklyReviewView() {
           </header>
 
           {tab === 'year' ? (
-            <YearTrend year={year} reviews={yearReviews} data={trendData} />
+            <>
+              <label className="wr-trend-scope">
+                趋势范围
+                <select
+                  aria-label="年度趋势阶段范围"
+                  value={trendLiveStageId ?? ''}
+                  onChange={(event) => setTrendLiveStageId(event.target.value || undefined)}
+                >
+                  <option value="">全部阶段</option>
+                  {liveStages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
+                </select>
+              </label>
+              <YearTrend year={year} reviews={scopedYearReviews} data={trendData} />
+            </>
           ) : (
-            <div className={`wr-content${locked ? ' is-locked' : ''}`}>
+            <div className="wr-content">
               <div className="wr-progress-summary" aria-label={`周复盘必填项已完成 ${completedRequiredFields} / 5`}>
                 <span>{locked ? '完成快照' : '复盘进度'}</span>
                 <strong>{locked ? '已形成闭环' : `${completedRequiredFields} / 5 项必填`}</strong>
@@ -640,14 +682,14 @@ export function WeeklyReviewView() {
 
               {review.status === 'completed' ? (
                 usesCompleteSnapshot ? (
-                  <div className="wr-complete-banner"><Check size={ICON_MD} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，完成时快照</div>
+                  <div className="wr-complete-banner"><Check size={ICON_MD} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，完成周复盘时的数据</div>
                 ) : (
                   <div className="wr-complete-banner"><Check size={ICON_MD} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，历史快照缺失，指标与交易证据为实时重算；风险无法实时重算，当前不可用（缺少：{missingSnapshotLabels.join('、')}）</div>
                 )
               ) : null}
 
               <section className="wr-section wr-metrics" data-weekly-section="facts" data-invalid="false">
-                <div className="wr-section-head"><div><span>01</span><h2>本周事实</h2></div><small>{usesCompleteSnapshot ? '完成时快照' : review.status === 'completed' ? '指标与交易证据为实时重算' : '随交易记录实时更新'}</small></div>
+                <div className="wr-section-head"><div><span>01</span><h2>本周事实</h2></div><small>{usesCompleteSnapshot ? '完成周复盘时的数据' : review.status === 'completed' ? '指标与交易证据为实时重算' : '随交易记录实时更新'}</small></div>
                 <div className="wr-metric-grid">
                   <Metric label="平仓交易" value={`${metrics.tradeCount}`} hint={`${metrics.reviewedCount} 笔已复盘`} />
                   <Metric label="胜率" value={metrics.winRate === null ? '—' : `${metrics.winRate.toFixed(0)}%`} hint={`${metrics.winCount} 赢 · ${metrics.lossCount} 亏 · ${metrics.breakevenCount} 平`} />
@@ -812,7 +854,7 @@ export function WeeklyReviewView() {
                     content={editorHtml}
                     onChange={onEditorChange}
                     noteDraftId={storedReview ? draftId : undefined}
-                    readOnly={locked || (!editorReadyRef.current && Boolean(review.contentHtml))}
+                    readOnly={!editorReadyRef.current && Boolean(review.contentHtml)}
                     ariaLabel="周复盘正文"
                     placeholder="哪些做法值得保留？错误在什么条件下重复出现？直接粘贴截图作为证据…"
                   />
@@ -821,8 +863,8 @@ export function WeeklyReviewView() {
 
               <section className="wr-section wr-commitment" data-weekly-section="commitment" data-invalid={sectionHasIssue('commitment')}>
                 <div className="wr-section-head"><div><span>{previousReview ? '07' : '06'}</span><h2>下周只改变一件事</h2></div><small>必须可以被下一次复盘验证</small></div>
-                <label>行动承诺<input data-weekly-field="commitment-text" aria-invalid={visualIssues.some((issue) => issue.fieldId === 'commitment-text')} readOnly={locked} value={review.commitmentText} onChange={(event) => commitPatch({ commitmentText: event.target.value })} placeholder="例如：没有触发确认前不提前入场" /></label>
-                <label>验收标准<input data-weekly-field="commitment-criteria" aria-invalid={visualIssues.some((issue) => issue.fieldId === 'commitment-criteria')} readOnly={locked} value={review.commitmentCriteria} onChange={(event) => commitPatch({ commitmentCriteria: event.target.value })} placeholder="例如：所有入场截图中都能看到确认信号" /></label>
+                <label>行动承诺<input data-weekly-field="commitment-text" aria-invalid={visualIssues.some((issue) => issue.fieldId === 'commitment-text')} value={review.commitmentText} onChange={(event) => commitPatch({ commitmentText: event.target.value })} placeholder="例如：没有触发确认前不提前入场" /></label>
+                <label>验收标准<input data-weekly-field="commitment-criteria" aria-invalid={visualIssues.some((issue) => issue.fieldId === 'commitment-criteria')} value={review.commitmentCriteria} onChange={(event) => commitPatch({ commitmentCriteria: event.target.value })} placeholder="例如：所有入场截图中都能看到确认信号" /></label>
               </section>
 
               <div className="wr-footer-action">

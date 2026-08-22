@@ -106,7 +106,7 @@ function monthlyLimit(revision: number): MonthlyRiskLimit {
 
 function stateAtRevision(revision: number): CompleteWeeklyReviewState {
   const review = {
-    ...createWeeklyReview('2026-07-20', new Date('2026-07-20T00:00:00.000Z')),
+    ...createWeeklyReview('2026-07-20', 'stage-current', new Date('2026-07-20T00:00:00.000Z')),
     id: 'review-1',
     liveStageId: 'stage-current',
   }
@@ -395,6 +395,47 @@ export function testCompletedWeeklyReviewCannotBeRewritten(): void {
 
   assert(rewritten.metricsSnapshot?.totalPnl === -1_000, '已冻结周复盘不得被后续交易数据改写')
   assert(rewritten.completedAt === completed.completedAt, '已冻结周复盘必须保留原冻结时间')
+}
+
+export function testWeeklyReviewCompletionSelectsOnlyItsStage(): void {
+  const state = stateAtRevision(7)
+  const otherStageTrade = trade(8)
+  const otherStageMissed = trade(9)
+  assert(otherStageTrade.tradeKind === 'live' && otherStageMissed.tradeKind === 'live', '测试交易必须为实盘')
+  state.trades.push(
+    {
+      ...otherStageTrade,
+      id: 'other-stage-trade',
+      ref: 'TRD-OTHER-STAGE',
+      liveStageId: 'stage-other',
+      pnl: 9_000,
+    },
+    {
+      ...otherStageMissed,
+      id: 'other-stage-missed',
+      ref: 'TRD-OTHER-MISSED',
+      liveStageId: 'stage-other',
+      status: 'missed',
+      missReason: 'hesitation',
+      pnl: null,
+      resultSource: undefined,
+    },
+  )
+
+  const completed = completeWeeklyReviewCandidate(
+    state,
+    'review-1',
+    new Date('2026-07-26T23:00:00.000+08:00'),
+  ).review
+
+  assert(completed.liveStageId === 'stage-current', '完成复盘必须保留原阶段归属')
+  assert(completed.metricsSnapshot?.tradeCount === 1, '同周其他阶段的平仓交易不得进入指标快照')
+  assert(completed.metricsSnapshot?.totalPnl === -1_000, '同周其他阶段盈亏不得污染指标快照')
+  assert(completed.metricsSnapshot?.missedCount === 0, '同周其他阶段错过机会不得进入指标快照')
+  assert(
+    completed.evidenceSnapshot?.trades.map((item) => item.id).join() === 'trade-1',
+    '同周其他阶段交易不得进入证据快照',
+  )
 }
 
 export function testWeeklyReviewCompletionFreezesOnlyUsdCashFacts(): void {

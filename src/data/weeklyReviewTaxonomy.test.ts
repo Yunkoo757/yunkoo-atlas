@@ -5,7 +5,7 @@ import {
 
 export function testWeeklyReviewStatisticsIgnoreCustomTradeLabels(): void {
   const review = {
-    ...createWeeklyReview('2026-07-13'),
+    ...createWeeklyReview('2026-07-13', 'stage-current'),
     mistakeTags: ['追价', 'FOMO', '追单'],
   }
 

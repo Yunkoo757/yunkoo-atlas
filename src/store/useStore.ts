@@ -624,7 +624,18 @@ interface State {
   upsertWeeklyReview: (review: WeeklyReview) => void
   updateWeeklyReview: (
     id: string,
-    patch: Partial<Omit<WeeklyReview, 'id' | 'liveStageId' | 'weekStart' | 'createdAt'>>,
+    patch: Partial<Omit<
+      WeeklyReview,
+      | 'id'
+      | 'liveStageId'
+      | 'weekStart'
+      | 'createdAt'
+      | 'status'
+      | 'metricsSnapshot'
+      | 'evidenceSnapshot'
+      | 'riskSnapshot'
+      | 'completedAt'
+    >>,
   ) => void
   completeWeeklyReview: (id: string) => void
   reopenWeeklyReview: (id: string) => void
@@ -896,17 +907,41 @@ export const useStore = create<State>()((set, get) => ({
       }),
       upsertWeeklyReview: (review) =>
         set((state) => {
+          const currentLiveStageId = currentLiveStageIdForWrite(state)
           const existing = state.weeklyReviews.find((item) =>
-            item.id === review.id || item.weekStart === review.weekStart,
+            item.id === review.id || (
+              item.liveStageId === currentLiveStageId &&
+              item.weekStart === review.weekStart
+            ),
           )
-          const owned = assignWeeklyReviewStage(
+          const ownedCandidate = assignWeeklyReviewStage(
             review,
-            currentLiveStageIdForWrite(state),
+            currentLiveStageId,
             existing,
           )
+          const owned = existing?.status === 'completed'
+            ? {
+                ...ownedCandidate,
+                id: existing.id,
+                liveStageId: existing.liveStageId,
+                weekStart: existing.weekStart,
+                weekEnd: existing.weekEnd,
+                status: existing.status,
+                metricsSnapshot: existing.metricsSnapshot,
+                evidenceSnapshot: existing.evidenceSnapshot,
+                riskSnapshot: existing.riskSnapshot,
+                createdAt: existing.createdAt,
+                completedAt: existing.completedAt,
+              }
+            : ownedCandidate
           return {
             weeklyReviews: normalizeWeeklyReviews([
-              ...state.weeklyReviews.filter((item) => item.id !== review.id && item.weekStart !== review.weekStart),
+              ...state.weeklyReviews.filter((item) =>
+                item.id !== review.id && !(
+                  item.liveStageId === owned.liveStageId &&
+                  item.weekStart === owned.weekStart
+                ),
+              ),
               owned,
             ]),
           }
@@ -918,6 +953,11 @@ export const useStore = create<State>()((set, get) => ({
             liveStageId: _liveStageId,
             weekStart: _weekStart,
             createdAt: _createdAt,
+            status: _status,
+            metricsSnapshot: _metricsSnapshot,
+            evidenceSnapshot: _evidenceSnapshot,
+            riskSnapshot: _riskSnapshot,
+            completedAt: _completedAt,
             ...mutablePatch
           } = patch as Partial<WeeklyReview>
           return {

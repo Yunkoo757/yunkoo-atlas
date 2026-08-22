@@ -1,5 +1,5 @@
 import { createWeeklyReview } from '@/data/weeklyReviews'
-import { getWeeklyReviewCompletionIssue } from '@/lib/weeklyReviewCompletion'
+import { getWeeklyReviewCompletionIssue, isStageWeekCompleted } from '@/lib/weeklyReviewCompletion'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -7,7 +7,7 @@ function assert(condition: unknown, message: string): void {
 
 export function testWeeklyReviewCompletionBlocksWhenDraftFlushFails(): void {
   const readyReview = {
-    ...createWeeklyReview('2026-07-27'),
+    ...createWeeklyReview('2026-07-27', 'stage-current'),
     executionScore: 4,
     riskScore: 4,
     emotionScore: 4,
@@ -24,7 +24,7 @@ export function testWeeklyReviewCompletionBlocksWhenDraftFlushFails(): void {
 }
 
 export function testWeeklyReviewCompletionKeepsExistingRequiredFieldMessages(): void {
-  const review = createWeeklyReview('2026-07-27')
+  const review = createWeeklyReview('2026-07-27', 'stage-current')
   assert(
     getWeeklyReviewCompletionIssue(review, true) === '请先完成执行、风控和情绪三项评分',
     '评分未完成时应保留明确提示',
@@ -35,4 +35,16 @@ export function testWeeklyReviewCompletionKeepsExistingRequiredFieldMessages(): 
     getWeeklyReviewCompletionIssue(scored, true) === '请写清下周只做的一件事和验收标准',
     '行动承诺缺失时应保留明确提示',
   )
+}
+
+export function testStageWeekCompletionRequiresMatchingStageWeekAndCompletedStatus(): void {
+  const reviews = [
+    { ...createWeeklyReview('2026-08-24', 'stage-1'), status: 'completed' as const },
+    createWeeklyReview('2026-08-24', 'stage-2'),
+    { ...createWeeklyReview('2026-08-17', 'stage-2'), status: 'completed' as const },
+  ]
+
+  assert(isStageWeekCompleted(reviews, 'stage-1', '2026-08-24'), '匹配阶段与周次的已完成复盘必须通过')
+  assert(!isStageWeekCompleted(reviews, 'stage-2', '2026-08-24'), '同周其他阶段完成不得替当前阶段解锁')
+  assert(isStageWeekCompleted(reviews, 'stage-2', '2026-08-17'), '匹配的历史完成周必须可识别')
 }

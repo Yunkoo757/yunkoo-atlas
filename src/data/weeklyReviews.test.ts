@@ -107,7 +107,7 @@ export function testWeeklyReviewWeeksKeepStoredWeeksAndLimitActivityHistory(): v
     id: `activity-${index}`,
     closedAt: addDays('2026-07-27', -index * 7),
   }))
-  const stored = createWeeklyReview('2025-01-06')
+  const stored = createWeeklyReview('2025-01-06', 'stage-current')
 
   const result = deriveWeeklyReviewWeeks(activity, [stored], '2026-08-03', 0, 12)
 
@@ -234,15 +234,29 @@ export function testWeeklyReviewMetricsPreserveCoverageAndMistakeEvidence(): voi
   assert(metrics.missedReasonCounts.hesitation === 1 && metrics.missedReasonCounts.no_alert === 1, '执行缺口应保留原因分布')
 }
 
-export function testWeeklyReviewNormalizationKeepsTheLatestRecordForOneWeek(): void {
-  const older = createWeeklyReview('2026-07-13', new Date('2026-07-13T00:00:00.000Z'))
+export function testWeeklyReviewCreationRequiresStageOwnership(): void {
+  const review = createWeeklyReview(
+    '2026-07-13',
+    'stage-2',
+    new Date('2026-07-13T00:00:00.000Z'),
+  )
+
+  assert(review.liveStageId === 'stage-2', '新周复盘必须在创建时固化阶段归属')
+  assert(review.id === 'weekly-review:stage-2:2026-07-13', '复盘标识必须允许同一周由不同阶段分别拥有')
+}
+
+export function testWeeklyReviewNormalizationKeepsTheLatestRecordForOneStageWeek(): void {
+  const older = createWeeklyReview('2026-07-13', 'stage-1', new Date('2026-07-13T00:00:00.000Z'))
   const newer = { ...older, id: 'newer', commitmentText: '等待确认', updatedAt: '2026-07-18T00:00:00.000Z' }
-  const result = normalizeWeeklyReviews([older, newer])
-  assert(result.length === 1 && result[0]?.id === 'newer', '同一周只能保留更新时间最新的一篇复盘')
+  const otherStage = createWeeklyReview('2026-07-13', 'stage-2', new Date('2026-07-13T00:00:00.000Z'))
+  const result = normalizeWeeklyReviews([older, newer, otherStage])
+  assert(result.length === 2, '同周不同阶段的周复盘不得互相覆盖')
+  assert(result.some((review) => review.id === 'newer'), '同一阶段同一周只能保留更新时间最新的一篇复盘')
+  assert(result.some((review) => review.id === otherStage.id), '另一阶段的同周复盘必须保留')
 }
 
 export function testWeeklyReviewNormalizationKeepsFirstRecordWhenTimestampsTie(): void {
-  const local = createWeeklyReview('2026-07-13', new Date('2026-07-13T00:00:00.000Z'))
+  const local = createWeeklyReview('2026-07-13', 'stage-current', new Date('2026-07-13T00:00:00.000Z'))
   const imported = { ...local, id: 'imported', commitmentText: '导入内容' }
 
   const result = normalizeWeeklyReviews([local, imported])
@@ -251,7 +265,7 @@ export function testWeeklyReviewNormalizationKeepsFirstRecordWhenTimestampsTie()
 }
 
 export function testWeeklyReviewNormalizationBackfillsLegacyMissedMetrics(): void {
-  const review = createWeeklyReview('2026-07-13')
+  const review = createWeeklyReview('2026-07-13', 'stage-current')
   const legacyMetrics = buildWeeklyReviewMetrics([trade({ id: 'win' })]) as Partial<ReturnType<typeof buildWeeklyReviewMetrics>>
   delete legacyMetrics.missedCount
   delete legacyMetrics.missedReasonCounts

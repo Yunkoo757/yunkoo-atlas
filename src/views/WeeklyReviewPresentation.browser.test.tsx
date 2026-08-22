@@ -51,6 +51,7 @@ function makeTrade(weekStart: string): Trade {
     reviewStatus: 'reviewed',
     reviewCategory: 'mistake',
     tradeKind: 'live',
+    liveStageId: useStore.getState().currentLiveStageId,
     entry: 100,
     exit: 90,
     size: 1,
@@ -73,7 +74,7 @@ async function run(): Promise<void> {
     const weekStart = activeWeekStart
     const trade = makeTrade(weekStart)
     const review = {
-      ...createWeeklyReview(weekStart),
+      ...createWeeklyReview(weekStart, previous.currentLiveStageId),
       status: 'completed' as const,
       executionScore: 2,
       riskScore: 2,
@@ -126,10 +127,33 @@ async function run(): Promise<void> {
     assert(document.querySelector('.wr-year-summary')?.textContent?.includes('情绪化'), '年度最常见错误没有使用固定分类')
     assert(!document.querySelector('.wr-year-summary')?.textContent?.includes('FOMO'), '自定义标签污染了年度最常见错误')
 
+    const otherStageReview = {
+      ...createWeeklyReview(weekStart, 'stage-other'),
+      status: 'completed' as const,
+      executionScore: 4,
+      riskScore: 4,
+      emotionScore: 4,
+    }
+    useStore.setState((state) => ({ weeklyReviews: [...state.weeklyReviews, otherStageReview] }))
+    await waitFor(() => !document.querySelector('.wr-chart'), '默认当前阶段趋势混入了其他阶段')
+    const trendScope = document.querySelector<HTMLSelectElement>('[aria-label="年度趋势阶段范围"]')
+    assert(trendScope, '年度趋势缺少阶段范围选择器')
+    const reviewsBeforeScopeChange = JSON.stringify(useStore.getState().weeklyReviews)
+    trendScope.value = ''
+    trendScope.dispatchEvent(new Event('change', { bubbles: true }))
+    await waitFor(() => Boolean(document.querySelector('.wr-chart svg')), '全部阶段趋势没有包含其他阶段完成周')
+    assert(JSON.stringify(useStore.getState().weeklyReviews) === reviewsBeforeScopeChange, '切换趋势范围不得修改复盘实体')
+    trendScope.value = previous.currentLiveStageId
+    trendScope.dispatchEvent(new Event('change', { bubbles: true }))
+    await waitFor(() => !document.querySelector('.wr-chart'), '切回当前阶段后趋势仍混入其他阶段')
+    useStore.setState((state) => ({
+      weeklyReviews: state.weeklyReviews.filter((item) => item.id !== otherStageReview.id),
+    }))
+
     const priorDate = new Date(`${weekStart}T12:00:00`)
     priorDate.setDate(priorDate.getDate() - 7)
     useStore.getState().upsertWeeklyReview({
-      ...createWeeklyReview(weekStartFor(priorDate)),
+      ...createWeeklyReview(weekStartFor(priorDate), previous.currentLiveStageId),
       status: 'completed',
       executionScore: 3,
       riskScore: 3,

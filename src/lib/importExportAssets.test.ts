@@ -192,7 +192,7 @@ export async function testJsonExportIncludesReferencedAssets(): Promise<void> {
 
 export async function testWeeklyReviewTextAndImagesRoundTripThroughJsonBackup(): Promise<void> {
   const review = {
-    ...createWeeklyReview('2026-07-13', new Date('2026-07-17T00:00:00.000Z')),
+    ...createWeeklyReview('2026-07-13', 'stage-current', new Date('2026-07-17T00:00:00.000Z')),
     contentHtml: '<p>本周证据</p><img src="journal-asset://weekly-asset">',
     commitmentText: '等待确认',
     commitmentCriteria: '每笔都有确认截图',

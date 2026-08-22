@@ -1,6 +1,7 @@
 import type { Trade } from '@/data/trades'
 import type { RiskPolicyVersion } from '@/data/riskManagement'
 import type { WeeklyReview } from '@/data/weeklyReviews'
+import { isStageWeekCompleted } from '@/lib/weeklyReviewCompletion'
 import {
   createNextLiveStage,
   getCurrentLiveStage,
@@ -113,11 +114,10 @@ export function inspectDueStageRollover(
     blockers.push({ code: 'open-trades' })
   }
   const preceding = precedingWeek(scheduled.effectiveWeekStart)
-  const hasCompletedPrecedingReview = state.weeklyReviews.some((review) =>
-    review.liveStageId === currentStage.id &&
-    review.weekStart === preceding.weekStart &&
-    review.weekEnd === preceding.weekEnd &&
-    review.status === 'completed',
+  const hasCompletedPrecedingReview = isStageWeekCompleted(
+    state.weeklyReviews,
+    currentStage.id,
+    preceding.weekStart,
   )
   if (!hasCompletedPrecedingReview) blockers.push({ code: 'weekly-review-incomplete' })
 

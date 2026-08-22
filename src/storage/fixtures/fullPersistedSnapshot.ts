@@ -40,7 +40,7 @@ export function createFullPersistedSnapshotFixture(
   assetIds: FullSnapshotAssetIds = FULL_SNAPSHOT_ASSET_IDS,
 ): PersistedSnapshot {
   const timestamp = new Date('2026-07-18T08:00:00.000Z')
-  const weeklyReview = createWeeklyReview('2026-07-13', timestamp)
+  const weeklyReview = createWeeklyReview('2026-07-13', 'live-stage-contract', timestamp)
   const quickNote = createQuickNote(timestamp)
 
   return {
