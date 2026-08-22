@@ -83,6 +83,7 @@ import {
   type LiveStage,
   type ScheduledStageRollover,
 } from '@/lib/liveStages'
+import { scheduleStageRollover } from '@/lib/stageRollover'
 
 export type LivePerformanceRestartPreview = {
   startTradingDayKey: string
@@ -511,6 +512,9 @@ interface State {
   undoLatestLivePerformanceCycle: () => void
   /** 重置实盘绩效与风险统计：单边界替换 + 风险设置清回默认；不删交易/案例。 */
   resetLiveStatistics: (startTradingDayKey: string, currentTradingDayKey: string) => void
+  scheduleLiveStageRollover: (currentTradingDayKey: string, now: string) => void
+  cancelLiveStageRollover: () => void
+  publishPostponedRollover: (scheduled: ScheduledStageRollover) => void
   setStatus: (id: string, status: TradeStatus) => SetTradeStatusResult
   requestTradeOpen: (id: string, returnFocus?: HTMLElement | null) => TradeOpenRequestResult
   cancelTradeOpen: () => void
@@ -854,6 +858,15 @@ export const useStore = create<State>()((set, get) => ({
       symbolIcons: {},
       symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
       reviewTemplates: createDefaultReviewTemplates(),
+      scheduleLiveStageRollover: (currentTradingDayKey, now) => set((state) => ({
+        scheduledStageRollover: state.scheduledStageRollover ?? scheduleStageRollover(
+          currentTradingDayKey,
+          now,
+          crypto.randomUUID(),
+        ),
+      })),
+      cancelLiveStageRollover: () => set({ scheduledStageRollover: null }),
+      publishPostponedRollover: (scheduled) => set({ scheduledStageRollover: scheduled }),
       upsertWeeklyReview: (review) =>
         set((state) => {
           const existing = state.weeklyReviews.find((item) =>

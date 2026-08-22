@@ -1,5 +1,5 @@
 import type { Trade } from '@/data/trades'
-import type { LiveStage } from '@/lib/liveStages'
+import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
 import { applySnapshotToStore } from '@/lib/importExport'
 import { haveSamePersistedReferences } from '@/storage/bootstrap'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
@@ -85,6 +85,32 @@ export function testNewLiveTradeAlwaysUsesCurrentStage(): void {
     useStore.getState().upsertTrade(trade)
     const stored = useStore.getState().getById(trade.id)
     assert(stored?.tradeKind === 'live' && stored.liveStageId === 'stage-current', '新实盘交易必须使用当前阶段')
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
+export function testStorePublishesOnlyOneScheduledRolloverUntilCancelled(): void {
+  const previous = useStore.getState()
+  try {
+    seedStore()
+    useStore.getState().scheduleLiveStageRollover('2026-08-24', '2026-08-24T09:00:00.000Z')
+    const scheduled = useStore.getState().scheduledStageRollover
+    assert(scheduled?.effectiveWeekStart === '2026-08-31', 'Store 预约在周一必须指向严格未来的下周一')
+
+    useStore.getState().scheduleLiveStageRollover('2026-08-28', '2026-08-28T10:00:00.000Z')
+    assert(useStore.getState().scheduledStageRollover === scheduled, '已有预约不得被重复请求覆盖')
+
+    const postponed: ScheduledStageRollover = {
+      ...scheduled,
+      effectiveWeekStart: '2026-09-07',
+      postponedCount: 1,
+    }
+    useStore.getState().publishPostponedRollover(postponed)
+    assert(useStore.getState().scheduledStageRollover === postponed, 'Store 必须发布已计算的顺延预约')
+
+    useStore.getState().cancelLiveStageRollover()
+    assert(useStore.getState().scheduledStageRollover === null, '取消必须清空预约')
   } finally {
     useStore.setState(previous)
   }
