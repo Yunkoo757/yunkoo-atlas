@@ -25,10 +25,13 @@ import {
   hasExactDesktopVisualCaptureMatrix,
 } from './packaged-desktop-visual-contract.mjs'
 import {
-  closeElectronApplication,
+  closeElectronApplicationBounded,
   collectElectronBundleIdentity,
   readRepositoryBuildExpectation,
 } from './bundle-build-identity.mjs'
+import { runElectronVisualEvidenceRunner } from './electron-evidence-runner.mjs'
+
+export { runElectronVisualEvidenceRunner } from './electron-evidence-runner.mjs'
 
 const require = createRequire(import.meta.url)
 const REPORT_SCHEMA_VERSION = 1
@@ -411,7 +414,15 @@ async function runRendererQa({ root, runtimeRoot, build, seed }) {
   }
 }
 
-async function runElectronQa({ root, runtimeRoot, build, snapshot, packageJson, buildExpectation }) {
+async function runElectronQa({
+  root,
+  runtimeRoot,
+  build,
+  snapshot,
+  packageJson,
+  buildExpectation,
+  writeReport,
+}) {
   for (const required of ['dist/index.html', 'dist-electron/main.js']) {
     if (!existsSync(resolve(root, required))) {
       throw new Error(`${required} is missing; run pnpm build:app before Electron visual QA`)
@@ -420,8 +431,6 @@ async function runElectronQa({ root, runtimeRoot, build, snapshot, packageJson, 
   const temporaryRoot = mkdtempSync(join(tmpdir(), 'trader-atlas-desktop-visual-'))
   const userDataPath = join(temporaryRoot, 'user-data')
   const libraryPath = join(temporaryRoot, 'library')
-  mkdirSync(userDataPath, { recursive: true })
-  mkdirSync(libraryPath, { recursive: true })
   const applicationDataRoots = realApplicationDataRoots(packageJson)
   assertSafeElectronIsolationPaths({
     userDataPath,
@@ -435,109 +444,132 @@ async function runElectronQa({ root, runtimeRoot, build, snapshot, packageJson, 
   let typography = null
   let actualUserDataPath = null
   let actualLibraryPath = null
-  try {
-    application = await electron.launch({
-      executablePath,
-      args: ['.', `--user-data-dir=${userDataPath}`],
-      cwd: root,
-      env: {
-        ...process.env,
-        TRADER_ATLAS_LIBRARY: libraryPath,
-        VITE_DEV_SERVER_URL: '',
-        ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
-      },
-      timeout: 30_000,
-    })
-    const page = await application.firstWindow({ timeout: 30_000 })
-    const bundleIdentity = await collectElectronBundleIdentity({
-      page,
-      application,
-      expectation: buildExpectation,
-    })
-    build = {
-      ...build,
-      commit: bundleIdentity.bundles.renderer.commit,
-      dirty: bundleIdentity.bundles.renderer.dirty,
-      status: [],
-      bundleIdentity,
-    }
-    const diagnostics = bindDiagnostics(page)
-    actualUserDataPath = await application.evaluate(({ app }) => app.getPath('userData'))
-    assertSafeElectronIsolationPaths({
-      userDataPath: actualUserDataPath,
-      libraryPath,
-      temporaryRoot,
-      realApplicationDataRoots: applicationDataRoots,
-    })
-    const created = await page.evaluate(async (nextLibraryPath) => {
-      if (!window.journalBridge) throw new Error('Desktop visual Electron bridge is unavailable')
-      return window.journalBridge.createNewLibrary(nextLibraryPath)
-    }, libraryPath)
-    if (!created.ok) throw new Error(`Desktop visual Electron library creation failed: ${created.error ?? 'unknown error'}`)
-    actualLibraryPath = await page.evaluate(async () => {
-      if (!window.journalBridge) throw new Error('Desktop visual Electron bridge is unavailable')
-      return window.journalBridge.getLibraryPath()
-    })
-    assertSafeElectronIsolationPaths({
-      userDataPath: actualUserDataPath,
-      libraryPath: actualLibraryPath,
-      temporaryRoot,
-      realApplicationDataRoots: applicationDataRoots,
-    })
-    const imported = await page.evaluate(async (payload) => {
-      if (!window.journalBridge) return false
-      return window.journalBridge.commitImport(payload, [], { pruneUnreferenced: true })
-    }, snapshot)
-    if (!imported) throw new Error('Desktop visual Electron fixture import failed')
-    await page.reload({ waitUntil: 'domcontentloaded', timeout: 30_000 })
-
-    for (const viewport of DESKTOP_VISUAL_VIEWPORTS) {
-      await application.evaluate(({ BrowserWindow }, size) => {
-        const window = BrowserWindow.getAllWindows()[0]
-        if (!window) throw new Error('Desktop visual Electron window is unavailable')
-        if (window.isMaximized()) window.unmaximize()
-        window.setSize(size.width, size.height)
-      }, viewport)
-      for (const scenario of DESKTOP_VISUAL_SCENARIOS) {
-        const screenshot = capturePath(runtimeRoot, viewport, scenario)
-        const capture = await captureScenario({
-          page,
-          runtime: 'electron',
-          viewport,
-          scenario,
-          screenshot,
-          build,
-          diagnostics,
-          afterSettlement: !typography && scenario.id === 'trades'
-            ? async () => { typography = await collectTypographyEvidence(page, platform()) }
-            : undefined,
-          navigate: async (pathname) => {
-            await page.evaluate((nextPath) => {
-              window.location.hash = `#${nextPath}`
-            }, pathname)
-          },
-        })
-        captures.push(capture)
-      }
-    }
-  } finally {
-    await closeElectronApplication(application)
-    rmSync(temporaryRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
-  }
-  return {
-    build,
-    captures,
-    typography,
-    isolation: {
-      temporaryRoot,
-      requestedUserDataPath: userDataPath,
-      actualUserDataPath,
-      requestedLibraryPath: libraryPath,
-      actualLibraryPath,
-      realLibraryAccessed: false,
-      cleaned: true,
+  let page
+  let diagnostics
+  return runElectronVisualEvidenceRunner({
+    readBundleIdentity: async () => {
+      application = await electron.launch({
+        executablePath,
+        args: ['.', `--user-data-dir=${userDataPath}`],
+        cwd: root,
+        env: {
+          ...process.env,
+          TRADER_ATLAS_LIBRARY: libraryPath,
+          VITE_DEV_SERVER_URL: '',
+          ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
+        },
+        timeout: 30_000,
+      })
+      page = await application.firstWindow({ timeout: 30_000 })
+      return collectElectronBundleIdentity({ page, application, expectation: buildExpectation })
     },
-  }
+    createLibrary: async (bundleIdentity) => {
+      build = {
+        ...build,
+        commit: bundleIdentity.bundles.renderer.commit,
+        dirty: bundleIdentity.bundles.renderer.dirty,
+        status: [],
+        bundleIdentity,
+      }
+      diagnostics = bindDiagnostics(page)
+      actualUserDataPath = await application.evaluate(({ app }) => app.getPath('userData'))
+      assertSafeElectronIsolationPaths({
+        userDataPath: actualUserDataPath,
+        libraryPath,
+        temporaryRoot,
+        realApplicationDataRoots: applicationDataRoots,
+      })
+      mkdirSync(libraryPath, { recursive: true })
+      const created = await page.evaluate(async (nextLibraryPath) => {
+        if (!window.journalBridge) throw new Error('Desktop visual Electron bridge is unavailable')
+        return window.journalBridge.createNewLibrary(nextLibraryPath)
+      }, libraryPath)
+      if (!created.ok) {
+        throw new Error(`Desktop visual Electron library creation failed: ${created.error ?? 'unknown error'}`)
+      }
+      actualLibraryPath = await page.evaluate(async () => {
+        if (!window.journalBridge) throw new Error('Desktop visual Electron bridge is unavailable')
+        return window.journalBridge.getLibraryPath()
+      })
+      assertSafeElectronIsolationPaths({
+        userDataPath: actualUserDataPath,
+        libraryPath: actualLibraryPath,
+        temporaryRoot,
+        realApplicationDataRoots: applicationDataRoots,
+      })
+      return actualLibraryPath
+    },
+    seedLibrary: async () => {
+      const imported = await page.evaluate(async (payload) => {
+        if (!window.journalBridge) return false
+        return window.journalBridge.commitImport(payload, [], { pruneUnreferenced: true })
+      }, snapshot)
+      if (!imported) throw new Error('Desktop visual Electron fixture import failed')
+      await page.reload({ waitUntil: 'domcontentloaded', timeout: 30_000 })
+      return snapshot
+    },
+    captureEvidence: async () => {
+      for (const viewport of DESKTOP_VISUAL_VIEWPORTS) {
+        await application.evaluate(({ BrowserWindow }, size) => {
+          const window = BrowserWindow.getAllWindows()[0]
+          if (!window) throw new Error('Desktop visual Electron window is unavailable')
+          if (window.isMaximized()) window.unmaximize()
+          window.setSize(size.width, size.height)
+        }, viewport)
+        for (const scenario of DESKTOP_VISUAL_SCENARIOS) {
+          const screenshot = capturePath(runtimeRoot, viewport, scenario)
+          const capture = await captureScenario({
+            page,
+            runtime: 'electron',
+            viewport,
+            scenario,
+            screenshot,
+            build,
+            diagnostics,
+            afterSettlement: !typography && scenario.id === 'trades'
+              ? async () => { typography = await collectTypographyEvidence(page, platform()) }
+              : undefined,
+            navigate: async (pathname) => {
+              await page.evaluate((nextPath) => {
+                window.location.hash = `#${nextPath}`
+              }, pathname)
+            },
+          })
+          captures.push(capture)
+        }
+      }
+      return {
+        build,
+        captures,
+        typography,
+        isolation: {
+          temporaryRoot,
+          requestedUserDataPath: userDataPath,
+          actualUserDataPath,
+          requestedLibraryPath: libraryPath,
+          actualLibraryPath,
+          realLibraryAccessed: false,
+          cleaned: true,
+        },
+      }
+    },
+    cleanupEvidence: async () => {
+      const errors = []
+      try {
+        await closeElectronApplicationBounded(application)
+      } catch (error) {
+        errors.push(error)
+      }
+      try {
+        rmSync(temporaryRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
+      } catch (error) {
+        errors.push(error)
+      }
+      if (errors.length === 1) throw errors[0]
+      if (errors.length > 1) throw new AggregateError(errors, 'Electron visual cleanup failed')
+    },
+    writeReport,
+  })
 }
 
 function normalizeScreenshotPaths(report, root) {
@@ -564,41 +596,46 @@ export async function runDesktopVisualQa({
   const buildExpectation = await readRepositoryBuildExpectation(resolvedRoot)
   const seed = createDesktopVisualSeedEnvelope()
   const output = ensureRuntimeOutput(outputRoot, runtime)
-  const result = runtime === 'renderer'
-    ? await runRendererQa({ root: resolvedRoot, runtimeRoot: output.runtimeRoot, build, seed })
-    : await runElectronQa({
-        root: resolvedRoot,
-        runtimeRoot: output.runtimeRoot,
-        build,
-        snapshot: seed.snapshot,
-        packageJson,
-        buildExpectation,
-      })
-  const reportBuild = result.build ?? build
-  const report = normalizeScreenshotPaths({
-    schemaVersion: REPORT_SCHEMA_VERSION,
-    generatedAt: new Date().toISOString(),
-    build: reportBuild,
-    runtime,
-    machine: { platform: platform(), release: release(), arch: arch(), node: process.version },
-    viewport: DESKTOP_VISUAL_VIEWPORTS,
-    scenario: DESKTOP_VISUAL_SCENARIOS,
-    screenshot: relative(resolvedRoot, output.runtimeRoot).replaceAll('\\', '/'),
-    consoleErrors: result.captures.flatMap((capture) => capture.consoleErrors),
-    pageErrors: result.captures.flatMap((capture) => capture.pageErrors),
-    metrics: {
-      captureCount: result.captures.length,
-      overflowCaptureCount: result.captures.filter((capture) => capture.metrics.horizontalOverflowPx > 0).length,
-    },
-    typography: result.typography,
-    isolation: result.isolation,
-    captures: result.captures,
-  }, resolvedRoot)
-  const reportPath = join(output.root, `${runtime}-report.json`)
-  mkdirSync(output.root, { recursive: true })
-  writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
-  process.stderr.write(`desktop visual QA report: ${reportPath}\n`)
-  return report
+  const writeReport = async (result) => {
+    const reportBuild = result.build ?? build
+    const report = normalizeScreenshotPaths({
+      schemaVersion: REPORT_SCHEMA_VERSION,
+      generatedAt: new Date().toISOString(),
+      build: reportBuild,
+      runtime,
+      machine: { platform: platform(), release: release(), arch: arch(), node: process.version },
+      viewport: DESKTOP_VISUAL_VIEWPORTS,
+      scenario: DESKTOP_VISUAL_SCENARIOS,
+      screenshot: relative(resolvedRoot, output.runtimeRoot).replaceAll('\\', '/'),
+      consoleErrors: result.captures.flatMap((capture) => capture.consoleErrors),
+      pageErrors: result.captures.flatMap((capture) => capture.pageErrors),
+      metrics: {
+        captureCount: result.captures.length,
+        overflowCaptureCount: result.captures.filter((capture) => capture.metrics.horizontalOverflowPx > 0).length,
+      },
+      typography: result.typography,
+      isolation: result.isolation,
+      captures: result.captures,
+    }, resolvedRoot)
+    const reportPath = join(output.root, `${runtime}-report.json`)
+    mkdirSync(output.root, { recursive: true })
+    writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
+    process.stderr.write(`desktop visual QA report: ${reportPath}\n`)
+    return report
+  }
+  if (runtime === 'renderer') {
+    const result = await runRendererQa({ root: resolvedRoot, runtimeRoot: output.runtimeRoot, build, seed })
+    return writeReport(result)
+  }
+  return runElectronQa({
+    root: resolvedRoot,
+    runtimeRoot: output.runtimeRoot,
+    build,
+    snapshot: seed.snapshot,
+    packageJson,
+    buildExpectation,
+    writeReport,
+  })
 }
 
 export function desktopVisualReportHasFailures(report) {

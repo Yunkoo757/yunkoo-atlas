@@ -84,47 +84,81 @@ export async function collectElectronBundleIdentity({ page, application, expecta
 }
 
 export async function closeElectronApplication(application, timeoutMs = 2_000) {
-  if (!application) return { forced: false }
+  return closeElectronApplicationBounded(application, { timeoutMs })
+}
+
+export async function closeElectronApplicationBounded(application, {
+  timeoutMs = 2_000,
+  killProcess = (pid) => process.kill(pid, 'SIGKILL'),
+} = {}) {
+  if (!application) return { forced: false, hardKilled: false, exitObserved: true }
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     throw new Error('Electron application close timeout must be a positive number')
   }
-
-  async function settlesWithin(promise) {
-    let timer
-    const settled = await Promise.race([
-      promise.then(() => true, () => true),
-      new Promise((resolve) => {
-        timer = setTimeout(() => resolve(false), timeoutMs)
-      }),
-    ])
-    clearTimeout(timer)
-    return settled
-  }
-
-  const closed = await settlesWithin(application.close())
-  if (closed) return { forced: false }
-
   const child = application.process?.()
-  let processExited = typeof child?.exitCode === 'number'
-  const exited = processExited || typeof child?.once !== 'function'
+  let exitObserved = typeof child?.exitCode === 'number' || child?.signalCode != null
+  const exited = exitObserved
     ? Promise.resolve()
     : new Promise((resolve) => {
-        child.once('exit', () => {
-          processExited = true
+        child?.once?.('exit', () => {
+          exitObserved = true
           resolve()
         })
       })
 
-  application.evaluate?.(({ app }) => app.exit(1)).catch(() => {})
-  await settlesWithin(exited)
-  if (processExited) return { forced: true, hardKilled: false }
-
-  try {
-    if (Number.isInteger(child?.pid)) process.kill(child.pid, 'SIGKILL')
-    else child?.kill('SIGKILL')
-  } catch {
-    child?.kill('SIGKILL')
+  async function settlesWithin(promise) {
+    let timer
+    const outcome = await Promise.race([
+      Promise.resolve(promise).then(() => 'fulfilled', () => 'rejected'),
+      new Promise((resolve) => { timer = setTimeout(() => resolve('timeout'), timeoutMs) }),
+    ])
+    clearTimeout(timer)
+    return outcome
   }
-  await settlesWithin(exited)
-  return { forced: true, hardKilled: true }
+
+  async function exitObservedWithin() {
+    if (exitObserved) return true
+    let timer
+    await Promise.race([
+      exited,
+      new Promise((resolve) => { timer = setTimeout(resolve, timeoutMs) }),
+    ])
+    clearTimeout(timer)
+    return exitObserved
+  }
+
+  let closeOperation
+  try {
+    closeOperation = application.close()
+  } catch {}
+  if (closeOperation) await settlesWithin(closeOperation)
+  if (await exitObservedWithin()) {
+    return { forced: false, hardKilled: false, exitObserved: true }
+  }
+
+  let appExit
+  try {
+    appExit = application.evaluate?.(({ app }) => app.exit(1))
+  } catch {}
+  if (appExit) await settlesWithin(appExit)
+  if (await exitObservedWithin()) {
+    return { forced: true, hardKilled: false, exitObserved: true }
+  }
+
+  let killError
+  try {
+    await killProcess(child?.pid)
+  } catch (error) {
+    killError = error
+  }
+  if (!await exitObservedWithin()) {
+    const exitError = new Error(
+      `Electron cleanup failed: child process ${String(child?.pid)} exit was not observed after hard kill`,
+    )
+    if (killError) {
+      throw new AggregateError([killError, exitError], 'Electron hard-kill cleanup failed')
+    }
+    throw exitError
+  }
+  return { forced: true, hardKilled: true, exitObserved: true }
 }

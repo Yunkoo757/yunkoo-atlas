@@ -3,28 +3,32 @@ import { createRequire } from 'node:module'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import initSqlJs from 'sql.js'
 
 import { SCHEMA_VERSION } from '../src/storage/types.ts'
-import {
-  readRepositoryBuildExpectation,
-  validateBundleBuildIdentityEvidence,
-} from './bundle-build-identity.mjs'
+import { readRepositoryBuildExpectation } from './bundle-build-identity.mjs'
+import { runForcedKillEvidenceRunner } from './electron-evidence-runner.mjs'
 import { detectFileSystem } from './file-system-type.mjs'
+
+export { runForcedKillEvidenceRunner } from './electron-evidence-runner.mjs'
 
 const require = createRequire(import.meta.url)
 const electronExecutable = require('electron')
 const root = process.cwd()
 const outputIndex = process.argv.indexOf('--output')
 const explicitOutput = outputIndex >= 0 ? process.argv[outputIndex + 1] : null
-const libraryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-forced-kill-library-'))
+let libraryRoot = null
 
-function runElectronMain(mode, onSpawn, extraEnv = {}) {
+function runElectronMain(mode, onSpawn, extraEnv = {}, targetLibraryRoot = libraryRoot) {
+  if (typeof targetLibraryRoot !== 'string' || !targetLibraryRoot) {
+    throw new Error(`Electron ${mode} run requires an explicit isolated library path`)
+  }
   return new Promise((resolve, reject) => {
     const env = {
       ...process.env,
       TRADER_ATLAS_FORCED_KILL_MODE: mode,
-      TRADER_ATLAS_LIBRARY: libraryRoot,
+      TRADER_ATLAS_LIBRARY: targetLibraryRoot,
       VITE_DEV_SERVER_URL: '',
       ...extraEnv,
     }
@@ -128,30 +132,39 @@ async function forceKillMigrationAt(boundary) {
   }
 }
 
-try {
+async function readMainBundleIdentity() {
   if (!fs.existsSync(path.join(root, 'dist-electron', 'main.js'))) {
     throw new Error('缺少 dist-electron/main.js；请先运行 pnpm build:app')
   }
   const buildExpectation = await readRepositoryBuildExpectation(root)
-  const identityRun = await runElectronMain('identity')
+  const identityProbePath = path.join(os.tmpdir(), `atlas-forced-kill-identity-probe-${process.pid}`)
+  const identityRun = await runElectronMain('identity', undefined, {}, identityProbePath)
   const identityMessage = identityRun.messages.find((message) => message?.type === 'identity')
   if (identityRun.code !== 0 || !identityMessage?.buildIdentity) {
     throw new Error(`无法读取实际 Electron main bundle identity：${identityRun.stderr}`)
   }
-  const bundleIdentity = {
+  return {
     bundles: { main: identityMessage.buildIdentity },
     repository: buildExpectation.repository,
     ci: buildExpectation.ci,
   }
-  validateBundleBuildIdentityEvidence(bundleIdentity, ['main'])
+}
+
+async function seedForcedKillLibrary() {
   const seed = await runElectronMain('seed')
   if (seed.code !== 0 || !seed.messages.some((message) => message?.type === 'seeded')) {
     throw new Error(`无法建立最后确认 revision：${seed.stderr}`)
   }
   const seeded = seed.messages.find((message) => message?.type === 'seeded')
-  const expectedLiveStageIds = seeded?.liveStageIds ?? []
-  const expectedSnapshotRevision = seeded?.snapshotRevision ?? null
+  return {
+    expectedLiveStageIds: seeded?.liveStageIds ?? [],
+    expectedSnapshotRevision: seeded?.snapshotRevision ?? null,
+  }
+}
 
+async function captureForcedKillEvidence({ bundleIdentity, seed }) {
+  const expectedLiveStageIds = seed.expectedLiveStageIds
+  const expectedSnapshotRevision = seed.expectedSnapshotRevision
   let tempFileObserved = null
   let killRequestedAt = null
   let saveStartingObserved = false
@@ -183,8 +196,12 @@ try {
     const timer = setTimeout(() => reject(new Error('等待原子临时文件或强杀退出超时')), 30_000)
     crashPromise.finally(() => clearTimeout(timer)).catch(() => {})
   })
-  const crash = await Promise.race([crashPromise, crashTimeout])
-  watcher.close()
+  let crash
+  try {
+    crash = await Promise.race([crashPromise, crashTimeout])
+  } finally {
+    watcher.close()
+  }
   if (!saveStartingObserved || !tempFileObserved || !killRequestedAt || !killSignalSent) {
     throw new Error('没有证明强杀发生在保存的原子临时文件阶段')
   }
@@ -223,11 +240,11 @@ try {
     release: os.release(),
     architecture: os.arch(),
     fileSystem,
-    gitCommit: buildExpectation.repository.head,
-    gitTree: buildExpectation.repository.tree,
-    workingTreeDirty: buildExpectation.repository.dirty,
-    sourceFingerprint: buildExpectation.repository.sourceFingerprint,
-    sourceIdentity: buildExpectation.repository.sourceIdentity,
+    gitCommit: bundleIdentity.repository.head,
+    gitTree: bundleIdentity.repository.tree,
+    workingTreeDirty: bundleIdentity.repository.dirty,
+    sourceFingerprint: bundleIdentity.repository.sourceFingerprint,
+    sourceIdentity: bundleIdentity.repository.sourceIdentity,
     bundleIdentity,
     process: {
       runtime: saveStartingMessage?.runtime ?? null,
@@ -267,11 +284,15 @@ try {
       currentTradeIdsRecovered && archiveTradeIdsRecovered && snapshotRevisionRecovered &&
       schemaMigrationRecovered ? 'pass' : 'fail',
   }
+  return report
+}
+
+async function writeForcedKillReport(report) {
   const platformName = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : process.platform
   const outputPath = path.resolve(explicitOutput ?? path.join(
     'test-results',
     'forced-kill',
-    `forced-kill-${platformName}-${fileSystem.toLowerCase()}.json`,
+    `forced-kill-${platformName}-${report.fileSystem.toLowerCase()}.json`,
   ))
   fs.mkdirSync(path.dirname(outputPath), { recursive: true })
   fs.writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
@@ -282,7 +303,32 @@ try {
     recovery: report.recovery,
     schemaMigration: report.schemaMigration,
   }, null, 2))
-  if (report.status !== 'pass') process.exitCode = 1
-} finally {
-  await fs.promises.rm(libraryRoot, { recursive: true, force: true })
+  return report
 }
+
+export async function runForcedKillEvidence() {
+  return runForcedKillEvidenceRunner({
+    readBundleIdentity: readMainBundleIdentity,
+    createLibrary: async () => {
+      libraryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-forced-kill-library-'))
+      return libraryRoot
+    },
+    seedLibrary: seedForcedKillLibrary,
+    captureEvidence: captureForcedKillEvidence,
+    cleanupEvidence: async () => {
+      if (!libraryRoot) return
+      const cleanupRoot = libraryRoot
+      libraryRoot = null
+      await fs.promises.rm(cleanupRoot, { recursive: true, force: true })
+    },
+    writeReport: writeForcedKillReport,
+  })
+}
+
+async function main() {
+  const report = await runForcedKillEvidence()
+  if (report.status !== 'pass') process.exitCode = 1
+}
+
+const entryPath = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : null
+if (entryPath === import.meta.url) await main()

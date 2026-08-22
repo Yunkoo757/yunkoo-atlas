@@ -71,6 +71,8 @@ TDD 收口：矩阵合同明确锁定 `/live-history` 的 ready selector 为 `.l
 - Vite 同一次配置求值把 `{ commit, dirty }` 分别编译进 renderer 与 Electron main；两者都来自实际 bundle，而不是运行门禁时临时读取并覆盖。
 - Electron visual 在创建测试资料库和截图前，从 renderer `window.__ATLAS_BUILD_IDENTITY__` 与 main runtime 分别读取身份；任一 bundle 缺失、dirty、落后于 repository HEAD，或与 CI 的精确 `GITHUB_SHA` 不一致都会立即失败，报告不得生成。
 - forced-kill 在 seed/强杀前先启动实际 main bundle 的 `identity` 模式并验证同一合同；报告的 `bundleIdentity`、`gitCommit` 与 `workingTreeDirty` 均来自这次验证后的权威证据。
+- Electron visual 与 forced-kill 现在都由同一受验证 runner 拥有执行顺序：先读取并验证实际 bundle identity，之后才允许创建资料库、seed、capture，cleanup 成功后才允许写报告。runner 级测试逐项证明 stale、dirty、`GITHUB_SHA` mismatch 在所有证据副作用前失败；把 validation 临时移到 capture 后，两组测试均转 RED。
+- Electron visual 的有界清理只在观察到 child `exit` 后成功。`application.close()` reject 或 fulfilled 但没有 exit 都会继续尝试 `app.exit` 和实际 PID hard kill；hard kill 后仍未观察到 exit 会显式失败。临时 profile 删除始终继续尝试，原身份错误与 cleanup 错误通过 `AggregateError` 同时保留，不互相遮蔽。
 - packaged visual 复用相同 repository/CI expectation reader，并校验已打包 renderer 的嵌入身份。最终权威 SHA 与 clean 状态应直接读取各 JSON evidence，不在本报告复制易陈旧的提交值。
 
 ## 5. 删除审计与覆盖强度
