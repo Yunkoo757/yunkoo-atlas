@@ -237,7 +237,7 @@ function closedLiveTrade(closedTradingDayKey?: string): Trade {
 
 export function testStoreConfirmationFallsBackForLegacyClosedTrade(): void {
   useStore.setState((state) => ({
-    trades: [{ ...closedLiveTrade(), closedAt: '2026-07-27' }],
+    trades: [{ ...closedLiveTrade(), closedAt: '2026-07-27', liveStageId: state.currentLiveStageId }],
     display: { ...state.display, tradingDayStartHour: 6 },
     weeklyRiskPreparations: [],
     riskPolicyVersions: [],
@@ -260,13 +260,13 @@ export function testStoreConfirmationFallsBackForLegacyClosedTrade(): void {
 }
 
 export function testStoreConfirmationUsesFrozenClosedTradingDayKey(): void {
-  useStore.setState({
-    trades: [closedLiveTrade('2026-07-27')],
+  useStore.setState((state) => ({
+    trades: [{ ...closedLiveTrade('2026-07-27'), liveStageId: state.currentLiveStageId }],
     weeklyRiskPreparations: [],
     riskPolicyVersions: [],
     monthlyRiskLimits: [],
     riskOverrideEvents: [],
-  })
+  }))
 
   useStore.getState().confirmWeeklyRiskPreparation({
     currentTradingDayKey: '2026-07-27',
@@ -356,13 +356,13 @@ export function testLaterConfirmationDoesNotPrematurelyLockNextMonth(): void {
 }
 
 export function testFirstFuturePolicyWaitsForFinalVersionBeforeNewMonthLock(): void {
-  useStore.setState({
-    trades: [{ ...closedLiveTrade('2026-07-31'), closedAt: '2026-07-31' }],
+  useStore.setState((state) => ({
+    trades: [{ ...closedLiveTrade('2026-07-31'), closedAt: '2026-07-31', liveStageId: state.currentLiveStageId }],
     weeklyRiskPreparations: [],
     riskPolicyVersions: [],
     monthlyRiskLimits: [],
     riskOverrideEvents: [],
-  })
+  }))
 
   useStore.getState().confirmWeeklyRiskPreparation({
     currentTradingDayKey: '2026-07-31',

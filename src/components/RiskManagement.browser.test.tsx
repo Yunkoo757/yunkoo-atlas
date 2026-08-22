@@ -221,6 +221,21 @@ async function run(): Promise<void> {
     click('取消开仓')
     await waitFor(() => !document.querySelector('[data-risk-setup-dialog]'), '取消没有关闭风险设置引导')
     useStore.setState((state) => ({
+      trades: state.trades.map((trade) => trade.id === 'target'
+        ? { ...trade, liveStageId: 'archived-stage' }
+        : trade),
+    }))
+    assert(useStore.getState().requestTradeOpen('target') === 'not-current-stage', '历史 planned fixture 必须明确拒绝')
+    await waitFor(() => document.body.textContent?.includes('历史或未归属交易不能在当前阶段开仓') === true, '历史交易拒绝原因没有接入 UI')
+    assert(!document.querySelector('[aria-label="继续开仓原因"]'), '历史交易不得进入 override 原因入口')
+    assert(!document.querySelector<HTMLAnchorElement>('[role="dialog"] a[href="/settings/risk"]'), '历史交易不得误导为风险建档问题')
+    click('取消开仓')
+    useStore.setState((state) => ({
+      trades: state.trades.map((trade) => trade.id === 'target'
+        ? { ...trade, liveStageId: state.currentLiveStageId }
+        : trade),
+    }))
+    useStore.setState((state) => ({
       riskPolicyVersions: [{ ...policy, liveStageId: state.currentLiveStageId }],
       monthlyRiskLimits: [{ ...monthlyLimit, liveStageId: state.currentLiveStageId }],
     }))

@@ -57,6 +57,71 @@ export function testSnapshotValidationEnforcesV12StageOwnershipAcrossEntities():
   assert(rejectedPaper, '纸面交易必须拒绝 liveStageId 字段')
 }
 
+export function testRiskPeriodUniquenessIsScopedByLiveStage(): void {
+  const full = createFullPersistedSnapshotFixture()
+  const currentStage = { ...full.liveStages[0]!, sequence: 2 }
+  const archivedStage = {
+    ...currentStage,
+    id: 'live-stage-archived',
+    sequence: 1,
+    name: '历史阶段',
+    status: 'archived' as const,
+    startsOn: '2026-07-01',
+    endsOn: '2026-07-12',
+    archivedAt: currentStage.createdAt,
+  }
+  const crossStage = {
+    ...full,
+    liveStages: [archivedStage, currentStage],
+    weeklyRiskPreparations: [
+      full.weeklyRiskPreparations[0]!,
+      {
+        ...full.weeklyRiskPreparations[0]!,
+        id: `weekly-risk-preparation:${archivedStage.id}:${full.weeklyRiskPreparations[0]!.weekStart}`,
+        liveStageId: archivedStage.id,
+      },
+    ],
+    monthlyRiskLimits: [
+      full.monthlyRiskLimits[0]!,
+      {
+        ...full.monthlyRiskLimits[0]!,
+        id: `monthly-risk-limit:${archivedStage.id}:${full.monthlyRiskLimits[0]!.monthKey}`,
+        liveStageId: archivedStage.id,
+      },
+    ],
+  }
+  assertValidPersistedSnapshot(crossStage)
+
+  const sameStageDuplicates = [{
+    ...crossStage,
+    weeklyRiskPreparations: crossStage.weeklyRiskPreparations.map((item, index) =>
+      index === 1 ? {
+        ...item,
+        liveStageId: currentStage.id,
+        id: `weekly-risk-preparation:${currentStage.id}:${item.weekStart}`,
+      } : item,
+    ),
+  }, {
+    ...crossStage,
+    monthlyRiskLimits: crossStage.monthlyRiskLimits.map((item, index) =>
+      index === 1 ? {
+        ...item,
+        liveStageId: currentStage.id,
+        id: `monthly-risk-limit:${currentStage.id}:${item.monthKey}`,
+      } : item,
+    ),
+  }]
+  for (const duplicate of sameStageDuplicates) {
+    let rejected = false
+    try {
+      assertValidPersistedSnapshot(duplicate)
+    } catch {
+      rejected = true
+    }
+    assert(rejected, '同阶段同周期风险实体仍必须拒绝重复')
+  }
+}
+
 export function testSnapshotValidationValidatesStageStateAndScheduledRollover(): void {
   const full = createFullPersistedSnapshotFixture()
   assertValidPersistedSnapshot({

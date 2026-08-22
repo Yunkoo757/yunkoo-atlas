@@ -243,8 +243,26 @@ export async function testJsonImportAbortsWhenTheSameTradeIsEditedDuringCommit()
 
 function fullFixtureWithTradeIdentity(): PersistedSnapshot {
   const fixture = createFullPersistedSnapshotFixture()
+  const historical = {
+    ...fixture.liveStages[0]!,
+    status: 'archived' as const,
+    endsOn: '2026-07-31',
+    archivedAt: '2026-08-01T00:00:00.000Z',
+  }
+  const current = {
+    id: 'concurrency-current-stage',
+    sequence: historical.sequence + 1,
+    name: '并发测试当前阶段',
+    status: 'current' as const,
+    startsOn: '2026-08-01',
+    endsOn: null,
+    createdAt: '2026-08-01T00:00:00.000Z',
+    archivedAt: null,
+  }
   return {
     ...fixture,
+    liveStages: [historical, current],
+    currentLiveStageId: current.id,
     trades: fixture.trades.map((item) => ({
       ...item,
       activities: [{
@@ -768,7 +786,7 @@ export async function testRepeatedRealImportKeepsStableTradesEventsAssetsAndRefe
     assert(twice.trades.length === onceTradeCount, '同一原始 payload 重复导入不得新增交易')
     assert(twice.riskOverrideEvents.length === onceEventCount, '同一原始 payload 重复导入不得新增 override event')
     assert(persistedAssets.size === onceAssetCount, '同一原始 payload 重复导入不得留下重复附件')
-    assert(twice.riskOverrideEvents[0]?.tradeId === importedId, '顶层 override 引用必须稳定指向导入交易')
+    assert(twice.riskOverrideEvents.length === 0, '外部当前阶段 override 必须被跳过并等待本地重新确认')
     assert(
       twice.trades.find((item) => item.id === importedCase.id)?.sourceTradeId === localReferencedTrade.id,
       '真实片段导入必须保留指向既有本地交易的案例来源',
@@ -780,10 +798,6 @@ export async function testRepeatedRealImportKeepsStableTradesEventsAssetsAndRefe
     assert(twice.weeklyReviews[0]?.mistakeTradeIds[0] === localReferencedTrade.id, '真实片段导入必须保留周复盘本地交易引用')
     assert(twice.starredIds.includes(localReferencedTrade.id), '真实片段导入必须保留收藏中的本地交易引用')
     assert(twice.subscribedIds.includes(localReferencedTrade.id), '真实片段导入必须保留订阅中的本地交易引用')
-    assert(
-      twice.riskOverrideEvents.every((event) => event.linkState === 'resolved'),
-      '重复导入不得产生 unresolved 引用',
-    )
     assert(committedSnapshots.length === 2, '无并发时每次真实导入只应提交一次')
   } finally {
     disablePersistWrites()

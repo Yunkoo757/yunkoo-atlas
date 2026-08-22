@@ -98,6 +98,19 @@ export function testFirstOpenRequiresCurrentStageRiskSetupBeforeUnknownOrLimitOv
   assert(result.kind === 'risk-setup-required', '新阶段第一次开仓必须先完成风险建档')
 }
 
+export function testHistoricalAndUnownedPlannedTradesCannotUseCurrentStageGate(): void {
+  for (const liveStageId of ['stage-old', null] as const) {
+    const state = {
+      ...triggeredState('planned'),
+      trades: [{ ...trade('target', 'planned'), liveStageId }],
+    }
+
+    const result = requestTradeOpenCandidate(state, 'target')
+
+    assert(result.kind === 'not-current-stage', '历史或未归属 planned trade 必须被明确拒绝')
+  }
+}
+
 export function testRiskSetupRequirementWinsOverArchivedPendingConfirmation(): void {
   const oldState = triggeredState('planned')
   const oldPending = requestTradeOpenCandidate(oldState, 'target')
@@ -416,8 +429,7 @@ export function testConfiguredStateWithoutMonthlyLimitFailsClosed(): void {
     monthlyRiskLimits: [],
   }
   const result = requestTradeOpenCandidate(state, 'target')
-  assert(result.kind === 'confirmation-required', '规则已配置但月限额缺失时不得声称 below')
-  assert(result.request.decisionType === 'unknown', '缺失物化月限额必须降级为 unknown')
+  assert(result.kind === 'risk-setup-required', '规则已配置但月限额缺失时仍不得完成初始风险建档')
 }
 
 export function testOnlyValidHistoricalOpenActivityBypassesFirstGate(): void {
@@ -509,11 +521,13 @@ export function testRiskGateExcludesPreCycleLossButKeepsBoundaryUnknownFailClose
 export function testChangingLiveStageStartInvalidatesPendingConfirmation(): void {
   const state = {
     ...triggeredState('planned'),
-    trades: [trade('target', 'planned')],
-    monthlyRiskLimits: [],
+    trades: [
+      trade('target', 'planned'),
+      { ...trade('unknown-loss-for-stage-start', 'loss'), closedAt: null, closedTradingDayKey: undefined },
+    ],
   }
   const candidate = requestTradeOpenCandidate(state, 'target')
-  assert(candidate.kind === 'confirmation-required', 'fixture 必须因缺少月限额产生 pending')
+  assert(candidate.kind === 'confirmation-required', 'fixture 必须因未知亏损产生 pending')
 
   const validation = validatePendingFingerprint(candidate.request, {
     ...state,
@@ -526,11 +540,13 @@ export function testChangingLiveStageStartInvalidatesPendingConfirmation(): void
 export function testChangingTradingDayStartHourInvalidatesPendingConfirmation(): void {
   const state = {
     ...triggeredState('planned'),
-    trades: [trade('target', 'planned')],
-    monthlyRiskLimits: [],
+    trades: [
+      trade('target', 'planned'),
+      { ...trade('unknown-loss-for-day-boundary', 'loss'), closedAt: null, closedTradingDayKey: undefined },
+    ],
   }
   const candidate = requestTradeOpenCandidate(state, 'target')
-  assert(candidate.kind === 'confirmation-required', 'fixture 必须因缺少月限额产生 pending')
+  assert(candidate.kind === 'confirmation-required', 'fixture 必须因未知亏损产生 pending')
 
   const validation = validatePendingFingerprint(candidate.request, {
     ...state,

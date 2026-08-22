@@ -25,10 +25,6 @@ function validateImportedStageReferences(payload: ExportPayload, localStages: re
   const localIds = new Set(localStages.map((stage) => stage.id))
   const entities: StageOwned[] = [
     ...payload.trades.filter((trade) => trade.tradeKind !== 'paper'),
-    ...payload.weeklyRiskPreparations,
-    ...payload.riskPolicyVersions,
-    ...payload.monthlyRiskLimits,
-    ...payload.riskOverrideEvents,
     ...(payload.weeklyReviews ?? []),
     ...(payload.weeklyReviews ?? []).flatMap((review) => review.riskSnapshot?.policyVersions ?? []),
     ...(payload.weeklyReviews ?? []).flatMap((review) => review.riskSnapshot?.overrideEvents ?? []),
@@ -53,6 +49,7 @@ function assignImportOwnership(
   if (!current.liveStages || !current.currentLiveStageId) return payload
   const currentStageId = getCurrentLiveStage(current.liveStages, current.currentLiveStageId).id
   validateImportedStageReferences(payload, current.liveStages)
+  const localStageIds = new Set(current.liveStages.map((stage) => stage.id))
 
   const accountTrades = payload.trades.map((trade): Trade => {
     if (trade.tradeKind === 'paper') return withoutPaperStage(trade)
@@ -71,13 +68,35 @@ function assignImportOwnership(
     return { ...trade, liveStageId: inherited }
   })
   const own = <T extends StageOwned>(entity: T): T => ({ ...entity, liveStageId: currentStageId })
+  const historicalRiskOnly = <T extends StageOwned>(entities: readonly T[]): T[] => entities
+    .filter((entity): entity is T & { liveStageId: string } =>
+      typeof entity.liveStageId === 'string' &&
+      entity.liveStageId !== currentStageId &&
+      localStageIds.has(entity.liveStageId),
+    )
+    .map((entity) => ({ ...entity }))
+  const weeklyRiskPreparations = historicalRiskOnly(payload.weeklyRiskPreparations)
+  const riskPolicyVersions = historicalRiskOnly(payload.riskPolicyVersions)
+  const monthlyRiskLimits = historicalRiskOnly(payload.monthlyRiskLimits)
+  const riskOverrideEvents = historicalRiskOnly(payload.riskOverrideEvents)
+  const skippedRiskCount = payload.weeklyRiskPreparations.length +
+    payload.riskPolicyVersions.length +
+    payload.monthlyRiskLimits.length +
+    payload.riskOverrideEvents.length -
+    weeklyRiskPreparations.length -
+    riskPolicyVersions.length -
+    monthlyRiskLimits.length -
+    riskOverrideEvents.length
+  if (skippedRiskCount > 0) {
+    console.warn(`导入已跳过 ${skippedRiskCount} 条无法安全归入当前阶段的风险配置；请在本机重新确认风险设置。`)
+  }
   return {
     ...payload,
     trades,
-    weeklyRiskPreparations: payload.weeklyRiskPreparations.map(own),
-    riskPolicyVersions: payload.riskPolicyVersions.map(own),
-    monthlyRiskLimits: payload.monthlyRiskLimits.map(own),
-    riskOverrideEvents: payload.riskOverrideEvents.map(own),
+    weeklyRiskPreparations,
+    riskPolicyVersions,
+    monthlyRiskLimits,
+    riskOverrideEvents,
     weeklyReviews: payload.weeklyReviews?.map((review) => ({
       ...own(review),
       riskSnapshot: review.riskSnapshot
@@ -108,7 +127,14 @@ export function mergeImportPayload(
   identityPayload: ImportIdentityPayload = payload,
 ): PersistedSlice {
   const ownedPayload = assignImportOwnership(current, payload)
-  const ownedIdentityPayload = assignImportOwnership(current, { ...payload, trades: identityPayload.trades })
+  const ownedIdentityPayload = assignImportOwnership(current, {
+    ...payload,
+    trades: identityPayload.trades,
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
+  })
   const combinedStrategies = mergeStrategies(current.strategies, ensureStrategies(ownedPayload.strategies))
   const { strategies, trades: migrated } = normalizeTradeStrategyReferences(
     ownedPayload.trades,

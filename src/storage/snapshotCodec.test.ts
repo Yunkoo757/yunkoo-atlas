@@ -60,6 +60,45 @@ export function testSnapshotCodecNormalizesVersionsOneThroughEightToAllContractF
   }
 }
 
+export function testCanonicalCodecAllowsSameRiskPeriodKeyAcrossStages(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const currentStage = { ...fixture.liveStages[0]!, sequence: 2 }
+  const archivedStage = {
+    ...currentStage,
+    id: 'codec-archived-stage',
+    sequence: 1,
+    name: '历史阶段',
+    status: 'archived' as const,
+    startsOn: '2026-07-01',
+    endsOn: '2026-07-12',
+    createdAt: '2026-07-01T00:00:00.000Z',
+    archivedAt: '2026-07-13T00:00:00.000Z',
+  }
+  const decoded = decodeCanonicalSnapshot({
+    ...fixture,
+    liveStages: [archivedStage, currentStage],
+    weeklyRiskPreparations: [
+      fixture.weeklyRiskPreparations[0]!,
+      {
+        ...fixture.weeklyRiskPreparations[0]!,
+        id: `weekly-risk-preparation:${archivedStage.id}:${fixture.weeklyRiskPreparations[0]!.weekStart}`,
+        liveStageId: archivedStage.id,
+      },
+    ],
+    monthlyRiskLimits: [
+      fixture.monthlyRiskLimits[0]!,
+      {
+        ...fixture.monthlyRiskLimits[0]!,
+        id: `monthly-risk-limit:${archivedStage.id}:${fixture.monthlyRiskLimits[0]!.monthKey}`,
+        liveStageId: archivedStage.id,
+      },
+    ],
+  }, { version: SCHEMA_VERSION })
+
+  assert(decoded.weeklyRiskPreparations.length === 2, 'codec 必须保留跨阶段同周草稿')
+  assert(decoded.monthlyRiskLimits.length === 2, 'codec 必须保留跨阶段同月限额')
+}
+
 export function testVersionElevenSnapshotMigratesToCanonicalStageOwnership(): void {
   const legacy = structuredClone(createFullPersistedSnapshotFixture()) as unknown as Record<string, unknown>
   delete legacy.liveStages

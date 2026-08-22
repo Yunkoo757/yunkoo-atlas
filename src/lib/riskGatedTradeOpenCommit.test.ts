@@ -124,6 +124,33 @@ export async function testCycleSettingsSnapshotMismatchRequiresReconfirmation():
   assert(writes === 0, '快照不一致时不得写盘')
 }
 
+export async function testAtomicOverrideRejectsTradeThatLostCurrentStageOwnership(): Promise<void> {
+  const original = baseline()
+  const request = pending(original)
+  const changed = {
+    ...original,
+    trades: original.trades.map((trade) =>
+      trade.id === request.tradeId ? { ...trade, liveStageId: null } : trade,
+    ),
+  }
+  let writes = 0
+
+  const result = await commitRiskGatedTradeOpen({
+    request,
+    reason: '不得用于未归属交易',
+    storage: electronAdapter(async () => { writes += 1 }),
+    captureLatestState: () => ({
+      state: changed,
+      snapshot: changed,
+      currentTradingDayKey: '2026-07-27',
+    }),
+    publish: () => { throw new Error('不应发布') },
+  })
+
+  assert(result.kind === 'cancelled' && result.reason === 'target-no-longer-eligible', '原子 override 必须明确取消已失去当前阶段归属的交易')
+  assert(writes === 0, '阶段不匹配不得写 open 或 override')
+}
+
 export async function testPublishFailureAfterDurableCommitRequiresReloadAndDiscardsAutosave(): Promise<void> {
   const original = baseline()
   let persisted: PersistedSnapshot = original

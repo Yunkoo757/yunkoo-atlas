@@ -117,6 +117,25 @@ export function testPublicSetStatusFailsClosedForEveryFirstLiveOpenSource(): voi
   }
 }
 
+export function testInteractiveOpenPathsExplicitlyRejectHistoricalOrUnownedTrades(): void {
+  const previous = useStore.getState()
+  try {
+    for (const liveStageId of ['stage-old', null] as const) {
+      const target = { ...trade(`historical-${String(liveStageId)}`, 'planned'), liveStageId }
+      setGateFixture([])
+      useStore.setState({ trades: [target] })
+
+      assert(useStore.getState().requestTradeOpen(target.id) === 'not-current-stage', 'requestTradeOpen 必须明确拒绝历史/null 交易')
+      assert(useStore.getState().setStatus(target.id, 'open') === 'not-current-stage', 'setStatus 必须明确拒绝历史/null 交易')
+      assert(useStore.getState().upsertTrade({ ...target, status: 'open' }) === 'not-current-stage', 'upsertTrade 必须明确拒绝历史/null 交易')
+      assert(useStore.getState().upsertTrades([{ ...target, status: 'open' }]) === 'not-current-stage', 'upsertTrades 必须明确拒绝历史/null 交易')
+      assert(useStore.getState().getById(target.id)?.status === 'planned', '所有公开路径都不得静默迁移或开仓')
+    }
+  } finally {
+    restore(previous)
+  }
+}
+
 export function testFirstOpenIsBlockedUntilCurrentStageRiskSetup(): void {
   const previous = useStore.getState()
   try {

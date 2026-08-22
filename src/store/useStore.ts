@@ -423,6 +423,16 @@ export function applyTradeUpsertsToSlice(
   return slice
 }
 
+function openTargetsAnotherLiveStage(
+  existing: Trade | undefined,
+  incoming: Trade,
+  currentLiveStageId: string,
+): boolean {
+  return incoming.status === 'open' &&
+    existing?.tradeKind === 'live' &&
+    existing.liveStageId !== currentLiveStageId
+}
+
 function updateOwnedNoteActivity(trade: Trade, note: string): Trade {
   if (trade.note === note) return trade
   const now = new Date().toISOString()
@@ -463,6 +473,7 @@ interface State {
   riskSetupTradeOpenRequest: {
     tradeId: string
     returnFocus?: HTMLElement | null
+    reason?: 'risk-setup' | 'not-current-stage'
   } | null
   undoStack: UndoAction[]
   redoStack: UndoAction[]
@@ -1174,6 +1185,7 @@ export const useStore = create<State>()((set, get) => ({
           }
           const hasClosedLiveTradeOnDay = s.trades.some((trade) =>
             trade.tradeKind === 'live' &&
+            trade.liveStageId === currentLiveStageId &&
             !trade.deletedAt &&
             isExecutedClosed(trade.status) &&
             (trade.closedTradingDayKey ?? closedTradingDayKeyFromClosedAt(
@@ -1245,6 +1257,11 @@ export const useStore = create<State>()((set, get) => ({
         const current = get().trades.find((trade) => trade.id === id)
         if (!current) return 'not-found'
         if (current.status === status) return 'unchanged'
+        if (
+          status === 'open' &&
+          current.tradeKind === 'live' &&
+          current.liveStageId !== get().currentLiveStageId
+        ) return 'not-current-stage'
         if (status === 'open' && requiresFirstOpenGate(current)) {
           return 'requires-risk-gate'
         }
@@ -1294,6 +1311,20 @@ export const useStore = create<State>()((set, get) => ({
             tradingDayStartHour: s.display.tradingDayStartHour,
           }, id, { existingPending: s.pendingTradeOpenRequest })
           if (candidate.kind === 'not-found') return s
+          if (candidate.kind === 'not-current-stage') {
+            const active = typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null
+            result = 'not-current-stage'
+            return {
+              riskSetupTradeOpenRequest: {
+                tradeId: candidate.trade.id,
+                returnFocus: returnFocus ?? active,
+                reason: 'not-current-stage',
+              },
+              pendingTradeOpenRequest: null,
+            }
+          }
           if (candidate.kind === 'risk-setup-required') {
             const active = typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
               ? document.activeElement
@@ -1303,6 +1334,7 @@ export const useStore = create<State>()((set, get) => ({
               riskSetupTradeOpenRequest: {
                 tradeId: candidate.trade.id,
                 returnFocus: returnFocus ?? active,
+                reason: 'risk-setup',
               },
               pendingTradeOpenRequest: null,
             }
@@ -1671,6 +1703,7 @@ export const useStore = create<State>()((set, get) => ({
         }),
       upsertTrade: (trade) => {
         const existing = get().trades.find((item) => item.id === trade.id)
+        if (openTargetsAnotherLiveStage(existing, trade, get().currentLiveStageId)) return 'not-current-stage'
         if (upsertWouldBypassFirstOpenGate(existing, trade)) return 'requires-risk-gate'
         set((s) => upsertTradeIntoSlice(
           s,
@@ -1706,7 +1739,13 @@ export const useStore = create<State>()((set, get) => ({
         return result
       },
       upsertTrades: (trades) => {
-        const currentTrades = get().trades
+        const currentState = get()
+        const currentTrades = currentState.trades
+        if (trades.some((trade) => openTargetsAnotherLiveStage(
+          currentTrades.find((item) => item.id === trade.id),
+          trade,
+          currentState.currentLiveStageId,
+        ))) return 'not-current-stage'
         if (trades.some((trade) => upsertWouldBypassFirstOpenGate(
           currentTrades.find((item) => item.id === trade.id),
           trade,

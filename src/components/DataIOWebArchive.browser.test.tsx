@@ -46,7 +46,7 @@ async function waitFor(condition: () => boolean, message: string): Promise<void>
   throw new Error(message)
 }
 
-function trade(id: string, note = ''): Trade {
+function trade(id: string, liveStageId: string, note = ''): Trade {
   return {
     id,
     ref: `TRD-${id}`,
@@ -56,6 +56,7 @@ function trade(id: string, note = ''): Trade {
     conviction: 'medium',
     strategyId: 'strategy-1',
     tradeKind: 'live',
+    liveStageId,
     tags: [],
     mistakeTags: [],
     reviewStatus: 'unreviewed',
@@ -178,7 +179,7 @@ async function run(): Promise<void> {
     'image/png',
   )
   useStore.setState({
-    trades: [trade('old', `<img src="journal-asset://${oldAssetId}">`)],
+    trades: [trade('old', useStore.getState().currentLiveStageId, `<img src="journal-asset://${oldAssetId}">`)],
     strategies: [{ id: 'strategy-1', name: '旧策略', icon: 'target', color: '#5e6ad2' }],
   })
   useStore.getState().hydrateProfile({ avatarId: null, displayName: '旧资料', legacyCashCurrencyAssumption: null })
@@ -188,7 +189,7 @@ async function run(): Promise<void> {
   const restoredAssetId = 'restored-archive-asset'
   const restoredSnapshot: PersistedSnapshot = {
     ...createEmptyPersistedSnapshot(),
-    trades: [trade('restored', `<p>恢复内容</p><img src="journal-asset://${restoredAssetId}">`)],
+    trades: [],
     strategies: [{ id: 'strategy-1', name: '恢复策略', icon: 'target', color: '#5e6ad2' }],
     starredIds: ['restored'],
     subscribedIds: [],
@@ -202,6 +203,11 @@ async function run(): Promise<void> {
     symbolCatalog: ['BTCUSDT'],
     profile: { avatarId: null, displayName: '恢复资料', legacyCashCurrencyAssumption: null },
   }
+  restoredSnapshot.trades = [trade(
+    'restored',
+    restoredSnapshot.currentLiveStageId,
+    `<p>恢复内容</p><img src="journal-asset://${restoredAssetId}">`,
+  )]
 
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')

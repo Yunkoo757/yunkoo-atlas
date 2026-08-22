@@ -277,12 +277,13 @@ export async function testWebArchiveValidatesCaseSourceSnapshotAssets(): Promise
 }
 
 export async function testCurrentWriterRoundTripsEverySafeImageMime(): Promise<void> {
-  const payload = makePayload()
-  const trade = (payload.trades as Array<Record<string, unknown>>)[0]!
+  const snapshot = createFullPersistedSnapshotFixture()
+  const trade = snapshot.trades[0]!
   trade.note = '<p>新格式截图</p><img src="journal-asset://asset-vendor">'
-  const { version: _version, assets: _assets, ...snapshotFields } = payload
+  snapshot.weeklyReviews = []
+  snapshot.quickNotes = []
   const archive = buildWebJournalArchiveBlob(
-    snapshotFields as unknown as PersistedSnapshot,
+    snapshot,
     [{ id: 'asset-vendor', mime: 'image/x-atlas-capture', data: 'AAECAw==' }],
   )
 

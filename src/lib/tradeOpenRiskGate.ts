@@ -69,6 +69,7 @@ export type TradeOpenRequestResult =
   | 'pending-confirmation'
   | 'requires-risk-gate'
   | 'requires-risk-setup'
+  | 'not-current-stage'
   | 'not-found'
 
 export type PendingFingerprintValidation =
@@ -78,10 +79,11 @@ export type PendingFingerprintValidation =
 
 export type TradeOpenCandidateResult<State extends TradeOpenRiskGateState = TradeOpenRiskGateState> =
   | { kind: 'not-found' }
+  | { kind: 'not-current-stage'; trade: Trade }
   | { kind: 'risk-setup-required'; trade: Trade }
   | {
       kind: 'opened'
-      decision: 'not-required' | 'already-open' | 'below' | 'unconfigured-clean'
+      decision: 'not-required' | 'already-open' | 'below'
       state: State
       trade: Trade
     }
@@ -354,12 +356,19 @@ export function requestTradeOpenCandidate<State extends TradeOpenRiskGateState>(
 ): TradeOpenCandidateResult<State> {
   const trade = state.trades.find((item) => item.id === tradeId && !item.deletedAt)
   if (!trade) return { kind: 'not-found' }
+  if (trade.tradeKind !== 'live' || trade.liveStageId !== state.currentLiveStageId) {
+    return { kind: 'not-current-stage', trade }
+  }
   if (trade.status === 'open') return { kind: 'opened', decision: 'already-open', state, trade }
   if (!requiresFirstOpenGate(trade)) {
     return { kind: 'opened', decision: 'not-required', ...openedState(state, trade, options) }
   }
 
-  if (riskSetupStateForStage(state, state.currentLiveStageId) === 'unconfigured') {
+  if (riskSetupStateForStage(
+    state,
+    state.currentLiveStageId,
+    state.currentTradingDayKey,
+  ) === 'unconfigured') {
     return { kind: 'risk-setup-required', trade }
   }
   if (options.existingPending) {
@@ -368,14 +377,9 @@ export function requestTradeOpenCandidate<State extends TradeOpenRiskGateState>(
 
   const request = createPendingRequest(state, trade)
   if (request) return { kind: 'confirmation-required', request }
-  const policy = activeRiskPolicy(
-    state.riskPolicyVersions,
-    state.currentTradingDayKey,
-    state.currentLiveStageId,
-  )
   return {
     kind: 'opened',
-    decision: policy ? 'below' : 'unconfigured-clean',
+    decision: 'below',
     ...openedState(state, trade, options),
   }
 }
@@ -386,6 +390,9 @@ export function validatePendingFingerprint(
 ): PendingFingerprintValidation {
   const trade = state.trades.find((item) => item.id === request.tradeId)
   if (!trade) return { kind: 'cancelled', reason: 'target-missing' }
+  if (trade.tradeKind !== 'live' || trade.liveStageId !== state.currentLiveStageId) {
+    return { kind: 'cancelled', reason: 'target-no-longer-eligible' }
+  }
   if (!requiresFirstOpenGate(trade)) {
     return { kind: 'cancelled', reason: 'target-no-longer-eligible' }
   }

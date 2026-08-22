@@ -354,6 +354,53 @@ export function testWeeklyAndRiskCreationUseCurrentStage(): void {
   }
 }
 
+export function testArchivedSameDayCloseDoesNotDelayFirstCurrentStagePolicyOrMonthlyLock(): void {
+  const previous = useStore.getState()
+  try {
+    const archivedClose: Trade = {
+      ...plannedLiveTrade('archived-close', 'stage-old'),
+      status: 'loss',
+      pnl: -100,
+      resultSource: 'pnl',
+      closedAt: '2026-08-17T02:00:00.000Z',
+      closedTradingDayKey: '2026-08-17',
+    }
+    seedStore([archivedClose])
+    useStore.setState({
+      weeklyRiskPreparations: [],
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+      riskOverrideEvents: [],
+    })
+
+    useStore.getState().confirmWeeklyRiskPreparation({
+      currentTradingDayKey: '2026-08-17',
+      weekStart: '2026-08-17',
+      draft: {
+        capitalBase: 10_000,
+        riskPercent: 1,
+        riskAmount: null,
+        dailyLossLimitR: 2,
+        weeklyLossLimitR: 5,
+        monthlyLossLimitRDefault: 10,
+        disciplineText: '新阶段首次建档',
+      },
+      confirmedAt: '2026-08-17T03:00:00.000Z',
+      policyVersionId: 'policy-first-current-stage',
+    })
+
+    const state = useStore.getState()
+    assert(state.riskPolicyVersions[0]?.effectiveTradingDay === '2026-08-17', '旧阶段同日平仓不得推迟新阶段首个策略')
+    assert(state.monthlyRiskLimits.some((item) =>
+      item.liveStageId === 'stage-current' &&
+      item.monthKey === '2026-08' &&
+      item.sourcePolicyVersionId === 'policy-first-current-stage',
+    ), '首次确认必须同时锁定当前阶段当月限额')
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
 export function testNewStageRiskDraftDoesNotReuseArchivedStageDraft(): void {
   const previous = useStore.getState()
   try {

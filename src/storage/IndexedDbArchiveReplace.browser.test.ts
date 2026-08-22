@@ -60,6 +60,7 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 function snapshotWithNote(note: string, displayName: string): PersistedSnapshot {
+  const base = createEmptyPersistedSnapshot()
   const trade: Trade = {
     id: `trade-${displayName}`,
     ref: `TRD-${displayName}`,
@@ -69,6 +70,7 @@ function snapshotWithNote(note: string, displayName: string): PersistedSnapshot 
     conviction: 'medium',
     strategyId: 'strategy-1',
     tradeKind: 'live',
+    liveStageId: base.currentLiveStageId,
     tags: [],
     mistakeTags: [],
     reviewStatus: 'unreviewed',
@@ -83,7 +85,7 @@ function snapshotWithNote(note: string, displayName: string): PersistedSnapshot 
     note,
   }
   return {
-    ...createEmptyPersistedSnapshot(),
+    ...base,
     trades: [trade],
     strategies: [{ id: 'strategy-1', name: '测试策略', icon: 'target', color: '#5e6ad2' }],
     starredIds: [],

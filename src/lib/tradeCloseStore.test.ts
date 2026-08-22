@@ -1,7 +1,7 @@
-import type { Trade } from '@/data/trades'
+import type { LiveTrade, Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
 
-const openTrade: Trade = {
+const openTrade: LiveTrade = {
   id: 'close-store-1',
   ref: 'TRD-1',
   symbol: 'BTCUSDT',
@@ -163,6 +163,7 @@ export function testResultSemanticEditReopensACompletedReview(): void {
   const previous = useStore.getState()
   const reviewedTrade: Trade = {
     ...openTrade,
+    liveStageId: previous.currentLiveStageId,
     status: 'win',
     pnl: 500,
     rMultiple: null,
@@ -299,6 +300,7 @@ export function testStatusChangeReopensACompletedReview(): void {
   const previous = useStore.getState()
   const reviewedTrade: Trade = {
     ...openTrade,
+    liveStageId: previous.currentLiveStageId,
     status: 'win',
     pnl: 500,
     resultSource: 'pnl',

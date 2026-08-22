@@ -47,8 +47,9 @@ function emptySnapshot(): PersistedSnapshot {
 }
 
 function snapshotWithAsset(assetId: string): PersistedSnapshot {
+  const base = emptySnapshot()
   return {
-    ...emptySnapshot(),
+    ...base,
     trades: [{
       id: 'trade-with-asset',
       ref: 'TRD-ASSET',
@@ -58,6 +59,7 @@ function snapshotWithAsset(assetId: string): PersistedSnapshot {
       conviction: 'medium',
       strategyId: 'uncategorized',
       tradeKind: 'live',
+      liveStageId: base.currentLiveStageId,
       tags: [],
       mistakeTags: [],
       reviewStatus: 'unreviewed',

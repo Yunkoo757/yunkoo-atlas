@@ -643,14 +643,16 @@ function assertValidRiskEntities(value: Record<string, unknown>, label: string):
     if (hasDuplicateStringId(entities)) throw new Error(`${label} contains duplicate ${field} ids`)
   }
   const preparationWeeks = new Set<string>()
-  for (const item of value.weeklyRiskPreparations as Array<{ weekStart: string }>) {
-    if (preparationWeeks.has(item.weekStart)) throw new Error(`${label} contains duplicate risk preparation weeks`)
-    preparationWeeks.add(item.weekStart)
+  for (const item of value.weeklyRiskPreparations as Array<{ liveStageId: string; weekStart: string }>) {
+    const key = `${item.liveStageId}\u0000${item.weekStart}`
+    if (preparationWeeks.has(key)) throw new Error(`${label} contains duplicate risk preparation weeks`)
+    preparationWeeks.add(key)
   }
   const limitMonths = new Set<string>()
-  for (const item of value.monthlyRiskLimits as Array<{ monthKey: string }>) {
-    if (limitMonths.has(item.monthKey)) throw new Error(`${label} contains duplicate monthly risk limit months`)
-    limitMonths.add(item.monthKey)
+  for (const item of value.monthlyRiskLimits as Array<{ liveStageId: string; monthKey: string }>) {
+    const key = `${item.liveStageId}\u0000${item.monthKey}`
+    if (limitMonths.has(key)) throw new Error(`${label} contains duplicate monthly risk limit months`)
+    limitMonths.add(key)
   }
 }
 

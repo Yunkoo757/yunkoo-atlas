@@ -1,5 +1,6 @@
 import type { Trade } from '@/data/trades'
 import { mergeImportPayload } from '@/lib/importMerge'
+import { riskSetupStateForStage } from '@/lib/stageRisk'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -82,13 +83,21 @@ export function testMergeImportAssignsUnknownLiveRecordsToCurrentStage(): void {
       frozenAt: '2026-08-20T00:00:00.000Z',
     },
   }
-  const merged = mergeImportPayload(current, {
-    version: 11,
-    trades: [source, derivedCase, standaloneCase, paper],
-    weeklyRiskPreparations: [preparation], riskPolicyVersions: [policy],
-    monthlyRiskLimits: [monthlyLimit], riskOverrideEvents: [overrideEvent], weeklyReviews: [weeklyReview],
-    strategies: current.strategies, starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: current.display,
-  })
+  const warnings: string[] = []
+  const originalWarn = console.warn
+  console.warn = (message?: unknown) => { warnings.push(String(message)) }
+  let merged
+  try {
+    merged = mergeImportPayload(current, {
+      version: 11,
+      trades: [source, derivedCase, standaloneCase, paper],
+      weeklyRiskPreparations: [preparation], riskPolicyVersions: [policy],
+      monthlyRiskLimits: [monthlyLimit], riskOverrideEvents: [overrideEvent], weeklyReviews: [weeklyReview],
+      strategies: current.strategies, starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: current.display,
+    })
+  } finally {
+    console.warn = originalWarn
+  }
   const imported = merged.trades.filter((trade) => trade.id.startsWith('imported-'))
   assert(imported.filter((trade) => trade.tradeKind === 'live').every((trade) => trade.liveStageId === 'stage-current'), 'merge live 必须进入当前阶段')
   const mergedDerived = imported.find((trade) => trade.id === derivedCase.id)
@@ -96,14 +105,56 @@ export function testMergeImportAssignsUnknownLiveRecordsToCurrentStage(): void {
   assert(mergedDerived?.tradeKind === 'case' && mergedDerived.liveStageId === 'stage-current', '来源案例必须继承导入来源的阶段')
   assert(mergedStandalone?.tradeKind === 'case' && mergedStandalone.liveStageId === 'stage-current', '独立案例必须进入当前阶段')
   assert(imported.find((trade) => trade.id === paper.id)?.tradeKind === 'paper' && !Object.prototype.hasOwnProperty.call(imported.find((trade) => trade.id === paper.id), 'liveStageId'), 'paper 不得获得阶段字段')
-  assert(merged.weeklyRiskPreparations?.find((item) => item.id === preparation.id)?.liveStageId === 'stage-current', 'merge 风险草稿必须进入当前阶段')
-  assert(merged.riskPolicyVersions?.find((item) => item.id === policy.id)?.liveStageId === 'stage-current', 'merge 风险策略必须进入当前阶段')
-  assert(merged.monthlyRiskLimits?.find((item) => item.id === monthlyLimit.id)?.liveStageId === 'stage-current', 'merge 月度限额必须进入当前阶段')
-  assert(merged.riskOverrideEvents?.find((item) => item.id === overrideEvent.id)?.liveStageId === 'stage-current', 'merge 风险事件必须进入当前阶段')
+  assert(!merged.weeklyRiskPreparations?.some((item) => item.id === preparation.id), '未知归属风险草稿不得配置当前阶段')
+  assert(!merged.riskPolicyVersions?.some((item) => item.id === policy.id), '未知归属风险策略不得配置当前阶段')
+  assert(!merged.monthlyRiskLimits?.some((item) => item.id === monthlyLimit.id), '未知归属月度限额不得配置当前阶段')
+  assert(!merged.riskOverrideEvents?.some((item) => item.id === overrideEvent.id), '未知归属风险事件不得写入当前阶段')
+  assert(riskSetupStateForStage({
+    riskPolicyVersions: merged.riskPolicyVersions ?? [],
+    monthlyRiskLimits: merged.monthlyRiskLimits ?? [],
+  }, 'stage-current', '2026-08-20') === 'unconfigured', '导入后当前阶段仍须本地确认建档')
+  assert(warnings.some((message) => message.includes('风险配置')), '跳过未知归属风险配置必须记录非敏感警告')
   const mergedReview = merged.weeklyReviews?.find((item) => item.id === weeklyReview.id)
   assert(mergedReview?.liveStageId === 'stage-current', 'merge 周复盘必须进入当前阶段')
   assert(mergedReview.riskSnapshot?.policyVersions[0]?.liveStageId === 'stage-current', 'merge 冻结风险策略必须进入当前阶段')
   assert(mergedReview.riskSnapshot?.overrideEvents[0]?.liveStageId === 'stage-current', 'merge 冻结风险事件必须进入当前阶段')
+}
+
+export function testMergeImportPreservesExplicitKnownHistoricalRiskWithoutConfiguringCurrentStage(): void {
+  const current = currentState()
+  const fixture = createFullPersistedSnapshotFixture()
+  const policy = { ...fixture.riskPolicyVersions[0]!, id: 'historical-policy', liveStageId: 'stage-old' }
+  const preparation = {
+    ...fixture.weeklyRiskPreparations[0]!,
+    id: 'historical-preparation',
+    liveStageId: 'stage-old',
+    confirmedPolicyVersionId: policy.id,
+  }
+  const monthlyLimit = {
+    ...fixture.monthlyRiskLimits[0]!,
+    id: 'historical-limit',
+    liveStageId: 'stage-old',
+    sourcePolicyVersionId: policy.id,
+  }
+
+  const merged = mergeImportPayload(current, {
+    version: 12,
+    trades: [],
+    weeklyRiskPreparations: [preparation],
+    riskPolicyVersions: [policy],
+    monthlyRiskLimits: [monthlyLimit],
+    riskOverrideEvents: [],
+    strategies: current.strategies,
+    starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: current.display,
+  })
+
+  assert(merged.riskPolicyVersions?.some((item) => item.id === policy.id && item.liveStageId === 'stage-old'), '已知本地历史阶段风险策略必须保留原归属')
+  assert(merged.weeklyRiskPreparations?.some((item) => item.id === preparation.id && item.liveStageId === 'stage-old'), '已知历史草稿必须保留原归属')
+  assert(merged.monthlyRiskLimits?.some((item) => item.id === monthlyLimit.id && item.liveStageId === 'stage-old'), '已知历史月限额必须保留原归属')
+  assert(riskSetupStateForStage({
+    riskPolicyVersions: merged.riskPolicyVersions ?? [],
+    monthlyRiskLimits: merged.monthlyRiskLimits ?? [],
+  }, 'stage-current', '2026-08-20') === 'unconfigured', '历史风险资料不得完成当前阶段建档')
 }
 
 export function testMergeImportRejectsUnknownLocalStageReference(): void {

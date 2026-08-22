@@ -34,6 +34,35 @@ function reorderedKeys<T extends object>(value: T): T {
   return Object.fromEntries(Object.entries(value).reverse()) as T
 }
 
+function createHistoricalRiskImportFixture(): PersistedSnapshot {
+  const fixture = createFullPersistedSnapshotFixture()
+  const historical = {
+    ...fixture.liveStages[0]!,
+    status: 'archived' as const,
+    endsOn: '2026-07-31',
+    archivedAt: '2026-08-01T00:00:00.000Z',
+  }
+  const current = {
+    id: 'live-stage-local-current',
+    sequence: historical.sequence + 1,
+    name: '本地当前阶段',
+    status: 'current' as const,
+    startsOn: '2026-08-01',
+    endsOn: null,
+    createdAt: '2026-08-01T00:00:00.000Z',
+    archivedAt: null,
+  }
+  return {
+    ...fixture,
+    liveStages: [historical, current],
+    currentLiveStageId: current.id,
+    trades: fixture.trades.map((item) => ({
+      ...item,
+      activities: [{ id: `create:${item.id}`, kind: 'create' as const, timestamp: item.openedAt }],
+    })),
+  }
+}
+
 export function testMergeImportKeepsCurrentLibraryLiveCycleStart(): void {
   const current = createFullPersistedSnapshotFixture()
   current.liveStatsStartTradingDayKey = '2026-07-27'
@@ -663,8 +692,8 @@ export function testLegacyJsonWithoutStrategiesCannotCreateDanglingTradeReferenc
 }
 
 export function testJsonMergeUsesUpdatedDraftAndAppendsNewImmutableRiskEntities(): void {
-  const current = createFullPersistedSnapshotFixture()
-  const imported = createFullPersistedSnapshotFixture()
+  const current = createHistoricalRiskImportFixture()
+  const imported = createHistoricalRiskImportFixture()
   const currentPreparation = current.weeklyRiskPreparations[0]!
   const currentPolicy = current.riskPolicyVersions[0]!
   const merged = mergeImportPayload(current, {
@@ -679,7 +708,8 @@ export function testJsonMergeUsesUpdatedDraftAndAppendsNewImmutableRiskEntities(
     monthlyRiskLimits: [
       ...imported.monthlyRiskLimits,
       {
-        id: 'monthly-risk-limit:2026-08',
+        id: `monthly-risk-limit:${currentPreparation.liveStageId}:2026-08`,
+        liveStageId: currentPreparation.liveStageId,
         monthKey: '2026-08',
         limitR: 8,
         sourcePolicyVersionId: currentPolicy.id,
@@ -700,8 +730,8 @@ export function testJsonMergeUsesUpdatedDraftAndAppendsNewImmutableRiskEntities(
 }
 
 export function testRiskPolicyVersionSameIdAndCanonicalContentDeduplicates(): void {
-  const current = createFullPersistedSnapshotFixture()
-  const imported = createFullPersistedSnapshotFixture()
+  const current = createHistoricalRiskImportFixture()
+  const imported = createHistoricalRiskImportFixture()
   imported.riskPolicyVersions = [reorderedKeys(imported.riskPolicyVersions[0]!)]
   const merged = mergeImportPayload(current, { version: 9, ...imported })
   assert(merged.riskPolicyVersions?.length === 1, '相同 policy 不得重复追加')
@@ -709,8 +739,8 @@ export function testRiskPolicyVersionSameIdAndCanonicalContentDeduplicates(): vo
 }
 
 export function testRiskPolicyVersionSameIdWithDifferentContentRejectsImport(): void {
-  const current = createFullPersistedSnapshotFixture()
-  const imported = createFullPersistedSnapshotFixture()
+  const current = createHistoricalRiskImportFixture()
+  const imported = createHistoricalRiskImportFixture()
   imported.riskPolicyVersions = [{
     ...imported.riskPolicyVersions[0]!,
     disciplineText: '冲突的纪律内容',
@@ -723,8 +753,8 @@ export function testRiskPolicyVersionSameIdWithDifferentContentRejectsImport(): 
 }
 
 export function testMonthlyRiskLimitSameIdAndCanonicalContentDeduplicates(): void {
-  const current = createFullPersistedSnapshotFixture()
-  const imported = createFullPersistedSnapshotFixture()
+  const current = createHistoricalRiskImportFixture()
+  const imported = createHistoricalRiskImportFixture()
   imported.monthlyRiskLimits = [reorderedKeys(imported.monthlyRiskLimits[0]!)]
   const merged = mergeImportPayload(current, { version: 9, ...imported })
   assert(merged.monthlyRiskLimits?.length === 1, '相同月限额不得重复追加')
@@ -732,8 +762,8 @@ export function testMonthlyRiskLimitSameIdAndCanonicalContentDeduplicates(): voi
 }
 
 export function testMonthlyRiskLimitSameIdWithDifferentContentRejectsImport(): void {
-  const current = createFullPersistedSnapshotFixture()
-  const imported = createFullPersistedSnapshotFixture()
+  const current = createHistoricalRiskImportFixture()
+  const imported = createHistoricalRiskImportFixture()
   imported.monthlyRiskLimits = [{ ...imported.monthlyRiskLimits[0]!, limitR: 8.5 }]
   const conflict = captureImmutableImportConflict(
     () => mergeImportPayload(current, { version: 9, ...imported }),
@@ -743,8 +773,8 @@ export function testMonthlyRiskLimitSameIdWithDifferentContentRejectsImport(): v
 }
 
 export function testRiskOverrideEventSameIdAndCanonicalContentDeduplicates(): void {
-  const current = createFullPersistedSnapshotFixture()
-  const imported = createFullPersistedSnapshotFixture()
+  const current = createHistoricalRiskImportFixture()
+  const imported = createHistoricalRiskImportFixture()
   imported.riskOverrideEvents = [reorderedKeys(imported.riskOverrideEvents[0]!)]
   const merged = mergeImportPayload(current, { version: 9, ...imported })
   assert(merged.riskOverrideEvents?.length === 1, '相同 override event 不得重复追加')
@@ -752,8 +782,8 @@ export function testRiskOverrideEventSameIdAndCanonicalContentDeduplicates(): vo
 }
 
 export function testRiskOverrideEventSameIdWithDifferentContentRejectsImport(): void {
-  const current = createFullPersistedSnapshotFixture()
-  const imported = createFullPersistedSnapshotFixture()
+  const current = createHistoricalRiskImportFixture()
+  const imported = createHistoricalRiskImportFixture()
   imported.riskOverrideEvents = [{
     ...imported.riskOverrideEvents[0]!,
     reason: '冲突的覆盖原因',

@@ -178,18 +178,23 @@ export function TradeOpenRiskDialog() {
   const reloadRequired = commitState === 'reload-required'
 
   if (setupRequest) {
+    const isStageMismatch = setupRequest.reason === 'not-current-stage'
     return (
       <ModalShell
-        title="先完成当前阶段风险设置"
-        description={`${trade.ref} · ${trade.symbol} · 首次进入持仓前必须建立本阶段风险规则`}
+        title={isStageMismatch ? '无法打开非当前阶段交易' : '先完成当前阶段风险设置'}
+        description={isStageMismatch
+          ? `${trade.ref} · ${trade.symbol} · 交易归属与当前实盘阶段不一致`
+          : `${trade.ref} · ${trade.symbol} · 首次进入持仓前必须建立本阶段风险规则`}
         onClose={close}
         size="compact"
         footer={(
           <>
             <Button variant="bordered" size="lg" onClick={close}>取消开仓</Button>
-            <Link className="ui-btn ui-btn-primary ui-btn-lg" to="/settings/risk" onClick={close}>
-              前往风险设置
-            </Link>
+            {isStageMismatch ? null : (
+              <Link className="ui-btn ui-btn-primary ui-btn-lg" to="/settings/risk" onClick={close}>
+                前往风险设置
+              </Link>
+            )}
           </>
         )}
       >
@@ -197,8 +202,10 @@ export function TradeOpenRiskDialog() {
           <div className="trade-open-risk-callout is-unknown">
             <Shield size={ICON_LG} aria-hidden />
             <div>
-              <strong>当前实盘阶段尚未建立风险规则</strong>
-              <p>请先设置资金基准、日周月止损线并确认本周规则；完成后再重新开仓。</p>
+              <strong>{isStageMismatch ? '历史或未归属交易不能在当前阶段开仓' : '当前实盘阶段尚未建立风险规则'}</strong>
+              <p>{isStageMismatch
+                ? '请保留该交易的原阶段归属；如需新交易，请在当前阶段另行创建 planned trade。'
+                : '请先设置资金基准、日周月止损线并确认本周规则；完成后再重新开仓。'}</p>
             </div>
           </div>
         </section>
