@@ -200,7 +200,7 @@ export async function testQuaternaryDeclarationInventoryIsClosedAndDisabledNever
     ...allow('src/views/ShortcutsView.css', 'edge metadata', 'color', ['.shortcuts-unassigned']),
     ...allow('src/views/TodayWorkspace.css', 'edge metadata', 'color', ['.today-queue-tabs strong']),
     ...allow('src/views/TrashView.css', 'edge metadata', 'color', ['.trash-search', '.trash-search-input::placeholder', '.trash-search-count', '.trash-group-count']),
-    ...allow('src/views/WeeklyReviewView.css', 'edge metadata', 'color', ['.wr-history-title', '.wr-history button small', '.wr-section-head small', '.wr-metric small', '.wr-missed-summary > div > span', '.wr-missed-summary small', '.wr-missed-summary b', '.wr-evidence-tags small', '.wr-evidence-tags b', '.wr-evidence-group-title small', '.wr-footer-action span', '.wr-chart-loading-label', '.wr-trend-start span']),
+    ...allow('src/views/WeeklyReviewView.css', 'edge metadata', 'color', ['.wr-section-head small', '.wr-metric small', '.wr-missed-summary > div > span', '.wr-missed-summary small', '.wr-missed-summary b', '.wr-evidence-tags small', '.wr-evidence-tags b', '.wr-evidence-group-title small', '.wr-footer-action span', '.wr-chart-loading-label', '.wr-trend-start span']),
   ]
   assertExactQuaternaryInventory(sheets, allowlist)
   assertDisabledRulesUseDisabledToken(sheets)
