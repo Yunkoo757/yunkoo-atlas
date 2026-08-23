@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   ANALYTICS_FIXTURE_SEED,
   checksumFixture,
+  createAnalyticsLegacyV11Snapshot,
   createAnalyticsSnapshot,
   createAnalyticsTrades,
   inspectAnalyticsFixture,
@@ -87,6 +88,32 @@ test('10k 快照可作为隔离存储的完整输入', () => {
     !['win', 'loss', 'breakeven'].includes(trade.status) ||
     trade.closedTradingDayKey === trade.closedAt.slice(0, 10)
   )), '可持久化的实盘终态 fixture 必须冻结平仓交易日')
+})
+
+test('v11 仪表盘 fixture 使用真实旧周期边界而不混入原生阶段字段', () => {
+  const snapshot = createAnalyticsLegacyV11Snapshot({
+    count: 10_000,
+    seed: ANALYTICS_FIXTURE_SEED,
+    noteProfile: 'short',
+  })
+
+  assert.equal(snapshot.trades.length, 10_000)
+  assert.equal(snapshot.liveStatsStartTradingDayKey, '2024-01-01')
+  assert.deepEqual(snapshot.livePerformanceCycles, [])
+  for (const field of ['liveStages', 'currentLiveStageId', 'scheduledStageRollover']) {
+    assert.equal(Object.prototype.hasOwnProperty.call(snapshot, field), false, `v11 fixture 不得包含 ${field}`)
+  }
+  assert.ok(
+    snapshot.trades.every((trade) => !Object.prototype.hasOwnProperty.call(trade, 'liveStageId')),
+    'v11 交易不得预写 native stage ownership，必须由真实迁移建立',
+  )
+  assert.ok(
+    snapshot.trades.every((trade) => (
+      typeof trade.closedTradingDayKey !== 'string' ||
+      trade.closedTradingDayKey >= snapshot.liveStatsStartTradingDayKey
+    )),
+    '旧 current 边界必须覆盖全部可靠 fixture 日期，迁移后 10K 样本才属于 current stage',
+  )
 })
 
 test('基准 fixture 校验和被冻结，避免无意改写性能样本', () => {

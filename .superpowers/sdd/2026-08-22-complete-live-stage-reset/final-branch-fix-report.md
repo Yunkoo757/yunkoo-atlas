@@ -50,6 +50,7 @@
 - 真实恢复 runner 同时等待 Playwright 主框架 `framenavigated` 与主进程 `did-navigate` observer/`storage:recover` IPC 收尾；不再把 renderer 已提交导航误当成主进程 QA 状态已经可读。双观察者屏障仍逐项断言 lifecycle 已替换、commit 时 exclusive 为真且 recovery 已结束。
 - 图片 QA 在触发 paste 前安装 save-cycle observer，只有先观测到非 saved 状态再进入新的 saved 才继续 reload 校验；不再依赖产品有意延迟显示、且可能在检查前结束的 dirty/saving DOM。图片 reload、asset ID、两交易 ownership 与 lightbox 断言保持不变。
 - 完整 QA 的回归 runner 在每次 `vite.build()` 后及异常 `finally` 恢复调用方 `NODE_ENV`，避免 production React 依赖预构建污染后续开发服务器；工作台入口和安全复制对话框改用当前可访问名称，不再等待已移除的 `.empty-btn`/旧标题。真实工作台长流程 35/35 全绿。
+- 10K production-preview 门继续真实执行 v11→v12 迁移，但输入改为一致的 legacy v11 快照：不再把 native `liveStages`/ownership 与旧 manifest 混装，并用覆盖固定样本日期的合法旧 current 边界保证迁移后的 9,996 笔已平仓实盘仍进入 current Dashboard。完整功能观察与冻结性能预算同时 GREEN。
 - 最终 focused storage/GC/recovery fault-injection 集合 49 项全绿；bundle/recovery workflow fixtures 15 项全绿；两轮独立只读复审均明确 Closed。
 
 ## 5. 验证门与稳定证据

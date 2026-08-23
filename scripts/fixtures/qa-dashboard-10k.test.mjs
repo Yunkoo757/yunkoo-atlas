@@ -105,9 +105,11 @@ test('本地与托管 Windows 的 10k 入口、冷恢复及热恢复预算分别
   assert.equal(hostedColdOverBudget.releasePassed, false)
 })
 
-test('10k fixture 以 v8 manifest 和真实附件记录装入隔离 IndexedDB', () => {
+test('10k fixture 以 v11 manifest 和真实附件记录装入隔离 IndexedDB', () => {
   const source = readFileSync('scripts/qa-dashboard-10k.mjs', 'utf8')
-  assert.match(source, /schemaVersion: 8/)
+  assert.match(source, /schemaVersion: 11/)
+  assert.match(source, /createAnalyticsLegacyV11Snapshot\(/)
+  assert.doesNotMatch(source, /const snapshot = createAnalyticsSnapshot\(/)
   assert.match(source, /db\.transaction\(\['snapshot', 'meta', 'assets'\]/)
   assert.match(source, /tx\.objectStore\('assets'\)\.put/)
   assert.match(source, /assetCount: assetIds\.length/)

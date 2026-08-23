@@ -168,6 +168,28 @@ export function createAnalyticsSnapshot(options = {}) {
   }
 }
 
+/**
+ * 10K production-preview QA deliberately exercises the v11 -> current migration path.
+ * Keep that payload genuinely legacy: native stage fields or preassigned ownership would
+ * contradict the v11 manifest. The explicit legacy boundary keeps the full deterministic
+ * corpus in the migrated current stage instead of correctly quarantining it as pre-cycle history.
+ */
+export function createAnalyticsLegacyV11Snapshot(options = {}) {
+  const native = createAnalyticsSnapshot(options)
+  const {
+    liveStages: _liveStages,
+    currentLiveStageId: _currentLiveStageId,
+    scheduledStageRollover: _scheduledStageRollover,
+    ...shared
+  } = native
+  return {
+    ...shared,
+    trades: native.trades.map(({ liveStageId: _liveStageId, ...trade }) => trade),
+    liveStatsStartTradingDayKey: '2024-01-01',
+    livePerformanceCycles: [],
+  }
+}
+
 function sign(value) {
   return typeof value === 'number' && Number.isFinite(value) ? Math.sign(value) : null
 }

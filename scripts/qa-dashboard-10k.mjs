@@ -14,7 +14,7 @@ import {
 import {
   ANALYTICS_FIXTURE_SEED,
   checksumFixture,
-  createAnalyticsSnapshot,
+  createAnalyticsLegacyV11Snapshot,
   inspectAnalyticsFixture,
 } from './fixtures/analytics-trades.mjs'
 
@@ -140,7 +140,7 @@ async function writeSnapshotToIsolatedIndexedDb(page, snapshotJson, fixtureCheck
         }
         tx.objectStore('meta').put(
           {
-            schemaVersion: 8,
+            schemaVersion: 11,
             libraryId: 'analytics-10k-isolated',
             createdAt: '2026-07-15T00:00:00.000Z',
             platform: 'web',
@@ -284,7 +284,7 @@ export async function runDashboard10kQa({
   const packageJson = JSON.parse(readFileSync(resolve('package.json'), 'utf8'))
   const warmups = smoke ? 1 : 5
   const runs = smoke ? 2 : 30
-  const snapshot = createAnalyticsSnapshot({
+  const snapshot = createAnalyticsLegacyV11Snapshot({
     count: 10_000,
     seed: ANALYTICS_FIXTURE_SEED,
     noteProfile: '2kb',
