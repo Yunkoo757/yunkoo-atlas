@@ -51,7 +51,8 @@ import {
   buildThisWeekPerformanceSelection,
   PERFORMANCE_REPORT_CURRENCY,
 } from '@/lib/performanceSelection'
-import { filterStageOwnedRecords } from '@/lib/stageArchive'
+import { filterStageOwnedRecords, resolveStageScope } from '@/lib/stageArchive'
+import { parseTradeWorkspaceQuery } from '@/lib/tradeWorkspaceQuery'
 import './Dashboard.css'
 
 const RANGE_OPTS: { value: AnalysisRange; label: string }[] = [
@@ -78,6 +79,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
   const allTrades = useStore((s) => s.trades)
   const profile = useStore((s) => s.profile)
   const strategyDefs = useStore((s) => s.strategies)
+  const liveStages = useStore((s) => s.liveStages)
   const currentLiveStageId = useStore((s) => s.currentLiveStageId)
   const privacyMode = useStore((s) => s.display.privacyMode)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
@@ -87,39 +89,44 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
   const parsedScope = useMemo(() => parseAnalysisScope(searchParams).scope, [searchParams])
-  /** 仪表盘固定仅实盘；URL 中的 paper/all 会在下方 effect 纠偏 */
-  const scope = useMemo(
-    (): AnalysisScope => ({ kind: 'live', range: parsedScope.range }),
-    [parsedScope.range],
+  const workspaceQuery = useMemo(
+    () => parseTradeWorkspaceQuery(searchParams, liveStages, currentLiveStageId),
+    [currentLiveStageId, liveStages, searchParams],
   )
-  const currentStageTrades = useMemo(
-    () => filterStageOwnedRecords(allTrades, { kind: 'current', stageId: currentLiveStageId }),
-    [allTrades, currentLiveStageId],
+  const scope = useMemo(
+    (): AnalysisScope => ({ kind: workspaceQuery.kind, range: parsedScope.range }),
+    [parsedScope.range, workspaceQuery.kind],
+  )
+  const stageScope = useMemo(
+    () => resolveStageScope(workspaceQuery.stage, liveStages, currentLiveStageId),
+    [currentLiveStageId, liveStages, workspaceQuery.stage],
+  )
+  const scopedTrades = useMemo(
+    () => filterStageOwnedRecords(allTrades, stageScope),
+    [allTrades, stageScope],
   )
   const performanceBounds = null
   const hasPerformanceBounds = false
 
   useEffect(() => {
     const next = writeAnalysisScope(searchParams, scope)
-    next.set('liveStage', 'current')
     next.delete('statsCycle')
     next.delete('liveCycle')
     if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true })
   }, [
-    parsedScope.kind,
     scope,
     searchParams,
     setSearchParams,
   ])
 
   const performanceSelection = useMemo(
-    () => buildPerformanceSelection(currentStageTrades, {
+    () => buildPerformanceSelection(scopedTrades, {
       scope,
       anchor: businessDateAnchor,
       legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption,
     }),
     [
-      currentStageTrades,
+      scopedTrades,
       scope,
       localDateKey,
       tradingDayStartHour,
@@ -127,13 +134,13 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
     ],
   )
   const activeTrades = useMemo(
-    () => currentStageTrades.filter((trade) =>
+    () => scopedTrades.filter((trade) =>
       !trade.deletedAt &&
       isAccountTrade(trade) &&
       isActive(trade.status) &&
-      trade.tradeKind === 'live',
+      (scope.kind === 'all' || trade.tradeKind === scope.kind),
     ),
-    [currentStageTrades],
+    [scope.kind, scopedTrades],
   )
   const tradeById = useMemo(
     () => new Map(allTrades.filter((trade) => !trade.deletedAt).map((trade) => [trade.id, trade])),
@@ -142,45 +149,45 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
 
   const stats = useMemo(
     () => buildDashboardStats(
-      currentStageTrades,
+      scopedTrades,
       strategyDefs,
       performanceSelection.eligibleMetricIds,
       tradingDayStartHour,
       performanceSelection.pnlIds,
     ),
-    [currentStageTrades, performanceSelection.eligibleMetricIds, performanceSelection.pnlIds, strategyDefs, tradingDayStartHour],
+    [scopedTrades, performanceSelection.eligibleMetricIds, performanceSelection.pnlIds, strategyDefs, tradingDayStartHour],
   )
   const missingPerformanceCloseDayCount = useMemo(
     () => {
-      const liveTradeIds = new Set(currentStageTrades.filter((trade) => trade.tradeKind === 'live').map((trade) => trade.id))
+      const liveTradeIds = new Set(scopedTrades.filter((trade) => trade.tradeKind === 'live').map((trade) => trade.id))
       return [
         ...performanceSelection.missingCloseDayIds,
         ...performanceSelection.invalidCloseDayIds,
       ].filter((id) => liveTradeIds.has(id)).length
     },
-    [currentStageTrades, performanceSelection.invalidCloseDayIds, performanceSelection.missingCloseDayIds],
+    [scopedTrades, performanceSelection.invalidCloseDayIds, performanceSelection.missingCloseDayIds],
   )
   const weekStart = useMemo(() => weekStartFor(new Date(`${localDateKey}T12:00:00`)), [localDateKey])
   const weekRangeLabel = useMemo(() => formatDashboardWeekRange(weekStart), [weekStart])
   const weekPerformanceSelection = useMemo(
-    () => buildThisWeekPerformanceSelection(currentStageTrades, {
+    () => buildThisWeekPerformanceSelection(scopedTrades, {
       scope,
       anchor: businessDateAnchor,
       legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption,
     }),
-    [currentStageTrades, scope, businessDateAnchor, profile.legacyCashCurrencyAssumption],
+    [scopedTrades, scope, businessDateAnchor, profile.legacyCashCurrencyAssumption],
   )
   const weekMetrics = useMemo(() => {
     const weekEligibleIds = new Set(weekPerformanceSelection.eligibleMetricIds)
-    const weekTrades = currentStageTrades.filter((trade) => weekEligibleIds.has(trade.id))
+    const weekTrades = scopedTrades.filter((trade) => weekEligibleIds.has(trade.id))
     const missed = missedTradesInWeek(
-      currentStageTrades,
+      scopedTrades,
       weekStart,
       tradingDayStartHour,
       performanceBounds,
     )
     return buildWeeklyReviewMetrics(weekTrades, missed, weekPerformanceSelection.pnlIds)
-  }, [currentStageTrades, tradingDayStartHour, weekPerformanceSelection, weekStart])
+  }, [scopedTrades, tradingDayStartHour, weekPerformanceSelection, weekStart])
   const rangeLabel = RANGE_LABELS[scope.range] ?? '全部'
   const scopedClosedCount = performanceSelection.eligibleMetricIds.length
     + performanceSelection.conflictResultIds.length
@@ -205,14 +212,28 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
     .sort((left, right) => right[1] - left[1])
     .map(([reason, count]) => `${MISS_REASON_META[reason as MissReason]?.label ?? '其他'} ×${count}`)
     .join(' · ')
-  const strategyLiveStage = 'current'
+  const strategyLiveStage = workspaceQuery.stage
   const performanceDrilldownParams = new URLSearchParams(performanceSelection.drilldownTarget)
-  performanceDrilldownParams.set('liveStage', 'current')
+  if (workspaceQuery.stage === 'current') performanceDrilldownParams.delete('liveStage')
+  else performanceDrilldownParams.set('liveStage', workspaceQuery.stage)
   const performanceDrilldownHref = `/list?${performanceDrilldownParams.toString()}`
+  const activeListParams = new URLSearchParams()
+  activeListParams.set('view', 'active')
+  if (workspaceQuery.stage !== 'current') activeListParams.set('liveStage', workspaceQuery.stage)
+  if (scope.kind !== 'live') activeListParams.set('kind', scope.kind)
+  const activeListHref = `/list?${activeListParams.toString()}`
 
   const updateScope = (patch: Partial<AnalysisScope>) => {
-    setSearchParams(writeAnalysisScope(searchParams, { ...scope, ...patch, kind: 'live' }), { replace: true })
+    setSearchParams(writeAnalysisScope(searchParams, { ...scope, ...patch }), { replace: true })
   }
+
+  const selectedStage = workspaceQuery.stage === 'current'
+    ? liveStages.find((stage) => stage.id === currentLiveStageId)
+    : liveStages.find((stage) => stage.id === workspaceQuery.stage)
+  const stageLabel = workspaceQuery.stage === 'all-history'
+    ? '全部历史阶段'
+    : selectedStage?.name ?? '当前阶段'
+  const kindLabel = scope.kind === 'all' ? '全部记录' : scope.kind === 'paper' ? '模拟盘' : '实盘'
 
   const openTrade = (tradeId: string) => {
     const t = tradeById.get(tradeId)
@@ -223,14 +244,14 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
 
   return (
     <>
-      <Topbar title="仪表盘" subtitle="仅统计已平仓 · 按平仓日累计 · 报告币种 USD" showDisplay={false} />
+      <Topbar title="统计分析" subtitle="仅统计已平仓 · 按平仓日累计 · 报告币种 USD" showDisplay={false} />
       {header}
       <div className="db-scroll">
         <div className="db-analysis-rail">
         <div className="db-toolbar" aria-label="分析控制">
           <div className="db-toolbar-group" aria-label="数据范围">
             <span className="db-toolbar-label">数据范围</span>
-            <strong className="db-toolbar-current">当前实盘</strong>
+            <strong className="db-toolbar-current">{stageLabel} · {kindLabel}</strong>
           </div>
           <div className="db-toolbar-group" aria-label="统计周期">
             <span className="db-toolbar-label">统计周期</span>
@@ -244,7 +265,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
           </div>
           <div className="db-toolbar-actions">
             <Link
-              to="/list?kind=live&range=all&liveStage=current"
+              to={performanceDrilldownHref}
               className="db-toolbar-link"
               data-current-live-trade-link
             >
@@ -274,10 +295,10 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
           <div>
             <span className="db-current-range-eyebrow">当前分析范围</span>
             <h2 className="db-current-range-title" data-dashboard-current-range>
-              {rangeLabel} · 当前实盘
+              {rangeLabel} · {stageLabel} · {kindLabel}
             </h2>
           </div>
-          <Link to="/live-history?liveStage=all-history&tab=overview" className="db-live-link">历史实盘</Link>
+          <Link to={performanceDrilldownHref} className="db-live-link">查看该范围交易</Link>
         </header>
 
         <div className="db-cards" aria-label={`当前范围指标 · ${rangeLabel}`}>
@@ -361,18 +382,18 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
           <EmptyState
             className="db-empty"
             title={selectedPerformanceCycleIsEmpty
-              ? '当前实盘暂无已平仓记录'
+              ? '当前范围暂无已平仓记录'
               : hasPerformanceBounds
-                ? '当前时间范围暂无已平仓实盘'
+                ? '当前时间范围暂无已平仓记录'
                 : '还没有已平仓交易'}
             hint={selectedPerformanceCycleIsEmpty
-                  ? '历史阶段记录仍完整保留，可从历史实盘查看。'
+                  ? '可以调整阶段、记录类型或统计周期后继续查看。'
               : hasPerformanceBounds
-                ? '当前实盘有已平仓记录，可以切换时间范围查看。'
+                ? '该数据范围存在已平仓记录，可以切换统计周期查看。'
                 : '平仓并填写结果后，这里会生成盈亏曲线与策略表现。'}
             action={
               activeTrades.length > 0 ? (
-                <button type="button" className="empty-btn" onClick={() => navigate('/active')}>
+                <button type="button" className="empty-btn" onClick={() => navigate(activeListHref)}>
                   查看进行中交易
                 </button>
               ) : (

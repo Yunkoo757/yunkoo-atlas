@@ -222,7 +222,7 @@ export async function testElectronJournalImportRequiresExplicitReplacementConfir
 
 export function testPrimarySidebarNavigationMatchesApprovedArchitecture(): void {
   const routes = PRIMARY_NAV.map((item) => item.to)
-  const expected = ['/list', '/review-cases', '/review-session']
+  const expected = ['/list', '/dashboard', '/weekly-review', '/review-cases', '/review-session']
   assert(
     JSON.stringify(routes) === JSON.stringify(expected),
     `一级导航应为 ${expected.join(', ')}，实际为 ${routes.join(', ')}`,
@@ -431,8 +431,9 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
     '默认工作区配置应包含四个系统目标并保持迁移顺序',
   )
   assert(
-    PRIMARY_NAV.map((item) => item.id).join(',') === 'trades,reviewCases,reviewSession',
-    '核心模块必须收敛为交易日志、案例记录和随机复盘',
+    PRIMARY_NAV.map((item) => item.id).join(',')
+      === 'trades,dashboard,weeklyReview,reviewCases,reviewSession',
+    '核心模块必须收敛为交易日志、统计分析、周期复盘、案例记录和随机复盘',
   )
 
   const savedView = {
@@ -674,7 +675,7 @@ export async function testHeavyRoutesAreLoadedOnDemand(): Promise<void> {
 export async function testMissedOpportunityAggregateRouteAndViewContract(): Promise<void> {
   const fs = await import('node:fs/promises')
   const app = await fs.readFile('src/App.tsx', 'utf8')
-  const tradeLogNavigation = await fs.readFile('src/components/TradeLogNavigation.tsx', 'utf8')
+  const tradeWorkspaceContext = await fs.readFile('src/components/TradeWorkspaceContext.tsx', 'utf8')
   const filterBar = await fs.readFile('src/components/ui/FilterBar.tsx', 'utf8')
   const missedRouteStart = app.indexOf('path="/missed"')
   const missedRouteEnd = app.indexOf('path="/period/:slug"', missedRouteStart)
@@ -684,7 +685,7 @@ export async function testMissedOpportunityAggregateRouteAndViewContract(): Prom
     missedRouteBlock.includes('<LegacyTradeLogRedirect filter="missed" />'),
     '/missed 必须翻译到交易日志的错过机会范围',
   )
-  assert(tradeLogNavigation.includes("['missed', '错过机会']"), '交易日志范围栏必须提供错过机会入口')
+  assert(tradeWorkspaceContext.includes('选择交易阶段'), '交易工作台必须提供统一阶段入口')
   assert(filterBar.includes('actions?: ReactNode'), 'FilterBar 必须继续提供标准右侧动作槽')
   return
 
@@ -761,12 +762,12 @@ export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Pro
 export function testPrimarySidebarKeepsLegacyOrderCompatibleButRendersCanonicalOrder(): void {
   assert(
     normalizePrimarySidebarOrder(['dashboard', 'trades', 'dashboard', 'unknown'])
-      .join(',') === 'trades,reviewCases,reviewSession',
-    '旧快照中的已收纳入口应被兼容读取但不再进入核心导航',
+      .join(',') === 'dashboard,trades,weeklyReview,reviewCases,reviewSession',
+    '旧快照中的合法入口顺序应被兼容读取，并补齐新的一级入口',
   )
   assert(
     resolvePrimarySidebarNav().map((item) => item.id).join(',')
-      === 'trades,reviewCases,reviewSession',
+      === 'trades,dashboard,weeklyReview,reviewCases,reviewSession',
     '工作台主导航必须始终使用标准顺序',
   )
 }

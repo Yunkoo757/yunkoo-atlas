@@ -37,7 +37,7 @@ import { QuickViewBar } from '@/components/trades/QuickViewBar'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { Select } from '@/components/ui/Select'
 import { Tooltip } from '@/components/ui/Tooltip'
-import { isKnownTradeViewParam, preservePageOwnedSearch } from '@/lib/tradeViewParams'
+import { preservePageOwnedSearch } from '@/lib/tradeViewParams'
 import { useStore } from '@/store/useStore'
 import './TradeFilters.css'
 
@@ -82,7 +82,8 @@ export function TradeFilters({
   const isCaseWorkspace = workspaceKind === 'case' || workspaceKind === 'historical-case'
   const isPaperWorkspace = workspaceKind === 'paper'
   const usesQueryScope = isCaseWorkspace || isPaperWorkspace || Boolean(filter.historicalLiveScope)
-  const allowsTradeKindFacet = !filter.tradeKind && (
+  const unifiedTradeWorkspace = location.pathname === '/list' || location.pathname === '/board'
+  const allowsTradeKindFacet = !unifiedTradeWorkspace && !filter.tradeKind && (
     !filter.analysisScope || filter.analysisScope.kind === 'all'
   )
   const filterLabel = isCaseWorkspace
@@ -143,7 +144,7 @@ export function TradeFilters({
   } else if (filter.type === 'missed') {
     activeFilters.push({ key: 'missed-route', label: '错过的机会' })
   }
-  if (filter.tradeKind === 'paper') activeFilters.push({ key: 'kind-route', label: '模拟' })
+  if (filter.tradeKind === 'paper' && !unifiedTradeWorkspace) activeFilters.push({ key: 'kind-route', label: '模拟' })
   if (
     filter.tradeKind === 'case'
     && !filter.historicalLiveScope
@@ -230,22 +231,13 @@ export function TradeFilters({
       })
     }
   }
-  for (const [key, value] of searchParams) {
-    if (isKnownTradeViewParam(key)) continue
-    activeFilters.push({
-      key: `unsupported:${key}:${value}`,
-      label: `未支持的筛选条件，可移除`,
-      onRemove: () => setParam(key, ''),
-    })
-  }
   const searchText = searchParams.toString()
   const currentSavedView = savedViews.some((view) =>
     savedViewMatchesLocation(view, location.pathname, searchText),
   )
   const visibleActiveFilters = currentSavedView
     ? activeFilters.filter(
-        (item) => item.key.startsWith('unsupported:') ||
-          (isCaseWorkspace && item.key === 'reviewCategory'),
+        (item) => isCaseWorkspace && item.key === 'reviewCategory',
       )
     : activeFilters
 
@@ -265,7 +257,16 @@ export function TradeFilters({
     const mode = workbenchModeFromPathname(location.pathname)
     const next = filter.historicalLiveScope
       ? preservePageOwnedSearch(searchParams, { historicalLiveScope: filter.historicalLiveScope })
-      : new URLSearchParams()
+      : unifiedTradeWorkspace
+        ? (() => {
+            const shared = new URLSearchParams()
+            for (const key of ['liveStage', 'kind']) {
+              const value = searchParams.get(key)
+              if (value) shared.set(key, value)
+            }
+            return shared
+          })()
+        : new URLSearchParams()
     navigate({
       pathname: pathWithWorkbenchMode(base, mode),
       search: next.toString() ? `?${next.toString()}` : '',

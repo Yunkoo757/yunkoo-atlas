@@ -25,7 +25,7 @@ import { shouldPreventAppUnload } from './storage/unloadGuard'
 import { isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
-import { parseTradeLogSection, TradeLogNavigation } from './components/TradeLogNavigation'
+import { TradeWorkspaceContext } from './components/TradeWorkspaceContext'
 import { AppFrame } from './components/ui/AppFrame'
 import { StageRolloverBanner } from './components/StageRolloverBanner'
 import { CommandPalette } from './components/CommandPalette'
@@ -49,7 +49,12 @@ import { SettingsLayout } from './views/settings/SettingsLayout'
 import { TradeTrashView } from './views/TradeTrashView'
 import { StrategyHeader } from './components/StrategyHeader'
 import { getStrategyName } from './lib/strategies'
-import { resolveTradeLogFilter } from './lib/tradeFilters'
+import {
+  normalizeTradeWorkspaceSearch,
+  parseTradeWorkspaceQuery,
+  resolveTradeWorkspaceListFilter,
+  tradeWorkspacePageFromSearch,
+} from './lib/tradeWorkspaceQuery'
 import { normalizeReviewCaseScope } from './lib/reviewCaseScope'
 import { getTradingDayKey, isValidPeriodSlug, parseLocalDate, PERIOD_LABELS } from './lib/periods'
 import { routeWithSearch } from './lib/tradeView'
@@ -235,10 +240,6 @@ const Dashboard = lazy(() =>
 const DetailView = lazy(() =>
   import('./views/DetailView').then((module) => ({ default: module.DetailView })),
 )
-const LiveArchiveView = lazy(() =>
-  import('./views/LiveArchiveView').then((module) => ({ default: module.LiveArchiveView })),
-)
-
 function LegacyLiveArchiveRedirect() {
   const location = useLocation()
   const { archiveId } = useParams()
@@ -306,33 +307,39 @@ const ReviewTemplatesPanel = lazy(() =>
 
 export function TradeLogPage() {
   const { search } = useLocation()
-  const section = parseTradeLogSection(search)
-  const params = new URLSearchParams(search)
-  const header = <TradeLogNavigation section={section} />
-  if (section === 'stats') return <Dashboard header={header} />
-  if (section === 'reviews') return <WeeklyReviewView header={header} />
-  if (params.get('scope') === 'history') return <LiveArchiveView header={header} />
-  const source = params.get('source')
-  const quickFilter = params.get('filter')
-  const filter = source === 'paper'
-    ? { type: 'all' as const, tradeKind: 'paper' as const }
-    : quickFilter === 'active'
-      ? { type: 'active' as const, tradeKind: 'live' as const }
-      : quickFilter === 'starred'
-        ? { type: 'starred' as const, tradeKind: 'live' as const }
-        : quickFilter === 'missed'
-          ? { type: 'missed' as const, tradeKind: 'live' as const }
-          : quickFilter === 'incomplete'
-            ? { type: 'incomplete' as const, tradeKind: 'live' as const }
-            : resolveTradeLogFilter(search)
+  const { pathname } = useLocation()
+  const liveStages = useStore((state) => state.liveStages)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
+  const legacyPage = tradeWorkspacePageFromSearch(search)
+  const normalized = normalizeTradeWorkspaceSearch(search, liveStages, currentLiveStageId)
+  const normalizedSearch = normalized.toString()
+  if (legacyPage) {
+    return <Navigate to={{
+      pathname: legacyPage === 'stats' ? '/dashboard' : '/weekly-review',
+      search: normalizedSearch ? `?${normalizedSearch}` : '',
+    }} replace />
+  }
+  if (normalizedSearch !== new URLSearchParams(search).toString()) {
+    return <Navigate to={{ pathname, search: normalizedSearch ? `?${normalizedSearch}` : '' }} replace />
+  }
+  const query = parseTradeWorkspaceQuery(normalized, liveStages, currentLiveStageId)
+  const filter = resolveTradeWorkspaceListFilter(query)
   return (
     <TradesPage
       title="交易日志"
       filter={filter}
       listPath="/list"
-      header={header}
+      header={<TradeWorkspaceContext page="log" />}
     />
   )
+}
+
+function StatisticsPage() {
+  return <Dashboard header={<TradeWorkspaceContext page="stats" />} />
+}
+
+function WeeklyReviewPage() {
+  return <WeeklyReviewView header={<TradeWorkspaceContext page="review" />} />
 }
 
 function LegacyTradeLogRedirect({
@@ -348,7 +355,14 @@ function LegacyTradeLogRedirect({
 }) {
   const { search } = useLocation()
   const params = new URLSearchParams(search)
-  if (section) params.set('section', section)
+  if (section) {
+    params.delete('section')
+    const query = params.toString()
+    return <Navigate to={{
+      pathname: section === 'stats' ? '/dashboard' : '/weekly-review',
+      search: query ? `?${query}` : '',
+    }} replace />
+  }
   if (scope) params.set('scope', scope)
   if (source) params.set('source', source)
   if (filter) params.set('filter', filter)
@@ -533,14 +547,14 @@ function Shell() {
           <Route path="/review-cases/:scope" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope/board" element={<ReviewCasesPage />} />
           <Route path="/review-session" element={<ReviewSessionView />} />
-          <Route path="/weekly-review" element={<LegacyTradeLogRedirect section="reviews" />} />
+          <Route path="/weekly-review" element={<WeeklyReviewPage />} />
           <Route path="/paper" element={<Navigate to="/sim" replace />} />
           <Route path="/paper/board" element={<Navigate to="/sim/board" replace />} />
           <Route path="/practice" element={<Navigate to="/sim" replace />} />
           <Route path="/practice/board" element={<Navigate to="/sim/board" replace />} />
           <Route path="/strategy/:id" element={<StrategyPage />} />
           <Route path="/strategy/:id/board" element={<StrategyPage />} />
-          <Route path="/dashboard" element={<LegacyTradeLogRedirect section="stats" />} />
+          <Route path="/dashboard" element={<StatisticsPage />} />
           <Route path="/live-history" element={<LegacyTradeLogRedirect scope="history" />} />
           <Route path="/live-history/board" element={<LegacyTradeLogRedirect scope="history" />} />
           <Route path="/live-archive" element={<LegacyLiveArchiveRedirect />} />

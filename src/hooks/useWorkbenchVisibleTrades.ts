@@ -41,15 +41,12 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
     if (filter.strategySources?.some((source) => source !== 'trade')) return undefined
     if (filter.tradeKind === 'paper' || filter.analysisScope?.kind === 'paper') return undefined
     if (filter.tradeKind === 'case' && !filter.historicalLiveScope) return undefined
-    if (filter.historicalLiveScope) {
-      return resolveStageScope(
-        searchParams.get('liveStage'),
-        liveStages,
-        currentLiveStageId,
-        'history',
-      )
-    }
-    return { kind: 'current', stageId: currentLiveStageId }
+    return resolveStageScope(
+      searchParams.get('liveStage'),
+      liveStages,
+      currentLiveStageId,
+      filter.historicalLiveScope ? 'history' : 'current',
+    )
   }, [
     currentLiveStageId,
     filter.analysisScope?.kind,

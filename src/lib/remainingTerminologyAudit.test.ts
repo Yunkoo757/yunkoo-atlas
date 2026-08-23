@@ -44,10 +44,9 @@ export async function testPrimaryProductTermsStayConsistent(): Promise<void> {
 
 export async function testCombinedDashboardScopeNamesBothDataSources(): Promise<void> {
   const dashboard = await fs.readFile('src/views/Dashboard.tsx', 'utf8')
-  assert(dashboard.includes("kind: 'live'"), '仪表盘固定仅统计实盘')
-  assert(!dashboard.includes("{ value: 'paper', label: '模拟盘' }"), '仪表盘不得再提供模拟盘范围切换')
-  assert(!dashboard.includes("{ value: 'all', label: '实盘 + 模拟盘' }"), '仪表盘不得再提供实盘+模拟盘合并切换')
-  assert(!dashboard.includes("label: '全部类型'"), '合并统计不得继续使用无法判断口径的“全部类型”')
+  assert(dashboard.includes("scope.kind === 'all' ? '全部记录'"), '统计分析必须明确命名合并记录口径')
+  assert(dashboard.includes("scope.kind === 'paper' ? '模拟盘' : '实盘'"), '统计分析必须明确区分实盘与模拟盘')
+  assert(dashboard.includes('parseTradeWorkspaceQuery'), '统计分析必须消费统一工作台上下文')
 }
 
 export async function testDataSettingsFailuresKeepDiagnostics(): Promise<void> {

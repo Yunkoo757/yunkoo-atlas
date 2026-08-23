@@ -21,6 +21,8 @@ export const KNOWN_TRADE_VIEW_PARAMS = new Set([
   'caseScope',
   'archiveReason',
   'requestedKey',
+  'week',
+  'review',
   ...PAGE_OWNED_TRADE_VIEW_PARAMS,
 ])
 

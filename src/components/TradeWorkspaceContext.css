@@ -1,0 +1,85 @@
+.trade-workspace-context {
+  display: flex;
+  min-height: 48px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.trade-workspace-stage {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-tertiary);
+}
+
+.trade-workspace-stage-label {
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+}
+
+.trade-workspace-stage .ui-select-trigger {
+  width: auto;
+  min-width: 164px;
+  height: 32px;
+  background: var(--field-bg);
+}
+
+.trade-workspace-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+  background: color-mix(in srgb, var(--bg-app) 56%, transparent);
+}
+
+.trade-workspace-kind button {
+  min-width: 48px;
+  height: 28px;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--radius-6);
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: var(--type-metadata-size);
+  cursor: pointer;
+}
+
+.trade-workspace-kind button:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.trade-workspace-kind button.is-active {
+  color: var(--text-primary);
+  background: var(--bg-selected);
+}
+
+.trade-workspace-live-only {
+  height: 28px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--radius-6);
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  line-height: 28px;
+  background: color-mix(in srgb, var(--bg-hover) 56%, transparent);
+}
+
+.trade-workspace-context-note {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+}
+
+@media (max-width: 1099px) {
+  .trade-workspace-context-note,
+  .trade-workspace-stage-label {
+    display: none;
+  }
+}

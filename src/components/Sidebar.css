@@ -180,28 +180,6 @@
   background: var(--surface-row-selected);
 }
 
-/*
- * 新建按钮：
- * bg lch(10.691 0.493 272)
- * overlay = 0 0 0 1px lch(100% 0 0 / 0.088) + 两层微投影
- * 阴影画在元素自身（不用 ::after），避免 Electron 上伪元素外环发虚/发脏
- */
-.sb-hbtn-create {
-  z-index: var(--z-content);
-  color: var(--text-tertiary);
-  background: var(--surface-row-selected);
-  box-shadow: var(--sidebar-create-shadow);
-}
-.sb-hbtn-create::after {
-  content: none;
-}
-.sb-hbtn-create:hover,
-.sb-hbtn-create:active {
-  color: var(--accent-text);
-  background: var(--surface-control-hover);
-  box-shadow: var(--sidebar-create-shadow);
-}
-
 .sb-section {
   display: flex;
   flex-direction: column;
@@ -453,24 +431,56 @@ html[data-ui-settled='1'] .sb-item {
 
 .sb-quick-record {
   display: flex;
-  width: calc(100% - var(--sp-4));
-  min-height: 38px;
+  width: 100%;
+  min-height: 36px;
   align-items: center;
-  justify-content: center;
-  gap: var(--sp-2);
-  margin: var(--sp-2);
-  border: 1px solid color-mix(in srgb, var(--accent) 72%, var(--border-default));
-  border-radius: var(--radius-8);
-  background: var(--accent);
-  color: var(--accent-text);
+  gap: 9px;
+  margin: var(--sp-3) 0 var(--sp-3);
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-6);
+  background: transparent;
+  color: var(--text-secondary);
   font: inherit;
   font-size: var(--type-row-size);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
 }
 
 .sb-quick-record:hover {
-  background: color-mix(in srgb, var(--accent) 90%, white);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.sb-quick-record:active {
+  background: var(--bg-selected);
+}
+
+.sb-quick-record-icon {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-6);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: color-mix(in srgb, var(--accent) 72%, white);
+}
+
+.sb-quick-record kbd {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: var(--type-caption-size);
+  opacity: 0;
+  transform: translateX(2px);
+  transition: opacity var(--motion-fast), transform var(--motion-fast);
+}
+
+.sb-quick-record:hover kbd,
+.sb-quick-record:focus-visible kbd {
+  opacity: 1;
+  transform: none;
 }
 
 .sb-footer {

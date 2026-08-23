@@ -149,16 +149,12 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
     throw new Error('sidebar navigation must preserve the calibrated 28px / 8px geometry')
   }
   if (
-    !sidebar.includes('.sb-hbtn-create') ||
-    !sidebar.includes('background: var(--surface-row-selected)') ||
-    !tokens.includes('--sidebar-create-shadow: 0 0 0 1px lch(100% 0 0 / 0.088)') ||
-    !sidebar.includes('box-shadow: var(--sidebar-create-shadow)') ||
-    !sidebar.includes('border-radius: var(--radius-full)')
+    !sidebar.includes('.sb-quick-record') ||
+    !sidebar.includes('background: transparent') ||
+    !sidebar.includes('.sb-quick-record-icon') ||
+    !sidebar.includes('color-mix(in srgb, var(--accent) 16%, transparent)')
   ) {
-    throw new Error('sidebar create must preserve the 1px / 0.088 overlay shadow')
-  }
-  if (sidebar.includes('.sb-hbtn-create::after') && !sidebar.includes('content: none')) {
-    throw new Error('sidebar create overlay must paint on the button itself (Electron-safe), not ::after')
+    throw new Error('sidebar create must remain a quiet row action with accent limited to its icon')
   }
   if (!sidebar.includes('.sb-scroll') || !sidebar.includes('overflow: hidden')) {
     throw new Error('sidebar must scroll in .sb-scroll so header Create overlay is not clipped')
@@ -173,8 +169,8 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
     throw new Error('sidebar create must not use the stale 0.5px/0.132 overlay')
   }
   const sidebarRuntime = read('src/components/Sidebar.tsx')
-  if (!sidebarRuntime.includes('sb-hbtn-create') || !sidebarRuntime.includes('Compose')) {
-    throw new Error('sidebar create must use the elevated class and Compose icon')
+  if (!sidebarRuntime.includes('sb-quick-record-icon') || !sidebarRuntime.includes('<Plus')) {
+    throw new Error('sidebar create must use the compact plus action')
   }
   if (!sidebarRuntime.includes('sb-hbtn-search')) {
     throw new Error('sidebar search must keep an explicit sb-hbtn-search class')

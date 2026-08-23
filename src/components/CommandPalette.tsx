@@ -168,7 +168,7 @@ function CommandPaletteDialog({
       },
     ]
     const actions: Cmd[] = [
-      { id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: '快速记录', hint: shortcutHint('global.newTrade'), run: () => { requestClose(); openComposer(null, 'live') } },
+      { id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: '记录交易', hint: shortcutHint('global.newTrade'), run: () => { requestClose(); openComposer(null, 'live') } },
       { id: 'a-new-case', group: '操作', icon: <BookOpen size={ICON_MD} />, label: '新建案例记录', hint: shortcutHint('global.newCase'), run: () => { requestClose(); openComposer(null, 'case') } },
       { id: 'a-fullscreen', group: '操作', icon: <Maximize2 size={ICON_MD} />, label: '切换应用全屏', hint: shortcutHint('global.toggleFullscreen'), run: () => {
         requestClose()

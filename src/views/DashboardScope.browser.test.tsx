@@ -98,7 +98,7 @@ async function run(): Promise<void> {
   assert(element, '缺少测试挂载节点')
   const previous = useStore.getState()
   let root = createRoot(element)
-  const historicalWithFutureDate = liveTrade('historical', 'stage-old', 900, '2099-01-01')
+  const historicalWithFutureDate = liveTrade('historical', 'stage-old', 900, '2000-01-02')
   const currentWithOldDate = liveTrade('current', 'stage-current', 100, '2000-01-01')
 
   try {
@@ -119,11 +119,11 @@ async function run(): Promise<void> {
     )
 
     await waitFor(
-      () => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?kind=live&range=all&liveStage=current&symbol=BTCUSDT',
-      'Dashboard 必须规范为显式 current stage，并保留无关查询',
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?kind=live&range=all&liveStage=stage-old&symbol=BTCUSDT',
+      'Dashboard 必须规范盘型并保留用户选择的历史阶段',
     )
-    await waitFor(() => document.body.textContent?.includes('+$100') ?? false, 'Dashboard 必须统计当前 stage 的已编辑事实')
-    assert(!document.body.textContent?.includes('+$900'), '历史 stage 即使日期较新也不得进入当前 Dashboard')
+    await waitFor(() => document.body.textContent?.includes('+$900') ?? false, 'Dashboard 必须统计所选历史 stage 的已编辑事实')
+    assert(!document.body.textContent?.includes('+$100'), '当前 stage 不得混入历史阶段 Dashboard')
     assert(!document.body.textContent?.includes('+$1,000'), 'legacy 周期不得重新合并跨 stage 数据')
     const currentRangeHeading = document.querySelector<HTMLElement>('[data-dashboard-current-range]')
     const weekContext = document.querySelector<HTMLElement>('[aria-label="本周交易分析"]')
@@ -131,22 +131,22 @@ async function run(): Promise<void> {
     assert(Boolean(currentRangeHeading.compareDocumentPosition(weekContext) & Node.DOCUMENT_POSITION_FOLLOWING), '当前分析范围标题必须先于本周上下文')
 
     const currentLink = document.querySelector<HTMLAnchorElement>('[data-current-live-trade-link]')
-    assert(currentLink?.getAttribute('href') === '/list?kind=live&range=all&liveStage=current', '查看交易必须携带显式 current stage')
+    assert(currentLink?.getAttribute('href') === '/list?kind=live&range=all&liveStage=stage-old', '查看交易必须携带所选历史 stage')
     const strategyLink = document.querySelector<HTMLAnchorElement>('a.db-strat')
-    assert(strategyLink?.getAttribute('href') === '/strategy/breakout?kind=live&range=all&liveStage=current', '策略下钻必须携带 current stage')
+    assert(strategyLink?.getAttribute('href') === '/strategy/breakout?kind=live&range=all&liveStage=stage-old', '策略下钻必须携带所选历史 stage')
     const kpi = document.querySelector<HTMLAnchorElement>('[data-kpi-drilldown]')
-    assert(kpi?.getAttribute('href') === '/list?kind=live&range=all&liveStage=current', 'KPI 下钻必须携带同一 current stage')
+    assert(kpi?.getAttribute('href') === '/list?kind=live&range=all&liveStage=stage-old', 'KPI 下钻必须携带同一历史 stage')
 
     kpi.click()
-    await waitFor(() => document.querySelector('[data-testid="location"]')?.textContent === '/list?kind=live&range=all&liveStage=current', 'KPI 下钻没有保留 stage URL')
-    await waitFor(() => document.querySelectorAll('[data-trade-id]').length === 1, 'KPI 下钻必须与 Dashboard 当前 stage 集合一致')
-    assert(document.querySelector('[data-trade-id="current"]'), '下钻列表必须显示当前 stage 记录')
-    assert(!document.querySelector('[data-trade-id="historical"]'), '下钻列表不得显示历史 stage 记录')
+    await waitFor(() => document.querySelector('[data-testid="location"]')?.textContent === '/list?kind=live&range=all&liveStage=stage-old', 'KPI 下钻没有保留 stage URL')
+    await waitFor(() => document.querySelectorAll('[data-trade-id]').length === 1, 'KPI 下钻必须与 Dashboard 历史 stage 集合一致')
+    assert(document.querySelector('[data-trade-id="historical"]'), '下钻列表必须显示历史 stage 记录')
+    assert(!document.querySelector('[data-trade-id="current"]'), '下钻列表不得显示当前 stage 记录')
 
-    document.querySelector<HTMLButtonElement>('[aria-label="打开 BTCUSDT TRD-current"]')?.click()
-    await waitFor(() => Boolean(document.querySelector('[aria-label="返回列表"]')), '当前 stage 行必须继续使用原详情路径')
+    document.querySelector<HTMLButtonElement>('[aria-label="打开 BTCUSDT TRD-historical"]')?.click()
+    await waitFor(() => Boolean(document.querySelector('[aria-label="返回列表"]')), '历史 stage 行必须继续使用原详情路径')
     document.querySelector<HTMLAnchorElement>('[aria-label="返回列表"]')?.click()
-    await waitFor(() => document.querySelector('[data-testid="location"]')?.textContent === '/list?kind=live&range=all&liveStage=current', '详情返回必须恢复 stage 与过滤查询')
+    await waitFor(() => document.querySelector('[data-testid="location"]')?.textContent === '/list?kind=live&range=all&liveStage=stage-old', '详情返回必须恢复历史 stage 与过滤查询')
 
     const currentDay = getTradingDayKey(new Date(), useStore.getState().display.tradingDayStartHour)
     const usdLive = liveTrade('currency-usd', 'stage-current', 100, currentDay)
@@ -187,13 +187,13 @@ async function run(): Promise<void> {
       <MemoryRouter initialEntries={['/dashboard?kind=live&range=this-week&liveStage=current']}>
         <Routes>
           <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
-          <Route path="/active" element={<LocationProbe />} />
+          <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
         </Routes>
       </MemoryRouter>,
     )
     await waitFor(() => [...document.querySelectorAll<HTMLButtonElement>('button')].some((button) => button.textContent?.trim() === '查看进行中交易'), '当前 stage 只有持仓时必须显示查看进行中交易空状态')
     ;[...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '查看进行中交易')?.click()
-    await waitFor(() => document.querySelector('[data-testid="location"]')?.textContent === '/active', '空状态按钮必须打开进行中交易入口')
+    await waitFor(() => document.querySelector('[data-testid="location"]')?.textContent === '/list?view=active', '空状态按钮必须打开同一上下文的进行中交易')
 
     root.unmount()
     useStore.setState({ trades: [usdLive] })
@@ -227,7 +227,7 @@ async function run(): Promise<void> {
     )
     await waitFor(() => Boolean(document.querySelector('[data-kpi-drilldown]')), '本年 Dashboard 必须显示 KPI 下钻')
     const ytdDrilldown = document.querySelector<HTMLAnchorElement>('[data-kpi-drilldown]')
-    assert(ytdDrilldown?.getAttribute('href') === '/list?kind=live&range=ytd&liveStage=current', '本年下钻必须保留 YTD 与 current stage')
+    assert(ytdDrilldown?.getAttribute('href') === '/list?kind=live&range=ytd', '本年下钻必须保留 YTD；当前阶段使用默认语义')
     ytdDrilldown.click()
     await waitFor(() => document.querySelectorAll('[data-trade-id]').length === 1, '本年下钻列表必须与 Dashboard stage 集合一致')
     assert(document.querySelector('[data-trade-id="currency-usd"]'), '本年下钻必须显示同一当前 stage 交易')

@@ -8,7 +8,6 @@ import {
   Bookmark,
   Clock,
   FlaskConical,
-  Compose,
   MoreHorizontal,
   Plus,
   Search,
@@ -52,6 +51,7 @@ import {
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
 import { filterStageOwnedRecords } from '@/lib/stageArchive'
+import { sharedTradeWorkspaceSearch } from '@/lib/tradeWorkspaceQuery'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
@@ -294,6 +294,9 @@ export function useSidebarNavigationModel() {
     if (id === 'today') return workspaceRouteHref(todayTarget)
     if (id === 'trades') return workspaceRouteHref(tradeTarget)
     if (id === 'reviewCases') return workspaceRouteHref(caseTarget)
+    if (id === 'dashboard' || id === 'weeklyReview') {
+      return `${fallback}${sharedTradeWorkspaceSearch(search)}`
+    }
     return fallback
   }
 
@@ -696,10 +699,11 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       </div>
 
       <div className="sb-scroll">
-      <ShortcutTooltip actionId="global.newTrade" label="快速记录">
-        <button type="button" className="sb-quick-record sb-hbtn-create" onClick={() => openComposer(null, 'live')}>
-          <Compose size={ICON_MD} />
-          <span>快速记录</span>
+      <ShortcutTooltip actionId="global.newTrade" label="记录交易">
+        <button type="button" className="sb-quick-record" onClick={() => openComposer(null, 'live')}>
+          <span className="sb-quick-record-icon" aria-hidden="true"><Plus size={ICON_SM} /></span>
+          <span>记录交易</span>
+          <kbd>N</kbd>
         </button>
       </ShortcutTooltip>
       <nav className="sb-section sb-primary" aria-label="主要导航">

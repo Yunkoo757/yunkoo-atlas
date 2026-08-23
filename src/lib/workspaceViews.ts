@@ -32,8 +32,7 @@ export const WORKSPACE_VIEW_QUERY_KEYS = [
   'reviewCategory',
   'caseType',
   'masteryState',
-  // 仅在仪表盘/策略分析页生效；切换到普通工作区后必须移除，避免无效 URL 条件。
-  'kind',
+  // range 仅在仪表盘/策略分析页生效；kind 已提升为跨页公共上下文。
   'range',
   'view',
   'caseScope',
@@ -128,6 +127,8 @@ export function matchesWorkspaceView(
   const required = new URLSearchParams(target.search ?? '')
   if (![...required.entries()].every(([key, value]) => current.get(key) === value)) return false
   if (target.id === 'all') {
+    current.delete('liveStage')
+    current.delete('kind')
     return ![...current.values()].some((value) => value.trim())
   }
   // 「全部」等无 search 的基视图：有 status/session 等视图身份参数时不得误选中
@@ -157,7 +158,18 @@ export function searchForWorkspaceViewTarget(
   currentSearch: string | URLSearchParams,
   target: Pick<WorkspaceViewTarget, 'id' | 'search'>,
 ): string {
-  if (target.id === 'all') return ''
+  if (target.id === 'all') {
+    const source = typeof currentSearch === 'string'
+      ? new URLSearchParams(currentSearch)
+      : currentSearch
+    const next = new URLSearchParams()
+    for (const key of ['liveStage', 'kind']) {
+      const value = source.get(key)
+      if (value) next.set(key, value)
+    }
+    const text = next.toString()
+    return text ? `?${text}` : ''
+  }
   const next = canonicalizeTradeViewSearch(
     typeof currentSearch === 'string' ? currentSearch : currentSearch.toString(),
   )

@@ -66,6 +66,7 @@ import {
   WEEKLY_REVIEW_DRAFT_PREFIX,
 } from '@/storage/noteDrafts'
 import { useStore } from '@/store/useStore'
+import { parseTradeWorkspaceQuery } from '@/lib/tradeWorkspaceQuery'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import {
   peekTradeReturnRequest,
@@ -234,6 +235,26 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
   const currentWeek = weekStartFor(parseLocalDate(businessDateAnchor.currentTradingDayKey))
   const location = useLocation()
   const navigate = useNavigate()
+  const workspaceQuery = useMemo(
+    () => parseTradeWorkspaceQuery(location.search, liveStages, currentLiveStageId),
+    [currentLiveStageId, liveStages, location.search],
+  )
+  const contextParams = new URLSearchParams(location.search)
+  const requestedContextReview = assignedReviews.find(
+    (review) => review.id === contextParams.get('review'),
+  )
+  const selectedReviewStage = workspaceQuery.stage === 'current' && !contextParams.has('liveStage') && requestedContextReview?.liveStageId
+    ? liveStages.find((stage) => stage.id === requestedContextReview.liveStageId)
+    : workspaceQuery.stage === 'current'
+    ? liveStages.find((stage) => stage.id === currentLiveStageId)
+    : workspaceQuery.stage === 'all-history'
+      ? [...liveStages].filter((stage) => stage.status === 'archived').sort((left, right) => right.sequence - left.sequence)[0]
+      : liveStages.find((stage) => stage.id === workspaceQuery.stage)
+  const selectedReviewStageId = selectedReviewStage?.id ?? currentLiveStageId
+  const stageReviews = useMemo(
+    () => assignedReviews.filter((review) => review.liveStageId === selectedReviewStageId),
+    [assignedReviews, selectedReviewStageId],
+  )
   const returnRequest = peekTradeReturnRequest(
     { pathname: location.pathname, search: location.search },
     location.state,
@@ -251,9 +272,9 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
   const [returnRestoreActive, setReturnRestoreActive] = useState(Boolean(returnRequest))
   const currentStageTrades = useMemo(
     () => trades.filter((trade) =>
-      trade.tradeKind === 'live' && trade.liveStageId === currentLiveStageId,
+      trade.tradeKind === 'live' && trade.liveStageId === selectedReviewStageId,
     ),
-    [currentLiveStageId, trades],
+    [selectedReviewStageId, trades],
   )
   const availableWeeks = useMemo(
     () => deriveWeeklyReviewWeeks(
@@ -277,18 +298,19 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
           weekStart: review.weekStart,
           liveStageId: review.liveStageId,
         })),
-        currentLiveStageId,
+        currentLiveStageId: selectedReviewStageId,
         verifiedReturnWeek: verifiedReturnWeekRef.current,
         verifiedReturnReviewId: verifiedReturnReviewIdRef.current,
       },
     ),
-    [assignedReviews, availableWeeks, currentLiveStageId, currentWeek, location.search, returnRequest?.restoreSearch],
+    [assignedReviews, availableWeeks, currentWeek, location.search, returnRequest?.restoreSearch, selectedReviewStageId],
   )
   const { selectedWeek, selectedReviewId, tab } = routeResolution.state
   const [editorHtml, setEditorHtml] = useState('')
   const mainContentRef = useRef<HTMLElement>(null)
   const [overrideEventsOpen, setOverrideEventsOpen] = useState(false)
-  const [trendLiveStageId, setTrendLiveStageId] = useState<string | undefined>(currentLiveStageId)
+  const [trendLiveStageId, setTrendLiveStageId] = useState<string | undefined>(selectedReviewStageId)
+  useEffect(() => setTrendLiveStageId(selectedReviewStageId), [selectedReviewStageId])
   const [visualIssues, setVisualIssues] = useState<WeeklyVisualIssue[]>([])
   const pendingIssueFocusRef = useRef<WeeklyVisualIssue | null>(null)
   const editorReadyRef = useRef(false)
@@ -375,10 +397,10 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
 
   const storedReview = selectedReviewId
     ? assignedReviews.find((item) => item.id === selectedReviewId)
-    : assignedReviews.find((item) =>
-        item.weekStart === selectedWeek && item.liveStageId === currentLiveStageId,
+    : stageReviews.find((item) =>
+        item.weekStart === selectedWeek && item.liveStageId === selectedReviewStageId,
       )
-  const reviewLiveStageId = storedReview?.liveStageId ?? currentLiveStageId
+  const reviewLiveStageId = storedReview?.liveStageId ?? selectedReviewStageId
   const review = storedReview ?? createWeeklyReview(selectedWeek, reviewLiveStageId)
   const reviewTrades = useMemo(
     () => trades.filter((trade) =>
@@ -465,30 +487,30 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     const weekReviews = assignedReviews
       .filter((candidate) => candidate.weekStart === week)
       .sort((left, right) => {
-        const leftCurrent = left.liveStageId === currentLiveStageId ? 0 : 1
-        const rightCurrent = right.liveStageId === currentLiveStageId ? 0 : 1
+        const leftCurrent = left.liveStageId === selectedReviewStageId ? 0 : 1
+        const rightCurrent = right.liveStageId === selectedReviewStageId ? 0 : 1
         return leftCurrent - rightCurrent || left.id.localeCompare(right.id)
       })
     const needsCurrentStagePlaceholder = currentStageWeeks.includes(week) &&
-      !weekReviews.some((candidate) => candidate.liveStageId === currentLiveStageId)
+      !weekReviews.some((candidate) => candidate.liveStageId === selectedReviewStageId)
     return [
       ...(needsCurrentStagePlaceholder ? [{
-        key: `pending:${currentLiveStageId}:${week}`,
+        key: `pending:${selectedReviewStageId}:${week}`,
         week,
-        liveStageId: currentLiveStageId,
+        liveStageId: selectedReviewStageId,
         review: undefined,
       }] : []),
       ...weekReviews.map((item) => ({
         key: item.id,
         week,
-        liveStageId: item.liveStageId ?? currentLiveStageId,
+        liveStageId: item.liveStageId ?? selectedReviewStageId,
         review: item,
       })),
     ]
-  }), [assignedReviews, availableWeeks, currentLiveStageId, currentStageWeeks])
+  }), [assignedReviews, availableWeeks, currentStageWeeks, selectedReviewStageId])
   const selectedHistoryIndex = historyItems.findIndex((item) => selectedReviewId
     ? item.review?.id === selectedReviewId
-    : item.week === selectedWeek && item.liveStageId === currentLiveStageId)
+    : item.week === selectedWeek && item.liveStageId === selectedReviewStageId)
   const olderHistoryItem = selectedHistoryIndex >= 0 ? historyItems[selectedHistoryIndex + 1] : undefined
   const newerHistoryItem = selectedHistoryIndex > 0 ? historyItems[selectedHistoryIndex - 1] : undefined
   const hasReviewHistory = historyItems.length > 1
@@ -656,7 +678,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
 
   return (
     <>
-      <Topbar title="周复盘" subtitle="把本周复盘转成下周可验证的一件事" showDisplay={false} />
+      <Topbar title="周期复盘" subtitle="把本周复盘转成下周可验证的一件事" showDisplay={false} />
       {header}
       <div className={`wr-shell${hasReviewHistory ? '' : ' is-first-review'}`}>
         {hasReviewHistory ? (
@@ -666,7 +688,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
               const stageName = liveStages.find((stage) => stage.id === item.liveStageId)?.name ?? '未知阶段'
               const isActive = selectedReviewId
                 ? item.review?.id === selectedReviewId
-                : item.week === selectedWeek && item.liveStageId === currentLiveStageId
+                : item.week === selectedWeek && item.liveStageId === selectedReviewStageId
               return (
                 <button
                   key={item.key}

@@ -186,7 +186,7 @@ export function testTradeLogEnablesAnalysisOnlyForExplicitKindOrRange(): void {
   assert(live.tradeKind === undefined && paper.tradeKind === undefined && combined.tradeKind === undefined, '分析下钻不得被固定 live facet 截断')
 
   const app = readFileSync(path.resolve('src/App.tsx'), 'utf8')
-  assert(app.includes('resolveTradeLogFilter(search)'), '/list 与 /board 路由必须消费同一个显式分析 filter 解析器')
+  assert(app.includes('resolveTradeWorkspaceListFilter(query)'), '/list 与 /board 路由必须消费统一工作台查询解析器')
 }
 
 export function testCalendarPeriodsAndDashboardPerformanceKeepDifferentDateFields(): void {
@@ -411,7 +411,7 @@ export function testQuickViewsDropStaleAnalysisScopeButPreserveTransientAndUnkno
   )
   const params = new URLSearchParams(switched)
 
-  assert(!params.has('kind') && !params.has('range'), '离开策略分析页后不得保留失效分析范围')
+  assert(params.get('kind') === 'paper' && !params.has('range'), '快捷视图必须保留公共盘型并移除页面私有分析周期')
   assert(params.get('status') === 'loss', '快捷视图身份条件应写入目标 URL')
   assert(params.get('symbol') === 'BTCUSDT', '临时 facet 应跨快捷视图保留')
   assert(params.get('source') === 'weekly', '真正未知的参数不得被误删')
@@ -503,13 +503,17 @@ export function testFilterUiExposesCaseFacetsAndPaperQuickViews(): void {
   assert(!quickViews.includes("label: '时间',\n    items: [\n      { id: 'paper-week', label: '本周', pathname: '/list'"), '模拟快捷视图不得指向 /list')
 }
 
-export function testCrossTypeFacetsShareOneProductionPipelineAndExposeUnsupportedConditions(): void {
+export function testCrossTypeFacetsShareOneProductionPipelineAndNormalizeUnsupportedConditions(): void {
   const hook = readFileSync(
     path.resolve('src/hooks/useWorkbenchVisibleTrades.ts'),
     'utf8',
   )
   const filters = readFileSync(
     path.resolve('src/components/trades/TradeFilters.tsx'),
+    'utf8',
+  )
+  const workspaceQuery = readFileSync(
+    path.resolve('src/lib/tradeWorkspaceQuery.ts'),
     'utf8',
   )
 
@@ -522,8 +526,8 @@ export function testCrossTypeFacetsShareOneProductionPipelineAndExposeUnsupporte
     '固定类型工作区必须从 URL 移除陈旧记录类型条件',
   )
   assert(
-    filters.includes('未支持的筛选条件，可移除') &&
-      filters.includes("item.key.startsWith('unsupported:')"),
-    '未知保存条件必须可见且可清除，不能静默改变列表语义',
+    !filters.includes('未支持的筛选条件，可移除') &&
+      workspaceQuery.includes('if (!isKnownTradeViewParam(key)) next.delete(key)'),
+    '未知条件必须在工作台入口规范化，不得进入可见筛选状态',
   )
 }

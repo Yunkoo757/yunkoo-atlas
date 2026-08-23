@@ -92,7 +92,7 @@ async function run(): Promise<void> {
     const primaryLabels = [...document.querySelectorAll<HTMLElement>('.sb-primary [data-primary-id] .sb-item-label')]
       .map((node) => node.textContent?.trim())
     assert(
-      primaryLabels.join(',') === '交易日志,案例记录,随机复盘',
+      primaryLabels.join(',') === '交易日志,统计分析,周期复盘,案例记录,随机复盘',
       '旧持久化顺序不得改变精简后的核心导航顺序',
     )
 
