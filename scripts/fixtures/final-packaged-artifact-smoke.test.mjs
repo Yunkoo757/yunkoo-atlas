@@ -162,6 +162,9 @@ test('final artifact runner materializes final formats and drives only installed
 
 test('final artifact validates main and renderer provenance before the first migration write', () => {
   const source = readFileSync('scripts/run-final-packaged-artifact-smoke.mjs', 'utf8')
+  assert.match(source, /import \{ SCHEMA_VERSION \} from '\.\.\/src\/storage\/types\.ts'/)
+  assert.match(source, /manifest\.schemaVersion !== SCHEMA_VERSION/)
+  assert.match(source, /manifestSchemaVersion === SCHEMA_VERSION/)
   const start = source.indexOf('const initialIdentity =')
   const migration = source.indexOf('scenarioEvidence.migration =', start)
   const execution = source.slice(start, migration)

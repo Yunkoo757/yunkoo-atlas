@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url'
 
 import { _electron as electron } from 'playwright'
 import initSqlJs from 'sql.js'
+import { SCHEMA_VERSION } from '../src/storage/types.ts'
 
 import {
   closeElectronApplicationBounded,
@@ -353,7 +354,7 @@ async function runV11Migration(executablePath, libraryRoot, trackedProcesses, ex
   const manifest = JSON.parse(fs.readFileSync(path.join(libraryRoot, 'manifest.json'), 'utf8'))
   const residueAbsent = !fs.existsSync(path.join(libraryRoot, 'v8-to-v9.migration')) &&
     !fs.existsSync(path.join(libraryRoot, '.v8-to-v9-recovery'))
-  if (manifest.schemaVersion !== 12 || !residueAbsent || verified.liveStageIds?.length !== 1 ||
+  if (manifest.schemaVersion !== SCHEMA_VERSION || !residueAbsent || verified.liveStageIds?.length !== 1 ||
       !verified.currentTradeIds?.includes('trade-contract')) {
     throw new Error(`Installed payload v11 migration did not produce canonical v12 stage ownership: ${JSON.stringify({
       manifestSchemaVersion: manifest.schemaVersion,
@@ -913,7 +914,7 @@ export async function runFinalPackagedArtifactSmoke(argv = process.argv.slice(2)
   }
   const scenarios = [
     { id: 'identity', pass: Boolean(identityEvidence), detail: runtime },
-    { id: 'v11-migration', pass: scenarioEvidence.migration?.manifestSchemaVersion === 12, detail: scenarioEvidence.migration },
+    { id: 'v11-migration', pass: scenarioEvidence.migration?.manifestSchemaVersion === SCHEMA_VERSION, detail: scenarioEvidence.migration },
     { id: 'due-stage-rollover', pass: scenarioEvidence.rollover?.stageCount === 2, detail: scenarioEvidence.rollover },
     { id: 'library-switch', pass: scenarioEvidence.librarySwitch?.originalStageMatches === true, detail: scenarioEvidence.librarySwitch },
     { id: 'forced-kill-recovery', pass: scenarioEvidence.forcedKill?.signal === 'SIGKILL', detail: scenarioEvidence.forcedKill },
