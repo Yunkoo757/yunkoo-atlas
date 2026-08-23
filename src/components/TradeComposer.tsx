@@ -103,7 +103,6 @@ export function TradeComposer() {
   const [stopLoss, setStopLoss] = useState('')
   const [quickText, setQuickText] = useState('')
   const [showMore, setShowMore] = useState(false)
-  const [contentError, setContentError] = useState(false)
   const [caseType, setCaseType] = useState<CaseType>('exemplar')
   const [images, setImages] = useState<UploadedImage[]>([])
   const [isDragging, setIsDragging] = useState(false)
@@ -137,7 +136,6 @@ export function TradeComposer() {
     setStopLoss(editing?.stopLoss ? String(editing.stopLoss) : '')
     setQuickText('')
     setShowMore(Boolean(editing) || (requestedKind ?? defaultKind) === 'case')
-    setContentError(false)
     setCaseType(
       editing?.caseType ??
         (editing?.status === 'missed'
@@ -167,7 +165,6 @@ export function TradeComposer() {
       setStopLoss('')
       setQuickText('')
       setShowMore(false)
-      setContentError(false)
       setCaseType('exemplar')
       setImages([])
       setIsDragging(false)
@@ -249,12 +246,6 @@ export function TradeComposer() {
       toast('请先选择交易品种')
       return
     }
-    if (isQuickNew && images.length === 0 && !quickText.trim()) {
-      setContentError(true)
-      requestAnimationFrame(() => document.querySelector<HTMLInputElement>('[data-composer-quick-text]')?.focus())
-      return
-    }
-    setContentError(false)
     submittingRef.current = true
     setSubmitting(true)
 
@@ -440,20 +431,15 @@ export function TradeComposer() {
           </section>
 
           {isQuickNew ? (
-            <div className={`composer-quick-context${contentError ? ' has-error' : ''}`}>
-              <label htmlFor="composer-quick-text">一句话</label>
+            <div className="composer-quick-context">
+              <label htmlFor="composer-quick-text">一句话（可选）</label>
               <input
                 id="composer-quick-text"
                 data-composer-quick-text
                 value={quickText}
                 placeholder="记录当下看到的机会或判断"
-                aria-invalid={contentError}
-                onChange={(event) => {
-                  setQuickText(event.target.value)
-                  if (event.target.value.trim()) setContentError(false)
-                }}
+                onChange={(event) => setQuickText(event.target.value)}
               />
-              {contentError ? <span role="alert">请添加一句话或至少一张截图。</span> : null}
             </div>
           ) : null}
 

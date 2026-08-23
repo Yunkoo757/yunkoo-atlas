@@ -316,14 +316,6 @@
   outline: none;
 }
 
-.composer-quick-context.has-error input {
-  border-color: var(--danger);
-}
-
-.composer-quick-context.has-error > span {
-  color: var(--danger);
-}
-
 .composer-more-toggle {
   align-self: flex-start;
 }

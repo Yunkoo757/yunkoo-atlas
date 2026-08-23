@@ -222,6 +222,25 @@ async function run(): Promise<void> {
       !notifications.some((state) => state.category === 'ambiguous' && !state.starred),
       'Composer 不得通知规范化已完成但 focus 未升星的中间状态',
     )
+
+    const tradeCountBeforeEmptyQuickCreate = promotedState.trades.length
+    useStore.setState({
+      composerOpen: true,
+      composerTrade: null,
+      composerKind: 'live',
+    })
+    await waitFor(() => Boolean(findButton('保存记录')), '空内容快速记录 Composer 未就绪')
+    findButton('保存记录')?.click()
+    await waitFor(() => !useStore.getState().composerOpen, '空内容快速记录未完成保存')
+    const emptyQuickCreateState = useStore.getState()
+    assert(
+      emptyQuickCreateState.trades.length === tradeCountBeforeEmptyQuickCreate + 1,
+      '快速记录不得强制要求一句话或截图',
+    )
+    const emptyQuickTrade = emptyQuickCreateState.trades.find(
+      (trade) => !promotedState.trades.some((previous) => previous.id === trade.id),
+    )
+    assert(emptyQuickTrade?.note === '', '无一句话和截图时应保存为空笔记，而不是阻止记录')
   } finally {
     root?.unmount()
     rootElement?.remove()
