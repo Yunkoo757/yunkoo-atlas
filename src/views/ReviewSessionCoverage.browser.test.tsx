@@ -4,6 +4,7 @@ import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { ImageLightbox } from '@/components/ImageLightbox'
 import {
+  clearReviewSessionFilters,
   clearReviewSessionStorage,
   loadReviewSession,
 } from '@/lib/reviewSession'
@@ -125,6 +126,7 @@ async function run(): Promise<void> {
   const previous = useStore.getState()
   const previousShortcuts = useShortcutStore.getState()
   clearReviewSessionStorage(manifest.libraryId)
+  clearReviewSessionFilters(manifest.libraryId)
 
   const liveUnreviewedEmpty = {
     ...closedTradeBase('review-coverage-live-empty', 'TRD-COV-LIVE-EMPTY', 'BTCUSDT'),
@@ -284,6 +286,7 @@ async function run(): Promise<void> {
   } finally {
     root.unmount()
     clearReviewSessionStorage(manifest.libraryId)
+    clearReviewSessionFilters(manifest.libraryId)
     useStore.setState({
       trades: previous.trades,
       strategies: previous.strategies,

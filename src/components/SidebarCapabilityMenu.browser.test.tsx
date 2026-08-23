@@ -48,6 +48,12 @@ const sidebarItems: SidebarWorkspaceItem[] = [
     placement: 'pinned',
     order: 1,
   },
+  {
+    id: 'strategy:navigation-1',
+    target: { kind: 'strategy', strategyId: 'navigation-1' },
+    placement: 'pinned',
+    order: 2,
+  },
 ]
 
 async function run(): Promise<void> {
@@ -59,7 +65,7 @@ async function run(): Promise<void> {
   try {
     useStore.setState((state) => ({
       trades: [],
-      strategies: [],
+      strategies: [{ id: 'navigation-1', name: '导航1', icon: 'target', color: '#5e6ad2' }],
       savedTradeViews: [],
       display: {
         ...state.display,
@@ -179,6 +185,27 @@ async function run(): Promise<void> {
       document.querySelector('.ctx-label')?.textContent?.trim() === '可见工作区',
       '其他能力项应继续显示可见工作区菜单',
     )
+
+    const strategyMenu = document.querySelector<HTMLButtonElement>('[aria-label="导航1包含来源"]')
+    assert(strategyMenu, '策略项必须提供包含来源菜单')
+    strategyMenu.click()
+    await waitFor(() => document.body.textContent?.includes('当前实盘') === true, '策略来源菜单没有打开')
+    assert(document.body.textContent?.includes('模拟盘'), '策略来源必须包含模拟盘')
+    assert(document.body.textContent?.includes('案例'), '策略来源必须包含案例')
+    const caseOption = [...document.querySelectorAll<HTMLButtonElement>('.ctx button')]
+      .find((button) => button.textContent?.trim() === '案例')
+    assert(caseOption, '缺少案例来源选项')
+    caseOption.click()
+    await waitFor(
+      () => useStore.getState().display.sidebarWorkspaceItems.some((item) => (
+        item.target.kind === 'strategy'
+        && item.target.strategyId === 'navigation-1'
+        && item.target.workspaces?.includes('case')
+      )),
+      '勾选案例后没有写入策略来源',
+    )
+    const strategyLink = document.querySelector<HTMLAnchorElement>('[data-sidebar-workspace-id="strategy:navigation-1"]')
+    assert(strategyLink?.getAttribute('href')?.includes('sources=trade,case'), '策略链接必须带上合并来源')
   } finally {
     root.unmount()
     useStore.setState(previous, true)

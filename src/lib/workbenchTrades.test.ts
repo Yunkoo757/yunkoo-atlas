@@ -1,4 +1,5 @@
 import type { Trade } from '@/data/trades'
+import type { SidebarQuickWorkspace } from '@/lib/sidebarWorkspace'
 import { deriveWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 
@@ -63,6 +64,56 @@ export function testPaperWorkbenchKeepsItsOriginalSemantics(): void {
   const result = deriveWorkbenchVisibleTrades(options)
 
   assert(result.visible.map((item) => item.id).join() === 'paper', 'stage scope 不得改变模拟盘原有语义')
+}
+
+export function testStrategyCombinedSourcesKeepLiveCurrentAndCasesAcrossStages(): void {
+  const options = {
+    trades: [
+      trade('current-live', 'live', 'stage-current'),
+      trade('old-live', 'live', 'stage-old'),
+      trade('paper', 'paper'),
+      trade('old-case', 'case', 'stage-old'),
+      trade('current-case', 'case', 'stage-current'),
+      { ...trade('other-strategy', 'live', 'stage-current'), strategyId: 'other' },
+    ],
+    filter: {
+      type: 'strategy' as const,
+      strategyId: 'strategy',
+      strategySources: ['trade', 'paper', 'case'] as SidebarQuickWorkspace[],
+      liveStageId: 'stage-current',
+    },
+    starredIds: [],
+    display: { ...DEFAULT_DISPLAY, hideClosed: false },
+    search: '?sources=trade,paper,case',
+  }
+
+  const result = deriveWorkbenchVisibleTrades(options)
+  assert(
+    result.visible.map((item) => item.id).sort().join() === 'current-case,current-live,old-case,paper',
+    '策略合并列表必须只含当前实盘，并纳入模拟盘与全部历史案例',
+  )
+}
+
+export function testCaseWorkbenchKeepsAllStagesAsKnowledgeBase(): void {
+  const options = {
+    trades: [
+      trade('old-case', 'case', 'stage-old'),
+      trade('current-case', 'case', 'stage-current'),
+      trade('pending-case', 'case', null),
+      trade('current-live', 'live', 'stage-current'),
+    ],
+    filter: { type: 'all' as const, tradeKind: 'case' as const },
+    starredIds: [],
+    display: { ...DEFAULT_DISPLAY, hideClosed: false },
+    search: '',
+    stageScope: { kind: 'current' as const, stageId: 'stage-current' },
+  }
+
+  const result = deriveWorkbenchVisibleTrades(options)
+  assert(
+    result.visible.map((item) => item.id).sort().join() === 'current-case,old-case,pending-case',
+    '案例记录必须跨阶段保留，不得被新实盘阶段切空',
+  )
 }
 
 export function testHistoricalCaseWorkbenchUsesCaseStageOwnership(): void {

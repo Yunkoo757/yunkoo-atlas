@@ -146,9 +146,9 @@ function formatWeekRange(start: string): string {
     : `${left.getMonth() + 1}月${left.getDate()}日 – ${right.getMonth() + 1}月${right.getDate()}日`
 }
 
-function weekLabel(start: string, currentWeek: string): string {
-  if (start === currentWeek) return '本周'
-  if (start === addDays(currentWeek, -7)) return '上周'
+function weekLabel(start: string, currentWeek: string, isCurrentStage = false): string {
+  if (isCurrentStage && start === currentWeek) return '本周'
+  if (isCurrentStage && start === addDays(currentWeek, -7)) return '上周'
   return `${parseLocalDate(start).getMonth() + 1}月${parseLocalDate(start).getDate()}日`
 }
 
@@ -675,10 +675,10 @@ export function WeeklyReviewView() {
                   data-review-id={item.review?.id ?? ''}
                   data-review-stage-id={item.liveStageId}
                   data-review-week-state={item.review?.status ?? 'pending'}
-                  aria-label={`${weekLabel(item.week, currentWeek)} ${stageName} ${item.review?.status === 'completed' ? '已完成' : item.review ? '草稿' : '待补做'}`}
+                  aria-label={`${weekLabel(item.week, currentWeek, item.liveStageId === currentLiveStageId)} ${stageName} ${item.review?.status === 'completed' ? '已完成' : item.review ? '草稿' : '待补做'}`}
                   onClick={() => void changeReview(item)}
                 >
-                  <span className="wr-history-week">{weekLabel(item.week, currentWeek)}</span>
+                  <span className="wr-history-week">{weekLabel(item.week, currentWeek, item.liveStageId === currentLiveStageId)}</span>
                   <small className="wr-history-stage">{stageName}</small>
                   <i
                     className={item.review?.status === 'completed' ? 'is-complete' : item.review ? 'is-draft' : 'is-pending'}

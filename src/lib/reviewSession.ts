@@ -6,6 +6,7 @@ import {
 } from '@/lib/periods'
 import {
   matchesReviewCaseScope,
+  REVIEW_CASE_SCOPES,
   type ReviewCaseScope,
 } from '@/lib/reviewCaseScope'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
@@ -112,13 +113,94 @@ export function buildReviewAssessmentPatch(
 
 export type ReviewSessionStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
-const REVIEW_SESSION_SCOPES: ReviewCaseScope[] = [
-  'all',
-  'focus',
-  'mistakes',
-  'unreviewed',
-  'reviewed',
+const REVIEW_SESSION_SCOPES: readonly ReviewCaseScope[] = REVIEW_CASE_SCOPES
+
+export type ReviewSessionPresetId = 'due' | 'exemplar' | 'mistakes' | 'missed'
+
+export type ReviewSessionPreset = {
+  id: ReviewSessionPresetId
+  label: string
+  hint: string
+  filters: Pick<
+    ReviewSessionFilters,
+    'includeCases' | 'includeLiveTrades' | 'includePaperTrades' | 'caseScope' | 'reviewTiming'
+  >
+}
+
+export const REVIEW_SESSION_PRESETS: readonly ReviewSessionPreset[] = [
+  {
+    id: 'due',
+    label: '到期复盘',
+    hint: '到期案例，以及所选阶段内的实盘',
+    filters: {
+      includeCases: true,
+      includeLiveTrades: true,
+      includePaperTrades: false,
+      caseScope: 'all',
+      reviewTiming: 'due',
+    },
+  },
+  {
+    id: 'exemplar',
+    label: '交易案例',
+    hint: '全部案例知识库，含未到期与已掌握',
+    filters: {
+      includeCases: true,
+      includeLiveTrades: false,
+      includePaperTrades: false,
+      caseScope: 'all',
+      reviewTiming: 'all',
+    },
+  },
+  {
+    id: 'mistakes',
+    label: '错误合集',
+    hint: '错题案例，含未到期与已掌握',
+    filters: {
+      includeCases: true,
+      includeLiveTrades: false,
+      includePaperTrades: false,
+      caseScope: 'mistakes',
+      reviewTiming: 'all',
+    },
+  },
+  {
+    id: 'missed',
+    label: '错过的案例',
+    hint: '错过机会案例，含未到期与已掌握',
+    filters: {
+      includeCases: true,
+      includeLiveTrades: false,
+      includePaperTrades: false,
+      caseScope: 'missed',
+      reviewTiming: 'all',
+    },
+  },
 ]
+
+export function applyReviewSessionPreset(
+  current: ReviewSessionFilters,
+  preset: ReviewSessionPreset,
+): ReviewSessionFilters {
+  return {
+    ...current,
+    ...preset.filters,
+    includeAccountTrades: false,
+  }
+}
+
+export function matchReviewSessionPreset(
+  filters: ReviewSessionFilters,
+): ReviewSessionPresetId | null {
+  const matched = REVIEW_SESSION_PRESETS.find((preset) => (
+    filters.includeCases === preset.filters.includeCases &&
+    filters.includeLiveTrades === preset.filters.includeLiveTrades &&
+    filters.includePaperTrades === preset.filters.includePaperTrades &&
+    filters.caseScope === preset.filters.caseScope &&
+    filters.reviewTiming === preset.filters.reviewTiming
+  ))
+  return matched?.id ?? null
+}
 
 export const DEFAULT_REVIEW_SESSION_FILTERS: ReviewSessionFilters = {
   includeCases: true,
@@ -198,7 +280,7 @@ export function buildReviewSessionPool(
   const stageById = new Map(stageContext.liveStages.map((stage) => [stage.id, stage]))
   return trades.filter((trade) => {
     if (trade.deletedAt) return false
-    if (trade.tradeKind !== 'paper') {
+    if (trade.tradeKind === 'live') {
       const stage = typeof trade.liveStageId === 'string'
         ? stageById.get(trade.liveStageId)
         : undefined
@@ -335,6 +417,10 @@ export function reviewSessionStorageKey(libraryId: string): string {
   return `yunkoo-atlas:review-session:v3:${encodeURIComponent(libraryId)}`
 }
 
+export function reviewSessionFiltersStorageKey(libraryId: string): string {
+  return `yunkoo-atlas:review-session-filters:v1:${encodeURIComponent(libraryId)}`
+}
+
 function legacyReviewSessionStorageKeys(libraryId: string): string[] {
   const encoded = encodeURIComponent(libraryId)
   return [
@@ -351,6 +437,42 @@ function browserSessionStorage(): ReviewSessionStorage | null {
   }
 }
 
+function browserLocalStorage(): ReviewSessionStorage | null {
+  try {
+    return typeof localStorage === 'undefined' ? null : localStorage
+  } catch {
+    return null
+  }
+}
+
+function serializeReviewFilters(
+  filters: ReviewSessionFilters,
+  options: { omitLegacyTiming?: boolean } = {},
+): StoredReviewSessionFilters {
+  return {
+    includeCases: filters.includeCases,
+    includeLiveTrades: filters.includeLiveTrades,
+    includePaperTrades: filters.includePaperTrades,
+    caseScope: filters.caseScope,
+    requireContent: filters.requireContent,
+    ...(options.omitLegacyTiming ? {} : { reviewTiming: filters.reviewTiming }),
+    stageSource: filters.stageSource,
+  }
+}
+
+function restoreReviewFilters(filters: StoredReviewSessionFilters): ReviewSessionFilters {
+  return {
+    includeCases: filters.includeCases,
+    includeLiveTrades: filters.includeLiveTrades,
+    includePaperTrades: filters.includePaperTrades,
+    includeAccountTrades: false,
+    caseScope: filters.caseScope,
+    requireContent: filters.requireContent,
+    reviewTiming: filters.reviewTiming ?? DEFAULT_REVIEW_SESSION_FILTERS.reviewTiming,
+    stageSource: filters.stageSource ?? DEFAULT_REVIEW_SESSION_FILTERS.stageSource,
+  }
+}
+
 export function saveReviewSession(
   libraryId: string,
   snapshot: ReviewSessionSnapshot,
@@ -361,17 +483,9 @@ export function saveReviewSession(
     storage.setItem(reviewSessionStorageKey(libraryId), JSON.stringify({
       ids: snapshot.ids,
       cursor: snapshot.cursor,
-      filters: {
-        includeCases: snapshot.filters.includeCases,
-        includeLiveTrades: snapshot.filters.includeLiveTrades,
-        includePaperTrades: snapshot.filters.includePaperTrades,
-        caseScope: snapshot.filters.caseScope,
-        requireContent: snapshot.filters.requireContent,
-        ...(snapshot.restoredLegacyReviewTiming
-          ? {}
-          : { reviewTiming: snapshot.filters.reviewTiming }),
-        stageSource: snapshot.filters.stageSource,
-      },
+      filters: serializeReviewFilters(snapshot.filters, {
+        omitLegacyTiming: Boolean(snapshot.restoredLegacyReviewTiming),
+      }),
       assessments: snapshot.assessments,
     }))
     return true
@@ -401,11 +515,11 @@ export function loadReviewSession(
     const restoredLegacyReviewTiming = normalized.filters.reviewTiming === undefined
     const restored: ReviewSessionSnapshot = {
       ...normalized,
-      filters: {
+      filters: restoreReviewFilters({
         ...normalized.filters,
         reviewTiming: normalized.filters.reviewTiming ?? 'all',
         stageSource: normalized.filters.stageSource ?? 'current-and-history',
-      },
+      }),
       ...(restoredLegacyReviewTiming ? { restoredLegacyReviewTiming: true } : {}),
     }
     if (sourceKey !== key && saveReviewSession(libraryId, restored, storage)) {
@@ -441,6 +555,58 @@ export function clearReviewSession(
   return clearReviewSessionStorage(libraryId, storage)
 }
 
+export function saveReviewSessionFilters(
+  libraryId: string,
+  filters: ReviewSessionFilters,
+  storage: ReviewSessionStorage | null = browserLocalStorage(),
+): boolean {
+  if (!storage || !libraryId) return false
+  try {
+    storage.setItem(
+      reviewSessionFiltersStorageKey(libraryId),
+      JSON.stringify(serializeReviewFilters(filters)),
+    )
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function loadReviewSessionFilters(
+  libraryId: string,
+  storage: ReviewSessionStorage | null = browserLocalStorage(),
+): ReviewSessionFilters | null {
+  if (!storage || !libraryId) return null
+  const key = reviewSessionFiltersStorageKey(libraryId)
+  try {
+    const raw = storage.getItem(key)
+    if (!raw) return null
+    const value = JSON.parse(raw) as unknown
+    const normalized = normalizeStoredFilters(value)
+    if (!normalized) {
+      try { storage.removeItem(key) } catch { /* storage may be read-only */ }
+      return null
+    }
+    return restoreReviewFilters(normalized)
+  } catch {
+    try { storage.removeItem(key) } catch { /* storage may be unavailable */ }
+    return null
+  }
+}
+
+export function clearReviewSessionFilters(
+  libraryId: string,
+  storage: ReviewSessionStorage | null = browserLocalStorage(),
+): boolean {
+  if (!storage || !libraryId) return false
+  try {
+    storage.removeItem(reviewSessionFiltersStorageKey(libraryId))
+    return true
+  } catch {
+    return false
+  }
+}
+
 function isReviewSessionSnapshot(value: unknown): value is StoredReviewSessionSnapshot {
   if (!value || typeof value !== 'object') return false
   const snapshot = value as Partial<ReviewSessionSnapshot>
@@ -454,23 +620,26 @@ function isReviewSessionSnapshot(value: unknown): value is StoredReviewSessionSn
   return new Set(snapshot.ids).size === snapshot.ids.length
 }
 
-function normalizeStoredReviewSession(value: unknown): StoredReviewSessionSnapshot | null {
+function normalizeStoredFilters(value: unknown): StoredReviewSessionFilters | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
-  const snapshot = value as { filters?: Record<string, unknown> }
-  const filters = snapshot.filters
-  if (!filters || typeof filters !== 'object' || Array.isArray(filters)) return null
+  const filters = { ...(value as Record<string, unknown>) }
   if (
     typeof filters.includeLiveTrades !== 'boolean' ||
     typeof filters.includePaperTrades !== 'boolean'
   ) {
     if (typeof filters.includeAccountTrades !== 'boolean') return null
-    const legacyAccounts = filters.includeAccountTrades
-    snapshot.filters = {
-      ...filters,
-      includeLiveTrades: legacyAccounts,
-      includePaperTrades: legacyAccounts,
-    }
+    filters.includeLiveTrades = filters.includeAccountTrades
+    filters.includePaperTrades = filters.includeAccountTrades
   }
+  return isReviewSessionFilters(filters) ? filters : null
+}
+
+function normalizeStoredReviewSession(value: unknown): StoredReviewSessionSnapshot | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const snapshot = value as { filters?: unknown }
+  const filters = normalizeStoredFilters(snapshot.filters)
+  if (!filters) return null
+  snapshot.filters = filters
   return isReviewSessionSnapshot(value) ? value : null
 }
 

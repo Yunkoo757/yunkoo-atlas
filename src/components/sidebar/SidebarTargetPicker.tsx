@@ -34,8 +34,10 @@ type CatalogGroup =
   | { kind: 'simple'; label: string; items: CatalogItem[] }
 
 const CASE_VIEWS: CatalogItem[] = [
+  { label: '交易案例', domain: '案例记录', target: { kind: 'case-view', scope: 'exemplar' } },
   { label: '重点', domain: '案例记录', target: { kind: 'case-view', scope: 'focus' } },
   { label: '错题', domain: '案例记录', target: { kind: 'case-view', scope: 'mistakes' } },
+  { label: '错过的案例', domain: '案例记录', target: { kind: 'case-view', scope: 'missed' } },
   { label: '待复看', domain: '案例记录', target: { kind: 'case-view', scope: 'unreviewed' } },
   { label: '已掌握', domain: '案例记录', target: { kind: 'case-view', scope: 'reviewed' } },
 ]

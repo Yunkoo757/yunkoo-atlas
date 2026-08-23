@@ -1,6 +1,31 @@
 import type { ReviewCategory, Trade } from '@/data/trades'
 
-export type ReviewCaseScope = 'all' | 'focus' | 'mistakes' | 'unreviewed' | 'reviewed'
+export type ReviewCaseScope =
+  | 'all'
+  | 'focus'
+  | 'mistakes'
+  | 'unreviewed'
+  | 'reviewed'
+  | 'exemplar'
+  | 'missed'
+
+export const REVIEW_CASE_SCOPES: readonly ReviewCaseScope[] = [
+  'all',
+  'focus',
+  'mistakes',
+  'unreviewed',
+  'reviewed',
+  'exemplar',
+  'missed',
+]
+
+export function isReviewCaseScope(value: string | undefined): value is ReviewCaseScope {
+  return value !== undefined && (REVIEW_CASE_SCOPES as readonly string[]).includes(value)
+}
+
+export function normalizeReviewCaseScope(scope: string | undefined): ReviewCaseScope {
+  return isReviewCaseScope(scope) ? scope : 'all'
+}
 
 /** 案例快捷视图与随机复盘共享同一成员判定，避免同名 scope 漂移。 */
 export function matchesReviewCaseScope(
@@ -10,6 +35,8 @@ export function matchesReviewCaseScope(
 ): boolean {
   if (trade.tradeKind !== 'case') return false
   if (!scope || scope === 'all') return true
+  if (scope === 'exemplar') return trade.caseType === 'exemplar'
+  if (scope === 'missed') return trade.caseType === 'missed' || trade.status === 'missed'
   if (scope === 'focus') {
     return (
       starredIds.has(trade.id) ||

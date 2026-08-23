@@ -20,6 +20,13 @@ import {
 } from '@/lib/tradeView'
 import { filterStageOwnedRecords, type StageScope } from '@/lib/stageArchive'
 
+function shouldApplyStageScope(filter: ListFilter): boolean {
+  if (filter.tradeKind === 'paper') return false
+  if (filter.tradeKind === 'case' && !filter.historicalLiveScope) return false
+  if (filter.strategySources?.some((source) => source !== 'trade')) return false
+  return true
+}
+
 const REVIEW_CATEGORIES: ReviewCategory[] = [
   'normal',
   'mistake',
@@ -119,6 +126,17 @@ export function filterTrades(
   )
 }
 
+function matchesStrategySources(trade: Trade, filter: ListFilter): boolean {
+  if (filter.strategyId && trade.strategyId !== filter.strategyId) return false
+  const sources = new Set(filter.strategySources ?? [])
+  if (trade.tradeKind === 'live') {
+    return sources.has('trade') && (!filter.liveStageId || trade.liveStageId === filter.liveStageId)
+  }
+  if (trade.tradeKind === 'paper') return sources.has('paper')
+  if (trade.tradeKind === 'case') return sources.has('case')
+  return false
+}
+
 function matchesListFilter(
   trade: Trade,
   filter: ListFilter,
@@ -135,6 +153,9 @@ function matchesListFilter(
       break
     case 'strategy':
       if (filter.strategyId && trade.strategyId !== filter.strategyId) return false
+      if (filter.strategySources && filter.strategySources.length > 0) {
+        return matchesStrategySources(trade, filter)
+      }
       break
     case 'missed':
       if (!isMissed(trade.status)) return false
@@ -153,6 +174,10 @@ function matchesListFilter(
       break
     default:
       break
+  }
+
+  if (filter.strategySources && filter.strategySources.length > 0) {
+    return matchesStrategySources(trade, filter)
   }
 
   // 三域隔离：交易日志系统视图未显式声明时默认实盘；案例 / 模拟必须自带 tradeKind。
@@ -181,7 +206,7 @@ export function applyDisplayPrefs(
   // 错过机会页要看终态；案例记录是复盘样本，不受「隐藏已平仓」影响
   const skipHideClosed = filter?.type === 'missed' || filter?.tradeKind === 'case'
   const visible = prefs.hideClosed && !skipHideClosed
-    ? trades.filter((trade) => !isHiddenWhenClosedFilter(trade.status))
+    ? trades.filter((trade) => trade.tradeKind === 'case' || !isHiddenWhenClosedFilter(trade.status))
     : [...trades]
   return visible.sort((left, right) => {
     if (prefs.sortBy === 'pnl') return compareOptionalDesc(left.pnl, right.pnl)
@@ -226,7 +251,7 @@ export function deriveWorkbenchVisibleTrades(
   const tradingDayStartHour =
     options.display.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
   const sourceTrades = scopeHistoricalLiveTrades(
-    (options.stageScope
+    (options.stageScope && shouldApplyStageScope(options.filter)
       ? filterStageOwnedRecords(options.trades, options.stageScope)
       : options.trades
     ).filter((trade) => !trade.deletedAt),
@@ -299,7 +324,7 @@ export function countWorkbenchVisibleTrades(options: {
     options.display.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
   const starred = new Set(options.starredIds)
   const scopedInputTrades = scopeHistoricalLiveTrades(
-    (options.stageScope
+    (options.stageScope && shouldApplyStageScope(options.filter)
       ? filterStageOwnedRecords(options.trades, options.stageScope)
       : options.trades
     ).filter((trade) => !trade.deletedAt),
@@ -329,7 +354,7 @@ export function countWorkbenchVisibleTrades(options: {
     : cycleScopedTrades
   let count = 0
   for (const trade of sourceTrades) {
-    if (hideClosed && isHiddenWhenClosedFilter(trade.status)) continue
+    if (hideClosed && trade.tradeKind !== 'case' && isHiddenWhenClosedFilter(trade.status)) continue
     if (!matchesTradeFacets(
       trade,
       facets,

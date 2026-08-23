@@ -83,7 +83,7 @@ import {
   webJournalExtensionForMime,
   type ParsedWebJournalArchive,
 } from '@/lib/webJournalArchive'
-import { clearReviewSessionStorage } from '@/lib/reviewSession'
+import { clearReviewSessionFilters, clearReviewSessionStorage } from '@/lib/reviewSession'
 import {
   assertValidPersistedSnapshot,
 } from '@/storage/snapshotValidation'
@@ -1326,6 +1326,7 @@ export async function importJournalArchive(): Promise<{
     getElectronAdapter().clearObjectUrlCache()
     const manifest = await getStorage().getManifest()
     clearReviewSessionStorage(manifest.libraryId)
+    clearReviewSessionFilters(manifest.libraryId)
     applySnapshotToStore(result.snapshot)
     clearSessionUiAfterLibrarySwitch()
     safeToFlush = true
@@ -1375,6 +1376,7 @@ export async function restoreWebJournalArchive(
     safeToFlush = false
     const manifest = await getIndexedDbAdapter().getManifest()
     clearReviewSessionStorage(manifest.libraryId)
+    clearReviewSessionFilters(manifest.libraryId)
     applySnapshotToStore(archive.snapshot)
     clearSessionUiAfterLibrarySwitch()
     safeToFlush = true

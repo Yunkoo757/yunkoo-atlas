@@ -2,14 +2,21 @@ import type { Trade } from '@/data/trades'
 import { resolveTradeDetailReturn } from '@/lib/tradeRoute'
 import {
   DEFAULT_REVIEW_SESSION_FILTERS,
+  REVIEW_SESSION_PRESETS,
+  applyReviewSessionPreset,
+  matchReviewSessionPreset,
   buildReviewAssessmentPatch,
   buildReviewSessionPool,
+  clearReviewSessionFilters,
   clearReviewSessionStorage,
   loadReviewSession,
+  loadReviewSessionFilters,
   reconcileReviewSession,
   reviewFiltersForNextRound,
+  reviewSessionFiltersStorageKey,
   reviewSessionStorageKey,
   saveReviewSession,
+  saveReviewSessionFilters,
   shuffleReviewSessionIds,
   getReviewSessionContent,
   type ReviewSessionSnapshot,
@@ -118,15 +125,15 @@ class MemoryStorage {
 
 export function testDefaultReviewPoolIncludesCurrentAndEveryHistoricalStageByOwnership(): void {
   const trades: Trade[] = [
-    { ...baseTrade, id: 'oldest', ref: 'CAS-OLDEST', tradeKind: 'case', liveStageId: 'stage-oldest', openedAt: '2099-01-01' },
-    { ...baseTrade, id: 'previous', ref: 'CAS-PREVIOUS', tradeKind: 'case', liveStageId: 'stage-previous', openedAt: '1999-01-01' },
-    { ...baseTrade, id: 'current', ref: 'CAS-CURRENT', tradeKind: 'case', liveStageId: 'stage-current', openedAt: '2001-01-01' },
-    { ...baseTrade, id: 'pending-null', ref: 'CAS-NULL', tradeKind: 'case', liveStageId: null },
-    { ...baseTrade, id: 'pending-undefined', ref: 'CAS-UNDEFINED', tradeKind: 'case', liveStageId: undefined },
-    { ...baseTrade, id: 'unknown-stage', ref: 'CAS-UNKNOWN', tradeKind: 'case', liveStageId: 'stage-missing' },
+    { ...baseTrade, id: 'oldest', ref: 'LIVE-OLDEST', liveStageId: 'stage-oldest', openedAt: '2099-01-01' },
+    { ...baseTrade, id: 'previous', ref: 'LIVE-PREVIOUS', liveStageId: 'stage-previous', openedAt: '1999-01-01' },
+    { ...baseTrade, id: 'current', ref: 'LIVE-CURRENT', liveStageId: 'stage-current', openedAt: '2001-01-01' },
+    { ...baseTrade, id: 'pending-null', ref: 'LIVE-NULL', liveStageId: null },
+    { ...baseTrade, id: 'pending-undefined', ref: 'LIVE-UNDEFINED', liveStageId: undefined },
+    { ...baseTrade, id: 'unknown-stage', ref: 'LIVE-UNKNOWN', liveStageId: 'stage-missing' },
   ]
 
-  const pool = buildPool(trades)
+  const pool = buildPool(trades, { includeCases: false, includeLiveTrades: true })
 
   assert(
     pool.map((trade) => trade.id).join(',') === 'oldest,previous,current',
@@ -136,27 +143,55 @@ export function testDefaultReviewPoolIncludesCurrentAndEveryHistoricalStageByOwn
 
 export function testReviewStageSourcesSelectExactStageOwnedMembership(): void {
   const trades: Trade[] = [
-    { ...baseTrade, id: 'oldest', ref: 'CAS-OLDEST', tradeKind: 'case', liveStageId: 'stage-oldest' },
-    { ...baseTrade, id: 'previous', ref: 'CAS-PREVIOUS', tradeKind: 'case', liveStageId: 'stage-previous' },
-    { ...baseTrade, id: 'current', ref: 'CAS-CURRENT', tradeKind: 'case', liveStageId: 'stage-current' },
+    { ...baseTrade, id: 'oldest', ref: 'LIVE-OLDEST', liveStageId: 'stage-oldest' },
+    { ...baseTrade, id: 'previous', ref: 'LIVE-PREVIOUS', liveStageId: 'stage-previous' },
+    { ...baseTrade, id: 'current', ref: 'LIVE-CURRENT', liveStageId: 'stage-current' },
   ]
 
   assert(
-    buildPool(trades, { stageSource: 'current' }).map((trade) => trade.id).join(',') === 'current',
-    '仅当前阶段必须只保留 currentLiveStageId 的实体',
+    buildPool(trades, { includeCases: false, includeLiveTrades: true, stageSource: 'current' })
+      .map((trade) => trade.id).join(',') === 'current',
+    '仅当前阶段必须只保留 currentLiveStageId 的实盘',
   )
   assert(
-    buildPool(trades, { stageSource: 'all-history' }).map((trade) => trade.id).join(',') === 'oldest,previous',
-    '全部历史阶段必须排除当前阶段',
+    buildPool(trades, { includeCases: false, includeLiveTrades: true, stageSource: 'all-history' })
+      .map((trade) => trade.id).join(',') === 'oldest,previous',
+    '全部历史阶段必须排除当前阶段实盘',
   )
   assert(
-    buildPool(trades, { stageSource: { stageIds: ['stage-current', 'stage-previous', 'stage-previous', 'missing'] } })
-      .map((trade) => trade.id).join(',') === 'previous,current',
+    buildPool(trades, {
+      includeCases: false,
+      includeLiveTrades: true,
+      stageSource: { stageIds: ['stage-current', 'stage-previous', 'stage-previous', 'missing'] },
+    }).map((trade) => trade.id).join(',') === 'previous,current',
     '自选阶段必须去重、剔除缺失 ID，并按稳定阶段顺序选择精确成员',
   )
   assert(
-    buildPool(trades, { stageSource: { stageIds: [] } }).length === 0,
+    buildPool(trades, { includeCases: false, includeLiveTrades: true, stageSource: { stageIds: [] } }).length === 0,
     '空的自选阶段不得静默扩大到默认范围',
+  )
+}
+
+export function testReviewSessionCasesIgnoreLiveStageSource(): void {
+  const trades: Trade[] = [
+    { ...baseTrade, id: 'oldest', ref: 'CAS-OLDEST', tradeKind: 'case', liveStageId: 'stage-oldest' },
+    { ...baseTrade, id: 'previous', ref: 'CAS-PREVIOUS', tradeKind: 'case', liveStageId: 'stage-previous' },
+    { ...baseTrade, id: 'current', ref: 'CAS-CURRENT', tradeKind: 'case', liveStageId: 'stage-current' },
+    { ...baseTrade, id: 'pending-null', ref: 'CAS-NULL', tradeKind: 'case', liveStageId: null },
+    { ...baseTrade, id: 'unknown-stage', ref: 'CAS-UNKNOWN', tradeKind: 'case', liveStageId: 'stage-missing' },
+    { ...baseTrade, id: 'current-live', ref: 'LIVE-CURRENT', liveStageId: 'stage-current' },
+    { ...baseTrade, id: 'old-live', ref: 'LIVE-OLD', liveStageId: 'stage-oldest' },
+  ]
+
+  assert(
+    buildPool(trades, { includeLiveTrades: false, stageSource: 'current' })
+      .map((trade) => trade.id).join(',') === 'oldest,previous,current,pending-null,unknown-stage',
+    '阶段来源不得切割案例；未知或待整理阶段的案例仍可进入候选池',
+  )
+  assert(
+    buildPool(trades, { includeLiveTrades: true, includeCases: true, stageSource: 'current' })
+      .map((trade) => trade.id).join(',') === 'oldest,previous,current,pending-null,unknown-stage,current-live',
+    '仅当前阶段只约束实盘，案例仍含全部历史',
   )
 }
 
@@ -176,12 +211,12 @@ export function testStageSourceLeavesPaperChoiceIndependentAndPreservesEligibili
     includeAccountTrades: true,
   })
   assert(
-    historyWithAccounts.map((trade) => trade.id).join(',') === 'eligible-history,empty-live-history,paper-independent',
-    '阶段来源只过滤阶段实体；删除、掌握、到期继续生效，模拟盘仍由账户交易选项独立纳入',
+    historyWithAccounts.map((trade) => trade.id).join(',') === 'eligible-history,eligible-current,empty-live-history,paper-independent',
+    '阶段来源只过滤实盘；案例保留全部历史，删除、掌握、到期继续生效，模拟盘仍由账户交易选项独立纳入',
   )
   assert(
     buildPool(trades, { stageSource: 'all-history', includeAccountTrades: false })
-      .map((trade) => trade.id).join(',') === 'eligible-history,empty-live-history',
+      .map((trade) => trade.id).join(',') === 'eligible-history,eligible-current,empty-live-history',
     '关闭账户交易选项必须独立排除模拟盘',
   )
 }
@@ -368,7 +403,7 @@ export function testReviewSessionPaperIgnoresLiveStageSource(): void {
   })
   assert(
     currentOnly.map((trade) => trade.id).join(',') === 'current-live,any-paper',
-    '模拟盘不受实盘阶段来源限制；当前阶段过滤只能约束实盘与案例',
+    '模拟盘不受实盘阶段来源限制；当前阶段过滤只能约束实盘',
   )
 
   const emptyLiveSource = buildPool(trades, {
@@ -434,6 +469,43 @@ export function testReviewSessionCaseScopeUsesSharedStarredFocusRule(): void {
 
   assert(pool.map((trade) => trade.id).join(',') === 'starred-case',
     '重点 scope 应与案例页一致地包含星标案例')
+}
+
+export function testReviewSessionPresetsCoverCasesMistakesAndMissed(): void {
+  const trades: Trade[] = [
+    { ...baseTrade, id: 'exemplar', ref: 'CAS-EX', tradeKind: 'case', caseType: 'exemplar' },
+    { ...baseTrade, id: 'mistake', ref: 'CAS-MIS', tradeKind: 'case', caseType: 'mistake', reviewCategory: 'mistake' },
+    { ...baseTrade, id: 'missed', ref: 'CAS-SKIP', tradeKind: 'case', caseType: 'missed', status: 'missed' },
+    { ...baseTrade, id: 'mastered-exemplar', ref: 'CAS-OLD', tradeKind: 'case', caseType: 'exemplar', masteryState: 'mastered' },
+    { ...baseTrade, id: 'live', ref: 'TRD-1' },
+  ]
+  const casesOnly = applyReviewSessionPreset(
+    DEFAULT_REVIEW_SESSION_FILTERS,
+    REVIEW_SESSION_PRESETS.find((preset) => preset.id === 'exemplar')!,
+  )
+  const mistakes = applyReviewSessionPreset(
+    DEFAULT_REVIEW_SESSION_FILTERS,
+    REVIEW_SESSION_PRESETS.find((preset) => preset.id === 'mistakes')!,
+  )
+  const missed = applyReviewSessionPreset(
+    DEFAULT_REVIEW_SESSION_FILTERS,
+    REVIEW_SESSION_PRESETS.find((preset) => preset.id === 'missed')!,
+  )
+
+  assert(matchReviewSessionPreset(DEFAULT_REVIEW_SESSION_FILTERS) === 'due', '默认设置必须对应到期复盘预置')
+  assert(matchReviewSessionPreset(casesOnly) === 'exemplar', '交易案例预置必须可识别')
+  assert(
+    buildPool(trades, casesOnly).map((trade) => trade.id).join(',') === 'exemplar,mistake,missed,mastered-exemplar',
+    '交易案例预置必须覆盖全部案例知识库，含已掌握，且不含实盘',
+  )
+  assert(
+    buildPool(trades, mistakes).map((trade) => trade.id).join(',') === 'mistake',
+    '错误合集预置只能抽到错题案例',
+  )
+  assert(
+    buildPool(trades, missed).map((trade) => trade.id).join(',') === 'missed',
+    '错过的案例预置只能抽到错过机会',
+  )
 }
 
 export function testReviewSessionMistakesScopeExcludesMissedCases(): void {
@@ -669,7 +741,7 @@ export function testReviewSessionStageSourcePersistsAndMissingFieldMigratesToDef
 
 export function testReconcilePrunesMissingStageIdsWithoutCancellingSurvivingRound(): void {
   const snapshot: ReviewSessionSnapshot = {
-    ids: ['removed-stage-case', 'surviving-case', 'paper-survivor'],
+    ids: ['removed-stage-live', 'surviving-case', 'paper-survivor'],
     cursor: 1,
     filters: {
       ...DEFAULT_REVIEW_SESSION_FILTERS,
@@ -678,10 +750,10 @@ export function testReconcilePrunesMissingStageIdsWithoutCancellingSurvivingRoun
         stageIds: ['stage-current', 'stage-removed', 'stage-previous', 'stage-current'],
       },
     },
-    assessments: { 'removed-stage-case': 'mastered', 'surviving-case': 'recheck' },
+    assessments: { 'removed-stage-live': 'mastered', 'surviving-case': 'recheck' },
   }
   const trades: Trade[] = [
-    { ...baseTrade, id: 'removed-stage-case', ref: 'CAS-REMOVED', tradeKind: 'case', liveStageId: 'stage-removed' },
+    { ...baseTrade, id: 'removed-stage-live', ref: 'LIVE-REMOVED', liveStageId: 'stage-removed' },
     { ...baseTrade, id: 'surviving-case', ref: 'CAS-SURVIVING', tradeKind: 'case', liveStageId: 'stage-current' },
     paperTrade('paper-survivor'),
   ]
@@ -698,7 +770,7 @@ export function testReconcilePrunesMissingStageIdsWithoutCancellingSurvivingRoun
   assert(restored?.ids.join(',') === 'surviving-case,paper-survivor', '缺失阶段只能移除其失效实体，存活实体与模拟盘必须保留')
   assert(restored?.cursor === 0, '移除当前卡之前的失效实体后必须继续停留在同一张存活卡')
   assert(restored?.assessments['surviving-case'] === 'recheck', '存活实体的本轮评估必须保留')
-  assert(restored?.assessments['removed-stage-case'] === undefined, '失效阶段实体的评估必须同步剪枝')
+  assert(restored?.assessments['removed-stage-live'] === undefined, '失效阶段实盘的评估必须同步剪枝')
   assert(
     typeof restored?.filters.stageSource === 'object' &&
       restored.filters.stageSource.stageIds.join(',') === 'stage-previous,stage-current',
@@ -708,10 +780,12 @@ export function testReconcilePrunesMissingStageIdsWithoutCancellingSurvivingRoun
 
 export function testReconcileKeepsExplicitEmptySelectionInsteadOfBroadeningScope(): void {
   const snapshot: ReviewSessionSnapshot = {
-    ids: ['removed-stage-case'],
+    ids: ['removed-stage-live'],
     cursor: 0,
     filters: {
       ...DEFAULT_REVIEW_SESSION_FILTERS,
+      includeCases: false,
+      includeLiveTrades: true,
       stageSource: { stageIds: ['stage-removed'] },
     },
     assessments: {},
@@ -719,7 +793,7 @@ export function testReconcileKeepsExplicitEmptySelectionInsteadOfBroadeningScope
 
   const restored = reconcileReviewSession(
     snapshot,
-    [{ ...baseTrade, id: 'removed-stage-case', tradeKind: 'case', liveStageId: 'stage-removed' }],
+    [{ ...baseTrade, id: 'removed-stage-live', liveStageId: 'stage-removed' }],
     new Set(),
     FIXED_TRADING_DAY_KEY,
     FIXED_TRADING_DAY_START_HOUR,
@@ -856,6 +930,38 @@ export function testReviewSessionRestoreDropsUnavailableRecordsWithoutLosingCurr
   assert(restored?.cursor === 1, '剔除前序记录后仍应停留在同一张卡')
   assert(restored?.assessments['case-1'] === 'recheck', '有效记录的本轮评估应保留')
   assert(restored?.assessments.deleted === undefined, '失效记录的评估应一并剔除')
+}
+
+export function testReviewSessionFiltersPersistIndependentlyOfActiveRound(): void {
+  const storage = new MemoryStorage()
+  const filters = {
+    ...DEFAULT_REVIEW_SESSION_FILTERS,
+    includePaperTrades: true,
+    includeLiveTrades: false,
+    requireContent: true,
+    reviewTiming: 'all' as const,
+    stageSource: 'current' as const,
+  }
+
+  assert(saveReviewSessionFilters('prefs-library', filters, storage), '复盘设置必须可独立保存')
+  assert(
+    storage.getItem(reviewSessionFiltersStorageKey('prefs-library')) !== null,
+    '复盘设置必须写入独立键，不得占用活动轮次会话',
+  )
+  const restored = loadReviewSessionFilters('prefs-library', storage)
+  assert(restored?.includePaperTrades === true, '记住的设置必须恢复模拟盘开关')
+  assert(restored?.includeLiveTrades === false, '记住的设置必须恢复实盘开关')
+  assert(restored?.requireContent === true, '记住的设置必须恢复有效图文开关')
+  assert(restored?.reviewTiming === 'all', '记住的设置必须恢复案例时间范围')
+  assert(restored?.stageSource === 'current', '记住的设置必须恢复阶段来源')
+  assert(loadReviewSession('prefs-library', storage) === null, '只记设置时不得伪造活动轮次')
+
+  storage.setItem(reviewSessionFiltersStorageKey('corrupt-prefs'), '{bad json')
+  assert(loadReviewSessionFilters('corrupt-prefs', storage) === null, '损坏的设置必须安全丢弃')
+  assert(storage.getItem(reviewSessionFiltersStorageKey('corrupt-prefs')) === null, '损坏设置应被清除')
+
+  assert(clearReviewSessionFilters('prefs-library', storage), '记住的设置应可按资料库清理')
+  assert(loadReviewSessionFilters('prefs-library', storage) === null, '清理后不得残留设置')
 }
 
 export function testReviewSessionIsAValidDetailReturnForCasesAndTrades(): void {

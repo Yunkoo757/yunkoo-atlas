@@ -39,6 +39,10 @@ import {
   resolveSidebarSelection,
   resolveSidebarWorkspaceItem,
   setCapabilityWorkspaceEnabled,
+  setStrategySourceEnabled,
+  STRATEGY_SOURCE_LABELS,
+  STRATEGY_SOURCE_WORKSPACES,
+  strategySources,
   systemCapabilityWorkspaces,
   workspaceKindFromPath,
   type ResolvedSidebarWorkspaceItem,
@@ -158,6 +162,40 @@ function buildCapabilityVisibilityItems(
   ]
 }
 
+function buildStrategySourceItems(
+  strategyId: string,
+  label: string,
+  items: SidebarWorkspaceItem[],
+  onToggle: (
+    strategyId: string,
+    workspace: SidebarQuickWorkspace,
+    enabled: boolean,
+    label: string,
+  ) => void,
+): CtxItem[] {
+  const existing = items.find(
+    (item) => item.target.kind === 'strategy' && item.target.strategyId === strategyId,
+  )
+  const enabled = new Set(
+    existing && existing.target.kind === 'strategy'
+      ? strategySources(existing.target)
+      : ['trade'],
+  )
+  return [
+    { type: 'label', text: '包含来源' },
+    ...STRATEGY_SOURCE_WORKSPACES.map((workspace) => {
+      const checked = enabled.has(workspace)
+      return {
+        type: 'item' as const,
+        label: STRATEGY_SOURCE_LABELS[workspace],
+        checked,
+        keepOpen: true,
+        onClick: () => onToggle(strategyId, workspace, !checked, label),
+      }
+    }),
+  ]
+}
+
 export const WORKSPACE_ICONS: Record<
   ResolvedSidebarWorkspaceItem['icon'],
   AppIcon
@@ -172,6 +210,7 @@ export const WORKSPACE_ICONS: Record<
 }
 
 export function useSidebarNavigationModel() {
+  const navigate = useNavigate()
   const { pathname: path, search } = useLocation()
   const trades = useStore((state) => state.trades)
   const strategies = useStore((state) => state.strategies)
@@ -442,7 +481,8 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       item.item.target.kind === 'system' && isSidebarCapabilityId(item.item.target.id)
         ? item.item.target.id
         : null
-    const capabilityMenuId = capabilityId === 'missed' ? null : capabilityId
+    const strategyMenuId = strategyTarget ? item.item.id : null
+    const capabilityMenuId = capabilityId === 'missed' ? null : (capabilityId ?? strategyMenuId)
     const capabilityMenuOpen = Boolean(capabilityMenuId && capabilityMenu?.itemId === item.item.id)
 
     const toggleCapabilityWorkspace = (
@@ -479,18 +519,58 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       )
     }
 
+    const toggleStrategySource = (
+      id: string,
+      workspace: SidebarQuickWorkspace,
+      enabled: boolean,
+      label: string,
+    ) => {
+      const previous = useStore.getState().display.sidebarWorkspaceItems
+      const next = setStrategySourceEnabled(previous, id, workspace, enabled)
+      if (next === previous) {
+        toast('至少保留一个包含来源')
+        return
+      }
+      replaceSidebarWorkspaceItems(next)
+      if (active) {
+        const updated = next.find((candidate) => candidate.id === item.item.id)
+        if (updated) {
+          const resolved = resolveSidebarWorkspaceItem(updated, {
+            strategies,
+            savedViews: savedTradeViews,
+          })
+          if (resolved) navigate(workspaceRouteHref(resolved))
+        }
+      }
+      setCapabilityMenu((current) =>
+        current
+          ? {
+              ...current,
+              items: buildStrategySourceItems(id, label, next, toggleStrategySource),
+            }
+          : null,
+      )
+    }
+
     const openCapabilityMenu = (x: number, y: number) => {
       if (!capabilityMenuId) return
       setCapabilityMenu({
         itemId: item.item.id,
         x,
         y,
-        items: buildCapabilityVisibilityItems(
-          capabilityMenuId,
-          item.label,
-          useStore.getState().display.sidebarWorkspaceItems,
-          toggleCapabilityWorkspace,
-        ),
+        items: strategyTarget
+          ? buildStrategySourceItems(
+            strategyTarget.strategyId,
+            item.label,
+            useStore.getState().display.sidebarWorkspaceItems,
+            toggleStrategySource,
+          )
+          : buildCapabilityVisibilityItems(
+            capabilityMenuId as SidebarCapabilityId,
+            item.label,
+            useStore.getState().display.sidebarWorkspaceItems,
+            toggleCapabilityWorkspace,
+          ),
       })
     }
 
@@ -541,17 +621,11 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <Icon size={ICON_MD} />
         )}
         <span className="sb-item-label">{item.label}</span>
-        {modified ? (
-          <span className="sb-modified-indicator">
-            <span className="sb-modified-dot" aria-hidden="true" />
-            <span className="sb-screen-reader">当前条件已修改</span>
-          </span>
-        ) : null}
         {capabilityMenuId ? (
           <button
             type="button"
             className="sb-workspace-capability-menu"
-            aria-label={`${item.label}可见工作区`}
+            aria-label={strategyTarget ? `${item.label}包含来源` : `${item.label}可见工作区`}
             aria-haspopup="menu"
             aria-expanded={capabilityMenuOpen}
             onPointerDown={(event) => {

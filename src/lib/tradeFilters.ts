@@ -16,6 +16,7 @@ import { listPathFromLegacyTablePath } from '@/lib/routeContext'
 import {
   migrateSidebarPins,
   normalizeSidebarWorkspaceItems,
+  type SidebarQuickWorkspace,
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 
@@ -33,6 +34,10 @@ export interface ListFilter {
   period?: CalendarPeriod
   /** 默认不过滤；主列表传 live，模拟页传 paper */
   tradeKind?: TradeKind
+  /** 侧栏策略合并来源；只作用于策略页，不打穿交易日志三域隔离。 */
+  strategySources?: SidebarQuickWorkspace[]
+  /** 策略合并列表里，实盘只保留该阶段。 */
+  liveStageId?: string
   /** 仅用于仪表盘下钻：按平仓日、交易类型与日期范围锁定分析样本。 */
   analysisScope?: AnalysisScope
   reviewCaseScope?: ReviewCaseScope

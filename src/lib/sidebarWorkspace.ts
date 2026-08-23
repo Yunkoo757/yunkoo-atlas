@@ -25,7 +25,7 @@ export type SidebarQuickWorkspace = 'trade' | 'paper' | 'case'
 export type SidebarTarget =
   | { kind: 'system'; id: SidebarNavId; workspaces?: SidebarQuickWorkspace[] }
   | { kind: 'saved-view'; viewId: string }
-  | { kind: 'strategy'; strategyId: string }
+  | { kind: 'strategy'; strategyId: string; workspaces?: SidebarQuickWorkspace[] }
   | { kind: 'case-view'; scope: Exclude<ReviewCaseScope, 'all'> }
 
 export type SidebarWorkspaceItem = {
@@ -50,6 +50,14 @@ export const SIDEBAR_QUICK_WORKSPACE_LABELS: Record<SidebarQuickWorkspace, strin
   trade: '交易日志',
   paper: '模拟盘',
   case: '案例记录',
+}
+
+export const STRATEGY_SOURCE_WORKSPACES: readonly SidebarQuickWorkspace[] = ['trade', 'paper', 'case']
+
+export const STRATEGY_SOURCE_LABELS: Record<SidebarQuickWorkspace, string> = {
+  trade: '当前实盘',
+  paper: '模拟盘',
+  case: '案例',
 }
 
 export const SIDEBAR_CAPABILITY_LABELS: Record<SidebarCapabilityId, string> = {
@@ -92,6 +100,8 @@ const CASE_SCOPES: readonly Exclude<ReviewCaseScope, 'all'>[] = [
   'mistakes',
   'unreviewed',
   'reviewed',
+  'exemplar',
+  'missed',
 ]
 
 export function isSidebarCapabilityId(id: string): id is SidebarCapabilityId {
@@ -133,6 +143,59 @@ export function systemCapabilityWorkspaces(
   if (!isSidebarCapabilityId(target.id)) return []
   const allowed = SIDEBAR_CAPABILITY_WORKSPACES[target.id]
   return normalizeWorkspaceList(target.workspaces, allowed, allowed)
+}
+
+export function normalizeStrategySources(value: unknown): SidebarQuickWorkspace[] {
+  return normalizeWorkspaceList(value, STRATEGY_SOURCE_WORKSPACES, ['trade'])
+}
+
+export function strategySources(
+  target: Extract<SidebarTarget, { kind: 'strategy' }>,
+): SidebarQuickWorkspace[] {
+  return normalizeStrategySources(target.workspaces)
+}
+
+export function parseStrategySourcesSearch(search: string | URLSearchParams): SidebarQuickWorkspace[] {
+  const params = typeof search === 'string'
+    ? new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+    : search
+  const raw = params.get('sources')
+  if (!raw) return ['trade']
+  return normalizeStrategySources(raw.split(','))
+}
+
+export function writeStrategySourcesSearch(sources: readonly SidebarQuickWorkspace[]): string {
+  const selected = new Set(normalizeStrategySources(sources))
+  const normalized = STRATEGY_SOURCE_WORKSPACES.filter((source) => selected.has(source))
+  if (normalized.length === 1 && normalized[0] === 'trade') return ''
+  return `?sources=${normalized.join(',')}`
+}
+
+export function hasCombinedStrategySources(sources: readonly SidebarQuickWorkspace[]): boolean {
+  return sources.some((source) => source !== 'trade') || sources.length !== 1
+}
+
+export function setStrategySourceEnabled(
+  items: SidebarWorkspaceItem[],
+  strategyId: string,
+  workspace: SidebarQuickWorkspace,
+  enabled: boolean,
+): SidebarWorkspaceItem[] {
+  const key = `strategy:${strategyId}`
+  const existing = items.find((item) => item.id === key || sidebarTargetKey(item.target) === key)
+  if (!existing || existing.target.kind !== 'strategy') return items
+  const current = strategySources(existing.target)
+  const nextWorkspaces = enabled
+    ? normalizeStrategySources([...current, workspace])
+    : current.filter((item) => item !== workspace)
+  if (nextWorkspaces.length === 0) return items
+  return normalizeSidebarWorkspaceItems(
+    items.map((item) => (
+      item.id === existing.id
+        ? { ...item, target: { ...existing.target, workspaces: nextWorkspaces } }
+        : item
+    )),
+  )
 }
 
 /** 侧栏是否钉了该能力，且指定工作区在配置范围内 */
@@ -270,7 +333,11 @@ function normalizeTarget(value: unknown): SidebarTarget | null {
     return { kind: 'saved-view', viewId: target.viewId }
   }
   if (target.kind === 'strategy' && typeof target.strategyId === 'string' && target.strategyId.trim()) {
-    return { kind: 'strategy', strategyId: target.strategyId }
+    return {
+      kind: 'strategy',
+      strategyId: target.strategyId,
+      workspaces: normalizeStrategySources((target as { workspaces?: unknown }).workspaces),
+    }
   }
   if (
     target.kind === 'case-view' &&
@@ -417,6 +484,8 @@ const CASE_VIEW_LABELS: Record<Exclude<ReviewCaseScope, 'all'>, string> = {
   mistakes: '错题',
   unreviewed: '待复看',
   reviewed: '已掌握',
+  exemplar: '交易案例',
+  missed: '错过的案例',
 }
 
 export function resolveSidebarWorkspaceItem(
@@ -477,7 +546,7 @@ export function resolveSidebarWorkspaceItem(
       key,
       label: strategy?.name ?? '已删除的策略',
       pathname: `/strategy/${encodeURIComponent(target.strategyId)}`,
-      search: '',
+      search: writeStrategySourcesSearch(strategySources(target)),
       icon: 'strategy',
       invalid: !strategy,
     }
@@ -621,12 +690,15 @@ function listTargetForPath(pathname: string, search = ''): ListFilter | undefine
   }
   if (path.startsWith('/strategy/')) {
     const parsedScope = parseAnalysisScope(search)
+    const sources = parseStrategySourcesSearch(search)
     return {
       type: 'strategy',
       strategyId: decodeURIComponent(path.slice('/strategy/'.length)),
       ...(parsedScope.explicit
         ? { analysisScope: parsedScope.scope }
-        : { tradeKind: 'live' as const }),
+        : hasCombinedStrategySources(sources)
+          ? { strategySources: sources }
+          : { tradeKind: 'live' as const, strategySources: sources }),
     }
   }
   if (path.startsWith('/period/')) {
@@ -659,12 +731,18 @@ export function countSidebarRoute(
 ): number | undefined {
   const filter = listTargetForPath(pathname, search)
   if (!filter) return undefined
-  const stageScope: StageScope | undefined = context.currentLiveStageId && filter.tradeKind !== 'paper'
-    ? { kind: 'current', stageId: context.currentLiveStageId }
-    : undefined
+  const combinedStrategy = filter.type === 'strategy' && hasCombinedStrategySources(filter.strategySources ?? ['trade'])
+  const nextFilter = combinedStrategy && context.currentLiveStageId
+    ? { ...filter, liveStageId: context.currentLiveStageId }
+    : filter
+  const stageScope: StageScope | undefined = combinedStrategy
+    ? undefined
+    : context.currentLiveStageId && filter.tradeKind !== 'paper' && filter.tradeKind !== 'case'
+      ? { kind: 'current', stageId: context.currentLiveStageId }
+      : undefined
   return countWorkbenchVisibleTrades({
     ...context,
-    filter,
+    filter: nextFilter,
     search,
     stageScope,
   })

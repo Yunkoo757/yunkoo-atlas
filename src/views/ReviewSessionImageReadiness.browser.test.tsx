@@ -4,6 +4,7 @@ import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import {
   DEFAULT_REVIEW_SESSION_FILTERS,
+  clearReviewSessionFilters,
   clearReviewSessionStorage,
   saveReviewSession,
 } from '@/lib/reviewSession'
@@ -145,6 +146,7 @@ async function run(): Promise<void> {
   }
 
   clearReviewSessionStorage(manifest.libraryId)
+  clearReviewSessionFilters(manifest.libraryId)
   const stageOwnedCases = cases.map((item) => ({
     ...item,
     liveStageId: previous.currentLiveStageId,
@@ -230,6 +232,7 @@ async function run(): Promise<void> {
     root.unmount()
     HTMLImageElement.prototype.decode = originalDecode
     clearReviewSessionStorage(manifest.libraryId)
+  clearReviewSessionFilters(manifest.libraryId)
     useStore.setState({
       trades: previous.trades,
       strategies: previous.strategies,

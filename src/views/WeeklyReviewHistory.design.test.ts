@@ -47,6 +47,14 @@ export function testWeeklyHistoryActiveStateIsLightweight(): void {
   assert(!/border:\s*[1-9]/.test(active), '当前周不得使用额外厚边框')
 }
 
+export function testWeeklyHistoryThisWeekLabelIsCurrentStageOnly(): void {
+  const source = readFileSync(path.resolve('src/views/WeeklyReviewView.tsx'), 'utf8')
+  assert(
+    source.includes('weekLabel(item.week, currentWeek, item.liveStageId === currentLiveStageId)'),
+    '只有当前实盘阶段的当前周才能显示本周',
+  )
+}
+
 export function testWeeklyHistoryAndHeadUseTypeTokens(): void {
   const css = weeklyCss()
   const history = [

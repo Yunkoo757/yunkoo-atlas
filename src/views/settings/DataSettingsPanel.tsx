@@ -31,7 +31,7 @@ import {
   lockStorageCutoverInteraction,
 } from '@/storage/cutover'
 import { getElectronAdapter } from '@/storage/electronAdapter'
-import { clearReviewSessionStorage } from '@/lib/reviewSession'
+import { clearReviewSessionFilters, clearReviewSessionStorage } from '@/lib/reviewSession'
 import { useSaveStatus } from '@/store/saveStatus'
 import { buildWebJournalArchiveBlob } from '@/lib/importExport'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
@@ -226,6 +226,7 @@ export function DataSettingsPanel({
         getElectronAdapter().clearObjectUrlCache()
         const manifest = await getStorage().getManifest()
         clearReviewSessionStorage(manifest.libraryId)
+        clearReviewSessionFilters(manifest.libraryId)
         applySnapshotToStore(result.snapshot)
         clearSessionUiAfterLibrarySwitch()
         safeToFlush = true

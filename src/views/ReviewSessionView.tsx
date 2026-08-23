@@ -38,19 +38,25 @@ import {
 } from '@/lib/reviewImageReadiness'
 import {
   DEFAULT_REVIEW_SESSION_FILTERS,
+  REVIEW_SESSION_PRESETS,
+  applyReviewSessionPreset,
   buildReviewAssessmentPatch,
   buildReviewSessionPool,
   clearReviewSessionStorage,
   getReviewSessionContent,
   hasEffectiveReviewContent,
   loadReviewSession,
+  loadReviewSessionFilters,
+  matchReviewSessionPreset,
   normalizeReviewStageSource,
   reconcileReviewSession,
   reviewFiltersForNextRound,
   saveReviewSession,
+  saveReviewSessionFilters,
   shuffleReviewSessionIds,
   type ReviewSessionAssessment,
   type ReviewSessionFilters,
+  type ReviewSessionPreset,
   type ReviewSessionSnapshot,
   type ReviewStageSource,
 } from '@/lib/reviewSession'
@@ -78,7 +84,9 @@ type ReviewNotePresentation = { bodyHtml: string; images: ReviewImageCandidate[]
 
 const CASE_SCOPE_OPTIONS: Array<{ value: ReviewCaseScope; label: string }> = [
   { value: 'all', label: '全部案例' },
-  { value: 'mistakes', label: '错题' },
+  { value: 'exemplar', label: '优秀范例' },
+  { value: 'mistakes', label: '错误合集' },
+  { value: 'missed', label: '错过的案例' },
   { value: 'focus', label: '重点' },
   { value: 'unreviewed', label: '待复看' },
   { value: 'reviewed', label: '已掌握' },
@@ -286,8 +294,10 @@ export function ReviewSessionView() {
       if (restored) {
         setFilters(restored.filters)
         setSession(restored)
-      } else if (stored) {
-        clearReviewSessionStorage(manifest.libraryId)
+      } else {
+        if (stored) clearReviewSessionStorage(manifest.libraryId)
+        const remembered = loadReviewSessionFilters(manifest.libraryId)
+        if (remembered) setFilters(remembered)
       }
       setRestoreStatus('ready')
     }).catch(() => {
@@ -463,17 +473,23 @@ export function ReviewSessionView() {
     }))
   }, [advance, assess, current, rewind, roundEnded, session])
 
+  const rememberFilters = (nextFilters: ReviewSessionFilters) => {
+    setFilters(nextFilters)
+    if (libraryId && !saveReviewSessionFilters(libraryId, nextFilters)) setPersistenceWarning(true)
+  }
+
   const start = () => {
     const ids = shuffleReviewSessionIds(pool.map((trade) => trade.id))
     if (ids.length === 0) return
     focusAfterTransitionRef.current = true
+    rememberFilters(filters)
     setSession({ ids, cursor: 0, filters, assessments: {} })
   }
 
   const clearActiveSession = (nextFilters = filters) => {
     focusAfterTransitionRef.current = true
     if (libraryId) clearReviewSessionStorage(libraryId)
-    setFilters(nextFilters)
+    rememberFilters(nextFilters)
     setSession(null)
     setResolvedNote(EMPTY_NOTE_STATE)
   }
@@ -490,7 +506,7 @@ export function ReviewSessionView() {
       setPendingFilters(nextFilters)
       return
     }
-    setFilters(nextFilters)
+    rememberFilters(nextFilters)
     setSettingsDraft(null)
     if (session?.ids.length === 0) {
       if (libraryId) clearReviewSessionStorage(libraryId)
@@ -521,7 +537,7 @@ export function ReviewSessionView() {
         { liveStages, currentLiveStageId },
       )
       focusAfterTransitionRef.current = true
-      setFilters(nextFilters)
+      rememberFilters(nextFilters)
       setSettingsDraft(null)
       setPendingFilters(null)
       if (
@@ -560,7 +576,7 @@ export function ReviewSessionView() {
       return
     }
     focusAfterTransitionRef.current = true
-    setFilters(nextFilters)
+    rememberFilters(nextFilters)
     setSession({
       ids: shuffleReviewSessionIds(nextPool.map((trade) => trade.id)),
       cursor: 0,
@@ -627,7 +643,13 @@ export function ReviewSessionView() {
       ) : null}
 
       {!session ? (
-        <ReviewSessionStart filters={filters} poolSize={pool.length} onOpenSettings={openSettings} onStart={start} />
+        <ReviewSessionStart
+          filters={filters}
+          poolSize={pool.length}
+          onOpenSettings={openSettings}
+          onApplyPreset={(preset) => rememberFilters(applyReviewSessionPreset(filters, preset))}
+          onStart={start}
+        />
       ) : hasExplicitEmptySelection ? (
         <ReviewSessionEmptySelection onAdjust={() => openSettings(session.filters)} />
       ) : roundEnded ? (
@@ -682,11 +704,13 @@ function ReviewSessionStart({
   filters,
   poolSize,
   onOpenSettings,
+  onApplyPreset,
   onStart,
 }: {
   filters: ReviewSessionFilters
   poolSize: number
   onOpenSettings: () => void
+  onApplyPreset: (preset: ReviewSessionPreset) => void
   onStart: () => void
 }) {
   const usesDefaultFilters = (
@@ -711,8 +735,29 @@ function ReviewSessionStart({
       <div className="review-session-intro">
         <span className="review-session-eyebrow">完全随机 · 直接阅读</span>
         <h1>随机打开一组过去的交易</h1>
-        <p>完整查看交易信息、复盘笔记和截图，再按真实理解程度评估。每轮随机排序且不重复。</p>
+        <p>完整查看交易信息、复盘笔记和截图，再按真实理解程度评估。每轮随机排序且不重复。案例知识库跨阶段保留，不会随新实盘阶段清空。</p>
       </div>
+
+      <fieldset className="review-session-presets">
+        <legend>快捷预置</legend>
+        <div className="review-session-preset-list">
+          {REVIEW_SESSION_PRESETS.map((preset) => {
+            const selected = matchReviewSessionPreset(filters) === preset.id
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                className={selected ? 'is-selected' : undefined}
+                aria-pressed={selected}
+                onClick={() => onApplyPreset(preset)}
+              >
+                <strong>{preset.label}</strong>
+                <small>{preset.hint}</small>
+              </button>
+            )
+          })}
+        </div>
+      </fieldset>
 
       <div className="review-session-start-footer">
         <div>
@@ -855,7 +900,7 @@ function ReviewSessionSettingsModal({
             onChange={(event) => patchFilters({ includeCases: event.target.checked })}
           />
           <BookOpen size={ICON_XL} aria-hidden />
-          <span><strong>案例记录</strong><small>优秀范例、错题与待复看案例</small></span>
+          <span><strong>案例记录</strong><small>全部历史案例，不随新实盘阶段清空</small></span>
         </label>
         <label className={filters.includeLiveTrades ? 'is-selected' : undefined}>
           <input

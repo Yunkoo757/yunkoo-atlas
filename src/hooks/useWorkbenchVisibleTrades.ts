@@ -5,6 +5,7 @@ import type { ListFilter } from '@/lib/tradeFilters'
 import { isAccountTrade } from '@/lib/tradeKind'
 import {
   deriveWorkbenchVisibleTrades,
+  filterTrades,
   parseTradeFacets,
 } from '@/lib/workbenchTrades'
 import type { TradeFacetFilters } from '@/lib/tradeView'
@@ -37,7 +38,9 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
 
   const facets = useMemo<TradeFacetFilters>(() => parseTradeFacets(searchParams), [searchParams])
   const stageScope = useMemo<StageScope | undefined>(() => {
+    if (filter.strategySources?.some((source) => source !== 'trade')) return undefined
     if (filter.tradeKind === 'paper' || filter.analysisScope?.kind === 'paper') return undefined
+    if (filter.tradeKind === 'case' && !filter.historicalLiveScope) return undefined
     if (filter.historicalLiveScope) {
       return resolveStageScope(
         searchParams.get('liveStage'),
@@ -47,7 +50,15 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
       )
     }
     return { kind: 'current', stageId: currentLiveStageId }
-  }, [currentLiveStageId, filter.analysisScope?.kind, filter.historicalLiveScope, filter.tradeKind, liveStages, searchParams])
+  }, [
+    currentLiveStageId,
+    filter.analysisScope?.kind,
+    filter.historicalLiveScope,
+    filter.strategySources,
+    filter.tradeKind,
+    liveStages,
+    searchParams,
+  ])
 
   const derived = useMemo(() => deriveWorkbenchVisibleTrades({
     trades: storedTrades,
@@ -64,6 +75,8 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
     filter.strategyId,
     filter.period,
     filter.reviewCaseScope,
+    filter.strategySources,
+    filter.liveStageId,
     filter.historicalLiveScope,
     filter.analysisScope?.kind,
     filter.analysisScope?.range,
@@ -81,20 +94,41 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
     for (const trade of storedTrades) {
       if (!trade.deletedAt) total += 1
     }
-    const workspaceTrades = stageScope
-      ? filterStageOwnedRecords(storedTrades, stageScope)
-      : storedTrades
-    for (const trade of workspaceTrades) {
-      if (trade.deletedAt) continue
-      if (filter.tradeKind ? trade.tradeKind === filter.tradeKind : isAccountTrade(trade)) {
-        workspace += 1
+    if (filter.strategySources?.length) {
+      workspace = filterTrades(
+        storedTrades.filter((trade) => !trade.deletedAt),
+        filter,
+        starredIds,
+        display.tradingDayStartHour,
+        businessDateAnchor,
+      ).length
+    } else {
+      const workspaceTrades = stageScope
+        ? filterStageOwnedRecords(storedTrades, stageScope)
+        : storedTrades
+      for (const trade of workspaceTrades) {
+        if (trade.deletedAt) continue
+        if (filter.tradeKind ? trade.tradeKind === filter.tradeKind : isAccountTrade(trade)) {
+          workspace += 1
+        }
       }
     }
     return {
       totalCount: total,
       workspaceCount: filter.historicalLiveScope ? trades.length : workspace,
     }
-  }, [storedTrades, filter.tradeKind, filter.historicalLiveScope, stageScope, trades.length])
+  }, [
+    businessDateAnchor,
+    display.tradingDayStartHour,
+    filter,
+    filter.historicalLiveScope,
+    filter.strategySources,
+    filter.tradeKind,
+    stageScope,
+    starredIds,
+    storedTrades,
+    trades.length,
+  ])
 
   return { trades, visible, facets, totalCount, workspaceCount, businessDateAnchor, stageScope }
 }

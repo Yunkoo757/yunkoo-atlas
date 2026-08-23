@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-rou
 import type { Trade } from '@/data/trades'
 import type { LiveStage } from '@/lib/liveStages'
 import {
+  clearReviewSessionFilters,
   clearReviewSessionStorage,
   loadReviewSession,
 } from '@/lib/reviewSession'
@@ -116,12 +117,14 @@ async function run(): Promise<void> {
   const previous = useStore.getState()
   const previousShortcuts = useShortcutStore.getState()
   const historical = reviewCase('historical-case', 'CAS-HISTORY', 'ETHUSDT', archivedStage.id)
+  const historicalTwo = reviewCase('historical-case-two', 'CAS-HISTORY-2', 'ADAUSDT', archivedStage.id)
   const current = reviewCase('current-case', 'CAS-CURRENT', 'BTCUSDT', currentStage.id)
   const currentTwo = reviewCase('current-case-two', 'CAS-CURRENT-2', 'XRPUSDT', currentStage.id)
   const pending = { ...reviewCase('pending-case', 'CAS-PENDING', 'SOLUSDT', currentStage.id), liveStageId: null }
   clearReviewSessionStorage(manifest.libraryId)
+  clearReviewSessionFilters(manifest.libraryId)
   useStore.setState({
-    trades: [current, historical, currentTwo, pending],
+    trades: [current, historical, currentTwo, pending, historicalTwo],
     liveStages: [archivedStage, currentStage],
     currentLiveStageId: currentStage.id,
     strategies: [{ id: 'stage-source-strategy', name: '结构确认', icon: 'target', color: '#5e6ad2' }],
@@ -152,9 +155,8 @@ async function run(): Promise<void> {
   )
 
   try {
-    await waitFor(() => document.body.textContent?.includes('可随机复盘 3 条') === true, '默认池没有覆盖当前与历史阶段')
+    await waitFor(() => document.body.textContent?.includes('可随机复盘 5 条') === true, '默认池必须覆盖当前、历史与待整理案例')
     assert(document.body.textContent?.includes('当前阶段 + 全部历史'), '开始页没有显示默认阶段来源')
-    assert(!document.body.textContent?.includes('CAS-PENDING'), '待整理案例不得进入复盘入口')
     assert(document.documentElement.scrollWidth <= window.innerWidth, `${window.innerWidth}px 开始页不得横向溢出`)
 
     findButton('更多')?.click()
@@ -181,7 +183,7 @@ async function run(): Promise<void> {
     stageInputs[0]?.click()
     stageInputs[1]?.click()
     findButton('应用设置')?.click()
-    await waitFor(() => document.body.textContent?.includes('可随机复盘 3 条') === true, '自选两个阶段没有生成精确候选池')
+    await waitFor(() => document.body.textContent?.includes('可随机复盘 5 条') === true, '自选阶段不得把案例从候选池拿掉')
 
     findButton('开启一轮新的复盘')?.click()
     await waitFor(() => document.body.textContent?.includes('CAS-HISTORY') === true, '固定随机源没有先展示历史案例')
@@ -196,7 +198,7 @@ async function run(): Promise<void> {
     assert(!accepted, '历史案例掌握度快捷键必须被复盘作用域消费')
     await waitFor(() => useStore.getState().trades.find((trade) => trade.id === historical.id)?.masteryState === 'mastered', '历史案例评估没有写回原实体')
     const assessedHistorical = useStore.getState().trades.find((trade) => trade.id === historical.id)
-    assert(useStore.getState().trades.length === 4, '历史案例评估不得复制实体')
+    assert(useStore.getState().trades.length === 5, '历史案例评估不得复制实体')
     assert(
       assessedHistorical?.tradeKind === 'case' &&
         assessedHistorical.id === historical.id &&
@@ -288,12 +290,20 @@ async function run(): Promise<void> {
     await waitFor(() => document.body.textContent?.includes('CAS-CURRENT') === true, '确认切换来源后没有展示当前阶段队列')
     await waitFor(() => loadReviewSession(manifest.libraryId)?.filters.stageSource === 'current',
       `确认切换来源后没有持久化新阶段来源：${sessionStorage.getItem(sessionKey)}`)
+    const regeneratedIds = loadReviewSession(manifest.libraryId)?.ids ?? []
     assert(
-      new Set(loadReviewSession(manifest.libraryId)?.ids).size === 2 &&
-        loadReviewSession(manifest.libraryId)?.ids.every((id) => id === current.id || id === currentTwo.id),
-      `确认切换来源后队列错误：${loadReviewSession(manifest.libraryId)?.ids.join(',') ?? 'null'}`,
+      new Set(regeneratedIds).size === 4
+        && regeneratedIds.includes('historical-case-two')
+        && regeneratedIds.includes('current-case')
+        && regeneratedIds.includes('current-case-two')
+        && regeneratedIds.includes('pending-case')
+        && !regeneratedIds.includes('historical-case'),
+      `确认切换来源后案例队列不得被阶段切割：${regeneratedIds.join(',') || 'null'}`,
     )
-    assert(regenerationShuffleCalls === 1, `双重提交只能随机并再生成一次活动轮次：${regenerationShuffleCalls}`)
+    assert(
+      regenerationShuffleCalls === regeneratedIds.length - 1,
+      `双重提交只能随机并再生成一次活动轮次：${regenerationShuffleCalls}`,
+    )
     traceRandom = false
     await waitFor(
       () => document.activeElement === document.querySelector('[data-review-session-focus]'),
@@ -320,27 +330,20 @@ async function run(): Promise<void> {
     await waitFor(() => Boolean(findButton('重新生成轮次')), '空自选变更没有进入确认弹层')
     findButton('重新生成轮次')?.click()
     await waitFor(() => !document.querySelector('[role="dialog"]'), '空自选确认后设置弹层没有关闭')
-    await waitFor(() => Boolean(document.querySelector('.review-session-empty-selection')), '空自选没有呈现清晰筛选状态')
-    await waitFor(() => loadReviewSession(manifest.libraryId)?.ids.length === 0, '空自选活动轮次没有持久化为空队列')
-    assert(document.documentElement.scrollWidth <= window.innerWidth, `${window.innerWidth}px 空状态不得横向溢出`)
-
-    findButton('重新选择阶段')?.click()
-    await waitFor(() => Boolean(document.querySelector('button[aria-label="阶段来源"]')), '空状态无法重新打开阶段选择')
-    document.querySelector<HTMLButtonElement>('button[aria-label="阶段来源"]')?.click()
-    await waitFor(() => Boolean(findButton('仅当前阶段')), '空状态重新选择缺少仅当前阶段')
-    findButton('仅当前阶段')?.click()
     await waitFor(
-      () => document.querySelector<HTMLButtonElement>('button[aria-label="阶段来源"]')?.textContent?.includes('仅当前阶段') === true,
-      '空状态重新选择没有提交当前阶段草稿',
+      () => {
+        const ids = loadReviewSession(manifest.libraryId)?.ids ?? []
+        return ids.length === 4 && ids.includes('historical-case-two')
+      },
+      '空自选阶段不得把案例清出当前轮次',
     )
-    findButton('应用设置')?.click()
-    await waitFor(() => document.body.textContent?.includes('可随机复盘 2 条') === true, '空状态选择有效阶段后没有返回可开始状态')
-    findButton('开启一轮新的复盘')?.click()
-    await waitFor(() => document.body.textContent?.includes('来源 · 当前阶段') === true, '空状态恢复后无法开启当前阶段新轮次')
+    assert(!document.querySelector('.review-session-empty-selection'), '案例不受阶段切割时不得呈现空阶段状态')
+    assert(document.documentElement.scrollWidth <= window.innerWidth, `${window.innerWidth}px 案例轮次不得横向溢出`)
   } finally {
     root.unmount()
     Math.random = originalRandom
     clearReviewSessionStorage(manifest.libraryId)
+    clearReviewSessionFilters(manifest.libraryId)
     useStore.setState({
       trades: previous.trades,
       liveStages: previous.liveStages,

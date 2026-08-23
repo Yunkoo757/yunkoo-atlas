@@ -48,7 +48,8 @@ import { SettingsLayout } from './views/settings/SettingsLayout'
 import { TradeTrashView } from './views/TradeTrashView'
 import { StrategyHeader } from './components/StrategyHeader'
 import { getStrategyName } from './lib/strategies'
-import { resolveTradeLogFilter, type ReviewCaseScope } from './lib/tradeFilters'
+import { resolveTradeLogFilter } from './lib/tradeFilters'
+import { normalizeReviewCaseScope } from './lib/reviewCaseScope'
 import { getTradingDayKey, isValidPeriodSlug, parseLocalDate, PERIOD_LABELS } from './lib/periods'
 import { routeWithSearch } from './lib/tradeView'
 import { listPathFromLegacyTablePath } from './lib/routeContext'
@@ -56,6 +57,10 @@ import { useShortcutHost } from './shortcuts/ShortcutHost'
 import { cleanExpiredTradeTrash } from './lib/trashCleanup'
 import { lockBottomChrome, unlockBottomChrome } from './lib/toast'
 import { parseAnalysisScope } from './lib/analysisScope'
+import {
+  hasCombinedStrategySources,
+  parseStrategySourcesSearch,
+} from './lib/sidebarWorkspace'
 import { weekStartFor } from './data/weeklyReviews'
 import {
   classifyUncertainStageRolloverSnapshot,
@@ -319,19 +324,24 @@ export function StrategyPage() {
   const { id } = useParams()
   const { search } = useLocation()
   const strategies = useStore((s) => s.strategies)
+  const currentLiveStageId = useStore((s) => s.currentLiveStageId)
   const strategyId = id ?? ''
   const listPath = `/strategy/${encodeURIComponent(strategyId)}`
   const title = getStrategyName(strategies, strategyId)
   const parsedScope = parseAnalysisScope(search)
   const analysisScope = parsedScope.explicit ? parsedScope.scope : undefined
+  const strategySources = parseStrategySourcesSearch(search)
+  const combinedSources = !analysisScope && hasCombinedStrategySources(strategySources)
   const params = new URLSearchParams(search)
   const liveRouteApplies = analysisScope?.kind !== 'paper'
   const requestedStage = params.get('liveStage')
   const hasLegacyScope = params.has('statsCycle') || params.has('liveCycle')
   if (
-    (liveRouteApplies && requestedStage !== 'current')
-    || (!liveRouteApplies && requestedStage !== null)
-    || hasLegacyScope
+    !combinedSources && (
+      (liveRouteApplies && requestedStage !== 'current')
+      || (!liveRouteApplies && requestedStage !== null)
+      || hasLegacyScope
+    )
   ) {
     params.delete('statsCycle')
     params.delete('liveCycle')
@@ -342,7 +352,14 @@ export function StrategyPage() {
   }
   const filter = analysisScope
     ? { type: 'strategy' as const, strategyId, analysisScope }
-    : { type: 'strategy' as const, strategyId, tradeKind: 'live' as const }
+    : combinedSources
+      ? {
+          type: 'strategy' as const,
+          strategyId,
+          strategySources,
+          liveStageId: currentLiveStageId,
+        }
+      : { type: 'strategy' as const, strategyId, tradeKind: 'live' as const }
   return (
     <TradesPage
       title={title}
@@ -402,13 +419,6 @@ function ReviewCasesPage() {
       listPath={listPath}
     />
   )
-}
-
-function normalizeReviewCaseScope(scope: string | undefined): ReviewCaseScope {
-  if (scope === 'focus' || scope === 'mistakes' || scope === 'unreviewed' || scope === 'reviewed') {
-    return scope
-  }
-  return 'all'
 }
 
 function LegacyRouteFallback() {

@@ -1,4 +1,4 @@
-export const PAGE_OWNED_TRADE_VIEW_PARAMS = new Set(['liveStage', 'tab'])
+export const PAGE_OWNED_TRADE_VIEW_PARAMS = new Set(['liveStage', 'tab', 'sources'])
 
 export const KNOWN_TRADE_VIEW_PARAMS = new Set([
   'tradeKind',

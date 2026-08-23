@@ -10,6 +10,7 @@ import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { ImageLightbox } from '@/components/ImageLightbox'
 import {
+  clearReviewSessionFilters,
   clearReviewSessionStorage,
   loadReviewSession,
 } from '@/lib/reviewSession'
@@ -117,6 +118,7 @@ async function run(): Promise<void> {
   const previous = useStore.getState()
   const previousShortcuts = useShortcutStore.getState()
   clearReviewSessionStorage(manifest.libraryId)
+  clearReviewSessionFilters(manifest.libraryId)
   const accountTrade: Trade = { ...trade, liveStageId: previous.currentLiveStageId }
   const paperTrade = {
     ...accountTrade,
@@ -175,6 +177,10 @@ async function run(): Promise<void> {
     assert(!document.querySelector('.review-session-source-grid'), '开始页不得直接暴露来源表单')
     assert(!document.querySelector('.review-session-options'), '开始页不得直接暴露高级选项')
     assert(findButton('开启一轮新的复盘'), '开始页缺少单一主操作')
+    const presetLabels = [...document.querySelectorAll('.review-session-preset-list button')].map((button) => button.textContent ?? '')
+    assert(presetLabels.some((label) => label.includes('交易案例')), '开始页必须提供交易案例预置')
+    assert(presetLabels.some((label) => label.includes('错误合集')), '开始页必须提供错误合集预置')
+    assert(presetLabels.some((label) => label.includes('错过的案例')), '开始页必须提供错过的案例预置')
 
     findButton('更多')?.click()
     await waitFor(() => Boolean(findButton('复盘设置')), '更多菜单没有提供复盘设置')
@@ -497,9 +503,36 @@ async function run(): Promise<void> {
     await waitFor(() => document.body.textContent?.includes('本轮完成') === true, '账户交易下一条没有完成本轮')
     assert(!document.body.textContent?.includes('掌握度已经写回记录'), '账户专属轮次不得声称掌握度已写回')
     assert(document.body.textContent?.includes('本轮没有写入案例掌握度') === true, '账户专属轮次必须显示真实的未写入文案')
+
+    root.unmount()
+    clearReviewSessionStorage(manifest.libraryId)
+    const remount = createRoot(rootElement)
+    remount.render(
+      <MemoryRouter
+        initialEntries={['/review-session']}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <TestApp />
+      </MemoryRouter>,
+    )
+    await waitFor(
+      () => document.body.textContent?.includes('可随机复盘 1 条') === true,
+      '切走再回来没有记住上次复盘设置',
+    )
+    findButton('更多')?.click()
+    await waitFor(() => Boolean(findButton('复盘设置')), '记住设置后缺少复盘设置入口')
+    findButton('复盘设置')?.click()
+    await waitFor(() => document.body.textContent?.includes('只影响接下来开启的这一轮复盘。') === true, '记住设置后没有打开复盘设置')
+    const rememberedInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-settings-sources input[type="checkbox"]')]
+    assert(
+      rememberedInputs[0]?.checked === false && rememberedInputs[1]?.checked === true && rememberedInputs[2]?.checked === false,
+      '切走再回来必须记住上次应用的仅实盘来源',
+    )
+    remount.unmount()
   } finally {
     root.unmount()
     clearReviewSessionStorage(manifest.libraryId)
+    clearReviewSessionFilters(manifest.libraryId)
     useStore.setState({
       trades: previous.trades,
       strategies: previous.strategies,
