@@ -355,7 +355,13 @@ async function runV11Migration(executablePath, libraryRoot, trackedProcesses, ex
     !fs.existsSync(path.join(libraryRoot, '.v8-to-v9-recovery'))
   if (manifest.schemaVersion !== 12 || !residueAbsent || verified.liveStageIds?.length !== 1 ||
       !verified.currentTradeIds?.includes('trade-contract')) {
-    throw new Error('Installed payload v11 migration did not produce canonical v12 stage ownership')
+    throw new Error(`Installed payload v11 migration did not produce canonical v12 stage ownership: ${JSON.stringify({
+      manifestSchemaVersion: manifest.schemaVersion,
+      residueAbsent,
+      liveStageIds: verified.liveStageIds,
+      currentTradeIds: verified.currentTradeIds,
+      archiveTradeIds: verified.archiveTradeIds,
+    })}`)
   }
   return {
     seededProcessId: seeded.processId,
