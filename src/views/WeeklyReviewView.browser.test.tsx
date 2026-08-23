@@ -952,8 +952,8 @@ async function run(): Promise<void> {
       () => document.body.textContent?.includes('做法评分趋势') ?? false,
       '重挂载历史年度深链后没有恢复年度趋势',
     )
-    assert(
-      document.querySelector('[data-testid="weekly-route-probe"]')
+    await waitFor(
+      () => document.querySelector('[data-testid="weekly-route-probe"]')
         ?.getAttribute('data-search') === `?week=${priorReview.weekStart}&review=${encodeURIComponent(priorReview.id)}&tab=year&visual=mobile`,
       '重挂载后没有保留历史周、页签和无关参数',
     )

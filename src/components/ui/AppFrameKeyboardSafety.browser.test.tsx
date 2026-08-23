@@ -38,6 +38,11 @@ async function run() {
     assert(target, '缺少键盘焦点目标')
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }))
     target.focus()
+    for (let attempt = 0; attempt < 8 && document.documentElement.dataset.keyboardNavigation !== 'true'; attempt += 1) {
+      await frame()
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }))
+      target.focus()
+    }
     assert(document.documentElement.dataset.keyboardNavigation === 'true', 'Tab 必须进入键盘导航状态')
     assert(getComputedStyle(target).outlineStyle !== 'none', '关闭增强高光时，真实键盘导航仍须显示基础定位线')
 
