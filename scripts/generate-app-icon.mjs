@@ -1,5 +1,5 @@
 /**
- * Generate Electron / favicon / NSIS installer assets from the selected A2 PNG master.
+ * Generate Electron / favicon / NSIS installer assets from the checked-in product icon PNG master.
  * Usage: node scripts/generate-app-icon.mjs
  *
  * NSIS 侧栏/顶栏按逻辑尺寸的 3× 出图：高 DPI 下 StretchBlt 接近 1:1 或轻度缩小，
@@ -13,7 +13,7 @@ import sharp from 'sharp'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 const svgPath = path.join(root, 'build/icon.svg')
-const masterPngPath = path.join(root, 'ip-logo-candidates/2026-08-21/A2-owl-indigo-ivory-lower-right.png')
+const masterPngPath = path.join(root, 'build/icon.png')
 const traySvgPath = path.join(root, 'build/trayTemplate.svg')
 const buildDir = path.join(root, 'build')
 const publicDir = path.join(root, 'public')

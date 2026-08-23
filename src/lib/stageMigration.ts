@@ -222,6 +222,7 @@ function migrateWeeklyReviews(
   topLevelRiskLiveStageId: string | null,
 ): WeeklyReview[] {
   return reviews.map((review) => {
+    const canonicalPeriod = isCanonicalWeeklyReviewPeriod(review.weekStart, review.weekEnd)
     const periodStage = stages.find((candidate) => (
       stageContainsWeeklyReviewPeriod(candidate, review.weekStart, review.weekEnd)
     )) ?? null
@@ -255,11 +256,19 @@ function migrateWeeklyReviews(
           overrideEvents: review.riskSnapshot.overrideEvents.map((item) => ({ ...item, liveStageId })),
         }
       : undefined
-    const { legacyPeriodQuarantine: _legacyMarker, ...preserved } = review
+    const {
+      legacyPeriodQuarantine: _legacyPeriodMarker,
+      legacyStageBoundaryOverlap: _legacyBoundaryMarker,
+      ...preserved
+    } = review
     return {
       ...preserved,
       liveStageId,
-      ...(periodStage === null ? { legacyPeriodQuarantine: true as const } : {}),
+      ...(!canonicalPeriod
+        ? { legacyPeriodQuarantine: true as const }
+        : periodStage === null
+          ? { legacyStageBoundaryOverlap: true as const }
+          : {}),
       ...(riskSnapshot ? { riskSnapshot } : {}),
     }
   })

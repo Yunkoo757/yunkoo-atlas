@@ -123,6 +123,7 @@ interface LocatedEntity {
 }
 
 const MIGRATION_REASON = '旧版迁移无法可靠归属；系统保留原始数据，未根据日期猜测目标阶段。'
+const LEGACY_STAGE_BOUNDARY_OVERLAP_REASON = '原始周区间合法，但跨越旧版阶段边界；请选择它应归档到的阶段，日期将保持不变。'
 
 export const STAGE_OWNERSHIP_ENTITY_LABELS: Record<StageOwnershipEntityType, string> = {
   'live-trade': '实盘交易',
@@ -207,7 +208,9 @@ function itemForLocated(state: StageOwnershipRepairState, located: LocatedEntity
           { label: '状态', value: review.status },
           { label: '最后更新', value: review.updatedAt },
         ],
-        reason: MIGRATION_REASON,
+        reason: review.legacyStageBoundaryOverlap === true
+          ? LEGACY_STAGE_BOUNDARY_OVERLAP_REASON
+          : MIGRATION_REASON,
         fingerprint: fingerprint(review),
         ...(review.legacyPeriodQuarantine === true
           ? {
@@ -428,7 +431,10 @@ function weeklyReviewPeriodForAssignment(
   if (
     !target ||
     !isCanonicalWeeklyReviewPeriod(period.weekStart, period.weekEnd) ||
-    !stageContainsWeeklyReviewPeriod(target, period.weekStart, period.weekEnd)
+    (
+      review.legacyStageBoundaryOverlap !== true &&
+      !stageContainsWeeklyReviewPeriod(target, period.weekStart, period.weekEnd)
+    )
   ) {
     throw new StageOwnershipRepairError(
       'invalid-weekly-period',

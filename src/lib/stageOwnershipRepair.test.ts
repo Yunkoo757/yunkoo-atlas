@@ -712,6 +712,34 @@ export function testQuarantinedWeeklyReviewRequiresExplicitValidPeriodAndRollsBa
   )
 }
 
+export function testCanonicalLegacyReviewAcrossStageBoundaryCanBeExplicitlyArchivedWithoutChangingDates(): void {
+  const initial = pendingState()
+  initial.weeklyReviews = initial.weeklyReviews.map((review) => ({
+    ...review,
+    weekStart: '2026-06-29',
+    weekEnd: '2026-07-05',
+    legacyStageBoundaryOverlap: true,
+    riskSnapshot: undefined,
+  }))
+  const item = listPendingStageOwnership(initial).find((candidate) => candidate.entityId === 'review')!
+  assert(item.requiresWeeklyPeriodCorrection !== true, '合法的跨阶段周区间不得要求伪造修正日期')
+
+  const repaired = assignPendingStageOwnership(initial, {
+    entityType: 'weekly-review',
+    entityId: 'review',
+    liveStageId: 'stage-old',
+    expectedFingerprint: item.fingerprint,
+  })
+  const review = repaired.weeklyReviews[0]!
+  assert(
+    review.liveStageId === 'stage-old' &&
+      review.weekStart === '2026-06-29' &&
+      review.weekEnd === '2026-07-05' &&
+      review.legacyStageBoundaryOverlap === true,
+    '显式归档必须保留合法原始周区间，并记录旧阶段边界重叠事实',
+  )
+}
+
 export function testRollbackUsesLatestStateAndOnlyReversesTargetOwnership(): void {
   const initial = pendingState()
   const item = listPendingStageOwnership(initial).find((candidate) => candidate.entityId === 'live')!

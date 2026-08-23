@@ -52,7 +52,7 @@ function fact(input: Fact): PerformanceFixtureTrade {
 const imported = (id: string, day: string, status: Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>, pnl: number, rMultiple: number): PerformanceFixtureTrade =>
   fact({ id, tradeKind: 'live', status, closedTradingDayKey: day, pnl, rMultiple, resultSource: 'imported' })
 
-// 复制 ux-audit/seed-data.mjs 的 44 条最小稳定事实字段，移除 UI 展示噪声。
+// 保留 44 条最小稳定事实字段，移除 UI 展示噪声。
 const auditSeeds: PerformanceFixtureTrade[] = [
   imported('tr-1001', '2026-06-04', 'win', 2135, 1.8),
   imported('tr-1002', '2026-06-05', 'loss', -58, -1.2),

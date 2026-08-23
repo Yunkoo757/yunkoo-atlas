@@ -7,6 +7,7 @@ const trackedPaths = execFileSync('git', ['ls-files'], { encoding: 'utf8' })
   .trim()
   .split(/\r?\n/)
   .filter(Boolean)
+  .filter((filePath) => existsSync(filePath))
 
 const compatibilityFiles = new Set([
   'scripts/vendor-neutral-contract.test.mjs',

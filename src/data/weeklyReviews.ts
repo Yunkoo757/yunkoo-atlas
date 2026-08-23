@@ -68,6 +68,8 @@ export interface WeeklyReview {
   liveStageId?: string | null
   /** v1-v11 无法验证的原始周边界；仅允许 pending，修复日期后移除。 */
   legacyPeriodQuarantine?: true
+  /** v12 迁移兼容：原始周区间合法，但跨越了旧版阶段边界；允许用户显式决定归档阶段。 */
+  legacyStageBoundaryOverlap?: true
   weekStart: string
   weekEnd: string
   status: WeeklyReviewStatus

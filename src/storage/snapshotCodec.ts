@@ -13,6 +13,7 @@ import { normalizeTrades } from '@/lib/tradeKind'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { normalizeTradingDayStartHour } from '@/lib/periods'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
+import { isCanonicalWeeklyReviewPeriod } from '@/lib/weeklyReviewPeriod'
 import {
   collectReliableLegacyStageRecordDays,
   migrateLegacyStageSnapshot,
@@ -215,6 +216,23 @@ function backfillClosedTradingDayKeys(
   })
 }
 
+function reclassifyCanonicalLegacyPeriodQuarantines(
+  value: PersistedSnapshot['weeklyReviews'],
+): PersistedSnapshot['weeklyReviews'] {
+  if (!Array.isArray(value)) return value
+  return value.map((review) => {
+    if (
+      !isRecord(review) ||
+      review.legacyPeriodQuarantine !== true ||
+      typeof review.weekStart !== 'string' ||
+      typeof review.weekEnd !== 'string' ||
+      !isCanonicalWeeklyReviewPeriod(review.weekStart, review.weekEnd)
+    ) return review
+    const { legacyPeriodQuarantine: _legacyMarker, ...preserved } = review
+    return { ...preserved, legacyStageBoundaryOverlap: true }
+  }) as PersistedSnapshot['weeklyReviews']
+}
+
 /**
  * 纯快照 codec：处理 legacy v1–v9 迁移与严格 v10 快照的校验、规范化。
  * format envelope、merge/replace 策略以及任何持久化提交均由调用方负责。
@@ -276,7 +294,10 @@ export function decodeCanonicalSnapshot(
           Object.prototype.hasOwnProperty.call(raw, 'liveStatsStartTradingDayKey') ||
           Object.prototype.hasOwnProperty.call(raw, 'livePerformanceCycles')
         ) throw new Error('v12 快照不得包含旧实盘周期字段')
-        return candidate
+        return {
+          ...candidate,
+          weeklyReviews: reclassifyCanonicalLegacyPeriodQuarantines(candidate.weeklyReviews),
+        }
       })()
   assertSnapshotContract(stagedCandidate, options.label ?? 'snapshot')
 

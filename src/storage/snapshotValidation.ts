@@ -428,11 +428,14 @@ function isWeeklyReviewEvidenceSnapshot(value: unknown): boolean {
 function isWeeklyReview(value: unknown): boolean {
   if (!isRecord(value)) return false
   const quarantinedPeriod = value.legacyPeriodQuarantine === true
+  const legacyStageBoundaryOverlap = value.legacyStageBoundaryOverlap === true
   if (
     typeof value.id !== 'string' || !value.id.trim() ||
     typeof value.weekStart !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value.weekStart) ||
     typeof value.weekEnd !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value.weekEnd) ||
     (value.legacyPeriodQuarantine !== undefined && !quarantinedPeriod) ||
+    (value.legacyStageBoundaryOverlap !== undefined && !legacyStageBoundaryOverlap) ||
+    (quarantinedPeriod && legacyStageBoundaryOverlap) ||
     (!quarantinedPeriod && !isCanonicalWeeklyReviewPeriod(value.weekStart, value.weekEnd)) ||
     (quarantinedPeriod && value.liveStageId !== null) ||
     !WEEKLY_REVIEW_STATUSES.has(String(value.status)) ||
@@ -701,7 +704,10 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
       if (
         !stage ||
         review.legacyPeriodQuarantine === true ||
-        !stageContainsWeeklyReviewPeriod(stage, review.weekStart, review.weekEnd)
+        (
+          review.legacyStageBoundaryOverlap !== true &&
+          !stageContainsWeeklyReviewPeriod(stage, review.weekStart, review.weekEnd)
+        )
       ) {
         throw new Error(`${label}.weeklyReviews contains a period outside its live stage`)
       }

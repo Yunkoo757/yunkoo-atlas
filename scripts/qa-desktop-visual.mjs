@@ -37,7 +37,7 @@ export { removeTemporaryDirectoryBounded } from './bundle-build-identity.mjs'
 
 const require = createRequire(import.meta.url)
 const REPORT_SCHEMA_VERSION = 1
-const DEFAULT_OUTPUT_ROOT = resolve('.gstack/qa-reports/desktop-visual-convergence')
+const DEFAULT_OUTPUT_ROOT = resolve('test-results/desktop-visual-convergence')
 const TYPOGRAPHY_PROBE_SELECTORS = Object.freeze({
   latin: '.qa-type-latin',
   cjk: '.qa-type-cjk',

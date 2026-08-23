@@ -5,7 +5,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 const BASE = process.env.QA_BASE_URL ?? 'http://localhost:5181'
-const BASELINE_OUT = join(process.cwd(), '.gstack', 'qa-reports', 'trader-atlas-baseline')
+const BASELINE_OUT = join(process.cwd(), 'test-results', 'trader-atlas-baseline')
 const CONTROLLED_PROBE_URL = process.env.QA_WORKBENCH_PROBE_URL
 const PRESENTATION_REPORT_PATH = process.env.QA_WORKBENCH_REPORT_PATH
   ?? join(BASELINE_OUT, 'workbench-presentation.json')

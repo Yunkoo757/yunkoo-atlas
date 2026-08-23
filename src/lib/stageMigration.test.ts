@@ -243,7 +243,14 @@ export function testInvalidOrUnmatchableLegacyWeeklyPeriodsRemainRawAndPending()
     const review = migrated.weeklyReviews?.[index]
     assert(review?.liveStageId === null, `${original.id} 不得回退归入 current`)
     assert(review.weekStart === original.weekStart && review.weekEnd === original.weekEnd, '迁移必须保留原始日期')
-    assert(review.legacyPeriodQuarantine === true, '不可证明的旧周边界必须显式进入 quarantine')
+    if (original.id === 'cross-stage') {
+      assert(
+        review.legacyStageBoundaryOverlap === true && review.legacyPeriodQuarantine === undefined,
+        '合法但跨阶段的旧周区间必须保留日期并进入边界重叠待整理，不能误报日期无效',
+      )
+    } else {
+      assert(review.legacyPeriodQuarantine === true, '非法旧周边界必须显式进入 quarantine')
+    }
   }
   assert(!migrated.liveStages.some((stage) => stage.name === '更早记录'), '非法周日期不得创建推测的更早阶段')
 }

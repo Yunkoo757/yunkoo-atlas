@@ -359,10 +359,59 @@ export function testVersionElevenSnapshotWithoutCycleMetadataStillProducesCanoni
   assert(
     decoded.weeklyReviews.every((review) => (
       typeof review.liveStageId === 'string' ||
-      (review.liveStageId === null && review.legacyPeriodQuarantine === true)
+      (
+        review.liveStageId === null &&
+        (review.legacyPeriodQuarantine === true || review.legacyStageBoundaryOverlap === true)
+      )
     )),
-    '迁移只能建立可证明归属，否则必须显式进入 quarantine',
+    '迁移只能建立可证明归属，否则必须明确区分非法日期与旧阶段边界重叠',
   )
+}
+
+export function testVersionTwelveReclassifiesCanonicalPeriodQuarantineAsStageBoundaryOverlap(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const snapshot = {
+    ...fixture,
+    liveStages: [{
+      ...fixture.liveStages[0]!,
+      id: 'stage-old',
+      sequence: 1,
+      name: '更早记录',
+      status: 'archived' as const,
+      startsOn: '2026-07-12',
+      endsOn: '2026-08-22',
+      archivedAt: '2026-08-23T00:00:00.000Z',
+    }, {
+      ...fixture.liveStages[0]!,
+      id: 'stage-current',
+      sequence: 2,
+      name: '实盘阶段 1',
+      status: 'current' as const,
+      startsOn: '2026-08-23',
+      endsOn: null,
+      createdAt: '2026-08-23T00:00:00.000Z',
+      archivedAt: null,
+    }],
+    currentLiveStageId: 'stage-current',
+    trades: [],
+    weeklyReviews: [{
+      ...fixture.weeklyReviews![0]!,
+      id: 'weekly-review:legacy-live-stage-2:2026-08-17',
+      liveStageId: null,
+      weekStart: '2026-08-17',
+      weekEnd: '2026-08-23',
+      legacyPeriodQuarantine: true as const,
+      riskSnapshot: undefined,
+    }],
+    weeklyRiskPreparations: [],
+    riskPolicyVersions: [],
+    monthlyRiskLimits: [],
+    riskOverrideEvents: [],
+  }
+  const decoded = decodeCanonicalSnapshot(snapshot, { version: SCHEMA_VERSION })
+  const review = decoded.weeklyReviews[0]!
+  assert(review.legacyPeriodQuarantine === undefined, '合法周区间不得继续显示为日期无效')
+  assert(review.legacyStageBoundaryOverlap === true, '跨旧阶段边界的合法周区间必须转为边界重叠待整理')
 }
 
 function legacyWeeklyRiskSnapshot(

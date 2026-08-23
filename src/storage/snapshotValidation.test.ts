@@ -551,6 +551,16 @@ export function testSnapshotValidationRequiresRealWeeklyCalendarBoundariesAndSta
       legacyPeriodQuarantine: true,
     }],
   })
+
+  assertValidPersistedSnapshot({
+    ...full,
+    weeklyReviews: [{
+      ...base,
+      weekStart: '2026-07-06',
+      weekEnd: '2026-07-12',
+      legacyStageBoundaryOverlap: true,
+    }],
+  })
 }
 
 export function testSnapshotValidationScopesWeeklyReviewUniquenessToStageAndWeek(): void {
