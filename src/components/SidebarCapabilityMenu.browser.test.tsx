@@ -99,16 +99,23 @@ async function run(): Promise<void> {
     const headerActions = [...document.querySelectorAll<HTMLButtonElement>('.sb-header-actions button')]
     assert(
       headerActions.map((button) => button.className).join(',')
-        === 'sb-hbtn sb-hbtn-search,sb-hbtn-create',
+        === 'sb-hbtn sb-hbtn-search,sb-hbtn sb-hbtn-create',
       '侧栏头部必须按 Linear 风格呈现搜索与圆形记录按钮',
     )
     const createAction = document.querySelector<HTMLButtonElement>('.sb-hbtn-create')
     assert(createAction, '记录交易必须并入侧栏头部操作组')
     const createStyle = getComputedStyle(createAction)
+    const searchStyle = getComputedStyle(headerActions[0]!)
     assert(
-      createStyle.width === '36px' && createStyle.height === '36px'
+      createStyle.width === '28px' && createStyle.height === '28px'
         && createStyle.borderRadius === '9999px',
-      '记录交易必须保持 36px 圆形 Compose 按钮',
+      '记录交易必须保持与搜索一致的 28px 圆形 Compose 按钮',
+    )
+    assert(
+      createStyle.color === searchStyle.color
+        && createStyle.borderStyle === 'none'
+        && createStyle.boxShadow === 'none',
+      '记录交易必须与搜索使用一致的图标透明层级，且不得额外增加边框或阴影',
     )
     assert(!document.querySelector('.sb-quick-record'), '记录交易不得继续成为孤立行')
     assert(document.body.textContent?.includes('工作区'), '主导航分组必须使用工作区表述')

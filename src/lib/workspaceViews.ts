@@ -42,8 +42,8 @@ const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
   today: [{ id: 'today', label: '今日', pathname: '/today-record' }],
   trade: [
     { id: 'all', label: '全部', pathname: '/list' },
-    { id: 'week', label: '本周', pathname: '/period/this-week' },
-    { id: 'month', label: '本月', pathname: '/period/this-month' },
+    { id: 'week', label: '本周', pathname: '/list', search: '?period=this-week' },
+    { id: 'month', label: '本月', pathname: '/list', search: '?period=this-month' },
     { id: 'loss', label: '亏损', pathname: '/list', search: '?status=loss' },
   ],
   paper: [

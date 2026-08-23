@@ -1553,6 +1553,11 @@ export function testWorkspaceViewsNeverCrossRecordDomains(): void {
     '交易日志顶部不得出现案例记录入口',
   )
   assert(
+    tradeViews.every((view) => view.pathname === '/list')
+      && tradeViews.find((view) => view.id === 'week')?.search === '?period=this-week',
+    '交易日志快捷视图只能改变筛选参数，不得切换页面身份与顶部骨架',
+  )
+  assert(
     caseViews.every((view) => view.pathname.startsWith('/review-cases')),
     '案例记录顶部不得出现交易日志入口',
   )

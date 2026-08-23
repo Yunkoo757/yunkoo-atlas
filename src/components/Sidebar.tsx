@@ -780,7 +780,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <ShortcutTooltip actionId="global.newTrade" label="记录交易">
             <button
               type="button"
-              className="sb-hbtn-create"
+              className="sb-hbtn sb-hbtn-create"
               aria-label="记录交易"
               onClick={() => openComposer(null, 'live')}
             >
