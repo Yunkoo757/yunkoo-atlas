@@ -31,6 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           runs=$(gh run list \
+            --repo "${GITHUB_REPOSITORY}" \
             --workflow release-candidate.yml \
             --commit "${{ github.sha }}" \
             --event workflow_dispatch \
