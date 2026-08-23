@@ -343,6 +343,8 @@ try {
   await selectValue(page.getByRole('combobox', { name: '案例记录品种' }), 'ETHUSDT')
   await selectValue(page.getByRole('combobox', { name: '案例类型' }), 'mistake')
   await page.locator('.composer-btn-primary').click()
+  await page.locator('.composer-modal').waitFor({ state: 'hidden', timeout: 10000 })
+  await page.locator('.trade-row-open').first().click()
   await page.waitForURL(/\/trade\/CAS-/, { timeout: 10000 })
 
   const editor = page.locator('.editor .ProseMirror')
@@ -438,15 +440,21 @@ try {
 
   await page.goto(`${BASE}/today-record`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  await openComposer('新建交易', '新建交易')
+  await openComposer('记录交易', '新建交易')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'XAUUSD')
   await page.getByRole('button', { name: '做空' }).click()
+  await page.getByRole('button', { name: '更多信息', exact: true }).click()
   await selectDate(page.getByRole('button', { name: '交易日期' }), '2025-06-15')
   const composerDialog = page.getByRole('dialog', { name: '新建交易', exact: true })
   const strategySelect = composerDialog.getByRole('combobox', { name: '交易策略' })
   const selectedStrategyId = await strategySelect.getAttribute('data-value')
   const selectedStrategyName = await strategySelect.locator('.ui-select-value').innerText()
+  await page.getByLabel('一句话').fill('工作台 QA：验证实盘记录与复盘流程')
   await page.locator('.composer-btn-primary').click()
+  await page.locator('.composer-modal').waitFor({ state: 'hidden', timeout: 10000 })
+  await page.goto(`${BASE}/list`, { waitUntil: 'domcontentloaded' })
+  await waitForApp()
+  await page.locator('.trade-row-open').first().click()
   await page.waitForURL(/\/trade\/TRD-/, { timeout: 10000 })
   const reviewedTradeRef = decodeURIComponent(new URL(page.url()).pathname.split('/').pop() ?? '')
   const liveActivityText = await readSystemActivity()
@@ -612,10 +620,18 @@ try {
 
   await page.goto(`${BASE}/sim`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  await openComposer('新建交易', '新建交易')
+  await openComposer('记录交易', '新建交易')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'EURUSD')
+  await page.getByLabel('一句话').fill('工作台 QA：验证模拟盘快速记录')
   await page.locator('.composer-btn-primary').click()
-  await page.waitForURL(/\/trade\/TRD-/, { timeout: 10000 })
+  await page.locator('.composer-modal').waitFor({ state: 'hidden', timeout: 10000 })
+  const paperTradeRef = await page.evaluate(async () => {
+    const { useStore } = await import('/src/store/useStore.ts')
+    return useStore.getState().trades.findLast((trade) => trade.tradeKind === 'paper')?.ref ?? null
+  })
+  assert.ok(paperTradeRef, '模拟盘创建后必须保存一笔模拟交易')
+  await page.goto(`${BASE}/trade/${encodeURIComponent(paperTradeRef)}`, { waitUntil: 'domcontentloaded' })
+  await waitForApp()
   const paperProperties = await page.locator('.dv-props').innerText()
   record('模拟页快速创建模拟交易', paperProperties.includes('模拟'), page.url())
 
@@ -810,10 +826,11 @@ try {
 
   const detailPath = new URL(page.url()).pathname
   const primaryRoutes = [
-    { path: '/today-record', selector: '.today-workspace-scroll', title: '今日工作台' },
     { path: '/list', selector: '.list-scroll', title: '交易日志' },
+    { path: '/dashboard', selector: '.db-scroll', title: '统计分析' },
+    { path: '/weekly-review', selector: '.wr-shell', title: '周期复盘' },
     { path: '/review-cases', selector: '.list-scroll', title: '案例记录' },
-    { path: '/dashboard', selector: '.db-scroll', title: '仪表盘' },
+    { path: '/review-session', selector: '.review-session-view', title: '随机复盘' },
   ]
 
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -829,11 +846,12 @@ try {
     await page.locator(route.selector).waitFor({ state: 'visible', timeout: 10000 })
     await page.locator('.ui-main-frame').getByText(route.title, { exact: true }).first().waitFor({ state: 'visible', timeout: 10000 })
     await page.waitForFunction(
-      (path) => {
-        const link = document.querySelector(`nav[aria-label="主要导航"] a[href="${path}"]`)
+      (title) => {
+        const link = [...document.querySelectorAll('nav[aria-label="主要导航"] a')]
+          .find((candidate) => candidate.querySelector('.sb-item-label')?.textContent?.trim() === title)
         return link?.classList.contains('is-active') && link.getAttribute('aria-current') === 'page'
       },
-      targetPath,
+      route.title,
       { timeout: 10000 },
     )
     if (new URL(page.url()).pathname !== targetPath) {
@@ -864,7 +882,7 @@ try {
       )
     }
   }
-  record('四个一级导航入口均可访问', true)
+  record('五个一级导航入口均可访问', true)
 
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
@@ -927,7 +945,11 @@ try {
     reviewSurface.toolbarRadius === '0px' && reviewSurface.toolbarMarginLeft === '0px',
     JSON.stringify(reviewSurface),
   )
-  await openComposer('新建案例记录', '新建案例记录')
+  await page.keyboard.press('Shift+N')
+  await page.getByRole('dialog', { name: '新建案例记录', exact: true }).waitFor({
+    state: 'visible',
+    timeout: 10000,
+  })
   const composerVisible = await page.locator('.composer-btn-primary').isVisible().catch(() => false)
   if (composerVisible) {
     await page.keyboard.press('Escape')
@@ -1083,10 +1105,10 @@ try {
 
   const baselineRoutes = [
     { name: 'list', path: '/list', selector: '.list-scroll', title: '交易日志' },
-    { name: 'today-record', path: '/today-record', selector: '.today-workspace-scroll', title: '今日工作台' },
+    { name: 'weekly-review', path: '/weekly-review', selector: '.wr-shell', title: '周期复盘' },
     { name: 'review-cases', path: '/review-cases', selector: '.list-scroll', title: '案例记录' },
     { name: 'trade-detail', path: detailPath, selector: '.dv-body' },
-    { name: 'dashboard', path: '/dashboard', selector: '.db-scroll', title: '仪表盘' },
+    { name: 'dashboard', path: '/dashboard', selector: '.db-scroll', title: '统计分析' },
     { name: 'settings-profile', path: '/settings/profile', selector: '.settings-layout', title: '设置' },
   ]
   const baselineViewports = [

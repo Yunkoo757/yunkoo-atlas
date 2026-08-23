@@ -25,6 +25,7 @@ import {
   FileText,
 } from '@/icons/appIcons'
 import { findTradeByRouteParam, tradeDetailPath } from '@/lib/tradeRoute'
+import { newTradeKindForPath } from '@/lib/tradeKind'
 import { sortStrategies } from '@/lib/strategies'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { matchesSearchQuery } from '@/lib/tradeFilters'
@@ -100,7 +101,7 @@ function CommandPaletteDialog({
   const deferredQuery = useDeferredValue(q)
   const [active, setActive] = useState(0)
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const trades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
   const display = useStore((s) => s.display)
@@ -168,7 +169,7 @@ function CommandPaletteDialog({
       },
     ]
     const actions: Cmd[] = [
-      { id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: '记录交易', hint: shortcutHint('global.newTrade'), run: () => { requestClose(); openComposer(null, 'live') } },
+      { id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: '记录交易', hint: shortcutHint('global.newTrade'), run: () => { requestClose(); openComposer(null, newTradeKindForPath(pathname, search)) } },
       { id: 'a-new-case', group: '操作', icon: <BookOpen size={ICON_MD} />, label: '新建案例记录', hint: shortcutHint('global.newCase'), run: () => { requestClose(); openComposer(null, 'case') } },
       { id: 'a-fullscreen', group: '操作', icon: <Maximize2 size={ICON_MD} />, label: '切换应用全屏', hint: shortcutHint('global.toggleFullscreen'), run: () => {
         requestClose()
@@ -331,6 +332,7 @@ function CommandPaletteDialog({
     navigate,
     openComposer,
     pathname,
+    search,
     requestClose,
     requestTradeClose,
     requestTradeOpen,

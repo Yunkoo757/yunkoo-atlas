@@ -71,6 +71,11 @@ export function testNewTradeAndCaseActionsChooseTheirRecordKindExplicitly(): voi
     useStore.getState().openComposer(null, 'live')
     assert(useStore.getState().composerKind === 'live', '新建交易动作应显式选择实盘类型')
     assert(newTradeKindForPath('/sim') === 'paper', '模拟工作区的新建交易应保持模拟类型')
+    assert(
+      newTradeKindForPath('/list', '?kind=paper') === 'paper' &&
+        newTradeKindForPath('/list', '?source=paper') === 'paper',
+      '模拟工作区归一到交易日志路由后仍应保持模拟类型',
+    )
     assert(newTradeKindForPath('/review-cases') === 'live', '新建交易动作不应被案例页面改成案例类型')
   } finally {
     useStore.setState({

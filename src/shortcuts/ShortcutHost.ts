@@ -23,6 +23,7 @@ import { resolveShortcutWorkspaceHref } from '@/shortcuts/workspaceActions'
 import { getActionMeta } from '@/shortcuts/actions'
 import { requestLightboxClose, requestLightboxReset } from '@/lib/lightboxView'
 import { createQuickNote } from '@/data/quickNotes'
+import { newTradeKindForPath } from '@/lib/tradeKind'
 
 export function useShortcutHost({
   onToggleCmdk,
@@ -51,7 +52,7 @@ export function useShortcutHost({
       'global.commandPalette': onToggleCmdk,
       'global.commandPaletteMod': onToggleCmdk,
       'global.newTrade': () => {
-        openComposer(null, 'live')
+        openComposer(null, newTradeKindForPath(pathname, search))
       },
       'global.newCase': () => {
         openComposer(null, 'case')

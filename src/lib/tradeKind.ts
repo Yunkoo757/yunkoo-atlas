@@ -25,7 +25,14 @@ export function defaultTradeKindForPath(pathname: string): TradeKind {
 }
 
 /** “新建交易”排除案例类型，但在模拟工作区仍创建模拟交易。 */
-export function newTradeKindForPath(pathname: string): Extract<TradeKind, 'live' | 'paper'> {
+export function newTradeKindForPath(
+  pathname: string,
+  search = '',
+): Extract<TradeKind, 'live' | 'paper'> {
+  if (pathname === '/list') {
+    const params = new URLSearchParams(search)
+    if (params.get('kind') === 'paper' || params.get('source') === 'paper') return 'paper'
+  }
   return defaultTradeKindForPath(pathname) === 'paper' ? 'paper' : 'live'
 }
 

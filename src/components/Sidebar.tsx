@@ -55,6 +55,7 @@ import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceVi
 import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
 import { filterStageOwnedRecords } from '@/lib/stageArchive'
 import { sharedTradeWorkspaceSearch } from '@/lib/tradeWorkspaceQuery'
+import { newTradeKindForPath } from '@/lib/tradeKind'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
@@ -355,6 +356,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const riskPolicyVersions = useStore((state) => state.riskPolicyVersions)
   const {
     path,
+    search,
     trades,
     strategies,
     sidebarWorkspaceItems,
@@ -782,7 +784,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               type="button"
               className="sb-hbtn sb-hbtn-create"
               aria-label="记录交易"
-              onClick={() => openComposer(null, 'live')}
+              onClick={() => openComposer(null, newTradeKindForPath(path, search))}
             >
               <Compose size={ICON_MD} />
             </button>

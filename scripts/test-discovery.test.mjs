@@ -443,6 +443,9 @@ test('image QA supplies deterministic image clipboard items without the system c
 
 test('workbench QA follows enabled modal controls and the live-only dashboard contract', async () => {
   const source = await fs.readFile(path.resolve('scripts/qa-workbench.mjs'), 'utf8')
+  assert.equal(source.match(/getByLabel\('一句话'\)\.fill\(/g)?.length, 2)
+  assert.equal(source.match(/locator\('\.composer-modal'\)\.waitFor\(\{ state: 'hidden'/g)?.length, 3)
+  assert.ok((source.match(/locator\('\.trade-row-open'\)\.first\(\)\.click\(\)/g)?.length ?? 0) >= 2)
   assert.match(source, /const closeDialogLastFocusable = closeDialog\.locator\('button:not\(:disabled\):visible, input:not\(:disabled\):visible'\)\.last\(\)/)
   assert.match(source, /getByRole\('button', \{ name: '实盘 \+ 模拟盘' \}\)\.count\(\)/)
   assert.doesNotMatch(source, /getByRole\('button', \{ name: '实盘 \+ 模拟盘' \}\)\.click\(\)/)
