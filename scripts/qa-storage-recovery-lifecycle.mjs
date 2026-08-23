@@ -295,9 +295,17 @@ try {
     controller.releaseRecoveryRendererReload()
   })
   await Promise.all([rendererNavigation, recoveryClick])
+  // Playwright 的 framenavigated 与 Electron 主进程的 did-navigate 是两个独立观察者；
+  // 前者触发后仍需等待主进程 observer 写入证据，并确认 recovery IPC 已结束。
+  const after = await waitForQaState(
+    application,
+    (state) =>
+      state.mainFrameNavigationCommitted === true &&
+      state.recoveryInProgress === false,
+    '恢复必须等到主进程确认主框架提交并结束 recovery IPC',
+  )
   // 生命周期替换发生在主进程发起 navigation 之前；先断言它，确保把
   // renderer-only reload mutation 立即判成 RED，而不是等待旧实例启动超时。
-  const after = await readQaState(application)
   const mainProcessIdAfter = await application.evaluate(() => process.pid)
   assert(mainProcessIdAfter === mainProcessId, 'exclusive reopen 不应偷偷替换为未验证的第二个主进程')
   assert(after.lifecycleId !== before.lifecycleId, '恢复 CTA 必须替换主进程 LibraryStorage lifecycle')
@@ -348,6 +356,7 @@ try {
     mainFrameNavigationCommitted: after.mainFrameNavigationCommitted,
     exclusiveAtNavigationStart: after.exclusiveAtNavigationStart,
     exclusiveAtMainFrameCommit: after.exclusiveAtMainFrameCommit,
+    recoveryInProgressAfterCommit: after.recoveryInProgress,
     newLifecycleLocked: after.recoveryRequired,
     recoveredSentinel: recovered.sentinel,
     followUpSentinel: recovered.followUp,

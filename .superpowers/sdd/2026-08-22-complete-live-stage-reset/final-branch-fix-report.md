@@ -47,6 +47,7 @@
 - 附件根目录、目标文件与 committed direct consumers 均拒绝 symlink/junction、非普通文件、大小写或扩展名别名及不完整物理字节；Windows/macOS portable ID/file-name collision 在 open、preview、commit、import、backup/archive 和 trash recovery 前拒绝。即使 legacy purge 已删 DB 行后崩溃，只要 snapshot 仍 exact/casefold 引用，启动恢复也会在任何删除前 fail closed，保留 active/staged/DB。
 - `storage:commitImport` 与其他写入口共用 typed recovery notification boundary，indeterminate 锁定先广播 `storage:recovery-required`，再向 renderer 抛错；App 与设置页共用实际主进程恢复动作和一致文案。
 - storage recovery evidence 在运行前删除旧报告，在最终 provenance 与退出后 raw DB 耐久校验完成、Electron 进程退出且临时目录删除成功之后才发布 PASS；cleanup 或 child-process error 均阻止报告生成。release candidate 对该 JSON 设置独立存在性 gate，双平台 evidence workflow 的 path filter 已覆盖 gate、build identity、provenance、renderer bootstrap 与 lockfile 等直接输入。
+- 真实恢复 runner 同时等待 Playwright 主框架 `framenavigated` 与主进程 `did-navigate` observer/`storage:recover` IPC 收尾；不再把 renderer 已提交导航误当成主进程 QA 状态已经可读。双观察者屏障仍逐项断言 lifecycle 已替换、commit 时 exclusive 为真且 recovery 已结束。
 - 图片 QA 在触发 paste 前安装 save-cycle observer，只有先观测到非 saved 状态再进入新的 saved 才继续 reload 校验；不再依赖产品有意延迟显示、且可能在检查前结束的 dirty/saving DOM。图片 reload、asset ID、两交易 ownership 与 lightbox 断言保持不变。
 - 完整 QA 的回归 runner 在每次 `vite.build()` 后及异常 `finally` 恢复调用方 `NODE_ENV`，避免 production React 依赖预构建污染后续开发服务器；工作台入口和安全复制对话框改用当前可访问名称，不再等待已移除的 `.empty-btn`/旧标题。真实工作台长流程 35/35 全绿。
 - 最终 focused storage/GC/recovery fault-injection 集合 49 项全绿；bundle/recovery workflow fixtures 15 项全绿；两轮独立只读复审均明确 Closed。

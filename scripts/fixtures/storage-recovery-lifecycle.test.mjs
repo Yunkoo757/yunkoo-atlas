@@ -22,6 +22,16 @@ test('storage recovery Electron lifecycle gate is wired into release-quality exe
   assert.match(runner, /staleRendererWriteRejected/)
   assert.match(runner, /rendererReloadHeld/)
   assert.match(runner, /exclusiveAtMainFrameCommit === true/)
+  assert.match(
+    runner,
+    /const after = await waitForQaState\([\s\S]*state\.mainFrameNavigationCommitted === true[\s\S]*state\.recoveryInProgress === false/,
+    'Playwright 主框架事件后还必须等待主进程 did-navigate observer 与 recovery IPC 完成',
+  )
+  assert.ok(
+    runner.indexOf('await Promise.all([rendererNavigation, recoveryClick])') <
+      runner.indexOf('const after = await waitForQaState('),
+    '必须同时取得 renderer navigation 与主进程 recovery 完成两侧证据',
+  )
   assert.match(runner, /assertRepositoryProvenanceUnchanged/)
   assert.match(runner, /SIGKILL/)
   assert.ok(
