@@ -374,6 +374,18 @@ test('image QA retries once in a fresh process', async () => {
   assert.match(source, /spawnSync\(process\.execPath, \['scripts\/qa-phase1-image\.mjs'\]/)
 })
 
+test('core QA satisfies the quick composer content contract before saving', async () => {
+  const source = await fs.readFile(path.resolve('scripts/qa-phase1.mjs'), 'utf8')
+  const fillIndex = source.indexOf("getByLabel('一句话').fill(")
+  const saveIndex = source.indexOf("locator('.composer-btn-primary').click()")
+  const openIndex = source.indexOf("locator('.trade-row-open').first().click()")
+  assert.ok(fillIndex >= 0, '核心 QA 必须填写快速记录的一句话必填项')
+  assert.ok(saveIndex > fillIndex, '核心 QA 必须在填写一句话后再保存交易')
+  assert.ok(openIndex > saveIndex, '快速记录留在列表后，核心 QA 必须主动打开新记录')
+  assert.match(source, /url\.pathname === '\/list' && url\.searchParams\.get\('view'\) === 'missed'/)
+  assert.match(source, /getByRole\('link', \{ name: '统计分析' \}\)/)
+})
+
 test('sidebar QA targets the live mobile drawer instead of its exit clone', async () => {
   const source = await fs.readFile(path.resolve('scripts/qa-sidebar-navigation.mjs'), 'utf8')
   assert.match(

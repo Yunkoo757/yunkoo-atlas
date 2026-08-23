@@ -55,7 +55,10 @@ try {
   if (tradeCount === 0) {
     await page.locator('body').press('n')
     await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'BTCUSDT')
+    await page.getByLabel('一句话').fill('QA 自动化：验证快速记录与详情持久化')
     await page.locator('.composer-btn-primary').click()
+    await page.locator('.composer-modal').waitFor({ state: 'hidden', timeout: 10000 })
+    await page.locator('.trade-row-open').first().click()
     await page.waitForURL(/\/trade\//, { timeout: 10000 })
     tradeCount = 1
   } else {
@@ -92,15 +95,15 @@ try {
 
   // 6. 错过的机会页
   await page.goto(`${BASE}/missed`, { waitUntil: 'networkidle' })
-  await page.waitForURL(/\/missed/)
+  await page.waitForURL((url) => url.pathname === '/list' && url.searchParams.get('view') === 'missed')
   const missedTitle = await page.getByText('错过的机会').first().isVisible()
   record('错过的机会页可访问', missedTitle)
   await page.screenshot({ path: join(OUT, '03-missed.png') })
 
-  // 7. 仪表盘
-  await page.getByRole('link', { name: '仪表盘' }).click()
+  // 7. 统计分析
+  await page.getByRole('link', { name: '统计分析' }).click()
   await page.waitForURL(/\/dashboard/)
-  record('仪表盘可访问', await page.getByText('仪表盘').first().isVisible())
+  record('统计分析可访问', await page.getByText('统计分析').first().isVisible())
   await page.screenshot({ path: join(OUT, '04-dashboard.png') })
 
   // 8. 数据导入/导出设置页
