@@ -226,15 +226,14 @@
 
 .review-session-settings-sources label {
   display: grid;
-  min-height: 82px;
+  min-height: 0;
   grid-template-columns: auto auto 1fr;
   align-items: center;
   gap: 10px;
-  padding: 15px;
+  padding: 8px 10px;
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-10);
-  background: color-mix(in srgb, var(--bg-elevated) 70%, transparent);
-  color: var(--text-tertiary);
+  border-radius: var(--radius-8);
+  background: transparent;
   cursor: pointer;
 }
 
@@ -244,9 +243,8 @@
 }
 
 .review-session-settings-sources label.is-selected {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-default));
-  background: color-mix(in srgb, var(--accent) 9%, var(--bg-elevated));
-  color: color-mix(in srgb, var(--accent) 70%, white);
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border-default));
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
 }
 
 .review-session-settings-sources input,
@@ -260,18 +258,23 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: var(--sp-1);
+  gap: 0;
 }
 
 .review-session-settings-sources strong {
   color: var(--text-primary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
+  font-weight: var(--type-row-weight);
+  line-height: 18px;
 }
 
 .review-session-settings-sources small {
   color: var(--text-tertiary);
-  font-size: var(--fs-xs);
-  line-height: 1.4;
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .review-session-settings-options {
@@ -310,9 +313,9 @@
 .review-session-content-toggle { cursor: pointer; }
 
 .review-session-settings-count {
-  margin: var(--sp-3) 0 0;
+  margin: var(--sp-2) 0 0;
   color: var(--text-tertiary);
-  font-size: var(--fs-xs);
+  font-size: var(--type-metadata-size);
 }
 
 .review-session-start-footer {
