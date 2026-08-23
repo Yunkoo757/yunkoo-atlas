@@ -409,8 +409,16 @@ test('image QA supplies deterministic image clipboard items without the system c
   assert.match(source, /files: \[file\]/)
   assert.match(source, /types: \['Files'\]/)
   assert.match(source, /getData: \(\) => ''/)
-  assert.match(source, /\.save-status\.is-dirty, \.save-status\.is-saving/)
+  assert.match(source, /new MutationObserver/)
+  assert.match(source, /expectedImageCount/)
+  assert.match(source, /observedNotSaved/)
+  assert.match(source, /dataset\.qaImageSaveCycle/)
   assert.match(source, /\.save-status\.is-saved/)
+  assert.doesNotMatch(
+    source,
+    /locator\('\.save-status\.is-dirty, \.save-status\.is-saving'\)\.waitFor/,
+    '图片已插入后不能再要求观察可能已经结束、且产品会有意隐藏的瞬态 dirty/saving DOM',
+  )
   assert.doesNotMatch(source, /new DataTransfer\(/)
   assert.doesNotMatch(source, /navigator\.clipboard\.write/)
   assert.doesNotMatch(source, /navigator, 'locks'/)

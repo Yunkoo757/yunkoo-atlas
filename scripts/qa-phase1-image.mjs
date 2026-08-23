@@ -25,15 +25,53 @@ async function createTrade(symbol) {
   return page.url()
 }
 
+async function armDurableSaveProbe(expectedImageCount) {
+  await page.evaluate((expectedCount) => {
+    const root = document.documentElement
+    delete root.dataset.qaImageSaveCycle
+    globalThis.__ATLAS_QA_IMAGE_SAVE_OBSERVER__?.disconnect()
+    let observedNotSaved = false
+    const observer = new MutationObserver(() => {
+      if (document.querySelector('.save-status-recovery')) {
+        root.dataset.qaImageSaveCycle = 'error'
+        observer.disconnect()
+        return
+      }
+      if (document.querySelectorAll('.editor img[data-asset-id]').length < expectedCount) return
+      if (!document.querySelector('.save-status.is-saved')) {
+        observedNotSaved = true
+        return
+      }
+      if (!observedNotSaved) return
+      root.dataset.qaImageSaveCycle = 'saved'
+      observer.disconnect()
+    })
+    globalThis.__ATLAS_QA_IMAGE_SAVE_OBSERVER__ = observer
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['class'],
+    })
+  }, expectedImageCount)
+}
+
 async function waitForDurableSave() {
-  await page.locator('.save-status.is-dirty, .save-status.is-saving').waitFor({ state: 'visible' })
-  await page.locator('.save-status.is-saved').waitFor({ state: 'visible', timeout: 15000 })
+  await page.waitForFunction(
+    () => ['saved', 'error'].includes(document.documentElement.dataset.qaImageSaveCycle ?? ''),
+    undefined,
+    { timeout: 15_000 },
+  )
+  const outcome = await page.evaluate(() => document.documentElement.dataset.qaImageSaveCycle)
+  if (outcome !== 'saved') throw new Error('图片写入触发了保存失败状态')
 }
 
 async function pasteAndReadImage() {
   const editor = page.locator(EDITABLE_EDITOR)
   await editor.waitFor()
   await editor.click()
+  const expectedImageCount = await page.locator('.editor img').count() + 1
+  await armDurableSaveProbe(expectedImageCount)
   const handled = await editor.evaluate((target, b64) => {
     const bin = atob(b64)
     const bytes = new Uint8Array(bin.length)
@@ -77,6 +115,8 @@ async function pasteGeneratedImage(width, height) {
   const editor = page.locator(EDITABLE_EDITOR)
   await editor.waitFor()
   await editor.click()
+  const expectedImageCount = await page.locator('.editor img').count() + 1
+  await armDurableSaveProbe(expectedImageCount)
   const handled = await editor.evaluate(async (target, { width, height }) => {
     const canvas = document.createElement('canvas')
     canvas.width = width
