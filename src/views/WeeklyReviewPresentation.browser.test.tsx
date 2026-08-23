@@ -169,6 +169,25 @@ async function run(): Promise<void> {
       () => Boolean(document.querySelector('.wr-chart svg')),
       '第二个完成周出现后应按需载入年度评分折线图',
     )
+    const reviewTab = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === '本周复盘')
+    assert(reviewTab, '本周复盘入口不存在')
+    reviewTab.click()
+    await waitFor(() => Boolean(document.querySelector('.wr-progress-summary')), '本周复盘页缺少进度摘要')
+    await waitFor(() => Boolean(document.querySelector('.wr-history')), '有两条以上记录时必须显示左栏')
+    const rail = document.querySelector<HTMLElement>('.wr-history')
+    const week = document.querySelector<HTMLElement>('.wr-history-week')
+    const stage = document.querySelector<HTMLElement>('.wr-history-stage')
+    assert(rail && week && stage, '左栏缺少周标识或阶段名结构')
+    assert(rail.getBoundingClientRect().width >= 168, '左栏在常用桌面宽度下必须可读')
+    assert(getComputedStyle(week).whiteSpace === 'nowrap', '周标识不得逐字换行')
+    const progress = document.querySelector<HTMLElement>('.wr-progress-summary')
+    const sectionHead = document.querySelector<HTMLElement>('.wr-section-head')
+    const alignedPageHead = document.querySelector<HTMLElement>('.wr-page-head-inner')
+    assert(alignedPageHead && progress && sectionHead, '页头、进度或章节标题缺失')
+    assert(
+      Math.abs(alignedPageHead.getBoundingClientRect().left - sectionHead.getBoundingClientRect().left) < 1,
+      '主内容标题与章节标题必须对齐到同一阅读轨道',
+    )
   } finally {
     if (!new URLSearchParams(location.search).has('visual')) {
       root.unmount()

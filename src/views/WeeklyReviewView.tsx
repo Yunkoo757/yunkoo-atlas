@@ -675,11 +675,15 @@ export function WeeklyReviewView() {
                   data-review-id={item.review?.id ?? ''}
                   data-review-stage-id={item.liveStageId}
                   data-review-week-state={item.review?.status ?? 'pending'}
+                  aria-label={`${weekLabel(item.week, currentWeek)} ${stageName} ${item.review?.status === 'completed' ? '已完成' : item.review ? '草稿' : '待补做'}`}
                   onClick={() => void changeReview(item)}
                 >
-                  <span>{weekLabel(item.week, currentWeek)}</span>
-                  <small>{stageName}{item.review ? '' : ' · 待补做'}</small>
-                  <i className={item.review?.status === 'completed' ? 'is-complete' : item.review ? 'is-draft' : 'is-pending'} />
+                  <span className="wr-history-week">{weekLabel(item.week, currentWeek)}</span>
+                  <small className="wr-history-stage">{stageName}</small>
+                  <i
+                    className={item.review?.status === 'completed' ? 'is-complete' : item.review ? 'is-draft' : 'is-pending'}
+                    aria-hidden
+                  />
                 </button>
               )
             })}

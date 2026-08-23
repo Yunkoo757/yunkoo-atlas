@@ -2,7 +2,7 @@
   min-height: 0;
   flex: 1;
   display: grid;
-  grid-template-columns: 148px minmax(0, 1fr);
+  grid-template-columns: minmax(200px, 220px) minmax(0, 1fr);
   overflow: hidden;
   background: var(--bg-surface);
   --fs-micro: var(--font-size-mini);
@@ -10,13 +10,13 @@
 }
 .wr-shell.is-first-review { grid-template-columns: minmax(0, 1fr); }
 .wr-history { overflow-y: auto; padding: 18px 10px; border-right: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--bg-surface) 78%, var(--bg-app)); }
-.wr-history-title { padding: 0 9px 10px; color: var(--text-quaternary); font-size: var(--fs-mini); font-weight: var(--font-weight-semibold); }
-.wr-history button { width: 100%; min-height: 44px; display: grid; grid-template-columns: 1fr auto 7px; align-items: center; gap: 7px; padding: 0 9px; border: 0; border-radius: var(--radius-6); background: transparent; color: var(--text-tertiary); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; }
+.wr-history-title { padding: 0 9px 10px; color: var(--text-tertiary); font-size: var(--type-metadata-size); font-weight: var(--font-weight-semibold); }
+.wr-history button { width: 100%; min-height: 44px; display: grid; grid-template-columns: minmax(0, 1fr) 7px; grid-template-rows: auto auto; align-items: center; column-gap: 7px; padding: 6px 9px; border: 0; border-radius: var(--radius-6); background: transparent; color: var(--text-tertiary); font: inherit; font-size: var(--type-row-size); text-align: left; cursor: pointer; }
 .wr-history button:hover { background: var(--bg-hover); color: var(--text-secondary); }
 .wr-history button.is-active { background: var(--bg-selected); color: var(--text-primary); }
-.wr-history button small { font-size: var(--fs-micro); color: var(--text-quaternary); }
-.wr-history button[data-review-week-state="pending"] small { color: var(--warn); }
-.wr-history button i { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+.wr-history-week { grid-column: 1; color: inherit; font-size: var(--type-row-size); font-weight: var(--type-row-weight); white-space: nowrap; }
+.wr-history-stage { grid-column: 1; overflow: hidden; color: var(--text-tertiary); font-size: var(--type-metadata-size); text-overflow: ellipsis; white-space: nowrap; }
+.wr-history button i { grid-column: 2; grid-row: 1 / span 2; width: 6px; height: 6px; border-radius: 50%; background: transparent; }
 .wr-history button i.is-pending { border: 1px solid var(--warn); }
 .wr-history button i.is-draft { background: var(--warn); }.wr-history button i.is-complete { background: var(--pos); }
 .wr-main { overflow-y: auto; min-width: 0; }
@@ -121,5 +121,9 @@
   .wr-content,
   .wr-year {
     width: calc(100% - var(--page-inset-compact) - var(--page-inset-compact));
+  }
+
+  .wr-shell:not(.is-first-review) {
+    grid-template-columns: minmax(168px, 200px) minmax(0, 1fr);
   }
 }
