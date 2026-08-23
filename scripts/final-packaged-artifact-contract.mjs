@@ -23,18 +23,22 @@ function readRequiredOption(argv, name) {
 }
 
 export function parseFinalPackagedArtifactArgs(argv, hostPlatform = process.platform) {
+  // pnpm preserves the conventional argument separator when forwarding script
+  // arguments on some platforms. Treat one leading separator as syntax rather
+  // than as an application option so the release command behaves consistently.
+  const args = argv[0] === '--' ? argv.slice(1) : argv
   const knownOptions = new Set(['--artifact', '--arch', '--output'])
-  for (let index = 0; index < argv.length; index += 2) {
-    if (!knownOptions.has(argv[index]) || index + 1 >= argv.length) {
-      throw new Error(`Unknown or incomplete final artifact smoke argument: ${String(argv[index])}`)
+  for (let index = 0; index < args.length; index += 2) {
+    if (!knownOptions.has(args[index]) || index + 1 >= args.length) {
+      throw new Error(`Unknown or incomplete final artifact smoke argument: ${String(args[index])}`)
     }
   }
-  if (argv.length !== knownOptions.size * 2) {
+  if (args.length !== knownOptions.size * 2) {
     throw new Error('Final packaged artifact smoke accepts exactly --artifact, --arch, and --output')
   }
-  const artifactPath = resolve(readRequiredOption(argv, '--artifact'))
-  const architecture = readRequiredOption(argv, '--arch')
-  const outputPath = resolve(readRequiredOption(argv, '--output'))
+  const artifactPath = resolve(readRequiredOption(args, '--artifact'))
+  const architecture = readRequiredOption(args, '--arch')
+  const outputPath = resolve(readRequiredOption(args, '--output'))
   if (hostPlatform === 'win32') {
     if (architecture !== 'x64') throw new Error(`Unsupported Windows final artifact architecture: ${architecture}`)
     if (!artifactPath.toLowerCase().endsWith('.exe')) throw new Error('Windows final artifact must be an NSIS .exe')

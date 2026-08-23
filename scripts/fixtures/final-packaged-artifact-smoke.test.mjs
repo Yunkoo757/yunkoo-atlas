@@ -64,6 +64,10 @@ test('final artifact CLI requires exact artifact architecture and output argumen
     ['--artifact', 'release/app.dmg', '--arch', 'arm64', '--output', 'out.json'],
     'darwin',
   ))
+  assert.doesNotThrow(() => parseFinalPackagedArtifactArgs(
+    ['--', '--artifact', 'release/app.dmg', '--arch', 'arm64', '--output', 'out.json'],
+    'darwin',
+  ))
   assert.throws(
     () => parseFinalPackagedArtifactArgs([
       '--artifact', 'release/app.exe',
