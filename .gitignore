@@ -44,9 +44,6 @@ playwright/.cache/
 # local git worktrees
 .worktrees/
 
-# local Superpowers brainstorm / session cache (never commit)
-.superpowers/
-
 # Visual Studio local workspace cache
 .vs/
 
