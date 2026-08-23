@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import initSqlJs, { type Database } from 'sql.js'
 import { createFullPersistedSnapshotFixture } from '../../src/storage/fixtures/fullPersistedSnapshot'
 import { LibraryStorage } from './storage'
 
@@ -45,6 +46,23 @@ function writeTrashOperation(
     if (file.body !== undefined) fs.writeFileSync(path.join(operationDir, file.fileName), file.body)
   }
   return operationDir
+}
+
+async function mutateDurableDatabase(
+  root: string,
+  mutate: (database: Database) => void,
+): Promise<void> {
+  const SQL = await initSqlJs({
+    locateFile: (file) => path.join(process.cwd(), 'node_modules', 'sql.js', 'dist', file),
+  })
+  const dbFile = path.join(root, 'journal.db')
+  const database = new SQL.Database(fs.readFileSync(dbFile))
+  try {
+    mutate(database)
+    fs.writeFileSync(dbFile, Buffer.from(database.export()))
+  } finally {
+    database.close()
+  }
 }
 
 export async function testElectronAssetGcIsRecoverableAndNeverTouchesBackups(): Promise<void> {
@@ -329,6 +347,239 @@ export async function testElectronAssetGcIpcUsesTheExclusiveLibraryGate(): Promi
     recoveryHandler.indexOf('importJournalZipToPath') < recoveryHandler.indexOf('randomUUID'),
     'Electron 必须独占导出并验证恢复归档后才能签发授权',
   )
+}
+
+export async function testLegacyPortableAssetCollisionBlocksPreviewAndCommitBeforeTrashMutation(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-asset-gc-casefold-active-'))
+  const databases: Database[] = []
+  const storage = new LibraryStorage(root, {
+    createDatabase(DatabaseClass, data) {
+      const database = new DatabaseClass(data)
+      databases.push(database)
+      return database
+    },
+  })
+  try {
+    await storage.open()
+    storage.importAsset('shared-live', 'image/png', Buffer.from('shared-live'))
+    storage.importAsset('orphan-a', 'image/png', Buffer.from('orphan-a'))
+    storage.saveSnapshot(snapshot('shared-live'))
+    const previewBeforeCollision = storage.previewAssetPurge()
+    const active = databases.at(-1)
+    assert(active, 'fixture 必须捕获当前 active DB')
+    active.run(
+      `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
+       VALUES ('ORPHAN-A', 'image/png', 'ORPHAN-A.png', 8, '2026-08-23T00:00:00.000Z')`,
+    )
+    const originalPath = path.join(storage.getPaths().attachments, 'orphan-a.png')
+    const originalBytes = fs.readFileSync(originalPath)
+
+    let previewFailure: unknown
+    try { storage.previewAssetPurge() } catch (error) { previewFailure = error }
+    assert(previewFailure instanceof Error, 'legacy Foo/foo DB 碰撞必须让 purge preview fail closed')
+
+    let commitFailure: unknown
+    try { await storage.commitAssetPurge(previewBeforeCollision) } catch (error) { commitFailure = error }
+    assert(commitFailure instanceof Error, 'preview 后出现 portable 碰撞时 commit 必须重新验证并拒绝')
+    assert(fs.readFileSync(originalPath).equals(originalBytes), 'preview/commit 拒绝不得删除共享物理文件')
+    assert(!fs.existsSync(path.join(root, '.trash')), 'portable 碰撞必须在创建 trash journal 前拒绝')
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testLegacyPortableAssetCollisionBlocksStartupTrashRecoveryWithoutMutation(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-asset-gc-casefold-startup-'))
+  const storage = await createFixture(root)
+  const paths = storage.getPaths()
+  storage.release()
+  try {
+    await mutateDurableDatabase(root, (database) => {
+      database.run(
+        `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
+         VALUES ('ORPHAN-A', 'image/png', 'ORPHAN-A.png', 8, '2026-08-23T00:00:00.000Z')`,
+      )
+    })
+    const durableBefore = fs.readFileSync(paths.dbFile)
+    const activePath = path.join(paths.attachments, 'orphan-a.png')
+    const activeBefore = fs.readFileSync(activePath)
+    const operationDir = writeTrashOperation(root, 'legacy-casefold-startup', [
+      { id: 'orphan-a', fileName: 'orphan-a.png', body: 'staged-orphan-a' },
+    ])
+    const stagedPath = path.join(operationDir, 'orphan-a.png')
+    const stagedBefore = fs.readFileSync(stagedPath)
+
+    const reopened = new LibraryStorage(root, { allowCreate: false })
+    let failure: unknown
+    try { await reopened.open() } catch (error) { failure = error } finally { reopened.release() }
+    assert(failure instanceof Error, 'legacy DB portable 碰撞必须在 startup trash recovery 前阻止打开')
+    assert(fs.readFileSync(paths.dbFile).equals(durableBefore), 'startup fail closed 不得改变 DB')
+    assert(fs.readFileSync(activePath).equals(activeBefore), 'startup fail closed 不得删除活动共享文件')
+    assert(fs.readFileSync(stagedPath).equals(stagedBefore), 'startup fail closed 不得删除 staged 审计副本')
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testTrashManifestRejectsPortableCaseFoldDuplicatesBeforeFileActions(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-asset-gc-manifest-casefold-'))
+  const storage = await createFixture(root)
+  const paths = storage.getPaths()
+  storage.release()
+  try {
+    const activePath = path.join(paths.attachments, 'orphan-a.png')
+    const activeBefore = fs.readFileSync(activePath)
+    const operationDir = writeTrashOperation(root, 'manifest-casefold-duplicates', [
+      { id: 'orphan-a', fileName: 'orphan-a.png', body: 'lower-staged' },
+      { id: 'ORPHAN-A', fileName: 'ORPHAN-A.png', body: 'upper-staged' },
+    ])
+    const manifestBefore = fs.readFileSync(path.join(operationDir, 'manifest.json'))
+
+    const reopened = new LibraryStorage(root, { allowCreate: false })
+    let failure: unknown
+    try { await reopened.open() } catch (error) { failure = error } finally { reopened.release() }
+    assert(failure instanceof Error, 'trash manifest 的 ID/file-name 仅大小写不同也必须 fail closed')
+    assert(fs.readFileSync(activePath).equals(activeBefore), 'manifest 碰撞不得触碰活动附件')
+    assert(fs.readFileSync(path.join(operationDir, 'manifest.json')).equals(manifestBefore), 'manifest 碰撞不得改写 journal')
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testTrashRecoveryRejectsCaseAliasedManifestAgainstLiveDatabaseRow(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-asset-gc-manifest-alias-'))
+  const storage = new LibraryStorage(root)
+  try {
+    await storage.open()
+    storage.importAsset('PortableLive', 'image/png', Buffer.from('portable-live'))
+    storage.saveSnapshot(snapshot('PortableLive'))
+    const paths = storage.getPaths()
+    const activePath = path.join(paths.attachments, 'PortableLive.png')
+    const activeBefore = fs.readFileSync(activePath)
+    storage.release()
+    const operationDir = writeTrashOperation(root, 'case-aliased-manifest', [
+      { id: 'portablelive', fileName: 'portablelive.png', body: 'aliased-staged' },
+    ])
+    const stagedPath = path.join(operationDir, 'portablelive.png')
+    const stagedBefore = fs.readFileSync(stagedPath)
+
+    const reopened = new LibraryStorage(root, { allowCreate: false })
+    let failure: unknown
+    try { await reopened.open() } catch (error) { failure = error } finally { reopened.release() }
+    assert(failure instanceof Error, 'case-aliased trash journal 不得把精确查无行当作 unreferenced')
+    assert(fs.readFileSync(activePath).equals(activeBefore), 'case alias 不得删除 live DB 行共享的物理附件')
+    assert(fs.readFileSync(stagedPath).equals(stagedBefore), 'case alias 必须保留 staged 审计副本')
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testSnapshotCaseAliasCannotPurgeTheOnlyPortableLiveAsset(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-asset-gc-snapshot-alias-'))
+  const storage = new LibraryStorage(root)
+  try {
+    await storage.open()
+    storage.importAsset('PortableLive', 'image/png', Buffer.from('portable-live'))
+    storage.saveSnapshot(snapshot('portablelive'))
+
+    let failure: unknown
+    try {
+      const preview = storage.previewAssetPurge()
+      await storage.commitAssetPurge(preview)
+    } catch (error) {
+      failure = error
+    }
+
+    assert(failure instanceof Error, 'snapshot/DB 仅大小写不同必须 fail closed，不能列为 orphan 后删除')
+    assert(
+      Buffer.from(storage.getAssetBytes('PortableLive')?.bytes ?? []).equals(Buffer.from('portable-live')),
+      'case alias 不得误删唯一 live 附件',
+    )
+    assert(!fs.existsSync(path.join(root, '.trash')), 'case alias 必须在创建 trash journal 前拒绝')
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testTrashRecoveryRejectsPhysicalCaseAliasBeforeAnyMutation(): Promise<void> {
+  for (const databaseKeepsRecord of [true, false]) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), `atlas-asset-gc-physical-alias-${databaseKeepsRecord}-`))
+    const storage = new LibraryStorage(root)
+    try {
+      await storage.open()
+      storage.importAsset('orphan-a', 'image/png', Buffer.from('active-original'))
+      const paths = storage.getPaths()
+      storage.release()
+      if (!databaseKeepsRecord) {
+        await mutateDurableDatabase(root, (database) => {
+          database.run("DELETE FROM assets WHERE id = 'orphan-a'")
+        })
+      }
+      fs.renameSync(
+        path.join(paths.attachments, 'orphan-a.png'),
+        path.join(paths.attachments, 'ORPHAN-A.png'),
+      )
+      const operationDir = writeTrashOperation(root, `physical-alias-${databaseKeepsRecord}`, [
+        { id: 'orphan-a', fileName: 'orphan-a.png', body: 'staged-original' },
+      ])
+      const stagedPath = path.join(operationDir, 'orphan-a.png')
+      const stagedBefore = fs.readFileSync(stagedPath)
+
+      const reopened = new LibraryStorage(root, { allowCreate: false })
+      let failure: unknown
+      try { await reopened.open() } catch (error) { failure = error } finally { reopened.release() }
+
+      assert(failure instanceof Error, 'trash recovery 发现物理 basename 大小写别名时必须 fail closed')
+      assert(
+        fs.readdirSync(paths.attachments).includes('ORPHAN-A.png'),
+        '物理别名必须原样保留供人工恢复，不能被删除或覆盖',
+      )
+      assert(fs.readFileSync(stagedPath).equals(stagedBefore), 'physical alias failure 必须保留 staged 审计副本')
+    } finally {
+      storage.release()
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  }
+}
+
+export async function testLegacyTrashRecoveryPreservesSnapshotCaseAliasAfterDatabaseRowWasDeleted(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-asset-gc-legacy-snapshot-alias-'))
+  const storage = new LibraryStorage(root)
+  try {
+    await storage.open()
+    storage.importAsset('PortableLive', 'image/png', Buffer.from('active-original'))
+    storage.saveSnapshot(snapshot('portablelive'))
+    const paths = storage.getPaths()
+    storage.release()
+    await mutateDurableDatabase(root, (database) => {
+      database.run("DELETE FROM assets WHERE id = 'PortableLive'")
+    })
+    const durableBefore = fs.readFileSync(paths.dbFile)
+    const activePath = path.join(paths.attachments, 'PortableLive.png')
+    const activeBefore = fs.readFileSync(activePath)
+    const operationDir = writeTrashOperation(root, 'legacy-snapshot-alias', [
+      { id: 'PortableLive', fileName: 'PortableLive.png', body: 'staged-original' },
+    ])
+    const stagedPath = path.join(operationDir, 'PortableLive.png')
+    const stagedBefore = fs.readFileSync(stagedPath)
+
+    const reopened = new LibraryStorage(root, { allowCreate: false })
+    let failure: unknown
+    try { await reopened.open() } catch (error) { failure = error } finally { reopened.release() }
+
+    assert(failure instanceof Error, 'DB 行已删的 legacy trash 也必须识别 snapshot case alias 并 fail closed')
+    assert(fs.readFileSync(paths.dbFile).equals(durableBefore), 'legacy recovery fail closed 不得改写数据库')
+    assert(fs.readFileSync(activePath).equals(activeBefore), 'legacy recovery 不得删除 snapshot 仍引用的活动附件')
+    assert(fs.readFileSync(stagedPath).equals(stagedBefore), 'legacy recovery 必须保留最后的 staged 审计副本')
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
 }
 // Quality-Scenario: A-ELEC-DBFAIL
 // Quality-Scenario: A-ELEC-POSTDB-CRASH

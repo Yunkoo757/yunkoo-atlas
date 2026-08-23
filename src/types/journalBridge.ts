@@ -31,6 +31,19 @@ export type BackupRestoreResult =
   | { ok: true; committed: true; snapshot: PersistedSnapshot }
   | { ok: false; committed: boolean; error?: string }
 
+export interface StorageRecoveryRequiredState {
+  code: 'storage-write-indeterminate'
+  message: string
+}
+
+export type StorageRecoveryResult =
+  | { ok: true; snapshot: PersistedSnapshot | null }
+  | {
+      ok: false
+      code: 'busy' | 'reopen-failed' | 'renderer-reload-failed'
+      message: string
+    }
+
 export interface StageRolloverCommitInput {
   expectedCurrentStageId: string
   expectedRollover: ScheduledStageRollover
@@ -81,6 +94,7 @@ export interface JournalBridge {
   onBeforeClose(callback: () => void | Promise<void>): () => void
   onCloseSaveError(callback: (message: string) => void): () => void
   onAutoBackupFailure(callback: () => void): () => void
+  onStorageRecoveryRequired(callback: (state: StorageRecoveryRequiredState) => void): () => void
   onWindowsCloseExplanation(callback: () => void): () => void
   onWindowsClosePreferenceError(callback: (message: string) => void): () => void
   resolveWindowsClose(choice: WindowsCloseChoice, remember: boolean): Promise<void>
@@ -108,6 +122,7 @@ export interface JournalBridge {
   cancelPreparedLibrary(token: string): Promise<boolean>
   getLibraryPath(): Promise<string>
   storageOpen(): Promise<boolean>
+  recoverStorage(): Promise<StorageRecoveryResult>
   getManifest(): Promise<LibraryManifest>
   loadSnapshot(): Promise<PersistedSnapshot | null>
   saveSnapshot(snapshot: PersistedSnapshot): Promise<boolean>

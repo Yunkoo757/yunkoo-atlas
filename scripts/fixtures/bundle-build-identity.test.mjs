@@ -104,6 +104,57 @@ test('all bundle evidence fails closed when the repository working tree is dirty
   )
 })
 
+test('long-running evidence rejects repository provenance changes before publishing pass', () => {
+  assert.equal(typeof bundleBuildIdentity.assertRepositoryProvenanceUnchanged, 'function')
+  const expected = {
+    repository: {
+      head: commitA,
+      dirty: false,
+      tree: 'c'.repeat(40),
+      sourceFingerprint: 'd'.repeat(64),
+      sourceIdentity: `git-tree:${'c'.repeat(40)}`,
+    },
+    ci: { githubSha: null },
+  }
+  const matching = {
+    gitCommit: commitA,
+    gitTree: 'c'.repeat(40),
+    workingTreeDirty: false,
+    sourceFingerprint: 'd'.repeat(64),
+    sourceIdentity: `git-tree:${'c'.repeat(40)}`,
+  }
+  assert.doesNotThrow(() => bundleBuildIdentity.assertRepositoryProvenanceUnchanged(expected, matching))
+  assert.throws(
+    () => bundleBuildIdentity.assertRepositoryProvenanceUnchanged(expected, {
+      ...matching,
+      sourceFingerprint: 'e'.repeat(64),
+      sourceIdentity: `dirty-sha256:${'e'.repeat(64)}`,
+      workingTreeDirty: true,
+    }),
+    /repository source changed during evidence collection/i,
+  )
+})
+
+test('pass evidence publication is skipped when temporary cleanup fails', async () => {
+  assert.equal(typeof bundleBuildIdentity.publishEvidenceAfterCleanup, 'function')
+  const calls = []
+
+  await assert.rejects(
+    () => bundleBuildIdentity.publishEvidenceAfterCleanup({
+      cleanup: async () => {
+        calls.push('cleanup')
+        throw new Error('injected cleanup failure')
+      },
+      publish: async () => {
+        calls.push('publish')
+      },
+    }),
+    /injected cleanup failure/,
+  )
+
+  assert.deepEqual(calls, ['cleanup'], 'cleanup 失败后不得留下可上传的 pass evidence')
+})
+
 test('Electron visual identity failure cannot hang while closing the stale application', async () => {
   let killed = false
   let exited = false

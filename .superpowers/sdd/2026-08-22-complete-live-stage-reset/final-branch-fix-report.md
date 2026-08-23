@@ -10,7 +10,7 @@
 
 ## 1. 交付结论
 
-本轮一次性关闭 whole-branch review 的 10 项 Major，并在最终差异审计中继续关闭相邻的事务、迁移图、永久删除图与 release artifact 缺陷。所有代码、测试、workflow 与报告均先进入 tracked commit；所有携带 bundle provenance 的 Electron/安装包证据必须在最终 clean HEAD 上重建，报告只引用稳定路径，不固化会因最终提交变化的 SHA 或时间戳。
+本轮一次性关闭 whole-branch review 的 10 项 Major、final addendum 的 2 项 Major，并在最终差异审计中继续关闭相邻的事务、迁移图、永久删除图、storage recovery 与 release artifact 缺陷。所有代码、测试、workflow 与报告均先进入 tracked commit；所有携带 bundle provenance 的 Electron/安装包证据必须在最终 clean HEAD 上重建，报告只引用稳定路径，不固化会因最终提交变化的 SHA 或时间戳。
 
 ## 2. 十项 finding 的实现与 TDD 证据
 
@@ -40,7 +40,16 @@
 - Windows final-payload 安装与卸载均显式使用 NSIS `/currentuser`，且 `/D=<isolated-root>` 保持最后一个未加引号参数；已有 machine-wide 安装不会再触发 UAC、重定向 smoke 或让清理误选真实安装。
 - release workflow 将 release 文件与 final report 分离上传，publish 下载保持扁平；macOS matrix 三类诊断 artifact 均按 arch 唯一命名；forced-kill workflow 的 mac 报告路径与 fail-closed 上传合同已修正。
 
-## 4. 验证门与稳定证据
+## 4. Final Fix Addendum 与末轮复审关闭项
+
+- 恢复 CTA 不再执行 renderer-only reload。`storage:recover` 在主进程 exclusive gate 内从磁盘新建并验证 `LibraryStorage`，原子替换全局实例、释放带 recovery lock 的旧实例，再把 gate 保持到主框架 `did-navigate` 提交；同步 reload、子框架、in-page navigation、load failure、renderer crash 与超时均 fail closed。真实 Electron 故障注入证明 lifecycle ID 已替换、旧 renderer 尾写被拒绝、fresh storage 读取磁盘真相且退出后后续写仍耐久。
+- `saveAssetAsync`、`importAsset` 与整批 `commitImport` 均从 authoritative `journal.db` 构造隔离 sql.js candidate；数据库原子替换后按 exact candidate / exact previous / neither-or-unreadable 判定 committed、unchanged、indeterminate。只有磁盘证明未引用且附件仍为本次精确字节时才清理；不确定状态锁住旧生命周期并保留全部审计证据，candidate/active DB 关闭异常不能覆盖耐久结论。
+- 附件根目录、目标文件与 committed direct consumers 均拒绝 symlink/junction、非普通文件、大小写或扩展名别名及不完整物理字节；Windows/macOS portable ID/file-name collision 在 open、preview、commit、import、backup/archive 和 trash recovery 前拒绝。即使 legacy purge 已删 DB 行后崩溃，只要 snapshot 仍 exact/casefold 引用，启动恢复也会在任何删除前 fail closed，保留 active/staged/DB。
+- `storage:commitImport` 与其他写入口共用 typed recovery notification boundary，indeterminate 锁定先广播 `storage:recovery-required`，再向 renderer 抛错；App 与设置页共用实际主进程恢复动作和一致文案。
+- storage recovery evidence 在运行前删除旧报告，在最终 provenance 与退出后 raw DB 耐久校验完成、Electron 进程退出且临时目录删除成功之后才发布 PASS；cleanup 或 child-process error 均阻止报告生成。release candidate 对该 JSON 设置独立存在性 gate，双平台 evidence workflow 的 path filter 已覆盖 gate、build identity、provenance、renderer bootstrap 与 lockfile 等直接输入。
+- 最终 focused storage/GC/recovery fault-injection 集合 49 项全绿；bundle/recovery workflow fixtures 15 项全绿；两轮独立只读复审均明确 Closed。
+
+## 5. 验证门与稳定证据
 
 | 门禁 | 结果/权威证据 |
 | --- | --- |
@@ -55,12 +64,13 @@
 | asset lifecycle | `test-results/platform-evidence/asset-lifecycle-windows-ntfs.json`。 |
 | Electron safety | `test-results/platform-evidence/electron-safety-windows-ntfs.json`。 |
 | stage-native desktop | `pnpm test:live-stage:desktop`，schema migration、rollover、library switch 全绿。 |
+| storage recovery lifecycle | `test-results/storage-recovery/storage-recovery-electron.json`；绑定 clean HEAD renderer/main identity、旧/新 lifecycle、exclusive navigation barrier 与退出后 raw DB 真相。 |
 | final NSIS payload | `test-results/final-packaged-artifact/windows-x64-nsis.json`；绑定最终 installer 与安装后 payload。 |
 | installed packaged visual | `test-results/desktop-visual-packaged/win32-x64-scale-100/report.json`；记录 renderer/main identity 与三组 payload hash。 |
 
 最终 clean-HEAD 证据的 `repository.head`、renderer/main `commit`、`dirty:false`、精确 `GITHUB_SHA`（CI 时）以及 SHA-256 直接以这些 JSON 为权威。本报告不复制易陈旧值。
 
-## 5. 平台状态与发布边界
+## 6. 平台状态与发布边界
 
 - Windows：本机完整验证最终 clean HEAD、最终 NSIS 安装路径及 packaged visual；安装/资料库/userData 均使用隔离临时目录，并执行有界进程与目录清理。
 - macOS：workflow 已对 `macos-26` arm64 与 `macos-26-intel` x64 分别构建、执行 DMG+ZIP final smoke 并隔离上传；本 Windows 主机没有运行 macOS 命令，也没有触发远程 workflow，因此保持 pending，不能宣称 macOS PASS。

@@ -387,6 +387,6 @@ export async function testDesktopLifecycleInvokesChecksAtEveryRequiredBoundary()
   assert(app.includes('reconcileCommittedStageRollover'), 'App must reload and bind the full authoritative snapshot')
   assert(app.includes('publishDurableStoreRefresh'), 'App must replace the autosave baseline during durable refresh')
   assert(app.includes('disablePersistWrites'), '不确定或已提交但发布失败时 App 必须关闭 renderer 持久化')
-  assert(app.includes('STAGE_ROLLOVER_RECOVERY_REQUIRED_EVENT'), 'App 必须显示不可原地重试的恢复界面')
+  assert(app.includes('STORAGE_RECOVERY_REQUIRED_EVENT'), 'App 必须显示统一、不可原地重试的恢复界面')
   assert(manager.includes('notifyStageManagementOpened'), 'stage management must request an immediate due check when opened')
 }

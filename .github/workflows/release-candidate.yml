@@ -80,6 +80,15 @@ jobs:
       - name: Run approved JSON compatibility corpus
         run: pnpm measure:json-compatibility
 
+      - name: Verify storage recovery evidence exists
+        if: always()
+        shell: pwsh
+        run: |
+          $recoveryEvidence = 'test-results/storage-recovery/storage-recovery-electron.json'
+          if (-not (Test-Path -LiteralPath 'test-results/storage-recovery/storage-recovery-electron.json' -PathType Leaf)) {
+            throw "Missing storage recovery evidence: $recoveryEvidence"
+          }
+
       - name: Upload candidate evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -89,6 +98,7 @@ jobs:
             test-results/qa-release-full.json
             test-results/quality-execution.json
             test-results/quality-contract.json
+            test-results/storage-recovery/storage-recovery-electron.json
             test-results/persistence-benchmark/persistence-smoke.json
             test-results/release-trains/release-train-drills.json
             test-results/json-compatibility/json-compatibility.json

@@ -77,6 +77,7 @@ try {
 }
 
 run('pnpm', ['build:app'])
+run('pnpm', ['test:storage-recovery:electron'])
 if (full) run(process.execPath, ['scripts/qa-dashboard-10k.mjs'])
 run('pnpm', ['qa:electron'])
 
@@ -93,6 +94,6 @@ await fs.writeFile(reportPath, `${JSON.stringify({
   sourceFingerprint: provenance.sourceFingerprint,
   sourceIdentity: provenance.sourceIdentity,
   commands: full
-    ? ['qa:ci', 'qa', 'build:app', 'qa:dashboard-10k', 'qa:electron']
-    : ['qa:ci', 'qa:core', 'build:app', 'qa:electron'],
+    ? ['qa:ci', 'qa', 'build:app', 'test:storage-recovery:electron', 'qa:dashboard-10k', 'qa:electron']
+    : ['qa:ci', 'qa:core', 'build:app', 'test:storage-recovery:electron', 'qa:electron'],
 }, null, 2)}\n`, 'utf8')

@@ -36,6 +36,7 @@ import { useSaveStatus } from '@/store/saveStatus'
 import { buildWebJournalArchiveBlob } from '@/lib/importExport'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
 import { listPendingStageOwnership } from '@/lib/stageOwnershipRepair'
+import { notifyStorageRecoveryRequired } from '@/lib/storageRecovery'
 
 const ASSET_PURGE_COMMIT_ENABLED = import.meta.env.VITE_ENABLE_ASSET_PURGE_COMMIT !== 'false'
 
@@ -243,12 +244,9 @@ export function DataSettingsPanel({
         } else {
           discardPendingAndResumePersist()
           disablePersistWrites()
-          useSaveStatus.getState().setError('备份已恢复，但内存载入失败，自动保存已暂停')
-          try {
-            window.location?.reload()
-          } catch {
-            /* 正式客户端会重新载入已经恢复的资料库。 */
-          }
+          const message = '备份替换已开始，但界面无法安全载入磁盘状态；已停止保存，请重新打开资料库'
+          useSaveStatus.getState().setError(message)
+          notifyStorageRecoveryRequired(message)
         }
       }
       unlockInteraction()

@@ -12,7 +12,7 @@ import type {
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
-import { ensureLibraryDirs, findAttachmentFile, getLibraryPath, getLibraryPaths } from './paths'
+import { ensureLibraryDirs, getLibraryPath, getLibraryPaths } from './paths'
 import { isImageMime, processImageBuffer } from './images'
 import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
 import { assertSafeAssetId, isSafeAssetId } from '../../src/storage/assetId'
@@ -35,7 +35,14 @@ import { recoverInterruptedJournalImport } from './journalZip'
 const SNAPSHOT_KEY = 'snapshot'
 const ASSET_TRASH_MANIFEST = 'manifest.json'
 const ASSET_TRASH_CLEANUP = 'cleanup.json'
+const WINDOWS_RESERVED_BASENAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
 type SqlDatabaseConstructor = new (data?: ArrayLike<number> | null) => Database
+
+interface PreparedDatabaseCandidate {
+  candidateDb: Database
+  previousDiskBytes: Buffer
+  candidateBytes: Buffer
+}
 
 interface AssetTrashManifest {
   version: 1
@@ -57,22 +64,31 @@ export type SnapshotSaveResult =
   | { kind: 'committed' }
   | { kind: 'committed-after-write-error' }
 
+export type StorageWriteOperation = 'snapshot' | 'save-asset' | 'import-asset'
+
 /**
  * 原子替换抛错后的磁盘真相。indeterminate 会锁住当前实例，避免自动保存
  * 覆盖尚待人工/重启恢复的数据库证据。
  */
 export class SnapshotSaveError extends Error {
   readonly outcome: SnapshotSaveOutcome
+  readonly operation: StorageWriteOperation
   readonly cause: unknown
 
-  constructor(outcome: SnapshotSaveOutcome, cause: unknown) {
+  constructor(
+    outcome: SnapshotSaveOutcome,
+    cause: unknown,
+    operation: StorageWriteOperation = 'snapshot',
+  ) {
+    const subject = operation === 'snapshot' ? '资料库快照' : '资料库附件索引'
     super(
       outcome === 'previous-unchanged'
-        ? '资料库快照尚未写入，可安全重试'
-        : '资料库快照写入结果不确定，已停止继续读写',
+        ? `${subject}尚未写入，可安全重试`
+        : `${subject}写入结果不确定，已停止继续读写`,
     )
     this.name = 'SnapshotSaveError'
     this.outcome = outcome
+    this.operation = operation
     this.cause = cause
   }
 }
@@ -83,7 +99,31 @@ const electronApp =
     ? (electronRuntime as { app?: { getAppPath(): string } }).app
     : undefined
 
+function isPortableFileBasename(fileName: string): boolean {
+  return (
+    fileName.length > 0 &&
+    fileName.length <= 255 &&
+    path.posix.basename(fileName) === fileName &&
+    path.win32.basename(fileName) === fileName &&
+    !/[\u0000-\u001f<>:"/\\|?*]/.test(fileName) &&
+    !/[. ]$/.test(fileName)
+  )
+}
+
+function isPortableAssetFileName(id: string, fileName: string): boolean {
+  if (!isSafeAssetId(id) || !isPortableFileBasename(fileName)) return false
+  const separator = fileName.indexOf('.')
+  if (separator <= 0 || fileName.slice(0, separator) !== id) return false
+  if (WINDOWS_RESERVED_BASENAME.test(id)) return false
+  return /^[A-Za-z0-9][A-Za-z0-9!#$&^._+-]{0,127}$/.test(fileName.slice(separator + 1))
+}
+
 function resolveAttachmentWritePath(attachmentsRoot: string, fileName: string): string {
+  if (
+    !isPortableFileBasename(fileName)
+  ) {
+    throw new Error('附件文件名包含非法路径分隔符')
+  }
   const resolvedRoot = path.resolve(attachmentsRoot)
   const resolvedTarget = path.resolve(resolvedRoot, fileName)
   const relative = path.relative(resolvedRoot, resolvedTarget)
@@ -93,15 +133,6 @@ function resolveAttachmentWritePath(attachmentsRoot: string, fileName: string): 
   return resolvedTarget
 }
 
-function fileSizeIfPresent(filePath: string): number {
-  try {
-    const stat = fs.statSync(filePath)
-    return stat.isFile() ? stat.size : -1
-  } catch {
-    return -1
-  }
-}
-
 function readAssetFileName(db: Database, id: string): string | null {
   const stmt = db.prepare('SELECT file_name FROM assets WHERE id = ?')
   try {
@@ -109,6 +140,134 @@ function readAssetFileName(db: Database, id: string): string | null {
     return stmt.step() ? String(stmt.getAsObject().file_name) : null
   } finally {
     stmt.free()
+  }
+}
+
+function safeMimeSubtype(mime: string): string {
+  const normalized = mime.trim().toLowerCase()
+  if (!/^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/.test(normalized)) {
+    throw new Error('附件 MIME 格式无效')
+  }
+  return normalized.slice(normalized.indexOf('/') + 1)
+}
+
+function savedAttachmentExtensionForMime(mime: string): string {
+  const subtype = safeMimeSubtype(mime)
+  return subtype === 'jpeg' ? 'jpg' : subtype
+}
+
+function importedAttachmentExtensionForMime(mime: string): string {
+  const subtype = safeMimeSubtype(mime)
+  if (subtype === 'webp' || subtype === 'png') return subtype
+  if (subtype === 'jpeg' || subtype === 'jpg') return 'jpg'
+  return 'bin'
+}
+
+function attachmentFileName(id: string, extension: string): string {
+  assertSafeAssetId(id)
+  if (!/^[a-z0-9][a-z0-9!#$&^._+-]{0,127}$/.test(extension)) throw new Error('附件扩展名格式无效')
+  const fileName = `${id}.${extension}`
+  if (!isPortableAssetFileName(id, fileName)) {
+    throw new Error('附件文件名格式无效')
+  }
+  return fileName
+}
+
+function readAssetRecord(
+  db: Database,
+  id: string,
+): { mime: string; fileName: string; byteSize: number } | null {
+  const stmt = db.prepare('SELECT mime, file_name, byte_size FROM assets WHERE id = ?')
+  try {
+    stmt.bind([id])
+    if (!stmt.step()) return null
+    const row = stmt.getAsObject() as { mime: string; file_name: string; byte_size: number }
+    return {
+      mime: String(row.mime),
+      fileName: String(row.file_name),
+      byteSize: Number(row.byte_size),
+    }
+  } finally {
+    stmt.free()
+  }
+}
+
+interface PortableAssetRecord {
+  id: string
+  mime: string
+  fileName: string
+  byteSize: number
+}
+
+function readPortableAssetRecords(
+  db: Database,
+  id: string,
+  fileName?: string,
+): PortableAssetRecord[] {
+  const stmt = db.prepare(
+    fileName === undefined
+      ? `SELECT id, mime, file_name, byte_size
+         FROM assets
+         WHERE id = ? COLLATE NOCASE`
+      : `SELECT id, mime, file_name, byte_size
+         FROM assets
+         WHERE id = ? COLLATE NOCASE OR file_name = ? COLLATE NOCASE`,
+  )
+  const records: PortableAssetRecord[] = []
+  try {
+    stmt.bind(fileName === undefined ? [id] : [id, fileName])
+    while (stmt.step()) {
+      const row = stmt.getAsObject() as {
+        id: string
+        mime: string
+        file_name: string
+        byte_size: number
+      }
+      records.push({
+        id: String(row.id),
+        mime: String(row.mime),
+        fileName: String(row.file_name),
+        byteSize: Number(row.byte_size),
+      })
+    }
+    return records
+  } finally {
+    stmt.free()
+  }
+}
+
+function assertPortableAssetDatabaseIntegrity(db: Database): void {
+  const result = db.exec('SELECT id, file_name FROM assets ORDER BY id, file_name')
+  const portableIds = new Set<string>()
+  const portableFileNames = new Set<string>()
+  for (const row of result[0]?.values ?? []) {
+    const id = String(row[0])
+    const fileName = String(row[1])
+    const portableId = id.toLowerCase()
+    const portableFileName = fileName.toLowerCase()
+    if (
+      !isSafeAssetId(id) ||
+      !isPortableAssetFileName(id, fileName) ||
+      portableIds.has(portableId) ||
+      portableFileNames.has(portableFileName)
+    ) {
+      throw new Error('资料库附件索引存在不可移植的 ID 或文件名碰撞，已停止附件操作')
+    }
+    portableIds.add(portableId)
+    portableFileNames.add(portableFileName)
+  }
+}
+
+function assertPortableSnapshotAssetReferences(
+  snapshot: Parameters<typeof buildAssetInventory>[0],
+  db: Database,
+): void {
+  for (const reference of buildAssetInventory(snapshot, []).referenced) {
+    const portableRecords = readPortableAssetRecords(db, reference.id)
+    if (portableRecords.length === 0) continue
+    if (portableRecords.length !== 1 || portableRecords[0]?.id !== reference.id) {
+      throw new Error('资料库快照与附件索引存在仅大小写不同的 ID 引用，已停止附件操作')
+    }
   }
 }
 
@@ -135,15 +294,14 @@ function readAssetTrashJournal(filePath: string, operationId: string): AssetTras
       !file ||
       !isSafeAssetId(file.id) ||
       typeof file.fileName !== 'string' ||
-      path.basename(file.fileName) !== file.fileName ||
-      !file.fileName.startsWith(`${file.id}.`) ||
-      seenIds.has(file.id) ||
-      seenNames.has(file.fileName)
+      !isPortableAssetFileName(file.id, file.fileName) ||
+      seenIds.has(file.id.toLowerCase()) ||
+      seenNames.has(file.fileName.toLowerCase())
     ) {
       throw new Error('附件恢复清单包含非法或重复路径')
     }
-    seenIds.add(file.id)
-    seenNames.add(file.fileName)
+    seenIds.add(file.id.toLowerCase())
+    seenNames.add(file.fileName.toLowerCase())
   }
   return manifest
 }
@@ -176,6 +334,7 @@ async function getSql() {
 }
 
 export class LibraryStorage {
+  private readonly lifecycleId = randomUUID()
   private db: Database | null = null
   private DatabaseClass: SqlDatabaseConstructor | null = null
   private paths: ReturnType<typeof ensureLibraryDirs>
@@ -184,13 +343,21 @@ export class LibraryStorage {
   private readonly beforeAtomicReplace?: (temporaryPath: string) => void
   private readonly beforeSnapshotAtomicReplace?: (temporaryPath: string) => void
   private readonly afterSnapshotAtomicReplace?: (targetPath: string) => void
+  private readonly beforeAssetAtomicReplace?: (temporaryPath: string) => void
+  private readonly afterAssetAtomicReplace?: (targetPath: string) => void
+  private readonly beforeAttachmentAtomicReplace?: (temporaryPath: string) => void
+  private readonly afterAttachmentAtomicReplace?: (targetPath: string) => void
   private readonly readDatabaseFile: (filePath: string) => Buffer
+  private readonly readAttachmentFile: (filePath: string) => Buffer
+  private readonly removeAttachmentFile: (filePath: string) => void
+  private readonly lstatAttachmentFile: (filePath: string) => fs.Stats
+  private readonly fsyncAttachmentDirectory: (directoryPath: string) => boolean
   private readonly createDatabase: (
     DatabaseClass: SqlDatabaseConstructor,
     data?: ArrayLike<number> | null,
   ) => Database
   private readonly now: () => Date
-  private snapshotWriteRecoveryError: SnapshotSaveError | null = null
+  private storageWriteRecoveryError: SnapshotSaveError | null = null
   private assetPurgePreviews = new Map<string, {
     snapshotJson: string
     candidateIds: string[]
@@ -206,7 +373,15 @@ export class LibraryStorage {
       beforeAtomicReplace?: (temporaryPath: string) => void
       beforeSnapshotAtomicReplace?: (temporaryPath: string) => void
       afterSnapshotAtomicReplace?: (targetPath: string) => void
+      beforeAssetAtomicReplace?: (temporaryPath: string) => void
+      afterAssetAtomicReplace?: (targetPath: string) => void
+      beforeAttachmentAtomicReplace?: (temporaryPath: string) => void
+      afterAttachmentAtomicReplace?: (targetPath: string) => void
       readDatabaseFile?: (filePath: string) => Buffer
+      readAttachmentFile?: (filePath: string) => Buffer
+      removeAttachmentFile?: (filePath: string) => void
+      lstatAttachmentFile?: (filePath: string) => fs.Stats
+      fsyncAttachmentDirectory?: (directoryPath: string) => boolean
       createDatabase?: (
         DatabaseClass: SqlDatabaseConstructor,
         data?: ArrayLike<number> | null,
@@ -220,7 +395,15 @@ export class LibraryStorage {
     this.beforeAtomicReplace = options.beforeAtomicReplace
     this.beforeSnapshotAtomicReplace = options.beforeSnapshotAtomicReplace
     this.afterSnapshotAtomicReplace = options.afterSnapshotAtomicReplace
+    this.beforeAssetAtomicReplace = options.beforeAssetAtomicReplace
+    this.afterAssetAtomicReplace = options.afterAssetAtomicReplace
+    this.beforeAttachmentAtomicReplace = options.beforeAttachmentAtomicReplace
+    this.afterAttachmentAtomicReplace = options.afterAttachmentAtomicReplace
     this.readDatabaseFile = options.readDatabaseFile ?? ((filePath) => fs.readFileSync(filePath))
+    this.readAttachmentFile = options.readAttachmentFile ?? ((filePath) => fs.readFileSync(filePath))
+    this.removeAttachmentFile = options.removeAttachmentFile ?? ((filePath) => fs.rmSync(filePath))
+    this.lstatAttachmentFile = options.lstatAttachmentFile ?? ((filePath) => fs.lstatSync(filePath))
+    this.fsyncAttachmentDirectory = options.fsyncAttachmentDirectory ?? fsyncDirectorySync
     this.createDatabase = options.createDatabase ?? (
       (DatabaseClass, data) => new DatabaseClass(data)
     )
@@ -234,11 +417,20 @@ export class LibraryStorage {
     return this.paths.root
   }
 
+  getLifecycleId(): string {
+    return this.lifecycleId
+  }
+
+  isRecoveryRequired(): boolean {
+    return this.storageWriteRecoveryError !== null
+  }
+
   getPaths() {
     return this.paths
   }
 
   async open(): Promise<void> {
+    if (this.storageWriteRecoveryError) throw this.storageWriteRecoveryError
     if (this.db) return
     try {
       recoverInterruptedJournalImport(this.paths)
@@ -328,6 +520,9 @@ export class LibraryStorage {
       if (this.readManifest().schemaVersion >= 8) {
         assertOpenedPairVersion(this.db, this.readManifest(), SCHEMA_VERSION)
       }
+      // 启动恢复会移动或删除附件，必须先拒绝 Windows/macOS 上会共享
+      // 同一物理路径的 legacy 大小写碰撞。
+      assertPortableAssetDatabaseIntegrity(this.requireDb())
       this.recoverAssetTrash()
       cleanupCompletedBackupRestoreRecovery(this.paths.root)
     } catch (error) {
@@ -359,9 +554,238 @@ export class LibraryStorage {
   }
 
   private requireDb(): Database {
-    if (this.snapshotWriteRecoveryError) throw this.snapshotWriteRecoveryError
+    if (this.storageWriteRecoveryError) throw this.storageWriteRecoveryError
     if (!this.db) throw new Error('Library database not opened')
     return this.db
+  }
+
+  private closeDetachedDatabaseBestEffort(database: Database): void {
+    try {
+      database.close()
+    } catch {
+      // Detached candidate 从未再作为 active 使用；close 失败不得覆盖磁盘真相分类。
+    }
+  }
+
+  private prepareDatabaseCandidate(
+    mutate: (candidateDb: Database) => void,
+  ): PreparedDatabaseCandidate {
+    // requireDb 只负责验证当前生命周期仍可写；候选来源必须是 journal.db 的
+    // 权威字节，不能 export active sql.js 后把尚未耐久的内存状态带进去。
+    this.requireDb()
+    const DatabaseClass = this.DatabaseClass
+    if (!DatabaseClass) throw new Error('资料库 SQL 构造器尚未初始化')
+    const previousDiskBytes = this.readDatabaseFile(this.paths.dbFile)
+    const candidateDb = this.createDatabase(DatabaseClass, Buffer.from(previousDiskBytes))
+    try {
+      mutate(candidateDb)
+      return {
+        candidateDb,
+        previousDiskBytes: Buffer.from(previousDiskBytes),
+        candidateBytes: Buffer.from(candidateDb.export()),
+      }
+    } catch (error) {
+      this.closeDetachedDatabaseBestEffort(candidateDb)
+      throw error
+    }
+  }
+
+  private durableDatabaseReferencesFile(databaseBytes: Buffer, fileName: string): boolean {
+    const DatabaseClass = this.DatabaseClass
+    if (!DatabaseClass) throw new Error('资料库 SQL 构造器尚未初始化')
+    const durableDb = this.createDatabase(DatabaseClass, Buffer.from(databaseBytes))
+    try {
+      const stmt = durableDb.prepare('SELECT 1 FROM assets WHERE file_name = ? COLLATE NOCASE LIMIT 1')
+      try {
+        stmt.bind([fileName])
+        return stmt.step()
+      } finally {
+        stmt.free()
+      }
+    } finally {
+      durableDb.close()
+    }
+  }
+
+  private enterStorageWriteRecoveryLock(
+    operation: StorageWriteOperation,
+    cause: unknown,
+  ): SnapshotSaveError {
+    this.closeDatabaseBestEffort()
+    const failure = new SnapshotSaveError('indeterminate', cause, operation)
+    this.storageWriteRecoveryError = failure
+    return failure
+  }
+
+  private assertAttachmentsDirectorySafe(): void {
+    const stat = fs.lstatSync(this.paths.attachments)
+    if (stat.isSymbolicLink() || !stat.isDirectory()) {
+      throw new Error('attachments 路径必须是当前资料库内的普通目录')
+    }
+  }
+
+  private lstatAttachmentTarget(filePath: string): fs.Stats | null {
+    this.assertAttachmentsDirectorySafe()
+    try {
+      return this.lstatAttachmentFile(filePath)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+      throw error
+    }
+  }
+
+  private listPortableAttachmentMatches(id: string): string[] {
+    this.assertAttachmentsDirectorySafe()
+    const portablePrefix = `${id.toLowerCase()}.`
+    return fs.readdirSync(this.paths.attachments)
+      .filter((name) => name.toLowerCase().startsWith(portablePrefix))
+      .sort((left, right) => left.localeCompare(right, 'en'))
+  }
+
+  private inspectPortableAttachment(id: string, expectedFileName: string): string | null {
+    const matches = this.listPortableAttachmentMatches(id)
+    if (matches.length > 1) {
+      throw new Error(`附件 ID 对应多个物理文件：${id}`)
+    }
+    const actualName = matches[0]
+    if (actualName === undefined) return null
+    if (actualName !== expectedFileName) {
+      throw new Error(`附件文件名大小写或扩展名冲突：${id}`)
+    }
+    const filePath = resolveAttachmentWritePath(this.paths.attachments, actualName)
+    const stat = this.lstatAttachmentTarget(filePath)
+    if (stat === null) return null
+    if (stat.isSymbolicLink() || !stat.isFile()) {
+      throw new Error(`附件必须是普通非符号链接文件：${id}`)
+    }
+    return filePath
+  }
+
+  private materializeAttachmentCandidate(
+    operation: Extract<StorageWriteOperation, 'save-asset' | 'import-asset'>,
+    filePath: string,
+    bytes: Buffer,
+  ): void {
+    this.assertAttachmentsDirectorySafe()
+    try {
+      writeFileAtomicallySync(
+        filePath,
+        bytes,
+        undefined,
+        this.beforeAttachmentAtomicReplace,
+        this.afterAttachmentAtomicReplace,
+      )
+      const committedStat = this.lstatAttachmentTarget(filePath)
+      if (committedStat === null || committedStat.isSymbolicLink() || !committedStat.isFile()) {
+        throw new Error('附件原子写入后目标不是普通非符号链接文件')
+      }
+      if (!this.readAttachmentFile(filePath).equals(bytes)) {
+        throw new Error('附件原子写入后目标字节与候选不一致')
+      }
+      return
+    } catch (writeError) {
+      try {
+        const stat = this.lstatAttachmentTarget(filePath)
+        if (stat === null) {
+          throw new SnapshotSaveError('previous-unchanged', writeError, operation)
+        }
+        if (stat.isSymbolicLink() || !stat.isFile()) {
+          throw new Error('附件目标不是普通非符号链接文件')
+        }
+        const observedBytes = this.readAttachmentFile(filePath)
+        if (observedBytes.equals(bytes)) {
+          // rename 已完成、仅后续 durability barrier 报错：文件候选已经是磁盘真相。
+          return
+        }
+        throw new Error('附件目标字节既非提交前状态也非候选状态')
+      } catch (readError) {
+        if (readError instanceof SnapshotSaveError) throw readError
+        throw this.enterStorageWriteRecoveryLock(operation, {
+          write: writeError,
+          read: readError,
+        })
+      }
+    }
+  }
+
+  private cleanupOwnedAttachment(
+    databaseBytes: Buffer,
+    fileName: string,
+    filePath: string,
+    expectedBytes: Buffer,
+  ): void {
+    if (this.durableDatabaseReferencesFile(databaseBytes, fileName)) return
+    const stat = this.lstatAttachmentTarget(filePath)
+    if (stat === null) return
+    if (stat.isSymbolicLink() || !stat.isFile()) {
+      throw new Error('待清理附件不是普通非符号链接文件')
+    }
+    if (!this.readAttachmentFile(filePath).equals(expectedBytes)) {
+      throw new Error('待清理附件字节已变化，无法证明仍由本次写入拥有')
+    }
+    this.removeAttachmentFile(filePath)
+    this.assertAttachmentsDirectorySafe()
+    this.fsyncAttachmentDirectory(this.paths.attachments)
+  }
+
+  private commitDatabaseCandidate(
+    operation: StorageWriteOperation,
+    prepared: PreparedDatabaseCandidate,
+    options: {
+      beforeReplace?: (temporaryPath: string) => void
+      afterReplace?: (targetPath: string) => void
+      onPreviousUnchanged?: (observedDiskBytes: Buffer) => void
+      writeDatabase?: typeof writeFileAtomicallySync
+    } = {},
+  ): SnapshotSaveResult {
+    const { candidateDb, previousDiskBytes, candidateBytes } = prepared
+    let candidateOwned = true
+    try {
+      try {
+        const writeDatabase = options.writeDatabase ?? writeFileAtomicallySync
+        writeDatabase(
+          this.paths.dbFile,
+          candidateBytes,
+          undefined,
+          options.beforeReplace,
+          options.afterReplace,
+        )
+      } catch (cause) {
+        let observedBytes: Buffer
+        try {
+          observedBytes = this.readDatabaseFile(this.paths.dbFile)
+        } catch (readError) {
+          throw this.enterStorageWriteRecoveryLock(operation, { write: cause, read: readError })
+        }
+
+        if (observedBytes.equals(candidateBytes)) {
+          this.closeDatabaseBestEffort()
+          this.db = candidateDb
+          candidateOwned = false
+          return { kind: 'committed-after-write-error' }
+        }
+        if (observedBytes.equals(previousDiskBytes)) {
+          try {
+            options.onPreviousUnchanged?.(observedBytes)
+          } catch (cleanupError) {
+            throw this.enterStorageWriteRecoveryLock(operation, {
+              write: cause,
+              cleanup: cleanupError,
+            })
+          }
+          throw new SnapshotSaveError('previous-unchanged', cause, operation)
+        }
+
+        throw this.enterStorageWriteRecoveryLock(operation, cause)
+      }
+
+      this.closeDatabaseBestEffort()
+      this.db = candidateDb
+      candidateOwned = false
+      return { kind: 'committed' }
+    } finally {
+      if (candidateOwned) this.closeDetachedDatabaseBestEffort(candidateDb)
+    }
   }
 
   private persistDb(): void {
@@ -420,68 +844,17 @@ export class LibraryStorage {
 
   saveSnapshot(snapshot: PersistedSnapshot): SnapshotSaveResult {
     assertValidPersistedSnapshot(snapshot, 'Library snapshot')
-    this.requireDb()
-    const DatabaseClass = this.DatabaseClass
-    if (!DatabaseClass) throw new Error('资料库 SQL 构造器尚未初始化')
-    const previousDiskBytes = this.readDatabaseFile(this.paths.dbFile)
-    const candidateDb = this.createDatabase(
-      DatabaseClass,
-      Buffer.from(previousDiskBytes),
-    )
-    let candidateOwned = true
-    try {
+    const prepared = this.prepareDatabaseCandidate((candidateDb) => {
       candidateDb.run(
         `INSERT INTO meta (key, value) VALUES (?, ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
         [SNAPSHOT_KEY, JSON.stringify(snapshot)],
       )
-      const candidateBytes = Buffer.from(candidateDb.export())
-      try {
-        writeFileAtomicallySync(
-          this.paths.dbFile,
-          candidateBytes,
-          undefined,
-          this.beforeSnapshotAtomicReplace ?? this.beforeAtomicReplace,
-          this.afterSnapshotAtomicReplace,
-        )
-      } catch (cause) {
-        let observedBytes: Buffer
-        try {
-          observedBytes = this.readDatabaseFile(this.paths.dbFile)
-        } catch (readError) {
-          candidateDb.close()
-          candidateOwned = false
-          this.closeDatabaseBestEffort()
-          const failure = new SnapshotSaveError('indeterminate', { write: cause, read: readError })
-          this.snapshotWriteRecoveryError = failure
-          throw failure
-        }
-
-        if (observedBytes.equals(candidateBytes)) {
-          this.closeDatabaseBestEffort()
-          this.db = candidateDb
-          candidateOwned = false
-          return { kind: 'committed-after-write-error' }
-        }
-        if (observedBytes.equals(previousDiskBytes)) {
-          throw new SnapshotSaveError('previous-unchanged', cause)
-        }
-
-        candidateDb.close()
-        candidateOwned = false
-        this.closeDatabaseBestEffort()
-        const failure = new SnapshotSaveError('indeterminate', cause)
-        this.snapshotWriteRecoveryError = failure
-        throw failure
-      }
-
-      this.closeDatabaseBestEffort()
-      this.db = candidateDb
-      candidateOwned = false
-      return { kind: 'committed' }
-    } finally {
-      if (candidateOwned) candidateDb.close()
-    }
+    })
+    return this.commitDatabaseCandidate('snapshot', prepared, {
+      beforeReplace: this.beforeSnapshotAtomicReplace ?? this.beforeAtomicReplace,
+      afterReplace: this.afterSnapshotAtomicReplace,
+    })
   }
 
   async saveAssetAsync(buffer: Buffer, mime: string): Promise<string> {
@@ -490,28 +863,25 @@ export class LibraryStorage {
 
     let outBuffer = buffer
     let outMime = mime
-    let ext = 'bin'
+    let ext = savedAttachmentExtensionForMime(mime)
 
     if (isImageMime(mime)) {
       const processed = await processImageBuffer(buffer, mime)
       outBuffer = processed.buffer
       outMime = processed.mime
-      ext = processed.ext
-    } else {
-      ext = mime.split('/')[1]?.replace('jpeg', 'jpg') || 'bin'
+      ext = savedAttachmentExtensionForMime(processed.mime)
     }
 
-    const fileName = `${id}.${ext}`
-    assertSafeAssetId(id)
+    const fileName = attachmentFileName(id, ext)
     const filePath = resolveAttachmentWritePath(this.paths.attachments, fileName)
 
-    // 图片处理会让出事件循环；期间同步快照提交可能以候选数据库替换并关闭
-    // 旧 sql.js 实例。因此只能在最后一个 await 之后取得当前数据库，并把
-    // 文件、行与数据库落盘保持在同一个不让出事件循环的临界区内。
-    const db = this.requireDb()
-    writeFileAtomicallySync(filePath, outBuffer)
-    try {
-      db.run(
+    // 图片处理会让出事件循环；最后一个 await 后从权威 journal.db 建隔离候选，
+    // 此后保持同步临界区。active sql.js 只有在候选已耐久提交后才会被替换。
+    const prepared = this.prepareDatabaseCandidate((candidateDb) => {
+      if (readPortableAssetRecords(candidateDb, id, fileName).length > 0) {
+        throw new Error('附件 ID 碰撞，请重试保存')
+      }
+      candidateDb.run(
         `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
          VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
@@ -520,13 +890,37 @@ export class LibraryStorage {
            byte_size = excluded.byte_size`,
         [id, outMime, fileName, outBuffer.byteLength, createdAt],
       )
-      this.persistDb()
+    })
+    let candidateHandedOff = false
+    let fileOwnedByAttempt = false
+    try {
+      if (this.inspectPortableAttachment(id, fileName)) {
+        throw new Error('附件 ID 冲突，请重试保存')
+      }
+      this.materializeAttachmentCandidate('save-asset', filePath, outBuffer)
+      fileOwnedByAttempt = true
+
+      candidateHandedOff = true
+      this.commitDatabaseCandidate('save-asset', prepared, {
+        beforeReplace: this.beforeAssetAtomicReplace ?? this.beforeAtomicReplace,
+        afterReplace: this.afterAssetAtomicReplace,
+        onPreviousUnchanged: (observedDiskBytes) => {
+          if (fileOwnedByAttempt) {
+            this.cleanupOwnedAttachment(observedDiskBytes, fileName, filePath, outBuffer)
+          }
+        },
+      })
     } catch (error) {
-      // INSERT 本身失败时不会有耐久数据库引用；及时移除刚写入的附件，避免
-      // 并发/关闭错误留下孤儿。persistDb 的精确磁盘失败另由原子写协议处理。
-      try {
-        if (readAssetFileName(db, id) === null && fs.existsSync(filePath)) fs.rmSync(filePath)
-      } catch { /* 数据库状态不可读时保留文件，交由附件 GC 的可恢复流程处理。 */ }
+      if (!candidateHandedOff) {
+        this.closeDetachedDatabaseBestEffort(prepared.candidateDb)
+        try {
+          if (fileOwnedByAttempt) {
+            this.cleanupOwnedAttachment(prepared.previousDiskBytes, fileName, filePath, outBuffer)
+          }
+        } catch (cleanupError) {
+          throw this.enterStorageWriteRecoveryLock('save-asset', { error, cleanup: cleanupError })
+        }
+      }
       throw error
     }
     return id
@@ -534,38 +928,42 @@ export class LibraryStorage {
 
   getAssetBytes(id: string): AssetBytes | null {
     const db = this.requireDb()
-    const stmt = db.prepare('SELECT mime, file_name FROM assets WHERE id = ?')
-    stmt.bind([id])
-    if (!stmt.step()) {
-      stmt.free()
-      return null
+    assertSafeAssetId(id)
+    const records = readPortableAssetRecords(db, id)
+    if (records.length === 0) return null
+    if (records.length > 1 || records[0]?.id !== id) {
+      throw new Error(`附件 ID 存在不可移植的大小写冲突：${id}`)
     }
-    const row = stmt.getAsObject() as { mime: string; file_name: string }
-    stmt.free()
-
-    const filePath =
-      findAttachmentFile(this.paths.attachments, id) ??
-      path.join(this.paths.attachments, row.file_name)
-    if (!fs.existsSync(filePath)) return null
-    const bytes = fs.readFileSync(filePath)
-    return { id, mime: row.mime, bytes: new Uint8Array(bytes) }
+    const record = records[0]
+    const filePath = this.inspectPortableAttachment(record.id, record.fileName)
+    if (!filePath) return null
+    const bytes = this.readAttachmentFile(filePath)
+    return { id, mime: record.mime, bytes: new Uint8Array(bytes) }
   }
 
   /** 返回交易数 / 策略数 / 附件数，供备份元数据使用 */
   /** 备份与校验只认数据库已声明附件，忽略磁盘上尚未收尾的孤儿文件。 */
-  listCommittedAttachmentFileNames(): string[] {
+  private readCommittedAttachmentRows(): Array<{ fileName: string; byteSize: number }> {
     const db = this.requireDb()
-    const result = db.exec('SELECT file_name FROM assets ORDER BY file_name')
-    return (result[0]?.values ?? []).map((row) => String(row[0]))
+    this.assertAttachmentsDirectorySafe()
+    assertPortableAssetDatabaseIntegrity(db)
+    const result = db.exec('SELECT id, file_name, byte_size FROM assets ORDER BY file_name')
+    return (result[0]?.values ?? []).map((row) => {
+      const id = String(row[0])
+      const fileName = String(row[1])
+      if (!this.inspectPortableAttachment(id, fileName)) {
+        throw new Error(`数据库声明的附件缺失：${fileName}`)
+      }
+      return { fileName, byteSize: Number(row[2]) }
+    })
+  }
+
+  listCommittedAttachmentFileNames(): string[] {
+    return this.readCommittedAttachmentRows().map(({ fileName }) => fileName)
   }
 
   listCommittedAttachmentFiles(): Array<{ fileName: string; byteSize: number }> {
-    const db = this.requireDb()
-    const result = db.exec('SELECT file_name, byte_size FROM assets ORDER BY file_name')
-    return (result[0]?.values ?? []).map((row) => ({
-      fileName: String(row[0]),
-      byteSize: Number(row[1]),
-    }))
+    return this.readCommittedAttachmentRows()
   }
 
   getCounts(): { tradeCount: number; strategyCount: number; assetCount: number } {
@@ -590,6 +988,7 @@ export class LibraryStorage {
     const uniqueIds = [...new Set(ids)]
     if (uniqueIds.length === 0) return { count: 0, totalBytes: 0, missingCount: 0 }
 
+    this.assertAttachmentsDirectorySafe()
     const db = this.requireDb()
     const stmt = db.prepare('SELECT file_name, byte_size FROM assets WHERE id = ?')
     let count = 0
@@ -603,9 +1002,9 @@ export class LibraryStorage {
           const byteSize = Number(row.byte_size)
           let actualSize = -1
           try {
-            actualSize = fileSizeIfPresent(
-              resolveAttachmentWritePath(this.paths.attachments, row.file_name),
-            )
+            const filePath = resolveAttachmentWritePath(this.paths.attachments, row.file_name)
+            const stat = this.lstatAttachmentTarget(filePath)
+            actualSize = stat && !stat.isSymbolicLink() && stat.isFile() ? stat.size : -1
           } catch {
             /* 非法文件名按缺失处理 */
           }
@@ -628,6 +1027,7 @@ export class LibraryStorage {
 
   listAssetRecords(): PhysicalAssetRecord[] {
     const db = this.requireDb()
+    this.assertAttachmentsDirectorySafe()
     const records: PhysicalAssetRecord[] = []
     const representedFiles = new Set<string>()
     const result = db.exec('SELECT id, mime, file_name, byte_size FROM assets')
@@ -640,7 +1040,7 @@ export class LibraryStorage {
 
       let state: PhysicalAssetRecord['state'] = 'missing'
       let actualBytes: number | undefined
-      const legalName = path.basename(fileName) === fileName && fileName.startsWith(`${id}.`)
+      const legalName = isPortableAssetFileName(id, fileName)
       if (!isSafeAssetId(id) || !legalName) {
         state = 'foreign'
       } else {
@@ -691,6 +1091,14 @@ export class LibraryStorage {
     }
 
     const db = this.requireDb()
+    assertPortableAssetDatabaseIntegrity(db)
+    const snapshot = this.loadSnapshot()
+    if (snapshot) assertPortableSnapshotAssetReferences(snapshot, db)
+    const portableSnapshotReferences = new Set(
+      snapshot
+        ? buildAssetInventory(snapshot, []).referenced.map(({ id }) => id.toLowerCase())
+        : [],
+    )
     for (const operation of fs.readdirSync(trashRoot, { withFileTypes: true })) {
       if (operation.isSymbolicLink() || !operation.isDirectory() || !isSafeAssetId(operation.name)) {
         throw new Error('附件恢复目录包含非法操作项，已停止打开资料库')
@@ -732,11 +1140,22 @@ export class LibraryStorage {
       for (const file of manifest.files) {
         const stagedPath = path.join(operationDir, file.fileName)
         const targetPath = resolveAttachmentWritePath(this.paths.attachments, file.fileName)
-        const rowFileName = readAssetFileName(db, file.id)
-        if (rowFileName !== null) {
-          if (rowFileName !== file.fileName) throw new Error('附件恢复清单与数据库路径不一致')
-          if (fs.existsSync(targetPath)) {
-            assertRegularFile(targetPath, '活动附件')
+        const portableRecords = readPortableAssetRecords(db, file.id, file.fileName)
+        if (portableRecords.length === 0 && portableSnapshotReferences.has(file.id.toLowerCase())) {
+          throw new Error('附件恢复清单仍被快照引用但数据库行缺失，已保留活动与 trash 证据')
+        }
+        const inspectedTarget = this.inspectPortableAttachment(file.id, file.fileName)
+        if (portableRecords.length > 0) {
+          const record = portableRecords[0]
+          if (
+            portableRecords.length !== 1 ||
+            record?.id !== file.id ||
+            record.fileName !== file.fileName
+          ) {
+            throw new Error('附件恢复清单与数据库存在不可移植的路径别名')
+          }
+          if (inspectedTarget) {
+            assertRegularFile(inspectedTarget, '活动附件')
             if (fs.existsSync(stagedPath)) {
               assertRegularFile(stagedPath, '待恢复附件副本')
               fs.rmSync(stagedPath)
@@ -751,9 +1170,9 @@ export class LibraryStorage {
             throw new Error('附件恢复所需的活动文件与 trash 副本均不存在')
           }
         } else {
-          if (fs.existsSync(targetPath)) {
-            assertRegularFile(targetPath, '待完成清理的活动附件')
-            fs.rmSync(targetPath)
+          if (inspectedTarget) {
+            assertRegularFile(inspectedTarget, '待完成清理的活动附件')
+            fs.rmSync(inspectedTarget)
             fsyncDirectorySync(this.paths.attachments)
           }
           if (fs.existsSync(stagedPath)) {
@@ -781,9 +1200,12 @@ export class LibraryStorage {
   }
 
   previewAssetPurge(): AssetPurgePreview {
+    const db = this.requireDb()
+    assertPortableAssetDatabaseIntegrity(db)
     const snapshotJson = this.readSnapshotJson()
     if (snapshotJson === null) throw new Error('当前资料库尚无可校验的持久化快照')
     const snapshot = this.loadSnapshot()!
+    assertPortableSnapshotAssetReferences(snapshot, db)
     const inventory = buildAssetInventory(snapshot, this.listAssetRecords())
     const candidateIds = inventory.orphan.map((record) => record.id).sort()
     const totalBytes = inventory.orphan.reduce(
@@ -815,6 +1237,9 @@ export class LibraryStorage {
       throw new OperationalError('asset-gc-stale-revision', '资料库在预览后已变化，请重新扫描附件')
     }
     const currentSnapshot = this.loadSnapshot()!
+    const currentDb = this.requireDb()
+    assertPortableAssetDatabaseIntegrity(currentDb)
+    assertPortableSnapshotAssetReferences(currentSnapshot, currentDb)
     const liveIds = new Set(
       buildAssetInventory(currentSnapshot, []).referenced.map((item) => item.id),
     )
@@ -827,13 +1252,13 @@ export class LibraryStorage {
       throw new Error('attachments 路径不是当前库内的普通目录')
     }
 
-    const currentDb = this.requireDb()
     const files = prepared.candidateIds.map((id) => {
       const fileName = readAssetFileName(currentDb, id)
-      if (!fileName || path.basename(fileName) !== fileName || !fileName.startsWith(`${id}.`)) {
+      if (!fileName || !isPortableAssetFileName(id, fileName)) {
         throw new Error(`清理候选缺少安全数据库路径：${id}`)
       }
-      const source = resolveAttachmentWritePath(this.paths.attachments, fileName)
+      const source = this.inspectPortableAttachment(id, fileName)
+      if (!source) throw new Error(`清理候选物理附件缺失：${id}`)
       const stat = assertRegularFile(source, `清理候选 ${id}`)
       return { id, fileName, bytes: stat.size, source }
     })
@@ -951,29 +1376,86 @@ export class LibraryStorage {
   }
 
   importAsset(id: string, mime: string, buffer: Buffer): void {
-    const db = this.requireDb()
     assertSafeAssetId(id)
     const createdAt = new Date().toISOString()
-    const ext = mime.includes('webp')
-      ? 'webp'
-      : mime.includes('png')
-        ? 'png'
-        : mime.includes('jpeg') || mime.includes('jpg')
-          ? 'jpg'
-          : 'bin'
-    const fileName = `${id}.${ext}`
+    const fileName = attachmentFileName(id, importedAttachmentExtensionForMime(mime))
     const filePath = resolveAttachmentWritePath(this.paths.attachments, fileName)
-    writeFileAtomicallySync(filePath, buffer)
-    db.run(
-      `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         mime = excluded.mime,
-         file_name = excluded.file_name,
-         byte_size = excluded.byte_size`,
-      [id, mime, fileName, buffer.byteLength, createdAt],
-    )
-    this.persistDb()
+    let durableRecord: ReturnType<typeof readAssetRecord> = null
+    const prepared = this.prepareDatabaseCandidate((candidateDb) => {
+      const portableRecords = readPortableAssetRecords(candidateDb, id, fileName)
+      if (
+        portableRecords.length > 1 ||
+        (portableRecords[0] !== undefined && (
+          portableRecords[0].id !== id || portableRecords[0].fileName !== fileName
+        ))
+      ) {
+        throw new Error(`导入附件 ID 或文件名存在不可移植的大小写冲突：${id}`)
+      }
+      durableRecord = portableRecords[0]
+        ? {
+            mime: portableRecords[0].mime,
+            fileName: portableRecords[0].fileName,
+            byteSize: portableRecords[0].byteSize,
+          }
+        : null
+      if (durableRecord && (
+        durableRecord.mime !== mime ||
+        durableRecord.fileName !== fileName ||
+        durableRecord.byteSize !== buffer.byteLength
+      )) {
+        throw new Error(`导入附件 ID 或元数据冲突：${id}`)
+      }
+      if (!durableRecord) {
+        candidateDb.run(
+          `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
+           VALUES (?, ?, ?, ?, ?)`,
+          [id, mime, fileName, buffer.byteLength, createdAt],
+        )
+      }
+    })
+    let candidateHandedOff = false
+    let fileOwnedByAttempt = false
+    try {
+      const existingAttachment = this.inspectPortableAttachment(id, fileName)
+      if (existingAttachment) {
+        if (!this.readAttachmentFile(existingAttachment).equals(buffer)) {
+          throw new Error(`导入附件内容冲突：${id}`)
+        }
+      } else {
+        this.materializeAttachmentCandidate('import-asset', filePath, buffer)
+        fileOwnedByAttempt = true
+      }
+
+      if (durableRecord) {
+        // 同 ID、同元数据、同字节属于幂等重试；若文件此前缺失，上方只恢复文件，
+        // durable DB 已经是权威真相，无需再次替换 journal.db。
+        this.closeDetachedDatabaseBestEffort(prepared.candidateDb)
+        return
+      }
+
+      candidateHandedOff = true
+      this.commitDatabaseCandidate('import-asset', prepared, {
+        beforeReplace: this.beforeAssetAtomicReplace ?? this.beforeAtomicReplace,
+        afterReplace: this.afterAssetAtomicReplace,
+        onPreviousUnchanged: (observedDiskBytes) => {
+          if (fileOwnedByAttempt) {
+            this.cleanupOwnedAttachment(observedDiskBytes, fileName, filePath, buffer)
+          }
+        },
+      })
+    } catch (error) {
+      if (!candidateHandedOff) {
+        this.closeDetachedDatabaseBestEffort(prepared.candidateDb)
+        try {
+          if (fileOwnedByAttempt) {
+            this.cleanupOwnedAttachment(prepared.previousDiskBytes, fileName, filePath, buffer)
+          }
+        } catch (cleanupError) {
+          throw this.enterStorageWriteRecoveryLock('import-asset', { error, cleanup: cleanupError })
+        }
+      }
+      throw error
+    }
   }
 
   /** 将导入附件与最终快照作为一次提交写入，失败时保持当前数据库不变。 */
@@ -983,109 +1465,168 @@ export class LibraryStorage {
     options?: { pruneUnreferenced?: boolean },
   ): Promise<void> {
     assertValidPersistedSnapshot(snapshot, 'Imported library snapshot')
-    const currentDb = this.requireDb()
-    const SQL = await getSql()
-    const nextDb = new SQL.Database(currentDb.export())
-    const stagedFiles: Array<{ temp: string; target: string }> = []
-    const committedFiles: string[] = []
     const referencedAssetIds = new Set<string>()
     for (const trade of snapshot.trades) {
       for (const html of tradeRichTextEntries(trade)) {
         const re = /journal-asset:\/\/([^"'\s>]+)/g
         let match: RegExpExecArray | null
-        while ((match = re.exec(html)) !== null) referencedAssetIds.add(match[1])
+        while ((match = re.exec(html)) !== null) referencedAssetIds.add(match[1].toLowerCase())
       }
     }
     for (const review of snapshot.weeklyReviews ?? []) {
       const re = /journal-asset:\/\/([^"'\s>]+)/g
       let match: RegExpExecArray | null
-      while ((match = re.exec(review.contentHtml)) !== null) referencedAssetIds.add(match[1])
+      while ((match = re.exec(review.contentHtml)) !== null) referencedAssetIds.add(match[1].toLowerCase())
     }
     for (const note of snapshot.quickNotes ?? []) {
       const re = /journal-asset:\/\/([^"'\s>]+)/g
       let match: RegExpExecArray | null
-      while ((match = re.exec(note.contentHtml)) !== null) referencedAssetIds.add(match[1])
+      while ((match = re.exec(note.contentHtml)) !== null) referencedAssetIds.add(match[1].toLowerCase())
     }
-    const obsoleteImportedFiles: string[] = []
-    let adopted = false
 
-    try {
-      nextDb.run('BEGIN TRANSACTION')
-      for (const asset of assets) {
-        assertSafeAssetId(asset.id)
-        if (options?.pruneUnreferenced && !referencedAssetIds.has(asset.id)) {
-          const existing = findAttachmentFile(this.paths.attachments, asset.id)
-          if (existing) obsoleteImportedFiles.push(existing)
-          nextDb.run('DELETE FROM assets WHERE id = ?', [asset.id])
-          continue
-        }
-        const ext = asset.mime.includes('webp')
-          ? 'webp'
-          : asset.mime.includes('png')
-            ? 'png'
-            : asset.mime.includes('jpeg') || asset.mime.includes('jpg')
-              ? 'jpg'
-              : 'bin'
-        const fileName = `${asset.id}.${ext}`
-        const target = resolveAttachmentWritePath(this.paths.attachments, fileName)
-        if (fs.existsSync(target)) {
-          if (!fs.readFileSync(target).equals(asset.buffer)) {
-            throw new Error(`导入附件 ID 冲突：${asset.id}`)
-          }
-        } else {
-          const temp = resolveAttachmentWritePath(
-            this.paths.attachments,
-            `.${fileName}.${randomUUID()}.tmp`,
-          )
-          fs.writeFileSync(temp, asset.buffer)
-          stagedFiles.push({ temp, target })
-        }
-        nextDb.run(
-          `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
-           VALUES (?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             mime = excluded.mime,
-             file_name = excluded.file_name,
-             byte_size = excluded.byte_size`,
-          [asset.id, asset.mime, fileName, asset.buffer.byteLength, new Date().toISOString()],
-        )
-      }
-      nextDb.run(
-        `INSERT INTO meta (key, value) VALUES (?, ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-        [SNAPSHOT_KEY, JSON.stringify(snapshot)],
-      )
-      nextDb.run('COMMIT')
-
-      for (const staged of stagedFiles) {
-        fs.renameSync(staged.temp, staged.target)
-        committedFiles.push(staged.target)
-      }
-      const nextDbBytes = Buffer.from(nextDb.export())
+    // sql.js 初始化是本方法唯一的 await。之后重新从 journal.db 权威字节
+    // 建 candidate，绝不持有 await 前的 active DB，也不 export 内存分叉状态。
+    await getSql()
+    type AttachmentPlan = {
+      fileName: string
+      filePath: string
+      expectedBytes: Buffer
+    }
+    const materializePlans: AttachmentPlan[] = []
+    const obsoletePlans: AttachmentPlan[] = []
+    const batchIds = new Set<string>()
+    const batchNames = new Set<string>()
+    const prepared = this.prepareDatabaseCandidate((candidateDb) => {
+      assertPortableAssetDatabaseIntegrity(candidateDb)
+      candidateDb.run('BEGIN TRANSACTION')
       try {
-        this.writeImportDatabase(this.paths.dbFile, nextDbBytes)
+        for (const asset of assets) {
+          assertSafeAssetId(asset.id)
+          const fileName = attachmentFileName(
+            asset.id,
+            importedAttachmentExtensionForMime(asset.mime),
+          )
+          const portableId = asset.id.toLowerCase()
+          const portableName = fileName.toLowerCase()
+          if (batchIds.has(portableId) || batchNames.has(portableName)) {
+            throw new Error(`整批导入包含重复或不可移植的附件身份：${asset.id}`)
+          }
+          batchIds.add(portableId)
+          batchNames.add(portableName)
+
+          const portableRecords = readPortableAssetRecords(candidateDb, asset.id, fileName)
+          if (
+            portableRecords.length > 1 ||
+            (portableRecords[0] !== undefined && (
+              portableRecords[0].id !== asset.id || portableRecords[0].fileName !== fileName
+            ))
+          ) {
+            throw new Error(`导入附件 ID 或文件名存在不可移植的大小写冲突：${asset.id}`)
+          }
+
+          const target = resolveAttachmentWritePath(this.paths.attachments, fileName)
+          const existing = this.inspectPortableAttachment(asset.id, fileName)
+          if (options?.pruneUnreferenced && !referencedAssetIds.has(portableId)) {
+            if (existing) {
+              obsoletePlans.push({
+                fileName,
+                filePath: existing,
+                expectedBytes: Buffer.from(this.readAttachmentFile(existing)),
+              })
+            }
+            candidateDb.run('DELETE FROM assets WHERE id = ?', [asset.id])
+            continue
+          }
+
+          const expectedBytes = Buffer.from(asset.buffer)
+          if (existing) {
+            if (!this.readAttachmentFile(existing).equals(expectedBytes)) {
+              throw new Error(`导入附件 ID 冲突：${asset.id}`)
+            }
+          } else {
+            materializePlans.push({ fileName, filePath: target, expectedBytes })
+          }
+          candidateDb.run(
+            `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
+             VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET
+               mime = excluded.mime,
+               file_name = excluded.file_name,
+               byte_size = excluded.byte_size`,
+            [asset.id, asset.mime, fileName, expectedBytes.byteLength, this.now().toISOString()],
+          )
+        }
+        candidateDb.run(
+          `INSERT INTO meta (key, value) VALUES (?, ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+          [SNAPSHOT_KEY, JSON.stringify(snapshot)],
+        )
+        candidateDb.run('COMMIT')
       } catch (error) {
-        const targetWasReplaced = fs.existsSync(this.paths.dbFile) && fs.readFileSync(this.paths.dbFile).equals(nextDbBytes)
-        if (!targetWasReplaced) throw error
-        // rename 已提交、仅后续目录 durability barrier 报错时，不得删除新 DB 正在引用的附件。
+        try { candidateDb.run('ROLLBACK') } catch { /* transaction may already be closed */ }
+        throw error
       }
-      currentDb.close()
-      this.db = nextDb
-      adopted = true
-      for (const filePath of obsoleteImportedFiles) {
-        try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath) } catch { /* orphan cleanup retries on next import */ }
+    })
+
+    const ownedPlans: AttachmentPlan[] = []
+    let candidateHandedOff = false
+    try {
+      for (const plan of materializePlans) {
+        this.materializeAttachmentCandidate('import-asset', plan.filePath, plan.expectedBytes)
+        ownedPlans.push(plan)
       }
+
+      candidateHandedOff = true
+      this.commitDatabaseCandidate('import-asset', prepared, {
+        writeDatabase: this.writeImportDatabase,
+        beforeReplace: this.beforeAssetAtomicReplace ?? this.beforeAtomicReplace,
+        afterReplace: this.afterAssetAtomicReplace,
+        onPreviousUnchanged: (observedDiskBytes) => {
+          for (const plan of ownedPlans) {
+            this.cleanupOwnedAttachment(
+              observedDiskBytes,
+              plan.fileName,
+              plan.filePath,
+              plan.expectedBytes,
+            )
+          }
+        },
+      })
     } catch (error) {
-      try { nextDb.run('ROLLBACK') } catch { /* transaction may already be closed */ }
-      for (const staged of stagedFiles) {
-        try { if (fs.existsSync(staged.temp)) fs.unlinkSync(staged.temp) } catch { /* ignore */ }
-      }
-      for (const filePath of committedFiles) {
-        try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath) } catch { /* ignore */ }
+      if (!candidateHandedOff) {
+        this.closeDetachedDatabaseBestEffort(prepared.candidateDb)
+        if (!(error instanceof SnapshotSaveError && error.outcome === 'indeterminate')) {
+          try {
+            for (const plan of ownedPlans) {
+              this.cleanupOwnedAttachment(
+                prepared.previousDiskBytes,
+                plan.fileName,
+                plan.filePath,
+                plan.expectedBytes,
+              )
+            }
+          } catch (cleanupError) {
+            throw this.enterStorageWriteRecoveryLock('import-asset', { error, cleanup: cleanupError })
+          }
+        }
       }
       throw error
-    } finally {
-      if (!adopted) nextDb.close()
+    }
+
+    // DB 已 durable 且 active 已采用 candidate。prune 的旧物理文件此时已无
+    // DB 引用；收尾仍逐字节证明 preflight 所见文件未被替换。无法证明就保留
+    // orphan，不能让 housekeeping 逆转已经提交的数据库事务。
+    for (const plan of obsoletePlans) {
+      try {
+        this.cleanupOwnedAttachment(
+          prepared.candidateBytes,
+          plan.fileName,
+          plan.filePath,
+          plan.expectedBytes,
+        )
+      } catch {
+        // 后续 inventory/再次导入可重试清理；保留比误删外部替换字节更安全。
+      }
     }
   }
 }

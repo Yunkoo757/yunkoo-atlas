@@ -8,15 +8,35 @@ on:
       - 'electron/forcedKillQa.ts'
       - 'vite.config.ts'
       - 'electron/library/storage.ts'
+      - 'electron/library/ipc.ts'
+      - 'electron/library/sessionGate.ts'
+      - 'electron/library/libraryActivation.ts'
+      - 'electron/library/libraryActivation.test.ts'
+      - 'electron/library/storageRecovery.ts'
+      - 'electron/library/storageRecovery.test.ts'
+      - 'electron/preload.ts'
+      - 'electron/buildIdentity.ts'
+      - 'src/App.tsx'
+      - 'src/main.tsx'
+      - 'src/AppStorageRecovery.browser.test.html'
+      - 'src/AppStorageRecovery.browser.test.tsx'
+      - 'src/lib/storageRecovery.ts'
+      - 'src/types/journalBridge.ts'
+      - 'src/views/settings/DataSettingsPanel.tsx'
       - 'electron/library/atomicFile.ts'
       - 'electron/library/atomicFile.test.ts'
       - 'electron/library/assetGc.test.ts'
       - 'electron/library/assetInventory.test.ts'
       - 'electron/platformSafety.test.ts'
       - 'scripts/bundle-build-identity.mjs'
+      - 'scripts/git-provenance.mjs'
       - 'scripts/run-forced-kill-evidence.mjs'
       - 'scripts/run-asset-lifecycle-platform.mjs'
       - 'scripts/run-electron-safety-platform.mjs'
+      - 'scripts/qa-storage-recovery-lifecycle.mjs'
+      - 'scripts/fixtures/storage-recovery-lifecycle.test.mjs'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
       - 'scripts/file-system-type.mjs'
       - 'scripts/fixtures/forced-kill-evidence.test.mjs'
       - '.github/workflows/forced-kill-evidence.yml'
@@ -147,6 +167,9 @@ jobs:
       - name: Run forced-kill process evidence
         run: pnpm test:forced-kill:electron
 
+      - name: Run storage recovery lifecycle evidence
+        run: pnpm test:storage-recovery:electron
+
       - name: Run asset lifecycle evidence
         run: pnpm test:asset-lifecycle:electron
 
@@ -177,5 +200,14 @@ jobs:
         with:
           name: asset-lifecycle-${{ runner.os }}
           path: test-results/platform-evidence/asset-lifecycle-*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload raw storage recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storage-recovery-${{ runner.os }}
+          path: test-results/storage-recovery/storage-recovery-electron.json
           if-no-files-found: error
           retention-days: 30

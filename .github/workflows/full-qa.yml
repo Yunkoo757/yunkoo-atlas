@@ -54,6 +54,15 @@ jobs:
       - name: Run complete release quality gate
         run: pnpm qa:full
 
+      - name: Upload storage recovery lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storage-recovery-full-qa
+          path: test-results/storage-recovery/storage-recovery-electron.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Run forced-kill process gate
         run: pnpm test:forced-kill:electron
 

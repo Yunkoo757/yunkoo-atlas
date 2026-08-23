@@ -79,6 +79,9 @@ jobs:
       - name: Verify schema migration, stage rollover, and library switching on Windows
         run: pnpm test:live-stage:desktop
 
+      - name: Verify storage recovery lifecycle on Windows
+        run: pnpm test:storage-recovery:electron
+
       - name: Verify forced-kill recovery on Windows
         run: pnpm test:forced-kill:electron
 
@@ -168,6 +171,15 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Upload Windows storage recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storage-recovery-Windows-attempt-${{ github.run_attempt }}
+          path: test-results/storage-recovery/storage-recovery-electron.json
+          if-no-files-found: error
+          retention-days: 30
+
   build-macos:
     needs: certification
     strategy:
@@ -216,6 +228,9 @@ jobs:
 
       - name: Verify schema migration, stage rollover, and library switching on macOS
         run: pnpm test:live-stage:desktop
+
+      - name: Verify storage recovery lifecycle on macOS
+        run: pnpm test:storage-recovery:electron
 
       - name: Verify Electron data path on macOS
         run: pnpm qa:electron
@@ -306,6 +321,15 @@ jobs:
         with:
           name: final-payload-macos-${{ matrix.arch }}-attempt-${{ github.run_attempt }}
           path: test-results/final-packaged-artifact/macos-${{ matrix.arch }}-*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload macOS storage recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storage-recovery-macOS-${{ matrix.arch }}-attempt-${{ github.run_attempt }}
+          path: test-results/storage-recovery/storage-recovery-electron.json
           if-no-files-found: error
           retention-days: 30
 

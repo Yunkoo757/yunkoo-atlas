@@ -11,9 +11,10 @@ import type {
   StageRolloverCommitResult,
   StageRolloverPublishState,
 } from '@/types/journalBridge'
+import { STORAGE_RECOVERY_REQUIRED_EVENT } from '@/lib/storageRecovery'
 
 export const STAGE_MANAGEMENT_OPEN_EVENT = 'atlas:stage-management-open'
-export const STAGE_ROLLOVER_RECOVERY_REQUIRED_EVENT = 'atlas:stage-rollover-recovery-required'
+export const STAGE_ROLLOVER_RECOVERY_REQUIRED_EVENT = STORAGE_RECOVERY_REQUIRED_EVENT
 
 export function notifyStageManagementOpened(): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(STAGE_MANAGEMENT_OPEN_EVENT))

@@ -31,12 +31,14 @@ import {
   verifyBackupAtPath,
 } from './backup'
 import { assertSafeAssetId } from '../../src/storage/assetId'
-import { LibraryOperationGate } from './sessionGate'
+import { LibraryBusyError, LibraryOperationGate } from './sessionGate'
 import {
   areSameLibrary,
   assertCompatibleManifest,
   isSameLibraryPath,
   openValidatedLibraryCandidate,
+  reloadRendererAfterStorageRecovery,
+  recoverLibraryStorageLifecycle,
 } from './libraryActivation'
 import { randomUUID } from 'node:crypto'
 import { assertExitWithinDeadline, releaseThenFinalizeWithRollback } from '../quitCoordinator'
@@ -46,8 +48,13 @@ import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidati
 import type {
   StageRolloverCommitInput,
   StageRolloverCommitResult,
+  StorageRecoveryResult,
 } from '../../src/types/journalBridge'
 import { commitDueStageRollover } from './stageRolloverCommit'
+import {
+  classifyStorageRecoveryRequired,
+  withStorageRecoveryNotification,
+} from './storageRecovery'
 
 let storage: LibraryStorage | null = null
 let openingStorage: Promise<LibraryStorage> | null = null
@@ -80,6 +87,106 @@ const PREPARED_LIBRARY_TTL_MS = 2 * 60 * 1000
 let preparedLibrarySwitch: PreparedLibrarySwitch | null = null
 let preparingLibrarySwitch = false
 let activatingLibrarySwitch = false
+let storageRecoveryInProgress = false
+
+type LibraryStorageOptions = NonNullable<ConstructorParameters<typeof LibraryStorage>[1]>
+
+interface StorageRecoveryQaController {
+  armIndeterminateSnapshotWrite(): void
+  holdNextRecoveryBeforeRendererReload(): void
+  releaseRecoveryRendererReload(): void
+  getState(): {
+    lifecycleId: string | null
+    recoveryRequired: boolean
+    recoveryInProgress: boolean
+    faultArmed: boolean
+    rendererReloadHeld: boolean
+    mainFrameNavigationStarted: boolean
+    mainFrameNavigationCommitted: boolean
+    exclusiveAtNavigationStart: boolean | null
+    exclusiveAtMainFrameCommit: boolean | null
+  }
+}
+
+declare global {
+  // 仅用于非 packaged 的真实 Electron 生命周期故障注入；不经过 preload 暴露给 renderer。
+  var __TRADER_ATLAS_STORAGE_RECOVERY_QA__: StorageRecoveryQaController | undefined
+}
+
+const storageRecoveryQaEnabled =
+  process.env.TRADER_ATLAS_STORAGE_RECOVERY_QA === '1' && !app.isPackaged
+let storageRecoveryQaFaultArmed = false
+let storageRecoveryQaHoldRequested = false
+let storageRecoveryQaReloadHeld = false
+let releaseStorageRecoveryQaReload: (() => void) | null = null
+let storageRecoveryQaMainFrameNavigationStarted = false
+let storageRecoveryQaMainFrameNavigationCommitted = false
+let storageRecoveryQaExclusiveAtNavigationStart: boolean | null = null
+let storageRecoveryQaExclusiveAtMainFrameCommit: boolean | null = null
+
+async function waitForStorageRecoveryQaReloadRelease(): Promise<void> {
+  if (!storageRecoveryQaEnabled || !storageRecoveryQaHoldRequested) return
+  storageRecoveryQaReloadHeld = true
+  try {
+    await new Promise<void>((resolve) => { releaseStorageRecoveryQaReload = resolve })
+  } finally {
+    storageRecoveryQaHoldRequested = false
+    storageRecoveryQaReloadHeld = false
+    releaseStorageRecoveryQaReload = null
+  }
+}
+
+function createRuntimeLibraryStorage(
+  libraryPath: string,
+  options: LibraryStorageOptions = {},
+): LibraryStorage {
+  const afterSnapshotAtomicReplace = options.afterSnapshotAtomicReplace
+  return new LibraryStorage(libraryPath, {
+    ...options,
+    afterSnapshotAtomicReplace: (targetPath) => {
+      afterSnapshotAtomicReplace?.(targetPath)
+      if (!storageRecoveryQaEnabled || !storageRecoveryQaFaultArmed) return
+      storageRecoveryQaFaultArmed = false
+      // 制造“既非 previous 也非 candidate”的有效 SQLite 尾随字节状态，迫使旧实例 fail closed。
+      fs.appendFileSync(targetPath, Buffer.from([0xff]))
+      throw new Error('injected indeterminate snapshot write for Electron lifecycle QA')
+    },
+  })
+}
+
+function registerStorageRecoveryQaController(): void {
+  if (!storageRecoveryQaEnabled) return
+  Object.defineProperty(globalThis, '__TRADER_ATLAS_STORAGE_RECOVERY_QA__', {
+    configurable: true,
+    enumerable: false,
+    value: {
+      armIndeterminateSnapshotWrite: () => {
+        if (!storage) throw new Error('无法在没有活动 storage 时注入恢复故障')
+        if (storage.isRecoveryRequired()) throw new Error('当前 storage 已经处于恢复锁定状态')
+        storageRecoveryQaFaultArmed = true
+      },
+      holdNextRecoveryBeforeRendererReload: () => {
+        if (storageRecoveryInProgress) throw new Error('恢复已开始，无法再安装 reload hold')
+        storageRecoveryQaHoldRequested = true
+      },
+      releaseRecoveryRendererReload: () => {
+        if (!releaseStorageRecoveryQaReload) throw new Error('恢复 reload 当前未被 QA hold')
+        releaseStorageRecoveryQaReload()
+      },
+      getState: () => ({
+        lifecycleId: storage?.getLifecycleId() ?? null,
+        recoveryRequired: storage?.isRecoveryRequired() ?? false,
+        recoveryInProgress: storageRecoveryInProgress,
+        faultArmed: storageRecoveryQaFaultArmed,
+        rendererReloadHeld: storageRecoveryQaReloadHeld,
+        mainFrameNavigationStarted: storageRecoveryQaMainFrameNavigationStarted,
+        mainFrameNavigationCommitted: storageRecoveryQaMainFrameNavigationCommitted,
+        exclusiveAtNavigationStart: storageRecoveryQaExclusiveAtNavigationStart,
+        exclusiveAtMainFrameCommit: storageRecoveryQaExclusiveAtMainFrameCommit,
+      }),
+    } satisfies StorageRecoveryQaController,
+  })
+}
 
 async function ensureStorage(): Promise<LibraryStorage> {
   if (exitPreparedStorage) throw new Error('应用正在安全退出，交易库已停止接受新操作')
@@ -91,7 +198,7 @@ async function ensureStorage(): Promise<LibraryStorage> {
         throw new Error('尚未配置交易库，请先选择或创建交易库目录')
       }
       if (location.kind !== 'ready') throw libraryLocationError(location)
-      const candidate = new LibraryStorage(location.resolvedPath, {
+      const candidate = createRuntimeLibraryStorage(location.resolvedPath, {
         ensureDirectories: false,
         allowCreate: false,
       })
@@ -180,7 +287,18 @@ export function cancelStorageExitPreparation(): void {
 }
 
 function withStorage<T>(operation: (lib: LibraryStorage) => T | Promise<T>): Promise<T> {
-  return operationGate.run(async () => operation(await ensureStorage()))
+  return withStorageRecoveryNotification(
+    () => operationGate.run(async () => operation(await ensureStorage())),
+    notifyStorageRecoveryRequired,
+  )
+}
+
+function notifyStorageRecoveryRequired(
+  state: NonNullable<ReturnType<typeof classifyStorageRecoveryRequired>>,
+): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) window.webContents.send('storage:recovery-required', state)
+  }
 }
 
 function bufferFromPayload(data: ArrayBuffer | Uint8Array | number[]): Buffer {
@@ -197,7 +315,7 @@ async function reopenStorageWithAutoBackup(): Promise<LibraryStorage> {
   const location = await getValidatedLibraryLocation()
   if (location.kind === 'unset') throw new Error('尚未配置交易库')
   if (location.kind !== 'ready') throw libraryLocationError(location)
-  const reopened = new LibraryStorage(location.resolvedPath, {
+  const reopened = createRuntimeLibraryStorage(location.resolvedPath, {
     ensureDirectories: false,
     allowCreate: false,
   })
@@ -254,7 +372,7 @@ async function openLibrarySwitchCandidate(
 }> {
   const resolvedPath = resolveLibrarySwitchPath(libPath, mode)
 
-  const candidate = new LibraryStorage(resolvedPath, {
+  const candidate = createRuntimeLibraryStorage(resolvedPath, {
     ensureDirectories: mode === 'create',
     allowCreate: mode === 'create',
   })
@@ -378,7 +496,7 @@ async function prepareActiveLibrarySwitch(
   mode: LibrarySwitchMode,
   event: IpcMainInvokeEvent,
 ): Promise<{ ok: true; token: string } | { ok: false; error: string }> {
-  if (preparingLibrarySwitch || activatingLibrarySwitch || preparedLibrarySwitch) {
+  if (storageRecoveryInProgress || preparingLibrarySwitch || activatingLibrarySwitch || preparedLibrarySwitch) {
     return { ok: false, error: '已有交易库切换正在进行，请稍后再试' }
   }
   preparingLibrarySwitch = true
@@ -470,7 +588,92 @@ function cancelPreparedLibrarySwitch(token: string, event: IpcMainInvokeEvent): 
   return clearPreparedLibrarySwitch(token) !== null
 }
 
+async function recoverActiveStorageLifecycle(
+  event: IpcMainInvokeEvent,
+): Promise<StorageRecoveryResult> {
+  if (
+    storageRecoveryInProgress ||
+    preparingLibrarySwitch ||
+    activatingLibrarySwitch ||
+    preparedLibrarySwitch !== null ||
+    exitPreparedStorage !== null
+  ) {
+    return { ok: false, code: 'busy', message: '交易库正在切换、恢复或退出，请稍后重试' }
+  }
+
+  storageRecoveryInProgress = true
+  storageRecoveryQaMainFrameNavigationStarted = false
+  storageRecoveryQaMainFrameNavigationCommitted = false
+  storageRecoveryQaExclusiveAtNavigationStart = null
+  storageRecoveryQaExclusiveAtMainFrameCommit = null
+  let storageActivated = false
+  try {
+    return await operationGate.runExclusive(async () => {
+      const current = storage ?? (openingStorage ? await openingStorage : null)
+
+      // 自动备份不经过 operation gate；必须在任何异步定位/校验前停止旧 timer，
+      // 避免它在 fresh open 期间继续访问已锁定的 sql.js 实例。
+      stopAutoBackup()
+      autoBackupStarted = false
+      const location = await getValidatedLibraryLocation()
+      if (location.kind === 'unset') throw new Error('尚未配置交易库')
+      if (location.kind !== 'ready') throw libraryLocationError(location)
+      if (current && !isSameLibraryPath(current, location.resolvedPath)) {
+        throw new Error('活动资料库路径在恢复期间发生变化，已阻止替换 storage')
+      }
+
+      const recovered = await recoverLibraryStorageLifecycle({
+        current,
+        libraryPath: location.resolvedPath,
+        expectedLibraryId: location.verifiedLibraryId,
+        createCandidate: (libraryPath) => createRuntimeLibraryStorage(libraryPath, {
+          ensureDirectories: false,
+          allowCreate: false,
+        }),
+        activateCandidate: (candidate) => {
+          startLibraryAutoBackup(candidate)
+          storage = candidate
+          assetPurgeAuthorizations.clear()
+          autoBackupStarted = true
+          storageActivated = true
+        },
+        reloadRenderer: async () => {
+          await waitForStorageRecoveryQaReloadRelease()
+          await reloadRendererAfterStorageRecovery(event.sender, 5_000, {
+            onMainFrameNavigationStarted: storageRecoveryQaEnabled
+              ? () => {
+                  storageRecoveryQaMainFrameNavigationStarted = true
+                  storageRecoveryQaExclusiveAtNavigationStart = operationGate.isExclusive()
+                }
+              : undefined,
+            onMainFrameNavigationCommitted: storageRecoveryQaEnabled
+              ? () => {
+                  storageRecoveryQaMainFrameNavigationCommitted = true
+                  storageRecoveryQaExclusiveAtMainFrameCommit = operationGate.isExclusive()
+                }
+              : undefined,
+          })
+        },
+      })
+      return { ok: true as const, snapshot: recovered.snapshot }
+    })
+  } catch (error) {
+    return {
+      ok: false,
+      code: error instanceof LibraryBusyError
+        ? 'busy'
+        : storageActivated
+          ? 'renderer-reload-failed'
+          : 'reopen-failed',
+      message: toErrorMessage(error),
+    }
+  } finally {
+    storageRecoveryInProgress = false
+  }
+}
+
 export function registerLibraryIpc(): void {
+  registerStorageRecoveryQaController()
   // ---- 库路径引导 ----
   ipcMain.handle('library:getStatus', async () => {
     return getLibraryLocationState()
@@ -538,6 +741,8 @@ export function registerLibraryIpc(): void {
     lib.saveSnapshot(snapshot)
     return true
   }))
+
+  ipcMain.handle('storage:recover', async (event) => recoverActiveStorageLifecycle(event))
 
   ipcMain.handle('stage:commitRollover', async (
     _e,
@@ -687,19 +892,22 @@ export function registerLibraryIpc(): void {
   }) => {
     const operation = beginOperation('import', { stage: 'validate', revisionBefore: 0 })
     try {
-      const committed = await operationGate.runExclusive(async () => {
-        const lib = await ensureStorage()
-        const assets = payload.assets.map((asset) => {
-          assertSafeAssetId(asset.id)
-          return {
-            id: asset.id,
-            mime: asset.mime,
-            buffer: Buffer.from(asset.data, 'base64'),
-          }
-        })
-        await lib.commitImport(payload.snapshot, assets, payload.options)
-        return true
-      })
+      const committed = await withStorageRecoveryNotification(
+        () => operationGate.runExclusive(async () => {
+          const lib = await ensureStorage()
+          const assets = payload.assets.map((asset) => {
+            assertSafeAssetId(asset.id)
+            return {
+              id: asset.id,
+              mime: asset.mime,
+              buffer: Buffer.from(asset.data, 'base64'),
+            }
+          })
+          await lib.commitImport(payload.snapshot, assets, payload.options)
+          return true
+        }),
+        notifyStorageRecoveryRequired,
+      )
       operation.success({ stage: 'committed', revisionAfter: 0 })
       return committed
     } catch (error) {
@@ -753,37 +961,40 @@ export function registerLibraryIpc(): void {
   ipcMain.handle('backup:restore', async (_e, fileName: string) => {
     let replacementCommitted = false
     try {
-      return await operationGate.runExclusive(async () => {
-        const current = await ensureStorage()
-        const libraryPath = current.getLibraryPath()
-        const verification = await verifyBackupAtPath(libraryPath, fileName)
-        if (verification.status !== 'verified') {
-          return { ok: false as const, committed: false, error: verification.error }
-        }
-        // 在覆盖资料库前创建一个包含原图的完整恢复点。
-        if (!createBackup(current)) {
-          return { ok: false as const, committed: false, error: '无法创建恢复前安全备份' }
-        }
-        stopAutoBackup()
-        autoBackupStarted = false
-        current.close()
-        storage = null
+      return await withStorageRecoveryNotification(
+        () => operationGate.runExclusive(async () => {
+          const current = await ensureStorage()
+          const libraryPath = current.getLibraryPath()
+          const verification = await verifyBackupAtPath(libraryPath, fileName)
+          if (verification.status !== 'verified') {
+            return { ok: false as const, committed: false, error: verification.error }
+          }
+          // 在覆盖资料库前创建一个包含原图的完整恢复点。
+          if (!createBackup(current)) {
+            return { ok: false as const, committed: false, error: '无法创建恢复前安全备份' }
+          }
+          stopAutoBackup()
+          autoBackupStarted = false
+          current.close()
+          storage = null
 
-        const ok = restoreBackupAtPath(libraryPath, fileName)
-        replacementCommitted = ok
-        // 无论恢复是否成功，都重新打开资料库并重建自动备份计时器。
-        const reopened = await reopenAfterRestoreFailure()
-        rotateBackups(ensureLibraryDirs(libraryPath).backups)
-        if (!ok) return { ok: false as const, committed: false, error: '恢复操作未提交' }
-        const restoredSnapshot = reopened.loadSnapshot()
-        if (restoredSnapshot) return { ok: true as const, committed: true as const, snapshot: restoredSnapshot }
-        if (!verification.emptyLibrary) {
-          return { ok: false as const, committed: true, error: '恢复后的快照无法读取' }
-        }
-        const emptySnapshot = createEmptyPersistedSnapshot()
-        reopened.saveSnapshot(emptySnapshot)
-        return { ok: true as const, committed: true as const, snapshot: emptySnapshot }
-      })
+          const ok = restoreBackupAtPath(libraryPath, fileName)
+          replacementCommitted = ok
+          // 无论恢复是否成功，都重新打开资料库并重建自动备份计时器。
+          const reopened = await reopenAfterRestoreFailure()
+          rotateBackups(ensureLibraryDirs(libraryPath).backups)
+          if (!ok) return { ok: false as const, committed: false, error: '恢复操作未提交' }
+          const restoredSnapshot = reopened.loadSnapshot()
+          if (restoredSnapshot) return { ok: true as const, committed: true as const, snapshot: restoredSnapshot }
+          if (!verification.emptyLibrary) {
+            return { ok: false as const, committed: true, error: '恢复后的快照无法读取' }
+          }
+          const emptySnapshot = createEmptyPersistedSnapshot()
+          reopened.saveSnapshot(emptySnapshot)
+          return { ok: true as const, committed: true as const, snapshot: emptySnapshot }
+        }),
+        notifyStorageRecoveryRequired,
+      )
     } catch (error) {
       safeConsoleError('backup-restore-failed', error)
       const cutoverMayHaveStarted = replacementCommitted || storage === null

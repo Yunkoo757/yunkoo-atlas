@@ -63,8 +63,8 @@ import {
   executeDueStageRollover,
   reconcileCommittedStageRollover,
   STAGE_MANAGEMENT_OPEN_EVENT,
-  STAGE_ROLLOVER_RECOVERY_REQUIRED_EVENT,
 } from './lib/stageRolloverCommit'
+import { STORAGE_RECOVERY_REQUIRED_EVENT, notifyStorageRecoveryRequired } from './lib/storageRecovery'
 import { createForegroundStageRolloverScheduler } from './lib/stageRolloverScheduler'
 import './App.css'
 
@@ -114,7 +114,7 @@ const checkDueStageRollover = createStageRolloverCheck(async () => {
     }),
     enterRecoveryRequired: (message) => {
       disablePersistWrites()
-      window.dispatchEvent(new CustomEvent(STAGE_ROLLOVER_RECOVERY_REQUIRED_EVENT, { detail: message }))
+      notifyStorageRecoveryRequired(message)
     },
   })
   if (result.kind === 'committed') {
@@ -596,10 +596,12 @@ export function App() {
   const [storageError, setStorageError] = useState<string | null>(null)
   const [storageRecoveryRequired, setStorageRecoveryRequired] = useState(false)
   const [retryingStorage, setRetryingStorage] = useState(false)
+  const [recoveringStorage, setRecoveringStorage] = useState(false)
   const [closeSaveState, setCloseSaveState] = useState<CloseSaveState>({ phase: 'idle' })
   const [windowsClosePromptOpen, setWindowsClosePromptOpen] = useState(false)
   const [rememberWindowsClose, setRememberWindowsClose] = useState(false)
   const closeSaveGeneration = useRef(new AsyncGeneration())
+  const storageRecoveryReloadAuthorized = useRef(false)
 
   useEffect(() => {
     if (closeSaveState.phase === 'idle') unlockBottomChrome()
@@ -607,18 +609,28 @@ export function App() {
   }, [closeSaveState.phase])
 
   useEffect(() => {
-    const onRecoveryRequired = (event: Event) => {
+    const enterRecoveryRequired = (message: string) => {
       disablePersistWrites()
-      const message = event instanceof CustomEvent && typeof event.detail === 'string'
-        ? event.detail
-        : '阶段切换结果无法安全确认，已停止继续保存。'
       setStorageRecoveryRequired(true)
       setStorageError(message)
       setReady(false)
       document.documentElement.dataset.uiSettled = '1'
     }
-    window.addEventListener(STAGE_ROLLOVER_RECOVERY_REQUIRED_EVENT, onRecoveryRequired)
-    return () => window.removeEventListener(STAGE_ROLLOVER_RECOVERY_REQUIRED_EVENT, onRecoveryRequired)
+    const onRecoveryRequired = (event: Event) => {
+      enterRecoveryRequired(
+        event instanceof CustomEvent && typeof event.detail === 'string'
+          ? event.detail
+          : '阶段切换结果无法安全确认，已停止继续保存。',
+      )
+    }
+    const unsubscribeStorageRecovery = window.journalBridge?.onStorageRecoveryRequired?.((state) => {
+      enterRecoveryRequired(state.message)
+    })
+    window.addEventListener(STORAGE_RECOVERY_REQUIRED_EVENT, onRecoveryRequired)
+    return () => {
+      window.removeEventListener(STORAGE_RECOVERY_REQUIRED_EVENT, onRecoveryRequired)
+      unsubscribeStorageRecovery?.()
+    }
   }, [])
 
   useEffect(() => {
@@ -715,6 +727,29 @@ export function App() {
     }
   }
 
+  const handleStorageRecovery = async () => {
+    const bridge = window.journalBridge
+    if (!bridge?.recoverStorage) {
+      setStorageError('当前桌面运行时无法启动资料库恢复')
+      return
+    }
+    setRecoveringStorage(true)
+    storageRecoveryReloadAuthorized.current = true
+    try {
+      const result = await bridge.recoverStorage()
+      if (!result.ok) {
+        storageRecoveryReloadAuthorized.current = false
+        setStorageError(result.message)
+      }
+      // 成功时由主进程在 fresh storage 激活后刷新 renderer；当前页面不得自行 reload。
+    } catch (error) {
+      storageRecoveryReloadAuthorized.current = false
+      setStorageError(storageBootstrapErrorMessage(error))
+    } finally {
+      setRecoveringStorage(false)
+    }
+  }
+
   useEffect(() => {
     setPreFlushCallback(async () => {
       const complete = await flushNoteDraftsToStore()
@@ -750,11 +785,16 @@ export function App() {
     })
     let lastVisibleBusinessWeek = currentBusinessWeek()
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (shouldPreventAppUnload(hasPendingChanges(), hasPendingNoteDrafts())) {
+      if (
+        !storageRecoveryReloadAuthorized.current &&
+        shouldPreventAppUnload(hasPendingChanges(), hasPendingNoteDrafts())
+      ) {
         e.preventDefault()
         e.returnValue = ''
       }
-      safeFlush()
+      // 恢复路径已经锁住旧 storage；主进程激活 fresh disk 实例后发起的 reload
+      // 既不能被 beforeunload 拦住，也不能再从旧 renderer 排队一次 flush。
+      if (!storageRecoveryReloadAuthorized.current) safeFlush()
     }
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
@@ -872,7 +912,7 @@ export function App() {
           title={(
             <>
               <span className="app-storage-error-eyebrow">
-                {storageRecoveryRequired ? '本地资料库需要重新加载' : '本地资料库未打开'}
+                {storageRecoveryRequired ? '本地资料库需要重新打开' : '本地资料库未打开'}
               </span>
               <h1>已停止进入工作区，避免覆盖现有数据</h1>
             </>
@@ -882,7 +922,7 @@ export function App() {
               <span>{storageError}</span>
               <small>
                 {storageRecoveryRequired
-                  ? '磁盘可能已经包含新的阶段状态；软件不会用当前界面的旧状态继续保存。'
+                  ? '主进程将从磁盘重新建立资料库实例；软件不会用当前界面的旧状态继续保存。'
                   : '软件不会在加载失败时创建空数据或继续保存。'}
               </small>
             </>
@@ -890,8 +930,13 @@ export function App() {
           action={(
             <div className="app-storage-error-actions">
               {storageRecoveryRequired ? (
-                <Button size="lg" variant="primary" onClick={() => window.location.reload()}>
-                  重新加载应用
+                <Button
+                  size="lg"
+                  variant="primary"
+                  onClick={() => void handleStorageRecovery()}
+                  disabled={recoveringStorage}
+                >
+                  {recoveringStorage ? '正在重新打开…' : '重新打开资料库'}
                 </Button>
               ) : (
                 <Button
@@ -903,7 +948,7 @@ export function App() {
                   {retryingStorage ? '正在重试…' : '重试打开'}
                 </Button>
               )}
-              {isElectron() && (
+              {isElectron() && !storageRecoveryRequired && (
                 <Button
                   size="lg"
                   variant="bordered"

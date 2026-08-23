@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AppUpdateState } from '../src/lib/appUpdate'
-import type { JournalBridge } from '../src/types/journalBridge'
+import type { JournalBridge, StorageRecoveryRequiredState } from '../src/types/journalBridge'
 import type { WindowsClosePreference } from '../src/types/journalBridge'
 import { AsyncGeneration } from '../src/lib/asyncGeneration'
 
@@ -13,6 +13,8 @@ export type {
   LibraryLocationState,
   StageRolloverCommitInput,
   StageRolloverCommitResult,
+  StorageRecoveryRequiredState,
+  StorageRecoveryResult,
   WindowFrameState,
   WindowsCloseChoice,
   WindowsClosePreference,
@@ -59,6 +61,13 @@ const bridge: JournalBridge = {
     ipcRenderer.on('backup:auto-failed', listener)
     return () => ipcRenderer.removeListener('backup:auto-failed', listener)
   },
+  onStorageRecoveryRequired: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: StorageRecoveryRequiredState) => {
+      callback(state)
+    }
+    ipcRenderer.on('storage:recovery-required', listener)
+    return () => ipcRenderer.removeListener('storage:recovery-required', listener)
+  },
   onWindowsCloseExplanation: (callback) => {
     const listener = () => callback()
     ipcRenderer.on('app:windows-close-explanation', listener)
@@ -88,6 +97,7 @@ const bridge: JournalBridge = {
   cancelPreparedLibrary: (token) => ipcRenderer.invoke('library:cancelPrepared', token),
   getLibraryPath: () => ipcRenderer.invoke('library:getPath'),
   storageOpen: () => ipcRenderer.invoke('storage:open'),
+  recoverStorage: () => ipcRenderer.invoke('storage:recover'),
   getManifest: () => ipcRenderer.invoke('storage:getManifest'),
   loadSnapshot: () => ipcRenderer.invoke('storage:loadSnapshot'),
   saveSnapshot: (snapshot) => ipcRenderer.invoke('storage:saveSnapshot', snapshot),

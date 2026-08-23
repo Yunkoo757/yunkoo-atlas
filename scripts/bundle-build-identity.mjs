@@ -34,6 +34,29 @@ export async function readRepositoryBuildExpectation(root = process.cwd(), envir
   }
 }
 
+export function assertRepositoryProvenanceUnchanged(expectation, provenance) {
+  const repository = expectation?.repository
+  const unchanged = (
+    provenance?.gitCommit?.toLowerCase?.() === repository?.head &&
+    provenance?.gitTree === repository?.tree &&
+    provenance?.workingTreeDirty === repository?.dirty &&
+    provenance?.sourceFingerprint === repository?.sourceFingerprint &&
+    provenance?.sourceIdentity === repository?.sourceIdentity
+  )
+  if (!unchanged) {
+    throw new Error('Repository source changed during evidence collection; refusing to publish pass evidence')
+  }
+}
+
+/** Pass evidence is only publishable after every temporary resource is durably released. */
+export async function publishEvidenceAfterCleanup({ cleanup, publish }) {
+  if (typeof cleanup !== 'function' || typeof publish !== 'function') {
+    throw new Error('Evidence cleanup and publication callbacks are required')
+  }
+  await cleanup()
+  return publish()
+}
+
 export function validateBundleBuildIdentityEvidence(evidence, requiredBundles) {
   if (!evidence || typeof evidence !== 'object') {
     throw new Error('Bundle build identity evidence is required')

@@ -127,9 +127,11 @@ export async function testDesktopAttachmentWritesUseTheAtomicFileBoundary(): Pro
   const source = await fs.readFile('electron/library/storage.ts', 'utf8')
   const saveAsset = source.match(/async saveAssetAsync\([\s\S]*?\n  }/)?.[0] ?? ''
   const importAsset = source.match(/importAsset\([\s\S]*?\n  }/)?.[0] ?? ''
+  const materialize = source.match(/private materializeAttachmentCandidate\([\s\S]*?\n  }/)?.[0] ?? ''
 
-  assert(saveAsset.includes('writeFileAtomicallySync(filePath, outBuffer)'), '桌面新增附件必须先持久化临时文件再替换正式文件')
-  assert(importAsset.includes('writeFileAtomicallySync(filePath, buffer)'), '桌面导入附件必须先持久化临时文件再替换正式文件')
+  assert(materialize.includes('writeFileAtomicallySync('), '共享附件候选必须先持久化临时文件再替换正式文件')
+  assert(saveAsset.includes("materializeAttachmentCandidate('save-asset'"), '桌面新增附件必须使用共享原子候选边界')
+  assert(importAsset.includes("materializeAttachmentCandidate('import-asset'"), '桌面导入附件必须使用共享原子候选边界')
   assert(!saveAsset.includes('fs.writeFileSync(filePath'), '新增附件不得直接半写正式文件')
   assert(!importAsset.includes('fs.writeFileSync(filePath'), '导入附件不得直接半写正式文件')
 }
@@ -206,6 +208,19 @@ export async function testBackupRestoreResultDistinguishesCommittedCutoverFailur
   assert(ipc.includes('cutoverMayHaveStarted'), '提交状态不明的异常必须按可能已替换处理')
   assert(ipc.includes('reopenAfterRestoreFailure'), '失败路径必须重新打开资料库并恢复自动备份')
   assert(panel.includes('safeToFlush = !result.committed'), 'renderer 必须在磁盘已替换时禁止旧快照回写')
+  assert(
+    panel.includes('notifyStorageRecoveryRequired('),
+    '备份替换已开始但 renderer 无法发布时必须进入统一恢复页',
+  )
+  assert(!panel.includes('window.location?.reload()'), '备份恢复失败不得退回 renderer-only reload')
+  const restoreBody = ipc.slice(
+    ipc.indexOf("ipcMain.handle('backup:restore'"),
+    ipc.indexOf("ipcMain.handle('backup:delete'"),
+  )
+  assert(
+    restoreBody.includes('withStorageRecoveryNotification('),
+    'backup:restore 的空库 snapshot 写入必须统一广播 indeterminate recovery',
+  )
   const restoreCall = panel.indexOf('await getJournalBridge()!.restoreBackup(name)')
   const failClosedBeforeRestore = panel.lastIndexOf('safeToFlush = false', restoreCall)
   assert(
