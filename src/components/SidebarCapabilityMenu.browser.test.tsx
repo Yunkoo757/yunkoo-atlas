@@ -131,7 +131,7 @@ async function run(): Promise<void> {
       clientY: targetRect.top + targetRect.height / 2,
     }))
     await waitFor(
-      () => useStore.getState().display.sidebarPrimaryOrder[0] === 'trades',
+      () => useStore.getState().display.sidebarPrimaryOrder?.at(0) === 'trades',
       '拖动工作区入口后没有持久化新顺序',
     )
     primary.focus()
