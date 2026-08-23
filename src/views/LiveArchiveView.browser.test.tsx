@@ -270,6 +270,10 @@ async function run() {
     )
 
     await waitFor(() => Boolean(document.querySelector('[data-trade-id="historical-win"]')), '历史实盘必须显示重置前交易')
+    assert(
+      !document.body.textContent?.includes('未支持的筛选条件'),
+      '历史实盘不得把 liveStage 与 tab 显示成未支持的筛选条件',
+    )
     assert(document.querySelector('[data-trade-id="earlier-historical"]'), '全部历史必须包含每个已归档 stage')
     assert(!document.querySelector('[data-trade-id="current"]'), '历史实盘不得显示当前实盘')
     const stageButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-live-stage-id]')]
@@ -292,6 +296,10 @@ async function run() {
     await waitFor(() => Boolean(document.querySelector('[data-trade-id="historical-loss"]')), '历史快捷筛选必须留在历史范围')
     assert(!document.querySelector('[data-trade-id="historical-win"]'), '亏损快捷筛选必须使用统一工作台筛选逻辑')
     assert(document.querySelector('[data-route]')?.textContent === '/live-history?liveStage=stage-2&tab=live&status=loss', '历史筛选必须保留 stage 与内容 tab')
+    assert(
+      !document.body.textContent?.includes('未支持的筛选条件'),
+      '历史实盘不得把 liveStage 与 tab 显示成未支持的筛选条件',
+    )
 
     document.querySelector<HTMLButtonElement>('[data-trade-id="historical-loss"] .trade-row-open')?.click()
     await waitFor(() => Boolean(document.querySelector('.dv-back')), '历史行必须继续打开原交易详情')
