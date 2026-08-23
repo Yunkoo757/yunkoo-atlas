@@ -147,6 +147,15 @@ jobs:
             if ((Get-Item -LiteralPath $file).Length -le 0) { throw "Empty release asset: $file" }
           }
 
+      - name: Restore clean source identity after packaging
+        shell: pwsh
+        run: |
+          git restore --source=HEAD -- build public
+          $status = git status --porcelain
+          if (-not [string]::IsNullOrWhiteSpace(($status -join "`n"))) {
+            throw "Release packaging left unexpected working tree changes:`n$($status -join "`n")"
+          }
+
       - name: Run installed NSIS final payload smoke
         shell: pwsh
         run: |
@@ -296,6 +305,12 @@ jobs:
           for file in "${files[@]}"; do
             test -s "$file" || { echo "Missing or empty release asset: $file"; exit 1; }
           done
+
+      - name: Restore clean source identity after packaging
+        run: |
+          git restore --source=HEAD -- build public
+          status=$(git status --porcelain)
+          test -z "$status" || { printf 'Release packaging left unexpected working tree changes:\n%s\n' "$status"; exit 1; }
 
       - name: Run mounted DMG final payload smoke
         run: |
