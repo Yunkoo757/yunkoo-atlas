@@ -288,6 +288,26 @@ test('常规 CI 运行快速门禁，完整浏览器验收移至定时与手动�
 
 test('工作台长流程分段回收浏览器页面，避免 Windows CI 内存耗尽', () => {
   const workbenchQa = readFileSync('scripts/qa-workbench.mjs', 'utf8')
+  assert.match(
+    workbenchQa,
+    /locator\('\.list-scroll'\)\s*\.getByRole\('button', \{ name: '新建案例记录', exact: true \}\)\s*\.click\(\)/,
+    '工作台首步必须通过当前可访问名称创建案例，不能依赖已经退出产品 DOM 的旧类名',
+  )
+  assert.doesNotMatch(
+    workbenchQa,
+    /locator\('\.empty-btn'\)/,
+    '发布工作台 QA 不得等待已经移除的 .empty-btn',
+  )
+  assert.match(
+    workbenchQa,
+    /getByRole\('dialog', \{ name: '确认复制所选记录' \}\)/,
+    '安全复制预览必须等待当前 ModalShell 可访问标题',
+  )
+  assert.doesNotMatch(
+    workbenchQa,
+    /确认安全复制/,
+    '工作台 QA 不得等待已经改名的旧复制对话框',
+  )
   assert.doesNotMatch(
     workbenchQa,
     /locator\('body'\)\.press\('n'\)/,
@@ -313,6 +333,24 @@ test('工作台长流程分段回收浏览器页面，避免 Windows CI 内存�
   assert.match(workbenchQa, /async function recyclePage/)
   assert.ok(recycleCalls.length >= 3, '长流程至少应在三个阶段边界回收旧渲染页面')
   assert.match(workbenchQa, /await page\.close\(\)\s*\r?\n\s*for \(const viewport of baselineViewports\)/)
+})
+
+test('回归构建恢复调用方 NODE_ENV 后才启动浏览器开发服务器', () => {
+  const regressionRunner = readFileSync('scripts/run-regression-tests.mjs', 'utf8')
+  const capture = regressionRunner.indexOf('const originalNodeEnv = process.env.NODE_ENV')
+  const build = regressionRunner.indexOf('await build({')
+  const restoreCalls = [...regressionRunner.matchAll(/\brestoreNodeEnv\(\)/g)]
+    .map((match) => match.index)
+  const browser = regressionRunner.indexOf('runBrowserRegressionTests(root')
+
+  assert.ok(capture >= 0, 'runner 必须捕获进入时的 NODE_ENV')
+  assert.match(regressionRunner, /delete process\.env\.NODE_ENV/)
+  assert.match(regressionRunner, /else process\.env\.NODE_ENV = originalNodeEnv/)
+  assert.ok(restoreCalls.length >= 3, '正常路径与异常 finally 都必须恢复 NODE_ENV')
+  assert.ok(
+    restoreCalls.some((index) => index > build && index < browser),
+    'vite.build 的 production 环境必须在开发服务器前恢复',
+  )
 })
 
 test('应用构建同时检查渲染进程与 Electron 主进程类型', () => {

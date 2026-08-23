@@ -337,7 +337,9 @@ try {
   await page.goto(`${BASE}/review-cases`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
 
-  await page.locator('.empty-btn').click()
+  await page.locator('.list-scroll')
+    .getByRole('button', { name: '新建案例记录', exact: true })
+    .click()
   await selectValue(page.getByRole('combobox', { name: '案例记录品种' }), 'ETHUSDT')
   await selectValue(page.getByRole('combobox', { name: '案例类型' }), 'mistake')
   await page.locator('.composer-btn-primary').click()
@@ -748,7 +750,7 @@ try {
   const caseRowsBeforeCopy = await page.locator('.trade-row').count()
   await page.locator('.trade-row-check').first().check()
   await page.getByRole('button', { name: '复制案例', exact: true }).click()
-  const copyDialog = page.getByRole('dialog', { name: '确认安全复制' })
+  const copyDialog = page.getByRole('dialog', { name: '确认复制所选记录' })
   await copyDialog.waitFor({ state: 'visible', timeout: 5000 })
   const copyPreviewText = await copyDialog.innerText()
   record(

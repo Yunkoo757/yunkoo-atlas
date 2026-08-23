@@ -10,6 +10,13 @@ import { runBrowserRegressionTests } from './run-browser-tests.mjs'
 import { executionReportPath, writeExecutionReport } from './quality-execution.mjs'
 
 const root = process.cwd()
+const originalNodeEnv = process.env.NODE_ENV
+
+function restoreNodeEnv() {
+  if (originalNodeEnv === undefined) delete process.env.NODE_ENV
+  else process.env.NODE_ENV = originalNodeEnv
+}
+
 const discoveredEntries = await discoverUnitTestEntries(root, {
   // 该文件依赖真实 DOM，通过 assets.browser.test.html 执行。
   excluded: ['src/storage/assets.test.ts'],
@@ -43,6 +50,7 @@ for (const entry of entries) {
         },
       },
     })
+    restoreNodeEnv()
 
     const moduleUrl = pathToFileURL(path.join(outDir, 'runner.mjs'))
     moduleUrl.searchParams.set('entry', entry)
@@ -72,6 +80,7 @@ for (const entry of entries) {
     console.error(`FAIL ${entry} :: test module could not run`)
     console.error(error)
   } finally {
+    restoreNodeEnv()
     await fs.rm(outDir, { recursive: true, force: true })
   }
   if (!entryFailed) passedEntries.push(entry)
