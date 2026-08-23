@@ -5,10 +5,10 @@ import { LibraryStorage } from './library/storage'
 import { processImageBuffer } from './library/images'
 import { exportJournalZip, importJournalZipToPath } from './library/journalZip'
 import { createBackup, restoreBackupAtPath, rotateBackups } from './library/backup'
-import { SCHEMA_VERSION, type PersistedSnapshot } from '../src/storage/types'
+import { SCHEMA_VERSION } from '../src/storage/types'
 import { ZipArchive } from 'archiver'
-import { createEmptyPersistedSnapshot } from '../src/storage/emptySnapshot'
 import { WEB_JOURNAL_EXPORT_VERSION } from '../src/lib/webJournalArchiveContract'
+import { createElectronQaSeedSnapshot } from './qaSeed'
 
 export interface QaCheck {
   name: string
@@ -23,62 +23,8 @@ function pngBuf(): Buffer {
   )
 }
 
-function seedSnapshot(): PersistedSnapshot {
-  return {
-    ...createEmptyPersistedSnapshot(),
-    trades: [
-      {
-        id: 'qa-trade-1',
-        ref: 'TRD-QA1',
-        symbol: 'BTC',
-        side: 'long',
-        status: 'win',
-        conviction: 'medium',
-        strategyId: 'qa-strategy',
-        tags: ['qa'],
-        mistakeTags: [],
-        reviewStatus: 'unreviewed',
-        reviewCategory: 'normal',
-        tradeKind: 'live',
-        entry: 100,
-        exit: 110,
-        size: 1,
-        pnl: 10,
-        rMultiple: 1,
-        openedAt: '2026-01-01T00:00:00.000Z',
-        closedAt: '2026-01-02T00:00:00.000Z',
-        closedTradingDayKey: '2026-01-02',
-        note: '<p>QA seed</p>',
-      },
-    ],
-    strategies: [
-      {
-        id: 'qa-strategy',
-        name: 'QA 策略',
-        icon: 'target',
-        color: '#6366f1',
-      },
-    ],
-    starredIds: [],
-    subscribedIds: [],
-    pinnedStrategyIds: [],
-    display: {
-      hideClosed: false,
-      showEmptyGroups: true,
-      groupByStrategy: false,
-      groupByDate: true,
-      sortBy: 'date',
-      privacyMode: false,
-      showKeyboardFocusRings: false,
-      tradingDayStartHour: 6,
-      sidebarPins: [],
-      sidebarWorkspaceItems: [],
-    },
-  }
-}
-
 function snapshotWithRef(ref: string) {
-  const snapshot = seedSnapshot()
+  const snapshot = createElectronQaSeedSnapshot()
   return {
     ...snapshot,
     trades: snapshot.trades.map((trade) => ({ ...trade, ref })),
@@ -91,7 +37,10 @@ function writeProgress(message: string): void {
   fs.appendFileSync(progressPath, `${new Date().toISOString()} ${message}\n`, 'utf8')
 }
 
-async function writeWebJournalZip(destinationFile: string, snapshot = seedSnapshot()): Promise<void> {
+async function writeWebJournalZip(
+  destinationFile: string,
+  snapshot = createElectronQaSeedSnapshot(),
+): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const output = fs.createWriteStream(destinationFile)
     const archive = new ZipArchive({ zlib: { level: 9 } })
@@ -173,7 +122,7 @@ export async function runElectronQa(): Promise<QaCheck[]> {
 
     let snapshot = storage.loadSnapshot()
     if (!snapshot?.trades?.length) {
-      snapshot = seedSnapshot()
+      snapshot = createElectronQaSeedSnapshot()
       storage.saveSnapshot(snapshot)
     }
 

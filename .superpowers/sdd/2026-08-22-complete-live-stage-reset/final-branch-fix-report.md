@@ -52,6 +52,7 @@
 - 完整 QA 的回归 runner 在每次 `vite.build()` 后及异常 `finally` 恢复调用方 `NODE_ENV`，避免 production React 依赖预构建污染后续开发服务器；工作台入口和安全复制对话框改用当前可访问名称，不再等待已移除的 `.empty-btn`/旧标题。真实工作台长流程 35/35 全绿。
 - 10K production-preview 门继续真实执行 v11→v12 迁移，但输入改为一致的 legacy v11 快照：不再把 native `liveStages`/ownership 与旧 manifest 混装，并用覆盖固定样本日期的合法旧 current 边界保证迁移后的 9,996 笔已平仓实盘仍进入 current Dashboard。完整功能观察与冻结性能预算同时 GREEN。
 - 共享 Electron bundle identity 采集在 `firstWindow()` 返回后对 renderer/main 身份安装执行有硬上限的就绪等待，再进入原有 clean HEAD、dirty 与精确 SHA 校验；不会把 about:blank 的瞬时缺失误判为产物缺失，身份齐备后也不会重试或放宽陈旧/脏结果。transient blank RED 后 focused GREEN。
+- Electron headless QA seed 复用空快照实际创建的 `currentLiveStageId` 为实盘交易写入原生 ownership，并由独立 validator contract 在启动主进程前验证完整 v12 快照；不再用缺失 ownership 的 fixture 误伤真实 SQLite/ZIP/backup 门禁。
 - 最终 focused storage/GC/recovery fault-injection 集合 49 项全绿；bundle/recovery workflow fixtures 15 项全绿；两轮独立只读复审均明确 Closed。
 
 ## 5. 验证门与稳定证据
