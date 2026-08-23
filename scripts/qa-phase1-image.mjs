@@ -20,7 +20,10 @@ async function createTrade(symbol) {
   await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
   await page.locator('body').press('n')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), symbol)
+  await page.getByLabel('一句话').fill(`图片 QA：${symbol} 附件持久化`)
   await page.locator('.composer-btn-primary').click()
+  await page.locator('.composer-modal').waitFor({ state: 'hidden', timeout: 10000 })
+  await page.locator('.trade-row-open').first().click()
   await page.waitForURL(/\/trade\//)
   return page.url()
 }

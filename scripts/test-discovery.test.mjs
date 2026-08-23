@@ -414,6 +414,11 @@ test('sidebar QA verifies removed views in a fresh document', async () => {
 
 test('image QA supplies deterministic image clipboard items without the system clipboard', async () => {
   const source = await fs.readFile(path.resolve('scripts/qa-phase1-image.mjs'), 'utf8')
+  const fillIndex = source.indexOf("getByLabel('一句话').fill(")
+  const saveIndex = source.indexOf("locator('.composer-btn-primary').click()")
+  const openIndex = source.indexOf("locator('.trade-row-open').first().click()")
+  assert.ok(fillIndex >= 0 && saveIndex > fillIndex, '图片 QA 必须满足快速记录内容合同后再保存')
+  assert.ok(openIndex > saveIndex, '图片 QA 必须从列表主动打开保存后的记录')
   assert.match(source, /\.ProseMirror\[contenteditable="true"\]/)
   assert.match(source, /new ClipboardEvent\('paste', \{ bubbles: true, cancelable: true \}\)/)
   assert.match(source, /Object\.defineProperty\(event, 'clipboardData'/)
