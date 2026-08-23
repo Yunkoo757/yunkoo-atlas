@@ -22,7 +22,7 @@ const DATABASE_SCHEMA_KEY = 'schemaVersion'
 
 export interface SchemaMigrationMarker {
   version: 1
-  fromVersion: 8 | 9 | 10 | 11
+  fromVersion: 8 | 9 | 10 | 11 | 12
   toVersion: number
   phase: MigrationPhase
   recoveryDirectory: typeof SCHEMA_MIGRATION_RECOVERY_DIRECTORY
@@ -90,8 +90,8 @@ function readMigrationMarker(paths: LibraryPaths): SchemaMigrationMarker | null 
     typeof value !== 'object' ||
     value === null ||
     marker.version !== 1 ||
-    ![8, 9, 10, 11].includes(Number(marker.fromVersion)) ||
-    ![9, 10, 11, SCHEMA_VERSION].includes(Number(marker.toVersion)) ||
+    ![8, 9, 10, 11, 12].includes(Number(marker.fromVersion)) ||
+    ![9, 10, 11, 12, SCHEMA_VERSION].includes(Number(marker.toVersion)) ||
     !['prepared', 'database-replaced', 'manifest-replaced'].includes(String(marker.phase)) ||
     marker.recoveryDirectory !== SCHEMA_MIGRATION_RECOVERY_DIRECTORY ||
     typeof marker.databaseSha256 !== 'string' ||
@@ -125,7 +125,7 @@ function copyRecoveryPair(
 ): SchemaMigrationMarker {
   assertRegularFile(paths.dbFile, 'journal.db')
   const manifest = readManifestFile(paths)
-  if (![8, 9, 10, 11].includes(manifest.schemaVersion) || manifest.schemaVersion >= SCHEMA_VERSION) {
+  if (![8, 9, 10, 11, 12].includes(manifest.schemaVersion) || manifest.schemaVersion >= SCHEMA_VERSION) {
     throw new Error('只有旧版 Electron library 可以准备当前 schema 迁移')
   }
 
@@ -143,7 +143,7 @@ function copyRecoveryPair(
 
   const marker: SchemaMigrationMarker = {
     version: 1,
-    fromVersion: manifest.schemaVersion as 8 | 9 | 10 | 11,
+    fromVersion: manifest.schemaVersion as 8 | 9 | 10 | 11 | 12,
     toVersion: SCHEMA_VERSION,
     phase: 'prepared',
     recoveryDirectory: SCHEMA_MIGRATION_RECOVERY_DIRECTORY,
@@ -417,7 +417,7 @@ export function migrateOpenedLibraryV8ToV9(input: {
   now: Date
 }): void {
   if (SCHEMA_VERSION < 9) throw new Error('Electron v8 迁移协议需要 schema v9 或更新版本')
-  if (![8, 9, 10, 11].includes(input.manifest.schemaVersion) || input.manifest.schemaVersion >= SCHEMA_VERSION) {
+  if (![8, 9, 10, 11, 12].includes(input.manifest.schemaVersion) || input.manifest.schemaVersion >= SCHEMA_VERSION) {
     throw new Error('Electron schema 迁移仅支持旧版 v8/v9/v10/v11 资料库')
   }
   assertOpenedPairVersion(input.db, input.manifest, input.manifest.schemaVersion, { requireSnapshot: true })

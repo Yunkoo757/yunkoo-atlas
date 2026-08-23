@@ -197,7 +197,7 @@ export async function testNormalV11OpenMigratesCanonicalStageOwnership(): Promis
     })
     await storage.open()
     const migrated = storage.loadSnapshot()!
-    assert(storage.readManifest().schemaVersion === 12, 'v11 manifest 必须在数据库候选快照验证后升至 v12')
+    assert(storage.readManifest().schemaVersion === SCHEMA_VERSION, 'v11 manifest 必须在数据库候选快照验证后升至当前 schema')
     assert(migrated.liveStages.length === 2, '无旧边界但有历史记录时必须生成更早记录与当前阶段')
     assert(migrated.liveStages[0]?.id === 'legacy-live-stage-1', '更早记录必须获得已知稳定阶段 ID')
     assert(migrated.liveStages[1]?.startsOn === '2026-08-22', '当前阶段必须使用打开时的真实交易日')
@@ -218,7 +218,7 @@ export async function testV11OpenDisambiguatesNormalizedStageNamesBeforeV12Valid
     })
     await storage.open()
     const migrated = storage.loadSnapshot()!
-    assert(storage.readManifest().schemaVersion === 12, '归一化重名的合法 v11 库必须能完成 v12 schema/open')
+    assert(storage.readManifest().schemaVersion === SCHEMA_VERSION, '归一化重名的合法 v11 库必须能完成当前 schema/open')
     assert(
       migrated.liveStages.map((stage) => stage.name).join('|') ===
         'Ａｌｐｈａ|alpha (2)|alpha (3)|Alpha (4)',
@@ -245,8 +245,8 @@ async function assertV11CrashBoundaryRecovers(boundary: Extract<CrashBoundary, '
     const reopened = new LibraryStorage(library.path, { allowCreate: false })
     await reopened.open()
     const pair = await readAndDecodePair(library.path)
-    assert(pair.manifest.schemaVersion === 12, `${boundary} 恢复后必须完成 v12 文件对`)
-    assert(pair.decodedSchemaVersion === 12, `${boundary} 恢复后 journal.db 必须为 v12`)
+    assert(pair.manifest.schemaVersion === SCHEMA_VERSION, `${boundary} 恢复后必须完成当前 schema 文件对`)
+    assert(pair.decodedSchemaVersion === SCHEMA_VERSION, `${boundary} 恢复后 journal.db 必须为当前 schema`)
     assert(
       pair.snapshot.trades[0]?.tradeKind === 'live' && pair.snapshot.trades[0].liveStageId === 'legacy-live-stage-2',
       `${boundary} 恢复后不得丢失阶段归属`,
@@ -278,8 +278,8 @@ export async function testV11ManifestReplacementRecoversDamagedOrMissingDatabase
       })
       await reopened.open()
       const pair = await readAndDecodePair(library.path)
-      assert(pair.manifest.schemaVersion === 12, `${damage} v12 DB 恢复后必须重新迁移 manifest`)
-      assert(pair.decodedSchemaVersion === 12, `${damage} v12 DB 恢复后必须重新迁移数据库`)
+      assert(pair.manifest.schemaVersion === SCHEMA_VERSION, `${damage} 当前 DB 恢复后必须重新迁移 manifest`)
+      assert(pair.decodedSchemaVersion === SCHEMA_VERSION, `${damage} 当前 DB 恢复后必须重新迁移数据库`)
       assert(
         pair.snapshot.trades[0]?.tradeKind === 'live' && pair.snapshot.trades[0].liveStageId === 'legacy-live-stage-2',
         `${damage} v12 DB 恢复后必须保留已知阶段归属`,

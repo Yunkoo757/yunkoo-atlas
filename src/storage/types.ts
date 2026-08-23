@@ -13,6 +13,7 @@ import type {
   RiskPolicyVersion,
   WeeklyRiskPreparation,
 } from '@/data/riskManagement'
+import type { ReviewPoolLayout, ReviewPoolPreset } from '@/lib/reviewPools'
 
 /**
  * 可验证的导入来源事实。该字段只接受导入时实际观测到的值，不能为旧记录追溯猜测。
@@ -28,7 +29,7 @@ export type PersistedTrade = Trade & {
   importProvenance?: NotionTradeImportProvenance
 }
 
-export const SCHEMA_VERSION = 12
+export const SCHEMA_VERSION = 13
 
 export interface LibraryManifest {
   schemaVersion: number
@@ -92,6 +93,10 @@ export interface PersistedSnapshot {
   symbolCatalog?: string[]
   /** 交易详情中的复盘起稿模板。旧资料库省略时加载默认模板。 */
   reviewTemplates?: ReviewTemplate[]
+  /** 用户自定义复盘池；系统池由代码生成。 */
+  reviewPoolPresets?: ReviewPoolPreset[]
+  /** 系统池与自定义池的首页混合顺序及系统池隐藏状态。 */
+  reviewPoolLayout?: ReviewPoolLayout
 }
 
 export interface ExportAssetRecord {

@@ -245,16 +245,8 @@ export async function testNotDueAndAllBlockersNeverReachDurableWrites(): Promise
       mutate: (snapshot) => { snapshot.scheduledStageRollover!.effectiveWeekStart = '2026-09-07' },
     },
     {
-      label: 'planned trade',
-      mutate: (snapshot) => { snapshot.trades = [plannedTrade('planned')] },
-    },
-    {
       label: 'open trade',
       mutate: (snapshot) => { snapshot.trades = [plannedTrade('open')] },
-    },
-    {
-      label: 'weekly review incomplete',
-      mutate: (snapshot) => { snapshot.weeklyReviews = [] },
     },
   ]
   for (const testCase of cases) {

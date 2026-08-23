@@ -15,6 +15,12 @@ import {
   type DisplayPrefs,
 } from '@/lib/tradeFilters'
 import type { PersistedSnapshot, UserProfile } from '@/storage/types'
+import {
+  DEFAULT_REVIEW_POOL_LAYOUT,
+  normalizeReviewPoolLayout,
+  type ReviewPoolLayout,
+  type ReviewPoolPreset,
+} from '@/lib/reviewPools'
 import type { ExportPayload } from '@/lib/importTypes'
 import {
   createDefaultReviewTemplates,
@@ -95,6 +101,7 @@ import type {
 } from '@/data/riskManagement'
 import {
   confirmWeeklyRiskPreparation as confirmRiskPolicyState,
+  confirmRiskPolicyBaseline,
   ensureRiskPeriodRecords as ensureRiskPolicyPeriodRecords,
   type ConfirmWeeklyRiskPreparationInput,
   type RiskPolicyState,
@@ -106,13 +113,11 @@ import {
   type TradeOpenRequestResult,
 } from '@/lib/tradeOpenRiskGate'
 import type { RiskGatedTradeOpenCommitResult } from '@/lib/riskGatedTradeOpenCommit'
-import { riskSetupStateForStage } from '@/lib/stageRisk'
 import { buildReviewCaseFromTrade, getNextReviewCaseRef } from '@/lib/reviewCases'
 import {
   applyCaseClassificationMutation,
   containsCaseClassificationMutation,
 } from '@/lib/reviewCaseClassification'
-import { cascadeReviewCaseSourceSnapshot } from '@/lib/reviewCaseSourceSync'
 import type {
   CommitCopiedCloseDateCleanupResult,
   CommitCopiedCloseDateUndoResult,
@@ -376,14 +381,6 @@ export function applyTradeUpsertsToSlice(
   return slice
 }
 
-function currentStageRiskSetupMissing(state: State): boolean {
-  return riskSetupStateForStage(
-    state,
-    state.currentLiveStageId,
-    getTradingDayKey(new Date(), state.display.tradingDayStartHour),
-  ) === 'unconfigured'
-}
-
 function upsertRequiresOpenGate(
   state: State,
   existing: Trade | undefined,
@@ -391,7 +388,7 @@ function upsertRequiresOpenGate(
 ): boolean {
   if ((incoming.tradeKind ?? 'live') !== 'live' || incoming.status !== 'open') return false
   if (existing?.status === 'open') return false
-  return currentStageRiskSetupMissing(state) || upsertWouldBypassFirstOpenGate(existing, incoming)
+  return upsertWouldBypassFirstOpenGate(existing, incoming)
 }
 
 function openTargetsAnotherLiveStage(
@@ -467,6 +464,11 @@ interface State {
   symbolIcons: SymbolIconsMap
   symbolCatalog: string[]
   reviewTemplates: ReviewTemplate[]
+  reviewPoolPresets: ReviewPoolPreset[]
+  reviewPoolLayout: ReviewPoolLayout
+  saveReviewPoolPreset: (preset: ReviewPoolPreset) => void
+  removeReviewPoolPreset: (id: string) => void
+  setReviewPoolLayout: (layout: ReviewPoolLayout) => void
   saveTradeView: (view: SavedTradeView) => void
   renameTradeView: (id: string, name: string) => void
   removeTradeView: (id: string) => void
@@ -487,6 +489,9 @@ interface State {
   hydrateProfile: (profile?: UserProfile) => void
   saveWeeklyRiskDraft: (weekStart: string, draft: RiskPolicyDraft, updatedAt: string) => void
   confirmWeeklyRiskPreparation: (
+    input: Omit<ConfirmWeeklyRiskPreparationInput, 'hasClosedLiveTradeOnDay'>,
+  ) => void
+  saveRiskBaseline: (
     input: Omit<ConfirmWeeklyRiskPreparationInput, 'hasClosedLiveTradeOnDay'>,
   ) => void
   ensureRiskPeriodRecords: (tradingDay: string) => void
@@ -933,6 +938,37 @@ export const useStore = create<State>()((set, get) => ({
       symbolIcons: {},
       symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
       reviewTemplates: createDefaultReviewTemplates(),
+      reviewPoolPresets: [],
+      reviewPoolLayout: normalizeReviewPoolLayout(DEFAULT_REVIEW_POOL_LAYOUT, []),
+      saveReviewPoolPreset: (preset) => set((state) => {
+        const reviewPoolPresets = [
+          ...state.reviewPoolPresets.filter((item) => item.id !== preset.id),
+          preset,
+        ]
+        return {
+          reviewPoolPresets,
+          reviewPoolLayout: normalizeReviewPoolLayout(
+            state.reviewPoolLayout,
+            reviewPoolPresets.map((item) => item.id),
+          ),
+        }
+      }),
+      removeReviewPoolPreset: (id) => set((state) => {
+        const reviewPoolPresets = state.reviewPoolPresets.filter((item) => item.id !== id)
+        return {
+          reviewPoolPresets,
+          reviewPoolLayout: normalizeReviewPoolLayout(
+            state.reviewPoolLayout,
+            reviewPoolPresets.map((item) => item.id),
+          ),
+        }
+      }),
+      setReviewPoolLayout: (layout) => set((state) => ({
+        reviewPoolLayout: normalizeReviewPoolLayout(
+          layout,
+          state.reviewPoolPresets.map((item) => item.id),
+        ),
+      })),
       scheduleLiveStageRollover: (currentTradingDayKey, now) => set((state) => ({
         scheduledStageRollover: state.scheduledStageRollover ?? scheduleStageRollover(
           currentTradingDayKey,
@@ -1343,6 +1379,21 @@ export const useStore = create<State>()((set, get) => ({
             riskSetupTradeOpenRequest: null,
           }
         }),
+      saveRiskBaseline: (input) =>
+        set((s) => {
+          const currentLiveStageId = currentLiveStageIdForWrite(s)
+          const confirmed = confirmRiskPolicyBaseline({
+            currentLiveStageId,
+            weeklyRiskPreparations: s.weeklyRiskPreparations,
+            riskPolicyVersions: s.riskPolicyVersions,
+            monthlyRiskLimits: s.monthlyRiskLimits,
+            riskOverrideEvents: s.riskOverrideEvents,
+          }, { ...input, hasClosedLiveTradeOnDay: false })
+          return {
+            ...ensureRiskPolicyPeriodRecords(confirmed, input.currentTradingDayKey),
+            riskSetupTradeOpenRequest: null,
+          }
+        }),
       ensureRiskPeriodRecords: (tradingDay) =>
         set((s) => ensureRiskPolicyPeriodRecords({
           currentLiveStageId: currentLiveStageIdForWrite(s),
@@ -1363,7 +1414,7 @@ export const useStore = create<State>()((set, get) => ({
         if (
           status === 'open' &&
           current.tradeKind === 'live' &&
-          (currentStageRiskSetupMissing(get()) || requiresFirstOpenGate(current))
+          requiresFirstOpenGate(current)
         ) {
           return 'requires-risk-gate'
         }
@@ -1466,8 +1517,8 @@ export const useStore = create<State>()((set, get) => ({
       cancelTradeOpen: () => set({ pendingTradeOpenRequest: null, riskSetupTradeOpenRequest: null }),
       confirmTradeOpen: async (rawReason) => {
         const reason = rawReason.trim()
-        if (reason.length < 1 || reason.length > 500) {
-          throw new Error('继续开仓原因必须为 1–500 字')
+        if (reason.length > 500) {
+          throw new Error('继续开仓原因最多 500 字')
         }
         const request = get().pendingTradeOpenRequest
         if (!request) return { kind: 'cancelled', reason: 'target-missing' }
@@ -1606,8 +1657,7 @@ export const useStore = create<State>()((set, get) => ({
           const withUpdatedSource = updatedSource === source
             ? s.trades
             : s.trades.map((trade) => trade.id === id ? updatedSource : trade)
-          const trades = cascadeReviewCaseSourceSnapshot(withUpdatedSource, id)
-          return trades === s.trades ? s : { trades }
+          return withUpdatedSource === s.trades ? s : { trades: withUpdatedSource }
         }),
       updateTradeData: (id, patch) =>
         set((s) => {

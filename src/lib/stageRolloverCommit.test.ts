@@ -309,7 +309,7 @@ export async function testBlockedRolloverPersistsOnlyPostponedSchedule(): Promis
     ref: 'TRD-planned-trade',
     symbol: 'BTCUSDT',
     side: 'long',
-    status: 'planned',
+    status: 'open',
     conviction: 'medium',
     strategyId: 'strategy-1',
     tradeKind: 'live',

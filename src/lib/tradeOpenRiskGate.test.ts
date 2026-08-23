@@ -83,7 +83,7 @@ function triggeredState(source: 'planned' | 'missed' | 'loss'): TradeOpenRiskGat
   }
 }
 
-export function testFirstOpenRequiresCurrentStageRiskSetupBeforeUnknownOrLimitOverride(): void {
+export function testFirstOpenWithoutCurrentStageRiskSetupRequiresUnknownConfirmation(): void {
   const state = {
     ...triggeredState('planned'),
     currentLiveStageId: 'stage-new',
@@ -95,7 +95,7 @@ export function testFirstOpenRequiresCurrentStageRiskSetupBeforeUnknownOrLimitOv
 
   const result = requestTradeOpenCandidate(state, 'target')
 
-  assert(result.kind === 'risk-setup-required', '新阶段第一次开仓必须先完成风险建档')
+  assert(result.kind === 'confirmation-required' && result.request.decisionType === 'unknown', '新阶段未建档时必须展示未知风险并允许确认')
 }
 
 export function testHistoricalAndUnownedPlannedTradesCannotUseCurrentStageGate(): void {
@@ -111,7 +111,7 @@ export function testHistoricalAndUnownedPlannedTradesCannotUseCurrentStageGate()
   }
 }
 
-export function testRiskSetupRequirementWinsOverArchivedPendingConfirmation(): void {
+export function testExistingPendingStillBlocksASecondConfirmation(): void {
   const oldState = triggeredState('planned')
   const oldPending = requestTradeOpenCandidate(oldState, 'target')
   assert(oldPending.kind === 'confirmation-required', '旧阶段 fixture 必须产生确认请求')
@@ -124,7 +124,7 @@ export function testRiskSetupRequirementWinsOverArchivedPendingConfirmation(): v
 
   const result = requestTradeOpenCandidate(newState, 'target', { existingPending: oldPending.request })
 
-  assert(result.kind === 'risk-setup-required', '新阶段风险建档必须早于旧 pending/override 判断')
+  assert(result.kind === 'pending-exists', '已有待处理开仓提交必须继续阻止第二个提交')
 }
 
 export function testEveryFirstLiveOpenRequiresDomainGate(): void {
@@ -207,7 +207,7 @@ export function testRiskBecomingBelowStillInvalidatesOldConfirmation(): void {
   )
 }
 
-export function testBelowOpensButUnconfiguredRequiresRiskSetup(): void {
+export function testBelowOpensButUnconfiguredRequiresUnknownConfirmation(): void {
   const belowState = {
     ...triggeredState('planned'),
     trades: [trade('target', 'planned'), trade('small-loss', 'loss', -500)],
@@ -227,8 +227,8 @@ export function testBelowOpensButUnconfiguredRequiresRiskSetup(): void {
     monthlyRiskLimits: [],
   }, 'target')
   assert(
-    unconfigured.kind === 'risk-setup-required',
-    '无规则且无未知风险时也必须先完成阶段风险建档',
+    unconfigured.kind === 'confirmation-required' && unconfigured.request.decisionType === 'unknown',
+    '无规则时必须明确提示未知风险并允许确认继续',
   )
 }
 
@@ -422,14 +422,14 @@ export function testPendingOutcomesAreIndependentFrozenDisplayEvidence(): void {
   assert(validatePendingFingerprint(request, state).kind === 'valid', '未被篡改的 pending 必须继续通过重算')
 }
 
-export function testConfiguredStateWithoutMonthlyLimitFailsClosed(): void {
+export function testConfiguredStateWithoutMonthlyLimitRequiresUnknownConfirmation(): void {
   const state = {
     ...triggeredState('planned'),
     trades: [trade('target', 'planned')],
     monthlyRiskLimits: [],
   }
   const result = requestTradeOpenCandidate(state, 'target')
-  assert(result.kind === 'risk-setup-required', '规则已配置但月限额缺失时仍不得完成初始风险建档')
+  assert(result.kind === 'confirmation-required' && result.request.decisionType === 'unknown', '缺少月限额时必须提示未知并允许确认')
 }
 
 export function testOnlyValidHistoricalOpenActivityBypassesFirstGate(): void {
@@ -450,8 +450,8 @@ export function testOnlyValidHistoricalOpenActivityBypassesFirstGate(): void {
     monthlyRiskLimits: [],
   }, historical.id)
   assert(
-    missingStageSetup.kind === 'risk-setup-required',
-    '可信 open 历史只能跳过逐笔确认，不能绕过当前阶段政策与月限额建档',
+    missingStageSetup.kind === 'opened' && missingStageSetup.decision === 'not-required',
+    '已有可信首次 open 历史的记录不得重复弹出风险确认',
   )
   const configuredCorrection = requestTradeOpenCandidate({ ...state, trades: [historical] }, historical.id)
   assert(

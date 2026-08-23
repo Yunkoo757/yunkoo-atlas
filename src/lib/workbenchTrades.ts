@@ -19,6 +19,7 @@ import {
   type TradeSessionKind,
 } from '@/lib/tradeView'
 import { filterStageOwnedRecords, type StageScope } from '@/lib/stageArchive'
+import { isTradeIncomplete } from '@/lib/tradeWorkflow'
 
 function shouldApplyStageScope(filter: ListFilter): boolean {
   if (filter.tradeKind === 'paper') return false
@@ -160,6 +161,9 @@ function matchesListFilter(
     case 'missed':
       if (!isMissed(trade.status)) return false
       break
+    case 'incomplete':
+      if (!isTradeIncomplete(trade)) return false
+      break
     case 'period':
       if (filter.period && !tradeInPeriod(
         trade,
@@ -183,7 +187,7 @@ function matchesListFilter(
   // 三域隔离：交易日志系统视图未显式声明时默认实盘；案例 / 模拟必须自带 tradeKind。
   const scopedKind =
     filter.tradeKind ??
-    (filter.type === 'starred' || filter.type === 'missed' || filter.type === 'active'
+    (filter.type === 'starred' || filter.type === 'missed' || filter.type === 'active' || filter.type === 'incomplete'
       ? 'live'
       : undefined)
   if (scopedKind) {
@@ -204,7 +208,7 @@ export function applyDisplayPrefs(
   filter?: ListFilter,
 ): Trade[] {
   // 错过机会页要看终态；案例记录是复盘样本，不受「隐藏已平仓」影响
-  const skipHideClosed = filter?.type === 'missed' || filter?.tradeKind === 'case'
+  const skipHideClosed = filter?.type === 'missed' || filter?.type === 'incomplete' || filter?.tradeKind === 'case'
   const visible = prefs.hideClosed && !skipHideClosed
     ? trades.filter((trade) => trade.tradeKind === 'case' || !isHiddenWhenClosedFilter(trade.status))
     : [...trades]
@@ -340,7 +344,7 @@ export function countWorkbenchVisibleTrades(options: {
     ),
   )
   const cycleScopedTrades = routeFiltered
-  const skipHideClosed = options.filter.type === 'missed' || options.filter.tradeKind === 'case'
+  const skipHideClosed = options.filter.type === 'missed' || options.filter.type === 'incomplete' || options.filter.tradeKind === 'case'
   const hideClosed = options.display.hideClosed && !skipHideClosed && !options.filter.analysisScope && !(
     facets.status && isHiddenWhenClosedFilter(facets.status)
   )

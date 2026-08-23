@@ -205,6 +205,32 @@ export function createFullPersistedSnapshotFixture(
     }],
     starredIds: ['trade-contract'],
     subscribedIds: ['trade-contract'],
+    reviewPoolPresets: [{
+      id: 'review-pool-contract',
+      name: '合同复盘池',
+      filters: {
+        sources: ['live', 'case'],
+        results: ['loss'],
+        caseTypes: ['mistake'],
+        strategyIds: ['strategy-contract'],
+        symbols: ['BTCUSDT'],
+        sides: ['short'],
+        tags: ['合同标签'],
+        mistakeTags: ['合同错误标签'],
+        requireContent: true,
+        stageSource: 'current-and-history',
+      },
+      createdAt: '2026-07-18T08:00:00.000Z',
+      updatedAt: '2026-07-18T09:00:00.000Z',
+    }],
+    reviewPoolLayout: {
+      homeOrder: [
+        { kind: 'system', id: 'all' },
+        { kind: 'custom', id: 'review-pool-contract' },
+        { kind: 'system', id: 'losses' },
+      ],
+      hiddenSystemIds: ['wins'],
+    },
     pinnedStrategyIds: ['strategy-contract'],
     display: {
       ...DEFAULT_DISPLAY,

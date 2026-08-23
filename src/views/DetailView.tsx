@@ -244,7 +244,7 @@ export function DetailView() {
     ? trades.find((item) => item.id === trade.sourceTradeId)
     : undefined
   const sourceSnapshotHtml = trade?.tradeKind === 'case'
-    ? trade.sourceNoteHtml ?? sourceTrade?.note
+    ? trade.sourceNoteHtml
     : undefined
 
   /** 键入只更新本地草稿；idle 后再写入 trades，避免全量快照 thrash */
@@ -880,7 +880,7 @@ export function DetailView() {
               <section className="dv-case-source-note" aria-labelledby="case-source-note-title">
                 <div className="dv-case-note-heading">
                   <h2 id="case-source-note-title">来源复盘</h2>
-                  <span>随原交易自动更新 · 只读</span>
+                  <span>创建案例时冻结 · 只读</span>
                 </div>
                 {activeSourceNoteLoad.status === 'loading' && (
                   <div className="dv-case-source-note-status" role="status" aria-live="polite">
@@ -905,6 +905,11 @@ export function DetailView() {
                 />
               </section>
             )}
+            {trade.tradeKind === 'case' && trade.sourceTradeId && sourceSnapshotHtml === undefined ? (
+              <div className="dv-case-source-note-status" role="status">
+                来源快照不可用；案例洞见仍可独立阅读和编辑。
+              </div>
+            ) : null}
             {needsResult && (
               <section
                 className={

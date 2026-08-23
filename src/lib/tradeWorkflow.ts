@@ -5,6 +5,7 @@ import { isExecutedClosed } from '@/lib/tradeStatus'
 import { resolveTradeTruth, summarizeTradeResults, type TradeResultSummary } from '@/lib/tradeTruth'
 import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 import { buildPerformanceSelection } from '@/lib/performanceSelection'
+import { getReviewSessionContent, hasEffectiveReviewContent } from '@/lib/reviewSession'
 
 export interface TodayWorkflowBuckets {
   active: Trade[]
@@ -16,6 +17,15 @@ export interface TodayWorkflowBuckets {
 }
 
 export type TodayClosedMetrics = TradeResultSummary
+
+/** 交易日志“待完善”的唯一判定：终态结果缺失，或终态记录还没有可阅读的复盘正文/截图。 */
+export function isTradeIncomplete(trade: Trade): boolean {
+  if (trade.deletedAt || trade.tradeKind === 'case') return false
+  const truth = resolveTradeTruth(trade)
+  if (truth.executionState !== 'closed' && truth.executionState !== 'missed') return false
+  if (truth.executionState === 'closed' && !truth.isResultComplete) return true
+  return !hasEffectiveReviewContent(getReviewSessionContent(trade))
+}
 
 export function toLocalDateKey(value = new Date()): string {
   return [

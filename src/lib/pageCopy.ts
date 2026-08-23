@@ -15,6 +15,7 @@ export function getTradesPageSubtitle(
   if (filter.type === 'active') return '进行中 · 计划中 + 持仓中'
   if (filter.type === 'starred') return '星标交易'
   if (filter.type === 'missed') return '未实际执行的机会 · 假设盈亏'
+  if (filter.type === 'incomplete') return '需要补充结果或复盘内容'
   if (filter.type === 'period' && filter.period) {
     return formatPeriodSubtitle(filter.period, businessDateAnchor ?? new Date())
   }

@@ -9,6 +9,7 @@ import { isTerminal } from '@/lib/tradeStatus'
 import { normalizeSymbolCatalog, normalizeSymbolIcons } from '@/lib/symbolIconCodec'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeDisplay } from '@/lib/tradeFilters'
+import { normalizeReviewPoolLayout } from '@/lib/reviewPools'
 import { normalizeTrades } from '@/lib/tradeKind'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { normalizeTradingDayStartHour } from '@/lib/periods'
@@ -216,6 +217,26 @@ function backfillClosedTradingDayKeys(
   })
 }
 
+function backfillCaseSourceSnapshots(value: unknown): unknown {
+  if (!Array.isArray(value)) return value
+  const sourceNotes = new Map<string, string>()
+  for (const trade of value) {
+    if (isRecord(trade) && typeof trade.id === 'string' && typeof trade.note === 'string') {
+      sourceNotes.set(trade.id, trade.note)
+    }
+  }
+  return value.map((trade) => {
+    if (
+      !isRecord(trade) ||
+      trade.tradeKind !== 'case' ||
+      Object.prototype.hasOwnProperty.call(trade, 'sourceNoteHtml') ||
+      typeof trade.sourceTradeId !== 'string'
+    ) return trade
+    const sourceNoteHtml = sourceNotes.get(trade.sourceTradeId)
+    return sourceNoteHtml === undefined ? trade : { ...trade, sourceNoteHtml }
+  })
+}
+
 function reclassifyCanonicalLegacyPeriodQuarantines(
   value: PersistedSnapshot['weeklyReviews'],
 ): PersistedSnapshot['weeklyReviews'] {
@@ -252,9 +273,12 @@ export function decodeCanonicalSnapshot(
   const raw = migrateVersionedSnapshot(value, options.version)
   const strategiesWereMissing = raw.strategies === undefined
   const display = raw.display as Record<string, unknown> | undefined
-  const versionedTrades = options.version <= 8
+  const tradingDayNormalizedTrades = options.version <= 8
     ? backfillClosedTradingDayKeys(raw.trades, display?.tradingDayStartHour)
     : raw.trades
+  const versionedTrades = options.version <= 12
+    ? backfillCaseSourceSnapshots(tradingDayNormalizedTrades)
+    : tradingDayNormalizedTrades
   const candidate = {
     trades: (versionedTrades === undefined ? [] : versionedTrades) as PersistedSnapshot['trades'],
     liveStages: raw.liveStages as PersistedSnapshot['liveStages'],
@@ -279,6 +303,8 @@ export function decodeCanonicalSnapshot(
     symbolIcons: raw.symbolIcons as PersistedSnapshot['symbolIcons'],
     symbolCatalog: raw.symbolCatalog as PersistedSnapshot['symbolCatalog'],
     reviewTemplates: raw.reviewTemplates as PersistedSnapshot['reviewTemplates'],
+    reviewPoolPresets: (raw.reviewPoolPresets === undefined ? [] : raw.reviewPoolPresets) as PersistedSnapshot['reviewPoolPresets'],
+    reviewPoolLayout: raw.reviewPoolLayout as PersistedSnapshot['reviewPoolLayout'],
   } as PersistedSnapshot
   const stagedCandidate = options.version <= 11
     ? migrateLegacyStageSnapshot(
@@ -356,6 +382,11 @@ export function decodeCanonicalSnapshot(
     symbolIcons,
     symbolCatalog: normalizeSymbolCatalog(symbolCatalogSource),
     reviewTemplates: normalizeReviewTemplates(stagedCandidate.reviewTemplates),
+    reviewPoolPresets: stagedCandidate.reviewPoolPresets ?? [],
+    reviewPoolLayout: normalizeReviewPoolLayout(
+      stagedCandidate.reviewPoolLayout,
+      (stagedCandidate.reviewPoolPresets ?? []).map((preset) => preset.id),
+    ),
   }
   assertSnapshotContract(normalized, options.label ?? 'snapshot')
   return normalized

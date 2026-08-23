@@ -285,7 +285,7 @@ function itemForLocated(state: StageOwnershipRepairState, located: LocatedEntity
         context: [
           { label: '决策交易日', value: override.tradingDayKeyAtDecision },
           { label: '创建时间', value: override.createdAt },
-          { label: '覆盖原因', value: override.reason },
+          { label: '覆盖原因', value: override.reason || '未填写理由' },
           ...(override.policyVersionId ? [{ label: '政策版本', value: override.policyVersionId }] : []),
         ],
         source,

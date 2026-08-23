@@ -18,6 +18,7 @@ import { normalizeTradeStrategyReferences } from '@/lib/strategies'
 import type { PersistedSnapshot } from '@/storage/types'
 import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 import { normalizeReviewTemplates } from '@/data/reviewTemplates'
+import { normalizeReviewPoolLayout } from '@/lib/reviewPools'
 import { normalizeQuickNotes } from '@/data/quickNotes'
 import { assertValidLiveStageState } from '@/lib/liveStages'
 import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
@@ -115,6 +116,11 @@ async function runBootstrapStorage(): Promise<void> {
         ],
       ),
       reviewTemplates: normalizeReviewTemplates(snapshot.reviewTemplates),
+      reviewPoolPresets: snapshot.reviewPoolPresets ?? [],
+      reviewPoolLayout: normalizeReviewPoolLayout(
+        snapshot.reviewPoolLayout,
+        (snapshot.reviewPoolPresets ?? []).map((preset) => preset.id),
+      ),
     })
     useStore.getState().hydrateProfile(snapshot.profile)
     reconciledWindowHotkeyConflict =

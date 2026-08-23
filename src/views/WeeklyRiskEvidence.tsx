@@ -143,7 +143,7 @@ export function WeeklyRiskEvidence({
                 : undefined
               return (
                 <article key={event.id} data-trade-id={eventFrom?.anchorTradeId}>
-                  <p>{event.reason}</p>
+                  <p>{event.reason || '未填写理由'}</p>
                   <small>
                     {event.tradeIdentityAtDecision.ref} · {event.tradeIdentityAtDecision.symbol} · {event.linkState === 'resolved' ? '已关联' : '关联未解析'}
                     {event.linkState === 'resolved' ? <>

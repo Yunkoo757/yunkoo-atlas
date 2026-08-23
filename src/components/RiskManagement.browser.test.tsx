@@ -215,6 +215,16 @@ async function run(): Promise<void> {
     useStore.setState((state) => ({
       riskPolicyVersions: [],
       monthlyRiskLimits: [],
+    }))
+    assert(useStore.getState().requestTradeOpen('target') === 'pending-confirmation', '未建档记录必须进入可继续的未知风险确认')
+    await waitFor(() => Boolean(document.querySelector('[data-trade-open-risk-dialog]')), '未建档记录没有显示未知风险确认')
+    click('设置风险基准')
+    await waitFor(() => Boolean(document.querySelector('[data-risk-baseline-dialog]')), '风险基准必须在同一个开仓弹窗内设置')
+    assert(!document.querySelector<HTMLAnchorElement>('[data-risk-baseline-dialog] a[href="/settings/risk"]'), '同弹窗设置不得再跳转风险设置页')
+    click('取消开仓')
+    await waitFor(() => !document.querySelector('[role="dialog"]'), '取消没有关闭同弹窗风险基准设置')
+
+    useStore.setState((state) => ({
       trades: state.trades.map((item) => item.id === 'target'
         ? {
             ...item,
@@ -225,16 +235,12 @@ async function run(): Promise<void> {
           }
         : item),
     }))
-    assert(useStore.getState().requestTradeOpen('target') === 'requires-risk-setup', '带历史 open 的导入 planned fixture 也必须返回建档要求')
-    assert(useStore.getState().trades[0]?.status === 'planned', '导入历史不得在建档前改变交易状态')
-    await waitFor(() => Boolean(document.querySelector('[data-risk-setup-dialog]')), '带历史 open 的未建档开仓没有显示风险设置引导')
-    assert(!document.querySelector('[aria-label="继续开仓原因"]'), '未建档引导绝不能提供填写原因绕过入口')
-    assert(document.querySelector<HTMLAnchorElement>('[role="dialog"] a[href="/settings/risk"]'), '未建档引导必须链接风险设置')
-    click('取消开仓')
-    await waitFor(() => !document.querySelector('[data-risk-setup-dialog]'), '取消没有关闭风险设置引导')
+    assert(useStore.getState().requestTradeOpen('target') === 'opened', '已有可信开仓历史的导入记录不得被重复确认拦截')
+    assert(useStore.getState().trades[0]?.status === 'open', '可信历史记录必须可以恢复为开仓状态')
+    assert(!document.querySelector('[role="dialog"]'), '可信历史记录不得弹出重复确认')
     useStore.setState((state) => ({
       trades: state.trades.map((trade) => trade.id === 'target'
-        ? { ...trade, liveStageId: 'archived-stage' }
+        ? { ...trade, status: 'planned', liveStageId: 'archived-stage' }
         : trade),
     }))
     assert(useStore.getState().requestTradeOpen('target') === 'not-current-stage', '历史 planned fixture 必须明确拒绝')

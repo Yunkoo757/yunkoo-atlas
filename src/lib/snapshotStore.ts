@@ -21,6 +21,7 @@ import { mergeTagPresets } from '@/lib/tags'
 import { DEFAULT_DISPLAY, normalizeDisplay } from '@/lib/tradeFilters'
 import { assertValidLiveStageState } from '@/lib/liveStages'
 import { normalizeTrades } from '@/lib/tradeKind'
+import { normalizeReviewPoolLayout } from '@/lib/reviewPools'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
@@ -60,6 +61,11 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
       ],
     ),
     reviewTemplates: normalizeReviewTemplates(snapshot.reviewTemplates),
+    reviewPoolPresets: snapshot.reviewPoolPresets ?? [],
+    reviewPoolLayout: normalizeReviewPoolLayout(
+      snapshot.reviewPoolLayout,
+      (snapshot.reviewPoolPresets ?? []).map((preset) => preset.id),
+    ),
     undoStack: [],
     redoStack: [],
   })
@@ -98,6 +104,8 @@ export function resetEmptyLibraryIntoStore(): void {
     symbolIcons: {},
     symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
     reviewTemplates: createDefaultReviewTemplates(),
+    reviewPoolPresets: [],
+    reviewPoolLayout: normalizeReviewPoolLayout(undefined, []),
   })
   useStore.getState().hydrateProfile(createDefaultUserProfile())
   useShortcutStore.getState().hydrateBindings({})

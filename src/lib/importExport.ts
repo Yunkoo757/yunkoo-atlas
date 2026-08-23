@@ -108,6 +108,7 @@ import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 export const EXPORT_VERSION = SCHEMA_VERSION
 import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
 import { canonicalImportValue, mergeImportPayload } from '@/lib/importMerge'
+import { normalizeReviewPoolLayout } from '@/lib/reviewPools'
 import { isSameTradeIdentity, stableImportedTradeId } from '@/lib/riskImportMerge'
 import {
   applySnapshotToStore,
@@ -132,6 +133,8 @@ interface ExportState extends PersistedSlice {
   symbolIcons?: SymbolIconsMap
   symbolCatalog?: string[]
   reviewTemplates?: ReviewTemplate[]
+  reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
+  reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
 }
 
 interface PortableSnapshotState {
@@ -157,6 +160,8 @@ interface PortableSnapshotState {
   symbolIcons?: PersistedSnapshot['symbolIcons']
   symbolCatalog?: PersistedSnapshot['symbolCatalog']
   reviewTemplates?: PersistedSnapshot['reviewTemplates']
+  reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
+  reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
 }
 
 export function buildPortableSnapshotFromState(
@@ -189,6 +194,11 @@ export function buildPortableSnapshotFromState(
     symbolIcons: normalizeSymbolIcons(state.symbolIcons),
     symbolCatalog: normalizeSymbolCatalog(state.symbolCatalog),
     reviewTemplates: normalizeReviewTemplates(state.reviewTemplates),
+    reviewPoolPresets: state.reviewPoolPresets ?? [],
+    reviewPoolLayout: normalizeReviewPoolLayout(
+      state.reviewPoolLayout,
+      (state.reviewPoolPresets ?? []).map((preset) => preset.id),
+    ),
     shortcuts,
   }
 }
@@ -362,7 +372,7 @@ export async function loadReferencedAssetsForExport(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, liveStages, currentLiveStageId, scheduledStageRollover, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates } =
+  const { trades, liveStages, currentLiveStageId, scheduledStageRollover, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates, reviewPoolPresets, reviewPoolLayout } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
@@ -390,6 +400,8 @@ export async function buildExportPayload(): Promise<ExportPayload> {
       symbolIcons,
       symbolCatalog,
       reviewTemplates,
+      reviewPoolPresets,
+      reviewPoolLayout,
     },
     (id) => storage.getAssetForExport(id),
   )
@@ -1092,6 +1104,8 @@ function buildImportSnapshot(
     symbolIcons: merged.symbolIcons ?? current.state.symbolIcons,
     symbolCatalog: merged.symbolCatalog ?? current.state.symbolCatalog,
     reviewTemplates: merged.reviewTemplates ?? current.state.reviewTemplates,
+    reviewPoolPresets: merged.reviewPoolPresets ?? current.state.reviewPoolPresets,
+    reviewPoolLayout: merged.reviewPoolLayout ?? current.state.reviewPoolLayout,
     profile: current.state.profile,
   }, current.shortcutBindings)
 }

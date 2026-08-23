@@ -1,11 +1,10 @@
 import { ICON_LG, ICON_MD } from '@/icons/iconSize'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { CheckCircle, Shield } from '@/icons/appIcons'
-import type { RiskPolicyDraft } from '@/data/riskManagement'
+import type { RiskPolicyDraft, RiskPolicyVersion } from '@/data/riskManagement'
 import { weekStartFor } from '@/data/weeklyReviews'
 import { fmtMoney, fmtR } from '@/lib/format'
 import { toMoneyCents } from '@/lib/riskBudget'
-import { activeRiskPolicy } from '@/lib/riskPolicy'
 import { parseLocalDate } from '@/lib/periods'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
@@ -28,7 +27,7 @@ const DEFAULT_DRAFT: RiskPolicyDraft = {
 }
 
 function draftFromPolicy(
-  policy: ReturnType<typeof activeRiskPolicy>,
+  policy: RiskPolicyVersion | null,
 ): RiskPolicyDraft {
   if (!policy) return { ...DEFAULT_DRAFT }
   return {
@@ -75,29 +74,24 @@ export function WeeklyRiskPreparationCard({
   const liveTradingDay = useLocalDateKey()
   const tradingDay = currentTradingDayKey ?? liveTradingDay
   const weekStart = weekStartFor(parseLocalDate(tradingDay))
-  const preparations = useStore((state) => state.weeklyRiskPreparations)
   const policies = useStore((state) => state.riskPolicyVersions)
   const monthlyLimits = useStore((state) => state.monthlyRiskLimits)
   const liveStages = useStore((state) => state.liveStages)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const currentStage = getCurrentLiveStage(liveStages, currentLiveStageId)
   const privacyMode = useStore((state) => state.display.privacyMode)
-  const saveDraft = useStore((state) => state.saveWeeklyRiskDraft)
-  const confirmPreparation = useStore((state) => state.confirmWeeklyRiskPreparation)
-  const preparation = preparations.find((item) =>
-    item.liveStageId === currentStage.id && item.weekStart === weekStart,
-  )
-  const policy = useMemo(
-    () => activeRiskPolicy(policies, tradingDay, currentStage.id),
-    [policies, tradingDay, currentStage.id],
-  )
-  const reviewed = Boolean(preparation?.reviewedAt && preparation.confirmedPolicyVersionId)
-  const confirmedPolicy = preparation?.confirmedPolicyVersionId
-    ? policies.find((item) =>
-        item.liveStageId === currentStage.id && item.id === preparation.confirmedPolicyVersionId,
-      )
-    : null
-  const sourceDraft = preparation?.draft ?? draftFromPolicy(policy)
+  const saveRiskBaseline = useStore((state) => state.saveRiskBaseline)
+  const policy = useMemo(() => policies
+    .filter((item) => item.liveStageId === currentStage.id)
+    .sort((left, right) => left.confirmedAt.localeCompare(right.confirmedAt))
+    .at(-1) ?? null, [currentStage.id, policies])
+  const previousStagePolicy = useMemo(() => policies
+    .filter((item) => item.liveStageId !== currentStage.id)
+    .sort((left, right) => left.confirmedAt.localeCompare(right.confirmedAt))
+    .at(-1) ?? null, [currentStage.id, policies])
+  const reviewed = Boolean(policy)
+  const confirmedPolicy = policy
+  const sourceDraft = draftFromPolicy(policy ?? previousStagePolicy)
   const [draft, setDraft] = useState<RiskPolicyDraft>(() => sourceDraft)
   const [editingReviewed, setEditingReviewed] = useState(false)
   const [error, setError] = useState('')
@@ -109,20 +103,19 @@ export function WeeklyRiskPreparationCard({
   useEffect(() => {
     setDraft(sourceDraft)
     if (!reviewed) setEditingReviewed(false)
-  }, [preparation?.updatedAt, policy?.id, currentStage.id, weekStart, reviewed])
+  }, [policy?.id, previousStagePolicy?.id, currentStage.id, weekStart, reviewed])
 
   const updateDraft = (patch: Partial<RiskPolicyDraft>) => {
     const next = withCalculatedRiskAmount({ ...draft, ...patch })
     setDraft(next)
     setError('')
-    if (!reviewed) saveDraft(weekStart, next, new Date().toISOString())
   }
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
     try {
       const now = new Date().toISOString()
-      confirmPreparation({
+      saveRiskBaseline({
         currentTradingDayKey: tradingDay,
         weekStart,
         draft: withCalculatedRiskAmount(draft),
@@ -132,7 +125,7 @@ export function WeeklyRiskPreparationCard({
       setEditingReviewed(false)
       setError('')
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '本周风险规则无法确认')
+      setError(cause instanceof Error ? cause.message : '风险基准无法保存')
     }
   }
 
@@ -146,7 +139,7 @@ export function WeeklyRiskPreparationCard({
       >
         <div className="risk-preparation-summary-icon" aria-hidden><CheckCircle size={ICON_MD} /></div>
         <div className="risk-preparation-summary-copy">
-          <h2 id="risk-preparation-title">本周风险规则已复核</h2>
+          <h2 id="risk-preparation-title">当前阶段风险基准已设置</h2>
           <p className="risk-preparation-summary-limits">
             日 {fmtLimitR(sourceDraft.dailyLossLimitR)} · 周 {fmtLimitR(sourceDraft.weeklyLossLimitR)} ·
             本月 {fmtLimitR(currentMonthLimit?.limitR ?? sourceDraft.monthlyLossLimitRDefault)}
@@ -172,9 +165,9 @@ export function WeeklyRiskPreparationCard({
       <header className="risk-preparation-header">
         <span className="risk-preparation-icon" aria-hidden><Shield size={ICON_LG} /></span>
         <div>
-          <span className="risk-preparation-eyebrow">本周准备</span>
-          <h2 id="risk-preparation-title">{reviewed ? '修改本周风险规则' : '先复核本周风险规则'}</h2>
-          <p>{reviewed ? '修改后的版本按下一有效交易日起生效。' : '复核前此卡会持续显示；上一版有效规则仍然生效。'}</p>
+          <span className="risk-preparation-eyebrow">风险基准</span>
+          <h2 id="risk-preparation-title">{reviewed ? '修改风险规则' : '设置当前阶段风险基准'}</h2>
+          <p>{reviewed ? '修改会生成新版本，并从下一交易日起生效。' : previousStagePolicy ? '已预填上一阶段规则；确认后从今天立即生效。' : '设置后系统才能计算日、周、月风险额度。'}</p>
         </div>
       </header>
 
@@ -270,7 +263,6 @@ export function WeeklyRiskPreparationCard({
                     const next = withRiskAmount(draft, event.target.value ? Number(event.target.value) : null)
                     setDraft(next)
                     setError('')
-                    if (!reviewed) saveDraft(weekStart, next, new Date().toISOString())
                   }}
                   required
                 />
@@ -288,7 +280,7 @@ export function WeeklyRiskPreparationCard({
                 取消修改
               </Button>
             ) : null}
-            <Button type="submit" variant="primary">确认本周规则</Button>
+            <Button type="submit" variant="primary">保存风险基准</Button>
           </div>
         </div>
         {error ? <p className="risk-preparation-error" role="alert">{error}</p> : null}

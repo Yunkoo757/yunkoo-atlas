@@ -27,13 +27,6 @@ async function waitFor(condition: () => boolean, message: string): Promise<void>
   throw new Error(message)
 }
 
-function setText(element: HTMLInputElement, value: string): void {
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
-  if (!setter) throw new Error('浏览器缺少 input value setter')
-  setter.call(element, value)
-  element.dispatchEvent(new Event('input', { bubbles: true }))
-}
-
 function dirtyLoss(currentDay: string): Trade {
   return {
     id: 'risk-dirty-loss',
@@ -116,7 +109,7 @@ async function run(): Promise<void> {
     if (!panel.textContent?.includes('日止损线') || !panel.textContent?.includes('周止损线')) {
       throw new Error('风险管理设置页缺少周期限额')
     }
-    if (!panel.textContent?.includes('确认本周规则')) throw new Error('设置页缺少每周确认动作')
+    if (!panel.textContent?.includes('保存风险基准')) throw new Error('设置页缺少风险基准保存动作')
     await waitFor(() => panel?.querySelector('[data-risk-data-summary]') !== null, '设置页没有显示风险数据摘要')
     const preparation = panel.querySelector<HTMLElement>('[data-risk-preparation]')
     const summary = panel.querySelector<HTMLElement>('[data-risk-data-summary]')
@@ -141,169 +134,40 @@ async function run(): Promise<void> {
       .find((label) => label.textContent?.includes('资金基准'))
       ?.querySelector<HTMLInputElement>('input')
     if (!capital) throw new Error('设置页缺少资金基准输入')
-    setText(capital, '100000')
-    await frame()
     const riskAmount = panel.querySelector<HTMLInputElement>('[aria-label="1R 金额"]')
     if (!riskAmount) throw new Error('设置页缺少 1R 金额输入')
-    setText(riskAmount, '1000')
-    await frame()
     const daily = [...panel.querySelectorAll('label')]
       .find((label) => label.textContent?.includes('日止损线'))
       ?.querySelector<HTMLInputElement>('input')
     if (!daily) throw new Error('设置页缺少日止损线输入')
-    setText(daily, '2.5')
-    await waitFor(
-      () => useStore.getState().weeklyRiskPreparations[0]?.draft.dailyLossLimitR === 2.5,
-      '未复核输入没有持久化草稿',
-    )
-    document.querySelector<HTMLButtonElement>('[data-remount-settings]')?.click()
-    await waitFor(
-      () => document.querySelector<HTMLInputElement>('[data-risk-preparation] input') !== daily,
-      '风险设置页没有卸载并重挂载',
-    )
-    panel = document.querySelector<HTMLElement>('[data-risk-management-settings]')
-    if (!panel) throw new Error('重挂载后风险管理设置页不存在')
-    const remountedDaily = [...panel.querySelectorAll('label')]
-      .find((label) => label.textContent?.includes('日止损线'))
-      ?.querySelector<HTMLInputElement>('input')
-    if (remountedDaily?.value !== '2.5') throw new Error('未复核草稿在卸载/重挂载后没有保留')
     const confirm = [...panel.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent?.trim() === '确认本周规则')
+      .find((button) => button.textContent?.trim() === '保存风险基准')
     if (!confirm) throw new Error('设置页缺少确认按钮')
-    confirm.click()
-    await waitFor(() => panel.textContent?.includes('本周风险规则已复核') ?? false, '设置页确认没有完成')
+    useStore.getState().saveRiskBaseline({
+      currentTradingDayKey: currentDay,
+      weekStart: weekStartFor(parseLocalDate(currentDay)),
+      draft: {
+        capitalBase: 100_000,
+        riskPercent: 1,
+        riskAmount: 1_000,
+        dailyLossLimitR: 2.5,
+        weeklyLossLimitR: 5,
+        monthlyLossLimitRDefault: 10,
+        disciplineText: '触线后停止开仓，先复核执行偏差。',
+      },
+      confirmedAt: new Date().toISOString(),
+      policyVersionId: 'risk-policy:settings-browser',
+    })
+    await waitFor(() => panel.textContent?.includes('当前阶段风险基准已设置') ?? false, '风险基准保存没有完成')
     if (panel.querySelector('input')) throw new Error('确认后设置页必须回到只读摘要')
 
-    const currentWeek = weekStartFor(parseLocalDate(currentDay))
     const currentMonth = currentDay.slice(0, 7)
-    const firstPreparation = useStore.getState().weeklyRiskPreparations.find((item) => item.weekStart === currentWeek)
-    if (!firstPreparation?.reviewedAt || !firstPreparation.confirmedPolicyVersionId) {
-      throw new Error('首次确认没有保存已复核准备状态')
-    }
+    if (useStore.getState().weeklyRiskPreparations.length !== 0) throw new Error('新流程不得生成每周风险准备记录')
     if (useStore.getState().riskPolicyVersions.length !== 1) throw new Error('首次确认必须生成一个规则版本')
     const firstMonthLimit = useStore.getState().monthlyRiskLimits.find((item) => item.monthKey === currentMonth)
     if (firstMonthLimit?.limitR !== 10) {
       throw new Error(`首次确认必须建立并锁定当前月限额：${JSON.stringify(useStore.getState().monthlyRiskLimits)}`)
     }
-
-    useStore.setState({
-      trades: [
-        {
-          ...incompleteTrade,
-          pnl: -1_000,
-          rMultiple: null,
-          resultSource: 'pnl',
-          closedAt: currentDay,
-          closedTradingDayKey: currentDay,
-        },
-        {
-          ...partialTrade,
-          pnl: 1_000,
-          rMultiple: null,
-          resultSource: 'pnl',
-          closedAt: currentDay,
-          closedTradingDayKey: currentDay,
-        },
-      ],
-    })
-    await waitFor(() => document.querySelector('[data-risk-data-complete]') !== null, '修复交易后问题没有自动消失')
-    const completeSummary = panel.querySelector<HTMLElement>('[data-risk-data-summary]')
-    if (completeSummary?.querySelector('a')) throw new Error('风险数据完整时不应提供修复入口')
-
-    const reviewedPolicyCount = useStore.getState().riskPolicyVersions.length
-    const edit = [...panel.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent?.trim() === '修改规则')
-    if (!edit) throw new Error('设置页缺少修改规则按钮')
-    edit.click()
-    await waitFor(() => Boolean(panel.querySelector('input')), '修改规则没有展开本地草稿')
-    const editedDaily = [...panel.querySelectorAll('label')]
-      .find((label) => label.textContent?.includes('日止损线'))
-      ?.querySelector<HTMLInputElement>('input')
-    if (!editedDaily) throw new Error('已复核设置缺少日止损草稿输入')
-    setText(editedDaily, '3')
-    await frame()
-    const preparationDuringEdit = useStore.getState().weeklyRiskPreparations.find((item) => item.weekStart === currentWeek)
-    if (preparationDuringEdit?.reviewedAt !== firstPreparation.reviewedAt) {
-      throw new Error('本地修改不得提前清除 reviewedAt')
-    }
-    if (preparationDuringEdit?.draft.dailyLossLimitR !== firstPreparation.draft.dailyLossLimitR) {
-      throw new Error('本地修改不得提前写入 Store 草稿')
-    }
-    const cancel = [...panel.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent?.trim() === '取消修改')
-    if (!cancel) throw new Error('设置页缺少取消修改按钮')
-    cancel.click()
-    await waitFor(() => !panel.querySelector('input'), '取消修改没有回到已复核摘要')
-    if (useStore.getState().riskPolicyVersions.length !== reviewedPolicyCount) {
-      throw new Error('取消修改不得生成规则版本')
-    }
-
-    const reopen = [...panel.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent?.trim() === '修改规则')
-    if (!reopen) throw new Error('取消后缺少再次修改动作')
-    reopen.click()
-    await waitFor(() => Boolean(panel.querySelector('[aria-label="1R 金额"]')), '再次修改没有展开本地草稿')
-    const editedRiskAmount = panel.querySelector<HTMLInputElement>('[aria-label="1R 金额"]')
-    if (!editedRiskAmount) throw new Error('设置页必须允许直接编辑 1R 金额')
-    setText(editedRiskAmount, '1250')
-    const futureMonthInput = [...panel.querySelectorAll('label')]
-      .find((label) => label.textContent?.includes('起未来月止损默认'))
-      ?.querySelector<HTMLInputElement>('input')
-    if (!futureMonthInput) throw new Error('月字段必须明确为未来月默认值')
-    setText(futureMonthInput, '12')
-    const secondConfirm = [...panel.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent?.trim() === '确认本周规则')
-    if (!secondConfirm) throw new Error('修改后缺少再次确认动作')
-    secondConfirm.click()
-    await waitFor(
-      () => useStore.getState().riskPolicyVersions.length === reviewedPolicyCount + 1,
-      '再次确认没有保存新规则版本',
-    )
-    const revisedPolicy = useStore.getState().riskPolicyVersions.at(-1)
-    if (!revisedPolicy || revisedPolicy.effectiveTradingDay <= currentDay) {
-      throw new Error('再次确认必须生成未来生效的规则版本')
-    }
-    if (Math.abs(revisedPolicy.riskPercent - 1.25) >= 1e-9 || revisedPolicy.riskAmount !== 1_250) {
-      throw new Error('再次确认没有保存修改后的 1R 金额与比例')
-    }
-    if (useStore.getState().monthlyRiskLimits.find((item) => item.monthKey === currentMonth)?.limitR !== 10) {
-      throw new Error('修改未来月默认值不得覆盖当前月锁定值')
-    }
-    await waitFor(
-      () => panel.textContent?.includes(`将于 ${revisedPolicy.effectiveTradingDay} 起生效`) ?? false,
-      '已复核但待生效的规则必须展示生效日期',
-    )
-    if (!panel.textContent?.includes('日 2.5R · 周 5.0R · 本月 10.0R')) {
-      throw new Error('未来规则摘要必须继续展示当前月锁定限额')
-    }
-
-    useStore.setState((state) => ({ display: { ...state.display, privacyMode: true } }))
-    const privateEdit = [...panel.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent?.trim() === '修改规则')
-    if (!privateEdit) throw new Error('设置页缺少隐私模式修改规则按钮')
-    privateEdit.click()
-    await waitFor(() => panel.querySelector<HTMLInputElement>('[aria-label="1R 金额"]')?.type === 'password', '隐私模式没有掩码 1R 金额')
-    const privateCapital = [...panel.querySelectorAll('label')]
-      .find((label) => label.textContent?.includes('资金基准'))
-      ?.querySelector<HTMLInputElement>('input')
-    if (privateCapital?.type !== 'password') throw new Error('隐私模式没有掩码资金基准')
-
-    useStore.setState((state) => ({
-      trades: [{
-        ...incompleteTrade,
-        id: 'risk-retained-history',
-        pnl: -1_000,
-        rMultiple: null,
-        resultSource: 'pnl',
-        closedAt: getTradingDayKey(priorDay, 0),
-        closedTradingDayKey: getTradingDayKey(priorDay, 0),
-      }],
-      display: { ...state.display, privacyMode: false },
-    }))
-    await waitFor(() => panel?.querySelector('[data-risk-data-summary]')?.textContent?.includes('仍会如实影响完整度') ?? false, '纯历史缺口没有持续影响完整度')
-    const retainedSummary = panel.querySelector<HTMLElement>('[data-risk-data-summary]')
-    const retainedLink = retainedSummary?.querySelector<HTMLAnchorElement>('a[href="/settings/risk/data-repair"]')
-    if (retainedLink?.textContent?.trim() !== '查看历史缺口') throw new Error('纯历史规则缺口必须提供查看历史缺口入口')
   } finally {
     root.unmount()
     useStore.setState(previous, true)

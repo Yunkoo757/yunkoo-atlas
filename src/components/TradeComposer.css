@@ -286,3 +286,44 @@
   cursor: default;
   opacity: 0.45;
 }
+.composer-quick-context {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.composer-quick-context label,
+.composer-quick-context > span {
+  color: var(--text-secondary);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
+}
+
+.composer-quick-context input,
+.composer-parameter-grid input {
+  min-height: 38px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-8);
+  background: var(--field-bg);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.composer-quick-context input:focus,
+.composer-parameter-grid input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.composer-quick-context.has-error input {
+  border-color: var(--danger);
+}
+
+.composer-quick-context.has-error > span {
+  color: var(--danger);
+}
+
+.composer-more-toggle {
+  align-self: flex-start;
+}

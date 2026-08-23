@@ -31,6 +31,8 @@ export const PERSISTED_SNAPSHOT_FIELDS = [
   'symbolIcons',
   'symbolCatalog',
   'reviewTemplates',
+  'reviewPoolPresets',
+  'reviewPoolLayout',
 ] as const satisfies readonly ActivePersistedSnapshotKey[]
 
 type MissingPersistedSnapshotKey = Exclude<

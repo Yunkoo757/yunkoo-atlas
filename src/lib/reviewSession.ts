@@ -11,6 +11,7 @@ import {
 } from '@/lib/reviewCaseScope'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
 import type { LiveStage } from '@/lib/liveStages'
+import type { SystemReviewPoolId } from '@/lib/reviewPools'
 
 export type ReviewStageSource =
   | 'current-and-history'
@@ -50,6 +51,10 @@ export type ReviewSessionSnapshot = {
   ids: string[]
   cursor: number
   filters: ReviewSessionFilters
+  /** 新首页系统池来源；仅保存在按 libraryId 隔离的临时会话中。 */
+  systemPoolId?: SystemReviewPoolId
+  /** 自定义复盘池来源；轮次仍冻结 ID，此字段只用于重新洗牌。 */
+  customPoolId?: string
   assessments: Partial<Record<string, ReviewSessionAssessment>>
   /** 当前应用会话内精确定位评估动作；重启后历史栈清空，ID 只用于安全拒绝。 */
   /** string 表示可精确撤销的动作；null 表示本次评估成功但最终字段无变化。 */
@@ -486,6 +491,8 @@ export function saveReviewSession(
       filters: serializeReviewFilters(snapshot.filters, {
         omitLegacyTiming: Boolean(snapshot.restoredLegacyReviewTiming),
       }),
+      ...(snapshot.systemPoolId ? { systemPoolId: snapshot.systemPoolId } : {}),
+      ...(snapshot.customPoolId ? { customPoolId: snapshot.customPoolId } : {}),
       assessments: snapshot.assessments,
     }))
     return true
@@ -617,6 +624,14 @@ function isReviewSessionSnapshot(value: unknown): value is StoredReviewSessionSn
     return false
   }
   if (!isReviewSessionFilters(snapshot.filters) || !isReviewSessionAssessments(snapshot.assessments)) return false
+  if (
+    snapshot.systemPoolId !== undefined &&
+    !['all', 'cases', 'losses', 'wins', 'missed', 'boosted'].includes(snapshot.systemPoolId)
+  ) return false
+  if (snapshot.customPoolId !== undefined && (
+    typeof snapshot.customPoolId !== 'string' || !snapshot.customPoolId.trim()
+  )) return false
+  if (snapshot.systemPoolId !== undefined && snapshot.customPoolId !== undefined) return false
   return new Set(snapshot.ids).size === snapshot.ids.length
 }
 

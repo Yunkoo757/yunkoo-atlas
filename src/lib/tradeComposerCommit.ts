@@ -15,7 +15,6 @@ import { lockStorageCutoverInteraction } from '@/storage/cutover'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { applyTradeUpsertsToSlice, useStore } from '@/store/useStore'
 import { assetUrl } from '@/storage/assets'
-import { cascadeReviewCaseSourceSnapshot } from '@/lib/reviewCaseSourceSync'
 
 export interface ComposerImageInput {
   file: Blob
@@ -125,7 +124,7 @@ function buildTradePatch(state: ComposerState, candidate: ComposerTradeCandidate
   return {
     ...patch,
     ...candidate.statePatch,
-    trades: cascadeReviewCaseSourceSnapshot(patch.trades, trade.id),
+    trades: patch.trades,
   }
 }
 

@@ -126,7 +126,7 @@ async function run(): Promise<void> {
     renderDetail(root, '/trade/TRD-SOURCE')
 
     await waitFor(() => Boolean(findButton('更多')), '来源详情未就绪')
-    setNoteDraft(source.id, '<p>刚补充、尚未 idle 保存的复盘</p>')
+    setNoteDraft(source.id, `<p>刚补充、尚未 idle 保存的复盘</p><img src="${SOURCE_IMAGE_SRC}">`)
     findButton('更多')?.click()
     await waitFor(() => Boolean(findButton('提炼为案例')), '提炼入口未出现')
     findButton('提炼为案例')?.click()
@@ -136,7 +136,7 @@ async function run(): Promise<void> {
     )
     const reviewCase = useStore.getState().trades.find((trade) => trade.tradeKind === 'case')!
     assert(
-      reviewCase.sourceNoteHtml === '<p>刚补充、尚未 idle 保存的复盘</p>',
+      reviewCase.sourceNoteHtml === `<p>刚补充、尚未 idle 保存的复盘</p><img src="${SOURCE_IMAGE_SRC}">`,
       '创建前必须冲洗最新草稿',
     )
     assert(reviewCase.note === '', '案例沉淀必须为空')
@@ -161,10 +161,8 @@ async function run(): Promise<void> {
 
     useStore.getState().updateNote(reviewCase.id, '<p>案例自己的结论</p>')
     useStore.getState().updateNote(source.id, '<p>创建后的最新来源</p>')
-    await waitFor(
-      () => document.body.textContent?.includes('创建后的最新来源') ?? false,
-      '来源后续更新未进入只读区',
-    )
+    await waitFor(() => document.body.textContent?.includes('刚补充、尚未 idle 保存的复盘') ?? false, '冻结来源快照未保留')
+    assert(!document.body.textContent?.includes('创建后的最新来源'), '来源后续更新不得覆盖冻结快照')
     const syncedCase = useStore.getState().trades.find((trade) => trade.id === reviewCase.id)!
     assert(syncedCase.note === '<p>案例自己的结论</p>', '来源同步覆盖了案例沉淀')
 
@@ -235,8 +233,8 @@ async function run(): Promise<void> {
       '来源删除后必须使用共享的来源不可用状态',
     )
     assert(
-      document.body.textContent?.includes('创建后的最新来源'),
-      '来源清理后最后快照必须可读',
+      document.body.textContent?.includes('刚补充、尚未 idle 保存的复盘'),
+      '来源清理后冻结快照必须可读',
     )
 
     root.unmount()

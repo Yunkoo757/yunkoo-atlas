@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, type ReactNode } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Topbar } from '@/components/Topbar'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
@@ -245,7 +245,7 @@ function ArchiveRisk({ scope }: { scope: StageScope }) {
           {scopedOverrides.length > 0 ? <section><h3>覆盖事件</h3><div className="live-archive-card-list">{scopedOverrides.map((item) => (
             <article key={item.id} data-risk-override-id={item.id}>
               <div><strong>{item.tradeIdentityAtDecision.ref} · {item.tradeIdentityAtDecision.symbol}</strong><span>{item.decisionType === 'triggered' ? '已触发' : '数据未知'}</span></div>
-              <p>{item.tradingDayKeyAtDecision} · {item.reason}</p>
+              <p>{item.tradingDayKeyAtDecision} · {item.reason || '未填写理由'}</p>
             </article>
           ))}</div></section> : null}
         </div>
@@ -254,7 +254,7 @@ function ArchiveRisk({ scope }: { scope: StageScope }) {
   )
 }
 
-export function LiveArchiveView() {
+export function LiveArchiveView({ header }: { header?: ReactNode } = {}) {
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -350,6 +350,7 @@ export function LiveArchiveView() {
   return (
     <>
       <Topbar title="历史实盘" subtitle="按明确阶段浏览归档事实" view={mode} onView={setMode} />
+      {header}
       {navigation}
       <div className="live-archive-scroll">
         {tab === 'overview' ? <ArchiveOverview scope={scope} /> : null}

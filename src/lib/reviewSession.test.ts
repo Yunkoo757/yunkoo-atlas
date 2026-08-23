@@ -643,6 +643,26 @@ export function testReviewSessionStorageIsVersionedAndIsolatedByLibrary(): void 
   )
 }
 
+export function testReviewSessionSystemPoolOriginRoundTripsInTemporaryStorage(): void {
+  const storage = new MemoryStorage()
+  const snapshot: ReviewSessionSnapshot = {
+    ids: ['case-1'],
+    cursor: 0,
+    filters: {
+      ...DEFAULT_REVIEW_SESSION_FILTERS,
+      includePaperTrades: true,
+      reviewTiming: 'all',
+    },
+    systemPoolId: 'boosted',
+    assessments: {},
+  }
+
+  assert(saveReviewSession('system-pool-library', snapshot, storage), '系统池轮次必须可保存')
+  const restored = loadReviewSession('system-pool-library', storage)
+  assert(restored?.systemPoolId === 'boosted', '系统池来源必须完成临时存储往返')
+  assert(restored?.ids.join(',') === 'case-1', '系统池轮次必须继续使用冻结 ID 快照')
+}
+
 export function testReviewSessionV1V2AccountFilterMigratesWithoutBroadeningPaper(): void {
   for (const version of [1, 2]) {
     for (const includeAccountTrades of [false, true]) {

@@ -3,7 +3,7 @@ import { ICON_MD } from '@/icons/iconSize'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { fmtDate } from '@/lib/format'
 import { getCurrentLiveStage } from '@/lib/liveStages'
-import { listCurrentStageLiveTrades, listStageRolloverBlockers } from '@/lib/stageRollover'
+import { listCurrentStageLiveTrades, listStageRolloverAdvisories, listStageRolloverBlockers } from '@/lib/stageRollover'
 import { useStore } from '@/store/useStore'
 import './StageRolloverBanner.css'
 
@@ -31,6 +31,15 @@ export function StageRolloverBanner({
     riskPolicyVersions,
   }, scheduled.effectiveWeekStart)
   const blockerCodes = new Set(blockers.map((blocker) => blocker.code))
+  const advisories = listStageRolloverAdvisories({
+    liveStages,
+    currentLiveStageId,
+    scheduledStageRollover: scheduled,
+    trades,
+    weeklyReviews,
+    riskPolicyVersions,
+  }, scheduled.effectiveWeekStart)
+  const advisoryCodes = new Set(advisories.map((advisory) => advisory.code))
   const currentLiveTrades = listCurrentStageLiveTrades(trades, currentStage.id)
   const plannedCount = currentLiveTrades.filter((trade) => trade.status === 'planned').length
   const openCount = currentLiveTrades.filter((trade) => trade.status === 'open').length
@@ -57,9 +66,9 @@ export function StageRolloverBanner({
         <div className="stage-rollover-banner-detail">
           <CalendarDays size={ICON_MD} aria-hidden />
           <span>{due ? '正在按最新资料检查生效条件' : '预约期间当前阶段继续正常使用'}</span>
-          {blockerCodes.has('planned-trades') ? <span className="stage-rollover-banner-chip">计划中 {plannedCount} 笔</span> : null}
+          {advisoryCodes.has('planned-trades') ? <span className="stage-rollover-banner-chip">计划中 {plannedCount} 笔将保留在原阶段</span> : null}
           {blockerCodes.has('open-trades') ? <span className="stage-rollover-banner-chip">持仓中 {openCount} 笔</span> : null}
-          {blockerCodes.has('weekly-review-incomplete') ? <span className="stage-rollover-banner-chip">当前阶段周复盘尚未完成</span> : null}
+          {advisoryCodes.has('weekly-review-incomplete') ? <span className="stage-rollover-banner-chip">周复盘可稍后补做</span> : null}
           {blockers.length === 0 ? <span className="stage-rollover-banner-clear">当前无业务阻断项</span> : null}
         </div>
         {scheduled.postponedCount > 0 ? (

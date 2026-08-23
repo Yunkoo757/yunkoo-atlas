@@ -252,7 +252,7 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
   input: CommitRiskGatedTradeOpenInput<State>,
 ): Promise<RiskGatedTradeOpenCommitResult> {
   const reason = input.reason.trim()
-  if (!reason) throw new Error('风险覆盖原因不能为空')
+  if (Array.from(reason).length > 500) throw new Error('风险覆盖原因最多 500 字')
   const unlockInteraction = lockStorageCutoverInteraction()
   let suspended = false
   let durablyCommitted = false

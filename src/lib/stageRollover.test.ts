@@ -5,6 +5,7 @@ import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
 import {
   buildStageRolloverCandidate,
   inspectDueStageRollover,
+  listStageRolloverAdvisories,
   listStageRolloverBlockers,
   postponeStageRollover,
   scheduleStageRollover,
@@ -150,7 +151,11 @@ export function testScheduleAlwaysTargetsFollowingMonday(): void {
 export function testDueRolloverListsEveryBlockerAndPostpones(): void {
   const inspection = inspectDueStageRollover(blockedState(), '2026-08-31')
   assert(inspection.kind === 'blocked', 'blocked rollover must not build a candidate')
-  assert(inspection.blockers.map((item) => item.code).join(',') === 'planned-trades,open-trades,weekly-review-incomplete', 'all domain blockers must be stable')
+  assert(inspection.blockers.map((item) => item.code).join(',') === 'open-trades', 'only open trades may block rollover')
+  assert(
+    listStageRolloverAdvisories(blockedState(), '2026-08-31').map((item) => item.code).join(',') === 'planned-trades,weekly-review-incomplete',
+    'planned trades and incomplete reviews must remain neutral advisories',
+  )
   const postponed = postponeStageRollover(blockedState().scheduledStageRollover!, '2026-08-31')
   assert(postponed.effectiveWeekStart === '2026-09-07' && postponed.postponedCount === 1, 'blocked rollover must move one week')
 }
@@ -187,8 +192,8 @@ export function testCurrentBlockersCanBeShownBeforeTheScheduleIsDue(): void {
   const state = blockedState()
   const blockers = listStageRolloverBlockers(state, state.scheduledStageRollover!.effectiveWeekStart)
   assert(
-    blockers.map((item) => item.code).join(',') === 'planned-trades,open-trades,weekly-review-incomplete',
-    '预约确认与未到期 banner 必须复用权威阻断规则并展示全部当前阻断项',
+    blockers.map((item) => item.code).join(',') === 'open-trades',
+    '预约确认与未到期 banner 必须只把持仓显示为阻断项',
   )
 }
 
@@ -196,8 +201,11 @@ export function testPrecedingReviewMustBeCompletedAndOwnedByCurrentStage(): void
   const state = baseState()
   state.weeklyReviews = [weeklyReview('completed', 'stage-old')]
   const inspection = inspectDueStageRollover(state, '2026-08-31')
-  assert(inspection.kind === 'blocked', 'a review owned by an older stage must not unblock rollover')
-  assert(inspection.blockers.length === 1 && inspection.blockers[0]?.code === 'weekly-review-incomplete', 'only the preceding current-stage review may unblock rollover')
+  assert(inspection.kind === 'eligible', 'an incomplete current-stage review must not block rollover')
+  assert(
+    listStageRolloverAdvisories(state, '2026-08-31').some((item) => item.code === 'weekly-review-incomplete'),
+    'the incomplete current-stage review remains visible as an advisory',
+  )
 }
 
 export function testSuccessfulCandidateArchivesOldAndCreatesBlankCurrent(): void {

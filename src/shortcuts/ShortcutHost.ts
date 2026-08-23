@@ -22,7 +22,6 @@ import { routeWithSearch } from '@/lib/tradeView'
 import { resolveShortcutWorkspaceHref } from '@/shortcuts/workspaceActions'
 import { getActionMeta } from '@/shortcuts/actions'
 import { requestLightboxClose, requestLightboxReset } from '@/lib/lightboxView'
-import { newTradeKindForPath } from '@/lib/tradeKind'
 import { createQuickNote } from '@/data/quickNotes'
 
 export function useShortcutHost({
@@ -52,7 +51,7 @@ export function useShortcutHost({
       'global.commandPalette': onToggleCmdk,
       'global.commandPaletteMod': onToggleCmdk,
       'global.newTrade': () => {
-        openComposer(null, newTradeKindForPath(pathname))
+        openComposer(null, 'live')
       },
       'global.newCase': () => {
         openComposer(null, 'case')

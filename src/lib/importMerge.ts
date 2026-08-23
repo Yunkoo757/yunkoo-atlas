@@ -12,6 +12,27 @@ import { mergeRiskImport } from '@/lib/riskImportMerge'
 import { getCurrentLiveStage, type LiveStage } from '@/lib/liveStages'
 import { isUsableRiskPolicy } from '@/lib/activeRiskPolicy'
 import type { Trade } from '@/data/trades'
+import type { ReviewPoolPreset } from '@/lib/reviewPools'
+import { stableImportedTradeId } from '@/lib/riskImportMerge'
+
+function mergeReviewPoolPresets(
+  current: readonly ReviewPoolPreset[],
+  imported: readonly ReviewPoolPreset[],
+  payloadDigest: string,
+): ReviewPoolPreset[] {
+  const merged = new Map(current.map((preset) => [preset.id, preset]))
+  for (const preset of imported) {
+    const existing = merged.get(preset.id)
+    if (!existing) {
+      merged.set(preset.id, preset)
+      continue
+    }
+    if (canonicalImportValue(existing) === canonicalImportValue(preset)) continue
+    const remappedId = stableImportedTradeId(payloadDigest, `review-pool:${preset.id}`)
+    if (!merged.has(remappedId)) merged.set(remappedId, { ...preset, id: remappedId })
+  }
+  return [...merged.values()]
+}
 
 function mergeStrategies(current: Strategy[], imported: Strategy[]): Strategy[] {
   const map = new Map(current.map((strategy) => [strategy.id, strategy]))
@@ -194,6 +215,11 @@ export function mergeImportPayload(
     : normalizeReviewTemplates(ownedPayload.reviewTemplates)) {
     if (!templatesById.has(template.id)) templatesById.set(template.id, template)
   }
+  const reviewPoolPresets = mergeReviewPoolPresets(
+    current.reviewPoolPresets ?? [],
+    ownedPayload.reviewPoolPresets ?? [],
+    payloadDigest,
+  )
   return {
     strategies,
     trades: normalizeTrades(riskMerged.trades),
@@ -231,5 +257,8 @@ export function mergeImportPayload(
       ownedPayload.symbolCatalog ?? [],
     ),
     reviewTemplates: Array.from(templatesById.values()),
+    reviewPoolPresets,
+    // 合并导入保留当前首页布局；新导入的自定义池默认进入“更多复盘池”。
+    reviewPoolLayout: current.reviewPoolLayout,
   }
 }

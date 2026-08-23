@@ -146,9 +146,9 @@ async function run(): Promise<void> {
     root.render(<RouterProvider router={router} />)
     await waitFor(() => text().includes('第一页面'), '第一页面未渲染')
     assert(text().includes('阶段切换已顺延至 9月7日'), '顺延 banner 必须展示新的有效日期')
-    assert(text().includes('计划中 2 笔'), '顺延 banner 必须展示计划中数量')
+    assert(text().includes('计划中 2 笔将保留在原阶段'), '顺延 banner 必须展示计划记录归属')
     assert(text().includes('持仓中 1 笔'), '顺延 banner 必须展示持仓数量')
-    assert(text().includes('当前阶段周复盘尚未完成'), '顺延 banner 必须明确展示当前阶段周复盘阻断项')
+    assert(text().includes('周复盘可稍后补做'), '顺延 banner 必须说明周复盘不再阻止切换')
     assert(text().includes('预约不会自动取消'), '阻断不得静默取消预约')
 
     const create = button('新建交易')

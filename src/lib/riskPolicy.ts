@@ -133,6 +133,34 @@ export function confirmWeeklyRiskPreparation(
   }
 }
 
+/** 新流程：直接保存阶段风险基准或规则版本，不再生成每周准备记录。 */
+export function confirmRiskPolicyBaseline(
+  state: RiskPolicyState,
+  input: ConfirmWeeklyRiskPreparationInput,
+): RiskPolicyState {
+  validateConfirmationInput(input)
+  if (state.riskPolicyVersions.some((policy) => policy.id === input.policyVersionId)) {
+    throw new Error('policyVersionId 已存在')
+  }
+  const firstPolicyForStage = !state.riskPolicyVersions.some(
+    (policy) => policy.liveStageId === state.currentLiveStageId,
+  )
+  const policy: RiskPolicyVersion = {
+    id: input.policyVersionId,
+    liveStageId: state.currentLiveStageId,
+    sourceWeekStart: input.weekStart,
+    effectiveTradingDay: firstPolicyForStage
+      ? input.currentTradingDayKey
+      : nextTradingDay(input.currentTradingDayKey),
+    ...canonicalDraft(input.draft),
+    confirmedAt: input.confirmedAt,
+  }
+  return {
+    ...state,
+    riskPolicyVersions: [...state.riskPolicyVersions, policy],
+  }
+}
+
 function appendLockedMonthlyLimit(
   state: RiskPolicyState,
   monthKey: string,

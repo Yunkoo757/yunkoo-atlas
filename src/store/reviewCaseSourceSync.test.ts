@@ -65,7 +65,7 @@ export function testStoreCreatesCaseFromCurrentSourceState(): void {
   })
 }
 
-export function testSourceNoteCascadesWithoutTouchingCaseOwnedFields(): void {
+export function testSourceNoteKeepsCaseSnapshotAndOwnedFieldsFrozen(): void {
   const source = trade('source')
   const reviewCase = trade('case', {
     tradeKind: 'case',
@@ -79,7 +79,7 @@ export function testSourceNoteCascadesWithoutTouchingCaseOwnedFields(): void {
   withTrades([source, reviewCase], () => {
     useStore.getState().updateNote(source.id, '<p>新来源</p>')
     const updated = useStore.getState().trades.find((item) => item.id === reviewCase.id)!
-    assert(updated.sourceNoteHtml === '<p>新来源</p>', '软删除案例也必须同步')
+    assert(updated.sourceNoteHtml === '<p>旧来源</p>', '来源更新不得改变案例冻结快照')
     assert(updated.note === reviewCase.note, '来源同步不得覆盖案例正文')
     assert(updated.masteryState === reviewCase.masteryState, '来源同步不得改掌握状态')
     assert(updated.activities === reviewCase.activities, '来源同步不得创建案例活动')

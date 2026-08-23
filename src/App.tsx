@@ -25,6 +25,7 @@ import { shouldPreventAppUnload } from './storage/unloadGuard'
 import { isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
+import { parseTradeLogSection, TradeLogNavigation } from './components/TradeLogNavigation'
 import { AppFrame } from './components/ui/AppFrame'
 import { StageRolloverBanner } from './components/StageRolloverBanner'
 import { CommandPalette } from './components/CommandPalette'
@@ -231,9 +232,6 @@ export function WindowsClosePrompt({
 const Dashboard = lazy(() =>
   import('./views/Dashboard').then((module) => ({ default: module.Dashboard })),
 )
-const TodayWorkspace = lazy(() =>
-  import('./views/TodayWorkspace').then((module) => ({ default: module.TodayWorkspace })),
-)
 const DetailView = lazy(() =>
   import('./views/DetailView').then((module) => ({ default: module.DetailView })),
 )
@@ -305,19 +303,57 @@ const UpdatesSettingsPanel = lazy(() =>
 const ReviewTemplatesPanel = lazy(() =>
   import('./views/settings/ReviewTemplatesPanel').then((module) => ({ default: module.ReviewTemplatesPanel })),
 )
-const MissedOpportunitiesView = lazy(() =>
-  import('./views/MissedOpportunitiesView').then((module) => ({ default: module.MissedOpportunitiesView })),
-)
 
 export function TradeLogPage() {
   const { search } = useLocation()
+  const section = parseTradeLogSection(search)
+  const params = new URLSearchParams(search)
+  const header = <TradeLogNavigation section={section} />
+  if (section === 'stats') return <Dashboard header={header} />
+  if (section === 'reviews') return <WeeklyReviewView header={header} />
+  if (params.get('scope') === 'history') return <LiveArchiveView header={header} />
+  const source = params.get('source')
+  const quickFilter = params.get('filter')
+  const filter = source === 'paper'
+    ? { type: 'all' as const, tradeKind: 'paper' as const }
+    : quickFilter === 'active'
+      ? { type: 'active' as const, tradeKind: 'live' as const }
+      : quickFilter === 'starred'
+        ? { type: 'starred' as const, tradeKind: 'live' as const }
+        : quickFilter === 'missed'
+          ? { type: 'missed' as const, tradeKind: 'live' as const }
+          : quickFilter === 'incomplete'
+            ? { type: 'incomplete' as const, tradeKind: 'live' as const }
+            : resolveTradeLogFilter(search)
   return (
     <TradesPage
       title="交易日志"
-      filter={resolveTradeLogFilter(search)}
+      filter={filter}
       listPath="/list"
+      header={header}
     />
   )
+}
+
+function LegacyTradeLogRedirect({
+  section,
+  scope,
+  source,
+  filter,
+}: {
+  section?: 'stats' | 'reviews'
+  scope?: 'history'
+  source?: 'paper'
+  filter?: 'active' | 'starred' | 'missed' | 'incomplete'
+}) {
+  const { search } = useLocation()
+  const params = new URLSearchParams(search)
+  if (section) params.set('section', section)
+  if (scope) params.set('scope', scope)
+  if (source) params.set('source', source)
+  if (filter) params.set('filter', filter)
+  const query = params.toString()
+  return <Navigate to={{ pathname: '/list', search: query ? `?${query}` : '' }} replace />
 }
 
 export function StrategyPage() {
@@ -392,20 +428,6 @@ export function PeriodPage() {
       listPath={listPath}
     />
   )
-}
-
-function SimPage() {
-  return (
-    <TradesPage
-      title="模拟"
-      filter={{ type: 'all', tradeKind: 'paper' }}
-      listPath="/sim"
-    />
-  )
-}
-
-function TodayRecordPage() {
-  return <TodayWorkspace />
 }
 
 function ReviewCasesPage() {
@@ -488,80 +510,44 @@ function Shell() {
             path="/board"
             element={<TradeLogPage />}
           />
-          <Route
-            path="/active"
-            element={
-              <TradesPage
-                title="交易日志"
-                filter={{ type: 'active', tradeKind: 'live' }}
-                listPath="/active"
-              />
-            }
-          />
-          <Route
-            path="/active/board"
-            element={
-              <TradesPage
-                title="交易日志"
-                filter={{ type: 'active', tradeKind: 'live' }}
-                listPath="/active"
-              />
-            }
-          />
+          <Route path="/active" element={<LegacyTradeLogRedirect filter="active" />} />
+          <Route path="/active/board" element={<LegacyTradeLogRedirect filter="active" />} />
           <Route path="/inbox" element={<Navigate to="/active" replace />} />
           <Route path="/inbox/board" element={<Navigate to="/active/board" replace />} />
           <Route path="/my-trades" element={<Navigate to="/list" replace />} />
           <Route path="/my-trades/board" element={<Navigate to="/board" replace />} />
-          <Route
-            path="/favorites"
-            element={
-              <TradesPage
-                title="交易日志"
-                filter={{ type: 'starred', tradeKind: 'live' }}
-                listPath="/favorites"
-              />
-            }
-          />
-          <Route
-            path="/favorites/board"
-            element={
-              <TradesPage
-                title="交易日志"
-                filter={{ type: 'starred', tradeKind: 'live' }}
-                listPath="/favorites"
-              />
-            }
-          />
-          <Route path="/missed" element={<MissedOpportunitiesView />} />
-          <Route path="/missed/board" element={<Navigate to="/missed" replace />} />
+          <Route path="/favorites" element={<LegacyTradeLogRedirect filter="starred" />} />
+          <Route path="/favorites/board" element={<LegacyTradeLogRedirect filter="starred" />} />
+          <Route path="/missed" element={<LegacyTradeLogRedirect filter="missed" />} />
+          <Route path="/missed/board" element={<LegacyTradeLogRedirect filter="missed" />} />
           <Route path="/period/:slug" element={<PeriodPage />} />
           <Route path="/period/:slug/board" element={<PeriodPage />} />
-          <Route path="/today-record" element={<TodayRecordPage />} />
+          <Route path="/today-record" element={<LegacyTradeLogRedirect filter="incomplete" />} />
           <Route path="/notes" element={<QuickNotesView />} />
           <Route path="/notes/:id" element={<QuickNotesView />} />
           <Route path="/today-record/board" element={<Navigate to="/today-record" replace />} />
-          <Route path="/sim" element={<SimPage />} />
-          <Route path="/sim/board" element={<SimPage />} />
+          <Route path="/sim" element={<LegacyTradeLogRedirect source="paper" />} />
+          <Route path="/sim/board" element={<LegacyTradeLogRedirect source="paper" />} />
           <Route path="/review-cases" element={<ReviewCasesPage />} />
           <Route path="/review-cases/board" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope/board" element={<ReviewCasesPage />} />
           <Route path="/review-session" element={<ReviewSessionView />} />
-          <Route path="/weekly-review" element={<WeeklyReviewView />} />
+          <Route path="/weekly-review" element={<LegacyTradeLogRedirect section="reviews" />} />
           <Route path="/paper" element={<Navigate to="/sim" replace />} />
           <Route path="/paper/board" element={<Navigate to="/sim/board" replace />} />
           <Route path="/practice" element={<Navigate to="/sim" replace />} />
           <Route path="/practice/board" element={<Navigate to="/sim/board" replace />} />
           <Route path="/strategy/:id" element={<StrategyPage />} />
           <Route path="/strategy/:id/board" element={<StrategyPage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/live-history" element={<LiveArchiveView />} />
-          <Route path="/live-history/board" element={<LiveArchiveView />} />
+          <Route path="/dashboard" element={<LegacyTradeLogRedirect section="stats" />} />
+          <Route path="/live-history" element={<LegacyTradeLogRedirect scope="history" />} />
+          <Route path="/live-history/board" element={<LegacyTradeLogRedirect scope="history" />} />
           <Route path="/live-archive" element={<LegacyLiveArchiveRedirect />} />
           <Route path="/live-archive/:archiveId" element={<LegacyLiveArchiveRedirect />} />
           <Route path="/import-data-health" element={<ImportDataHealthView />} />
           <Route path="/trade/:id" element={<DetailView />} />
-          <Route path="/cases" element={<Navigate to="/list" replace />} />
+          <Route path="/cases" element={<Navigate to="/review-cases" replace />} />
           <Route path="/trash" element={<Navigate to="/trade-trash" replace />} />
           <Route path="/trade-trash" element={<TradeTrashView />} />
           <Route path="/settings" element={<SettingsLayout />}>

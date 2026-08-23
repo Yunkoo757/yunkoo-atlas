@@ -11,7 +11,6 @@ import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import { resolveRiskOutcomes } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
-import { riskSetupStateForStage } from '@/lib/stageRisk'
 
 const ACTIVITY_KINDS = new Set<ActivityEvent['kind']>([
   'create',
@@ -284,9 +283,7 @@ function createPendingRequest(
     outcome.limitR > 0 && outcome.netBudgetR <= -outcome.limitR)
   const decisionType: RiskDecisionType | null = knownLimitTriggered
     ? 'triggered'
-    : resolved.gateCoverage === 'unknown' || (
-    policy !== null && monthlyLimit === null
-      )
+    : policy === null || monthlyLimit === null || resolved.gateCoverage === 'unknown'
       ? 'unknown'
       : null
   if (!decisionType) return null
@@ -360,13 +357,6 @@ export function requestTradeOpenCandidate<State extends TradeOpenRiskGateState>(
     return { kind: 'not-current-stage', trade }
   }
   if (trade.status === 'open') return { kind: 'opened', decision: 'already-open', state, trade }
-  if (riskSetupStateForStage(
-    state,
-    state.currentLiveStageId,
-    state.currentTradingDayKey,
-  ) === 'unconfigured') {
-    return { kind: 'risk-setup-required', trade }
-  }
   if (!requiresFirstOpenGate(trade)) {
     return { kind: 'opened', decision: 'not-required', ...openedState(state, trade, options) }
   }

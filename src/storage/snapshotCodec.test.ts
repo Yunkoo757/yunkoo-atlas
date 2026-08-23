@@ -745,6 +745,43 @@ export function testSnapshotCodecPreservesCaseSourceNoteSnapshotsWithoutBackfill
   assert(current.trades[0]?.sourceNoteHtml === sourceNoteHtml, 'case 来源快照必须经 JSON 往返逐字保留')
 }
 
+export function testVersionTwelveBackfillsMissingCaseSourceSnapshotExactlyOnce(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const source = {
+    ...fixture.trades[0]!,
+    id: 'legacy-source',
+    ref: 'TRD-LEGACY-SOURCE',
+    tradeKind: 'live' as const,
+    note: '<p>迁移时冻结的来源正文</p>',
+  }
+  const { sourceNoteHtml: _snapshot, ...caseBase } = fixture.trades[0]!
+  const legacyCase = {
+    ...caseBase,
+    id: 'legacy-case',
+    ref: 'CAS-LEGACY',
+    tradeKind: 'case' as const,
+    sourceTradeId: source.id,
+    note: '<p>案例独立洞见</p>',
+  }
+  const decoded = decodeCanonicalSnapshot(
+    JSON.parse(JSON.stringify({ ...fixture, trades: [...fixture.trades, source, legacyCase] })),
+    { version: 12 },
+  )
+  const migratedCase = decoded.trades.find((trade) => trade.id === legacyCase.id)
+  assert(migratedCase?.sourceNoteHtml === source.note, 'v12 缺失快照必须从仍存在的来源正文补写一次')
+  assert(migratedCase?.note === legacyCase.note, '迁移不得覆盖案例自己的独立正文')
+
+  const changedSourcePayload = {
+    ...decoded,
+    trades: decoded.trades.map((trade) => trade.id === source.id ? { ...trade, note: '<p>来源后续修改</p>' } : trade),
+  }
+  const roundTrip = decodeCanonicalSnapshot(changedSourcePayload, { version: SCHEMA_VERSION })
+  assert(
+    roundTrip.trades.find((trade) => trade.id === legacyCase.id)?.sourceNoteHtml === source.note,
+    '迁移后的当前快照不得随来源后续修改再次刷新',
+  )
+}
+
 export function testSnapshotCodecDistinguishesMissingDefaultsFromExplicitEmptyValues(): void {
   const missing = decodeCanonicalSnapshot(minimalHistoricalSnapshot(), { version: 1 })
   const explicit = decodeCanonicalSnapshot({

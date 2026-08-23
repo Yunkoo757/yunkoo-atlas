@@ -16,6 +16,7 @@ import {
   type Trade,
   type TradeKind,
   type TradeSide,
+  type TradeStatus,
 } from '@/data/trades'
 import { collectSymbolOptions } from '@/lib/symbolIcons'
 import {
@@ -41,6 +42,22 @@ interface UploadedImage {
   id: string
   file: File
   preview: string
+}
+
+function textToNoteHtml(value: string): string {
+  const escaped = value.trim()
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+  return escaped ? `<p>${escaped.replace(/\n/g, '<br>')}</p>` : ''
+}
+
+function optionalNumber(value: string): number | null {
+  if (!value.trim()) return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 function getNextRef(trades: Trade[], kind: TradeKind): string {
@@ -79,6 +96,14 @@ export function TradeComposer() {
     getTradingDayKey(new Date(), useStore.getState().display.tradingDayStartHour),
   )
   const [strategyId, setStrategyId] = useState('')
+  const [kind, setKind] = useState<TradeKind>('live')
+  const [status, setStatus] = useState<Extract<TradeStatus, 'planned' | 'missed'>>('planned')
+  const [entry, setEntry] = useState('')
+  const [size, setSize] = useState('')
+  const [stopLoss, setStopLoss] = useState('')
+  const [quickText, setQuickText] = useState('')
+  const [showMore, setShowMore] = useState(false)
+  const [contentError, setContentError] = useState(false)
   const [caseType, setCaseType] = useState<CaseType>('exemplar')
   const [images, setImages] = useState<UploadedImage[]>([])
   const [isDragging, setIsDragging] = useState(false)
@@ -88,8 +113,9 @@ export function TradeComposer() {
   const submittingRef = useRef(false)
   const caseTypeDirtyRef = useRef(false)
   const defaultKind = defaultTradeKindForPath(location.pathname)
-  const activeKind = editing?.tradeKind ?? requestedKind ?? defaultKind
+  const activeKind = editing?.tradeKind ?? kind
   const recordLabel = activeKind === 'case' ? '案例记录' : '交易'
+  const isQuickNew = !editing && activeKind !== 'case'
 
   useEffect(() => {
     if (!open) return
@@ -104,6 +130,14 @@ export function TradeComposer() {
     setSession(editing ? getSessionSelectValue(editing) : '')
     setOpenedAt(editing?.openedAt.slice(0, 10) ?? defaultTradingDay())
     setStrategyId(editing?.strategyId ?? strategies[0]?.id ?? '')
+    setKind(editing?.tradeKind ?? requestedKind ?? defaultKind)
+    setStatus(editing?.status === 'missed' ? 'missed' : 'planned')
+    setEntry(editing?.entry ? String(editing.entry) : '')
+    setSize(editing?.size ? String(editing.size) : '')
+    setStopLoss(editing?.stopLoss ? String(editing.stopLoss) : '')
+    setQuickText('')
+    setShowMore(Boolean(editing) || (requestedKind ?? defaultKind) === 'case')
+    setContentError(false)
     setCaseType(
       editing?.caseType ??
         (editing?.status === 'missed'
@@ -126,6 +160,14 @@ export function TradeComposer() {
       setSession('')
       setOpenedAt(defaultTradingDay())
       setStrategyId('')
+      setKind('live')
+      setStatus('planned')
+      setEntry('')
+      setSize('')
+      setStopLoss('')
+      setQuickText('')
+      setShowMore(false)
+      setContentError(false)
       setCaseType('exemplar')
       setImages([])
       setIsDragging(false)
@@ -207,6 +249,12 @@ export function TradeComposer() {
       toast('请先选择交易品种')
       return
     }
+    if (isQuickNew && images.length === 0 && !quickText.trim()) {
+      setContentError(true)
+      requestAnimationFrame(() => document.querySelector<HTMLInputElement>('[data-composer-quick-text]')?.focus())
+      return
+    }
+    setContentError(false)
     submittingRef.current = true
     setSubmitting(true)
 
@@ -221,6 +269,9 @@ export function TradeComposer() {
         session: normalizeSession(session),
         strategyId,
         openedAt,
+        entry: Number(entry) || 0,
+        size: Number(size) || 0,
+        stopLoss: optionalNumber(stopLoss),
       }
       const newTradeId = crypto.randomUUID()
       const recordedAt = now.toISOString()
@@ -231,10 +282,8 @@ export function TradeComposer() {
           mime: image.file.type || 'image/png',
         })),
         buildTrade: (state, imageHtml) => {
-          const intro = editing || images.length === 0
-            ? ''
-            : `<p>已上传 ${images.length} 张截图，请在下方补充详细信息。</p>`
-          const appendedNote = [intro, imageHtml].filter(Boolean).join('\n')
+          const textHtml = textToNoteHtml(quickText)
+          const appendedNote = [textHtml, imageHtml].filter(Boolean).join('\n')
           if (editing) {
             const latest = state.trades.find((item) => item.id === editing.id)
             if (!latest) return null
@@ -256,7 +305,7 @@ export function TradeComposer() {
           const candidate: Trade = {
             id: newTradeId,
             ref: getNextRef(state.trades, kind),
-            status: 'planned',
+            status,
             conviction: 'medium',
             tradeKind: kind,
             ...(kind === 'paper'
@@ -272,10 +321,7 @@ export function TradeComposer() {
                   nextReviewAt: addDaysToCurrentTradingDay(now, tradingDayStartHour, 3),
                 }
               : {}),
-            entry: 0,
             exit: null,
-            stopLoss: null,
-            size: 0,
             pnl: null,
             rMultiple: null,
             recordedAt,
@@ -297,9 +343,10 @@ export function TradeComposer() {
       }
 
       close()
-
-      // 自动跳转详情页
-      navigate(tradeDetailPath(trade))
+      toast(editing ? '已保存' : '已记录', {
+        label: '打开记录',
+        onClick: () => navigate(tradeDetailPath(trade)),
+      })
     })().catch((error) => {
       console.error('[TradeComposer] quick create failed', error)
       toast('保存失败，交易和本次截图均未写入；请重试')
@@ -323,7 +370,7 @@ export function TradeComposer() {
       panelClassName="composer-modal"
       bodyClassName="composer-body-quick"
       footerClassName="composer-footer-quick"
-      initialFocusSelector=".composer-body-quick button:not(:disabled), .composer-body-quick input:not(:disabled)"
+      initialFocusSelector=".composer-input-symbol .ui-select-trigger"
       onClose={requestClose}
       footer={(
         <>
@@ -343,7 +390,7 @@ export function TradeComposer() {
               onClick={handleQuickCreate}
               disabled={!symbol.trim() || submitting}
             >
-              {submitting ? '保存中…' : editing ? '保存' : `创建${recordLabel}`}
+              {submitting ? '保存中…' : editing ? '保存' : isQuickNew ? '保存记录' : `创建${recordLabel}`}
             </Button>
           </div>
         </>
@@ -392,7 +439,53 @@ export function TradeComposer() {
             </div>
           </section>
 
-          <div className="composer-parameter-grid">
+          {isQuickNew ? (
+            <div className={`composer-quick-context${contentError ? ' has-error' : ''}`}>
+              <label htmlFor="composer-quick-text">一句话</label>
+              <input
+                id="composer-quick-text"
+                data-composer-quick-text
+                value={quickText}
+                placeholder="记录当下看到的机会或判断"
+                aria-invalid={contentError}
+                onChange={(event) => {
+                  setQuickText(event.target.value)
+                  if (event.target.value.trim()) setContentError(false)
+                }}
+              />
+              {contentError ? <span role="alert">请添加一句话或至少一张截图。</span> : null}
+            </div>
+          ) : null}
+
+          {showMore ? <div className="composer-parameter-grid">
+            {isQuickNew ? (
+              <div className="composer-essential-field">
+                <span className="composer-essential-label">记录类型</span>
+                <Select
+                  value={activeKind}
+                  onValueChange={(value) => setKind(value as Extract<TradeKind, 'live' | 'paper'>)}
+                  ariaLabel="记录类型"
+                  options={[
+                    { value: 'live', label: '实盘' },
+                    { value: 'paper', label: '模拟盘' },
+                  ]}
+                />
+              </div>
+            ) : null}
+            {isQuickNew ? (
+              <div className="composer-essential-field">
+                <span className="composer-essential-label">状态</span>
+                <Select
+                  value={status}
+                  onValueChange={(value) => setStatus(value as Extract<TradeStatus, 'planned' | 'missed'>)}
+                  ariaLabel="记录状态"
+                  options={[
+                    { value: 'planned', label: '计划中' },
+                    { value: 'missed', label: '错过机会' },
+                  ]}
+                />
+              </div>
+            ) : null}
             <div className="composer-essential-field">
               <span className="composer-essential-label">波段级别</span>
               <Select
@@ -430,7 +523,21 @@ export function TradeComposer() {
                 required
               />
             </div>
-          </div>
+            {isQuickNew ? <>
+              <label className="composer-essential-field">
+                <span className="composer-essential-label">入场价</span>
+                <input inputMode="decimal" value={entry} placeholder="可选" onChange={(event) => setEntry(event.target.value)} />
+              </label>
+              <label className="composer-essential-field">
+                <span className="composer-essential-label">仓位</span>
+                <input inputMode="decimal" value={size} placeholder="可选" onChange={(event) => setSize(event.target.value)} />
+              </label>
+              <label className="composer-essential-field">
+                <span className="composer-essential-label">止损价</span>
+                <input inputMode="decimal" value={stopLoss} placeholder="可选" onChange={(event) => setStopLoss(event.target.value)} />
+              </label>
+            </> : null}
+          </div> : null}
 
           <div className={`composer-archive-row${activeKind === 'case' ? ' is-case' : ''}`}>
             <div className="composer-essential-field">
@@ -526,6 +633,11 @@ export function TradeComposer() {
               </div>
             )}
           </div>
+          {isQuickNew ? (
+            <Button type="button" variant="ghost" className="composer-more-toggle" onClick={() => setShowMore((value) => !value)}>
+              {showMore ? '收起更多信息' : '更多信息'}
+            </Button>
+          ) : null}
     </ModalShell>
   )
 }

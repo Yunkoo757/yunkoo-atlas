@@ -6,6 +6,7 @@ import { getCurrentLiveStage, normalizeLiveStageName } from '@/lib/liveStages'
 import { notifyStageManagementOpened } from '@/lib/stageRolloverCommit'
 import {
   listCurrentStageLiveTrades,
+  listStageRolloverAdvisories,
   listStageRolloverBlockers,
   scheduleStageRollover,
 } from '@/lib/stageRollover'
@@ -74,6 +75,22 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
     trades,
     weeklyReviews,
   ])
+  const advisories = useMemo(() => listStageRolloverAdvisories({
+    liveStages,
+    currentLiveStageId,
+    scheduledStageRollover,
+    trades,
+    weeklyReviews,
+    riskPolicyVersions,
+  }, effectiveWeekStart), [
+    currentLiveStageId,
+    effectiveWeekStart,
+    liveStages,
+    riskPolicyVersions,
+    scheduledStageRollover,
+    trades,
+    weeklyReviews,
+  ])
 
   const currentTrades = listCurrentStageLiveTrades(trades, currentStage.id)
   const currentCases = trades.filter((trade) =>
@@ -89,6 +106,7 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
     ...riskOverrideEvents,
   ].filter((record) => record.liveStageId === currentStage.id).length
   const blockerCodes = new Set(blockers.map((blocker) => blocker.code))
+  const advisoryCodes = new Set(advisories.map((advisory) => advisory.code))
 
   function startOperation(next: Exclude<Operation, null>): boolean {
     if (operationRef.current) return false
@@ -248,14 +266,14 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
             <div>
               <h3 id="live-stage-blockers-title">当前生效条件</h3>
               <p>{blockers.length > 0
-                ? '以下情况不会阻止预约；到期仍未处理时会自动顺延一周。'
-                : '当前没有业务阻断项；到期前仍会按最新资料重新检查。'}</p>
+                ? '持仓中的交易必须先处理；其他未完成内容会保留在原阶段。'
+                : '当前可以切换；未完善记录与周复盘不会阻止新阶段。'}</p>
             </div>
           </div>
           <div className="live-stage-manager-blockers" aria-label="当前阶段切换阻断项">
-            {blockerCodes.has('planned-trades') ? <span>计划中 {plannedCount} 笔</span> : null}
+            {advisoryCodes.has('planned-trades') ? <span>计划中 {plannedCount} 笔将保留在原阶段</span> : null}
             {blockerCodes.has('open-trades') ? <span>持仓中 {openCount} 笔</span> : null}
-            {blockerCodes.has('weekly-review-incomplete') ? <span>当前阶段周复盘尚未完成</span> : null}
+            {advisoryCodes.has('weekly-review-incomplete') ? <span>周复盘可稍后补做</span> : null}
             {blockers.length === 0 ? <span className="is-clear">当前无阻断项</span> : null}
           </div>
         </section>

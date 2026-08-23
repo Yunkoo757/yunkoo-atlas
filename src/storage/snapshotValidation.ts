@@ -176,6 +176,54 @@ function isDisplayPrefs(value: unknown): boolean {
   return true
 }
 
+const REVIEW_POOL_SOURCES = new Set(['case', 'live', 'paper'])
+const REVIEW_POOL_RESULTS = new Set(['win', 'loss', 'breakeven', 'missed'])
+const REVIEW_POOL_CASE_TYPES = new Set(['exemplar', 'mistake', 'ambiguous', 'missed'])
+const REVIEW_POOL_SIDES = new Set(['long', 'short'])
+const SYSTEM_REVIEW_POOL_IDS = new Set(['all', 'cases', 'losses', 'wins', 'missed', 'boosted'])
+
+function isEnumArray(value: unknown, allowed: ReadonlySet<string>): boolean {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string' && allowed.has(item))
+}
+
+function isReviewStageSourceValue(value: unknown): boolean {
+  if (value === undefined) return true
+  if (value === 'current-and-history' || value === 'current' || value === 'all-history') return true
+  return isRecord(value) && isStringArray(value.stageIds)
+}
+
+function isReviewPoolPresets(value: unknown): boolean {
+  if (value === undefined) return true
+  if (!Array.isArray(value)) return false
+  const ids = new Set<string>()
+  for (const preset of value) {
+    if (!isRecord(preset) || typeof preset.id !== 'string' || !preset.id.trim() || ids.has(preset.id)) return false
+    if (typeof preset.name !== 'string' || !preset.name.trim()) return false
+    if (typeof preset.createdAt !== 'string' || typeof preset.updatedAt !== 'string') return false
+    if (!isRecord(preset.filters)) return false
+    const filters = preset.filters
+    if (!isEnumArray(filters.sources, REVIEW_POOL_SOURCES)) return false
+    if (!isEnumArray(filters.results, REVIEW_POOL_RESULTS)) return false
+    if (!isEnumArray(filters.caseTypes, REVIEW_POOL_CASE_TYPES)) return false
+    if (!isStringArray(filters.strategyIds) || !isStringArray(filters.symbols)) return false
+    if (!isEnumArray(filters.sides, REVIEW_POOL_SIDES)) return false
+    if (!isStringArray(filters.tags) || !isStringArray(filters.mistakeTags)) return false
+    if (typeof filters.requireContent !== 'boolean' || !isReviewStageSourceValue(filters.stageSource)) return false
+    ids.add(preset.id)
+  }
+  return true
+}
+
+function isReviewPoolLayout(value: unknown): boolean {
+  if (value === undefined) return true
+  if (!isRecord(value) || !Array.isArray(value.homeOrder) || !Array.isArray(value.hiddenSystemIds)) return false
+  if (!value.hiddenSystemIds.every((id) => typeof id === 'string' && id !== 'all' && SYSTEM_REVIEW_POOL_IDS.has(id))) return false
+  return value.homeOrder.every((item) => {
+    if (!isRecord(item) || (item.kind !== 'system' && item.kind !== 'custom') || typeof item.id !== 'string') return false
+    return item.kind === 'custom' ? Boolean(item.id.trim()) : SYSTEM_REVIEW_POOL_IDS.has(item.id)
+  })
+}
+
 function isReviewTemplates(value: unknown): boolean {
   return value === undefined || (
     Array.isArray(value) &&
@@ -885,6 +933,8 @@ export function assertValidPersistedSnapshot(
   if (hasDuplicateStringId(value.strategies)) throw new Error(`${label} contains duplicate strategy ids`)
   if (!isDisplayPrefs(value.display)) throw new Error(`${label} contains invalid display settings`)
   if (!isReviewTemplates(value.reviewTemplates)) throw new Error(`${label} contains invalid review templates`)
+  if (!isReviewPoolPresets(value.reviewPoolPresets)) throw new Error(`${label} contains invalid review pool presets`)
+  if (!isReviewPoolLayout(value.reviewPoolLayout)) throw new Error(`${label} contains invalid review pool layout`)
   if (!isShortcutOverrides(value.shortcuts)) throw new Error(`${label} contains invalid shortcuts`)
   if (!isUserProfile(value.profile)) throw new Error(`${label} contains an invalid profile`)
   if (!isSavedTradeViews(value.savedTradeViews)) throw new Error(`${label} contains invalid saved trade views`)

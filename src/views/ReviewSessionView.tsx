@@ -38,8 +38,6 @@ import {
 } from '@/lib/reviewImageReadiness'
 import {
   DEFAULT_REVIEW_SESSION_FILTERS,
-  REVIEW_SESSION_PRESETS,
-  applyReviewSessionPreset,
   buildReviewAssessmentPatch,
   buildReviewSessionPool,
   clearReviewSessionStorage,
@@ -47,7 +45,6 @@ import {
   hasEffectiveReviewContent,
   loadReviewSession,
   loadReviewSessionFilters,
-  matchReviewSessionPreset,
   normalizeReviewStageSource,
   reconcileReviewSession,
   reviewFiltersForNextRound,
@@ -56,10 +53,16 @@ import {
   shuffleReviewSessionIds,
   type ReviewSessionAssessment,
   type ReviewSessionFilters,
-  type ReviewSessionPreset,
   type ReviewSessionSnapshot,
   type ReviewStageSource,
 } from '@/lib/reviewSession'
+import {
+  buildReviewPoolCandidateIndex,
+  buildSystemReviewPool,
+  normalizeReviewPoolLayout,
+  type ReviewPoolRef,
+  type SystemReviewPoolId,
+} from '@/lib/reviewPools'
 import type { ReviewCaseScope } from '@/lib/reviewCaseScope'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { toast } from '@/lib/toast'
@@ -72,6 +75,7 @@ import {
 } from '@/shortcuts/engine'
 import { useShortcutHint } from '@/shortcuts/useShortcutHint'
 import { useStore } from '@/store/useStore'
+import { ReviewPoolManagerModal } from './ReviewPoolManagerModal'
 import './ReviewSessionView.css'
 
 type RestoreStatus = 'loading' | 'ready' | 'unavailable'
@@ -103,6 +107,39 @@ const REVIEW_STAGE_SOURCE_OPTIONS = [
   { value: 'all-history', label: '全部历史阶段' },
   { value: 'custom', label: '自选阶段' },
 ]
+
+const SYSTEM_REVIEW_POOL_META: ReadonlyArray<{
+  id: SystemReviewPoolId
+  label: string
+  hint: string
+}> = [
+  { id: 'all', label: '全部内容', hint: '案例与全部已结束交易' },
+  { id: 'cases', label: '只看案例', hint: '完整案例知识库' },
+  { id: 'losses', label: '亏损日志', hint: '已结束的亏损实盘与模拟盘' },
+  { id: 'wins', label: '盈利日志', hint: '已结束的盈利实盘与模拟盘' },
+  { id: 'missed', label: '错过机会', hint: '日志与案例中的错过机会' },
+  { id: 'boosted', label: '近期多看', hint: '你主动加入近期多看的内容' },
+]
+
+const SYSTEM_REVIEW_POOL_META_BY_ID = new Map(
+  SYSTEM_REVIEW_POOL_META.map((pool) => [pool.id, pool]),
+)
+
+type ReviewPoolStartItem = {
+  ref: ReviewPoolRef
+  label: string
+  hint: string
+  count: number
+}
+
+const SYSTEM_POOL_SESSION_FILTERS: ReviewSessionFilters = {
+  ...DEFAULT_REVIEW_SESSION_FILTERS,
+  includeCases: true,
+  includeLiveTrades: true,
+  includePaperTrades: true,
+  reviewTiming: 'all',
+  stageSource: 'current-and-history',
+}
 
 const ASSESSMENT_OPTIONS: Array<{
   actionId: string
@@ -209,14 +246,22 @@ export function ReviewSessionView() {
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const strategies = useStore((state) => state.strategies)
   const starredIds = useStore((state) => state.starredIds)
+  const subscribedIds = useStore((state) => state.subscribedIds)
+  const reviewPoolPresets = useStore((state) => state.reviewPoolPresets)
+  const reviewPoolLayout = useStore((state) => state.reviewPoolLayout)
+  const saveReviewPoolPreset = useStore((state) => state.saveReviewPoolPreset)
+  const removeReviewPoolPreset = useStore((state) => state.removeReviewPoolPreset)
+  const setReviewPoolLayout = useStore((state) => state.setReviewPoolLayout)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
   const updateTradeData = useStore((state) => state.updateTradeData)
   const starred = useMemo(() => new Set(starredIds), [starredIds])
+  const subscribed = useMemo(() => new Set(subscribedIds), [subscribedIds])
   const businessDateAnchor = useBusinessDateAnchor()
   const [filters, setFilters] = useState<ReviewSessionFilters>(DEFAULT_REVIEW_SESSION_FILTERS)
   const [settingsDraft, setSettingsDraft] = useState<ReviewSessionFilters | null>(null)
+  const [poolManagerOpen, setPoolManagerOpen] = useState(false)
   const [pendingFilters, setPendingFilters] = useState<ReviewSessionFilters | null>(null)
   const [pendingFiltersBusy, setPendingFiltersBusy] = useState(false)
   const [session, setSession] = useState<ReviewSessionSnapshot | null>(null)
@@ -246,6 +291,35 @@ export function ReviewSessionView() {
     ),
     [businessDateAnchor.currentTradingDayKey, currentLiveStageId, filters, liveStages, starred, trades, tradingDayStartHour],
   )
+  const poolIndex = useMemo(() => buildReviewPoolCandidateIndex(
+    trades,
+    reviewPoolPresets,
+    {
+      subscribedIds: subscribed,
+      stageContext: { liveStages, currentLiveStageId },
+    },
+  ), [currentLiveStageId, liveStages, reviewPoolPresets, subscribed, trades])
+  const systemPools = poolIndex.system
+  const customPools = poolIndex.custom
+  const homePools = useMemo<ReviewPoolStartItem[]>(() => {
+    const layout = normalizeReviewPoolLayout(
+      reviewPoolLayout,
+      reviewPoolPresets.map((preset) => preset.id),
+    )
+    return layout.homeOrder.flatMap((ref): ReviewPoolStartItem[] => {
+      if (ref.kind === 'system') {
+        const meta = SYSTEM_REVIEW_POOL_META_BY_ID.get(ref.id)
+        return meta ? [{ ref, label: meta.label, hint: meta.hint, count: systemPools[ref.id].length }] : []
+      }
+      const preset = reviewPoolPresets.find((candidate) => candidate.id === ref.id)
+      return preset ? [{
+        ref,
+        label: preset.name,
+        hint: '自定义复盘池',
+        count: customPools.get(ref.id)?.length ?? 0,
+      }] : []
+    })
+  }, [customPools, reviewPoolLayout, reviewPoolPresets, systemPools])
   const settingsPoolSize = useMemo(
     () => settingsDraft ? buildReviewSessionPool(
       trades,
@@ -486,6 +560,36 @@ export function ReviewSessionView() {
     setSession({ ids, cursor: 0, filters, assessments: {} })
   }
 
+  const startSystemPool = (poolId: SystemReviewPoolId) => {
+    const ids = shuffleReviewSessionIds(systemPools[poolId].map((trade) => trade.id))
+    if (ids.length === 0) return
+    focusAfterTransitionRef.current = true
+    setSession({
+      ids,
+      cursor: 0,
+      filters: SYSTEM_POOL_SESSION_FILTERS,
+      systemPoolId: poolId,
+      assessments: {},
+    })
+  }
+
+  const startHomePool = (poolRef: ReviewPoolRef) => {
+    if (poolRef.kind === 'system') {
+      startSystemPool(poolRef.id)
+      return
+    }
+    const ids = shuffleReviewSessionIds((customPools.get(poolRef.id) ?? []).map((trade) => trade.id))
+    if (ids.length === 0) return
+    focusAfterTransitionRef.current = true
+    setSession({
+      ids,
+      cursor: 0,
+      filters: SYSTEM_POOL_SESSION_FILTERS,
+      customPoolId: poolRef.id,
+      assessments: {},
+    })
+  }
+
   const clearActiveSession = (nextFilters = filters) => {
     focusAfterTransitionRef.current = true
     if (libraryId) clearReviewSessionStorage(libraryId)
@@ -563,14 +667,18 @@ export function ReviewSessionView() {
   const reshuffle = () => {
     if (!session) return
     const nextFilters = reviewFiltersForNextRound(session)
-    const nextPool = buildReviewSessionPool(
-      trades,
-      nextFilters,
-      starred,
-      businessDateAnchor.currentTradingDayKey,
-      tradingDayStartHour,
-      { liveStages, currentLiveStageId },
-    )
+    const nextPool = session.systemPoolId
+      ? buildSystemReviewPool(trades, session.systemPoolId, subscribed)
+      : session.customPoolId
+        ? customPools.get(session.customPoolId) ?? []
+        : buildReviewSessionPool(
+        trades,
+        nextFilters,
+        starred,
+        businessDateAnchor.currentTradingDayKey,
+        tradingDayStartHour,
+        { liveStages, currentLiveStageId },
+      )
     if (nextPool.length === 0) {
       clearActiveSession(nextFilters)
       return
@@ -581,6 +689,8 @@ export function ReviewSessionView() {
       ids: shuffleReviewSessionIds(nextPool.map((trade) => trade.id)),
       cursor: 0,
       filters: nextFilters,
+      systemPoolId: session.systemPoolId,
+      customPoolId: session.customPoolId,
       assessments: {},
     })
   }
@@ -646,8 +756,10 @@ export function ReviewSessionView() {
         <ReviewSessionStart
           filters={filters}
           poolSize={pool.length}
+          homePools={homePools}
           onOpenSettings={openSettings}
-          onApplyPreset={(preset) => rememberFilters(applyReviewSessionPreset(filters, preset))}
+          onOpenManager={() => setPoolManagerOpen(true)}
+          onStartPool={startHomePool}
           onStart={start}
         />
       ) : hasExplicitEmptySelection ? (
@@ -695,6 +807,16 @@ export function ReviewSessionView() {
           onApply={applySettings}
           onClose={() => setSettingsDraft(null)}
         />
+      ) : poolManagerOpen ? (
+        <ReviewPoolManagerModal
+          presets={reviewPoolPresets}
+          layout={reviewPoolLayout}
+          strategies={strategies}
+          onSavePreset={saveReviewPoolPreset}
+          onRemovePreset={removeReviewPoolPreset}
+          onChangeLayout={setReviewPoolLayout}
+          onClose={() => setPoolManagerOpen(false)}
+        />
       ) : null}
     </div>
   )
@@ -703,14 +825,18 @@ export function ReviewSessionView() {
 function ReviewSessionStart({
   filters,
   poolSize,
+  homePools,
   onOpenSettings,
-  onApplyPreset,
+  onOpenManager,
+  onStartPool,
   onStart,
 }: {
   filters: ReviewSessionFilters
   poolSize: number
+  homePools: readonly ReviewPoolStartItem[]
   onOpenSettings: () => void
-  onApplyPreset: (preset: ReviewSessionPreset) => void
+  onOpenManager: () => void
+  onStartPool: (poolRef: ReviewPoolRef) => void
   onStart: () => void
 }) {
   const usesDefaultFilters = (
@@ -739,30 +865,26 @@ function ReviewSessionStart({
       </div>
 
       <fieldset className="review-session-presets">
-        <legend>快捷预置</legend>
+        <legend>选择一个复盘池，点击即开始</legend>
         <div className="review-session-preset-list">
-          {REVIEW_SESSION_PRESETS.map((preset) => {
-            const selected = matchReviewSessionPreset(filters) === preset.id
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                className={selected ? 'is-selected' : undefined}
-                aria-pressed={selected}
-                onClick={() => onApplyPreset(preset)}
-              >
-                <strong>{preset.label}</strong>
-                <small>{preset.hint}</small>
-              </button>
-            )
-          })}
+          {homePools.map((preset) => (
+            <button
+              key={`${preset.ref.kind}:${preset.ref.id}`}
+              type="button"
+              disabled={preset.count === 0}
+              onClick={() => onStartPool(preset.ref)}
+            >
+              <strong>{preset.label} · {preset.count}</strong>
+              <small>{preset.hint}</small>
+            </button>
+          ))}
         </div>
       </fieldset>
 
       <div className="review-session-start-footer">
         <div>
           <strong>{poolSize > 0 ? `可随机复盘 ${poolSize} 条` : emptyMessage}</strong>
-          <span>{poolSize > 0 ? '使用当前设置直接开始，本轮随机排序且不重复。' : emptyHint}</span>
+          <span>{poolSize > 0 ? '也可以沿用高级设置开始，本轮随机排序且不重复。' : emptyHint}</span>
           <span className="review-session-stage-source-summary">阶段来源：{reviewStageSourceLabel(filters.stageSource)}</span>
         </div>
         <div className="review-session-start-actions">
@@ -773,8 +895,14 @@ function ReviewSessionStart({
           <Menu
             align="right"
             trigger={<Button type="button" variant="ghost"><MoreHorizontal size={ICON_MD} aria-hidden />更多</Button>}
-            options={[{ value: 'settings', label: '复盘设置', icon: <SlidersHorizontal size={ICON_MD} /> }]}
-            onSelect={(value) => { if (value === 'settings') onOpenSettings() }}
+            options={[
+              { value: 'manager', label: '管理复盘池', icon: <BookOpen size={ICON_MD} /> },
+              { value: 'settings', label: '复盘设置', icon: <SlidersHorizontal size={ICON_MD} /> },
+            ]}
+            onSelect={(value) => {
+              if (value === 'manager') onOpenManager()
+              if (value === 'settings') onOpenSettings()
+            }}
           />
         </div>
       </div>

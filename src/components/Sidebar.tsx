@@ -3,7 +3,6 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { AppIcon } from '@/icons/appIcons'
 import {
   ChevronDown,
-  Archive,
   Ban,
   BookOpen,
   Bookmark,
@@ -61,8 +60,6 @@ import {
   SidebarWorkspaceEditor,
 } from '@/components/sidebar/SidebarWorkspaceEditor'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
-import { newTradeKindForPath } from '@/lib/tradeKind'
-import { createQuickNote } from '@/data/quickNotes'
 import { useExitClone } from '@/components/ui/useExitClone'
 
 import './Sidebar.css'
@@ -335,8 +332,9 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const suppressWorkspaceClick = useRef(false)
   const workspaceEditorExitRef = useExitClone<HTMLDivElement>(workspaceEditorOpen)
   const openComposer = useStore((state) => state.openComposer)
-  const upsertQuickNote = useStore((state) => state.upsertQuickNote)
   const profile = useStore((state) => state.profile)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
+  const riskPolicyVersions = useStore((state) => state.riskPolicyVersions)
   const {
     path,
     trades,
@@ -349,19 +347,19 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     primaryCount,
     primaryHref,
   } = useSidebarNavigationModel()
-  const pinnedWorkspaceItems = workspaceItems
+  const simplifiedWorkspaceItems = workspaceItems.filter((item) => (
+    item.item.target.kind === 'saved-view' || item.item.target.kind === 'strategy'
+  ))
+  const pinnedWorkspaceItems = simplifiedWorkspaceItems
     .filter((item) => item.item.placement === 'pinned')
     .slice(0, 8)
-  const overflowWorkspaceItems = workspaceItems.filter(
+  const overflowWorkspaceItems = simplifiedWorkspaceItems.filter(
     (item) => item.item.placement === 'overflow',
   )
   const hiddenWorkspace = hiddenWorkspaceLocation(path, Boolean(selection.activeWorkspaceItemId))
 
-  const inReviewCases = path.startsWith('/review-cases')
-  const inQuickNotes = path === '/notes' || path.startsWith('/notes/')
   const trashCount = trades.filter((trade) => Boolean(trade.deletedAt)).length
-
-  const createLabel = inQuickNotes ? '新建随记' : inReviewCases ? '新建案例记录' : '新建交易'
+  const hasCurrentRiskBaseline = riskPolicyVersions.some((policy) => policy.liveStageId === currentLiveStageId)
   const openWorkspaceEditor = (
     button: HTMLButtonElement,
     section: 'pinned' | 'overflow' = 'pinned',
@@ -694,33 +692,18 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               <Search size={ICON_MD} />
             </button>
           </ShortcutTooltip>
-          <ShortcutTooltip
-            actionId={inQuickNotes ? 'global.newQuickNote' : inReviewCases ? 'global.newCase' : 'global.newTrade'}
-            label={createLabel}
-          >
-            <button
-              type="button"
-              className="sb-hbtn sb-hbtn-create"
-              onClick={() => {
-                if (inQuickNotes) {
-                  const note = createQuickNote()
-                  upsertQuickNote(note)
-                  navigate(`/notes/${encodeURIComponent(note.id)}`)
-                  return
-                }
-                openComposer(null, inReviewCases ? 'case' : newTradeKindForPath(path))
-              }}
-              aria-label={createLabel}
-            >
-              <Compose size={ICON_MD} />
-            </button>
-          </ShortcutTooltip>
         </div>
       </div>
 
       <div className="sb-scroll">
+      <ShortcutTooltip actionId="global.newTrade" label="快速记录">
+        <button type="button" className="sb-quick-record sb-hbtn-create" onClick={() => openComposer(null, 'live')}>
+          <Compose size={ICON_MD} />
+          <span>快速记录</span>
+        </button>
+      </ShortcutTooltip>
       <nav className="sb-section sb-primary" aria-label="主要导航">
-        <div className="sb-section-label">工作台</div>
+        <div className="sb-section-label">核心</div>
         {resolvePrimarySidebarNav().map(({ id, to, label, icon: Icon }) => (
           <NavLink
             key={id}
@@ -740,7 +723,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
 
       <nav className="sb-section sb-workspace" aria-label="我的空间">
         <div className="sb-section-label sb-workspace-heading">
-          <span>我的空间</span>
+          <span>更多</span>
           <button
             type="button"
             className="sb-workspace-menu"
@@ -752,6 +735,10 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             <MoreHorizontal size={ICON_SM} aria-hidden="true" />
           </button>
         </div>
+        <NavLink to="/notes" className={({ isActive }) => `sb-item${isActive ? ' is-active' : ''}`}>
+          <Bookmark size={ICON_MD} />
+          <span className="sb-item-label">随记</span>
+        </NavLink>
         {hiddenWorkspace ? (
           <div
             className="sb-item sb-route-ghost is-active"
@@ -795,16 +782,17 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <span>添加或管理</span>
         </button>
       </nav>
-      <nav className="sb-section" aria-label="历史实盘">
-        <NavLink
-          to="/live-history"
-          data-primary-id="liveArchive"
-          className={({ isActive }) => `sb-item${isActive ? ' is-active' : ''}`}
-        >
-          <Archive size={ICON_MD} />
-          <span className="sb-item-label">历史实盘</span>
+      </div>
+
+      <div className="sb-footer">
+        <NavLink to="/settings/risk" className="sb-risk-summary">
+          <Target size={ICON_MD} />
+          <span><strong>风险摘要</strong><small>{hasCurrentRiskBaseline ? '当前阶段已设置' : '当前阶段未设置'}</small></span>
         </NavLink>
-      </nav>
+        <NavLink to="/settings" className="sb-item">
+          <Settings2 size={ICON_MD} />
+          <span className="sb-item-label">设置</span>
+        </NavLink>
       </div>
 
       {workspaceEditorOpen ? (

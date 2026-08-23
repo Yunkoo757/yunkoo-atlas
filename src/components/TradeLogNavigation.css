@@ -1,0 +1,62 @@
+.trade-log-navigation {
+  display: flex;
+  min-height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.trade-log-sections,
+.trade-log-scopes {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.trade-log-sections button,
+.trade-log-scopes button {
+  min-height: 30px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--radius-6);
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  font-size: var(--type-metadata-size);
+  cursor: pointer;
+}
+
+.trade-log-sections button {
+  color: var(--text-secondary);
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-semibold);
+}
+
+.trade-log-sections button:hover,
+.trade-log-scopes button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.trade-log-sections button.is-active,
+.trade-log-scopes button.is-active {
+  background: var(--bg-selected);
+  color: var(--text-primary);
+}
+
+@media (max-width: 1099px) {
+  .trade-log-navigation {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-block: var(--sp-2);
+  }
+
+  .trade-log-scopes {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}

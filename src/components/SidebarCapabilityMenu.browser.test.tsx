@@ -87,20 +87,17 @@ async function run(): Promise<void> {
       </MemoryRouter>,
     )
 
-    await waitFor(
-      () => document.querySelector('[data-sidebar-workspace-id="system:missed"]') !== null,
-      '错过的机会侧栏项没有渲染',
-    )
+    await waitFor(() => document.querySelector('[data-primary-id="trades"]') !== null, '核心导航没有渲染')
 
     const primaryLabels = [...document.querySelectorAll<HTMLElement>('.sb-primary [data-primary-id] .sb-item-label')]
       .map((node) => node.textContent?.trim())
     assert(
-      primaryLabels.join(',') === '今日工作台,随记,交易日志,案例记录,周复盘,随机复盘,仪表盘',
-      '旧持久化顺序不得改变工作台标准顺序',
+      primaryLabels.join(',') === '交易日志,案例记录,随机复盘',
+      '旧持久化顺序不得改变精简后的核心导航顺序',
     )
 
-    const primary = document.querySelector<HTMLAnchorElement>('[data-primary-id="dashboard"]')
-    assert(primary, '缺少仪表盘主导航')
+    const primary = document.querySelector<HTMLAnchorElement>('[data-primary-id="trades"]')
+    assert(primary, '缺少交易日志主导航')
     primary.focus()
     await frame()
     assert(!document.querySelector('[role="tooltip"]'), '聚焦工作台主导航不得显示 Tooltip')
@@ -117,74 +114,8 @@ async function run(): Promise<void> {
       '搜索纯图标按钮仍应显示 Tooltip',
     )
 
-    const today = document.querySelector<HTMLAnchorElement>('[data-primary-id="today"]')
-    assert(today, '缺少今日主导航')
-    const persistedBefore = useStore.getState().display.sidebarPrimaryOrder?.join(',') ?? ''
-    const orderBefore = [...document.querySelectorAll<HTMLElement>('.sb-primary [data-primary-id]')]
-      .map((node) => node.dataset.primaryId).join(',')
-    const originalElementFromPoint = document.elementFromPoint.bind(document)
-    document.elementFromPoint = () => today
-    try {
-      primary.dispatchEvent(new PointerEvent('pointerdown', {
-        bubbles: true,
-        pointerId: 7,
-        button: 0,
-        clientX: 20,
-        clientY: 20,
-      }))
-      primary.dispatchEvent(new PointerEvent('pointermove', {
-        bubbles: true,
-        pointerId: 7,
-        buttons: 1,
-        clientX: 20,
-        clientY: 80,
-      }))
-      primary.dispatchEvent(new PointerEvent('pointerup', {
-        bubbles: true,
-        pointerId: 7,
-        button: 0,
-        clientX: 20,
-        clientY: 80,
-      }))
-    } finally {
-      document.elementFromPoint = originalElementFromPoint
-    }
-    assert(
-      (useStore.getState().display.sidebarPrimaryOrder?.join(',') ?? '') === persistedBefore,
-      '主导航手势不得写回旧顺序字段',
-    )
-    assert(
-      [...document.querySelectorAll<HTMLElement>('.sb-primary [data-primary-id]')]
-        .map((node) => node.dataset.primaryId).join(',') === orderBefore,
-      '主导航手势不得改变标准顺序',
-    )
-
-    const missedItem = document.querySelector<HTMLElement>(
-      '[data-sidebar-workspace-id="system:missed"]',
-    )
-    assert(missedItem, '缺少错过的机会侧栏项')
-    assert(
-      !missedItem.querySelector('[aria-label="错过的机会包含范围"]'),
-      '错过的机会不应重复提供侧栏包含范围菜单',
-    )
-
-    missedItem.dispatchEvent(new MouseEvent('contextmenu', {
-      bubbles: true,
-      cancelable: true,
-      clientX: 40,
-      clientY: 80,
-    }))
-    await frame()
-    assert(!document.querySelector('.ctx'), '右键错过的机会不应打开重复的包含范围菜单')
-
-    const activeMenu = document.querySelector<HTMLButtonElement>('[aria-label="进行中可见工作区"]')
-    assert(activeMenu, '其他能力项仍应保留侧栏工作区菜单')
-    activeMenu.click()
-    await waitFor(() => document.querySelector('.ctx') !== null, '进行中工作区菜单没有打开')
-    assert(
-      document.querySelector('.ctx-label')?.textContent?.trim() === '可见工作区',
-      '其他能力项应继续显示可见工作区菜单',
-    )
+    assert(!document.querySelector('[data-sidebar-workspace-id="system:missed"]'), '旧系统快捷项不应继续占据侧栏')
+    assert(!document.querySelector('[data-sidebar-workspace-id="system:active"]'), '进行中已归入交易日志范围栏')
 
     const strategyMenu = document.querySelector<HTMLButtonElement>('[aria-label="导航1包含来源"]')
     assert(strategyMenu, '策略项必须提供包含来源菜单')

@@ -23,6 +23,8 @@ export function createEmptyPersistedSnapshot(): PersistedSnapshot {
     strategies: [],
     starredIds: [],
     subscribedIds: [],
+    reviewPoolPresets: [],
+    reviewPoolLayout: undefined,
     pinnedStrategyIds: [],
     display: {
       ...DEFAULT_DISPLAY,

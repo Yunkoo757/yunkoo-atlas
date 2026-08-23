@@ -1,5 +1,5 @@
 import { ICON_LG, ICON_MD, ICON_XL } from '@/icons/iconSize'
-import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   Link,
   UNSAFE_DataRouterContext,
@@ -214,7 +214,7 @@ function TradeEvidence({
   )
 }
 
-export function WeeklyReviewView() {
+export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
   const trades = useStore((state) => state.trades)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
@@ -657,6 +657,7 @@ export function WeeklyReviewView() {
   return (
     <>
       <Topbar title="周复盘" subtitle="把本周复盘转成下周可验证的一件事" showDisplay={false} />
+      {header}
       <div className={`wr-shell${hasReviewHistory ? '' : ' is-first-review'}`}>
         {hasReviewHistory ? (
           <aside className="wr-history" aria-label="周复盘历史">

@@ -8,6 +8,7 @@ import { RiskGatePublishAfterCommitError } from '@/lib/riskGatedTradeOpenCommit'
 import { RISK_UNKNOWN_REASON_COPY } from '@/lib/riskUnknownReasonPresentation'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Button } from '@/components/ui/Button'
+import { WeeklyRiskPreparationCard } from '@/components/WeeklyRiskPreparationCard'
 import { useStore, type StorePendingTradeOpenRequest } from '@/store/useStore'
 import './TradeOpenRiskDialog.css'
 
@@ -79,18 +80,48 @@ export function TradeOpenRiskDialog() {
   const privacyMode = useStore((state) => state.display.privacyMode)
   const cancelTradeOpen = useStore((state) => state.cancelTradeOpen)
   const confirmTradeOpen = useStore((state) => state.confirmTradeOpen)
+  const requestTradeOpen = useStore((state) => state.requestTradeOpen)
+  const currentStagePolicyCount = useStore((state) => state.riskPolicyVersions.filter(
+    (item) => item.liveStageId === state.currentLiveStageId,
+  ).length)
   const rehydrateRiskGateFromStorage = useStore((state) => state.rehydrateRiskGateFromStorage)
   const errorId = useId()
   const reloadButtonRef = useRef<HTMLButtonElement>(null)
   const [reason, setReason] = useState('')
   const [commitState, setCommitState] = useState<CommitState>('idle')
   const [error, setError] = useState('')
+  const [showBaselineEditor, setShowBaselineEditor] = useState(false)
+  const [baselinePolicyCount, setBaselinePolicyCount] = useState(0)
+  const [baselineSaving, setBaselineSaving] = useState(false)
+  const [baselineError, setBaselineError] = useState('')
 
   useEffect(() => {
     setReason('')
     setCommitState('idle')
     setError('')
+    setShowBaselineEditor(false)
+    setBaselineError('')
   }, [activeRequest?.tradeId])
+
+  useEffect(() => {
+    if (!showBaselineEditor || currentStagePolicyCount <= baselinePolicyCount || !activeRequest) return
+    let cancelled = false
+    setBaselineSaving(true)
+    setBaselineError('')
+    void import('@/storage/persist').then(({ flushPersistNow }) => flushPersistNow()).then(() => {
+      if (cancelled) return
+      const { tradeId, returnFocus } = activeRequest
+      cancelTradeOpen()
+      requestTradeOpen(tradeId, returnFocus)
+      setShowBaselineEditor(false)
+      setBaselineSaving(false)
+    }).catch((cause) => {
+      if (cancelled) return
+      setBaselineSaving(false)
+      setBaselineError(cause instanceof Error ? cause.message : '风险基准保存失败，请重试。')
+    })
+    return () => { cancelled = true }
+  }, [activeRequest, baselinePolicyCount, cancelTradeOpen, currentStagePolicyCount, requestTradeOpen, showBaselineEditor])
 
   useEffect(() => {
     if (!activeRequest) return
@@ -121,11 +152,6 @@ export function TradeOpenRiskDialog() {
     event.preventDefault()
     const trimmed = reason.trim()
     const length = Array.from(trimmed).length
-    if (length < 1) {
-      setCommitState('error')
-      setError('请填写 1–500 字的继续开仓原因。')
-      return
-    }
     if (length > 500) {
       setCommitState('error')
       setError('继续开仓原因最多 500 字。')
@@ -176,6 +202,33 @@ export function TradeOpenRiskDialog() {
   }
 
   const reloadRequired = commitState === 'reload-required'
+
+  if (showBaselineEditor && request) {
+    return (
+      <ModalShell
+        title="设置当前阶段风险基准"
+        description={`${trade.ref} · ${trade.symbol} · 保存后将重新计算本次开仓风险`}
+        busy={baselineSaving}
+        dismissible={!baselineSaving}
+        onClose={close}
+        size="default"
+        footer={<Button variant="bordered" size="lg" disabled={baselineSaving} onClick={close}>取消开仓</Button>}
+      >
+        <div data-risk-baseline-dialog>
+          <WeeklyRiskPreparationCard currentTradingDayKey={request.currentTradingDayKey} />
+          {baselineSaving ? <p className="trade-open-risk-baseline-status" role="status">正在耐久保存风险基准并重新计算…</p> : null}
+          {baselineError ? (
+            <div className="trade-open-risk-baseline-retry" role="alert">
+              <p className="trade-open-risk-error">{baselineError}</p>
+              <Button variant="bordered" onClick={() => setBaselinePolicyCount(currentStagePolicyCount - 1)}>
+                重试保存并重新计算
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </ModalShell>
+    )
+  }
 
   if (setupRequest) {
     const isStageMismatch = setupRequest.reason === 'not-current-stage'
@@ -252,7 +305,7 @@ export function TradeOpenRiskDialog() {
             >
               {commitState === 'committing'
                 ? '正在写入…'
-                : commitState === 'error' && reason.trim()
+                : commitState === 'error'
                   ? '重试确认'
                   : '确认继续开仓'}
             </Button>
@@ -305,11 +358,24 @@ export function TradeOpenRiskDialog() {
             <span>1R 金额</span>
             <strong>{policy ? (privacyMode ? '****' : fmtMoney(policy.riskAmount, 'USD')) : '—'}</strong>
           </div>
-          <p>{policy?.disciplineText || '先补齐风险规则与缺失数据，再决定是否继续开仓。'}</p>
+          <p>{policy?.disciplineText || '当前无风险基准；你仍可确认本次开仓，系统会保留未知风险审计。'}</p>
+          {!policy ? (
+            <button
+              type="button"
+              className="trade-open-risk-baseline-action"
+              onClick={() => {
+                setBaselinePolicyCount(currentStagePolicyCount)
+                setBaselineError('')
+                setShowBaselineEditor(true)
+              }}
+            >
+              设置风险基准
+            </button>
+          ) : null}
         </section>
 
         <label className="trade-open-risk-reason">
-          <span>继续开仓原因 <small>{Array.from(reason).length}/500</small></span>
+          <span>继续开仓原因（可选） <small>{Array.from(reason).length}/500</small></span>
           <textarea
             aria-label="继续开仓原因"
             data-autofocus
@@ -324,7 +390,7 @@ export function TradeOpenRiskDialog() {
                 setError('')
               }
             }}
-            placeholder="写明为什么仍要开仓，以及本笔风险将如何控制。"
+            placeholder="可留空；如填写，将与本次风险快照一起保存。"
           />
         </label>
 

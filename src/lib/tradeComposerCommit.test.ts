@@ -305,9 +305,11 @@ export async function testComposerCommitsNewAssetsAndTradeAsOneMergeBatch(): Pro
   }
 }
 
-export async function testComposerSourceCommitSynchronizesCaseSnapshotInTheSamePatch(): Promise<void> {
+export async function testComposerSourceCommitKeepsCaseSnapshotFrozen(): Promise<void> {
   const previous = useStore.getState()
-  useStore.setState({ trades: [sourceTrade, sourceCase] })
+  const stagedSource = { ...sourceTrade, liveStageId: previous.currentLiveStageId }
+  const stagedCase = { ...sourceCase, liveStageId: previous.currentLiveStageId }
+  useStore.setState({ trades: [stagedSource, stagedCase] })
   let committedSnapshot: PersistedSnapshot | undefined
   try {
     const result = await commitComposerTradeBatch({
@@ -327,17 +329,17 @@ export async function testComposerSourceCommitSynchronizesCaseSnapshotInTheSameP
     const committedCase = committedSnapshot?.trades.find((trade) => trade.id === sourceCase.id)
     const publishedCase = useStore.getState().trades.find((trade) => trade.id === sourceCase.id)
     assert(result.trade?.note.includes('composer-source-latest-asset'), 'Composer 成功结果必须包含最新来源截图')
-    assert(committedSource?.note === committedCase?.sourceNoteHtml, '同一持久化快照必须同步来源正文与案例快照')
-    assert(publishedCase?.sourceNoteHtml === committedSource?.note, '持久化成功后必须一次发布相同案例快照')
-    assert(committedCase?.note === sourceCase.note && publishedCase?.note === sourceCase.note, '来源同步不得覆盖案例正文')
-    assert(committedCase?.activities === sourceCase.activities, '来源同步不得创建或替换案例活动')
-    assert(publishedCase?.activities === sourceCase.activities, '发布 patch 必须保留案例活动引用')
-    assert(publishedCase?.deletedAt === sourceCase.deletedAt, '软删除案例必须同步且保持删除状态')
+    assert(committedCase?.sourceNoteHtml === stagedCase.sourceNoteHtml, '来源更新不得覆盖案例冻结快照')
+    assert(publishedCase?.sourceNoteHtml === stagedCase.sourceNoteHtml, '发布后案例冻结快照必须保持不变')
+    assert(committedCase?.note === stagedCase.note && publishedCase?.note === stagedCase.note, '来源同步不得覆盖案例正文')
+    assert(committedCase?.activities === stagedCase.activities, '来源同步不得创建或替换案例活动')
+    assert(publishedCase?.activities === stagedCase.activities, '发布 patch 必须保留案例活动引用')
+    assert(publishedCase?.deletedAt === stagedCase.deletedAt, '软删除案例必须同步且保持删除状态')
 
     useStore.getState().purgeTrade(sourceTrade.id)
     assert(
-      collectAssetIdsFromNotes(useStore.getState().trades).includes('composer-source-latest-asset'),
-      '来源 purge 后最新截图仍必须由案例快照保护',
+      !collectAssetIdsFromNotes(useStore.getState().trades).includes('composer-source-latest-asset'),
+      '来源 purge 后未被案例冻结快照引用的新截图可以回收',
     )
   } finally {
     useStore.setState({ trades: previous.trades })

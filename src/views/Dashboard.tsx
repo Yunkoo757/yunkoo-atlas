@@ -1,5 +1,5 @@
 import { ICON_MD } from '@/icons/iconSize'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AreaChart,
@@ -71,7 +71,7 @@ const RANGE_LABELS: Record<AnalysisRange, string> = {
   ytd: '本年',
 }
 
-export function Dashboard() {
+export function Dashboard({ header }: { header?: ReactNode } = {}) {
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -224,6 +224,7 @@ export function Dashboard() {
   return (
     <>
       <Topbar title="仪表盘" subtitle="仅统计已平仓 · 按平仓日累计 · 报告币种 USD" showDisplay={false} />
+      {header}
       <div className="db-scroll">
         <div className="db-analysis-rail">
         <div className="db-toolbar" aria-label="分析控制">

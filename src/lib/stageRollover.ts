@@ -10,12 +10,16 @@ import {
 } from '@/lib/liveStages'
 
 export type StageRolloverBlockerCode =
-  | 'planned-trades'
   | 'open-trades'
-  | 'weekly-review-incomplete'
+
+export type StageRolloverAdvisoryCode = 'planned-trades' | 'weekly-review-incomplete'
 
 export interface StageRolloverBlocker {
   code: StageRolloverBlockerCode
+}
+
+export interface StageRolloverAdvisory {
+  code: StageRolloverAdvisoryCode
 }
 
 export interface StageRolloverState {
@@ -95,17 +99,27 @@ export function listStageRolloverBlockers(
   const currentStage = getCurrentLiveStage([...state.liveStages], state.currentLiveStageId)
   const currentLiveTrades = listCurrentStageLiveTrades(state.trades, currentStage.id)
   const blockers: StageRolloverBlocker[] = []
-  if (currentLiveTrades.some((trade) => trade.status === 'planned')) {
-    blockers.push({ code: 'planned-trades' })
-  }
   if (currentLiveTrades.some((trade) => trade.status === 'open')) {
     blockers.push({ code: 'open-trades' })
   }
+  return blockers
+}
+
+export function listStageRolloverAdvisories(
+  state: StageRolloverState,
+  effectiveWeekStart: string,
+): StageRolloverAdvisory[] {
+  const currentStage = getCurrentLiveStage([...state.liveStages], state.currentLiveStageId)
+  const currentLiveTrades = listCurrentStageLiveTrades(state.trades, currentStage.id)
+  const advisories: StageRolloverAdvisory[] = []
+  if (currentLiveTrades.some((trade) => trade.status === 'planned')) {
+    advisories.push({ code: 'planned-trades' })
+  }
   const preceding = precedingWeek(effectiveWeekStart)
   if (!isStageWeekCompleted(state.weeklyReviews, currentStage.id, preceding.weekStart)) {
-    blockers.push({ code: 'weekly-review-incomplete' })
+    advisories.push({ code: 'weekly-review-incomplete' })
   }
-  return blockers
+  return advisories
 }
 
 export function scheduleStageRollover(

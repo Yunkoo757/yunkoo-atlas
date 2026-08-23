@@ -296,3 +296,30 @@ export function testMergeImportRejectsUnknownLocalStageReference(): void {
   }
   assert(message.includes('stage-foreign'), 'merge 必须明确拒绝未知本地阶段引用')
 }
+
+export function testMergeImportRemapsReviewPoolConflictsWithoutChangingHomeLayout(): void {
+  const current = currentState()
+  const baseFilters = {
+    sources: [], results: [], caseTypes: [], strategyIds: [], symbols: [], sides: [], tags: [], mistakeTags: [], requireContent: false,
+  }
+  const localPreset = {
+    id: 'pool-shared', name: '本地池', filters: baseFilters,
+    createdAt: '2026-08-20T00:00:00.000Z', updatedAt: '2026-08-20T00:00:00.000Z',
+  }
+  current.reviewPoolPresets = [localPreset]
+  current.reviewPoolLayout = {
+    homeOrder: [{ kind: 'system', id: 'all' }, { kind: 'custom', id: localPreset.id }],
+    hiddenSystemIds: ['wins'],
+  }
+  const importedPreset = { ...localPreset, name: '导入池', updatedAt: '2026-08-21T00:00:00.000Z' }
+  const merged = mergeImportPayload(current, {
+    version: 13,
+    trades: [], weeklyRiskPreparations: [], riskPolicyVersions: [], monthlyRiskLimits: [], riskOverrideEvents: [],
+    strategies: current.strategies, starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: current.display,
+    reviewPoolPresets: [importedPreset],
+    reviewPoolLayout: { homeOrder: [{ kind: 'system', id: 'all' }], hiddenSystemIds: [] },
+  })
+  assert(merged.reviewPoolPresets?.length === 2, '同 ID 不同内容的导入复盘池必须稳定改写 ID 后并存')
+  assert(merged.reviewPoolPresets?.some((preset) => preset.name === '导入池' && preset.id !== localPreset.id), '导入冲突池必须获得新 ID')
+  assert(JSON.stringify(merged.reviewPoolLayout) === JSON.stringify(current.reviewPoolLayout), '合并导入不得打乱当前首页布局')
+}

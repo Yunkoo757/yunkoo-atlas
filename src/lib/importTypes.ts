@@ -40,6 +40,8 @@ export interface ExportPayload {
   symbolIcons?: SymbolIconsMap
   symbolCatalog?: string[]
   reviewTemplates?: ReviewTemplate[]
+  reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
+  reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
   assets?: ExportAssetRecord[]
 }
 
@@ -70,4 +72,6 @@ export interface PersistedSlice {
   symbolIcons?: SymbolIconsMap
   symbolCatalog?: string[]
   reviewTemplates?: ReviewTemplate[]
+  reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
+  reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
 }

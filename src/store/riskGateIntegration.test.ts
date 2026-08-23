@@ -135,7 +135,7 @@ export function testInteractiveOpenPathsExplicitlyRejectHistoricalOrUnownedTrade
   }
 }
 
-export function testFirstOpenIsBlockedUntilCurrentStageRiskSetup(): void {
+export function testFirstOpenWithoutCurrentStageRiskSetupRequiresConfirmation(): void {
   const previous = useStore.getState()
   try {
     const currentStage = previous.liveStages.find((stage) => stage.id === previous.currentLiveStageId)
@@ -154,15 +154,15 @@ export function testFirstOpenIsBlockedUntilCurrentStageRiskSetup(): void {
 
     const result = useStore.getState().requestTradeOpen(target.id)
 
-    assert(result === 'requires-risk-setup', '新阶段第一次开仓必须先返回 requires-risk-setup')
-    assert(useStore.getState().trades[0]?.status === 'planned', '未建档不得开仓')
-    assert(useStore.getState().pendingTradeOpenRequest === null, '未建档不得提供填写原因绕过入口')
+    assert(result === 'pending-confirmation', '新阶段未建档时必须进入未知风险确认')
+    assert(useStore.getState().trades[0]?.status === 'planned', '确认前不得开仓')
+    assert(useStore.getState().pendingTradeOpenRequest?.decisionType === 'unknown', '未建档必须保留未知风险审计请求')
   } finally {
     restore(previous)
   }
 }
 
-export function testHistoricalOpenActivityCannotBypassSetupThroughAnyPublicTransition(): void {
+export function testHistoricalOpenActivityBypassesRepeatedRecordConfirmation(): void {
   const previous = useStore.getState()
   try {
     const base = trade('imported-open-history', 'planned')
@@ -176,11 +176,7 @@ export function testHistoricalOpenActivityCannotBypassSetupThroughAnyPublicTrans
     setGateFixture([target])
     useStore.setState({ riskPolicyVersions: [], monthlyRiskLimits: [] })
 
-    assert(useStore.getState().requestTradeOpen(target.id) === 'requires-risk-setup', 'requestTradeOpen 不得被历史 open 绕过建档')
-    assert(useStore.getState().setStatus(target.id, 'open') === 'requires-risk-gate', 'setStatus 不得被历史 open 绕过建档')
-    assert(useStore.getState().upsertTrade({ ...target, status: 'open' }) === 'requires-risk-gate', 'upsertTrade 不得被历史 open 绕过建档')
-    assert(useStore.getState().upsertTrades([{ ...target, status: 'open' }]) === 'requires-risk-gate', 'upsertTrades 不得被历史 open 绕过建档')
-    assert(useStore.getState().trades[0]?.status === 'planned', '任何公开入口都不得提前写入 open')
+    assert(useStore.getState().requestTradeOpen(target.id) === 'opened', '可信历史 open 表示该记录已完成首次确认')
 
     useStore.setState((state) => ({
       riskPolicyVersions: [{ ...policy, liveStageId: state.currentLiveStageId }],

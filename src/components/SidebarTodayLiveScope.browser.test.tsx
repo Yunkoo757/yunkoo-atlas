@@ -89,12 +89,12 @@ async function run(): Promise<void> {
     )
 
     await waitFor(
-      () => document.querySelector('[data-primary-id="today"] .sb-item-count') !== null,
-      '今日工作台侧栏计数没有渲染',
+      () => document.querySelector('[data-primary-id="trades"] .sb-item-count') !== null,
+      '交易日志侧栏计数没有渲染',
     )
-    const count = document.querySelector<HTMLElement>('[data-primary-id="today"] .sb-item-count')
-    assert(count, '缺少今日工作台侧栏计数')
-    assert(count.textContent?.trim() === '1', '今日侧栏只能统计 currentLiveStageId，旧 stage 日期不得干扰')
+    const count = document.querySelector<HTMLElement>('[data-primary-id="trades"] .sb-item-count')
+    assert(count, '缺少交易日志侧栏计数')
+    assert(count.textContent?.trim() === '1', '交易日志侧栏只能统计 currentLiveStageId，旧 stage 日期不得干扰')
     assert(count.getAttribute('aria-hidden') === 'false', '当前 stage 有待办时计数必须可见')
   } finally {
     root.unmount()

@@ -27,6 +27,7 @@ export type ListFilterType =
   | 'strategy'
   | 'period'
   | 'missed'
+  | 'incomplete'
 
 export interface ListFilter {
   type: ListFilterType

@@ -69,6 +69,21 @@
 .trade-open-risk-policy span { color: var(--text-muted); font-size: var(--type-caption-size); }
 .trade-open-risk-policy strong { color: var(--text-secondary); font-size: var(--type-metadata-size); font-weight: var(--font-weight-medium); }
 .trade-open-risk-policy p { grid-column: 1 / -1; margin: 0; color: var(--text-muted); font-size: var(--type-metadata-size); line-height: 1.45; }
+.trade-open-risk-baseline-action {
+  grid-column: 1 / -1;
+  justify-self: start;
+  padding: 0;
+  color: var(--accent-readable);
+  font: inherit;
+  font-size: var(--type-metadata-size);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.trade-open-risk-baseline-action:hover { text-decoration: underline; }
+.trade-open-risk-baseline-status { margin: var(--sp-3) 0 0; color: var(--text-muted); font-size: var(--type-metadata-size); }
+.trade-open-risk-baseline-retry { display: grid; gap: var(--sp-2); margin-top: var(--sp-3); }
+.trade-open-risk-baseline-retry .trade-open-risk-error { margin: 0; }
 
 .trade-open-risk-reason { display: flex; flex-direction: column; gap: 6px; }
 .trade-open-risk-reason > span { display: flex; justify-content: space-between; color: var(--text-secondary); font-size: var(--type-metadata-size); font-weight: var(--font-weight-medium); }
