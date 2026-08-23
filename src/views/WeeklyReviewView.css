@@ -28,7 +28,7 @@
 .wr-content,.wr-year { width: min(var(--page-rail-reading), calc(100% - var(--page-inset-default) - var(--page-inset-default))); margin: 0 auto; padding: var(--sp-5) 0 96px; }
 .wr-section { margin: 0; padding: var(--sp-6) 0; border: 0; border-top: 1px solid var(--border-subtle); border-radius: 0; background: transparent; }
 .wr-previous,.wr-commitment { margin: var(--sp-4) 0; padding: var(--sp-5); border: 1px solid var(--border-subtle); border-radius: var(--radius-8); background: var(--bg-elevated); }
-.wr-progress-summary { min-height: 30px; display: grid; grid-template-columns: auto auto minmax(120px, 1fr); align-items: center; gap: var(--sp-3); padding: 0 0 var(--sp-4); color: var(--text-tertiary); font-size: var(--fs-mini); }
+.wr-progress-summary { min-height: 30px; display: grid; grid-template-columns: auto auto minmax(120px, 1fr); align-items: center; gap: var(--sp-3); padding: 0 0 var(--sp-4); color: var(--text-tertiary); font-size: var(--type-metadata-size); }
 .wr-progress-summary strong { color: var(--text-secondary); font-size: var(--fs-sm); font-weight: var(--font-weight-medium); }
 .wr-progress-track { height: 3px; overflow: hidden; border-radius: var(--radius-full); background: var(--bg-inset); }
 .wr-progress-track i { display: block; height: 100%; background: var(--accent); transition: width var(--dur-base) var(--ease-out); }

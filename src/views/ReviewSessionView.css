@@ -230,7 +230,7 @@
   grid-template-columns: auto auto 1fr;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  padding: var(--sp-2) 10px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-8);
   background: transparent;
