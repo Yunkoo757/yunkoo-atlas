@@ -49,7 +49,6 @@ import { DEFAULT_TRADING_DAY_START_HOUR, getTradingDayKey } from '@/lib/periods'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import {
-  assignWeeklyReviewStage,
   completeWeeklyReviewCandidate,
   normalizeWeeklyReviews,
   reopenCompletedReview,
@@ -78,6 +77,7 @@ import {
   type ScheduledStageRollover,
 } from '@/lib/liveStages'
 import { scheduleStageRollover } from '@/lib/stageRollover'
+import { stageContainsWeeklyReviewPeriod } from '@/lib/weeklyReviewPeriod'
 import type { StageRolloverPublishState } from '@/types/journalBridge'
 import {
   assignPendingStageOwnership as applyPendingStageOwnership,
@@ -1052,11 +1052,17 @@ export const useStore = create<State>()((set, get) => ({
               item.weekStart === review.weekStart
             ),
           )
-          const ownedCandidate = assignWeeklyReviewStage(
-            review,
-            currentLiveStageId,
-            existing,
-          )
+          const currentStage = state.liveStages.find((stage) => stage.id === currentLiveStageId)!
+          const periodOwner = stageContainsWeeklyReviewPeriod(currentStage, review.weekStart, review.weekEnd)
+            ? currentStage
+            : [...state.liveStages]
+                .filter((stage) => stageContainsWeeklyReviewPeriod(stage, review.weekStart, review.weekEnd))
+                .sort((left, right) => right.sequence - left.sequence)[0]
+          // 新建历史周复盘必须归入真正覆盖该周的阶段。跨阶段周没有合法
+          // 单一归属时保持 null，进入显式待整理队列，绝不能生成无法落盘的快照。
+          const ownedCandidate = existing
+            ? { ...review, liveStageId: existing.liveStageId }
+            : { ...review, liveStageId: periodOwner?.id ?? null }
           const owned = existing?.status === 'completed'
             ? {
                 ...ownedCandidate,

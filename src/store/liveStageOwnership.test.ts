@@ -423,6 +423,45 @@ export function testWeeklyAndRiskCreationUseCurrentStage(): void {
   }
 }
 
+export function testHistoricalAndBoundaryWeeklyReviewCreationRemainPersistable(): void {
+  const previous = useStore.getState()
+  try {
+    seedStore()
+    const base = {
+      status: 'draft' as const,
+      executionScore: null, riskScore: null, emotionScore: null,
+      strengthTags: [], mistakeTags: [], highlightTradeIds: [], mistakeTradeIds: [], followUpTradeIds: [],
+      contentHtml: '', commitmentText: '', commitmentCriteria: '', previousCommitmentResult: null,
+      metricsSnapshot: null, createdAt: '2026-08-23T00:00:00.000Z',
+      updatedAt: '2026-08-23T00:00:00.000Z', completedAt: null,
+    }
+    useStore.getState().upsertWeeklyReview({
+      ...base,
+      id: 'weekly-review:stage-current:2026-07-13',
+      liveStageId: 'stage-current',
+      weekStart: '2026-07-13',
+      weekEnd: '2026-07-19',
+    })
+    useStore.getState().upsertWeeklyReview({
+      ...base,
+      id: 'weekly-review:stage-current:2026-07-27',
+      liveStageId: 'stage-current',
+      weekStart: '2026-07-27',
+      weekEnd: '2026-08-02',
+    })
+    const historical = useStore.getState().weeklyReviews.find((review) => review.weekStart === '2026-07-13')
+    const boundary = useStore.getState().weeklyReviews.find((review) => review.weekStart === '2026-07-27')
+    assert(historical?.liveStageId === 'stage-old', '历史周复盘必须归入真正覆盖该周的归档阶段')
+    assert(boundary?.liveStageId === null, '跨阶段周复盘必须进入待整理，不能伪造当前阶段归属')
+    decodeCanonicalSnapshot(
+      pickPersisted(useStore.getState(), {}),
+      { version: SCHEMA_VERSION, label: 'weekly review write boundary' },
+    )
+  } finally {
+    useStore.setState(previous)
+  }
+}
+
 export function testArchivedSameDayCloseDoesNotDelayFirstCurrentStagePolicyOrMonthlyLock(): void {
   const previous = useStore.getState()
   try {

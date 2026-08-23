@@ -72,6 +72,9 @@ async function run(): Promise<void> {
   const root = createRoot(rootElement)
   try {
     const weekStart = activeWeekStart
+    const priorDate = new Date(`${weekStart}T12:00:00`)
+    priorDate.setDate(priorDate.getDate() - 7)
+    const priorWeekStart = weekStartFor(priorDate)
     const trade = makeTrade(weekStart)
     const review = {
       ...createWeeklyReview(weekStart, previous.currentLiveStageId),
@@ -86,6 +89,9 @@ async function run(): Promise<void> {
     useStore.setState({
       trades: [trade],
       weeklyReviews: [review],
+      liveStages: previous.liveStages.map((stage) => stage.id === previous.currentLiveStageId
+        ? { ...stage, startsOn: priorWeekStart }
+        : stage),
       display: { ...previous.display, privacyMode: true },
     })
     root.render(
@@ -155,10 +161,8 @@ async function run(): Promise<void> {
       weeklyReviews: state.weeklyReviews.filter((item) => item.id !== otherStageReview.id),
     }))
 
-    const priorDate = new Date(`${weekStart}T12:00:00`)
-    priorDate.setDate(priorDate.getDate() - 7)
     useStore.getState().upsertWeeklyReview({
-      ...createWeeklyReview(weekStartFor(priorDate), previous.currentLiveStageId),
+      ...createWeeklyReview(priorWeekStart, previous.currentLiveStageId),
       status: 'completed',
       executionScore: 3,
       riskScore: 3,
@@ -194,6 +198,7 @@ async function run(): Promise<void> {
       useStore.setState({
         trades: previous.trades,
         weeklyReviews: previous.weeklyReviews,
+        liveStages: previous.liveStages,
         display: previous.display,
       })
     }

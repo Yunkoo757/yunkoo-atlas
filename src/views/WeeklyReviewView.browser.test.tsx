@@ -901,8 +901,24 @@ async function run(): Promise<void> {
 
     const priorDate = new Date(`${activeWeekStart}T12:00:00`)
     priorDate.setDate(priorDate.getDate() - 7)
+    const priorWeekStart = weekStartFor(priorDate)
+    useStore.setState((state) => ({
+      liveStages: [
+        {
+          id: 'stage-prior-review',
+          sequence: 1,
+          name: '历史复盘阶段',
+          status: 'archived',
+          startsOn: priorWeekStart,
+          endsOn: addDays(activeWeekStart, -1),
+          createdAt: `${priorWeekStart}T00:00:00.000Z`,
+          archivedAt: `${activeWeekStart}T00:00:00.000Z`,
+        },
+        ...state.liveStages.map((stage) => ({ ...stage, sequence: stage.sequence + 1 })),
+      ],
+    }))
     const priorReview = {
-      ...createWeeklyReview(weekStartFor(priorDate), useStore.getState().currentLiveStageId),
+      ...createWeeklyReview(priorWeekStart, useStore.getState().currentLiveStageId),
       contentHtml: '<p>上一周真实复盘</p>',
     }
     useStore.getState().upsertWeeklyReview(priorReview)
