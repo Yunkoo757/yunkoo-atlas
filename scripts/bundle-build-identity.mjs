@@ -95,17 +95,45 @@ export function validateBundleBuildIdentityEvidence(evidence, requiredBundles) {
   return evidence
 }
 
-export async function collectElectronBundleIdentity({ page, application, expectation }) {
+export async function collectElectronBundleIdentity({
+  page,
+  application,
+  expectation,
+  identityTimeoutMs = 10_000,
+  identityPollIntervalMs = 25,
+}) {
   if (!page || typeof page.evaluate !== 'function') {
     throw new Error('Electron renderer identity requires a running renderer page')
   }
   if (!application || typeof application.evaluate !== 'function') {
     throw new Error('Electron main identity requires a running Electron application')
   }
-  const [renderer, main] = await Promise.all([
-    page.evaluate(() => window.__ATLAS_BUILD_IDENTITY__),
-    application.evaluate(() => globalThis.__ATLAS_BUILD_IDENTITY__),
-  ])
+  if (!Number.isFinite(identityTimeoutMs) || identityTimeoutMs <= 0) {
+    throw new Error('Electron bundle identity timeout must be a positive number')
+  }
+  if (!Number.isFinite(identityPollIntervalMs) || identityPollIntervalMs <= 0) {
+    throw new Error('Electron bundle identity poll interval must be a positive number')
+  }
+
+  const deadline = Date.now() + identityTimeoutMs
+  let renderer
+  let main
+  while (true) {
+    const identities = await Promise.all([
+      page.evaluate(() => window.__ATLAS_BUILD_IDENTITY__),
+      application.evaluate(() => globalThis.__ATLAS_BUILD_IDENTITY__),
+    ])
+    renderer = identities[0]
+    main = identities[1]
+    const rendererReady = renderer && typeof renderer === 'object'
+    const mainReady = main && typeof main === 'object'
+    if (rendererReady && mainReady) break
+    const remaining = deadline - Date.now()
+    if (remaining <= 0) break
+    await new Promise((resolve) => {
+      setTimeout(resolve, Math.min(identityPollIntervalMs, remaining))
+    })
+  }
   const evidence = {
     bundles: { renderer, main },
     repository: expectation?.repository,

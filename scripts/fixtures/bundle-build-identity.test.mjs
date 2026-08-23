@@ -65,6 +65,27 @@ test('Electron visual accepts matching clean renderer and main bundle identities
   })
 })
 
+test('Electron identity collection waits through a transient blank renderer before validating', async () => {
+  let rendererReads = 0
+  const page = {
+    evaluate: async () => {
+      rendererReads += 1
+      return rendererReads < 3 ? undefined : { commit: commitA, dirty: false }
+    },
+  }
+
+  const evidence = await collectElectronBundleIdentity({
+    page,
+    application: runtime({ commit: commitA, dirty: false }),
+    expectation: expectation(),
+    identityTimeoutMs: 50,
+    identityPollIntervalMs: 1,
+  })
+
+  assert.equal(rendererReads, 3)
+  assert.deepEqual(evidence.bundles.renderer, { commit: commitA, dirty: false })
+})
+
 test('forced-kill rejects stale or dirty actual main identity and honors exact GITHUB_SHA', () => {
   assert.throws(
     () => validateBundleBuildIdentityEvidence({
