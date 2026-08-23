@@ -29,3 +29,16 @@ export function normalizePrimarySidebarOrder(input: unknown): PrimarySidebarNavI
     : []
   return [...new Set(ordered), ...DEFAULT_PRIMARY_SIDEBAR_ORDER.filter((id) => !ordered.includes(id))]
 }
+
+export function reorderPrimarySidebarItem(
+  input: unknown,
+  sourceId: PrimarySidebarNavId,
+  targetId: PrimarySidebarNavId,
+): PrimarySidebarNavId[] {
+  const order = normalizePrimarySidebarOrder(input)
+  if (sourceId === targetId || !order.includes(sourceId) || !order.includes(targetId)) return order
+  const withoutSource = order.filter((id) => id !== sourceId)
+  const targetIndex = withoutSource.indexOf(targetId)
+  withoutSource.splice(targetIndex, 0, sourceId)
+  return withoutSource
+}

@@ -82,8 +82,8 @@ async function run(): Promise<void> {
     const review = document.querySelector<HTMLAnchorElement>('[data-primary-id="weeklyReview"]')
     review?.click()
     await waitFor(
-      () => document.querySelector('[data-workspace-page="review"]')?.textContent?.includes('实盘复盘') ?? false,
-      '周期复盘必须一步到达并说明实盘语义',
+      () => document.querySelector('[data-workspace-page="review"]') !== null,
+      '周期复盘必须一步到达并保留阶段上下文',
     )
     assert(!document.querySelector('[data-workspace-page="review"] [aria-label="记录类型"]'), '周期复盘不得展示无效盘型筛选')
   } finally {

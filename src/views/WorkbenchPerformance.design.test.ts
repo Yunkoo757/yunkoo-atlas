@@ -148,13 +148,8 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   if (!sidebar.includes('height: 28px') || !sidebar.includes('border-radius: var(--radius-8)')) {
     throw new Error('sidebar navigation must preserve the calibrated 28px / 8px geometry')
   }
-  if (
-    !sidebar.includes('.sb-quick-record') ||
-    !sidebar.includes('background: transparent') ||
-    !sidebar.includes('.sb-quick-record-icon') ||
-    !sidebar.includes('color-mix(in srgb, var(--accent) 16%, transparent)')
-  ) {
-    throw new Error('sidebar create must remain a quiet row action with accent limited to its icon')
+  if (!sidebar.includes('.sb-hbtn-create') || sidebar.includes('.sb-quick-record')) {
+    throw new Error('sidebar create must be integrated into the header action group')
   }
   if (!sidebar.includes('.sb-scroll') || !sidebar.includes('overflow: hidden')) {
     throw new Error('sidebar must scroll in .sb-scroll so header Create overlay is not clipped')
@@ -169,8 +164,8 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
     throw new Error('sidebar create must not use the stale 0.5px/0.132 overlay')
   }
   const sidebarRuntime = read('src/components/Sidebar.tsx')
-  if (!sidebarRuntime.includes('sb-quick-record-icon') || !sidebarRuntime.includes('<Plus')) {
-    throw new Error('sidebar create must use the compact plus action')
+  if (!sidebarRuntime.includes('sb-hbtn sb-hbtn-create') || !sidebarRuntime.includes('<Plus')) {
+    throw new Error('sidebar create must use the compact header plus action')
   }
   if (!sidebarRuntime.includes('sb-hbtn-search')) {
     throw new Error('sidebar search must keep an explicit sb-hbtn-search class')

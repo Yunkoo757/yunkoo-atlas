@@ -8,6 +8,7 @@ import {
   Bookmark,
   Clock,
   FlaskConical,
+  GripVertical,
   MoreHorizontal,
   Plus,
   Search,
@@ -22,6 +23,7 @@ import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import { Menu } from '@/components/Menu'
 import { ContextMenu, type CtxItem, type CtxState } from '@/components/ContextMenu'
 import {
+  reorderPrimarySidebarItem,
   resolvePrimarySidebarNav,
   type PrimarySidebarNavId,
 } from '@/lib/sidebarNav'
@@ -321,6 +323,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
   const [workspaceEditorSection, setWorkspaceEditorSection] = useState<'pinned' | 'overflow'>('pinned')
   const [workspaceDrag, setWorkspaceDrag] = useState<SidebarDragState | null>(null)
+  const [primaryDrag, setPrimaryDrag] = useState<SidebarDragState | null>(null)
   const [capabilityMenu, setCapabilityMenu] = useState<(CtxState & { itemId: string }) | null>(null)
   const workspaceEditorOpener = useRef<HTMLButtonElement | null>(null)
   const workspaceDragSession = useRef<{
@@ -332,9 +335,20 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     active: boolean
     overId: string | null
   } | null>(null)
+  const primaryDragSession = useRef<{
+    id: PrimarySidebarNavId
+    pointerId: number
+    startX: number
+    startY: number
+    active: boolean
+    overId: PrimarySidebarNavId | null
+  } | null>(null)
   const suppressWorkspaceClick = useRef(false)
+  const suppressPrimaryClick = useRef(false)
   const workspaceEditorExitRef = useExitClone<HTMLDivElement>(workspaceEditorOpen)
   const openComposer = useStore((state) => state.openComposer)
+  const primaryOrder = useStore((state) => state.display.sidebarPrimaryOrder)
+  const setDisplay = useStore((state) => state.setDisplay)
   const profile = useStore((state) => state.profile)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const riskPolicyVersions = useStore((state) => state.riskPolicyVersions)
@@ -360,6 +374,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     (item) => item.item.placement === 'overflow',
   )
   const hiddenWorkspace = hiddenWorkspaceLocation(path, Boolean(selection.activeWorkspaceItemId))
+  const primaryNav = useMemo(() => resolvePrimarySidebarNav(primaryOrder), [primaryOrder])
 
   const trashCount = trades.filter((trade) => Boolean(trade.deletedAt)).length
   const hasCurrentRiskBaseline = riskPolicyVersions.some((policy) => policy.liveStageId === currentLiveStageId)
@@ -374,6 +389,72 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const closeWorkspaceEditor = () => {
     setWorkspaceEditorOpen(false)
     requestAnimationFrame(() => workspaceEditorOpener.current?.focus())
+  }
+
+  const finishPrimaryDrag = (commit: boolean) => {
+    const session = primaryDragSession.current
+    primaryDragSession.current = null
+    setPrimaryDrag(null)
+    if (!commit || !session?.active || !session.overId || session.overId === session.id) return
+    setDisplay({
+      sidebarPrimaryOrder: reorderPrimarySidebarItem(primaryOrder, session.id, session.overId),
+    })
+  }
+
+  const onPrimaryPointerDown = (
+    event: ReactPointerEvent<HTMLAnchorElement>,
+    id: PrimarySidebarNavId,
+  ) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+    primaryDragSession.current = {
+      id,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      overId: null,
+    }
+  }
+
+  const onPrimaryPointerMove = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+    const session = primaryDragSession.current
+    if (!session || session.pointerId !== event.pointerId) return
+    if (!session.active) {
+      const distance = Math.hypot(event.clientX - session.startX, event.clientY - session.startY)
+      if (distance < WORKSPACE_DRAG_THRESHOLD_PX) return
+      session.active = true
+      suppressPrimaryClick.current = true
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId)
+      } catch {
+        // 捕获失败时仍靠后续 pointer 事件收尾
+      }
+    }
+    const hit = document.elementFromPoint(event.clientX, event.clientY)
+    const overId = hit?.closest<HTMLElement>('[data-primary-id]')?.dataset.primaryId
+    session.overId = primaryNav.some((item) => item.id === overId)
+      ? overId as PrimarySidebarNavId
+      : null
+    setPrimaryDrag({ id: session.id, overId: session.overId })
+  }
+
+  const onPrimaryPointerUp = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+    const session = primaryDragSession.current
+    if (!session || session.pointerId !== event.pointerId) return
+    if (session.active) {
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      } catch {
+        // ignore
+      }
+    }
+    finishPrimaryDrag(true)
+  }
+
+  const onPrimaryPointerCancel = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+    const session = primaryDragSession.current
+    if (!session || session.pointerId !== event.pointerId) return
+    finishPrimaryDrag(false)
   }
 
   const finishWorkspaceDrag = (commit: boolean) => {
@@ -650,7 +731,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
 
   return (
     <nav
-      className={'sidebar' + (workspaceDrag ? ' is-reordering' : '')}
+      className={'sidebar' + (workspaceDrag || primaryDrag ? ' is-reordering' : '')}
       data-density={density}
       aria-label="主导航"
     >
@@ -686,6 +767,16 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           }}
         />
         <div className="sb-header-actions">
+          <ShortcutTooltip actionId="global.newTrade" label="记录交易">
+            <button
+              type="button"
+              className="sb-hbtn sb-hbtn-create"
+              aria-label="记录交易"
+              onClick={() => openComposer(null, 'live')}
+            >
+              <Plus size={ICON_MD} />
+            </button>
+          </ShortcutTooltip>
           <ShortcutTooltip actionId="global.commandPalette" label="搜索">
             <button
               type="button"
@@ -699,28 +790,35 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       </div>
 
       <div className="sb-scroll">
-      <ShortcutTooltip actionId="global.newTrade" label="记录交易">
-        <button type="button" className="sb-quick-record" onClick={() => openComposer(null, 'live')}>
-          <span className="sb-quick-record-icon" aria-hidden="true"><Plus size={ICON_SM} /></span>
-          <span>记录交易</span>
-          <kbd>N</kbd>
-        </button>
-      </ShortcutTooltip>
       <nav className="sb-section sb-primary" aria-label="主要导航">
-        <div className="sb-section-label">核心</div>
-        {resolvePrimarySidebarNav().map(({ id, to, label, icon: Icon }) => (
+        <div className="sb-section-label">工作区</div>
+        {primaryNav.map(({ id, to, label, icon: Icon }) => (
           <NavLink
             key={id}
             to={primaryHref(id, to)}
             draggable={false}
             onDragStart={(event) => event.preventDefault()}
-            className={() => `sb-item${selection.activePrimaryId === id && !hiddenWorkspace ? ' is-active' : ''}`}
+            className={() => `sb-item${selection.activePrimaryId === id && !hiddenWorkspace ? ' is-active' : ''}${
+              primaryDrag?.id === id ? ' is-dragging' : ''
+            }${primaryDrag?.overId === id ? ' is-drop-target' : ''}`}
             data-primary-id={id}
             aria-current={selection.activePrimaryId === id && !hiddenWorkspace ? 'page' : undefined}
+            onPointerDown={(event) => onPrimaryPointerDown(event, id)}
+            onPointerMove={onPrimaryPointerMove}
+            onPointerUp={onPrimaryPointerUp}
+            onPointerCancel={onPrimaryPointerCancel}
+            onClick={(event) => {
+              if (!suppressPrimaryClick.current) return
+              event.preventDefault()
+              suppressPrimaryClick.current = false
+            }}
           >
             <Icon size={ICON_MD} />
             <span className="sb-item-label">{label}</span>
             <Count value={primaryCount(id)} />
+            <span className="sb-primary-drag-handle" aria-hidden="true">
+              <GripVertical size={ICON_SM} />
+            </span>
           </NavLink>
         ))}
       </nav>

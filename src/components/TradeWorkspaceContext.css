@@ -1,48 +1,43 @@
 .trade-workspace-context {
   display: flex;
-  min-height: 48px;
+  min-height: 38px;
   flex: 0 0 auto;
   align-items: center;
-  gap: var(--sp-2);
-  padding: 0 var(--sp-4);
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--bg-surface);
+  gap: var(--sp-1);
+  padding: 2px var(--sp-3) 0;
+  background: transparent;
 }
 
 .trade-workspace-stage {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: var(--sp-2);
-  color: var(--text-tertiary);
-}
-
-.trade-workspace-stage-label {
-  color: var(--text-tertiary);
-  font-size: var(--type-metadata-size);
 }
 
 .trade-workspace-stage .ui-select-trigger {
   width: auto;
-  min-width: 164px;
-  height: 32px;
-  background: var(--field-bg);
+  min-width: 154px;
+  height: 28px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.trade-workspace-stage .ui-select-trigger:hover,
+.trade-workspace-stage .ui-select-trigger[aria-expanded='true'] {
+  background: var(--bg-hover);
 }
 
 .trade-workspace-kind {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
-  background: color-mix(in srgb, var(--bg-app) 56%, transparent);
+  gap: 1px;
 }
 
 .trade-workspace-kind button {
-  min-width: 48px;
-  height: 28px;
-  padding: 0 var(--sp-2);
+  min-width: 44px;
+  height: 26px;
+  padding: 0 9px;
   border: 0;
   border-radius: var(--radius-6);
   color: var(--text-tertiary);
@@ -61,25 +56,8 @@
   background: var(--bg-selected);
 }
 
-.trade-workspace-live-only {
-  height: 28px;
-  padding: 0 var(--sp-2);
-  border-radius: var(--radius-6);
-  color: var(--text-tertiary);
-  font-size: var(--type-metadata-size);
-  line-height: 28px;
-  background: color-mix(in srgb, var(--bg-hover) 56%, transparent);
-}
-
-.trade-workspace-context-note {
-  margin-left: auto;
-  color: var(--text-tertiary);
-  font-size: var(--type-caption-size);
-}
-
 @media (max-width: 1099px) {
-  .trade-workspace-context-note,
-  .trade-workspace-stage-label {
-    display: none;
+  .trade-workspace-context {
+    padding-inline: var(--sp-2);
   }
 }

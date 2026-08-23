@@ -52,7 +52,7 @@
   gap: var(--sp-1);
   height: 32px;
   min-height: 32px;
-  margin-bottom: 18px;
+  margin-bottom: var(--sp-3);
   padding: 0;
   overflow: visible;
 }
@@ -126,7 +126,7 @@
 .sb-header-actions {
   display: flex;
   align-items: center;
-  gap: var(--sp-1);
+  gap: 2px;
   flex-shrink: 0;
   margin-left: auto;
   overflow: visible;
@@ -180,6 +180,10 @@
   background: var(--surface-row-selected);
 }
 
+.sb-hbtn-create {
+  color: color-mix(in srgb, var(--accent) 76%, var(--text-secondary));
+}
+
 .sb-section {
   display: flex;
   flex-direction: column;
@@ -188,6 +192,9 @@
 }
 .sb-primary {
   margin-top: 0;
+}
+.sb-primary .sb-item {
+  cursor: grab;
 }
 .sb-section-label {
   display: flex;
@@ -390,6 +397,24 @@ html[data-ui-settled='1'] .sb-item {
   color: var(--text-tertiary);
 }
 
+.sb-primary-drag-handle {
+  display: inline-grid;
+  width: 16px;
+  height: 22px;
+  flex: 0 0 16px;
+  place-items: center;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.sb-primary .sb-item:hover .sb-primary-drag-handle,
+.sb-primary .sb-item:focus-visible .sb-primary-drag-handle,
+.sb-primary .sb-item.is-dragging .sb-primary-drag-handle {
+  color: var(--text-tertiary);
+  opacity: 1;
+}
+
 .sb-subitem {
   position: relative;
   padding-left: var(--sp-8);
@@ -429,64 +454,10 @@ html[data-ui-settled='1'] .sb-item {
   color: var(--text-tertiary);
 }
 
-.sb-quick-record {
-  display: flex;
-  width: 100%;
-  min-height: 36px;
-  align-items: center;
-  gap: 9px;
-  margin: var(--sp-3) 0 var(--sp-3);
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--radius-6);
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: var(--type-row-size);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-}
-
-.sb-quick-record:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.sb-quick-record:active {
-  background: var(--bg-selected);
-}
-
-.sb-quick-record-icon {
-  display: inline-grid;
-  width: 22px;
-  height: 22px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: var(--radius-6);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: color-mix(in srgb, var(--accent) 72%, white);
-}
-
-.sb-quick-record kbd {
-  margin-left: auto;
-  color: var(--text-tertiary);
-  font: inherit;
-  font-size: var(--type-caption-size);
-  opacity: 0;
-  transform: translateX(2px);
-  transition: opacity var(--motion-fast), transform var(--motion-fast);
-}
-
-.sb-quick-record:hover kbd,
-.sb-quick-record:focus-visible kbd {
-  opacity: 1;
-  transform: none;
-}
-
 .sb-footer {
   display: grid;
   flex: 0 0 auto;
-  gap: var(--sp-1);
+  gap: 2px;
   padding: var(--sp-2);
   border-top: 1px solid var(--border-subtle);
 }

@@ -92,12 +92,48 @@ async function run(): Promise<void> {
     const primaryLabels = [...document.querySelectorAll<HTMLElement>('.sb-primary [data-primary-id] .sb-item-label')]
       .map((node) => node.textContent?.trim())
     assert(
-      primaryLabels.join(',') === '交易日志,统计分析,周期复盘,案例记录,随机复盘',
-      '旧持久化顺序不得改变精简后的核心导航顺序',
+      primaryLabels.join(',') === '统计分析,随机复盘,周期复盘,案例记录,交易日志',
+      '工作区必须按用户保存的顺序渲染',
     )
+
+    assert(document.querySelector('.sb-hbtn-create'), '记录交易必须并入侧栏头部操作组')
+    assert(!document.querySelector('.sb-quick-record'), '记录交易不得继续成为孤立行')
+    assert(document.body.textContent?.includes('工作区'), '主导航分组必须使用工作区表述')
+    assert(!document.body.textContent?.includes('核心'), '侧栏不得继续使用模糊的核心表述')
 
     const primary = document.querySelector<HTMLAnchorElement>('[data-primary-id="trades"]')
     assert(primary, '缺少交易日志主导航')
+    const firstPrimary = document.querySelector<HTMLAnchorElement>('[data-primary-id="dashboard"]')
+    assert(firstPrimary, '缺少统计分析主导航')
+    const sourceRect = primary.getBoundingClientRect()
+    const targetRect = firstPrimary.getBoundingClientRect()
+    const pointerId = 17
+    primary.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      button: 0,
+      buttons: 1,
+      pointerId,
+      clientX: sourceRect.left + sourceRect.width / 2,
+      clientY: sourceRect.top + sourceRect.height / 2,
+    }))
+    primary.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      buttons: 1,
+      pointerId,
+      clientX: targetRect.left + targetRect.width / 2,
+      clientY: targetRect.top + targetRect.height / 2,
+    }))
+    primary.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      button: 0,
+      pointerId,
+      clientX: targetRect.left + targetRect.width / 2,
+      clientY: targetRect.top + targetRect.height / 2,
+    }))
+    await waitFor(
+      () => useStore.getState().display.sidebarPrimaryOrder[0] === 'trades',
+      '拖动工作区入口后没有持久化新顺序',
+    )
     primary.focus()
     await frame()
     assert(!document.querySelector('[role="tooltip"]'), '聚焦工作台主导航不得显示 Tooltip')

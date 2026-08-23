@@ -1,7 +1,5 @@
 import { useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Calendar } from '@/icons/appIcons'
-import { ICON_SM } from '@/icons/iconSize'
 import { Select } from '@/components/ui/Select'
 import {
   parseTradeWorkspaceQuery,
@@ -51,8 +49,6 @@ export function TradeWorkspaceContext({ page }: { page: TradeWorkspacePage }) {
   return (
     <div className="trade-workspace-context" data-workspace-page={page} aria-label="交易数据范围">
       <div className="trade-workspace-stage">
-        <Calendar size={ICON_SM} aria-hidden="true" />
-        <span className="trade-workspace-stage-label">阶段</span>
         <Select
           value={contextStage}
           onValueChange={(stage) => update({
@@ -78,12 +74,7 @@ export function TradeWorkspaceContext({ page }: { page: TradeWorkspacePage }) {
             {option.label}
           </button>
         ))}
-      </div> : <span className="trade-workspace-live-only">实盘复盘</span>}
-      <span className="trade-workspace-context-note">
-        {page === 'review'
-          ? '周期复盘按实盘阶段组织'
-          : `${contextStage === 'current' ? '当前阶段' : '历史范围'}与记录类型会在页面间保留`}
-      </span>
+      </div> : null}
     </div>
   )
 }

@@ -18,6 +18,7 @@ import {
   PRIMARY_NAV_ITEMS,
   SECONDARY_NAV_ITEMS,
   normalizePrimarySidebarOrder,
+  reorderPrimarySidebarItem,
   type PrimarySidebarNavId,
   type SidebarNavId,
 } from '@/lib/sidebarNavContract'
@@ -26,6 +27,7 @@ export {
   DEFAULT_PRIMARY_SIDEBAR_ORDER,
   DEFAULT_SIDEBAR_PINS,
   normalizePrimarySidebarOrder,
+  reorderPrimarySidebarItem,
 } from '@/lib/sidebarNavContract'
 export type { PrimarySidebarNavId, SidebarNavId } from '@/lib/sidebarNavContract'
 
@@ -53,8 +55,9 @@ export const PRIMARY_NAV: PrimarySidebarNavItem[] = PRIMARY_NAV_ITEMS.map((item)
   icon: PRIMARY_NAV_ICONS[item.id],
 }))
 
-export function resolvePrimarySidebarNav(): PrimarySidebarNavItem[] {
-  return [...PRIMARY_NAV]
+export function resolvePrimarySidebarNav(order?: unknown): PrimarySidebarNavItem[] {
+  const byId = new Map(PRIMARY_NAV.map((item) => [item.id, item]))
+  return normalizePrimarySidebarOrder(order).map((id) => byId.get(id)!)
 }
 
 export interface SidebarNavItem {
