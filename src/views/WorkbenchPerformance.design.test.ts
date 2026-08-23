@@ -18,8 +18,9 @@ export function testSourceContractsNormalizeWindowsLineEndings(): void {
 export function testSidebarHeaderActionIconsRemainOutlineIcons(): void {
   const sidebar = read('src/components/Sidebar.css')
   const headerIconRule = sidebar.match(/\.sb-hbtn svg \{([\s\S]*?)\n\}/)?.[1] ?? ''
+  const createIconRule = sidebar.match(/\.sb-hbtn-create svg \{([\s\S]*?)\n\}/)?.[1] ?? ''
 
-  if (!headerIconRule.includes('fill: none')) {
+  if (!headerIconRule.includes('fill: none') || !createIconRule.includes('fill: none')) {
     throw new Error('sidebar header action icons must remain outlined instead of being force-filled')
   }
 }
@@ -164,8 +165,8 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
     throw new Error('sidebar create must not use the stale 0.5px/0.132 overlay')
   }
   const sidebarRuntime = read('src/components/Sidebar.tsx')
-  if (!sidebarRuntime.includes('sb-hbtn sb-hbtn-create') || !sidebarRuntime.includes('<Plus')) {
-    throw new Error('sidebar create must use the compact header plus action')
+  if (!sidebarRuntime.includes('className="sb-hbtn-create"') || !sidebarRuntime.includes('<Compose')) {
+    throw new Error('sidebar create must use the dedicated Linear-style header compose action')
   }
   if (!sidebarRuntime.includes('sb-hbtn-search')) {
     throw new Error('sidebar search must keep an explicit sb-hbtn-search class')

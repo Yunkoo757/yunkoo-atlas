@@ -7,6 +7,7 @@ import {
   BookOpen,
   Bookmark,
   Clock,
+  Compose,
   FlaskConical,
   GripVertical,
   MoreHorizontal,
@@ -767,16 +768,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           }}
         />
         <div className="sb-header-actions">
-          <ShortcutTooltip actionId="global.newTrade" label="记录交易">
-            <button
-              type="button"
-              className="sb-hbtn sb-hbtn-create"
-              aria-label="记录交易"
-              onClick={() => openComposer(null, 'live')}
-            >
-              <Plus size={ICON_MD} />
-            </button>
-          </ShortcutTooltip>
           <ShortcutTooltip actionId="global.commandPalette" label="搜索">
             <button
               type="button"
@@ -784,6 +775,16 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               onClick={onOpenSearch}
             >
               <Search size={ICON_MD} />
+            </button>
+          </ShortcutTooltip>
+          <ShortcutTooltip actionId="global.newTrade" label="记录交易">
+            <button
+              type="button"
+              className="sb-hbtn-create"
+              aria-label="记录交易"
+              onClick={() => openComposer(null, 'live')}
+            >
+              <Compose size={ICON_MD} />
             </button>
           </ShortcutTooltip>
         </div>
