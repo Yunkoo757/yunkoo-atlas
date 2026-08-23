@@ -177,6 +177,19 @@ test('final artifact validates main and renderer provenance before the first mig
   )
 })
 
+test('final artifact waits for renderer hydration before direct storage bridge scenarios', () => {
+  const source = readFileSync('scripts/run-final-packaged-artifact-smoke.mjs', 'utf8')
+  const bridgeReady = source.indexOf('Boolean(window.journalBridge)')
+  const uiSettled = source.indexOf("document.documentElement.dataset.uiSettled === '1'", bridgeReady)
+  const firstStorageRead = source.indexOf('window.journalBridge.loadSnapshot()', uiSettled)
+  assert.ok(bridgeReady >= 0, 'final payload smoke must wait for the preload bridge')
+  assert.ok(uiSettled > bridgeReady, 'renderer hydration readiness must follow preload readiness')
+  assert.ok(
+    firstStorageRead > uiSettled,
+    'direct storage bridge scenarios must not start before renderer hydration settles',
+  )
+})
+
 test('final artifact subprocess timeout remains bounded when hard kill is refused and no exit arrives', async () => {
   const child = new EventEmitter()
   child.pid = 4242

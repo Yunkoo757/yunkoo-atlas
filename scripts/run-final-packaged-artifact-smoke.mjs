@@ -522,6 +522,14 @@ async function runBridgeScenarios({
     const page = await application.firstWindow({ timeout: 30_000 })
     await page.waitForLoadState('domcontentloaded')
     await page.waitForFunction(() => Boolean(window.journalBridge), null, { timeout: 30_000 })
+    // The preload bridge is available before renderer storage hydration finishes.
+    // Starting direct bridge scenarios earlier can let the late hydration state
+    // persist into a newly activated library and make the release smoke race.
+    await page.waitForFunction(
+      () => document.documentElement.dataset.uiSettled === '1',
+      null,
+      { timeout: 30_000 },
+    )
     const identityEvidence = await collectElectronBundleIdentity({ page, application, expectation })
     const runtime = await application.evaluate(({ app }) => ({
       mainProcessId: process.pid,
