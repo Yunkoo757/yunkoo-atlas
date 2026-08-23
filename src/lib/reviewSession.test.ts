@@ -176,12 +176,12 @@ export function testStageSourceLeavesPaperChoiceIndependentAndPreservesEligibili
     includeAccountTrades: true,
   })
   assert(
-    historyWithAccounts.map((trade) => trade.id).join(',') === 'eligible-history,paper-independent',
-    '阶段来源只过滤阶段实体；删除、掌握、到期与复盘内容资格继续生效，模拟盘仍由账户交易选项独立纳入',
+    historyWithAccounts.map((trade) => trade.id).join(',') === 'eligible-history,empty-live-history,paper-independent',
+    '阶段来源只过滤阶段实体；删除、掌握、到期继续生效，模拟盘仍由账户交易选项独立纳入',
   )
   assert(
     buildPool(trades, { stageSource: 'all-history', includeAccountTrades: false })
-      .map((trade) => trade.id).join(',') === 'eligible-history',
+      .map((trade) => trade.id).join(',') === 'eligible-history,empty-live-history',
     '关闭账户交易选项必须独立排除模拟盘',
   )
 }
@@ -291,29 +291,94 @@ export function testReviewSessionDefaultPoolIncludesCasesAndLiveButNotPaper(): v
     '复盘设置仍应允许显式加入账户交易')
 }
 
-export function testReviewSessionAccountTradesRequireClosedReviewedContent(): void {
+export function testReviewSessionLiveAndPaperIgnoreReviewStatus(): void {
   const trades: Trade[] = [
-    { ...baseTrade, id: 'eligible' },
-    { ...baseTrade, id: 'open', status: 'open', closedAt: null },
-    { ...baseTrade, id: 'unreviewed', reviewStatus: 'unreviewed' },
-    { ...baseTrade, id: 'empty', note: '<p>&nbsp;</p>' },
-    {
-      ...baseTrade,
-      id: 'missed',
-      status: 'missed',
-      pnl: null,
-      rMultiple: null,
-      note: '<p>犹豫导致错过</p>',
-    },
+    { ...baseTrade, id: 'reviewed-live' },
+    { ...baseTrade, id: 'unreviewed-live', reviewStatus: 'unreviewed' },
+    { ...baseTrade, id: 'open-live', status: 'open', closedAt: null },
+    { ...baseTrade, id: 'deleted-live', deletedAt: '2026-07-16T00:00:00.000Z' },
+    paperTrade('reviewed-paper'),
+    { ...paperTrade('unreviewed-paper'), reviewStatus: 'unreviewed' },
+    { ...paperTrade('open-paper'), status: 'open', closedAt: null },
   ]
 
-  const pool = buildReviewSessionPool(trades, {
-    ...DEFAULT_REVIEW_SESSION_FILTERS,
-    includeAccountTrades: true,
-  }, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR, REVIEW_STAGE_CONTEXT)
+  const pool = buildPool(trades, {
+    includeCases: false,
+    includeLiveTrades: true,
+    includePaperTrades: true,
+    requireContent: false,
+  })
 
-  assert(pool.map((trade) => trade.id).join(',') === 'eligible,missed',
-    '账户交易必须已结束、已正式复盘且有有效内容才可进入随机复盘')
+  assert(
+    pool.map((trade) => trade.id).join(',') === 'reviewed-live,unreviewed-live,reviewed-paper,unreviewed-paper',
+    '实盘与模拟盘只要已结束或已错过且未删除即可进入候选池，不得要求 reviewStatus',
+  )
+}
+
+export function testReviewSessionRequireContentIsTheOnlyContentFilter(): void {
+  const trades: Trade[] = [
+    { ...baseTrade, id: 'empty-live', note: '<p>&nbsp;</p>' },
+    { ...baseTrade, id: 'text-live', note: '<p>假突破后没有追单</p>' },
+    { ...paperTrade('empty-paper'), note: '<p></p>' },
+    { ...paperTrade('image-paper'), note: '<p></p><img src="journal-asset://chart-1">' },
+    { ...baseTrade, id: 'empty-case', tradeKind: 'case', note: '<p> </p>' },
+    { ...baseTrade, id: 'text-case', tradeKind: 'case', note: '<p>案例洞见</p>' },
+  ]
+
+  const withoutContent = buildPool(trades, {
+    includeCases: true,
+    includeLiveTrades: true,
+    includePaperTrades: true,
+    requireContent: false,
+    reviewTiming: 'all',
+  })
+  assert(
+    withoutContent.map((trade) => trade.id).join(',') ===
+      'empty-live,text-live,empty-paper,image-paper,empty-case,text-case',
+    '关闭仅含有效图文时，不得再以正文是否存在过滤三类来源',
+  )
+
+  const withContent = buildPool(trades, {
+    includeCases: true,
+    includeLiveTrades: true,
+    includePaperTrades: true,
+    requireContent: true,
+    reviewTiming: 'all',
+  })
+  assert(
+    withContent.map((trade) => trade.id).join(',') === 'text-live,image-paper,text-case',
+    '开启仅含有效图文时，三类来源必须统一要求有效文本或图片',
+  )
+}
+
+export function testReviewSessionPaperIgnoresLiveStageSource(): void {
+  const { liveStageId: _liveStageId, ...paperFields } = baseTrade
+  const trades: Trade[] = [
+    { ...baseTrade, id: 'current-live', liveStageId: 'stage-current' },
+    { ...baseTrade, id: 'old-live', liveStageId: 'stage-oldest' },
+    { ...paperFields, id: 'any-paper', ref: 'PAPER-any', tradeKind: 'paper' },
+  ]
+
+  const currentOnly = buildPool(trades, {
+    includeCases: false,
+    includeLiveTrades: true,
+    includePaperTrades: true,
+    requireContent: false,
+    stageSource: 'current',
+  })
+  assert(
+    currentOnly.map((trade) => trade.id).join(',') === 'current-live,any-paper',
+    '模拟盘不受实盘阶段来源限制；当前阶段过滤只能约束实盘与案例',
+  )
+
+  const emptyLiveSource = buildPool(trades, {
+    includeCases: false,
+    includeLiveTrades: true,
+    includePaperTrades: false,
+    requireContent: false,
+    stageSource: { stageIds: [] },
+  })
+  assert(emptyLiveSource.length === 0, '某个来源为空时数量必须是零，不得回退到其他来源')
 }
 
 export function testReviewSessionContentFilterKeepsTextAndImageNotes(): void {

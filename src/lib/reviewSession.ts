@@ -1,4 +1,4 @@
-import { isReviewCompleted, type Trade } from '@/data/trades'
+import { type Trade } from '@/data/trades'
 import {
   addDaysToCurrentTradingDay,
   DEFAULT_TRADING_DAY_START_HOUR,
@@ -222,11 +222,7 @@ export function buildReviewSessionPool(
     if (trade.tradeKind === 'paper' && !filters.includePaperTrades && !includeLegacyAccounts) return false
     if (trade.tradeKind !== 'live' && trade.tradeKind !== 'paper') return false
     const executionState = resolveTradeTruth(trade).executionState
-    return (
-      (executionState === 'closed' || executionState === 'missed') &&
-      isReviewCompleted(trade.reviewStatus) &&
-      hasEffectiveReviewContent(content)
-    )
+    return executionState === 'closed' || executionState === 'missed'
   })
 }
 

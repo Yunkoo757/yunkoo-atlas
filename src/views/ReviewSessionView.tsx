@@ -864,7 +864,7 @@ function ReviewSessionSettingsModal({
             onChange={(event) => patchFilters({ includeLiveTrades: event.target.checked, includeAccountTrades: false })}
           />
           <ListTodo size={ICON_XL} aria-hidden />
-          <span><strong>实盘交易</strong><small>当前阶段与历史阶段的已复盘记录</small></span>
+          <span><strong>实盘交易</strong><small>所选阶段内已结束或已错过的实盘记录</small></span>
         </label>
         <label className={filters.includePaperTrades ? 'is-selected' : undefined}>
           <input
@@ -873,7 +873,7 @@ function ReviewSessionSettingsModal({
             onChange={(event) => patchFilters({ includePaperTrades: event.target.checked, includeAccountTrades: false })}
           />
           <ListTodo size={ICON_XL} aria-hidden />
-          <span><strong>模拟盘</strong><small>独立加入已完成复盘的模拟记录</small></span>
+          <span><strong>模拟盘</strong><small>全部已结束或已错过的模拟记录，不受实盘阶段限制</small></span>
         </label>
       </fieldset>
       <div className="review-session-settings-options">
