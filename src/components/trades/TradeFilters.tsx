@@ -37,32 +37,9 @@ import { QuickViewBar } from '@/components/trades/QuickViewBar'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { Select } from '@/components/ui/Select'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { isKnownTradeViewParam, preservePageOwnedSearch } from '@/lib/tradeViewParams'
 import { useStore } from '@/store/useStore'
 import './TradeFilters.css'
-
-const KNOWN_TRADE_VIEW_PARAMS = new Set([
-  'tradeKind',
-  'period',
-  'strategyId',
-  'symbol',
-  'side',
-  'status',
-  'session',
-  'tag',
-  'mistakeTag',
-  // reviewCategory 仅保留为旧“复盘分类”查询 / 保存视图兼容，不再作为案例对话框的常规分类轴。
-  'reviewCategory',
-  'caseType',
-  'masteryState',
-  'kind',
-  'range',
-  'liveCycle',
-  'statsCycle',
-  'view',
-  'caseScope',
-  'archiveReason',
-  'requestedKey',
-])
 
 export function TradeFilters({
   filter,
@@ -254,7 +231,7 @@ export function TradeFilters({
     }
   }
   for (const [key, value] of searchParams) {
-    if (KNOWN_TRADE_VIEW_PARAMS.has(key)) continue
+    if (isKnownTradeViewParam(key)) continue
     activeFilters.push({
       key: `unsupported:${key}:${value}`,
       label: `未支持的筛选条件，可移除`,
@@ -286,9 +263,12 @@ export function TradeFilters({
           ? '/review-cases'
           : '/list'
     const mode = workbenchModeFromPathname(location.pathname)
+    const next = filter.historicalLiveScope
+      ? preservePageOwnedSearch(searchParams, { historicalLiveScope: filter.historicalLiveScope })
+      : new URLSearchParams()
     navigate({
       pathname: pathWithWorkbenchMode(base, mode),
-      search: filter.historicalLiveScope === 'cases' ? '?view=cases' : '',
+      search: next.toString() ? `?${next.toString()}` : '',
     }, { replace: true })
   }
 
