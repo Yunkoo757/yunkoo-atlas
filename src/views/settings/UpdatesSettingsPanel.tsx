@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download, LockKeyhole, RotateCcw, Shield } from '@/icons/appIcons'
+import { Download, RotateCcw, Shield } from '@/icons/appIcons'
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { ProgressIndicator } from '@/icons/ProgressIndicator'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
@@ -25,7 +25,6 @@ function statusLabel(state: AppUpdateState): string {
     case 'downloading': return `正在下载 ${state.progress ?? 0}%`
     case 'downloaded': return `版本 ${state.availableVersion ?? ''} 已准备就绪`.trim()
     case 'up-to-date': return '当前已是最新版本'
-    case 'credential-required': return '需要配置私有仓库访问令牌'
     case 'unsupported': return state.message ?? '当前版本不支持应用内更新'
     case 'error': return state.message ?? '更新检查失败'
   }
@@ -34,21 +33,14 @@ function statusLabel(state: AppUpdateState): string {
 export function UpdatesSettingsPanel() {
   const electron = isElectron()
   const [state, setState] = useState<AppUpdateState>(FALLBACK_STATE)
-  const [hasCredential, setHasCredential] = useState(false)
-  const [token, setToken] = useState('')
-  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!electron) return
     const bridge = getJournalBridge()!
     let active = true
-    void Promise.all([bridge.getUpdateState(), bridge.hasUpdateCredential()]).then(
-      ([nextState, credential]) => {
-        if (!active) return
-        setState(nextState)
-        setHasCredential(credential)
-      },
-    )
+    void bridge.getUpdateState().then((nextState) => {
+      if (active) setState(nextState)
+    })
     const unsubscribe = bridge.onUpdateState((nextState) => setState(nextState))
     return () => {
       active = false
@@ -58,35 +50,11 @@ export function UpdatesSettingsPanel() {
 
   const busy = state.phase === 'checking' || state.phase === 'downloading'
   const statusTone = useMemo(() => {
-    if (state.phase === 'error' || state.phase === 'credential-required') return ' is-warn'
+    if (state.phase === 'error') return ' is-warn'
     if (state.phase === 'available' || state.phase === 'downloaded') return ' is-accent'
     if (state.phase === 'up-to-date') return ' is-ok'
     return ''
   }, [state.phase])
-
-  const saveCredential = async () => {
-    if (!electron || !token.trim()) return
-    setSaving(true)
-    try {
-      await getJournalBridge()!.saveUpdateCredential(token)
-      setToken('')
-      setHasCredential(true)
-      toast('更新令牌已安全保存')
-      await getJournalBridge()!.checkForUpdates()
-    } catch (error) {
-      toast(error instanceof Error ? error.message : '令牌保存失败')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const clearCredential = async () => {
-    if (!electron) return
-    await getJournalBridge()!.clearUpdateCredential()
-    setHasCredential(false)
-    setToken('')
-    toast('更新令牌已移除')
-  }
 
   const installUpdate = async () => {
     if (!electron) return
@@ -110,7 +78,7 @@ export function UpdatesSettingsPanel() {
       <div className="settings-page-head">
         <h1 className="settings-page-title">软件更新</h1>
         <p className="settings-page-desc">
-          从私有 GitHub Release 获取正式版本。下载由你确认，安装前自动备份资料库。
+          从公开 GitHub Release 获取正式版本。下载由你确认，安装前自动备份资料库。
         </p>
       </div>
 
@@ -158,7 +126,7 @@ export function UpdatesSettingsPanel() {
           ) : (
             <button
               className="dio-btn"
-              disabled={!electron || busy || !hasCredential}
+              disabled={!electron || busy}
               onClick={() => void getJournalBridge()?.checkForUpdates()}
             >
               {state.phase === 'checking' ? (
@@ -172,51 +140,9 @@ export function UpdatesSettingsPanel() {
         </div>
       </section>
 
-      <section className="update-section" aria-labelledby="update-access-title">
-        <div className="update-section-head">
-          <div>
-            <h2 id="update-access-title">私有仓库访问</h2>
-            <p>令牌仅保存在这台电脑，并由系统安全存储加密。</p>
-          </div>
-          <span className={'update-credential-state' + (hasCredential ? ' is-ready' : '')}>
-            <LockKeyhole size={ICON_SM} />
-            {hasCredential ? '已配置' : '未配置'}
-          </span>
-        </div>
-
-        <div className="update-token-row">
-          <input
-            type="password"
-            value={token}
-            disabled={!electron}
-            placeholder="粘贴 Fine-grained GitHub 令牌"
-            aria-label="GitHub 更新令牌"
-            autoComplete="off"
-            onChange={(event) => setToken(event.target.value)}
-          />
-          <button
-            className="dio-btn dio-btn-primary"
-            disabled={!electron || saving || !token.trim()}
-            onClick={() => void saveCredential()}
-          >
-            {saving ? '保存中…' : '安全保存'}
-          </button>
-          {hasCredential && (
-            <button className="dio-btn" onClick={() => void clearCredential()}>
-              移除
-            </button>
-          )}
-        </div>
-
-        <p className="update-help">
-          使用只授权 <code>Yunkoo757/yunkoo-atlas</code>、权限为
-          <code> Contents: Read-only</code> 的 Fine-grained 令牌。不要使用账号密码或写入权限令牌。
-        </p>
-      </section>
-
       <div className="update-security-note">
         <Shield size={ICON_MD} />
-        <span>自动检查每 6 小时执行一次；不会在开发版或 Windows 便携版中下载更新。</span>
+        <span>自动检查每 6 小时执行一次；无需配置 GitHub 令牌，不会在开发版或 Windows 便携版中下载更新。</span>
       </div>
     </div>
   )

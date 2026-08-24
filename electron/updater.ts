@@ -1,11 +1,9 @@
-import { app, BrowserWindow, ipcMain, safeStorage } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import updaterPackage from 'electron-updater'
 import type { ProgressInfo, UpdateInfo } from 'electron-updater'
-import { writeFileAtomicallySync } from './library/atomicFile'
 import {
-  normalizeUpdateCredential,
   redactUpdateError,
   reduceUpdateState,
   type AppUpdateEvent,
@@ -16,7 +14,7 @@ const { autoUpdater } = updaterPackage
 
 const AUTO_CHECK_DELAY_MS = 10_000
 const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
-const CREDENTIAL_FILE = 'github-update-credential.json'
+const LEGACY_CREDENTIAL_FILE = 'github-update-credential.json'
 
 let state: AppUpdateState
 let autoCheckTimer: ReturnType<typeof setInterval> | null = null
@@ -34,53 +32,11 @@ function initialState(): AppUpdateState {
   }
 }
 
-function credentialPath(): string {
-  return path.join(app.getPath('userData'), CREDENTIAL_FILE)
-}
-
-function readStoredCredential(): string | null {
-  const fromEnvironment = normalizeUpdateCredential(process.env.GH_TOKEN ?? '')
-  if (fromEnvironment) return fromEnvironment
-  if (!safeStorage.isEncryptionAvailable()) return null
-
+function removeLegacyStoredCredential(): void {
   try {
-    const payload = JSON.parse(fs.readFileSync(credentialPath(), 'utf8')) as {
-      version?: number
-      encrypted?: string
-    }
-    if (payload.version !== 1 || !payload.encrypted) return null
-    return normalizeUpdateCredential(
-      safeStorage.decryptString(Buffer.from(payload.encrypted, 'base64')),
-    )
+    fs.rmSync(path.join(app.getPath('userData'), LEGACY_CREDENTIAL_FILE), { force: true })
   } catch {
-    return null
-  }
-}
-
-function writeStoredCredential(value: string): void {
-  const token = normalizeUpdateCredential(value)
-  if (!token) throw new Error('令牌格式无效，请粘贴完整的 GitHub Fine-grained Token。')
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('当前系统无法安全加密更新令牌。')
-  }
-
-  const encrypted = safeStorage.encryptString(token).toString('base64')
-  fs.mkdirSync(path.dirname(credentialPath()), { recursive: true })
-  writeFileAtomicallySync(
-    credentialPath(),
-    JSON.stringify({ version: 1, encrypted }),
-    'utf8',
-  )
-  if (process.platform !== 'win32') fs.chmodSync(credentialPath(), 0o600)
-  process.env.GH_TOKEN = token
-}
-
-function clearStoredCredential(): void {
-  delete process.env.GH_TOKEN
-  try {
-    fs.rmSync(credentialPath(), { force: true })
-  } catch {
-    // 文件不存在或被系统占用时，下次保存会覆盖。
+    // 旧文件不存在或暂时被占用，不影响公开 Release 更新。
   }
 }
 
@@ -106,14 +62,12 @@ function supportMessage(): string | null {
   return null
 }
 
-function configurePrivateGitHubProvider(token: string): void {
-  process.env.GH_TOKEN = token
+function configurePublicGitHubProvider(): void {
   autoUpdater.setFeedURL({
     provider: 'github',
     owner: 'Yunkoo757',
     repo: 'yunkoo-atlas',
-    private: true,
-    token,
+    private: false,
   })
 }
 
@@ -121,15 +75,7 @@ async function checkForUpdates(): Promise<AppUpdateState> {
   const unsupported = supportMessage()
   if (unsupported) return transition({ type: 'unsupported', message: unsupported })
 
-  const token = readStoredCredential()
-  if (!token) {
-    return transition({
-      type: 'credential-required',
-      message: '私有仓库需要只读 GitHub 更新令牌。',
-    })
-  }
-
-  configurePrivateGitHubProvider(token)
+  configurePublicGitHubProvider()
   transition({ type: 'checking' })
   try {
     await autoUpdater.checkForUpdates()
@@ -173,24 +119,10 @@ export function registerAppUpdater(
   if (registered) return
   registered = true
   state = initialState()
+  removeLegacyStoredCredential()
   registerUpdaterEvents()
 
   ipcMain.handle('update:getState', () => state)
-  ipcMain.handle('update:hasCredential', () => Boolean(readStoredCredential()))
-  ipcMain.handle('update:saveCredential', (_event, token: string) => {
-    writeStoredCredential(token)
-    scheduleAutomaticUpdateChecks()
-    return true
-  })
-  ipcMain.handle('update:clearCredential', () => {
-    clearStoredCredential()
-    scheduleAutomaticUpdateChecks()
-    transition({
-      type: 'credential-required',
-      message: '私有仓库需要只读 GitHub 更新令牌。',
-    })
-    return true
-  })
   ipcMain.handle('update:check', () => checkForUpdates())
   ipcMain.handle('update:download', async () => {
     if (state.phase === 'downloading' || downloadInFlight) return state
@@ -225,7 +157,7 @@ export function scheduleAutomaticUpdateChecks(): void {
     clearInterval(autoCheckTimer)
     autoCheckTimer = null
   }
-  if (supportMessage() || !readStoredCredential()) return
+  if (supportMessage()) return
   autoCheckDelayTimer = setTimeout(() => {
     autoCheckDelayTimer = null
     void checkForUpdates()

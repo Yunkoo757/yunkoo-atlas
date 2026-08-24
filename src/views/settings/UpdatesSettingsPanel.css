@@ -28,16 +28,14 @@
   line-height: var(--type-row-line-height);
 }
 
-.update-section-head p,
-.update-help {
+.update-section-head p {
   margin: 0;
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
   line-height: 1.55;
 }
 
-.update-status,
-.update-credential-state {
+.update-status {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -56,8 +54,7 @@
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
-.update-status.is-ok,
-.update-credential-state.is-ready {
+.update-status.is-ok {
   color: var(--pos);
   border-color: color-mix(in srgb, var(--pos) 24%, var(--border-subtle));
 }
@@ -67,34 +64,11 @@
   border-color: color-mix(in srgb, var(--warn) 24%, var(--border-subtle));
 }
 
-.update-actions,
-.update-token-row {
+.update-actions {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
   padding-bottom: var(--sp-4);
-}
-
-.update-token-row input {
-  width: min(420px, 100%);
-  height: var(--field-height-md);
-  padding: 0 10px;
-  border: 1px solid var(--field-border);
-  border-radius: var(--radius-6);
-  background: var(--field-bg);
-  color: var(--text-primary);
-  font-family: var(--font-ui);
-  font-size: var(--fs-mini);
-  font-weight: var(--font-weight-medium);
-}
-
-.update-token-row input:focus {
-  border-color: var(--field-border-focus);
-  box-shadow: var(--field-focus-shadow);
-}
-
-.update-token-row input::placeholder {
-  color: var(--field-placeholder);
 }
 
 .update-progress-row {
@@ -125,14 +99,6 @@
   border-radius: inherit;
   background: var(--accent);
   transition: transform var(--dur-base) var(--ease-out);
-}
-
-.update-help {
-  padding: 0 0 var(--sp-4);
-}
-
-.update-help code {
-  color: var(--text-secondary);
 }
 
 .update-security-note {

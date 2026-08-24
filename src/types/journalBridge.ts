@@ -157,9 +157,6 @@ export interface JournalBridge {
     presetId: WindowSizePresetId,
   ): Promise<{ ok: true; state: WindowFrameState } | { ok: false; error: string }>
   getUpdateState(): Promise<AppUpdateState>
-  hasUpdateCredential(): Promise<boolean>
-  saveUpdateCredential(token: string): Promise<boolean>
-  clearUpdateCredential(): Promise<boolean>
   checkForUpdates(): Promise<AppUpdateState>
   downloadUpdate(): Promise<AppUpdateState>
   installUpdate(): Promise<boolean>

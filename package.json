@@ -126,7 +126,7 @@
         "provider": "github",
         "owner": "Yunkoo757",
         "repo": "yunkoo-atlas",
-        "private": true
+        "private": false
       }
     ],
     "files": [
