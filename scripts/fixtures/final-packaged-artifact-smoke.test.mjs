@@ -181,12 +181,17 @@ test('final artifact waits for renderer hydration before direct storage bridge s
   const source = readFileSync('scripts/run-final-packaged-artifact-smoke.mjs', 'utf8')
   const bridgeReady = source.indexOf('Boolean(window.journalBridge)')
   const uiSettled = source.indexOf("document.documentElement.dataset.uiSettled === '1'", bridgeReady)
-  const firstStorageRead = source.indexOf('window.journalBridge.loadSnapshot()', uiSettled)
+  const persistenceQuiescence = source.indexOf('page.waitForTimeout(1_200)', uiSettled)
+  const firstStorageRead = source.indexOf('window.journalBridge.loadSnapshot()', persistenceQuiescence)
   assert.ok(bridgeReady >= 0, 'final payload smoke must wait for the preload bridge')
   assert.ok(uiSettled > bridgeReady, 'renderer hydration readiness must follow preload readiness')
   assert.ok(
-    firstStorageRead > uiSettled,
-    'direct storage bridge scenarios must not start before renderer hydration settles',
+    persistenceQuiescence > uiSettled,
+    'direct storage bridge scenarios must wait past the renderer startup persistence debounce',
+  )
+  assert.ok(
+    firstStorageRead > persistenceQuiescence,
+    'direct storage bridge scenarios must not start before renderer persistence becomes quiescent',
   )
 })
 

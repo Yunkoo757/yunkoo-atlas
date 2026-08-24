@@ -530,6 +530,10 @@ async function runBridgeScenarios({
       null,
       { timeout: 30_000 },
     )
+    // uiSettled 只表示首屏水合与绘制完成；启动归一化仍可能留下一个 400ms
+    // 的防抖保存。直接调用资料库 IPC 前必须让该保存落盘，否则它会在阶段切换
+    // 或资料库切换之后用旧的 renderer 快照回写，造成伪造的 stale/回滚失败。
+    await page.waitForTimeout(1_200)
     const identityEvidence = await collectElectronBundleIdentity({ page, application, expectation })
     const runtime = await application.evaluate(({ app }) => ({
       mainProcessId: process.pid,
