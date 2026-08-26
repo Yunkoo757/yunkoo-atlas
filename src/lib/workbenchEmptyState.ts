@@ -53,7 +53,7 @@ export function resolveWorkbenchEmptyState(options: {
     return {
       kind: 'library',
       title: '还没有任何记录',
-      hint: `新建${recordLabel}、导入备份，或先配置策略，开始建立你的复盘交易库。`,
+      hint: `新建${recordLabel}、导入备份或配置策略，开始建立交易库。`,
       action: 'create',
       actionLabel: `新建${recordLabel}`,
       primaryAction,
@@ -69,7 +69,7 @@ export function resolveWorkbenchEmptyState(options: {
     return {
       kind: 'workspace',
       title: `当前工作区暂无${recordLabel}`,
-      hint: `资料库中已有其他阶段或类型的记录；你可以新建${recordLabel}，开始积累这一类复盘样本。`,
+      hint: `其他阶段或类型已有记录，可直接新建${recordLabel}。`,
       action: 'create',
       actionLabel: `新建${recordLabel}`,
       primaryAction,
