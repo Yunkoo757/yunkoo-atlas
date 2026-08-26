@@ -89,10 +89,10 @@ test('desktop visual fixture covers populated desktop workflows without user dat
   )
 })
 
-test('desktop visual archive readiness matches the native stage overview route', () => {
+test('desktop visual archive readiness matches the unified trade workspace route', () => {
   const archive = DESKTOP_VISUAL_SCENARIOS.find((scenario) => scenario.id === 'live-archive')
   assert.equal(archive?.path, '/live-history')
-  assert.equal(archive?.ready, '.live-archive-scroll')
+  assert.equal(archive?.ready, '.trade-list')
 })
 
 test('desktop visual Electron mode rejects real application data paths', () => {
