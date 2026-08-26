@@ -32,7 +32,7 @@
 .trade-detail-layout .dv-props {
   min-width: 0;
   overflow-y: auto;
-  background: var(--bg-surface);
+  background: color-mix(in srgb, var(--bg-surface) 84%, var(--bg-app));
   border-left: 1px solid var(--border-subtle);
   scrollbar-width: none;
 }
