@@ -109,8 +109,9 @@
 }
 
 .settings-page-desc {
+  max-width: 68ch;
   margin: 0;
-  color: var(--text-muted);
+  color: var(--text-quaternary);
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
 }
@@ -124,8 +125,9 @@
 }
 
 .settings-section-desc {
+  max-width: 68ch;
   margin: 0;
-  color: var(--text-muted);
+  color: var(--text-quaternary);
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
 }
