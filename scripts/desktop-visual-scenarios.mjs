@@ -7,7 +7,7 @@ export const DESKTOP_VISUAL_VIEWPORTS = Object.freeze([
 ])
 
 export const DESKTOP_VISUAL_SCENARIOS = Object.freeze([
-  Object.freeze({ id: 'today', path: '/today-record', ready: '.today-workspace-inner' }),
+  Object.freeze({ id: 'today', path: '/today-record', ready: '.trade-list' }),
   Object.freeze({ id: 'trades', path: '/list', ready: '.trade-list' }),
   Object.freeze({ id: 'detail', path: '/trade/TRD-131', ready: '.trade-detail-layout' }),
   Object.freeze({ id: 'dashboard', path: '/dashboard', ready: '.db-scroll' }),
