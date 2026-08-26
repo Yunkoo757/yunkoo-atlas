@@ -76,14 +76,17 @@
 }
 
 .display-choice-list {
-  border-top: 1px solid var(--border-subtle);
+  display: grid;
+  gap: 2px;
 }
 .display-choice {
-  border-bottom: 1px solid var(--border-subtle);
-  border-radius: 0;
+  min-height: 46px;
+  border: 0;
+  border-radius: var(--radius-6);
 }
 .display-choice.is-selected {
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  color: var(--text-primary);
 }
 .display-choice-check {
   display: grid;
