@@ -54,6 +54,7 @@ import {
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
 import { filterStageOwnedRecords } from '@/lib/stageArchive'
+import { activeRiskPolicy } from '@/lib/activeRiskPolicy'
 import { sharedTradeWorkspaceSearch } from '@/lib/tradeWorkspaceQuery'
 import { newTradeKindForPath } from '@/lib/tradeKind'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
@@ -354,6 +355,8 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const profile = useStore((state) => state.profile)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const riskPolicyVersions = useStore((state) => state.riskPolicyVersions)
+  const monthlyRiskLimits = useStore((state) => state.monthlyRiskLimits)
+  const sidebarDateAnchor = useBusinessDateAnchor()
   const {
     path,
     search,
@@ -380,7 +383,18 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const primaryNav = useMemo(() => resolvePrimarySidebarNav(primaryOrder), [primaryOrder])
 
   const trashCount = trades.filter((trade) => Boolean(trade.deletedAt)).length
-  const hasCurrentRiskBaseline = riskPolicyVersions.some((policy) => policy.liveStageId === currentLiveStageId)
+  const currentRiskPolicy = activeRiskPolicy(
+    riskPolicyVersions,
+    sidebarDateAnchor.currentTradingDayKey,
+    currentLiveStageId,
+  )
+  const currentMonthLimit = monthlyRiskLimits.find((limit) => (
+    limit.liveStageId === currentLiveStageId &&
+    limit.monthKey === sidebarDateAnchor.currentTradingDayKey.slice(0, 7)
+  ))
+  const riskSummary = currentRiskPolicy
+    ? `日 ${currentRiskPolicy.dailyLossLimitR}R · 周 ${currentRiskPolicy.weeklyLossLimitR}R · 月 ${currentMonthLimit?.limitR ?? currentRiskPolicy.monthlyLossLimitRDefault}R`
+    : '未设置'
   const openWorkspaceEditor = (
     button: HTMLButtonElement,
     section: 'pinned' | 'overflow' = 'pinned',
@@ -892,7 +906,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       <div className="sb-footer">
         <NavLink to="/settings/risk" className="sb-risk-summary">
           <Target size={ICON_MD} />
-          <span><strong>风险摘要</strong><small>{hasCurrentRiskBaseline ? '当前阶段已设置' : '当前阶段未设置'}</small></span>
+          <span><strong>风险管理</strong><small>{riskSummary}</small></span>
         </NavLink>
         <NavLink to="/settings" className="sb-item">
           <Settings2 size={ICON_MD} />

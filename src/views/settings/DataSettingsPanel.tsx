@@ -94,12 +94,12 @@ export function StageOwnershipHealthEntry() {
       className={`health-card${pendingCount > 0 ? ' health-warn' : ''}`}
       data-stage-ownership-health-entry
       to="/settings/data/stage-ownership-repair"
-      aria-label={`阶段待整理，${pendingCount} 项`}
+      aria-label={`待归属记录，${pendingCount} 项`}
     >
       {pendingCount > 0 ? <AlertCircle size={ICON_LG} /> : <CheckCircle size={ICON_LG} />}
-      <span className="health-label">阶段待整理</span>
+      <span className="health-label">待归属记录</span>
       <span className="health-value">{pendingCount} 项</span>
-      <span className="health-note">{pendingCount > 0 ? '打开并逐项选择目标阶段' : '所有迁移数据均已归属'}</span>
+      <span className="health-note">{pendingCount > 0 ? '选择所属阶段' : '无需处理'}</span>
     </Link>
   )
 }

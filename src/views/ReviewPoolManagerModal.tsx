@@ -326,7 +326,7 @@ function ReviewPoolEditor({
             options={[
               { value: 'current-and-history', label: '当前阶段 + 全部历史' },
               { value: 'current', label: '仅当前阶段' },
-              { value: 'all-history', label: '全部历史阶段' },
+              { value: 'all-history', label: '全部阶段' },
             ]}
             onValueChange={(value) => patch({ stageSource: value as ReviewPoolFilters['stageSource'] })}
           />

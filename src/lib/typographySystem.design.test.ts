@@ -733,7 +733,6 @@ export async function testSharedTypeRolesStayAlignedAcrossPages(): Promise<void>
   }
 
   for (const [path, selector] of [
-    ['src/views/Dashboard.css', '.db-current-range-title'],
     ['src/views/QuickNotesView.css', '.quick-notes-editor-header > input'],
   ] as const) {
     assertRoleDeclarations(cssRule(sources[path], selector), selector, [

@@ -231,9 +231,12 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
     ? liveStages.find((stage) => stage.id === currentLiveStageId)
     : liveStages.find((stage) => stage.id === workspaceQuery.stage)
   const stageLabel = workspaceQuery.stage === 'all-history'
-    ? '全部历史阶段'
-    : selectedStage?.name ?? '当前阶段'
+    ? '全部阶段'
+    : workspaceQuery.stage === 'current'
+      ? '当前阶段'
+      : selectedStage?.name ?? '当前阶段'
   const kindLabel = scope.kind === 'all' ? '全部记录' : scope.kind === 'paper' ? '模拟盘' : '实盘'
+  const sampleLabel = (count: number) => scopedClosedCount > 0 ? `${count}/${scopedClosedCount} 笔` : undefined
 
   const openTrade = (tradeId: string) => {
     const t = tradeById.get(tradeId)
@@ -244,17 +247,16 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
 
   return (
     <>
-      <Topbar title="统计分析" subtitle="仅统计已平仓 · 按平仓日累计 · 报告币种 USD" showDisplay={false} />
+      <Topbar title="统计分析" showDisplay={false} />
       {header}
       <div className="db-scroll">
         <div className="db-analysis-rail">
-        <div className="db-toolbar" aria-label="分析控制">
-          <div className="db-toolbar-group" aria-label="数据范围">
-            <span className="db-toolbar-label">数据范围</span>
-            <strong className="db-toolbar-current">{stageLabel} · {kindLabel}</strong>
-          </div>
+        <div
+          className="db-toolbar"
+          data-dashboard-current-range
+            aria-label={`当前分析范围：${stageLabel} · ${kindLabel} · ${rangeLabel} · 报告币种 USD`}
+        >
           <div className="db-toolbar-group" aria-label="统计周期">
-            <span className="db-toolbar-label">统计周期</span>
             <SegmentedControl
               className="db-range-control"
               label="统计周期"
@@ -291,43 +293,33 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
           />
         ) : null}
 
-        <header className="db-current-range-head">
-          <div>
-            <span className="db-current-range-eyebrow">当前分析范围</span>
-            <h2 className="db-current-range-title" data-dashboard-current-range>
-              {rangeLabel} · {stageLabel} · {kindLabel}
-            </h2>
-          </div>
-          <Link to={performanceDrilldownHref} className="db-live-link">查看该范围交易</Link>
-        </header>
-
         <div className="db-cards" aria-label={`当前范围指标 · ${rangeLabel}`}>
           <Card
             label="净盈亏"
             value={stats.pnlCount === 0
               ? '—'
               : fmtMoney(stats.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}
-            sub={`当前范围 · ${stats.pnlCount}/${scopedClosedCount} 笔含盈亏`}
+            sub={sampleLabel(stats.pnlCount)}
             accent={privacyMode || stats.pnlCount === 0 || stats.totalPnl === 0 ? undefined : stats.totalPnl > 0}
             to={performanceDrilldownHref}
           />
           <Card
             label="胜率"
             value={stats.winRate == null ? '—' : `${stats.winRate.toFixed(0)}%`}
-            sub={`当前范围 · ${stats.evaluatedCount}/${scopedClosedCount} 笔结果有效`}
+            sub={sampleLabel(stats.evaluatedCount)}
             to={performanceDrilldownHref}
           />
           <Card
             label="平均 R"
             value={stats.averageR == null ? '—' : `${stats.averageR > 0 ? '+' : ''}${stats.averageR.toFixed(2)}`}
-            sub={`当前范围 · ${stats.rCount}/${scopedClosedCount} 笔含 R`}
+            sub={sampleLabel(stats.rCount)}
             accent={stats.averageR == null || stats.averageR === 0 ? undefined : stats.averageR > 0}
             to={performanceDrilldownHref}
           />
           <Card
             label="盈利笔数"
             value={stats.evaluatedCount === 0 ? '—' : String(stats.winCount)}
-            sub={`当前范围 · 共 ${stats.evaluatedCount} 笔有效结果`}
+            sub={scopedClosedCount > 0 ? `${stats.evaluatedCount} 笔` : undefined}
             muted
             to={performanceDrilldownHref}
           />
@@ -382,12 +374,12 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
           <EmptyState
             className="db-empty"
             title={selectedPerformanceCycleIsEmpty
-              ? '当前范围暂无已平仓记录'
+              ? '暂无已平仓记录'
               : hasPerformanceBounds
                 ? '当前时间范围暂无已平仓记录'
                 : '还没有已平仓交易'}
             hint={selectedPerformanceCycleIsEmpty
-                  ? '可以调整阶段、记录类型或统计周期后继续查看。'
+                  ? '换个阶段、类型或周期试试。'
               : hasPerformanceBounds
                 ? '该数据范围存在已平仓记录，可以切换统计周期查看。'
                 : '平仓并填写结果后，这里会生成盈亏曲线与策略表现。'}

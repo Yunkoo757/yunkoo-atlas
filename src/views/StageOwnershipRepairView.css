@@ -35,23 +35,7 @@
 .stage-ownership-total strong { color: var(--text-primary); font-size: var(--type-section-title-size); font-variant-numeric: var(--numeric-tabular); }
 .stage-ownership-page-status { min-height: 1.4em; margin: var(--sp-2) 0 0; color: var(--pos); font-size: var(--type-caption-size); line-height: 1.4; }
 
-.stage-ownership-stage-guide {
-  display: grid;
-  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
-  gap: var(--sp-4);
-  margin-top: var(--sp-4);
-  padding-block: var(--sp-3);
-  border-block: 1px solid var(--border-subtle);
-}
-
-.stage-ownership-stage-guide h2 { margin: 0; color: var(--text-primary); font-size: var(--type-section-title-size); font-weight: var(--type-section-title-weight); }
-.stage-ownership-stage-guide p { margin: var(--sp-1) 0 0; color: var(--text-muted); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-.stage-ownership-stage-guide ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
-.stage-ownership-stage-guide li { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: var(--sp-2); background: var(--bg-inset); border-radius: var(--radius-6); }
-.stage-ownership-stage-guide li strong { overflow: hidden; color: var(--text-primary); font-size: var(--type-row-size); text-overflow: ellipsis; white-space: nowrap; }
-.stage-ownership-stage-guide li span { color: var(--text-muted); font-size: var(--type-caption-size); }
-
-.stage-ownership-list { margin-top: var(--sp-4); border-top: 1px solid var(--border-subtle); }
+.stage-ownership-list { margin-top: var(--sp-3); border-top: 1px solid var(--border-subtle); }
 
 .stage-ownership-row {
   display: grid;
@@ -95,7 +79,6 @@
 .stage-ownership-empty span { color: var(--text-muted); font-size: var(--type-caption-size); }
 
 @media (max-width: 1099px) {
-  .stage-ownership-stage-guide,
   .stage-ownership-row { grid-template-columns: minmax(0, 1fr); }
   .stage-ownership-row { gap: var(--sp-3); }
   .stage-ownership-actions { grid-template-columns: minmax(0, 1fr) auto; }

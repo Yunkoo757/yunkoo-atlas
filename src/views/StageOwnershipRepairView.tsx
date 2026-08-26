@@ -17,6 +17,33 @@ import { Button } from '@/components/ui/Button'
 import './StageOwnershipRepairView.css'
 
 type Feedback = { kind: 'error' | 'success'; message: string }
+type OwnershipDraft = {
+  liveStageId?: string
+  weeklyPeriod?: { weekStart: string; weekEnd: string }
+}
+
+const OWNERSHIP_DRAFTS_KEY = 'trader-atlas:stage-ownership-drafts:v1'
+
+function readOwnershipDrafts(): Record<string, OwnershipDraft> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(OWNERSHIP_DRAFTS_KEY) ?? '{}')
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, OwnershipDraft>
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeOwnershipDrafts(drafts: Record<string, OwnershipDraft>): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(OWNERSHIP_DRAFTS_KEY, JSON.stringify(drafts))
+  } catch {
+    // 草稿记忆失败不应阻止阶段归属保存。
+  }
+}
 
 function usePendingOwnership() {
   const liveStages = useStore((state) => state.liveStages)
@@ -71,6 +98,10 @@ function itemKey(item: PendingStageOwnershipItem): string {
   return `${item.entityType}:${item.entityId}`
 }
 
+function itemDraftKey(item: PendingStageOwnershipItem): string {
+  return `${itemKey(item)}:${item.fingerprint}`
+}
+
 export function StageOwnershipRepairView() {
   const pending = usePendingOwnership()
   const liveStages = useStore((state) => state.liveStages)
@@ -79,6 +110,7 @@ export function StageOwnershipRepairView() {
   const [selections, setSelections] = useState<Record<string, string>>({})
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({})
   const [weeklyPeriodCorrections, setWeeklyPeriodCorrections] = useState<Record<string, { weekStart: string; weekEnd: string }>>({})
+  const [drafts, setDrafts] = useState<Record<string, OwnershipDraft>>(readOwnershipDrafts)
   const [pageStatus, setPageStatus] = useState('')
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [savingItem, setSavingItem] = useState<PendingStageOwnershipItem | null>(null)
@@ -89,9 +121,27 @@ export function StageOwnershipRepairView() {
     [liveStages],
   )
 
+  const updateDraft = (item: PendingStageOwnershipItem, patch: OwnershipDraft) => {
+    setDrafts((current) => {
+      const key = itemDraftKey(item)
+      const next = { ...current, [key]: { ...current[key], ...patch } }
+      writeOwnershipDrafts(next)
+      return next
+    })
+  }
+
+  const clearDraft = (item: PendingStageOwnershipItem) => {
+    setDrafts((current) => {
+      const next = { ...current }
+      delete next[itemDraftKey(item)]
+      writeOwnershipDrafts(next)
+      return next
+    })
+  }
+
   async function save(item: PendingStageOwnershipItem): Promise<void> {
     const key = itemKey(item)
-    const liveStageId = selections[key] ?? ''
+    const liveStageId = selections[key] ?? drafts[itemDraftKey(item)]?.liveStageId ?? ''
     if (!liveStageId || busyRef.current) return
     busyRef.current = key
     setBusyKey(key)
@@ -146,6 +196,7 @@ export function StageOwnershipRepairView() {
         delete next[key]
         return next
       })
+      clearDraft(item)
     } catch (saveError) {
       try {
         if (!rollbackRequest) throw new StageOwnershipRepairError('rollback-conflict', '缺少本次归属的回滚凭据')
@@ -197,9 +248,9 @@ export function StageOwnershipRepairView() {
       <header className="settings-page-head stage-ownership-repair-hero">
         <div>
           <Link className="stage-ownership-back" to="/settings/data">返回数据设置</Link>
-          <h1 className="settings-page-title" tabIndex={-1}>阶段待整理</h1>
+          <h1 className="settings-page-title" tabIndex={-1}>待归属记录</h1>
           <p className="settings-page-desc">
-            这些旧版迁移记录缺少可验证的阶段归属。待整理数据不会进入当前、历史阶段或绩效统计；只有显式保存后才进入所选阶段。
+            为旧记录选择所属阶段。选择会自动记住，保存后不再出现。
           </p>
         </div>
         <div className="stage-ownership-total" aria-label={`待整理 ${pending.length} 项`}>
@@ -212,21 +263,6 @@ export function StageOwnershipRepairView() {
         {pageStatus}
       </p>
 
-      <section className="stage-ownership-stage-guide" aria-labelledby="stage-ownership-stage-guide-title">
-        <div>
-          <h2 id="stage-ownership-stage-guide-title">可选阶段</h2>
-          <p>日期仅作为原始上下文展示，系统不会据此推荐或预选阶段。</p>
-        </div>
-        <ul>
-          {stages.map((stage) => (
-            <li key={stage.id}>
-              <strong>{stage.name}</strong>
-              <span>{stage.status === 'current' ? '当前阶段' : '历史阶段'} · 第 {stage.sequence} 阶段</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
       {displayedPending.length === 0 ? (
         <section className="stage-ownership-empty" data-stage-ownership-empty role="status">
           <CheckCircle size={ICON_MD} aria-hidden />
@@ -236,13 +272,17 @@ export function StageOwnershipRepairView() {
           </div>
         </section>
       ) : (
-        <section className="stage-ownership-list" aria-label="阶段待整理项目">
+        <section className="stage-ownership-list" aria-label="待归属记录">
           {displayedPending.map((item) => {
             const key = itemKey(item)
-            const selected = selections[key] ?? ''
+            const remembered = drafts[itemDraftKey(item)]
+            const selected = selections[key]
+              ?? (stages.some((stage) => stage.id === remembered?.liveStageId) ? remembered?.liveStageId : '')
             const itemFeedback = feedback[key]
             const busy = busyKey === key
-            const weeklyPeriodCorrection = weeklyPeriodCorrections[key] ?? { weekStart: '', weekEnd: '' }
+            const weeklyPeriodCorrection = weeklyPeriodCorrections[key]
+              ?? remembered?.weeklyPeriod
+              ?? { weekStart: '', weekEnd: '' }
             const correctionComplete = !item.requiresWeeklyPeriodCorrection || (
               weeklyPeriodCorrection.weekStart.length > 0 && weeklyPeriodCorrection.weekEnd.length > 0
             )
@@ -274,7 +314,9 @@ export function StageOwnershipRepairView() {
                       </div>
                     ) : null}
                   </dl>
-                  <p className="stage-ownership-reason"><AlertCircle size={ICON_MD} aria-hidden />{item.reason}</p>
+                  <p className="stage-ownership-reason" title={item.reason}>
+                    <AlertCircle size={ICON_MD} aria-hidden />旧记录缺少阶段信息
+                  </p>
                 </div>
                 <div className="stage-ownership-actions">
                   {item.requiresWeeklyPeriodCorrection ? (
@@ -290,10 +332,11 @@ export function StageOwnershipRepairView() {
                         data-weekly-period-weekstart
                         value={weeklyPeriodCorrection.weekStart}
                         disabled={busyKey !== null}
-                        onChange={(event) => setWeeklyPeriodCorrections((current) => ({
-                          ...current,
-                          [key]: { ...weeklyPeriodCorrection, weekStart: event.target.value },
-                        }))}
+                        onChange={(event) => {
+                          const weeklyPeriod = { ...weeklyPeriodCorrection, weekStart: event.target.value }
+                          setWeeklyPeriodCorrections((current) => ({ ...current, [key]: weeklyPeriod }))
+                          updateDraft(item, { weeklyPeriod })
+                        }}
                       />
                       <label htmlFor={`stage-ownership-week-end-${key}`}>修正周结束（周日）</label>
                       <input
@@ -302,10 +345,11 @@ export function StageOwnershipRepairView() {
                         data-weekly-period-weekend
                         value={weeklyPeriodCorrection.weekEnd}
                         disabled={busyKey !== null}
-                        onChange={(event) => setWeeklyPeriodCorrections((current) => ({
-                          ...current,
-                          [key]: { ...weeklyPeriodCorrection, weekEnd: event.target.value },
-                        }))}
+                        onChange={(event) => {
+                          const weeklyPeriod = { ...weeklyPeriodCorrection, weekEnd: event.target.value }
+                          setWeeklyPeriodCorrections((current) => ({ ...current, [key]: weeklyPeriod }))
+                          updateDraft(item, { weeklyPeriod })
+                        }}
                       />
                     </fieldset>
                   ) : null}
@@ -318,6 +362,7 @@ export function StageOwnershipRepairView() {
                     onChange={(event) => {
                       const liveStageId = event.target.value
                       setSelections((current) => ({ ...current, [key]: liveStageId }))
+                      updateDraft(item, { liveStageId })
                       setFeedback((current) => {
                         const next = { ...current }
                         delete next[key]
@@ -325,10 +370,10 @@ export function StageOwnershipRepairView() {
                       })
                     }}
                   >
-                    <option value="">请选择目标阶段（必选）</option>
+                    <option value="">选择阶段</option>
                     {stages.map((stage) => (
                       <option key={stage.id} value={stage.id}>
-                        {stage.name} · {stage.status === 'current' ? '当前阶段' : '历史阶段'}
+                        {stage.name}{stage.status === 'current' ? '（当前）' : ''}
                       </option>
                     ))}
                   </select>
@@ -344,7 +389,7 @@ export function StageOwnershipRepairView() {
                     role={itemFeedback?.kind === 'error' ? 'alert' : 'status'}
                     aria-live="polite"
                   >
-                    {itemFeedback?.message ?? '保存只会写入所选阶段，不改变其他事实。'}
+                    {itemFeedback?.message ?? '选择会自动记住'}
                   </p>
                 </div>
               </article>

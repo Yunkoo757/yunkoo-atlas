@@ -349,7 +349,7 @@ export function LiveArchiveView({ header }: { header?: ReactNode } = {}) {
   })
   return (
     <>
-      <Topbar title="历史实盘" subtitle="按明确阶段浏览归档事实" view={mode} onView={setMode} />
+      <Topbar title="历史实盘" view={mode} onView={setMode} />
       {header}
       {navigation}
       <div className="live-archive-scroll">

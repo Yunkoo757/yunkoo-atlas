@@ -104,7 +104,7 @@ const REVIEW_TIMING_OPTIONS = [
 const REVIEW_STAGE_SOURCE_OPTIONS = [
   { value: 'current-and-history', label: '当前阶段 + 全部历史' },
   { value: 'current', label: '仅当前阶段' },
-  { value: 'all-history', label: '全部历史阶段' },
+  { value: 'all-history', label: '全部阶段' },
   { value: 'custom', label: '自选阶段' },
 ]
 
@@ -165,7 +165,7 @@ function stageSourceSelectValue(stageSource: ReviewStageSource): string {
 function reviewStageSourceLabel(stageSource: ReviewStageSource): string {
   if (stageSource === 'current-and-history') return '当前阶段 + 全部历史'
   if (stageSource === 'current') return '仅当前阶段'
-  if (stageSource === 'all-history') return '全部历史阶段'
+  if (stageSource === 'all-history') return '全部阶段'
   return stageSource.stageIds.length === 0
     ? '尚未选择实盘阶段'
     : `自选 ${stageSource.stageIds.length} 个阶段`

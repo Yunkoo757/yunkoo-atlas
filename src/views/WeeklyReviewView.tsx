@@ -678,7 +678,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
 
   return (
     <>
-      <Topbar title="周期复盘" subtitle="把本周复盘转成下周可验证的一件事" showDisplay={false} />
+      <Topbar title="周期复盘" showDisplay={false} />
       {header}
       <div className={`wr-shell${hasReviewHistory ? '' : ' is-first-review'}`}>
         {hasReviewHistory ? (

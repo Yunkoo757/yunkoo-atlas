@@ -257,6 +257,7 @@ async function run(): Promise<void> {
   const saved: PersistedSnapshot[] = []
   const currentTradingDayKey = getTradingDayKey(new Date(), 0)
   const repairedLimitId = `monthly-risk-limit:null:${currentTradingDayKey.slice(0, 7)}`
+  window.localStorage.removeItem('trader-atlas:stage-ownership-drafts:v1')
   let saveSnapshot: (snapshot: PersistedSnapshot) => Promise<void> = async (snapshot) => {
     saved.push(structuredClone(snapshot))
   }
@@ -271,12 +272,12 @@ async function run(): Promise<void> {
     await waitFor(() => document.querySelector('[data-stage-ownership-repair-view]') !== null, '阶段待整理页面没有渲染')
 
     const view = document.querySelector<HTMLElement>('[data-stage-ownership-repair-view]')!
-    assert(view.textContent?.includes('阶段待整理'), '页面缺少明确标题')
-    assert(view.textContent?.includes('待整理数据不会进入当前、历史阶段或绩效统计'), '页面没有解释可见性与统计影响')
+    assert(view.textContent?.includes('待归属记录'), '页面缺少明确标题')
+    assert(view.textContent?.includes('选择会自动记住'), '页面没有解释选择记忆行为')
     assert(!view.textContent?.includes('推荐阶段'), '页面不得根据日期推荐阶段')
     const healthLink = document.querySelector<HTMLAnchorElement>('[data-stage-ownership-health-entry]')
     assert(healthLink?.getAttribute('href') === '/settings/data/stage-ownership-repair', '数据健康入口链接错误')
-    assert(healthLink.textContent?.includes('阶段待整理') && healthLink.textContent.includes('9'), '数据健康入口必须显示精确待整理数量')
+    assert(healthLink.textContent?.includes('待归属记录') && healthLink.textContent.includes('9'), '数据健康入口必须显示精确待整理数量')
 
     const labels = ['实盘交易', '错过机会', '案例', '周复盘', '周风险准备', '风险政策版本', '月度风险限额', '风险覆盖记录']
     for (const label of labels) assert(view.textContent?.includes(label), `页面缺少实体类型：${label}`)
@@ -288,14 +289,18 @@ async function run(): Promise<void> {
       assert(select.value === '', '目标阶段不得有默认或预选值')
       assert(select.getAttribute('aria-label')?.includes('选择目标阶段'), '目标阶段选择框缺少可访问标签')
       const options = [...select.options].map((option) => option.textContent ?? '')
-      assert(options.some((option) => option.includes('当前执行期') && option.includes('当前阶段')), '选择框缺少当前阶段名称与状态')
-      assert(options.some((option) => option.includes('历史训练期') && option.includes('历史阶段')), '选择框缺少历史阶段名称与状态')
+      assert(options.some((option) => option.includes('当前执行期') && option.includes('当前')), '选择框缺少当前阶段名称与状态')
+      assert(options.some((option) => option.includes('历史训练期')), '选择框缺少历史阶段名称')
     }
     assert(saveButton('live').disabled, '未显式选择阶段时不得保存')
 
     const invalidReviewRow = row('invalid-review')
     assert(invalidReviewRow.textContent?.includes('原始周区间无效') && invalidReviewRow.textContent.includes('修正'), '非法周复盘没有可发现的日期修复说明')
     selectStage('invalid-review', 'stage-old')
+    assert(
+      window.localStorage.getItem('trader-atlas:stage-ownership-drafts:v1')?.includes('stage-old'),
+      '阶段选择必须立即写入重启可恢复的草稿',
+    )
     assert(saveButton('invalid-review').disabled, '隔离周复盘未显式修正日期时不得保存')
     setDate('invalid-review', 'weekStart', '2026-06-22')
     setDate('invalid-review', 'weekEnd', '2026-06-28')
@@ -321,6 +326,10 @@ async function run(): Promise<void> {
     saveSnapshot = async (snapshot) => { saved.push(structuredClone(snapshot)) }
     saveButton('invalid-review').click()
     await waitFor(() => document.querySelector('[data-stage-ownership-id="invalid-review"]') === null, '非法周区间修复重试没有成功')
+    assert(
+      !window.localStorage.getItem('trader-atlas:stage-ownership-drafts:v1')?.includes('invalid-review'),
+      '归属保存成功后必须清理对应草稿',
+    )
     const durableInvalidReview = saved.at(-1)?.weeklyReviews?.find((item) => item.id === 'invalid-review')
     assert(
       durableInvalidReview?.liveStageId === 'stage-old' &&

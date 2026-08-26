@@ -26,7 +26,6 @@ export function TradeWorkspaceContext({ page }: { page: TradeWorkspacePage }) {
     () => parseTradeWorkspaceQuery(location.search, liveStages, currentLiveStageId),
     [currentLiveStageId, liveStages, location.search],
   )
-  const currentStage = liveStages.find((stage) => stage.id === currentLiveStageId)
   const params = new URLSearchParams(location.search)
   const linkedReviewStageId = page === 'review' && !params.has('liveStage')
     ? weeklyReviews.find((review) => review.id === params.get('review'))?.liveStageId
@@ -36,8 +35,8 @@ export function TradeWorkspaceContext({ page }: { page: TradeWorkspacePage }) {
     .filter((stage) => stage.status === 'archived')
     .sort((left, right) => right.sequence - left.sequence)
   const stageOptions = [
-    { value: 'current', label: currentStage ? `当前 · ${currentStage.name}` : '当前阶段' },
-    { value: 'all-history', label: '全部历史阶段' },
+    { value: 'current', label: '当前阶段' },
+    { value: 'all-history', label: '全部阶段' },
     ...archived.map((stage) => ({ value: stage.id, label: stage.name })),
   ]
 
