@@ -34,9 +34,9 @@
   font-weight: var(--font-weight-medium);
   line-height: var(--type-metadata-line-height);
   /* 描边用 border（盒内），避免外扩 shadow / ::after 在非整数 DPR 或 overflow 下被裁 */
-  border: 1px solid var(--surface-control-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-full);
-  background: var(--surface-control);
+  background: transparent;
   box-shadow: none;
   transition:
     border-color 150ms,
@@ -63,14 +63,14 @@
 }
 
 .quick-view-chip:hover,
-.quick-view-overflow:hover,
-.quick-view-overflow.is-active {
+.quick-view-overflow:hover {
   color: var(--list-text-primary);
-  background: var(--surface-control-active);
-  border-color: var(--surface-control-border-active);
+  background: var(--bg-hover);
+  border-color: transparent;
 }
 
-.quick-view-chip.is-active {
+.quick-view-chip.is-active,
+.quick-view-overflow.is-active {
   color: var(--list-text-strong);
   background: var(--surface-control-active);
   border-color: var(--surface-control-border-active);

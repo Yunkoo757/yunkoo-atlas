@@ -34,9 +34,10 @@ export function TradeWorkspaceContext({ page }: { page: TradeWorkspacePage }) {
   const archived = [...liveStages]
     .filter((stage) => stage.status === 'archived')
     .sort((left, right) => right.sequence - left.sequence)
+  const currentStage = liveStages.find((stage) => stage.id === currentLiveStageId)
   const stageOptions = [
-    { value: 'current', label: '当前阶段' },
-    { value: 'all-history', label: '全部阶段' },
+    { value: 'current', label: currentStage?.name ?? '当前阶段' },
+    { value: 'all-history', label: '全部历史' },
     ...archived.map((stage) => ({ value: stage.id, label: stage.name })),
   ]
 
