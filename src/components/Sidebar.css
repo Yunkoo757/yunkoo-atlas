@@ -43,6 +43,7 @@
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 /* 工作区头：左侧紧凑头像/名字/▾，右侧搜索/新建靠右 */
@@ -382,7 +383,7 @@ html[data-ui-settled='1'] .sb-item {
 .sb-item-count {
   margin-left: auto;
   min-width: 2ch;
-  color: var(--sb-text);
+  color: var(--text-quaternary);
   font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-normal);
   font-variant-numeric: var(--numeric-tabular);

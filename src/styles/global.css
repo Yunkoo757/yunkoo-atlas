@@ -91,11 +91,15 @@ a {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
+  min-height: 40px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+  border: 2px solid transparent;
   border-radius: var(--radius-full);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-quaternary);
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
