@@ -83,6 +83,18 @@
   gap: 2px;
 }
 
+.st-row-actions > :not(:last-child) {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.st-row:hover .st-row-actions > :not(:last-child),
+.st-row:focus-within .st-row-actions > :not(:last-child) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .st-act {
   display: grid;
   place-items: center;
