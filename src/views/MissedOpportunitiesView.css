@@ -112,8 +112,8 @@
 }
 
 .missed-merge-note {
-  margin: var(--sp-1) var(--sp-4) var(--sp-2);
-  color: var(--text-quaternary);
+  margin: var(--sp-2) var(--sp-4);
+  color: var(--text-tertiary);
   font-size: var(--fs-mini);
 }
 

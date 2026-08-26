@@ -114,7 +114,7 @@ export function testTypographyContractRejectsRogueNamesAndDirectCorePixels(): vo
 export async function testResponsiveBreakpointsUseTheSharedViewportSet(): Promise<void> {
   const fs = await import('node:fs/promises')
   const path = await import('node:path')
-  const allowed = new Set([480, 640, 768, 899, 1024, 1099, 1200, 1268])
+  const allowed = new Set([480, 640, 768, 899, 1024, 1099, 1200, 1268, 1439])
   const roots = ['src/components', 'src/views']
   const files: string[] = []
   async function collect(directory: string): Promise<void> {

@@ -182,7 +182,7 @@ export async function testQuaternaryDeclarationInventoryIsClosedAndDisabledNever
     ...allow('src/components/StrategyHeader.css', 'edge metadata', 'color', ['.sh-stat-label']),
     ...allow('src/components/TradeOpenRiskDialog.css', 'edge metadata', 'color', ['.trade-open-risk-periods em', '.trade-open-risk-reason small']),
     ...allow('src/components/trades/QuickViewBar.css', 'edge metadata', 'color', ['.quick-view-group h3, .quick-view-manage h3', '.quick-view-save-actions span']),
-    ...allow('src/components/trades/TradeList.css', 'edge metadata', 'color', ['.trade-row-tag, .trade-row-more, .trade-row-session, .trade-row-timeframe', '.trade-row-more']),
+    ...allow('src/components/trades/TradeList.css', 'edge metadata', 'color', ['.trade-row-more']),
     ...allow('src/components/ui/CrumbsNav.css', 'decoration', 'color', ['.crumbs-sep']),
     ...allow('src/components/ui/DatePicker.css', 'edge metadata', 'color', ['.ui-date-weekdays']),
     ...allow('src/components/ui/FilterBar.css', 'edge metadata', 'color', ['.ui-filter-empty']),

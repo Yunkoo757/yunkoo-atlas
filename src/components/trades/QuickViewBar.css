@@ -34,7 +34,7 @@
   font-weight: var(--font-weight-medium);
   line-height: var(--type-metadata-line-height);
   /* 描边用 border（盒内），避免外扩 shadow / ::after 在非整数 DPR 或 overflow 下被裁 */
-  border: 1px solid transparent;
+  border: 1px solid var(--surface-control-border);
   border-radius: var(--radius-full);
   background: transparent;
   box-shadow: none;

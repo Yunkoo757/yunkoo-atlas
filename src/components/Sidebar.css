@@ -383,7 +383,7 @@ html[data-ui-settled='1'] .sb-item {
 .sb-item-count {
   margin-left: auto;
   min-width: 2ch;
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-normal);
   font-variant-numeric: var(--numeric-tabular);
