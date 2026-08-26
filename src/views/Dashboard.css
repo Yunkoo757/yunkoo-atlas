@@ -178,12 +178,6 @@
 .db-card:hover {
   background: var(--bg-hover);
 }
-.db-card:first-child {
-  background: color-mix(in srgb, var(--accent) 3%, transparent);
-}
-.db-card:first-child:hover {
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-}
 .db-card-label {
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
@@ -224,7 +218,7 @@
 }
 
 .db-data-health-title {
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   font-weight: var(--font-weight-medium);
 }
 
@@ -302,7 +296,7 @@
   justify-content: space-between;
   gap: var(--sp-3);
   padding: var(--sp-4) 18px var(--sp-3);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 0;
 }
 .db-panel-title {
   color: var(--text-strong);
@@ -323,7 +317,7 @@
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: var(--sp-3) var(--sp-3) 18px;
+  padding: 0 var(--sp-3) 18px;
   box-sizing: border-box;
 }
 
