@@ -178,6 +178,18 @@ async function run(): Promise<void> {
       `目标桌面宽度不得横向溢出，实际 ${scrollHost.scrollWidth}/${scrollHost.clientWidth}`,
     )
 
+    const list = host.querySelector<HTMLElement>('.trade-list[role="list"]')
+    const firstTradeRow = host.querySelector<HTMLElement>('[data-trade-id="august-1"]')
+    assert(list && firstTradeRow, '交易集合必须暴露统一的 list/listitem 语义')
+    assert(columns.getAttribute('aria-hidden') === 'true', '纯视觉列标题必须退出无障碍树')
+    assert(!host.querySelector('[role="row"], [role="columnheader"]'), '列表不得混入残缺表格语义')
+    assert(firstTradeRow.getAttribute('role') === 'listitem', '交易行必须是列表项')
+    assert(firstTradeRow.parentElement?.getAttribute('role') === 'presentation', '虚拟定位层不得重复列表项语义')
+    assert(firstTradeRow.getAttribute('aria-posinset') === '2', '首条交易必须位于月份标题之后')
+    assert(firstTradeRow.getAttribute('aria-setsize') === '10', '虚拟列表必须暴露完整集合大小')
+    const describedBy = firstTradeRow.getAttribute('aria-describedby')
+    assert(describedBy && document.getElementById(describedBy)?.textContent === '2026 年 8 月', '交易行必须关联所属月份')
+
     const initialGap = firstHeader.getBoundingClientRect().top - columns.getBoundingClientRect().bottom
     assert(Math.abs(initialGap - 4) <= 1, `列标题与月份条应相距 4px，实际 ${initialGap}px`)
 

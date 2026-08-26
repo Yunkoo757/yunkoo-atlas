@@ -46,8 +46,9 @@ export async function testTradeListColumnsShareRowGridAndStickyOrder(): Promise<
   const css = await fs.readFile('src/components/trades/TradeList.css', 'utf8')
 
   assert(source.includes('<TradeListColumns'), '交易日志必须提供稳定列标题')
-  assert(columns.includes('role="row"'), '列标题必须暴露 row 语义')
-  assert(columns.includes('role="columnheader"'), '各列必须暴露 columnheader 语义')
+  assert(columns.includes('aria-hidden="true"'), '视觉列标题必须退出无障碍树')
+  assert(!columns.includes('role="row"'), 'list 模型不得混入孤立 row 语义')
+  assert(!columns.includes('role="columnheader"'), 'list 模型不得混入孤立 columnheader 语义')
   assert(css.includes('grid-template-columns: var(--trade-list-columns)'), '标题和交易行必须共享同一列模板')
   assert(
     /:where\(\.trade-list-columns, \.trade-row\)\s*\{[\s\S]*?--trade-select-column:\s*24px;[\s\S]*?--trade-ref-column:\s*72px;/.test(css),

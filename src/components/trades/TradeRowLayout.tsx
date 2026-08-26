@@ -11,6 +11,9 @@ export type TradeRowLayoutProps = {
   className?: string
   ariaLabel?: string
   role?: 'listitem'
+  ariaPosInSet?: number
+  ariaSetSize?: number
+  ariaDescribedBy?: string
   focused?: boolean
   selected?: boolean
   openAction?: TradeRowOpenAction
@@ -31,7 +34,10 @@ export function TradeRowLayout({
   tradeId,
   className,
   ariaLabel,
-  role,
+  role = 'listitem',
+  ariaPosInSet,
+  ariaSetSize,
+  ariaDescribedBy,
   focused = false,
   selected = false,
   openAction,
@@ -58,6 +64,9 @@ export function TradeRowLayout({
       data-trade-id={tradeId}
       aria-label={ariaLabel}
       role={role}
+      aria-posinset={ariaPosInSet}
+      aria-setsize={ariaSetSize}
+      aria-describedby={ariaDescribedBy}
       onContextMenu={onContextMenu}
     >
       {openAction ? (

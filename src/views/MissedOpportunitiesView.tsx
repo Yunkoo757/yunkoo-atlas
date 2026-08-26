@@ -209,6 +209,9 @@ export function MissedOpportunitiesView() {
                     strategyStats={context.strategyStats}
                     focused={context.focused}
                     symbolIcons={context.symbolIcons}
+                    ariaPosInSet={context.ariaPosInSet}
+                    ariaSetSize={context.ariaSetSize}
+                    ariaDescribedBy={context.ariaDescribedBy}
                     onOpen={openSourceDetail}
                   />
                 )}

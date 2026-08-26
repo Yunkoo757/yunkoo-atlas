@@ -24,6 +24,9 @@ export type TradeRowProps = {
   focused: boolean
   starred: boolean
   selectable?: boolean
+  ariaPosInSet?: number
+  ariaSetSize?: number
+  ariaDescribedBy?: string
   /** 由列表父级传入，避免每行订阅 store */
   symbolIcons?: SymbolIconsMap
   onOpen: (trade: Trade) => void
@@ -40,6 +43,9 @@ export const TradeRow = memo(function TradeRow({
   focused,
   starred,
   selectable = true,
+  ariaPosInSet,
+  ariaSetSize,
+  ariaDescribedBy,
   symbolIcons: symbolIconsProp,
   onOpen,
   onSelect,
@@ -74,6 +80,9 @@ export const TradeRow = memo(function TradeRow({
   return (
     <TradeRowLayout
       tradeId={trade.id}
+      ariaPosInSet={ariaPosInSet}
+      ariaSetSize={ariaSetSize}
+      ariaDescribedBy={ariaDescribedBy}
       focused={focused}
       selected={selected}
       openAction={{

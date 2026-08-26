@@ -17,6 +17,9 @@ type MissedOpportunityRowProps = {
   strategies: Strategy[]
   strategyStats: StrategyPreviewStats | null
   focused: boolean
+  ariaPosInSet?: number
+  ariaSetSize?: number
+  ariaDescribedBy?: string
   symbolIcons: SymbolIconsMap
   onOpen: (target: Trade, anchorId: string) => void
 }
@@ -84,6 +87,9 @@ export function MissedOpportunityRow({
   strategies,
   strategyStats,
   focused,
+  ariaPosInSet,
+  ariaSetSize,
+  ariaDescribedBy,
   symbolIcons,
   onOpen,
 }: MissedOpportunityRowProps) {
@@ -120,7 +126,9 @@ export function MissedOpportunityRow({
     <TradeRowLayout
       tradeId={item.key}
       className={'missed-opportunity-row' + (merged ? ' is-merged' : '')}
-      role="listitem"
+      ariaPosInSet={ariaPosInSet}
+      ariaSetSize={ariaSetSize}
+      ariaDescribedBy={ariaDescribedBy}
       ariaLabel={`${primary.symbol}，${sideLabel}，${SOURCE_LABELS[item.source]}，${missReason}，${fmtDate(item.occurredAt)}`}
       focused={focused}
       openAction={openAction}

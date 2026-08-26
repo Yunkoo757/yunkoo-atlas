@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useId,
   type ReactNode,
   type RefObject,
 } from 'react'
@@ -45,6 +46,9 @@ export type TradeListRowRenderContext = {
   focused: boolean
   strategyStats: StrategyPreviewStats | null
   symbolIcons: SymbolIconsMap
+  ariaPosInSet: number
+  ariaSetSize: number
+  ariaDescribedBy?: string
 }
 
 type FlatItem =
@@ -197,6 +201,7 @@ export function TradeList({
   /** 策略表现的显式 stage；paper/省略时保持当前实盘预览口径。 */
   strategyStageScope?: StageScope
 }) {
+  const listInstanceId = useId().replace(/:/g, '')
   const listRef = useRef<HTMLDivElement>(null)
   const [selectionMode, setSelectionMode] = useState(false)
   const symbolIcons = useStore((state) => state.symbolIcons) as SymbolIconsMap
@@ -435,6 +440,7 @@ export function TradeList({
       <div
       className={'trade-list trade-list-virtual' + (selectionMode || selectedIds.size > 0 ? ' is-selection-mode' : '')}
       role="list"
+      aria-label={`${recordLabel}列表，共 ${flatItems.filter((item) => item.kind === 'row').length} 条，${flatItems.filter((item) => item.kind === 'header').length} 个分组`}
       ref={listRef}
       style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
     >
@@ -443,6 +449,7 @@ export function TradeList({
         if (!item) return null
         const isSticky = item.kind === 'header' && virtualRow.index === activeStickyIndexRef.current
         const collapsed = item.kind === 'header' && item.openProgress < 0.5
+        const groupLabelId = `${listInstanceId}-group-${item.groupKey.replace(/[^a-zA-Z0-9_-]/g, '-')}`
         const rowOpacity =
           item.kind === 'row' ? Math.min(1, item.openProgress * 1.35) : 1
         return (
@@ -456,6 +463,9 @@ export function TradeList({
               (isSticky ? ' is-sticky' : '') +
               (item.kind === 'row' && item.openProgress < 0.999 ? ' is-collapsing' : '')
             }
+            role={item.kind === 'header' ? 'listitem' : 'presentation'}
+            aria-posinset={item.kind === 'header' ? virtualRow.index + 1 : undefined}
+            aria-setsize={item.kind === 'header' ? flatItems.length : undefined}
             style={{
               position: isSticky ? 'sticky' : 'absolute',
               top: isSticky ? 'var(--trade-list-columns-height)' : virtualRow.start,
@@ -510,7 +520,7 @@ export function TradeList({
                       strategies={strategies}
                     />
                   </span>
-                  <strong>{item.label}</strong>
+                  <strong id={groupLabelId}>{item.label}</strong>
                   <span className="trade-list-group-count">{item.count}</span>
                 </button>
                 <Tooltip asChild content={`在本组新建${recordLabel}`} label={`在本组新建${recordLabel}`}>
@@ -529,6 +539,9 @@ export function TradeList({
                 focused: item.trade.id === focusedId,
                 strategyStats: strategyStatsById.get(item.trade.strategyId) ?? null,
                 symbolIcons,
+                ariaPosInSet: virtualRow.index + 1,
+                ariaSetSize: flatItems.length,
+                ariaDescribedBy: groupLabelId,
               })
             ) : (
               <TradeRow
@@ -540,6 +553,9 @@ export function TradeList({
                 selected={selectedIds.has(item.trade.id)}
                 starred={starredIds.includes(item.trade.id)}
                 selectable={selectionEnabled}
+                ariaPosInSet={virtualRow.index + 1}
+                ariaSetSize={flatItems.length}
+                ariaDescribedBy={groupLabelId}
                 onOpen={onOpen}
                 onSelect={onSelect}
                 onToggleStar={onToggleStar}
