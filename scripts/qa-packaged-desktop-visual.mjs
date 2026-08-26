@@ -34,6 +34,10 @@ import {
   readRepositoryBuildExpectation,
   removeTemporaryDirectoryBounded,
 } from './bundle-build-identity.mjs'
+import {
+  assertCommitAddressableDesktopVisualPath,
+  assertFreshDesktopVisualTargets,
+} from './desktop-visual-output-contract.mjs'
 
 const SCHEMA_VERSION = 1
 const TYPOGRAPHY_PROBE_SELECTORS = Object.freeze({
@@ -46,6 +50,7 @@ const root = process.cwd()
 const hostPlatform = platform()
 const hostArch = arch()
 const packageJson = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'))
+const buildExpectation = await readRepositoryBuildExpectation(root)
 const requestedScaleFactor = normalizePackagedScaleFactor(
   process.env.ATLAS_PACKAGED_SCALE_FACTOR,
   hostPlatform,
@@ -63,13 +68,23 @@ if (!executablePath) {
 
 const scaleId = requestedScaleFactor == null ? '' : `-scale-${Math.round(requestedScaleFactor * 100)}`
 const runtimeId = `${hostPlatform}-${hostArch}${scaleId}`
-const outputRoot = assertSafePackagedVisualOutputPath({
-  root,
-  outputPath: resolve(
-  process.env.ATLAS_PACKAGED_VISUAL_OUTPUT ?? join('test-results', 'desktop-visual-packaged', runtimeId),
-  ),
-})
-rmSync(outputRoot, { recursive: true, force: true })
+const explicitOutputPath = process.env.ATLAS_PACKAGED_VISUAL_OUTPUT
+const outputRoot = explicitOutputPath
+  ? assertCommitAddressableDesktopVisualPath({
+      root,
+      outputPath: explicitOutputPath,
+      expectedCommit: buildExpectation.repository.head,
+      allowDescendant: true,
+    })
+  : assertSafePackagedVisualOutputPath({
+      root,
+      outputPath: resolve(join('test-results', 'desktop-visual-packaged', runtimeId)),
+    })
+if (explicitOutputPath) {
+  assertFreshDesktopVisualTargets([outputRoot])
+} else {
+  rmSync(outputRoot, { recursive: true, force: true })
+}
 mkdirSync(outputRoot, { recursive: true })
 
 function sha256(path) {
@@ -290,7 +305,6 @@ let typography = null
 const captures = []
 const checks = []
 let identityEvidence = null
-const buildExpectation = await readRepositoryBuildExpectation(root)
 let launcherProcessId = null
 let mainProcessId = null
 let cleanupResult = null

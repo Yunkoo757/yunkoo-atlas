@@ -31,6 +31,10 @@ import {
   removeTemporaryDirectoryBounded,
 } from './bundle-build-identity.mjs'
 import { runElectronVisualEvidenceRunner } from './electron-evidence-runner.mjs'
+import {
+  assertCommitAddressableDesktopVisualPath,
+  assertFreshDesktopVisualTargets,
+} from './desktop-visual-output-contract.mjs'
 
 export { runElectronVisualEvidenceRunner } from './electron-evidence-runner.mjs'
 export { removeTemporaryDirectoryBounded } from './bundle-build-identity.mjs'
@@ -99,15 +103,47 @@ function sourceBuild(root, packageJson) {
   }
 }
 
-function ensureRuntimeOutput(outputRoot, runtime) {
+export function parseDesktopVisualCliArgs(args) {
+  let runtime = 'renderer'
+  let runtimeFlag = null
+  let outputRoot = null
+
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index]
+    if (argument === '--renderer' || argument === '--electron') {
+      if (runtimeFlag !== null) throw new Error('Desktop visual runtime may only be specified once')
+      runtimeFlag = argument
+      runtime = argument === '--electron' ? 'electron' : 'renderer'
+      continue
+    }
+    if (argument === '--output-root') {
+      if (outputRoot !== null) throw new Error('--output-root may only be specified once')
+      const value = args[index + 1]
+      if (!value || value.startsWith('--')) throw new Error('--output-root requires a path')
+      outputRoot = value
+      index += 1
+      continue
+    }
+    throw new Error(`Unknown desktop visual argument: ${argument}`)
+  }
+
+  return { runtime, outputRoot }
+}
+
+export function ensureRuntimeOutput(outputRoot, runtime, { preserveExisting = false } = {}) {
   const root = resolve(outputRoot)
   const runtimeRoot = resolve(root, runtime)
+  const reportPath = resolve(root, `${runtime}-report.json`)
   if (!isSameOrDescendant(runtimeRoot, root) || runtimeRoot === root) {
     throw new Error(`Unsafe desktop visual output path: ${runtimeRoot}`)
   }
-  rmSync(runtimeRoot, { recursive: true, force: true })
+  if (preserveExisting) {
+    assertFreshDesktopVisualTargets([runtimeRoot, reportPath])
+  } else {
+    rmSync(runtimeRoot, { recursive: true, force: true })
+  }
   mkdirSync(runtimeRoot, { recursive: true })
-  return { root, runtimeRoot }
+  return { root, runtimeRoot, reportPath }
 }
 
 async function seedBrowserDatabase(page, seed) {
@@ -591,6 +627,7 @@ export async function runDesktopVisualQa({
   runtime = 'renderer',
   root = process.cwd(),
   outputRoot = DEFAULT_OUTPUT_ROOT,
+  preserveExisting = false,
 } = {}) {
   if (runtime !== 'renderer' && runtime !== 'electron') {
     throw new Error(`Unsupported desktop visual runtime: ${runtime}`)
@@ -598,9 +635,16 @@ export async function runDesktopVisualQa({
   const resolvedRoot = resolve(root)
   const packageJson = JSON.parse(readFileSync(resolve(resolvedRoot, 'package.json'), 'utf8'))
   const build = sourceBuild(resolvedRoot, packageJson)
+  const resolvedOutputRoot = preserveExisting
+    ? assertCommitAddressableDesktopVisualPath({
+        root: resolvedRoot,
+        outputPath: outputRoot,
+        expectedCommit: build.commit,
+      })
+    : outputRoot
   const buildExpectation = await readRepositoryBuildExpectation(resolvedRoot)
   const seed = createDesktopVisualSeedEnvelope()
-  const output = ensureRuntimeOutput(outputRoot, runtime)
+  const output = ensureRuntimeOutput(resolvedOutputRoot, runtime, { preserveExisting })
   const writeReport = async (result) => {
     const reportBuild = result.build ?? build
     const report = normalizeScreenshotPaths({
@@ -622,10 +666,9 @@ export async function runDesktopVisualQa({
       isolation: result.isolation,
       captures: result.captures,
     }, resolvedRoot)
-    const reportPath = join(output.root, `${runtime}-report.json`)
     mkdirSync(output.root, { recursive: true })
-    writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
-    process.stderr.write(`desktop visual QA report: ${reportPath}\n`)
+    writeFileSync(output.reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
+    process.stderr.write(`desktop visual QA report: ${output.reportPath}\n`)
     return report
   }
   if (runtime === 'renderer') {
@@ -652,8 +695,11 @@ export function desktopVisualReportHasFailures(report) {
 }
 
 async function main() {
-  const runtime = process.argv.includes('--electron') ? 'electron' : 'renderer'
-  const report = await runDesktopVisualQa({ runtime })
+  const { runtime, outputRoot } = parseDesktopVisualCliArgs(process.argv.slice(2))
+  const report = await runDesktopVisualQa({
+    runtime,
+    ...(outputRoot === null ? {} : { outputRoot, preserveExisting: true }),
+  })
   process.stdout.write(`${JSON.stringify({
     runtime: report.runtime,
     captures: report.captures.length,

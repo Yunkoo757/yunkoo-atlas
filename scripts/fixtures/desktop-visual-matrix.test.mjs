@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import test from 'node:test'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import {
   DESKTOP_VISUAL_SCENARIOS,
@@ -9,11 +11,17 @@ import {
 import {
   assertSafeElectronIsolationPaths,
   desktopVisualReportHasFailures,
+  ensureRuntimeOutput,
+  parseDesktopVisualCliArgs,
   removeTemporaryDirectoryBounded,
 } from '../qa-desktop-visual.mjs'
+import {
+  assertCommitAddressableDesktopVisualPath,
+} from '../desktop-visual-output-contract.mjs'
 import * as desktopVisualSeed from './desktop-visual-seed.mjs'
 
 const { createDesktopVisualSnapshot } = desktopVisualSeed
+const FULL_COMMIT = 'a'.repeat(40)
 
 function createDesktopCaptures() {
   return DESKTOP_VISUAL_VIEWPORTS.flatMap((viewport) =>
@@ -93,6 +101,91 @@ test('desktop visual archive readiness matches the unified trade workspace route
   const archive = DESKTOP_VISUAL_SCENARIOS.find((scenario) => scenario.id === 'live-archive')
   assert.equal(archive?.path, '/live-history')
   assert.equal(archive?.ready, '.list-scroll')
+})
+
+test('desktop visual CLI accepts one runtime and one protected output root', () => {
+  assert.deepEqual(parseDesktopVisualCliArgs([]), { runtime: 'renderer', outputRoot: null })
+  assert.deepEqual(parseDesktopVisualCliArgs(['--renderer']), { runtime: 'renderer', outputRoot: null })
+  assert.deepEqual(
+    parseDesktopVisualCliArgs(['--electron', '--output-root', 'evidence']),
+    { runtime: 'electron', outputRoot: 'evidence' },
+  )
+  assert.throws(
+    () => parseDesktopVisualCliArgs(['--renderer', '--electron']),
+    /runtime may only be specified once/i,
+  )
+  assert.throws(
+    () => parseDesktopVisualCliArgs(['--output-root', 'one', '--output-root', 'two']),
+    /output-root may only be specified once/i,
+  )
+  assert.throws(() => parseDesktopVisualCliArgs(['--output-root']), /requires a path/i)
+  assert.throws(() => parseDesktopVisualCliArgs(['--unknown']), /unknown desktop visual argument/i)
+})
+
+test('formal desktop visual evidence is bound to the current full commit and attempt', (context) => {
+  const root = mkdtempSync(join(tmpdir(), 'atlas-desktop-visual-contract-'))
+  context.after(() => rmSync(root, { recursive: true, force: true }))
+  const validRoot = join(
+    root,
+    'test-results',
+    'desktop-visual-evidence',
+    'baseline',
+    FULL_COMMIT,
+    'attempt-1',
+  )
+
+  assert.equal(assertCommitAddressableDesktopVisualPath({
+    root,
+    outputPath: validRoot,
+    expectedCommit: FULL_COMMIT,
+  }), validRoot)
+  assert.doesNotThrow(() => assertCommitAddressableDesktopVisualPath({
+    root,
+    outputPath: join(validRoot, 'packaged', 'win32-x64-scale-100'),
+    expectedCommit: FULL_COMMIT,
+    allowDescendant: true,
+  }))
+  assert.throws(() => assertCommitAddressableDesktopVisualPath({
+    root,
+    outputPath: join(root, 'test-results', 'desktop-visual-evidence', 'baseline', 'abc', 'attempt-1'),
+    expectedCommit: FULL_COMMIT,
+  }), /commit\/attempt layout|commit does not match/i)
+  assert.throws(() => assertCommitAddressableDesktopVisualPath({
+    root,
+    outputPath: validRoot,
+    expectedCommit: 'b'.repeat(40),
+  }), /does not match HEAD/i)
+  assert.throws(() => assertCommitAddressableDesktopVisualPath({
+    root,
+    outputPath: join(root, 'test-results', 'desktop-visual-evidence', 'baseline', FULL_COMMIT, 'attempt-0'),
+    expectedCommit: FULL_COMMIT,
+  }), /attempt-N/i)
+  assert.throws(() => assertCommitAddressableDesktopVisualPath({
+    root,
+    outputPath: join(root, '..', 'outside'),
+    expectedCommit: FULL_COMMIT,
+  }), /unsafe desktop visual evidence path/i)
+})
+
+test('formal desktop visual runtimes coexist but never overwrite runtime or report evidence', (context) => {
+  const root = mkdtempSync(join(tmpdir(), 'atlas-desktop-visual-output-'))
+  context.after(() => rmSync(root, { recursive: true, force: true }))
+  const outputRoot = join(
+    root,
+    'test-results',
+    'desktop-visual-evidence',
+    'candidate',
+    FULL_COMMIT,
+    'attempt-1',
+  )
+  mkdirSync(outputRoot, { recursive: true })
+
+  assert.doesNotThrow(() => ensureRuntimeOutput(outputRoot, 'renderer', { preserveExisting: true }))
+  assert.throws(
+    () => ensureRuntimeOutput(outputRoot, 'renderer', { preserveExisting: true }),
+    /evidence already exists/i,
+  )
+  assert.doesNotThrow(() => ensureRuntimeOutput(outputRoot, 'electron', { preserveExisting: true }))
 })
 
 test('desktop visual Electron mode rejects real application data paths', () => {

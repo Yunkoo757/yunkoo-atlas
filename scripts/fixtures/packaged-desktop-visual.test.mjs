@@ -895,6 +895,17 @@ test('packaged visual output is restricted to its evidence root', () => {
   )
 })
 
+test('packaged formal evidence uses commit-addressable output without deleting prior attempts', () => {
+  const source = readFileSync('scripts/qa-packaged-desktop-visual.mjs', 'utf8')
+  assert.match(source, /assertCommitAddressableDesktopVisualPath\(\{[\s\S]*expectedCommit:\s*buildExpectation\.repository\.head[\s\S]*allowDescendant:\s*true/)
+  const protection = source.slice(
+    source.indexOf('if (explicitOutputPath)'),
+    source.indexOf('mkdirSync(outputRoot, { recursive: true })'),
+  )
+  assert.match(protection, /assertFreshDesktopVisualTargets\(\[outputRoot\]\)/)
+  assert.match(protection, /else\s*\{[\s\S]*rmSync\(outputRoot/)
+})
+
 test('Windows packaged evidence accepts only the supported 100 125 150 percent scale matrix', () => {
   assert.equal(normalizePackagedScaleFactor('1', 'win32'), 1)
   assert.equal(normalizePackagedScaleFactor('1.25', 'win32'), 1.25)
