@@ -115,6 +115,15 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   if (list.includes('box-shadow: inset 2px 0 0 var(--accent)')) {
     throw new Error('selected rows must not retain the old blue leading rail')
   }
+  if (/box-shadow:\s*inset\s+(?:var\([^)]*\)|\d+px)\s+0\s+0/.test(list)) {
+    throw new Error('focused rows must not render a detached leading rail')
+  }
+  if (
+    !list.includes("html[data-keyboard-navigation='true'] .trade-row:focus-within::after")
+    || !list.includes('box-shadow: inset 0 0 0 1px')
+  ) {
+    throw new Error('keyboard-focused rows must render one complete inset outline')
+  }
   if (!list.includes('font-feature-settings: "calt" 1, "cpsp" 1, "tnum" 1')) {
     throw new Error('trade references must preserve the calibrated Inter OpenType features')
   }

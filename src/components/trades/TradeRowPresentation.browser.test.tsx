@@ -126,16 +126,20 @@ async function run(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 200))
     assert(defaultRow.matches(':hover'), '浏览器 runner 必须执行声明的 Playwright hover()')
     assertDefaultRowHoverUsesHoverToken(defaultRow)
+    assert(getComputedStyle(focusedRow, '::after').backgroundColor === 'rgba(0, 0, 0, 0)', '程序焦点不得留下悬空短线或整行底色')
 
+    document.documentElement.dataset.keyboardNavigation = 'true'
     overlay.focus()
 
     assert(overlay.matches(':focus-visible'), 'fixture 必须进入可见焦点态')
     assert(getComputedStyle(overlay).outlineStyle === 'none', '整行入口不得绘制焦点外框')
     assert(getComputedStyle(focusedRow).boxShadow === 'none', '焦点行不得绘制亮边')
-    assert(getComputedStyle(focusedRow, '::after').backgroundColor === 'rgba(0, 0, 0, 0)', '程序焦点不得改变整行底色')
+    assert(getComputedStyle(focusedRow, '::after').backgroundColor !== 'rgba(0, 0, 0, 0)', '真实键盘焦点必须以完整行底色表达，不能只显示悬空的左侧短线')
+    assert(getComputedStyle(focusedRow, '::after').boxShadow !== 'none', '真实键盘焦点必须使用完整的内描边')
     assert(getComputedStyle(selectedRow, '::after').backgroundColor === 'rgba(0, 0, 0, 0)', '多选不得改变整行底色')
     assert(selectedRow.querySelector('.selection-box.is-selected'), '多选仍必须由复选框表达')
   } finally {
+    delete document.documentElement.dataset.keyboardNavigation
     root.unmount()
   }
 }
