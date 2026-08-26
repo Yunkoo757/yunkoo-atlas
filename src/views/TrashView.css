@@ -120,7 +120,7 @@
 }
 
 .trash-group + .trash-group {
-  margin-top: 1px;
+  margin-top: var(--sp-2);
 }
 
 .trash-group-header {
@@ -130,11 +130,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
-  padding: 0 14px;
+  height: var(--trade-group-height, 36px);
+  margin: var(--sp-1) var(--sp-2);
+  padding: 0 10px;
   border-bottom: 1px solid var(--border-subtle);
-  background-color: var(--bg-surface);
-  box-shadow: 0 1px 0 var(--bg-surface);
+  background-color: var(--bg-elevated);
+  border-radius: var(--radius-8);
+  box-shadow: none;
   overflow: hidden;
   isolation: isolate;
   color: var(--text-secondary);
@@ -161,7 +163,9 @@
   column-gap: var(--sp-3);
   align-items: center;
   height: var(--trade-row-height, 36px);
-  padding: 0 14px;
+  margin: 0 var(--sp-2);
+  padding: 0 10px;
+  border-radius: var(--radius-8);
   border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 88%, transparent);
   color: var(--text-secondary);
   font-size: var(--fs-mini);
