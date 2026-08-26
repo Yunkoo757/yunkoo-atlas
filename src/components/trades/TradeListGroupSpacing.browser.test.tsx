@@ -111,7 +111,7 @@ function Fixture() {
       ref={scrollParentRef}
       className="list-scroll"
       data-spacing-scroll-host
-      style={{ width: 520, height: 240, flex: 'none' }}
+      style={{ width: 'calc(100vw - 48px)', height: 240, flex: 'none' }}
     >
       <TradeList
         groups={groups}
@@ -151,13 +151,31 @@ async function run(): Promise<void> {
 
     const scrollHost = host.querySelector<HTMLElement>('[data-spacing-scroll-host]')
     const columns = host.querySelector<HTMLElement>('.trade-list-columns')
+    const reference = host.querySelector<HTMLElement>('.trade-row-ref')
+    const strategyCell = host.querySelector<HTMLElement>('.trade-row-strategy')
+    const pnlCell = host.querySelector<HTMLElement>('.trade-row-pnl')
+    const rCell = host.querySelector<HTMLElement>('.trade-row-r')
     const headers = [...host.querySelectorAll<HTMLElement>('.trade-list-group-header')]
     const firstHeader = headers.find((header) => header.textContent?.includes('2026 年 8 月'))
     const secondHeader = headers.find((header) => header.textContent?.includes('2026 年 7 月'))
-    assert(scrollHost && columns && firstHeader && secondHeader, '必须渲染列标题与两个真实月份分组')
     assert(
-      scrollHost.clientWidth === 520 && scrollHost.clientHeight === 240,
-      `fixture 外层必须固定为 520×240px，实际 ${scrollHost.clientWidth}×${scrollHost.clientHeight}px`,
+      scrollHost && columns && reference && strategyCell && pnlCell && rCell && firstHeader && secondHeader,
+      '必须渲染列标题、关键交易列与两个真实月份分组',
+    )
+    assert(
+      Math.abs(scrollHost.clientWidth - (window.innerWidth - 48)) <= 1 && scrollHost.clientHeight === 240,
+      `fixture 必须消费当前 viewport，实际 ${scrollHost.clientWidth}×${scrollHost.clientHeight}px`,
+    )
+    assert(getComputedStyle(strategyCell).display !== 'none', '所有桌面宽度必须保留策略')
+    assert(getComputedStyle(pnlCell).display !== 'none', '所有桌面宽度必须保留现金盈亏')
+    assert(getComputedStyle(rCell).display !== 'none', '所有桌面宽度必须保留 R')
+    assert(
+      (window.innerWidth <= 1268) === (getComputedStyle(reference).display === 'none'),
+      '只有紧凑桌面宽度可以隐藏编号',
+    )
+    assert(
+      scrollHost.scrollWidth <= scrollHost.clientWidth + 1,
+      `目标桌面宽度不得横向溢出，实际 ${scrollHost.scrollWidth}/${scrollHost.clientWidth}`,
     )
 
     const initialGap = firstHeader.getBoundingClientRect().top - columns.getBoundingClientRect().bottom

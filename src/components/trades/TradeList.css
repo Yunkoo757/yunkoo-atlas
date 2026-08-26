@@ -768,18 +768,15 @@
 @media (max-width: 1268px) {
   :where(.trade-list-columns, .trade-row) {
     --trade-list-columns:
-      var(--trade-select-column, 18px) 16px 200px minmax(120px, 1fr) 48px
-      58px 48px 44px;
+      var(--trade-select-column, 18px) 16px minmax(140px, 200px) minmax(120px, 1fr)
+      44px 58px 48px 44px 24px;
   }
 
   .trade-list-columns,
   .trade-row { column-gap: 10px; }
 
   .trade-row-ref,
-  .trade-row-strategy,
-  .trade-row-pnl,
-  .trade-list-column.is-ref,
-  .trade-list-column.is-pnl {
+  .trade-list-column.is-ref {
     display: none;
   }
 }
