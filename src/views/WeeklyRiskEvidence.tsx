@@ -70,13 +70,13 @@ export function WeeklyRiskEvidence({
         </div>
         <div className="wr-risk-unavailable">
           <strong>{draft ? '完成复盘后生成风控证据' : incompleteSnapshot ? '快照集合不完整，已停用冻结风险展示，避免混合来源' : '历史记录未包含风控快照'}</strong>
-          <span>
-            {draft
-              ? '完成时会固化本周、月度和每日风险轨迹。'
-              : incompleteSnapshot
+          {draft ? null : (
+            <span>
+              {incompleteSnapshot
                 ? '指标或交易证据快照缺失，当前无法将保留的风控快照与实时内容混合展示。'
-              : '该周完成早于风控证据功能，保留原始记录且不回填推测数据。'}
-          </span>
+                : '该周完成早于风控证据功能，保留原始记录且不回填推测数据。'}
+            </span>
+          )}
         </div>
       </section>
     )
