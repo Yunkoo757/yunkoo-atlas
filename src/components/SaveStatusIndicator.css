@@ -8,6 +8,15 @@
   white-space: nowrap;
 }
 
+.save-status.is-saved .ui-inline-status-icon,
+.save-status.is-saved .ui-inline-status-title {
+  color: var(--text-muted);
+}
+
+.save-status.is-saved .ui-inline-status-title {
+  font-weight: var(--font-weight-normal);
+}
+
 .save-status .ui-inline-status-copy,
 .save-status-recovery .ui-inline-status-copy {
   font-size: var(--type-metadata-size);
