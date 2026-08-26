@@ -2,14 +2,18 @@ import { ICON_SM } from '@/icons/iconSize'
 import { memo } from 'react'
 import { Star } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
-import { CASE_TYPE_META, REVIEW_CATEGORY_META, resolveTimeframe, type Trade } from '@/data/trades'
+import { resolveTimeframe, type Trade } from '@/data/trades'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import type { StrategyPreviewStats } from '@/components/RowPreviews'
 import { SelectionBox } from '@/components/ui/SelectionBox'
-import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
-import { formatTradeCashPnl } from '@/lib/cashCurrency'
-import { getTradeSessionMeta, getVisibleTradeTags } from '@/lib/tradeView'
+import { fmtDate } from '@/lib/format'
+import {
+  buildTradeRowAccessibleLabel,
+  buildTradeRowContext,
+  resolveTradeRowResultPresentation,
+  type TradeRowContextItem,
+} from '@/lib/tradeRowPresentation'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
@@ -52,34 +56,75 @@ export const TradeRow = memo(function TradeRow({
   onToggleStar,
   onContextMenu,
 }: TradeRowProps) {
-  const showResult = trade.status !== 'planned' && trade.status !== 'open'
-  const isMissed = trade.status === 'missed'
   const privacyMode = useStore((state) => state.display.privacyMode)
   const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
-  const session = getTradeSessionMeta(trade)
   const timeframe = resolveTimeframe(trade.timeframe)
   const symbolIconsFromStore = useStore((state) =>
     symbolIconsProp === undefined ? state.symbolIcons : null,
   )
   const symbolIcons = symbolIconsProp ?? symbolIconsFromStore ?? {}
-  const regularTags = getVisibleTradeTags(trade, 0)
-  const mistakeTags = {
-    visible: trade.mistakeTags.slice(0, 2),
-    hidden: trade.mistakeTags.slice(2),
-    hiddenCount: Math.max(0, trade.mistakeTags.length - 2),
+  const context = buildTradeRowContext(trade)
+  const result = resolveTradeRowResultPresentation(
+    trade,
+    legacyCashCurrencyAssumption,
+    privacyMode,
+  )
+  const strategyLabel = strategies.find((strategy) => strategy.id === trade.strategyId)?.name ?? '未设置'
+  const date = fmtDate(trade.openedAt)
+
+  const contextItem = (item: TradeRowContextItem, index: number) => {
+    const content = (
+      <span
+        key={item.key}
+        className={
+          `trade-row-tag is-${item.kind} trade-row-context-item` +
+          (index >= 2 ? ' is-overflow-wide' : '') +
+          (index >= 1 ? ' is-overflow-medium' : '')
+        }
+      >
+        {item.label}
+      </span>
+    )
+    return item.detail ? (
+      <Tooltip key={item.key} asChild content={item.detail} label={`${item.label}：${item.detail}`}>
+        {content}
+      </Tooltip>
+    ) : content
   }
-  const reviewLabel =
-    isMissed
-      ? null
-      : trade.tradeKind === 'case' && trade.caseType
-      ? CASE_TYPE_META[trade.caseType].label
-      : trade.reviewCategory !== 'normal'
-        ? REVIEW_CATEGORY_META[trade.reviewCategory].label
-        : null
+
+  const overflow = (visibleCount: number, className: string) => {
+    const hidden = context.slice(visibleCount)
+    if (hidden.length === 0) return null
+    const labels = hidden.map((item) => item.label)
+    return (
+      <Tooltip
+        asChild
+        content={labels.join(' · ')}
+        label={`其余上下文：${labels.join('、')}`}
+      >
+        <span
+          className={`trade-row-more ${className}`}
+          tabIndex={0}
+          aria-label={`其余上下文：${labels.join('、')}`}
+        >
+          +{hidden.length}
+        </span>
+      </Tooltip>
+    )
+  }
 
   return (
     <TradeRowLayout
       tradeId={trade.id}
+      ariaLabel={buildTradeRowAccessibleLabel(
+        trade,
+        strategyLabel,
+        context,
+        result,
+        timeframe,
+        date,
+        starred,
+      )}
       ariaPosInSet={ariaPosInSet}
       ariaSetSize={ariaSetSize}
       ariaDescribedBy={ariaDescribedBy}
@@ -120,55 +165,10 @@ export const TradeRow = memo(function TradeRow({
             ariaLabel={`打开 ${trade.ref} 交易详情`}
             onClick={() => onOpen(trade)}
           />
-          {session && (
-            session.raw !== session.label ? (
-              <Tooltip content={session.raw} label={`交易时段：${session.raw}`}>
-                <span className={`trade-row-session is-${session.kind}`}>
-                  {session.label}
-                </span>
-              </Tooltip>
-            ) : (
-              <span className={`trade-row-session is-${session.kind}`}>
-                {session.label}
-              </span>
-            )
-          )}
-          {mistakeTags.visible.map((tag) => (
-            <span className="trade-row-tag is-mistake" key={tag}>{tag}</span>
-          ))}
-          {mistakeTags.hiddenCount > 0 && (
-            <Tooltip
-              content={mistakeTags.hidden.join(' · ')}
-              label={`其余错误标签：${mistakeTags.hidden.join('、')}`}
-              focusable
-            >
-              <span className="trade-row-more is-mistake-more">
-                +{mistakeTags.hiddenCount}
-              </span>
-            </Tooltip>
-          )}
-          {regularTags.visible.map((tag) => (
-            <span className="trade-row-tag" key={tag}>{tag}</span>
-          ))}
-          {reviewLabel && (
-            <span
-              className={
-                'trade-row-tag is-review' +
-                ((trade.caseType ?? trade.reviewCategory) === 'ambiguous' ? ' is-ambiguous' : '')
-              }
-            >
-              {reviewLabel}
-            </span>
-          )}
-          {regularTags.hiddenCount > 0 && (
-            <Tooltip
-              content={regularTags.hidden.join(' · ')}
-              label={`其余标签：${regularTags.hidden.join('、')}`}
-              focusable
-            >
-              <span className="trade-row-more">+{regularTags.hiddenCount}</span>
-            </Tooltip>
-          )}
+          {context.map(contextItem)}
+          {overflow(2, 'is-wide-overflow')}
+          {overflow(1, 'is-medium-overflow')}
+          {overflow(0, 'is-compact-overflow')}
         </>
       }
       timeframe={
@@ -176,39 +176,31 @@ export const TradeRow = memo(function TradeRow({
       }
       pnl={
         <span
-          className={
-            'trade-row-pnl' +
-            (isMissed
-              ? ' is-missed'
-              : privacyMode
-                ? ' is-zero'
-                : trade.pnl != null && trade.pnl > 0
-                  ? ' is-positive'
-                  : trade.pnl != null && trade.pnl < 0
-                    ? ' is-negative'
-                    : ' is-zero')
+          className="trade-row-pnl"
+          data-value-state={result.cash.state}
+          data-value-sign={
+            result.cash.state === 'value'
+              ? trade.pnl != null && trade.pnl > 0 ? 'positive' : 'negative'
+              : undefined
           }
         >
-          {showResult ? (isMissed ? '未成交' : formatTradeCashPnl(trade, legacyCashCurrencyAssumption, privacyMode)) : '—'}
+          {result.cash.text}
         </span>
       }
       r={
         <span
-          className={
-            'trade-row-r' +
-            (isMissed && trade.rMultiple != null
-              ? ' is-opportunity'
-              : trade.rMultiple != null && trade.rMultiple > 0
-                ? ' is-positive'
-                : trade.rMultiple != null && trade.rMultiple < 0
-                  ? ' is-negative'
-                  : ' is-zero')
+          className="trade-row-r"
+          data-value-state={result.r.state}
+          data-value-sign={
+            result.r.state === 'value'
+              ? trade.rMultiple != null && trade.rMultiple > 0 ? 'positive' : 'negative'
+              : undefined
           }
         >
-          {showResult ? fmtR(trade.rMultiple) : '—'}
+          {result.r.text}
         </span>
       }
-      date={fmtDate(trade.openedAt)}
+      date={date}
       end={
         <Tooltip
           asChild
@@ -219,6 +211,7 @@ export const TradeRow = memo(function TradeRow({
             type="button"
             className={'trade-row-star' + (starred ? ' is-starred' : '')}
             aria-label={starred ? '取消星标' : '星标交易'}
+            aria-pressed={starred}
             onClick={(event) => {
               event.stopPropagation()
               onToggleStar(trade)
@@ -229,6 +222,8 @@ export const TradeRow = memo(function TradeRow({
         </Tooltip>
       }
       onContextMenu={(event) => onContextMenu?.(event, trade)}
+      resultSource={result.source}
+      resultIntegrity={result.integrity}
     />
   )
 })

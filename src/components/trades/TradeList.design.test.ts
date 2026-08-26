@@ -32,11 +32,15 @@ export async function testTradeListGroupTogglePreservesInteractionContract(): Pr
 
   for (const forbidden of [
     '.trade-row.is-selected::after',
-    '.trade-row.is-focused::after',
     '.trade-row:has(.trade-row-open:focus-visible)',
   ]) {
     if (css.includes(forbidden)) throw new Error(`不得恢复整行高亮：${forbidden}`)
   }
+  assert(
+    css.includes('.trade-row.is-focused::after') &&
+      css.includes('inset var(--focus-ring-width) 0 0 var(--focus-ring-color)'),
+    '键盘焦点必须使用行内定位线，不得依赖整行填充',
+  )
 }
 
 export async function testTradeListColumnsShareRowGridAndStickyOrder(): Promise<void> {

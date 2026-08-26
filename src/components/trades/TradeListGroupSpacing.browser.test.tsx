@@ -155,11 +155,12 @@ async function run(): Promise<void> {
     const strategyCell = host.querySelector<HTMLElement>('.trade-row-strategy')
     const pnlCell = host.querySelector<HTMLElement>('.trade-row-pnl')
     const rCell = host.querySelector<HTMLElement>('.trade-row-r')
+    const dateCell = host.querySelector<HTMLElement>('.trade-row-date')
     const headers = [...host.querySelectorAll<HTMLElement>('.trade-list-group-header')]
     const firstHeader = headers.find((header) => header.textContent?.includes('2026 年 8 月'))
     const secondHeader = headers.find((header) => header.textContent?.includes('2026 年 7 月'))
     assert(
-      scrollHost && columns && reference && strategyCell && pnlCell && rCell && firstHeader && secondHeader,
+      scrollHost && columns && reference && strategyCell && pnlCell && rCell && dateCell && firstHeader && secondHeader,
       '必须渲染列标题、关键交易列与两个真实月份分组',
     )
     assert(
@@ -170,8 +171,12 @@ async function run(): Promise<void> {
     assert(getComputedStyle(pnlCell).display !== 'none', '所有桌面宽度必须保留现金盈亏')
     assert(getComputedStyle(rCell).display !== 'none', '所有桌面宽度必须保留 R')
     assert(
-      (window.innerWidth <= 1268) === (getComputedStyle(reference).display === 'none'),
-      '只有紧凑桌面宽度可以隐藏编号',
+      (window.innerWidth <= 1439) === (getComputedStyle(reference).display === 'none'),
+      '中窄桌面宽度必须按合同隐藏编号',
+    )
+    assert(
+      (window.innerWidth <= 1268) === (getComputedStyle(dateCell).display === 'none'),
+      '只有紧凑桌面宽度可以视觉隐藏日期',
     )
     assert(
       scrollHost.scrollWidth <= scrollHost.clientWidth + 1,

@@ -14,6 +14,8 @@ export type TradeRowLayoutProps = {
   ariaPosInSet?: number
   ariaSetSize?: number
   ariaDescribedBy?: string
+  resultSource?: string
+  resultIntegrity?: string
   focused?: boolean
   selected?: boolean
   openAction?: TradeRowOpenAction
@@ -38,6 +40,8 @@ export function TradeRowLayout({
   ariaPosInSet,
   ariaSetSize,
   ariaDescribedBy,
+  resultSource,
+  resultIntegrity,
   focused = false,
   selected = false,
   openAction,
@@ -67,6 +71,8 @@ export function TradeRowLayout({
       aria-posinset={ariaPosInSet}
       aria-setsize={ariaSetSize}
       aria-describedby={ariaDescribedBy}
+      data-result-source={resultSource}
+      data-result-integrity={resultIntegrity}
       onContextMenu={onContextMenu}
     >
       {openAction ? (
