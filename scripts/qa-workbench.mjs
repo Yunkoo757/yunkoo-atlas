@@ -646,7 +646,7 @@ try {
   const dashboardClosedCount = await page.locator('.db-card').filter({ hasText: '胜率' }).locator('.db-card-sub').innerText()
   record(
     '案例记录不计入仪表盘统计',
-    dashboardClosedCount.endsWith('1/1 笔结果有效'),
+    dashboardClosedCount.endsWith('1/1 笔'),
     dashboardClosedCount,
   )
 
@@ -736,9 +736,9 @@ try {
     }),
   )
   record(
-    '月份条在首组与吸顶状态均保持 8px 且折叠展开稳定',
-    presentationReport.metrics.tradeList.tradeGroupTopGap === 8
-      && presentationReport.metrics.tradeList.stickyTradeGroupTopGap === 8
+    '月份条在首组与吸顶状态均保持 4px 且折叠展开稳定',
+    presentationReport.metrics.tradeList.tradeGroupTopGap === 4
+      && presentationReport.metrics.tradeList.stickyTradeGroupTopGap === 4
       && presentationReport.metrics.tradeList.collapsed
       && presentationReport.metrics.tradeList.expanded
       && presentationReport.metrics.tradeList.scrolledBackToTop,
