@@ -88,14 +88,6 @@
   margin-bottom: var(--sp-5);
 }
 
-.review-session-eyebrow {
-  display: block;
-  margin-bottom: 9px;
-  color: var(--text-tertiary);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--type-metadata-weight);
-}
-
 .review-session-intro h1,
 .review-session-finished h1 {
   margin: 0;

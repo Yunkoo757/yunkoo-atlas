@@ -859,13 +859,12 @@ function ReviewSessionStart({
   return (
     <section className="review-session-start" data-review-session-start-focus tabIndex={-1}>
       <div className="review-session-intro">
-        <span className="review-session-eyebrow">完全随机 · 直接阅读</span>
-        <h1>随机打开一组过去的交易</h1>
-        <p>完整查看交易信息、复盘笔记和截图，再按真实理解程度评估。每轮随机排序且不重复。案例知识库跨阶段保留，不会随新实盘阶段清空。</p>
+        <h1>随机复盘</h1>
+        <p>从过往交易与案例中随机抽取，本轮不重复。</p>
       </div>
 
       <fieldset className="review-session-presets">
-        <legend>选择一个复盘池，点击即开始</legend>
+        <legend>选择复盘池</legend>
         <div className="review-session-preset-list">
           {homePools.map((preset) => (
             <button
