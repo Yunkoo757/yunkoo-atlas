@@ -54,11 +54,12 @@ export async function testTradeListColumnsShareRowGridAndStickyOrder(): Promise<
     '共享列模板必须在标题和行自身作用域内声明列宽，不能依赖仅存在于列表容器的继承变量',
   )
   assert(source.includes('const HEADER_CONTENT_HEIGHT = 36'), '月份条内容高度必须保持 36px')
-  assert(source.includes('const HEADER_TOP_GAP = 8'), '月份虚拟项必须拥有 8px 顶部间距')
+  assert(source.includes('const HEADER_VERTICAL_GAP = 8'), '月份虚拟项必须在上下方向共保留 8px 间距')
   assert(
-    source.includes('const HEADER_HEIGHT = HEADER_CONTENT_HEIGHT + HEADER_TOP_GAP'),
+    source.includes('const HEADER_HEIGHT = HEADER_CONTENT_HEIGHT + HEADER_VERTICAL_GAP'),
     '月份虚拟项估算高度必须为 44px（36px 内容 + 8px 间距）',
   )
+  assert(css.includes('padding-block: var(--sp-1)'), '月份条上下必须各使用 4px 间距令牌')
   assert(
     source.includes("(item.kind === 'header' ? ' is-header' : ' is-row')"),
     '虚拟项必须输出稳定的 is-header 类型 class',

@@ -216,6 +216,7 @@ async function collectTypographyEvidence(page, hostPlatform) {
       probeRendering,
       monthGroupHeight: group.getBoundingClientRect().height,
       monthTopGap: getComputedStyle(headerItem).paddingTop,
+      monthBottomGap: getComputedStyle(headerItem).paddingBottom,
       monthVirtualHeight: headerItem.getBoundingClientRect().height,
     }
   }, TYPOGRAPHY_PROBE_SELECTORS)

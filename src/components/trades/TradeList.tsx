@@ -64,8 +64,8 @@ type FlatItem =
 
 const ROW_HEIGHT = 44
 const HEADER_CONTENT_HEIGHT = 36
-const HEADER_TOP_GAP = 8
-const HEADER_HEIGHT = HEADER_CONTENT_HEIGHT + HEADER_TOP_GAP
+const HEADER_VERTICAL_GAP = 8
+const HEADER_HEIGHT = HEADER_CONTENT_HEIGHT + HEADER_VERTICAL_GAP
 /** 分组尺寸变化：~ease-out-quart */
 const COLLAPSE_MS = 260
 const EASE_OUT_QUART = (t: number) => 1 - (1 - t) ** 4

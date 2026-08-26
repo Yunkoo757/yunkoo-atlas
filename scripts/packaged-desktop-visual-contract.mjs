@@ -219,10 +219,12 @@ export function buildTypographyCheckResult({ platform, computed, glyphFonts }) {
     {
       id: 'month-group-geometry',
       pass: Math.abs(computed?.monthGroupHeight - 36) < 0.01 &&
-        exactPixels(computed?.monthTopGap, 8) && Math.abs(computed?.monthVirtualHeight - 44) < 0.01,
+        exactPixels(computed?.monthTopGap, 4) && exactPixels(computed?.monthBottomGap, 4) &&
+        Math.abs(computed?.monthVirtualHeight - 44) < 0.01,
       detail: JSON.stringify({
         height: computed?.monthGroupHeight,
         topGap: computed?.monthTopGap,
+        bottomGap: computed?.monthBottomGap,
         virtualHeight: computed?.monthVirtualHeight,
       }),
     },

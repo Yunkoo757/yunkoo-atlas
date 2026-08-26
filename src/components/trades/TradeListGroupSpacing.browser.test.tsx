@@ -161,7 +161,7 @@ async function run(): Promise<void> {
     )
 
     const initialGap = firstHeader.getBoundingClientRect().top - columns.getBoundingClientRect().bottom
-    assert(Math.abs(initialGap - 8) <= 1, `列标题与月份条应相距 8px，实际 ${initialGap}px`)
+    assert(Math.abs(initialGap - 4) <= 1, `列标题与月份条应相距 4px，实际 ${initialGap}px`)
 
     const firstVirtualHeader = firstHeader.parentElement
     const secondVirtualHeader = secondHeader.parentElement
@@ -186,7 +186,10 @@ async function run(): Promise<void> {
     )
     const secondGap = secondHeader.getBoundingClientRect().top
       - secondVirtualHeader.getBoundingClientRect().top
-    assert(Math.abs(secondGap - 8) <= 1, `后续月份条也应由虚拟项留出 8px，实际 ${secondGap}px`)
+    const firstBottomGap = firstVirtualHeader.getBoundingClientRect().bottom
+      - firstHeader.getBoundingClientRect().bottom
+    assert(Math.abs(secondGap - 4) <= 1, `月份条上方应由虚拟项留出 4px，实际 ${secondGap}px`)
+    assert(Math.abs(firstBottomGap - 4) <= 1, `月份条下方应由虚拟项留出 4px，实际 ${firstBottomGap}px`)
 
     const addButton = firstHeader.querySelector<HTMLButtonElement>('.trade-list-group-add')
     const toggleButton = firstHeader.querySelector<HTMLButtonElement>('.trade-list-group-toggle')
@@ -203,7 +206,7 @@ async function run(): Promise<void> {
       '折叠动画结束后首组交易行必须移出虚拟列表',
     )
     assert(
-      Math.abs(firstHeader.getBoundingClientRect().top - columns.getBoundingClientRect().bottom - 8) <= 1,
+      Math.abs(firstHeader.getBoundingClientRect().top - columns.getBoundingClientRect().bottom - 4) <= 1,
       '折叠后首组间距不得跳位',
     )
     toggleButton.click()
@@ -234,10 +237,10 @@ async function run(): Promise<void> {
     )
     const stickyGap = stickyHeader.getBoundingClientRect().top - columns.getBoundingClientRect().bottom
     assert(
-      stickyHeader.getBoundingClientRect().top >= columns.getBoundingClientRect().bottom + 7,
+      stickyHeader.getBoundingClientRect().top >= columns.getBoundingClientRect().bottom + 3,
       '吸顶月份条不得遮挡列标题',
     )
-    assert(Math.abs(stickyGap - 8) <= 1, `吸顶月份条应保留 8px 间距，实际 ${stickyGap}px`)
+    assert(Math.abs(stickyGap - 4) <= 1, `吸顶月份条应保留 4px 上间距，实际 ${stickyGap}px`)
   } finally {
     root.unmount()
     useStore.setState({ trades: previous.trades, strategies: previous.strategies })

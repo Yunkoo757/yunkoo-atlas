@@ -138,7 +138,8 @@ function createTypographyInput() {
         numeric: { rendered: true },
       },
       monthGroupHeight: 36,
-      monthTopGap: '8px',
+      monthTopGap: '4px',
+      monthBottomGap: '4px',
       monthVirtualHeight: 44,
     },
     glyphFonts: {

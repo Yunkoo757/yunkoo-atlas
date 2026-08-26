@@ -52,7 +52,7 @@
 }
 
 .trade-list-virtual-item.is-header {
-  padding-top: var(--sp-2);
+  padding-block: var(--sp-1);
 }
 
 .trade-list-virtual-item.is-row > * {
