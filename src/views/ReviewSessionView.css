@@ -124,15 +124,16 @@
   align-items: flex-start;
   gap: var(--sp-1);
   padding: var(--sp-3);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid transparent;
   border-radius: var(--radius-8);
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
   color: var(--text-primary);
   text-align: left;
   cursor: pointer;
 }
 
 .review-session-preset-list button:hover:not(:disabled) {
+  border-color: var(--border-default);
   background: var(--bg-hover);
 }
 
