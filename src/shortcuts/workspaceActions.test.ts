@@ -28,15 +28,31 @@ const display: DisplayPrefs = {
   },
 }
 
-export function testTradeShortcutOpensAllWhileCaseShortcutRemembersWorkspace(): void {
+export function testTradeAndCaseShortcutsRememberTheirWorkspace(): void {
   assert(
-    resolveShortcutWorkspaceHref('trade', display, []) === '/list',
-    '交易快捷键应始终回到交易日志全部视图',
+    resolveShortcutWorkspaceHref('trade', display, []) ===
+      '/period/this-week?symbol=BTCUSDT',
+    '交易快捷键应恢复交易工作区上次使用的位置与筛选',
   )
   assert(
     resolveShortcutWorkspaceHref('case', display, []) ===
       '/review-cases/mistakes?tag=执行',
     '案例快捷键应恢复案例工作区上次使用的位置',
+  )
+}
+
+export function testTradeShortcutPrefersTheLatestSessionContext(): void {
+  assert(
+    resolveShortcutWorkspaceHref(
+      'trade',
+      display,
+      [],
+      {
+        pathname: '/list',
+        search: '?liveStage=all-history&kind=all&status=loss&symbol=XAUUSD',
+      },
+    ) === '/list?liveStage=all-history&kind=all&status=loss&symbol=XAUUSD',
+    '交易快捷键必须优先恢复当前会话最新的完整筛选上下文',
   )
 }
 

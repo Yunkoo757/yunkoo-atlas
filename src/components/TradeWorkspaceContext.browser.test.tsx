@@ -3,6 +3,8 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { Sidebar } from '@/components/Sidebar'
 import { TradeWorkspaceContext } from '@/components/TradeWorkspaceContext'
 import type { TradeWorkspacePage } from '@/lib/tradeWorkspaceQuery'
+import { useShortcutHost } from '@/shortcuts/ShortcutHost'
+import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
@@ -32,6 +34,7 @@ async function waitFor(condition: () => boolean, message: string): Promise<void>
 }
 
 function Fixture() {
+  useShortcutHost({ onToggleCmdk: () => {} })
   const location = useLocation()
   const page: TradeWorkspacePage = location.pathname === '/dashboard'
     ? 'stats'
@@ -53,6 +56,7 @@ async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
   const previous = useStore.getState()
+  const previousShortcuts = useShortcutStore.getState()
   const root = createRoot(rootElement)
 
   try {
@@ -62,6 +66,29 @@ async function run(): Promise<void> {
         { id: 'stage-current', sequence: 2, name: '当前阶段', status: 'current', startsOn: '2026-07-01', endsOn: null, createdAt: '2026-07-01T00:00:00.000Z', archivedAt: null },
       ],
       currentLiveStageId: 'stage-current',
+      display: {
+        ...previous.display,
+        workspaceMemory: {
+          ...previous.display.workspaceMemory,
+          trade: {
+            pathname: '/list',
+            search: '?liveStage=stage-old&status=loss',
+          },
+        },
+      },
+    })
+    useShortcutStore.setState({
+      bindings: {
+        ...previousShortcuts.bindings,
+        'nav.list': { key: 'a' },
+        'nav.dashboard': { key: 'd' },
+      },
+      listContext: {
+        listPath: '/list',
+        listSearch: '?liveStage=stage-old&status=loss',
+        orderedIds: [],
+        filter: { type: 'all', tradeKind: 'live' },
+      },
     })
     root.render(
       <MemoryRouter initialEntries={['/list?liveStage=stage-old&status=loss']}>
@@ -86,9 +113,31 @@ async function run(): Promise<void> {
       '周期复盘必须一步到达并保留阶段上下文',
     )
     assert(!document.querySelector('[data-workspace-page="review"] [aria-label="记录类型"]'), '周期复盘不得展示无效盘型筛选')
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }))
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent ===
+        '/list?liveStage=stage-old&status=loss',
+      'A 返回交易日志时必须恢复阶段和筛选条件',
+    )
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', bubbles: true }))
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard',
+      'D 必须进入统计分析',
+    )
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }))
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent ===
+        '/list?liveStage=stage-old&status=loss',
+      '重复使用 A / D 后仍必须恢复完整筛选条件',
+    )
   } finally {
     root.unmount()
     useStore.setState(previous, true)
+    useShortcutStore.setState({
+      bindings: previousShortcuts.bindings,
+      listContext: previousShortcuts.listContext,
+    })
   }
 }
 

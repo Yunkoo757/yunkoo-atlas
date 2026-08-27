@@ -96,7 +96,16 @@ export function useShortcutHost({
       'nav.missed': () => navigate('/missed'),
       'nav.sim': () => navigate('/sim'),
       'nav.list': () => {
-        navigate('/list')
+        const state = useStore.getState()
+        const listContext = useShortcutStore.getState().listContext
+        navigate(resolveShortcutWorkspaceHref(
+          'trade',
+          state.display,
+          state.strategies,
+          listContext
+            ? { pathname: listContext.listPath, search: listContext.listSearch }
+            : null,
+        ))
       },
       'nav.reviewCases': () => {
         const state = useStore.getState()

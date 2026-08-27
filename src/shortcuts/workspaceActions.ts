@@ -4,15 +4,16 @@ import {
   resolveWorkspaceNavTarget,
   workspaceRouteHref,
   type WorkspaceKind,
+  type WorkspaceRouteMemory,
 } from '@/lib/workspaceViews'
 
-/** 交易日志快捷键固定回到全部；案例记录仍恢复上次知识视图。 */
+/** 工作区快捷键与侧栏入口保持一致，恢复最近一次有效的路径和筛选。 */
 export function resolveShortcutWorkspaceHref(
   kind: Extract<WorkspaceKind, 'trade' | 'case'>,
   display: DisplayPrefs,
   strategies: readonly Pick<Strategy, 'id'>[],
+  recentRoute?: WorkspaceRouteMemory | null,
 ): string {
-  if (kind === 'trade') return '/list'
-  const memory = display.workspaceMemory?.case
+  const memory = recentRoute ?? display.workspaceMemory?.[kind]
   return workspaceRouteHref(resolveWorkspaceNavTarget(kind, memory, strategies))
 }
