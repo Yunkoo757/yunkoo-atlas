@@ -125,10 +125,12 @@ async function run(): Promise<void> {
     assert(primary, '缺少交易日志主导航')
     const firstPrimary = document.querySelector<HTMLAnchorElement>('[data-primary-id="dashboard"]')
     assert(firstPrimary, '缺少统计分析主导航')
-    const sourceRect = primary.getBoundingClientRect()
+    const primaryHandle = document.querySelector<HTMLButtonElement>('[aria-label="排序 交易日志"]')
+    assert(primaryHandle, '交易日志必须提供与“更多”分组一致的独立拖拽抓手')
+    const sourceRect = primaryHandle.getBoundingClientRect()
     const targetRect = firstPrimary.getBoundingClientRect()
     const pointerId = 17
-    primary.dispatchEvent(new PointerEvent('pointerdown', {
+    primaryHandle.dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true,
       button: 0,
       buttons: 1,
@@ -136,14 +138,14 @@ async function run(): Promise<void> {
       clientX: sourceRect.left + sourceRect.width / 2,
       clientY: sourceRect.top + sourceRect.height / 2,
     }))
-    primary.dispatchEvent(new PointerEvent('pointermove', {
+    primaryHandle.dispatchEvent(new PointerEvent('pointermove', {
       bubbles: true,
       buttons: 1,
       pointerId,
       clientX: targetRect.left + targetRect.width / 2,
       clientY: targetRect.top + targetRect.height / 2,
     }))
-    primary.dispatchEvent(new PointerEvent('pointerup', {
+    primaryHandle.dispatchEvent(new PointerEvent('pointerup', {
       bubbles: true,
       button: 0,
       pointerId,
@@ -170,8 +172,10 @@ async function run(): Promise<void> {
       '搜索纯图标按钮仍应显示 Tooltip',
     )
 
-    assert(!document.querySelector('[data-sidebar-workspace-id="system:missed"]'), '旧系统快捷项不应继续占据侧栏')
-    assert(!document.querySelector('[data-sidebar-workspace-id="system:active"]'), '进行中已归入交易日志范围栏')
+    assert(document.querySelector('[data-sidebar-workspace-id="system:missed"]'), '用户保存的错过机会入口不得被渲染层静默隐藏')
+    assert(document.querySelector('[data-sidebar-workspace-id="system:active"]'), '用户保存的进行中入口不得被渲染层静默隐藏')
+    assert(document.querySelector('[aria-label="排序 错过的机会"]'), '系统快捷项必须使用统一拖拽抓手')
+    assert(document.querySelector('[aria-label="排序 进行中"]'), '系统快捷项必须使用统一拖拽抓手')
 
     const strategyMenu = document.querySelector<HTMLButtonElement>('[aria-label="导航1包含来源"]')
     assert(strategyMenu, '策略项必须提供包含来源菜单')
@@ -191,7 +195,7 @@ async function run(): Promise<void> {
       )),
       '勾选案例后没有写入策略来源',
     )
-    const strategyLink = document.querySelector<HTMLAnchorElement>('[data-sidebar-workspace-id="strategy:navigation-1"]')
+    const strategyLink = document.querySelector<HTMLAnchorElement>('[data-sidebar-workspace-id="strategy:navigation-1"] a')
     assert(strategyLink?.getAttribute('href')?.includes('sources=trade,case'), '策略链接必须带上合并来源')
   } finally {
     root.unmount()

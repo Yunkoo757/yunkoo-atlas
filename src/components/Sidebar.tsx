@@ -346,8 +346,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     active: boolean
     overId: PrimarySidebarNavId | null
   } | null>(null)
-  const suppressWorkspaceClick = useRef(false)
-  const suppressPrimaryClick = useRef(false)
   const workspaceEditorExitRef = useExitClone<HTMLDivElement>(workspaceEditorOpen)
   const openComposer = useStore((state) => state.openComposer)
   const primaryOrder = useStore((state) => state.display.sidebarPrimaryOrder)
@@ -370,13 +368,10 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     primaryCount,
     primaryHref,
   } = useSidebarNavigationModel()
-  const simplifiedWorkspaceItems = workspaceItems.filter((item) => (
-    item.item.target.kind === 'saved-view' || item.item.target.kind === 'strategy'
-  ))
-  const pinnedWorkspaceItems = simplifiedWorkspaceItems
+  const pinnedWorkspaceItems = workspaceItems
     .filter((item) => item.item.placement === 'pinned')
     .slice(0, 8)
-  const overflowWorkspaceItems = simplifiedWorkspaceItems.filter(
+  const overflowWorkspaceItems = workspaceItems.filter(
     (item) => item.item.placement === 'overflow',
   )
   const hiddenWorkspace = hiddenWorkspaceLocation(path, Boolean(selection.activeWorkspaceItemId))
@@ -419,7 +414,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   }
 
   const onPrimaryPointerDown = (
-    event: ReactPointerEvent<HTMLAnchorElement>,
+    event: ReactPointerEvent<HTMLButtonElement>,
     id: PrimarySidebarNavId,
   ) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
@@ -433,14 +428,13 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     }
   }
 
-  const onPrimaryPointerMove = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+  const onPrimaryPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const session = primaryDragSession.current
     if (!session || session.pointerId !== event.pointerId) return
     if (!session.active) {
       const distance = Math.hypot(event.clientX - session.startX, event.clientY - session.startY)
       if (distance < WORKSPACE_DRAG_THRESHOLD_PX) return
       session.active = true
-      suppressPrimaryClick.current = true
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
       } catch {
@@ -455,7 +449,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     setPrimaryDrag({ id: session.id, overId: session.overId })
   }
 
-  const onPrimaryPointerUp = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+  const onPrimaryPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const session = primaryDragSession.current
     if (!session || session.pointerId !== event.pointerId) return
     if (session.active) {
@@ -468,7 +462,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     finishPrimaryDrag(true)
   }
 
-  const onPrimaryPointerCancel = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+  const onPrimaryPointerCancel = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const session = primaryDragSession.current
     if (!session || session.pointerId !== event.pointerId) return
     finishPrimaryDrag(false)
@@ -501,7 +495,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   }
 
   const onWorkspacePointerDown = (
-    event: ReactPointerEvent<HTMLAnchorElement>,
+    event: ReactPointerEvent<HTMLButtonElement>,
     item: (typeof workspaceItems)[number],
   ) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
@@ -518,7 +512,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     }
   }
 
-  const onWorkspacePointerMove = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+  const onWorkspacePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const session = workspaceDragSession.current
     if (!session || session.pointerId !== event.pointerId) return
 
@@ -526,7 +520,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       const distance = Math.hypot(event.clientX - session.startX, event.clientY - session.startY)
       if (distance < WORKSPACE_DRAG_THRESHOLD_PX) return
       session.active = true
-      suppressWorkspaceClick.current = true
       try {
         event.currentTarget.setPointerCapture(event.pointerId)
       } catch {
@@ -547,7 +540,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     })
   }
 
-  const onWorkspacePointerUp = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+  const onWorkspacePointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const session = workspaceDragSession.current
     if (!session || session.pointerId !== event.pointerId) return
     if (session.active) {
@@ -560,7 +553,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     finishWorkspaceDrag(true)
   }
 
-  const onWorkspacePointerCancel = (event: ReactPointerEvent<HTMLAnchorElement>) => {
+  const onWorkspacePointerCancel = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const session = workspaceDragSession.current
     if (!session || session.pointerId !== event.pointerId) return
     finishWorkspaceDrag(false)
@@ -651,12 +644,13 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       )
     }
 
-    const openCapabilityMenu = (x: number, y: number) => {
+    const openCapabilityMenu = (x: number, y: number, originElement?: HTMLElement | null) => {
       if (!capabilityMenuId) return
       setCapabilityMenu({
         itemId: item.item.id,
         x,
         y,
+        originElement,
         items: strategyTarget
           ? buildStrategySourceItems(
             strategyTarget.strategyId,
@@ -674,52 +668,46 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     }
 
     return (
-      <NavLink
+      <div
         key={item.item.id}
-        to={workspaceRouteHref(item)}
-        draggable={false}
         data-sidebar-workspace-id={item.item.id}
         data-sidebar-workspace-placement={item.item.placement}
         data-sidebar-capability={capabilityId ?? undefined}
-        className={() =>
-          `sb-item${active ? ' is-active' : ''}${modified ? ' is-modified' : ''}${
+        className={
+          `sb-sortable-row${active ? ' is-active' : ''}${modified ? ' is-modified' : ''}${
             isDragging ? ' is-dragging' : ''
           }${isDropTarget ? ' is-drop-target' : ''}${
             capabilityMenuOpen ? ' is-capability-menu-open' : ''
           }`
         }
         data-ws-icon={item.icon}
-        aria-current={active ? 'page' : 'false'}
-        onDragStart={(event) => {
-          // 禁止 Electron/浏览器把 NavLink 拖成 file:// 预览
-          event.preventDefault()
-        }}
-        onPointerDown={(event) => onWorkspacePointerDown(event, item)}
-        onPointerMove={onWorkspacePointerMove}
-        onPointerUp={onWorkspacePointerUp}
-        onPointerCancel={onWorkspacePointerCancel}
         onContextMenu={(event) => {
           if (!capabilityMenuId) return
           event.preventDefault()
-          openCapabilityMenu(event.clientX, event.clientY)
-        }}
-        onClick={(event) => {
-          if (!suppressWorkspaceClick.current) return
-          event.preventDefault()
-          suppressWorkspaceClick.current = false
+          openCapabilityMenu(event.clientX, event.clientY, event.currentTarget)
         }}
       >
-        {strategy ? (
-          <StrategyIcon
-            icon={strategy.icon}
-            color={strategy.color}
-            size={ICON_MD}
-            variant="nav"
-          />
-        ) : (
-          <Icon size={ICON_MD} />
-        )}
-        <span className="sb-item-label">{item.label}</span>
+        <NavLink
+          to={workspaceRouteHref(item)}
+          draggable={false}
+          className="sb-item"
+          data-ws-icon={item.icon}
+          aria-current={active ? 'page' : undefined}
+          onDragStart={(event) => event.preventDefault()}
+        >
+          {strategy ? (
+            <StrategyIcon
+              icon={strategy.icon}
+              color={strategy.color}
+              size={ICON_MD}
+              variant="nav"
+            />
+          ) : (
+            <Icon size={ICON_MD} />
+          )}
+          <span className="sb-item-label">{item.label}</span>
+          <Count value={item.count} />
+        </NavLink>
         {capabilityMenuId ? (
           <button
             type="button"
@@ -727,22 +715,41 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             aria-label={strategyTarget ? `${item.label}包含来源` : `${item.label}可见工作区`}
             aria-haspopup="menu"
             aria-expanded={capabilityMenuOpen}
-            onPointerDown={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-            }}
             onClick={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
               const rect = event.currentTarget.getBoundingClientRect()
-              openCapabilityMenu(rect.left, rect.bottom + 4)
+              openCapabilityMenu(rect.left, rect.bottom + 4, event.currentTarget)
             }}
           >
             <MoreHorizontal size={ICON_SM} aria-hidden="true" />
           </button>
         ) : null}
-        <Count value={item.count} />
-      </NavLink>
+        <button
+          type="button"
+          className="sb-row-drag-handle"
+          aria-label={`排序 ${item.label}`}
+          onPointerDown={(event) => onWorkspacePointerDown(event, item)}
+          onPointerMove={onWorkspacePointerMove}
+          onPointerUp={onWorkspacePointerUp}
+          onPointerCancel={onWorkspacePointerCancel}
+          onKeyDown={(event) => {
+            if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
+            event.preventDefault()
+            const group = workspaceItems.filter((candidate) => (
+              candidate.item.placement === item.item.placement
+            ))
+            const index = group.findIndex((candidate) => candidate.item.id === item.item.id)
+            const target = group[index + (event.key === 'ArrowUp' ? -1 : 1)]
+            if (!target) return
+            replaceSidebarWorkspaceItems(reorderSidebarWorkspaceItem(
+              sidebarWorkspaceItems,
+              item.item.id,
+              target.item.id,
+            ))
+          }}
+        >
+          <GripVertical size={ICON_SM} aria-hidden="true" />
+        </button>
+      </div>
     )
   }
 
@@ -810,33 +817,47 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       <nav className="sb-section sb-primary" aria-label="主要导航">
         <div className="sb-section-label">工作区</div>
         {primaryNav.map(({ id, to, label, icon: Icon }) => (
-          <NavLink
+          <div
             key={id}
-            to={primaryHref(id, to)}
-            draggable={false}
-            onDragStart={(event) => event.preventDefault()}
-            className={() => `sb-item${selection.activePrimaryId === id && !hiddenWorkspace ? ' is-active' : ''}${
+            className={`sb-sortable-row${selection.activePrimaryId === id && !hiddenWorkspace ? ' is-active' : ''}${
               primaryDrag?.id === id ? ' is-dragging' : ''
             }${primaryDrag?.overId === id ? ' is-drop-target' : ''}`}
             data-primary-id={id}
-            aria-current={selection.activePrimaryId === id && !hiddenWorkspace ? 'page' : undefined}
-            onPointerDown={(event) => onPrimaryPointerDown(event, id)}
-            onPointerMove={onPrimaryPointerMove}
-            onPointerUp={onPrimaryPointerUp}
-            onPointerCancel={onPrimaryPointerCancel}
-            onClick={(event) => {
-              if (!suppressPrimaryClick.current) return
-              event.preventDefault()
-              suppressPrimaryClick.current = false
-            }}
           >
-            <Icon size={ICON_MD} />
-            <span className="sb-item-label">{label}</span>
-            <Count value={primaryCount(id)} />
-            <span className="sb-primary-drag-handle" aria-hidden="true">
+            <NavLink
+              to={primaryHref(id, to)}
+              draggable={false}
+              onDragStart={(event) => event.preventDefault()}
+              className="sb-item"
+              data-primary-id={id}
+              aria-current={selection.activePrimaryId === id && !hiddenWorkspace ? 'page' : undefined}
+            >
+              <Icon size={ICON_MD} />
+              <span className="sb-item-label">{label}</span>
+              <Count value={primaryCount(id)} />
+            </NavLink>
+            <button
+              type="button"
+              className="sb-row-drag-handle sb-primary-drag-handle"
+              aria-label={`排序 ${label}`}
+              onPointerDown={(event) => onPrimaryPointerDown(event, id)}
+              onPointerMove={onPrimaryPointerMove}
+              onPointerUp={onPrimaryPointerUp}
+              onPointerCancel={onPrimaryPointerCancel}
+              onKeyDown={(event) => {
+                if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return
+                event.preventDefault()
+                const index = primaryNav.findIndex((candidate) => candidate.id === id)
+                const target = primaryNav[index + (event.key === 'ArrowUp' ? -1 : 1)]
+                if (!target) return
+                setDisplay({
+                  sidebarPrimaryOrder: reorderPrimarySidebarItem(primaryOrder, id, target.id),
+                })
+              }}
+            >
               <GripVertical size={ICON_SM} />
-            </span>
-          </NavLink>
+            </button>
+          </div>
         ))}
       </nav>
 

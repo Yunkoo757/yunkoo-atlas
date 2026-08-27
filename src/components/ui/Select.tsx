@@ -15,6 +15,7 @@ import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from '@/icons/appIcons'
 import { FieldTrigger } from '@/components/ui/FieldTrigger'
 import { PopoverSurface } from '@/components/ui/PopoverSurface'
+import { useModalPortalRoot } from '@/components/ui/ModalShell'
 import { useExitClone } from '@/components/ui/useExitClone'
 import './Select.css'
 
@@ -63,6 +64,7 @@ export const Select = forwardRef<
   const typeaheadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [open, setOpen] = useState(false)
   const menuExitRef = useExitClone<HTMLDivElement>(open)
+  const registerModalPortalRoot = useModalPortalRoot()
   const [activeIndex, setActiveIndex] = useState(-1)
   const [position, setPosition] = useState<SelectPosition>({
     left: 0,
@@ -87,6 +89,7 @@ export const Select = forwardRef<
   const assignMenuRef = (node: HTMLDivElement | null) => {
     menuRef.current = node
     menuExitRef(node)
+    registerModalPortalRoot(node)
   }
 
   const findEnabled = (start: number, direction: 1 | -1) => {
@@ -138,7 +141,7 @@ export const Select = forwardRef<
     requestAnimationFrame(() => triggerRef.current?.focus())
   }
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (disabled) return
     if (!open && ['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) {
       event.preventDefault()
@@ -151,6 +154,7 @@ export const Select = forwardRef<
       event.preventDefault()
       event.stopPropagation()
       setOpen(false)
+      requestAnimationFrame(() => triggerRef.current?.focus())
       return
     }
     if (event.key === 'Tab') {
@@ -262,6 +266,7 @@ export const Select = forwardRef<
           aria-label={ariaLabel}
           className={`ui-select-menu ui-select-menu-${position.placement}`}
           style={menuStyle}
+          onKeyDown={handleKeyDown}
         >
           {options.map((option, index) => (
             <button

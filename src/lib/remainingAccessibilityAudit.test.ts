@@ -153,7 +153,7 @@ export async function testInteractiveAndDisabledTextRolesUseAccessibleTokens(): 
   ] as const) assertDisabledColor(sheet, selector, label)
 
   assertContextReveal(detail, '.dv-feed-delete', '.dv-feed-item-deletable:hover .dv-feed-delete, .dv-feed-item-deletable:focus-within .dv-feed-delete', '活动记录删除操作')
-  assertContextReveal(sidebar, '.sb-workspace-capability-menu', '.sb-item:hover .sb-workspace-capability-menu, .sb-item:focus-within .sb-workspace-capability-menu, .sb-item.is-capability-menu-open .sb-workspace-capability-menu', '侧栏能力菜单操作')
+  assertContextReveal(sidebar, '.sb-workspace-capability-menu', '.sb-sortable-row:hover .sb-workspace-capability-menu, .sb-sortable-row:focus-within .sb-workspace-capability-menu, .sb-sortable-row.is-capability-menu-open .sb-workspace-capability-menu', '侧栏能力菜单操作')
   assertContextReveal(shortcuts, '.shortcuts-actions', '.shortcuts-row:hover .shortcuts-actions, .shortcuts-row:focus-within .shortcuts-actions, .shortcuts-row.is-recording .shortcuts-actions', '快捷键行操作区')
   assertContextReveal(trash, '.trash-item-actions', '.trash-item:hover .trash-item-actions, .trash-item-actions:focus-within', '回收站行操作区')
 

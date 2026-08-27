@@ -183,6 +183,7 @@ export function TodayWorkspace() {
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
+      originElement: event.currentTarget as HTMLElement,
       items: buildTradeCtxItems(trade, {
         setStatus,
         requestTradeOpen,

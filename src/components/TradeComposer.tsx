@@ -44,6 +44,25 @@ interface UploadedImage {
   preview: string
 }
 
+function composerSnapshot(input: {
+  symbol: string
+  side: TradeSide
+  timeframe: string
+  session: string
+  openedAt: string
+  strategyId: string
+  kind: TradeKind
+  status: Extract<TradeStatus, 'planned' | 'missed'>
+  entry: string
+  size: string
+  stopLoss: string
+  quickText: string
+  caseType: CaseType
+  imageIds: string[]
+}): string {
+  return JSON.stringify(input)
+}
+
 function textToNoteHtml(value: string): string {
   const escaped = value.trim()
     .replace(/&/g, '&amp;')
@@ -107,10 +126,12 @@ export function TradeComposer() {
   const [images, setImages] = useState<UploadedImage[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const submittingRef = useRef(false)
   const caseTypeDirtyRef = useRef(false)
+  const baselineRef = useRef('')
   const defaultKind = defaultTradeKindForPath(location.pathname)
   const activeKind = editing?.tradeKind ?? kind
   const recordLabel = activeKind === 'case' ? '案例记录' : '交易'
@@ -123,29 +144,56 @@ export function TradeComposer() {
 
   useEffect(() => {
     if (!open) return
-    setSymbol(editing?.symbol ?? defaultSymbol)
-    setSide(editing?.side ?? 'long')
-    setTimeframe(resolveTimeframe(editing?.timeframe))
-    setSession(editing ? getSessionSelectValue(editing) : '')
-    setOpenedAt(editing?.openedAt.slice(0, 10) ?? defaultTradingDay())
-    setStrategyId(editing?.strategyId ?? strategies[0]?.id ?? '')
-    setKind(editing?.tradeKind ?? requestedKind ?? defaultKind)
-    setStatus(editing?.status === 'missed' ? 'missed' : 'planned')
-    setEntry(editing?.entry ? String(editing.entry) : '')
-    setSize(editing?.size ? String(editing.size) : '')
-    setStopLoss(editing?.stopLoss ? String(editing.stopLoss) : '')
+    const nextSymbol = editing?.symbol ?? defaultSymbol
+    const nextSide = editing?.side ?? 'long'
+    const nextTimeframe = resolveTimeframe(editing?.timeframe)
+    const nextSession = editing ? getSessionSelectValue(editing) : ''
+    const nextOpenedAt = editing?.openedAt.slice(0, 10) ?? defaultTradingDay()
+    const nextStrategyId = editing?.strategyId ?? strategies[0]?.id ?? ''
+    const nextKind = editing?.tradeKind ?? requestedKind ?? defaultKind
+    const nextStatus = editing?.status === 'missed' ? 'missed' : 'planned'
+    const nextEntry = editing?.entry ? String(editing.entry) : ''
+    const nextSize = editing?.size ? String(editing.size) : ''
+    const nextStopLoss = editing?.stopLoss ? String(editing.stopLoss) : ''
+    const nextCaseType = editing?.caseType ??
+      (editing?.status === 'missed'
+        ? 'missed'
+        : editing?.reviewCategory === 'mistake'
+          ? 'mistake'
+          : editing?.reviewCategory === 'ambiguous'
+            ? 'ambiguous'
+            : 'exemplar')
+    setSymbol(nextSymbol)
+    setSide(nextSide)
+    setTimeframe(nextTimeframe)
+    setSession(nextSession)
+    setOpenedAt(nextOpenedAt)
+    setStrategyId(nextStrategyId)
+    setKind(nextKind)
+    setStatus(nextStatus)
+    setEntry(nextEntry)
+    setSize(nextSize)
+    setStopLoss(nextStopLoss)
     setQuickText('')
     setShowMore(Boolean(editing) || (requestedKind ?? defaultKind) === 'case')
-    setCaseType(
-      editing?.caseType ??
-        (editing?.status === 'missed'
-          ? 'missed'
-          : editing?.reviewCategory === 'mistake'
-            ? 'mistake'
-            : editing?.reviewCategory === 'ambiguous'
-              ? 'ambiguous'
-              : 'exemplar'),
-    )
+    setCaseType(nextCaseType)
+    setDiscardConfirmOpen(false)
+    baselineRef.current = composerSnapshot({
+      symbol: nextSymbol,
+      side: nextSide,
+      timeframe: nextTimeframe,
+      session: nextSession,
+      openedAt: nextOpenedAt,
+      strategyId: nextStrategyId,
+      kind: nextKind,
+      status: nextStatus,
+      entry: nextEntry,
+      size: nextSize,
+      stopLoss: nextStopLoss,
+      quickText: '',
+      caseType: nextCaseType,
+      imageIds: [],
+    })
   }, [open, editing, strategies, defaultSymbol, tradingDayStartHour])
 
   // 重置状态
@@ -349,12 +397,31 @@ export function TradeComposer() {
   }
 
   const requestClose = () => {
-    if (!submittingRef.current) close()
+    if (submittingRef.current) return
+    const current = composerSnapshot({
+      symbol,
+      side,
+      timeframe,
+      session,
+      openedAt,
+      strategyId,
+      kind,
+      status,
+      entry,
+      size,
+      stopLoss,
+      quickText,
+      caseType,
+      imageIds: images.map((image) => image.id),
+    })
+    if (current === baselineRef.current) close()
+    else setDiscardConfirmOpen(true)
   }
 
   if (!open) return null
 
   return (
+    <>
     <ModalShell
       title={editing ? `编辑${TRADE_KIND_META[editing.tradeKind].label}` : `新建${recordLabel}`}
       busy={submitting}
@@ -625,5 +692,30 @@ export function TradeComposer() {
             </Button>
           ) : null}
     </ModalShell>
+    {discardConfirmOpen ? (
+      <ModalShell
+        title="放弃未保存的修改？"
+        description="字段和本次添加的截图尚未保存。"
+        size="compact"
+        onClose={() => setDiscardConfirmOpen(false)}
+        footer={(
+          <>
+            <Button variant="bordered" data-autofocus onClick={() => setDiscardConfirmOpen(false)}>
+              继续编辑
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                setDiscardConfirmOpen(false)
+                close()
+              }}
+            >
+              放弃修改
+            </Button>
+          </>
+        )}
+      />
+    ) : null}
+    </>
   )
 }

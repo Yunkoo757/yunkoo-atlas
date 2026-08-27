@@ -147,24 +147,33 @@ export function ListView({
     ]
   }, [visible, filter.type, filter.period, filter.tradeKind, display.groupByStrategy, display.groupByDate, strategies])
 
+  const orderedItems = useMemo(
+    () => groups.flatMap((group) => group.items),
+    [groups],
+  )
+  const orderedIdsKey = useMemo(
+    () => orderedItems.map((trade) => trade.id).join('\u0000'),
+    [orderedItems],
+  )
+
   const focusedId =
-    focusIndex >= 0 && focusIndex < visible.length ? visible[focusIndex].id : null
+    focusIndex >= 0 && focusIndex < orderedItems.length ? orderedItems[focusIndex].id : null
   const visibleIdsKey = useMemo(
     () => visible.map((trade) => trade.id).join('\u0000'),
     [visible],
   )
 
   useWorkbenchListKeyboard({
-    items: visible,
+    items: orderedItems,
     selectedIds,
     setSelectedIds,
     focusIndex,
     setFocusIndex,
-    onOpenFocused: (index) => openTrade(visible[index]),
+    onOpenFocused: (index) => openTrade(orderedItems[index]),
     enableNav: true,
   })
 
-  useEffect(() => setFocusIndex(-1), [visible.length])
+  useEffect(() => setFocusIndex(-1), [orderedIdsKey])
 
   useEffect(() => {
     setSelectedIds((current) => {
@@ -266,6 +275,7 @@ export function ListView({
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
+      originElement: event.currentTarget as HTMLElement,
       items: buildTradeCtxItems(trade, {
         setStatus,
         requestTradeOpen,

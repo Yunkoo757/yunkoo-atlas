@@ -210,6 +210,7 @@ export function StrategiesPanel() {
               <button
                 type="button"
                 className="ui-btn ui-btn-bordered"
+                data-autofocus
                 onClick={() => {
                   setDeleteTarget(null)
                   setReassignId('')
@@ -220,7 +221,6 @@ export function StrategiesPanel() {
               <button
                 type="button"
                 className="ui-btn ui-btn-danger-solid"
-                data-autofocus
                 onClick={confirmDelete}
               >
                 删除

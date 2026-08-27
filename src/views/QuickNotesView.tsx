@@ -20,6 +20,10 @@ import { Pin, PinOff, Plus, Search, Trash2 } from '@/icons/appIcons'
 import { EmptyState } from '@/components/EmptyState'
 import { Toolbar } from '@/components/ui/Toolbar'
 import { ModalShell } from '@/components/ui/ModalShell'
+import { InlineStatus } from '@/components/ui/InlineStatus'
+import { Button } from '@/components/ui/Button'
+import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
+import { useSaveStatus } from '@/store/saveStatus'
 import { toast } from '@/lib/toast'
 import './QuickNotesView.css'
 
@@ -48,6 +52,8 @@ export function QuickNotesView() {
   const [loadedNoteId, setLoadedNoteId] = useState<string | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [editorReady, setEditorReady] = useState(false)
+  const [loadState, setLoadState] = useState<'idle' | 'loading' | 'ready' | 'readonly' | 'error'>('idle')
+  const [reloadNonce, setReloadNonce] = useState(0)
   const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const noteHistoriesRef = useRef(new Map<string, string[]>())
   const editSessionRef = useRef<{ noteId: string; baseline: string; recorded: boolean } | null>(null)
@@ -63,11 +69,44 @@ export function QuickNotesView() {
   }, [notes, query])
   const selectedNote = notes.find((note) => note.id === id) ?? null
 
-  const createNote = useCallback(() => {
+  const reportDraftFailure = useCallback((draftId: string) => {
+    const retry = () => {
+      void flushNoteDraftToStore(draftId).then((ok) => {
+        if (!ok) reportDraftFailure(draftId)
+      })
+    }
+    useSaveStatus.getState().setError('随记正文仍保留在本次会话草稿中，尚未写入资料库')
+    toast('随记保存失败，正文仍保留；请重试', {
+      tone: 'error',
+      actionLabel: '重试',
+      onAction: retry,
+      dedupeKey: `quick-note-save:${draftId}`,
+    })
+  }, [])
+
+  const flushDraft = useCallback(async (draftId: string): Promise<boolean> => {
+    const ok = await flushNoteDraftToStore(draftId)
+    if (!ok) reportDraftFailure(draftId)
+    return ok
+  }, [reportDraftFailure])
+
+  const createNote = useCallback(async () => {
+    if (selectedNote) {
+      const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
+      if (!await flushDraft(draftId)) return
+    }
     const note = createQuickNote()
     upsertNote(note)
     navigate(`/notes/${encodeURIComponent(note.id)}`)
-  }, [navigate, upsertNote])
+  }, [flushDraft, navigate, selectedNote, upsertNote])
+
+  const openNote = useCallback(async (noteId: string) => {
+    if (selectedNote) {
+      const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
+      if (!await flushDraft(draftId)) return
+    }
+    navigate(`/notes/${encodeURIComponent(noteId)}`)
+  }, [flushDraft, navigate, selectedNote])
 
   useEffect(() => {
     if (selectedNote || notes.length === 0) return
@@ -76,27 +115,36 @@ export function QuickNotesView() {
 
   useEffect(() => {
     setEditorReady(false)
+    setLoadState(selectedNote ? 'loading' : 'idle')
     setEditorHtml('')
     editSessionRef.current = null
     setLoadedNoteId(null)
     if (!selectedNote) return
     const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
     let cancelled = false
-    void resolveNoteForDisplayResult(selectedNote.contentHtml, getStorage()).then((result) => {
-      if (cancelled) return
-      setEditorHtml(result.html)
-      editSessionRef.current = { noteId: selectedNote.id, baseline: result.html, recorded: false }
-      setEditorReady(result.editable)
-      setLoadedNoteId(selectedNote.id)
-      if (!result.editable) toast('随记中有图片附件缺失，正文已切换为只读')
-    })
+    void resolveNoteForDisplayResult(selectedNote.contentHtml, getStorage())
+      .then((result) => {
+        if (cancelled) return
+        setEditorHtml(result.html)
+        editSessionRef.current = { noteId: selectedNote.id, baseline: result.html, recorded: false }
+        setEditorReady(result.editable)
+        setLoadState(result.editable ? 'ready' : 'readonly')
+        setLoadedNoteId(selectedNote.id)
+        if (!result.editable) toast('随记中有图片附件缺失，正文已切换为只读', { tone: 'warning' })
+      })
+      .catch((error) => {
+        if (cancelled) return
+        console.error('Quick note display resolution failed', error)
+        setLoadState('error')
+        setLoadedNoteId(null)
+      })
     return () => {
       cancelled = true
       if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
       noteTimerRef.current = null
-      void flushNoteDraftToStore(draftId)
+      void flushDraft(draftId)
     }
-  }, [selectedNote?.id])
+  }, [flushDraft, reloadNonce, selectedNote?.id])
 
   const onEditorChange = useCallback((html: string) => {
     if (!selectedNote || !editorReady) return
@@ -113,14 +161,15 @@ export function QuickNotesView() {
       session.recorded = true
     }
     setEditorHtml(html)
+    useSaveStatus.getState().setDirty()
     const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
     setNoteDraft(draftId, html)
     if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
     noteTimerRef.current = setTimeout(() => {
       noteTimerRef.current = null
-      void flushNoteDraftToStore(draftId)
+      void flushDraft(draftId)
     }, NOTE_IDLE_COMMIT_MS)
-  }, [editorReady, selectedNote])
+  }, [editorReady, flushDraft, selectedNote])
 
   const onEditorHistoryFallback = useCallback((currentHtml: string): string | null => {
     if (!selectedNote || loadedNoteId !== selectedNote.id) return null
@@ -137,10 +186,10 @@ export function QuickNotesView() {
     if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
     noteTimerRef.current = setTimeout(() => {
       noteTimerRef.current = null
-      void flushNoteDraftToStore(draftId)
+      void flushDraft(draftId)
     }, NOTE_IDLE_COMMIT_MS)
     return restored
-  }, [loadedNoteId, selectedNote])
+  }, [flushDraft, loadedNoteId, selectedNote])
 
   const confirmDelete = () => {
     if (!selectedNote) return
@@ -160,10 +209,13 @@ export function QuickNotesView() {
         title="随记"
         context="记录想法、观察与截图，不参与交易统计"
         actions={notes.length > 0 ? (
-          <button type="button" className="empty-btn" onClick={createNote}>
-            <Plus size={ICON_MD} />
-            新建随记
-          </button>
+          <>
+            <SaveStatusIndicator />
+            <button type="button" className="empty-btn" onClick={() => void createNote()}>
+              <Plus size={ICON_MD} />
+              新建随记
+            </button>
+          </>
         ) : undefined}
       />
 
@@ -188,7 +240,7 @@ export function QuickNotesView() {
                   key={note.id}
                   type="button"
                   className={`quick-notes-list-item${note.id === selectedNote?.id ? ' is-active' : ''}`}
-                  onClick={() => navigate(`/notes/${encodeURIComponent(note.id)}`)}
+                  onClick={() => void openNote(note.id)}
                 >
                   <span className="quick-notes-list-title">
                     {note.pinned ? <Pin size={ICON_SM} aria-label="已置顶" /> : null}
@@ -249,7 +301,20 @@ export function QuickNotesView() {
                 }).format(new Date(selectedNote.updatedAt))}
               </div>
               <div className="quick-notes-editor-body">
-                {loadedNoteId === selectedNote.id ? (
+                {loadState === 'loading' ? (
+                  <InlineStatus tone="progress" title="正在载入随记" />
+                ) : loadState === 'error' ? (
+                  <InlineStatus
+                    tone="error"
+                    title="随记载入失败"
+                    detail="正文与附件没有被修改，请重试。"
+                    action={(
+                      <Button size="sm" variant="ghost" onClick={() => setReloadNonce((value) => value + 1)}>
+                        重试
+                      </Button>
+                    )}
+                  />
+                ) : loadedNoteId === selectedNote.id ? (
                   <Editor
                     key={selectedNote.id}
                     content={editorHtml}
@@ -269,7 +334,7 @@ export function QuickNotesView() {
               title="留下一条随记"
               hint="不用先决定它属于哪笔交易，先把想法和证据保存下来。"
               action={(
-                <button type="button" className="empty-btn" onClick={createNote}>
+                <button type="button" className="empty-btn" onClick={() => void createNote()}>
                   <Plus size={ICON_MD} />
                   新建随记
                 </button>
@@ -287,8 +352,8 @@ export function QuickNotesView() {
           onClose={() => setDeleteOpen(false)}
           footer={(
             <>
-              <button type="button" className="ui-btn ui-btn-bordered" onClick={() => setDeleteOpen(false)}>取消</button>
-              <button type="button" className="ui-btn ui-btn-danger-solid" data-autofocus onClick={confirmDelete}>删除随记</button>
+              <button type="button" className="ui-btn ui-btn-bordered" data-autofocus onClick={() => setDeleteOpen(false)}>取消</button>
+              <button type="button" className="ui-btn ui-btn-danger-solid" onClick={confirmDelete}>删除随记</button>
             </>
           )}
         />

@@ -768,9 +768,9 @@ async function run(): Promise<void> {
     assert(mergedHit instanceof HTMLElement, '合并项摘要坐标未命中 HTML 元素')
     const mergedHitIsAction = mergedHit.closest('button, a, [role="button"]') !== null
     mergedHit.click()
-    await frame()
-    assert(!mergedHitIsAction, '合并项标签区域不得猜测导航目标')
-    assert(routerLocation() === '/missed', '点击合并项非动作内容不得猜测导航目标')
+    assert(mergedHitIsAction, '合并项标签区域必须命中可预测的主记录动作，不得形成点击死区')
+    await waitFor(() => routerLocation() === `/trade/${rootTrade.ref}`, '合并项标签区域没有打开规范主记录')
+    await returnFromDetail(rootTrade.id)
 
     const sourceMenu = resultRow(rootTrade.id).querySelector<HTMLButtonElement>('.missed-row-menu [data-trade-primary-action]')
     assert(sourceMenu, '聚合来源缺少行尾菜单')

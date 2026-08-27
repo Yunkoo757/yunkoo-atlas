@@ -13,6 +13,7 @@ import {
 import { createPortal } from 'react-dom'
 import { Check } from '@/icons/appIcons'
 import { useExitClone } from '@/components/ui/useExitClone'
+import { useModalPortalRoot } from '@/components/ui/ModalShell'
 import './Menu.css'
 
 export interface MenuItemOption {
@@ -78,6 +79,7 @@ export function Menu({
   const triggerControlRef = useRef<HTMLElement | null>(null)
   const popRef = useRef<HTMLDivElement | null>(null)
   const popExitRef = useExitClone<HTMLDivElement>(open)
+  const registerModalPortalRoot = useModalPortalRoot()
   const isSelectionMenu = value !== undefined
 
   const resolveTriggerControl = useCallback(() => {
@@ -195,6 +197,7 @@ export function Menu({
   const assignPopRef = (node: HTMLDivElement | null) => {
     popRef.current = node
     popExitRef(node)
+    registerModalPortalRoot(node)
   }
 
   const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {

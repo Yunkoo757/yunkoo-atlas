@@ -34,6 +34,7 @@ export interface CtxState {
   x: number
   y: number
   items: CtxItem[]
+  originElement?: HTMLElement | null
 }
 
 export function ContextMenu({
@@ -62,7 +63,10 @@ export function ContextMenu({
 
   const closeAndRestore = () => {
     onClose()
-    requestAnimationFrame(() => restoreFocusRef?.current?.focus())
+    requestAnimationFrame(() => {
+      const target = state?.originElement ?? restoreFocusRef?.current ?? null
+      if (target?.isConnected) target.focus()
+    })
   }
 
   const focusableItems = () => [
@@ -97,18 +101,19 @@ export function ContextMenu({
 
   useEffect(() => {
     if (!open) return
-    const close = () => onClose()
+    const closeForPointer = () => onClose()
+    const closeAndRestoreForScroll = () => closeAndRestore()
     // 延后一帧再挂，避免“打开菜单的那次事件”被立即捕获而关闭
     const id = window.setTimeout(() => {
-      window.addEventListener('click', close)
-      window.addEventListener('scroll', close, true)
-      window.addEventListener('contextmenu', close)
+      window.addEventListener('click', closeForPointer)
+      window.addEventListener('scroll', closeAndRestoreForScroll, true)
+      window.addEventListener('contextmenu', closeForPointer)
     }, 0)
     return () => {
       window.clearTimeout(id)
-      window.removeEventListener('click', close)
-      window.removeEventListener('scroll', close, true)
-      window.removeEventListener('contextmenu', close)
+      window.removeEventListener('click', closeForPointer)
+      window.removeEventListener('scroll', closeAndRestoreForScroll, true)
+      window.removeEventListener('contextmenu', closeForPointer)
     }
   }, [open, onClose])
 

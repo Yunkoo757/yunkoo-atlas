@@ -10,6 +10,7 @@ import {
   normalizeSidebarWorkspaceItems,
   reorderSidebarWorkspaceItem,
   resolveSidebarWorkspaceItem,
+  sanitizeSidebarWorkspaceItems,
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 import { SidebarTargetPicker } from '@/components/sidebar/SidebarTargetPicker'
@@ -51,7 +52,8 @@ export function SidebarWorkspaceEditor({
   initialSection = 'pinned',
 }: SidebarWorkspaceEditorProps) {
   const [draft, setDraft] = useState<SidebarWorkspaceItem[]>(() =>
-    items.map((item) => ({ ...item, target: { ...item.target } })),
+    sanitizeSidebarWorkspaceItems(items, sources)
+      .map((item) => ({ ...item, target: { ...item.target } })),
   )
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [removal, setRemoval] = useState<Removal | null>(null)
@@ -166,17 +168,6 @@ export function SidebarWorkspaceEditor({
         className="sb-editor-item"
         data-sidebar-item
         data-sidebar-placement={item.placement}
-        draggable={variant !== 'mobile-fullscreen'}
-        onDragStart={(event) => {
-          setDraggedId(item.id)
-          event.dataTransfer.effectAllowed = 'move'
-          event.dataTransfer.setData('text/plain', item.id)
-          // 避免系统把整行拖成链接预览
-          const blank = document.createElement('canvas')
-          blank.width = 1
-          blank.height = 1
-          event.dataTransfer.setDragImage(blank, 0, 0)
-        }}
         onDragOver={(event) => {
           event.preventDefault()
           event.dataTransfer.dropEffect = 'move'
@@ -193,6 +184,17 @@ export function SidebarWorkspaceEditor({
           className="sb-editor-sort-handle"
           aria-label={`排序 ${resolved.label}`}
           aria-describedby={descriptionId}
+          draggable={variant !== 'mobile-fullscreen'}
+          onDragStart={(event) => {
+            setDraggedId(item.id)
+            event.dataTransfer.effectAllowed = 'move'
+            event.dataTransfer.setData('text/plain', item.id)
+            const blank = document.createElement('canvas')
+            blank.width = 1
+            blank.height = 1
+            event.dataTransfer.setDragImage(blank, 0, 0)
+          }}
+          onDragEnd={() => setDraggedId(null)}
           onKeyDown={(event) => {
             if (event.altKey && event.key === 'ArrowUp') {
               event.preventDefault()
@@ -253,11 +255,11 @@ export function SidebarWorkspaceEditor({
       id={SIDEBAR_WORKSPACE_EDITOR_ID}
       className={`sb-workspace-editor${variant === 'mobile-fullscreen' ? ' is-mobile-fullscreen' : ''}`}
       role="dialog"
-      aria-modal={variant === 'mobile-fullscreen' ? 'true' : undefined}
+      aria-modal="true"
       aria-labelledby={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID}
       data-mobile-fullscreen={variant === 'mobile-fullscreen' ? 'true' : undefined}
       onKeyDown={(event) => {
-        if (variant !== 'mobile-fullscreen' || event.key !== 'Tab') return
+        if (event.key !== 'Tab') return
         const focusable = Array.from(
           event.currentTarget.querySelectorAll<HTMLElement>(
             'button:not(:disabled), input:not(:disabled)',

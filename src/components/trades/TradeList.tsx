@@ -413,6 +413,11 @@ export function TradeList({
     )
     if (index < 0) return
     virtualizer.scrollToIndex(index, { align: 'auto' })
+    const frame = requestAnimationFrame(() => {
+      const row = document.querySelector<HTMLElement>(`[data-trade-id="${CSS.escape(focusedId)}"]`)
+      row?.querySelector<HTMLButtonElement>('.trade-row-open')?.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(frame)
   }, [focusedId, flatItems, ensureGroupExpandedForTrade, virtualizer])
 
   const virtualItems = virtualizer.getVirtualItems()

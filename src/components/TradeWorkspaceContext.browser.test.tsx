@@ -70,7 +70,7 @@ async function run(): Promise<void> {
     )
 
     await waitFor(() => document.body.textContent?.includes('第二阶段') ?? false, '历史阶段没有进入公共上下文')
-    const stats = document.querySelector<HTMLAnchorElement>('[data-primary-id="dashboard"]')
+    const stats = document.querySelector<HTMLAnchorElement>('a[data-primary-id="dashboard"]')
     assert(stats?.getAttribute('href') === '/dashboard?liveStage=stage-old', '统计入口必须只继承公共上下文')
     stats.click()
     await waitFor(
@@ -79,7 +79,7 @@ async function run(): Promise<void> {
     )
     assert(stats.getAttribute('aria-current') === 'page', '统计分析必须成为唯一一级选中项')
 
-    const review = document.querySelector<HTMLAnchorElement>('[data-primary-id="weeklyReview"]')
+    const review = document.querySelector<HTMLAnchorElement>('a[data-primary-id="weeklyReview"]')
     review?.click()
     await waitFor(
       () => document.querySelector('[data-workspace-page="review"]') !== null,

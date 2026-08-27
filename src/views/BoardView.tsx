@@ -75,7 +75,6 @@ export function BoardView({
   const legacyCashCurrencyAssumption = useStore((s) => s.profile.legacyCashCurrencyAssumption)
   const [dragId, setDragId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<TradeStatus | null>(null)
-  const [overIdx, setOverIdx] = useState<number | null>(null)
   const [ctx, setCtx] = useState<CtxState | null>(null)
   const navigate = useNavigate()
   const location = useLocation()
@@ -137,7 +136,6 @@ export function BoardView({
     if (trade) transitionTradeStatus(trade, status, transition)
     setDragId(null)
     setOverCol(null)
-    setOverIdx(null)
   }
 
   return (
@@ -190,16 +188,15 @@ export function BoardView({
                 legacyCashCurrencyAssumption={legacyCashCurrencyAssumption}
                 dragId={dragId}
                 overCol={overCol}
-                overIdx={overIdx}
                 setDragId={setDragId}
                 setOverCol={setOverCol}
-                setOverIdx={setOverIdx}
                 onOpen={onOpen}
                 onContextMenu={(e, trade) => {
                   e.preventDefault()
                   setCtx({
                     x: e.clientX,
                     y: e.clientY,
+                    originElement: e.currentTarget as HTMLElement,
                     items: buildTradeCtxItems(trade, {
                       setStatus,
                       requestTradeOpen,
@@ -240,10 +237,8 @@ function BoardColumnBody({
   legacyCashCurrencyAssumption,
   dragId,
   overCol,
-  overIdx,
   setDragId,
   setOverCol,
-  setOverIdx,
   onOpen,
   onContextMenu,
 }: {
@@ -256,10 +251,8 @@ function BoardColumnBody({
   legacyCashCurrencyAssumption: import('@/storage/types').LegacyCashCurrencyAssumption | null
   dragId: string | null
   overCol: TradeStatus | null
-  overIdx: number | null
   setDragId: (id: string | null) => void
   setOverCol: (status: TradeStatus | null) => void
-  setOverIdx: (idx: number | null) => void
   onOpen: (id: string) => void
   onContextMenu: (event: React.MouseEvent, trade: Trade) => void
 }) {
@@ -285,9 +278,6 @@ function BoardColumnBody({
 
   return (
     <div className="bd-col-body bd-col-body-virtual" ref={bodyRef}>
-      {overCol === status && overIdx === 0 && items.length === 0 && (
-        <div className="bd-drop-indicator" />
-      )}
       <div
         className="bd-col-virtual-inner"
         style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}
@@ -309,7 +299,6 @@ function BoardColumnBody({
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              {overCol === status && overIdx === i && <div className="bd-drop-indicator" />}
               <article
                 data-trade-id={t.id}
                 className={
@@ -336,13 +325,6 @@ function BoardColumnBody({
                 onDragEnd={() => {
                   setDragId(null)
                   setOverCol(null)
-                  setOverIdx(null)
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  const mid = rect.top + rect.height / 2
-                  setOverIdx(e.clientY < mid ? i : i + 1)
                 }}
                 onClick={() => onOpen(t.id)}
                 onKeyDown={(event) => {
@@ -417,7 +399,6 @@ function BoardColumnBody({
                   )}
                 </div>
               </article>
-              {overCol === status && overIdx === i + 1 && <div className="bd-drop-indicator" />}
             </div>
           )
         })}

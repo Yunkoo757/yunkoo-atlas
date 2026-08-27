@@ -562,6 +562,22 @@ export function resolveSidebarWorkspaceItem(
   }
 }
 
+/**
+ * 删除已经找不到来源的保存视图/策略引用，并重新计算顺序与常驻容量。
+ * 系统项和案例视图始终可解析，不会在这里被误删。
+ */
+export function sanitizeSidebarWorkspaceItems(
+  items: SidebarWorkspaceItem[],
+  sources: {
+    savedViews: SavedTradeView[]
+    strategies: Strategy[]
+  },
+): SidebarWorkspaceItem[] {
+  return normalizeSidebarWorkspaceItems(
+    items.filter((item) => !resolveSidebarWorkspaceItem(item, sources).invalid),
+  )
+}
+
 function normalizeTargetPath(pathname: string): string {
   const normalized = normalizeSavedViewPath(pathname)
   if (normalized === '/paper' || normalized === '/practice') return '/sim'

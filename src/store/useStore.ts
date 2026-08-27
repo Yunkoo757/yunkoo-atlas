@@ -1143,7 +1143,17 @@ export const useStore = create<State>()((set, get) => ({
         }))
       },
       removeTradeView: (id) =>
-        set((s) => ({ savedTradeViews: s.savedTradeViews.filter((view) => view.id !== id) })),
+        set((s) => ({
+          savedTradeViews: s.savedTradeViews.filter((view) => view.id !== id),
+          display: {
+            ...s.display,
+            sidebarWorkspaceItems: normalizeSidebarWorkspaceItems(
+              s.display.sidebarWorkspaceItems.filter((item) => (
+                item.target.kind !== 'saved-view' || item.target.viewId !== id
+              )),
+            ),
+          },
+        })),
       togglePinTradeView: (id) =>
         set((s) => {
           const target = s.savedTradeViews.find((view) => view.id === id)
@@ -1849,6 +1859,14 @@ export const useStore = create<State>()((set, get) => ({
           return {
             strategies: s.strategies.filter((x) => x.id !== id),
             pinnedStrategyIds: s.pinnedStrategyIds.filter((x) => x !== id),
+            display: {
+              ...s.display,
+              sidebarWorkspaceItems: normalizeSidebarWorkspaceItems(
+                s.display.sidebarWorkspaceItems.filter((item) => (
+                  item.target.kind !== 'strategy' || item.target.strategyId !== id
+                )),
+              ),
+            },
             trades:
               count > 0 && reassignToId
                 ? s.trades.map((t) =>

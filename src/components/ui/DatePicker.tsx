@@ -16,6 +16,7 @@ import { useExitClone } from '@/components/ui/useExitClone'
 import { Calendar, ChevronLeft, ChevronRight } from '@/icons/appIcons'
 import { FieldTrigger } from '@/components/ui/FieldTrigger'
 import { PopoverSurface } from '@/components/ui/PopoverSurface'
+import { useModalPortalRoot } from '@/components/ui/ModalShell'
 import './DatePicker.css'
 
 type CalendarDay = {
@@ -103,6 +104,7 @@ export const DatePicker = forwardRef<
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const [open, setOpen] = useState(false)
   const popoverExitRef = useExitClone<HTMLDivElement>(open)
+  const registerModalPortalRoot = useModalPortalRoot()
   const [viewDate, setViewDate] = useState(() => parseYmd(value) ?? new Date())
   const [activeDayKey, setActiveDayKey] = useState(() => toYmd(parseYmd(value) ?? new Date()))
   const [position, setPosition] = useState({ left: 0, top: 0, placement: 'bottom' as 'top' | 'bottom' })
@@ -141,6 +143,7 @@ export const DatePicker = forwardRef<
   const assignPopoverRef = (node: HTMLDivElement | null) => {
     popoverRef.current = node
     popoverExitRef(node)
+    registerModalPortalRoot(node)
   }
 
   const openPicker = () => {

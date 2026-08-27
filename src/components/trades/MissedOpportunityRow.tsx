@@ -68,9 +68,9 @@ function MissedOpportunityTags({
         strategies={strategies}
         stats={strategyStats}
         ariaLabel={merged
-          ? `查看 ${strategyName} 策略统计`
+          ? `打开 ${primary.ref} ${RECORD_LABELS[primary.tradeKind]}，策略 ${strategyName}`
           : `打开 ${primary.ref} ${RECORD_LABELS[primary.tradeKind]}`}
-        onClick={merged ? undefined : () => onOpen(primary, item.key)}
+        onClick={() => onOpen(primary, item.key)}
       />
       <span className="trade-row-tag missed-opportunity-source" data-missed-source={item.source}>
         {SOURCE_LABELS[item.source]}
@@ -98,13 +98,11 @@ export function MissedOpportunityRow({
   const sideLabel = primary.side === 'long' ? '做多' : '做空'
   const missReason = MISS_REASON_META[primary.missReason ?? 'other'].label
   const openLabel = `打开 ${primary.symbol} ${RECORD_LABELS[primary.tradeKind]}`
-  const openAction: TradeRowOpenAction | undefined = merged
-    ? undefined
-    : {
-        ariaLabel: openLabel,
-        onClick: () => onOpen(primary, item.key),
-        primary: true,
-      }
+  const openAction: TradeRowOpenAction = {
+    ariaLabel: openLabel,
+    onClick: () => onOpen(primary, item.key),
+    primary: true,
+  }
   const menuOptions = [
     { value: `source:${primary.id}`, label: mergedSourceActionLabel(primary) },
     ...item.linkedCases.map((reviewCase) => ({

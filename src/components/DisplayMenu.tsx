@@ -1,7 +1,8 @@
 import { ICON_SM } from '@/icons/iconSize'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useExitClone } from '@/components/ui/useExitClone'
+import { useModalPortalRoot } from '@/components/ui/ModalShell'
 import { Check, SlidersHorizontal } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
@@ -15,17 +16,49 @@ const SORT_OPTS: { value: DisplayPrefs['sortBy']; label: string }[] = [
 ]
 
 export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
+  const menuId = useId()
   const display = useStore((s) => s.display)
   const setDisplay = useStore((s) => s.setDisplay)
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const popRef = useRef<HTMLDivElement | null>(null)
   const popExitRef = useExitClone<HTMLDivElement>(open)
+  const registerModalPortalRoot = useModalPortalRoot()
   const [pos, setPos] = useState({ top: 0, right: 0 })
 
   const assignPopRef = (node: HTMLDivElement | null) => {
     popRef.current = node
     popExitRef(node)
+    registerModalPortalRoot(node)
+  }
+
+  const closeAndRestore = () => {
+    setOpen(false)
+    requestAnimationFrame(() => triggerRef.current?.focus())
+  }
+
+  const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      event.stopPropagation()
+      closeAndRestore()
+      return
+    }
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+    const items = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]:not(:disabled)')]
+    if (items.length === 0) return
+    const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement)
+    const nextIndex = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? items.length - 1
+        : event.key === 'ArrowDown'
+          ? (Math.max(-1, currentIndex) + 1) % items.length
+          : currentIndex <= 0 ? items.length - 1 : currentIndex - 1
+    event.preventDefault()
+    event.stopPropagation()
+    items[nextIndex]?.focus()
   }
 
   const showGrouping = view === 'list'
@@ -39,14 +72,9 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
       if (rootRef.current?.contains(target) || popRef.current?.contains(target)) return
       setOpen(false)
     }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
-    }
     document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
     }
   }, [open])
 
@@ -57,15 +85,20 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
       top: rect.bottom + 6,
       right: Math.max(8, window.innerWidth - rect.right),
     })
+    requestAnimationFrame(() => {
+      popRef.current?.querySelector<HTMLButtonElement>('[role^="menuitem"]:not(:disabled)')?.focus()
+    })
   }, [open])
 
   return (
     <div className="display-menu-root" ref={rootRef}>
       <button
+        ref={triggerRef}
         type="button"
         className={'tb-btn' + (open ? ' is-open' : '')}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-controls={open ? menuId : undefined}
         aria-label="显示选项"
         onClick={() => setOpen((o) => !o)}
       >
@@ -75,10 +108,12 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
       {open &&
         createPortal(
           <div
+            id={menuId}
             className="display-pop"
             role="menu"
             ref={assignPopRef}
             style={{ top: pos.top, right: pos.right }}
+            onKeyDown={handleMenuKeyDown}
           >
             <ToggleRow
               label="隐藏已平仓"
@@ -125,6 +160,8 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
                     key={o.value}
                     type="button"
                     className={'display-item' + (display.sortBy === o.value ? ' is-on' : '')}
+                    role="menuitemradio"
+                    aria-checked={display.sortBy === o.value}
                     onClick={() => setDisplay({ sortBy: o.value })}
                   >
                     <span>{o.label}</span>
@@ -150,7 +187,13 @@ function ToggleRow({
   onChange: (v: boolean) => void
 }) {
   return (
-    <button type="button" className="display-toggle" onClick={() => onChange(!checked)}>
+    <button
+      type="button"
+      className="display-toggle"
+      role="menuitemcheckbox"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+    >
       <span>{label}</span>
       <span className={'display-switch' + (checked ? ' is-on' : '')}>
         <span className="display-switch-knob" />

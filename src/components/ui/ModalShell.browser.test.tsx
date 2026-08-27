@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ModalShell } from '@/components/ui/ModalShell'
+import { Select } from '@/components/ui/Select'
 
 declare global {
   interface Window {
@@ -43,6 +44,8 @@ function bodyOverflow(): string {
 function Harness() {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [nestedOpen, setNestedOpen] = useState(false)
+  const [selection, setSelection] = useState('one')
 
   return (
     <>
@@ -67,6 +70,26 @@ function Harness() {
           )}
         >
           <p>恢复会替换当前交易库。</p>
+          <Select
+            value={selection}
+            ariaLabel="弹层内选择器"
+            options={[
+              { value: 'one', label: '第一项' },
+              { value: 'two', label: '第二项' },
+            ]}
+            onValueChange={setSelection}
+          />
+          <button type="button" id="nested-modal-opener" onClick={() => setNestedOpen(true)}>
+            打开二级确认
+          </button>
+          {nestedOpen ? (
+            <ModalShell
+              title="二级确认"
+              size="compact"
+              onClose={() => setNestedOpen(false)}
+              footer={<button type="button" data-autofocus onClick={() => setNestedOpen(false)}>继续编辑</button>}
+            />
+          ) : null}
         </ModalShell>
       ) : null}
     </>
@@ -91,6 +114,30 @@ async function run(): Promise<void> {
       '共享弹层没有优先聚焦安全操作',
     )
     assert(bodyOverflow() === 'hidden', '打开弹层时必须锁定页面滚动')
+
+    const selectTrigger = document.querySelector<HTMLButtonElement>('.ui-select-trigger')
+    assert(selectTrigger, '弹层内选择器没有渲染')
+    selectTrigger.click()
+    await waitFor(() => Boolean(document.querySelector('.ui-select-menu')), '选择器弹层没有打开')
+    const selectOption = document.querySelector<HTMLElement>('[role="option"]')
+    assert(selectOption, '选择器缺少可聚焦选项')
+    selectOption.focus()
+    selectOption.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    }))
+    await waitFor(() => !document.querySelector('.ui-select-menu'), '第一次 Escape 没有优先关闭子弹层')
+    assert(document.querySelector('[role="dialog"]'), '关闭子弹层时不应同时关闭父弹层')
+    await waitFor(() => document.activeElement === selectTrigger, '关闭子弹层后没有归还选择器焦点')
+
+    const nestedOpener = document.getElementById('nested-modal-opener') as HTMLButtonElement | null
+    assert(nestedOpener, '缺少二级确认触发器')
+    nestedOpener.click()
+    await waitFor(() => document.querySelectorAll('[role="dialog"]').length === 2, '二级确认没有打开')
+    pressKey('Escape')
+    await waitFor(() => document.querySelectorAll('[role="dialog"]').length === 1, 'Escape 没有只关闭最上层确认')
+    assert(document.querySelector('[role="dialog"]'), '关闭二级确认时父弹层不应关闭')
 
     const closeButton = document.querySelector<HTMLButtonElement>('.modal-shell-close')
     const lastAction = document.getElementById('modal-last-action') as HTMLButtonElement | null

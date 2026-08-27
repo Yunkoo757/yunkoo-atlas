@@ -4,6 +4,8 @@ import { useStore } from '@/store/useStore'
 import { AVATAR_PRESETS, getAvatarPreset, resizeAvatarImage } from '@/lib/avatars'
 import { PresetAvatarGraphic, UserAvatar } from '@/components/UserAvatar'
 import { Check, Upload, X } from '@/icons/appIcons'
+import { flushPersistNow } from '@/storage/persist'
+import { toast } from '@/lib/toast'
 import './ProfileSettingsPanel.css'
 
 export function ProfileSettingsPanel() {
@@ -13,18 +15,35 @@ export function ProfileSettingsPanel() {
   const setDisplayName = useStore((s) => s.setDisplayName)
   const [nameDraft, setNameDraft] = useState(profile.displayName)
   const [saved, setSaved] = useState(false)
+  const [savingName, setSavingName] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const handleNameSave = () => {
+  const handleNameSave = async () => {
     const trimmed = nameDraft.trim()
-    if (!trimmed || trimmed === profile.displayName) {
+    if (savingName || !trimmed || trimmed === profile.displayName) {
       setNameDraft(profile.displayName)
       return
     }
+    const previousName = profile.displayName
+    setSavingName(true)
     setDisplayName(trimmed)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 1500)
+    try {
+      await flushPersistNow()
+      setSaved(true)
+      setTimeout(() => setSaved(false), 1500)
+    } catch {
+      setDisplayName(previousName)
+      setNameDraft(previousName)
+      try {
+        await flushPersistNow()
+        toast('名称保存失败，原名称已保留', { tone: 'error' })
+      } catch {
+        toast('名称保存失败，回滚也未能写入；请重试', { tone: 'error' })
+      }
+    } finally {
+      setSavingName(false)
+    }
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,19 +88,22 @@ export function ProfileSettingsPanel() {
             type="text"
             className="profile-name-input"
             value={nameDraft}
-            onChange={(e) => setNameDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleNameSave() }}
+            onChange={(e) => {
+              setSaved(false)
+              setNameDraft(e.target.value)
+            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') void handleNameSave() }}
             placeholder="输入名称…"
             maxLength={24}
           />
           <button
             type="button"
             className="dio-btn dio-btn-primary"
-            onClick={handleNameSave}
-            disabled={!nameDraft.trim() || nameDraft.trim() === profile.displayName}
+            onClick={() => void handleNameSave()}
+            disabled={savingName || !nameDraft.trim() || nameDraft.trim() === profile.displayName}
           >
             <Check size={ICON_SM} />
-            <span>{saved ? '已保存' : '保存'}</span>
+            <span>{savingName ? '保存中…' : saved ? '已保存' : '保存'}</span>
           </button>
         </div>
       </section>

@@ -125,6 +125,7 @@ export function ReviewPoolManagerModal({
     [layout, presets],
   )
   const [editing, setEditing] = useState<ReviewPoolPreset | 'new' | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<ReviewPoolPreset | null>(null)
 
   const updateHomeOrder = (homeOrder: ReviewPoolRef[]) => onChangeLayout({
     ...normalizedLayout,
@@ -187,6 +188,7 @@ export function ReviewPoolManagerModal({
     : presets.find((item) => item.id === ref.id)?.name ?? '已删除的复盘池'
 
   return (
+    <>
     <ModalShell
       title="管理复盘池"
       description="首页最多展示 6 个复盘池；全部内容固定在首位。"
@@ -245,9 +247,15 @@ export function ReviewPoolManagerModal({
                   <div><strong>{preset.name}</strong><span>{isOnHome(ref) ? '首页展示' : '未放到首页'}</span></div>
                   <div>
                     <Button type="button" variant="ghost" size="sm" aria-label={`编辑 ${preset.name}`} onClick={() => setEditing(preset)}><Pencil size={ICON_SM} /></Button>
-                    <Button type="button" variant="ghost" size="sm" aria-label={`删除 ${preset.name}`} onClick={() => {
-                      if (window.confirm(`确定删除“${preset.name}”吗？`)) onRemovePreset(preset.id)
-                    }}><Trash2 size={ICON_SM} /></Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`删除 ${preset.name}`}
+                      onClick={() => setDeleteTarget(preset)}
+                    >
+                      <Trash2 size={ICON_SM} />
+                    </Button>
                     <Button type="button" variant="bordered" size="sm" disabled={!isOnHome(ref) && normalizedLayout.homeOrder.length >= 6} onClick={() => toggleHome(ref)}>{isOnHome(ref) ? '移出首页' : '放到首页'}</Button>
                   </div>
                 </div>
@@ -257,6 +265,32 @@ export function ReviewPoolManagerModal({
         )}
       </section>
     </ModalShell>
+    {deleteTarget ? (
+      <ModalShell
+        title={`删除复盘池“${deleteTarget.name}”？`}
+        description="删除后不会影响已有交易或案例，但该复盘池的筛选配置无法恢复。"
+        size="compact"
+        onClose={() => setDeleteTarget(null)}
+        footer={(
+          <>
+            <Button type="button" variant="bordered" data-autofocus onClick={() => setDeleteTarget(null)}>
+              取消
+            </Button>
+            <Button
+              type="button"
+              variant="danger-solid"
+              onClick={() => {
+                onRemovePreset(deleteTarget.id)
+                setDeleteTarget(null)
+              }}
+            >
+              删除复盘池
+            </Button>
+          </>
+        )}
+      />
+    ) : null}
+    </>
   )
 }
 
@@ -275,17 +309,27 @@ function ReviewPoolEditor({
   const [filters, setFilters] = useState<ReviewPoolFilters>(() => preset
     ? { ...preset.filters, stageSource: preset.filters.stageSource ?? 'current-and-history' }
     : { ...EMPTY_FILTERS })
-  const patch = (value: Partial<ReviewPoolFilters>) => setFilters((current) => ({ ...current, ...value }))
+  const [dirty, setDirty] = useState(false)
+  const [discardOpen, setDiscardOpen] = useState(false)
+  const patch = (value: Partial<ReviewPoolFilters>) => {
+    setDirty(true)
+    setFilters((current) => ({ ...current, ...value }))
+  }
+  const requestCancel = () => {
+    if (dirty) setDiscardOpen(true)
+    else onCancel()
+  }
   const now = new Date().toISOString()
 
   return (
+    <>
     <ModalShell
       title={preset ? '编辑复盘池' : '新建复盘池'}
       description="同一组内任一条件匹配即可，不同组之间需同时匹配；留空表示不限。"
       size="wide"
-      onClose={onCancel}
+      onClose={requestCancel}
       footer={<>
-        <Button type="button" variant="ghost" onClick={onCancel}>取消</Button>
+        <Button type="button" variant="ghost" onClick={requestCancel}>取消</Button>
         <Button type="button" variant="primary" disabled={!name.trim()} onClick={() => onSave({
           id: preset?.id ?? crypto.randomUUID(),
           name: name.trim(),
@@ -298,7 +342,10 @@ function ReviewPoolEditor({
       <div className="review-pool-editor">
         <label className="review-pool-field review-pool-field-wide">
           <span>名称</span>
-          <input data-autofocus value={name} maxLength={40} placeholder="例如：突破失败复盘" onChange={(event) => setName(event.target.value)} />
+          <input data-autofocus value={name} maxLength={40} placeholder="例如：突破失败复盘" onChange={(event) => {
+            setDirty(true)
+            setName(event.target.value)
+          }} />
         </label>
         <ChoiceGroup legend="内容来源" values={filters.sources} options={SOURCE_OPTIONS} onChange={(sources) => patch({ sources })} />
         <ChoiceGroup legend="结果" values={filters.results} options={RESULT_OPTIONS} onChange={(results) => patch({ results })} />
@@ -315,9 +362,9 @@ function ReviewPoolEditor({
             ))}
           </div>
         </fieldset>
-        <label className="review-pool-field"><span>品种</span><input defaultValue={filters.symbols.join('，')} placeholder="BTC，AAPL" onBlur={(event) => patch({ symbols: splitList(event.target.value) })} /></label>
-        <label className="review-pool-field"><span>标签</span><input defaultValue={filters.tags.join('，')} placeholder="趋势，A+" onBlur={(event) => patch({ tags: splitList(event.target.value) })} /></label>
-        <label className="review-pool-field"><span>错误标签</span><input defaultValue={filters.mistakeTags.join('，')} placeholder="追高，过早止损" onBlur={(event) => patch({ mistakeTags: splitList(event.target.value) })} /></label>
+        <label className="review-pool-field"><span>品种</span><input defaultValue={filters.symbols.join('，')} placeholder="BTC，AAPL" onChange={() => setDirty(true)} onBlur={(event) => patch({ symbols: splitList(event.target.value) })} /></label>
+        <label className="review-pool-field"><span>标签</span><input defaultValue={filters.tags.join('，')} placeholder="趋势，A+" onChange={() => setDirty(true)} onBlur={(event) => patch({ tags: splitList(event.target.value) })} /></label>
+        <label className="review-pool-field"><span>错误标签</span><input defaultValue={filters.mistakeTags.join('，')} placeholder="追高，过早止损" onChange={() => setDirty(true)} onBlur={(event) => patch({ mistakeTags: splitList(event.target.value) })} /></label>
         <label className="review-pool-field">
           <span>实盘阶段</span>
           <Select
@@ -337,5 +384,24 @@ function ReviewPoolEditor({
         </label>
       </div>
     </ModalShell>
+    {discardOpen ? (
+      <ModalShell
+        title="放弃未保存的复盘池修改？"
+        description="名称与筛选条件的改动将不会保留。"
+        size="compact"
+        onClose={() => setDiscardOpen(false)}
+        footer={(
+          <>
+            <Button type="button" variant="bordered" data-autofocus onClick={() => setDiscardOpen(false)}>
+              继续编辑
+            </Button>
+            <Button type="button" variant="danger-solid" onClick={onCancel}>
+              放弃修改
+            </Button>
+          </>
+        )}
+      />
+    ) : null}
+    </>
   )
 }

@@ -412,15 +412,20 @@ function BBtn({
 }
 
 // 粘贴/拖入图片：立即持久化到存储，获取可显示的 blob URL，标记 data-asset-id 建立永久关联
-async function insertImageFile(editor: TiptapEditor, file: File, noteDraftId?: string) {
+async function insertImageFile(
+  editor: TiptapEditor,
+  file: File,
+  noteDraftId?: string,
+  existingAssetId?: string,
+) {
   if (file.size > MAX_WEB_JOURNAL_ENTRY_BYTES) {
     toast('单张原图超过 32 MB，无法加入资料库；请缩小图片后重试')
     return
   }
-  let savedAssetId: string | null = null
+  let savedAssetId: string | null = existingAssetId ?? null
   try {
     const storage = getStorage()
-    savedAssetId = await storage.saveAsset(file, file.type || 'image/png')
+    savedAssetId ??= await storage.saveAsset(file, file.type || 'image/png')
     if (editor.isDestroyed) {
       if (noteDraftId) await appendAssetToNoteDraft(noteDraftId, savedAssetId)
       return
@@ -454,12 +459,17 @@ async function insertImageFile(editor: TiptapEditor, file: File, noteDraftId?: s
       return
     }
 
-    // 编辑器仍在时保留即时预览；已有永久 ID 时同时绑定，后续不会重复写入图片。
-    const url = URL.createObjectURL(file)
-    const chain = editor.chain().focus().setImage({ src: url })
-    if (savedAssetId) chain.updateAttributes('image', { 'data-asset-id': savedAssetId })
-    const inserted = chain.createParagraphNear().focus().run()
-    if (!inserted) URL.revokeObjectURL(url)
-    console.error('Image persist failed, using blob fallback', e)
+    console.error('Image persist failed', e)
+    toast('截图保存失败，未插入正文', {
+      tone: 'error',
+      actionLabel: '重试',
+      onAction: () => {
+        if (editor.isDestroyed) return
+        void trackPendingStorageOperation(
+          insertImageFile(editor, file, noteDraftId, savedAssetId ?? undefined),
+        )
+      },
+      dedupeKey: 'editor-image-persist-failed',
+    })
   }
 }

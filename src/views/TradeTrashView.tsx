@@ -162,6 +162,7 @@ export function TradeTrashView() {
     setContextMenu({
       x: event.clientX,
       y: event.clientY,
+      originElement: event.currentTarget as HTMLElement,
       items: [
         {
           type: 'label',
