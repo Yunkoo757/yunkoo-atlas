@@ -75,11 +75,11 @@
   --popover-modal-radius: var(--modal-border-radius);
   --popover-modal-shadow: var(--popover-shadow-deep);
 
-  /* —— 字体栈（Inter 承载拉丁；CJK 回退桌面系统黑体）—— */
-  --font-ui-base: "Inter Variable", Inter, system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", "PingFang SC",
-    "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei",
-    "Noto Sans SC", sans-serif;
+  /* —— 字体栈（Inter 承载拉丁；内置 Noto Sans SC 稳定 Windows/macOS 中文）—— */
+  --font-ui-base: "Inter Variable", Inter, "Noto Sans SC Variable",
+    "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", system-ui,
+    -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI",
+    sans-serif;
   --font-mono: "JetBrains Mono", "SFMono Regular", Consolas, "Liberation Mono",
     Menlo, Courier, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
     monospace;
@@ -213,9 +213,9 @@
   --scrollbar-thumb-hover: lch(43% 0.75 272);
 
   /* 列表排版校准 */
-  --list-text-strong: var(--text-primary);
-  --list-text-primary: var(--text-primary);
-  --list-text-secondary: var(--text-tertiary);
+  --list-text-strong: var(--text-list-strong);
+  --list-text-primary: var(--text-nav-hover);
+  --list-text-secondary: var(--text-list-secondary);
   --list-group-title: var(--text-primary);
 
   /* 表单控件表面 */
@@ -241,6 +241,13 @@
   --text-secondary: lch(70% 1 272 / 1);
   --text-tertiary: lch(56% 1 272 / 1);
   --text-quaternary: lch(44% 1 272 / 1);
+  /* 高频桌面信息角色：避免侧栏和表格继续复用过暗的辅助灰。 */
+  --text-nav-rest: lch(62% 1 272 / 1);
+  --text-nav-hover: lch(72% 1 272 / 1);
+  --text-nav-active: lch(88% 0.8 272 / 1);
+  --text-list-strong: lch(88% 0.8 272 / 1);
+  --text-list-secondary: lch(64% 1 272 / 1);
+  --text-chip: lch(64% 1 272 / 1);
 
   /* 角色型文字层级：可读内容不直接消费 disabled 灰阶 */
   --text-strong: var(--color-text-primary);
@@ -391,6 +398,19 @@
   --type-row-size: var(--font-size-small);
   --type-row-line-height: 20px;
   --type-row-weight: var(--font-weight-normal);
+  --type-nav-size: 14px;
+  --type-nav-line-height: 20px;
+  --type-nav-weight: 450;
+  --type-nav-active-weight: 550;
+  --type-list-primary-size: 14px;
+  --type-list-primary-line-height: 20px;
+  --type-list-primary-weight: 550;
+  --type-list-secondary-size: 13px;
+  --type-list-secondary-line-height: 20px;
+  --type-list-secondary-weight: 450;
+  --type-chip-size: 12px;
+  --type-chip-line-height: 18px;
+  --type-chip-weight: 500;
   --type-body-size: var(--font-size-regular);
   --type-body-line-height: 23px;
   --type-data-size: 0.8125rem;

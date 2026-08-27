@@ -159,7 +159,11 @@ const approvedShorthandFontSizeTokens = new Set([
   '--type-data-size',
   '--type-dialog-title-size',
   '--type-financial-size',
+  '--type-chip-size',
+  '--type-list-primary-size',
+  '--type-list-secondary-size',
   '--type-metadata-size',
+  '--type-nav-size',
   '--type-page-title-size',
   '--type-row-size',
   '--type-section-title-size',
@@ -792,7 +796,8 @@ export async function testShellTypographyUsesSemanticRolesAndApprovedTracking():
     ['letter-spacing', '0'],
   ])
   assertRoleDeclarations(cssRule(sources['src/components/Sidebar.css'], '.sb-section-label'), '.sb-section-label', [
-    ['font-size', 'var(--type-metadata-size)'],
+    ['font-size', 'var(--type-chip-size)'],
+    ['font-weight', 'var(--type-chip-weight)'],
     ['letter-spacing', '0'],
   ])
   assertRoleDeclarations(cssRule(sources['src/components/RowPreviews.css'], '.rp-note'), '.rp-note', [
@@ -800,14 +805,24 @@ export async function testShellTypographyUsesSemanticRolesAndApprovedTracking():
     ['line-height', 'var(--type-row-line-height)'],
   ])
   assertRoleDeclarations(cssRule(sources['src/components/trades/TradeList.css'], '.trade-row'), '.trade-row', [
-    ['font-size', 'var(--type-row-size)'],
-    ['font-weight', 'var(--font-weight-normal)'],
-    ['line-height', 'var(--type-row-line-height)'],
+    ['font-size', 'var(--type-list-secondary-size)'],
+    ['font-weight', 'var(--type-list-secondary-weight)'],
+    ['line-height', 'var(--type-list-secondary-line-height)'],
+  ])
+  assertRoleDeclarations(cssRule(sources['src/components/Sidebar.css'], '.sb-item'), '.sb-item', [
+    ['font-size', 'var(--type-nav-size)'],
+    ['font-weight', 'var(--type-nav-weight)'],
+    ['line-height', 'var(--type-nav-line-height)'],
+  ])
+  assertRoleDeclarations(cssRule(sources['src/components/trades/TradeList.css'], '.trade-row-symbol strong'), '.trade-row-symbol strong', [
+    ['font-size', 'var(--type-list-primary-size)'],
+    ['font-weight', 'var(--type-list-primary-weight)'],
+    ['line-height', 'var(--type-list-primary-line-height)'],
   ])
   assertRoleDeclarations(cssRule(sources['src/components/trades/TradeList.css'], '.trade-list-group-header strong'), '.trade-list-group-header strong', [
-    ['font-size', 'var(--type-row-size)'],
-    ['font-weight', 'var(--font-weight-semibold)'],
-    ['line-height', 'var(--type-row-line-height)'],
+    ['font-size', 'var(--type-list-primary-size)'],
+    ['font-weight', 'var(--type-list-primary-weight)'],
+    ['line-height', 'var(--type-list-primary-line-height)'],
   ])
 
 }

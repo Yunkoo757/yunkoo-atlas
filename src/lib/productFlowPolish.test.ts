@@ -96,12 +96,13 @@ export async function testSmallInteractionCopyAndContrastContracts(): Promise<vo
   )
 
   const inter = tokens.indexOf('"Inter Variable"')
-  const system = tokens.indexOf('system-ui', inter)
-  const macCjk = tokens.indexOf('"PingFang SC"', system)
+  const bundledCjk = tokens.indexOf('"Noto Sans SC Variable"', inter)
+  const macCjk = tokens.indexOf('"PingFang SC"', bundledCjk)
   const windowsCjk = tokens.indexOf('"Microsoft YaHei UI"', macCjk)
+  const system = tokens.indexOf('system-ui', windowsCjk)
   assert(
-    inter >= 0 && system > inter && macCjk > system && windowsCjk > macCjk,
-    '字体栈应依次使用 Inter、system-ui 与 macOS/Windows 显式 CJK 回退',
+    inter >= 0 && bundledCjk > inter && macCjk > bundledCjk && windowsCjk > macCjk && system > windowsCjk,
+    '字体栈应依次使用 Inter、内置 Noto Sans SC、macOS/Windows 显式回退与 system-ui',
   )
 }
 

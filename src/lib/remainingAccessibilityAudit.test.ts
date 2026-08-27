@@ -122,7 +122,8 @@ export async function testMutedTextAndGroupChevronsRemainReadable(): Promise<voi
     ['--color-text-secondary', 'var(--text-secondary)'], ['--color-text-tertiary', 'var(--text-tertiary)'],
     ['--color-text-quaternary', 'var(--text-quaternary)'], ['--color-text-disabled', 'var(--text-disabled)'],
     ['--text-body', 'var(--color-text-secondary)'], ['--text-muted', 'var(--color-text-tertiary)'],
-    ['--list-text-secondary', 'var(--text-tertiary)'], ['--list-group-title', 'var(--text-primary)'],
+    ['--text-list-secondary', 'lch(64% 1 272 / 1)'],
+    ['--list-text-secondary', 'var(--text-list-secondary)'], ['--list-group-title', 'var(--text-primary)'],
     ['--group-chevron-started', 'lch(50% 7 78)'], ['--group-chevron-todo', 'lch(50% 7 272)'],
     ['--group-chevron-backlog', 'lch(50% 7 270)'], ['--group-chevron-done', 'lch(50% 7 283)'],
   ]) assert(rootDeclaration(tokens, property) === value, `缺少已批准的桌面文字合同：${property}`)

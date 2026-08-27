@@ -24,10 +24,10 @@
   column-gap: var(--sp-2);
   height: var(--trade-list-columns-height);
   padding: 0 10px;
-  color: var(--text-tertiary);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--type-metadata-weight);
-  line-height: var(--type-metadata-line-height);
+  color: var(--text-nav-rest);
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
+  line-height: var(--type-chip-line-height);
   background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
   border-bottom: 1px solid var(--border-subtle);
   backdrop-filter: blur(10px);
@@ -211,9 +211,9 @@
 .trade-list-group-header strong {
   color: var(--list-group-title);
   font-family: var(--font-ui);
-  font-size: var(--type-row-size);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--type-row-line-height);
+  font-size: var(--type-list-primary-size);
+  font-weight: var(--type-list-primary-weight);
+  line-height: var(--type-list-primary-line-height);
 }
 
 .trade-list-group-icon {
@@ -282,9 +282,9 @@
   height: var(--trade-row-height);
   padding: 0 10px;
   color: var(--list-text-secondary);
-  font-size: var(--type-row-size);
-  font-weight: var(--font-weight-normal);
-  line-height: var(--type-row-line-height);
+  font-size: var(--type-list-secondary-size);
+  font-weight: var(--type-list-secondary-weight);
+  line-height: var(--type-list-secondary-line-height);
   border-radius: var(--radius-8);
   isolation: isolate;
   cursor: pointer;
@@ -418,12 +418,12 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   overflow: hidden;
   color: var(--list-text-secondary);
   font-family: var(--font-ui);
-  font-size: var(--type-row-size);
-  font-weight: var(--font-weight-normal);
+  font-size: var(--type-list-secondary-size);
+  font-weight: var(--type-list-secondary-weight);
   font-feature-settings: "calt" 1, "cpsp" 1, "tnum" 1;
   font-variant-numeric: var(--numeric-tabular);
   letter-spacing: 0;
-  line-height: var(--type-row-line-height);
+  line-height: var(--type-list-secondary-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -467,9 +467,9 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   overflow: visible;
   color: var(--list-text-strong);
   font-family: var(--font-ui);
-  font-size: var(--type-row-size);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--type-row-line-height);
+  font-size: var(--type-list-primary-size);
+  font-weight: var(--type-list-primary-weight);
+  line-height: var(--type-list-primary-line-height);
   font-variant-numeric: var(--numeric-tabular);
   white-space: nowrap;
 }
@@ -485,10 +485,10 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   margin-left: 0;
   padding: 0;
   box-sizing: border-box;
-  font-size: var(--type-metadata-size);
-  font-weight: var(--type-metadata-weight);
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
   letter-spacing: 0;
-  line-height: var(--type-metadata-line-height);
+  line-height: var(--type-chip-line-height);
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -562,9 +562,9 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   overflow: hidden;
   color: inherit;
   font-family: var(--font-ui);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--type-metadata-weight);
-  line-height: var(--type-metadata-line-height);
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
+  line-height: var(--type-chip-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -615,13 +615,13 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   min-height: 20px;
   padding: 1px 7px;
   overflow: hidden;
-  color: var(--text-tertiary);
+  color: var(--text-chip);
   font-family: var(--font-ui);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--type-metadata-weight);
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
   font-feature-settings: normal;
   font-variant-numeric: normal;
-  line-height: var(--type-metadata-line-height);
+  line-height: var(--type-chip-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
   background: transparent;
@@ -739,9 +739,11 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 }
 
 .trade-row-date {
-  color: var(--text-tertiary);
+  color: var(--list-text-secondary);
   font-family: var(--font-ui);
-  font-size: var(--type-metadata-size);
+  font-size: var(--type-list-secondary-size);
+  font-weight: var(--type-list-secondary-weight);
+  line-height: var(--type-list-secondary-line-height);
 }
 
 .trade-row-end {

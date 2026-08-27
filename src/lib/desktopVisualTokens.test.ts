@@ -19,9 +19,15 @@ export async function testDesktopVisualTokensExposeCanonicalRoles(): Promise<voi
     '--color-text-tertiary: var(--text-tertiary)',
     '--color-text-quaternary: var(--text-quaternary)',
     '--color-text-disabled: var(--text-disabled)',
-    '--list-text-strong: var(--text-primary)',
-    '--list-text-primary: var(--text-primary)',
-    '--list-text-secondary: var(--text-tertiary)',
+    '--text-nav-rest: lch(62% 1 272 / 1)',
+    '--text-nav-hover: lch(72% 1 272 / 1)',
+    '--text-nav-active: lch(88% 0.8 272 / 1)',
+    '--text-list-strong: lch(88% 0.8 272 / 1)',
+    '--text-list-secondary: lch(64% 1 272 / 1)',
+    '--text-chip: lch(64% 1 272 / 1)',
+    '--list-text-strong: var(--text-list-strong)',
+    '--list-text-primary: var(--text-nav-hover)',
+    '--list-text-secondary: var(--text-list-secondary)',
     '--list-group-title: var(--text-primary)',
     '--type-caption-size: var(--font-size-micro)',
     '--type-caption-line-height: 16px',
@@ -30,6 +36,19 @@ export async function testDesktopVisualTokensExposeCanonicalRoles(): Promise<voi
     '--type-metadata-weight: var(--font-weight-normal)',
     '--type-row-size: var(--font-size-small)',
     '--type-row-line-height: 20px',
+    '--type-nav-size: 14px',
+    '--type-nav-line-height: 20px',
+    '--type-nav-weight: 450',
+    '--type-nav-active-weight: 550',
+    '--type-list-primary-size: 14px',
+    '--type-list-primary-line-height: 20px',
+    '--type-list-primary-weight: 550',
+    '--type-list-secondary-size: 13px',
+    '--type-list-secondary-line-height: 20px',
+    '--type-list-secondary-weight: 450',
+    '--type-chip-size: 12px',
+    '--type-chip-line-height: 18px',
+    '--type-chip-weight: 500',
     '--type-body-size: var(--font-size-regular)',
     '--type-body-line-height: 23px',
     '--type-page-title-size: var(--font-size-title3)',
@@ -65,15 +84,21 @@ export async function testDesktopVisualTokensExposeCanonicalRoles(): Promise<voi
   assert(!css.includes('--header-h: 43.5714px'), 'header height must use the 44px canonical role')
 }
 
-export async function testUiFontUsesBundledInterAndPlatformCjkFallbacks(): Promise<void> {
+export async function testUiFontUsesBundledLatinAndCjkVariableFonts(): Promise<void> {
   const [main, tokens, global] = await Promise.all([
     fs.readFile('src/main.tsx', 'utf8'),
     fs.readFile('src/styles/tokens.css', 'utf8'),
     fs.readFile('src/styles/global.css', 'utf8'),
   ])
   assert(main.includes("@fontsource-variable/inter"))
+  assert(main.includes("@fontsource-variable/noto-sans-sc"))
   assert(!main.includes(['@fontsource', ['geist', 'sans'].join('-')].join('/')))
   assert(tokens.includes('"Inter Variable"'))
+  assert(tokens.includes('"Noto Sans SC Variable"'))
+  assert(
+    tokens.indexOf('"Noto Sans SC Variable"') < tokens.indexOf('system-ui'),
+    '内置中文字体必须先于 system-ui，避免 Windows/macOS 中文被不稳定回退接管',
+  )
   assert(tokens.includes('system-ui'))
   assert(tokens.includes('"PingFang SC"'))
   assert(tokens.includes('"Microsoft YaHei UI"'))

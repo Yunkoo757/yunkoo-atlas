@@ -1,5 +1,6 @@
 import '@/styles/tokens.css'
 import '@/styles/global.css'
+import '@fontsource-variable/noto-sans-sc'
 import '@/App.css'
 import '@/components/RouteState.css'
 import '@/components/WelcomeScreen.css'
@@ -14,6 +15,7 @@ import './WeeklyReviewView.css'
 import '@/components/ui/FieldTrigger.css'
 import '@/components/ui/DatePicker.css'
 import '@/components/ui/Button.css'
+import '@/components/ui/Chip.css'
 import '@/components/ui/IconButton.css'
 import '@/components/ui/Select.css'
 import '@/components/trades/TradeList.css'
@@ -94,8 +96,20 @@ async function run(): Promise<void> {
     <div class="ui-date-grid"><button class="is-outside">31</button></div>
     <section class="trade-list">
       <div class="trade-list-group-header"><button class="trade-list-group-toggle"><strong>本周交易</strong></button></div>
-      <div class="trade-row">交易行辅助信息</div>
+      <div class="trade-row" data-typography-row>
+        <span class="trade-row-ref">CAS-32</span>
+        <span class="trade-row-symbol"><strong>EURUSD</strong><span class="side-tag is-quiet" data-side="long">多</span></span>
+        <span class="trade-row-strategy"><span class="strategy-label">导航1</span></span>
+        <span class="trade-row-tags"><span class="trade-row-tag">伦敦收盘</span></span>
+        <span class="trade-row-date">8月27日</span>
+      </div>
     </section>
+    <aside class="sidebar" data-typography-sidebar>
+      <div class="sb-item" data-nav-state="rest"><span class="sb-item-label">案例记录</span><span class="sb-item-count">30</span></div>
+      <div class="sb-item is-active" data-nav-state="active"><span class="sb-item-label">交易日志</span></div>
+      <div class="sb-item"><button class="sb-workspace-capability-menu">菜单</button></div>
+    </aside>
+    <span class="ui-chip ui-chip-md">伦敦开盘</span>
     <div class="dv-feed-item-deletable"><button class="dv-feed-delete">删除</button></div>
     <button class="tag-chip-remove">删除标签</button>
     <div class="nim-import-target-options"><button><strong>交易日志</strong><span>计入实盘统计</span></button></div>
@@ -116,7 +130,6 @@ async function run(): Promise<void> {
     <button class="shortcuts-reset-all" disabled>禁用快捷键重置</button>
     <div class="dv-review-stage-actions"><button disabled>禁用复盘阶段操作</button></div>
     <button class="ui-icon-btn ui-icon-btn-md" disabled>禁用周复盘导航</button>
-    <div class="sb-item"><button class="sb-workspace-capability-menu">菜单</button></div>
     <div class="shortcuts-row"><div class="shortcuts-actions"><button class="shortcuts-action">快捷键操作</button></div></div>
     <div class="trash-item"><div class="trash-item-actions"><button class="trash-btn-purge">删除</button></div></div>
   `
@@ -168,9 +181,36 @@ async function run(): Promise<void> {
     ['--text-disabled', 'lch(34% 1 272 / 1)'],
   ]) assert(rootStyle.getPropertyValue(token).trim() === value, `${token} 必须保留精确 LCH 灰阶`)
 
+  const bodyStyle = getComputedStyle(document.body)
+  assert(bodyStyle.fontFamily.includes('Noto Sans SC Variable'), '桌面字体栈必须包含内置 Noto Sans SC Variable')
+
+  const navRest = getComputedStyle(document.querySelector<HTMLElement>('[data-nav-state="rest"]')!)
+  assert(navRest.fontSize === '14px' && navRest.lineHeight === '20px', '普通导航必须计算为 14px/20px')
+  assert(navRest.fontWeight === '450', '普通导航必须使用真实 450 字重')
+  assertComputedTextRole('[data-nav-state="rest"]', '--text-nav-rest')
+  const navActive = getComputedStyle(document.querySelector<HTMLElement>('[data-nav-state="active"]')!)
+  assert(navActive.fontWeight === '550', '选中导航必须使用真实 550 字重')
+  assertComputedTextRole('[data-nav-state="active"]', '--text-nav-active')
+
+  const tradeSymbol = getComputedStyle(document.querySelector<HTMLElement>('[data-typography-row] .trade-row-symbol strong')!)
+  assert(tradeSymbol.fontSize === '14px' && tradeSymbol.lineHeight === '20px', '交易品种必须计算为 14px/20px')
+  assert(tradeSymbol.fontWeight === '550', '交易品种必须使用 550 字重')
+  assertComputedTextRole('[data-typography-row] .trade-row-symbol strong', '--text-list-strong')
+  const tradeRef = getComputedStyle(document.querySelector<HTMLElement>('[data-typography-row] .trade-row-ref')!)
+  assert(tradeRef.fontSize === '13px' && tradeRef.lineHeight === '20px', '交易编号必须计算为 13px/20px')
+  assert(tradeRef.fontWeight === '450', '交易编号必须使用 450 字重')
+  assertComputedTextRole('[data-typography-row] .trade-row-ref', '--text-list-secondary')
+  const chip = getComputedStyle(document.querySelector<HTMLElement>('.ui-chip')!)
+  assert(
+    chip.fontSize === '12px' && chip.lineHeight === '18px',
+    `Chip 必须计算为 12px/18px，实际为 ${chip.fontSize}/${chip.lineHeight}`,
+  )
+  assert(chip.fontWeight === '500', 'Chip 必须使用 500 字重')
+  assertComputedTextRole('.ui-chip', '--text-chip')
+
   assertComputedTextRole('.ui-field-trigger', '--text-secondary')
   assertComputedTextRole('.ui-date-grid button.is-outside', '--text-tertiary')
-  assertComputedTextRole('.trade-row', '--text-tertiary')
+  assertComputedTextRole('.trade-row', '--text-list-secondary')
   assertComputedTextRole('.trade-list-group-header', '--text-primary')
   assertComputedTextRole('.dv-feed-delete', '--text-tertiary')
   for (const selector of [

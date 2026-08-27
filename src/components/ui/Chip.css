@@ -5,10 +5,10 @@
   padding: 0 var(--sp-2);
   border-radius: var(--radius-6);
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
-  font-weight: var(--type-metadata-weight);
-  line-height: var(--type-metadata-line-height);
-  color: var(--text-secondary);
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
+  line-height: var(--type-chip-line-height);
+  color: var(--text-chip);
   white-space: nowrap;
 }
 
