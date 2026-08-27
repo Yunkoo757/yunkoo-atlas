@@ -61,6 +61,13 @@ export function testHistoricalLiveUsesSharedWorkbenchSubtitleContract(): void {
   )
 }
 
+export function testCurrentCaseWorkspaceDoesNotRepeatItsPurposeInTheTitle(): void {
+  assert(
+    getTradesPageSubtitle({ type: 'all', tradeKind: 'case' }) === undefined,
+    '案例记录标题后不得重复显示“独立复盘”说明',
+  )
+}
+
 export function testHistoricalArchiveNavIsCompactAndShared(): void {
   const css = archiveCss()
   assert(css.includes('.live-archive-navigation'), '阶段与标签必须共享一个导航区')

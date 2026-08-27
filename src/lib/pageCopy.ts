@@ -21,6 +21,6 @@ export function getTradesPageSubtitle(
   }
   if (filter.type === 'all' && filter.tradeKind === 'live') return undefined
   if (filter.tradeKind === 'paper') return '模拟盘'
-  if (filter.tradeKind === 'case') return '独立复盘'
+  if (filter.tradeKind === 'case') return undefined
   return undefined
 }

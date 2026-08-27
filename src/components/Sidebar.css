@@ -513,11 +513,13 @@ html[data-ui-settled='1'] .sb-item {
 }
 
 .sb-risk-summary {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   min-width: 0;
   align-items: center;
   gap: var(--sp-2);
-  padding: var(--sp-2);
+  min-height: var(--control-height);
+  padding: 0 var(--sp-2);
   border-radius: var(--radius-8);
   color: var(--text-secondary);
   text-decoration: none;
@@ -527,20 +529,40 @@ html[data-ui-settled='1'] .sb-item {
   background: var(--bg-hover);
 }
 
-.sb-risk-summary > span {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-}
-
 .sb-risk-summary strong {
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
 }
 
-.sb-risk-summary small {
+.sb-risk-limits {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
+  white-space: nowrap;
+}
+
+.sb-risk-limits > span {
+  color: var(--text-secondary);
+}
+
+.sb-risk-limits small,
+.sb-risk-unset {
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
+}
+
+.sb-risk-limits small {
+  margin-right: 2px;
+}
+
+.sb-risk-summary.is-unset {
+  color: var(--text-tertiary);
 }

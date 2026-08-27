@@ -14,6 +14,7 @@ import {
   Plus,
   Search,
   Settings2,
+  Shield,
   Star,
   Target,
   Trash2,
@@ -387,9 +388,13 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     limit.liveStageId === currentLiveStageId &&
     limit.monthKey === sidebarDateAnchor.currentTradingDayKey.slice(0, 7)
   ))
-  const riskSummary = currentRiskPolicy
-    ? `日 ${currentRiskPolicy.dailyLossLimitR}R · 周 ${currentRiskPolicy.weeklyLossLimitR}R · 月 ${currentMonthLimit?.limitR ?? currentRiskPolicy.monthlyLossLimitRDefault}R`
-    : '未设置'
+  const riskLimits = currentRiskPolicy
+    ? {
+        daily: currentRiskPolicy.dailyLossLimitR,
+        weekly: currentRiskPolicy.weeklyLossLimitR,
+        monthly: currentMonthLimit?.limitR ?? currentRiskPolicy.monthlyLossLimitRDefault,
+      }
+    : null
   const openWorkspaceEditor = (
     button: HTMLButtonElement,
     section: 'pinned' | 'overflow' = 'pinned',
@@ -925,9 +930,22 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       </div>
 
       <div className="sb-footer">
-        <NavLink to="/settings/risk" className="sb-risk-summary">
-          <Target size={ICON_MD} />
-          <span><strong>风险管理</strong><small>{riskSummary}</small></span>
+        <NavLink
+          to="/settings/risk"
+          className={`sb-risk-summary${riskLimits ? '' : ' is-unset'}`}
+          aria-label={riskLimits
+            ? `风险限额：日 ${riskLimits.daily}R，周 ${riskLimits.weekly}R，月 ${riskLimits.monthly}R`
+            : '风险限额：未设置'}
+        >
+          <Shield size={ICON_MD} aria-hidden="true" />
+          <strong>风险限额</strong>
+          {riskLimits ? (
+            <span className="sb-risk-limits" aria-hidden="true">
+              <span><small>日</small>{riskLimits.daily}R</span>
+              <span><small>周</small>{riskLimits.weekly}R</span>
+              <span><small>月</small>{riskLimits.monthly}R</span>
+            </span>
+          ) : <small className="sb-risk-unset">未设置</small>}
         </NavLink>
         <NavLink to="/settings" className="sb-item">
           <Settings2 size={ICON_MD} />

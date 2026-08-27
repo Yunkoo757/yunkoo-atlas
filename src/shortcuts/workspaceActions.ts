@@ -1,6 +1,7 @@
 import type { Strategy } from '@/data/strategies'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import {
+  rememberableWorkspaceKind,
   resolveWorkspaceNavTarget,
   workspaceRouteHref,
   type WorkspaceKind,
@@ -14,6 +15,8 @@ export function resolveShortcutWorkspaceHref(
   strategies: readonly Pick<Strategy, 'id'>[],
   recentRoute?: WorkspaceRouteMemory | null,
 ): string {
-  const memory = recentRoute ?? display.workspaceMemory?.[kind]
+  const memory = recentRoute && rememberableWorkspaceKind(recentRoute.pathname) === kind
+    ? recentRoute
+    : display.workspaceMemory?.[kind]
   return workspaceRouteHref(resolveWorkspaceNavTarget(kind, memory, strategies))
 }

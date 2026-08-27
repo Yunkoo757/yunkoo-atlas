@@ -56,6 +56,21 @@ export function testTradeShortcutPrefersTheLatestSessionContext(): void {
   )
 }
 
+export function testCaseListContextCannotOverwriteTradeShortcutMemory(): void {
+  assert(
+    resolveShortcutWorkspaceHref(
+      'trade',
+      display,
+      [],
+      {
+        pathname: '/review-cases/mistakes',
+        search: '?tag=执行',
+      },
+    ) === '/period/this-week?symbol=BTCUSDT',
+    '案例页的列表上下文不得覆盖交易日志工作区记忆',
+  )
+}
+
 export function testTradeAndCaseShortcutsHaveSeparateConfigurableBindings(): void {
   const trade = getActionMeta('nav.list')
   const reviewCases = getActionMeta('nav.reviewCases')

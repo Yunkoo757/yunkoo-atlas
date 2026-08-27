@@ -114,11 +114,19 @@ async function run(): Promise<void> {
     )
     assert(!document.querySelector('[data-workspace-page="review"] [aria-label="记录类型"]'), '周期复盘不得展示无效盘型筛选')
 
+    useShortcutStore.setState({
+      listContext: {
+        listPath: '/review-cases/mistakes',
+        listSearch: '?tag=执行',
+        orderedIds: [],
+        filter: { type: 'all', tradeKind: 'case' },
+      },
+    })
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }))
     await waitFor(
       () => document.querySelector('[data-testid="location"]')?.textContent ===
         '/list?liveStage=stage-old&status=loss',
-      'A 返回交易日志时必须恢复阶段和筛选条件',
+      '从案例页按 A 返回交易日志时必须恢复阶段和筛选条件',
     )
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', bubbles: true }))
     await waitFor(
