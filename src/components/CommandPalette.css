@@ -124,8 +124,9 @@
 }
 .cmdk-group {
   color: var(--text-muted);
-  font-size: var(--type-caption-size);
+  font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
   padding: var(--sp-2) var(--sp-2) var(--sp-1);
   position: sticky;
   top: 0;

@@ -43,7 +43,7 @@
 
 .rp-meta-label {
   font-size: var(--type-metadata-size);
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
 }
 
 .rp-pos { color: var(--pos); font-weight: var(--font-weight-medium); }

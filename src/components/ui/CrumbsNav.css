@@ -52,7 +52,8 @@
 .crumbs-label {
   margin: 0;
   font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--type-row-weight);
+  line-height: var(--type-row-line-height);
   color: var(--text-secondary);
   white-space: nowrap;
 }
@@ -79,6 +80,8 @@
   overflow: hidden;
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
+  font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

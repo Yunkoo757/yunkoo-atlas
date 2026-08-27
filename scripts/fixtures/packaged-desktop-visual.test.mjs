@@ -123,7 +123,7 @@ function createTypographyInput() {
     computed: {
       interLoaded: true,
       row: { fontSize: '13px', lineHeight: '20px', fontWeight: '400' },
-      metadata: { fontSize: '12px', lineHeight: '16px', fontWeight: '500' },
+      metadata: { fontSize: '12px', lineHeight: '18px', fontWeight: '400' },
       group: { fontSize: '13px', lineHeight: '20px', fontWeight: '600' },
       probes: {
         latin: { fontFamily },
@@ -365,7 +365,7 @@ test('typography role metrics fail closed on every required size line height and
     ['row', 'fontWeight', '500'],
     ['metadata', 'fontSize', '13px'],
     ['metadata', 'lineHeight', '17px'],
-    ['metadata', 'fontWeight', '400'],
+    ['metadata', 'fontWeight', '500'],
     ['group', 'fontSize', '12px'],
     ['group', 'lineHeight', '19px'],
     ['group', 'fontWeight', '500'],

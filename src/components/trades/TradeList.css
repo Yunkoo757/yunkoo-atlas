@@ -24,7 +24,7 @@
   column-gap: var(--sp-2);
   height: var(--trade-list-columns-height);
   padding: 0 10px;
-  color: var(--text-faint);
+  color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
   line-height: var(--type-metadata-line-height);
@@ -486,9 +486,9 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   padding: 0;
   box-sizing: border-box;
   font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--type-metadata-weight);
   letter-spacing: 0;
-  line-height: 1;
+  line-height: var(--type-metadata-line-height);
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -563,7 +563,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   color: inherit;
   font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--type-metadata-weight);
   line-height: var(--type-metadata-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -617,11 +617,11 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   overflow: hidden;
   color: var(--text-tertiary);
   font-family: var(--font-ui);
-  font-size: var(--type-caption-size);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
   font-feature-settings: normal;
   font-variant-numeric: normal;
-  line-height: var(--type-caption-line-height);
+  line-height: var(--type-metadata-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
   background: transparent;

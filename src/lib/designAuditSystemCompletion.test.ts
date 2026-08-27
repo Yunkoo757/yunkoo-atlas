@@ -62,6 +62,7 @@ const APPROVED_TYPE_SIZE_TOKENS = [
   '--type-page-title-size',
   '--type-row-size',
   '--type-section-title-size',
+  '--type-toolbar-title-size',
   '--type-ui-base-size',
 ]
 
@@ -73,6 +74,7 @@ const APPROVED_TYPE_LINE_HEIGHT_TOKENS = [
   '--type-metadata-line-height',
   '--type-page-title-line-height',
   '--type-row-line-height',
+  '--type-toolbar-title-line-height',
 ]
 
 function assertApprovedTokenNames(names: string[], approved: string[], label: string): void {
@@ -173,7 +175,7 @@ export async function testTypographyAndTokenNamesHaveOneCanonicalBaseline(): Pro
 
   for (const [role, fontSize, expectedSize, lineHeight, expectedLineHeight] of [
     ['--type-caption-size', '--font-size-micro', '11px', '--type-caption-line-height', '16px'],
-    ['--type-metadata-size', '--font-size-mini', '12px', '--type-metadata-line-height', '16px'],
+    ['--type-metadata-size', '--font-size-mini', '12px', '--type-metadata-line-height', '18px'],
     ['--type-row-size', '--font-size-small', '13px', '--type-row-line-height', '20px'],
     ['--type-body-size', '--font-size-regular', '15px', '--type-body-line-height', '23px'],
     ['--type-page-title-size', '--font-size-title3', '20px', '--type-page-title-line-height', '28px'],

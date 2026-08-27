@@ -18,7 +18,7 @@
   margin-right: var(--sp-1);
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: var(--numeric-tabular);
 }
 
 .batch-bar-action-btn {
@@ -30,7 +30,7 @@
   color: var(--text-secondary);
   font-family: var(--font-ui);
   font-size: var(--fs-mini);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--type-metadata-weight);
   border-radius: var(--radius-6);
 }
 

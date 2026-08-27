@@ -35,8 +35,9 @@
   min-width: 0;
   overflow: hidden;
   color: var(--text-primary);
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--type-toolbar-title-size);
+  font-weight: var(--type-toolbar-title-weight);
+  line-height: var(--type-toolbar-title-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -47,7 +48,7 @@
   height: auto;
   color: var(--text-quaternary);
   font-size: var(--fs-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-normal);
   line-height: normal;
   background: transparent;
 }
@@ -60,6 +61,8 @@
   overflow: hidden;
   color: var(--text-tertiary);
   font-size: var(--fs-mini);
+  font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

@@ -28,8 +28,8 @@ function assertReviewContextTypography(context: HTMLElement): void {
   assert(contextStyle.fontWeight === '400', `盘面摘要正文必须使用正常字重，实际 ${contextStyle.fontWeight}`)
   assert(contextStyle.lineHeight === '23px', `盘面摘要正文必须使用 Body 行高，实际 ${contextStyle.lineHeight}`)
   assert(labelStyle.fontSize === '12px', `盘面摘要标签必须使用 Metadata 12px，实际 ${labelStyle.fontSize}`)
-  assert(labelStyle.fontWeight === '500', `盘面摘要标签必须使用 Metadata 字重，实际 ${labelStyle.fontWeight}`)
-  assert(labelStyle.lineHeight === '16px', `盘面摘要标签必须使用 Metadata 行高，实际 ${labelStyle.lineHeight}`)
+  assert(labelStyle.fontWeight === '400', `盘面摘要标签必须使用 Metadata 正常字重，实际 ${labelStyle.fontWeight}`)
+  assert(labelStyle.lineHeight === '18px', `盘面摘要标签必须使用 Metadata 行高，实际 ${labelStyle.lineHeight}`)
   assert(ordinaryText && getComputedStyle(ordinaryText).fontWeight === '400', '普通摘要正文必须保持 Body/normal')
   assert(keySentence && getComputedStyle(keySentence).fontWeight === '500', '摘要关键句必须使用 Body/500')
 }

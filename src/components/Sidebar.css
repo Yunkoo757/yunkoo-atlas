@@ -204,7 +204,7 @@
   padding: 0 10px;
   margin-bottom: var(--sp-1);
   font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--type-metadata-weight);
   letter-spacing: 0;
   color: var(--sb-text);
 }
@@ -492,6 +492,6 @@ html[data-ui-settled='1'] .sb-item {
 
 .sb-risk-summary small {
   color: var(--text-tertiary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line-height);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
 }

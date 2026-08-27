@@ -157,9 +157,10 @@ export async function testInteractiveAndDisabledTextRolesUseAccessibleTokens(): 
   assertContextReveal(shortcuts, '.shortcuts-actions', '.shortcuts-row:hover .shortcuts-actions, .shortcuts-row:focus-within .shortcuts-actions, .shortcuts-row.is-recording .shortcuts-actions', '快捷键行操作区')
   assertContextReveal(trash, '.trash-item-actions', '.trash-item:hover .trash-item-actions, .trash-item-actions:focus-within', '回收站行操作区')
 
-  for (const [sheet, selector, label] of [[datePicker, '.ui-date-weekdays', '日期选择器星期标题'], [filterBar, '.ui-filter-empty', '筛选器空态提示']] as const) {
+  for (const [sheet, selector, label] of [[datePicker, '.ui-date-weekdays', '日期选择器星期标题']] as const) {
     assert(findRules(sheet, selector).some((rule) => declaration(rule, 'color') === 'var(--text-quaternary)'), `${label} 必须保持明确的四级文字 allowlist`)
   }
+  assert(findRules(filterBar, '.ui-filter-empty').some((rule) => declaration(rule, 'color') === 'var(--text-tertiary)'), '筛选器空态提示必须使用可读的三级文字')
 
   const datePickerSource = await fs.readFile('src/components/ui/DatePicker.tsx', 'utf8')
   assert(datePickerSource.includes('onClick={() => selectDate(day.value)}'), '跨月日期必须保留选日交互')
@@ -170,37 +171,27 @@ export async function testQuaternaryDeclarationInventoryIsClosedAndDisabledNever
   const sheets = await Promise.all((await walkCssFiles('src')).map(readCss))
   const allowlist: InventoryEntry[] = [
     ...allow('src/components/ContextMenu.css', 'edge metadata', 'color', ['.ctx-item-hint']),
-    ...allow('src/components/CsvImportModal.css', 'edge metadata', 'color', ['.csv-drop-hint', '.csv-upload-tip', '.csv-map-table th', '.csv-map-sample', '.csv-preview-table th']),
-    ...allow('src/components/DisplayMenu.css', 'edge metadata', 'color', ['.display-label']),
+    ...allow('src/components/CsvImportModal.css', 'edge metadata', 'color', ['.csv-map-sample']),
     ...allow('src/components/EmptyState.css', 'decoration', 'stroke', ['.empty-art path']),
     ...allow('src/components/EmptyState.css', 'decoration', 'fill', ['.empty-art rect']),
-    ...allow('src/components/NotionImportModal.css', 'edge metadata', 'color', ['.nim-drop-hint', '.nim-upload-tip', '.nim-import-target-label', '.nim-preview-table th', '.nim-tag-more']),
     ...allow('src/components/RouteState.css', 'edge metadata', 'color', ['.app-route-error-detail']),
-    ...allow('src/components/RowPreviews.css', 'edge metadata', 'color', ['.rp-meta-label']),
-    ...allow('src/components/sidebar/SidebarWorkspace.css', 'edge metadata', 'color', ['.sb-editor-group-header span', '.sb-editor-empty', '.sb-target-row-state', '.sb-target-row-state.is-idle']),
     ...allow('src/components/Sidebar.css', 'decoration', 'color', ['.sb-ws-chevron']),
-    ...allow('src/components/StrategyHeader.css', 'edge metadata', 'color', ['.sh-stat-label']),
     ...allow('src/components/TradeOpenRiskDialog.css', 'edge metadata', 'color', ['.trade-open-risk-periods em', '.trade-open-risk-reason small']),
-    ...allow('src/components/trades/QuickViewBar.css', 'edge metadata', 'color', ['.quick-view-group h3, .quick-view-manage h3', '.quick-view-save-actions span']),
     ...allow('src/components/trades/TradeList.css', 'edge metadata', 'color', ['.trade-row-more']),
     ...allow('src/components/ui/CrumbsNav.css', 'decoration', 'color', ['.crumbs-sep']),
     ...allow('src/components/ui/DatePicker.css', 'edge metadata', 'color', ['.ui-date-weekdays']),
-    ...allow('src/components/ui/FilterBar.css', 'edge metadata', 'color', ['.ui-filter-empty']),
     ...allow('src/components/ui/Toolbar.css', 'decoration', 'color', ['.ui-toolbar-sep']),
-    ...allow('src/components/WeeklyRiskPreparationCard.css', 'edge metadata', 'color', ['.risk-preparation-inline-input small', '.risk-preparation-month-lock']),
+    ...allow('src/components/WeeklyRiskPreparationCard.css', 'edge metadata', 'color', ['.risk-preparation-inline-input small']),
     ...allow('src/components/WelcomeScreen.css', 'edge metadata', 'color', ['.welcome-hint']),
-    ...allow('src/editor/Editor.css', 'edge metadata', 'color', ['.editor [data-review-context]::before', '.editor .ProseMirror p.is-editor-empty:first-child::before']),
+    ...allow('src/editor/Editor.css', 'edge metadata', 'color', ['.editor .ProseMirror p.is-editor-empty:first-child::before']),
     ...allow('src/views/Dashboard.css', 'edge metadata', 'color', ['.db-chart-tip-hint']),
-    ...allow('src/views/DetailView.css', 'edge metadata', 'color', ['.dv-crumb-sep', '.dv-detail-position > span', '.dv-summary-label', '.dv-comments-title', '.dv-section-chev', '.dv-prop-empty']),
+    ...allow('src/views/DetailView.css', 'edge metadata', 'color', ['.dv-detail-position > span', '.dv-section-chev', '.dv-prop-empty']),
     ...allow('src/views/DetailView.css', 'decoration', 'color', ['.dv-empty-card > svg']),
     ...allow('src/views/ReviewSessionView.css', 'edge metadata', 'color', ['.review-session-card-ref']),
-    ...allow('src/views/settings/ReviewTemplatesPanel.css', 'edge metadata', 'color', ['.review-template-content-label span']),
-    ...allow('src/views/settings/RiskDataRepairView.css', 'edge metadata', 'color', ['.risk-repair-retained-note']),
     ...allow('src/views/ShortcutsView.css', 'decoration', 'color', ['.shortcuts-capture.is-fixed > svg', '.shortcuts-sequence-arrow']),
     ...allow('src/views/ShortcutsView.css', 'edge metadata', 'color', ['.shortcuts-unassigned']),
     ...allow('src/views/TodayWorkspace.css', 'edge metadata', 'color', ['.today-queue-tabs strong']),
     ...allow('src/views/TrashView.css', 'edge metadata', 'color', ['.trash-search', '.trash-search-input::placeholder', '.trash-search-count', '.trash-group-count']),
-    ...allow('src/views/WeeklyReviewView.css', 'edge metadata', 'color', ['.wr-section-head small', '.wr-metric small', '.wr-missed-summary > div > span', '.wr-missed-summary small', '.wr-missed-summary b', '.wr-evidence-tags small', '.wr-evidence-tags b', '.wr-evidence-group-title small', '.wr-footer-action span', '.wr-chart-loading-label', '.wr-trend-start span']),
   ]
   assertExactQuaternaryInventory(sheets, allowlist)
   assertDisabledRulesUseDisabledToken(sheets)

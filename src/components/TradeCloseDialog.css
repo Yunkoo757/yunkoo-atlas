@@ -207,7 +207,7 @@
 .modal-shell-footer.trade-close-footer {
   justify-content: space-between;
   padding: 10px var(--sp-4) 10px var(--sp-5);
-  color: var(--text-faint);
+  color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
 }
 

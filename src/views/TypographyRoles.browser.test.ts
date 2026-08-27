@@ -147,7 +147,7 @@ async function run(): Promise<void> {
   ]) {
     const style = getComputedStyle(document.querySelector<HTMLElement>(selector)!)
     assert(style.fontSize === '12px', `${selector} 计算后字号必须为 12px`)
-    assert(style.lineHeight === '16px', `${selector} 计算后行高必须为 16px`)
+    assert(style.lineHeight === '18px', `${selector} 计算后行高必须为 18px`)
   }
 
   const settingsSectionTitle = getComputedStyle(document.querySelector<HTMLElement>('.settings-section-title')!)
@@ -157,7 +157,7 @@ async function run(): Promise<void> {
   assert(pnl, '缺少回收站盈亏样例')
   const pnlStyle = getComputedStyle(pnl)
   assert(pnlStyle.fontSize === '13px' && pnlStyle.lineHeight === '20px', '回收站盈亏必须计算为 Row 13px/20px')
-  assert(pnlStyle.fontVariantNumeric === 'tabular-nums', '回收站盈亏必须使用 tabular 数字')
+  assert(pnlStyle.fontVariantNumeric === 'lining-nums tabular-nums', '回收站盈亏必须使用 lining + tabular 数字')
 
   const rootStyle = getComputedStyle(document.documentElement)
   for (const [token, value] of [

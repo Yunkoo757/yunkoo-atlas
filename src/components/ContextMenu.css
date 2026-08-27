@@ -76,9 +76,9 @@
   margin: var(--sp-1) 0;
 }
 .ctx-label {
-  font-size: var(--type-caption-size);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--type-caption-line-height);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
   color: var(--text-tertiary);
   padding: 6px var(--sp-2) var(--sp-1);
 }

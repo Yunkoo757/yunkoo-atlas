@@ -21,7 +21,7 @@
   color: var(--list-text-secondary);
   font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--type-metadata-weight);
   font-feature-settings: normal;
   line-height: var(--type-metadata-line-height);
   /* 描边必须画在盒子内侧：外扩 box-shadow 会被 overflow-x:auto 连带裁掉上下沿 */
@@ -112,8 +112,8 @@
 }
 
 .ui-filter-empty {
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   font-family: var(--font-ui);
   font-size: var(--fs-mini);
-  font-weight: 500;
+  font-weight: var(--type-metadata-weight);
 }

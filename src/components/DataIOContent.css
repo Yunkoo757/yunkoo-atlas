@@ -181,9 +181,9 @@
 .health-note {
   grid-column: 2;
   min-width: 0;
-  color: var(--health-note-color, var(--text-faint));
-  font-size: var(--type-caption-size);
-  line-height: 1.45;
+  color: var(--health-note-color, var(--text-tertiary));
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
 }
 
 .dio-group { min-width: 0; }

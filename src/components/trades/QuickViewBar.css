@@ -31,7 +31,7 @@
   color: var(--list-text-secondary);
   font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--type-metadata-weight);
   line-height: var(--type-metadata-line-height);
   /* 描边用 border（盒内），避免外扩 shadow / ::after 在非整数 DPR 或 overflow 下被裁 */
   border: 1px solid var(--surface-control-border);
@@ -148,9 +148,10 @@
 .quick-view-manage h3 {
   margin: 0 0 var(--sp-1);
   padding: 0 7px;
-  color: var(--text-quaternary);
-  font-size: var(--type-caption-size);
-  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
 }
 
 .quick-view-group button,
@@ -254,8 +255,9 @@
 }
 
 .quick-view-save-actions span {
-  color: var(--text-quaternary);
-  font-size: var(--type-caption-size);
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
 }
 
 .quick-view-save-actions button {

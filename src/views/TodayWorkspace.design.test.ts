@@ -76,7 +76,7 @@ export function testTodayWorkspaceKeepsReadableControlsAndType(): void {
   assertRuleDeclaration(today, '\\.today-stats-link', 'font-size', 'var(--type-row-size)', 'today stats link must use the 13px Row role')
   assertRuleDeclaration(today, '\\.today-stats-link', 'line-height', 'var(--type-row-line-height)', 'today stats link must use the 20px Row line height')
   assertRuleDeclaration(today, '\\.today-stats-sub', 'font-size', 'var(--type-metadata-size)', 'today stats description must use the 12px Metadata role')
-  assertRuleDeclaration(today, '\\.today-stats-sub', 'line-height', 'var(--type-metadata-line-height)', 'today stats description must use the 16px Metadata line height')
+  assertRuleDeclaration(today, '\\.today-stats-sub', 'line-height', 'var(--type-metadata-line-height)', 'today stats description must use the 18px Metadata line height')
   assertRuleDeclaration(today, '\\.today-stats-title', 'font-size', 'var(--type-section-title-size)', 'today stats title must use the approved Section title role')
   assertRuleDeclaration(today, '\\.today-stats-title', 'font-weight', 'var(--font-weight-semibold)', 'today stats title must keep the semibold title hierarchy')
   if (today.includes('var(--type-caption-size)')) {

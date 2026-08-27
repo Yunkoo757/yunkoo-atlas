@@ -159,7 +159,7 @@
 
 .risk-preparation-month-lock {
   margin-top: var(--sp-2);
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
 }
 

@@ -26,7 +26,7 @@
   margin-bottom: 6px;
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--type-metadata-weight);
   letter-spacing: 0;
 }
 
@@ -183,7 +183,7 @@
 .today-stats-metric strong.is-neg { color: var(--neg); }
 
 .today-stats-metric small {
-  color: var(--text-faint);
+  color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
 }
@@ -216,7 +216,7 @@
   color: var(--text-muted);
   font-family: inherit;
   font-size: var(--type-row-size);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--type-row-weight);
   line-height: var(--type-row-line-height);
   background: transparent;
   border: 0;

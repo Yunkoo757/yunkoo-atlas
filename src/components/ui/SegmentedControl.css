@@ -19,7 +19,8 @@
   color: var(--text-tertiary);
   font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
   white-space: nowrap;
   transition: background-color var(--motion-state) var(--ease-out),
     color var(--motion-state) var(--ease-out);

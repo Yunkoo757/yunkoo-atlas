@@ -210,8 +210,8 @@ export function buildTypographyCheckResult({ platform, computed, glyphFonts }) {
       pass: exactPixels(computed?.row?.fontSize, 13) && exactPixels(computed?.row?.lineHeight, 20) &&
         computed?.row?.fontWeight === '400' &&
         exactPixels(computed?.metadata?.fontSize, 12) &&
-        exactPixels(computed?.metadata?.lineHeight, 16) &&
-        computed?.metadata?.fontWeight === '500' &&
+        exactPixels(computed?.metadata?.lineHeight, 18) &&
+        computed?.metadata?.fontWeight === '400' &&
         exactPixels(computed?.group?.fontSize, 13) && exactPixels(computed?.group?.lineHeight, 20) &&
         computed?.group?.fontWeight === '600',
       detail: JSON.stringify({ row: computed?.row, metadata: computed?.metadata, group: computed?.group }),

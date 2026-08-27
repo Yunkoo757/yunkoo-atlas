@@ -109,8 +109,9 @@
 
 .quick-notes-list-title time {
   flex: 0 0 auto;
-  color: var(--text-faint);
-  font-size: var(--type-caption-size);
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
 }
 
 .quick-notes-list-summary {
@@ -190,8 +191,9 @@
 .quick-notes-editor-meta {
   padding: 0 clamp(var(--sp-5), 4vw, 56px) var(--sp-3);
   border-bottom: 1px solid var(--border-subtle);
-  color: var(--text-faint);
-  font-size: var(--type-caption-size);
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
 }
 
 .quick-notes-editor-body {

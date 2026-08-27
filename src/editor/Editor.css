@@ -76,7 +76,7 @@
   content: '盘面摘要';
   display: block;
   margin-bottom: var(--sp-1);
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
   line-height: var(--type-metadata-line-height);

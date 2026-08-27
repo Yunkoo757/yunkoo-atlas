@@ -11,7 +11,7 @@
   padding: 0 var(--sp-4);
   color: var(--text-secondary);
   font-size: var(--fs-mini);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--type-metadata-weight);
   line-height: var(--chip-height-sm);
 }
 
@@ -55,7 +55,7 @@
   min-width: 0;
   overflow: hidden;
   color: inherit;
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-normal);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

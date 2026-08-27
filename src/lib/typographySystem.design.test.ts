@@ -163,6 +163,7 @@ const approvedShorthandFontSizeTokens = new Set([
   '--type-page-title-size',
   '--type-row-size',
   '--type-section-title-size',
+  '--type-toolbar-title-size',
   '--type-ui-base-size',
 ])
 
@@ -783,7 +784,7 @@ export async function testShellTypographyUsesSemanticRolesAndApprovedTracking():
 
   assertRoleDeclarations(cssRule(sources['src/views/TodayWorkspace.css'], '.today-focus-eyebrow'), '.today-focus-eyebrow', [
     ['font-size', 'var(--type-metadata-size)'],
-    ['font-weight', 'var(--font-weight-medium)'],
+    ['font-weight', 'var(--type-metadata-weight)'],
     ['letter-spacing', '0'],
   ])
   assertRoleDeclarations(cssRule(sources['src/views/BoardView.css'], '.bd-card-timeframe'), '.bd-card-timeframe', [

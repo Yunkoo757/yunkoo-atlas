@@ -233,7 +233,7 @@
 }
 
 .review-template-content-label span {
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
   font-size: var(--fs-mini);
   font-weight: var(--font-weight-normal);
 }

@@ -375,30 +375,33 @@
   /* 兼容旧写法；等同 micro */
   --fs-xs: var(--fs-micro);
 
-  /* 字体角色：页面、弹窗、区块与数据行共享同一层级 */
+  /* 字体角色：桌面层级依靠角色与颜色，不让中文小字依赖中间字重。 */
   --type-page-title-size: var(--font-size-title3);
   --type-page-title-line-height: 28px;
   --type-page-title-weight: var(--font-weight-semibold);
+  --type-toolbar-title-size: 14px;
+  --type-toolbar-title-line-height: 20px;
+  --type-toolbar-title-weight: var(--font-weight-semibold);
   --type-dialog-title-size: var(--font-size-regular);
   --type-dialog-title-weight: var(--font-weight-semibold);
   --type-section-title-size: var(--font-size-small);
   --type-section-title-weight: var(--font-weight-semibold);
   --type-row-size: var(--font-size-small);
   --type-row-line-height: 20px;
-  --type-row-weight: var(--font-weight-medium);
+  --type-row-weight: var(--font-weight-normal);
   --type-body-size: var(--font-size-regular);
   --type-body-line-height: 23px;
   --type-data-size: 0.8125rem;
   --type-data-line-height: 1.35;
   --type-data-weight: var(--font-weight-medium);
   --type-metadata-size: var(--font-size-mini);
-  --type-metadata-line-height: 16px;
-  --type-metadata-weight: var(--font-weight-medium);
+  --type-metadata-line-height: 18px;
+  --type-metadata-weight: var(--font-weight-normal);
   --type-caption-size: var(--font-size-micro);
   --type-caption-line-height: 16px;
   --type-financial-size: 1.25rem;
   --type-financial-line-height: 1.15;
-  --numeric-tabular: tabular-nums;
+  --numeric-tabular: lining-nums tabular-nums;
 
   /* 阴影（多层叠加柔光） */
   --shadow-low: 0 1px 1px #0000001f;
