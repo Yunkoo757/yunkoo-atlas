@@ -43,12 +43,12 @@
   margin: var(--main-inset) var(--main-inset) var(--main-inset) 0;
   overflow: hidden;
   background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-chrome);
   border-radius: var(--main-radius);
   font-family: var(--font-ui);
   font-size: var(--type-ui-base-size);
   line-height: normal;
-  box-shadow: var(--surface-control-shadow);
+  box-shadow: none;
 }
 
 @media (max-width: 1099px) {

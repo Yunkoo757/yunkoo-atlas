@@ -149,13 +149,13 @@ async function run(): Promise<void> {
     )
 
     const restingMainShadow = getComputedStyle(main).boxShadow
-    assert(restingMainShadow !== 'none', '主工作区必须保留业务 surface shadow 基线')
+    assert(restingMainShadow === 'none', '主工作区边界必须保持无阴影，避免分隔线发虚')
     main.focus()
     assert(document.activeElement === main, '关闭高光不得阻止主工作区获得焦点')
     assert(getComputedStyle(main).outlineStyle === 'none', '关闭时不得显示工作区焦点轮廓')
     assert(
       getComputedStyle(main).boxShadow === restingMainShadow,
-      '关闭焦点高光不得清除主工作区业务 surface shadow',
+      '关闭焦点高光不得改变主工作区边界基线',
     )
 
     const input = document.querySelector<HTMLInputElement>('input[type="text"]')

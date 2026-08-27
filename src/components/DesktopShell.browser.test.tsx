@@ -1,5 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
+import '../styles/tokens.css'
+import '../styles/global.css'
 import { Sidebar } from './Sidebar'
 import { AppFrame } from './ui/AppFrame'
 import { Toolbar } from './ui/Toolbar'
@@ -79,6 +81,14 @@ async function run(): Promise<void> {
 
   assert(!document.querySelector('.ui-mobile-navigation'), '桌面产品壳层不得渲染移动导航')
   assert(main.scrollWidth <= main.clientWidth, '主内容区不得产生水平溢出')
+  const mainStyle = getComputedStyle(main)
+  const dividerWidth = Number.parseFloat(mainStyle.borderLeftWidth)
+  assert(
+    dividerWidth >= 0.75 && dividerWidth <= 1,
+    `侧栏与主内容之间必须保持单物理像素分隔线：${mainStyle.borderLeftWidth}`,
+  )
+  assert(mainStyle.borderLeftStyle === 'solid', '桌面壳层分隔线必须使用实线')
+  assert(mainStyle.boxShadow === 'none', '桌面壳层不得叠加控件阴影模糊分隔线')
 
   root.unmount()
 }
