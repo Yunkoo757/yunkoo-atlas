@@ -1,5 +1,3 @@
-.risk-data-repair-view { --settings-content-width: 880px; }
-
 .risk-repair-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

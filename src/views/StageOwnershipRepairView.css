@@ -1,5 +1,3 @@
-.stage-ownership-repair { --settings-content-width: 1120px; }
-
 .stage-ownership-repair-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

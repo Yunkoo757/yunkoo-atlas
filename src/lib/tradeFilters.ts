@@ -141,6 +141,17 @@ function normalizeWorkspaceMemory(
 /** 合并旧版/残缺 display，避免缺字段导致渲染崩溃 */
 export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayPrefs {
   const d = input ?? {}
+  const sortBy = SORT_BY.includes(d.sortBy as (typeof SORT_BY)[number])
+    ? (d.sortBy as DisplayPrefs['sortBy'])
+    : DEFAULT_DISPLAY.sortBy
+  const requestedGroupByDate = typeof d.groupByDate === 'boolean'
+    ? d.groupByDate
+    : DEFAULT_DISPLAY.groupByDate
+  const requestedGroupByStrategy = typeof d.groupByStrategy === 'boolean'
+    ? d.groupByStrategy
+    : DEFAULT_DISPLAY.groupByStrategy
+  const groupByDate = sortBy === 'date' && requestedGroupByDate
+  const groupByStrategy = sortBy === 'date' && !groupByDate && requestedGroupByStrategy
   const sidebarPins = Array.isArray(d.sidebarPins)
     ? normalizeSidebarPins(d.sidebarPins)
     : [...DEFAULT_DISPLAY.sidebarPins]
@@ -152,12 +163,9 @@ export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayP
     hideClosed: typeof d.hideClosed === 'boolean' ? d.hideClosed : DEFAULT_DISPLAY.hideClosed,
     showEmptyGroups:
       typeof d.showEmptyGroups === 'boolean' ? d.showEmptyGroups : DEFAULT_DISPLAY.showEmptyGroups,
-    groupByStrategy:
-      typeof d.groupByStrategy === 'boolean' ? d.groupByStrategy : DEFAULT_DISPLAY.groupByStrategy,
-    groupByDate: typeof d.groupByDate === 'boolean' ? d.groupByDate : DEFAULT_DISPLAY.groupByDate,
-    sortBy: SORT_BY.includes(d.sortBy as (typeof SORT_BY)[number])
-      ? (d.sortBy as DisplayPrefs['sortBy'])
-      : DEFAULT_DISPLAY.sortBy,
+    groupByStrategy,
+    groupByDate,
+    sortBy,
     privacyMode:
       typeof d.privacyMode === 'boolean' ? d.privacyMode : DEFAULT_DISPLAY.privacyMode,
     showKeyboardFocusRings:

@@ -259,7 +259,7 @@ function assertAggregateRowUsesTradeRowGeometry(): void {
   referenceContainer.style.left = `${aggregateRect.left}px`
   referenceContainer.style.width = `${aggregateRect.width}px`
   assert(aggregate.classList.contains('trade-row'), '聚合项必须复用标准 trade-row 壳层')
-  assert(Math.abs(aggregate.getBoundingClientRect().height - 44) < 1, '聚合行高度必须为 44px')
+  assert(Math.abs(aggregate.getBoundingClientRect().height - 52) < 1, '聚合行高度必须与数据工作台统一为 52px')
   assert(aggregate.querySelector('.missed-row-source') === null, '来源不得占用独立首列')
 
   const source = aggregate.querySelector<HTMLElement>('[data-missed-source="paper"]')

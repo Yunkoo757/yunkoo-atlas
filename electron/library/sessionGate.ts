@@ -59,6 +59,17 @@ export class LibraryOperationGate {
     }
   }
 
+  /** 独占操作的非阻塞入口；存在任何进行中操作时立即返回 busy，不排队。 */
+  async tryRunExclusive<T>(operation: () => T | Promise<T>): Promise<T> {
+    if (this.exclusive || this.active > 0) throw new LibraryBusyError()
+    this.exclusive = true
+    try {
+      return await operation()
+    } finally {
+      this.exclusive = false
+    }
+  }
+
   isExclusive(): boolean {
     return this.exclusive
   }

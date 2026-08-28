@@ -7,7 +7,7 @@ export function RiskManagementSettingsPanel() {
   const today = useLocalDateKey()
 
   return (
-    <div className="settings-page risk-management-settings" data-risk-management-settings>
+    <div className="settings-page settings-page--reading risk-management-settings" data-risk-management-settings>
       <div className="settings-page-head">
         <h1 className="settings-page-title">风险管理</h1>
         <p className="settings-page-desc">为当前实盘阶段配置资金基准与周期止损限额；规则持续生效，修改时生成新版本。</p>

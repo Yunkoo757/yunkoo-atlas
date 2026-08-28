@@ -246,7 +246,10 @@ export function testBackupIpcMustUseValidatedStoragePath(): void {
     const end = source.indexOf("ipcMain.handle('", start + 20)
     const body = source.slice(start, end)
     assert(start >= 0, `${channel} IPC 必须存在`)
-    assert(body.includes('withStorage('), `${channel} 必须先通过已验证的活动库状态`)
+    assert(
+      body.includes('withStorage(') || (body.includes('tryRunExclusive(') && body.includes('ensureStorage()')),
+      `${channel} 必须先通过已验证的活动库状态`,
+    )
   }
 }
 // Quality-Scenario: E-PATH-ABSENT

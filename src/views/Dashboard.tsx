@@ -54,6 +54,7 @@ import {
 import { filterStageOwnedRecords, resolveStageScope } from '@/lib/stageArchive'
 import { parseTradeWorkspaceQuery } from '@/lib/tradeWorkspaceQuery'
 import './Dashboard.css'
+import { resolveDashboardEmptyState } from '@/lib/dashboardEmptyState'
 
 const RANGE_OPTS: { value: AnalysisRange; label: string }[] = [
   { value: 'all', label: '全部' },
@@ -206,7 +207,12 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
     missingResultCount: performanceSelection.missingResultIds.length,
   }
   const hasClosedTrades = scopedClosedCount > 0
-  const selectedPerformanceCycleIsEmpty = scopedClosedCount === 0
+  const dashboardEmptyState = resolveDashboardEmptyState({
+    totalRecordCount: allTrades.filter((trade) => !trade.deletedAt && isAccountTrade(trade)).length,
+    scopedRecordCount: scopedTrades.filter((trade) => !trade.deletedAt && isAccountTrade(trade) && (scope.kind === 'all' || trade.tradeKind === scope.kind)).length,
+    eligibleClosedCount: scopedClosedCount,
+    activeRecordCount: activeTrades.length,
+  })
   const weekCardEmpty = weekMetrics.tradeCount === 0 && weekMetrics.missedCount === 0
   const missedReasonSummary = Object.entries(weekMetrics.missedReasonCounts)
     .sort((left, right) => right[1] - left[1])
@@ -373,20 +379,16 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
         {!hasClosedTrades ? (
           <EmptyState
             className="db-empty"
-            title={selectedPerformanceCycleIsEmpty
-              ? '暂无已平仓记录'
-              : hasPerformanceBounds
-                ? '当前时间范围暂无已平仓记录'
-                : '还没有已平仓交易'}
-            hint={selectedPerformanceCycleIsEmpty
-                  ? '换个阶段、类型或周期试试。'
-              : hasPerformanceBounds
-                ? '该数据范围存在已平仓记录，可以切换统计周期查看。'
-                : '平仓并填写结果后，这里会生成盈亏曲线与策略表现。'}
+            title={dashboardEmptyState?.title ?? '当前范围暂无可统计结果'}
+            hint={dashboardEmptyState?.hint ?? '调整范围或补全交易结果后再试。'}
             action={
-              activeTrades.length > 0 ? (
+              dashboardEmptyState?.primary === 'view-active' ? (
                 <button type="button" className="empty-btn" onClick={() => navigate(activeListHref)}>
                   查看进行中交易
+                </button>
+              ) : dashboardEmptyState?.primary === 'adjust-scope' ? (
+                <button type="button" className="empty-btn" onClick={() => updateScope({ kind: 'all', range: 'all' })}>
+                  调整分析范围
                 </button>
               ) : (
                 <button type="button" className="empty-btn" onClick={() => openComposer()}>

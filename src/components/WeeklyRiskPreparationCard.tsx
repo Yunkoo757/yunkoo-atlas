@@ -11,6 +11,8 @@ import { useStore } from '@/store/useStore'
 import { getCurrentLiveStage } from '@/lib/liveStages'
 import { Button } from '@/components/ui/Button'
 import './WeeklyRiskPreparationCard.css'
+import { previewRiskPolicyBaseline } from '@/lib/riskPolicy'
+import { presentRiskPolicyDiff } from '@/lib/riskPolicyDiff'
 
 function fmtLimitR(value: number): string {
   return fmtR(Math.abs(value)).replace(/^\+/, '')
@@ -99,6 +101,27 @@ export function WeeklyRiskPreparationCard({
   const currentMonthLimit = monthlyLimits.find((item) =>
     item.liveStageId === currentStage.id && item.monthKey === currentMonthKey,
   )
+  const preview = useMemo(() => {
+    try {
+      return previewRiskPolicyBaseline({
+        currentLiveStageId: currentStage.id,
+        weeklyRiskPreparations: [],
+        riskPolicyVersions: policies,
+        monthlyRiskLimits: monthlyLimits,
+        riskOverrideEvents: [],
+      }, {
+        currentTradingDayKey: tradingDay,
+        weekStart,
+        hasClosedLiveTradeOnDay: false,
+        draft: withCalculatedRiskAmount(draft),
+        confirmedAt: new Date().toISOString(),
+        policyVersionId: '__risk-policy-preview__',
+      })
+    } catch {
+      return null
+    }
+  }, [currentStage.id, draft, monthlyLimits, policies, tradingDay, weekStart])
+  const diff = preview ? presentRiskPolicyDiff(preview, policy) : null
 
   useEffect(() => {
     setDraft(sourceDraft)
@@ -239,6 +262,14 @@ export function WeeklyRiskPreparationCard({
             : `首次确认将以 ${fmtLimitR(draft.monthlyLossLimitRDefault)} 建立并锁定当前月 ${currentMonthKey} 上限`}
           {currentMonthLimit ? '；修改仅影响尚未锁定的未来月份。' : '。'}
         </div>
+        {diff ? (
+          <div className="risk-policy-diff" role="status">
+            <strong>保存影响</strong>
+            <p>{diff.summary}</p>
+            {diff.monthlyImpact ? <p>{diff.monthlyImpact}</p> : null}
+            {diff.changes.length ? <ul>{diff.changes.map((change) => <li key={change}>{change}</li>)}</ul> : null}
+          </div>
+        ) : null}
         <div className="risk-preparation-discipline-row">
           <label>
             <span>本周纪律</span>

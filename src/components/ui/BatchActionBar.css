@@ -1,7 +1,4 @@
 .batch-action-bar {
-  position: fixed;
-  bottom: 24px;
-  left: calc(var(--sidebar-width) + (100vw - var(--sidebar-width)) / 2);
   z-index: var(--z-batch-action);
   display: flex;
   align-items: center;
@@ -11,7 +8,23 @@
   border: 1px solid var(--popover-border);
   border-radius: var(--radius-10);
   box-shadow: var(--popover-shadow-deep);
+}
+
+.batch-action-bar.is-floating {
+  position: fixed;
+  bottom: 24px;
+  left: calc(var(--sidebar-width) + (100vw - var(--sidebar-width)) / 2);
   transform: translateX(-50%);
+}
+
+.batch-action-bar.is-inline {
+  position: sticky;
+  top: 0;
+  width: fit-content;
+  margin: var(--sp-2) 14px;
+  border-radius: var(--radius-8);
+  box-shadow: none;
+  transform: none;
 }
 
 .batch-action-count {

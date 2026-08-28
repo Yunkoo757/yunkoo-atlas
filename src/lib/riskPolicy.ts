@@ -133,11 +133,31 @@ export function confirmWeeklyRiskPreparation(
   }
 }
 
+export interface RiskPolicyBaselinePreview {
+  policy: RiskPolicyVersion
+  firstPolicyForStage: boolean
+  currentMonthKey: string
+  createsCurrentMonthLock: boolean
+  currentMonthLimitR: number | null
+}
+
 /** 新流程：直接保存阶段风险基准或规则版本，不再生成每周准备记录。 */
 export function confirmRiskPolicyBaseline(
   state: RiskPolicyState,
   input: ConfirmWeeklyRiskPreparationInput,
 ): RiskPolicyState {
+  const preview = previewRiskPolicyBaseline(state, input)
+  return {
+    ...state,
+    riskPolicyVersions: [...state.riskPolicyVersions, preview.policy],
+  }
+}
+
+/** 保存前与正式提交共用的唯一风险基准领域预览。 */
+export function previewRiskPolicyBaseline(
+  state: RiskPolicyState,
+  input: ConfirmWeeklyRiskPreparationInput,
+): RiskPolicyBaselinePreview {
   validateConfirmationInput(input)
   if (state.riskPolicyVersions.some((policy) => policy.id === input.policyVersionId)) {
     throw new Error('policyVersionId 已存在')
@@ -155,9 +175,16 @@ export function confirmRiskPolicyBaseline(
     ...canonicalDraft(input.draft),
     confirmedAt: input.confirmedAt,
   }
+  const currentMonthKey = input.currentTradingDayKey.slice(0, 7)
+  const currentMonthLimit = state.monthlyRiskLimits.find((item) =>
+    item.liveStageId === state.currentLiveStageId && item.monthKey === currentMonthKey,
+  )
   return {
-    ...state,
-    riskPolicyVersions: [...state.riskPolicyVersions, policy],
+    policy,
+    firstPolicyForStage,
+    currentMonthKey,
+    createsCurrentMonthLock: !currentMonthLimit,
+    currentMonthLimitR: currentMonthLimit?.limitR ?? null,
   }
 }
 

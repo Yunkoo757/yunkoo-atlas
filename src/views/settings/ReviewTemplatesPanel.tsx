@@ -47,7 +47,7 @@ export function ReviewTemplatesPanel() {
   }
 
   return (
-    <div className="settings-page review-templates-panel">
+    <div className="settings-page settings-page--reading review-templates-panel">
       <div className="settings-page-head review-templates-head">
         <div>
           <h1 className="settings-page-title">复盘起稿</h1>

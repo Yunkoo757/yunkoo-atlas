@@ -37,6 +37,7 @@ import { buildWebJournalArchiveBlob } from '@/lib/importExport'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
 import { listPendingStageOwnership } from '@/lib/stageOwnershipRepair'
 import { notifyStorageRecoveryRequired } from '@/lib/storageRecovery'
+import { presentBackupHealth, type BackupListState } from '@/lib/backupHealthPresentation'
 
 const ASSET_PURGE_COMMIT_ENABLED = import.meta.env.VITE_ENABLE_ASSET_PURGE_COMMIT !== 'false'
 
@@ -110,12 +111,13 @@ export function DataSettingsPanel({
   const currentTradingDayKey = useLocalDateKey()
   const electron = isElectron()
   const [backups, setBackups] = useState<BackupInfo[]>([])
+  const [backupListState, setBackupListState] = useState<BackupListState>(electron ? 'loading' : 'loaded')
   const [backing, setBacking] = useState(false)
   const [restoring, setRestoring] = useState<string | null>(null)
   const [verifying, setVerifying] = useState<string | null>(null)
   const [confirmRequest, setConfirmRequest] = useState<{
     kind: 'restore' | 'delete'
-    name: string
+    backup: BackupInfo
   } | null>(null)
   const [health, setHealth] = useState<{
     storage: StorageHealth
@@ -168,13 +170,21 @@ export function DataSettingsPanel({
 
   const refreshBackups = async () => {
     if (!electron) return
+    setBackupListState('loading')
     try {
       const list = await getJournalBridge()!.listBackups()
       setBackups(list)
+      setBackupListState('loaded')
     } catch (error) {
       reportDataSettingsFailure('刷新备份列表失败', error)
+      setBackupListState('error')
     }
   }
+
+  const backupHealth = useMemo(
+    () => presentBackupHealth(backupListState, backups),
+    [backupListState, backups],
+  )
 
   useEffect(() => {
     void refreshBackups()
@@ -406,7 +416,7 @@ export function DataSettingsPanel({
   }
 
   return (
-    <div className="settings-page data-settings">
+    <div className="settings-page settings-page--reading data-settings">
       <div className="settings-page-head">
         <h1 className="settings-page-title">数据</h1>
         <p className="settings-page-desc">导入、导出与备份本地资料库。</p>
@@ -547,6 +557,18 @@ export function DataSettingsPanel({
             </p>
           </div>
 
+          <div className={`backup-health-status is-${backupHealth.tone}`} role={backupListState === 'error' ? 'alert' : 'status'}>
+            <div>
+              <strong>{backupHealth.title}</strong>
+              <span>{backupHealth.detail}</span>
+              {backupHealth.latest?.verification?.checkedAt ? <small>最近验证：{fmtBackupTime(backupHealth.latest.verification.checkedAt)}</small> : null}
+              {backupHealth.lastVerified && backupHealth.lastVerified.name !== backupHealth.latest?.name ? <small>最后可用备份：{fmtBackupTime(backupHealth.lastVerified.timestamp)}</small> : null}
+            </div>
+            {backupHealth.action === 'retry-load' ? <button type="button" className="dio-btn" onClick={() => void refreshBackups()}>重试读取</button> : null}
+            {backupHealth.action === 'create' ? <button type="button" className="dio-btn" disabled={backing} onClick={() => void handleCreateBackup()}>重新备份并验证</button> : null}
+            {backupHealth.action === 'verify-latest' && backupHealth.latest ? <button type="button" className="dio-btn" disabled={verifying !== null} onClick={() => void handleVerify(backupHealth.latest!.name)}>验证最新备份</button> : null}
+          </div>
+
           <div className="data-actions-row">
             <button
               className="dio-btn"
@@ -566,7 +588,7 @@ export function DataSettingsPanel({
             </button>
           </div>
 
-          {backups.length === 0 && (
+          {backupListState === 'loaded' && backups.length === 0 && (
             <p className="dio-section-muted">暂无备份记录</p>
           )}
 
@@ -616,8 +638,8 @@ export function DataSettingsPanel({
                     </button>
                     <button
                       className="dio-btn"
-                      onClick={() => setConfirmRequest({ kind: 'restore', name: b.name })}
-                      disabled={verifying !== null || restoring !== null || b.verification?.status === 'invalid'}
+                      onClick={() => setConfirmRequest({ kind: 'restore', backup: b })}
+                      disabled={verifying !== null || restoring !== null || b.verification?.status !== 'verified'}
                     >
                       <RotateCcw size={ICON_SM} />
                       <span>{restoring === b.name ? '恢复中…' : '恢复'}</span>
@@ -626,7 +648,7 @@ export function DataSettingsPanel({
                       <button
                         className="dio-btn dio-btn-warn"
                         aria-label="删除此备份"
-                        onClick={() => setConfirmRequest({ kind: 'delete', name: b.name })}
+                        onClick={() => setConfirmRequest({ kind: 'delete', backup: b })}
                         disabled={restoring !== null}
                       >
                         <Trash2 size={ICON_SM} />
@@ -679,7 +701,8 @@ export function DataSettingsPanel({
                 className={`ui-btn ${confirmRequest.kind === 'delete' ? 'ui-btn-danger-solid' : 'ui-btn-primary'}`}
                 disabled={backing || (confirmRequest.kind === 'restore' && restoring !== null)}
                 onClick={() => {
-                  const { kind, name } = confirmRequest
+                  const { kind, backup } = confirmRequest
+                  const name = backup.name
                   void (kind === 'restore' ? handleRestore(name) : handleDelete(name))
                 }}
               >
@@ -688,7 +711,13 @@ export function DataSettingsPanel({
             </>
           )}
         >
-          <p className="dio-section-muted"><code>{confirmRequest.name}</code></p>
+          <dl className="dio-restore-grid">
+            <div><dt>备份时间</dt><dd>{fmtBackupTime(confirmRequest.backup.timestamp)}</dd></div>
+            <div><dt>交易与案例</dt><dd>{confirmRequest.backup.tradeCount ?? '—'}</dd></div>
+            <div><dt>策略</dt><dd>{confirmRequest.backup.strategyCount ?? '—'}</dd></div>
+            <div><dt>附件</dt><dd>{confirmRequest.backup.attachmentCount ?? '—'}</dd></div>
+            <div><dt>验证状态</dt><dd>{confirmRequest.backup.verification?.status === 'verified' ? `已验证 · ${fmtBackupTime(confirmRequest.backup.verification.checkedAt)}` : '未通过验证'}</dd></div>
+          </dl>
         </ModalShell>
       ) : null}
       {purgePreview ? (

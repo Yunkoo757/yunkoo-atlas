@@ -29,11 +29,11 @@
 }
 
 .side-tag.is-quiet[data-side='long'] {
-  color: color-mix(in srgb, var(--pos) 68%, var(--text-tertiary));
+  color: var(--direction-long-text);
 }
 
 .side-tag.is-quiet[data-side='short'] {
-  color: color-mix(in srgb, var(--neg) 68%, var(--text-tertiary));
+  color: var(--direction-short-text);
 }
 
 @keyframes status-icon-pop {

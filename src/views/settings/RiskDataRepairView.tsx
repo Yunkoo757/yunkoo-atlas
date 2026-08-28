@@ -160,7 +160,7 @@ export function RiskDataRepairView() {
   const completenessGroups = queue.groups.filter((group) => group.bucket === 'completeness')
 
   return (
-    <div className="settings-page risk-data-repair-view" data-risk-data-repair-view>
+    <div className="settings-page settings-page--reading risk-data-repair-view" data-risk-data-repair-view>
       <div className="settings-page-head risk-repair-hero">
         <div>
           <Link className="risk-repair-back" to="/settings/risk">返回风险管理</Link>

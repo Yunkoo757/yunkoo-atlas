@@ -767,6 +767,7 @@ export function startAutoBackup(
   intervalMs: number = DEFAULT_INTERVAL_MS,
   maxBackups: number = DEFAULT_MAX_BACKUPS,
   onBackupFailure?: () => void,
+  guardedBackup?: (storage: LibraryStorage) => Promise<'created' | 'skipped' | 'failed'>,
 ): void {
   stopAutoBackup()
   storageRef = storage
@@ -777,6 +778,12 @@ export function startAutoBackup(
   // 定时备份
   intervalTimer = setInterval(() => {
     if (!storageRef) return
+    if (guardedBackup) {
+      void guardedBackup(storageRef).then((outcome) => {
+        if (outcome === 'failed') onBackupFailure?.()
+      }).catch(() => onBackupFailure?.())
+      return
+    }
     const result = createBackup(storageRef)
     if (result) {
       const { backups } = ensureLibraryDirs(storageRef.getLibraryPath())

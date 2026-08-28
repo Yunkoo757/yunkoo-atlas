@@ -694,7 +694,8 @@ export function resolveSidebarSelection(options: {
       return routesMatch(item.pathname, item.search, pathname, options.search)
     })
     .sort((left, right) => Number(right.item.target.kind === 'saved-view') - Number(left.item.target.kind === 'saved-view'))[0]
-  if (exact) return { activeWorkspaceItemId: exact.item.id }
+  const activePrimaryId = primaryIdForLocation(pathname, options.search)
+  if (exact) return { activeWorkspaceItemId: exact.item.id, activePrimaryId }
 
   const modified = validItems
     .filter((item) => {
@@ -718,10 +719,11 @@ export function resolveSidebarSelection(options: {
   if (modified) {
     return {
       activeWorkspaceItemId: modified.item.id,
+      activePrimaryId,
       modifiedWorkspaceItemId: modified.item.id,
     }
   }
-  return { activePrimaryId: primaryIdForLocation(pathname, options.search) }
+  return { activePrimaryId }
 }
 
 function listTargetForPath(pathname: string, search = ''): ListFilter | undefined {

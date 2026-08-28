@@ -90,7 +90,7 @@ export function ShortcutsPanel() {
   }, [recordingId, onRecordKey])
 
   return (
-    <div className="settings-page shortcuts-panel">
+    <div className="settings-page settings-page--standard shortcuts-panel">
       <div className="settings-page-head shortcuts-panel-head">
         <h1 className="settings-page-title">键盘快捷键</h1>
         <button

@@ -46,6 +46,7 @@ import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import { beginOperation } from '../operationLogger'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
 import type {
+  PreparedJournalImportPreview,
   StageRolloverCommitInput,
   StageRolloverCommitResult,
   StorageRecoveryResult,
@@ -63,10 +64,66 @@ const assetPurgeAuthorizations = new Map<string, { token: string; signature: str
 let exitPreparedStorage: LibraryStorage | null = null
 const operationGate = new LibraryOperationGate()
 
+type PreparedImportState = 'preparing' | 'prepared' | 'committing' | 'consumed' | 'cancelled' | 'expired'
+interface PreparedJournalImport {
+  token: string
+  prepareRequestId: string
+  ownerWebContentsId: number
+  archivePath: string
+  archiveSize: number
+  archiveModifiedAt: number
+  sourceStorage: LibraryStorage
+  sourceFingerprint: string
+  stagingRoot: string
+  expiresAt: number
+  state: PreparedImportState
+  preview?: PreparedJournalImportPreview
+}
+const PREPARED_IMPORT_TTL_MS = 15 * 60 * 1000
+const preparedJournalImports = new Map<string, PreparedJournalImport>()
+const preparedImportRequests = new Map<string, PreparedJournalImport>()
+
+function librarySourceFingerprint(lib: LibraryStorage): string {
+  const paths = lib.getPaths()
+  const part = (filePath: string) => {
+    if (!fs.existsSync(filePath)) return 'missing'
+    const stat = fs.statSync(filePath)
+    return `${stat.size}:${stat.mtimeMs}`
+  }
+  return `${path.resolve(lib.getLibraryPath())}|${part(paths.manifestFile)}|${part(paths.dbFile)}`
+}
+
+function cleanupPreparedImport(entry: PreparedJournalImport): void {
+  if (entry.state === 'committing') return
+  try { fs.rmSync(entry.stagingRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 }) } catch { /* 下次启动由临时目录维护清理 */ }
+}
+
+function resolvePreparedImport(token: string, ownerWebContentsId: number): PreparedJournalImport | null {
+  const entry = preparedJournalImports.get(token)
+  if (!entry || entry.ownerWebContentsId !== ownerWebContentsId) return null
+  if (entry.state === 'prepared' && Date.now() > entry.expiresAt) {
+    entry.state = 'expired'
+    cleanupPreparedImport(entry)
+  }
+  return entry
+}
+
 function startLibraryAutoBackup(target: LibraryStorage): void {
   startAutoBackup(target, undefined, undefined, () => {
     for (const window of BrowserWindow.getAllWindows()) {
       if (!window.isDestroyed()) window.webContents.send('backup:auto-failed')
+    }
+  }, async (activeStorage) => {
+    try {
+      return await operationGate.tryRunExclusive(async () => {
+        const result = createBackup(activeStorage)
+        if (!result) return 'failed' as const
+        rotateBackups(ensureLibraryDirs(activeStorage.getLibraryPath()).backups)
+        return 'created' as const
+      })
+    } catch (error) {
+      if (error instanceof LibraryBusyError) return 'skipped' as const
+      return 'failed' as const
     }
   })
 }
@@ -942,11 +999,10 @@ export function registerLibraryIpc(): void {
   })
 
   // ---- 备份 ----
-  ipcMain.handle('backup:create', async () => withStorage((lib) => {
+  ipcMain.handle('backup:create', async () => operationGate.tryRunExclusive(async () => {
+    const lib = await ensureStorage()
     const result = createBackup(lib)
-    if (result) {
-      rotateBackups(ensureLibraryDirs(lib.getLibraryPath()).backups)
-    }
+    if (result) rotateBackups(ensureLibraryDirs(lib.getLibraryPath()).backups)
     return result
   }))
 
@@ -954,7 +1010,8 @@ export function registerLibraryIpc(): void {
     return listBackupsAtPath(lib.getLibraryPath())
   }))
 
-  ipcMain.handle('backup:verify', async (_e, fileName: string) => withStorage((lib) => {
+  ipcMain.handle('backup:verify', async (_e, fileName: string) => operationGate.tryRunExclusive(async () => {
+    const lib = await ensureStorage()
     return verifyBackupAtPath(lib.getLibraryPath(), fileName)
   }))
 
@@ -1012,7 +1069,7 @@ export function registerLibraryIpc(): void {
   })
 
   ipcMain.handle('backup:delete', async (_e, fileName: string) => {
-    return withStorage((lib) => deleteBackupAtPath(lib.getLibraryPath(), fileName))
+    return operationGate.tryRunExclusive(async () => deleteBackupAtPath((await ensureStorage()).getLibraryPath(), fileName))
   })
 
   ipcMain.handle('backup:stats', async () => withStorage((lib) => {
@@ -1025,84 +1082,176 @@ export function registerLibraryIpc(): void {
     return true
   }))
 
-  ipcMain.handle('journal:importZip', async () => {
-    const win = BrowserWindow.getFocusedWindow()
+  ipcMain.handle('journal:prepareImport', async (event, prepareRequestId: string) => {
+    if (!prepareRequestId?.trim()) return { ok: false as const, error: '检查请求无效' }
+    if (preparedImportRequests.has(prepareRequestId)) return { ok: false as const, error: '检查请求已存在' }
+    const win = BrowserWindow.fromWebContents(event.sender)
     const options: OpenDialogOptions = {
-      title: '导入交易库',
+      title: '选择要检查的交易库归档',
       filters: [{ name: 'Journal Archive', extensions: ['journal.zip', 'zip'] }],
       properties: ['openFile'],
     }
-    const result = win
-      ? await dialog.showOpenDialog(win, options)
-      : await dialog.showOpenDialog(options)
-    if (result.canceled || !result.filePaths[0]) {
-      return { ok: false as const, committed: false, canceled: true as const }
+    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+    if (result.canceled || !result.filePaths[0]) return { ok: false as const, canceled: true as const }
+
+    const archivePath = path.resolve(result.filePaths[0])
+    const archiveStat = fs.lstatSync(archivePath)
+    if (!archiveStat.isFile() || archiveStat.isSymbolicLink()) return { ok: false as const, error: '归档文件必须是普通文件' }
+    const stagingRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'trader-atlas-journal-import-'))
+    const sourceStorage = await ensureStorage()
+    const entry: PreparedJournalImport = {
+      token: randomUUID(),
+      prepareRequestId,
+      ownerWebContentsId: event.sender.id,
+      archivePath,
+      archiveSize: archiveStat.size,
+      archiveModifiedAt: archiveStat.mtimeMs,
+      sourceStorage,
+      sourceFingerprint: librarySourceFingerprint(sourceStorage),
+      stagingRoot,
+      expiresAt: Date.now() + PREPARED_IMPORT_TTL_MS,
+      state: 'preparing',
     }
-
-    const selectedArchive = result.filePaths[0]
-    const confirmationOptions = {
-      type: 'warning' as const,
-      title: '替换当前交易库？',
-      message: '导入归档会覆盖当前交易库',
-      detail: `将使用“${path.basename(selectedArchive)}”替换当前交易、策略、设置与附件。此操作完成后无法直接撤销，请先确认已保留需要的备份。`,
-      buttons: ['取消', '替换交易库'],
-      defaultId: 0,
-      cancelId: 0,
-      noLink: true,
-    }
-    const confirmation = win
-      ? await dialog.showMessageBox(win, confirmationOptions)
-      : await dialog.showMessageBox(confirmationOptions)
-    if (confirmation.response !== 1) {
-      return { ok: false as const, committed: false, canceled: true as const }
-    }
-
-    const operation = beginOperation('import', { stage: 'replace', revisionBefore: 0 })
-    let importCommitted = false
-    try {
-      return await operationGate.runExclusive(async () => {
-        const current = await ensureStorage()
-        const libraryPath = current.getLibraryPath()
-        stopAutoBackup()
-        current.close()
-        storage = null
-
-        try {
-          await importJournalZipToPath(libraryPath, selectedArchive)
-        } catch (err) {
-          operation.failure(err, { stage: 'replace' })
-          const message = toErrorMessage(err)
-          try {
-            await reopenStorageWithAutoBackup()
-          } catch (reopenErr) {
-            safeConsoleError('journal-reopen-after-import-failed', reopenErr)
-            return {
-              ok: false as const,
-              committed: true,
-              error: `${message}; failed to reopen current library: ${toErrorMessage(reopenErr)}`,
-            }
-          }
-          return { ok: false as const, committed: false, error: message }
-        }
-
-        importCommitted = true
-        const reopened = await reopenStorageWithAutoBackup()
-        const snapshot = reopened.loadSnapshot()
-        operation.success({ stage: 'committed', revisionAfter: 0 })
-        return { ok: true as const, committed: true as const, snapshot }
-      })
-    } catch (err) {
-      operation.failure(err, { stage: 'replace' })
-      return {
-        ok: false as const,
-        committed: importCommitted || storage === null,
-        error: toErrorMessage(err),
+    preparedJournalImports.set(entry.token, entry)
+    preparedImportRequests.set(prepareRequestId, entry)
+    event.sender.once('destroyed', () => {
+      if (entry.state === 'preparing') {
+        // 解压仍可能持有 staging 中的文件句柄；只标记取消，由 prepare 的 finally 清理。
+        entry.state = 'cancelled'
+      } else if (entry.state === 'prepared') {
+        entry.state = 'cancelled'
+        cleanupPreparedImport(entry)
       }
+    })
+    try {
+      await importJournalZipToPath(stagingRoot, archivePath)
+      if (entry.state === 'cancelled') return { ok: false as const, canceled: true as const }
+      const staged = new LibraryStorage(stagingRoot, { ensureDirectories: false, allowCreate: false })
+      await staged.open()
+      const snapshot = staged.loadSnapshot()
+      if (!snapshot) throw new Error('归档没有可读取的数据快照')
+      const assets = staged.listAssetRecords()
+      staged.close()
+      entry.preview = {
+        token: entry.token,
+        fileName: path.basename(archivePath),
+        modifiedAt: archiveStat.mtimeMs,
+        tradeCount: snapshot.trades.length,
+        strategyCount: snapshot.strategies.length,
+        attachmentCount: assets.filter((asset) => asset.state === 'healthy').length,
+        attachmentBytes: assets.reduce((total, asset) => total + (asset.actualBytes ?? 0), 0),
+        verification: 'verified',
+        expiresAt: entry.expiresAt,
+      }
+      entry.state = 'prepared'
+      return { ok: true as const, preview: entry.preview }
+    } catch (error) {
+      entry.state = 'cancelled'
+      cleanupPreparedImport(entry)
+      return { ok: false as const, error: toErrorMessage(error) }
+    } finally {
+      preparedImportRequests.delete(prepareRequestId)
+      if (entry.state === 'cancelled') cleanupPreparedImport(entry)
     }
   })
+
+  ipcMain.handle('journal:cancelPreparedImport', async (event, tokenOrRequestId: string) => {
+    const entry = preparedJournalImports.get(tokenOrRequestId) ?? preparedImportRequests.get(tokenOrRequestId)
+    if (!entry || entry.ownerWebContentsId !== event.sender.id) return { ok: false, state: 'missing' as const }
+    if (entry.state === 'committing') return { ok: false, state: 'committing' as const }
+    if (entry.state === 'cancelled' || entry.state === 'consumed' || entry.state === 'expired') {
+      return { ok: true, state: 'terminal' as const }
+    }
+    const wasPreparing = entry.state === 'preparing'
+    entry.state = 'cancelled'
+    if (!wasPreparing) cleanupPreparedImport(entry)
+    return { ok: true, state: 'cancelled' as const }
+  })
+
+  ipcMain.handle('journal:commitPreparedImport', async (event, token: string) => {
+    const entry = resolvePreparedImport(token, event.sender.id)
+    if (!entry) return { ok: false as const, committed: false, error: '恢复预览不存在或不属于当前窗口', code: 'TOKEN_EXPIRED' as const }
+    if (entry.state === 'expired') return { ok: false as const, committed: false, error: '恢复预览已过期，请重新选择文件', code: 'TOKEN_EXPIRED' as const }
+    if (entry.state !== 'prepared') return { ok: false as const, committed: entry.state === 'consumed', error: '恢复预览已经使用或取消' }
+    let archiveStat: fs.Stats
+    try {
+      archiveStat = fs.lstatSync(entry.archivePath)
+    } catch {
+      entry.state = 'expired'
+      cleanupPreparedImport(entry)
+      return { ok: false as const, committed: false, error: '归档文件已移动或删除，请重新选择', code: 'SOURCE_CHANGED' as const }
+    }
+    if (archiveStat.size !== entry.archiveSize || archiveStat.mtimeMs !== entry.archiveModifiedAt) {
+      entry.state = 'expired'
+      cleanupPreparedImport(entry)
+      return { ok: false as const, committed: false, error: '归档文件在检查后发生变化，请重新选择', code: 'SOURCE_CHANGED' as const }
+    }
+    if (storage !== entry.sourceStorage || librarySourceFingerprint(entry.sourceStorage) !== entry.sourceFingerprint) {
+      entry.state = 'expired'
+      cleanupPreparedImport(entry)
+      return { ok: false as const, committed: false, error: '当前资料库在预览后发生变化，请重新检查', code: 'SOURCE_CHANGED' as const }
+    }
+    entry.state = 'committing'
+    const operation = beginOperation('import', {
+      stage: 'prepared-commit',
+      requestId: entry.prepareRequestId,
+      revisionBefore: 0,
+    })
+    let replacementCommitted = false
+    try {
+      const outcome = await operationGate.tryRunExclusive(async () => {
+        const current = await ensureStorage()
+        const libraryPath = current.getLibraryPath()
+        const safetyBackup = createBackup(current)
+        if (!safetyBackup) {
+          entry.state = 'prepared'
+          return { ok: false as const, committed: false, error: '无法创建恢复前安全备份' }
+        }
+        const safetyVerification = await verifyBackupAtPath(libraryPath, safetyBackup)
+        if (safetyVerification.status !== 'verified') {
+          entry.state = 'prepared'
+          return { ok: false as const, committed: false, error: safetyVerification.error ?? '恢复前安全备份验证失败' }
+        }
+        stopAutoBackup()
+        autoBackupStarted = false
+        entry.state = 'consumed'
+        current.close()
+        storage = null
+        try {
+          await importJournalZipToPath(libraryPath, entry.archivePath)
+          replacementCommitted = true
+          const reopened = await reopenStorageWithAutoBackup()
+          const snapshot = reopened.loadSnapshot()
+          cleanupPreparedImport(entry)
+          return { ok: true as const, committed: true as const, snapshot }
+        } catch (error) {
+          if (!storage) await reopenAfterRestoreFailure()
+          cleanupPreparedImport(entry)
+          return { ok: false as const, committed: replacementCommitted || storage === null, error: toErrorMessage(error) }
+        }
+      })
+      if (outcome.ok) operation.success({ stage: 'committed', revisionAfter: 0 })
+      else operation.failure(new Error(outcome.error ?? '恢复未提交'), { stage: 'commit' })
+      return outcome
+    } catch (error) {
+      operation.failure(error, { stage: 'commit' })
+      if (error instanceof LibraryBusyError) {
+        entry.state = 'prepared'
+        return { ok: false as const, committed: false, error: error.message, code: 'LIBRARY_BUSY' as const }
+      }
+      entry.state = replacementCommitted ? 'consumed' : 'prepared'
+      return { ok: false as const, committed: replacementCommitted, error: toErrorMessage(error) }
+    }
+  })
+
 }
 
 export function resetStorageForTests(): void {
+  for (const entry of preparedJournalImports.values()) {
+    if (entry.state !== 'committing') cleanupPreparedImport(entry)
+  }
+  preparedJournalImports.clear()
+  preparedImportRequests.clear()
   clearPreparedLibrarySwitch()
   preparingLibrarySwitch = false
   activatingLibrarySwitch = false

@@ -82,7 +82,7 @@ export function SymbolsPanel() {
   }
 
   return (
-    <div className="settings-page symbols-panel">
+    <div className="settings-page settings-page--reading symbols-panel">
       <div className="settings-page-head">
         <h1 className="settings-page-title">品种</h1>
         <p className="settings-page-desc">

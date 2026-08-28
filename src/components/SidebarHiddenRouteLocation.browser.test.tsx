@@ -51,7 +51,7 @@ async function run() {
     const ghost = document.querySelector<HTMLElement>('[data-sidebar-hidden-route]')
     assert(ghost, '隐藏工作区深链当前位置不可用')
     assert(ghost.textContent?.includes('模拟盘'), '隐藏工作区当前位置标签错误')
-    assert(ghost.getAttribute('aria-current') === 'page', '隐藏工作区当前位置缺少 aria-current')
+    assert(ghost.getAttribute('aria-current') === 'location', '隐藏工作区当前位置缺少 aria-current=location')
     const ghostIcon = ghost.querySelector<SVGElement>('svg')
     assert(ghostIcon, '隐藏工作区当前位置缺少图标')
     const iconColorProbe = document.createElement('span')
@@ -63,10 +63,10 @@ async function run() {
     )
     iconColorProbe.remove()
 
-    const trades = document.querySelector<HTMLElement>('[data-primary-id="trades"]')
+    const trades = document.querySelector<HTMLElement>('a[data-primary-id="trades"]')
     assert(trades, '缺少交易日志主导航')
-    assert(!trades.classList.contains('is-active'), '隐藏工作区深链不得错误高亮交易日志')
-    assert(trades.getAttribute('aria-current') !== 'page', '隐藏工作区深链不得把交易日志标记为当前页')
+    assert(trades.closest('.sb-sortable-row')?.classList.contains('is-page-active'), '隐藏工作区深链仍应标明所属的交易日志页面')
+    assert(trades.getAttribute('aria-current') === 'page', '隐藏工作区深链必须保留交易日志的页面身份')
   } finally {
     root.unmount()
     useStore.setState(previous, true)

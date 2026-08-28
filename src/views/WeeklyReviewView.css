@@ -133,3 +133,8 @@
     grid-template-columns: minmax(168px, 200px) minmax(0, 1fr);
   }
 }
+.wr-section-nav { display: flex; gap: var(--sp-1); overflow-x: auto; padding: 0 var(--sp-4) var(--sp-3); scrollbar-width: none; }
+.wr-section-nav::-webkit-scrollbar { display: none; }
+.wr-section-nav button { flex: 0 0 auto; min-height: 28px; padding: 0 9px; border: 1px solid var(--border-default); border-radius: var(--radius-6); background: transparent; color: var(--text-tertiary); font: inherit; font-size: var(--type-metadata-size); cursor: pointer; }
+.wr-section-nav button:hover { border-color: var(--border-strong); color: var(--text-secondary); }
+[data-weekly-section] { scroll-margin-top: var(--sp-4); }

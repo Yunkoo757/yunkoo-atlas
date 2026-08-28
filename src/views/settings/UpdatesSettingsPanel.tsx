@@ -74,7 +74,7 @@ export function UpdatesSettingsPanel() {
   }
 
   return (
-    <div className="settings-page update-settings">
+    <div className="settings-page settings-page--form update-settings">
       <div className="settings-page-head">
         <h1 className="settings-page-title">软件更新</h1>
         <p className="settings-page-desc">

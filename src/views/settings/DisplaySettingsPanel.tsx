@@ -63,6 +63,7 @@ export function DisplaySettingsPanel() {
     setDisplay({
       groupByDate: mode === 'date',
       groupByStrategy: mode === 'strategy',
+      ...(mode === 'none' ? {} : { sortBy: 'date' as const }),
     })
   }
 
@@ -116,7 +117,7 @@ export function DisplaySettingsPanel() {
   }
 
   return (
-    <div className="settings-page display-settings">
+    <div className="settings-page settings-page--form display-settings">
       <div className="settings-page-head">
         <h1 className="settings-page-title">显示偏好</h1>
         <p className="settings-page-desc">
@@ -182,7 +183,10 @@ export function DisplaySettingsPanel() {
           hint="决定每个列表或分组内的交易顺序。"
           options={SORT_OPTS}
           value={display.sortBy}
-          onChange={(value) => setDisplay({ sortBy: value })}
+          onChange={(value) => setDisplay({
+            sortBy: value,
+            ...(value === 'date' ? {} : { groupByDate: false, groupByStrategy: false }),
+          })}
         />
 
         {electron ? (

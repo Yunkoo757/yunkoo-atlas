@@ -116,7 +116,7 @@ export function StrategiesPanel() {
 
   return (
     <>
-      <div className="settings-page strategies-panel">
+      <div className="settings-page settings-page--reading strategies-panel">
         <div className="settings-page-head st-head">
           <div>
             <h1 className="settings-page-title">交易策略</h1>

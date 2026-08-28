@@ -138,7 +138,7 @@ export const TradeRow = memo(function TradeRow({
       check={selectable ? (
         <SelectionBox
           checked={selected}
-          label={selected ? '取消选择' : '选择交易'}
+          label={`${selected ? '取消选择' : '选择'} ${trade.ref}`}
           onToggle={() => onSelect(trade)}
           className="trade-row-check"
         />

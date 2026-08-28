@@ -39,7 +39,7 @@ export function fmtPrice(n: number): string {
 }
 
 export function fmtDate(iso: string): string {
-  if (!iso) return '--'
+  if (!iso) return '—'
   const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
   if (dateOnly) {
     const [, year, month, day] = dateOnly
@@ -48,17 +48,17 @@ export function fmtDate(iso: string): string {
       candidate.getFullYear() !== Number(year) ||
       candidate.getMonth() !== Number(month) - 1 ||
       candidate.getDate() !== Number(day)
-    ) return '--'
+    ) return '—'
     return `${Number(month)}月${Number(day)}日`
   }
   const d = new Date(iso)
-  if (isNaN(d.getTime())) return '--'
+  if (isNaN(d.getTime())) return '—'
   return `${d.getMonth() + 1}月${d.getDate()}日`
 }
 
 export function fmtDateTime(iso: string): string {
-  if (!iso) return '--'
+  if (!iso) return '—'
   const d = new Date(iso)
-  if (isNaN(d.getTime())) return '--'
+  if (isNaN(d.getTime())) return '—'
   return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }

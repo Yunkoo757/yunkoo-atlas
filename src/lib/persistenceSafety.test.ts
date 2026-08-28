@@ -182,8 +182,8 @@ export async function testDesktopJournalImportHasAStartupRecoveryJournal(): Prom
   assert(journalZip.includes('recoverInterruptedJournalImport'), '整库导入必须提供启动恢复入口')
   assert(journalZip.includes('writeFileAtomicallySync(markerPath'), '改写活动库前必须先发布导入恢复标记')
   assert(storage.includes('recoverInterruptedJournalImport(this.paths)'), '资料库打开前必须消费中断导入标记')
-  assert(ipc.includes('importCommitted'), '整库导入 IPC 必须区分磁盘替换是否已提交')
-  const importCall = importExport.indexOf('await getJournalBridge()!.importJournalZip()')
+  assert(ipc.includes('replacementCommitted'), '整库导入 IPC 必须区分磁盘替换是否已提交')
+  const importCall = importExport.indexOf('await getJournalBridge()!.commitPreparedJournalImport(token)')
   const failClosedBeforeImport = importExport.lastIndexOf('safeToFlush = false', importCall)
   assert(
     failClosedBeforeImport >= 0 && failClosedBeforeImport < importCall,

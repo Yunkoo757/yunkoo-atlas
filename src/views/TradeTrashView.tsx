@@ -277,6 +277,25 @@ export function TradeTrashView() {
               )}
             </div>
 
+            <BatchActionBar count={selected.size} placement="inline">
+              <button type="button" className="batch-bar-action-btn" onClick={handleBatchRestore}>
+                <RotateCcw size={ICON_SM} />
+                <span>恢复</span>
+              </button>
+              <button
+                type="button"
+                className="batch-bar-action-btn batch-bar-action-btn-danger"
+                onClick={handleBatchPurge}
+              >
+                <Trash2 size={ICON_SM} />
+                <span>彻底删除</span>
+              </button>
+              <button type="button" className="batch-bar-action-btn" onClick={() => setSelected(new Set())}>
+                <X size={ICON_SM} />
+                <span>取消选择</span>
+              </button>
+            </BatchActionBar>
+
             {filteredTrades.length === 0 ? (
               <EmptyState
                 title="未找到匹配交易"
@@ -373,21 +392,6 @@ export function TradeTrashView() {
           </div>
         )}
       </div>
-
-      <BatchActionBar count={selected.size}>
-        <button type="button" className="batch-bar-action-btn" onClick={handleBatchRestore}>
-          <RotateCcw size={ICON_SM} />
-          <span>恢复</span>
-        </button>
-        <button
-          type="button"
-          className="batch-bar-action-btn batch-bar-action-btn-danger"
-          onClick={handleBatchPurge}
-        >
-          <Trash2 size={ICON_SM} />
-          <span>彻底删除</span>
-        </button>
-      </BatchActionBar>
 
       <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
 

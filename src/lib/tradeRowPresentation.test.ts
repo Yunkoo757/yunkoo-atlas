@@ -54,7 +54,7 @@ export async function testTradeRowContextUsesOneStablePriorityOrder(): Promise<v
 export async function testTradeRowResultsDistinguishMissingZeroAndUncollected(): Promise<void> {
   const pnlOnly = resolveTradeRowResultPresentation(fixture({ pnl: 0, status: 'breakeven' }), null, false)
   assert.deepEqual(pnlOnly.cash, { text: '$0', state: 'zero' })
-  assert.deepEqual(pnlOnly.r, { text: '', state: 'not-collected' })
+  assert.deepEqual(pnlOnly.r, { text: '—', state: 'not-collected' })
 
   const missing = resolveTradeRowResultPresentation(
     fixture({ pnl: null, rMultiple: null, resultSource: undefined, status: 'breakeven' }),
@@ -62,7 +62,7 @@ export async function testTradeRowResultsDistinguishMissingZeroAndUncollected():
     false,
   )
   assert.deepEqual(missing.cash, { text: '待补', state: 'missing' })
-  assert.deepEqual(missing.r, { text: '', state: 'missing' })
+  assert.deepEqual(missing.r, { text: '待补', state: 'missing' })
 }
 
 export async function testTradeRowPrivacyKeepsRAndNeverLeaksCash(): Promise<void> {

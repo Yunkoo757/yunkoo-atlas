@@ -131,8 +131,8 @@ export function resolveTradeRowResultPresentation(
 
   if (truth.executionState === 'planned' || truth.executionState === 'open') {
     return {
-      cash: { text: '', state: 'not-applicable' },
-      r: { text: '', state: 'not-applicable' },
+      cash: { text: '—', state: 'not-applicable' },
+      r: { text: '—', state: 'not-applicable' },
       source,
       integrity: 'incomplete',
       accessibleSummary: '尚未产生交易结果',
@@ -144,7 +144,7 @@ export function resolveTradeRowResultPresentation(
       cash: { text: '未成交', state: 'missed' },
       r: rValue !== null
         ? { text: fmtR(rValue), state: metricState(rValue) }
-        : { text: '', state: 'not-applicable' },
+        : { text: '—', state: 'not-applicable' },
       source,
       integrity: 'incomplete',
       accessibleSummary: rValue !== null
@@ -157,7 +157,7 @@ export function resolveTradeRowResultPresentation(
     const cashText = hasCash
       ? formatTradeCashPnl(trade, legacyCashCurrencyAssumption, privacyMode)
       : ''
-    const rText = hasR ? fmtR(trade.rMultiple) : ''
+    const rText = hasR ? fmtR(trade.rMultiple) : '待补'
     return {
       cash: { text: cashText, state: hasCash ? (privacyMode ? 'masked' : 'conflict') : 'missing' },
       r: { text: rText, state: hasR ? 'conflict' : 'missing' },
@@ -174,7 +174,7 @@ export function resolveTradeRowResultPresentation(
   if (!resolvedSource) {
     return {
       cash: { text: '待补', state: 'missing' },
-      r: { text: '', state: 'missing' },
+      r: { text: '待补', state: 'missing' },
       source,
       integrity: 'incomplete',
       accessibleSummary: '已结束，结果数据待补充',
@@ -183,18 +183,18 @@ export function resolveTradeRowResultPresentation(
 
   const cashText = expectsCash && hasCash
     ? formatTradeCashPnl(trade, legacyCashCurrencyAssumption, privacyMode)
-    : ''
-  const rText = expectsR && hasR ? fmtR(trade.rMultiple) : ''
+    : '—'
+  const rText = expectsR && hasR ? fmtR(trade.rMultiple) : '—'
   const cash = expectsCash
     ? cashValue !== null
       ? { text: cashText, state: metricState(cashValue, privacyMode) }
       : { text: '待补', state: 'missing' as const }
-    : { text: '', state: 'not-collected' as const }
+      : { text: '—', state: 'not-collected' as const }
   const r = expectsR
     ? rValue !== null
       ? { text: rText, state: metricState(rValue) }
-      : { text: '', state: 'missing' as const }
-    : { text: '', state: 'not-collected' as const }
+      : { text: '待补', state: 'missing' as const }
+    : { text: '—', state: 'not-collected' as const }
   const complete = cash.state !== 'missing' && r.state !== 'missing'
   const cashSummary = cash.state === 'masked'
     ? '现金结果已隐藏'

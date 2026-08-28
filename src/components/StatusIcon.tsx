@@ -153,11 +153,12 @@ export function SideTag({
         letterSpacing: '0.02em',
         padding: '1px 5px',
         borderRadius: 'var(--radius-4)',
-        color: side === 'long' ? 'var(--pos)' : 'var(--neg)',
+        color: side === 'long' ? 'var(--direction-long-text)' : 'var(--direction-short-text)',
         background:
           side === 'long'
-            ? 'color-mix(in srgb, var(--pos) 16%, transparent)'
-            : 'color-mix(in srgb, var(--neg) 16%, transparent)',
+            ? 'var(--direction-long-bg)'
+            : 'var(--direction-short-bg)',
+        border: `1px solid ${side === 'long' ? 'var(--direction-long-border)' : 'var(--direction-short-border)'}`,
       }}
     >
       {side === 'long' ? '多' : '空'}

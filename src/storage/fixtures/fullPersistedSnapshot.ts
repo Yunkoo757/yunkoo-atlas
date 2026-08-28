@@ -236,7 +236,7 @@ export function createFullPersistedSnapshotFixture(
       ...DEFAULT_DISPLAY,
       hideClosed: true,
       showEmptyGroups: true,
-      groupByStrategy: true,
+      groupByStrategy: false,
       groupByDate: false,
       sortBy: 'conviction',
       privacyMode: true,

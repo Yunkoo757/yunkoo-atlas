@@ -729,9 +729,20 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 </p>
               </div>
               <div className="wr-head-actions">
-                <div className="wr-tab-switch" role="tablist" aria-label="周复盘视图">
-                  <button type="button" role="tab" aria-selected={tab === 'review'} onClick={() => changeTab('review')}>本周复盘</button>
-                  <button type="button" role="tab" aria-selected={tab === 'year'} onClick={() => changeTab('year')}>年度趋势</button>
+                <div
+                  className="wr-tab-switch"
+                  role="tablist"
+                  aria-label="周复盘视图"
+                  onKeyDown={(event) => {
+                    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+                    event.preventDefault()
+                    const nextTab: WeeklyReviewTab = tab === 'review' ? 'year' : 'review'
+                    changeTab(nextTab)
+                    requestAnimationFrame(() => document.getElementById(`weekly-review-tab-${nextTab}`)?.focus())
+                  }}
+                >
+                  <button id="weekly-review-tab-review" type="button" role="tab" aria-selected={tab === 'review'} aria-controls="weekly-review-panel-review" tabIndex={tab === 'review' ? 0 : -1} onClick={() => changeTab('review')}>本周复盘</button>
+                  <button id="weekly-review-tab-year" type="button" role="tab" aria-selected={tab === 'year'} aria-controls="weekly-review-panel-year" tabIndex={tab === 'year' ? 0 : -1} onClick={() => changeTab('year')}>年度趋势</button>
                 </div>
                 {hasReviewHistory ? (
                   <>
@@ -741,10 +752,34 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 ) : null}
               </div>
             </div>
+            {tab === 'review' ? (
+              <nav className="wr-section-nav" aria-label="周复盘章节">
+                {[
+                  ['facts', '本周事实'],
+                  ['risk', '风控执行'],
+                  ['scores', '做法评分'],
+                  ['patterns', '模式归因'],
+                  ['evidence', '交易证据'],
+                  ['judgment', '复盘正文'],
+                  ['commitment', '下周承诺'],
+                ].map(([sectionId, label]) => (
+                  <button
+                    key={sectionId}
+                    type="button"
+                    onClick={() => {
+                      const section = document.querySelector<HTMLElement>(`[data-weekly-section="${sectionId}"]`)
+                      section?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+                      section?.setAttribute('tabindex', '-1')
+                      section?.focus({ preventScroll: true })
+                    }}
+                  >{label}</button>
+                ))}
+              </nav>
+            ) : null}
           </header>
 
           {tab === 'year' ? (
-            <>
+            <div id="weekly-review-panel-year" role="tabpanel" aria-labelledby="weekly-review-tab-year">
               <label className="wr-trend-scope">
                 趋势范围
                 <select
@@ -757,9 +792,9 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 </select>
               </label>
               <YearTrend year={year} reviews={scopedYearReviews} data={trendData} />
-            </>
+            </div>
           ) : (
-            <div className="wr-content">
+            <div id="weekly-review-panel-review" role="tabpanel" aria-labelledby="weekly-review-tab-review" className="wr-content">
               <div className="wr-progress-summary" aria-label={`周复盘必填项已完成 ${completedRequiredFields} / 5`}>
                 <span>{locked ? '完成快照' : '复盘进度'}</span>
                 <strong>{locked ? '已形成闭环' : `${completedRequiredFields} / 5 项必填`}</strong>

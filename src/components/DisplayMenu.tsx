@@ -132,10 +132,11 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
                 <ToggleRow
                   label="按月份分组"
                   checked={display.groupByDate}
-                  onChange={(v) =>
-                    setDisplay({
-                      groupByDate: v,
-                      groupByStrategy: v ? false : display.groupByStrategy,
+                    onChange={(v) =>
+                      setDisplay({
+                        groupByDate: v,
+                        groupByStrategy: v ? false : display.groupByStrategy,
+                        ...(v ? { sortBy: 'date' as const } : {}),
                     })
                   }
                 />
@@ -144,8 +145,9 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
                   checked={display.groupByStrategy}
                   onChange={(v) =>
                     setDisplay({
-                      groupByStrategy: v,
-                      groupByDate: v ? false : display.groupByDate,
+                        groupByStrategy: v,
+                        groupByDate: v ? false : display.groupByDate,
+                        ...(v ? { sortBy: 'date' as const } : {}),
                     })
                   }
                 />
@@ -162,7 +164,10 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
                     className={'display-item' + (display.sortBy === o.value ? ' is-on' : '')}
                     role="menuitemradio"
                     aria-checked={display.sortBy === o.value}
-                    onClick={() => setDisplay({ sortBy: o.value })}
+                    onClick={() => setDisplay({
+                      sortBy: o.value,
+                      ...(o.value === 'date' ? {} : { groupByDate: false, groupByStrategy: false }),
+                    })}
                   >
                     <span>{o.label}</span>
                     {display.sortBy === o.value && <Check size={ICON_SM} />}

@@ -199,3 +199,8 @@
 }
 
 .risk-preparation-summary-copy { min-width: 0; flex: 1; }
+.risk-policy-diff { margin-top: var(--sp-3); padding: var(--sp-3); border: 1px solid var(--border-default); border-radius: var(--radius-6); background: var(--surface-control); }
+.risk-policy-diff strong { color: var(--text-primary); }
+.risk-policy-diff p, .risk-policy-diff li { color: var(--text-tertiary); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }
+.risk-policy-diff p { margin: var(--sp-1) 0 0; }
+.risk-policy-diff ul { margin: var(--sp-2) 0 0; padding-left: 18px; }

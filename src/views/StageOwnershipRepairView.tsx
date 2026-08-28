@@ -244,7 +244,7 @@ export function StageOwnershipRepairView() {
     : pending
 
   return (
-    <div className="settings-page stage-ownership-repair" data-stage-ownership-repair-view>
+    <div className="settings-page settings-page--standard stage-ownership-repair" data-stage-ownership-repair-view>
       <header className="settings-page-head stage-ownership-repair-hero">
         <div>
           <Link className="stage-ownership-back" to="/settings/data">返回数据设置</Link>

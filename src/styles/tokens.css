@@ -28,6 +28,12 @@
 
   /* —— 品牌 / 焦点 —— */
   --accent: #5e6ad2;
+  --direction-long-text: lch(72% 28 225);
+  --direction-long-bg: color-mix(in srgb, var(--direction-long-text) 10%, transparent);
+  --direction-long-border: color-mix(in srgb, var(--direction-long-text) 28%, transparent);
+  --direction-short-text: lch(72% 26 305);
+  --direction-short-bg: color-mix(in srgb, var(--direction-short-text) 10%, transparent);
+  --direction-short-border: color-mix(in srgb, var(--direction-short-text) 28%, transparent);
   /* 仅在键盘 focus-visible 时显示，确保深色界面中的当前位置可辨认。 */
   --focus-ring-color: color-mix(in srgb, var(--accent) 78%, white);
   --focus-ring-width: 2px;

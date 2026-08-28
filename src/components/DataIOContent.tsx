@@ -22,7 +22,8 @@ import {
   downloadWebJournalZip,
   exportJournalArchive,
   getLibraryPath,
-  importJournalArchive,
+  prepareJournalArchive,
+  commitPreparedJournalArchive,
   parseImportJson,
   restoreWebJournalArchive,
   switchActiveLibrary,
@@ -47,6 +48,7 @@ import { ModalShell } from '@/components/ui/ModalShell'
 import { readJsonImportFile } from '@/lib/importLimits'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
 import './DataIOContent.css'
+import type { PreparedJournalImportPreview } from '@/types/journal-bridge'
 
 function formatArchiveBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -76,12 +78,15 @@ export function DataIOContent({
   const [webArchive, setWebArchive] = useState<ParsedWebJournalArchive | null>(null)
   const [archiveRestoring, setArchiveRestoring] = useState(false)
   const [archiveBackingUp, setArchiveBackingUp] = useState(false)
+  const [preparedDesktopArchive, setPreparedDesktopArchive] = useState<PreparedJournalImportPreview | null>(null)
+  const [archivePreparing, setArchivePreparing] = useState(false)
+  const activePrepareRequestRef = useRef<string | null>(null)
   const [pendingLibrarySwitch, setPendingLibrarySwitch] = useState<{
     mode: 'open' | 'create'
     picked: string
   } | null>(null)
   const duplicateScanTradesRef = useRef<typeof trades | null>(null)
-  const dataBusy = libraryBusy || dupScanning || dupCleaning
+  const dataBusy = libraryBusy || dupScanning || dupCleaning || archivePreparing || archiveRestoring
 
   useEffect(() => {
     if (duplicateScanTradesRef.current === trades) return
@@ -165,22 +170,59 @@ export function DataIOContent({
 
   const onImportZip = async () => {
     if (dataBusy) return
-    setLibraryBusy(true)
+    const prepareRequestId = crypto.randomUUID()
+    activePrepareRequestRef.current = prepareRequestId
+    setArchivePreparing(true)
     try {
-      const result = await importJournalArchive()
+      const result = await prepareJournalArchive(prepareRequestId)
       if (result.ok) {
+        if (activePrepareRequestRef.current === prepareRequestId) setPreparedDesktopArchive(result.preview)
+      } else if (!result.canceled) {
+        toast(userFacingErrorMessage(result.error, '归档检查失败，请重试'))
+      }
+    } catch (err) {
+      toast(userFacingErrorMessage(err, '归档检查失败，请重试'))
+    } finally {
+      if (activePrepareRequestRef.current === prepareRequestId) {
+        activePrepareRequestRef.current = null
+        setArchivePreparing(false)
+      }
+    }
+  }
+
+  const cancelDesktopArchivePreparation = async () => {
+    const requestId = activePrepareRequestRef.current
+    if (!requestId) return
+    activePrepareRequestRef.current = null
+    setArchivePreparing(false)
+    await getJournalBridge()?.cancelPreparedJournalImport(requestId)
+  }
+
+  const cancelPreparedDesktopArchive = async () => {
+    const prepared = preparedDesktopArchive
+    setPreparedDesktopArchive(null)
+    if (prepared) await getJournalBridge()?.cancelPreparedJournalImport(prepared.token)
+  }
+
+  const commitDesktopArchive = async () => {
+    const prepared = preparedDesktopArchive
+    if (!prepared || archiveRestoring) return
+    setArchiveRestoring(true)
+    try {
+      const result = await commitPreparedJournalArchive(prepared.token)
+      if (result.ok) {
+        setPreparedDesktopArchive(null)
         setDupGroups(null)
         toast('资料库已恢复')
         onLibraryChanged?.()
         onDone?.()
-      } else if (!result.canceled) {
-        toast(userFacingErrorMessage(result.error, '恢复资料库失败，请重试'))
+      } else {
+        toast(userFacingErrorMessage(result.error, result.code === 'LIBRARY_BUSY' ? '资料库正在执行其他操作，请稍后重试' : '恢复资料库失败，请重试'))
       }
-      // 注：用户取消文件对话框时不显示 toast，这是预期行为
-    } catch (err) {
-      toast(userFacingErrorMessage(err, '恢复资料库失败，请重试'))
+    } catch (error) {
+      toast(userFacingErrorMessage(error, '恢复资料库失败，请重试'))
     } finally {
-      setLibraryBusy(false)
+      setArchiveRestoring(false)
     }
   }
 
@@ -587,7 +629,7 @@ export function DataIOContent({
               disabled={dataBusy}
               onClick={electron ? onImportZip : () => archiveFileRef.current?.click()}
             >
-              <span>{libraryBusy ? '资料库处理中…' : '选择 .journal.zip'}</span>
+              <span>{archivePreparing ? '正在检查归档…' : '选择 .journal.zip'}</span>
             </button>
           </div>
         </div>
@@ -701,6 +743,45 @@ export function DataIOContent({
           </div>
         </ModalShell>
       )}
+      {preparedDesktopArchive ? (
+        <ModalShell
+          title="确认恢复完整资料库"
+          description="归档已在隔离目录完成格式、数据库与附件校验。确认后才会锁定写入并替换当前资料库。"
+          busy={archiveRestoring}
+          onClose={() => { if (!archiveRestoring) void cancelPreparedDesktopArchive() }}
+          footer={(
+            <>
+              <button type="button" className="dio-btn" data-autofocus disabled={archiveRestoring} onClick={() => void cancelPreparedDesktopArchive()}>取消</button>
+              <button type="button" className="ui-btn ui-btn-danger-solid" disabled={archiveRestoring} onClick={() => void commitDesktopArchive()}>{archiveRestoring ? '正在安全恢复…' : '替换当前资料库'}</button>
+            </>
+          )}
+        >
+          <div className="dio-restore-warning" role="alert">
+            <AlertTriangle size={ICON_LG} />
+            <span>当前交易、设置与附件会被替换。提交前软件会创建并验证长期安全恢复点。</span>
+          </div>
+          <dl className="dio-restore-grid">
+            <div><dt>归档文件</dt><dd>{preparedDesktopArchive.fileName}</dd></div>
+            <div><dt>文件修改时间</dt><dd>{new Date(preparedDesktopArchive.modifiedAt).toLocaleString('zh-CN')}</dd></div>
+            <div><dt>交易与案例</dt><dd>{preparedDesktopArchive.tradeCount}</dd></div>
+            <div><dt>策略</dt><dd>{preparedDesktopArchive.strategyCount}</dd></div>
+            <div><dt>原始附件</dt><dd>{preparedDesktopArchive.attachmentCount}</dd></div>
+            <div><dt>附件大小</dt><dd>{formatArchiveBytes(preparedDesktopArchive.attachmentBytes)}</dd></div>
+            <div><dt>校验结果</dt><dd>已通过完整校验</dd></div>
+          </dl>
+        </ModalShell>
+      ) : null}
+      {archivePreparing ? (
+        <ModalShell
+          title="正在检查归档"
+          description="正在隔离目录中校验格式、数据库与所有附件；当前资料库仍可安全使用。"
+          busy
+          onClose={() => void cancelDesktopArchivePreparation()}
+          footer={<button type="button" className="dio-btn" onClick={() => void cancelDesktopArchivePreparation()}>取消检查</button>}
+        >
+          <p className="dio-section-muted" role="status">检查完成后会先展示替换影响，不会自动恢复。</p>
+        </ModalShell>
+      ) : null}
     </div>
   )
 }

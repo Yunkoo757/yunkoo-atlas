@@ -66,7 +66,7 @@ export function ProfileSettingsPanel() {
   const activePresetId = getAvatarPreset(profile.avatarId).id
 
   return (
-    <div className="settings-page profile-settings">
+    <div className="settings-page settings-page--form profile-settings">
       <div className="settings-page-head">
         <h1 className="settings-page-title">个人资料</h1>
         <p className="settings-page-desc">

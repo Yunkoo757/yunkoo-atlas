@@ -118,14 +118,16 @@
 }
 
 .composer-side-control button.is-on.is-long {
-  color: var(--pos);
-  background: var(--pos-bg);
+  color: var(--direction-long-text);
+  background: var(--direction-long-bg);
+  box-shadow: inset 0 0 0 1px var(--direction-long-border);
   font-weight: var(--font-weight-medium);
 }
 
 .composer-side-control button.is-on.is-short {
-  color: var(--neg);
-  background: var(--neg-bg);
+  color: var(--direction-short-text);
+  background: var(--direction-short-bg);
+  box-shadow: inset 0 0 0 1px var(--direction-short-border);
   font-weight: var(--font-weight-medium);
 }
 

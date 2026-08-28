@@ -7,7 +7,7 @@ import { Topbar, type WorkbenchView } from '@/components/Topbar'
 import { TradeFilters } from '@/components/trades/TradeFilters'
 import { TradeList, type TradeListGroup } from '@/components/trades/TradeList'
 import { WorkbenchEmptyState } from '@/components/trades/WorkbenchEmptyState'
-import { isReviewCompleted, type Trade } from '@/data/trades'
+import type { Trade } from '@/data/trades'
 import type { ListFilter } from '@/lib/tradeFilters'
 import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { getStrategyName } from '@/lib/strategies'
@@ -19,8 +19,6 @@ import { tradeDetailPath, tradeDetailNavState, type TradeDetailLocationState } f
 import {
   groupTradesByMonth,
   intersectSelectedTradeIds,
-  sortReviewCasesByRecentActivity,
-  sortTradesByOpenedAtDesc,
 } from '@/lib/tradeView'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import {
@@ -100,17 +98,8 @@ export function ListView({
   }, [location.pathname, location.search, navigate])
 
   const groups = useMemo<TradeListGroup[]>(() => {
-    if (filter.tradeKind === 'case') {
-      return [{ key: 'review-cases', items: sortReviewCasesByRecentActivity(visible) }]
-    }
-
-    if (filter.type === 'period' && filter.period === 'today') {
-      return [
-        {
-          key: 'today',
-          items: sortTradesByOpenedAtDesc(visible),
-        },
-      ]
+    if (filter.tradeKind === 'case' || (filter.type === 'period' && filter.period === 'today')) {
+      return [{ key: filter.tradeKind === 'case' ? 'review-cases' : 'today', items: visible }]
     }
 
     if (display.groupByStrategy) {
@@ -134,17 +123,7 @@ export function ListView({
       return groupTradesByMonth(visible)
     }
 
-    const sorted = sortTradesByOpenedAtDesc(visible)
-    const pending = sorted.filter((trade) => !isReviewCompleted(trade.reviewStatus))
-    const completed = sorted.filter((trade) => isReviewCompleted(trade.reviewStatus))
-    return [
-      ...(pending.length > 0
-        ? [{ key: 'pending-review', label: '待复盘', tone: 'pending' as const, items: pending }]
-        : []),
-      ...(completed.length > 0
-        ? [{ key: 'completed-review', label: '已完成', tone: 'completed' as const, items: completed }]
-        : []),
-    ]
+    return [{ key: 'all-records', items: visible }]
   }, [visible, filter.type, filter.period, filter.tradeKind, display.groupByStrategy, display.groupByDate, strategies])
 
   const orderedItems = useMemo(

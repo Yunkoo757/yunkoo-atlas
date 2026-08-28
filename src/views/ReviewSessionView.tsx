@@ -728,7 +728,7 @@ export function ReviewSessionView() {
       <header className="review-session-topbar">
         <Button type="button" variant="ghost" className="review-session-back" onClick={() => navigate('/today-record')}>
           <ChevronLeft size={ICON_MD} aria-hidden />
-          <span>退出复盘</span>
+          <span>{session && session.ids.length > 0 ? '退出复盘' : '返回'}</span>
         </Button>
         <div className="review-session-heading">
           <RotateCcw size={ICON_MD} aria-hidden />
@@ -756,6 +756,7 @@ export function ReviewSessionView() {
         <ReviewSessionStart
           filters={filters}
           poolSize={pool.length}
+          globalCandidateCount={systemPools.all.length}
           homePools={homePools}
           onOpenSettings={openSettings}
           onOpenManager={() => setPoolManagerOpen(true)}
@@ -825,6 +826,7 @@ export function ReviewSessionView() {
 function ReviewSessionStart({
   filters,
   poolSize,
+  globalCandidateCount,
   homePools,
   onOpenSettings,
   onOpenManager,
@@ -833,28 +835,22 @@ function ReviewSessionStart({
 }: {
   filters: ReviewSessionFilters
   poolSize: number
+  globalCandidateCount: number
   homePools: readonly ReviewPoolStartItem[]
   onOpenSettings: () => void
   onOpenManager: () => void
   onStartPool: (poolRef: ReviewPoolRef) => void
   onStart: () => void
 }) {
-  const usesDefaultFilters = (
-    filters.includeCases === DEFAULT_REVIEW_SESSION_FILTERS.includeCases &&
-    filters.includeLiveTrades === DEFAULT_REVIEW_SESSION_FILTERS.includeLiveTrades &&
-    filters.includePaperTrades === DEFAULT_REVIEW_SESSION_FILTERS.includePaperTrades &&
-    filters.caseScope === DEFAULT_REVIEW_SESSION_FILTERS.caseScope &&
-    filters.requireContent === DEFAULT_REVIEW_SESSION_FILTERS.requireContent &&
-    filters.reviewTiming === DEFAULT_REVIEW_SESSION_FILTERS.reviewTiming &&
-    filters.stageSource === DEFAULT_REVIEW_SESSION_FILTERS.stageSource
-  )
   const hasEmptyStageSelection = typeof filters.stageSource === 'object' && filters.stageSource.stageIds.length === 0
   const emptyMessage = hasEmptyStageSelection
     ? '尚未选择实盘阶段'
-    : usesDefaultFilters
+    : globalCandidateCount === 0
     ? '还没有可复盘的案例或实盘交易'
     : '当前复盘设置下没有可复盘内容，请调整复盘设置'
-  const emptyHint = '你可以在复盘设置中调整随机范围。'
+  const emptyHint = globalCandidateCount === 0
+    ? '先返回交易日志补充内容，或新建交易。'
+    : '全局仍有候选内容，可以调整复盘设置或管理复盘池。'
 
   return (
     <section className="review-session-start" data-review-session-start-focus tabIndex={-1}>
@@ -887,10 +883,14 @@ function ReviewSessionStart({
           <span className="review-session-stage-source-summary">阶段来源：{reviewStageSourceLabel(filters.stageSource)}</span>
         </div>
         <div className="review-session-start-actions">
-          <Button type="button" variant="primary" size="lg" disabled={poolSize === 0} onClick={onStart}>
-            开启一轮新的复盘
-            <ChevronRight size={ICON_MD} aria-hidden />
-          </Button>
+          {poolSize > 0 ? (
+            <Button type="button" variant="primary" size="lg" onClick={onStart}>
+              开启一轮新的复盘
+              <ChevronRight size={ICON_MD} aria-hidden />
+            </Button>
+          ) : globalCandidateCount > 0 ? (
+            <Button type="button" variant="primary" size="lg" onClick={onOpenSettings}>调整复盘设置</Button>
+          ) : null}
           <Menu
             align="right"
             trigger={<Button type="button" variant="ghost"><MoreHorizontal size={ICON_MD} aria-hidden />更多</Button>}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { AppIcon } from '@/icons/appIcons'
 import {
   ChevronDown,
@@ -499,7 +499,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         data-sidebar-workspace-placement={item.item.placement}
         data-sidebar-capability={capabilityId ?? undefined}
         className={
-          `sb-sortable-row${active ? ' is-active' : ''}${modified ? ' is-modified' : ''}${
+          `sb-sortable-row${active ? ' is-active is-scope-active' : ''}${modified ? ' is-modified' : ''}${
             capabilityMenuOpen ? ' is-capability-menu-open' : ''
           }`
         }
@@ -516,7 +516,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           draggable={false}
           className="sb-item"
           data-ws-icon={item.icon}
-          aria-current={active ? 'page' : undefined}
+          aria-current={active ? 'location' : undefined}
           onDragStart={(event) => event.preventDefault()}
         >
           {strategy ? (
@@ -552,7 +552,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   }
 
   return (
-    <nav className="sidebar" data-density={density} aria-label="主导航">
+    <aside className="sidebar" data-density={density} aria-label="侧栏">
       <div className="sb-header">
         <Menu
           align="left"
@@ -579,6 +579,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               icon: <Trash2 size={ICON_MD} />,
             },
           ]}
+          value={path.startsWith('/settings') ? 'settings' : path === '/trade-trash' ? 'trash' : undefined}
           onSelect={(value) => {
             if (value === 'settings') navigate('/settings')
             if (value === 'trash') navigate('/trade-trash')
@@ -613,22 +614,22 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         {primaryNav.map(({ id, to, label, icon: Icon }) => (
           <div
             key={id}
-            className={`sb-sortable-row${selection.activePrimaryId === id && !hiddenWorkspace ? ' is-active' : ''}`}
+            className={`sb-sortable-row${selection.activePrimaryId === id ? ' is-active is-page-active' : ''}`}
             data-primary-id={id}
             style={activeIconStyle(PRIMARY_ACTIVE_ICON_COLORS[id])}
           >
-            <NavLink
+            <Link
               to={primaryHref(id, to)}
               draggable={false}
               onDragStart={(event) => event.preventDefault()}
               className="sb-item"
               data-primary-id={id}
-              aria-current={selection.activePrimaryId === id && !hiddenWorkspace ? 'page' : undefined}
+              aria-current={selection.activePrimaryId === id ? 'page' : undefined}
             >
               <Icon size={ICON_MD} />
               <span className="sb-item-label">{label}</span>
               <Count value={primaryCount(id)} />
-            </NavLink>
+            </Link>
           </div>
         ))}
       </nav>
@@ -651,17 +652,17 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           to="/notes"
           data-primary-id="quickNotes"
           style={activeIconStyle('var(--nav-icon-notes)')}
-          className={({ isActive }) => `sb-item${isActive ? ' is-active' : ''}`}
+          className={({ isActive }) => `sb-item${isActive ? ' is-active is-page-active' : ''}`}
         >
           <Bookmark size={ICON_MD} />
           <span className="sb-item-label">随记</span>
         </NavLink>
         {hiddenWorkspace ? (
           <div
-            className="sb-item sb-route-ghost is-active"
+            className="sb-item sb-route-ghost is-active is-scope-active"
             data-sidebar-hidden-route
             style={activeIconStyle(hiddenWorkspace.activeColor)}
-            aria-current="page"
+            aria-current="location"
             aria-label={`${hiddenWorkspace.label}；当前页面，已从侧栏隐藏`}
           >
             <hiddenWorkspace.icon size={ICON_MD} />
@@ -704,10 +705,16 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
 
       <div className="sb-footer">
         <SidebarRiskStatus currentTradingDayKey={sidebarDateAnchor.currentTradingDayKey} />
-        <NavLink to="/settings" className="sb-item">
-          <Settings2 size={ICON_MD} />
-          <span className="sb-item-label">设置</span>
-        </NavLink>
+        <nav aria-label="系统导航">
+          <NavLink
+            to="/settings"
+            className={({ isActive }) => `sb-item${isActive ? ' is-active is-page-active' : ''}`}
+            aria-current={path.startsWith('/settings') ? 'page' : undefined}
+          >
+            <Settings2 size={ICON_MD} />
+            <span className="sb-item-label">设置</span>
+          </NavLink>
+        </nav>
       </div>
 
       {workspaceEditorOpen ? (
@@ -739,6 +746,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         onClose={() => setCapabilityMenu(null)}
       />
 
-    </nav>
+    </aside>
   )
 }

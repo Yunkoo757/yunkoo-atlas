@@ -1311,11 +1311,18 @@ export async function exportJournalArchive(): Promise<{ ok: boolean; path?: stri
   return result.ok ? { ok: true, path: result.path } : { ok: false }
 }
 
-/** 桌面端：整库替换导入 .journal.zip */
-export async function importJournalArchive(): Promise<{
+export async function prepareJournalArchive(prepareRequestId: string) {
+  if (!isElectron()) return { ok: false as const, error: 'Electron bridge is not available' }
+  await flushPersistNow()
+  return getJournalBridge()!.prepareJournalImport(prepareRequestId)
+}
+
+/** 只有最终确认才暂停 renderer 持久化并进入资料库切换边界。 */
+export async function commitPreparedJournalArchive(token: string): Promise<{
   ok: boolean
-  canceled?: boolean
+  committed?: boolean
   error?: string
+  code?: string
 }> {
   if (!isElectron()) return { ok: false, error: 'Electron bridge is not available' }
   const unlockInteraction = lockStorageCutoverInteraction()
@@ -1326,17 +1333,10 @@ export async function importJournalArchive(): Promise<{
     suspendPersist()
     suspended = true
     safeToFlush = false
-    const result = await getJournalBridge()!.importJournalZip()
+    const result = await getJournalBridge()!.commitPreparedJournalImport(token)
     safeToFlush = !result.committed
-    if (!result.ok) {
-      console.error('[importJournalArchive] result not ok', result.error)
-      return { ok: false, canceled: result.canceled, error: result.error }
-    }
-    // ok 表示 bridge 已完成磁盘替换；即使返回快照异常也不得再写回旧内存。
-    if (!result.snapshot) {
-      console.error('[importJournalArchive] snapshot is null after import')
-      return { ok: false, error: 'Imported archive did not contain a readable snapshot' }
-    }
+    if (!result.ok) return { ok: false, committed: result.committed, error: result.error, code: result.code }
+    if (!result.snapshot) return { ok: false, committed: true, error: '恢复后的资料库没有可读取快照' }
     getElectronAdapter().clearObjectUrlCache()
     const manifest = await getStorage().getManifest()
     clearReviewSessionStorage(manifest.libraryId)
@@ -1344,21 +1344,16 @@ export async function importJournalArchive(): Promise<{
     applySnapshotToStore(result.snapshot)
     clearSessionUiAfterLibrarySwitch()
     safeToFlush = true
-    return { ok: true }
+    return { ok: true, committed: true }
   } finally {
     try {
       if (suspended) {
-        if (safeToFlush) {
-          await resumePersistAndFlush()
-        } else {
+        if (safeToFlush) await resumePersistAndFlush()
+        else {
           discardPendingAndResumePersist()
           disablePersistWrites()
           useSaveStatus.getState().setError('完整恢复后的内存载入失败，自动保存已暂停')
-          try {
-            window.location?.reload()
-          } catch {
-            /* 正式客户端会重新载入已经替换的资料库。 */
-          }
+          try { window.location?.reload() } catch { /* 正式客户端会重启恢复 */ }
         }
       }
     } finally {

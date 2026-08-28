@@ -63,7 +63,7 @@ export function WeeklyRiskEvidence({
     const draft = availability === 'draft'
     const incompleteSnapshot = availability === 'incomplete-snapshot'
     return (
-      <section className="wr-section wr-risk-evidence" data-risk-availability={availability}>
+      <section className="wr-section wr-risk-evidence" data-weekly-section="risk" data-risk-availability={availability}>
         <div className="wr-section-head">
           <div><span>R</span><h2>风控执行</h2></div>
           <small>{draft ? '完成复盘后冻结' : incompleteSnapshot ? '快照集合不完整' : '历史记录'}</small>
@@ -94,7 +94,7 @@ export function WeeklyRiskEvidence({
   ].filter(Boolean).join(' · ')
 
   return (
-    <section className="wr-section wr-risk-evidence">
+    <section className="wr-section wr-risk-evidence" data-weekly-section="risk">
       <div className="wr-section-head"><div><span>R</span><h2>风控执行</h2></div><small>完成时冻结证据</small></div>
       <div className="wr-risk-decisions">
         <PeriodDecision label="本周风险状态" outcome={snapshot.weeklyOutcome} primary />

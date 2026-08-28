@@ -79,13 +79,29 @@ function ArchiveNavigation({
           </button>
         ))}
       </nav>
-      <div className="live-archive-tab-list" role="tablist" aria-label="历史阶段内容">
+      <div
+        className="live-archive-tab-list"
+        role="tablist"
+        aria-label="历史阶段内容"
+        onKeyDown={(event) => {
+          if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+          event.preventDefault()
+          const current = ARCHIVE_TABS.indexOf(tab)
+          const offset = event.key === 'ArrowRight' ? 1 : -1
+          const next = ARCHIVE_TABS[(current + offset + ARCHIVE_TABS.length) % ARCHIVE_TABS.length]
+          onTab(next)
+          requestAnimationFrame(() => document.getElementById(`live-archive-tab-${next}`)?.focus())
+        }}
+      >
         {ARCHIVE_TABS.map((item) => (
           <button
             key={item}
+            id={`live-archive-tab-${item}`}
             type="button"
             role="tab"
             aria-selected={tab === item}
+            aria-controls={`live-archive-panel-${item}`}
+            tabIndex={tab === item ? 0 : -1}
             className={tab === item ? 'is-active' : ''}
             data-live-archive-tab={item}
             onClick={() => onTab(item)}
@@ -331,14 +347,16 @@ export function LiveArchiveView({ header }: { header?: ReactNode } = {}) {
 
   if (tab === 'live' || tab === 'cases') {
     return (
-      <TradesPage
-        title="历史实盘"
-        listPath="/live-history"
-        filter={tab === 'cases'
-          ? { type: 'all', tradeKind: 'case', reviewCaseScope, historicalLiveScope: 'cases' }
-          : { type: 'all', tradeKind: 'live', historicalLiveScope: 'trades' }}
-        header={navigation}
-      />
+      <div id={`live-archive-panel-${tab}`} role="tabpanel" aria-labelledby={`live-archive-tab-${tab}`}>
+        <TradesPage
+          title="历史实盘"
+          listPath="/live-history"
+          filter={tab === 'cases'
+            ? { type: 'all', tradeKind: 'case', reviewCaseScope, historicalLiveScope: 'cases' }
+            : { type: 'all', tradeKind: 'live', historicalLiveScope: 'trades' }}
+          header={navigation}
+        />
+      </div>
     )
   }
 
@@ -352,7 +370,7 @@ export function LiveArchiveView({ header }: { header?: ReactNode } = {}) {
       <Topbar title="历史实盘" view={mode} onView={setMode} />
       {header}
       {navigation}
-      <div className="live-archive-scroll">
+      <div id={`live-archive-panel-${tab}`} role="tabpanel" aria-labelledby={`live-archive-tab-${tab}`} className="live-archive-scroll">
         {tab === 'overview' ? <ArchiveOverview scope={scope} /> : null}
         {tab === 'weekly' ? <ArchiveWeekly scope={scope} /> : null}
         {tab === 'risk' ? <ArchiveRisk scope={scope} /> : null}

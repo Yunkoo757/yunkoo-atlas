@@ -31,6 +31,26 @@ export type BackupRestoreResult =
   | { ok: true; committed: true; snapshot: PersistedSnapshot }
   | { ok: false; committed: boolean; error?: string }
 
+export interface PreparedJournalImportPreview {
+  token: string
+  fileName: string
+  modifiedAt: number
+  tradeCount: number
+  strategyCount: number
+  attachmentCount: number
+  attachmentBytes: number
+  verification: 'verified'
+  expiresAt: number
+}
+
+export type PrepareJournalImportResult =
+  | { ok: true; preview: PreparedJournalImportPreview }
+  | { ok: false; canceled?: boolean; error?: string }
+
+export type CommitJournalImportResult =
+  | { ok: true; committed: true; snapshot: PersistedSnapshot | null }
+  | { ok: false; committed: boolean; error?: string; code?: 'LIBRARY_BUSY' | 'TOKEN_EXPIRED' | 'SOURCE_CHANGED' }
+
 export interface StorageRecoveryRequiredState {
   code: 'storage-write-indeterminate'
   message: string
@@ -142,10 +162,9 @@ export interface JournalBridge {
     options?: { pruneUnreferenced?: boolean },
   ): Promise<boolean>
   exportJournalZip(): Promise<{ ok: true; path: string } | { ok: false }>
-  importJournalZip(): Promise<
-    | { ok: true; committed: true; snapshot: PersistedSnapshot | null }
-    | { ok: false; committed: boolean; canceled?: boolean; error?: string }
-  >
+  prepareJournalImport(prepareRequestId: string): Promise<PrepareJournalImportResult>
+  cancelPreparedJournalImport(tokenOrRequestId: string): Promise<{ ok: boolean; state: 'cancelled' | 'committing' | 'terminal' | 'missing' }>
+  commitPreparedJournalImport(token: string): Promise<CommitJournalImportResult>
   createBackup(): Promise<string | null>
   listBackups(): Promise<BackupInfo[]>
   verifyBackup(fileName: string): Promise<BackupVerificationResult>

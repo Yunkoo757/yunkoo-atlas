@@ -1133,7 +1133,7 @@ export function testSidebarSelectionPrefersExactWorkspaceItemAndMarksModifiedFil
     items: [active, saved],
   })
   assert(exact.activeWorkspaceItemId === 'saved-loss', '完整查询精确匹配时只应激活保存视图')
-  assert(exact.activePrimaryId === undefined, '保存视图精确匹配时不应同时激活核心导航')
+  assert(exact.activePrimaryId === 'trades', '保存视图精确匹配时仍应标明所属交易日志页面')
   assert(exact.modifiedWorkspaceItemId === undefined, '精确匹配不应标记 modified')
 
   const modified = resolveSidebarSelection({
@@ -1143,6 +1143,7 @@ export function testSidebarSelectionPrefersExactWorkspaceItemAndMarksModifiedFil
   })
   assert(modified.activeWorkspaceItemId === 'fixed-active', '同一路径叠加查询仍应激活固定项')
   assert(modified.modifiedWorkspaceItemId === 'fixed-active', '额外查询应把固定项标记为 modified')
+  assert(modified.activePrimaryId === 'trades', '范围被修改时仍应保留所属交易日志页面身份')
 
   const fallbacks = [
     ['/today-record', 'today'],

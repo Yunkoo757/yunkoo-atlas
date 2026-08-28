@@ -246,6 +246,22 @@
   background: var(--sb-selected-bg);
 }
 
+.sb-sortable-row.is-scope-active,
+.sb-item.is-scope-active {
+  background: color-mix(in srgb, var(--surface-nav-active) 42%, transparent);
+}
+
+.sb-sortable-row.is-scope-active > .sb-item {
+  color: var(--sb-text-hover);
+  font-weight: var(--type-nav-active-weight);
+}
+
+.sb-sortable-row.is-scope-active > .sb-item > svg,
+.sb-sortable-row.is-scope-active > .sb-item .is-nav,
+.sb-item.is-scope-active > svg {
+  opacity: 0.78;
+}
+
 .sb-sortable-row > .sb-item:hover,
 .sb-sortable-row > .sb-item.is-active {
   background: transparent;

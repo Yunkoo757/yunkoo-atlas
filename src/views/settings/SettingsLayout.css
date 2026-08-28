@@ -76,6 +76,10 @@
   padding: var(--sp-8) var(--page-inset-wide) 56px;
 }
 
+.settings-page--form { --settings-content-width: var(--page-rail-form); }
+.settings-page--reading { --settings-content-width: var(--page-rail-reading); }
+.settings-page--standard { --settings-content-width: var(--page-rail-standard); }
+
 .settings-page.has-aside {
   width: min(100%, calc(var(--settings-content-width) + 240px + var(--sp-8) + var(--page-inset-wide) + var(--page-inset-wide)));
   display: grid;
@@ -168,3 +172,10 @@
     position: static;
   }
 }
+.backup-health-status { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); margin: var(--sp-4) 0; padding: var(--sp-3) 0; border-block: 1px solid var(--border-subtle); }
+.backup-health-status > div { display: grid; gap: 2px; }
+.backup-health-status strong { color: var(--text-primary); }
+.backup-health-status span, .backup-health-status small { color: var(--text-tertiary); }
+.backup-health-status.is-positive strong { color: var(--pos); }
+.backup-health-status.is-warning strong { color: var(--warn); }
+.backup-health-status.is-danger strong { color: var(--neg); }

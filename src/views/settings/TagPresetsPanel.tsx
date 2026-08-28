@@ -15,7 +15,7 @@ export function TagPresetsPanel() {
   const removeMistakeTagPreset = useStore((s) => s.removeMistakeTagPreset)
 
   return (
-    <div className="settings-page tag-presets-panel">
+    <div className="settings-page settings-page--reading tag-presets-panel">
       <div className="settings-page-head">
         <h1 className="settings-page-title">标签管理</h1>
         <p className="settings-page-desc">
