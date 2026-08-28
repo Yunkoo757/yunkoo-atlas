@@ -3,6 +3,7 @@ import { chromium } from 'playwright'
 
 const BASE = process.env.QA_BASE_URL ?? 'http://localhost:5181'
 const EDITABLE_EDITOR = '.editor .ProseMirror[contenteditable="true"]'
+const IMAGE_RESTORE_TIMEOUT = process.env.QA_PERFORMANCE_PROFILE === 'hosted-windows' ? 90_000 : 60_000
 const pngB64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 
@@ -69,6 +70,17 @@ async function waitForDurableSave() {
   if (outcome !== 'saved') throw new Error('图片写入触发了保存失败状态')
 }
 
+async function waitForRestoredImages(expectedAssetId, expectedCount = 1) {
+  await page.waitForFunction(
+    ({ assetId, count }) => {
+      const images = [...document.querySelectorAll('.editor img[data-asset-id]')]
+      return images.length >= count && images.some((image) => image.getAttribute('data-asset-id') === assetId)
+    },
+    { assetId: expectedAssetId, count: expectedCount },
+    { timeout: IMAGE_RESTORE_TIMEOUT },
+  )
+}
+
 async function pasteAndReadImage() {
   const editor = page.locator(EDITABLE_EDITOR)
   await editor.waitFor()
@@ -96,9 +108,11 @@ async function pasteAndReadImage() {
   const imgBefore = await page.locator('.editor img').count()
   const assetIdBefore = await page.locator('.editor img').first().getAttribute('data-asset-id')
   const srcBefore = await page.locator('.editor img').first().getAttribute('src')
+  if (!assetIdBefore) throw new Error('粘贴后的图片缺少 data-asset-id')
   await waitForDurableSave()
   await page.reload({ waitUntil: 'networkidle' })
   await editor.waitFor()
+  await waitForRestoredImages(assetIdBefore)
   const imgAfter = await page.locator('.editor img').count()
   const assetIdAfter = await page.locator('.editor img').first().getAttribute('data-asset-id')
   const srcAfter = await page.locator('.editor img').first().getAttribute('src')
@@ -162,6 +176,7 @@ await createTrade('ETHUSDT')
 const secondTrade = await pasteAndReadImage()
 await page.goto(firstTrade.href, { waitUntil: 'networkidle' })
 await page.locator(EDITABLE_EDITOR).waitFor()
+await waitForRestoredImages(firstTrade.assetId, 2)
 const reopenedFirst = {
   tradeId: new URL(page.url()).pathname.split('/').pop(),
   assetId: await page.locator('.editor img').first().getAttribute('data-asset-id'),
