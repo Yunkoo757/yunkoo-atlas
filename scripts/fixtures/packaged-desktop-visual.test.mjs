@@ -27,6 +27,12 @@ const customInter = Object.freeze({
   isCustomFont: true,
   glyphCount: 8,
 })
+const customNoto = Object.freeze({
+  familyName: 'Noto Sans SC',
+  postScriptName: 'NotoSansSC-Regular',
+  isCustomFont: true,
+  glyphCount: 8,
+})
 const windowsCjk = Object.freeze({
   familyName: 'Microsoft YaHei UI',
   postScriptName: 'MicrosoftYaHeiUI',
@@ -117,7 +123,7 @@ function assertQaUsesCollectedBuildIdentity(qaSource) {
 }
 
 function createTypographyInput() {
-  const fontFamily = '"Inter Variable", Inter, system-ui, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif'
+  const fontFamily = '"Inter Variable", Inter, "Noto Sans SC Variable", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif'
   return {
     platform: 'win32',
     computed: {
@@ -144,8 +150,8 @@ function createTypographyInput() {
     },
     glyphFonts: {
       latin: [{ ...customInter, glyphCount: 23 }],
-      cjk: [{ ...windowsCjk, glyphCount: 8 }],
-      mixed: [{ ...customInter, glyphCount: 15 }, { ...windowsCjk, glyphCount: 3 }],
+      cjk: [{ ...customNoto, glyphCount: 8 }],
+      mixed: [{ ...customInter, glyphCount: 15 }, { ...customNoto, glyphCount: 3 }],
       numeric: [{ ...customInter, glyphCount: 20 }],
     },
   }
@@ -153,7 +159,7 @@ function createTypographyInput() {
 
 function createMacTypographyInput() {
   const input = createTypographyInput()
-  const fontFamily = '"Inter Variable", Inter, system-ui, "PingFang SC", "Hiragino Sans GB", sans-serif'
+  const fontFamily = '"Inter Variable", Inter, "Noto Sans SC Variable", "PingFang SC", "Hiragino Sans GB", system-ui, sans-serif'
   return {
     ...input,
     platform: 'darwin',
@@ -168,8 +174,8 @@ function createMacTypographyInput() {
     },
     glyphFonts: {
       latin: [{ ...macInter, glyphCount: 23 }],
-      cjk: [{ ...macCjk, glyphCount: 8 }],
-      mixed: [{ ...macInter, glyphCount: 15 }, { ...macCjk, glyphCount: 3 }],
+      cjk: [{ ...customNoto, glyphCount: 8 }],
+      mixed: [{ ...macInter, glyphCount: 15 }, { ...customNoto, glyphCount: 3 }],
       numeric: [{ ...macInter, glyphCount: 20 }],
     },
   }
@@ -186,6 +192,11 @@ test('typography glyph matching binds Chromium internal names to declared native
     { familyName: 'Inter', postScriptName: 'Inter', isCustomFont: false },
     '"Inter Variable", Inter, system-ui, sans-serif',
   ), false)
+  assert.equal(packagedVisualContract.isPlatformCjkGlyphFont(
+    { familyName: 'Noto Sans SC', postScriptName: 'NotoSansSC-Regular', isCustomFont: true },
+    'win32',
+    '"Inter Variable", "Noto Sans SC Variable", "Microsoft YaHei UI", sans-serif',
+  ), true)
   assert.equal(packagedVisualContract.isPlatformCjkGlyphFont(
     { familyName: 'Microsoft YaHei UI', isCustomFont: false },
     'win32',
@@ -244,7 +255,7 @@ test('macOS typography accepts only approved Inter and localized CJK family Post
   assert.equal(packagedVisualContract.buildTypographyCheckResult(createTypographyInput()).failureCount, 0)
 })
 
-test('platform CJK glyph evidence requires a non-custom font and its matching computed stack family', () => {
+test('CJK glyph evidence requires the declared bundled font or matching native fallback', () => {
   const mac = createMacTypographyInput()
   const withoutMacCjk = '"Inter Variable", Inter, system-ui, sans-serif'
   const windowsStack = '"Inter Variable", Inter, system-ui, "Microsoft YaHei UI", sans-serif'
@@ -312,15 +323,21 @@ test('platform CJK glyph evidence requires a non-custom font and its matching co
   }
 
   const windows = createTypographyInput()
+  const nativeMacStack = '"Inter Variable", Inter, "PingFang SC", "Hiragino Sans GB", system-ui, sans-serif'
   const result = packagedVisualContract.buildTypographyCheckResult({
     ...windows,
     computed: {
       ...windows.computed,
       probes: {
         ...windows.computed.probes,
-        cjk: { fontFamily: mac.computed.probes.cjk.fontFamily },
-        mixed: { fontFamily: mac.computed.probes.mixed.fontFamily },
+        cjk: { fontFamily: nativeMacStack },
+        mixed: { fontFamily: nativeMacStack },
       },
+    },
+    glyphFonts: {
+      ...windows.glyphFonts,
+      cjk: [windowsCjk],
+      mixed: [customInter, windowsCjk],
     },
   })
   assert.equal(result.checks.find(({ id }) => id === 'typography-cjk-sans')?.pass, false)

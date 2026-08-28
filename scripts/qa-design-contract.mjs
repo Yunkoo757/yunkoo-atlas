@@ -72,9 +72,12 @@ const checks = [
   ['sidebar width', tokens.includes('--sidebar-width: 244px')],
   [
     'sidebar navigation keeps the measured hierarchy',
-    sidebarStyles.includes('--sb-text: var(--text-tertiary)') &&
-      /\.sb-item\s*\{[^}]*height:\s*var\(--control-height\);[^}]*font-size:\s*var\(--type-row-size\);[^}]*font-weight:\s*var\(--font-weight-normal\);[^}]*color:\s*var\(--sb-text\);[^}]*line-height:\s*var\(--type-row-line-height\);/s.test(sidebarStyles) &&
-      /\.sb-section-label\s*\{[^}]*height:\s*24px;[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*letter-spacing:\s*0;/s.test(sidebarStyles),
+    sidebarStyles.includes('--sb-text: var(--text-nav-rest)') &&
+      sidebarStyles.includes('--sb-text-hover: var(--text-nav-hover)') &&
+      sidebarStyles.includes('--sb-text-strong: var(--text-nav-active)') &&
+      /\.sb-item\s*\{[^}]*height:\s*var\(--control-height\);[^}]*font-size:\s*var\(--type-nav-size\);[^}]*font-weight:\s*var\(--type-nav-weight\);[^}]*color:\s*var\(--sb-text\);[^}]*line-height:\s*var\(--type-nav-line-height\);/s.test(sidebarStyles) &&
+      /\.sb-item\.is-active,[\s\S]*?font-weight:\s*var\(--type-nav-active-weight\);/s.test(sidebarStyles) &&
+      /\.sb-section-label\s*\{[^}]*height:\s*24px;[^}]*font-size:\s*var\(--type-chip-size\);[^}]*font-weight:\s*var\(--type-chip-weight\);[^}]*letter-spacing:\s*0;/s.test(sidebarStyles),
   ],
   [
     'sidebar navigation uses the global keyboard focus frame',
@@ -100,12 +103,15 @@ const checks = [
       !tokens.includes('(pointer: coarse)'),
   ],
   [
-    'desktop typography uses bundled Inter Variable with CJK system fallbacks',
+    'desktop typography uses bundled Inter and Noto Sans SC with native fallbacks',
     main.includes("@fontsource-variable/inter") &&
+      main.includes("@fontsource-variable/noto-sans-sc") &&
       !main.includes('@fontsource/geist-sans') &&
       tokens.includes('"Inter Variable"') &&
+      tokens.includes('"Noto Sans SC Variable"') &&
       tokens.includes('"PingFang SC"') &&
-      tokens.includes('"Microsoft YaHei UI"'),
+      tokens.includes('"Microsoft YaHei UI"') &&
+      tokens.indexOf('"Noto Sans SC Variable"') < tokens.indexOf('system-ui'),
   ],
   [
     'desktop icon constants match the 14 16 18 20 24 optical scale',
@@ -181,23 +187,23 @@ const checks = [
     /\.sb-workspace-menu\s*\{[^}]*width:\s*24px;[^}]*height:\s*24px;/s.test(sidebarWorkspaceStyles),
   ],
   [
-    'trade chips use the canonical caption typography',
-    /\.trade-row-tag,[\s\S]*?font-family:\s*var\(--font-ui\);[\s\S]*?font-size:\s*var\(--type-caption-size\);[\s\S]*?font-weight:\s*var\(--font-weight-medium\);[\s\S]*?font-feature-settings:\s*normal;[\s\S]*?line-height:\s*var\(--type-caption-line-height\);/s.test(
+    'trade chips use the canonical chip typography',
+    /\.trade-row-tag,[\s\S]*?font-family:\s*var\(--font-ui\);[\s\S]*?font-size:\s*var\(--type-chip-size\);[\s\S]*?font-weight:\s*var\(--type-chip-weight\);[\s\S]*?font-feature-settings:\s*normal;[\s\S]*?line-height:\s*var\(--type-chip-line-height\);/s.test(
       tradeListStyles,
     ),
   ],
   [
     'filters and actions use their canonical semantic typography roles',
-    /\.ui-filter-trigger,\s*\n\.ui-filter-chip\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(
+    /\.ui-filter-trigger,\s*\n\.ui-filter-chip\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--type-metadata-weight\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(
       filterBarStyles,
     ) &&
-      /\.quick-view-chip,\s*\n\.quick-view-overflow\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(
+      /\.quick-view-chip,\s*\n\.quick-view-overflow\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--type-metadata-weight\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(
         quickViewStyles,
       ) &&
       /\.tb-btn\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-row-size\);[^}]*font-weight:\s*var\(--font-weight-normal\);[^}]*line-height:\s*var\(--type-row-line-height\);/s.test(
         topbarStyles,
       ) &&
-      /\.ui-btn,[\s\S]*?font-family:\s*var\(--font-ui\);[\s\S]*?font-size:\s*var\(--type-row-size\);[\s\S]*?font-weight:\s*var\(--font-weight-medium\);[\s\S]*?line-height:\s*var\(--type-row-line-height\);/s.test(
+      /\.ui-btn,[\s\S]*?font-family:\s*var\(--font-ui\);[\s\S]*?font-size:\s*var\(--type-row-size\);[\s\S]*?font-weight:\s*var\(--type-row-weight\);[\s\S]*?line-height:\s*var\(--type-row-line-height\);/s.test(
         buttonStyles,
       ),
   ],

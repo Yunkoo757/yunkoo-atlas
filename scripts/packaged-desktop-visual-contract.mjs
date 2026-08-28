@@ -124,6 +124,12 @@ function declaredFontFamilyIncludes(declaredFontFamily, expectedFamily) {
 }
 
 export function isPlatformCjkGlyphFont(font, platform, declaredFontFamily) {
+  const declaresBundledNoto = declaredFontFamilyIncludes(declaredFontFamily, 'Noto Sans SC Variable')
+  if (declaresBundledNoto) {
+    return font?.isCustomFont === true &&
+      font?.familyName === 'Noto Sans SC' &&
+      /^NotoSansSC(?:-Regular)?$/i.test(font?.postScriptName ?? '')
+  }
   if (font?.isCustomFont !== false) return false
   const familyName = font?.familyName?.toLowerCase()
   if (platform === 'win32') {
