@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useId,
   useLayoutEffect,
   useMemo,
@@ -186,6 +187,11 @@ export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayK
     return () => cancelAnimationFrame(frame)
   }, [open, updatePosition])
 
+  useEffect(() => {
+    if (!open || !position) return
+    popoverRef.current?.focus({ preventScroll: true })
+  }, [open, position])
+
   useLayoutEffect(() => {
     if (!open) return
     const handlePointerDown = (event: MouseEvent) => {
@@ -222,11 +228,17 @@ export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayK
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popoverId}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (open) {
+            close()
+            return
+          }
+          setPosition(null)
+          setOpen(true)
+        }}
       >
         <Shield size={ICON_MD} aria-hidden="true" />
         <strong>{summary.label}</strong>
-        <span className="sb-risk-value" aria-hidden="true">{summary.value}</span>
       </button>
       {open ? createPortal(
         <div
@@ -234,6 +246,7 @@ export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayK
           id={popoverId}
           className={`sb-risk-popover is-${summary.kind}`}
           role="dialog"
+          tabIndex={-1}
           aria-label="风险使用情况"
           style={position ?? { visibility: 'hidden' }}
         >

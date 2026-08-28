@@ -423,6 +423,7 @@ export async function testSidebarTargetPickerConfiguresVisibilityNotDuplicatePin
 export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContract(): Promise<void> {
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/components/Sidebar.tsx', 'utf8')
+  const editor = await fs.readFile('src/components/sidebar/SidebarWorkspaceEditor.tsx', 'utf8')
   const defaultSystemTargets = DEFAULT_DISPLAY.sidebarWorkspaceItems
     .filter((item) => item.target.kind === 'system')
     .map((item) => item.target.kind === 'system' ? item.target.id : '')
@@ -473,9 +474,10 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   assert(source.includes("if (target.id === 'missed') return true"), '聚合错过入口不得因当前工作区被隐藏')
   assert(source.includes('buildCapabilityVisibilityItems'), 'Sidebar 应在能力项就地配置可见工作区')
   assert(source.includes('countSidebarTarget'), 'Sidebar 应通过统一计数函数计算条目数量')
-  assert(source.includes('reorderSidebarWorkspaceItem'), 'Sidebar 应支持工作区项自定义拖拽排序')
+  assert(editor.includes('reorderSidebarWorkspaceItem'), '侧栏管理器应支持工作区项自定义拖拽排序')
   assert(source.includes('data-primary-id'), '工作区主导航必须提供排序命中区')
-  assert(source.includes('primaryDragSession'), '工作区主导航必须支持带阈值的指针拖拽会话')
+  assert(editor.includes('reorderPrimarySidebarItem'), '工作区主导航排序必须收口到管理器')
+  assert(!source.includes('sb-row-drag-handle'), '日常侧栏不得同时显示来源菜单和拖拽抓手')
   assert(source.includes('sidebarPrimaryOrder'), 'Sidebar 必须读取并持久化用户工作区顺序')
   assert(source.includes('<StrategyIcon'), '侧栏策略入口必须复用真实策略图标组件')
   assert(
@@ -777,6 +779,21 @@ export function testPrimarySidebarKeepsLegacyOrderCompatibleButRendersCanonicalO
     '拖动工作区入口必须生成可持久化的新顺序',
   )
   assert(
+    reorderPrimarySidebarItem(undefined, 'trades', 'dashboard').join(',')
+      === 'dashboard,trades,weeklyReview,reviewCases,reviewSession',
+    '相邻工作区入口向下移动时不得原地不动',
+  )
+  assert(
+    reorderPrimarySidebarItem(undefined, 'dashboard', 'trades').join(',')
+      === 'dashboard,trades,weeklyReview,reviewCases,reviewSession',
+    '相邻工作区入口向上移动时必须保持对称语义',
+  )
+  assert(
+    reorderPrimarySidebarItem(undefined, 'trades', 'trades').join(',')
+      === 'trades,dashboard,weeklyReview,reviewCases,reviewSession',
+    '拖到自身时不得改变工作区入口顺序',
+  )
+  assert(
     resolvePrimarySidebarNav(['reviewSession', 'trades']).map((item) => item.id).join(',')
       === 'reviewSession,trades,dashboard,weeklyReview,reviewCases',
     '侧栏必须按已保存顺序渲染并补齐新增入口',
@@ -785,9 +802,10 @@ export function testPrimarySidebarKeepsLegacyOrderCompatibleButRendersCanonicalO
 
 export async function testDesktopShellDisablesAccidentalSelectionAndAnimatesModalExit(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [globalCss, sidebarSource, exitSource, menuSource, selectSource, filterSource] = await Promise.all([
+  const [globalCss, sidebarSource, sidebarEditorSource, exitSource, menuSource, selectSource, filterSource] = await Promise.all([
     fs.readFile('src/styles/global.css', 'utf8'),
     fs.readFile('src/components/Sidebar.tsx', 'utf8'),
+    fs.readFile('src/components/sidebar/SidebarWorkspaceEditor.tsx', 'utf8'),
     fs.readFile('src/components/ui/useExitClone.ts', 'utf8'),
     fs.readFile('src/components/Menu.tsx', 'utf8'),
     fs.readFile('src/components/ui/Select.tsx', 'utf8'),
@@ -796,9 +814,10 @@ export async function testDesktopShellDisablesAccidentalSelectionAndAnimatesModa
   assert(/body\s*\{[\s\S]*?user-select:\s*none;/.test(globalCss), '应用外壳应禁用普通文本拖选')
   assert(globalCss.includes("[contenteditable='true']") && globalCss.includes('user-select: text'), '编辑区必须保留文字选择能力')
   assert(sidebarSource.includes('data-primary-id'), '工作区主导航必须提供排序命中区')
-  assert(sidebarSource.includes('primaryDragSession'), '工作区主导航必须支持带阈值的指针拖拽会话')
+  assert(sidebarEditorSource.includes('reorderPrimarySidebarItem'), '工作区主导航必须在管理器中支持排序')
   assert(sidebarSource.includes('sidebarPrimaryOrder'), 'Sidebar 必须读取并写入用户工作区顺序')
-  assert(sidebarSource.includes('reorderSidebarWorkspaceItem'), '我的空间仍应支持自定义排序')
+  assert(sidebarEditorSource.includes('reorderSidebarWorkspaceItem'), '我的空间仍应在管理器中支持自定义排序')
+  assert(!sidebarSource.includes('sb-row-drag-handle'), '日常侧栏不得暴露拖拽抓手')
   assert(!sidebarSource.includes('sb-workspace-drag-ghost'), '侧栏拖拽不得生成跟随鼠标的浮动窗口')
   assert(exitSource.includes('appendExitClone'), '条件卸载弹层应保留离场快照')
   for (const [name, source] of [

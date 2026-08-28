@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   useId,
+  type CSSProperties,
   type ReactNode,
   type RefObject,
 } from 'react'
@@ -66,7 +67,10 @@ type FlatItem =
     }
   | { kind: 'row'; key: string; trade: Trade; groupKey: string; openProgress: number }
 
-const ROW_HEIGHT = 44
+const ROW_HEIGHTS = {
+  default: 52,
+  comfortable: 52,
+} as const
 const HEADER_CONTENT_HEIGHT = 36
 const HEADER_VERTICAL_GAP = 8
 const HEADER_HEIGHT = HEADER_CONTENT_HEIGHT + HEADER_VERTICAL_GAP
@@ -178,6 +182,7 @@ export function TradeList({
   selectionEnabled = true,
   overscan = 14,
   strategyStageScope,
+  density = 'default',
 }: {
   groups: TradeListGroup[]
   strategies: Strategy[]
@@ -200,6 +205,8 @@ export function TradeList({
   overscan?: number
   /** 策略表现的显式 stage；paper/省略时保持当前实盘预览口径。 */
   strategyStageScope?: StageScope
+  /** 保留视图密度语义；桌面端列表当前统一使用 52px 基线。 */
+  density?: keyof typeof ROW_HEIGHTS
 }) {
   const listInstanceId = useId().replace(/:/g, '')
   const listRef = useRef<HTMLDivElement>(null)
@@ -210,6 +217,7 @@ export function TradeList({
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const profile = useStore((state) => state.profile)
   const businessDateAnchor = useBusinessDateAnchor()
+  const rowHeight = ROW_HEIGHTS[density]
   /** 分组展开进度 0..1；缺省视为 1 */
   const [openProgressByGroup, setOpenProgressByGroup] = useState<Map<string, number>>(
     () => new Map(),
@@ -341,9 +349,9 @@ export function TradeList({
     getScrollElement,
     estimateSize: (index) => {
       const item = flatItems[index]
-      if (!item) return ROW_HEIGHT
+      if (!item) return rowHeight
       if (item.kind === 'header') return HEADER_HEIGHT
-      return Math.max(0, ROW_HEIGHT * item.openProgress)
+      return Math.max(0, rowHeight * item.openProgress)
     },
     overscan,
     rangeExtractor: (range: Range) => {
@@ -359,7 +367,7 @@ export function TradeList({
 
   useEffect(() => {
     virtualizer.measure()
-  }, [openProgressByGroup, flatItems.length, virtualizer])
+  }, [openProgressByGroup, flatItems.length, rowHeight, virtualizer])
 
   const ensureGroupExpandedForTrade = useCallback(
     (tradeId: string) => {
@@ -443,11 +451,19 @@ export function TradeList({
       ) : null}
       <TradeListColumns />
       <div
-      className={'trade-list trade-list-virtual' + (selectionMode || selectedIds.size > 0 ? ' is-selection-mode' : '')}
+      className={
+        'trade-list trade-list-virtual' +
+        (density === 'comfortable' ? ' is-comfortable' : '') +
+        (selectionMode || selectedIds.size > 0 ? ' is-selection-mode' : '')
+      }
       role="list"
       aria-label={`${recordLabel}列表，共 ${flatItems.filter((item) => item.kind === 'row').length} 条，${flatItems.filter((item) => item.kind === 'header').length} 个分组`}
       ref={listRef}
-      style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
+      style={{
+        '--trade-row-height': `${rowHeight}px`,
+        height: virtualizer.getTotalSize(),
+        position: 'relative',
+      } as CSSProperties}
     >
       {virtualItems.map((virtualRow) => {
         const item = flatItems[virtualRow.index]
@@ -482,7 +498,7 @@ export function TradeList({
                   : undefined,
               minHeight:
                 item.kind === 'row' && item.openProgress >= 0.999
-                  ? ROW_HEIGHT
+                  ? rowHeight
                   : undefined,
               zIndex: isSticky ? 3 : item.kind === 'header' ? 2 : 1,
               opacity: rowOpacity,

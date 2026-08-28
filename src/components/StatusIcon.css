@@ -8,6 +8,34 @@
   animation: status-icon-pop 220ms cubic-bezier(0.5, 1.4, 0.4, 1) both;
 }
 
+/* 列表中的方向是固定信息列，不使用胶囊；交易、案例与回收站共享同一尺寸和色阶。 */
+.side-tag.is-quiet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
+  letter-spacing: 0;
+  line-height: var(--type-chip-line-height);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.side-tag.is-quiet[data-side='long'] {
+  color: color-mix(in srgb, var(--pos) 68%, var(--text-tertiary));
+}
+
+.side-tag.is-quiet[data-side='short'] {
+  color: color-mix(in srgb, var(--neg) 68%, var(--text-tertiary));
+}
+
 @keyframes status-icon-pop {
   from {
     transform: scale(0.5);

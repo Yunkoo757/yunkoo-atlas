@@ -13,7 +13,10 @@ export async function testTradeListGroupTogglePreservesInteractionContract(): Pr
   assert(source.includes('animateGroupTo'), '分组开合必须走动画进度，而非瞬间删行')
   assert(source.includes('EASE_OUT_QUART'), '折叠缓动必须使用统一 ease-out-quart')
   assert(source.includes('COLLAPSE_MS'), '折叠时长必须使用统一布局动效')
-  assert(source.includes('ROW_HEIGHT * item.openProgress'), '行高必须随 openProgress 平滑收展')
+  assert(source.includes('rowHeight * item.openProgress'), '当前密度行高必须随 openProgress 平滑收展')
+  assert(source.includes('default: 52'), '交易日志必须使用统一的 52px 列表行高')
+  assert(source.includes('comfortable: 52'), '案例列表必须使用统一的 52px 列表行高')
+  assert(source.includes("'--trade-row-height': `${rowHeight}px`"), '虚拟估算与 CSS 行高必须共享同一密度值')
   assert(source.includes('DisclosureChevron'), '分组折叠必须使用语义化 DisclosureChevron')
   assert(source.includes('StatusIndicator'), '复盘分组头应使用语义化状态图标')
   assert(source.includes('rotate(${90 * item.openProgress}deg)'), '展开时箭头应从朝右旋至朝下')
@@ -73,6 +76,17 @@ export async function testTradeListColumnsShareRowGridAndStickyOrder(): Promise<
   assert(source.includes("top: isSticky ? 'var(--trade-list-columns-height)'"), '月份标题必须吸附在列标题下方')
 }
 
+export async function testTradeAndCaseListsShareComfortableRowHeight(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/views/ListView.tsx', 'utf8')
+  assert(
+    source.includes("density={filter.tradeKind === 'case' ? 'comfortable' : 'default'}"),
+    '交易和案例可以保留密度语义，但必须共享同一行高基线',
+  )
+  const list = await fs.readFile('src/components/trades/TradeList.tsx', 'utf8')
+  assert(list.includes('default: 52') && list.includes('comfortable: 52'), '交易与案例行高必须一致')
+}
+
 export async function testTradeSelectionAppearsOnlyOnIntent(): Promise<void> {
   const fs = await import('node:fs/promises')
   const css = await fs.readFile('src/components/trades/TradeList.css', 'utf8')
@@ -80,4 +94,28 @@ export async function testTradeSelectionAppearsOnlyOnIntent(): Promise<void> {
   assert(css.includes('.trade-row:focus-within .trade-row-check'), '键盘焦点进入行时必须显示选择框')
   assert(css.includes('.trade-list.is-selection-mode .trade-row-check'), '选择模式必须持续显示选择框')
   assert(css.includes('.trade-row-star.is-starred'), '星标状态必须保持可见但不抢夺主信息')
+}
+
+export async function testTradeListVisualAlignmentContract(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const css = await fs.readFile('src/components/trades/TradeList.css', 'utf8')
+  const trash = await fs.readFile('src/views/TrashView.css', 'utf8')
+  const sidebar = await fs.readFile('src/components/Sidebar.css', 'utf8')
+
+  assert(
+    css.includes('.trade-list-column:is(.is-timeframe, .is-pnl, .is-r, .is-date) { text-align: right; }'),
+    '周期、盈亏、R 与日期标题必须和正文统一右对齐',
+  )
+  assert(css.includes('grid-template-columns: 11ch 18px'), '品种与多空方向必须使用稳定列宽')
+  assert(
+    /\.trade-row-strategy\s*\{[\s\S]*?min-height:\s*20px;[\s\S]*?border-radius:\s*var\(--radius-full\);/.test(css),
+    '策略与标签必须共享胶囊语义',
+  )
+  assert(trash.includes('height: var(--trade-row-height, 52px)'), '回收站必须共享 52px 列表行高')
+  assert(trash.includes('grid-template-columns: 9ch 18px minmax(0, 1fr)'), '回收站品种与方向也必须固定对齐')
+  assert(!trash.includes('.trash-item.is-selected'), '回收站选中态不得额外铺整行底色或左侧强调线')
+  assert(
+    /\.sb-risk-summary\s*\{[\s\S]*?grid-template-columns:\s*16px minmax\(0, 1fr\);[\s\S]*?gap:\s*9px;[\s\S]*?padding:\s*0 10px;/.test(sidebar),
+    '风险入口与设置入口必须共享侧栏基线',
+  )
 }

@@ -1,4 +1,7 @@
 .ui-filter-shell {
+  --filter-chip-border-rest: color-mix(in srgb, var(--list-text-secondary) 18%, transparent);
+  --filter-chip-border-hover: color-mix(in srgb, var(--list-text-secondary) 28%, transparent);
+
   position: relative;
   flex: 0 0 auto;
 }
@@ -36,7 +39,7 @@
 }
 
 .ui-filter-chip {
-  border: 1px solid var(--surface-control-border);
+  border: 1px solid var(--filter-chip-border-rest);
   background: var(--surface-control);
 }
 
@@ -62,7 +65,17 @@
 .ui-filter-chip:hover {
   color: var(--list-text-strong);
   background: var(--surface-control-hover);
-  border-color: transparent;
+  border-color: var(--filter-chip-border-hover);
+}
+
+.ui-filter-trigger:hover {
+  border-color: var(--filter-chip-border-rest);
+}
+
+.ui-filter-chip-static:hover {
+  color: var(--list-text-secondary);
+  background: var(--surface-control);
+  border-color: var(--filter-chip-border-rest);
 }
 
 .ui-filter-trigger.has-filters,

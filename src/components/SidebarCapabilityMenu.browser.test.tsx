@@ -203,38 +203,32 @@ async function run(): Promise<void> {
       '当前位置必须使用独立且清晰的导航高亮表面，不能复用弱于 hover 的通用 selected 底色',
     )
     activeProbe.remove()
-    const firstPrimary = document.querySelector<HTMLAnchorElement>('a[data-primary-id="dashboard"]')
-    assert(firstPrimary, '缺少统计分析主导航')
-    const primaryHandle = document.querySelector<HTMLButtonElement>('[aria-label="排序 交易日志"]')
-    assert(primaryHandle, '交易日志必须提供与“更多”分组一致的独立拖拽抓手')
-    const sourceRect = primaryHandle.getBoundingClientRect()
-    const targetRect = firstPrimary.getBoundingClientRect()
-    const pointerId = 17
-    primaryHandle.dispatchEvent(new PointerEvent('pointerdown', {
-      bubbles: true,
-      button: 0,
-      buttons: 1,
-      pointerId,
-      clientX: sourceRect.left + sourceRect.width / 2,
-      clientY: sourceRect.top + sourceRect.height / 2,
-    }))
-    primaryHandle.dispatchEvent(new PointerEvent('pointermove', {
-      bubbles: true,
-      buttons: 1,
-      pointerId,
-      clientX: targetRect.left + targetRect.width / 2,
-      clientY: targetRect.top + targetRect.height / 2,
-    }))
-    primaryHandle.dispatchEvent(new PointerEvent('pointerup', {
-      bubbles: true,
-      button: 0,
-      pointerId,
-      clientX: targetRect.left + targetRect.width / 2,
-      clientY: targetRect.top + targetRect.height / 2,
-    }))
+    assert(!document.querySelector('.sb-row-drag-handle'), '日常侧栏不应同时暴露来源菜单和排序抓手')
+    const manageButton = document.querySelector<HTMLButtonElement>('.sb-workspace-manage')
+    assert(manageButton, '缺少添加或管理入口')
+    manageButton.click()
+    await waitFor(
+      () => document.querySelector('[data-sidebar-primary-item="trades"]') !== null,
+      '管理器没有呈现工作区导航排序列表',
+    )
+    for (let index = 0; index < 4; index += 1) {
+      const primaryHandle = document.querySelector<HTMLButtonElement>(
+        '[data-sidebar-primary-item="trades"] [aria-label="排序 交易日志"]',
+      )
+      assert(primaryHandle, '管理器必须提供交易日志排序抓手')
+      primaryHandle.dispatchEvent(new KeyboardEvent('keydown', {
+        bubbles: true,
+        altKey: true,
+        key: 'ArrowUp',
+      }))
+      await frame()
+    }
+    const commitButton = document.querySelector<HTMLButtonElement>('.sb-editor-actions .is-primary')
+    assert(commitButton, '管理器缺少完成按钮')
+    commitButton.click()
     await waitFor(
       () => useStore.getState().display.sidebarPrimaryOrder?.at(0) === 'trades',
-      '拖动工作区入口后没有持久化新顺序',
+      '在管理器调整工作区入口后没有持久化新顺序',
     )
     primary.focus()
     await frame()
@@ -254,8 +248,8 @@ async function run(): Promise<void> {
 
     assert(document.querySelector('[data-sidebar-workspace-id="system:missed"]'), '用户保存的错过机会入口不得被渲染层静默隐藏')
     assert(document.querySelector('[data-sidebar-workspace-id="system:active"]'), '用户保存的进行中入口不得被渲染层静默隐藏')
-    assert(document.querySelector('[aria-label="排序 错过的机会"]'), '系统快捷项必须使用统一拖拽抓手')
-    assert(document.querySelector('[aria-label="排序 进行中"]'), '系统快捷项必须使用统一拖拽抓手')
+    assert(!document.querySelector('[aria-label="排序 错过的机会"]'), '系统快捷项排序必须收口到管理器')
+    assert(!document.querySelector('[aria-label="排序 进行中"]'), '系统快捷项排序必须收口到管理器')
 
     const strategyMenu = document.querySelector<HTMLButtonElement>('[aria-label="导航1包含来源"]')
     assert(strategyMenu, '策略项必须提供包含来源菜单')

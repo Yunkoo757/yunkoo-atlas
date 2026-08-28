@@ -1,5 +1,8 @@
 .trade-list {
   --trade-list-columns-height: 28px;
+  --trade-strategy-border-rest: color-mix(in srgb, var(--list-text-secondary) 16%, transparent);
+  --trade-strategy-border-hover: color-mix(in srgb, var(--list-text-secondary) 26%, transparent);
+  --trade-tag-border-rest: color-mix(in srgb, var(--list-text-secondary) 13%, transparent);
 
   min-width: 0;
 }
@@ -39,7 +42,7 @@
   white-space: nowrap;
 }
 
-.trade-list-column:is(.is-pnl, .is-r) { text-align: right; }
+.trade-list-column:is(.is-timeframe, .is-pnl, .is-r, .is-date) { text-align: right; }
 .trade-list-column.is-end { text-align: center; }
 
 .trade-list-virtual {
@@ -428,7 +431,8 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 }
 
 .trade-row-symbol {
-  display: flex;
+  display: grid;
+  grid-template-columns: 11ch 18px;
   column-gap: var(--sp-1);
   align-items: center;
   /* 品种名按内容完整展示，不在此截断 */
@@ -445,11 +449,12 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 }
 
 .trade-row-symbol-main {
-  display: flex;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
   column-gap: 6px;
   align-items: center;
   flex: 0 0 auto;
-  width: auto;
+  width: 11ch;
   min-width: 0;
 }
 
@@ -460,45 +465,16 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 }
 
 .trade-row-symbol strong {
-  flex: 0 0 auto;
-  width: auto;
-  max-width: none;
-  overflow: visible;
+  min-width: 0;
+  overflow: hidden;
   color: var(--list-text-strong);
   font-family: var(--font-ui);
   font-size: var(--type-list-primary-size);
   font-weight: var(--type-list-primary-weight);
   line-height: var(--type-list-primary-line-height);
   font-variant-numeric: var(--numeric-tabular);
+  text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* 固定透明多空槽：保留对齐与中文语义，不再制造连续封闭色块 */
-.trade-row .side-tag.is-quiet {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  min-width: 18px;
-  height: 18px;
-  margin-left: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-size: var(--type-chip-size);
-  font-weight: var(--type-chip-weight);
-  letter-spacing: 0;
-  line-height: var(--type-chip-line-height);
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-}
-
-.trade-row .side-tag.is-quiet[data-side='long'] {
-  color: color-mix(in srgb, var(--pos) 68%, var(--text-tertiary));
-}
-
-.trade-row .side-tag.is-quiet[data-side='short'] {
-  color: color-mix(in srgb, var(--neg) 68%, var(--text-tertiary));
 }
 
 .trade-row-tags > .hover-preview-anchor {
@@ -511,17 +487,18 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   display: inline-flex;
   align-items: center;
   flex: 0 1 auto;
-  width: 100%;
+  width: auto;
   min-width: 0;
   max-width: 100%;
-  height: 24px;
+  height: auto;
+  min-height: 20px;
   margin-right: var(--sp-1);
-  padding: 0 var(--sp-1);
+  padding: 1px 7px;
   overflow: hidden;
   color: var(--list-text-secondary);
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-6);
+  border: 1px solid var(--trade-strategy-border-rest);
+  border-radius: var(--radius-full);
   box-shadow: none;
   cursor: pointer;
   pointer-events: auto;
@@ -535,7 +512,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 .trade-row-strategy:hover {
   color: var(--list-text-primary);
   background: var(--bg-hover);
-  border-color: var(--border-subtle);
+  border-color: var(--trade-strategy-border-hover);
   box-shadow: none;
 }
 
@@ -549,7 +526,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 .trade-row-strategy:focus-visible {
   color: var(--list-text-primary);
   background: var(--bg-hover);
-  border-color: transparent;
+  border-color: var(--trade-strategy-border-hover);
   box-shadow: var(--focus-ring-shadow);
 }
 
@@ -624,7 +601,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   text-overflow: ellipsis;
   white-space: nowrap;
   background: transparent;
-  border: 1px solid var(--tag-neutral-border);
+  border: 1px solid var(--trade-tag-border-rest);
   border-radius: var(--radius-full);
 }
 
@@ -660,7 +637,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 .trade-row-tag.is-review {
   color: var(--text-tertiary);
   background: transparent;
-  border-color: var(--tag-neutral-border);
+  border-color: var(--trade-tag-border-rest);
 }
 
 .trade-row-more {

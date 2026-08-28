@@ -162,7 +162,7 @@
     84px 56px 64px 76px 52px;
   column-gap: var(--sp-3);
   align-items: center;
-  height: var(--trade-row-height, 36px);
+  height: var(--trade-row-height, 52px);
   margin: 0 var(--sp-2);
   padding: 0 10px;
   border-radius: var(--radius-8);
@@ -174,15 +174,8 @@
 .trash-item:hover {
   background: var(--bg-hover);
 }
-.trash-item.is-selected {
-  background: var(--bg-selected);
-  box-shadow: inset 2px 0 0 var(--accent);
-}
-.trash-item.is-urgent:not(.is-selected) {
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--warn-action) 70%, transparent);
-}
 
-/* 勾选改用 SelectionBox（.selection-box）；保留行态 */
+/* 选中语义仅由 SelectionBox 表达，与交易日志和案例列表保持一致。 */
 
 .trash-item-status {
   display: grid;
@@ -205,16 +198,20 @@
 }
 .trash-item-meta {
   display: grid;
-  grid-template-columns: max-content 22px minmax(0, 1fr);
+  grid-template-columns: 9ch 18px minmax(0, 1fr);
   column-gap: var(--sp-2);
   align-items: center;
   min-width: 0;
 }
 .trash-item-symbol {
+  min-width: 0;
+  overflow: hidden;
   font-size: var(--fs-sm);
   font-weight: 600;
   letter-spacing: 0;
   color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .trash-item-meta .strategy-label,
 .trash-item-meta .strategy-icon-wrap {
@@ -253,6 +250,7 @@
   font-variant-numeric: var(--numeric-tabular);
   font-feature-settings: "tnum" 1, "kern" 1;
   white-space: nowrap;
+  text-align: right;
 }
 
 .trash-item-days {

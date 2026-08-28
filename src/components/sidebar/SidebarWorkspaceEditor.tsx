@@ -14,6 +14,13 @@ import {
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 import { SidebarTargetPicker } from '@/components/sidebar/SidebarTargetPicker'
+import {
+  DEFAULT_PRIMARY_SIDEBAR_ORDER,
+  normalizePrimarySidebarOrder,
+  reorderPrimarySidebarItem,
+  resolvePrimarySidebarNav,
+  type PrimarySidebarNavId,
+} from '@/lib/sidebarNav'
 
 export type SidebarTargetSources = {
   savedViews: SavedTradeView[]
@@ -22,8 +29,9 @@ export type SidebarTargetSources = {
 
 export type SidebarWorkspaceEditorProps = {
   items: SidebarWorkspaceItem[]
+  primaryOrder: PrimarySidebarNavId[]
   sources: SidebarTargetSources
-  onCommit: (items: SidebarWorkspaceItem[]) => void
+  onCommit: (items: SidebarWorkspaceItem[], primaryOrder: PrimarySidebarNavId[]) => void
   onCancel: () => void
   variant?: 'popover' | 'mobile-fullscreen'
   /** 打开时滚到对应分组，便于从侧栏「更多 · 管理」直达 */
@@ -45,6 +53,7 @@ function reindex(items: SidebarWorkspaceItem[]): SidebarWorkspaceItem[] {
 
 export function SidebarWorkspaceEditor({
   items,
+  primaryOrder,
   sources,
   onCommit,
   onCancel,
@@ -55,7 +64,11 @@ export function SidebarWorkspaceEditor({
     sanitizeSidebarWorkspaceItems(items, sources)
       .map((item) => ({ ...item, target: { ...item.target } })),
   )
+  const [primaryDraft, setPrimaryDraft] = useState<PrimarySidebarNavId[]>(() =>
+    normalizePrimarySidebarOrder(primaryOrder),
+  )
   const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [draggedPrimaryId, setDraggedPrimaryId] = useState<PrimarySidebarNavId | null>(null)
   const [removal, setRemoval] = useState<Removal | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [confirmDefaults, setConfirmDefaults] = useState(false)
@@ -66,6 +79,7 @@ export function SidebarWorkspaceEditor({
   const pinnedItems = draft.filter((item) => item.placement === 'pinned')
   const overflowItems = draft.filter((item) => item.placement === 'overflow')
   const pinnedCount = pinnedItems.length
+  const primaryItems = resolvePrimarySidebarNav(primaryDraft)
 
   useEffect(() => {
     titleRef.current?.focus()
@@ -130,6 +144,23 @@ export function SidebarWorkspaceEditor({
     const index = group.findIndex((item) => item.id === itemId)
     const target = group[index + direction]
     if (target) applyMove(itemId, target.id, placement)
+  }
+
+  const movePrimary = (itemId: PrimarySidebarNavId, targetId: PrimarySidebarNavId) => {
+    if (itemId === targetId) return
+    const next = reorderPrimarySidebarItem(primaryDraft, itemId, targetId)
+    setPrimaryDraft(next)
+    const moved = resolvePrimarySidebarNav(next).find((item) => item.id === itemId)
+    if (!moved) return
+    setAnnouncement(
+      `${moved.label} 已移动到工作区第 ${next.indexOf(itemId) + 1} 项，共 ${next.length} 项`,
+    )
+  }
+
+  const movePrimaryByKeyboard = (itemId: PrimarySidebarNavId, direction: -1 | 1) => {
+    const index = primaryDraft.indexOf(itemId)
+    const targetId = primaryDraft[index + direction]
+    if (targetId) movePrimary(itemId, targetId)
   }
 
   const applyMove = (
@@ -250,6 +281,77 @@ export function SidebarWorkspaceEditor({
     )
   }
 
+  const renderPrimaryRow = (
+    item: (typeof primaryItems)[number],
+    index: number,
+  ) => {
+    const descriptionId = `sidebar-primary-sort-description-${item.id}`
+    return (
+      <div
+        key={item.id}
+        className="sb-editor-item"
+        data-sidebar-primary-item={item.id}
+        onDragOver={(event) => {
+          event.preventDefault()
+          event.dataTransfer.dropEffect = 'move'
+        }}
+        onDrop={(event) => {
+          event.preventDefault()
+          const sourceId = (draggedPrimaryId ?? event.dataTransfer.getData('text/plain')) as PrimarySidebarNavId
+          if (primaryDraft.includes(sourceId)) movePrimary(sourceId, item.id)
+          setDraggedPrimaryId(null)
+        }}
+      >
+        <button
+          type="button"
+          className="sb-editor-sort-handle"
+          aria-label={`排序 ${item.label}`}
+          aria-describedby={descriptionId}
+          draggable={variant !== 'mobile-fullscreen'}
+          onDragStart={(event) => {
+            setDraggedPrimaryId(item.id)
+            event.dataTransfer.effectAllowed = 'move'
+            event.dataTransfer.setData('text/plain', item.id)
+          }}
+          onDragEnd={() => setDraggedPrimaryId(null)}
+          onKeyDown={(event) => {
+            if (event.altKey && event.key === 'ArrowUp') {
+              event.preventDefault()
+              movePrimaryByKeyboard(item.id, -1)
+            } else if (event.altKey && event.key === 'ArrowDown') {
+              event.preventDefault()
+              movePrimaryByKeyboard(item.id, 1)
+            }
+          }}
+        >
+          <GripVertical size={ICON_MD} aria-hidden="true" />
+        </button>
+        <span id={descriptionId} className="sb-screen-reader">
+          工作区第 {index + 1} 项，共 {primaryItems.length} 项。使用 Alt + 上/下方向键排序
+        </span>
+        <span className="sb-editor-item-label">{item.label}</span>
+        <span className="sb-editor-mobile-moves">
+          <button
+            type="button"
+            aria-label={`上移 ${item.label}`}
+            disabled={index === 0}
+            onClick={() => movePrimaryByKeyboard(item.id, -1)}
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            aria-label={`下移 ${item.label}`}
+            disabled={index === primaryItems.length - 1}
+            onClick={() => movePrimaryByKeyboard(item.id, 1)}
+          >
+            ↓
+          </button>
+        </span>
+      </div>
+    )
+  }
+
   return (
     <section
       id={SIDEBAR_WORKSPACE_EDITOR_ID}
@@ -335,6 +437,13 @@ export function SidebarWorkspaceEditor({
       ) : (
         <>
           <div className="sb-editor-list">
+            <section className="sb-editor-group" aria-label="工作区导航">
+              <header className="sb-editor-group-header">
+                <h3>工作区导航</h3>
+                <span>{primaryItems.length}</span>
+              </header>
+              {primaryItems.map(renderPrimaryRow)}
+            </section>
             <section className="sb-editor-group" aria-label="常驻侧栏">
               <header className="sb-editor-group-header">
                 <h3>常驻侧栏</h3>
@@ -391,6 +500,7 @@ export function SidebarWorkspaceEditor({
                   type="button"
                   onClick={() => {
                     setDraft(migrateSidebarPins(DEFAULT_SIDEBAR_PINS))
+                    setPrimaryDraft([...DEFAULT_PRIMARY_SIDEBAR_ORDER])
                     setRemoval(null)
                     setConfirmDefaults(false)
                   }}
@@ -422,7 +532,7 @@ export function SidebarWorkspaceEditor({
         <button
           type="button"
           className="is-primary"
-          onClick={() => onCommit(normalizeSidebarWorkspaceItems(draft))}
+          onClick={() => onCommit(normalizeSidebarWorkspaceItems(draft), primaryDraft)}
         >
           完成
         </button>

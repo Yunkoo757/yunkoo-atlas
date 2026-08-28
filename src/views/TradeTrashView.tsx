@@ -302,11 +302,7 @@ export function TradeTrashView() {
                         key={trade.id}
                         role="listitem"
                         onContextMenu={(event) => openContextMenu(event, trade)}
-                        className={
-                          'trash-item' +
-                          (isUrgent ? ' is-urgent' : '') +
-                          (isSelected ? ' is-selected' : '')
-                        }
+                        className="trash-item"
                       >
                         <SelectionBox
                           checked={isSelected}

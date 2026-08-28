@@ -381,6 +381,7 @@ export function ListView({
             onCreate={openComposer}
             recordLabel={filter.tradeKind === 'case' ? '案例记录' : '交易'}
             strategyStageScope={stageScope}
+            density={filter.tradeKind === 'case' ? 'comfortable' : 'default'}
           />
         )}
       </div>

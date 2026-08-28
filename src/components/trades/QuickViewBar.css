@@ -1,4 +1,7 @@
 .quick-view-bar {
+  --quick-view-border-rest: color-mix(in srgb, var(--list-text-secondary) 18%, transparent);
+  --quick-view-border-hover: color-mix(in srgb, var(--list-text-secondary) 28%, transparent);
+
   position: relative;
   display: flex;
   align-items: center;
@@ -34,7 +37,7 @@
   font-weight: var(--type-metadata-weight);
   line-height: var(--type-metadata-line-height);
   /* 描边用 border（盒内），避免外扩 shadow / ::after 在非整数 DPR 或 overflow 下被裁 */
-  border: 1px solid var(--surface-control-border);
+  border: 1px solid var(--quick-view-border-rest);
   border-radius: var(--radius-full);
   background: transparent;
   box-shadow: none;
@@ -66,7 +69,7 @@
 .quick-view-overflow:hover {
   color: var(--list-text-primary);
   background: var(--surface-control-hover);
-  border-color: transparent;
+  border-color: var(--quick-view-border-hover);
 }
 
 .quick-view-chip.is-active,

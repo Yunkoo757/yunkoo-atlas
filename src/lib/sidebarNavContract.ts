@@ -37,8 +37,10 @@ export function reorderPrimarySidebarItem(
 ): PrimarySidebarNavId[] {
   const order = normalizePrimarySidebarOrder(input)
   if (sourceId === targetId || !order.includes(sourceId) || !order.includes(targetId)) return order
-  const withoutSource = order.filter((id) => id !== sourceId)
-  const targetIndex = withoutSource.indexOf(targetId)
-  withoutSource.splice(targetIndex, 0, sourceId)
-  return withoutSource
+  const fromIndex = order.indexOf(sourceId)
+  const toIndex = order.indexOf(targetId)
+  const next = [...order]
+  const [moved] = next.splice(fromIndex, 1)
+  next.splice(toIndex, 0, moved)
+  return next
 }
