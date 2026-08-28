@@ -283,8 +283,8 @@ async function collectTypographyEvidence(page, hostPlatform) {
   }
 }
 
-async function collectMetrics(page) {
-  return page.evaluate(() => {
+async function collectMetrics(page, scenario) {
+  return page.evaluate((horizontalScrollSelector) => {
     const visible = (element) => {
       if (!(element instanceof HTMLElement)) return false
       const style = getComputedStyle(element)
@@ -312,10 +312,28 @@ async function collectMetrics(page) {
       }))
     const documentScrollWidth = document.documentElement.scrollWidth
     const documentClientWidth = document.documentElement.clientWidth
+    const horizontalScrollContainers = ['.list-scroll', '.trash-content', '.live-archive-scroll', '.board-scroll']
+      .map((selector) => {
+        const element = document.querySelector(selector)
+        if (!(element instanceof HTMLElement)) return null
+        const overflowPx = Math.max(0, element.scrollWidth - element.clientWidth)
+        return {
+          selector,
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+          overflowPx,
+          intentional: selector === horizontalScrollSelector,
+        }
+      })
+      .filter(Boolean)
     return {
       documentScrollWidth,
       documentClientWidth,
       horizontalOverflowPx: Math.max(0, documentScrollWidth - documentClientWidth),
+      horizontalScrollContainers,
+      unintendedHorizontalOverflowPx: horizontalScrollContainers
+        .filter((entry) => !entry.intentional)
+        .reduce((total, entry) => total + entry.overflowPx, 0),
       documentScrollHeight: document.documentElement.scrollHeight,
       viewport: { width: innerWidth, height: innerHeight, devicePixelRatio },
       mainBounds: rect(document.querySelector('#main-content')),
@@ -323,7 +341,7 @@ async function collectMetrics(page) {
       primaryActions,
       visibleTextCharacters: document.body.innerText.replace(/\s+/g, '').length,
     }
-  })
+  }, scenario.horizontalScrollSelector ?? null)
 }
 
 function capturePath(runtimeRoot, viewport, scenario) {
@@ -348,7 +366,7 @@ async function captureScenario({
   await navigate(scenario.path)
   await waitForVisualSettlement(page, scenario.ready)
   await afterSettlement?.()
-  const metrics = await collectMetrics(page)
+  const metrics = await collectMetrics(page, scenario)
   await page.screenshot({ path: screenshot, fullPage: false, animations: 'disabled' })
   return {
     build,
@@ -660,7 +678,8 @@ export async function runDesktopVisualQa({
       pageErrors: result.captures.flatMap((capture) => capture.pageErrors),
       metrics: {
         captureCount: result.captures.length,
-        overflowCaptureCount: result.captures.filter((capture) => capture.metrics.horizontalOverflowPx > 0).length,
+        overflowCaptureCount: result.captures.filter((capture) =>
+          capture.metrics.horizontalOverflowPx > 0 || capture.metrics.unintendedHorizontalOverflowPx > 0).length,
       },
       typography: result.typography,
       isolation: result.isolation,

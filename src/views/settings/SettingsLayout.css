@@ -72,7 +72,7 @@
   box-sizing: border-box;
   width: min(100%, calc(var(--settings-content-width) + var(--page-inset-wide) + var(--page-inset-wide)));
   max-width: none;
-  margin: 0 auto;
+  margin: 0;
   padding: var(--sp-8) var(--page-inset-wide) 56px;
 }
 

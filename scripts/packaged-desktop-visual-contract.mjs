@@ -402,6 +402,9 @@ export function validatePackagedVisualReport(report) {
     if (capture.horizontalOverflowPx !== 0) {
       throw new Error(`Capture ${capture.id ?? 'unknown'} contains horizontal overflow`)
     }
+    if ((capture.unintendedHorizontalOverflowPx ?? 0) !== 0) {
+      throw new Error(`Capture ${capture.id ?? 'unknown'} contains unintended scroll-container overflow`)
+    }
   }
   if (!Array.isArray(report.checks)) throw new Error('Packaged visual platform checks are required')
   for (const id of requiredChecks) {

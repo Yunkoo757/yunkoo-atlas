@@ -93,7 +93,7 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
 
   for (const contract of [
     '--trade-group-height: 36px',
-    '--trade-row-height: 44px',
+    '--trade-row-height: 52px',
     '--toolbar-chip-height: 28px',
     '--surface-row-selected: lch(10.691% 0.493 272 / 1)',
     '--surface-group: lch(7.67% 0.75 272 / 1)',
@@ -130,7 +130,7 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   if (!quickViews.includes('.quick-view-chip::after') || !quickViews.includes('box-shadow: var(--surface-control-shadow-active)')) {
     throw new Error('quick-view pills must retain the calibrated ::after contract layer')
   }
-  if (!quickViews.includes('border: 1px solid var(--surface-control-border)')) {
+  if (!quickViews.includes('border: 1px solid var(--quick-view-border-rest)')) {
     throw new Error('quick-view pills must paint the 1px ring with inset border, not outward box-shadow')
   }
   if (quickViews.includes('box-shadow: var(--surface-control-shadow);')) {
@@ -142,7 +142,7 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   if (!filterBar.includes('padding: 0 15px 0 8px')) {
     throw new Error('filter toolbar must share the calibrated 8px leading inset')
   }
-  if (!filterBar.includes('border: 1px solid var(--surface-control-border)')) {
+  if (!filterBar.includes('border: 1px solid var(--filter-chip-border-rest)')) {
     throw new Error('filter chips must paint the 1px ring with inset border, not outward box-shadow')
   }
   if (filterBar.includes('box-shadow: var(--surface-control-shadow)')) {

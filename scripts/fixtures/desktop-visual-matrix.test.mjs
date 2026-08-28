@@ -35,12 +35,14 @@ test('desktop visual matrix owns every supported window and core route', () => {
     { width: 1440, height: 900 },
     { width: 1600, height: 1000 },
     { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
   ])
   assert.deepEqual(
     DESKTOP_VISUAL_SCENARIOS.map(({ id, path }) => [id, path]),
     [
       ['today', '/today-record'],
       ['trades', '/list'],
+      ['board', '/board'],
       ['detail', '/trade/TRD-131'],
       ['dashboard', '/dashboard'],
       ['weekly', '/weekly-review'],
@@ -237,7 +239,7 @@ test('desktop visual report fails closed on runtime errors or horizontal overflo
   }), true)
 })
 
-test('desktop visual report requires the exact unique 5 by 24 capture matrix', () => {
+test('desktop visual report requires the exact unique 6 by 25 capture matrix', () => {
   const captures = createDesktopCaptures()
   const clean = {
     consoleErrors: [],

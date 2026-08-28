@@ -4,11 +4,13 @@ export const DESKTOP_VISUAL_VIEWPORTS = Object.freeze([
   Object.freeze({ width: 1440, height: 900 }),
   Object.freeze({ width: 1600, height: 1000 }),
   Object.freeze({ width: 1920, height: 1080 }),
+  Object.freeze({ width: 2560, height: 1440 }),
 ])
 
 export const DESKTOP_VISUAL_SCENARIOS = Object.freeze([
   Object.freeze({ id: 'today', path: '/today-record', ready: '.trade-list' }),
   Object.freeze({ id: 'trades', path: '/list', ready: '.trade-list' }),
+  Object.freeze({ id: 'board', path: '/board', ready: '.board-scroll', horizontalScrollSelector: '.board-scroll' }),
   Object.freeze({ id: 'detail', path: '/trade/TRD-131', ready: '.trade-detail-layout' }),
   Object.freeze({ id: 'dashboard', path: '/dashboard', ready: '.db-scroll' }),
   Object.freeze({ id: 'weekly', path: '/weekly-review', ready: '.wr-shell' }),

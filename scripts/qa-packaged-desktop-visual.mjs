@@ -427,18 +427,38 @@ try {
         typography = await collectTypographyEvidence(page, hostPlatform)
         for (const check of typography.checks) record(check.id, check.pass, check.detail)
       }
-      const metrics = await page.evaluate(() => ({
-        actualViewport: {
-          width: window.innerWidth,
-          height: window.innerHeight,
-        },
-        scrollWidth: document.documentElement.scrollWidth,
-        clientWidth: document.documentElement.clientWidth,
-        horizontalOverflowPx: Math.max(
-          0,
-          document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        ),
-      }))
+      const metrics = await page.evaluate((horizontalScrollSelector) => {
+        const horizontalScrollContainers = ['.list-scroll', '.trash-content', '.live-archive-scroll', '.board-scroll']
+          .map((selector) => {
+            const element = document.querySelector(selector)
+            if (!(element instanceof HTMLElement)) return null
+            const overflowPx = Math.max(0, element.scrollWidth - element.clientWidth)
+            return {
+              selector,
+              scrollWidth: element.scrollWidth,
+              clientWidth: element.clientWidth,
+              overflowPx,
+              intentional: selector === horizontalScrollSelector,
+            }
+          })
+          .filter(Boolean)
+        return {
+          actualViewport: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          },
+          scrollWidth: document.documentElement.scrollWidth,
+          clientWidth: document.documentElement.clientWidth,
+          horizontalOverflowPx: Math.max(
+            0,
+            document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          ),
+          horizontalScrollContainers,
+          unintendedHorizontalOverflowPx: horizontalScrollContainers
+            .filter((entry) => !entry.intentional)
+            .reduce((total, entry) => total + entry.overflowPx, 0),
+        }
+      }, scenario.horizontalScrollSelector ?? null)
       const directory = join(outputRoot, `${viewport.width}x${viewport.height}`)
       mkdirSync(directory, { recursive: true })
       const screenshotPath = join(directory, `${scenario.id}.png`)
@@ -451,6 +471,8 @@ try {
         screenshot: relative(root, screenshotPath).replaceAll('\\', '/'),
         errors: [...diagnostics],
         horizontalOverflowPx: metrics.horizontalOverflowPx,
+        horizontalScrollContainers: metrics.horizontalScrollContainers,
+        unintendedHorizontalOverflowPx: metrics.unintendedHorizontalOverflowPx,
       })
     }
   }

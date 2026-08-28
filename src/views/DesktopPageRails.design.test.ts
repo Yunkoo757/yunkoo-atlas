@@ -9,14 +9,15 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
-export function testSettingsPagesOwnOneCenteredContentRail(): void {
+export function testSettingsPagesUseExplicitStartAlignedContentRoles(): void {
   const css = read('src/views/settings/SettingsLayout.css')
   assert(
     css.includes('--settings-content-width: var(--page-rail-form)'),
     '设置页必须消费语义化表单内容轨道',
   )
   assert(css.includes('.settings-aside'), '设置页必须为解释或预览保留可选辅助轨道')
-  assert(css.includes('margin: 0 auto'), '设置内容必须在宽桌面窗口中保持居中')
+  assert(css.includes('margin: 0'), '设置内容必须从内容起始边稳定对齐')
+  assert(css.includes('.settings-page.has-aside'), '设置页必须显式区分单列表单与带辅助区布局')
   assert(!css.includes('safe-area-inset'), '桌面设置页不得保留手机安全区布局')
 }
 
@@ -31,6 +32,13 @@ export function testCoreDesktopPagesConsumeSemanticRails(): void {
   for (const [file, token] of contracts) {
     const css = read(file)
     assert(css.includes(`var(${token})`), `${file} 必须消费 ${token}`)
+  }
+}
+
+export function testDataWorkbenchesUseTheFullMainPaneInsteadOfAContentRail(): void {
+  for (const file of ['src/views/ListView.css', 'src/views/TrashView.css', 'src/views/LiveArchiveView.css']) {
+    const css = read(file)
+    assert(!/var\(--page-rail-(?:wide|standard|reading|form)\)/.test(css), `${file} 数据工作台不得套用居中内容轨道`)
   }
 }
 
