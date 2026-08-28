@@ -83,7 +83,7 @@ function riskRuleBlocks(source: string): string[] {
 
 const APPROVED_RISK_TOKENS = new Set([
   '--accent', '--bg-elevated', '--bg-inset', '--bg-surface', '--border-strong', '--border-subtle',
-  '--font-ui', '--neg', '--numeric-tabular', '--pos', '--radius-6', '--radius-8', '--risk-progress',
+  '--font-ui', '--font-weight-semibold', '--neg', '--numeric-tabular', '--pos', '--radius-6', '--radius-8', '--risk-progress',
   '--sp-1', '--sp-2', '--sp-3', '--sp-4', '--sp-5', '--text-body', '--text-muted', '--text-strong',
   '--type-body-size', '--type-metadata-size', '--type-section-title-size', '--warn',
 ])
