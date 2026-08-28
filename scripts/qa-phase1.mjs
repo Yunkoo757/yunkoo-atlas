@@ -95,7 +95,7 @@ try {
 
   // 6. 错过的机会页
   await page.goto(`${BASE}/missed`, { waitUntil: 'networkidle' })
-  await page.waitForURL((url) => url.pathname === '/list' && url.searchParams.get('view') === 'missed')
+  await page.waitForURL((url) => url.pathname === '/missed')
   const missedTitle = await page.getByText('错过的机会').first().isVisible()
   record('错过的机会页可访问', missedTitle)
   await page.screenshot({ path: join(OUT, '03-missed.png') })
