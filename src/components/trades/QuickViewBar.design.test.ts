@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
 export function testPinnedQuickViewsDoNotRepeatTheirVisibleNameInTooltip(): void {
-  const source = readFileSync(path.resolve('src/components/trades/QuickViewBar.tsx'), 'utf8')
+  const source = readFileSync(path.resolve('src/components/trades/QuickViewBar.tsx'), 'utf8').replace(/\r\n/g, '\n')
   const pinnedStart = source.indexOf('{pinned.map((view) => (')
   const pinnedEnd = source.indexOf('</button>\n        ))}', pinnedStart)
   if (pinnedStart < 0 || pinnedEnd < 0) {
