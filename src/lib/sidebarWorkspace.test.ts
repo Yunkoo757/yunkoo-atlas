@@ -4,6 +4,8 @@ import {
   countSidebarTarget,
   normalizeStrategySources,
   parseStrategySourcesSearch,
+  resolveSidebarSelection,
+  resolveSidebarWorkspaceItem,
   setStrategySourceEnabled,
   writeStrategySourcesSearch,
 } from '@/lib/sidebarWorkspace'
@@ -119,6 +121,32 @@ export function testStrategySourcesDefaultToCurrentLiveAndCanCombine(): void {
   const refused = setStrategySourceEnabled(items, 'strategy-1', 'trade', false)
   const stillHasCase = setStrategySourceEnabled(refused, 'strategy-1', 'case', false)
   assert(stillHasCase === refused, '最后一个来源不得被关掉')
+}
+
+export function testSidebarSelectionSurvivesLegacyWorkspaceRedirects(): void {
+  const sources = { savedViews: [], strategies: [] }
+  const items = [
+    { id: 'system:favorites', target: { kind: 'system' as const, id: 'favorites' as const }, placement: 'pinned' as const, order: 0 },
+    { id: 'system:missed', target: { kind: 'system' as const, id: 'missed' as const, workspaces: ['trade' as const] }, placement: 'pinned' as const, order: 1 },
+    { id: 'system:paper', target: { kind: 'system' as const, id: 'paper' as const }, placement: 'pinned' as const, order: 2 },
+  ].map((item) => resolveSidebarWorkspaceItem(item, sources))
+
+  const redirectedLocations = [
+    ['/list', '?view=starred', 'system:favorites'],
+    ['/list', '?view=missed', 'system:missed'],
+    ['/list', '?kind=paper', 'system:paper'],
+  ] as const
+
+  for (const [pathname, search, expectedId] of redirectedLocations) {
+    const selection = resolveSidebarSelection({ pathname, search, items })
+    assert(
+      selection.activeWorkspaceItemId === expectedId,
+      `${pathname}${search} 必须继续激活重定向前的工作区入口 ${expectedId}`,
+    )
+  }
+
+  const today = resolveSidebarSelection({ pathname: '/list', search: '?view=incomplete', items })
+  assert(today.activePrimaryId === 'today', '今日入口重定向后必须继续激活今日导航')
 }
 
 export function testCaseSidebarCountIncludesHistoricalCases(): void {

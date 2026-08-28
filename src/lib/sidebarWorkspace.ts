@@ -76,8 +76,8 @@ const CAPABILITY_ROUTES: Record<
 > = {
   'trade:missed': { pathname: '/missed', search: '', icon: 'missed' },
   'trade:active': { pathname: '/active', search: '', icon: 'active' },
-  'paper:missed': { pathname: '/sim', search: '?status=missed', icon: 'missed' },
-  'paper:active': { pathname: '/sim', search: '?status=open', icon: 'active' },
+  'paper:missed': { pathname: '/sim', search: '?filter=missed', icon: 'missed' },
+  'paper:active': { pathname: '/sim', search: '?filter=active', icon: 'active' },
   'case:missed': { pathname: '/review-cases', search: '?caseType=missed', icon: 'missed' },
   'case:active': null,
 }
@@ -593,6 +593,40 @@ function canonicalSearch(search: string): string {
     .join('&')
 }
 
+/** 将兼容入口与工作台最终地址收敛为同一导航身份。 */
+function canonicalSelectionLocation(pathname: string, search: string): {
+  pathname: string
+  search: string
+} {
+  let path = normalizeTargetPath(pathname)
+  const params = new URLSearchParams(search)
+
+  const legacyFilter = params.get('filter')
+  if (legacyFilter) params.set('view', legacyFilter)
+  if (params.get('source') === 'paper') params.set('kind', 'paper')
+  params.delete('filter')
+  params.delete('source')
+
+  if (path === '/active') {
+    path = '/list'
+    params.set('view', 'active')
+  } else if (path === '/favorites') {
+    path = '/list'
+    params.set('view', 'starred')
+  } else if (path === '/missed') {
+    path = '/list'
+    params.set('view', 'missed')
+  } else if (path === '/today-record') {
+    path = '/list'
+    params.set('view', 'incomplete')
+  } else if (path === '/sim') {
+    path = '/list'
+    params.set('kind', 'paper')
+  }
+
+  return { pathname: path, search: canonicalSearch(params.toString()) }
+}
+
 function isStrictSearchSubset(targetSearch: string, currentSearch: string): boolean {
   const target = new URLSearchParams(targetSearch)
   const current = new URLSearchParams(currentSearch)
@@ -600,9 +634,10 @@ function isStrictSearchSubset(targetSearch: string, currentSearch: string): bool
   return [...target.entries()].every(([key, value]) => current.getAll(key).includes(value))
 }
 
-function primaryIdForPath(pathname: string): PrimarySidebarNavId | undefined {
-  const path = normalizeTargetPath(pathname)
-  if (path === '/today-record') return 'today'
+function primaryIdForLocation(pathname: string, search: string): PrimarySidebarNavId | undefined {
+  const location = canonicalSelectionLocation(pathname, search)
+  const path = location.pathname
+  if (path === '/list' && new URLSearchParams(location.search).get('view') === 'incomplete') return 'today'
   if (path === '/notes' || path.startsWith('/notes/')) return 'quickNotes'
   if (path.startsWith('/review-cases')) return 'reviewCases'
   if (path === '/weekly-review') return 'weeklyReview'
@@ -627,9 +662,11 @@ function routesMatch(
   rightPath: string,
   rightSearch: string,
 ): boolean {
+  const left = canonicalSelectionLocation(leftPath, leftSearch)
+  const right = canonicalSelectionLocation(rightPath, rightSearch)
   return (
-    normalizeTargetPath(leftPath) === normalizeTargetPath(rightPath) &&
-    canonicalSearch(leftSearch) === canonicalSearch(rightSearch)
+    left.pathname === right.pathname &&
+    left.search === right.search
   )
 }
 
@@ -643,6 +680,7 @@ export function resolveSidebarSelection(options: {
   modifiedWorkspaceItemId?: string
 } {
   const pathname = normalizeTargetPath(options.pathname)
+  const currentLocation = canonicalSelectionLocation(pathname, options.search)
   const validItems = options.items.filter((item) => !item.invalid && !item.inactive)
 
   const exact = validItems
@@ -666,9 +704,11 @@ export function resolveSidebarSelection(options: {
           ? capabilityNavRoutes(target.id, systemCapabilityWorkspaces(target))
           : [{ pathname: item.pathname, search: item.search }]
       return candidates.some(
-        (route) =>
-          normalizeTargetPath(route.pathname) === pathname &&
-          isStrictSearchSubset(route.search, options.search),
+        (route) => {
+          const candidate = canonicalSelectionLocation(route.pathname, route.search)
+          return candidate.pathname === currentLocation.pathname
+            && isStrictSearchSubset(candidate.search, currentLocation.search)
+        },
       )
     })
     .sort(
@@ -681,7 +721,7 @@ export function resolveSidebarSelection(options: {
       modifiedWorkspaceItemId: modified.item.id,
     }
   }
-  return { activePrimaryId: primaryIdForPath(pathname) }
+  return { activePrimaryId: primaryIdForLocation(pathname, options.search) }
 }
 
 function listTargetForPath(pathname: string, search = ''): ListFilter | undefined {

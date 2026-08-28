@@ -254,6 +254,19 @@
   --text-nav-rest: lch(62% 1 272 / 1);
   --text-nav-hover: lch(72% 1 272 / 1);
   --text-nav-active: lch(88% 0.8 272 / 1);
+  /* 侧栏当前位置：文字保持中性，图标用低面积色相帮助快速定位模块。 */
+  --nav-icon-today: lch(80% 90 85);
+  --nav-icon-notes: lch(72% 48 175);
+  --nav-icon-trades: lch(66% 42 252);
+  --nav-icon-cases: lch(68% 52 310);
+  --nav-icon-weekly: lch(70% 44 200);
+  --nav-icon-review-session: lch(58% 55 288);
+  --nav-icon-dashboard: lch(68% 46 145);
+  --nav-icon-ws-active: lch(78% 72 88);
+  --nav-icon-ws-favorites: lch(80% 90 85);
+  --nav-icon-ws-missed: lch(66% 80 48);
+  --nav-icon-ws-paper: lch(62% 52 275);
+  --nav-icon-ws-case: lch(68% 50 310);
   --text-list-strong: lch(88% 0.8 272 / 1);
   --text-list-secondary: lch(64% 1 272 / 1);
   --text-chip: lch(64% 1 272 / 1);

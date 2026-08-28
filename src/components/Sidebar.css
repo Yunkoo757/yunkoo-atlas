@@ -344,25 +344,21 @@ html[data-ui-settled='1'] .sb-item {
   font-weight: var(--font-weight-normal);
 }
 
-/* 产品导航只保留一个强调来源，避免页面切换时形成彩色图标矩阵。 */
-.sidebar .sb-item.is-active > svg,
-.sidebar .sb-item.is-active .is-nav,
-.sidebar .sb-sortable-row.is-active > .sb-item > svg,
-.sidebar .sb-sortable-row.is-active > .sb-item .is-nav {
-  color: var(--sb-text-strong);
-}
-
-/* 策略项：默认灰，选中才显策略色 */
+/* 所有入口共用一条激活色通道，颜色由渲染模型注入，避免新增入口漏配选择器。 */
 .sb-item .is-nav {
   color: var(--sb-text);
 }
 .sb-item .is-nav svg {
   color: inherit;
 }
-.sb-item.is-active .is-nav {
-  color: var(--sb-strategy-color);
+.sb-item.is-active > svg,
+.sb-sortable-row.is-active > .sb-item > svg,
+.sb-item.is-active .is-nav,
+.sb-sortable-row.is-active > .sb-item .is-nav {
+  color: var(--sb-active-icon-color, var(--sb-text-strong));
 }
-.sb-item.is-active .is-nav svg {
+.sb-item.is-active .is-nav svg,
+.sb-sortable-row.is-active > .sb-item .is-nav svg {
   color: inherit;
 }
 .sb-item-count {

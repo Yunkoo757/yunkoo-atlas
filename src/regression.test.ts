@@ -323,7 +323,7 @@ export function testCapabilityPinsStaySingleWithWorkspaceVisibility(): void {
   }
   const activeRoute = resolveCapabilityNavRoute('active', ['trade', 'paper'], '/sim')
   assert(
-    activeRoute.pathname === '/sim' && activeRoute.search === '?status=open',
+    activeRoute.pathname === '/sim' && activeRoute.search === '?filter=active',
     '进行中能力仍应优先解析当前工作区',
   )
   assert(resolveCapabilityRoute('active', 'case') === null, '案例不得配置进行中能力')

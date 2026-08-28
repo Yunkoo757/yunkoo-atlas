@@ -119,3 +119,17 @@ export async function testTradeListVisualAlignmentContract(): Promise<void> {
     '风险入口与设置入口必须共享侧栏基线',
   )
 }
+
+export async function testSymbolIconsUseQuietCircularSurface(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const css = await fs.readFile('src/components/SymbolIcon.css', 'utf8')
+  const panelCss = await fs.readFile('src/views/settings/SymbolsPanel.css', 'utf8')
+  const presets = await fs.readFile('src/lib/symbolIcons.ts', 'utf8')
+  const component = await fs.readFile('src/components/SymbolIcon.tsx', 'utf8')
+
+  assert(css.includes('border-radius: var(--radius-full)'), '品种图标必须使用统一圆形容器')
+  assert(css.includes('currentColor 8%'), '圆章只允许极弱内描边，不得恢复厚重边框')
+  assert(panelCss.includes('.symbols-preset-swatch') && panelCss.includes('border-radius: var(--radius-full)'), '设置页预设缩略图必须与正式品种图标同为圆形')
+  assert(presets.includes('SYMBOL_ICON_SURFACE_TINT = 12'), '品种圆章色底必须固定为低噪声 12%')
+  assert(component.includes("resolved.glyph.length > 1 ? 0.46 : 0.56"), '单双字符必须使用稳定光学比例')
+}

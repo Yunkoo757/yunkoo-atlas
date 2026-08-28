@@ -3,7 +3,7 @@
   place-items: center;
   flex-shrink: 0;
   overflow: hidden;
-  border-radius: var(--icon-tile-radius);
+  border-radius: var(--radius-full);
   border: none;
   line-height: 1;
   user-select: none;
@@ -18,14 +18,15 @@
 .symbol-icon.is-glyph {
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 8%, transparent);
 }
 
 .symbol-icon.is-svg {
-  /* 与 glyph 同契约：仅软色底，无描边 */
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 8%, transparent);
 }
 
 .symbol-icon.is-image {
-  border: 1px solid color-mix(in srgb, var(--border-default) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-default) 54%, transparent);
 }
 
 .symbol-label {

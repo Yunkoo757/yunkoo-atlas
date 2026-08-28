@@ -45,23 +45,38 @@ export type ResolvedSymbolIcon =
       label: string
     }
 
+/** A「柔和圆章」：只保留足以识别资产的色彩空气感，避免列表形成彩色徽章墙。 */
+export const SYMBOL_ICON_SURFACE_TINT = 12
+
+function symbolSurface(color: string): string {
+  return `color-mix(in srgb, ${color} ${SYMBOL_ICON_SURFACE_TINT}%, transparent)`
+}
+
+function glyphPreset(
+  id: string,
+  label: string,
+  glyph: string,
+  color: string,
+): SymbolIconPreset {
+  return { id, label, glyph, color, background: symbolSurface(color) }
+}
+
 export const SYMBOL_ICON_PRESETS: SymbolIconPreset[] = [
-  { id: 'btc', label: 'Bitcoin', glyph: '₿', color: '#F7931A', background: 'color-mix(in srgb, #F7931A 20%, transparent)' },
-  { id: 'eth', label: 'Ethereum', glyph: 'Ξ', color: '#8B9CFF', background: 'color-mix(in srgb, #627EEA 20%, transparent)' },
-  { id: 'sol', label: 'Solana', glyph: '◎', color: '#14F195', background: 'color-mix(in srgb, #9945FF 20%, transparent)' },
-  { id: 'bnb', label: 'BNB', glyph: 'B', color: '#F3BA2F', background: 'color-mix(in srgb, #F3BA2F 20%, transparent)' },
-  { id: 'sui', label: 'Sui', glyph: 'S', color: '#4DA2FF', background: 'color-mix(in srgb, #4DA2FF 20%, transparent)' },
-  { id: 'xrp', label: 'XRP', glyph: 'X', color: '#E5E7EB', background: 'color-mix(in srgb, #23292F 20%, transparent)' },
-  /* A1：金/银用平面 glyph，去掉立体金条以免抢戏 */
-  { id: 'gold', label: '黄金', glyph: 'Au', color: '#E8C547', background: 'color-mix(in srgb, #C99212 20%, transparent)' },
-  { id: 'silver', label: '白银', glyph: 'Ag', color: '#C5CDD8', background: 'color-mix(in srgb, #8B95A5 20%, transparent)' },
-  { id: 'forex', label: '外汇', glyph: 'Fx', color: '#7DD3FC', background: 'color-mix(in srgb, #0EA5E9 20%, transparent)' },
-  { id: 'eur', label: '欧元', glyph: '€', color: '#60A5FA', background: 'color-mix(in srgb, #2563EB 20%, transparent)' },
-  { id: 'gbp', label: '英镑', glyph: '£', color: '#F9A8D4', background: 'color-mix(in srgb, #DB2777 20%, transparent)' },
-  { id: 'jpy', label: '日元', glyph: '¥', color: '#FCA5A5', background: 'color-mix(in srgb, #DC2626 20%, transparent)' },
-  { id: 'aud', label: '澳元', glyph: 'A$', color: '#86EFAC', background: 'color-mix(in srgb, #16A34A 20%, transparent)' },
-  { id: 'usd', label: '美元', glyph: '$', color: '#86EFAC', background: 'color-mix(in srgb, #15803D 20%, transparent)' },
-  { id: 'index', label: '指数', glyph: 'Ix', color: '#C4B5FD', background: 'color-mix(in srgb, #7C3AED 20%, transparent)' },
+  glyphPreset('btc', 'Bitcoin', '₿', '#F2A33A'),
+  glyphPreset('eth', 'Ethereum', 'Ξ', '#8998EF'),
+  glyphPreset('sol', 'Solana', '◎', '#5ED7B1'),
+  glyphPreset('bnb', 'BNB', 'B', '#D9B444'),
+  glyphPreset('sui', 'Sui', 'S', '#62A8E5'),
+  glyphPreset('xrp', 'XRP', 'X', '#B7BCC4'),
+  glyphPreset('gold', '黄金', 'Au', '#D9B846'),
+  glyphPreset('silver', '白银', 'Ag', '#B5BDC8'),
+  glyphPreset('forex', '外汇', 'Fx', '#70A7D5'),
+  glyphPreset('eur', '欧元', '€', '#639BE6'),
+  glyphPreset('gbp', '英镑', '£', '#D178A5'),
+  glyphPreset('jpy', '日元', '¥', '#D87575'),
+  glyphPreset('aud', '澳元', 'A$', '#5FBA7C'),
+  glyphPreset('usd', '美元', '$', '#5FBA7C'),
+  glyphPreset('index', '指数', 'Ix', '#9B84D6'),
   { id: 'generic', label: '通用', glyph: '·', color: 'var(--text-secondary)', background: 'var(--bg-hover)' },
 ]
 
@@ -98,16 +113,7 @@ const BUILTIN_SYMBOL_PRESETS: Record<string, string> = {
   SPX500: 'index',
 }
 
-const PALETTE = [
-  { color: '#93C5FD', background: 'color-mix(in srgb, #3B82F6 20%, transparent)' },
-  { color: '#86EFAC', background: 'color-mix(in srgb, #22C55E 20%, transparent)' },
-  { color: '#FCD34D', background: 'color-mix(in srgb, #EAB308 20%, transparent)' },
-  { color: '#F9A8D4', background: 'color-mix(in srgb, #EC4899 20%, transparent)' },
-  { color: '#C4B5FD', background: 'color-mix(in srgb, #8B5CF6 20%, transparent)' },
-  { color: '#67E8F9', background: 'color-mix(in srgb, #06B6D4 20%, transparent)' },
-  { color: '#FDBA74', background: 'color-mix(in srgb, #F97316 20%, transparent)' },
-  { color: '#FDA4AF', background: 'color-mix(in srgb, #F43F5E 20%, transparent)' },
-]
+const PALETTE = ['#83AEE3', '#72BE8C', '#D7B75A', '#CB87AB', '#A291D4', '#72BBC5', '#D99B69', '#D4828D']
 
 export function detectSymbolMarket(symbol: string): SymbolMarketKind {
   const key = normalizeSymbol(symbol)
@@ -162,12 +168,12 @@ function glyphFromPresetOrFallback(symbol: string, preset: SymbolIconPreset): Re
     }
   }
   if (preset.id === 'generic') {
-    const tone = PALETTE[hashSymbol(normalizeSymbol(symbol)) % PALETTE.length]!
+    const color = PALETTE[hashSymbol(normalizeSymbol(symbol)) % PALETTE.length]!
     return {
       type: 'glyph',
       glyph: initialGlyph(symbol),
-      color: tone.color,
-      background: tone.background,
+      color,
+      background: symbolSurface(color),
       label,
     }
   }

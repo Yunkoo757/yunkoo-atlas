@@ -184,9 +184,10 @@
   place-items: center;
   width: 20px;
   height: 20px;
-  border-radius: var(--radius-4);
+  border-radius: var(--radius-full);
   font-size: var(--fs-micro);
   font-weight: var(--font-weight-semibold);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 8%, transparent);
 }
 
 .symbols-actions {

@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Sidebar } from '@/components/Sidebar'
 import type { SidebarWorkspaceItem } from '@/lib/sidebarWorkspace'
 import { useStore } from '@/store/useStore'
@@ -26,6 +26,16 @@ function wait(milliseconds: number): Promise<void> {
   })
 }
 
+function CanonicalRedirects() {
+  return (
+    <Routes>
+      <Route path="/favorites" element={<Navigate to="/list?view=starred" replace />} />
+      <Route path="/missed" element={<Navigate to="/list?view=missed" replace />} />
+      <Route path="*" element={null} />
+    </Routes>
+  )
+}
+
 async function waitFor(condition: () => boolean, message: string): Promise<void> {
   const deadline = performance.now() + 5_000
   while (performance.now() < deadline) {
@@ -43,16 +53,22 @@ const sidebarItems: SidebarWorkspaceItem[] = [
     order: 0,
   },
   {
+    id: 'system:favorites',
+    target: { kind: 'system', id: 'favorites', workspaces: ['trade', 'paper', 'case'] },
+    placement: 'pinned',
+    order: 1,
+  },
+  {
     id: 'system:missed',
     target: { kind: 'system', id: 'missed', workspaces: ['trade', 'paper', 'case'] },
     placement: 'pinned',
-    order: 1,
+    order: 2,
   },
   {
     id: 'strategy:navigation-1',
     target: { kind: 'strategy', strategyId: 'navigation-1' },
     placement: 'pinned',
-    order: 2,
+    order: 3,
   },
 ]
 
@@ -87,6 +103,7 @@ async function run(): Promise<void> {
     root.render(
       <MemoryRouter initialEntries={['/list']}>
         <Sidebar />
+        <CanonicalRedirects />
       </MemoryRouter>,
     )
 
@@ -189,13 +206,17 @@ async function run(): Promise<void> {
     const activeProbe = document.createElement('span')
     activeProbe.style.color = 'var(--text-nav-active)'
     activeProbe.style.background = 'var(--surface-nav-active)'
+    const activeIconProbe = document.createElement('span')
+    activeIconProbe.style.color = 'var(--nav-icon-trades)'
     document.body.appendChild(activeProbe)
+    document.body.appendChild(activeIconProbe)
     const activeProbeStyle = getComputedStyle(activeProbe)
     assert(
       activePrimaryStyle.color === activeProbeStyle.color
         && activePrimaryStyle.fontWeight === '550'
-        && getComputedStyle(activePrimaryIcon).color === activePrimaryStyle.color,
-      '父层选中的可排序导航必须同步提升文字、字重和图标，不能只显示灰色背景',
+        && getComputedStyle(activePrimaryIcon).color === getComputedStyle(activeIconProbe).color
+        && getComputedStyle(activePrimaryIcon).color !== activePrimaryStyle.color,
+      '父层选中的可排序导航必须提升文字与字重，并恢复对应模块的图标强调色',
     )
     assert(
       getComputedStyle(activePrimaryRow).backgroundColor === activeProbeStyle.backgroundColor
@@ -203,6 +224,48 @@ async function run(): Promise<void> {
       '当前位置必须使用独立且清晰的导航高亮表面，不能复用弱于 hover 的通用 selected 底色',
     )
     activeProbe.remove()
+    activeIconProbe.remove()
+
+    const favoritesLink = document.querySelector<HTMLAnchorElement>(
+      '[data-sidebar-workspace-id="system:favorites"] > .sb-item',
+    )
+    assert(favoritesLink, '缺少星标交易工作区入口')
+    favoritesLink.click()
+    await waitFor(
+      () => favoritesLink.closest('.sb-sortable-row')?.classList.contains('is-active') ?? false,
+      '进入星标交易后，外层没有表达选中状态',
+    )
+    const favoritesIcon = favoritesLink.querySelector<SVGElement>('svg')
+    assert(favoritesIcon, '星标交易入口缺少图标')
+    const favoritesIconProbe = document.createElement('span')
+    favoritesIconProbe.style.color = 'var(--nav-icon-ws-favorites)'
+    document.body.appendChild(favoritesIconProbe)
+    assert(
+      getComputedStyle(favoritesIcon).color === getComputedStyle(favoritesIconProbe).color,
+      '星标交易选中后必须恢复对应模块的图标强调色',
+    )
+    favoritesIconProbe.remove()
+
+    const missedLink = document.querySelector<HTMLAnchorElement>(
+      '[data-sidebar-workspace-id="system:missed"] > .sb-item',
+    )
+    assert(missedLink, '缺少错过的机会工作区入口')
+    missedLink.click()
+    await waitFor(
+      () => missedLink.closest('.sb-sortable-row')?.classList.contains('is-active') ?? false,
+      '进入错过的机会后，外层没有表达选中状态',
+    )
+    const missedIcon = missedLink.querySelector<SVGElement>('svg')
+    assert(missedIcon, '错过的机会入口缺少图标')
+    const missedIconProbe = document.createElement('span')
+    missedIconProbe.style.color = 'var(--nav-icon-ws-missed)'
+    document.body.appendChild(missedIconProbe)
+    assert(
+      getComputedStyle(missedIcon).color === getComputedStyle(missedIconProbe).color,
+      '错过的机会选中后必须恢复对应模块的图标强调色',
+    )
+    missedIconProbe.remove()
+
     assert(!document.querySelector('.sb-row-drag-handle'), '日常侧栏不应同时暴露来源菜单和排序抓手')
     const manageButton = document.querySelector<HTMLButtonElement>('.sb-workspace-manage')
     assert(manageButton, '缺少添加或管理入口')
@@ -270,7 +333,23 @@ async function run(): Promise<void> {
       '勾选案例后没有写入策略来源',
     )
     const strategyLink = document.querySelector<HTMLAnchorElement>('[data-sidebar-workspace-id="strategy:navigation-1"] a')
-    assert(strategyLink?.getAttribute('href')?.includes('sources=trade,case'), '策略链接必须带上合并来源')
+    assert(strategyLink, '缺少导航1策略入口')
+    assert(strategyLink.getAttribute('href')?.includes('sources=trade,case'), '策略链接必须带上合并来源')
+    strategyLink.click()
+    await waitFor(
+      () => strategyLink.closest('.sb-sortable-row')?.classList.contains('is-active') ?? false,
+      '进入策略聚合页后，策略入口没有表达选中状态',
+    )
+    const strategyIcon = strategyLink.querySelector<SVGElement>('.strategy-icon svg')
+    assert(strategyIcon, '策略入口缺少图标')
+    const strategyColorProbe = document.createElement('span')
+    strategyColorProbe.style.color = '#5e6ad2'
+    document.body.appendChild(strategyColorProbe)
+    assert(
+      getComputedStyle(strategyIcon).color === getComputedStyle(strategyColorProbe).color,
+      '策略入口选中后必须使用该策略保存的强调色',
+    )
+    strategyColorProbe.remove()
   } finally {
     root.unmount()
     useStore.setState(previous, true)

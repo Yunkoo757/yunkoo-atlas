@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { AppIcon } from '@/icons/appIcons'
 import {
@@ -92,16 +92,16 @@ function useSidebarDensity(): SidebarDensity {
 function hiddenWorkspaceLocation(pathname: string, hasWorkspaceSelection: boolean) {
   if (hasWorkspaceSelection) return null
   if (pathname === '/sim' || pathname.startsWith('/sim/')) {
-    return { label: '模拟盘', icon: FlaskConical }
+    return { label: '模拟盘', icon: FlaskConical, activeColor: 'var(--nav-icon-ws-paper)' }
   }
   if (pathname === '/missed' || pathname.startsWith('/missed/')) {
-    return { label: '错过的机会', icon: Ban }
+    return { label: '错过的机会', icon: Ban, activeColor: 'var(--nav-icon-ws-missed)' }
   }
   if (pathname === '/active' || pathname.startsWith('/active/')) {
-    return { label: '进行中', icon: Clock }
+    return { label: '进行中', icon: Clock, activeColor: 'var(--nav-icon-ws-active)' }
   }
   if (pathname === '/favorites' || pathname.startsWith('/favorites/')) {
-    return { label: '星标交易', icon: Star }
+    return { label: '星标交易', icon: Star, activeColor: 'var(--nav-icon-ws-favorites)' }
   }
   return null
 }
@@ -200,6 +200,30 @@ export const WORKSPACE_ICONS: Record<
   'saved-view': Bookmark,
   strategy: Target,
   'case-view': BookOpen,
+}
+
+const PRIMARY_ACTIVE_ICON_COLORS: Record<PrimarySidebarNavId, string> = {
+  today: 'var(--nav-icon-today)',
+  trades: 'var(--nav-icon-trades)',
+  reviewCases: 'var(--nav-icon-cases)',
+  weeklyReview: 'var(--nav-icon-weekly)',
+  reviewSession: 'var(--nav-icon-review-session)',
+  dashboard: 'var(--nav-icon-dashboard)',
+  quickNotes: 'var(--nav-icon-notes)',
+}
+
+const WORKSPACE_ACTIVE_ICON_COLORS: Record<ResolvedSidebarWorkspaceItem['icon'], string> = {
+  active: 'var(--nav-icon-ws-active)',
+  favorites: 'var(--nav-icon-ws-favorites)',
+  missed: 'var(--nav-icon-ws-missed)',
+  paper: 'var(--nav-icon-ws-paper)',
+  'saved-view': 'var(--nav-icon-notes)',
+  strategy: 'var(--accent-readable)',
+  'case-view': 'var(--nav-icon-ws-case)',
+}
+
+function activeIconStyle(color: string): CSSProperties {
+  return { '--sb-active-icon-color': color } as CSSProperties
 }
 
 export function useSidebarNavigationModel() {
@@ -480,6 +504,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           }`
         }
         data-ws-icon={item.icon}
+        style={activeIconStyle(strategy?.color ?? WORKSPACE_ACTIVE_ICON_COLORS[item.icon])}
         onContextMenu={(event) => {
           if (!capabilityMenuId) return
           event.preventDefault()
@@ -590,6 +615,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             key={id}
             className={`sb-sortable-row${selection.activePrimaryId === id && !hiddenWorkspace ? ' is-active' : ''}`}
             data-primary-id={id}
+            style={activeIconStyle(PRIMARY_ACTIVE_ICON_COLORS[id])}
           >
             <NavLink
               to={primaryHref(id, to)}
@@ -621,7 +647,12 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             <MoreHorizontal size={ICON_SM} aria-hidden="true" />
           </button>
         </div>
-        <NavLink to="/notes" className={({ isActive }) => `sb-item${isActive ? ' is-active' : ''}`}>
+        <NavLink
+          to="/notes"
+          data-primary-id="quickNotes"
+          style={activeIconStyle('var(--nav-icon-notes)')}
+          className={({ isActive }) => `sb-item${isActive ? ' is-active' : ''}`}
+        >
           <Bookmark size={ICON_MD} />
           <span className="sb-item-label">随记</span>
         </NavLink>
@@ -629,6 +660,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <div
             className="sb-item sb-route-ghost is-active"
             data-sidebar-hidden-route
+            style={activeIconStyle(hiddenWorkspace.activeColor)}
             aria-current="page"
             aria-label={`${hiddenWorkspace.label}；当前页面，已从侧栏隐藏`}
           >

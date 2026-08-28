@@ -51,11 +51,8 @@ export function SymbolIcon({
     )
   }
 
-  const glyphScale = /[^\u0000-\u00ff]/.test(resolved.glyph)
-    ? 0.72
-    : resolved.glyph.length > 1
-      ? 0.48
-      : 0.62
+  // 单字符与双字符共用稳定的光学重量，避免 € / Ξ 在 40px 预览中过度膨胀。
+  const glyphScale = resolved.glyph.length > 1 ? 0.46 : 0.56
 
   return (
     <span

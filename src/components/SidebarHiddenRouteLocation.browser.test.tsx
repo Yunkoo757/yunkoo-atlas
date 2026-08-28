@@ -52,6 +52,16 @@ async function run() {
     assert(ghost, '隐藏工作区深链当前位置不可用')
     assert(ghost.textContent?.includes('模拟盘'), '隐藏工作区当前位置标签错误')
     assert(ghost.getAttribute('aria-current') === 'page', '隐藏工作区当前位置缺少 aria-current')
+    const ghostIcon = ghost.querySelector<SVGElement>('svg')
+    assert(ghostIcon, '隐藏工作区当前位置缺少图标')
+    const iconColorProbe = document.createElement('span')
+    iconColorProbe.style.color = 'var(--nav-icon-ws-paper)'
+    document.body.appendChild(iconColorProbe)
+    assert(
+      getComputedStyle(ghostIcon).color === getComputedStyle(iconColorProbe).color,
+      '隐藏工作区当前位置也必须使用对应模块的图标强调色',
+    )
+    iconColorProbe.remove()
 
     const trades = document.querySelector<HTMLElement>('[data-primary-id="trades"]')
     assert(trades, '缺少交易日志主导航')
