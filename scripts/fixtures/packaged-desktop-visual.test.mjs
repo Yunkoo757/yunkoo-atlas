@@ -28,8 +28,8 @@ const customInter = Object.freeze({
   glyphCount: 8,
 })
 const customNoto = Object.freeze({
-  familyName: 'Noto Sans SC',
-  postScriptName: 'NotoSansSC-Regular',
+  familyName: 'Noto Sans SC Thin',
+  postScriptName: 'Noto-Sans-SC-Thin',
   isCustomFont: true,
   glyphCount: 8,
 })
@@ -128,9 +128,9 @@ function createTypographyInput() {
     platform: 'win32',
     computed: {
       interLoaded: true,
-      row: { fontSize: '13px', lineHeight: '20px', fontWeight: '400' },
-      metadata: { fontSize: '12px', lineHeight: '18px', fontWeight: '400' },
-      group: { fontSize: '13px', lineHeight: '20px', fontWeight: '600' },
+      row: { fontSize: '13px', lineHeight: '20px', fontWeight: '450' },
+      metadata: { fontSize: '12px', lineHeight: '18px', fontWeight: '500' },
+      group: { fontSize: '14px', lineHeight: '20px', fontWeight: '550' },
       probes: {
         latin: { fontFamily },
         cjk: { fontFamily },
@@ -193,7 +193,7 @@ test('typography glyph matching binds Chromium internal names to declared native
     '"Inter Variable", Inter, system-ui, sans-serif',
   ), false)
   assert.equal(packagedVisualContract.isPlatformCjkGlyphFont(
-    { familyName: 'Noto Sans SC', postScriptName: 'NotoSansSC-Regular', isCustomFont: true },
+    { familyName: 'Noto Sans SC Thin', postScriptName: 'Noto-Sans-SC-Thin', isCustomFont: true },
     'win32',
     '"Inter Variable", "Noto Sans SC Variable", "Microsoft YaHei UI", sans-serif',
   ), true)
@@ -379,13 +379,13 @@ test('typography role metrics fail closed on every required size line height and
   const drifts = [
     ['row', 'fontSize', '14px'],
     ['row', 'lineHeight', '21px'],
-    ['row', 'fontWeight', '500'],
+    ['row', 'fontWeight', '400'],
     ['metadata', 'fontSize', '13px'],
     ['metadata', 'lineHeight', '17px'],
-    ['metadata', 'fontWeight', '500'],
+    ['metadata', 'fontWeight', '400'],
     ['group', 'fontSize', '12px'],
     ['group', 'lineHeight', '19px'],
-    ['group', 'fontWeight', '500'],
+    ['group', 'fontWeight', '600'],
   ]
 
   for (const [role, property, value] of drifts) {

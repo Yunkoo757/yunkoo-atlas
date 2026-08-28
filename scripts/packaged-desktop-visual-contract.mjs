@@ -127,8 +127,8 @@ export function isPlatformCjkGlyphFont(font, platform, declaredFontFamily) {
   const declaresBundledNoto = declaredFontFamilyIncludes(declaredFontFamily, 'Noto Sans SC Variable')
   if (declaresBundledNoto) {
     return font?.isCustomFont === true &&
-      font?.familyName === 'Noto Sans SC' &&
-      /^NotoSansSC(?:-Regular)?$/i.test(font?.postScriptName ?? '')
+      /^Noto Sans SC(?: Thin)?$/i.test(font?.familyName ?? '') &&
+      /^(?:NotoSansSC(?:-Regular)?|Noto-Sans-SC-Thin)$/i.test(font?.postScriptName ?? '')
   }
   if (font?.isCustomFont !== false) return false
   const familyName = font?.familyName?.toLowerCase()
@@ -214,12 +214,12 @@ export function buildTypographyCheckResult({ platform, computed, glyphFonts }) {
     {
       id: 'typography-role-metrics',
       pass: exactPixels(computed?.row?.fontSize, 13) && exactPixels(computed?.row?.lineHeight, 20) &&
-        computed?.row?.fontWeight === '400' &&
+        computed?.row?.fontWeight === '450' &&
         exactPixels(computed?.metadata?.fontSize, 12) &&
         exactPixels(computed?.metadata?.lineHeight, 18) &&
-        computed?.metadata?.fontWeight === '400' &&
-        exactPixels(computed?.group?.fontSize, 13) && exactPixels(computed?.group?.lineHeight, 20) &&
-        computed?.group?.fontWeight === '600',
+        computed?.metadata?.fontWeight === '500' &&
+        exactPixels(computed?.group?.fontSize, 14) && exactPixels(computed?.group?.lineHeight, 20) &&
+        computed?.group?.fontWeight === '550',
       detail: JSON.stringify({ row: computed?.row, metadata: computed?.metadata, group: computed?.group }),
     },
     {
