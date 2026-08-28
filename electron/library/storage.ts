@@ -33,6 +33,8 @@ import {
 import { recoverInterruptedJournalImport } from './journalZip'
 
 const SNAPSHOT_KEY = 'snapshot'
+const DATABASE_SCHEMA_KEY = 'schemaVersion'
+const CANONICAL_STAGE_SCHEMA_VERSION = 12
 const ASSET_TRASH_MANIFEST = 'manifest.json'
 const ASSET_TRASH_CLEANUP = 'cleanup.json'
 const WINDOWS_RESERVED_BASENAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
@@ -48,6 +50,15 @@ interface AssetTrashManifest {
   version: 1
   operationId: string
   files: Array<{ id: string; fileName: string }>
+}
+
+function hasCanonicalStageOwnershipEnvelope(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Array.isArray((value as Record<string, unknown>).liveStages) &&
+    typeof (value as Record<string, unknown>).currentLiveStageId === 'string' &&
+    Object.prototype.hasOwnProperty.call(value, 'scheduledStageRollover')
 }
 
 export interface AssetBytes {
@@ -832,12 +843,38 @@ export class LibraryStorage {
     return value
   }
 
+  private readDatabaseSchemaVersion(): number | null {
+    const db = this.requireDb()
+    const stmt = db.prepare('SELECT value FROM meta WHERE key = ?')
+    try {
+      stmt.bind([DATABASE_SCHEMA_KEY])
+      if (!stmt.step()) return null
+      const version = Number(stmt.getAsObject().value)
+      if (!Number.isInteger(version) || version < 1) {
+        throw new Error('journal.db 的 schemaVersion 无效')
+      }
+      return version
+    } finally {
+      stmt.free()
+    }
+  }
+
   loadSnapshot(): PersistedSnapshot | null {
     const value = this.readSnapshotJson()
     if (value === null) return null
     const snapshot: unknown = JSON.parse(value)
+    const manifestVersion = this.readManifest().schemaVersion
+    const databaseVersion = this.readDatabaseSchemaVersion()
+    // v1-v7 资料库历史上只更新 snapshot，而未同步提升 manifest。只要快照已经
+    // 具备 v12 引入的显式阶段合同，就不得再次按旧 schema 迁移，否则人工保存的
+    // liveStageId 会在每次重启时重新变回待整理。下一次保存会写入明确的 DB 版本。
+    const snapshotVersion = databaseVersion ?? (
+      manifestVersion <= 7 && hasCanonicalStageOwnershipEnvelope(snapshot)
+        ? CANONICAL_STAGE_SCHEMA_VERSION
+        : manifestVersion
+    )
     return decodeCanonicalSnapshot(snapshot, {
-      version: this.readManifest().schemaVersion,
+      version: snapshotVersion,
       label: 'Stored library snapshot',
     })
   }
@@ -849,6 +886,11 @@ export class LibraryStorage {
         `INSERT INTO meta (key, value) VALUES (?, ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
         [SNAPSHOT_KEY, JSON.stringify(snapshot)],
+      )
+      candidateDb.run(
+        `INSERT INTO meta (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [DATABASE_SCHEMA_KEY, String(SCHEMA_VERSION)],
       )
     })
     return this.commitDatabaseCandidate('snapshot', prepared, {

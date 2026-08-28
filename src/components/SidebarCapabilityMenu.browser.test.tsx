@@ -67,6 +67,9 @@ async function run(): Promise<void> {
       trades: [],
       strategies: [{ id: 'navigation-1', name: '导航1', icon: 'target', color: '#5e6ad2' }],
       savedTradeViews: [],
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+      weeklyRiskPreparations: [],
       display: {
         ...state.display,
         sidebarWorkspaceItems: sidebarItems,
@@ -121,9 +124,86 @@ async function run(): Promise<void> {
     assert(document.body.textContent?.includes('工作区'), '主导航分组必须使用工作区表述')
     assert(!document.body.textContent?.includes('核心'), '侧栏不得继续使用模糊的核心表述')
 
-    const primary = document.querySelector<HTMLAnchorElement>('[data-primary-id="trades"]')
+    const riskTrigger = document.querySelector<HTMLButtonElement>('.sb-risk-summary')
+    assert(riskTrigger, '侧栏底部缺少风险状态入口')
+    assert(riskTrigger.textContent?.includes('风险未设置'), '未配置状态必须直接显示风险未设置')
+    assert(riskTrigger.getAttribute('aria-expanded') === 'false', '风险弹层默认必须关闭')
+    assert(!document.querySelector('.sb-risk-popover'), '风险详情不得在侧栏常驻堆叠')
+    riskTrigger.click()
+    await waitFor(() => document.querySelector('.sb-risk-popover') !== null, '点击风险入口没有打开详情弹层')
+    assert(riskTrigger.getAttribute('aria-expanded') === 'true', '打开后风险入口没有同步 aria-expanded')
+    assert(document.querySelectorAll('.sb-risk-period').length === 3, '风险弹层必须同时展示日、周、月')
+    assert(
+      document.querySelector<HTMLAnchorElement>('.sb-risk-manage')?.getAttribute('href') === '/settings/risk',
+      '风险弹层缺少完整风险管理入口',
+    )
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await waitFor(() => document.querySelector('.sb-risk-popover') === null, 'Escape 没有关闭风险详情弹层')
+    assert(document.activeElement === riskTrigger, 'Escape 关闭风险弹层后没有把焦点还给入口')
+
+    const now = new Date()
+    const today = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-')
+    const stageId = useStore.getState().currentLiveStageId
+    useStore.setState({
+      riskPolicyVersions: [{
+        id: 'sidebar-risk-policy',
+        liveStageId: stageId,
+        sourceWeekStart: '2020-01-06',
+        effectiveTradingDay: '2020-01-06',
+        capitalBase: 10_000,
+        riskPercent: 1,
+        riskAmount: 100,
+        dailyLossLimitR: 2,
+        weeklyLossLimitR: 5,
+        monthlyLossLimitRDefault: 10,
+        disciplineText: '',
+        confirmedAt: '2020-01-06T00:00:00.000Z',
+      }],
+      monthlyRiskLimits: [{
+        id: 'sidebar-risk-month',
+        liveStageId: stageId,
+        monthKey: today.slice(0, 7),
+        limitR: 10,
+        sourcePolicyVersionId: 'sidebar-risk-policy',
+        lockedAt: '2020-01-06T00:00:00.000Z',
+      }],
+      weeklyRiskPreparations: [],
+    })
+    await waitFor(
+      () => riskTrigger.textContent?.includes('风险正常') ?? false,
+      '额度均正常时，周前准备状态不得把侧栏风险入口改成待复核告警',
+    )
+
+    const primary = document.querySelector<HTMLAnchorElement>('a[data-primary-id="trades"]')
     assert(primary, '缺少交易日志主导航')
-    const firstPrimary = document.querySelector<HTMLAnchorElement>('[data-primary-id="dashboard"]')
+    const activePrimaryRow = primary.closest<HTMLElement>('.sb-sortable-row')
+    assert(activePrimaryRow, '当前主导航缺少可排序行容器')
+    assert(activePrimaryRow.classList.contains('is-active'), '当前主导航外层必须表达选中状态')
+    const activePrimaryStyle = getComputedStyle(primary)
+    const activePrimaryIcon = primary.querySelector<SVGElement>('svg')
+    assert(activePrimaryIcon, '当前主导航缺少图标')
+    const activeProbe = document.createElement('span')
+    activeProbe.style.color = 'var(--text-nav-active)'
+    activeProbe.style.background = 'var(--surface-nav-active)'
+    document.body.appendChild(activeProbe)
+    const activeProbeStyle = getComputedStyle(activeProbe)
+    assert(
+      activePrimaryStyle.color === activeProbeStyle.color
+        && activePrimaryStyle.fontWeight === '550'
+        && getComputedStyle(activePrimaryIcon).color === activePrimaryStyle.color,
+      '父层选中的可排序导航必须同步提升文字、字重和图标，不能只显示灰色背景',
+    )
+    assert(
+      getComputedStyle(activePrimaryRow).backgroundColor === activeProbeStyle.backgroundColor
+        && activeProbeStyle.backgroundColor !== 'rgba(0, 0, 0, 0)',
+      '当前位置必须使用独立且清晰的导航高亮表面，不能复用弱于 hover 的通用 selected 底色',
+    )
+    activeProbe.remove()
+    const firstPrimary = document.querySelector<HTMLAnchorElement>('a[data-primary-id="dashboard"]')
     assert(firstPrimary, '缺少统计分析主导航')
     const primaryHandle = document.querySelector<HTMLButtonElement>('[aria-label="排序 交易日志"]')
     assert(primaryHandle, '交易日志必须提供与“更多”分组一致的独立拖拽抓手')

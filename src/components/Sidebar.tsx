@@ -14,7 +14,6 @@ import {
   Plus,
   Search,
   Settings2,
-  Shield,
   Star,
   Target,
   Trash2,
@@ -55,7 +54,6 @@ import {
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
 import { filterStageOwnedRecords } from '@/lib/stageArchive'
-import { activeRiskPolicy } from '@/lib/activeRiskPolicy'
 import { sharedTradeWorkspaceSearch } from '@/lib/tradeWorkspaceQuery'
 import { newTradeKindForPath } from '@/lib/tradeKind'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
@@ -67,6 +65,7 @@ import {
 } from '@/components/sidebar/SidebarWorkspaceEditor'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useExitClone } from '@/components/ui/useExitClone'
+import { SidebarRiskStatus } from '@/components/SidebarRiskStatus'
 
 import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
@@ -353,8 +352,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const setDisplay = useStore((state) => state.setDisplay)
   const profile = useStore((state) => state.profile)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
-  const riskPolicyVersions = useStore((state) => state.riskPolicyVersions)
-  const monthlyRiskLimits = useStore((state) => state.monthlyRiskLimits)
   const sidebarDateAnchor = useBusinessDateAnchor()
   const {
     path,
@@ -379,22 +376,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const primaryNav = useMemo(() => resolvePrimarySidebarNav(primaryOrder), [primaryOrder])
 
   const trashCount = trades.filter((trade) => Boolean(trade.deletedAt)).length
-  const currentRiskPolicy = activeRiskPolicy(
-    riskPolicyVersions,
-    sidebarDateAnchor.currentTradingDayKey,
-    currentLiveStageId,
-  )
-  const currentMonthLimit = monthlyRiskLimits.find((limit) => (
-    limit.liveStageId === currentLiveStageId &&
-    limit.monthKey === sidebarDateAnchor.currentTradingDayKey.slice(0, 7)
-  ))
-  const riskLimits = currentRiskPolicy
-    ? {
-        daily: currentRiskPolicy.dailyLossLimitR,
-        weekly: currentRiskPolicy.weeklyLossLimitR,
-        monthly: currentMonthLimit?.limitR ?? currentRiskPolicy.monthlyLossLimitRDefault,
-      }
-    : null
   const openWorkspaceEditor = (
     button: HTMLButtonElement,
     section: 'pinned' | 'overflow' = 'pinned',
@@ -930,23 +911,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       </div>
 
       <div className="sb-footer">
-        <NavLink
-          to="/settings/risk"
-          className={`sb-risk-summary${riskLimits ? '' : ' is-unset'}`}
-          aria-label={riskLimits
-            ? `风险限额：日 ${riskLimits.daily}R，周 ${riskLimits.weekly}R，月 ${riskLimits.monthly}R`
-            : '风险限额：未设置'}
-        >
-          <Shield size={ICON_MD} aria-hidden="true" />
-          <strong>风险限额</strong>
-          {riskLimits ? (
-            <span className="sb-risk-limits" aria-hidden="true">
-              <span><small>日</small>{riskLimits.daily}R</span>
-              <span><small>周</small>{riskLimits.weekly}R</span>
-              <span><small>月</small>{riskLimits.monthly}R</span>
-            </span>
-          ) : <small className="sb-risk-unset">未设置</small>}
-        </NavLink>
+        <SidebarRiskStatus currentTradingDayKey={sidebarDateAnchor.currentTradingDayKey} />
         <NavLink to="/settings" className="sb-item">
           <Settings2 size={ICON_MD} />
           <span className="sb-item-label">设置</span>

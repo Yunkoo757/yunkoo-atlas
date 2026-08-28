@@ -45,15 +45,16 @@
   flex-shrink: 0;
 }
 .settings-nav-item:hover {
-  background: var(--bg-hover);
+  background: var(--surface-nav-hover);
   color: var(--text-primary);
 }
 .settings-nav-item.is-active {
-  background: var(--bg-selected);
-  color: var(--text-primary);
+  background: var(--surface-nav-active);
+  color: var(--text-nav-active);
+  font-weight: var(--type-nav-active-weight);
 }
 .settings-nav-item.is-active svg {
-  color: var(--text-primary);
+  color: var(--text-nav-active);
 }
 
 .settings-panel {

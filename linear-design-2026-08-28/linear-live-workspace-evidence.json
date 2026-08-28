@@ -1,0 +1,3930 @@
+{
+  "capturedAt": "2026-08-28T04:43:23.735Z",
+  "source": "authenticated Chrome session",
+  "url": "https://linear.app/yunkoo/team/YUN/all",
+  "title": "Yunkoo › All issues",
+  "domSnapshot": "- link \"Skip to content\":\n  - /url: \"#skip-nav\"\n- navigation:\n  - button \"Yunkoo Workspace Menu\":\n    - generic: YU\n    - generic: Yunkoo\n  - button \"Search workspace\":\n  - button \"Create new issue\":\n  - button \"Inbox\":\n    - link \"Inbox\":\n      - /url: /yunkoo/inbox\n      - generic: Inbox\n  - button \"My issues\":\n    - link \"My issues\":\n      - /url: /yunkoo/my-issues/assigned\n      - text: My issues\n  - button \"Agent\":\n    - link \"Agent\":\n      - /url: /yunkoo/agent\n      - generic: Agent\n  - button\n  - status\n  - button \"Workspace\" [expanded]:\n    - generic: Workspace\n  - button \"Projects\":\n    - link \"Projects\":\n      - /url: /yunkoo/projects/all\n      - text: Projects\n  - button \"Views\":\n    - link \"Views\":\n      - /url: /yunkoo/views\n      - text: Views\n  - button\n  - button\n  - status\n  - button \"Show more links\":\n    - text: More\n  - button \"Favorites\" [expanded]:\n    - generic: Favorites\n  - button \"Create new folder for favorites\":\n  - link \"Connect your tools Remove favorite\":\n    - /url: /yunkoo/issue/YUN-3/connect-your-tools\n    - generic \"Connect your tools\"\n    - button \"Remove favorite\":\n      - img \"Remove favorite\"\n  - link \"All issues Remove favorite\":\n    - /url: /yunkoo/team/YUN/all\n    - generic \"All issues\"\n    - button \"Remove favorite\":\n      - img \"Remove favorite\"\n  - link \"tesat Remove favorite\":\n    - /url: /yunkoo/view/tesat-73cb37e259c8\n    - generic \"tesat\"\n    - button \"Remove favorite\":\n      - img \"Remove favorite\"\n  - button \"Yunkoo\" [expanded]:\n    - generic \"Yunkoo\"\n  - button \"Remove favorite\":\n    - img \"Remove favorite\"\n  - link \"Home\":\n    - /url: /yunkoo/team/YUN/overview\n    - text: Home\n  - link \"Issues\":\n    - /url: /yunkoo/team/YUN/all\n    - text: Issues\n  - link \"Projects\":\n    - /url: /yunkoo/team/YUN/projects/all\n    - text: Projects\n  - link \"Views\":\n    - /url: /yunkoo/team/YUN/views/issues\n    - text: Views\n  - status\n  - button \"Your teams\" [expanded]:\n    - generic: Your teams\n  - button \"Join a team\":\n  - list:\n    - button \"Yunkoo Team menu Home Issues Projects Views\":\n      - button \"Yunkoo\" [expanded]:\n        - generic \"Yunkoo\"\n      - generic \"Team menu\":\n      - link \"Home\":\n        - /url: /yunkoo/team/YUN/overview\n        - text: Home\n      - link \"Issues\":\n        - /url: /yunkoo/team/YUN/all\n        - text: Issues\n      - link \"Projects\":\n        - /url: /yunkoo/team/YUN/projects/all\n        - text: Projects\n      - link \"Views\":\n        - /url: /yunkoo/team/YUN/views/issues\n        - text: Views\n      - list:\n        - status\n    - status\n- button \"Open Help menu\":\n- main:\n  - link \"Team overview\":\n    - /url: /yunkoo/team/YUN/overview\n    - generic \"Team overview\":\n      - generic: Yunkoo\n  - generic: ›\n  - heading \"Issues\" [level=2]:\n    - generic: Issues\n  - switch \"Remove from favorites\" [checked]:\n  - button \"Setup team notifications\":\n  - link \"Active\":\n    - /url: /yunkoo/team/YUN/active\n    - generic: Active\n  - link \"Backlog\":\n    - /url: /yunkoo/team/YUN/backlog\n    - generic: Backlog\n  - link \"All issues\":\n    - /url: /yunkoo/team/YUN/all\n    - generic: All issues\n  - button \"1\":\n    - link \"1\":\n      - /url: /yunkoo/team/YUN/view/1-f2d9a7682038\n      - generic: \"1\"\n  - button \"tesat\":\n    - link \"tesat\":\n      - /url: /yunkoo/team/YUN/view/tesat-73cb37e259c8\n      - generic: tesat\n  - button \"Add new view\":\n  - status\n  - button \"Add filter\":\n  - button \"Display options\":\n  - button \"Open details\":\n  - button \"Collapse group\":\n  - generic: In Progress\n  - button \"1\":\n    - generic: \"1\"\n  - button \"Create new issue\":\n  - link \"Select issue No Priority YUN-3 Connect your tools Open sub-issue 导航1 Bug Feature Improvement Created Jun 6, 14:05:48\":\n    - /url: /yunkoo/issue/YUN-3/connect-your-tools\n    - generic \"Select issue\":\n      - checkbox\n    - img \"No Priority\"\n    - generic: YUN-3\n    - generic \"Connect your tools\"\n    - generic \"Open sub-issue\":\n      - generic: 0/1\n    - generic: 导航1\n    - generic: Bug\n    - generic: Feature\n    - generic: Improvement\n    - generic \"Created Jun 6, 14:05:48\": Jun 6\n  - button \"Collapse group\":\n  - generic: Todo\n  - button \"2\":\n    - generic: \"2\"\n  - button \"Create new issue\":\n  - link \"Select issue Urgent Priority YUN-1 test Open sub-issue 导航1 Open project Created Jun 6, 14:05:48\":\n    - /url: /yunkoo/issue/YUN-1/test\n    - generic \"Select issue\":\n      - checkbox\n    - img \"Urgent Priority\"\n    - generic: YUN-1\n    - generic \"test\"\n    - generic \"Open sub-issue\":\n      - generic: 1/1\n    - generic: 导航1\n    - generic \"Open project\":\n      - generic: Trader\n    - generic \"Created Jun 6, 14:05:48\": Jun 6\n  - link \"Select issue Urgent Priority YUN-9 12312阿松大 › Connect your tools 导航1 Created Jul 19, 23:12:58\":\n    - /url: /yunkoo/issue/YUN-9/12312阿松大\n    - generic \"Select issue\":\n      - checkbox\n    - img \"Urgent Priority\"\n    - generic: YUN-9\n    - generic \"12312阿松大\"\n    - generic: ›\n    - generic: Connect your tools\n    - generic: 导航1\n    - generic \"Created Jul 19, 23:12:58\": Jul 19\n  - button \"Collapse group\":\n  - generic: Backlog\n  - button \"3\":\n    - generic: \"3\"\n  - button \"Create new issue\":\n  - link \"Select issue No Priority YUN-4 Import your data 1 Created Jun 6, 14:05:48\":\n    - /url: /yunkoo/issue/YUN-4/import-your-data-1\n    - generic \"Select issue\":\n      - checkbox\n    - img \"No Priority\"\n    - generic: YUN-4\n    - generic \"Import your data 1\"\n    - generic \"Created Jun 6, 14:05:48\": Jun 6\n  - link \"Select issue No Priority YUN-8 阿松大阿松大 Open project Created Jul 19, 22:59:07\":\n    - /url: /yunkoo/issue/YUN-8/阿松大阿松大\n    - generic \"Select issue\":\n      - checkbox\n    - img \"No Priority\"\n    - generic: YUN-8\n    - generic \"阿松大阿松大\"\n    - generic \"Open project\":\n      - generic: 4H 波段结构看涨\n    - generic \"Created Jul 19, 22:59:07\": Jul 19\n  - link \"Select issue No Priority YUN-5 Test Koo Yun (Yunkoo) Created Jun 6, 14:08:40\":\n    - /url: /yunkoo/issue/YUN-5/test\n    - generic \"Select issue\":\n      - checkbox\n    - img \"No Priority\"\n    - generic: YUN-5\n    - generic \"Test\"\n    - img \"Koo Yun (Yunkoo)\"\n    - generic \"Created Jun 6, 14:08:40\": Jun 6\n  - button \"Collapse group\":\n  - generic: Done\n  - button \"3\":\n    - generic: \"3\"\n  - button \"Create new issue\":\n  - link \"Select issue Urgent Priority YUN-2 Set up your teams Created Jun 6, 14:05:48\":\n    - /url: /yunkoo/issue/YUN-2/set-up-your-teams\n    - generic \"Select issue\":\n      - checkbox\n    - img \"Urgent Priority\"\n    - generic: YUN-2\n    - generic \"Set up your teams\"\n    - generic \"Created Jun 6, 14:05:48\": Jun 6\n  - link \"Select issue High Priority YUN-6 导航1 › test Open project Created Jun 13, 12:54:01\":\n    - /url: /yunkoo/issue/YUN-6/导航1\n    - generic \"Select issue\":\n      - checkbox\n    - img \"High Priority\"\n    - generic: YUN-6\n    - generic \"导航1\"\n    - generic: ›\n    - generic: test\n    - generic \"Open project\":\n      - generic: Trader\n    - generic \"Created Jun 13, 12:54:01\": Jun 13\n  - link \"Select issue High Priority YUN-7 4H波段结构看涨2 Jul 8 Created Jun 13, 14:00:53\":\n    - /url: /yunkoo/issue/YUN-7/4h波段结构看涨2\n    - generic \"Select issue\":\n      - checkbox\n    - img \"High Priority\"\n    - generic: YUN-7\n    - generic \"4H波段结构看涨2\"\n    - generic: Jul 8\n    - generic \"Created Jun 13, 14:00:53\": Jun 13\n  - status\n- button \"Agent\":\n  - generic: Agent\n- button \"Chat history\":\n- region \"Notifications alt+T\"\n- status: Navigated to Yunkoo › All issues",
+  "liveDesign": {
+    "bodyStyle": {
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "border": "0px none rgb(255, 255, 255)",
+      "borderRadius": "0px",
+      "color": "rgb(255, 255, 255)",
+      "display": "block",
+      "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+      "fontSize": "16px",
+      "fontWeight": "400",
+      "gap": "normal",
+      "letterSpacing": "normal",
+      "lineHeight": "24px",
+      "padding": "0px",
+      "rect": {
+        "height": 1010.2857666015624,
+        "width": 2195.4287109375,
+        "x": 0,
+        "y": 0
+      },
+      "role": null,
+      "tag": "body",
+      "text": "Skip to content YU Yunkoo Inbox My issues Agent Workspace Projects Views More Favorites Connect your tools All issues tesat Yunkoo Home Issues Projects Views Yo"
+    },
+    "customProperties": {
+      "--action-trigger-min-width": "32px",
+      "--agent-panel-chat-max-width": "none",
+      "--agent-toolbar-height": "0px",
+      "--ai-selection-bg": "lch(61.803% 1.2 272 / 0.1)",
+      "--app-link-color": "lch(100% 0 272 / 1)",
+      "--app-scrollbar-bg": "lch(37.275% 1.2 272 / 1)",
+      "--app-scrollbar-bg-active": "lch(36.975% 1.2 272 / 1)",
+      "--app-scrollbar-bg-hover": "lch(37.375% 1.2 272 / 1)",
+      "--bg-base-color": "#121213",
+      "--bg-base-color-dark": "#121213",
+      "--bg-base-color-light": "#f9f9fa",
+      "--bg-border-color": "#212224",
+      "--bg-border-color-dark": "#212224",
+      "--bg-border-color-light": "#e2e2e2",
+      "--bg-color": "lch(2.595% 0.4 272 / 1)",
+      "--bg-sidebar-color": "lch(2.595% 0.4 272 / 1)",
+      "--bg-sidebar-dark": "#09090a",
+      "--bg-sidebar-light": "#efeff0",
+      "--btn-group-divider-color": "transparent",
+      "--btn-group-divider-color-hover": "transparent",
+      "--btn-group-divider-width": "1px",
+      "--btn-group-inner-highlight-bg": "transparent",
+      "--btn-highlight-bg": "transparent",
+      "--btn-overlay-shadow": "none",
+      "--btn-overlay-shadow-hover": "none",
+      "--carousel-arrow-path-shift": "0px",
+      "--color-bg-primary": "lch(5.52% 0.4 272)",
+      "--color-bg-quaternary": "lch(9.345% 0.85 272 / 1)",
+      "--color-bg-quinary": "0",
+      "--color-bg-secondary": "lch(7.32% 0.85 272 / 1)",
+      "--color-bg-tertiary": "lch(8.22% 1.3 272 / 1)",
+      "--color-border-primary": "lch(9.84% 1.48 272 / 1)",
+      "--color-border-secondary": "lch(14.16% 1.48 272 / 1)",
+      "--color-border-tertiary": "lch(16.32% 1.48 272 / 1)",
+      "--color-text-primary": "lch(100% 0 272 / 1)",
+      "--color-text-quaternary": "lch(36.975% 1.2 272 / 1)",
+      "--color-text-secondary": "lch(90.451% 1.2 272 / 1)",
+      "--color-text-tertiary": "lch(61.803% 1.2 272 / 1)",
+      "--column-width": "24px",
+      "--comment-actions-opacity": "0",
+      "--comment-actions-padding-left": "50px",
+      "--comment-actions-width": "0px",
+      "--content-color": "#6b6f76",
+      "--content-color-dark": "#6b6f76",
+      "--content-color-light": "#b0b5c0",
+      "--content-highlight-color": "#ffffff",
+      "--content-highlight-color-dark": "#ffffff",
+      "--content-highlight-color-light": "#23252a",
+      "--content-view-header-tabs-flex": "1 1 300px",
+      "--content-view-header-tabs-flex-basis": "300px",
+      "--content-view-header-tabs-min-width": "300px",
+      "--control-border-radius": "8px",
+      "--dp-font-size-small": ".8125rem",
+      "--dp-font-weight-medium": "500",
+      "--dp-thin-pixel": "1px",
+      "--ease-in-circ": "cubic-bezier(.6, .04, .98, .335)",
+      "--ease-in-cubic": "cubic-bezier(.55, .055, .675, .19)",
+      "--ease-in-expo": "cubic-bezier(.95, .05, .795, .035)",
+      "--ease-in-out-circ": "cubic-bezier(.785, .135, .15, .86)",
+      "--ease-in-out-cubic": "cubic-bezier(.645, .045, .355, 1)",
+      "--ease-in-out-expo": "cubic-bezier(1, 0, 0, 1)",
+      "--ease-in-out-quad": "cubic-bezier(.455, .03, .515, .955)",
+      "--ease-in-out-quart": "cubic-bezier(.77, 0, .175, 1)",
+      "--ease-in-out-quint": "cubic-bezier(.86, 0, .07, 1)",
+      "--ease-in-quad": "cubic-bezier(.55, .085, .68, .53)",
+      "--ease-in-quart": "cubic-bezier(.895, .03, .685, .22)",
+      "--ease-in-quint": "cubic-bezier(.755, .05, .855, .06)",
+      "--ease-out-circ": "cubic-bezier(.075, .82, .165, 1)",
+      "--ease-out-cubic": "cubic-bezier(.215, .61, .355, 1)",
+      "--ease-out-expo": "cubic-bezier(.19, 1, .22, 1)",
+      "--ease-out-quad": "cubic-bezier(.25, .46, .45, .94)",
+      "--ease-out-quart": "cubic-bezier(.165, .84, .44, 1)",
+      "--ease-out-quint": "cubic-bezier(.23, 1, .32, 1)",
+      "--editor-block-menu-offset": "28px",
+      "--editor-block-menu-size": "20px",
+      "--editor-block-radius": "6px",
+      "--editor-block-spacing": "1rem",
+      "--editor-block-spacing-large": "calc(1.375 * 1rem)",
+      "--editor-block-spacing-small": "calc(.375 * 1rem)",
+      "--editor-bullet-disc-offset": ".5em",
+      "--editor-bullet-disc-width": ".5em",
+      "--editor-font-size": ".9375rem",
+      "--editor-font-weight": "450",
+      "--editor-last-invisible-paragraph-spacing": "10px",
+      "--editor-letter-spacing": "-.00666667em",
+      "--editor-line-height": "1.6",
+      "--editor-list-inset": "1.5rem",
+      "--editor-safe-area": "16px",
+      "--editor-surface-background": "#111212",
+      "--editor-text-color": "#e2e3e5",
+      "--editor-todolist-checkbox-width": "14px",
+      "--external": "pointer",
+      "--focus-ring-color": "#5e69d1",
+      "--focus-ring-outline": "1px solid #5e69d1",
+      "--focus-ring-width": "1px",
+      "--font-emoji": "\"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Segoe UI\", \"Twemoji Mozilla\", \"Noto Color Emoji\", \"Android Emoji\"",
+      "--font-monospace": "\"Berkeley Mono\", \"SFMono Regular\", Consolas, \"Liberation Mono\", Menlo, Courier, monospace",
+      "--font-regular": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+      "--font-size-large": "1.125rem",
+      "--font-size-largePlus": "1.125rem",
+      "--font-size-micro": "round(up, .6875rem, 2px)",
+      "--font-size-microPlus": "round(up, .6875rem, 2px)",
+      "--font-size-mini": ".75rem",
+      "--font-size-miniPlus": ".75rem",
+      "--font-size-regular": ".9375rem",
+      "--font-size-regularPlus": ".9375rem",
+      "--font-size-small": ".8125rem",
+      "--font-size-smallPlus": ".8125rem",
+      "--font-size-title1": "2.25rem",
+      "--font-size-title2": "1.5rem",
+      "--font-size-title3": "1.25rem",
+      "--font-weight-bold": "700",
+      "--font-weight-light": "300",
+      "--font-weight-medium": "500",
+      "--font-weight-normal": "450",
+      "--font-weight-semibold": "600",
+      "--fuzzy-date-picker-month-horizontal-spacing": ".96rem",
+      "--line-number-width": "50px",
+      "--linear-find-highlight-color": "black",
+      "--link-text-decoration": "none",
+      "--loading-error-muted-color": "#97979a",
+      "--loading-error-muted-color-dark": "#97979a",
+      "--loading-error-muted-color-light": "#5b5b5d",
+      "--loading-error-secondary-bg": "#1c1c1d",
+      "--loading-error-secondary-bg-dark": "#1c1c1d",
+      "--loading-error-secondary-bg-light": "#fefeff",
+      "--loading-error-secondary-border": "#ffffff22",
+      "--loading-error-secondary-border-dark": "#ffffff22",
+      "--loading-error-secondary-border-light": "#00000016",
+      "--loading-error-secondary-hover-bg": "#252627",
+      "--loading-error-secondary-hover-bg-dark": "#252627",
+      "--loading-error-secondary-hover-bg-light": "#f7f7f7",
+      "--loading-error-secondary-label": "#e2e3e5",
+      "--loading-error-secondary-label-dark": "#e2e3e5",
+      "--loading-error-secondary-label-light": "#2f2f31",
+      "--loading-error-secondary-shadow": "0px 4px 4px -1px #0000000a,0px 1px 1px 0px #00000014",
+      "--loading-error-secondary-shadow-dark": "0px 4px 4px -1px #0000000a,0px 1px 1px 0px #00000014",
+      "--loading-error-secondary-shadow-light": "0px 3px 6px -2px #00000005,0px 1px 1px #0000000a",
+      "--loading-error-thin-pixel": "1px",
+      "--logic-list-container-background": "transparent",
+      "--logic-list-container-hover-background": "transparent",
+      "--logic-list-filter-button-background": "transparent",
+      "--logic-list-filter-button-border-color": "transparent",
+      "--logic-list-filter-button-border-width": "1px",
+      "--logic-list-item-label-width": "6ch",
+      "--media-player-preview": "0",
+      "--media-player-range-end": "0",
+      "--media-player-range-start": "0",
+      "--media-player-thumb-start": "0",
+      "--overview-form-margin-top": "64px",
+      "--overview-subheader-top-position": "12px",
+      "--pointer": "default",
+      "--pr-file-list-sidebar-width": "0px",
+      "--radius-rounded": "9999px",
+      "--radix-select-content-available-height": "none",
+      "--radix-select-trigger-width": "0px",
+      "--scrollbar-width": "10px",
+      "--settings-list-view-box-spacing": "12px",
+      "--settings-list-view-item-border-bottom-offset": "0px",
+      "--settings-list-view-item-border-padding": "16px",
+      "--settings-list-view-item-bottom-radius": "0px",
+      "--settings-list-view-item-gap": "12px",
+      "--settings-list-view-item-min-height": "60px",
+      "--settings-list-view-item-padding-x": "16px",
+      "--settings-list-view-item-padding-y": "12px",
+      "--settings-list-view-item-radius": "10px",
+      "--settings-list-view-item-top-radius": "0px",
+      "--settings-list-view-single-group-header-min-height": "60px",
+      "--settings-list-view-thin-pixel": "1px",
+      "--sidebar-width": "244px",
+      "--speed-highlightFadeIn": "0s",
+      "--speed-highlightFadeOut": ".15s",
+      "--speed-quickTransition": ".1s",
+      "--speed-regularTransition": ".25s",
+      "--speed-slowTransition": ".35s",
+      "--sx-11ard2x": "0px",
+      "--sx-11lpf43": "0.8125rem",
+      "--sx-13q74cg": "transparent",
+      "--sx-154g0i3": "1px",
+      "--sx-18pfyxa": "6px 12px",
+      "--sx-19k7np8": "1",
+      "--sx-1a798ef": "6px",
+      "--sx-1bd72wb": "none",
+      "--sx-1h2bms7": "2",
+      "--sx-1mc3c6y": "#111212",
+      "--sx-1uu732i": "12px",
+      "--sx-1yqbkz7": "1",
+      "--sx-5jglzr": "none",
+      "--sx-6zt3z6": "1px solid #232325",
+      "--sx-d3xb6x": "0px",
+      "--sx-ds2y8i": "5px",
+      "--sx-jrz3l0": "transparent",
+      "--sx-owsuzu": "transparent",
+      "--sx-um3pee": "-12px",
+      "--sx-uray09": "transparent",
+      "--sx-x8afrf": "6px",
+      "--sx-x9n8tw": "transparent",
+      "--sx-ykavoc": "8px",
+      "--zoom-in": "zoom-in",
+      "--zoom-out": "zoom-out"
+    },
+    "customPropertyCount": 390,
+    "fonts": [],
+    "htmlClass": "dark",
+    "issueRows": [
+      {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "border": "0px none lch(100 0 272)",
+        "borderRadius": "8px",
+        "color": "lch(100 0 272)",
+        "display": "flex",
+        "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "letterSpacing": "normal",
+        "lineHeight": "24px",
+        "padding": "0px",
+        "rect": {
+          "height": 28.000001907348633,
+          "width": 219.71429443359375,
+          "x": 12.000000953674316,
+          "y": 328.08929443359375
+        },
+        "role": null,
+        "tag": "a",
+        "text": "Connect your tools"
+      },
+      {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "border": "0px none lch(100 0 272)",
+        "borderRadius": "8px",
+        "color": "lch(100 0 272)",
+        "display": "grid",
+        "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "letterSpacing": "normal",
+        "lineHeight": "24px",
+        "padding": "0px",
+        "rect": {
+          "height": 44.000003814697266,
+          "width": 1942.2857666015625,
+          "x": 244.57144165039065,
+          "y": 133.1428680419922
+        },
+        "role": null,
+        "tag": "a",
+        "text": "YUN-3 Connect your tools 0/1 导航1 Bug Feature Improvement Jun 6"
+      },
+      {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "border": "0px none lch(100 0 272)",
+        "borderRadius": "8px",
+        "color": "lch(100 0 272)",
+        "display": "grid",
+        "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "letterSpacing": "normal",
+        "lineHeight": "24px",
+        "padding": "0px",
+        "rect": {
+          "height": 44.000003814697266,
+          "width": 1942.2857666015625,
+          "x": 244.57144165039065,
+          "y": 217.1428680419922
+        },
+        "role": null,
+        "tag": "a",
+        "text": "YUN-1 test 1/1 导航1 Trader Jun 6"
+      },
+      {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "border": "0px none lch(100 0 272)",
+        "borderRadius": "8px",
+        "color": "lch(100 0 272)",
+        "display": "grid",
+        "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "letterSpacing": "normal",
+        "lineHeight": "24px",
+        "padding": "0px",
+        "rect": {
+          "height": 44.000003814697266,
+          "width": 1942.2857666015625,
+          "x": 244.57144165039065,
+          "y": 261.14288330078125
+        },
+        "role": null,
+        "tag": "a",
+        "text": "YUN-9 12312阿松大 Connect your tools 导航1 Jul 19"
+      },
+      {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "border": "0px none lch(100 0 272)",
+        "borderRadius": "8px",
+        "color": "lch(100 0 272)",
+        "display": "grid",
+        "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "letterSpacing": "normal",
+        "lineHeight": "24px",
+        "padding": "0px",
+        "rect": {
+          "height": 44.000003814697266,
+          "width": 1942.2857666015625,
+          "x": 244.57144165039065,
+          "y": 345.14288330078125
+        },
+        "role": null,
+        "tag": "a",
+        "text": "YUN-4 Import your data 1 Jun 6"
+      },
+      {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "border": "0px none lch(100 0 272)",
+        "borderRadius": "8px",
+        "color": "lch(100 0 272)",
+        "display": "grid",
+        "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "letterSpacing": "normal",
+        "lineHeight": "24px",
+        "padding": "0px",
+        "rect": {
+          "height": 44.000003814697266,
+          "width": 1942.2857666015625,
+          "x": 244.57144165039065,
+          "y": 389.1428833007813
+        },
+        "role": null,
+        "tag": "a",
+        "text": "YUN-8 阿松大阿松大 4H 波段结构看涨 Jul 19"
+      },
+      {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "border": "0px none lch(100 0 272)",
+        "borderRadius": "8px",
+        "color": "lch(100 0 272)",
+        "display": "grid",
+        "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "letterSpacing": "normal",
+        "lineHeight": "24px",
+        "padding": "0px",
+        "rect": {
+          "height": 44.000003814697266,
+          "width": 1942.2857666015625,
+          "x": 244.57144165039065,
+          "y": 433.1428833007813
+        },
+        "role": null,
+        "tag": "a",
+        "text": "YUN-5 Test Jun 6"
+      },
+      {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "border": "0px none lch(100 0 272)",
+        "borderRadius": "8px",
+        "color": "lch(100 0 272)",
+        "display": "grid",
+        "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "letterSpacing": "normal",
+        "lineHeight": "24px",
+        "padding": "0px",
+        "rect": {
+          "height": 44.000003814697266,
+          "width": 1942.2857666015625,
+          "x": 244.57144165039065,
+          "y": 517.1428833007812
+        },
+        "role": null,
+        "tag": "a",
+        "text": "YUN-2 Set up your teams Jun 6"
+      },
+      {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "border": "0px none lch(100 0 272)",
+        "borderRadius": "8px",
+        "color": "lch(100 0 272)",
+        "display": "grid",
+        "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "letterSpacing": "normal",
+        "lineHeight": "24px",
+        "padding": "0px",
+        "rect": {
+          "height": 44.000003814697266,
+          "width": 1942.2857666015625,
+          "x": 244.57144165039065,
+          "y": 561.1428833007812
+        },
+        "role": null,
+        "tag": "a",
+        "text": "YUN-6 导航1 test Trader Jun 13"
+      },
+      {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "border": "0px none lch(100 0 272)",
+        "borderRadius": "8px",
+        "color": "lch(100 0 272)",
+        "display": "grid",
+        "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "letterSpacing": "normal",
+        "lineHeight": "24px",
+        "padding": "0px",
+        "rect": {
+          "height": 44.000003814697266,
+          "width": 1942.2857666015625,
+          "x": 244.57144165039065,
+          "y": 605.1428833007812
+        },
+        "role": null,
+        "tag": "a",
+        "text": "YUN-7 4H波段结构看涨2 Jul 8 Jun 13"
+      }
+    ],
+    "samples": {
+      "Active": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(61.803 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "12px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 36.16964340209961,
+            "x": 263.14288330078125,
+            "y": 66.5
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Active"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 57.312503814697266,
+            "x": 252.57144165039065,
+            "y": 59.642860412597656
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Active"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "5px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 57.312503814697266,
+            "x": 252.57144165039065,
+            "y": 59.642860412597656
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Active"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 57.312503814697266,
+            "x": 252.57144165039065,
+            "y": 59.642860412597656
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Active"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 57.312503814697266,
+            "x": 252.57144165039065,
+            "y": 59.642860412597656
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Active"
+        }
+      ],
+      "All issues": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "12px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 54.437503814697266,
+            "x": 395.6428833007813,
+            "y": 66.5
+          },
+          "role": null,
+          "tag": "div",
+          "text": "All issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 58.97321701049805,
+            "x": 40,
+            "y": 363.3750305175781
+          },
+          "role": null,
+          "tag": "span",
+          "text": "All issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 75.58036041259766,
+            "x": 385.0714416503906,
+            "y": 59.642860412597656
+          },
+          "role": null,
+          "tag": "div",
+          "text": "All issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "5px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 75.58036041259766,
+            "x": 385.0714416503906,
+            "y": 59.642860412597656
+          },
+          "role": null,
+          "tag": "div",
+          "text": "All issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 75.58036041259766,
+            "x": 385.0714416503906,
+            "y": 59.642860412597656
+          },
+          "role": null,
+          "tag": "div",
+          "text": "All issues"
+        }
+      ],
+      "Backlog": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(61.803 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "12px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 46.04464340209961,
+            "x": 324.45538330078125,
+            "y": 66.5
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Backlog"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(90.826 1.425 272)",
+          "borderRadius": "0px",
+          "color": "lch(90.826 1.425 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 49.875003814697266,
+            "x": 312.5714416503906,
+            "y": 317.4285888671875
+          },
+          "role": null,
+          "tag": "span",
+          "text": "Backlog"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 67.1875,
+            "x": 313.8839416503906,
+            "y": 59.642860412597656
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Backlog"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "5px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 67.1875,
+            "x": 313.8839416503906,
+            "y": 59.642860412597656
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Backlog"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 67.1875,
+            "x": 313.8839416503906,
+            "y": 59.642860412597656
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Backlog"
+        }
+      ],
+      "Connect your tools": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(60.621 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(60.621 1.2 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 117.73214721679688,
+            "x": 40,
+            "y": 334.375
+          },
+          "role": null,
+          "tag": "span",
+          "text": "Connect your tools"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 117.73214721679688,
+            "x": 387.5714416503906,
+            "y": 147.42857360839844
+          },
+          "role": null,
+          "tag": "span",
+          "text": "Connect your tools"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 117.73214721679688,
+            "x": 387.5714416503906,
+            "y": 147.42857360839844
+          },
+          "role": null,
+          "tag": "span",
+          "text": "Connect your tools"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 117.73214721679688,
+            "x": 478.7410888671875,
+            "y": 275.4285888671875
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Connect your tools"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(61.803 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 117.73214721679688,
+            "x": 478.7410888671875,
+            "y": 275.4285888671875
+          },
+          "role": null,
+          "tag": "span",
+          "text": "Connect your tools"
+        }
+      ],
+      "Done": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(90.826 1.425 272)",
+          "borderRadius": "0px",
+          "color": "lch(90.826 1.425 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 32.69643020629883,
+            "x": 312.5714416503906,
+            "y": 489.4285888671875
+          },
+          "role": null,
+          "tag": "span",
+          "text": "Done"
+        }
+      ],
+      "Favorites": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(60.621 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(60.621 1.2 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "12px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 52.59821701049805,
+            "x": 21,
+            "y": 303.90179443359375
+          },
+          "role": null,
+          "tag": "span",
+          "text": "Favorites"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none rgb(255, 255, 255)",
+          "borderRadius": "8px",
+          "color": "lch(60.621 1.2 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 4px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 188.71429443359375,
+            "x": 17,
+            "y": 297.0446472167969
+          },
+          "role": null,
+          "tag": "button",
+          "text": "Favorites"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "8px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 0px 0px 5px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 219.71429443359375,
+            "x": 12.000000953674316,
+            "y": 297.0446472167969
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Favorites"
+        }
+      ],
+      "In Progress": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(90.826 1.425 272)",
+          "borderRadius": "0px",
+          "color": "lch(90.826 1.425 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 70.27678680419922,
+            "x": 312.5714416503906,
+            "y": 105.42857360839844
+          },
+          "role": null,
+          "tag": "span",
+          "text": "In Progress"
+        }
+      ],
+      "Issues": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 40.00893020629883,
+            "x": 354.64288330078125,
+            "y": 22.35714340209961
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(90.451 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(90.451 1.2 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 40.00893020629883,
+            "x": 354.64288330078125,
+            "y": 22.35714340209961
+          },
+          "role": null,
+          "tag": "h2",
+          "text": "Issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(90.451 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(90.451 1.2 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "6px",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 40.00893020629883,
+            "x": 354.64288330078125,
+            "y": 22.35714340209961
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "8px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 200.71429443359375,
+            "x": 31.000001907348633,
+            "y": 473.08929443359375
+          },
+          "role": null,
+          "tag": "a",
+          "text": "Issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(60.621 1.2 272)",
+          "borderRadius": "8px",
+          "color": "lch(60.621 1.2 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal 6px",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px 9px 0px 6px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 200.71429443359375,
+            "x": 31.000001907348633,
+            "y": 473.08929443359375
+          },
+          "role": null,
+          "tag": "span",
+          "text": "Issues"
+        }
+      ],
+      "Jun 6": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 31.98214340209961,
+            "x": 2128.875,
+            "y": 148
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Jun 6"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(61.803 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "12px",
+          "fontWeight": "450",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 31.98214340209961,
+            "x": 2128.875,
+            "y": 148
+          },
+          "role": null,
+          "tag": "span",
+          "text": "Jun 6"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 31.98214340209961,
+            "x": 2128.875,
+            "y": 232.00001525878903
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Jun 6"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(61.803 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "12px",
+          "fontWeight": "450",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 31.98214340209961,
+            "x": 2128.875,
+            "y": 232.00001525878903
+          },
+          "role": null,
+          "tag": "span",
+          "text": "Jun 6"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 31.98214340209961,
+            "x": 2128.875,
+            "y": 360.0000305175781
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Jun 6"
+        }
+      ],
+      "Todo": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(90.826 1.425 272)",
+          "borderRadius": "0px",
+          "color": "lch(90.826 1.425 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 31.21428680419922,
+            "x": 312.5714416503906,
+            "y": 189.42857360839844
+          },
+          "role": null,
+          "tag": "span",
+          "text": "Todo"
+        }
+      ],
+      "Workspace": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(60.621 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(60.621 1.2 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "12px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 65.0089340209961,
+            "x": 21,
+            "y": 169.85714721679688
+          },
+          "role": null,
+          "tag": "span",
+          "text": "Workspace"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none rgb(255, 255, 255)",
+          "borderRadius": "8px",
+          "color": "lch(60.621 1.2 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13.3333px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 4px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 214.71429443359375,
+            "x": 17,
+            "y": 163
+          },
+          "role": null,
+          "tag": "button",
+          "text": "Workspace"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "8px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 0px 0px 5px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 219.71429443359375,
+            "x": 12.000000953674316,
+            "y": 163
+          },
+          "role": null,
+          "tag": "div",
+          "text": "Workspace"
+        }
+      ],
+      "YUN-3": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 44.562503814697266,
+            "x": 310.5714416503906,
+            "y": 147.42857360839844
+          },
+          "role": null,
+          "tag": "div",
+          "text": "YUN-3"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(61.803 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "450",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 44.562503814697266,
+            "x": 310.5714416503906,
+            "y": 147.42857360839844
+          },
+          "role": null,
+          "tag": "span",
+          "text": "YUN-3"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(61.803 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "450",
+          "gap": "4px",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 44.562503814697266,
+            "x": 310.5714416503906,
+            "y": 147.42857360839844
+          },
+          "role": null,
+          "tag": "div",
+          "text": "YUN-3"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(61.803 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "450",
+          "gap": "normal",
+          "letterSpacing": "-0.26px",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 44.562503814697266,
+            "x": 310.5714416503906,
+            "y": 147.42857360839844
+          },
+          "role": null,
+          "tag": "span",
+          "text": "YUN-3"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 45.000003814697266,
+            "x": 310.5714416503906,
+            "y": 147.42857360839844
+          },
+          "role": null,
+          "tag": "div",
+          "text": "YUN-3"
+        }
+      ],
+      "导航1": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(61.803 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "12px",
+          "fontWeight": "450",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 17.142858505249023,
+            "width": 28.92857360839844,
+            "x": 1764.46435546875,
+            "y": 146.57144165039062
+          },
+          "role": null,
+          "tag": "span",
+          "text": "导航1"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(61.803 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "12px",
+          "fontWeight": "450",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 17.142858505249023,
+            "width": 28.92857360839844,
+            "x": 1949.7857666015625,
+            "y": 230.57144165039065
+          },
+          "role": null,
+          "tag": "span",
+          "text": "导航1"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(61.803 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "12px",
+          "fontWeight": "450",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 17.142858505249023,
+            "width": 28.92857360839844,
+            "x": 2028.357177734375,
+            "y": 274.5714416503906
+          },
+          "role": null,
+          "tag": "span",
+          "text": "导航1"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 18.85714340209961,
+            "width": 31.40178680419922,
+            "x": 387.5714416503906,
+            "y": 573.7142944335938
+          },
+          "role": null,
+          "tag": "span",
+          "text": "导航1"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontFamily": "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 18.85714340209961,
+            "width": 31.40178680419922,
+            "x": 387.5714416503906,
+            "y": 573.7142944335938
+          },
+          "role": null,
+          "tag": "span",
+          "text": "导航1"
+        }
+      ]
+    },
+    "styleSheetHrefs": [
+      "https://static.linear.app/client/assets/style-DDtm6ZIF.css"
+    ],
+    "title": "Yunkoo › All issues",
+    "topComputedValues": {
+      "backgroundColor": [
+        [
+          "rgba(0, 0, 0, 0)",
+          988
+        ],
+        [
+          "lch(5.52 0.4 272)",
+          15
+        ],
+        [
+          "lch(10.149 0.689 272)",
+          4
+        ],
+        [
+          "lch(10.149 0.593 272)",
+          4
+        ],
+        [
+          "lch(9.232 0.85 272)",
+          4
+        ],
+        [
+          "lch(2.595 0.4 272)",
+          3
+        ],
+        [
+          "rgb(38, 181, 206)",
+          3
+        ],
+        [
+          "lch(40 60 80)",
+          1
+        ],
+        [
+          "lch(0 0 0 / 0.004)",
+          1
+        ],
+        [
+          "lch(13.845 1.3 272)",
+          1
+        ],
+        [
+          "lch(100 0 272 / 0.72)",
+          1
+        ],
+        [
+          "lch(16.706 0.979 272)",
+          1
+        ],
+        [
+          "rgb(235, 87, 87)",
+          1
+        ],
+        [
+          "rgb(187, 135, 252)",
+          1
+        ],
+        [
+          "rgb(78, 167, 252)",
+          1
+        ]
+      ],
+      "borderRadius": [
+        [
+          "0px",
+          888
+        ],
+        [
+          "8px",
+          73
+        ],
+        [
+          "9999px",
+          24
+        ],
+        [
+          "48px",
+          12
+        ],
+        [
+          "3px",
+          9
+        ],
+        [
+          "50%",
+          8
+        ],
+        [
+          "50px",
+          6
+        ],
+        [
+          "5px",
+          5
+        ],
+        [
+          "12px",
+          2
+        ],
+        [
+          "10px",
+          1
+        ],
+        [
+          "4px",
+          1
+        ]
+      ],
+      "color": [
+        [
+          "lch(100 0 272)",
+          735
+        ],
+        [
+          "lch(60.621 1.2 272)",
+          94
+        ],
+        [
+          "lch(61.803 1.2 272)",
+          67
+        ],
+        [
+          "lch(90.451 1.2 272)",
+          39
+        ],
+        [
+          "lch(90.155 1.2 272)",
+          38
+        ],
+        [
+          "lch(90.826 1.425 272)",
+          20
+        ],
+        [
+          "rgb(255, 255, 255)",
+          16
+        ],
+        [
+          "lch(100 5 288.421)",
+          9
+        ],
+        [
+          "lch(35.024 1.2 272)",
+          3
+        ],
+        [
+          "lch(63.304 7 76.437)",
+          2
+        ],
+        [
+          "lch(63.304 7 271.994)",
+          2
+        ],
+        [
+          "lch(63.304 7 270.292)",
+          2
+        ],
+        [
+          "lch(63.304 7 282.865)",
+          2
+        ]
+      ],
+      "fontFamily": [
+        [
+          "\"Inter Variable\", \"SF Pro Display\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, \"Open Sans\", \"Helvetica Neue\", \"Linear Thai\", sans-serif",
+          1029
+        ]
+      ],
+      "fontSize": [
+        [
+          "16px",
+          736
+        ],
+        [
+          "13px",
+          142
+        ],
+        [
+          "12px",
+          125
+        ],
+        [
+          "13.3333px",
+          25
+        ],
+        [
+          "11px",
+          1
+        ]
+      ],
+      "fontWeight": [
+        [
+          "400",
+          763
+        ],
+        [
+          "500",
+          208
+        ],
+        [
+          "450",
+          57
+        ],
+        [
+          "550",
+          1
+        ]
+      ],
+      "letterSpacing": [
+        [
+          "normal",
+          1019
+        ],
+        [
+          "-0.26px",
+          9
+        ],
+        [
+          "-0.1px",
+          1
+        ]
+      ],
+      "lineHeight": [
+        [
+          "24px",
+          741
+        ],
+        [
+          "normal",
+          267
+        ],
+        [
+          "0px",
+          10
+        ],
+        [
+          "28px",
+          10
+        ],
+        [
+          "23px",
+          1
+        ]
+      ]
+    },
+    "url": "https://linear.app/yunkoo/team/YUN/all",
+    "viewport": {
+      "dpr": 1.75,
+      "height": 1010,
+      "width": 2195
+    }
+  },
+  "focusedStyles": {
+    "chains": {
+      "Active": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(61.803 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "block",
+          "fontSize": "12px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 36.16964340209961,
+            "x": 263.14288330078125,
+            "y": 66.5
+          },
+          "tag": "div",
+          "text": "Active"
+        },
+        {
+          "backgroundColor": "lch(10.149 0.593 272)",
+          "border": "0.571429px solid rgba(0, 0, 0, 0)",
+          "borderRadius": "9999px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "inline-flex",
+          "fontSize": "12px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px 10px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 57.312503814697266,
+            "x": 252.57144165039065,
+            "y": 59.642860412597656
+          },
+          "tag": "a",
+          "text": "Active"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 57.312503814697266,
+            "x": 252.57144165039065,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "Active"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 57.312503814697266,
+            "x": 252.57144165039065,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "Active"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 57.312503814697266,
+            "x": 252.57144165039065,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "Active"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "5px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 57.312503814697266,
+            "x": 252.57144165039065,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "Active"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 57.312503814697266,
+            "x": 252.57144165039065,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "Active"
+        }
+      ],
+      "All issues": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "12px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 54.437503814697266,
+            "x": 395.6428833007813,
+            "y": 66.5
+          },
+          "tag": "div",
+          "text": "All issues"
+        },
+        {
+          "backgroundColor": "lch(16.706 0.979 272)",
+          "border": "0.571429px solid rgba(0, 0, 0, 0)",
+          "borderRadius": "9999px",
+          "color": "lch(100 0 272)",
+          "display": "inline-flex",
+          "fontSize": "12px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px 10px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 75.58036041259766,
+            "x": 385.0714416503906,
+            "y": 59.642860412597656
+          },
+          "tag": "a",
+          "text": "All issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 75.58036041259766,
+            "x": 385.0714416503906,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "All issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 75.58036041259766,
+            "x": 385.0714416503906,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "All issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 75.58036041259766,
+            "x": 385.0714416503906,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "All issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "5px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 75.58036041259766,
+            "x": 385.0714416503906,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "All issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 75.58036041259766,
+            "x": 385.0714416503906,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "All issues"
+        }
+      ],
+      "Backlog": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(61.803 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "block",
+          "fontSize": "12px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 46.04464340209961,
+            "x": 324.45538330078125,
+            "y": 66.5
+          },
+          "tag": "div",
+          "text": "Backlog"
+        },
+        {
+          "backgroundColor": "lch(10.149 0.593 272)",
+          "border": "0.571429px solid rgba(0, 0, 0, 0)",
+          "borderRadius": "9999px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "inline-flex",
+          "fontSize": "12px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px 10px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 67.1875,
+            "x": 313.8839416503906,
+            "y": 59.642860412597656
+          },
+          "tag": "a",
+          "text": "Backlog"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 67.1875,
+            "x": 313.8839416503906,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "Backlog"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 67.1875,
+            "x": 313.8839416503906,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "Backlog"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 67.1875,
+            "x": 313.8839416503906,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "Backlog"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "5px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 67.1875,
+            "x": 313.8839416503906,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "Backlog"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 67.1875,
+            "x": 313.8839416503906,
+            "y": 59.642860412597656
+          },
+          "tag": "div",
+          "text": "Backlog"
+        }
+      ],
+      "Connect your tools": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(60.621 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(60.621 1.2 272)",
+          "display": "block",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 117.73214721679688,
+            "x": 40,
+            "y": 334.375
+          },
+          "tag": "span",
+          "text": "Connect your tools"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(60.621 1.2 272)",
+          "borderRadius": "8px",
+          "color": "lch(60.621 1.2 272)",
+          "display": "flex",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px 9px 0px 8px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 219.71429443359375,
+            "x": 12.000000953674316,
+            "y": 328.08929443359375
+          },
+          "tag": "span",
+          "text": "Connect your tools"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "8px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 219.71429443359375,
+            "x": 12.000000953674316,
+            "y": 328.08929443359375
+          },
+          "tag": "a",
+          "text": "Connect your tools"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 219.71429443359375,
+            "x": 12.000000953674316,
+            "y": 328.08929443359375
+          },
+          "tag": "div",
+          "text": "Connect your tools"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 219.71429443359375,
+            "x": 12.000000953674316,
+            "y": 328.08929443359375
+          },
+          "tag": "div",
+          "text": "Connect your tools"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 219.71429443359375,
+            "x": 12.000000953674316,
+            "y": 328.08929443359375
+          },
+          "tag": "div",
+          "text": "Connect your tools"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 219.71429443359375,
+            "x": 12.000000953674316,
+            "y": 328.08929443359375
+          },
+          "tag": "div",
+          "text": "Connect your tools"
+        }
+      ],
+      "Done": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(90.826 1.425 272)",
+          "borderRadius": "0px",
+          "color": "lch(90.826 1.425 272)",
+          "display": "block",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 32.69643020629883,
+            "x": 312.5714416503906,
+            "y": 489.4285888671875
+          },
+          "tag": "span",
+          "text": "Done"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "8px",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 24.000001907348633,
+            "width": 49.125003814697266,
+            "x": 312.5714416503906,
+            "y": 485.1428833007813
+          },
+          "tag": "div",
+          "text": "Done 3"
+        },
+        {
+          "backgroundColor": "lch(9.232 0.85 272)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "8px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "8px",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 8px 0px 0px",
+          "rect": {
+            "height": 36,
+            "width": 1926.2857666015625,
+            "x": 252.57144165039065,
+            "y": 479.1428833007813
+          },
+          "tag": "div",
+          "text": "Done 3"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "contents",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          },
+          "tag": "div",
+          "text": "Done 3"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "contents",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          },
+          "tag": "div",
+          "text": "Done 3"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "8px",
+          "color": "lch(100 0 272)",
+          "display": "grid",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 36,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 479.1428833007813
+          },
+          "tag": "div",
+          "text": "Done 3"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "grid",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 0px 2px",
+          "rect": {
+            "height": 172.00001525878906,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 479.1428833007813
+          },
+          "tag": "div",
+          "text": "Done 3 YUN-2 Set up your teams Jun 6 YUN-6 导航1 test Trader Jun 13 YUN-7 4H波段结构看涨2 Jul 8 Jun 13"
+        }
+      ],
+      "In Progress": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(90.826 1.425 272)",
+          "borderRadius": "0px",
+          "color": "lch(90.826 1.425 272)",
+          "display": "block",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 70.27678680419922,
+            "x": 312.5714416503906,
+            "y": 105.42857360839844
+          },
+          "tag": "span",
+          "text": "In Progress"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "8px",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 24.000001907348633,
+            "width": 86.70536041259766,
+            "x": 312.5714416503906,
+            "y": 101.14286041259766
+          },
+          "tag": "div",
+          "text": "In Progress 1"
+        },
+        {
+          "backgroundColor": "lch(9.232 0.85 272)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "8px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "8px",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 8px 0px 0px",
+          "rect": {
+            "height": 36,
+            "width": 1926.2857666015625,
+            "x": 252.57144165039065,
+            "y": 95.14286041259766
+          },
+          "tag": "div",
+          "text": "In Progress 1"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "contents",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          },
+          "tag": "div",
+          "text": "In Progress 1"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "contents",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          },
+          "tag": "div",
+          "text": "In Progress 1"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "8px",
+          "color": "lch(100 0 272)",
+          "display": "grid",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 36,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 95.14286041259766
+          },
+          "tag": "div",
+          "text": "In Progress 1"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "grid",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 0px 2px",
+          "rect": {
+            "height": 84,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 95.14286041259766
+          },
+          "tag": "div",
+          "text": "In Progress 1 YUN-3 Connect your tools 0/1 导航1 Bug Feature Improvement Jun 6"
+        }
+      ],
+      "Issues": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 40.00893020629883,
+            "x": 354.64288330078125,
+            "y": 22.35714340209961
+          },
+          "tag": "div",
+          "text": "Issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 34,
+            "width": 132.0803680419922,
+            "x": 262.5714416503906,
+            "y": 13.071429252624512
+          },
+          "tag": "div",
+          "text": "Yunkoo › Issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 4px 0px 10px",
+          "rect": {
+            "height": 34,
+            "width": 146.0803680419922,
+            "x": 252.57144165039065,
+            "y": 13.071429252624512
+          },
+          "tag": "div",
+          "text": "Yunkoo › Issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "4px",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 43.000003814697266,
+            "width": 1890.2857666015625,
+            "x": 252.57144165039065,
+            "y": 8.571429252624512
+          },
+          "tag": "div",
+          "text": "Yunkoo › Issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "6px",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 43.000003814697266,
+            "width": 1924.2857666015625,
+            "x": 252.57144165039065,
+            "y": 8.571429252624512
+          },
+          "tag": "div",
+          "text": "Yunkoo › Issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 10px 0px 8px",
+          "rect": {
+            "height": 43.57143020629883,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 8.571429252624512
+          },
+          "tag": "div",
+          "text": "Yunkoo › Issues"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 86.5714340209961,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 8.571429252624512
+          },
+          "tag": "div",
+          "text": "Yunkoo › Issues Active Backlog All issues 1 tesat"
+        }
+      ],
+      "Jun 6": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 31.98214340209961,
+            "x": 2128.875,
+            "y": 148
+          },
+          "tag": "div",
+          "text": "Jun 6"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 60.000003814697266,
+            "x": 2100.857177734375,
+            "y": 148
+          },
+          "tag": "div",
+          "text": "Jun 6"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "grid",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 44.000003814697266,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 133.1428680419922
+          },
+          "tag": "div",
+          "text": "YUN-3 Connect your tools 0/1 导航1 Bug Feature Improvement Jun 6"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "8px",
+          "color": "lch(100 0 272)",
+          "display": "grid",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 44.000003814697266,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 133.1428680419922
+          },
+          "tag": "a",
+          "text": "YUN-3 Connect your tools 0/1 导航1 Bug Feature Improvement Jun 6"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "contents",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          },
+          "tag": "div",
+          "text": "YUN-3 Connect your tools 0/1 导航1 Bug Feature Improvement Jun 6"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "grid",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 0px 2px",
+          "rect": {
+            "height": 84,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 95.14286041259766
+          },
+          "tag": "div",
+          "text": "In Progress 1 YUN-3 Connect your tools 0/1 导航1 Bug Feature Improvement Jun 6"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "grid",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 0px 8px",
+          "rect": {
+            "height": 564,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 95.14286041259766
+          },
+          "tag": "div",
+          "text": "In Progress 1 YUN-3 Connect your tools 0/1 导航1 Bug Feature Improvement Jun 6 Todo 2 YUN-1 test 1/1 导航1 Trader Jun 6 YUN-"
+        }
+      ],
+      "Todo": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(90.826 1.425 272)",
+          "borderRadius": "0px",
+          "color": "lch(90.826 1.425 272)",
+          "display": "block",
+          "fontSize": "13px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 31.21428680419922,
+            "x": 312.5714416503906,
+            "y": 189.42857360839844
+          },
+          "tag": "span",
+          "text": "Todo"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "8px",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 24.000001907348633,
+            "width": 47.642860412597656,
+            "x": 312.5714416503906,
+            "y": 185.1428680419922
+          },
+          "tag": "div",
+          "text": "Todo 2"
+        },
+        {
+          "backgroundColor": "lch(9.232 0.85 272)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "8px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "8px",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 8px 0px 0px",
+          "rect": {
+            "height": 36,
+            "width": 1926.2857666015625,
+            "x": 252.57144165039065,
+            "y": 179.1428680419922
+          },
+          "tag": "div",
+          "text": "Todo 2"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "contents",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          },
+          "tag": "div",
+          "text": "Todo 2"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "contents",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          },
+          "tag": "div",
+          "text": "Todo 2"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "8px",
+          "color": "lch(100 0 272)",
+          "display": "grid",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 36,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 179.1428680419922
+          },
+          "tag": "div",
+          "text": "Todo 2"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "grid",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 0px 2px",
+          "rect": {
+            "height": 128,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 179.1428680419922
+          },
+          "tag": "div",
+          "text": "Todo 2 YUN-1 test 1/1 导航1 Trader Jun 6 YUN-9 12312阿松大 Connect your tools 导航1 Jul 19"
+        }
+      ],
+      "Workspace": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(60.621 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(60.621 1.2 272)",
+          "display": "block",
+          "fontSize": "12px",
+          "fontWeight": "500",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 14.285715103149414,
+            "width": 65.0089340209961,
+            "x": 21,
+            "y": 169.85714721679688
+          },
+          "tag": "span",
+          "text": "Workspace"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none rgb(255, 255, 255)",
+          "borderRadius": "8px",
+          "color": "lch(60.621 1.2 272)",
+          "display": "flex",
+          "fontSize": "13.3333px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 4px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 214.71429443359375,
+            "x": 17,
+            "y": 163
+          },
+          "tag": "button",
+          "text": "Workspace"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "8px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 0px 0px 5px",
+          "rect": {
+            "height": 28.000001907348633,
+            "width": 219.71429443359375,
+            "x": 12.000000953674316,
+            "y": 163
+          },
+          "tag": "div",
+          "text": "Workspace"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 126.04464721679688,
+            "width": 227.71429443359375,
+            "x": 4,
+            "y": 163
+          },
+          "tag": "div",
+          "text": "Workspace Projects Views More"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 126.04464721679688,
+            "width": 219.71429443359375,
+            "x": 12.000000953674316,
+            "y": 163
+          },
+          "tag": "div",
+          "text": "Workspace Projects Views More"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "block",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 230.04464721679688,
+            "width": 219.71429443359375,
+            "x": 12.000000953674316,
+            "y": 59.000003814697266
+          },
+          "tag": "div",
+          "text": "Inbox My issues Agent Workspace Projects Views More"
+        },
+        {
+          "backgroundColor": "lch(0 0 0 / 0.004)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "8px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "26px 2px 0px 12px",
+          "rect": {
+            "height": 962.2857666015624,
+            "width": 244.00001525878903,
+            "x": 0,
+            "y": 46.000003814697266
+          },
+          "tag": "div",
+          "text": "Inbox My issues Agent Workspace Projects Views More Favorites Connect your tools All issues tesat Yunkoo Home Issues Pro"
+        }
+      ],
+      "YUN-3": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 44.562503814697266,
+            "x": 310.5714416503906,
+            "y": 147.42857360839844
+          },
+          "tag": "div",
+          "text": "YUN-3"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 15.428571701049805,
+            "width": 45.000003814697266,
+            "x": 310.5714416503906,
+            "y": 147.42857360839844
+          },
+          "tag": "div",
+          "text": "YUN-3"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "grid",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 44.000003814697266,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 133.1428680419922
+          },
+          "tag": "div",
+          "text": "YUN-3 Connect your tools 0/1 导航1 Bug Feature Improvement Jun 6"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "8px",
+          "color": "lch(100 0 272)",
+          "display": "grid",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 44.000003814697266,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 133.1428680419922
+          },
+          "tag": "a",
+          "text": "YUN-3 Connect your tools 0/1 导航1 Bug Feature Improvement Jun 6"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "contents",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          },
+          "tag": "div",
+          "text": "YUN-3 Connect your tools 0/1 导航1 Bug Feature Improvement Jun 6"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "grid",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 0px 2px",
+          "rect": {
+            "height": 84,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 95.14286041259766
+          },
+          "tag": "div",
+          "text": "In Progress 1 YUN-3 Connect your tools 0/1 导航1 Bug Feature Improvement Jun 6"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "grid",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 0px 8px",
+          "rect": {
+            "height": 564,
+            "width": 1942.2857666015625,
+            "x": 244.57144165039065,
+            "y": 95.14286041259766
+          },
+          "tag": "div",
+          "text": "In Progress 1 YUN-3 Connect your tools 0/1 导航1 Bug Feature Improvement Jun 6 Todo 2 YUN-1 test 1/1 导航1 Trader Jun 6 YUN-"
+        }
+      ],
+      "导航1": [
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(61.803 1.2 272)",
+          "borderRadius": "0px",
+          "color": "lch(61.803 1.2 272)",
+          "display": "block",
+          "fontSize": "12px",
+          "fontWeight": "450",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "normal",
+          "padding": "0px",
+          "rect": {
+            "height": 17.142858505249023,
+            "width": 28.92857360839844,
+            "x": 1764.46435546875,
+            "y": 146.57144165039062
+          },
+          "tag": "span",
+          "text": "导航1"
+        },
+        {
+          "backgroundColor": "lch(5.52 0.4 272)",
+          "border": "0.571429px solid lch(16.32 1.48 272)",
+          "borderRadius": "48px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px 8px",
+          "rect": {
+            "height": 24.000001907348633,
+            "width": 67.0714340209961,
+            "x": 1735.8929443359375,
+            "y": 143.1428680419922
+          },
+          "tag": "div",
+          "text": "导航1"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 24.000001907348633,
+            "width": 67.0714340209961,
+            "x": 1735.8929443359375,
+            "y": 143.1428680419922
+          },
+          "tag": "div",
+          "text": "导航1"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "50px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "3px",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 24.000001907348633,
+            "width": 1553.5535888671875,
+            "x": 513.3035888671875,
+            "y": 143.1428680419922
+          },
+          "tag": "div",
+          "text": "0/1 导航1 Bug Feature Improvement"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "contents",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 0,
+            "width": 0,
+            "x": 0,
+            "y": 0
+          },
+          "tag": "div",
+          "text": "0/1 导航1 Bug Feature Improvement"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "8px",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 36,
+            "width": 1710.2857666015625,
+            "x": 387.5714416503906,
+            "y": 137.1428680419922
+          },
+          "tag": "div",
+          "text": "Connect your tools 0/1 导航1 Bug Feature Improvement"
+        },
+        {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "border": "0px none lch(100 0 272)",
+          "borderRadius": "0px",
+          "color": "lch(100 0 272)",
+          "display": "flex",
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "gap": "normal",
+          "letterSpacing": "normal",
+          "lineHeight": "24px",
+          "padding": "0px",
+          "rect": {
+            "height": 36,
+            "width": 1710.2857666015625,
+            "x": 387.5714416503906,
+            "y": 137.1428680419922
+          },
+          "tag": "div",
+          "text": "Connect your tools 0/1 导航1 Bug Feature Improvement"
+        }
+      ]
+    },
+    "structural": {
+      "issueRow": {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "border": "0px none lch(100 0 272)",
+        "borderRadius": "8px",
+        "color": "lch(100 0 272)",
+        "display": "flex",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "letterSpacing": "normal",
+        "lineHeight": "24px",
+        "padding": "0px",
+        "rect": {
+          "height": 28.000001907348633,
+          "width": 219.71429443359375,
+          "x": 12.000000953674316,
+          "y": 328.08929443359375
+        },
+        "tag": "a",
+        "text": "Connect your tools"
+      },
+      "main": {
+        "backgroundColor": "lch(5.52 0.4 272)",
+        "border": "0.571429px solid lch(9.84 1.48 272)",
+        "borderRadius": "12px",
+        "color": "lch(100 0 272)",
+        "display": "flex",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "letterSpacing": "normal",
+        "lineHeight": "24px",
+        "padding": "0px",
+        "rect": {
+          "height": 966.2857666015624,
+          "width": 1943.4287109375,
+          "x": 244.00001525878903,
+          "y": 8
+        },
+        "tag": "main",
+        "text": "Yunkoo › Issues Active Backlog All issues 1 tesat In Progress 1 YUN-3 Connect your tools 0/1 导航1 Bug Feature Improvement"
+      },
+      "nav": {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "border": "0px none lch(100 0 272)",
+        "borderRadius": "0px",
+        "color": "lch(100 0 272)",
+        "display": "flex",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "gap": "normal",
+        "letterSpacing": "normal",
+        "lineHeight": "24px",
+        "padding": "0px",
+        "rect": {
+          "height": 1010.2857666015624,
+          "width": 244.00001525878903,
+          "x": 0,
+          "y": 0
+        },
+        "tag": "nav",
+        "text": "YU Yunkoo Inbox My issues Agent Workspace Projects Views More Favorites Connect your tools All issues tesat Yunkoo Home "
+      }
+    },
+    "viewport": {
+      "dpr": 1.75,
+      "height": 1010,
+      "width": 2195
+    }
+  },
+  "issueLeafStyles": {
+    "0/1": {
+      "color": "lch(61.803 1.2 272)",
+      "fontSize": "12px",
+      "fontWeight": "450",
+      "letterSpacing": "normal",
+      "lineHeight": "normal",
+      "rect": {
+        "height": 14.285715103149414,
+        "width": 16.973215103149414,
+        "x": 541.875,
+        "y": 148
+      },
+      "tag": "span",
+      "text": "0/1"
+    },
+    "Bug": {
+      "color": "lch(61.803 1.2 272)",
+      "fontSize": "12px",
+      "fontWeight": "450",
+      "letterSpacing": "normal",
+      "lineHeight": "normal",
+      "rect": {
+        "height": 14.285715103149414,
+        "width": 22.428571701049805,
+        "x": 1834.5357666015625,
+        "y": 148
+      },
+      "tag": "span",
+      "text": "Bug"
+    },
+    "Connect your tools": {
+      "color": "lch(100 0 272)",
+      "fontSize": "13px",
+      "fontWeight": "500",
+      "letterSpacing": "normal",
+      "lineHeight": "normal",
+      "rect": {
+        "height": 15.428571701049805,
+        "width": 117.73214721679688,
+        "x": 387.5714416503906,
+        "y": 147.42857360839844
+      },
+      "tag": "span",
+      "text": "Connect your tools"
+    },
+    "Feature": {
+      "color": "lch(61.803 1.2 272)",
+      "fontSize": "12px",
+      "fontWeight": "450",
+      "letterSpacing": "normal",
+      "lineHeight": "normal",
+      "rect": {
+        "height": 14.285715103149414,
+        "width": 43.08928680419922,
+        "x": 1898.107177734375,
+        "y": 148
+      },
+      "tag": "span",
+      "text": "Feature"
+    },
+    "Improvement": {
+      "color": "lch(61.803 1.2 272)",
+      "fontSize": "12px",
+      "fontWeight": "450",
+      "letterSpacing": "normal",
+      "lineHeight": "normal",
+      "rect": {
+        "height": 14.285715103149414,
+        "width": 74.9464340209961,
+        "x": 1982.33935546875,
+        "y": 148
+      },
+      "tag": "span",
+      "text": "Improvement"
+    },
+    "Jun 6": {
+      "color": "lch(61.803 1.2 272)",
+      "fontSize": "12px",
+      "fontWeight": "450",
+      "letterSpacing": "normal",
+      "lineHeight": "normal",
+      "rect": {
+        "height": 14.285715103149414,
+        "width": 31.98214340209961,
+        "x": 2128.875,
+        "y": 148
+      },
+      "tag": "span",
+      "text": "Jun 6"
+    },
+    "YUN-3": {
+      "color": "lch(61.803 1.2 272)",
+      "fontSize": "13px",
+      "fontWeight": "450",
+      "letterSpacing": "-0.26px",
+      "lineHeight": "normal",
+      "rect": {
+        "height": 15.428571701049805,
+        "width": 44.562503814697266,
+        "x": 310.5714416503906,
+        "y": 147.42857360839844
+      },
+      "tag": "span",
+      "text": "YUN-3"
+    },
+    "导航1": {
+      "color": "lch(61.803 1.2 272)",
+      "fontSize": "12px",
+      "fontWeight": "450",
+      "letterSpacing": "normal",
+      "lineHeight": "normal",
+      "rect": {
+        "height": 17.142858505249023,
+        "width": 28.92857360839844,
+        "x": 1764.46435546875,
+        "y": 146.57144165039062
+      },
+      "tag": "span",
+      "text": "导航1"
+    }
+  },
+  "allIssuesLinks": [
+    {
+      "backgroundColor": "lch(13.845 1.3 272)",
+      "borderRadius": "8px",
+      "classes": "sx-6s0dn4 sx-1i9j6mr sx-vijh9v sx-1ty9z65 sx-1yf7rl7 sx-1urcx1m sx-y9f4xx sx-78zum5 sx-ew8opw sx-1rfuerz sx-4rafv8 sx-hfnvfx sx-g21zc0 sx-1u2y386 sx-1s0yxy1 sx-1n2onr6 sx-1hmns74 sx-1cpjm7i sx-15yeffl sx-1trry6i sx-cd5spp sx-1l63sl8 sc2sx-SidebarLink-StyledLink-b4d1f6a9 _iconScope_1podx_8",
+      "color": "lch(100 0 272)",
+      "fontSize": "16px",
+      "fontWeight": "400",
+      "padding": "0px",
+      "rect": {
+        "height": 28.000001907348633,
+        "width": 219.71429443359375,
+        "x": 12.000000953674316,
+        "y": 357.08929443359375
+      },
+      "text": "All issues"
+    },
+    {
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "borderRadius": "8px",
+      "classes": "sx-6s0dn4 sx-1i9j6mr sx-vijh9v sx-1ty9z65 sx-1yf7rl7 sx-1urcx1m sx-y9f4xx sx-78zum5 sx-ew8opw sx-1j12vre sx-1kfyso2 sx-17pvo4w sx-1bef0s7 sx-17mi88y sx-cz05zz sx-1xzqujw sx-1caykug sx-1n2onr6 sx-1snac0e sx-1hmns74 sx-1cpjm7i sx-1y3wzot sx-hq5o37 sx-b0dqd5 sx-1tizby8 sx-61yzlz sx-12maryy sc2sx-SidebarLink-StyledLink-b4d1f6a9 _iconScope_1podx_8",
+      "color": "lch(100 0 272)",
+      "fontSize": "16px",
+      "fontWeight": "400",
+      "padding": "0px",
+      "rect": {
+        "height": 28.000001907348633,
+        "width": 200.71429443359375,
+        "x": 31.000001907348633,
+        "y": 473.08929443359375
+      },
+      "text": "Issues"
+    },
+    {
+      "backgroundColor": "rgba(0, 0, 0, 0)",
+      "borderRadius": "8px",
+      "classes": "sx-6s0dn4 sx-1i9j6mr sx-vijh9v sx-1ty9z65 sx-1yf7rl7 sx-1urcx1m sx-y9f4xx sx-78zum5 sx-ew8opw sx-1j12vre sx-1kfyso2 sx-17pvo4w sx-1bef0s7 sx-17mi88y sx-cz05zz sx-1xzqujw sx-1caykug sx-1n2onr6 sx-1snac0e sx-1hmns74 sx-1cpjm7i sx-1y3wzot sx-hq5o37 sx-b0dqd5 sx-1tizby8 sx-61yzlz sx-12maryy sc2sx-SidebarLink-StyledLink-b4d1f6a9 _iconScope_1podx_8",
+      "color": "lch(100 0 272)",
+      "fontSize": "16px",
+      "fontWeight": "400",
+      "padding": "0px",
+      "rect": {
+        "height": 28.000001907348633,
+        "width": 200.71429443359375,
+        "x": 31.000001907348633,
+        "y": 667.1339721679688
+      },
+      "text": "Issues"
+    },
+    {
+      "backgroundColor": "lch(16.706 0.979 272)",
+      "borderRadius": "9999px",
+      "classes": "sx-3nfvp2 sx-16dsc37 sx-6s0dn4 sx-l56j7k sx-uxw1ft sx-2lah0s sx-1ghz6dp sx-1m94j66 sx-11mg1s0 sx-ggjnk3 sx-2bxjed sx-pa2zml sx-1bplwb5 sx-87ps6o sx-1onz0r3 sx-1y0btm7 sx-9r1u3d sx-1n2onr6 sx-exx8yu sx-18d9i69 sx-1tr27xe sx-fqoyci sx-19oxun3 sx-v5fhuj sx-lvsv26 sx-1adeqgu sx-sl8mkx sx-81y29g sx-1pxngcj sx-x83zyx sx-1gnnqk1 sx-szt7f9 sx-12vwx15 sx-1guadzz sx-11hd63m sx-gk6kp4 sx-1szuiys sx-1ofr37e sx-1e4xxv5 sx-19inx9o sx-hfnvfx sx-1s928wv sx-1j6awrg sx-1m1drc7 sx-1xrz1ek sx-17cx49 sx-nbfe2x sx-1k48kgn sx-2q1x1w sx-1jbr1xh sx-ir2mql sx-171ild9 sx-176xj0o sx-5euxq6 sx-vkr9ky sx-1fgtraw sx-1264ykn sx-84vug0 sx-1lqa7cf sx-cicffo sx-1ncir08 sx-ueak1o sx-198e2n",
+      "color": "lch(100 0 272)",
+      "fontSize": "12px",
+      "fontWeight": "500",
+      "padding": "0px 10px",
+      "rect": {
+        "height": 28.000001907348633,
+        "width": 75.58036041259766,
+        "x": 385.0714416503906,
+        "y": 59.642860412597656
+      },
+      "text": "All issues"
+    }
+  ]
+}

@@ -184,6 +184,13 @@
 
   /* 分组条底色统一；生命力靠三角/状态图标 tint */
   --surface-group: lch(7.67% 0.75 272 / 1);
+  /*
+   * 持久导航位置：active 必须明显强于 hover。
+   * 筛选控件继续使用 --surface-control-*，数据多选继续使用
+   * --surface-row-selected，避免三种“选中”争夺同一视觉语义。
+   */
+  --surface-nav-hover: lch(10.8% 1.2 272 / 1);
+  --surface-nav-active: lch(14.2% 1.2 272 / 1);
   /* CollapseArrow / 分组 + 按状态着色 */
   --group-chevron-started: lch(50% 7 78);
   --group-chevron-todo: lch(50% 7 272);

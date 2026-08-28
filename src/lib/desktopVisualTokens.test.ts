@@ -78,6 +78,8 @@ export async function testDesktopVisualTokensExposeCanonicalRoles(): Promise<voi
     '--surface-pane:',
     '--surface-inset:',
     '--surface-floating:',
+    '--surface-nav-hover:',
+    '--surface-nav-active:',
     '--skeleton-highlight:',
   ]) assert(css.includes(token), `missing ${token}`)
   assert(!/--list-(?:text-(?:strong|primary|secondary)|group-title):\s*lch\(/.test(css), '列表文字不得保留独立 LCH 灰阶')

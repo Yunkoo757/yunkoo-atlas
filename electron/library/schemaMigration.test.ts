@@ -188,6 +188,65 @@ async function createV11LibraryFixture(options: {
   return { path: root, originalDatabase: fs.readFileSync(dbFile), originalManifest: fs.readFileSync(manifestFile) }
 }
 
+export async function testLegacyManifestDoesNotRemigrateCanonicalSnapshotAfterOwnershipSave(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-schema-v5-canonical-save-'))
+  let storage: LibraryStorage | null = new LibraryStorage(root)
+  try {
+    await storage.open()
+    const expected = createFullPersistedSnapshotFixture()
+    storage.saveSnapshot(expected)
+    storage.release()
+    storage = null
+
+    const SQL = await sqlRuntime()
+    const dbFile = path.join(root, 'journal.db')
+    const db = new SQL.Database(fs.readFileSync(dbFile))
+    try {
+      db.run("DELETE FROM meta WHERE key = 'schemaVersion'")
+      fs.writeFileSync(dbFile, Buffer.from(db.export()))
+    } finally {
+      db.close()
+    }
+    const manifestFile = path.join(root, 'manifest.json')
+    const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8')) as Record<string, unknown>
+    manifest.schemaVersion = 5
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2), 'utf8')
+
+    storage = new LibraryStorage(root, { allowCreate: false })
+    await storage.open()
+    const loaded = storage.loadSnapshot()!
+    assert(
+      loaded.weeklyReviews?.[0]?.liveStageId === 'live-stage-contract',
+      '旧 manifest 不得把已按当前合同保存的周复盘归属再次迁移为待整理',
+    )
+    storage.saveSnapshot(loaded)
+    storage.release()
+    storage = null
+
+    const savedDb = new SQL.Database(fs.readFileSync(dbFile))
+    try {
+      const versionRows = savedDb.exec("SELECT value FROM meta WHERE key = 'schemaVersion'")
+      assert(
+        Number(versionRows[0]?.values[0]?.[0]) === SCHEMA_VERSION,
+        '旧 manifest 下保存当前合同快照时必须写入明确的数据库 schema 版本',
+      )
+    } finally {
+      savedDb.close()
+    }
+
+    const reopened = new LibraryStorage(root, { allowCreate: false })
+    storage = reopened
+    await reopened.open()
+    assert(
+      reopened.loadSnapshot()?.weeklyReviews?.[0]?.liveStageId === 'live-stage-contract',
+      '当前合同快照再次保存并重开后必须保留周复盘阶段归属',
+    )
+  } finally {
+    storage?.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export async function testNormalV11OpenMigratesCanonicalStageOwnership(): Promise<void> {
   const library = await createV11LibraryFixture({ withoutLegacyBoundary: true })
   try {
