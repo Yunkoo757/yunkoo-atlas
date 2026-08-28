@@ -57,6 +57,13 @@
   font-size: var(--type-body-size);
   line-height: var(--type-body-line-height);
 }
+
+.empty.is-filtered .empty-hint,
+.empty.is-missing .empty-hint,
+.empty.is-complete .empty-hint {
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
+}
 .empty-action {
   margin-top: var(--sp-3);
 }

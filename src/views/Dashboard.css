@@ -253,7 +253,7 @@
   line-height: var(--type-row-line-height);
 }
 
-.db-empty p {
+.db-empty .empty-hint {
   max-width: 420px;
   margin: var(--sp-2) 0 var(--sp-5);
   color: var(--text-muted);

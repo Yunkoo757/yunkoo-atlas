@@ -63,8 +63,8 @@
 .modal-shell-heading p {
   margin: 5px 0 0;
   color: var(--text-secondary);
-  font-size: var(--type-body-size);
-  line-height: 1.5;
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
 }
 
 .modal-shell-close {

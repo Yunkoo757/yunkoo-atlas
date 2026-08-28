@@ -12,9 +12,9 @@
   color: var(--text-secondary);
   background: var(--field-bg);
   font-family: var(--font-ui);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--type-metadata-weight);
-  line-height: var(--type-metadata-line-height);
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--type-row-line-height);
   text-align: left;
   transition: color var(--motion-state) var(--ease-out),
     background-color var(--motion-state) var(--ease-out),

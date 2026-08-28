@@ -29,11 +29,6 @@
 
 /* 批量操作条已抽到 components/ui/BatchActionBar.css */
 
-.copy-confirm-modal .modal-shell-heading p {
-  font-size: var(--type-row-size);
-  line-height: var(--type-row-line-height);
-}
-
 .copy-preview {
   display: grid;
   gap: var(--sp-4);

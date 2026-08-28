@@ -23,7 +23,10 @@ export function testDesktopStatesUseCanonicalTypographyRoles(): void {
     throw new Error('区块空状态标题必须使用 section title 角色')
   }
   if (!rule(empty, '.empty-hint').includes('font-size: var(--type-body-size)')) {
-    throw new Error('区块空状态说明必须使用 body 角色')
+    throw new Error('首次使用空状态说明必须使用 body 角色')
+  }
+  if (!rule(empty, '.empty.is-filtered .empty-hint,\n.empty.is-missing .empty-hint,\n.empty.is-complete .empty-hint').includes('font-size: var(--type-row-size)')) {
+    throw new Error('筛选、缺失和完成状态说明必须使用紧凑 row 角色')
   }
   if (!rule(inline, '.ui-inline-status-title').includes('font-size: var(--type-data-size)')) {
     throw new Error('行内状态标题必须使用 data 角色')
