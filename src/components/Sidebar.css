@@ -723,7 +723,7 @@ html[data-ui-settled='1'] .sb-item {
   align-items: center;
   padding: 0 var(--sp-3);
   color: var(--text-secondary);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border-divider);
   font-size: var(--type-metadata-size);
   text-decoration: none;
 }

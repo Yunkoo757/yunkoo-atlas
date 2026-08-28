@@ -28,9 +28,8 @@
   font-size: var(--type-chip-size);
   font-weight: var(--type-chip-weight);
   line-height: var(--type-chip-line-height);
-  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
-  border-bottom: 1px solid var(--border-subtle);
-  backdrop-filter: blur(10px);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-divider);
 }
 
 .trade-list-column {
