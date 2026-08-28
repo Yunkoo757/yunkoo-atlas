@@ -42,6 +42,10 @@ playwright/.cache/
 # local scratch files
 *.backup
 
+# Python generated caches
+__pycache__/
+*.py[cod]
+
 # local git worktrees
 .worktrees/
 
