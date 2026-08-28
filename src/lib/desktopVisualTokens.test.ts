@@ -77,6 +77,7 @@ export async function testDesktopVisualTokensExposeCanonicalRoles(): Promise<voi
     '--surface-control-hover: lch(10.8% 0.9 272 / 1)',
     '--surface-control-active: lch(14.2% 0.9 272 / 1)',
     '--border-divider: lch(12.4% 0.9 272 / 1)',
+    '--tag-neutral-border: color-mix(in srgb, var(--border-subtle) 78%, transparent)',
     '--surface-app:',
     '--surface-pane:',
     '--surface-inset:',

@@ -5,23 +5,6 @@
   --sb-text-strong: var(--text-nav-active);
   --sb-hover-bg: var(--surface-nav-hover);
   --sb-selected-bg: var(--surface-nav-active);
-  /*
-   * 侧栏图标色：映射全局 --nav-icon-*；仅 .is-active 时使用。
-   */
-  --sb-nav-today: var(--nav-icon-today);
-  --sb-nav-notes: var(--nav-icon-notes);
-  --sb-nav-trades: var(--nav-icon-trades);
-  --sb-nav-cases: var(--nav-icon-cases);
-  --sb-nav-weekly: var(--nav-icon-weekly);
-  --sb-nav-review-session: var(--nav-icon-review-session);
-  --sb-nav-dashboard: var(--nav-icon-dashboard);
-  --sb-nav-archive: var(--nav-icon-archive);
-  --sb-ws-active: var(--nav-icon-ws-active);
-  --sb-ws-favorites: var(--nav-icon-ws-favorites);
-  --sb-ws-missed: var(--nav-icon-ws-missed);
-  --sb-ws-paper: var(--nav-icon-ws-paper);
-  --sb-ws-case: var(--nav-icon-ws-case);
-
   width: var(--app-sidebar-width, var(--sidebar-width));
   flex-shrink: 0;
   height: 100%;
@@ -347,48 +330,6 @@ html[data-ui-settled='1'] .sb-item {
   color: var(--text-tertiary);
   font-size: var(--type-caption-size);
   font-weight: var(--font-weight-normal);
-}
-
-/* 工作台 / 我的空间：默认灰阶；仅当前选中项亮出色相 */
-.sb-item[data-primary-id='today'].is-active > svg {
-  color: var(--sb-nav-today);
-}
-.sb-item[data-primary-id='quickNotes'].is-active > svg {
-  color: var(--sb-nav-notes);
-}
-.sb-item[data-primary-id='trades'].is-active > svg {
-  color: var(--sb-nav-trades);
-}
-.sb-item[data-primary-id='reviewCases'].is-active > svg {
-  color: var(--sb-nav-cases);
-}
-.sb-item[data-primary-id='weeklyReview'].is-active > svg {
-  color: var(--sb-nav-weekly);
-}
-.sb-item[data-primary-id='reviewSession'].is-active > svg {
-  color: var(--sb-nav-review-session);
-}
-.sb-item[data-primary-id='dashboard'].is-active > svg {
-  color: var(--sb-nav-dashboard);
-}
-.sb-item[data-primary-id='liveArchive'].is-active > svg {
-  color: var(--sb-nav-archive);
-}
-
-.sb-item[data-ws-icon='active'].is-active > svg {
-  color: var(--sb-ws-active);
-}
-.sb-item[data-ws-icon='favorites'].is-active > svg {
-  color: var(--sb-ws-favorites);
-}
-.sb-item[data-ws-icon='missed'].is-active > svg {
-  color: var(--sb-ws-missed);
-}
-.sb-item[data-ws-icon='paper'].is-active > svg {
-  color: var(--sb-ws-paper);
-}
-.sb-item[data-ws-icon='case-view'].is-active > svg {
-  color: var(--sb-ws-case);
 }
 
 /* 产品导航只保留一个强调来源，避免页面切换时形成彩色图标矩阵。 */

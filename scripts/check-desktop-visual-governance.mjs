@@ -41,6 +41,11 @@ function addMatches(findings, file, source, label, pattern, predicate = () => tr
 const allFiles = filesUnder(ROOT).filter((file) => TEXT_EXTENSIONS.has(extname(file)))
 const productionFiles = allFiles.filter((file) => !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file))
 const globalProperties = new Set()
+const PERSISTENT_SURFACE_FILES = new Set([
+  'src/components/trades/TradeList.css',
+  'src/views/ImportDataHealthView.css',
+  'src/views/WeeklyReviewView.css',
+])
 for (const file of productionFiles) {
   const source = readUtf8(file)
   if (extname(file) === '.css') {
@@ -55,6 +60,7 @@ const findings = []
 for (const file of productionFiles) {
   const source = readUtf8(file)
   const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, ' '))
+  const normalizedFile = relative(process.cwd(), file).replaceAll('\\', '/')
 
   addMatches(findings, file, source, 'mobile product chrome', /\bMobileNavigation\b/g)
   addMatches(findings, file, source, 'coarse pointer product rule', /pointer\s*:\s*coarse/g)
@@ -66,6 +72,9 @@ for (const file of productionFiles) {
   addMatches(findings, file, source, 'character icon', /(?:···|＋)/g)
 
   if (extname(file) === '.css') {
+    if (PERSISTENT_SURFACE_FILES.has(normalizedFile)) {
+      addMatches(findings, file, withoutComments, 'persistent surface blur', /(?:-webkit-)?backdrop-filter\s*:\s*blur\([^;\n}]+\)/gi)
+    }
     addMatches(
       findings,
       file,
