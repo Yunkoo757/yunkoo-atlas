@@ -54,13 +54,13 @@ const sidebarItems: SidebarWorkspaceItem[] = [
   },
   {
     id: 'system:favorites',
-    target: { kind: 'system', id: 'favorites', workspaces: ['trade', 'paper', 'case'] },
+    target: { kind: 'system', id: 'favorites', workspaces: ['trade', 'paper'] },
     placement: 'pinned',
     order: 1,
   },
   {
     id: 'system:missed',
-    target: { kind: 'system', id: 'missed', workspaces: ['trade', 'paper', 'case'] },
+    target: { kind: 'system', id: 'missed', workspaces: ['trade', 'paper'] },
     placement: 'pinned',
     order: 2,
   },
@@ -112,7 +112,7 @@ async function run(): Promise<void> {
     const primaryLabels = [...document.querySelectorAll<HTMLElement>('.sb-primary [data-primary-id] .sb-item-label')]
       .map((node) => node.textContent?.trim())
     assert(
-      primaryLabels.join(',') === '统计分析,随机复盘,周期复盘,案例记录,交易日志',
+      primaryLabels.join(',') === '统计分析,随机复盘,周期复盘,案例库,交易日志',
       '工作区必须按用户保存的顺序渲染',
     )
 
@@ -191,7 +191,7 @@ async function run(): Promise<void> {
       weeklyRiskPreparations: [],
     })
     await waitFor(
-      () => riskTrigger.textContent?.includes('风险正常') ?? false,
+      () => riskTrigger.textContent?.includes('风控中心') ?? false,
       '额度均正常时，周前准备状态不得把侧栏风险入口改成待复核告警',
     )
 

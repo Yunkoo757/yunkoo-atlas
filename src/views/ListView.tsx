@@ -63,6 +63,8 @@ export function ListView({
   const upsertTrades = useStore((state) => state.upsertTrades)
   const toggleStar = useStore((state) => state.toggleStar)
   const isStarred = useStore((state) => state.isStarred)
+  const toggleCaseFocus = useStore((state) => state.toggleCaseFocus)
+  const isCaseFocused = useStore((state) => state.isCaseFocused)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const [focusIndex, setFocusIndex] = useState(-1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -172,8 +174,9 @@ export function ListView({
   }, [])
 
   const toggleRowStar = useCallback((trade: Trade) => {
-    toggleStar(trade.id)
-  }, [toggleStar])
+    if (trade.tradeKind === 'case') toggleCaseFocus(trade.id)
+    else toggleStar(trade.id)
+  }, [toggleCaseFocus, toggleStar])
 
   const batchDelete = () => {
     const actionableIds = intersectSelectedTradeIds(selectedIds, visible)
@@ -273,10 +276,13 @@ export function ListView({
         },
         toggleStar,
         isStarred,
+        toggleCaseFocus,
+        isCaseFocused,
       }),
     })
   }, [
     isStarred,
+    isCaseFocused,
     openComposer,
     openTrade,
     removeTrade,
@@ -284,6 +290,7 @@ export function ListView({
     requestTradeOpen,
     setStatus,
     toggleStar,
+    toggleCaseFocus,
     trades,
   ])
 
@@ -350,7 +357,9 @@ export function ListView({
             strategies={strategies}
             focusedId={focusedId}
             selectedIds={selectedIds}
-            starredIds={starredIds}
+            starredIds={filter.tradeKind === 'case'
+              ? trades.filter((trade) => trade.tradeKind === 'case' && trade.isFocusCase).map((trade) => trade.id)
+              : starredIds}
             scrollParentRef={listScrollRef}
             onOpen={openTrade}
             onSelect={toggleSelection}

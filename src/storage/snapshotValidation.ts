@@ -262,6 +262,7 @@ export function isValidPersistedTrade(
   if (value.mistakeTags !== undefined && !isStringArray(value.mistakeTags)) return false
   if (value.reviewStatus !== undefined && !REVIEW_STATUSES.has(String(value.reviewStatus))) return false
   if (value.reviewCategory !== undefined && !REVIEW_CATEGORIES.has(String(value.reviewCategory))) return false
+  if (value.isFocusCase !== undefined && typeof value.isFocusCase !== 'boolean') return false
   if (value.caseType !== undefined && !CASE_TYPES.has(String(value.caseType))) return false
   if (value.masteryState !== undefined && !MASTERY_STATES.has(String(value.masteryState))) return false
   if (value.missReason !== undefined && !MISS_REASONS.has(String(value.missReason))) return false

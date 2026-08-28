@@ -1,6 +1,6 @@
 import { ICON_MD } from '@/icons/iconSize'
 import type { ReactNode } from 'react'
-import { Pencil, Trash2, Star, Ban, BookOpen, Copy } from '@/icons/appIcons'
+import { Pencil, Trash2, Star, Ban, BookOpen, Bookmark, Copy } from '@/icons/appIcons'
 import { StatusIcon } from '@/components/StatusIcon'
 import { STATUS_META, type Trade, type TradeStatus } from '@/data/trades'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
@@ -21,9 +21,13 @@ export function buildTradeCtxItems(
     createReviewCase?: (trade: Trade) => void
     toggleStar?: (id: string) => void
     isStarred?: (id: string) => boolean
+    toggleCaseFocus?: (id: string) => void
+    isCaseFocused?: (id: string) => boolean
   },
 ): CtxItem[] {
-  const starred = a.isStarred?.(trade.id)
+  const starred = trade.tradeKind === 'case'
+    ? a.isCaseFocused?.(trade.id)
+    : a.isStarred?.(trade.id)
   const applyStatus = (s: TradeStatus) => {
     if (a.changeStatus) a.changeStatus(s)
     else if (s === 'open') a.requestTradeOpen(trade.id)
@@ -58,6 +62,7 @@ export function buildTradeCtxItems(
     copy: <Copy size={ICON_MD} />,
     'extract-case': <BookOpen size={ICON_MD} />,
     star: <Star size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />,
+    'focus-case': <Bookmark size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />,
     delete: <Trash2 size={ICON_MD} />,
   }
   const actionHandlers: Record<RecordActionId, () => void> = {
@@ -65,6 +70,7 @@ export function buildTradeCtxItems(
     copy: () => copyTradeRecordWithFeedback(trade.id),
     'extract-case': () => a.createReviewCase?.(trade),
     star: () => a.toggleStar?.(trade.id),
+    'focus-case': () => a.toggleCaseFocus?.(trade.id),
     delete: () => {
       const deletedId = trade.id
       a.removeTrade(deletedId)

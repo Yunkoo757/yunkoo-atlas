@@ -49,6 +49,34 @@ function resolveReviewMirror(
   return { reviewCategory: 'normal', reviewStatus: 'unreviewed' }
 }
 
+/**
+ * 将旧版“案例星标 / focus 镜像”升级为独立学习优先级。
+ * 返回的 starredIds 只保留实盘与模拟记录，避免两套语义继续串联。
+ */
+export function migrateLegacyCasePriority(
+  trades: readonly Trade[],
+  starredIds: readonly string[],
+): { trades: Trade[]; starredIds: string[] } {
+  const starred = new Set(starredIds)
+  const caseIds = new Set<string>()
+  const migrated = trades.map((trade) => {
+    if (trade.tradeKind !== 'case') return trade
+    caseIds.add(trade.id)
+    const legacyFocus = trade.reviewCategory === 'focus' || trade.reviewStatus === 'focus'
+    if (!starred.has(trade.id) && !legacyFocus) return trade
+    const mirror = resolveReviewMirror(trade.masteryState, trade.caseType)
+    return {
+      ...trade,
+      isFocusCase: true,
+      ...(legacyFocus ? mirror : {}),
+    }
+  })
+  return {
+    trades: migrated,
+    starredIds: starredIds.filter((id) => !caseIds.has(id)),
+  }
+}
+
 function hasClassificationChanged(previous: Trade, next: Trade): boolean {
   return previous.caseType !== next.caseType ||
     previous.masteryState !== next.masteryState ||
@@ -94,6 +122,6 @@ export function applyCaseClassificationMutation(
     ok: true,
     changed: hasClassificationChanged(trade, next),
     trade: next,
-    promoteLegacyFocusToStar: trade.reviewCategory === 'focus' || trade.reviewStatus === 'focus',
+    promoteLegacyFocusToStar: false,
   }
 }

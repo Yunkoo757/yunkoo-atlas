@@ -31,7 +31,7 @@ export function normalizeReviewCaseScope(scope: string | undefined): ReviewCaseS
 export function matchesReviewCaseScope(
   trade: Trade,
   scope: ReviewCaseScope | undefined,
-  starredIds: ReadonlySet<string>,
+  _starredIds: ReadonlySet<string>,
 ): boolean {
   if (trade.tradeKind !== 'case') return false
   if (!scope || scope === 'all') return true
@@ -39,7 +39,7 @@ export function matchesReviewCaseScope(
   if (scope === 'missed') return trade.caseType === 'missed' || trade.status === 'missed'
   if (scope === 'focus') {
     return (
-      starredIds.has(trade.id) ||
+      trade.isFocusCase === true ||
       trade.reviewCategory === 'focus' ||
       trade.reviewStatus === 'focus'
     )

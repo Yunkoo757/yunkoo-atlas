@@ -9,7 +9,6 @@ import {
 const SOURCE_LABELS: Record<MissedOpportunitySource, string> = {
   trade: '交易日志',
   paper: '模拟盘',
-  case: '案例记录',
 }
 
 export type MissedOpportunityScopeMenuProps = {

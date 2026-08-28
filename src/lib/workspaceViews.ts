@@ -56,7 +56,7 @@ const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
   case: [
     { id: 'all', label: '全部', pathname: '/review-cases' },
     { id: 'exemplar', label: '交易案例', pathname: '/review-cases/exemplar' },
-    { id: 'focus', label: '重点', pathname: '/review-cases/focus' },
+    { id: 'focus', label: '重点案例', pathname: '/review-cases/focus' },
     { id: 'mistakes', label: '错题', pathname: '/review-cases/mistakes' },
     { id: 'missed', label: '错过机会', pathname: '/review-cases', search: '?caseType=missed' },
     { id: 'unreviewed', label: '待复看', pathname: '/review-cases/unreviewed' },

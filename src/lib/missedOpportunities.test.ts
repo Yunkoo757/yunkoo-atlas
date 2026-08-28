@@ -50,11 +50,7 @@ export function testSummaryUsesOnlyTheStrictMissedSourceMatches(): void {
     trade({ id: 'ordinary-case', tradeKind: 'case', caseType: 'mistake' }),
     trade({ id: 'deleted', tradeKind: 'paper', deletedAt: '2026-07-21T00:00:00.000Z' }),
   ]
-  const combinations: MissedOpportunitySource[][] = [
-    ['trade'], ['paper'], ['case'],
-    ['trade', 'paper'], ['trade', 'case'], ['paper', 'case'],
-    ['trade', 'paper', 'case'],
-  ]
+  const combinations: MissedOpportunitySource[][] = [['trade'], ['paper'], ['trade', 'paper']]
 
   for (const sources of combinations) {
     const summary = buildMissedOpportunitySummary(records, sources)
@@ -71,30 +67,29 @@ export function testSummaryMergesOnlyExplicitSourceTradeRelationships(): void {
   const secondLinkedCase = trade({ id: 'linked-older', tradeKind: 'case', caseType: 'missed', sourceTradeId: root.id, recordedAt: '2026-07-21T12:00:00.000Z' })
   const unrelatedCase = trade({ id: 'unrelated', tradeKind: 'case', caseType: 'missed', recordedAt: root.closedAt! })
 
-  const merged = buildMissedOpportunitySummary([root, linkedCase, secondLinkedCase], ['trade', 'case'])
+  const merged = buildMissedOpportunitySummary([root, linkedCase, secondLinkedCase], ['trade'])
   assert(merged.items.length === 1, '明确来源关系应合并成一个聚合项')
   assert(merged.items[0]?.linkedCases[0]?.id === linkedCase.id, '合并项必须保留案例入口')
   assert(merged.items[0]?.linkedCases.map((item) => item.id).join(',') === 'linked,linked-older', '多个关联案例必须按记录时间倒序保留')
 
-  const unrelated = buildMissedOpportunitySummary([root, unrelatedCase], ['trade', 'case'])
-  assert(unrelated.items.length === 2, '同品种同方向同时间但无 sourceTradeId 时不得合并')
+  const unrelated = buildMissedOpportunitySummary([root, unrelatedCase], ['trade'])
+  assert(unrelated.items.length === 1, '无来源关系的案例不得成为第二条错过事件')
+  assert(unrelated.items[0]?.linkedCases.length === 0, '无来源关系的案例不得错误关联')
 }
 
-export function testSummaryKeepsExcludedAndDeletedOriginsDistinct(): void {
+export function testSummaryOnlyLinksCasesToVisibleOrigins(): void {
   const root = trade({ id: 'root' })
   const linkedCase = trade({ id: 'linked', tradeKind: 'case', caseType: 'missed', sourceTradeId: root.id })
   const deletedSource = trade({ id: 'deleted-source', deletedAt: '2026-07-22T00:00:00.000Z' })
-  const deletedLinkedCase = trade({ id: 'deleted-linked', tradeKind: 'case', caseType: 'missed', sourceTradeId: deletedSource.id })
   const caseDeleted = trade({ id: 'case-deleted', tradeKind: 'case', caseType: 'missed', sourceTradeId: root.id, deletedAt: '2026-07-22T00:00:00.000Z' })
 
-  const excludedOrigin = buildMissedOpportunitySummary([root, linkedCase], ['case'])
-  assert(excludedOrigin.items.some((item) => item.primary.id === linkedCase.id), '未包含来源不得被后台拉入')
-  assert(excludedOrigin.items[0]?.missingSourceId === undefined, '仍存在但未包含的来源不得标记删除')
+  const excludedOrigin = buildMissedOpportunitySummary([root, linkedCase], ['paper'])
+  assert(excludedOrigin.items.length === 0, '未包含的原始记录与其案例不得进入聚合页')
 
-  const deletedOrigin = buildMissedOpportunitySummary([deletedSource, deletedLinkedCase], ['case'])
-  assert(deletedOrigin.items[0]?.missingSourceId === deletedSource.id, '来源删除后案例必须显示失效追溯')
+  const deletedOrigin = buildMissedOpportunitySummary([deletedSource, linkedCase], ['trade'])
+  assert(deletedOrigin.items.length === 0, '来源删除后不得让案例替代原始错过事件')
 
-  const caseDeletedSummary = buildMissedOpportunitySummary([root, caseDeleted], ['trade', 'case'])
+  const caseDeletedSummary = buildMissedOpportunitySummary([root, caseDeleted], ['trade'])
   assert(caseDeletedSummary.items[0]?.linkedCases.length === 0, '案例删除后根项必须退化为普通项')
 }
 
@@ -105,7 +100,7 @@ export function testSummaryTreatsEmptyDeletedAtAsDeleted(): void {
   assert(summary.items.length === 0 && summary.rawTotal === 0, 'deletedAt 为空字符串的命中记录也必须排除')
 }
 
-export function testSummaryMarksEmptyDeletedAtSourceAsMissing(): void {
+export function testSummaryDoesNotPromoteCaseWhenSourceIsDeleted(): void {
   const emptyDeletedSource = trade({ id: 'empty-deleted-source', deletedAt: '' })
   const linkedCase = trade({
     id: 'linked-to-empty-deleted',
@@ -113,16 +108,15 @@ export function testSummaryMarksEmptyDeletedAtSourceAsMissing(): void {
     caseType: 'missed',
     sourceTradeId: emptyDeletedSource.id,
   })
-  const summary = buildMissedOpportunitySummary([emptyDeletedSource, linkedCase], ['case'])
-  assert(summary.items[0]?.missingSourceId === emptyDeletedSource.id, '全量来源 deletedAt 为空字符串时案例必须标记失效追溯')
+  const summary = buildMissedOpportunitySummary([emptyDeletedSource, linkedCase], ['trade'])
+  assert(summary.items.length === 0, '来源被删除后，关联案例不得升级为独立错过事件')
 }
 
 export function testSummarySortsByBusinessOccurrenceThenEnglishKey(): void {
-  const laterCase = trade({ id: 'z-case', tradeKind: 'case', caseType: 'missed', recordedAt: '2026-07-22T08:00:00.000Z' })
   const sameTimeB = trade({ id: 'b-live', closedAt: '2026-07-21T08:00:00.000Z' })
   const sameTimeA = trade({ id: 'a-paper', tradeKind: 'paper', closedAt: '2026-07-21T08:00:00.000Z' })
-  const summary = buildMissedOpportunitySummary([sameTimeB, laterCase, sameTimeA], ['trade', 'paper', 'case'])
-  assert(summary.items.map((item) => item.key).join(',') === 'z-case,a-paper,b-live', '聚合项必须按业务时间倒序并以英文 key 稳定排序')
+  const summary = buildMissedOpportunitySummary([sameTimeB, sameTimeA], ['trade', 'paper'])
+  assert(summary.items.map((item) => item.key).join(',') === 'a-paper,b-live', '聚合项必须按业务时间倒序并以英文 key 稳定排序')
 }
 
 export function testTemporaryPeriodFilterUsesBusinessDateAnchor(): void {

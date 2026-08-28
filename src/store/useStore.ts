@@ -549,6 +549,7 @@ interface State {
         | 'caseType'
         | 'masteryState'
         | 'nextReviewAt'
+        | 'isFocusCase'
       >
     >,
   ) => void
@@ -556,6 +557,7 @@ interface State {
   addComment: (id: string, text: string) => void
   removeComment: (id: string, commentId: string) => void
   toggleStar: (id: string) => void
+  toggleCaseFocus: (id: string) => void
   toggleSubscribe: (id: string) => void
   togglePinStrategy: (id: string) => void
   addTagPreset: (tag: string) => void
@@ -590,6 +592,7 @@ interface State {
   getById: (id: string) => Trade | undefined
   getStrategy: (id: string) => Strategy | undefined
   isStarred: (id: string) => boolean
+  isCaseFocused: (id: string) => boolean
   isSubscribed: (id: string) => boolean
   isPinnedStrategy: (id: string) => boolean
   importData: (payload: ExportPayload) => void
@@ -1704,7 +1707,6 @@ export const useStore = create<State>()((set, get) => ({
               : {}),
           })
           let updated = regularUpdated
-          let promoteLegacyFocusToStar = false
           if (
             previous.tradeKind === 'case' &&
             containsCaseClassificationMutation(patch as Record<string, unknown>)
@@ -1714,8 +1716,9 @@ export const useStore = create<State>()((set, get) => ({
               reviewCategory: previous.reviewCategory,
               reviewStatus: previous.reviewStatus,
             }, patch)
-            updated = classified.trade
-            promoteLegacyFocusToStar = classified.promoteLegacyFocusToStar
+            updated = previous.reviewCategory === 'focus' || previous.reviewStatus === 'focus'
+              ? { ...classified.trade, isFocusCase: true }
+              : classified.trade
           }
           const action = createStoreUndoAction('更新交易字段', [previous], [updated])
           if (!action) return s
@@ -1725,9 +1728,6 @@ export const useStore = create<State>()((set, get) => ({
             undoStack: appendBoundedHistory(s.undoStack, action),
             redoStack: [],
             trades,
-            ...(promoteLegacyFocusToStar && !s.starredIds.includes(id)
-              ? { starredIds: [...s.starredIds, id] }
-              : {}),
           }
         }),
       transitionTradeKind: (id, target) => {
@@ -1794,10 +1794,20 @@ export const useStore = create<State>()((set, get) => ({
           ),
         })),
       toggleStar: (id) =>
+        set((s) => {
+          const trade = s.trades.find((item) => item.id === id)
+          if (!trade || trade.tradeKind === 'case') return s
+          return {
+            starredIds: s.starredIds.includes(id)
+              ? s.starredIds.filter((x) => x !== id)
+              : [...s.starredIds, id],
+          }
+        }),
+      toggleCaseFocus: (id) =>
         set((s) => ({
-          starredIds: s.starredIds.includes(id)
-            ? s.starredIds.filter((x) => x !== id)
-            : [...s.starredIds, id],
+          trades: s.trades.map((trade) => trade.id === id && trade.tradeKind === 'case'
+            ? { ...trade, isFocusCase: trade.isFocusCase !== true }
+            : trade),
         })),
       toggleSubscribe: (id) =>
         set((s) => ({
@@ -2051,6 +2061,9 @@ export const useStore = create<State>()((set, get) => ({
       getById: (id) => get().trades.find((t) => t.id === id),
       getStrategy: (id) => get().strategies.find((s) => s.id === id),
       isStarred: (id) => get().starredIds.includes(id),
+      isCaseFocused: (id) => get().trades.some((trade) => (
+        trade.id === id && trade.tradeKind === 'case' && trade.isFocusCase === true
+      )),
       isSubscribed: (id) => get().subscribedIds.includes(id),
       isPinnedStrategy: (id) => get().pinnedStrategyIds.includes(id),
       importData: (payload) => set((s) => mergeImportPayload(s, payload)),

@@ -310,18 +310,17 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
           )
         })}
         {pinned.map((view) => (
-          <Tooltip content={view.name} label={view.name} asChild key={view.id}>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeSavedViewId === view.id}
-              tabIndex={activeSavedViewId === view.id ? 0 : -1}
-              className={'quick-view-chip quick-view-saved' + (activeSavedViewId === view.id ? ' is-active' : '')}
-              onClick={() => goSavedView(view)}
-            >
-              <span className="quick-view-saved-label">{view.name}</span>
-            </button>
-          </Tooltip>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSavedViewId === view.id}
+            tabIndex={activeSavedViewId === view.id ? 0 : -1}
+            className={'quick-view-chip quick-view-saved' + (activeSavedViewId === view.id ? ' is-active' : '')}
+            key={view.id}
+            onClick={() => goSavedView(view)}
+          >
+            <span className="quick-view-saved-label">{view.name}</span>
+          </button>
         ))}
       </div>
 

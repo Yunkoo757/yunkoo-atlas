@@ -182,12 +182,13 @@ async function run(): Promise<void> {
       composerTrade: preserved,
       composerKind: 'case',
     })
-    const notifications: Array<{ category: Trade['reviewCategory']; starred: boolean }> = []
+    const notifications: Array<{ category: Trade['reviewCategory']; focused: boolean; starred: boolean }> = []
     const unsubscribe = useStore.subscribe((state) => {
       const current = state.trades.find((trade) => trade.id === legacyFocusCase.id)
       if (current) {
         notifications.push({
           category: current.reviewCategory,
+          focused: current.isFocusCase === true,
           starred: state.starredIds.includes(legacyFocusCase.id),
         })
       }
@@ -217,10 +218,11 @@ async function run(): Promise<void> {
     assert(promoted.caseType === 'ambiguous', '显式案例类型修改必须保存新分类字段')
     assert(promoted.reviewCategory === 'ambiguous', '显式分类修改必须规范化兼容分类')
     assert(promoted.reviewStatus === 'unreviewed', '显式分类修改必须规范化兼容状态')
-    assert(promotedState.starredIds.includes(legacyFocusCase.id), '显式分类修改必须同次升星 legacy focus')
+    assert(promoted.isFocusCase === true, '显式分类修改必须把 legacy focus 迁移为重点案例')
+    assert(!promotedState.starredIds.includes(legacyFocusCase.id), '案例迁移后不得进入交易星标')
     assert(
-      !notifications.some((state) => state.category === 'ambiguous' && !state.starred),
-      'Composer 不得通知规范化已完成但 focus 未升星的中间状态',
+      !notifications.some((state) => state.category === 'ambiguous' && !state.focused),
+      'Composer 不得通知规范化已完成但重点状态未迁移的中间状态',
     )
 
     const tradeCountBeforeEmptyQuickCreate = promotedState.trades.length

@@ -5,7 +5,7 @@ export const PRIMARY_NAV_ITEMS = [
   { id: 'trades', to: '/list', label: '交易日志' },
   { id: 'dashboard', to: '/dashboard', label: '统计分析' },
   { id: 'weeklyReview', to: '/weekly-review', label: '周期复盘' },
-  { id: 'reviewCases', to: '/review-cases', label: '案例记录' },
+  { id: 'reviewCases', to: '/review-cases', label: '案例库' },
   { id: 'reviewSession', to: '/review-session', label: '随机复盘' },
 ] as const satisfies readonly { id: PrimarySidebarNavId; to: string; label: string }[]
 

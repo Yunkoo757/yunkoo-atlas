@@ -26,3 +26,17 @@ export function testMenuRendersPopupThroughPortal() {
     throw new Error('Menu root and popup must share data-menu-id so focus can return to the trigger')
   }
 }
+
+export function testMenuMeasuresTriggerBeforeOpeningPopup() {
+  const source = readFileSync(path.resolve('src/components/Menu.tsx'), 'utf8')
+  const css = readFileSync(path.resolve('src/components/Menu.css'), 'utf8')
+  const measure = source.indexOf('updatePosition()')
+  const open = source.indexOf('setOpen(true)', measure)
+
+  if (measure < 0 || open < 0 || measure > open) {
+    throw new Error('菜单必须先按触发器预定位再挂载弹层，避免从视口左上角闪现')
+  }
+  if (/scale\(/.test(css)) {
+    throw new Error('菜单入场不得缩放文字与边界，避免桌面端出现短暂发虚和跳动')
+  }
+}

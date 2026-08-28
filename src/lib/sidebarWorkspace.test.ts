@@ -54,7 +54,7 @@ export function testSidebarCurrentLiveCountsUseCurrentStageId(): void {
   assert(count === 1, '侧栏进行中计数只能统计 currentLiveStageId')
 }
 
-export function testSidebarMissedAggregateKeepsPaperButScopesLiveAndCasesToCurrentStage(): void {
+export function testSidebarMissedAggregateCountsExecutionEventsOnly(): void {
   const makeMissed = (id: string, tradeKind: 'live' | 'paper' | 'case', liveStageId?: string): Trade => ({
     ...liveTrade(id, liveStageId ?? 'stage-current'),
     tradeKind,
@@ -77,7 +77,7 @@ export function testSidebarMissedAggregateKeepsPaperButScopesLiveAndCasesToCurre
   const target: Parameters<typeof countSidebarTarget>[0] = {
     item: {
       id: 'system:missed',
-      target: { kind: 'system' as const, id: 'missed' as const, workspaces: ['trade', 'paper', 'case'] },
+      target: { kind: 'system' as const, id: 'missed' as const, workspaces: ['trade', 'paper'] },
       placement: 'pinned' as const,
       order: 0,
     },
@@ -91,7 +91,7 @@ export function testSidebarMissedAggregateKeepsPaperButScopesLiveAndCasesToCurre
 
   const count = countSidebarTarget(target, context)
 
-  assert(count === 3, '错过计数必须保留 paper，同时只统计当前 stage 的 live/case')
+  assert(count === 2, '错过计数必须保留 paper 与当前实盘，并排除案例重复计数')
 }
 
 export function testStrategySourcesDefaultToCurrentLiveAndCanCombine(): void {

@@ -72,6 +72,8 @@ export function BoardView({
   const removeTrade = useStore((s) => s.removeTrade)
   const toggleStar = useStore((s) => s.toggleStar)
   const isStarred = useStore((s) => s.isStarred)
+  const toggleCaseFocus = useStore((s) => s.toggleCaseFocus)
+  const isCaseFocused = useStore((s) => s.isCaseFocused)
   const legacyCashCurrencyAssumption = useStore((s) => s.profile.legacyCashCurrencyAssumption)
   const [dragId, setDragId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<TradeStatus | null>(null)
@@ -214,6 +216,8 @@ export function BoardView({
                       },
                       toggleStar,
                       isStarred,
+                      toggleCaseFocus,
+                      isCaseFocused,
                     }),
                   })
                 }}

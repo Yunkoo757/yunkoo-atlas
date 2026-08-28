@@ -55,6 +55,18 @@ export function testWeeklyHistoryThisWeekLabelIsCurrentStageOnly(): void {
   )
 }
 
+export function testOpeningHistoricalReviewDoesNotRescopeTheHistoryRail(): void {
+  const source = readFileSync(path.resolve('src/views/WeeklyReviewView.tsx'), 'utf8')
+  assert(
+    source.includes("const selectedReviewStage = workspaceQuery.stage === 'current'"),
+    '周复盘历史栏必须由显式阶段筛选决定范围',
+  )
+  assert(
+    !source.includes("requestedContextReview?.liveStageId"),
+    '打开历史复盘详情不得反向切换阶段并重算左侧列表',
+  )
+}
+
 export function testWeeklyHistoryAndHeadUseTypeTokens(): void {
   const css = weeklyCss()
   const history = [

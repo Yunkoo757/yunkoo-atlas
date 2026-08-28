@@ -205,19 +205,20 @@ export async function testBusinessDateWritersAvoidUtcDateSlicing(): Promise<void
 
 export async function testElectronJournalImportRequiresExplicitReplacementConfirmation(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const source = await fs.readFile('electron/library/ipc.ts', 'utf8')
-  const handler = source.slice(source.indexOf("ipcMain.handle('journal:importZip'"))
-  const confirmationIndex = handler.indexOf('dialog.showMessageBox')
-  const replacementIndex = handler.indexOf('operationGate.runExclusive')
-  assert(confirmationIndex >= 0, '桌面整库导入必须显示覆盖确认对话框')
+  const ipcSource = await fs.readFile('electron/library/ipc.ts', 'utf8')
+  const uiSource = await fs.readFile('src/components/DataIOContent.tsx', 'utf8')
+  const prepareIndex = ipcSource.indexOf("ipcMain.handle('journal:prepareImport'")
+  const commitIndex = ipcSource.indexOf("ipcMain.handle('journal:commitPreparedImport'")
+  assert(prepareIndex >= 0 && commitIndex > prepareIndex, '桌面整库导入必须先隔离检查，再开放独立提交入口')
   assert(
-    confirmationIndex < replacementIndex,
-    '桌面整库导入必须先确认，再进入不可逆的替换流程',
+    uiSource.includes('title="确认恢复完整资料库"') &&
+      uiSource.includes("archiveRestoring ? '正在安全恢复…' : '替换当前资料库'"),
+    '桌面整库导入必须在渲染层展示明确的替换确认，不得检查后自动提交',
   )
   assert(
-    handler.includes("buttons: ['取消', '替换交易库']") &&
-      handler.includes('confirmation.response !== 1'),
-    '覆盖确认必须默认取消，且只有明确选择“替换交易库”才可继续',
+    uiSource.includes('void cancelPreparedDesktopArchive()') &&
+      uiSource.includes('onClick={() => void commitDesktopArchive()}'),
+    '覆盖确认必须提供取消路径，且只有明确点击替换动作才可提交',
   )
 }
 
@@ -306,8 +307,8 @@ export function testCapabilityPinsStaySingleWithWorkspaceVisibility(): void {
   assert(merged[0]?.target.kind === 'system' && merged[0].target.id === 'missed', '应归一为 system:missed')
   assert(
     merged[0]?.target.kind === 'system' &&
-      systemCapabilityWorkspaces(merged[0].target).join(',') === 'trade,paper,case',
-    '可见工作区应合并到同一项上',
+      systemCapabilityWorkspaces(merged[0].target).join(',') === 'trade,paper',
+    '错过机会只应合并实盘与模拟执行事件，旧案例快捷项必须从能力范围移除',
   )
 
   for (const currentPathname of ['/list', '/sim', '/review-cases', '/settings', '/dashboard']) {
@@ -351,22 +352,21 @@ export function testCapabilityPinsStaySingleWithWorkspaceVisibility(): void {
   assert(sidebarTargetKey(merged[0]!.target) === 'system:missed', '能力项 key 保持唯一')
 
   const tradeOnly = setCapabilityWorkspaceEnabled(
-    [{ id: 'system:missed', target: { kind: 'system', id: 'missed', workspaces: ['trade', 'paper', 'case'] }, placement: 'pinned', order: 0 }],
+    [{ id: 'system:missed', target: { kind: 'system', id: 'missed', workspaces: ['trade', 'paper'] }, placement: 'pinned', order: 0 }],
     'missed',
     'paper',
     false,
   )
   assert(
     tradeOnly[0]?.target.kind === 'system' &&
-      systemCapabilityWorkspaces(tradeOnly[0].target).join(',') === 'trade,case',
+      systemCapabilityWorkspaces(tradeOnly[0].target).join(',') === 'trade',
     '取消勾选应收窄可见工作区且不拆成多项',
   )
   assert(isCapabilityEnabledForWorkspace(tradeOnly, 'missed', 'paper') === false, '取消后模拟域不得生效')
   assert(isCapabilityEnabledForWorkspace(tradeOnly, 'missed', 'trade') === true, '交易日志域应仍生效')
-  const keptAfterRemovingPaperAndCase = setCapabilityWorkspaceEnabled(tradeOnly, 'missed', 'case', false)
-  const kept = setCapabilityWorkspaceEnabled(keptAfterRemovingPaperAndCase, 'missed', 'trade', false)
+  const kept = setCapabilityWorkspaceEnabled(tradeOnly, 'missed', 'trade', false)
   assert(
-    kept === keptAfterRemovingPaperAndCase,
+    kept === tradeOnly,
     '关闭最后一个 missed 来源必须保持原状态',
   )
 }
@@ -385,7 +385,7 @@ export function testMissedSidebarCountUsesAggregateInclusionScope(): void {
   const resolved = resolveSidebarWorkspaceItem(
     {
       id: 'system:missed',
-      target: { kind: 'system', id: 'missed', workspaces: ['trade', 'paper', 'case'] },
+      target: { kind: 'system', id: 'missed', workspaces: ['trade', 'paper'] },
       placement: 'pinned',
       order: 0,
     },
@@ -685,8 +685,8 @@ export async function testMissedOpportunityAggregateRouteAndViewContract(): Prom
   const missedRouteBlock = app.slice(missedRouteStart, missedRouteEnd)
 
   assert(
-    missedRouteBlock.includes('<LegacyTradeLogRedirect filter="missed" />'),
-    '/missed 必须翻译到交易日志的错过机会范围',
+    missedRouteBlock.includes('<MissedOpportunitiesView />'),
+    '/missed 必须进入实盘与模拟事实来源的独立聚合页',
   )
   assert(tradeWorkspaceContext.includes('选择交易阶段'), '交易工作台必须提供统一阶段入口')
   assert(filterBar.includes('actions?: ReactNode'), 'FilterBar 必须继续提供标准右侧动作槽')

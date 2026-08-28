@@ -38,12 +38,12 @@ export function testCaseRecordActionsUseTheCanonicalSubsetAndLabels(): void {
   const actions = buildRecordActionDescriptors(caseTrade, { starred: true })
 
   assert(
-    actions.map((action) => action.id).join(',') === 'edit,copy,star,delete',
+    actions.map((action) => action.id).join(',') === 'edit,copy,focus-case,delete',
     '案例记录不得出现“提炼为案例”',
   )
   assert(
     actions.map((action) => action.label).join(',') ===
-      '编辑案例记录,复制案例,取消星标,删除案例记录',
+      '编辑案例记录,复制案例,取消重点,删除案例记录',
     '案例记录必须使用统一且具体的动作名称',
   )
 }

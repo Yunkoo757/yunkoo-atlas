@@ -136,6 +136,20 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   if (quickViews.includes('box-shadow: var(--surface-control-shadow);')) {
     throw new Error('quick-view pills must not use outward surface-control-shadow rings that clip under overflow')
   }
+  if (
+    !quickViews.includes('--quick-view-surface-rest:')
+    || !quickViews.includes('background: var(--quick-view-surface-rest)')
+    || !quickViews.includes('inset 0 1px 0 var(--quick-view-highlight-rest)')
+  ) {
+    throw new Error('quick-view pills must retain a quiet raised surface instead of regressing to transparent outline-only chips')
+  }
+  if (
+    !quickViews.includes('height: var(--quick-view-control-height)')
+    || !quickViews.includes('font-size: var(--type-row-size)')
+    || !quickViews.includes('font-weight: var(--font-weight-medium)')
+  ) {
+    throw new Error('quick-view pills must preserve the calibrated 30px control geometry and readable toolbar typography')
+  }
   if (!list.includes('inset: 2px 8px') || !list.includes('padding: 0 10px')) {
     throw new Error('trade rows must preserve symmetric 2px vertical breathing room and content padding')
   }

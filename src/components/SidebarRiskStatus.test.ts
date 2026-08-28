@@ -49,7 +49,7 @@ export function testSidebarRiskSummaryKeepsNormalStateCompact(): void {
     row('week', 'normal', 2.1, 5),
     row('month', 'normal', 3.8, 10),
   ])
-  if (summary.kind !== 'normal' || summary.label !== '风险正常' || summary.value !== '余 1.4R') {
+  if (summary.kind !== 'normal' || summary.label !== '风控中心' || summary.value !== '余 1.4R') {
     throw new Error(`正常风险摘要不符合极简方案：${JSON.stringify(summary)}`)
   }
 }

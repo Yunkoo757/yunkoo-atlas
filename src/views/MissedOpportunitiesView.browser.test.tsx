@@ -520,7 +520,7 @@ const visualFixtureTrades = [...fixtureTrades, ...fillerTrades, mobileLastTrade]
 
 const missedWorkspace: SidebarWorkspaceItem = {
   id: 'system:missed',
-  target: { kind: 'system', id: 'missed', workspaces: ['trade', 'paper', 'case'] },
+  target: { kind: 'system', id: 'missed', workspaces: ['trade', 'paper'] },
   placement: 'pinned',
   order: 0,
 }
@@ -596,10 +596,10 @@ async function run(): Promise<void> {
     }
 
     assert(document.querySelector('h1')?.textContent?.trim() === '错过的机会', '页面标题不准确')
-    assert(document.querySelector('.ui-toolbar-context')?.textContent?.trim() === '跨工作区汇总', '页面副标题不准确')
+    assert(document.querySelector('.ui-toolbar-context')?.textContent?.trim() === '实盘与模拟记录', '页面副标题不准确')
     assert(document.querySelector('.missed-scope') === null, '不得保留常驻范围配置区')
-    assert(document.querySelector('[data-missed-total]')?.textContent?.includes('全部机会 4'), '工具栏结果数不准确')
-    assert(scopeTrigger().textContent?.trim() === '范围 · 3', '范围入口必须显示已启用来源数')
+    assert(document.querySelector('[data-missed-total]')?.textContent?.includes('全部机会 2'), '工具栏结果数不准确')
+    assert(scopeTrigger().textContent?.trim() === '范围 · 2', '范围入口必须显示已启用来源数')
     assertToolbarActionsUseSharedControlStyle()
     assertFocusedAggregateRowHasNoVisualHighlight()
     assertAggregateRowUsesTradeRowGeometry()
@@ -611,11 +611,10 @@ async function run(): Promise<void> {
     assert(scopeTrigger().getAttribute('aria-expanded') === 'true', '范围打开态缺少 aria-expanded')
     assert(scopeOption('交易日志').getAttribute('aria-checked') === 'true', '范围选中态缺少 aria-checked')
     const scopeOptions = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitemcheckbox"]')]
-    assert(scopeOptions.length === 3, '必须渲染三个包含来源选项')
-    assert(scopeOptions.every((button) => button.getAttribute('aria-checked') === 'true'), '三个来源初始必须全部启用')
+    assert(scopeOptions.length === 2, '必须只渲染实盘与模拟两个事实来源')
+    assert(scopeOptions.every((button) => button.getAttribute('aria-checked') === 'true'), '两个事实来源初始必须全部启用')
     assert(scopeOption('交易日志').textContent?.includes('1'), '交易日志来源计数不准确')
     assert(scopeOption('模拟盘').textContent?.includes('1'), '模拟盘来源计数不准确')
-    assert(scopeOption('案例记录').textContent?.includes('4'), '案例记录来源计数不准确')
     assert(
       [...document.querySelectorAll<HTMLElement>('.missed-scope-count')]
         .every((count) => count.getAttribute('aria-hidden') === 'true'),
@@ -626,12 +625,11 @@ async function run(): Promise<void> {
     await frame()
     assert(document.activeElement === scopeTrigger(), '外部点击关闭后焦点必须返回范围入口')
     await ensureScopeOpen()
-    assert(document.body.textContent?.includes('跨工作区关联项已合并'), 'raw 大于主数时缺少合并说明')
-    assert(document.querySelectorAll('.missed-results [data-trade-id]').length === 4, '明确关联必须只渲染一个聚合行')
+    assert(document.querySelectorAll('.missed-results [data-trade-id]').length === 2, '每个原始错过事件必须只渲染一行')
     assert(document.querySelector('[data-trade-id="case-linked-one"]') === null, 'linked case 不得重复渲染为独立行')
     assert(document.querySelector('[data-trade-id="case-linked-two"]') === null, '第二个 linked case 不得重复渲染为独立行')
-    assert(document.querySelector('[data-trade-id="case-unlinked"]'), '未关联案例必须独立渲染')
-    assert(resultRow('case-surviving').textContent?.includes('来源记录已删除'), '删除来源后的存活案例缺少状态')
+    assert(document.querySelector('[data-trade-id="case-unlinked"]') === null, '未关联案例不得混入错过事件页')
+    assert(document.querySelector('[data-trade-id="case-surviving"]') === null, '来源删除后的案例不得替代原始事件')
     const mergedRow = resultRow(rootTrade.id)
     assert(mergedRow.classList.contains('is-merged'), '明确关联项缺少合并状态')
     assert(mergedRow.textContent?.includes('关联 2 个案例'), '合并项缺少安静的关联数量')
@@ -665,7 +663,6 @@ async function run(): Promise<void> {
     await waitFor(() => document.querySelector('[data-trade-id="paper-standalone"]') !== null, '重新启用模拟盘后结果未恢复')
 
     scopeOption('模拟盘').click()
-    scopeOption('案例记录').click()
     await waitFor(
       () => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitemcheckbox"]')]
         .filter((button) => button.getAttribute('aria-checked') === 'true').length === 1,
@@ -687,7 +684,6 @@ async function run(): Promise<void> {
       '关闭后重新打开范围菜单不得恢复上一次会话的约束提示',
     )
     scopeOption('模拟盘').click()
-    scopeOption('案例记录').click()
     await waitFor(() => resultRow(rootTrade.id).classList.contains('is-merged'), '恢复案例来源后聚合项未恢复')
 
     useStore.setState({ trades: [] })
@@ -705,14 +701,11 @@ async function run(): Promise<void> {
     const emptySourceHrefs = () => [...document.querySelectorAll<HTMLAnchorElement>('.missed-empty a')]
       .map((link) => link.getAttribute('href'))
       .sort()
-    assert(emptySourceHrefs().join(',') === '/list,/review-cases,/sim', '三来源空状态必须显示三个准确入口')
+    assert(emptySourceHrefs().join(',') === '/list,/sim', '空状态必须只显示两个事实来源入口')
 
     scopeOption('模拟盘').click()
     await waitFor(() => scopeOption('模拟盘').getAttribute('aria-checked') === 'false', '来源空状态无法关闭模拟盘')
-    assert(emptySourceHrefs().join(',') === '/list,/review-cases', '关闭模拟盘后空状态不得保留 /sim 入口')
-    scopeOption('交易日志').click()
-    await waitFor(() => scopeOption('交易日志').getAttribute('aria-checked') === 'false', '来源空状态无法关闭交易日志')
-    assert(emptySourceHrefs().join(',') === '/review-cases', '仅保留案例来源时只能显示 /review-cases 入口')
+    assert(emptySourceHrefs().join(',') === '/list', '关闭模拟盘后空状态不得保留 /sim 入口')
 
     scopeOption('交易日志').click()
     scopeOption('模拟盘').click()
@@ -743,7 +736,7 @@ async function run(): Promise<void> {
     assert(emptyClear?.textContent?.trim() === '清除筛选', '筛选空状态缺少清除动作')
     emptyClear.click()
     await waitFor(() => routerLocation() === '/missed', '清除筛选未移除 URL 查询串')
-    await waitFor(() => document.querySelector('[data-missed-total]')?.getAttribute('data-missed-total') === '4', '清除筛选未恢复全部结果')
+    await waitFor(() => document.querySelector('[data-missed-total]')?.getAttribute('data-missed-total') === '2', '清除筛选未恢复全部结果')
     if (filterTrigger().getAttribute('aria-expanded') === 'true') filterTrigger().click()
     await waitFor(() => document.querySelector('[aria-label="错过机会筛选"]') === null, '清除后筛选面板未关闭')
 
@@ -800,7 +793,7 @@ async function run(): Promise<void> {
     }
 
     useStore.setState({ trades: [...fixtureTrades, ...fillerTrades] })
-    await waitFor(() => document.querySelector('[data-missed-total]')?.getAttribute('data-missed-total') === '22', '滚动 fixture 未进入聚合结果')
+    await waitFor(() => document.querySelector('[data-missed-total]')?.getAttribute('data-missed-total') === '20', '滚动 fixture 未进入聚合结果')
     await ensureFilterOpen()
     await selectFilter('品种', 'XAUUSD')
     await selectFilter('方向', 'long')
@@ -899,7 +892,7 @@ async function run(): Promise<void> {
     )
 
     await ensureScopeOpen()
-    scopeOption('案例记录').click()
+    scopeOption('模拟盘').click()
     await assertLiveRegionStable('已更新包含范围：', '来源结果变化后 aria-live 必须说明新的包含范围')
   } finally {
     if (!keepMounted) {

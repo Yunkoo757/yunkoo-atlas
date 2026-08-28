@@ -334,11 +334,8 @@ export function TradeComposer() {
             if (kind !== 'case') return candidate
             if (!caseTypeDirtyRef.current) return candidate
             const classified = applyCaseClassificationMutation(candidate, { caseType })
-            return classified.promoteLegacyFocusToStar && !state.starredIds.includes(candidate.id)
-              ? {
-                  trade: classified.trade,
-                  statePatch: { starredIds: [...state.starredIds, candidate.id] },
-                }
+            return candidate.reviewCategory === 'focus' || candidate.reviewStatus === 'focus'
+              ? { ...classified.trade, isFocusCase: true }
               : classified.trade
           }
           const candidate: Trade = {

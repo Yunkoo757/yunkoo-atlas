@@ -15,6 +15,7 @@ import type { DisplayPrefs, ListFilter, ReviewCaseScope } from '@/lib/tradeFilte
 import { isValidPeriodSlug, type BusinessDateAnchor } from '@/lib/periods'
 import { parseAnalysisScope } from '@/lib/analysisScope'
 import { buildMissedOpportunitySummary } from '@/lib/missedOpportunities'
+import { MISSED_OPPORTUNITY_SOURCES, type MissedOpportunitySource } from '@/lib/missedOpportunities'
 import { countWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
 import { filterStageOwnedRecords, type StageScope } from '@/lib/stageArchive'
 
@@ -49,7 +50,7 @@ export type ResolvedSidebarWorkspaceItem = {
 export const SIDEBAR_QUICK_WORKSPACE_LABELS: Record<SidebarQuickWorkspace, string> = {
   trade: '交易日志',
   paper: '模拟盘',
-  case: '案例记录',
+  case: '案例库',
 }
 
 export const STRATEGY_SOURCE_WORKSPACES: readonly SidebarQuickWorkspace[] = ['trade', 'paper', 'case']
@@ -66,7 +67,7 @@ export const SIDEBAR_CAPABILITY_LABELS: Record<SidebarCapabilityId, string> = {
 }
 
 export const SIDEBAR_CAPABILITY_WORKSPACES: Record<SidebarCapabilityId, readonly SidebarQuickWorkspace[]> = {
-  missed: ['trade', 'paper', 'case'],
+  missed: ['trade', 'paper'],
   active: ['trade', 'paper'],
 }
 
@@ -730,7 +731,7 @@ function listTargetForPath(pathname: string, search = ''): ListFilter | undefine
   const path = normalizeTargetPath(pathname)
   if (path === '/list') return { type: 'all', tradeKind: 'live' }
   if (path === '/active') return { type: 'active', tradeKind: 'live' }
-  if (path === '/favorites') return { type: 'starred', tradeKind: 'live' }
+  if (path === '/favorites') return { type: 'starred', strategySources: ['trade', 'paper'] }
   if (path === '/sim') return { type: 'all', tradeKind: 'paper' }
   if (path === '/today-record') return { type: 'period', period: 'today', tradeKind: 'live' }
   if (path === '/review-cases') {
@@ -772,11 +773,18 @@ export function countSidebarTarget(
 ): number | undefined {
   if (target.invalid) return undefined
   if (target.item.target.kind === 'system' && target.item.target.id === 'missed') {
+    const accountRecords = context.currentLiveStageId
+      ? filterStageOwnedRecords(context.trades, { kind: 'current', stageId: context.currentLiveStageId })
+          .filter((trade) => trade.tradeKind !== 'case')
+      : context.trades.filter((trade) => trade.tradeKind !== 'case')
+    const records = [...accountRecords, ...context.trades.filter((trade) => trade.tradeKind === 'case')]
+    const configured = systemCapabilityWorkspaces(target.item.target)
+    const sources = MISSED_OPPORTUNITY_SOURCES.filter(
+      (source): source is MissedOpportunitySource => configured.includes(source),
+    )
     return buildMissedOpportunitySummary(
-      context.currentLiveStageId
-        ? filterStageOwnedRecords(context.trades, { kind: 'current', stageId: context.currentLiveStageId })
-        : context.trades,
-      systemCapabilityWorkspaces(target.item.target),
+      records,
+      sources,
     ).aggregateTotal
   }
   return countSidebarRoute(target.pathname, target.search, context)
@@ -787,6 +795,17 @@ export function countSidebarRoute(
   search: string,
   context: SidebarCountContext,
 ): number | undefined {
+  if (normalizeTargetPath(pathname) === '/favorites') {
+    const starred = new Set(context.starredIds)
+    return context.trades.filter((trade) => (
+      !trade.deletedAt &&
+      starred.has(trade.id) &&
+      (
+        trade.tradeKind === 'paper' ||
+        (trade.tradeKind === 'live' && (!context.currentLiveStageId || trade.liveStageId === context.currentLiveStageId))
+      )
+    )).length
+  }
   const filter = listTargetForPath(pathname, search)
   if (!filter) return undefined
   const combinedStrategy = filter.type === 'strategy' && hasCombinedStrategySources(filter.strategySources ?? ['trade'])

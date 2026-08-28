@@ -222,7 +222,7 @@ function routeLabel(pathname: string): string | null {
   if (path === '/sim') return '模拟'
   if (path.startsWith('/review-cases/mistakes')) return '错题集'
   if (path.startsWith('/review-cases/focus')) return '重点案例'
-  if (path.startsWith('/review-cases')) return '案例记录'
+  if (path.startsWith('/review-cases')) return '案例库'
   return null
 }
 

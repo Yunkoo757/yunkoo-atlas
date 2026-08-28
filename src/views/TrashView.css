@@ -111,12 +111,23 @@
   opacity: 1;
 }
 .trash-search-count {
-  margin-left: var(--sp-1);
+  margin-left: auto;
   font-family: var(--font-ui);
   font-size: var(--fs-mini);
   color: var(--text-quaternary);
   font-variant-numeric: var(--numeric-tabular);
   font-feature-settings: "tnum" 1, "kern" 1;
+}
+
+.trash-selection-bar .batch-action-bar.is-inline {
+  position: static;
+  width: auto;
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .trash-group + .trash-group {

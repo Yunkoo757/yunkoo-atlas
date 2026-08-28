@@ -510,7 +510,7 @@ html[data-ui-settled='1'] .sb-item {
 .sb-risk-popover {
   position: fixed;
   z-index: var(--z-popover);
-  width: 286px;
+  width: 304px;
   overflow: hidden;
   color: var(--text-secondary);
   background: var(--popover-bg);
@@ -528,18 +528,27 @@ html[data-ui-settled='1'] .sb-item {
 
 .sb-risk-popover-head {
   display: flex;
-  min-height: 38px;
+  min-height: 58px;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-  padding: 0 var(--sp-3);
+  padding: 0 14px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .sb-risk-popover-head strong {
+  display: block;
   color: var(--text-primary);
   font-size: var(--type-row-size);
   font-weight: var(--font-weight-semibold);
+}
+
+.sb-risk-popover-head small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
 }
 
 .sb-risk-popover-head span {
@@ -563,33 +572,66 @@ html[data-ui-settled='1'] .sb-item {
 }
 
 .sb-risk-periods {
-  padding: var(--sp-1) var(--sp-2);
+  display: grid;
+  gap: var(--sp-1);
+  padding: var(--sp-2);
 }
 
 .sb-risk-period {
   display: grid;
-  grid-template-columns: 20px 64px minmax(0, 1fr) auto;
-  min-height: 38px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto 4px;
+  min-height: 52px;
   align-items: center;
-  gap: var(--sp-2);
-  padding: 0 var(--sp-1);
-  border-bottom: 1px solid var(--border-subtle);
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-6);
+  background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
   font-size: var(--type-metadata-size);
   font-variant-numeric: var(--numeric-tabular);
   font-feature-settings: "tnum" 1, "kern" 1;
 }
 
-.sb-risk-period:last-child {
-  border-bottom: 0;
+.sb-risk-period-head {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
 }
 
 .sb-risk-period-label {
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-weight: var(--font-weight-medium);
 }
 
+.sb-risk-period-head small {
+  color: var(--text-tertiary);
+  font-size: var(--type-caption-size);
+  white-space: nowrap;
+}
+
+.sb-risk-period-usage {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  white-space: nowrap;
+}
+
+.sb-risk-period-usage strong {
+  color: var(--text-primary);
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sb-risk-period-usage span {
+  color: var(--text-tertiary);
+}
+
 .sb-risk-track {
-  height: 3px;
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 4px;
   overflow: hidden;
   background: var(--bg-inset);
   border-radius: var(--radius-rounded);
@@ -603,27 +645,15 @@ html[data-ui-settled='1'] .sb-item {
   transition: width var(--dur-base) var(--ease-out);
 }
 
-.sb-risk-period strong {
-  color: var(--text-primary);
-  font-weight: var(--font-weight-medium);
-  white-space: nowrap;
-}
-
-.sb-risk-period small {
-  color: var(--text-tertiary);
-  font-size: var(--type-caption-size);
-  white-space: nowrap;
-}
-
 .sb-risk-period.is-near .sb-risk-track > span,
 .sb-risk-period.is-partial .sb-risk-track > span,
 .sb-risk-period.is-unknown .sb-risk-track > span {
   background: var(--warn-action);
 }
 
-.sb-risk-period.is-near small,
-.sb-risk-period.is-partial small,
-.sb-risk-period.is-unknown small {
+.sb-risk-period.is-near .sb-risk-period-head small,
+.sb-risk-period.is-partial .sb-risk-period-head small,
+.sb-risk-period.is-unknown .sb-risk-period-head small {
   color: var(--warn-action);
 }
 
@@ -631,7 +661,7 @@ html[data-ui-settled='1'] .sb-item {
   background: var(--neg);
 }
 
-.sb-risk-period.is-triggered small {
+.sb-risk-period.is-triggered .sb-risk-period-head small {
   color: var(--neg);
 }
 
@@ -639,6 +669,7 @@ html[data-ui-settled='1'] .sb-item {
   display: flex;
   min-height: 34px;
   align-items: center;
+  justify-content: space-between;
   padding: 0 var(--sp-3);
   color: var(--text-secondary);
   border-top: 1px solid var(--border-divider);

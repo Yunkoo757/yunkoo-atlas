@@ -47,6 +47,7 @@ import { ICON_XL } from './icons/iconSize'
 import { TradesPage } from './views/TradesPage'
 import { SettingsLayout } from './views/settings/SettingsLayout'
 import { TradeTrashView } from './views/TradeTrashView'
+import { MissedOpportunitiesView } from './views/MissedOpportunitiesView'
 import { StrategyHeader } from './components/StrategyHeader'
 import { getStrategyName } from './lib/strategies'
 import {
@@ -450,9 +451,24 @@ function ReviewCasesPage() {
   const listPath = scope === 'all' ? '/review-cases' : `/review-cases/${scope}`
   return (
     <TradesPage
-      title="案例记录"
+      title="案例库"
       filter={{ type: 'all', tradeKind: 'case', reviewCaseScope: scope }}
       listPath={listPath}
+    />
+  )
+}
+
+function FavoritesPage() {
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
+  return (
+    <TradesPage
+      title="星标交易"
+      filter={{
+        type: 'starred',
+        strategySources: ['trade', 'paper'],
+        liveStageId: currentLiveStageId,
+      }}
+      listPath="/favorites"
     />
   )
 }
@@ -530,10 +546,10 @@ function Shell() {
           <Route path="/inbox/board" element={<Navigate to="/active/board" replace />} />
           <Route path="/my-trades" element={<Navigate to="/list" replace />} />
           <Route path="/my-trades/board" element={<Navigate to="/board" replace />} />
-          <Route path="/favorites" element={<LegacyTradeLogRedirect filter="starred" />} />
-          <Route path="/favorites/board" element={<LegacyTradeLogRedirect filter="starred" />} />
-          <Route path="/missed" element={<LegacyTradeLogRedirect filter="missed" />} />
-          <Route path="/missed/board" element={<LegacyTradeLogRedirect filter="missed" />} />
+          <Route path="/favorites" element={<FavoritesPage />} />
+          <Route path="/favorites/board" element={<FavoritesPage />} />
+          <Route path="/missed" element={<MissedOpportunitiesView />} />
+          <Route path="/missed/board" element={<Navigate to="/missed" replace />} />
           <Route path="/period/:slug" element={<PeriodPage />} />
           <Route path="/period/:slug/board" element={<PeriodPage />} />
           <Route path="/today-record" element={<LegacyTradeLogRedirect filter="incomplete" />} />

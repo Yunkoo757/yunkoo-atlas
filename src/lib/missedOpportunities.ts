@@ -7,7 +7,7 @@ import {
   type CalendarPeriod,
 } from '@/lib/periods'
 
-export const MISSED_OPPORTUNITY_SOURCES = ['trade', 'paper', 'case'] as const
+export const MISSED_OPPORTUNITY_SOURCES = ['trade', 'paper'] as const
 export type MissedOpportunitySource = (typeof MISSED_OPPORTUNITY_SOURCES)[number]
 
 export type MissedOpportunityItem = {
@@ -45,7 +45,6 @@ export function missedOpportunitySourceOf(trade: Trade): MissedOpportunitySource
   if (isMissedOpportunityDeleted(trade)) return null
   if (trade.tradeKind === 'live' && trade.status === 'missed') return 'trade'
   if (trade.tradeKind === 'paper' && trade.status === 'missed') return 'paper'
-  if (trade.tradeKind === 'case' && trade.caseType === 'missed') return 'case'
   return null
 }
 
@@ -57,24 +56,13 @@ export function missedOpportunityOccurredAt(trade: Trade): string {
 
 function createRootItem(trade: Trade): MissedOpportunityItem {
   const source = missedOpportunitySourceOf(trade)
-  if (!source || source === 'case') throw new Error('missed opportunity root must be a live or paper trade')
+  if (!source) throw new Error('missed opportunity root must be a live or paper trade')
   return {
     key: trade.id,
     source,
     primary: trade,
     linkedCases: [],
     occurredAt: missedOpportunityOccurredAt(trade),
-  }
-}
-
-function createStandaloneCase(reviewCase: Trade, sourceIsDeleted: boolean): MissedOpportunityItem {
-  return {
-    key: reviewCase.id,
-    source: 'case',
-    primary: reviewCase,
-    linkedCases: [],
-    occurredAt: missedOpportunityOccurredAt(reviewCase),
-    ...(sourceIsDeleted && reviewCase.sourceTradeId ? { missingSourceId: reviewCase.sourceTradeId } : {}),
   }
 }
 
@@ -93,12 +81,11 @@ export function buildMissedOpportunitySummary(
   sources: readonly MissedOpportunitySource[] = MISSED_OPPORTUNITY_SOURCES,
 ): MissedOpportunitySummary {
   const selectedSources = new Set(sources)
-  const allById = new Map(records.map((trade) => [trade.id, trade]))
   const sourceRecords = records.filter((trade) => {
     const source = missedOpportunitySourceOf(trade)
     return source !== null && selectedSources.has(source)
   })
-  const rawCounts: Record<MissedOpportunitySource, number> = { trade: 0, paper: 0, case: 0 }
+  const rawCounts: Record<MissedOpportunitySource, number> = { trade: 0, paper: 0 }
   for (const trade of sourceRecords) {
     const source = missedOpportunitySourceOf(trade)
     if (source) rawCounts[source] += 1
@@ -111,21 +98,18 @@ export function buildMissedOpportunitySummary(
   )
   const items = [...rootsById.values()]
 
-  for (const reviewCase of sourceRecords.filter((trade) => trade.tradeKind === 'case')) {
+  for (const reviewCase of records.filter((trade) => (
+    trade.tradeKind === 'case' && !isMissedOpportunityDeleted(trade)
+  ))) {
     const root = reviewCase.sourceTradeId ? rootsById.get(reviewCase.sourceTradeId) : undefined
     if (root) {
       root.linkedCases.push(reviewCase)
-      continue
     }
-    items.push(createStandaloneCase(
-      reviewCase,
-      isMissedOpportunityDeleted(allById.get(reviewCase.sourceTradeId ?? '') ?? reviewCase),
-    ))
   }
 
   for (const item of items) item.linkedCases.sort(compareCases)
   items.sort(compareItems)
-  const rawTotal = rawCounts.trade + rawCounts.paper + rawCounts.case
+  const rawTotal = rawCounts.trade + rawCounts.paper
   return { items, rawCounts, rawTotal, aggregateTotal: items.length }
 }
 

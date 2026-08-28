@@ -27,6 +27,16 @@ export function testTrashSearchRemainsAvailableWhenNoRowsMatch() {
   }
 }
 
+export function testTrashBatchActionsStayInsideThePrimaryToolbar() {
+  const source = readFileSync(path.resolve('src/views/TradeTrashView.tsx'), 'utf8')
+  const toolbarStart = source.indexOf('<div className="trash-selection-bar">')
+  const batchStart = source.indexOf('<BatchActionBar count={selected.size} placement="inline">')
+  const toolbarEnd = source.indexOf('</div>', batchStart)
+  if (toolbarStart < 0 || batchStart < toolbarStart || toolbarEnd < batchStart) {
+    throw new Error('回收站批量操作必须并入搜索与选择工具栏，不能再生成第二张操作卡片')
+  }
+}
+
 export function testTrashContextMenuUsesTheSharedActionHierarchy() {
   const source = readFileSync(path.resolve('src/views/TradeTrashView.tsx'), 'utf8')
 

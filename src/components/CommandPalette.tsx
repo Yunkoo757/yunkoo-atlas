@@ -9,6 +9,7 @@ import {
   CornerDownLeft,
   Search,
   Star,
+  Bookmark,
   Settings2,
   Tag,
   HardDriveDownload,
@@ -108,6 +109,8 @@ function CommandPaletteDialog({
   const openComposer = useStore((s) => s.openComposer)
   const toggleStar = useStore((s) => s.toggleStar)
   const isStarred = useStore((s) => s.isStarred)
+  const toggleCaseFocus = useStore((s) => s.toggleCaseFocus)
+  const isCaseFocused = useStore((s) => s.isCaseFocused)
   const setStatus = useStore((s) => s.setStatus)
   const requestTradeClose = useStore((s) => s.requestTradeClose)
   const requestTradeOpen = useStore((s) => s.requestTradeOpen)
@@ -139,7 +142,7 @@ function CommandPaletteDialog({
       { id: 'n-today', group: '导航', icon: <Calendar size={ICON_MD} />, label: '今日工作台', hint: shortcutHint('nav.today'), run: go('/today-record') },
       { id: 'n-quick-notes', group: '导航', icon: <FileText size={ICON_MD} />, label: '随记', keywords: '笔记 灵感 杂谈 notebook', hint: shortcutHint('nav.quickNotes'), run: go('/notes') },
       { id: 'n-list', group: '导航', icon: <ListTodo size={ICON_MD} />, label: '交易日志', hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies)) },
-      { id: 'n-review-cases', group: '导航', icon: <BookOpen size={ICON_MD} />, label: '案例记录', hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
+      { id: 'n-review-cases', group: '导航', icon: <BookOpen size={ICON_MD} />, label: '案例库', hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
       { id: 'n-weekly-review', group: '导航', icon: <CalendarDays size={ICON_MD} />, label: '周复盘', keywords: '每周 周总结 复盘', hint: shortcutHint('nav.weeklyReview'), run: go('/weekly-review') },
       { id: 'n-review-session', group: '导航', icon: <RotateCcw size={ICON_MD} />, label: '随机复盘', keywords: '随机 抽卡 复盘', hint: shortcutHint('nav.reviewSession'), run: go('/review-session') },
       { id: 'n-active', group: '导航', icon: <Clock size={ICON_MD} />, label: '进行中', hint: shortcutHint('nav.active'), run: go('/active') },
@@ -182,17 +185,24 @@ function CommandPaletteDialog({
 
     const contextActions: Cmd[] = []
     if (activeTrade) {
-      const starred = isStarred(activeTrade.id)
+      const starred = activeTrade.tradeKind === 'case'
+        ? isCaseFocused(activeTrade.id)
+        : isStarred(activeTrade.id)
       contextActions.push({
-        id: 'a-toggle-star',
+        id: activeTrade.tradeKind === 'case' ? 'a-toggle-case-focus' : 'a-toggle-star',
         group: '当前记录',
-        icon: <Star size={ICON_MD} />,
-        label: starred ? '取消星标' : '加入星标',
-        keywords: '收藏 星标 star',
+        icon: activeTrade.tradeKind === 'case' ? <Bookmark size={ICON_MD} /> : <Star size={ICON_MD} />,
+        label: activeTrade.tradeKind === 'case'
+          ? (starred ? '取消重点' : '设为重点案例')
+          : (starred ? '取消星标' : '加入星标'),
+        keywords: activeTrade.tradeKind === 'case' ? '重点 案例 focus' : '收藏 星标 star',
         run: () => {
-          toggleStar(activeTrade.id)
+          if (activeTrade.tradeKind === 'case') toggleCaseFocus(activeTrade.id)
+          else toggleStar(activeTrade.id)
           requestClose()
-          toast(starred ? '已取消星标' : '已加入星标')
+          toast(activeTrade.tradeKind === 'case'
+            ? (starred ? '已取消重点' : '已设为重点案例')
+            : (starred ? '已取消星标' : '已加入星标'))
         },
       })
       for (const status of STATUS_ORDER) {
@@ -329,6 +339,7 @@ function CommandPaletteDialog({
     deferredQuery,
     display,
     isStarred,
+    isCaseFocused,
     navigate,
     openComposer,
     pathname,
@@ -340,6 +351,7 @@ function CommandPaletteDialog({
     shortcutBindings,
     strategies,
     toggleStar,
+    toggleCaseFocus,
     trades,
   ])
 

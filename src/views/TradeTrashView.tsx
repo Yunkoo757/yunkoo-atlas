@@ -267,34 +267,33 @@ export function TradeTrashView() {
                     : '全选'}
                 </button>
               </div>
-              {searchQuery && (
+              {selected.size === 0 && searchQuery && (
                 <span className="trash-search-count">
                   找到 {filteredTrades.length} 笔交易
                 </span>
               )}
-              {!searchQuery && (
+              {selected.size === 0 && !searchQuery && (
                 <span className="trash-search-count">共 {filteredTrades.length} 笔</span>
               )}
+              <BatchActionBar count={selected.size} placement="inline">
+                <button type="button" className="batch-bar-action-btn" onClick={handleBatchRestore}>
+                  <RotateCcw size={ICON_SM} />
+                  <span>恢复</span>
+                </button>
+                <button
+                  type="button"
+                  className="batch-bar-action-btn batch-bar-action-btn-danger"
+                  onClick={handleBatchPurge}
+                >
+                  <Trash2 size={ICON_SM} />
+                  <span>彻底删除</span>
+                </button>
+                <button type="button" className="batch-bar-action-btn" onClick={() => setSelected(new Set())}>
+                  <X size={ICON_SM} />
+                  <span>取消选择</span>
+                </button>
+              </BatchActionBar>
             </div>
-
-            <BatchActionBar count={selected.size} placement="inline">
-              <button type="button" className="batch-bar-action-btn" onClick={handleBatchRestore}>
-                <RotateCcw size={ICON_SM} />
-                <span>恢复</span>
-              </button>
-              <button
-                type="button"
-                className="batch-bar-action-btn batch-bar-action-btn-danger"
-                onClick={handleBatchPurge}
-              >
-                <Trash2 size={ICON_SM} />
-                <span>彻底删除</span>
-              </button>
-              <button type="button" className="batch-bar-action-btn" onClick={() => setSelected(new Set())}>
-                <X size={ICON_SM} />
-                <span>取消选择</span>
-              </button>
-            </BatchActionBar>
 
             {filteredTrades.length === 0 ? (
               <EmptyState

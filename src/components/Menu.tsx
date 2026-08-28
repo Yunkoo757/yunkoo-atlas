@@ -99,7 +99,7 @@ export function Menu({
     })
   }, [resolveTriggerControl])
 
-  const updatePosition = () => {
+  const updatePosition = useCallback(() => {
     const triggerRect = triggerRef.current?.getBoundingClientRect()
     if (!triggerRect) return
 
@@ -122,7 +122,7 @@ export function Menu({
       placement,
       minWidth: Math.max(180, triggerRect.width),
     })
-  }
+  }, [align, options.length])
 
   useEffect(() => {
     if (!open) return
@@ -175,7 +175,7 @@ export function Menu({
     popRef.current?.querySelector<HTMLButtonElement>('.menu-item:not(:disabled)')?.focus()
     const frame = requestAnimationFrame(() => updatePosition())
     return () => cancelAnimationFrame(frame)
-  }, [open, align, options.length])
+  }, [open, updatePosition])
 
   useEffect(() => {
     if (!open) return
@@ -186,7 +186,7 @@ export function Menu({
       window.removeEventListener('resize', onViewportChange)
       window.removeEventListener('scroll', onViewportChange, true)
     }
-  }, [open, align, options.length])
+  }, [open, updatePosition])
 
   const popStyle: CSSProperties = {
     left: position.left,
@@ -220,7 +220,14 @@ export function Menu({
       <div
         className="menu-trigger"
         ref={triggerRef}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (open) {
+            setOpen(false)
+            return
+          }
+          updatePosition()
+          setOpen(true)
+        }}
       >
         {trigger}
       </div>

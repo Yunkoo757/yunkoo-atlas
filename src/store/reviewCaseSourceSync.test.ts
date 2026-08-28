@@ -164,7 +164,7 @@ export function testStoreMasteryAndDateMutationWritesOneCompatibleUndoObject(): 
   })
 }
 
-export function testLegacyFocusClassificationPromotesStarInAtomicStoreUpdate(): void {
+export function testLegacyFocusClassificationPromotesCasePriorityInAtomicStoreUpdate(): void {
   const initial = reviewCase('legacy-focus', {
     reviewCategory: 'focus',
     reviewStatus: 'focus',
@@ -174,10 +174,11 @@ export function testLegacyFocusClassificationPromotesStarInAtomicStoreUpdate(): 
 
     const state = useStore.getState()
     const updated = state.trades[0]!
-    assert(state.starredIds.includes(initial.id), '旧版 focus 首次分类 mutation 必须同步升级为星标')
-    assert(updated.reviewCategory === 'mistake', '升星的同一状态更新必须规范化兼容分类')
-    assert(updated.reviewStatus === 'unreviewed', '升星的同一状态更新必须规范化兼容状态')
-    assert(state.undoStack.length === 1, '升星不得拆出额外的交易 undo action')
+    assert(updated.isFocusCase === true, '旧版 focus 首次分类 mutation 必须同步升级为独立案例优先级')
+    assert(!state.starredIds.includes(initial.id), '案例优先级不得写入交易星标')
+    assert(updated.reviewCategory === 'mistake', '迁移优先级的同一状态更新必须规范化兼容分类')
+    assert(updated.reviewStatus === 'unreviewed', '迁移优先级的同一状态更新必须规范化兼容状态')
+    assert(state.undoStack.length === 1, '迁移优先级不得拆出额外的交易 undo action')
 
     assert(useStore.getState().undo(), '原有 updateTradeData undo 必须仍可用')
     assert(useStore.getState().trades[0]?.reviewCategory === 'focus', 'undo 必须恢复变更前的交易快照')
@@ -198,7 +199,7 @@ export function testNonClassificationWritesPreserveLegacyFocusCase(): void {
     const assertFocus = (message: string) => {
       const current = useStore.getState().trades.find((item) => item.id === initial.id)!
       assert(current.reviewCategory === 'focus' && current.reviewStatus === 'focus', message)
-      assert(!useStore.getState().starredIds.includes(initial.id), `${message}；非分类写入不得触发升星`)
+      assert(!useStore.getState().starredIds.includes(initial.id), `${message}；非分类写入不得污染交易星标`)
     }
 
     useStore.getState().updateNote(initial.id, '<p>案例正文</p><img src="asset://case-image">')

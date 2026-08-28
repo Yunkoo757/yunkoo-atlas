@@ -11,7 +11,7 @@ import {
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import type { RiskPeriodOutcomeSnapshot, RiskPeriodScope } from '@/data/riskManagement'
-import { Shield } from '@/icons/appIcons'
+import { ChevronRight, Shield } from '@/icons/appIcons'
 import { ICON_MD } from '@/icons/iconSize'
 import { fmtR } from '@/lib/format'
 import { getCurrentLiveStage } from '@/lib/liveStages'
@@ -95,7 +95,7 @@ export function buildSidebarRiskSummary(rows: readonly SidebarRiskRow[]): Sideba
   }
   return {
     kind: 'normal',
-    label: '风险正常',
+    label: '风控中心',
     value: `余 ${formatR(day.outcome.remainingR)}`,
     ariaLabel: fullStatus,
   }
@@ -105,7 +105,14 @@ function SidebarRiskPeriod({ row }: { row: SidebarRiskRow }) {
   const percentage = Math.round(Math.min(1, Math.max(0, row.outcome.progress)) * 100)
   return (
     <div className={`sb-risk-period is-${row.presentation.kind}`} data-risk-period={row.scope}>
-      <span className="sb-risk-period-label">{row.shortLabel}</span>
+      <div className="sb-risk-period-head">
+        <span className="sb-risk-period-label">{row.label}</span>
+        <small>{row.presentation.label}</small>
+      </div>
+      <div className="sb-risk-period-usage">
+        <strong>{formatR(row.outcome.consumedR)}</strong>
+        <span>/ {row.outcome.limitR > 0 ? formatR(row.outcome.limitR) : '—'}</span>
+      </div>
       <span
         className="sb-risk-track"
         role="progressbar"
@@ -116,8 +123,6 @@ function SidebarRiskPeriod({ row }: { row: SidebarRiskRow }) {
       >
         <span style={{ width: `${percentage}%` }} />
       </span>
-      <strong>{periodValue(row)}</strong>
-      <small>{row.presentation.label}</small>
     </div>
   )
 }
@@ -160,6 +165,7 @@ export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayK
     tradingDayStartHour,
   ])
   const summary = useMemo(() => buildSidebarRiskSummary(rows), [rows])
+  const popoverStatus = summary.kind === 'normal' ? '额度充足' : summary.label
 
   const close = useCallback((restoreFocus = false) => {
     setOpen(false)
@@ -251,14 +257,18 @@ export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayK
           style={position ?? { visibility: 'hidden' }}
         >
           <header className="sb-risk-popover-head">
-            <strong>风险使用情况</strong>
-            <span>{summary.label}</span>
+            <div>
+              <strong>风控中心</strong>
+              <small>当前阶段风险预算</small>
+            </div>
+            <span>{popoverStatus}</span>
           </header>
           <div className="sb-risk-periods">
             {rows.map((row) => <SidebarRiskPeriod key={row.scope} row={row} />)}
           </div>
           <Link className="sb-risk-manage" to="/settings/risk" onClick={() => close()}>
-            打开风险管理
+            <span>管理风险规则</span>
+            <ChevronRight size={ICON_MD} aria-hidden="true" />
           </Link>
         </div>,
         document.body,

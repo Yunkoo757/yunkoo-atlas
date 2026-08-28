@@ -239,13 +239,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     () => parseTradeWorkspaceQuery(location.search, liveStages, currentLiveStageId),
     [currentLiveStageId, liveStages, location.search],
   )
-  const contextParams = new URLSearchParams(location.search)
-  const requestedContextReview = assignedReviews.find(
-    (review) => review.id === contextParams.get('review'),
-  )
-  const selectedReviewStage = workspaceQuery.stage === 'current' && !contextParams.has('liveStage') && requestedContextReview?.liveStageId
-    ? liveStages.find((stage) => stage.id === requestedContextReview.liveStageId)
-    : workspaceQuery.stage === 'current'
+  const selectedReviewStage = workspaceQuery.stage === 'current'
     ? liveStages.find((stage) => stage.id === currentLiveStageId)
     : workspaceQuery.stage === 'all-history'
       ? [...liveStages].filter((stage) => stage.status === 'archived').sort((left, right) => right.sequence - left.sequence)[0]

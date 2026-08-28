@@ -33,7 +33,7 @@ const baseCase: Trade = {
 }
 
 export function testLegacyFocusQueryMatchesStarredAndUntouchedLegacyCases(): void {
-  const starredNormalized = { ...baseCase, id: 'case-starred', ref: 'CAS-STARRED' }
+  const focusedNormalized = { ...baseCase, id: 'case-focused', ref: 'CAS-FOCUSED', isFocusCase: true }
   const untouchedLegacy = {
     ...baseCase,
     id: 'case-legacy-focus',
@@ -43,17 +43,17 @@ export function testLegacyFocusQueryMatchesStarredAndUntouchedLegacyCases(): voi
   const ordinary = { ...baseCase, id: 'case-ordinary', ref: 'CAS-ORDINARY' }
 
   const visible = getWorkbenchVisibleTrades({
-    trades: [starredNormalized, untouchedLegacy, ordinary],
+    trades: [focusedNormalized, untouchedLegacy, ordinary],
     filter: { type: 'all', tradeKind: 'case', reviewCaseScope: 'all' },
-    starredIds: [starredNormalized.id],
+    starredIds: [],
     display: DEFAULT_DISPLAY,
     search: '?reviewCategory=focus',
   })
 
   assert(
     visible.map((trade) => trade.id).sort().join(',') ===
-      'case-legacy-focus,case-starred',
-    'legacy focus 查询必须同时命中已星标规范案例与尚未迁移的 focus 案例',
+      'case-focused,case-legacy-focus',
+    'legacy focus 查询必须同时命中重点案例与尚未迁移的 focus 案例',
   )
 }
 

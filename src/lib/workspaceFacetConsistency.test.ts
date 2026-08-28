@@ -453,7 +453,7 @@ export function testSavedViewNamesCoverCaseFacetsAndOtherSession(): void {
     suggestSavedViewName(
       '/review-cases',
       new URLSearchParams('caseType=mistake&masteryState=recheck&reviewCategory=focus'),
-    ) === '案例记录 · 重点案例 · 错误案例 · 待复看',
+    ) === '案例库 · 重点案例 · 错误案例 · 待复看',
     '案例保存视图名称应表达三类学习 facet',
   )
   assert(
@@ -468,7 +468,7 @@ export function testSavedViewNameLocalizesTheNormalReviewCategory(): void {
     suggestSavedViewName(
       '/review-cases',
       new URLSearchParams('reviewCategory=normal'),
-    ) === '案例记录 · 普通',
+    ) === '案例库 · 普通',
     '普通复盘分类不得把内部 enum 暴露给用户',
   )
 }

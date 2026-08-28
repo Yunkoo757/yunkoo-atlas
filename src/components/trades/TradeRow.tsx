@@ -1,6 +1,6 @@
 import { ICON_SM } from '@/icons/iconSize'
 import { memo } from 'react'
-import { Star } from '@/icons/appIcons'
+import { Bookmark, Star } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
 import { resolveTimeframe, type Trade } from '@/data/trades'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
@@ -71,6 +71,10 @@ export const TradeRow = memo(function TradeRow({
   )
   const strategyLabel = strategies.find((strategy) => strategy.id === trade.strategyId)?.name ?? '未设置'
   const date = fmtDate(trade.openedAt)
+  const isCase = trade.tradeKind === 'case'
+  const emphasisLabel = isCase
+    ? (starred ? '取消重点' : '设为重点案例')
+    : (starred ? '取消星标' : '星标交易')
 
   const contextItem = (item: TradeRowContextItem, index: number) => {
     const content = (
@@ -204,20 +208,22 @@ export const TradeRow = memo(function TradeRow({
       end={
         <Tooltip
           asChild
-          content={starred ? '取消星标' : '星标交易'}
-          label={starred ? '取消星标' : '星标交易'}
+          content={emphasisLabel}
+          label={emphasisLabel}
         >
           <button
             type="button"
             className={'trade-row-star' + (starred ? ' is-starred' : '')}
-            aria-label={starred ? '取消星标' : '星标交易'}
+            aria-label={emphasisLabel}
             aria-pressed={starred}
             onClick={(event) => {
               event.stopPropagation()
               onToggleStar(trade)
             }}
           >
-            <Star size={ICON_SM} fill={starred ? 'currentColor' : 'none'} />
+            {isCase
+              ? <Bookmark size={ICON_SM} fill={starred ? 'currentColor' : 'none'} />
+              : <Star size={ICON_SM} fill={starred ? 'currentColor' : 'none'} />}
           </button>
         </Tooltip>
       }

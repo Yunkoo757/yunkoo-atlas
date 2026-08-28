@@ -46,6 +46,28 @@ function minimalHistoricalSnapshot(): Record<string, unknown> {
   }
 }
 
+export function testSnapshotCodecMigratesLegacyStarredCasesToIndependentPriority(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const source = fixture.trades[0]!
+  const legacyCase = {
+    ...source,
+    id: 'legacy-starred-case',
+    ref: 'CAS-LEGACY',
+    tradeKind: 'case' as const,
+  }
+  const canonical = decodeCanonicalSnapshot({
+    ...fixture,
+    trades: [...fixture.trades, legacyCase],
+    starredIds: [legacyCase.id],
+  }, { version: SCHEMA_VERSION })
+
+  assert(
+    canonical.trades.find((trade) => trade.id === legacyCase.id)?.isFocusCase === true,
+    '旧版星标案例必须迁移为独立重点案例',
+  )
+  assert(!canonical.starredIds.includes(legacyCase.id), '迁移后案例 ID 不得残留在交易星标集合')
+}
+
 export function testSnapshotCodecNormalizesVersionsOneThroughEightToAllContractFields(): void {
   for (let version = 1; version <= 8; version += 1) {
     const canonical = decodeCanonicalSnapshot(minimalHistoricalSnapshot(), { version })

@@ -450,9 +450,9 @@ export function testReviewSessionCaseContentIncludesOwnInsightsAndSourceReview()
   assert(getReviewSessionContent(baseTrade) === baseTrade.note, '账户交易应继续读取自身复盘正文')
 }
 
-export function testReviewSessionCaseScopeUsesSharedStarredFocusRule(): void {
+export function testReviewSessionCaseScopeUsesSharedCasePriorityRule(): void {
   const cases: Trade[] = [
-    { ...baseTrade, id: 'starred-case', ref: 'CAS-1', tradeKind: 'case' },
+    { ...baseTrade, id: 'focused-case', ref: 'CAS-1', tradeKind: 'case', isFocusCase: true },
     {
       ...baseTrade,
       id: 'ordinary-case',
@@ -465,10 +465,10 @@ export function testReviewSessionCaseScopeUsesSharedStarredFocusRule(): void {
     ...DEFAULT_REVIEW_SESSION_FILTERS,
     includeAccountTrades: false,
     caseScope: 'focus',
-  }, new Set(['starred-case']), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR, REVIEW_STAGE_CONTEXT)
+  }, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR, REVIEW_STAGE_CONTEXT)
 
-  assert(pool.map((trade) => trade.id).join(',') === 'starred-case',
-    '重点 scope 应与案例页一致地包含星标案例')
+  assert(pool.map((trade) => trade.id).join(',') === 'focused-case',
+    '重点 scope 应与案例库一致地包含重点案例，且不依赖交易星标')
 }
 
 export function testReviewSessionPresetsCoverCasesMistakesAndMissed(): void {

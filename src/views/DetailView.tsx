@@ -9,6 +9,7 @@ import {
   Link2,
   MoreHorizontal,
   Star,
+  Bookmark,
   Copy,
   Pencil,
   Trash2,
@@ -182,6 +183,7 @@ export function DetailView() {
   const addComment = useStore((s) => s.addComment)
   const removeComment = useStore((s) => s.removeComment)
   const toggleStar = useStore((s) => s.toggleStar)
+  const toggleCaseFocus = useStore((s) => s.toggleCaseFocus)
   const openComposer = useStore((s) => s.openComposer)
   const removeTrade = useStore((s) => s.removeTrade)
   const restoreTrade = useStore((s) => s.restoreTrade)
@@ -426,7 +428,9 @@ export function DetailView() {
     [trade?.id, persistEditorNote],
   )
 
-  const starred = trade ? starredIds.includes(trade.id) : false
+  const starred = trade
+    ? trade.tradeKind === 'case' ? trade.isFocusCase === true : starredIds.includes(trade.id)
+    : false
   const detailNavigation = useMemo(
     () => getDetailNavigation(trades, listContext, trade),
     [trades, listContext, trade],
@@ -717,15 +721,26 @@ export function DetailView() {
 
   const favoriteButton = (
     <IconButton
-      label={starred ? '取消星标' : '星标'}
-      tooltip={starred ? '取消星标' : '星标'}
+      label={trade.tradeKind === 'case'
+        ? (starred ? '取消重点' : '设为重点案例')
+        : (starred ? '取消星标' : '星标')}
+      tooltip={trade.tradeKind === 'case'
+        ? (starred ? '取消重点' : '设为重点案例')
+        : (starred ? '取消星标' : '星标')}
       pressed={starred}
       onClick={() => {
-        toggleStar(trade.id)
-        toast(starred ? '已取消星标' : '已加入星标')
+        if (trade.tradeKind === 'case') {
+          toggleCaseFocus(trade.id)
+          toast(starred ? '已取消重点' : '已设为重点案例')
+        } else {
+          toggleStar(trade.id)
+          toast(starred ? '已取消星标' : '已加入星标')
+        }
       }}
     >
-      <Star size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />
+      {trade.tradeKind === 'case'
+        ? <Bookmark size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />
+        : <Star size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />}
     </IconButton>
   )
 
@@ -734,6 +749,7 @@ export function DetailView() {
     if (actionId === 'copy') return <Copy size={ICON_MD} />
     if (actionId === 'extract-case') return <BookOpen size={ICON_MD} />
     if (actionId === 'star') return <Star size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />
+    if (actionId === 'focus-case') return <Bookmark size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />
     return <Trash2 size={ICON_MD} />
   }
   const detailRecordActions = buildRecordActionDescriptors(trade, { starred })
@@ -768,6 +784,10 @@ export function DetailView() {
         else if (v === 'star') {
           toggleStar(trade.id)
           toast(starred ? '已取消星标' : '已加入星标')
+        }
+        else if (v === 'focus-case') {
+          toggleCaseFocus(trade.id)
+          toast(starred ? '已取消重点' : '已设为重点案例')
         }
         else if (v === 'reopen-review') updateTradeData(trade.id, { reviewStatus: 'unreviewed' })
         else if (v === 'copy-link') copyLink()

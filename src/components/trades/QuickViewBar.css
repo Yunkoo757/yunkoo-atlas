@@ -1,6 +1,14 @@
 .quick-view-bar {
-  --quick-view-border-rest: color-mix(in srgb, var(--list-text-secondary) 18%, transparent);
-  --quick-view-border-hover: color-mix(in srgb, var(--list-text-secondary) 28%, transparent);
+  --quick-view-control-height: 30px;
+  --quick-view-surface-rest: color-mix(in srgb, var(--surface-control-hover) 56%, var(--surface-control));
+  --quick-view-surface-hover: color-mix(in srgb, var(--surface-control-hover) 84%, var(--surface-control));
+  --quick-view-border-rest: color-mix(in srgb, var(--list-text-secondary) 24%, transparent);
+  --quick-view-border-hover: color-mix(in srgb, var(--list-text-secondary) 34%, transparent);
+  --quick-view-highlight-rest: lch(100% 0 0 / 0.024);
+  --quick-view-highlight-hover: lch(100% 0 0 / 0.036);
+  --quick-view-highlight-active: lch(100% 0 0 / 0.048);
+  --quick-view-depth-rest: lch(0 0 0 / 0.16);
+  --quick-view-depth-active: lch(0 0 0 / 0.22);
 
   position: relative;
   display: flex;
@@ -30,21 +38,24 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  height: var(--toolbar-chip-height);
+  height: var(--quick-view-control-height);
   color: var(--list-text-secondary);
   font-family: var(--font-ui);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--type-metadata-weight);
-  line-height: var(--type-metadata-line-height);
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--type-row-line-height);
   /* 描边用 border（盒内），避免外扩 shadow / ::after 在非整数 DPR 或 overflow 下被裁 */
   border: 1px solid var(--quick-view-border-rest);
   border-radius: var(--radius-full);
-  background: transparent;
-  box-shadow: none;
+  background: var(--quick-view-surface-rest);
+  box-shadow:
+    inset 0 1px 0 var(--quick-view-highlight-rest),
+    0 1px 1px var(--quick-view-depth-rest);
   transition:
     border-color 150ms,
     background-color 150ms,
     color 150ms,
+    box-shadow 150ms,
     opacity 150ms;
 }
 
@@ -68,8 +79,11 @@
 .quick-view-chip:hover,
 .quick-view-overflow:hover {
   color: var(--list-text-primary);
-  background: var(--surface-control-hover);
+  background: var(--quick-view-surface-hover);
   border-color: var(--quick-view-border-hover);
+  box-shadow:
+    inset 0 1px 0 var(--quick-view-highlight-hover),
+    0 1px 1px var(--quick-view-depth-rest);
 }
 
 .quick-view-chip.is-active,
@@ -77,6 +91,9 @@
   color: var(--list-text-strong);
   background: var(--surface-control-active);
   border-color: var(--surface-control-border-active);
+  box-shadow:
+    inset 0 1px 0 var(--quick-view-highlight-active),
+    0 1px 2px var(--quick-view-depth-active);
 }
 
 .quick-view-saved {
@@ -92,7 +109,7 @@
 }
 
 .quick-view-overflow {
-  width: var(--toolbar-chip-height);
+  width: var(--quick-view-control-height);
 }
 
 .quick-view-overflow-anchor {

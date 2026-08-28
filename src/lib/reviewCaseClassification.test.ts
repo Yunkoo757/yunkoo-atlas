@@ -1,5 +1,9 @@
 import type { Trade } from '@/data/trades'
-import { applyCaseClassificationMutation, containsCaseClassificationMutation } from '@/lib/reviewCaseClassification'
+import {
+  applyCaseClassificationMutation,
+  containsCaseClassificationMutation,
+  migrateLegacyCasePriority,
+} from '@/lib/reviewCaseClassification'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -99,20 +103,14 @@ export function testAccountTradesAreRejectedWithoutMutation(): void {
   assert(!result.changed && result.trade === accountTrade, '账户交易拒绝必须保持零修改')
 }
 
-export function testLegacyFocusPromotionIsLimitedToOriginalFocusCases(): void {
-  const categoryFocus = applyCaseClassificationMutation(
-    { ...caseTrade, reviewCategory: 'focus' },
-    { caseType: 'exemplar' },
-  )
-  const statusFocus = applyCaseClassificationMutation(
-    { ...caseTrade, reviewStatus: 'focus' },
-    { caseType: 'exemplar' },
-  )
-  const ordinary = applyCaseClassificationMutation(caseTrade, { caseType: 'exemplar' })
+export function testLegacyFocusMigratesToIndependentCasePriority(): void {
+  const focused = { ...caseTrade, reviewCategory: 'focus' as const }
+  const ordinary = { ...caseTrade, id: 'ordinary' }
+  const migrated = migrateLegacyCasePriority([focused, ordinary], [focused.id, ordinary.id])
 
-  assert(categoryFocus.promoteLegacyFocusToStar, '旧版 focus 分类必须请求迁移为收藏')
-  assert(statusFocus.promoteLegacyFocusToStar, '旧版 focus 状态必须请求迁移为收藏')
-  assert(!ordinary.promoteLegacyFocusToStar, '非 focus 案例不得请求迁移为收藏')
+  assert(migrated.trades[0]?.isFocusCase === true, '旧版 focus 案例必须迁移为重点案例')
+  assert(migrated.trades[1]?.isFocusCase === true, '旧版案例星标必须迁移为重点案例')
+  assert(migrated.starredIds.length === 0, '案例 ID 不得继续残留在交易星标中')
 }
 
 export function testEmptyMutationPreservesCaseContentWithoutLegacyFocusPromotion(): void {

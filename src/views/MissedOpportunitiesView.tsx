@@ -30,7 +30,6 @@ const EMPTY_SELECTION = new Set<string>()
 const SOURCE_LABELS: Record<MissedOpportunitySource, string> = {
   trade: '交易日志',
   paper: '模拟盘',
-  case: '案例记录',
 }
 
 export function MissedOpportunitiesView() {
@@ -56,14 +55,19 @@ export function MissedOpportunitiesView() {
   const existingScope = sidebarWorkspaceItems.find(
     (item) => item.target.kind === 'system' && item.target.id === 'missed',
   )
-  const sources: MissedOpportunitySource[] = existingScope?.target.kind === 'system'
+  const configuredSources = existingScope?.target.kind === 'system'
     ? systemCapabilityWorkspaces(existingScope.target)
     : [...MISSED_OPPORTUNITY_SOURCES]
-  const currentStageTrades = useMemo(
-    () => filterStageOwnedRecords(trades, { kind: 'current', stageId: currentLiveStageId }),
+  const sources = MISSED_OPPORTUNITY_SOURCES.filter((source) => configuredSources.includes(source))
+  const missedRecords = useMemo(
+    () => [
+      ...filterStageOwnedRecords(trades, { kind: 'current', stageId: currentLiveStageId })
+        .filter((trade) => trade.tradeKind !== 'case'),
+      ...trades.filter((trade) => trade.tradeKind === 'case'),
+    ],
     [currentLiveStageId, trades],
   )
-  const summary = buildMissedOpportunitySummary(currentStageTrades, sources)
+  const summary = buildMissedOpportunitySummary(missedRecords, sources)
   const filters = parseMissedOpportunityFilters(searchParams)
   const visibleItems = filterMissedOpportunityItems(summary.items, filters, businessDateAnchor)
   const visibleResultKey = JSON.stringify([
@@ -119,7 +123,7 @@ export function MissedOpportunitiesView() {
       ? sources.filter((candidate) => candidate !== source)
       : [...sources, source]
     const nextVisibleItems = filterMissedOpportunityItems(
-      buildMissedOpportunitySummary(currentStageTrades, nextSources).items,
+      buildMissedOpportunitySummary(missedRecords, nextSources).items,
       filters,
       businessDateAnchor,
     )
@@ -144,7 +148,6 @@ export function MissedOpportunitiesView() {
         <div className="missed-empty-actions">
           {sources.includes('trade') ? <Link className="ui-btn ui-btn-bordered" to="/list">前往交易日志</Link> : null}
           {sources.includes('paper') ? <Link className="ui-btn ui-btn-bordered" to="/sim">前往模拟盘</Link> : null}
-          {sources.includes('case') ? <Link className="ui-btn ui-btn-bordered" to="/review-cases">前往案例记录</Link> : null}
         </div>
       )}
     />
@@ -161,7 +164,7 @@ export function MissedOpportunitiesView() {
     <>
       <Topbar
         title="错过的机会"
-        subtitle="跨工作区汇总"
+        subtitle="实盘与模拟记录"
         showDisplay={false}
         showSaveStatus={false}
       />

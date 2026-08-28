@@ -104,6 +104,8 @@ export function TodayWorkspace() {
   const removeTrade = useStore((state) => state.removeTrade)
   const toggleStar = useStore((state) => state.toggleStar)
   const isStarred = useStore((state) => state.isStarred)
+  const toggleCaseFocus = useStore((state) => state.toggleCaseFocus)
+  const isCaseFocused = useStore((state) => state.isCaseFocused)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
@@ -206,6 +208,8 @@ export function TodayWorkspace() {
         },
         toggleStar,
         isStarred,
+        toggleCaseFocus,
+        isCaseFocused,
       }),
     })
   }
@@ -349,10 +353,10 @@ export function TodayWorkspace() {
                               focused={false}
                               selected={false}
                               selectable={false}
-                              starred={starredIdSet.has(trade.id)}
+                              starred={trade.tradeKind === 'case' ? trade.isFocusCase === true : starredIdSet.has(trade.id)}
                               onOpen={openTrade}
                               onSelect={() => {}}
-                              onToggleStar={(item) => toggleStar(item.id)}
+                              onToggleStar={(item) => item.tradeKind === 'case' ? toggleCaseFocus(item.id) : toggleStar(item.id)}
                               onContextMenu={openContextMenu}
                             />
                           ))}
@@ -432,10 +436,10 @@ export function TodayWorkspace() {
                     focused={false}
                     selected={false}
                     selectable={false}
-                    starred={starredIdSet.has(trade.id)}
+                    starred={trade.tradeKind === 'case' ? trade.isFocusCase === true : starredIdSet.has(trade.id)}
                     onOpen={openTrade}
                     onSelect={() => {}}
-                    onToggleStar={(item) => toggleStar(item.id)}
+                    onToggleStar={(item) => item.tradeKind === 'case' ? toggleCaseFocus(item.id) : toggleStar(item.id)}
                     onContextMenu={openContextMenu}
                   />
                 ))}

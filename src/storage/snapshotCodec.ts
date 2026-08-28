@@ -11,6 +11,7 @@ import { mergeTagPresets } from '@/lib/tags'
 import { normalizeDisplay } from '@/lib/tradeFilters'
 import { normalizeReviewPoolLayout } from '@/lib/reviewPools'
 import { normalizeTrades } from '@/lib/tradeKind'
+import { migrateLegacyCasePriority } from '@/lib/reviewCaseClassification'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { normalizeTradingDayStartHour } from '@/lib/periods'
 import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
@@ -331,7 +332,12 @@ export function decodeCanonicalSnapshot(
     stagedCandidate.trades,
     strategiesWereMissing ? undefined : stagedCandidate.strategies,
   )
-  const trades = normalizeTrades(normalizedRelations.trades)
+  const normalizedTrades = normalizeTrades(normalizedRelations.trades)
+  const casePriorityMigration = migrateLegacyCasePriority(
+    normalizedTrades,
+    stagedCandidate.starredIds,
+  )
+  const trades = casePriorityMigration.trades
   const symbolIcons = normalizeSymbolIcons(candidate.symbolIcons)
   const symbolCatalogSource = candidate.symbolCatalog === undefined
     ? [...Object.keys(symbolIcons), ...trades.map((trade) => trade.symbol)]
@@ -363,7 +369,7 @@ export function decodeCanonicalSnapshot(
     weeklyReviews: normalizeWeeklyReviews(stagedCandidate.weeklyReviews),
     quickNotes: normalizeQuickNotes(stagedCandidate.quickNotes),
     strategies: normalizedRelations.strategies,
-    starredIds: [...stagedCandidate.starredIds],
+    starredIds: casePriorityMigration.starredIds,
     subscribedIds: [...stagedCandidate.subscribedIds],
     pinnedStrategyIds: [...stagedCandidate.pinnedStrategyIds],
     display: normalizeDisplay(stagedCandidate.display),
