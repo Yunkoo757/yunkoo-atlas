@@ -203,8 +203,8 @@
   --group-add-hover-bg: lch(13.456% 0.943 272);
   --surface-row-selected: lch(10.691% 0.493 272 / 1);
   --surface-control: lch(6.449% 0.493 272 / 1);
-  --surface-control-active: lch(12.234% 0.879 272 / 1);
-  --surface-control-hover: lch(15.32% 0.879 272 / 1);
+  --surface-control-hover: lch(10.8% 0.9 272 / 1);
+  --surface-control-active: lch(14.2% 0.9 272 / 1);
   --surface-control-border: lch(100% 0 0 / 0.045);
   --surface-control-border-active: lch(100% 0 0 / 0.113);
   --surface-control-shadow:

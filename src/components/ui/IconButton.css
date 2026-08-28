@@ -33,8 +33,8 @@
 
 .ui-icon-btn:hover:not(:disabled) {
   color: var(--list-text-primary);
-  background-color: var(--surface-control-active);
-  box-shadow: var(--surface-control-shadow-active);
+  background-color: var(--surface-control-hover);
+  box-shadow: var(--surface-control-shadow);
 }
 
 .ui-icon-btn:active:not(:disabled) {

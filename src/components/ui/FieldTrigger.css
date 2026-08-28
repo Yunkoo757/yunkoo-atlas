@@ -22,7 +22,7 @@
     box-shadow var(--motion-state) var(--ease-out);
 }
 
-.ui-field-trigger:hover:not(:disabled) {
+.ui-field-trigger:hover:not(:disabled):not([aria-expanded='true']) {
   color: var(--text-primary);
   background: var(--field-bg-hover);
   border-color: var(--field-border-hover);

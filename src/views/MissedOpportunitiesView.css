@@ -85,8 +85,12 @@
 }
 
 .missed-scope-popover [role='menuitemcheckbox']:hover,
-.missed-scope-popover [role='menuitemcheckbox']:active:not(:disabled),
 .missed-scope-popover [role='menuitemcheckbox']:focus-visible {
+  color: var(--text-primary);
+  background: var(--surface-control-hover);
+}
+
+.missed-scope-popover [role='menuitemcheckbox']:active:not(:disabled) {
   color: var(--text-primary);
   background: var(--surface-control-active);
 }

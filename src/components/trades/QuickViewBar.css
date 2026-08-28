@@ -65,7 +65,7 @@
 .quick-view-chip:hover,
 .quick-view-overflow:hover {
   color: var(--list-text-primary);
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
   border-color: transparent;
 }
 

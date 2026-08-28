@@ -106,6 +106,29 @@ export async function testPrimaryControlsExposePressedDisabledAndDesktopScaleSta
   assert(buttonCss.includes('.ui-btn-lg') && buttonCss.includes('var(--control-height-lg)'), '按钮必须提供 36px 强调档')
 }
 
+export async function testPersistentControlStatesRemainStrongerThanHover(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const [tokens, fieldTrigger, filterBar, quickViews, sidebar, selectSource] = await Promise.all([
+    fs.readFile('src/styles/tokens.css', 'utf8'),
+    fs.readFile('src/components/ui/FieldTrigger.css', 'utf8'),
+    fs.readFile('src/components/ui/FilterBar.css', 'utf8'),
+    fs.readFile('src/components/trades/QuickViewBar.css', 'utf8'),
+    fs.readFile('src/components/Sidebar.css', 'utf8'),
+    fs.readFile('src/components/ui/Select.tsx', 'utf8'),
+  ])
+
+  assert(tokens.includes('--surface-control-hover: lch(10.8% 0.9 272 / 1)'), '控件 Hover 必须使用较弱瞬态表面')
+  assert(tokens.includes('--surface-control-active: lch(14.2% 0.9 272 / 1)'), '控件展开与选中必须使用较强持久表面')
+  assert(
+    fieldTrigger.includes(":hover:not(:disabled):not([aria-expanded='true'])"),
+    'FieldTrigger 展开态不得被 Hover 级联覆盖',
+  )
+  assert(filterBar.indexOf('.ui-filter-trigger:hover') < filterBar.indexOf('.ui-filter-trigger.has-filters'), '筛选持久态规则必须位于 Hover 之后')
+  assert(quickViews.indexOf('.quick-view-chip:hover') < quickViews.indexOf('.quick-view-chip.is-active'), '快捷视图选中态必须位于 Hover 之后')
+  assert(sidebar.indexOf('.sb-risk-summary:hover') < sidebar.indexOf(".sb-risk-summary[aria-expanded='true']"), '风险摘要展开态必须位于 Hover 之后')
+  assert(selectSource.includes("getPropertyValue('--field-height-md')"), 'Select 菜单高度估算必须读取真实字段高度令牌')
+}
+
 export async function testStrategyPerformanceKeepsDataMoreProminentThanDecoration(): Promise<void> {
   const fs = await import('node:fs/promises')
   const [source, css] = await Promise.all([

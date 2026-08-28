@@ -58,19 +58,14 @@
   margin-left: 0;
 }
 
-.ui-filter-trigger.has-filters {
-  color: var(--list-text-strong);
-  border-color: var(--surface-control-border-active);
-  background: var(--surface-control-active);
-}
-
 .ui-filter-trigger:hover,
 .ui-filter-chip:hover {
   color: var(--list-text-strong);
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
   border-color: transparent;
 }
 
+.ui-filter-trigger.has-filters,
 .ui-filter-trigger.is-open,
 .ui-filter-trigger:focus-visible {
   color: var(--list-text-strong);

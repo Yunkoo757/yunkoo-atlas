@@ -105,7 +105,10 @@ export const Select = forwardRef<
     const rect = triggerRef.current?.getBoundingClientRect()
     if (!rect) return
     const edge = 8
-    const desiredHeight = Math.min(280, options.length * 30 + 10)
+    const optionHeight = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--field-height-md'),
+    ) || 32
+    const desiredHeight = Math.min(280, options.length * optionHeight + 10)
     const roomBelow = window.innerHeight - rect.bottom - edge - 4
     const roomAbove = rect.top - edge - 4
     const placement = roomBelow >= Math.min(desiredHeight, 180) || roomBelow >= roomAbove

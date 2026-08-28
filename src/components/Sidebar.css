@@ -177,10 +177,14 @@
   flex-shrink: 0;
   fill: none;
 }
-.sb-hbtn:hover,
+.sb-hbtn:hover {
+  color: var(--accent-text);
+  background: var(--surface-control-hover);
+}
+
 .sb-hbtn:active {
   color: var(--accent-text);
-  background: var(--surface-row-selected);
+  background: var(--surface-control-active);
 }
 
 .sb-hbtn-create {
@@ -543,10 +547,14 @@ html[data-ui-settled='1'] .sb-item {
     background var(--dur-fast) var(--ease-out);
 }
 
-.sb-risk-summary:hover,
-.sb-risk-summary[aria-expanded='true'] {
+.sb-risk-summary:hover {
   color: var(--text-primary);
   background: var(--surface-nav-hover);
+}
+
+.sb-risk-summary[aria-expanded='true'] {
+  color: var(--text-primary);
+  background: var(--surface-nav-active);
 }
 
 .sb-risk-summary strong {
