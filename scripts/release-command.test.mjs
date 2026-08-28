@@ -328,6 +328,11 @@ test('工作台长流程分段回收浏览器页面，避免 Windows CI 内存�
     /width:\s*375|mobileNavigationVisible/,
     '桌面发布 QA 不得继续执行已退出支持范围的手机壳层断言',
   )
+  assert.match(
+    workbenchQa,
+    /closest\('\.sb-sortable-row'\)\?\.classList\.contains\('is-active'\)/,
+    '一级导航回归必须按当前行容器选中态与链接 aria-current 的分工验收',
+  )
   const recycleCalls = workbenchQa.match(/await recyclePage\(/g) ?? []
 
   assert.match(workbenchQa, /async function recyclePage/)

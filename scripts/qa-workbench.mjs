@@ -826,18 +826,18 @@ try {
 
   const detailPath = new URL(page.url()).pathname
   const primaryRoutes = [
-    { path: '/list', selector: '.list-scroll', title: '交易日志' },
-    { path: '/dashboard', selector: '.db-scroll', title: '统计分析' },
-    { path: '/weekly-review', selector: '.wr-shell', title: '周期复盘' },
-    { path: '/review-cases', selector: '.list-scroll', title: '案例记录' },
-    { path: '/review-session', selector: '.review-session-view', title: '随机复盘' },
+    { path: '/list', selector: '.list-scroll', navLabel: '交易日志', title: '交易日志' },
+    { path: '/dashboard', selector: '.db-scroll', navLabel: '统计分析', title: '统计分析' },
+    { path: '/weekly-review', selector: '.wr-shell', navLabel: '周期复盘', title: '周期复盘' },
+    { path: '/review-cases', selector: '.list-scroll', navLabel: '案例库', title: '案例库' },
+    { path: '/review-session', selector: '.review-session-view', navLabel: '随机复盘', title: '随机复盘' },
   ]
 
   await page.setViewportSize({ width: 1440, height: 900 })
   for (const route of primaryRoutes) {
     const link = page
       .locator('nav[aria-label="主要导航"] a')
-      .filter({ has: page.locator('.sb-item-label', { hasText: route.title }) })
+      .filter({ has: page.locator('.sb-item-label', { hasText: route.navLabel }) })
     await link.waitFor({ state: 'visible', timeout: 10000 })
     const targetPath = new URL(await link.getAttribute('href'), BASE).pathname
     await link.click()
@@ -849,9 +849,10 @@ try {
       (title) => {
         const link = [...document.querySelectorAll('nav[aria-label="主要导航"] a')]
           .find((candidate) => candidate.querySelector('.sb-item-label')?.textContent?.trim() === title)
-        return link?.classList.contains('is-active') && link.getAttribute('aria-current') === 'page'
+        return link?.closest('.sb-sortable-row')?.classList.contains('is-active') === true &&
+          link.getAttribute('aria-current') === 'page'
       },
-      route.title,
+      route.navLabel,
       { timeout: 10000 },
     )
     if (new URL(page.url()).pathname !== targetPath) {
@@ -862,7 +863,10 @@ try {
       className: element.className,
       current: element.getAttribute('aria-current'),
     }))
-    if (!navState.className.includes('is-active') || navState.current !== 'page') {
+    const rowIsActive = await link.evaluate((element) => (
+      element.closest('.sb-sortable-row')?.classList.contains('is-active') === true
+    ))
+    if (!rowIsActive || navState.current !== 'page') {
       const sidebarState = await page.evaluate(() => ({
         primary: [...document.querySelectorAll('nav[aria-label="主要导航"] a')].map((element) => ({
           text: element.textContent?.trim(),
@@ -994,7 +998,7 @@ try {
 
   const reviewCaseRoutes = [
     { path: '/review-cases', search: '', tab: '全部' },
-    { path: '/review-cases/focus', search: '', tab: '重点' },
+    { path: '/review-cases/focus', search: '', tab: '重点案例' },
     { path: '/review-cases/mistakes', search: '', tab: '错题' },
     { path: '/review-cases', search: '?caseType=missed', tab: '错过机会' },
     { path: '/review-cases/unreviewed', search: '', tab: '待复看' },
@@ -1003,7 +1007,7 @@ try {
   await page.goto(`${BASE}/review-cases`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
   await page.locator('.list-scroll').waitFor({ state: 'visible', timeout: 10000 })
-  await page.getByText('案例记录', { exact: true }).first().waitFor({ state: 'visible' })
+  await page.getByText('案例库', { exact: true }).first().waitFor({ state: 'visible' })
   for (const route of reviewCaseRoutes) {
     const activeTab = page.getByRole('tab', { name: route.tab, exact: true })
     await activeTab.waitFor({ state: 'visible', timeout: 10000 })
@@ -1027,7 +1031,7 @@ try {
   }
   const caseTabLabels = await page.getByRole('tab').allTextContents()
   const caseTabsIsolated =
-    ['全部', '重点', '错题', '错过机会', '待复看', '已掌握'].every((label) => caseTabLabels.includes(label)) &&
+    ['全部', '重点案例', '错题', '错过机会', '待复看', '已掌握'].every((label) => caseTabLabels.includes(label)) &&
     !['本周', '本月', '亏损'].some((label) => caseTabLabels.includes(label))
   record('六个案例分类使用统一顶部视图且不混入交易入口', caseTabsIsolated, caseTabLabels.join(', '))
 
@@ -1047,7 +1051,7 @@ try {
   const tradeTabLabels = await page.getByRole('tab').allTextContents()
   const tradeTabsIsolated =
     ['全部', '本周', '本月', '亏损'].every((label) => tradeTabLabels.includes(label)) &&
-    !['重点', '错题', '错过机会', '待复看', '已掌握'].some((label) => tradeTabLabels.includes(label))
+    !['重点案例', '错题', '错过机会', '待复看', '已掌握'].some((label) => tradeTabLabels.includes(label))
   record('交易日志顶部视图不混入案例分类', tradeTabsIsolated, tradeTabLabels.join(', '))
 
   await page.goto(`${BASE}/list?symbol=ETHUSDT&side=long`, { waitUntil: 'domcontentloaded' })
@@ -1106,7 +1110,7 @@ try {
   const baselineRoutes = [
     { name: 'list', path: '/list', selector: '.list-scroll', title: '交易日志' },
     { name: 'weekly-review', path: '/weekly-review', selector: '.wr-shell', title: '周期复盘' },
-    { name: 'review-cases', path: '/review-cases', selector: '.list-scroll', title: '案例记录' },
+    { name: 'review-cases', path: '/review-cases', selector: '.list-scroll', title: '案例库' },
     { name: 'trade-detail', path: detailPath, selector: '.dv-body' },
     { name: 'dashboard', path: '/dashboard', selector: '.db-scroll', title: '统计分析' },
     { name: 'settings-profile', path: '/settings/profile', selector: '.settings-layout', title: '设置' },
