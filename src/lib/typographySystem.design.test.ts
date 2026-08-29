@@ -977,7 +977,7 @@ export async function testNarrativeAndOverlayTypographyUsesApprovedTrackingAndEd
   ])
   assertRoleDeclarations(cssRule(sources['src/components/Toast.css'], '.toast-message'), '.toast-message', [
     ['font-size', 'var(--type-row-size)'],
-    ['font-weight', 'var(--font-weight-semibold)'],
+    ['font-weight', 'var(--font-weight-medium)'],
     ['line-height', 'var(--type-row-line-height)'],
   ])
   assertRoleDeclarations(cssRule(sources['src/components/EmptyState.css'], '.empty-title'), '.empty-title', [

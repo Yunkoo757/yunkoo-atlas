@@ -15,6 +15,20 @@ export type ShortcutHandler = () => void
 
 export type ShortcutHandlerMap = Partial<Record<string, ShortcutHandler>>
 
+/**
+ * 可通过 Esc 直接退出到交易日志的桌面一级工作区。
+ * 设置页包含嵌套路由；回收站保留旧入口别名，避免重定向期间出现行为缺口。
+ */
+export function isTradeLogEscapePage(pathname: string): boolean {
+  return (
+    ['/dashboard', '/weekly-review', '/review-session', '/trade-trash', '/trash'].includes(pathname) ||
+    pathname === '/notes' ||
+    pathname.startsWith('/notes/') ||
+    pathname === '/settings' ||
+    pathname.startsWith('/settings/')
+  )
+}
+
 const SEQUENCE_TIMEOUT_MS = 1500
 
 const SCOPE_PRIORITY: Record<ShortcutScope, number> = {
@@ -215,14 +229,10 @@ export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): bool
   }
 
   const activePathname = pathname ?? (typeof window !== 'undefined' ? window.location.pathname : '')
-  const isTopLevelExitPage =
-    ['/dashboard', '/weekly-review', '/review-session'].includes(activePathname) ||
-    activePathname === '/notes' ||
-    activePathname.startsWith('/notes/')
   if (
     chord.key === 'escape' &&
     !lightbox &&
-    isTopLevelExitPage &&
+    isTradeLogEscapePage(activePathname) &&
     runAction('global.closeOverlay')
   ) {
     e.preventDefault()

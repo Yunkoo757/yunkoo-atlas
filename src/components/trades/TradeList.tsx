@@ -68,7 +68,7 @@ type FlatItem =
   | { kind: 'row'; key: string; trade: Trade; groupKey: string; openProgress: number }
 
 const ROW_HEIGHTS = {
-  default: 48,
+  compact: 44,
   comfortable: 48,
 } as const
 const HEADER_CONTENT_HEIGHT = 36
@@ -182,7 +182,6 @@ export function TradeList({
   selectionEnabled = true,
   overscan = 14,
   strategyStageScope,
-  density = 'default',
 }: {
   groups: TradeListGroup[]
   strategies: Strategy[]
@@ -205,8 +204,6 @@ export function TradeList({
   overscan?: number
   /** 策略表现的显式 stage；paper/省略时保持当前实盘预览口径。 */
   strategyStageScope?: StageScope
-  /** 保留视图密度语义；桌面端列表当前统一使用 52px 基线。 */
-  density?: keyof typeof ROW_HEIGHTS
 }) {
   const listInstanceId = useId().replace(/:/g, '')
   const listRef = useRef<HTMLDivElement>(null)
@@ -215,6 +212,7 @@ export function TradeList({
   const allTrades = useStore((state) => state.trades)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
+  const density = useStore((state) => state.display.listRowDensity)
   const profile = useStore((state) => state.profile)
   const businessDateAnchor = useBusinessDateAnchor()
   const rowHeight = ROW_HEIGHTS[density]

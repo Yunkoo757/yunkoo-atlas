@@ -14,8 +14,8 @@ export async function testTradeListGroupTogglePreservesInteractionContract(): Pr
   assert(source.includes('EASE_OUT_QUART'), '折叠缓动必须使用统一 ease-out-quart')
   assert(source.includes('COLLAPSE_MS'), '折叠时长必须使用统一布局动效')
   assert(source.includes('rowHeight * item.openProgress'), '当前密度行高必须随 openProgress 平滑收展')
-  assert(source.includes('default: 48'), '交易日志必须使用统一的 48px 列表行高')
-  assert(source.includes('comfortable: 48'), '案例列表必须使用统一的 48px 列表行高')
+  assert(source.includes('compact: 44'), '紧凑列表必须使用 44px 行高')
+  assert(source.includes('comfortable: 48'), '舒展列表必须使用 48px 行高')
   assert(source.includes("'--trade-row-height': `${rowHeight}px`"), '虚拟估算与 CSS 行高必须共享同一密度值')
   assert(source.includes('DisclosureChevron'), '分组折叠必须使用语义化 DisclosureChevron')
   assert(source.includes('StatusIndicator'), '复盘分组头应使用语义化状态图标')
@@ -76,15 +76,20 @@ export async function testTradeListColumnsShareRowGridAndStickyOrder(): Promise<
   assert(source.includes("top: isSticky ? 'var(--trade-list-columns-height)'"), '月份标题必须吸附在列标题下方')
 }
 
-export async function testTradeAndCaseListsShareComfortableRowHeight(): Promise<void> {
+export async function testTradeAndCaseListsShareUserSelectedRowHeight(): Promise<void> {
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/views/ListView.tsx', 'utf8')
   assert(
-    source.includes("density={filter.tradeKind === 'case' ? 'comfortable' : 'default'}"),
-    '交易和案例可以保留密度语义，但必须共享同一行高基线',
+    !source.includes('density='),
+    '交易日志与案例库不得再各自硬编码列表密度',
   )
   const list = await fs.readFile('src/components/trades/TradeList.tsx', 'utf8')
-  assert(list.includes('default: 48') && list.includes('comfortable: 48'), '交易与案例行高必须一致')
+  assert(
+    list.includes('state.display.listRowDensity')
+      && list.includes('compact: 44')
+      && list.includes('comfortable: 48'),
+    '交易与案例必须共同消费用户选择的 44px / 48px 行高',
+  )
 }
 
 export async function testCaseListHonorsSharedGroupingPreference(): Promise<void> {
@@ -153,7 +158,7 @@ export async function testTradeListVisualAlignmentContract(): Promise<void> {
     /\.trade-row-strategy\s*\{[\s\S]*?min-height:\s*20px;[\s\S]*?border-radius:\s*var\(--radius-full\);/.test(css),
     '策略与标签必须共享胶囊语义',
   )
-  assert(trash.includes('height: var(--trade-row-height, 48px)'), '回收站必须共享 48px 列表行高')
+  assert(trash.includes('height: var(--trade-row-height, 44px)'), '回收站必须共享 44px 列表行高')
   assert(trash.includes('grid-template-columns: 9ch 18px minmax(0, 1fr)'), '回收站品种与方向也必须固定对齐')
   assert(!trash.includes('.trash-item.is-selected'), '回收站选中态不得额外铺整行底色或左侧强调线')
   assert(

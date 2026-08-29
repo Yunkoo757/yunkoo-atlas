@@ -290,6 +290,8 @@ html[data-ui-settled='1'] .sb-item {
 .sb-item svg {
   color: var(--sb-text);
   flex-shrink: 0;
+  stroke-width: var(--icon-stroke-width);
+  shape-rendering: geometricPrecision;
 }
 .sb-item-label {
   min-width: 0;

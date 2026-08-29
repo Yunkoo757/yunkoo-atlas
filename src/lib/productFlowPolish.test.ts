@@ -321,8 +321,11 @@ export async function testDesktopShellDashboardAndSavedViewsRemainOperable(): Pr
     toastCss.includes('.toast-host') &&
       toastCss.includes('.toast-panel') &&
       toastCss.includes('@keyframes toastIn') &&
+      toastCss.includes('@keyframes toastOut') &&
+      toastCss.includes('var(--toast-surface)') &&
+      toastCss.includes('var(--toast-motion-out)') &&
       !/\.toast-host\s*\{[^}]*transform:/s.test(toastCss),
-    'toast 定位层不得再用 transform，避免入场动画叠影',
+    'toast 必须使用语义 token、独立进退场动效，且定位层不得 transform 叠影',
   )
   assert(
     emptyState.includes('<h2 className="empty-title">') && emptyState.includes('aria-live="polite"'),

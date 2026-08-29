@@ -82,10 +82,11 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
 
   for (const contract of [
     '--trade-group-height: 36px',
-    '--trade-row-height: 48px',
+    '--trade-row-height: 44px',
     '--toolbar-chip-height: 28px',
+    '--surface-row-hover: var(--bg-hover)',
     '--surface-row-selected: lch(10.691% 0.493 272 / 1)',
-    '--surface-group: lch(7.67% 0.75 272 / 1)',
+    '--surface-group: var(--color-bg-quaternary)',
     '--group-chevron-started: lch(50% 7 78)',
     '--group-chevron-done: lch(50% 7 283)',
   ]) {

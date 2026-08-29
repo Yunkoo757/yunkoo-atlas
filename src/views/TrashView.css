@@ -173,7 +173,7 @@
     84px 56px 64px 76px 52px;
   column-gap: var(--sp-3);
   align-items: center;
-  height: var(--trade-row-height, 48px);
+  height: var(--trade-row-height, 44px);
   margin: 0 var(--sp-2);
   padding: 0 10px;
   border-radius: var(--radius-8);

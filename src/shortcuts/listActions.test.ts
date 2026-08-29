@@ -98,13 +98,29 @@ export function testEscapeCanReturnTopLevelPagesToTradeLog(): void {
     assert(bindingKey(getActionMeta('global.closeOverlay')!.defaultBinding) === 'escape', 'Escape 返回动作默认键异常')
     const shortcutState = useShortcutStore.getState()
     assert(!shortcutState.cmdkOpen && shortcutState.modalOverlayCount === 0 && !shortcutState.lightbox, '测试前不得残留弹层状态')
-    const exitPages = ['/dashboard', '/weekly-review', '/review-session', '/notes', '/notes/note-1']
+    const exitPages = [
+      '/dashboard',
+      '/weekly-review',
+      '/review-session',
+      '/notes',
+      '/notes/note-1',
+      '/settings',
+      '/settings/profile',
+      '/settings/risk/data-repair',
+      '/trade-trash',
+      '/trash',
+    ]
     for (const pathname of exitPages) {
       const event = keyboardEvent('Escape')
       assert(handleShortcutKeydown(event, pathname), `${pathname} 必须消费页面级 Escape`)
       assert(event.prevented === 1, `${pathname} 的 Escape 必须阻止默认行为`)
     }
-    assert(calls === exitPages.length, '复盘、分析与随记页面必须共用同一个返回动作')
+    assert(calls === exitPages.length, '复盘、分析、随记、设置与回收站必须共用同一个返回动作')
+
+    const input = { tagName: 'INPUT', isContentEditable: false } as unknown as EventTarget
+    const settingsInputEscape = keyboardEvent('Escape', { target: input })
+    assert(!handleShortcutKeydown(settingsInputEscape, '/settings/profile'), '设置输入框编辑期间不得用 Escape 退出整页')
+    assert(calls === exitPages.length, '设置输入期间的 Escape 不得触发页面返回')
 
     const listEscape = keyboardEvent('Escape')
     assert(!handleShortcutKeydown(listEscape, '/list'), '交易日志首页不得吞掉无意义的 Escape')

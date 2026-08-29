@@ -33,6 +33,15 @@ const GROUP_OPTS: { value: GroupMode; label: string; description: string }[] = [
   { value: 'none', label: '不分组', description: '连续显示全部交易' },
 ]
 
+const LIST_DENSITY_OPTS: {
+  value: DisplayPrefs['listRowDensity']
+  label: string
+  description: string
+}[] = [
+  { value: 'compact', label: '紧凑 · 44px', description: '同屏显示更多交易与案例' },
+  { value: 'comfortable', label: '舒展 · 48px', description: '增加行间留白，更易逐行浏览' },
+]
+
 const WINDOWS_CLOSE_OPTIONS: {
   value: WindowsClosePreference
   label: string
@@ -104,6 +113,18 @@ export function DisplaySettingsPanel() {
     setWindowState(result.state)
   }
 
+  const applyWindowResizeLock = async (locked: boolean) => {
+    const bridge = getJournalBridge()
+    if (!bridge) return
+    setWindowMessage('')
+    const result = await bridge.setWindowResizable(!locked)
+    if (!result.ok) {
+      setWindowMessage(result.error)
+      return
+    }
+    setWindowState(result.state)
+  }
+
   const currentSizeLabel = windowState
     ? windowState.isMaximized
       ? '当前：最大化'
@@ -161,6 +182,14 @@ export function DisplaySettingsPanel() {
         </section>
 
         <ChoiceSection
+          title="列表密度"
+          hint="应用于交易日志和案例库。"
+          options={LIST_DENSITY_OPTS}
+          value={display.listRowDensity}
+          onChange={(value) => setDisplay({ listRowDensity: value })}
+        />
+
+        <ChoiceSection
           title="交易日开始于"
           hint="凌晨开平仓仍算前一交易日。影响今日工作台、今日筛选与新建默认日期；统计分析「本周」等仍按日历周。"
           options={TRADING_DAY_OPTS}
@@ -192,7 +221,7 @@ export function DisplaySettingsPanel() {
             <div className="display-section-head">
               <h2>主窗口尺寸</h2>
               <p>
-                一键套用常用分辨率，免去手动拖拽。也可继续自由调整，下次启动仍会记住。
+                一键套用常用分辨率；可按需锁定边缘拖拽，下次启动仍会记住。
                 {currentSizeLabel ? ` ${currentSizeLabel}` : ''}
               </p>
             </div>
@@ -218,6 +247,12 @@ export function DisplaySettingsPanel() {
                 )
               })}
             </div>
+            <ToggleRow
+              label="锁定窗口大小"
+              description="禁止拖拽窗口边缘缩放；上方尺寸预置仍然可用"
+              checked={windowState?.resizable === false}
+              onChange={(locked) => void applyWindowResizeLock(locked)}
+            />
             {windowMessage ? (
               <p className="display-settings-hint" role="status">
                 {windowMessage}

@@ -90,6 +90,7 @@ export type WindowFrameState = {
   width: number
   height: number
   isMaximized: boolean
+  resizable: boolean
   presetId: WindowSizePresetId | null
 }
 
@@ -174,6 +175,9 @@ export interface JournalBridge {
   getWindowState(): Promise<WindowFrameState | null>
   applyWindowPreset(
     presetId: WindowSizePresetId,
+  ): Promise<{ ok: true; state: WindowFrameState } | { ok: false; error: string }>
+  setWindowResizable(
+    resizable: boolean,
   ): Promise<{ ok: true; state: WindowFrameState } | { ok: false; error: string }>
   getUpdateState(): Promise<AppUpdateState>
   checkForUpdates(): Promise<AppUpdateState>

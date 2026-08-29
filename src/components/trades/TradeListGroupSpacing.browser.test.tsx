@@ -144,7 +144,11 @@ async function run(): Promise<void> {
   const root = createRoot(host)
 
   try {
-    useStore.setState({ trades: fixtureTrades, strategies: [strategy] })
+    useStore.setState({
+      trades: fixtureTrades,
+      strategies: [strategy],
+      display: { ...previous.display, listRowDensity: 'compact' },
+    })
     root.render(<Fixture />)
     await frame()
     await frame()
@@ -188,6 +192,25 @@ async function run(): Promise<void> {
     assert(firstTradeRow.parentElement?.getAttribute('role') === 'presentation', '虚拟定位层不得重复列表项语义')
     assert(firstTradeRow.getAttribute('aria-posinset') === '2', '首条交易必须位于月份标题之后')
     assert(firstTradeRow.getAttribute('aria-setsize') === '10', '虚拟列表必须暴露完整集合大小')
+    assert(
+      Math.abs(firstTradeRow.getBoundingClientRect().height - 44) <= 1,
+      `紧凑密度必须渲染为 44px，实际 ${firstTradeRow.getBoundingClientRect().height}px`,
+    )
+    useStore.getState().setDisplay({ listRowDensity: 'comfortable' })
+    await waitFor(() => {
+      const row = host.querySelector<HTMLElement>('[data-trade-id="august-1"]')
+      return Boolean(row && Math.abs(row.getBoundingClientRect().height - 48) <= 1)
+    }, '舒展密度必须实时切换为 48px')
+    const comfortableList = host.querySelector<HTMLElement>('.trade-list[role="list"]')
+    assert(
+      comfortableList?.style.getPropertyValue('--trade-row-height') === '48px',
+      '虚拟估算与 CSS 必须共同切换到 48px',
+    )
+    useStore.getState().setDisplay({ listRowDensity: 'compact' })
+    await waitFor(() => {
+      const row = host.querySelector<HTMLElement>('[data-trade-id="august-1"]')
+      return Boolean(row && Math.abs(row.getBoundingClientRect().height - 44) <= 1)
+    }, '切回紧凑密度必须恢复为 44px')
     const describedBy = firstTradeRow.getAttribute('aria-describedby')
     assert(describedBy && document.getElementById(describedBy)?.textContent === '2026 年 8 月', '交易行必须关联所属月份')
 
@@ -274,7 +297,11 @@ async function run(): Promise<void> {
     assert(Math.abs(stickyGap - 4) <= 1, `吸顶月份条应保留 4px 上间距，实际 ${stickyGap}px`)
   } finally {
     root.unmount()
-    useStore.setState({ trades: previous.trades, strategies: previous.strategies })
+    useStore.setState({
+      trades: previous.trades,
+      strategies: previous.strategies,
+      display: previous.display,
+    })
   }
 }
 

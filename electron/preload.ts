@@ -125,6 +125,7 @@ const bridge: JournalBridge = {
   getBackupStats: () => ipcRenderer.invoke('backup:stats'),
   getWindowState: () => ipcRenderer.invoke('window:getState'),
   applyWindowPreset: (presetId) => ipcRenderer.invoke('window:applyPreset', presetId),
+  setWindowResizable: (resizable) => ipcRenderer.invoke('window:setResizable', resizable),
   getUpdateState: () => ipcRenderer.invoke('update:getState'),
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
   downloadUpdate: () => ipcRenderer.invoke('update:download'),

@@ -22,6 +22,13 @@
   height: var(--chip-height-md);
 }
 
+.ui-chip > svg {
+  display: block;
+  flex: 0 0 auto;
+  stroke-width: var(--icon-stroke-width);
+  shape-rendering: geometricPrecision;
+}
+
 .ui-chip-default {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);

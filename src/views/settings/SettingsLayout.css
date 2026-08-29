@@ -41,8 +41,13 @@
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .settings-nav-item svg {
-  color: var(--text-tertiary);
+  color: var(--icon-color-rest);
   flex-shrink: 0;
+  stroke-width: var(--icon-stroke-width);
+  shape-rendering: geometricPrecision;
+}
+.settings-nav-item:hover svg {
+  color: var(--icon-color-hover);
 }
 .settings-nav-item:hover {
   background: var(--surface-nav-hover);
@@ -54,7 +59,7 @@
   font-weight: var(--type-nav-active-weight);
 }
 .settings-nav-item.is-active svg {
-  color: var(--text-nav-active);
+  color: var(--icon-color-active);
 }
 
 .settings-panel {

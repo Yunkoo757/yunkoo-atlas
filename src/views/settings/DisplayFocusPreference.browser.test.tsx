@@ -37,7 +37,11 @@ async function verifyDocumentFocusRingOwnershipAcrossUnmountOrders(): Promise<vo
   const initialValue = documentRoot.dataset.keyboardFocusRings
   const originalDisplay = useStore.getState().display
   useStore.setState({
-    display: { ...originalDisplay, showKeyboardFocusRings: false },
+    display: {
+      ...originalDisplay,
+      showKeyboardFocusRings: false,
+      listRowDensity: 'compact',
+    },
   })
 
   try {
@@ -111,7 +115,11 @@ async function run(): Promise<void> {
 
   const originalDisplay = useStore.getState().display
   useStore.setState({
-    display: { ...originalDisplay, showKeyboardFocusRings: false },
+    display: {
+      ...originalDisplay,
+      showKeyboardFocusRings: false,
+      listRowDensity: 'compact',
+    },
   })
   const root = createRoot(rootElement)
 
@@ -133,6 +141,27 @@ async function run(): Promise<void> {
     )
     await nextFrame()
     await nextFrame()
+
+    const comfortableDensity = [...document.querySelectorAll<HTMLButtonElement>('.display-choice')]
+      .find((node) => node.textContent?.includes('舒展 · 48px'))
+    const compactDensity = [...document.querySelectorAll<HTMLButtonElement>('.display-choice')]
+      .find((node) => node.textContent?.includes('紧凑 · 44px'))
+    assert(comfortableDensity && compactDensity, '显示设置必须提供 44px 与 48px 列表密度')
+    assert(compactDensity.getAttribute('aria-pressed') === 'true', '默认必须选中 44px 紧凑列表')
+    comfortableDensity.click()
+    await waitFor(
+      () => useStore.getState().display.listRowDensity === 'comfortable',
+      '48px 列表密度未写入 store',
+    )
+    await waitFor(
+      () => comfortableDensity.getAttribute('aria-pressed') === 'true',
+      '48px 列表密度选中态未更新',
+    )
+    compactDensity.click()
+    await waitFor(
+      () => useStore.getState().display.listRowDensity === 'compact',
+      '44px 列表密度未恢复到 store',
+    )
 
     const switchControl = [...document.querySelectorAll<HTMLElement>('[role="switch"]')]
       .find((node) => node.textContent?.includes('显示键盘焦点高光'))

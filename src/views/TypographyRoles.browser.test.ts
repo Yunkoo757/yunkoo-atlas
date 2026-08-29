@@ -170,12 +170,12 @@ async function run(): Promise<void> {
 
   const rootStyle = getComputedStyle(document.documentElement)
   for (const [token, value] of [
-    ['--text-primary', 'lch(92% 0.8 272 / 1)'],
+    ['--text-primary', 'lch(98% 0.4 272 / 1)'],
     ['--text-secondary', 'lch(70% 1 272 / 1)'],
-    ['--text-tertiary', 'lch(56% 1 272 / 1)'],
-    ['--text-quaternary', 'lch(44% 1 272 / 1)'],
+    ['--text-tertiary', 'lch(56% 1.2 272 / 1)'],
+    ['--text-quaternary', 'lch(38% 1.2 272 / 1)'],
     ['--text-disabled', 'lch(34% 1 272 / 1)'],
-  ]) assert(rootStyle.getPropertyValue(token).trim() === value, `${token} 必须保留精确 LCH 灰阶`)
+  ]) assert(rootStyle.getPropertyValue(token).trim() === value, `${token} 必须保留统一的语义文字映射`)
 
   const bodyStyle = getComputedStyle(document.body)
   assert(bodyStyle.fontFamily.includes('SF Pro Display'), '桌面字体栈必须包含 macOS 系统入口 SF Pro Display')

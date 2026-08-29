@@ -7,7 +7,11 @@ import {
   useShortcutStore,
   resolveBinding,
 } from '@/store/shortcutStore'
-import { setShortcutHandlers, handleShortcutKeydown } from '@/shortcuts/engine'
+import {
+  setShortcutHandlers,
+  handleShortcutKeydown,
+  isTradeLogEscapePage,
+} from '@/shortcuts/engine'
 import {
   getDetailNavigation,
 } from '@/shortcuts/listNav'
@@ -91,13 +95,7 @@ export function useShortcutHost({
         else if (composerOpen) closeComposer()
         else if (closeTradeRequest) cancelTradeClose()
         else if (pendingTradeOpenRequest) cancelTradeOpen()
-        else if (
-          pathname === '/dashboard' ||
-          pathname === '/weekly-review' ||
-          pathname === '/review-session' ||
-          pathname === '/notes' ||
-          pathname.startsWith('/notes/')
-        ) {
+        else if (isTradeLogEscapePage(pathname)) {
           navigate(tradeHomeHref(rememberedTradeSearch))
         }
       },

@@ -26,6 +26,13 @@
   overflow: hidden;
 }
 
+.crumbs-nav svg {
+  display: block;
+  flex: 0 0 auto;
+  stroke-width: var(--icon-stroke-width);
+  shape-rendering: geometricPrecision;
+}
+
 .crumbs-nav-right {
   flex: 0 0 auto;
   gap: var(--space-control-gap);

@@ -7,6 +7,7 @@ export type PersistedWindowState = {
   width: number
   height: number
   isMaximized: boolean
+  resizable: boolean
 }
 
 export type DisplayBounds = {
@@ -184,9 +185,10 @@ export function normalizeWindowState(
     ? clamp(Math.round(source.height), MIN_WINDOW_BOUNDS.height, 10_000)
     : DEFAULT_WINDOW_BOUNDS.height
   const isMaximized = source.isMaximized === true
+  const resizable = source.resizable !== false
 
   if (!isFiniteNumber(source.x) || !isFiniteNumber(source.y) || displays.length === 0) {
-    return { width, height, isMaximized }
+    return { width, height, isMaximized, resizable }
   }
 
   const x = Math.round(source.x)
@@ -194,10 +196,10 @@ export function normalizeWindowState(
   const windowBounds = { x, y, width, height }
   const visible = displays.some((display) => intersects(windowBounds, display))
   if (!visible) {
-    return { width, height, isMaximized }
+    return { width, height, isMaximized, resizable }
   }
 
-  return { x, y, width, height, isMaximized }
+  return { x, y, width, height, isMaximized, resizable }
 }
 
 export function matchWindowSizePreset(state: {

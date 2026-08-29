@@ -329,7 +329,7 @@
 }
 
 .trade-row:hover::after {
-  background: var(--bg-hover);
+  background: var(--surface-row-hover);
 }
 
 .trade-row.is-selected,
@@ -338,7 +338,7 @@
 }
 
 html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
-  background: var(--bg-hover);
+  background: var(--surface-row-hover);
   box-shadow: inset 0 0 0 1px
     color-mix(in srgb, var(--focus-ring-color) 38%, var(--border-subtle));
 }

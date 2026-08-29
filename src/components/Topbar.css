@@ -21,3 +21,10 @@
   background: var(--bg-hover);
   color: var(--text-primary);
 }
+
+.tb-btn > svg {
+  display: block;
+  flex: 0 0 auto;
+  stroke-width: var(--icon-stroke-width);
+  shape-rendering: geometricPrecision;
+}

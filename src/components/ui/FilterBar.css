@@ -66,6 +66,14 @@
   background: var(--surface-control);
 }
 
+.ui-filter-trigger > svg,
+.ui-filter-chip > svg {
+  display: block;
+  flex: 0 0 auto;
+  stroke-width: var(--icon-stroke-width);
+  shape-rendering: geometricPrecision;
+}
+
 .ui-filter-actions {
   display: inline-flex;
   align-items: center;

@@ -66,6 +66,7 @@ export type { ReviewCaseScope } from '@/lib/reviewCaseScope'
 export { applyDisplayPrefs, filterTrades } from '@/lib/workbenchTrades'
 
 export type SidebarRiskScope = 'day' | 'week' | 'month'
+export type ListRowDensity = 'compact' | 'comfortable'
 
 export interface DisplayPrefs {
   hideClosed: boolean
@@ -77,6 +78,8 @@ export interface DisplayPrefs {
   privacyMode: boolean
   /** 是否显示键盘焦点高光。 */
   showKeyboardFocusRings: boolean
+  /** 交易日志与案例库的桌面列表行距。 */
+  listRowDensity: ListRowDensity
   /**
    * 交易日从本地几点开始（0–23）。
    * 未到该时刻仍算前一交易日；影响今日工作台、今日筛选与新建默认日期。
@@ -107,6 +110,7 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
   sortBy: DEFAULT_PROFILE_DISPLAY.sortBy,
   privacyMode: false,
   showKeyboardFocusRings: false,
+  listRowDensity: 'compact',
   tradingDayStartHour: DEFAULT_TRADING_DAY_START_HOUR,
   sidebarRiskScope: 'day',
   reviewContextPinned: true,
@@ -117,6 +121,7 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
 
 const SORT_BY = ['date', 'pnl', 'conviction'] as const
 const SIDEBAR_RISK_SCOPES = ['day', 'week', 'month'] as const
+const LIST_ROW_DENSITIES = ['compact', 'comfortable'] as const
 
 function normalizeWorkspaceRoute(input: unknown): { pathname: string; search: string } | undefined {
   if (!input || typeof input !== 'object') return undefined
@@ -185,6 +190,9 @@ export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayP
       typeof d.showKeyboardFocusRings === 'boolean'
         ? d.showKeyboardFocusRings
         : DEFAULT_DISPLAY.showKeyboardFocusRings,
+    listRowDensity: LIST_ROW_DENSITIES.includes(d.listRowDensity as ListRowDensity)
+      ? d.listRowDensity as ListRowDensity
+      : DEFAULT_DISPLAY.listRowDensity,
     tradingDayStartHour: normalizeTradingDayStartHour(d.tradingDayStartHour),
     sidebarRiskScope: SIDEBAR_RISK_SCOPES.includes(d.sidebarRiskScope as SidebarRiskScope)
       ? d.sidebarRiskScope

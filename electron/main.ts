@@ -518,6 +518,7 @@ function createWindow(): BrowserWindow {
       : {}),
     minWidth: minimumBounds.width,
     minHeight: minimumBounds.height,
+    resizable: windowState.resizable,
     title: 'Trader Atlas',
     backgroundColor: WINDOW_BG,
     autoHideMenuBar: true,

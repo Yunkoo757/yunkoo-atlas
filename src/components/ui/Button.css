@@ -47,6 +47,25 @@
   height: var(--control-height-md);
 }
 
+:where(
+  .ui-btn,
+  .dio-btn,
+  .symbols-btn,
+  .st-io,
+  .st-add,
+  .st-del-btn,
+  .empty-btn,
+  .csv-btn,
+  .nim-btn,
+  .sfm-btn,
+  .batch-action-btn
+) > svg {
+  display: block;
+  flex: 0 0 auto;
+  stroke-width: var(--icon-stroke-width);
+  shape-rendering: geometricPrecision;
+}
+
 .ui-btn[aria-busy='true'] {
   cursor: wait;
 }

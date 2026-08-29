@@ -37,12 +37,17 @@ export function loadWindowState(): PersistedWindowState {
     const displays = screen.getAllDisplays().map((display) => display.workArea)
     const normalized = normalizeWindowState(raw, displays)
     const fitted = fitBoundsToWorkArea(normalized, displays, MIN_WINDOW_BOUNDS)
-    return { ...fitted, isMaximized: normalized.isMaximized }
+    return {
+      ...fitted,
+      isMaximized: normalized.isMaximized,
+      resizable: normalized.resizable,
+    }
   } catch {
     return {
       width: DEFAULT_WINDOW_BOUNDS.width,
       height: DEFAULT_WINDOW_BOUNDS.height,
       isMaximized: false,
+      resizable: true,
     }
   }
 }
@@ -61,6 +66,7 @@ function captureWindowState(win: BrowserWindow): PersistedWindowState {
     width: bounds.width,
     height: bounds.height,
     isMaximized,
+    resizable: win.isResizable(),
   }
 }
 
@@ -122,25 +128,42 @@ export function registerWindowIpc(): void {
       return { ok: false as const, error: '未知的窗口尺寸预置' }
     }
 
-    if (preset.maximize) {
-      win.maximize()
-      writeWindowState(captureWindowState(win))
-      return { ok: true as const, state: describeWindow(win) }
-    }
-
-    if (preset.width == null || preset.height == null) {
+    if (!preset.maximize && (preset.width == null || preset.height == null)) {
       return { ok: false as const, error: '预置缺少宽高' }
     }
 
-    if (win.isMaximized()) win.unmaximize()
-    const current = win.getBounds()
-    const workArea = screen.getDisplayMatching(current).workArea
-    const next = fitWindowSizeToWorkArea(
-      { width: preset.width, height: preset.height },
-      current,
-      workArea,
-    )
-    win.setBounds(next)
+    const restoreResizeLock = !win.isResizable()
+    if (restoreResizeLock) win.setResizable(true)
+    try {
+      if (preset.maximize) {
+        win.maximize()
+      } else {
+        const current = win.getBounds()
+        const workArea = screen.getDisplayMatching(current).workArea
+        const next = fitWindowSizeToWorkArea(
+          { width: preset.width!, height: preset.height! },
+          current,
+          workArea,
+        )
+        if (win.isMaximized()) win.unmaximize()
+        win.setBounds(next)
+      }
+    } finally {
+      if (restoreResizeLock) win.setResizable(false)
+    }
+    writeWindowState(captureWindowState(win))
+    return { ok: true as const, state: describeWindow(win) }
+  })
+
+  ipcMain.handle('window:setResizable', (event, resizable: boolean) => {
+    const win = senderWindow(event)
+    if (!win || win.isDestroyed()) {
+      return { ok: false as const, error: '窗口不可用' }
+    }
+    if (typeof resizable !== 'boolean') {
+      return { ok: false as const, error: '窗口缩放设置无效' }
+    }
+    win.setResizable(resizable)
     writeWindowState(captureWindowState(win))
     return { ok: true as const, state: describeWindow(win) }
   })

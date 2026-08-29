@@ -144,7 +144,7 @@ const checks = [
         read('src/components/HoverPreview.css'),
       ),
   ],
-  ['trade row height', tokens.includes('--trade-row-height: 48px')],
+  ['trade row height', tokens.includes('--trade-row-height: 44px')],
   [
     'default trade route uses canonical list',
     (tradesPage !== null && tradesPage.includes('<ListView')) || (

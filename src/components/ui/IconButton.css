@@ -6,7 +6,7 @@
   padding: 0;
   border: 1px solid transparent;
   border-radius: var(--radius-full);
-  color: var(--list-text-secondary);
+  color: var(--icon-color-rest);
   background: var(--surface-control);
   box-shadow: var(--surface-control-shadow);
   transition: border-color var(--motion-state) var(--ease-out),
@@ -31,8 +31,14 @@
   height: var(--control-height-lg);
 }
 
+.ui-icon-btn > svg {
+  display: block;
+  stroke-width: var(--icon-stroke-width);
+  shape-rendering: geometricPrecision;
+}
+
 .ui-icon-btn:hover:not(:disabled) {
-  color: var(--list-text-primary);
+  color: var(--icon-color-hover);
   background-color: var(--surface-control-hover);
   box-shadow: var(--surface-control-shadow);
 }

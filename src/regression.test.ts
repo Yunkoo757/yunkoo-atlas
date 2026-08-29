@@ -2350,6 +2350,20 @@ export function testNormalizeDisplayPersistsKeyboardFocusRingVisibilitySafely():
   )
 }
 
+export function testNormalizeDisplayPersistsListRowDensitySafely(): void {
+  assert(DEFAULT_DISPLAY.listRowDensity === 'compact', '新资料库必须默认使用 44px 紧凑列表')
+  assert(normalizeDisplay({}).listRowDensity === 'compact', '旧资料库缺少列表密度时必须回退到 44px')
+  assert(
+    normalizeDisplay({ listRowDensity: 'comfortable' }).listRowDensity === 'comfortable',
+    '48px 舒展列表偏好必须持久化保留',
+  )
+  assert(
+    normalizeDisplay({ listRowDensity: 'dense' } as unknown as Partial<DisplayPrefs>)
+      .listRowDensity === 'compact',
+    '非法列表密度必须安全回退到 44px',
+  )
+}
+
 export async function testPrivacyModeIsOnlyExposedInDisplaySettings(): Promise<void> {
   const fs = await import('node:fs/promises')
   const [topbar, settings] = await Promise.all([
