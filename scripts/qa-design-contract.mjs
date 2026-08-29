@@ -109,15 +109,16 @@ const checks = [
       !tokens.includes('(pointer: coarse)'),
   ],
   [
-    'desktop typography uses bundled Inter and Noto Sans SC with native fallbacks',
+    'desktop typography uses bundled Inter with the approved desktop system CJK fallback',
     main.includes("@fontsource-variable/inter") &&
-      main.includes("@fontsource-variable/noto-sans-sc") &&
+      !main.includes("@fontsource-variable/noto-sans-sc") &&
       !main.includes('@fontsource/geist-sans') &&
       tokens.includes('"Inter Variable"') &&
-      tokens.includes('"Noto Sans SC Variable"') &&
-      tokens.includes('"PingFang SC"') &&
-      tokens.includes('"Microsoft YaHei UI"') &&
-      tokens.indexOf('"Noto Sans SC Variable"') < tokens.indexOf('system-ui'),
+      tokens.includes('"SF Pro Display"') &&
+      tokens.includes('-apple-system') &&
+      tokens.includes('BlinkMacSystemFont') &&
+      tokens.includes('"Segoe UI"') &&
+      !/--font-ui-base:[\s\S]*?Noto Sans SC Variable[\s\S]*?;/.test(tokens),
   ],
   [
     'desktop icon constants match the 14 16 18 20 24 optical scale',

@@ -95,14 +95,15 @@ export async function testSmallInteractionCopyAndContrastContracts(): Promise<vo
     '选中头像标签应使用足够对比度',
   )
 
-  const inter = tokens.indexOf('"Inter Variable"')
-  const bundledCjk = tokens.indexOf('"Noto Sans SC Variable"', inter)
-  const macCjk = tokens.indexOf('"PingFang SC"', bundledCjk)
-  const windowsCjk = tokens.indexOf('"Microsoft YaHei UI"', macCjk)
-  const system = tokens.indexOf('system-ui', windowsCjk)
+  const uiFontDeclaration = tokens.match(/--font-ui-base:[\s\S]*?;/)?.[0] ?? ''
+  const inter = uiFontDeclaration.indexOf('"Inter Variable"')
+  const sfPro = uiFontDeclaration.indexOf('"SF Pro Display"', inter)
+  const appleSystem = uiFontDeclaration.indexOf('-apple-system', sfPro)
+  const segoe = uiFontDeclaration.indexOf('"Segoe UI"', appleSystem)
   assert(
-    inter >= 0 && bundledCjk > inter && macCjk > bundledCjk && windowsCjk > macCjk && system > windowsCjk,
-    '字体栈应依次使用 Inter、内置 Noto Sans SC、macOS/Windows 显式回退与 system-ui',
+    inter >= 0 && sfPro > inter && appleSystem > sfPro && segoe > appleSystem &&
+      !uiFontDeclaration.includes('"Noto Sans SC Variable"'),
+    '字体栈应使用 Inter 与 Linear 桌面系统回退，不得强制内置中文字体',
   )
 }
 

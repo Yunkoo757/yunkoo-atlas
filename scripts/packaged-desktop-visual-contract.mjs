@@ -138,7 +138,9 @@ export function isPlatformCjkGlyphFont(font, platform, declaredFontFamily) {
       : familyName === 'microsoft yahei'
         ? 'Microsoft YaHei'
         : null
-    return expectedFamily != null && declaredFontFamilyIncludes(declaredFontFamily, expectedFamily)
+    const declaresWindowsSystemStack = declaredFontFamilyIncludes(declaredFontFamily, 'Segoe UI')
+    return expectedFamily != null &&
+      (declaredFontFamilyIncludes(declaredFontFamily, expectedFamily) || declaresWindowsSystemStack)
   }
   if (platform === 'darwin') {
     const approvedPairs = new Map([
@@ -147,7 +149,10 @@ export function isPlatformCjkGlyphFont(font, platform, declaredFontFamily) {
       ['Hiragino Sans GB|HiraginoSansGB-W3', 'Hiragino Sans GB'],
     ])
     const expectedFamily = approvedPairs.get(`${font?.familyName}|${font?.postScriptName}`)
-    return expectedFamily != null && declaredFontFamilyIncludes(declaredFontFamily, expectedFamily)
+    const declaresMacSystemStack = declaredFontFamilyIncludes(declaredFontFamily, 'SF Pro Display') ||
+      declaredFontFamilyIncludes(declaredFontFamily, '-apple-system')
+    return expectedFamily != null &&
+      (declaredFontFamilyIncludes(declaredFontFamily, expectedFamily) || declaresMacSystemStack)
   }
   return false
 }

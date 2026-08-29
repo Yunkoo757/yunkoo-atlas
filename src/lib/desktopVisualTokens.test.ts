@@ -99,24 +99,26 @@ export async function testDesktopVisualTokensExposeCanonicalRoles(): Promise<voi
   assert(!css.includes('--header-h: 43.5714px'), 'header height must use the 44px canonical role')
 }
 
-export async function testUiFontUsesBundledLatinAndCjkVariableFonts(): Promise<void> {
+export async function testUiFontUsesInterAndDesktopSystemCjkFallback(): Promise<void> {
   const [main, tokens, global] = await Promise.all([
     fs.readFile('src/main.tsx', 'utf8'),
     fs.readFile('src/styles/tokens.css', 'utf8'),
     fs.readFile('src/styles/global.css', 'utf8'),
   ])
   assert(main.includes("@fontsource-variable/inter"))
-  assert(main.includes("@fontsource-variable/noto-sans-sc"))
+  assert(!main.includes("@fontsource-variable/noto-sans-sc"), '桌面中文应由系统字体回退，不再强制内置 Noto Sans SC')
   assert(!main.includes(['@fontsource', ['geist', 'sans'].join('-')].join('/')))
-  assert(tokens.includes('"Inter Variable"'))
-  assert(tokens.includes('"Noto Sans SC Variable"'))
+  const uiFontDeclaration = tokens.match(/--font-ui-base:[\s\S]*?;/)?.[0] ?? ''
+  const inter = uiFontDeclaration.indexOf('"Inter Variable"')
+  const sfPro = uiFontDeclaration.indexOf('"SF Pro Display"')
+  const appleSystem = uiFontDeclaration.indexOf('-apple-system')
+  const segoe = uiFontDeclaration.indexOf('"Segoe UI"')
   assert(
-    tokens.indexOf('"Noto Sans SC Variable"') < tokens.indexOf('system-ui'),
-    '内置中文字体必须先于 system-ui，避免 Windows/macOS 中文被不稳定回退接管',
+    inter >= 0 && sfPro > inter && appleSystem > sfPro && segoe > appleSystem,
+    'UI 字体必须采用经 A/B 确认的 Linear 桌面系统栈',
   )
-  assert(tokens.includes('system-ui'))
-  assert(tokens.includes('"PingFang SC"'))
-  assert(tokens.includes('"Microsoft YaHei UI"'))
+  assert(!uiFontDeclaration.includes('"Noto Sans SC Variable"'))
+  assert(!uiFontDeclaration.includes('"Microsoft YaHei UI"'))
   for (const contract of [
     '--font-size-micro: 11px',
     '--font-size-mini: 12px',

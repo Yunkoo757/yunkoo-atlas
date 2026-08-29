@@ -34,8 +34,8 @@ const customNoto = Object.freeze({
   glyphCount: 8,
 })
 const windowsCjk = Object.freeze({
-  familyName: 'Microsoft YaHei UI',
-  postScriptName: 'MicrosoftYaHeiUI',
+  familyName: 'Microsoft YaHei',
+  postScriptName: 'MicrosoftYaHei',
   isCustomFont: false,
   glyphCount: 8,
 })
@@ -123,7 +123,7 @@ function assertQaUsesCollectedBuildIdentity(qaSource) {
 }
 
 function createTypographyInput() {
-  const fontFamily = '"Inter Variable", Inter, "Noto Sans SC Variable", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif'
+  const fontFamily = '"Inter Variable", Inter, "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
   return {
     platform: 'win32',
     computed: {
@@ -151,8 +151,8 @@ function createTypographyInput() {
     },
     glyphFonts: {
       latin: [{ ...customInter, glyphCount: 23 }],
-      cjk: [{ ...customNoto, glyphCount: 8 }],
-      mixed: [{ ...customInter, glyphCount: 15 }, { ...customNoto, glyphCount: 3 }],
+      cjk: [{ ...windowsCjk, glyphCount: 8 }],
+      mixed: [{ ...customInter, glyphCount: 15 }, { ...windowsCjk, glyphCount: 3 }],
       numeric: [{ ...customInter, glyphCount: 20 }],
     },
   }
@@ -160,7 +160,7 @@ function createTypographyInput() {
 
 function createMacTypographyInput() {
   const input = createTypographyInput()
-  const fontFamily = '"Inter Variable", Inter, "Noto Sans SC Variable", "PingFang SC", "Hiragino Sans GB", system-ui, sans-serif'
+  const fontFamily = '"Inter Variable", Inter, "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
   return {
     ...input,
     platform: 'darwin',
@@ -175,8 +175,8 @@ function createMacTypographyInput() {
     },
     glyphFonts: {
       latin: [{ ...macInter, glyphCount: 23 }],
-      cjk: [{ ...customNoto, glyphCount: 8 }],
-      mixed: [{ ...macInter, glyphCount: 15 }, { ...customNoto, glyphCount: 3 }],
+      cjk: [{ ...macCjk, glyphCount: 8 }],
+      mixed: [{ ...macInter, glyphCount: 15 }, { ...macCjk, glyphCount: 3 }],
       numeric: [{ ...macInter, glyphCount: 20 }],
     },
   }

@@ -179,7 +179,9 @@ async function run(): Promise<void> {
   ]) assert(rootStyle.getPropertyValue(token).trim() === value, `${token} 必须保留精确 LCH 灰阶`)
 
   const bodyStyle = getComputedStyle(document.body)
-  assert(bodyStyle.fontFamily.includes('Noto Sans SC Variable'), '桌面字体栈必须包含内置 Noto Sans SC Variable')
+  assert(bodyStyle.fontFamily.includes('SF Pro Display'), '桌面字体栈必须包含 macOS 系统入口 SF Pro Display')
+  assert(bodyStyle.fontFamily.includes('Segoe UI'), '桌面字体栈必须包含 Windows 系统入口 Segoe UI')
+  assert(!bodyStyle.fontFamily.includes('Noto Sans SC Variable'), '桌面字体栈不得强制内置 Noto Sans SC')
 
   const navRest = getComputedStyle(document.querySelector<HTMLElement>('[data-nav-state="rest"]')!)
   assert(navRest.fontSize === '14px' && navRest.lineHeight === '20px', '普通导航必须计算为 14px/20px')
