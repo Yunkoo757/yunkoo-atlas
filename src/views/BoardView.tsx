@@ -23,8 +23,7 @@ import {
   type Trade,
 } from '@/data/trades'
 import type { ListFilter } from '@/lib/tradeFilters'
-import { fmtMoney, fmtR } from '@/lib/format'
-import { formatTradeCashPnl } from '@/lib/cashCurrency'
+import { resolveTradeRowResultPresentation } from '@/lib/tradeRowPresentation'
 import { toast } from '@/lib/toast'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
@@ -294,6 +293,11 @@ function BoardColumnBody({
         {virtualItems.map((virtualRow) => {
           const t = items[virtualRow.index]!
           const i = virtualRow.index
+          const result = resolveTradeRowResultPresentation(
+            t,
+            legacyCashCurrencyAssumption,
+            privacyMode,
+          )
           return (
             <div
               key={t.id}
@@ -390,22 +394,16 @@ function BoardColumnBody({
                 </div>
                 <div className="bd-card-foot">
                   <span
-                    style={{
-                      color:
-                        privacyMode
-                          ? 'var(--text-tertiary)'
-                          : t.pnl != null && t.pnl > 0
-                          ? 'var(--pos)'
-                          : t.pnl != null && t.pnl < 0
-                            ? 'var(--neg)'
-                            : 'var(--text-tertiary)',
-                    }}
+                    className="bd-card-result"
+                    data-value-state={result.r.state}
+                    data-value-sign={
+                      result.r.state === 'value'
+                        ? t.rMultiple != null && t.rMultiple > 0 ? 'positive' : 'negative'
+                        : undefined
+                    }
                   >
-                    {t.status === 'planned' || t.status === 'open' ? '—' : formatTradeCashPnl(t, legacyCashCurrencyAssumption, privacyMode)}
+                    {result.r.text}
                   </span>
-                  {t.status !== 'planned' && t.status !== 'open' && (
-                    <span className="bd-card-r">{fmtR(t.rMultiple)}</span>
-                  )}
                 </div>
               </article>
             </div>

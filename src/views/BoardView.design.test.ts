@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+
+export async function testBoardUsesOneSurfaceHierarchySharedWithTheList(): Promise<void> {
+  const css = await readFile('src/views/BoardView.css', 'utf8')
+  const columnRule = css.match(/(?:^|\n)\.bd-col\s*\{([^}]*)\}/s)?.[1] ?? ''
+
+  assert.match(css, /\.board-scroll\s*\{[^}]*gap:\s*0;/s)
+  assert.match(css, /\.board-scroll\s*\{[^}]*background:\s*var\(--bg-app\);/s)
+  assert.match(css, /\.bd-col\s*\{[^}]*border-left:\s*1px solid var\(--border-subtle\);/s)
+  assert.match(css, /\.bd-col\s*\{[^}]*background:\s*transparent;/s)
+  assert.doesNotMatch(columnRule, /border-radius:/)
+  assert.match(css, /\.bd-card\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--bg-surface\) 92%, var\(--bg-elevated\)\);/s)
+  assert.match(css, /\.bd-card\s*\{[^}]*border-radius:\s*var\(--radius-6\);/s)
+}
+
+export async function testCaseBoardDoesNotForkASecondCardDesignLanguage(): Promise<void> {
+  const css = await readFile('src/views/BoardView.css', 'utf8')
+
+  assert.match(css, /\.board-scroll-case\s*\{[^}]*background:\s*var\(--bg-app\);/s)
+  assert.match(css, /\.board-scroll-case \.bd-col\s*\{[^}]*background:\s*transparent;/s)
+  assert.match(css, /\.bd-card-case\s*\{[^}]*border-radius:\s*var\(--radius-6\);/s)
+  assert.match(css, /\.bd-card-case\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--bg-surface\) 92%, var\(--bg-elevated\)\);/s)
+}
+
+export async function testBoardResultUsesTheSameRPresentationAsListRows(): Promise<void> {
+  const source = await readFile('src/views/BoardView.tsx', 'utf8')
+
+  assert.match(source, /resolveTradeRowResultPresentation\(/)
+  assert.match(source, /className="bd-card-result"/)
+  assert.match(source, /\{result\.r\.text\}/)
+  assert.doesNotMatch(source, /formatTradeCashPnl\(/)
+  assert.doesNotMatch(source, /fmtMoney\(/)
+}
