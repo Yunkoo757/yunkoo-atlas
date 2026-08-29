@@ -100,13 +100,15 @@ export async function testDesktopVisualTokensExposeCanonicalRoles(): Promise<voi
 }
 
 export async function testUiFontUsesInterAndDesktopSystemCjkFallback(): Promise<void> {
-  const [main, tokens, global] = await Promise.all([
+  const [main, typographyBrowserTest, tokens, global] = await Promise.all([
     fs.readFile('src/main.tsx', 'utf8'),
+    fs.readFile('src/views/TypographyRoles.browser.test.ts', 'utf8'),
     fs.readFile('src/styles/tokens.css', 'utf8'),
     fs.readFile('src/styles/global.css', 'utf8'),
   ])
   assert(main.includes("@fontsource-variable/inter"))
   assert(!main.includes("@fontsource-variable/noto-sans-sc"), '桌面中文应由系统字体回退，不再强制内置 Noto Sans SC')
+  assert(!typographyBrowserTest.includes("@fontsource-variable/noto-sans-sc"), '字体回归不得继续加载已移除的 Noto 包')
   assert(!main.includes(['@fontsource', ['geist', 'sans'].join('-')].join('/')))
   const uiFontDeclaration = tokens.match(/--font-ui-base:[\s\S]*?;/)?.[0] ?? ''
   const inter = uiFontDeclaration.indexOf('"Inter Variable"')

@@ -1,6 +1,5 @@
 import '@/styles/tokens.css'
 import '@/styles/global.css'
-import '@fontsource-variable/noto-sans-sc'
 import '@/App.css'
 import '@/components/RouteState.css'
 import '@/components/WelcomeScreen.css'
