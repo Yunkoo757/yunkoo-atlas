@@ -16,11 +16,23 @@ export const SECONDARY_NAV_ITEMS = [
   { id: 'paper', to: '/sim', label: '模拟盘' },
 ] as const satisfies readonly { id: SidebarNavId; to: string; label: string }[]
 
+export const PRIMARY_NAV_LABELS = Object.fromEntries(
+  PRIMARY_NAV_ITEMS.map((item) => [item.id, item.label]),
+) as Record<PrimarySidebarNavId, string>
+
+export const SECONDARY_NAV_LABELS = Object.fromEntries(
+  SECONDARY_NAV_ITEMS.map((item) => [item.id, item.label]),
+) as Record<SidebarNavId, string>
+
 export const DEFAULT_PRIMARY_SIDEBAR_ORDER: PrimarySidebarNavId[] = PRIMARY_NAV_ITEMS.map(
   (item) => item.id,
 )
 
-export const DEFAULT_SIDEBAR_PINS: SidebarNavId[] = SECONDARY_NAV_ITEMS.map((item) => item.id)
+/**
+ * 星标与错过机会属于交易日志的内置快捷视图，不再作为默认侧栏叶子重复出现。
+ * 进行中与模拟盘仍保留为可配置的跨工作区入口。
+ */
+export const DEFAULT_SIDEBAR_PINS: SidebarNavId[] = ['active', 'paper']
 
 export function normalizePrimarySidebarOrder(input: unknown): PrimarySidebarNavId[] {
   const valid = new Set<PrimarySidebarNavId>(DEFAULT_PRIMARY_SIDEBAR_ORDER)

@@ -28,7 +28,6 @@ import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { toast } from '@/lib/toast'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
-import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import { useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
@@ -96,7 +95,6 @@ export function BoardView({
     )
   }, [visible, display.showEmptyGroups])
 
-  const subtitle = getTradesPageSubtitle(filter, businessDateAnchor)
   const isReviewCaseView = filter.tradeKind === 'case'
   const recordLabel = isReviewCaseView ? '案例记录' : '交易'
   const emptyState = resolveWorkbenchEmptyState({
@@ -142,7 +140,7 @@ export function BoardView({
 
   return (
     <>
-      <Topbar title={title} subtitle={subtitle} view={view} onView={onView} />
+      <Topbar title={title} view={view} onView={onView} />
       {header}
       <TradeFilters filter={filter} trades={trades} strategies={strategies} />
       <div className={'board-scroll' + (isReviewCaseView ? ' board-scroll-case' : '')}>

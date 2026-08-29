@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Select } from '@/components/ui/Select'
 import {
+  mergeSharedTradeWorkspaceSearch,
   parseTradeWorkspaceQuery,
   writeTradeWorkspaceContext,
   type TradeWorkspaceKind,
@@ -36,13 +37,24 @@ export function TradeWorkspaceContext({ page }: { page: TradeWorkspacePage }) {
     .sort((left, right) => right.sequence - left.sequence)
   const currentStage = liveStages.find((stage) => stage.id === currentLiveStageId)
   const stageOptions = [
-    { value: 'current', label: currentStage?.name ?? '当前阶段' },
-    { value: 'all-history', label: '全部历史' },
+    { value: 'current', label: '当前阶段' },
+    { value: 'all', label: '全部阶段' },
     ...archived.map((stage) => ({ value: stage.id, label: stage.name })),
   ]
 
   const update = (patch: Parameters<typeof writeTradeWorkspaceContext>[1]) => {
     const next = writeTradeWorkspaceContext(location.search, patch)
+    const state = useStore.getState()
+    const memory = state.display.workspaceMemory?.trade ?? { pathname: '/list', search: '' }
+    state.setDisplay({
+      workspaceMemory: {
+        ...state.display.workspaceMemory,
+        trade: {
+          ...memory,
+          search: mergeSharedTradeWorkspaceSearch(memory.search, next),
+        },
+      },
+    })
     navigate({ pathname: location.pathname, search: next.toString() ? `?${next}` : '' })
   }
 
@@ -51,11 +63,8 @@ export function TradeWorkspaceContext({ page }: { page: TradeWorkspacePage }) {
       <div className="trade-workspace-stage">
         <Select
           value={contextStage}
-          onValueChange={(stage) => update({
-            stage,
-            ...(stage === 'current' ? {} : { kind: 'live' }),
-          })}
-          ariaLabel="选择交易阶段"
+          onValueChange={(stage) => update({ stage })}
+          ariaLabel={currentStage ? `选择交易阶段；当前阶段为${currentStage.name}` : '选择交易阶段'}
           options={stageOptions}
         />
       </div>
@@ -66,10 +75,7 @@ export function TradeWorkspaceContext({ page }: { page: TradeWorkspacePage }) {
             type="button"
             className={query.kind === option.value ? 'is-active' : ''}
             aria-pressed={query.kind === option.value}
-            onClick={() => update({
-              kind: option.value,
-              ...(option.value === 'live' ? {} : { stage: 'current' }),
-            })}
+            onClick={() => update({ kind: option.value })}
           >
             {option.label}
           </button>

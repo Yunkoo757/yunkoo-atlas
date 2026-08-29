@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useStore } from '@/store/useStore'
 import { useShortcutStore } from '@/store/shortcutStore'
@@ -66,7 +66,7 @@ export function useListContextSync(filter: ListFilter) {
   const starredIds = useStore((s) => s.starredIds)
   const filterKey = JSON.stringify(filter)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const listPath = listPathFromPathname(pathname)
     if (!listPath) return
     useShortcutStore

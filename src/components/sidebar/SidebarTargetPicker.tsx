@@ -87,11 +87,6 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
         label: '工作区能力',
         items: [
           {
-            id: 'missed',
-            label: SIDEBAR_CAPABILITY_LABELS.missed,
-            workspaces: SIDEBAR_CAPABILITY_WORKSPACES.missed,
-          },
-          {
             id: 'active',
             label: SIDEBAR_CAPABILITY_LABELS.active,
             workspaces: SIDEBAR_CAPABILITY_WORKSPACES.active,
@@ -101,14 +96,7 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
       {
         kind: 'simple',
         label: '交易日志',
-        items: [
-          {
-            label: '星标交易',
-            domain: '交易日志',
-            target: { kind: 'system', id: 'favorites' },
-          },
-          ...tradeViews,
-        ],
+        items: tradeViews,
       },
       {
         kind: 'simple',
@@ -124,7 +112,7 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
       },
       {
         kind: 'simple',
-        label: '案例记录',
+        label: '案例库',
         items: [...CASE_VIEWS, ...caseSavedViews],
       },
       {

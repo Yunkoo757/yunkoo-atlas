@@ -19,7 +19,7 @@ export function presentWorkspaceScope(
   let summary: string | undefined
   if (filter.historicalLiveScope === 'trades') summary = '历史阶段的实盘交易'
   else if (filter.historicalLiveScope === 'cases') summary = '历史阶段的关联案例'
-  else if (filter.analysisScope) summary = `仪表盘绩效下钻 · ${describeListFilterDateField(filter)}`
+  else if (filter.analysisScope) summary = `统计分析绩效下钻 · ${describeListFilterDateField(filter)}`
   else if (filter.type === 'active') summary = '进行中'
   else if (filter.type === 'starred') summary = '星标交易'
   else if (filter.type === 'missed') summary = '未执行机会'

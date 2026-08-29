@@ -3,8 +3,11 @@ import type { LiveStage } from '@/lib/liveStages'
 import {
   normalizeTradeWorkspaceSearch,
   parseTradeWorkspaceQuery,
+  mergeSharedTradeWorkspaceSearch,
+  resolveSharedTradeWorkspaceSearch,
   resolveTradeWorkspaceListFilter,
   sharedTradeWorkspaceSearch,
+  tradeHomeSearch,
   writeTradeWorkspaceContext,
 } from '@/lib/tradeWorkspaceQuery'
 
@@ -19,13 +22,55 @@ export function testTradeWorkspaceLegacyQueryNormalization(): void {
     stages,
     'stage-current',
   )
-  assert.equal(normalized.toString(), 'liveStage=all-history&kind=live&view=starred')
+  assert.equal(normalized.toString(), 'liveStage=all&kind=paper&view=starred')
+}
+
+export function testTradeWorkspaceMigratesRemovedHistoricalAggregate(): void {
+  assert.deepEqual(
+    parseTradeWorkspaceQuery('?liveStage=all-history&kind=live', stages, 'stage-current'),
+    { stage: 'all', kind: 'live', view: 'all' },
+  )
+  assert.equal(
+    normalizeTradeWorkspaceSearch('?liveStage=all-history&strategyId=navigation-2', stages, 'stage-current').toString(),
+    'liveStage=all&strategyId=navigation-2',
+  )
+  assert.equal(sharedTradeWorkspaceSearch('?liveStage=all-history'), '?liveStage=all')
 }
 
 export function testTradeWorkspaceQueryRejectsUnknownStage(): void {
   assert.deepEqual(
     parseTradeWorkspaceQuery('?liveStage=missing&kind=all', stages, 'stage-current'),
     { stage: 'current', kind: 'all', view: 'all' },
+  )
+}
+
+export function testTradeWorkspaceSupportsAllLiveStages(): void {
+  assert.deepEqual(
+    parseTradeWorkspaceQuery('?liveStage=all&kind=live', stages, 'stage-current'),
+    { stage: 'all', kind: 'live', view: 'all' },
+  )
+  assert.equal(
+    normalizeTradeWorkspaceSearch('?liveStage=all&strategyId=navigation-2', stages, 'stage-current').toString(),
+    'liveStage=all&strategyId=navigation-2',
+  )
+}
+
+export function testTradeWorkspaceStageScopeSurvivesKindSwitch(): void {
+  assert.deepEqual(
+    parseTradeWorkspaceQuery('?liveStage=all&kind=paper', stages, 'stage-current'),
+    { stage: 'all', kind: 'paper', view: 'all' },
+  )
+  assert.deepEqual(
+    resolveTradeWorkspaceListFilter({ stage: 'all', kind: 'paper', view: 'all' }),
+    { type: 'all', tradeKind: 'paper' },
+  )
+  assert.deepEqual(
+    resolveTradeWorkspaceListFilter({ stage: 'all', kind: 'all', view: 'all' }),
+    { type: 'all' },
+  )
+  assert.equal(
+    writeTradeWorkspaceContext('?liveStage=all', { kind: 'paper' }).toString(),
+    'liveStage=all&kind=paper',
   )
 }
 
@@ -48,5 +93,35 @@ export function testTradeWorkspaceContextSurvivesPageSwitch(): void {
   assert.equal(
     writeTradeWorkspaceContext('?status=loss&liveStage=stage-old', { stage: 'current', kind: 'paper' }).toString(),
     'status=loss&kind=paper',
+  )
+}
+
+export function testTradeHomeKeepsOnlyStageScope(): void {
+  assert.equal(
+    tradeHomeSearch('?liveStage=all&kind=paper&strategyId=navigation-2&status=loss'),
+    '?liveStage=all',
+  )
+  assert.equal(tradeHomeSearch('?kind=paper&status=open'), '')
+}
+
+export function testSharedTradeWorkspaceContextSurvivesModuleNavigation(): void {
+  assert.equal(
+    resolveSharedTradeWorkspaceSearch(
+      '/list',
+      '?liveStage=all&kind=paper&status=loss',
+      '?liveStage=stage-old',
+    ),
+    '?liveStage=all&kind=paper',
+  )
+  assert.equal(
+    resolveSharedTradeWorkspaceSearch('/settings', '', '?liveStage=stage-old&status=loss'),
+    '?liveStage=stage-old',
+  )
+  assert.equal(
+    mergeSharedTradeWorkspaceSearch(
+      '?status=loss&liveStage=stage-old&kind=paper',
+      '?liveStage=all',
+    ),
+    '?status=loss&liveStage=all',
   )
 }

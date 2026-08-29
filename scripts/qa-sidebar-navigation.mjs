@@ -309,13 +309,13 @@ try {
 
   expectEqual(
     await page.locator('.sb-primary a[data-primary-id] .sb-item-label').allTextContents(),
-    ['交易日志', '统计分析', '周期复盘', '案例记录', '随机复盘'],
+    ['交易日志', '统计分析', '周期复盘', '案例库', '随机复盘'],
     'Default core modules must preserve their approved order',
   )
   expectEqual(
     await page.locator('.sb-workspace [data-sidebar-workspace-id] > a .sb-item-label').allTextContents(),
-    ['进行中', '星标交易', '错过的机会', '模拟盘'],
-    'Default workspace must expose the four system items',
+    ['进行中', '模拟盘'],
+    'Default workspace must not duplicate trade-log quick views',
   )
 
   const tradeNav = page.locator('.sb-primary a[data-primary-id="trades"]')
@@ -333,7 +333,7 @@ try {
     useShortcutStore.getState().setBinding('nav.list', { key: 'a' })
   })
   await page.keyboard.press('a')
-  await page.waitForURL((url) => url.pathname === '/list')
+  await page.waitForURL((url) => url.pathname === '/list' && url.search === '')
   await page.goto(`${BASE}/active/board?symbol=BTCUSDT`, { waitUntil: 'domcontentloaded' })
   await page.locator('.sb-primary a[data-primary-id]').first().waitFor({ state: 'visible', timeout: 10000 })
   await page.evaluate(async () => {
@@ -431,7 +431,7 @@ try {
     useStore.getState().setDisplayName('QA 父级重渲染')
   })
   await expectFocused(search)
-  for (const group of ['工作区能力', '交易日志', '模拟盘', '案例记录', '策略']) {
+  for (const group of ['工作区能力', '交易日志', '模拟盘', '案例库', '策略']) {
     await expectVisible(editor.getByRole('heading', { name: group }))
   }
   const group = (name) => editor.locator('.sb-target-group').filter({ hasText: name })
@@ -443,7 +443,7 @@ try {
   await expectVisible(group('策略').getByRole('button', {
     name: new RegExp(`^${escapeRegExp(primaryStrategy)}（交易日志 · 策略）：`),
   }))
-  await expectVisible(group('案例记录').getByRole('button', { name: /^重点（案例记录）：/ }))
+  await expectVisible(group('案例库').getByRole('button', { name: /^重点（案例记录）：/ }))
 
   const primaryStrategyButton = strategyButton(primaryStrategy)
   await expectAttribute(primaryStrategyButton, 'aria-label', `${primaryStrategy}（交易日志 · 策略）：未添加，点击添加`)
@@ -464,6 +464,8 @@ try {
   await strategyButton(primaryStrategy).click()
   await editor.getByRole('button', { name: /^重点（案例记录）：/ }).click()
   await strategyButton(secondaryStrategy).click()
+  await editor.getByRole('button', { name: /^错题（案例记录）：/ }).click()
+  await editor.getByRole('button', { name: /^待复看（案例记录）：/ }).click()
   await expectText(page.locator('[data-sidebar-capacity]'), /常驻 8 \/ 8/)
   await strategyButton(overflowStrategy).click()
   await expectVisible(editor.getByText(/常驻已满，已放入「更多」/))
@@ -486,7 +488,7 @@ try {
   const savedWorkspaceLink = page.locator('.sb-workspace [data-sidebar-workspace-id] > a', { hasText: 'QA 保存视图' })
   await savedWorkspaceLink.click()
   await expectUrl(page, '/list?status=open', 'Saved view must navigate to its exact query')
-  await expectAttribute(savedWorkspaceLink, 'aria-current', 'page')
+  await expectAttribute(savedWorkspaceLink, 'aria-current', 'location')
   await expectActiveSidebarLabels(
     page,
     ['QA 保存视图'],
@@ -498,7 +500,7 @@ try {
   await page.goto(`${BASE}/list?status=open&side=long`, { waitUntil: 'domcontentloaded' })
   await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
   const modifiedSavedLink = page.locator('.sb-workspace [data-sidebar-workspace-id] > a', { hasText: 'QA 保存视图' })
-  await expectAttribute(modifiedSavedLink, 'aria-current', 'page')
+  await expectAttribute(modifiedSavedLink, 'aria-current', 'location')
   await expectActiveSidebarLabels(
     page,
     ['QA 保存视图'],
@@ -660,7 +662,7 @@ try {
   await expectCount(restoredEditor.getByText('确认恢复默认项目？当前草稿将被替换。'), 0)
   await restoredEditor.getByRole('button', { name: '恢复默认' }).click()
   await restoredEditor.getByRole('button', { name: '确认恢复默认' }).click()
-  await expectText(page.locator('[data-sidebar-capacity]'), /常驻 4 \/ 8/)
+  await expectText(page.locator('[data-sidebar-capacity]'), /常驻 2 \/ 8/)
   await restoredEditor.getByRole('button', { name: '完成' }).click()
   await waitForAutoSave(page)
   await page.waitForFunction(async () => {
@@ -678,7 +680,7 @@ try {
               : request.result
             const ids = snapshot?.display?.sidebarWorkspaceItems?.map((item) => item.id)
             resolve(JSON.stringify(ids) === JSON.stringify([
-              'system:active', 'system:favorites', 'system:missed', 'system:paper',
+              'system:active', 'system:paper',
             ]))
           } catch {
             resolve(false)
@@ -695,7 +697,7 @@ try {
   })
   await restoredPage.goto(`${BASE}/list`, { waitUntil: 'domcontentloaded' })
   await restoredPage.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
-  const expectedDefaultLabels = ['进行中', '星标交易', '错过的机会', '模拟盘']
+  const expectedDefaultLabels = ['进行中', '模拟盘']
   try {
     await restoredPage.waitForFunction((expectedLabels) => {
       const labels = [...document.querySelectorAll('.sb-workspace [data-sidebar-workspace-id] > a .sb-item-label')]

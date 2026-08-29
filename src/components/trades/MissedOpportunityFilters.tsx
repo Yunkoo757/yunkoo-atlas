@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { MISS_REASON_META, type MissReason, type Trade } from '@/data/trades'
 import { FilterBar, type ActiveFilter } from '@/components/ui/FilterBar'
 import { Select } from '@/components/ui/Select'
+import { QuickViewBar } from '@/components/trades/QuickViewBar'
 import { PERIOD_LABELS, type CalendarPeriod } from '@/lib/periods'
 import { collectSymbolOptions } from '@/lib/symbolIcons'
 import type { MissedOpportunityFilters as MissedFilters } from '@/lib/missedOpportunities'
@@ -110,18 +111,21 @@ export function MissedOpportunityFilters({
       triggerRef={triggerRef}
       panelId="missed-opportunity-filter-panel"
       label="筛选错过机会"
-      quickViews={(
-        <h2
-          id="missed-results-heading"
-          ref={headingRef as RefObject<HTMLHeadingElement>}
-          className="missed-results-heading"
-          data-missed-total={resultCount}
-          tabIndex={-1}
-        >
-          全部机会 <span>{resultCount}</span>
-        </h2>
+      quickViews={<QuickViewBar kind="trade" />}
+      actions={(
+        <>
+          <h2
+            id="missed-results-heading"
+            ref={headingRef as RefObject<HTMLHeadingElement>}
+            className="missed-results-heading"
+            data-missed-total={resultCount}
+            tabIndex={-1}
+          >
+            全部机会 <span>{resultCount}</span>
+          </h2>
+          {actions}
+        </>
       )}
-      actions={actions}
     >
       <div
         ref={panelRef}

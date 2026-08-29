@@ -87,6 +87,7 @@ export function canonicalizeTradeViewSearch(
   const params = new URLSearchParams(
     search instanceof URLSearchParams ? search.toString() : search,
   )
+  if (params.get('liveStage') === 'all-history') params.set('liveStage', 'all')
   for (const [key, allowed] of Object.entries(ENUM_FACET_VALUES)) {
     const raw = params.get(key)
     const value = raw?.trim()
@@ -166,13 +167,19 @@ export function normalizeSavedTradeViews(value: unknown): SavedTradeView[] {
       if (!id || !name || seen.has(id)) return null
       seen.add(id)
       const now = new Date().toISOString()
+      const requestedPath = typeof item.pathname === 'string' ? item.pathname : '/list'
+      const legacyPath = normalizeSavedViewPath(requestedPath)
+      const pathname = legacyPath === '/favorites' || legacyPath === '/missed'
+        ? '/list'
+        : legacyPath
+      const search = normalizeSearch(item.search)
+      if (legacyPath === '/favorites') search.view = 'starred'
+      if (legacyPath === '/missed') search.view = 'missed'
       return {
         id,
         name: name.slice(0, 24),
-        pathname: normalizeSavedViewPath(
-          typeof item.pathname === 'string' ? item.pathname : '/list',
-        ),
-        search: normalizeSearch(item.search),
+        pathname,
+        search,
         pinned: item.pinned === true,
         order: typeof item.order === 'number' && Number.isFinite(item.order) ? item.order : 0,
         createdAt: typeof item.createdAt === 'string' ? item.createdAt : now,

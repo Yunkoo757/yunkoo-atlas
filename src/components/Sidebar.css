@@ -237,13 +237,29 @@
   width: 100%;
 }
 
-.sb-sortable-row:hover,
-.sb-sortable-row:focus-within {
+.sb-sortable-row:hover {
   background: var(--sb-hover-bg);
 }
 
 .sb-sortable-row.is-active {
   background: var(--sb-selected-bg);
+}
+
+/* 子入口承担唯一可见焦点；父级关系交给标题与 aria-current 表达，避免第二个蓝色焦点。 */
+.sb-sortable-row.is-context-active > .sb-item {
+  color: var(--sb-text);
+  font-weight: var(--type-nav-weight);
+}
+
+.sb-sortable-row.is-context-active:not(:hover):not(:focus-within) {
+  background: transparent;
+  box-shadow: none;
+}
+
+.sb-sortable-row.is-context-active > .sb-item > svg,
+.sb-sortable-row.is-context-active > .sb-item .is-nav {
+  color: inherit;
+  opacity: 1;
 }
 
 .sb-sortable-row.is-scope-active,
@@ -347,17 +363,6 @@ html[data-ui-settled='1'] .sb-item {
 .sb-item.is-active .is-nav,
 .sb-sortable-row.is-active > .sb-item .is-nav {
   opacity: 1;
-}
-
-.sb-route-ghost {
-  cursor: default;
-}
-
-.sb-route-ghost-note {
-  margin-left: auto;
-  color: var(--text-tertiary);
-  font-size: var(--type-caption-size);
-  font-weight: var(--font-weight-normal);
 }
 
 /* 所有入口共用一条激活色通道，颜色由渲染模型注入，避免新增入口漏配选择器。 */

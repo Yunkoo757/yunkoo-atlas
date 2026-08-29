@@ -10,6 +10,7 @@ import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 export type StageScope =
   | { kind: 'current'; stageId: string }
   | { kind: 'stage'; stageId: string }
+  | { kind: 'all'; stageIds: ReadonlySet<string> }
   | { kind: 'all-history'; archivedStageIds: ReadonlySet<string> }
   | { kind: 'pending' }
 
@@ -28,12 +29,14 @@ export function resolveStageScope(
   const archivedStageIds = new Set(
     stages.filter((stage) => stage.status === 'archived').map((stage) => stage.id),
   )
+  const stageIds = new Set(stages.map((stage) => stage.id))
   if (surface === 'history') {
     if (requested === 'all-history' || !requested) return { kind: 'all-history', archivedStageIds }
     if (archivedStageIds.has(requested)) return { kind: 'stage', stageId: requested }
     return { kind: 'all-history', archivedStageIds }
   }
   if (requested === 'pending') return { kind: 'pending' }
+  if (requested === 'all') return { kind: 'all', stageIds }
   if (requested === 'all-history') return { kind: 'all-history', archivedStageIds }
   if (requested && archivedStageIds.has(requested)) return { kind: 'stage', stageId: requested }
   return { kind: 'current', stageId: currentLiveStageId }
@@ -46,6 +49,8 @@ export function matchesStageScope(entity: StageOwned, scope: StageScope): boolea
       return entity.liveStageId === scope.stageId
     case 'all-history':
       return typeof entity.liveStageId === 'string' && scope.archivedStageIds.has(entity.liveStageId)
+    case 'all':
+      return typeof entity.liveStageId === 'string' && scope.stageIds.has(entity.liveStageId)
     case 'pending':
       return entity.liveStageId === null
   }

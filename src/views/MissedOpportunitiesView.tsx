@@ -164,7 +164,6 @@ export function MissedOpportunitiesView() {
     <>
       <Topbar
         title="错过的机会"
-        subtitle="实盘与模拟记录"
         showDisplay={false}
         showSaveStatus={false}
       />

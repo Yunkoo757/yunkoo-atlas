@@ -45,6 +45,8 @@ const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
     { id: 'week', label: '本周', pathname: '/list', search: '?period=this-week' },
     { id: 'month', label: '本月', pathname: '/list', search: '?period=this-month' },
     { id: 'loss', label: '亏损', pathname: '/list', search: '?status=loss' },
+    { id: 'starred', label: '星标交易', pathname: '/list', search: '?view=starred' },
+    { id: 'missed', label: '错过机会', pathname: '/list', search: '?view=missed' },
   ],
   paper: [
     { id: 'all', label: '全部', pathname: '/sim' },
@@ -58,7 +60,6 @@ const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
     { id: 'exemplar', label: '交易案例', pathname: '/review-cases/exemplar' },
     { id: 'focus', label: '重点案例', pathname: '/review-cases/focus' },
     { id: 'mistakes', label: '错题', pathname: '/review-cases/mistakes' },
-    { id: 'missed', label: '错过机会', pathname: '/review-cases', search: '?caseType=missed' },
     { id: 'unreviewed', label: '待复看', pathname: '/review-cases/unreviewed' },
     { id: 'reviewed', label: '已掌握', pathname: '/review-cases/reviewed' },
   ],
@@ -74,7 +75,6 @@ const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
     { id: 'cases-all', label: '全部', pathname: '/live-history', search: '?view=cases' },
     { id: 'focus', label: '重点', pathname: '/live-history', search: '?view=cases&caseScope=focus' },
     { id: 'mistakes', label: '错题', pathname: '/live-history', search: '?view=cases&caseScope=mistakes' },
-    { id: 'missed', label: '错过机会', pathname: '/live-history', search: '?view=cases&caseType=missed' },
     { id: 'unreviewed', label: '待复看', pathname: '/live-history', search: '?view=cases&caseScope=unreviewed' },
     { id: 'reviewed', label: '已掌握', pathname: '/live-history', search: '?view=cases&caseScope=reviewed' },
   ],
@@ -129,6 +129,8 @@ export function matchesWorkspaceView(
   if (target.id === 'all') {
     current.delete('liveStage')
     current.delete('kind')
+    // 策略是页面上下文，不是快捷视图身份；仅带策略时仍属于“全部”。
+    current.delete('strategyId')
     return ![...current.values()].some((value) => value.trim())
   }
   // 「全部」等无 search 的基视图：有 status/session 等视图身份参数时不得误选中
@@ -163,7 +165,7 @@ export function searchForWorkspaceViewTarget(
       ? new URLSearchParams(currentSearch)
       : currentSearch
     const next = new URLSearchParams()
-    for (const key of ['liveStage', 'kind']) {
+    for (const key of ['liveStage', 'kind', 'strategyId']) {
       const value = source.get(key)
       if (value) next.set(key, value)
     }

@@ -4,6 +4,7 @@ import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { LiveStage } from '@/lib/liveStages'
 import { getTradingDayKey } from '@/lib/periods'
+import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { useStore } from '@/store/useStore'
 import { Dashboard } from '@/views/Dashboard'
 import { DetailView } from '@/views/DetailView'
@@ -109,7 +110,7 @@ async function run(): Promise<void> {
       currentLiveStageId: 'stage-current',
     })
     root.render(
-      <MemoryRouter initialEntries={['/dashboard?kind=paper&range=all&liveStage=stage-old&symbol=BTCUSDT']}>
+      <MemoryRouter initialEntries={['/dashboard?kind=live&range=all&liveStage=stage-old&symbol=BTCUSDT']}>
         <Routes>
           <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
           <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
@@ -120,7 +121,7 @@ async function run(): Promise<void> {
 
     await waitFor(
       () => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?kind=live&range=all&liveStage=stage-old&symbol=BTCUSDT',
-      'Dashboard 必须规范盘型并保留用户选择的历史阶段',
+      '统计分析必须保留用户选择的盘型与历史阶段',
     )
     await waitFor(() => document.body.textContent?.includes('+$900') ?? false, 'Dashboard 必须统计所选历史 stage 的已编辑事实')
     assert(!document.body.textContent?.includes('+$100'), '当前 stage 不得混入历史阶段 Dashboard')
@@ -241,7 +242,10 @@ async function run(): Promise<void> {
     )
     await waitFor(() => document.querySelector('h1')?.textContent === '本年' && document.querySelectorAll('[data-trade-id]').length === 1, '/period/ytd 必须保留本年标题与真实列表')
     assert(document.querySelector('[data-testid="location"]')?.textContent === '/period/ytd', '/period/ytd 不得静默跳转到 today')
-    assert(document.body.textContent?.includes('按开仓日'), '/period/ytd 必须说明日历范围按开仓日')
+    assert(
+      getTradesPageSubtitle({ type: 'period', period: 'ytd', tradeKind: 'live' })?.includes('按开仓日'),
+      '/period/ytd 的范围语义必须保持按开仓日，但页面无需重复显示标题已表达的信息',
+    )
 
     root.unmount()
     root = createRoot(element)

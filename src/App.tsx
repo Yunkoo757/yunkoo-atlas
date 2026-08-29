@@ -47,7 +47,6 @@ import { ICON_XL } from './icons/iconSize'
 import { TradesPage } from './views/TradesPage'
 import { SettingsLayout } from './views/settings/SettingsLayout'
 import { TradeTrashView } from './views/TradeTrashView'
-import { MissedOpportunitiesView } from './views/MissedOpportunitiesView'
 import { StrategyHeader } from './components/StrategyHeader'
 import { getStrategyName } from './lib/strategies'
 import {
@@ -64,10 +63,6 @@ import { useShortcutHost } from './shortcuts/ShortcutHost'
 import { cleanExpiredTradeTrash } from './lib/trashCleanup'
 import { lockBottomChrome, unlockBottomChrome } from './lib/toast'
 import { parseAnalysisScope } from './lib/analysisScope'
-import {
-  hasCombinedStrategySources,
-  parseStrategySourcesSearch,
-} from './lib/sidebarWorkspace'
 import { weekStartFor } from './data/weeklyReviews'
 import {
   classifyUncertainStageRolloverSnapshot,
@@ -375,46 +370,27 @@ export function StrategyPage() {
   const { id } = useParams()
   const { search } = useLocation()
   const strategies = useStore((s) => s.strategies)
-  const currentLiveStageId = useStore((s) => s.currentLiveStageId)
   const strategyId = id ?? ''
   const listPath = `/strategy/${encodeURIComponent(strategyId)}`
   const title = getStrategyName(strategies, strategyId)
   const parsedScope = parseAnalysisScope(search)
   const analysisScope = parsedScope.explicit ? parsedScope.scope : undefined
-  const strategySources = parseStrategySourcesSearch(search)
-  const combinedSources = !analysisScope && hasCombinedStrategySources(strategySources)
   const params = new URLSearchParams(search)
-  const liveRouteApplies = analysisScope?.kind !== 'paper'
-  const requestedStage = params.get('liveStage')
-  const hasLegacyScope = params.has('statsCycle') || params.has('liveCycle')
-  if (
-    !combinedSources && (
-      (liveRouteApplies && requestedStage !== 'current')
-      || (!liveRouteApplies && requestedStage !== null)
-      || hasLegacyScope
-    )
-  ) {
+  if (!analysisScope) {
+    // 策略是交易日志的筛选维度，而不是可混排实盘、模拟与案例的第四个资料库。
+    params.delete('sources')
+    params.delete('kind')
+    params.delete('range')
     params.delete('statsCycle')
     params.delete('liveCycle')
-    if (liveRouteApplies) params.set('liveStage', 'current')
-    else params.delete('liveStage')
+    params.set('strategyId', strategyId)
     const query = params.toString()
-    return <Navigate to={`${listPath}${query ? `?${query}` : ''}`} replace />
+    return <Navigate to={{ pathname: '/list', search: query ? `?${query}` : '' }} replace />
   }
-  const filter = analysisScope
-    ? { type: 'strategy' as const, strategyId, analysisScope }
-    : combinedSources
-      ? {
-          type: 'strategy' as const,
-          strategyId,
-          strategySources,
-          liveStageId: currentLiveStageId,
-        }
-      : { type: 'strategy' as const, strategyId, tradeKind: 'live' as const }
   return (
     <TradesPage
       title={title}
-      filter={filter}
+      filter={{ type: 'strategy', strategyId, analysisScope }}
       listPath={listPath}
       header={<StrategyHeader strategyId={strategyId} analysisScope={analysisScope} search={search} />}
     />
@@ -454,21 +430,6 @@ function ReviewCasesPage() {
       title="案例库"
       filter={{ type: 'all', tradeKind: 'case', reviewCaseScope: scope }}
       listPath={listPath}
-    />
-  )
-}
-
-function FavoritesPage() {
-  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
-  return (
-    <TradesPage
-      title="星标交易"
-      filter={{
-        type: 'starred',
-        strategySources: ['trade', 'paper'],
-        liveStageId: currentLiveStageId,
-      }}
-      listPath="/favorites"
     />
   )
 }
@@ -546,10 +507,10 @@ function Shell() {
           <Route path="/inbox/board" element={<Navigate to="/active/board" replace />} />
           <Route path="/my-trades" element={<Navigate to="/list" replace />} />
           <Route path="/my-trades/board" element={<Navigate to="/board" replace />} />
-          <Route path="/favorites" element={<FavoritesPage />} />
-          <Route path="/favorites/board" element={<FavoritesPage />} />
-          <Route path="/missed" element={<MissedOpportunitiesView />} />
-          <Route path="/missed/board" element={<Navigate to="/missed" replace />} />
+          <Route path="/favorites" element={<LegacyTradeLogRedirect filter="starred" />} />
+          <Route path="/favorites/board" element={<LegacyTradeLogRedirect filter="starred" />} />
+          <Route path="/missed" element={<LegacyTradeLogRedirect filter="missed" />} />
+          <Route path="/missed/board" element={<LegacyTradeLogRedirect filter="missed" />} />
           <Route path="/period/:slug" element={<PeriodPage />} />
           <Route path="/period/:slug/board" element={<PeriodPage />} />
           <Route path="/today-record" element={<LegacyTradeLogRedirect filter="incomplete" />} />

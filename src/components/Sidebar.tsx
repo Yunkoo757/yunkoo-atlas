@@ -33,15 +33,12 @@ import {
   countSidebarRoute,
   countSidebarTarget,
   isCapabilityEnabledForWorkspace,
+  isSidebarNavigationTarget,
   isSidebarCapabilityId,
   resolveCapabilityRoute,
   resolveSidebarSelection,
   resolveSidebarWorkspaceItem,
   setCapabilityWorkspaceEnabled,
-  setStrategySourceEnabled,
-  STRATEGY_SOURCE_LABELS,
-  STRATEGY_SOURCE_WORKSPACES,
-  strategySources,
   systemCapabilityWorkspaces,
   workspaceKindFromPath,
   type ResolvedSidebarWorkspaceItem,
@@ -52,7 +49,7 @@ import {
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
 import { filterStageOwnedRecords } from '@/lib/stageArchive'
-import { sharedTradeWorkspaceSearch } from '@/lib/tradeWorkspaceQuery'
+import { sharedTradeWorkspaceSearch, tradeHomeSearch } from '@/lib/tradeWorkspaceQuery'
 import { newTradeKindForPath } from '@/lib/tradeKind'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { toast } from '@/lib/toast'
@@ -89,30 +86,14 @@ function useSidebarDensity(): SidebarDensity {
   return density
 }
 
-function hiddenWorkspaceLocation(pathname: string, hasWorkspaceSelection: boolean) {
-  if (hasWorkspaceSelection) return null
-  if (pathname === '/sim' || pathname.startsWith('/sim/')) {
-    return { label: '模拟盘', icon: FlaskConical, activeColor: 'var(--nav-icon-ws-paper)' }
-  }
-  if (pathname === '/missed' || pathname.startsWith('/missed/')) {
-    return { label: '错过的机会', icon: Ban, activeColor: 'var(--nav-icon-ws-missed)' }
-  }
-  if (pathname === '/active' || pathname.startsWith('/active/')) {
-    return { label: '进行中', icon: Clock, activeColor: 'var(--nav-icon-ws-active)' }
-  }
-  if (pathname === '/favorites' || pathname.startsWith('/favorites/')) {
-    return { label: '星标交易', icon: Star, activeColor: 'var(--nav-icon-ws-favorites)' }
-  }
-  return null
-}
-
-function Count({ value }: { value?: number }) {
+function Count({ value, showZero = false }: { value?: number; showZero?: boolean }) {
+  const empty = value === undefined || (!showZero && value === 0)
   return (
     <span
-      className={'sb-item-count' + (!value ? ' is-empty' : '')}
-      aria-hidden={!value}
+      className={'sb-item-count' + (empty ? ' is-empty' : '')}
+      aria-hidden={empty}
     >
-      {value || 0}
+      {value ?? 0}
     </span>
   )
 }
@@ -151,40 +132,6 @@ function buildCapabilityVisibilityItems(
           onClick: () => onToggle(capabilityId, workspace, !checked, label),
         },
       ]
-    }),
-  ]
-}
-
-function buildStrategySourceItems(
-  strategyId: string,
-  label: string,
-  items: SidebarWorkspaceItem[],
-  onToggle: (
-    strategyId: string,
-    workspace: SidebarQuickWorkspace,
-    enabled: boolean,
-    label: string,
-  ) => void,
-): CtxItem[] {
-  const existing = items.find(
-    (item) => item.target.kind === 'strategy' && item.target.strategyId === strategyId,
-  )
-  const enabled = new Set(
-    existing && existing.target.kind === 'strategy'
-      ? strategySources(existing.target)
-      : ['trade'],
-  )
-  return [
-    { type: 'label', text: '包含来源' },
-    ...STRATEGY_SOURCE_WORKSPACES.map((workspace) => {
-      const checked = enabled.has(workspace)
-      return {
-        type: 'item' as const,
-        label: STRATEGY_SOURCE_LABELS[workspace],
-        checked,
-        keepOpen: true,
-        onClick: () => onToggle(strategyId, workspace, !checked, label),
-      }
     }),
   ]
 }
@@ -233,6 +180,7 @@ export function useSidebarNavigationModel() {
   const strategies = useStore((state) => state.strategies)
   const display = useStore((state) => state.display)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
+  const liveStages = useStore((state) => state.liveStages)
   const starredIds = useStore((state) => state.starredIds)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const savedTradeViews = useStore((state) => state.savedTradeViews)
@@ -245,6 +193,7 @@ export function useSidebarNavigationModel() {
       display,
       businessDateAnchor,
       currentLiveStageId,
+      liveStages,
     }),
     [
       trades,
@@ -252,11 +201,26 @@ export function useSidebarNavigationModel() {
       display,
       businessDateAnchor,
       currentLiveStageId,
+      liveStages,
     ],
   )
+  const workspaceMemory = display.workspaceMemory
+  const tradeTarget = resolveWorkspaceNavTarget('trade', workspaceMemory?.trade, strategies)
+  const usesCurrentTradeContext = (
+    path === '/list'
+    || path === '/board'
+    || path === '/active'
+    || path === '/dashboard'
+    || path === '/weekly-review'
+    || path.startsWith('/period/')
+    || path.startsWith('/strategy/')
+  )
+  const stageContextSearch = usesCurrentTradeContext ? search : tradeTarget.search
+  const workspaceLiveStage = new URLSearchParams(stageContextSearch).get('liveStage')
 
   const workspaceItems = useMemo(
     () => sidebarWorkspaceItems
+      .filter((item) => isSidebarNavigationTarget(item.target))
       .map((item) => resolveSidebarWorkspaceItem(
         item,
         { savedViews: savedTradeViews, strategies },
@@ -275,15 +239,23 @@ export function useSidebarNavigationModel() {
         }
         return true
       })
-      .map((item) => ({
-        ...item,
-        count: countSidebarTarget(item, countContext),
-      })),
+      .map((item) => {
+        const inheritsLiveStage = item.item.target.kind === 'strategy'
+          || item.item.target.kind === 'system'
+        if (!inheritsLiveStage || !workspaceLiveStage) {
+          return { ...item, count: countSidebarTarget(item, countContext) }
+        }
+        const params = new URLSearchParams(item.search)
+        params.set('liveStage', workspaceLiveStage)
+        const scoped = { ...item, search: `?${params.toString()}` }
+        return { ...scoped, count: countSidebarTarget(scoped, countContext) }
+      }),
     [
       countContext,
       path,
       savedTradeViews,
       sidebarWorkspaceItems,
+      workspaceLiveStage,
       strategies,
     ],
   )
@@ -291,31 +263,38 @@ export function useSidebarNavigationModel() {
     () => resolveSidebarSelection({ pathname: path, search, items: workspaceItems }),
     [path, search, workspaceItems],
   )
-  const workspaceMemory = display.workspaceMemory
   const todayTarget = { pathname: '/today-record', search: '' }
-  const tradeTarget = resolveWorkspaceNavTarget('trade', workspaceMemory?.trade, strategies)
   const caseTarget = resolveWorkspaceNavTarget('case', workspaceMemory?.case)
+  const tradeHomeTarget = {
+    pathname: '/list',
+    search: tradeHomeSearch(selection.activePrimaryId === 'trades' ? search : tradeTarget.search),
+  }
   const counts = {
     today: getTodayWorkflowBuckets(
       filterStageOwnedRecords(trades, { kind: 'current', stageId: currentLiveStageId }),
       businessDateAnchor.currentTradingDayKey,
       display.tradingDayStartHour,
     ).actionCount,
-    trades: countSidebarRoute(tradeTarget.pathname, tradeTarget.search, countContext),
+    trades: countSidebarRoute(tradeHomeTarget.pathname, tradeHomeTarget.search, countContext),
     reviewCases: countSidebarRoute(caseTarget.pathname, caseTarget.search, countContext),
   }
   const primaryCount = (id: PrimarySidebarNavId) => {
     if (id === 'today') return counts.today
-    if (id === 'trades') return counts.trades
-    if (id === 'reviewCases') return counts.reviewCases
+    const currentVisible = selection.activePrimaryId === id
+      ? countSidebarRoute(path, search, countContext)
+      : undefined
+    if (id === 'trades') return currentVisible ?? counts.trades
+    if (id === 'reviewCases') return currentVisible ?? counts.reviewCases
     return undefined
   }
   const primaryHref = (id: PrimarySidebarNavId, fallback: string) => {
     if (id === 'today') return workspaceRouteHref(todayTarget)
-    if (id === 'trades') return workspaceRouteHref(tradeTarget)
+    if (id === 'trades') {
+      return `${tradeHomeTarget.pathname}${tradeHomeTarget.search}`
+    }
     if (id === 'reviewCases') return workspaceRouteHref(caseTarget)
     if (id === 'dashboard' || id === 'weeklyReview') {
-      return `${fallback}${sharedTradeWorkspaceSearch(search)}`
+      return `${fallback}${sharedTradeWorkspaceSearch(stageContextSearch)}`
     }
     return fallback
   }
@@ -331,6 +310,9 @@ export function useSidebarNavigationModel() {
     workspaceItems,
     selection,
     primaryCount,
+    currentVisiblePrimaryCount: selection.activePrimaryId
+      ? countSidebarRoute(path, search, countContext)
+      : undefined,
     primaryHref,
   }
 }
@@ -361,6 +343,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     workspaceItems,
     selection,
     primaryCount,
+    currentVisiblePrimaryCount,
     primaryHref,
   } = useSidebarNavigationModel()
   const pinnedWorkspaceItems = workspaceItems
@@ -369,7 +352,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const overflowWorkspaceItems = workspaceItems.filter(
     (item) => item.item.placement === 'overflow',
   )
-  const hiddenWorkspace = hiddenWorkspaceLocation(path, Boolean(selection.activeWorkspaceItemId))
   const primaryNav = useMemo(() => resolvePrimarySidebarNav(primaryOrder), [primaryOrder])
 
   const trashCount = trades.filter((trade) => Boolean(trade.deletedAt)).length
@@ -398,8 +380,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       item.item.target.kind === 'system' && isSidebarCapabilityId(item.item.target.id)
         ? item.item.target.id
         : null
-    const strategyMenuId = strategyTarget ? item.item.id : null
-    const capabilityMenuId = capabilityId === 'missed' ? null : (capabilityId ?? strategyMenuId)
+    const capabilityMenuId = capabilityId === 'missed' ? null : capabilityId
     const capabilityMenuOpen = Boolean(capabilityMenuId && capabilityMenu?.itemId === item.item.id)
 
     const toggleCapabilityWorkspace = (
@@ -436,39 +417,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       )
     }
 
-    const toggleStrategySource = (
-      id: string,
-      workspace: SidebarQuickWorkspace,
-      enabled: boolean,
-      label: string,
-    ) => {
-      const previous = useStore.getState().display.sidebarWorkspaceItems
-      const next = setStrategySourceEnabled(previous, id, workspace, enabled)
-      if (next === previous) {
-        toast('至少保留一个包含来源')
-        return
-      }
-      replaceSidebarWorkspaceItems(next)
-      if (active) {
-        const updated = next.find((candidate) => candidate.id === item.item.id)
-        if (updated) {
-          const resolved = resolveSidebarWorkspaceItem(updated, {
-            strategies,
-            savedViews: savedTradeViews,
-          })
-          if (resolved) navigate(workspaceRouteHref(resolved))
-        }
-      }
-      setCapabilityMenu((current) =>
-        current
-          ? {
-              ...current,
-              items: buildStrategySourceItems(id, label, next, toggleStrategySource),
-            }
-          : null,
-      )
-    }
-
     const openCapabilityMenu = (x: number, y: number, originElement?: HTMLElement | null) => {
       if (!capabilityMenuId) return
       setCapabilityMenu({
@@ -476,19 +424,12 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         x,
         y,
         originElement,
-        items: strategyTarget
-          ? buildStrategySourceItems(
-            strategyTarget.strategyId,
-            item.label,
-            useStore.getState().display.sidebarWorkspaceItems,
-            toggleStrategySource,
-          )
-          : buildCapabilityVisibilityItems(
-            capabilityMenuId as SidebarCapabilityId,
-            item.label,
-            useStore.getState().display.sidebarWorkspaceItems,
-            toggleCapabilityWorkspace,
-          ),
+        items: buildCapabilityVisibilityItems(
+          capabilityMenuId,
+          item.label,
+          useStore.getState().display.sidebarWorkspaceItems,
+          toggleCapabilityWorkspace,
+        ),
       })
     }
 
@@ -530,13 +471,16 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             <Icon size={ICON_MD} />
           )}
           <span className="sb-item-label">{item.label}</span>
-          <Count value={item.count} />
+          <Count
+            value={strategyTarget && active ? (currentVisiblePrimaryCount ?? item.count) : item.count}
+            showZero={Boolean(strategyTarget && active && currentVisiblePrimaryCount !== undefined)}
+          />
         </NavLink>
         {capabilityMenuId ? (
           <button
             type="button"
             className="sb-workspace-capability-menu"
-            aria-label={strategyTarget ? `${item.label}包含来源` : `${item.label}可见工作区`}
+            aria-label={`${item.label}可见工作区`}
             aria-haspopup="menu"
             aria-expanded={capabilityMenuOpen}
             onClick={(event) => {
@@ -611,27 +555,34 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       <div className="sb-scroll">
       <nav className="sb-section sb-primary" aria-label="主要导航">
         <div className="sb-section-label">工作区</div>
-        {primaryNav.map(({ id, to, label, icon: Icon }) => (
-          <div
-            key={id}
-            className={`sb-sortable-row${selection.activePrimaryId === id ? ' is-active is-page-active' : ''}`}
-            data-primary-id={id}
-            style={activeIconStyle(PRIMARY_ACTIVE_ICON_COLORS[id])}
-          >
-            <Link
-              to={primaryHref(id, to)}
-              draggable={false}
-              onDragStart={(event) => event.preventDefault()}
-              className="sb-item"
+        {primaryNav.map(({ id, to, label, icon: Icon }) => {
+          const active = selection.activePrimaryId === id
+          const contextOnly = active && selection.primaryContextOnly
+          return (
+            <div
+              key={id}
+              className={`sb-sortable-row${active && !contextOnly ? ' is-active is-page-active' : ''}${contextOnly ? ' is-context-active' : ''}`}
               data-primary-id={id}
-              aria-current={selection.activePrimaryId === id ? 'page' : undefined}
+              style={activeIconStyle(PRIMARY_ACTIVE_ICON_COLORS[id])}
             >
-              <Icon size={ICON_MD} />
-              <span className="sb-item-label">{label}</span>
-              <Count value={primaryCount(id)} />
-            </Link>
-          </div>
-        ))}
+              <Link
+                to={primaryHref(id, to)}
+                draggable={false}
+                onDragStart={(event) => event.preventDefault()}
+                className="sb-item"
+                data-primary-id={id}
+                aria-current={active ? (contextOnly ? 'location' : 'page') : undefined}
+              >
+                <Icon size={ICON_MD} />
+                <span className="sb-item-label">{label}</span>
+                <Count
+                  value={primaryCount(id)}
+                  showZero={active && currentVisiblePrimaryCount !== undefined}
+                />
+              </Link>
+            </div>
+          )
+        })}
       </nav>
 
       <nav className="sb-section sb-workspace" aria-label="我的空间">
@@ -657,19 +608,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <Bookmark size={ICON_MD} />
           <span className="sb-item-label">随记</span>
         </NavLink>
-        {hiddenWorkspace ? (
-          <div
-            className="sb-item sb-route-ghost is-active is-scope-active"
-            data-sidebar-hidden-route
-            style={activeIconStyle(hiddenWorkspace.activeColor)}
-            aria-current="location"
-            aria-label={`${hiddenWorkspace.label}；当前页面，已从侧栏隐藏`}
-          >
-            <hiddenWorkspace.icon size={ICON_MD} />
-            <span className="sb-item-label">{hiddenWorkspace.label}</span>
-            <span className="sb-route-ghost-note">已隐藏</span>
-          </div>
-        ) : null}
         {pinnedWorkspaceItems.map(renderWorkspaceLink)}
         {overflowWorkspaceItems.length > 0 ? (
           <div className="sb-workspace-overflow" data-sidebar-overflow>

@@ -6,6 +6,7 @@ import type { SavedTradeView } from '@/lib/savedTradeViews'
 import { DEFAULT_SIDEBAR_PINS } from '@/lib/sidebarNav'
 import {
   MAX_PINNED_SIDEBAR_ITEMS,
+  isSidebarNavigationTarget,
   migrateSidebarPins,
   normalizeSidebarWorkspaceItems,
   reorderSidebarWorkspaceItem,
@@ -76,8 +77,9 @@ export function SidebarWorkspaceEditor({
   const [announcement, setAnnouncement] = useState('')
   const titleRef = useRef<HTMLHeadingElement>(null)
   const overflowSectionRef = useRef<HTMLElement>(null)
-  const pinnedItems = draft.filter((item) => item.placement === 'pinned')
-  const overflowItems = draft.filter((item) => item.placement === 'overflow')
+  const navigationDraft = draft.filter((item) => isSidebarNavigationTarget(item.target))
+  const pinnedItems = navigationDraft.filter((item) => item.placement === 'pinned')
+  const overflowItems = navigationDraft.filter((item) => item.placement === 'overflow')
   const pinnedCount = pinnedItems.length
   const primaryItems = resolvePrimarySidebarNav(primaryDraft)
 

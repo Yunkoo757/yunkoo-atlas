@@ -207,7 +207,6 @@ export function QuickNotesView() {
     <section className="quick-notes-page">
       <Toolbar
         title="随记"
-        context="记录想法、观察与截图，不参与交易统计"
         actions={notes.length > 0 ? (
           <>
             <SaveStatusIndicator />

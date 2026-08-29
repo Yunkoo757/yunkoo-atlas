@@ -130,6 +130,13 @@ function normalizeWorkspaceMemory(
   const today = normalizeWorkspaceRoute(memory.today)
   const trade = normalizeWorkspaceRoute(memory.trade)
   const caseRoute = normalizeWorkspaceRoute(memory.case)
+  if (trade) {
+    const params = new URLSearchParams(trade.search)
+    if (params.get('liveStage') === 'all-history') {
+      params.set('liveStage', 'all')
+      trade.search = `?${params.toString()}`
+    }
+  }
   if (!today && !trade && !caseRoute) return undefined
   return {
     ...(today ? { today } : {}),

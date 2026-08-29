@@ -33,3 +33,12 @@ export function testSavedViewRoundTripUsesOnlyCanonicalFilters(): void {
   assert(savedViewSearch(saved) === '?symbol=BTCUSDT', '恢复链接必须只包含规范筛选')
   assert(savedViewMatchesLocation(saved, '/list', '?symbol=BTCUSDT'), '清理后的保存视图必须稳定匹配')
 }
+
+export function testSavedViewMigratesRemovedHistoricalAggregateScope(): void {
+  const canonical = canonicalizeTradeViewSearch({
+    liveStage: 'all-history',
+    strategyId: 'navigation-2',
+  })
+  assert(canonical.get('liveStage') === 'all', '旧保存视图的历史聚合范围必须迁移为全部阶段')
+  assert(canonical.get('strategyId') === 'navigation-2', '迁移阶段范围不得丢失其他视图条件')
+}

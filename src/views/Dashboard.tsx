@@ -52,7 +52,7 @@ import {
   PERFORMANCE_REPORT_CURRENCY,
 } from '@/lib/performanceSelection'
 import { filterStageOwnedRecords, resolveStageScope } from '@/lib/stageArchive'
-import { parseTradeWorkspaceQuery } from '@/lib/tradeWorkspaceQuery'
+import { parseTradeWorkspaceQuery, sharedTradeWorkspaceSearch } from '@/lib/tradeWorkspaceQuery'
 import './Dashboard.css'
 import { resolveDashboardEmptyState } from '@/lib/dashboardEmptyState'
 
@@ -507,7 +507,10 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
               </div>
             </div>
             <div className="db-week-actions">
-              <Link to="/weekly-review" className="db-week-link">打开周复盘</Link>
+              <Link
+                to={`/weekly-review${sharedTradeWorkspaceSearch(location.search)}`}
+                className="db-week-link"
+              >打开周期复盘</Link>
             </div>
           </div>
           {!weekCardEmpty ? (

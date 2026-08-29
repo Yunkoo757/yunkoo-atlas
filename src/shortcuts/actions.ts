@@ -1,5 +1,6 @@
 import type { ShortcutActionMeta } from '@/shortcuts/types'
 import { getDefaultShortcutBinding } from '@/config/defaultProfile'
+import { PRIMARY_NAV_LABELS, SECONDARY_NAV_LABELS } from '@/lib/sidebarNavContract'
 
 /** 动作名称与作用域在此维护；默认绑定统一来自版本化配置档案。 */
 export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
@@ -78,42 +79,42 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
   {
     id: 'nav.active',
-    label: '进行中',
+    label: SECONDARY_NAV_LABELS.active,
     category: '导航',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.active'),
   },
   {
     id: 'nav.favorites',
-    label: '星标交易',
+    label: SECONDARY_NAV_LABELS.favorites,
     category: '导航',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.favorites'),
   },
   {
     id: 'nav.missed',
-    label: '错过的机会',
+    label: SECONDARY_NAV_LABELS.missed,
     category: '导航',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.missed'),
   },
   {
     id: 'nav.sim',
-    label: '模拟盘',
+    label: SECONDARY_NAV_LABELS.paper,
     category: '导航',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.sim'),
   },
   {
     id: 'nav.list',
-    label: '交易日志',
+    label: PRIMARY_NAV_LABELS.trades,
     category: '导航',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.list'),
   },
   {
     id: 'nav.reviewCases',
-    label: '案例记录',
+    label: PRIMARY_NAV_LABELS.reviewCases,
     category: '导航',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.reviewCases'),
@@ -127,14 +128,14 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
   {
     id: 'nav.weeklyReview',
-    label: '周复盘',
+    label: PRIMARY_NAV_LABELS.weeklyReview,
     category: '导航',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.weeklyReview'),
   },
   {
     id: 'nav.reviewSession',
-    label: '随机复盘',
+    label: PRIMARY_NAV_LABELS.reviewSession,
     category: '导航',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.reviewSession'),
@@ -148,7 +149,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
   {
     id: 'nav.dashboard',
-    label: '仪表盘',
+    label: PRIMARY_NAV_LABELS.dashboard,
     category: '导航',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.dashboard'),

@@ -69,16 +69,35 @@ async function run(): Promise<void> {
     tradeKind: 'live',
     liveStageId: previous.currentLiveStageId,
   }
+  const focusCase: Trade = {
+    ...legacyPlan,
+    id: 'focus-case',
+    ref: 'CAS-1',
+    tradeKind: 'case',
+    liveStageId: undefined,
+    reviewCategory: 'focus',
+  }
+  const normalCase: Trade = {
+    ...focusCase,
+    id: 'normal-case',
+    ref: 'CAS-2',
+    reviewCategory: 'normal',
+  }
 
   try {
     useStore.setState((state) => ({
-      trades: [legacyPlan, currentPlan],
+      trades: [legacyPlan, currentPlan, focusCase, normalCase],
       strategies: [],
       savedTradeViews: [],
       display: {
         ...state.display,
         tradingDayStartHour: 0,
         sidebarWorkspaceItems: [],
+        workspaceMemory: {
+          ...state.display.workspaceMemory,
+          trade: { pathname: '/list', search: '?period=this-week' },
+          case: { pathname: '/review-cases/focus', search: '' },
+        },
       },
     }))
 
@@ -94,8 +113,13 @@ async function run(): Promise<void> {
     )
     const count = document.querySelector<HTMLElement>('[data-primary-id="trades"] .sb-item-count')
     assert(count, '缺少交易日志侧栏计数')
-    assert(count.textContent?.trim() === '1', '交易日志侧栏只能统计 currentLiveStageId，旧 stage 日期不得干扰')
-    assert(count.getAttribute('aria-hidden') === 'false', '当前 stage 有待办时计数必须可见')
+    assert(
+      count.textContent?.trim() === '1',
+      '交易日志侧栏计数必须等于点击后当前阶段首页实际显示的记录数',
+    )
+    assert(count.getAttribute('aria-hidden') === 'false', '当前阶段存在实盘记录时计数必须可见')
+    const caseCount = document.querySelector<HTMLElement>('[data-primary-id="reviewCases"] .sb-item-count')
+    assert(caseCount?.textContent?.trim() === '1', '案例库侧栏计数必须等于点击后恢复视图的实际记录数')
   } finally {
     root.unmount()
     useStore.setState(previous, true)

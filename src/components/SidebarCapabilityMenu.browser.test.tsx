@@ -226,45 +226,14 @@ async function run(): Promise<void> {
     activeProbe.remove()
     activeIconProbe.remove()
 
-    const favoritesLink = document.querySelector<HTMLAnchorElement>(
-      '[data-sidebar-workspace-id="system:favorites"] > .sb-item',
-    )
-    assert(favoritesLink, '缺少星标交易工作区入口')
-    favoritesLink.click()
-    await waitFor(
-      () => favoritesLink.closest('.sb-sortable-row')?.classList.contains('is-active') ?? false,
-      '进入星标交易后，外层没有表达选中状态',
-    )
-    const favoritesIcon = favoritesLink.querySelector<SVGElement>('svg')
-    assert(favoritesIcon, '星标交易入口缺少图标')
-    const favoritesIconProbe = document.createElement('span')
-    favoritesIconProbe.style.color = 'var(--nav-icon-ws-favorites)'
-    document.body.appendChild(favoritesIconProbe)
     assert(
-      getComputedStyle(favoritesIcon).color === getComputedStyle(favoritesIconProbe).color,
-      '星标交易选中后必须恢复对应模块的图标强调色',
+      !document.querySelector('[data-sidebar-workspace-id="system:favorites"]'),
+      '星标交易已提升为交易日志顶部快捷视图，不得在侧栏形成重复入口',
     )
-    favoritesIconProbe.remove()
-
-    const missedLink = document.querySelector<HTMLAnchorElement>(
-      '[data-sidebar-workspace-id="system:missed"] > .sb-item',
-    )
-    assert(missedLink, '缺少错过的机会工作区入口')
-    missedLink.click()
-    await waitFor(
-      () => missedLink.closest('.sb-sortable-row')?.classList.contains('is-active') ?? false,
-      '进入错过的机会后，外层没有表达选中状态',
-    )
-    const missedIcon = missedLink.querySelector<SVGElement>('svg')
-    assert(missedIcon, '错过的机会入口缺少图标')
-    const missedIconProbe = document.createElement('span')
-    missedIconProbe.style.color = 'var(--nav-icon-ws-missed)'
-    document.body.appendChild(missedIconProbe)
     assert(
-      getComputedStyle(missedIcon).color === getComputedStyle(missedIconProbe).color,
-      '错过的机会选中后必须恢复对应模块的图标强调色',
+      !document.querySelector('[data-sidebar-workspace-id="system:missed"]'),
+      '错过的机会已提升为交易日志顶部快捷视图，不得在侧栏形成重复入口',
     )
-    missedIconProbe.remove()
 
     assert(!document.querySelector('.sb-row-drag-handle'), '日常侧栏不应同时暴露来源菜单和排序抓手')
     const manageButton = document.querySelector<HTMLButtonElement>('.sb-workspace-manage')
@@ -309,32 +278,15 @@ async function run(): Promise<void> {
       '搜索纯图标按钮仍应显示 Tooltip',
     )
 
-    assert(document.querySelector('[data-sidebar-workspace-id="system:missed"]'), '用户保存的错过机会入口不得被渲染层静默隐藏')
+    assert(!document.querySelector('[data-sidebar-workspace-id="system:missed"]'), '旧版错过机会配置只保留来源范围，不得恢复重复侧栏入口')
     assert(document.querySelector('[data-sidebar-workspace-id="system:active"]'), '用户保存的进行中入口不得被渲染层静默隐藏')
     assert(!document.querySelector('[aria-label="排序 错过的机会"]'), '系统快捷项排序必须收口到管理器')
     assert(!document.querySelector('[aria-label="排序 进行中"]'), '系统快捷项排序必须收口到管理器')
 
-    const strategyMenu = document.querySelector<HTMLButtonElement>('[aria-label="导航1包含来源"]')
-    assert(strategyMenu, '策略项必须提供包含来源菜单')
-    strategyMenu.click()
-    await waitFor(() => document.body.textContent?.includes('当前实盘') === true, '策略来源菜单没有打开')
-    assert(document.body.textContent?.includes('模拟盘'), '策略来源必须包含模拟盘')
-    assert(document.body.textContent?.includes('案例'), '策略来源必须包含案例')
-    const caseOption = [...document.querySelectorAll<HTMLButtonElement>('.ctx button')]
-      .find((button) => button.textContent?.trim() === '案例')
-    assert(caseOption, '缺少案例来源选项')
-    caseOption.click()
-    await waitFor(
-      () => useStore.getState().display.sidebarWorkspaceItems.some((item) => (
-        item.target.kind === 'strategy'
-        && item.target.strategyId === 'navigation-1'
-        && item.target.workspaces?.includes('case')
-      )),
-      '勾选案例后没有写入策略来源',
-    )
+    assert(!document.querySelector('[aria-label="导航1包含来源"]'), '策略是交易日志筛选，不得再提供跨来源混排菜单')
     const strategyLink = document.querySelector<HTMLAnchorElement>('[data-sidebar-workspace-id="strategy:navigation-1"] a')
     assert(strategyLink, '缺少导航1策略入口')
-    assert(strategyLink.getAttribute('href')?.includes('sources=trade,case'), '策略链接必须带上合并来源')
+    assert(strategyLink.getAttribute('href') === '/list?strategyId=navigation-1', '策略入口必须落在交易日志并携带策略筛选')
     strategyLink.click()
     await waitFor(
       () => strategyLink.closest('.sb-sortable-row')?.classList.contains('is-active') ?? false,

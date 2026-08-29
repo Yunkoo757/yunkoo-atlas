@@ -98,6 +98,22 @@ export function testAllHistoryExcludesCurrentAndPending(): void {
   assert(result.map((trade) => trade.id).join() === 'archived', '全部历史只能包含已归档 stage ID')
 }
 
+export function testAllLiveIncludesCurrentAndArchivedOnly(): void {
+  const scope = resolveStageScope('all', stages, 'stage-current')
+  const result = filterStageTrades([
+    liveTrade('archived', 'stage-old'),
+    liveTrade('current', 'stage-current'),
+    liveTrade('pending', null),
+    liveTrade('unknown', 'stage-missing'),
+  ], scope)
+
+  assert(scope.kind === 'all', '全部实盘必须解析为独立的全部阶段范围')
+  assert(
+    result.map((trade) => trade.id).sort().join() === 'archived,current',
+    '全部实盘只能包含当前及已归档阶段，不得混入待整理或未知阶段',
+  )
+}
+
 export function testPendingIncludesOnlyExplicitNullOwnership(): void {
   const legacyUndefined = { ...liveTrade('legacy-undefined', null), liveStageId: undefined }
   const pending = liveTrade('pending', null)

@@ -60,7 +60,7 @@ const caseTrade: Trade = {
   note: '<p>案例复盘</p>',
 }
 
-export function testMissedLocalQuickViewsIgnoreAggregateInclusionScope(): void {
+export function testMissedQuickViewBelongsToAccountTradeWorkspacesOnly(): void {
   const tradeOnlyMissed: SidebarWorkspaceItem[] = [{
     id: 'system:missed',
     target: { kind: 'system', id: 'missed', workspaces: ['trade'] },
@@ -70,11 +70,11 @@ export function testMissedLocalQuickViewsIgnoreAggregateInclusionScope(): void {
 
   assert(
     getWorkspacePrimaryViews('paper', tradeOnlyMissed).some((view) => view.id === 'missed'),
-    '模拟盘本地错过快捷视图不得受聚合包含范围隐藏',
+    '模拟盘仍应提供账户交易的错过快捷视图',
   )
   assert(
-    getWorkspacePrimaryViews('case', tradeOnlyMissed).some((view) => view.id === 'missed'),
-    '案例记录本地错过快捷视图不得受聚合包含范围隐藏',
+    !getWorkspacePrimaryViews('case', tradeOnlyMissed).some((view) => view.id === 'missed'),
+    '案例库不得再提供与交易日志重名的错过机会视图',
   )
   assert(
     !getWorkspacePrimaryViews('paper', tradeOnlyMissed).some((view) => view.id === 'open'),
@@ -529,5 +529,21 @@ export function testCrossTypeFacetsShareOneProductionPipelineAndNormalizeUnsuppo
     !filters.includes('未支持的筛选条件，可移除') &&
       workspaceQuery.includes('if (!isKnownTradeViewParam(key)) next.delete(key)'),
     '未知条件必须在工作台入口规范化，不得进入可见筛选状态',
+  )
+}
+
+export function testTradePrimaryViewsOwnStarredAndMissedClassification(): void {
+  const views = getWorkspacePrimaryViews('trade')
+  assert(
+    views.some((view) => view.id === 'starred' && view.pathname === '/list' && view.search === '?view=starred'),
+    '星标交易必须作为交易日志同页快捷视图承载',
+  )
+  assert(
+    views.some((view) => view.id === 'missed' && view.pathname === '/list' && view.search === '?view=missed'),
+    '错过机会必须作为交易日志同页快捷视图承载',
+  )
+  assert(
+    !getWorkspacePrimaryViews('case').some((view) => view.id === 'missed'),
+    '案例库不得继续暴露错过机会快捷视图',
   )
 }

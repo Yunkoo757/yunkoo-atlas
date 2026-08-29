@@ -596,7 +596,7 @@ async function run(): Promise<void> {
     }
 
     assert(document.querySelector('h1')?.textContent?.trim() === '错过的机会', '页面标题不准确')
-    assert(document.querySelector('.ui-toolbar-context')?.textContent?.trim() === '实盘与模拟记录', '页面副标题不准确')
+    assert(!document.querySelector('.ui-toolbar-context'), '页面标题已有明确语义时不得重复显示范围副标题')
     assert(document.querySelector('.missed-scope') === null, '不得保留常驻范围配置区')
     assert(document.querySelector('[data-missed-total]')?.textContent?.includes('全部机会 2'), '工具栏结果数不准确')
     assert(scopeTrigger().textContent?.trim() === '范围 · 2', '范围入口必须显示已启用来源数')

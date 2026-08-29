@@ -7,7 +7,7 @@ export type TradeWorkspaceKind = 'all' | 'live' | 'paper'
 export type TradeWorkspaceView = 'all' | 'active' | 'starred' | 'missed' | 'incomplete'
 
 export type TradeWorkspaceQuery = {
-  stage: 'current' | 'all-history' | string
+  stage: 'current' | 'all' | 'all-history' | string
   kind: TradeWorkspaceKind
   view: TradeWorkspaceView
 }
@@ -32,14 +32,15 @@ export function parseTradeWorkspaceQuery(
   const params = typeof search === 'string' ? new URLSearchParams(search) : search
   const requestedStage = params.get('liveStage')
   const archivedIds = new Set(stages.filter((stage) => stage.status === 'archived').map((stage) => stage.id))
-  const stage = requestedStage === 'all-history' || (requestedStage && archivedIds.has(requestedStage))
-    ? requestedStage
-    : 'current'
+  const stage = requestedStage === 'all-history'
+    ? 'all'
+    : requestedStage === 'all' || (requestedStage && archivedIds.has(requestedStage))
+      ? requestedStage
+      : 'current'
   const requestedKind = params.get('kind')
-  let kind = KINDS.has(requestedKind as TradeWorkspaceKind)
+  const kind = KINDS.has(requestedKind as TradeWorkspaceKind)
     ? requestedKind as TradeWorkspaceKind
     : 'live'
-  if (stage !== 'current') kind = 'live'
   const requestedView = params.get('view')
   const view = VIEWS.has(requestedView as TradeWorkspaceView)
     ? requestedView as TradeWorkspaceView
@@ -54,7 +55,7 @@ export function normalizeTradeWorkspaceSearch(
   currentLiveStageId: string,
 ): URLSearchParams {
   const next = new URLSearchParams(typeof search === 'string' ? search : search.toString())
-  if (next.get('scope') === 'history' && !next.get('liveStage')) next.set('liveStage', 'all-history')
+  if (next.get('scope') === 'history' && !next.get('liveStage')) next.set('liveStage', 'all')
   if (next.get('source') === 'paper') next.set('kind', 'paper')
   if (next.get('tradeKind') === 'live' || next.get('tradeKind') === 'paper') {
     next.set('kind', next.get('tradeKind')!)
@@ -87,7 +88,7 @@ export function normalizeTradeWorkspaceSearch(
 
 export function resolveTradeWorkspaceListFilter(query: TradeWorkspaceQuery): ListFilter {
   const type: ListFilterType = query.view === 'all' ? 'all' : query.view
-  if (query.kind === 'all' && query.stage === 'current') return { type }
+  if (query.kind === 'all') return { type }
   return { type, tradeKind: query.kind === 'paper' ? 'paper' : 'live' }
 }
 
@@ -112,8 +113,62 @@ export function sharedTradeWorkspaceSearch(search: string | URLSearchParams): st
   const next = new URLSearchParams()
   for (const key of ['liveStage', 'kind']) {
     const value = source.get(key)
+    if (value) next.set(key, key === 'liveStage' && value === 'all-history' ? 'all' : value)
+  }
+  const text = next.toString()
+  return text ? `?${text}` : ''
+}
+
+/** 这些页面共用同一组“阶段 / 记录类型”上下文。 */
+export function isSharedTradeWorkspacePath(pathname: string): boolean {
+  return pathname === '/list'
+    || pathname === '/board'
+    || pathname === '/active'
+    || pathname === '/favorites'
+    || pathname === '/missed'
+    || pathname === '/sim'
+    || pathname === '/dashboard'
+    || pathname === '/weekly-review'
+    || pathname.startsWith('/period/')
+    || pathname.startsWith('/strategy/')
+}
+
+/** 当前页有公共语义时以当前页为准，否则恢复最近一次交易工作区记忆。 */
+export function resolveSharedTradeWorkspaceSearch(
+  pathname: string,
+  search: string | URLSearchParams,
+  rememberedSearch: string | URLSearchParams = '',
+): string {
+  return sharedTradeWorkspaceSearch(
+    isSharedTradeWorkspacePath(pathname) ? search : rememberedSearch,
+  )
+}
+
+/** 把公共上下文写回列表记忆，同时保留列表自己的快捷视图与临时筛选。 */
+export function mergeSharedTradeWorkspaceSearch(
+  rememberedSearch: string | URLSearchParams,
+  contextSearch: string | URLSearchParams,
+): string {
+  const next = new URLSearchParams(
+    typeof rememberedSearch === 'string' ? rememberedSearch : rememberedSearch.toString(),
+  )
+  const context = new URLSearchParams(sharedTradeWorkspaceSearch(contextSearch))
+  for (const key of ['liveStage', 'kind']) {
+    next.delete(key)
+    const value = context.get(key)
     if (value) next.set(key, value)
   }
   const text = next.toString()
   return text ? `?${text}` : ''
+}
+
+/** 返回交易日志首页时只保留阶段；模拟/实盘类型与其他筛选都属于临时视图。 */
+export function tradeHomeSearch(search: string | URLSearchParams): string {
+  const source = typeof search === 'string' ? new URLSearchParams(search) : search
+  const stage = source.get('liveStage')
+  if (!stage) return ''
+  const next = new URLSearchParams({
+    liveStage: stage === 'all-history' ? 'all' : stage,
+  })
+  return `?${next.toString()}`
 }

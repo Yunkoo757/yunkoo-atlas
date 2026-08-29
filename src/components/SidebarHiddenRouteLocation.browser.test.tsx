@@ -39,34 +39,24 @@ async function run() {
       display: { ...state.display, sidebarWorkspaceItems: [] },
     }))
     root.render(
-      <MemoryRouter initialEntries={['/sim']}>
+      <MemoryRouter initialEntries={['/favorites']}>
         <Sidebar />
       </MemoryRouter>,
     )
-    await waitFor(
-      () => Boolean(document.querySelector('[data-sidebar-hidden-route]')),
-      '隐藏工作区深链必须呈现当前位置',
-    )
+    await waitFor(() => Boolean(document.querySelector('a[data-primary-id="trades"]')), '侧栏未完成渲染')
 
-    const ghost = document.querySelector<HTMLElement>('[data-sidebar-hidden-route]')
-    assert(ghost, '隐藏工作区深链当前位置不可用')
-    assert(ghost.textContent?.includes('模拟盘'), '隐藏工作区当前位置标签错误')
-    assert(ghost.getAttribute('aria-current') === 'location', '隐藏工作区当前位置缺少 aria-current=location')
-    const ghostIcon = ghost.querySelector<SVGElement>('svg')
-    assert(ghostIcon, '隐藏工作区当前位置缺少图标')
-    const iconColorProbe = document.createElement('span')
-    iconColorProbe.style.color = 'var(--nav-icon-ws-paper)'
-    document.body.appendChild(iconColorProbe)
     assert(
-      getComputedStyle(ghostIcon).color === getComputedStyle(iconColorProbe).color,
-      '隐藏工作区当前位置也必须使用对应模块的图标强调色',
+      !document.querySelector('[data-sidebar-hidden-route]'),
+      '顶部快捷视图不得临时插回侧栏并导致导航位移',
     )
-    iconColorProbe.remove()
 
     const trades = document.querySelector<HTMLElement>('a[data-primary-id="trades"]')
     assert(trades, '缺少交易日志主导航')
-    assert(trades.closest('.sb-sortable-row')?.classList.contains('is-page-active'), '隐藏工作区深链仍应标明所属的交易日志页面')
-    assert(trades.getAttribute('aria-current') === 'page', '隐藏工作区深链必须保留交易日志的页面身份')
+    const tradesRow = trades.closest('.sb-sortable-row')
+    assert(tradesRow?.classList.contains('is-page-active'), '交易日志同页快捷视图必须保留一级导航完整高亮')
+    assert(!tradesRow?.classList.contains('is-context-active'), '同页快捷视图不得错误降级为弱上下文态')
+    assert(trades.getAttribute('aria-current') === 'page', '交易日志同页快捷视图必须保留页面身份')
+    assert(trades.getAttribute('href') === '/list', '重复点击已选中的交易日志主导航必须返回默认首页')
   } finally {
     root.unmount()
     useStore.setState(previous, true)

@@ -164,7 +164,7 @@ export function DisplaySettingsPanel() {
 
         <ChoiceSection
           title="交易日开始于"
-          hint="凌晨开平仓仍算前一交易日。影响今日工作台、今日筛选与新建默认日期；仪表盘「本周」等仍按日历周。"
+          hint="凌晨开平仓仍算前一交易日。影响今日工作台、今日筛选与新建默认日期；统计分析「本周」等仍按日历周。"
           options={TRADING_DAY_OPTS}
           value={display.tradingDayStartHour}
           onChange={(value) => setDisplay({ tradingDayStartHour: value })}

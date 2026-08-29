@@ -1,13 +1,12 @@
 import type { Trade } from '@/data/trades'
 import {
+  countCurrentSidebarView,
+  countSidebarModuleRecords,
   countSidebarRoute,
   countSidebarTarget,
-  normalizeStrategySources,
-  parseStrategySourcesSearch,
+  normalizeSidebarWorkspaceItems,
   resolveSidebarSelection,
   resolveSidebarWorkspaceItem,
-  setStrategySourceEnabled,
-  writeStrategySourcesSearch,
 } from '@/lib/sidebarWorkspace'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 
@@ -94,33 +93,65 @@ export function testSidebarMissedAggregateCountsExecutionEventsOnly(): void {
   assert(count === 2, '错过计数必须保留 paper 与当前实盘，并排除案例重复计数')
 }
 
-export function testStrategySourcesDefaultToCurrentLiveAndCanCombine(): void {
-  assert(parseStrategySourcesSearch('').join() === 'trade', '缺省策略来源必须是当前实盘')
-  assert(writeStrategySourcesSearch(['trade']) === '', '仅当前实盘不得写入多余 query')
-  assert(
-    writeStrategySourcesSearch(['case', 'trade', 'paper']) === '?sources=trade,paper,case',
-    '策略来源必须按稳定顺序写入',
-  )
-  assert(normalizeStrategySources(['paper', 'paper', 'ghost']).join() === 'paper', '非法来源必须剔除')
-
-  const items = setStrategySourceEnabled(
-    [{
+export function testStrategyShortcutIsATradeLogFilter(): void {
+  const item = resolveSidebarWorkspaceItem(
+    {
       id: 'strategy:strategy-1',
-      target: { kind: 'strategy', strategyId: 'strategy-1' },
+      target: { kind: 'strategy', strategyId: 'strategy-1', workspaces: ['trade', 'paper', 'case'] },
       placement: 'pinned',
       order: 0,
-    }],
-    'strategy-1',
-    'case',
-    true,
+    },
+    { savedViews: [], strategies: [{ id: 'strategy-1', name: '导航1', icon: 'target', color: '#5e6ad2' }] },
+  )
+  assert(item.pathname === '/list', '策略快捷入口必须属于交易日志')
+  assert(item.search === '?strategyId=strategy-1', '策略快捷入口只能携带策略筛选')
+  const normalized = normalizeSidebarWorkspaceItems([item.item])
+  assert(
+    normalized[0]?.target.kind === 'strategy' && normalized[0].target.workspaces === undefined,
+    '旧版策略来源配置必须在归一化时移除',
+  )
+}
+
+export function testPrimarySidebarModuleCountsUseWholeLibrary(): void {
+  const context = {
+    trades: [
+      liveTrade('historical', 'stage-old'),
+      liveTrade('current', 'stage-current'),
+      { ...liveTrade('paper', 'stage-current'), tradeKind: 'paper' as const, liveStageId: undefined },
+      { ...liveTrade('case', 'stage-current'), tradeKind: 'case' as const },
+      { ...liveTrade('deleted', 'stage-current'), deletedAt: '2026-08-29T00:00:00.000Z' },
+    ],
+  }
+
+  assert(countSidebarModuleRecords('trade', context) === 2, '交易日志模块总量必须包含全部历史实盘并排除回收站')
+  assert(countSidebarModuleRecords('case', context) === 1, '案例库模块总量必须只包含未删除案例')
+}
+
+export function testPrimarySidebarCountUsesCurrentVisibleList(): void {
+  const context = {
+    filter: { type: 'all' as const, tradeKind: 'live' as const },
+    listPath: '/list',
+    listSearch: '?view=starred',
+    orderedIds: ['starred-1', 'starred-2', 'starred-3', 'starred-4'],
+  }
+
+  assert(
+    countCurrentSidebarView('trades', '/list', '?view=starred', context) === 4,
+    '交易日志徽标必须等于当前星标视图实际结果数',
   )
   assert(
-    items[0]?.target.kind === 'strategy' && items[0].target.workspaces?.join() === 'trade,case',
-    '勾选案例必须在保留当前实盘的同时写入策略来源',
+    countCurrentSidebarView('trades', '/list', '?view=missed', context) === undefined,
+    '列表上下文与当前查询不一致时不得显示旧结果数',
   )
-  const refused = setStrategySourceEnabled(items, 'strategy-1', 'trade', false)
-  const stillHasCase = setStrategySourceEnabled(refused, 'strategy-1', 'case', false)
-  assert(stillHasCase === refused, '最后一个来源不得被关掉')
+  assert(
+    countCurrentSidebarView('reviewCases', '/review-cases/focus', '', {
+      filter: { type: 'all', tradeKind: 'case', reviewCaseScope: 'focus' },
+      listPath: '/review-cases/focus',
+      listSearch: '',
+      orderedIds: ['case-1', 'case-2'],
+    }) === 2,
+    '案例库徽标必须等于当前案例分类实际结果数',
+  )
 }
 
 export function testSidebarSelectionSurvivesLegacyWorkspaceRedirects(): void {
@@ -139,10 +170,30 @@ export function testSidebarSelectionSurvivesLegacyWorkspaceRedirects(): void {
 
   for (const [pathname, search, expectedId] of redirectedLocations) {
     const selection = resolveSidebarSelection({ pathname, search, items })
-    assert(
-      selection.activeWorkspaceItemId === expectedId,
-      `${pathname}${search} 必须继续激活重定向前的工作区入口 ${expectedId}`,
-    )
+    if (expectedId === 'system:favorites' || expectedId === 'system:missed') {
+      assert(selection.activeWorkspaceItemId === undefined, '配置型快捷视图不得在侧栏制造第二个焦点态')
+      assert(selection.primaryContextOnly === false, '交易日志同页快捷视图必须保持一级导航完整高亮')
+    } else {
+      assert(
+        selection.activeWorkspaceItemId === expectedId,
+        `${pathname}${search} 必须继续激活重定向前的工作区入口 ${expectedId}`,
+      )
+      assert(selection.primaryContextOnly === true, '独立工作区入口激活时一级导航只能表达弱上下文')
+    }
+  }
+
+  const missedTopView = resolveSidebarSelection({ pathname: '/missed', search: '', items: [] })
+  assert(missedTopView.activePrimaryId === 'trades', '错过机会顶部视图仍应归属交易日志工作区')
+  assert(missedTopView.primaryContextOnly === false, '错过机会属于交易日志本页，一级导航必须保持完整高亮')
+
+  for (const [pathname, search] of [
+    ['/review-cases/focus', ''],
+    ['/review-cases', '?caseScope=focus'],
+    ['/review-cases/mistakes', '?reviewCategory=mistake'],
+  ] as const) {
+    const caseView = resolveSidebarSelection({ pathname, search, items: [] })
+    assert(caseView.activePrimaryId === 'reviewCases', `${pathname}${search} 必须归属案例库`)
+    assert(caseView.primaryContextOnly === false, `${pathname}${search} 必须保持案例库完整高亮`)
   }
 
   const today = resolveSidebarSelection({ pathname: '/list', search: '?view=incomplete', items })
@@ -165,7 +216,7 @@ export function testCaseSidebarCountIncludesHistoricalCases(): void {
   assert(countSidebarRoute('/review-cases/exemplar', '', context) === 0, '未标记优秀范例时交易案例计数应为 0')
 }
 
-export function testStrategySidebarCountUsesCombinedSources(): void {
+export function testStrategySidebarCountUsesCurrentLiveTrades(): void {
   const context = {
     trades: [
       liveTrade('current-live', 'stage-current'),
@@ -176,11 +227,37 @@ export function testStrategySidebarCountUsesCombinedSources(): void {
     starredIds: [],
     display: { ...DEFAULT_DISPLAY, hideClosed: false },
     currentLiveStageId: 'stage-current',
+    liveStages: [
+      {
+        id: 'stage-old',
+        sequence: 1,
+        name: '实盘阶段 1',
+        status: 'archived' as const,
+        startsOn: '2026-01-01',
+        endsOn: '2026-01-31',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        archivedAt: '2026-02-01T00:00:00.000Z',
+      },
+      {
+        id: 'stage-current',
+        sequence: 2,
+        name: '实盘阶段 2',
+        status: 'current' as const,
+        startsOn: '2026-02-01',
+        endsOn: null,
+        createdAt: '2026-02-01T00:00:00.000Z',
+        archivedAt: null,
+      },
+    ],
   }
 
-  const liveOnly = countSidebarRoute('/strategy/strategy', '', context)
-  const combined = countSidebarRoute('/strategy/strategy', '?sources=trade,paper,case', context)
+  const count = countSidebarRoute('/list', '?strategyId=strategy', context)
+  const allLiveCount = countSidebarRoute('/list', '?strategyId=strategy&liveStage=all', context)
+  const historicalCount = countSidebarRoute('/list', '?strategyId=strategy&liveStage=all-history', context)
+  const legacyCount = countSidebarRoute('/strategy/strategy', '?sources=trade,paper,case', context)
 
-  assert(liveOnly === 1, '默认策略计数只能统计当前阶段实盘')
-  assert(combined === 3, '合并来源必须加上模拟盘与历史案例，且不含历史实盘')
+  assert(count === 1, '策略计数只能统计当前阶段的对应实盘交易')
+  assert(allLiveCount === 2, '全部实盘策略计数必须包含当前及已归档阶段的实盘交易')
+  assert(historicalCount === 1, '历史实盘策略计数必须排除当前阶段')
+  assert(legacyCount === 1, '旧版跨来源参数必须被忽略，不能重新混入模拟盘与案例')
 }

@@ -68,11 +68,21 @@ async function run(): Promise<void> {
       currentLiveStageId: 'stage-current',
       display: {
         ...previous.display,
+        sidebarWorkspaceItems: [{
+          id: 'system:paper',
+          target: { kind: 'system', id: 'paper' },
+          placement: 'pinned',
+          order: 0,
+        }],
         workspaceMemory: {
           ...previous.display.workspaceMemory,
           trade: {
             pathname: '/list',
             search: '?liveStage=stage-old&status=loss',
+          },
+          case: {
+            pathname: '/review-cases',
+            search: '',
           },
         },
       },
@@ -97,6 +107,26 @@ async function run(): Promise<void> {
     )
 
     await waitFor(() => document.body.textContent?.includes('第二阶段') ?? false, '历史阶段没有进入公共上下文')
+    const paperWorkspace = document.querySelector<HTMLAnchorElement>('[data-sidebar-workspace-id="system:paper"] > a')
+    assert(
+      paperWorkspace?.getAttribute('href') === '/sim?liveStage=stage-old',
+      '侧栏模拟盘入口必须继承当前阶段范围',
+    )
+    const kindButtons = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="记录类型"] button')]
+    const paperButton = kindButtons.find((button) => button.textContent?.trim() === '模拟')
+    const liveButton = kindButtons.find((button) => button.textContent?.trim() === '实盘')
+    paperButton?.click()
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent ===
+        '/list?liveStage=stage-old&status=loss&kind=paper',
+      '切换模拟盘必须保留已选择的阶段范围',
+    )
+    liveButton?.click()
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent ===
+        '/list?liveStage=stage-old&status=loss',
+      '从模拟盘切回实盘必须恢复同一个阶段范围',
+    )
     const stats = document.querySelector<HTMLAnchorElement>('a[data-primary-id="dashboard"]')
     assert(stats?.getAttribute('href') === '/dashboard?liveStage=stage-old', '统计入口必须只继承公共上下文')
     stats.click()
@@ -106,13 +136,33 @@ async function run(): Promise<void> {
     )
     assert(stats.getAttribute('aria-current') === 'page', '统计分析必须成为唯一一级选中项')
 
+    const stageSelect = document.querySelector<HTMLButtonElement>('[aria-label^="选择交易阶段"]')
+    stageSelect?.click()
+    await waitFor(() => Boolean(document.querySelector('[role="option"][data-value="all"]')), '阶段菜单没有打开')
+    document.querySelector<HTMLButtonElement>('[role="option"][data-value="all"]')?.click()
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?liveStage=all',
+      '统计分析选择全部阶段后必须更新公共范围',
+    )
+    assert(
+      useStore.getState().display.workspaceMemory?.trade?.search === '?status=loss&liveStage=all',
+      '统计分析修改阶段后必须写回交易工作区记忆',
+    )
+
     const review = document.querySelector<HTMLAnchorElement>('a[data-primary-id="weeklyReview"]')
     review?.click()
     await waitFor(
-      () => document.querySelector('[data-workspace-page="review"]') !== null,
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/weekly-review?liveStage=all',
       '周期复盘必须一步到达并保留阶段上下文',
     )
     assert(!document.querySelector('[data-workspace-page="review"] [aria-label="记录类型"]'), '周期复盘不得展示无效盘型筛选')
+
+    const cases = document.querySelector<HTMLAnchorElement>('a[data-primary-id="reviewCases"]')
+    cases?.click()
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/review-cases',
+      '案例库必须一步到达',
+    )
 
     useShortcutStore.setState({
       listContext: {
@@ -122,22 +172,29 @@ async function run(): Promise<void> {
         filter: { type: 'all', tradeKind: 'case' },
       },
     })
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', bubbles: true }))
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent ===
+        '/dashboard?liveStage=all',
+      '从案例库按统计分析快捷键时必须恢复共享阶段记忆',
+    )
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }))
     await waitFor(
       () => document.querySelector('[data-testid="location"]')?.textContent ===
-        '/list?liveStage=stage-old&status=loss',
-      '从案例页按 A 返回交易日志时必须恢复阶段和筛选条件',
+        '/list?liveStage=all',
+      '从统计分析按 A 返回交易日志时必须保留阶段并清除临时筛选',
     )
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', bubbles: true }))
     await waitFor(
-      () => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard',
-      'D 必须进入统计分析',
+      () => document.querySelector('[data-testid="location"]')?.textContent ===
+        '/dashboard?liveStage=all',
+      '统计分析快捷键必须继承交易日志的阶段记忆',
     )
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }))
     await waitFor(
       () => document.querySelector('[data-testid="location"]')?.textContent ===
-        '/list?liveStage=stage-old&status=loss',
-      '重复使用 A / D 后仍必须恢复完整筛选条件',
+        '/list?liveStage=all',
+      '重复使用 A / D 后仍必须恢复阶段范围且不恢复临时筛选',
     )
   } finally {
     root.unmount()

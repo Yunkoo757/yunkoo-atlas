@@ -52,8 +52,6 @@ const TRADE_MORE_GROUPS: ViewGroup[] = [
     label: '状态',
     items: [
       { id: 'active', label: '进行中', pathname: '/active' },
-      { id: 'missed', label: '错过机会', pathname: '/missed' },
-      { id: 'starred', label: '星标交易', pathname: '/favorites' },
     ],
   },
   {

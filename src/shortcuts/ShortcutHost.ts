@@ -24,6 +24,7 @@ import { getActionMeta } from '@/shortcuts/actions'
 import { requestLightboxClose, requestLightboxReset } from '@/lib/lightboxView'
 import { createQuickNote } from '@/data/quickNotes'
 import { newTradeKindForPath } from '@/lib/tradeKind'
+import { resolveSharedTradeWorkspaceSearch } from '@/lib/tradeWorkspaceQuery'
 
 export function useShortcutHost({
   onToggleCmdk,
@@ -48,6 +49,18 @@ export function useShortcutHost({
   const setCmdkOpen = useShortcutStore((s) => s.setCmdkOpen)
 
   useEffect(() => {
+    const rememberedTradeSearch = useStore.getState().display.workspaceMemory?.trade?.search ?? ''
+    const sharedTradeSearch = resolveSharedTradeWorkspaceSearch(
+      pathname,
+      search,
+      rememberedTradeSearch,
+    )
+    const sharedTradeParams = () => new URLSearchParams(sharedTradeSearch)
+    const sharedTradeViewHref = (view: 'active' | 'starred' | 'missed') => {
+      const params = sharedTradeParams()
+      params.set('view', view)
+      return `/list?${params.toString()}`
+    }
     setShortcutHandlers({
       'global.commandPalette': onToggleCmdk,
       'global.commandPaletteMod': onToggleCmdk,
@@ -91,10 +104,14 @@ export function useShortcutHost({
 
       'nav.today': () => navigate('/today-record'),
       'nav.quickNotes': () => navigate('/notes'),
-      'nav.active': () => navigate('/active'),
-      'nav.favorites': () => navigate('/favorites'),
-      'nav.missed': () => navigate('/missed'),
-      'nav.sim': () => navigate('/sim'),
+      'nav.active': () => navigate(sharedTradeViewHref('active')),
+      'nav.favorites': () => navigate(sharedTradeViewHref('starred')),
+      'nav.missed': () => navigate(sharedTradeViewHref('missed')),
+      'nav.sim': () => {
+        const params = sharedTradeParams()
+        params.set('kind', 'paper')
+        navigate(`/list?${params.toString()}`)
+      },
       'nav.list': () => {
         const state = useStore.getState()
         const listContext = useShortcutStore.getState().listContext
@@ -105,18 +122,23 @@ export function useShortcutHost({
           listContext
             ? { pathname: listContext.listPath, search: listContext.listSearch }
             : null,
+          { pathname, search },
         ))
       },
       'nav.reviewCases': () => {
         const state = useStore.getState()
         navigate(resolveShortcutWorkspaceHref('case', state.display, state.strategies))
       },
-      'nav.weeklyReview': () => navigate('/weekly-review'),
+      'nav.weeklyReview': () => {
+        navigate(`/weekly-review${sharedTradeSearch}`)
+      },
       'nav.reviewSession': () => navigate('/review-session'),
       'nav.board': () => {
         navigate('/board')
       },
-      'nav.dashboard': () => navigate('/dashboard'),
+      'nav.dashboard': () => {
+        navigate(`/dashboard${sharedTradeSearch}`)
+      },
       'nav.strategies': () => navigate('/settings/strategies'),
 
       'view.list': () => {

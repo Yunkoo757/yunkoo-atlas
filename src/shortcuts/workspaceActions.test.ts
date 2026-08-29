@@ -30,9 +30,8 @@ const display: DisplayPrefs = {
 
 export function testTradeAndCaseShortcutsRememberTheirWorkspace(): void {
   assert(
-    resolveShortcutWorkspaceHref('trade', display, []) ===
-      '/period/this-week?symbol=BTCUSDT',
-    '交易快捷键应恢复交易工作区上次使用的位置与筛选',
+    resolveShortcutWorkspaceHref('trade', display, []) === '/list',
+    '交易快捷键应返回模块首页，且不恢复周期与品种等临时视图',
   )
   assert(
     resolveShortcutWorkspaceHref('case', display, []) ===
@@ -51,8 +50,51 @@ export function testTradeShortcutPrefersTheLatestSessionContext(): void {
         pathname: '/list',
         search: '?liveStage=all-history&kind=all&status=loss&symbol=XAUUSD',
       },
-    ) === '/list?liveStage=all-history&kind=all&status=loss&symbol=XAUUSD',
-    '交易快捷键必须优先恢复当前会话最新的完整筛选上下文',
+    ) === '/list?liveStage=all',
+    '交易快捷键必须优先恢复当前会话最新阶段，但清除记录类型和临时筛选',
+  )
+}
+
+export function testRepeatedTradeShortcutReturnsToTradeHome(): void {
+  assert(
+    resolveShortcutWorkspaceHref(
+      'trade',
+      display,
+      [],
+      { pathname: '/list', search: '?strategyId=navigation-2&liveStage=all' },
+      { pathname: '/list', search: '?strategyId=navigation-2&liveStage=all' },
+    ) === '/list?liveStage=all',
+    '交易日志内部重复触发快捷键时必须清空策略但保留阶段范围',
+  )
+  assert(
+    resolveShortcutWorkspaceHref(
+      'trade',
+      display,
+      [],
+      { pathname: '/list', search: '?kind=paper&status=open' },
+      { pathname: '/list', search: '?kind=paper&status=open' },
+    ) === '/list',
+    '模拟盘内按 A 必须返回交易日志实盘首页，不能继续保留模拟类型',
+  )
+  assert(
+    resolveShortcutWorkspaceHref(
+      'trade',
+      display,
+      [],
+      { pathname: '/period/this-week', search: '?status=loss' },
+      { pathname: '/period/this-week', search: '?status=loss' },
+    ) === '/list',
+    '交易日志周期子视图重复触发快捷键时也必须回到默认首页',
+  )
+  assert(
+    resolveShortcutWorkspaceHref(
+      'trade',
+      display,
+      [],
+      { pathname: '/list', search: '?strategyId=navigation-2' },
+      { pathname: '/review-cases', search: '' },
+    ) === '/list',
+    '从其他模块进入交易日志时只恢复长期范围，不恢复策略临时视图',
   )
 }
 
@@ -66,7 +108,7 @@ export function testCaseListContextCannotOverwriteTradeShortcutMemory(): void {
         pathname: '/review-cases/mistakes',
         search: '?tag=执行',
       },
-    ) === '/period/this-week?symbol=BTCUSDT',
+    ) === '/list',
     '案例页的列表上下文不得覆盖交易日志工作区记忆',
   )
 }
@@ -75,9 +117,9 @@ export function testTradeAndCaseShortcutsHaveSeparateConfigurableBindings(): voi
   const trade = getActionMeta('nav.list')
   const reviewCases = getActionMeta('nav.reviewCases')
   assert(trade?.label === '交易日志', '交易工作区动作应使用稳定名称')
-  assert(reviewCases?.label === '案例记录', '案例工作区应有独立动作')
+  assert(reviewCases?.label === '案例库', '案例工作区应与主导航使用同一名称')
   assert(bindingKey(trade!.defaultBinding) === 'alt+w', '交易日志默认快捷键应为 Alt+W')
-  assert(bindingKey(reviewCases!.defaultBinding) === 'alt+c', '案例记录默认快捷键应为 Alt+C')
+  assert(bindingKey(reviewCases!.defaultBinding) === 'alt+c', '案例库默认快捷键应为 Alt+C')
   assert(!getActionMeta('global.switchModule'), '不应继续暴露结果不稳定的模块切换动作')
 }
 
@@ -137,6 +179,8 @@ export function testOmittedPrimaryNavigationActionsAreConfigurable(): void {
     assert(Boolean(action), `${id} 应出现在快捷键设置中`)
     assert(bindingKey(action!.defaultBinding) === binding, `${id} 应使用默认快捷键 ${binding}`)
   }
+  assert(getActionMeta('nav.dashboard')?.label === '统计分析', '快捷键设置必须使用“统计分析”')
+  assert(getActionMeta('nav.weeklyReview')?.label === '周期复盘', '快捷键设置必须使用“周期复盘”')
 }
 
 export function testQuickNotesHaveIndependentNavigationAndCreateShortcuts(): void {

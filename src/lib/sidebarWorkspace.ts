@@ -18,6 +18,10 @@ import { buildMissedOpportunitySummary } from '@/lib/missedOpportunities'
 import { MISSED_OPPORTUNITY_SOURCES, type MissedOpportunitySource } from '@/lib/missedOpportunities'
 import { countWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
 import { filterStageOwnedRecords, type StageScope } from '@/lib/stageArchive'
+import { resolveStageScope } from '@/lib/stageArchive'
+import type { LiveStage } from '@/lib/liveStages'
+import { listPathFromPathname } from '@/lib/routeContext'
+import type { ListNavigationContext } from '@/shortcuts/types'
 
 /** 可跨工作区配置可见范围的侧栏能力 */
 export type SidebarCapabilityId = 'missed' | 'active'
@@ -75,15 +79,15 @@ const CAPABILITY_ROUTES: Record<
   `${SidebarQuickWorkspace}:${SidebarCapabilityId}`,
   { pathname: string; search: string; icon: ResolvedSidebarWorkspaceItem['icon'] } | null
 > = {
-  'trade:missed': { pathname: '/missed', search: '', icon: 'missed' },
+  'trade:missed': { pathname: '/list', search: '?view=missed', icon: 'missed' },
   'trade:active': { pathname: '/active', search: '', icon: 'active' },
-  'paper:missed': { pathname: '/sim', search: '?filter=missed', icon: 'missed' },
+  'paper:missed': { pathname: '/list', search: '?kind=paper&view=missed', icon: 'missed' },
   'paper:active': { pathname: '/sim', search: '?filter=active', icon: 'active' },
-  'case:missed': { pathname: '/review-cases', search: '?caseType=missed', icon: 'missed' },
+  'case:missed': null,
   'case:active': null,
 }
 
-const MISSED_AGGREGATE_ROUTE = { pathname: '/missed', search: '', icon: 'missed' } as const
+const MISSED_AGGREGATE_ROUTE = { pathname: '/list', search: '?view=missed', icon: 'missed' } as const
 
 export type SidebarCountContext = {
   trades: Trade[]
@@ -91,6 +95,7 @@ export type SidebarCountContext = {
   display: DisplayPrefs
   businessDateAnchor?: BusinessDateAnchor
   currentLiveStageId?: string
+  liveStages?: LiveStage[]
 }
 
 export const MAX_PINNED_SIDEBAR_ITEMS = 8
@@ -107,6 +112,36 @@ const CASE_SCOPES: readonly Exclude<ReviewCaseScope, 'all'>[] = [
 
 export function isSidebarCapabilityId(id: string): id is SidebarCapabilityId {
   return id === 'missed' || id === 'active'
+}
+
+/** 一级模块徽标使用全库稳定总量，不继承顶部子视图、筛选条件或实盘阶段。 */
+export function countSidebarModuleRecords(
+  kind: 'trade' | 'case',
+  context: Pick<SidebarCountContext, 'trades'>,
+): number {
+  return context.trades.filter((trade) => (
+    !trade.deletedAt && trade.tradeKind === (kind === 'trade' ? 'live' : 'case')
+  )).length
+}
+
+/** 当前列表上下文与路由、模块完全一致时，返回用户此刻实际看到的结果数。 */
+export function countCurrentSidebarView(
+  primaryId: PrimarySidebarNavId,
+  pathname: string,
+  search: string,
+  context: ListNavigationContext | null,
+): number | undefined {
+  if (!context || context.listPath !== listPathFromPathname(pathname) || context.listSearch !== search) {
+    return undefined
+  }
+  if (primaryId === 'trades' && context.filter.tradeKind === 'live') return context.orderedIds.length
+  if (primaryId === 'reviewCases' && context.filter.tradeKind === 'case') return context.orderedIds.length
+  return undefined
+}
+
+/** 星标与错过已由交易日志顶部快捷视图承载；旧项仅保留兼容数据，不参与侧栏导航。 */
+export function isSidebarNavigationTarget(target: SidebarTarget): boolean {
+  return !(target.kind === 'system' && (target.id === 'favorites' || target.id === 'missed'))
 }
 
 export function sidebarTargetKey(target: SidebarTarget): string {
@@ -337,7 +372,6 @@ function normalizeTarget(value: unknown): SidebarTarget | null {
     return {
       kind: 'strategy',
       strategyId: target.strategyId,
-      workspaces: normalizeStrategySources((target as { workspaces?: unknown }).workspaces),
     }
   }
   if (
@@ -426,7 +460,7 @@ export function normalizeSidebarWorkspaceItems(value: unknown): SidebarWorkspace
   let pinnedCount = 0
   return merged.map(({ item }, order) => {
     const key = sidebarTargetKey(item.target)
-    let placement = item.placement
+    let placement = isSidebarNavigationTarget(item.target) ? item.placement : 'overflow'
     if (placement === 'pinned') {
       if (pinnedCount >= MAX_PINNED_SIDEBAR_ITEMS) placement = 'overflow'
       else pinnedCount += 1
@@ -542,12 +576,13 @@ export function resolveSidebarWorkspaceItem(
   }
   if (target.kind === 'strategy') {
     const strategy = sources.strategies.find((candidate) => candidate.id === target.strategyId)
+    const params = new URLSearchParams({ strategyId: target.strategyId })
     return {
       item,
       key,
       label: strategy?.name ?? '已删除的策略',
-      pathname: `/strategy/${encodeURIComponent(target.strategyId)}`,
-      search: writeStrategySourcesSearch(strategySources(target)),
+      pathname: '/list',
+      search: `?${params.toString()}`,
       icon: 'strategy',
       invalid: !strategy,
     }
@@ -678,11 +713,14 @@ export function resolveSidebarSelection(options: {
 }): {
   activeWorkspaceItemId?: string
   activePrimaryId?: PrimarySidebarNavId
+  primaryContextOnly?: boolean
   modifiedWorkspaceItemId?: string
 } {
   const pathname = normalizeTargetPath(options.pathname)
   const currentLocation = canonicalSelectionLocation(pathname, options.search)
-  const validItems = options.items.filter((item) => !item.invalid && !item.inactive)
+  const validItems = options.items.filter((item) => (
+    !item.invalid && !item.inactive && isSidebarNavigationTarget(item.item.target)
+  ))
 
   const exact = validItems
     .filter((item) => {
@@ -696,7 +734,8 @@ export function resolveSidebarSelection(options: {
     })
     .sort((left, right) => Number(right.item.target.kind === 'saved-view') - Number(left.item.target.kind === 'saved-view'))[0]
   const activePrimaryId = primaryIdForLocation(pathname, options.search)
-  if (exact) return { activeWorkspaceItemId: exact.item.id, activePrimaryId }
+  const primaryContextOnly = isPrimaryContextLocation(activePrimaryId, pathname, options.search)
+  if (exact) return { activeWorkspaceItemId: exact.item.id, activePrimaryId, primaryContextOnly: true }
 
   const modified = validItems
     .filter((item) => {
@@ -721,17 +760,35 @@ export function resolveSidebarSelection(options: {
     return {
       activeWorkspaceItemId: modified.item.id,
       activePrimaryId,
+      primaryContextOnly: true,
       modifiedWorkspaceItemId: modified.item.id,
     }
   }
-  return { activePrimaryId }
+  return { activePrimaryId, primaryContextOnly }
+}
+
+function isPrimaryContextLocation(
+  primaryId: PrimarySidebarNavId | undefined,
+  pathname: string,
+  search: string,
+): boolean {
+  const location = canonicalSelectionLocation(pathname, search)
+  if (primaryId === 'trades') {
+    // /list 上的筛选与快捷视图都属于交易日志本页；顶部负责子视图，侧栏仍完整标明当前模块。
+    return location.pathname !== '/list'
+  }
+  if (primaryId === 'reviewCases') {
+    // 案例分类与快捷视图仍属于案例库本页；顶部负责子视图，侧栏持续完整标明当前模块。
+    return !location.pathname.startsWith('/review-cases')
+  }
+  return false
 }
 
 function listTargetForPath(pathname: string, search = ''): ListFilter | undefined {
   const path = normalizeTargetPath(pathname)
   if (path === '/list') return { type: 'all', tradeKind: 'live' }
   if (path === '/active') return { type: 'active', tradeKind: 'live' }
-  if (path === '/favorites') return { type: 'starred', strategySources: ['trade', 'paper'] }
+  if (path === '/favorites') return { type: 'starred', tradeKind: 'live' }
   if (path === '/sim') return { type: 'all', tradeKind: 'paper' }
   if (path === '/today-record') return { type: 'period', period: 'today', tradeKind: 'live' }
   if (path === '/review-cases') {
@@ -749,15 +806,12 @@ function listTargetForPath(pathname: string, search = ''): ListFilter | undefine
   }
   if (path.startsWith('/strategy/')) {
     const parsedScope = parseAnalysisScope(search)
-    const sources = parseStrategySourcesSearch(search)
     return {
       type: 'strategy',
       strategyId: decodeURIComponent(path.slice('/strategy/'.length)),
       ...(parsedScope.explicit
         ? { analysisScope: parsedScope.scope }
-        : hasCombinedStrategySources(sources)
-          ? { strategySources: sources }
-          : { tradeKind: 'live' as const, strategySources: sources }),
+        : { tradeKind: 'live' as const }),
     }
   }
   if (path.startsWith('/period/')) {
@@ -808,18 +862,15 @@ export function countSidebarRoute(
   }
   const filter = listTargetForPath(pathname, search)
   if (!filter) return undefined
-  const combinedStrategy = filter.type === 'strategy' && hasCombinedStrategySources(filter.strategySources ?? ['trade'])
-  const nextFilter = combinedStrategy && context.currentLiveStageId
-    ? { ...filter, liveStageId: context.currentLiveStageId }
-    : filter
-  const stageScope: StageScope | undefined = combinedStrategy
-    ? undefined
-    : context.currentLiveStageId && filter.tradeKind !== 'paper' && filter.tradeKind !== 'case'
-      ? { kind: 'current', stageId: context.currentLiveStageId }
-      : undefined
+  const requestedStage = new URLSearchParams(search).get('liveStage')
+  const stageScope: StageScope | undefined = context.currentLiveStageId
+    && filter.tradeKind !== 'paper'
+    && filter.tradeKind !== 'case'
+    ? resolveStageScope(requestedStage, context.liveStages ?? [], context.currentLiveStageId)
+    : undefined
   return countWorkbenchVisibleTrades({
     ...context,
-    filter: nextFilter,
+    filter,
     search,
     stageScope,
   })

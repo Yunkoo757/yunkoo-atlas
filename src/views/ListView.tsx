@@ -9,7 +9,6 @@ import { TradeList, type TradeListGroup } from '@/components/trades/TradeList'
 import { WorkbenchEmptyState } from '@/components/trades/WorkbenchEmptyState'
 import type { Trade } from '@/data/trades'
 import type { ListFilter } from '@/lib/tradeFilters'
-import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { getStrategyName } from '@/lib/strategies'
 import { getBatchCopyActionLabel } from '@/lib/tradeActionContract'
 import { buildSafeTradeCopies } from '@/lib/tradeCopy'
@@ -327,7 +326,7 @@ export function ListView({
 
   return (
     <>
-      <Topbar title={title} subtitle={getTradesPageSubtitle(filter, businessDateAnchor)} view={view} onView={onView} />
+      <Topbar title={title} view={view} onView={onView} />
       {showPendingLink ? (
         <div className="list-pending-entry">
           <Link
