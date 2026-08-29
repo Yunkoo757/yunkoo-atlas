@@ -185,7 +185,7 @@ async function run(): Promise<void> {
     findButton('应用设置')?.click()
     await waitFor(() => document.body.textContent?.includes('可随机复盘 5 条') === true, '自选阶段不得把案例从候选池拿掉')
 
-    findButton('开启一轮新的复盘')?.click()
+    findButton('开始复盘')?.click()
     await waitFor(() => document.body.textContent?.includes('CAS-HISTORY') === true, '固定随机源没有先展示历史案例')
     assert(document.body.textContent?.includes('来源 · 突破训练'), '历史案例没有显示归档阶段来源标签')
     assert(loadReviewSession(manifest.libraryId)?.filters.stageSource instanceof Object, '自选阶段来源没有保存到活动轮次')

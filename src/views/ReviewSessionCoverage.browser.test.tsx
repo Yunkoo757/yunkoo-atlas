@@ -231,7 +231,7 @@ async function run(): Promise<void> {
       () => document.body.textContent?.includes('可随机复盘 1 条') === true,
       '应用设置后开始页预览数量没有与设置一致',
     )
-    findButton('开启一轮新的复盘')?.click()
+    findButton('开始复盘')?.click()
     await waitFor(
       () => Boolean(document.querySelector('.review-session-workspace')),
       '开始后没有进入复盘工作区',

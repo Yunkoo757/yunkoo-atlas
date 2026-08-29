@@ -176,7 +176,7 @@ async function run(): Promise<void> {
     )
     assert(!document.querySelector('.review-session-source-grid'), '开始页不得直接暴露来源表单')
     assert(!document.querySelector('.review-session-options'), '开始页不得直接暴露高级选项')
-    assert(findButton('开启一轮新的复盘'), '开始页缺少单一主操作')
+    assert(findButton('开始复盘'), '开始页缺少单一主操作')
     const presetLabels = [...document.querySelectorAll('.review-session-preset-list button')].map((button) => button.textContent ?? '')
     assert(presetLabels.some((label) => label.includes('只看案例')), '开始页必须提供只看案例复盘池')
     assert(presetLabels.length === 6, '开始页必须提供六个系统复盘池')
@@ -243,7 +243,7 @@ async function run(): Promise<void> {
     findButton('应用设置')?.click()
     await waitFor(() => document.body.textContent?.includes('可随机复盘 1 条') === true, '关闭实盘与模拟盘后预览没有恢复案例数量')
 
-    findButton('开启一轮新的复盘')?.click()
+    findButton('开始复盘')?.click()
     await waitFor(
       () => Boolean(document.querySelector('.review-session-workspace')),
       '开始后没有直接打开完整交易',
@@ -456,7 +456,7 @@ async function run(): Promise<void> {
     resetSourceInputs[1]?.click()
     resetContentOnlyInput.click()
     findButton('取消')?.click()
-    await waitFor(() => Boolean(findButton('开启一轮新的复盘')), '取消重新设置后没有返回开始页')
+    await waitFor(() => Boolean(findButton('开始复盘')), '取消重新设置后没有返回开始页')
     assert(document.body.textContent?.includes('可随机复盘 1 条') === true, '取消重新设置不得提交草稿')
 
     findButton('更多')?.click()
@@ -473,7 +473,7 @@ async function run(): Promise<void> {
     cancelledSourceInputs[1]?.click()
     findButton('应用设置')?.click()
     await waitFor(() => document.body.textContent?.includes('可随机复盘 1 条') === true, '仅实盘交易范围数量不准确')
-    findButton('开启一轮新的复盘')?.click()
+    findButton('开始复盘')?.click()
     await waitFor(() => document.body.textContent?.includes(accountTrade.ref) === true, '账户交易没有进入随机复盘')
     assert(!findButton('还没掌握') && !findButton('基本理解') && !findButton('已经掌握'),
       '账户交易不得渲染案例掌握度按钮')

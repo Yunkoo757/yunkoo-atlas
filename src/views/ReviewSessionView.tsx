@@ -849,11 +849,9 @@ function ReviewSessionStart({
     <section className="review-session-start" data-review-session-start-focus tabIndex={-1}>
       <div className="review-session-intro">
         <h1>随机复盘</h1>
-        <p>从过往交易与案例中随机抽取，本轮不重复。</p>
       </div>
 
-      <fieldset className="review-session-presets">
-        <legend>选择复盘池</legend>
+      <fieldset className="review-session-presets" aria-label="复盘池">
         <div className="review-session-preset-list">
           {homePools.map((preset) => (
             <button
@@ -863,7 +861,6 @@ function ReviewSessionStart({
               onClick={() => onStartPool(preset.ref)}
             >
               <strong>{preset.label} · {preset.count}</strong>
-              <small>{preset.hint}</small>
             </button>
           ))}
         </div>
@@ -872,13 +869,12 @@ function ReviewSessionStart({
       <div className="review-session-start-footer">
         <div>
           <strong>{poolSize > 0 ? `可随机复盘 ${poolSize} 条` : emptyMessage}</strong>
-          <span>{poolSize > 0 ? '也可以沿用高级设置开始，本轮随机排序且不重复。' : emptyHint}</span>
-          <span className="review-session-stage-source-summary">阶段来源：{reviewStageSourceLabel(filters.stageSource)}</span>
+          <span>{poolSize > 0 ? reviewStageSourceLabel(filters.stageSource) : emptyHint}</span>
         </div>
         <div className="review-session-start-actions">
           {poolSize > 0 ? (
             <Button type="button" variant="primary" size="lg" onClick={onStart}>
-              开启一轮新的复盘
+              开始复盘
               <ChevronRight size={ICON_MD} aria-hidden />
             </Button>
           ) : globalCandidateCount > 0 ? (

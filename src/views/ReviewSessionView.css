@@ -77,7 +77,7 @@
 }
 
 .review-session-start {
-  width: min(680px, calc(100% - 40px));
+  width: min(620px, calc(100% - 40px));
   margin: auto;
   padding: 48px 0;
   overflow-y: auto;
@@ -85,7 +85,7 @@
 
 .review-session-intro {
   max-width: 640px;
-  margin-bottom: var(--sp-5);
+  margin-bottom: var(--sp-3);
 }
 
 .review-session-intro h1,
@@ -98,17 +98,9 @@
 }
 
 .review-session-presets {
-  margin: 0 0 var(--sp-5);
+  margin: 0 0 var(--sp-3);
   padding: 0;
   border: 0;
-}
-
-.review-session-presets legend {
-  margin-bottom: var(--sp-2);
-  color: var(--text-secondary);
-  font-size: var(--type-section-title-size);
-  font-weight: var(--type-section-title-weight);
-  line-height: var(--type-row-line-height);
 }
 
 .review-session-preset-list {
@@ -120,10 +112,9 @@
 .review-session-preset-list button {
   display: flex;
   min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sp-1);
-  padding: var(--sp-3);
+  min-height: var(--control-height-lg);
+  align-items: center;
+  padding: 0 var(--sp-3);
   border: 1px solid transparent;
   border-radius: var(--radius-8);
   background: var(--bg-elevated);
@@ -143,20 +134,11 @@
   opacity: 0.52;
 }
 
-.review-session-preset-list button:disabled small {
-  color: var(--text-disabled);
-}
-
 .review-session-preset-list strong {
   font-size: var(--type-row-size);
   font-weight: var(--font-weight-semibold);
   line-height: var(--type-row-line-height);
-}
-
-.review-session-preset-list small {
-  color: var(--text-tertiary);
-  font-size: var(--type-metadata-size);
-  line-height: var(--type-metadata-line-height);
+  font-variant-numeric: var(--numeric-tabular);
 }
 
 .review-pool-manager-section + .review-pool-manager-section {
@@ -563,11 +545,6 @@
 
 .review-session-start-footer strong { font-size: var(--type-row-size); }
 .review-session-start-footer span { color: var(--text-tertiary); font-size: var(--type-metadata-size); }
-
-.review-session-start-footer .review-session-stage-source-summary {
-  margin-top: var(--sp-1);
-  color: var(--text-secondary);
-}
 
 .review-session-start-actions {
   display: flex;
