@@ -370,10 +370,7 @@ export function DataIOContent({
           ) : (
             <p className="dio-desc">正在读取资料库路径…</p>
           )}
-          <p className="dio-desc">
-            数据保存在本机磁盘的 journal.db、manifest.json 与 attachments/ 文件夹中。
-            更换电脑时，请先导出完整备份，再在另一台设备导入。
-          </p>
+          <p className="dio-desc">更换电脑前请先导出完整备份。</p>
           <div className="dio-lib-actions">
             <button
               type="button"
@@ -397,22 +394,14 @@ export function DataIOContent({
         </section>
       )}
 
-      <section className="dio-group" aria-labelledby="dio-boundary-title">
-        <div className="dio-group-head">
-          <h2 id="dio-boundary-title" className="dio-group-title">保存边界</h2>
-          <p className="dio-group-desc">区分自动保存、备份和仅保留在此电脑的配置。</p>
-        </div>
+      <details className="dio-disclosure">
+        <summary>保存说明</summary>
         <div className="dio-task-list">
           <div className="dio-task">
             <Database size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">自动保存到当前资料库</div>
-              <div className="dio-task-meta">
-                交易与案例、策略、标签、快捷键、显示偏好、个人资料和保存视图；
-                {electron
-                  ? '笔记原图保存在资料库的 attachments/ 文件夹。'
-                  : '笔记原图保存在浏览器 IndexedDB 的同一资料库中。'}
-              </div>
+              <div className="dio-task-meta">交易、案例、策略、设置与笔记图片</div>
             </div>
           </div>
           {electron && (
@@ -420,9 +409,7 @@ export function DataIOContent({
               <Shield size={ICON_LG} className="dio-task-icon" />
               <div className="dio-task-copy">
                 <div className="dio-task-title">自动备份</div>
-                <div className="dio-task-meta">
-                  每 15 分钟及退出前保存数据文件、资料库清单和原始附件；相同附件只保留一份。
-                </div>
+                <div className="dio-task-meta">每 15 分钟及退出前保存</div>
               </div>
             </div>
           )}
@@ -430,29 +417,24 @@ export function DataIOContent({
             <LockKeyhole size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">{electron ? '仅保留在这台电脑' : '仅保留在当前浏览器'}</div>
-              <div className="dio-task-meta">
-                {electron
-                  ? 'GitHub 更新令牌、窗口位置、当前资料库路径与随机复盘轮次不会写入资料库或导出文件。'
-                  : '随机复盘的当前轮次只保留在此标签页，不会写入资料库或导出文件。'}
-              </div>
+              <div className="dio-task-meta">{electron ? '更新令牌、窗口位置、资料库路径与复盘轮次' : '当前复盘轮次'}</div>
             </div>
           </div>
         </div>
-      </section>
+      </details>
 
       <section className="dio-group" aria-labelledby="dio-export-title">
         <div className="dio-group-head">
           <h2 id="dio-export-title" className="dio-group-title">
             备份与导出
           </h2>
-          <p className="dio-group-desc">完整备份用于日常保护；JSON 适合只取出结构化数据。</p>
         </div>
         <div className="dio-task-list">
           <div className="dio-task dio-task-primary">
             <Package size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">完整备份</div>
-              <div className="dio-task-meta">交易、设置、快捷键与原始笔记图片 · 推荐</div>
+              <div className="dio-task-meta">全部数据与原始图片 · 推荐</div>
             </div>
             <button type="button" className="dio-btn" onClick={onExportZip}>
               <span>导出 .journal.zip</span>
@@ -462,7 +444,7 @@ export function DataIOContent({
             <Download size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">JSON 数据副本</div>
-              <div className="dio-task-meta">交易、策略、标签与嵌入图片；不含个人资料和快捷键</div>
+              <div className="dio-task-meta">结构化数据，不含个人资料与快捷键</div>
             </div>
             <button type="button" className="dio-btn" onClick={onExportJson}>
               <span>下载 JSON</span>
@@ -476,7 +458,6 @@ export function DataIOContent({
           <h2 id="dio-import-title" className="dio-group-title">
             导入与迁移
           </h2>
-          <p className="dio-group-desc">按原始数据来源选择入口，不需要先判断文件格式。</p>
         </div>
         <input
           ref={fileRef}
@@ -533,9 +514,6 @@ export function DataIOContent({
           <h2 id="dio-dup-title" className="dio-group-title">
             重复检测
           </h2>
-          <p className="dio-group-desc">
-            仅在同一记录类型内按正文与截图识别明显抄重；实盘、模拟与案例之间不会互相判重。
-          </p>
         </div>
         <div className="dio-task-list">
           <div className="dio-task">

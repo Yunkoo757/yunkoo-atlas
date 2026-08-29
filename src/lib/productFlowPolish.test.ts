@@ -228,9 +228,8 @@ export async function testRestoresAndDesktopControlsPreserveSafeInteractionState
   )
   assert(electronRestore.includes('onLibraryChanged?.()'), 'Electron 整库恢复后必须刷新资料库派生状态')
   assert(
-    dataIO.includes("'笔记原图保存在浏览器 IndexedDB 的同一资料库中。'") &&
-      dataIO.includes('随机复盘的当前轮次只保留在此标签页'),
-    'Web 保存边界不得继续显示 Electron 文件夹语义，并应说明会话不进入归档',
+    dataIO.includes("electron ? '更新令牌、窗口位置、资料库路径与复盘轮次' : '当前复盘轮次'"),
+    '保存说明必须用简短平台文案区分桌面端配置与当前复盘轮次',
   )
   assert(
     dashboard.includes('className="db-empty"') && /\.db-empty\s*\{[^}]*height:\s*auto;/s.test(dashboardCss),

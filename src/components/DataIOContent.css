@@ -187,6 +187,25 @@
 }
 
 .dio-group { min-width: 0; }
+.dio-disclosure {
+  min-width: 0;
+  border-block: 1px solid var(--border-subtle);
+}
+.dio-disclosure > summary {
+  min-height: var(--control-height);
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+.dio-disclosure > summary:focus-visible {
+  outline: var(--focus-ring-outline);
+  outline-offset: 2px;
+}
+.dio-disclosure[open] > summary { border-bottom: 1px solid var(--border-subtle); }
+.dio-disclosure .dio-task-list { border: 0; }
 .dio-group-head { margin-bottom: 10px; }
 .dio-group-title {
   margin: 0 0 3px;

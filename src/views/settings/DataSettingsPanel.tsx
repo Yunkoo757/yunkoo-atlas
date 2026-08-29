@@ -419,7 +419,6 @@ export function DataSettingsPanel({
     <div className="settings-page settings-page--reading data-settings">
       <div className="settings-page-head">
         <h1 className="settings-page-title">数据</h1>
-        <p className="settings-page-desc">导入、导出与备份本地资料库。</p>
       </div>
       <DataIOContent
         onLibraryChanged={() => {
@@ -430,9 +429,6 @@ export function DataSettingsPanel({
       <section className="settings-page-section">
         <div className="settings-page-head">
           <h2 className="settings-section-title">实盘阶段</h2>
-          <p className="settings-section-desc">
-            管理当前与历史阶段名称，并预约在下一个交易周安全开启新阶段。
-          </p>
         </div>
         <LivePerformanceCycleControl onManage={() => setStageManagerOpen(true)} />
       </section>
@@ -447,9 +443,6 @@ export function DataSettingsPanel({
       <section className="settings-page-section">
         <div className="settings-page-head">
           <h2 className="settings-section-title">存储健康</h2>
-          <p className="settings-section-desc">
-            监控数据规模，及时发现膨胀风险。
-          </p>
         </div>
 
         <div className="health-grid">
@@ -552,9 +545,6 @@ export function DataSettingsPanel({
         <section className="settings-page-section">
           <div className="settings-page-head">
             <h2 className="settings-section-title">自动备份</h2>
-            <p className="settings-section-desc">
-              每 15 分钟自动创建备份，并在退出前再保存一次。包含设置与原始附件，附件会去重；最多保留 7 份，总容量不超过 500 MB。
-            </p>
           </div>
 
           <div className={`backup-health-status is-${backupHealth.tone}`} role={backupListState === 'error' ? 'alert' : 'status'}>
