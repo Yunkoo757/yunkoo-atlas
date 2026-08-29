@@ -13,16 +13,9 @@ function compactDesktopBlock(css: string, file: string): string {
 }
 
 export function testCompactDesktopLayoutsRemainReadable(): void {
-  const risk = compactDesktopBlock(read('src/components/RiskStatusStrip.css'), 'RiskStatusStrip.css')
   const weekly = compactDesktopBlock(read('src/views/WeeklyReviewView.css'), 'WeeklyReviewView.css')
   const settings = compactDesktopBlock(read('src/views/settings/SettingsLayout.css'), 'SettingsLayout.css')
 
-  if (!risk.includes('grid-template-columns: minmax(0, 1fr)')) {
-    throw new Error('风险状态条在紧凑桌面宽度下必须改为单列')
-  }
-  if (!risk.includes('border-top: 1px solid')) {
-    throw new Error('紧凑风险状态行之间必须使用横向分隔线')
-  }
   if (!weekly.includes('.wr-page-head-inner')) {
     throw new Error('周复盘页头必须提供紧凑桌面布局')
   }

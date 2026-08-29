@@ -24,7 +24,6 @@ export function testSettingsPagesUseExplicitStartAlignedContentRoles(): void {
 export function testCoreDesktopPagesConsumeSemanticRails(): void {
   const contracts = [
     ['src/views/Dashboard.css', '--page-rail-wide'],
-    ['src/views/TodayWorkspace.css', '--page-rail-standard'],
     ['src/views/WeeklyReviewView.css', '--page-rail-reading'],
     ['src/views/DetailView.css', '--page-rail-standard'],
     ['src/views/settings/SettingsLayout.css', '--page-rail-form'],
@@ -36,7 +35,7 @@ export function testCoreDesktopPagesConsumeSemanticRails(): void {
 }
 
 export function testDataWorkbenchesUseTheFullMainPaneInsteadOfAContentRail(): void {
-  for (const file of ['src/views/ListView.css', 'src/views/TrashView.css', 'src/views/LiveArchiveView.css']) {
+  for (const file of ['src/views/ListView.css', 'src/views/TrashView.css']) {
     const css = read(file)
     assert(!/var\(--page-rail-(?:wide|standard|reading|form)\)/.test(css), `${file} 数据工作台不得套用居中内容轨道`)
   }

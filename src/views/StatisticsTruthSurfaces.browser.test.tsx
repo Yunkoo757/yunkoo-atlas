@@ -4,7 +4,6 @@ import type { Strategy } from '@/data/strategies'
 import type { PaperTrade, Trade } from '@/data/trades'
 import { StrategyHeader } from '@/components/StrategyHeader'
 import { useStore } from '@/store/useStore'
-import { TodayWorkspace } from '@/views/TodayWorkspace'
 import { WeeklyReviewView } from '@/views/WeeklyReviewView'
 import { StrategiesPanel } from '@/views/settings/StrategiesPanel'
 
@@ -135,12 +134,6 @@ async function run(): Promise<void> {
       profile: { ...previous.profile, legacyCashCurrencyAssumption: null },
       display: { ...previous.display, tradingDayStartHour: 6 },
     })
-    root.render(<MemoryRouter><TodayWorkspace /></MemoryRouter>)
-    await waitFor(() => document.querySelector('.today-stats') !== null, 'Today 真值条未渲染')
-    const todayText = document.querySelector('.today-stats')?.textContent ?? ''
-    assert(todayText.includes('今日平仓3'), 'Today renderer 必须只显示三笔可靠完整今日结果')
-    assert(todayText.includes('+$100') && !todayText.includes('$900'), 'Today renderer 的 USD 总计必须只消费 pnlIds')
-
     root.render(
       <MemoryRouter>
         <StrategyHeader strategyId={strategy.id} />

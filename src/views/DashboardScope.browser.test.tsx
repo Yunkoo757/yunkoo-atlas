@@ -4,7 +4,6 @@ import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { LiveStage } from '@/lib/liveStages'
 import { getTradingDayKey } from '@/lib/periods'
-import { getTradesPageSubtitle } from '@/lib/pageCopy'
 import { useStore } from '@/store/useStore'
 import { Dashboard } from '@/views/Dashboard'
 import { DetailView } from '@/views/DetailView'
@@ -242,11 +241,6 @@ async function run(): Promise<void> {
     )
     await waitFor(() => document.querySelector('h1')?.textContent === '本年' && document.querySelectorAll('[data-trade-id]').length === 1, '/period/ytd 必须保留本年标题与真实列表')
     assert(document.querySelector('[data-testid="location"]')?.textContent === '/period/ytd', '/period/ytd 不得静默跳转到 today')
-    assert(
-      getTradesPageSubtitle({ type: 'period', period: 'ytd', tradeKind: 'live' })?.includes('按开仓日'),
-      '/period/ytd 的范围语义必须保持按开仓日，但页面无需重复显示标题已表达的信息',
-    )
-
     root.unmount()
     root = createRoot(element)
     root.render(

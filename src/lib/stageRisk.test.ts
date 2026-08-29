@@ -1,5 +1,5 @@
 import type { MonthlyRiskLimit, RiskPolicyVersion } from '@/data/riskManagement'
-import { riskSetupStateForStage } from '@/lib/stageRisk'
+import { riskSetupStateForStage } from '@/test/fixtures/stageRisk'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)

@@ -648,7 +648,6 @@ export function testTrackingAllowlistRejectsBusinessNumbersAndRequiresExactSelec
 export async function testPageTitleSelectorsUseTheCanonical20PxRole(): Promise<void> {
   const [app, sources] = await Promise.all([fs.readFile('src/App.tsx', 'utf8'), Promise.all([
     'src/views/DetailView.css',
-    'src/views/TodayWorkspace.css',
     'src/views/ReviewSessionView.css',
     'src/views/WeeklyReviewView.css',
     'src/views/settings/SettingsLayout.css',
@@ -660,7 +659,6 @@ export async function testPageTitleSelectorsUseTheCanonical20PxRole(): Promise<v
   for (const [path, selector] of [
     ['src/views/DetailView.css', '.dv-title'],
     ['src/views/DetailView.css', '.dv-empty-card h1'],
-    ['src/views/TodayWorkspace.css', '.today-focus h1'],
     ['src/views/ReviewSessionView.css', '.review-session-intro h1,\n.review-session-finished h1'],
     ['src/views/ReviewSessionView.css', '.review-session-item-header h1'],
     ['src/views/WeeklyReviewView.css', '.wr-page-head h1'],
@@ -685,7 +683,6 @@ export async function testSharedTypeRolesStayAlignedAcrossPages(): Promise<void>
     'src/components/DataIOContent.css',
     'src/views/WeeklyReviewView.css',
     'src/views/Dashboard.css',
-    'src/views/TodayWorkspace.css',
     'src/views/ReviewSessionView.css',
     'src/views/settings/ProfileSettingsPanel.css',
     'src/views/QuickNotesView.css',
@@ -697,7 +694,6 @@ export async function testSharedTypeRolesStayAlignedAcrossPages(): Promise<void>
     ['src/components/DataIOContent.css', '.dio-group-title'],
     ['src/views/WeeklyReviewView.css', '.wr-section-head h2'],
     ['src/views/Dashboard.css', '.db-week-title'],
-    ['src/views/TodayWorkspace.css', '.today-stats-title'],
   ] as const) {
     assertRoleDeclarations(cssRule(sources[path], selector), selector, [
       ['font-size', 'var(--type-section-title-size)'],
@@ -728,7 +724,6 @@ export async function testSharedTypeRolesStayAlignedAcrossPages(): Promise<void>
   for (const [path, selector] of [
     ['src/views/Dashboard.css', '.db-card-value'],
     ['src/views/Dashboard.css', '.db-week-metric strong'],
-    ['src/views/TodayWorkspace.css', '.today-stats-metric strong'],
     ['src/views/ReviewSessionView.css', '.review-session-result-grid strong'],
     ['src/views/WeeklyReviewView.css', '.wr-year-summary strong'],
   ] as const) {
@@ -770,7 +765,6 @@ export async function testShellTypographyUsesSemanticRolesAndApprovedTracking():
     'src/components/trades/TradeList.css',
     'src/components/trades/QuickViewBar.css',
     'src/components/RowPreviews.css',
-    'src/views/TodayWorkspace.css',
     'src/views/BoardView.css',
     'src/views/ListView.css',
   ]
@@ -786,11 +780,6 @@ export async function testShellTypographyUsesSemanticRolesAndApprovedTracking():
     assert(!source.includes('letter-spacing: 0.04em'), `${path} 不得使用未批准的 0.04em 字距`)
   }
 
-  assertRoleDeclarations(cssRule(sources['src/views/TodayWorkspace.css'], '.today-focus-eyebrow'), '.today-focus-eyebrow', [
-    ['font-size', 'var(--type-metadata-size)'],
-    ['font-weight', 'var(--type-metadata-weight)'],
-    ['letter-spacing', '0'],
-  ])
   assertRoleDeclarations(cssRule(sources['src/views/BoardView.css'], '.bd-card-timeframe'), '.bd-card-timeframe', [
     ['font-variant-numeric', 'var(--numeric-tabular)'],
     ['letter-spacing', '0'],
@@ -832,7 +821,6 @@ export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promi
     'src/components/LivePerformanceCycleControl.css',
     'src/components/LiveStageManager.css',
     'src/components/StageRolloverBanner.css',
-    'src/components/RiskStatusStrip.css',
     'src/components/TradeOpenRiskDialog.css',
     'src/components/WeeklyRiskPreparationCard.css',
     'src/components/ui/DatePicker.css',
@@ -854,7 +842,6 @@ export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promi
     ['src/components/LivePerformanceCycleControl.css', '.live-performance-cycle-current strong'],
     ['src/components/LiveStageManager.css', '.live-stage-manager-counts strong'],
     ['src/components/StageRolloverBanner.css', '.stage-rollover-banner-title strong'],
-    ['src/components/RiskStatusStrip.css', '.risk-status-values'],
     ['src/components/TradeOpenRiskDialog.css', '.trade-open-risk-periods strong'],
     ['src/components/WeeklyRiskPreparationCard.css', '.risk-preparation-risk-amount'],
     ['src/components/ui/DatePicker.css', '.ui-date-grid button'],

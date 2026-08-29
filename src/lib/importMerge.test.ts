@@ -1,6 +1,6 @@
 import type { Trade } from '@/data/trades'
 import { mergeImportPayload } from '@/lib/importMerge'
-import { riskSetupStateForStage } from '@/lib/stageRisk'
+import { riskSetupStateForStage } from '@/test/fixtures/stageRisk'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
 

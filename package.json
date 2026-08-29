@@ -42,7 +42,6 @@
     "qa:workbench": "node scripts/qa-workbench.mjs",
     "qa:design": "node scripts/qa-design-contract.mjs",
     "qa:sidebar": "node scripts/run-qa-sidebar.mjs",
-    "qa:missed-opportunities": "node scripts/qa-missed-opportunities.mjs",
     "qa:statistics-truth": "node scripts/qa-statistics-truth.mjs",
     "qa:desktop-visual": "node scripts/qa-desktop-visual.mjs --renderer",
     "qa:desktop-visual:electron": "node scripts/qa-desktop-visual.mjs --electron",

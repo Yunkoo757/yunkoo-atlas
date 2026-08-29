@@ -58,17 +58,6 @@ export function testSelectionIdentityOnlyScansWhenVisibleRowsChange(): void {
   }
 }
 
-export function testTodayWorkspaceUsesConstantTimeStarredLookup(): void {
-  const source = read('src/views/TodayWorkspace.tsx')
-
-  if (!source.includes('const starredIdSet = useMemo(() => new Set(starredIds), [starredIds])')) {
-    throw new Error('today workspace must build one starred ID set per starred collection')
-  }
-  if (source.includes('starred={starredIds.includes(trade.id)}')) {
-    throw new Error('today rows must not scan starred IDs one by one')
-  }
-}
-
 export function testRemovedTableViewHasNoRuntimeSurface(): void {
   for (const file of ['src/views/TableView.tsx', 'src/views/TableView.css', 'src/lib/tradeTable.ts']) {
     if (existsSync(path.resolve(file))) {

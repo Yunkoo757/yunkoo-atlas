@@ -7,7 +7,6 @@ function read(file: string): string {
 
 export function testLowRiskDesktopActionsReuseSharedControls(): void {
   const empty = read('src/components/trades/WorkbenchEmptyState.tsx')
-  const today = read('src/views/TodayWorkspace.tsx')
   const weekly = read('src/views/WeeklyReviewView.tsx')
 
   if (!empty.includes("import { Button } from '@/components/ui/Button'")) {
@@ -15,15 +14,6 @@ export function testLowRiskDesktopActionsReuseSharedControls(): void {
   }
   if (!/<Button[\s\S]*?variant="primary"[\s\S]*?workbench-empty-primary/.test(empty)) {
     throw new Error('工作台空状态主操作必须保留 primary 语义')
-  }
-  if (!today.includes("import { Button } from '@/components/ui/Button'")) {
-    throw new Error('今日工作台新建交易必须复用 Button')
-  }
-  if (!today.includes("variant={primaryAction.kind === 'create' ? 'primary' : 'bordered'}")) {
-    throw new Error('今日工作台新建交易必须让位于唯一的下一步主动作')
-  }
-  if (!today.includes('className="today-workflow-primary"')) {
-    throw new Error('今日工作台队列动作必须复用共享主按钮')
   }
   if (!weekly.includes("import { IconButton } from '@/components/ui/IconButton'")) {
     throw new Error('周复盘前后导航必须复用 IconButton')

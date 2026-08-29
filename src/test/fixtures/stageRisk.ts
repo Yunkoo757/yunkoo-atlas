@@ -2,8 +2,6 @@ import type { MonthlyRiskLimit, RiskPolicyVersion } from '@/data/riskManagement'
 import { activeRiskPolicy, isUsableRiskPolicy } from '@/lib/activeRiskPolicy'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 
-export type StageRiskSetupState = 'unconfigured' | 'configured'
-
 export interface StageRiskSetupSource {
   riskPolicyVersions: readonly RiskPolicyVersion[]
   monthlyRiskLimits: readonly MonthlyRiskLimit[]
@@ -20,7 +18,7 @@ export function riskSetupStateForStage(
   state: StageRiskSetupSource,
   liveStageId: string,
   tradingDay: string,
-): StageRiskSetupState {
+): 'unconfigured' | 'configured' {
   const policy = activeRiskPolicy(state.riskPolicyVersions, tradingDay, liveStageId)
   if (!policy) return 'unconfigured'
   const monthKey = tradingDay.slice(0, 7)

@@ -11,7 +11,7 @@ import {
   type ConfirmWeeklyRiskPreparationInput,
   type RiskPolicyState,
 } from '@/lib/riskPolicy'
-import { riskSetupStateForStage } from '@/lib/stageRisk'
+import { riskSetupStateForStage } from '@/test/fixtures/stageRisk'
 import { requestTradeOpenCandidate } from '@/lib/tradeOpenRiskGate'
 import { useStore } from '@/store/useStore'
 

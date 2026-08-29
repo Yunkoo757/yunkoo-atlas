@@ -409,11 +409,9 @@ export async function testSidebarTargetPickerConfiguresVisibilityNotDuplicatePin
   const source = await fs.readFile('src/components/sidebar/SidebarTargetPicker.tsx', 'utf8')
   const editor = await fs.readFile('src/components/sidebar/SidebarWorkspaceEditor.tsx', 'utf8')
   const sidebar = await fs.readFile('src/components/Sidebar.tsx', 'utf8')
-  const missedView = await fs.readFile('src/views/MissedOpportunitiesView.tsx', 'utf8')
   assert(source.includes('toggleCapabilityWorkspace'), '应通过勾选配置同一能力的可见工作区')
   assert(source.includes('setCapabilityWorkspaceEnabled'), '添加项目应复用统一的可见范围写入')
   assert(!source.includes("id: 'missed'"), '错过机会已属于交易日志顶部快捷视图，不得再出现在侧栏目标选择器')
-  assert(missedView.includes('<MissedOpportunityScopeMenu'), '错过来源范围应留在错过机会视图内配置')
   assert(!source.includes('canonicalQuickViewTarget'), '不得再按工作区拆成多个钉选目标')
   assert(!editor.includes('sb-editor-capability-scopes'), '管理页不得再放可见工作区行内勾选')
   assert(!editor.includes('setCapabilityWorkspaceEnabled'), '管理页不得写入能力可见范围')
@@ -2119,13 +2117,11 @@ export async function testWeeklyReviewDetailSourceUsesDedicatedReturnCopy(): Pro
   assert(rejectedWeeklyCopy.breadcrumb === '模拟', '详情页周复盘文案资格必须使用已经过类型门禁的返回目标')
 }
 
-export async function testMissedDetailReturnRestoresFocusAndMissingTargetSafely(): Promise<void> {
+export async function testMissedDetailReturnKeepsCanonicalCopyAndFocusRecovery(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [detailView, returnAnchor, missedView, missedFilters] = await Promise.all([
+  const [detailView, returnAnchor] = await Promise.all([
     fs.readFile('src/views/DetailView.tsx', 'utf8'),
     fs.readFile('src/hooks/useTradeReturnAnchor.ts', 'utf8'),
-    fs.readFile('src/views/MissedOpportunitiesView.tsx', 'utf8'),
-    fs.readFile('src/components/trades/MissedOpportunityFilters.tsx', 'utf8'),
   ])
 
   assert(
@@ -2145,23 +2141,6 @@ export async function testMissedDetailReturnRestoresFocusAndMissingTargetSafely(
     '返回锚点必须优先聚焦主动作，并阻止 focus 自行滚动',
   )
   assert(returnAnchor.includes('onMissing?: (tradeId: string) => void'), '返回锚点必须支持目标消失回调')
-  assert(
-    missedView.includes('原记录已变化，已返回错过机会列表') &&
-      missedView.includes('focus({ preventScroll: true })') &&
-      missedFilters.includes('id="missed-results-heading"') &&
-      missedFilters.includes('tabIndex={-1}'),
-    '聚合目标消失时必须聚焦可见标题并通过 live region 说明回退结果',
-  )
-}
-
-export async function testMissedRowsExposePredictablePrimaryReturnFocus(): Promise<void> {
-  const fs = await import('node:fs/promises')
-  const missedRow = await fs.readFile('src/components/trades/MissedOpportunityRow.tsx', 'utf8')
-
-  assert(missedRow.includes('className="missed-row-menu"'), '合并项必须统一使用行尾菜单')
-  assert(missedRow.includes('data-trade-primary-action'), '普通项和合并项必须暴露返回焦点')
-  assert(!missedRow.includes('missed-row-mobile-menu'), '不得维护独立移动操作树')
-  assert(!missedRow.includes('missed-row-actions'), '不得在桌面行内堆叠多个动作按钮')
 }
 
 export function testTradeReturnAnchorSerializationExpires(): void {

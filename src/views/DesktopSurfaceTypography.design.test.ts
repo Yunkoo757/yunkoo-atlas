@@ -7,7 +7,6 @@ function assert(condition: unknown, message: string): asserts condition {
 
 const SURFACES = [
   { file: 'src/views/WeeklyReviewView.css', selectors: ['.wr-history-title', '.wr-history-week', '.wr-history-stage', '.wr-page-head h1', '.wr-section-head h2', '.wr-progress-summary'] },
-  { file: 'src/views/LiveArchiveView.css', selectors: ['.live-archive-stage-rail button', '.live-archive-tab-list button', '.live-archive-panel > header h2', '.live-archive-panel > header span'] },
   { file: 'src/views/ReviewSessionView.css', selectors: ['.review-session-settings-sources strong', '.review-session-settings-sources small', '.review-session-settings-count', '.review-session-intro h1'] },
   { file: 'src/views/settings/SettingsLayout.css', selectors: ['.settings-page-title', '.settings-section-title', '.settings-page-desc', '.settings-nav-item'] },
 ] as const
@@ -33,7 +32,5 @@ export function testRelatedDesktopSurfacesUseFourTypeLevels(): void {
 
 export function testRelatedDesktopNumbersStayTabular(): void {
   const weekly = readFileSync(path.resolve('src/views/WeeklyReviewView.css'), 'utf8')
-  const archive = readFileSync(path.resolve('src/views/LiveArchiveView.css'), 'utf8')
   assert(weekly.includes('var(--numeric-tabular)'), '周复盘数据数字必须保持等宽数字')
-  assert(archive.includes('tabular-nums') || archive.includes('var(--numeric-tabular)'), '历史实盘数据数字必须保持等宽数字')
 }

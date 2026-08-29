@@ -1,8 +1,6 @@
-import { MISSED_PAGE_TITLE } from '@/lib/pageCopy'
 import { REVIEW_CASE_SCOPE_LABELS } from '@/lib/reviewCaseScope'
 import { REVIEW_STAGE_SOURCE_LABELS } from '@/lib/reviewSession'
 import { PRIMARY_NAV_LABELS, SECONDARY_NAV_LABELS } from '@/lib/sidebarNavContract'
-import { presentWorkspaceScope } from '@/lib/workspaceScopePresentation'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -14,11 +12,6 @@ export function testPrimaryProductTermsStayCanonical(): void {
   assert(PRIMARY_NAV_LABELS.reviewCases === '案例库', '案例模块名称必须统一为“案例库”')
   assert(PRIMARY_NAV_LABELS.weeklyReview === '周期复盘', '复盘模块名称必须统一为“周期复盘”')
   assert(SECONDARY_NAV_LABELS.missed === '错过机会', '错过视图必须使用统一短名')
-  assert(MISSED_PAGE_TITLE === '错过机会', '错过页面标题必须与快捷视图一致')
-  assert(
-    presentWorkspaceScope({ type: 'missed', tradeKind: 'live' }).summary === '错过机会',
-    '错过范围摘要不得另造同义词',
-  )
 }
 
 export function testStageSourceTermsMatchTheirActualMembership(): void {

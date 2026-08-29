@@ -4,10 +4,9 @@ import { MemoryRouter } from 'react-router-dom'
 import type { MonthlyRiskLimit, RiskPolicyDraft, RiskPolicyVersion } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
 import { TradeOpenRiskDialog } from '@/components/TradeOpenRiskDialog'
-import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
+import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { weekStartFor } from '@/data/weeklyReviews'
 import { useStore } from '@/store/useStore'
-import { TodayWorkspace } from '@/views/TodayWorkspace'
 import { RiskGatePublishAfterCommitError } from '@/lib/riskGatedTradeOpenCommit'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import '@/styles/tokens.css'
@@ -146,19 +145,20 @@ function Harness() {
   const [showTemporaryOpener, setShowTemporaryOpener] = useState(true)
   return (
     <MemoryRouter initialEntries={['/today-record']}>
-      {showTemporaryOpener ? (
-        <button
-          id="temporary-risk-opener"
-          type="button"
-          onClick={(event) => {
-            useStore.getState().requestTradeOpen('target', event.currentTarget)
-            setShowTemporaryOpener(false)
-          }}
-        >
-          临时开仓入口
-        </button>
-      ) : null}
-      <TodayWorkspace />
+      <main className="ui-main-frame" tabIndex={-1}>
+        {showTemporaryOpener ? (
+          <button
+            id="temporary-risk-opener"
+            type="button"
+            onClick={(event) => {
+              useStore.getState().requestTradeOpen('target', event.currentTarget)
+              setShowTemporaryOpener(false)
+            }}
+          >
+            临时开仓入口
+          </button>
+        ) : null}
+      </main>
       <TradeOpenRiskDialog />
     </MemoryRouter>
   )
@@ -195,34 +195,14 @@ async function run(): Promise<void> {
     }))
     root.render(<Harness />)
 
-    await waitFor(
-      () => Boolean(document.querySelector('[data-risk-status]') && document.querySelector('[data-today-action-queue]')),
-      '今日工作台没有完成渲染',
-    )
-    const status = document.querySelector<HTMLElement>('[data-risk-status]')
-    const actionQueue = document.querySelector<HTMLElement>('[data-today-action-queue]')
-    assert(actionQueue && status, '今日工作台缺少风险状态或行动队列')
-    assert(!document.querySelector('[data-risk-preparation]'), '工作台不得渲染风险配置表单')
-    assert(!document.body.textContent?.includes('修改规则'), '工作台不得提供规则编辑动作')
-    assert(!document.body.textContent?.includes('确认本周规则'), '工作台不得提供每周确认动作')
-    assert(document.querySelector('.today-focus .today-create-trade'), '工作台主动作不得因未复核而消失')
-    assert(
-      status.querySelector<HTMLAnchorElement>('a[href="/settings/risk"]')?.textContent?.trim() === '前往风险管理',
-      '未复核状态必须提供唯一设置恢复动作',
-    )
-    assert(status.querySelectorAll('a[href="/settings/risk"]').length === 1, '未复核状态必须只有一个设置恢复链接')
-
     useStore.setState((state) => ({
       riskPolicyVersions: [],
       monthlyRiskLimits: [],
     }))
     assert(useStore.getState().requestTradeOpen('target') === 'pending-confirmation', '未建档记录必须进入可继续的未知风险确认')
     await waitFor(() => Boolean(document.querySelector('[data-trade-open-risk-dialog]')), '未建档记录没有显示未知风险确认')
-    click('设置风险基准')
-    await waitFor(() => Boolean(document.querySelector('[data-risk-baseline-dialog]')), '风险基准必须在同一个开仓弹窗内设置')
-    assert(!document.querySelector<HTMLAnchorElement>('[data-risk-baseline-dialog] a[href="/settings/risk"]'), '同弹窗设置不得再跳转风险设置页')
     click('取消开仓')
-    await waitFor(() => !document.querySelector('[role="dialog"]'), '取消没有关闭同弹窗风险基准设置')
+    await waitFor(() => !document.querySelector('[role="dialog"]'), '取消没有关闭风险确认')
 
     useStore.setState((state) => ({
       trades: state.trades.map((item) => item.id === 'target'
@@ -254,235 +234,10 @@ async function run(): Promise<void> {
         : trade),
     }))
     useStore.setState((state) => ({
+      trades: [trade('target', 'planned'), trade('triggered-loss', 'loss')],
       riskPolicyVersions: [{ ...policy, liveStageId: state.currentLiveStageId }],
       monthlyRiskLimits: [{ ...monthlyLimit, liveStageId: state.currentLiveStageId }],
     }))
-    await waitFor(
-      () => document.querySelectorAll('[data-risk-state="normal"]').length >= 2,
-      '恢复当前阶段风险配置后状态没有刷新',
-    )
-    const initialPeriods = [...status.querySelectorAll<HTMLElement>('[data-risk-period]')]
-    const initialPeriod = (label: string) => initialPeriods.find((period) =>
-      period.querySelector('.risk-status-period-head span')?.textContent?.trim().startsWith(label))
-    const initialDay = initialPeriod('今日')
-    const initialWeek = initialPeriod('本周')
-    const initialMonth = initialPeriod('本月')
-    assert(initialDay?.dataset.riskState === 'normal', '未复核不得伪造今日真实风险结果')
-    assert(initialMonth?.dataset.riskState === 'normal', '未复核不得伪造本月真实风险结果')
-    assert(initialWeek?.dataset.riskState === 'partial', '未复核时本周必须使用 partial 警告语义')
-    assert(initialWeek.textContent?.includes('待复核'), '未复核本周必须使用待复核标签')
-    assert(initialWeek.textContent?.includes('本周规则未确认'), '未复核本周必须说明规则未确认')
-    await frame()
-    assert(initialMonth.textContent?.includes('自8月2日起'), '风险卡必须展示当前阶段起点')
-    assert(!document.querySelector('.today-stats'), '没有平仓结果时不得渲染今日战绩')
-    assert(status.querySelectorAll('[data-risk-period]').length === 3, '风险状态必须始终展示日周月')
-    assert(!status.querySelector('details'), '风险状态不得折叠')
-    assert(!status.textContent?.includes('1R ='), '工作台不得展示 1R 配置说明')
-    assert(!status.textContent?.includes('计入'), '工作台不得展示风险统计审计明细')
-
-    useStore.setState({ trades: [trade('target', 'planned'), trade('unreviewed-triggered', 'loss')] })
-    await waitFor(
-      () => ['今日已超限', '本周数据待确认', '本月仍在限额内'].every((copy) => status.textContent?.includes(copy)),
-      '未复核周不得覆盖今日超限摘要',
-    )
-    assert(initialDay.textContent?.includes('已触及限额'), '刚好触及日限额必须显示已触及限额')
-    assert(!initialDay.textContent?.includes('超出 0'), '刚好触及日限额不得显示超出 0R')
-
-    useStore.setState({ trades: [trade('target', 'planned'), trade('unreviewed-unknown', 'loss', { unknown: true })] })
-    await waitFor(
-      () => ['今日无法判断', '本周无法判断', '本月无法判断'].every((copy) => status.textContent?.includes(copy)),
-      '未复核状态不得覆盖真实未知摘要',
-    )
-    assert(initialWeek.textContent?.includes('本周规则未确认'), '真实未知状态仍应保留本周未复核辅助提示')
-
-    useStore.setState({
-      trades: [
-        trade('target', 'planned'),
-        trade('weekly-triggered-1', 'loss'),
-        trade('weekly-triggered-2', 'loss'),
-        trade('weekly-triggered-3', 'loss'),
-      ],
-    })
-    await waitFor(
-      () => initialWeek.dataset.riskState === 'triggered' && (initialWeek.textContent?.includes('已超限') ?? false),
-      '未复核状态不得覆盖真实周超限',
-    )
-    assert(initialWeek.textContent?.includes('本周规则未确认'), '真实周超限仍应保留本周未复核辅助提示')
-
-    useStore.setState({ trades: [trade('target', 'planned')] })
-
-    useStore.setState({
-      trades: [trade('target', 'planned')],
-      weeklyRiskPreparations: [{
-        ...useStore.getState().weeklyRiskPreparations[0]!,
-        reviewedAt: confirmedAt,
-        confirmedPolicyVersionId: policy.id,
-      }],
-    })
-    await waitFor(() => initialWeek.dataset.riskState === 'normal', '已复核状态没有生效')
-
-    const previousMonthLastDate = parseLocalDate(`${monthKey}-01`)
-    previousMonthLastDate.setDate(previousMonthLastDate.getDate() - 1)
-    const previousMonthTradingDay = formatYmd(previousMonthLastDate)
-    const previousMonthLosses = ['cross-month-loss-1', 'cross-month-loss-2', 'cross-month-loss-3'].map((id) => {
-      const loss = trade(id, 'loss')
-      return {
-        ...loss,
-        openedAt: `${previousMonthTradingDay}T01:00:00.000Z`,
-        closedAt: `${previousMonthTradingDay}T02:00:00.000Z`,
-        closedTradingDayKey: previousMonthTradingDay,
-        activities: loss.activities?.map((activity) => ({
-          ...activity,
-          timestamp: `${previousMonthTradingDay}T01:00:00.000Z`,
-        })),
-      }
-    })
-    useStore.setState((state) => ({
-      liveStages: state.liveStages.map((stage) => stage.id === state.currentLiveStageId
-        ? { ...stage, startsOn: previousMonthTradingDay }
-        : stage),
-      trades: [trade('target', 'planned'), ...previousMonthLosses],
-      riskPolicyVersions: [{ ...policy, effectiveTradingDay: previousMonthTradingDay }],
-    }))
-    await waitFor(
-      () => initialWeek.dataset.riskState === 'triggered',
-      '跨月周夹具必须先真实触发周限额',
-    )
-    assert(initialMonth.textContent?.includes('0.0R / 10.0R'), '跨月周夹具的当前月账面额度必须尚未消耗')
-    await waitFor(
-      () => initialMonth.dataset.riskState === 'constrained',
-      '跨月周触发周限额时，月度重置额度必须呈现为受周限额约束',
-    )
-    assert(initialMonth.textContent?.includes('受本周限制'), '月度卡片必须说明当前不可使用账面额度')
-    assert(initialMonth.textContent?.includes('账面剩余 10.0R'), '月度卡片必须保留独立账期余额')
-    assert(status.textContent?.includes('本周已超限，当前暂停开仓'), '风险摘要必须先给出当前行动约束')
-    assert(status.textContent?.includes('月度重置不会解除本周限制'), '跨月周必须解释月度重置与周限额的联合约束')
-
-    useStore.setState((state) => ({
-      liveStages: state.liveStages.map((stage) => stage.id === state.currentLiveStageId
-        ? { ...stage, startsOn: day }
-        : stage),
-      trades: [trade('target', 'planned')],
-      riskPolicyVersions: [policy],
-    }))
-    await waitFor(() => initialWeek.dataset.riskState === 'normal', '跨月周场景清理失败')
-
-    const cases = [
-      {
-        name: '正常',
-        trades: [trade('target', 'planned')],
-        policies: [policy],
-        limits: [monthlyLimit],
-        expected: ['正常', '日、周、月均在风险限额内。'],
-      },
-      {
-        name: '临界',
-        trades: [{ ...trade('near', 'loss'), pnl: -1_800 }],
-        policies: [policy],
-        limits: [monthlyLimit],
-        expected: ['接近限额', '今日接近限额'],
-      },
-      {
-        name: '超限',
-        trades: [trade('triggered', 'loss')],
-        policies: [policy],
-        limits: [monthlyLimit],
-        expected: ['已超限', '今日已超限'],
-      },
-      {
-        name: '未知',
-        trades: [trade('unknown-loss', 'loss', { unknown: true })],
-        policies: [policy],
-        limits: [monthlyLimit],
-        expected: ['无法判断', '今日无法判断'],
-      },
-      {
-        name: '未配置',
-        trades: [],
-        policies: [],
-        limits: [],
-        expected: ['未配置', '今日未配置'],
-      },
-    ] as const
-
-    for (const fixture of cases) {
-      useStore.setState({
-        trades: fixture.trades.slice(),
-        riskPolicyVersions: fixture.policies.slice(),
-        monthlyRiskLimits: fixture.limits.slice(),
-      })
-      await waitFor(
-        () => fixture.expected.every((copy) => status.textContent?.includes(copy)),
-        `${fixture.name} 风险状态没有更新`,
-      )
-    }
-
-    useStore.setState({
-      trades: [trade('target', 'planned')],
-      riskPolicyVersions: [policy],
-      monthlyRiskLimits: [monthlyLimit],
-      weeklyRiskPreparations: [{
-        ...useStore.getState().weeklyRiskPreparations[0]!,
-        reviewedAt: confirmedAt,
-        confirmedPolicyVersionId: null,
-      }],
-    })
-    await waitFor(
-      () => initialWeek.dataset.riskState === 'partial' && (initialWeek.textContent?.includes('待复核') ?? false),
-      '半完整持久化准备状态必须保持未复核',
-    )
-    useStore.setState({
-      trades: [trade('target', 'planned')],
-      riskPolicyVersions: [policy],
-      monthlyRiskLimits: [monthlyLimit],
-      weeklyRiskPreparations: [{
-        ...useStore.getState().weeklyRiskPreparations[0]!,
-        reviewedAt: confirmedAt,
-        confirmedPolicyVersionId: policy.id,
-      }],
-    })
-    await waitFor(
-      () => initialWeek.dataset.riskState === 'normal',
-      '恢复已复核准备状态失败',
-    )
-    const reviewedActionQueue = document.querySelector<HTMLElement>('[data-today-action-queue]')
-    assert(reviewedActionQueue, '已复核时行动队列不存在')
-    const completedTrade: Trade = {
-      ...trade('completed-today', 'loss'),
-      reviewStatus: 'reviewed',
-      reviewedAt: `${day}T03:00:00.000Z`,
-    }
-    useStore.setState({ trades: [trade('target', 'planned'), completedTrade] })
-    await waitFor(() => Boolean(document.querySelector('.today-completed')), '今日已完成区块没有渲染')
-    const completedSection = document.querySelector<HTMLElement>('.today-completed')
-    assert(completedSection, '今日已完成区块没有渲染')
-    assert(completedSection.textContent?.includes('今日已完成'), '已完成交易必须进入今日已完成区块')
-    assert(parseFloat(getComputedStyle(completedSection).marginTop) > 0, '今日已完成区块必须与前一区块保持明确间距')
-    useStore.setState({ trades: [trade('target', 'planned'), trade('unknown-loss', 'loss', { unknown: true })] })
-    await waitFor(() => !document.querySelector('.today-completed'), '恢复行动队列 fixture 失败')
-    const queueTabs = reviewedActionQueue.querySelectorAll<HTMLButtonElement>('[role="tab"]')
-    assert(queueTabs.length === 4, '行动队列必须有全部、进行中、待结果、待复盘四个 tab')
-    assert([...queueTabs].filter((tab) => tab.getAttribute('aria-selected') === 'true').length === 1, '行动队列必须只有一个已选 tab')
-    const reviewPendingTab = [...queueTabs].find((tab) => tab.textContent?.includes('待复盘'))
-    assert(reviewPendingTab, '行动队列缺少待复盘 tab')
-    reviewPendingTab.click()
-    await frame()
-    const queuePanel = reviewedActionQueue.querySelector<HTMLElement>('[role="tabpanel"]')
-    assert(queuePanel?.textContent?.includes('当前筛选下没有待处理事项'), '零计数筛选必须在 tabpanel 内显示紧凑空态')
-
-    const allTab = queueTabs[0]!
-    const activeTab = queueTabs[1]!
-    allTab.focus()
-    allTab.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
-    await frame()
-    assert(document.activeElement === activeTab, 'ArrowRight 必须将焦点移动到下一个 tab')
-    assert(activeTab.getAttribute('aria-selected') === 'true', 'ArrowRight 必须选中下一个 tab')
-    assert(
-      Boolean(activeTab.id)
-        && activeTab.getAttribute('aria-controls') === queuePanel?.id
-        && queuePanel?.getAttribute('aria-labelledby') === activeTab.id,
-      'tab 与 tabpanel 必须通过 aria-controls 和 aria-labelledby 关联',
-    )
 
     const temporaryOpener = document.getElementById('temporary-risk-opener') as HTMLButtonElement
     temporaryOpener.focus()

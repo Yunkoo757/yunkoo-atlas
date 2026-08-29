@@ -183,18 +183,14 @@ export async function testPrimaryIconActionsUseTheSharedTooltipLanguage(): Promi
   )
 }
 
-export async function testTodayNavigationAndDateBoundaryRemainInsideTheWorkspace(): Promise<void> {
+export async function testBusinessDateBoundaryRemainsConsistentAcrossActiveWorkspaces(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [today, visibleTrades, dashboard, strategyHeader] = await Promise.all([
-    fs.readFile('src/views/TodayWorkspace.tsx', 'utf8'),
+  const [visibleTrades, dashboard, strategyHeader] = await Promise.all([
     fs.readFile('src/hooks/useWorkbenchVisibleTrades.ts', 'utf8'),
     fs.readFile('src/views/Dashboard.tsx', 'utf8'),
     fs.readFile('src/components/StrategyHeader.tsx', 'utf8'),
   ])
 
-  assert(!today.includes('href={`#today-'), 'HashRouter 页面不得用 URL hash 承载页内滚动')
-  assert(today.includes('scrollIntoView'), 'Today 概览应在当前工作区内滚动到目标队列')
-  assert(today.includes('useLocalDateKey()'), 'Today 工作台应在交易日边界后自动换日')
   assert(
     visibleTrades.includes('useBusinessDateAnchor()') && visibleTrades.includes('localDateKey,'),
     '工作台列表的今日筛选必须随交易日边界重新计算',

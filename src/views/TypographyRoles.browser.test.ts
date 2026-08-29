@@ -9,7 +9,6 @@ import './ReviewSessionView.css'
 import './settings/SettingsLayout.css'
 import './settings/ProfileSettingsPanel.css'
 import './settings/DisplaySettingsPanel.css'
-import './TodayWorkspace.css'
 import './TrashView.css'
 import './WeeklyReviewView.css'
 import '@/components/ui/FieldTrigger.css'
@@ -74,7 +73,6 @@ async function assertFocusReveal(hiddenSelector: string, focusSelector: string, 
 async function run(): Promise<void> {
   document.body.innerHTML = `
     <h1 class="dv-title">交易详情</h1>
-    <section class="today-focus"><h1>今日工作台</h1></section>
     <section class="review-session-intro"><h1>随机打开一组过去的交易</h1></section>
     <section class="review-session-item-header"><h1>BTCUSDT</h1></section>
     <section class="wr-page-head"><h1>2026 年第 32 周</h1></section>
@@ -135,7 +133,6 @@ async function run(): Promise<void> {
   `
   for (const selector of [
     '.dv-title',
-    '.today-focus h1',
     '.review-session-intro h1',
     '.review-session-item-header h1',
     '.wr-page-head h1',
