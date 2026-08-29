@@ -102,27 +102,19 @@ export function buildSidebarRiskSummary(rows: readonly SidebarRiskRow[]): Sideba
 }
 
 function SidebarRiskPeriod({ row }: { row: SidebarRiskRow }) {
-  const percentage = Math.round(Math.min(1, Math.max(0, row.outcome.progress)) * 100)
+  const showStatus = row.presentation.kind !== 'normal'
   return (
-    <div className={`sb-risk-period is-${row.presentation.kind}`} data-risk-period={row.scope}>
-      <div className="sb-risk-period-head">
-        <span className="sb-risk-period-label">{row.label}</span>
-        <small>{row.presentation.label}</small>
-      </div>
+    <div
+      className={`sb-risk-period is-${row.presentation.kind}`}
+      data-risk-period={row.scope}
+      aria-label={`${row.label}${row.presentation.label}，已用 ${periodValue(row)}`}
+    >
+      <span className="sb-risk-period-label">{row.label}</span>
+      {showStatus ? <small>{row.presentation.label}</small> : null}
       <div className="sb-risk-period-usage">
         <strong>{formatR(row.outcome.consumedR)}</strong>
         <span>/ {row.outcome.limitR > 0 ? formatR(row.outcome.limitR) : '—'}</span>
       </div>
-      <span
-        className="sb-risk-track"
-        role="progressbar"
-        aria-label={`${row.label}风险预算使用进度`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={percentage}
-      >
-        <span style={{ width: `${percentage}%` }} />
-      </span>
     </div>
   )
 }
@@ -165,7 +157,7 @@ export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayK
     tradingDayStartHour,
   ])
   const summary = useMemo(() => buildSidebarRiskSummary(rows), [rows])
-  const popoverStatus = summary.kind === 'normal' ? '额度充足' : summary.label
+  const popoverStatus = summary.kind === 'normal' ? '充足' : summary.label
 
   const close = useCallback((restoreFocus = false) => {
     setOpen(false)
@@ -257,17 +249,14 @@ export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayK
           style={position ?? { visibility: 'hidden' }}
         >
           <header className="sb-risk-popover-head">
-            <div>
-              <strong>风控中心</strong>
-              <small>当前阶段风险预算</small>
-            </div>
+            <strong>当前阶段风险额度</strong>
             <span>{popoverStatus}</span>
           </header>
           <div className="sb-risk-periods">
             {rows.map((row) => <SidebarRiskPeriod key={row.scope} row={row} />)}
           </div>
           <Link className="sb-risk-manage" to="/settings/risk" onClick={() => close()}>
-            <span>管理风险规则</span>
+            <span>风险规则</span>
             <ChevronRight size={ICON_MD} aria-hidden="true" />
           </Link>
         </div>,

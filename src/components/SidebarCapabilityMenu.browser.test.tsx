@@ -150,9 +150,18 @@ async function run(): Promise<void> {
     await waitFor(() => document.querySelector('.sb-risk-popover') !== null, '点击风险入口没有打开详情弹层')
     assert(riskTrigger.getAttribute('aria-expanded') === 'true', '打开后风险入口没有同步 aria-expanded')
     assert(document.querySelectorAll('.sb-risk-period').length === 3, '风险弹层必须同时展示日、周、月')
+    assert(!document.querySelector('.sb-risk-track'), '紧凑风险弹层不得重复堆叠三条进度条')
+    assert(
+      document.querySelector('.sb-risk-popover-head')?.textContent?.includes('当前阶段风险额度'),
+      '风险弹层标题必须直接说明当前阶段额度',
+    )
     assert(
       document.querySelector<HTMLAnchorElement>('.sb-risk-manage')?.getAttribute('href') === '/settings/risk',
       '风险弹层缺少完整风险管理入口',
+    )
+    assert(
+      document.querySelector<HTMLAnchorElement>('.sb-risk-manage')?.textContent?.trim() === '风险规则',
+      '风险规则入口应使用紧凑文案',
     )
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
     await waitFor(() => document.querySelector('.sb-risk-popover') === null, 'Escape 没有关闭风险详情弹层')
