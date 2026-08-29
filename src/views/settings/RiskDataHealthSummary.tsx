@@ -8,14 +8,7 @@ export function RiskDataHealthSummary({ currentTradingDayKey }: { currentTrading
   const queue = useMemo(() => buildRiskDataRepairQueue(issues), [issues])
   const actionLabel = queue.retainedOnly ? '查看历史缺口' : '开始修复'
 
-  if (queue.counts.total === 0) {
-    return (
-      <section className="settings-page-section risk-data-summary" data-risk-data-summary data-risk-data-complete>
-        <strong>风险数据完整</strong>
-        <span>当前没有需要处理的数据问题</span>
-      </section>
-    )
-  }
+  if (queue.counts.total === 0) return null
 
   return (
     <section className="settings-page-section risk-data-summary" data-risk-data-summary>

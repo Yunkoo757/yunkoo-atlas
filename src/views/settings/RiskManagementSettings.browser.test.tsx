@@ -158,7 +158,7 @@ async function run(): Promise<void> {
       confirmedAt: new Date().toISOString(),
       policyVersionId: 'risk-policy:settings-browser',
     })
-    await waitFor(() => panel.textContent?.includes('当前阶段风险基准已设置') ?? false, '风险基准保存没有完成')
+    await waitFor(() => panel.querySelector('[data-risk-preparation][data-reviewed="true"]') !== null, '风险基准保存没有完成')
     if (panel.querySelector('input')) throw new Error('确认后设置页必须回到只读摘要')
 
     const currentMonth = currentDay.slice(0, 7)
