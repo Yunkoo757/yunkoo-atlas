@@ -290,9 +290,15 @@ test('工作台长流程分段回收浏览器页面，避免 Windows CI 内存�
   const workbenchQa = readFileSync('scripts/qa-workbench.mjs', 'utf8')
   assert.match(
     workbenchQa,
-    /locator\('\.list-scroll'\)\s*\.getByRole\('button', \{ name: '新建案例记录', exact: true \}\)\s*\.click\(\)/,
+    /locator\('\.list-scroll'\)\s*\.getByRole\('button', \{ name: '新建案例', exact: true \}\)\s*\.click\(\)/,
     '工作台首步必须通过当前可访问名称创建案例，不能依赖已经退出产品 DOM 的旧类名',
   )
+  assert.match(workbenchQa, /getByRole\('button', \{ name: '更多信息', exact: true \}\)\.click\(\)/)
+  assert.match(workbenchQa, /getByRole\('dialog', \{ name: '新建案例', exact: true \}\)/)
+  assert.match(workbenchQa, /activityText\.includes\('创建了这个案例'\)/)
+  assert.doesNotMatch(workbenchQa, /caseType=missed/)
+  assert.doesNotMatch(workbenchQa, /创建了这条案例记录/)
+  assert.match(workbenchQa, /\['全部', '本周', '本月', '亏损', '星标交易', '错过机会'\]/)
   assert.doesNotMatch(
     workbenchQa,
     /locator\('\.empty-btn'\)/,

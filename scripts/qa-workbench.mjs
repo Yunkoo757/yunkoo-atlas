@@ -338,9 +338,10 @@ try {
   await waitForApp()
 
   await page.locator('.list-scroll')
-    .getByRole('button', { name: '新建案例记录', exact: true })
+    .getByRole('button', { name: '新建案例', exact: true })
     .click()
-  await selectValue(page.getByRole('combobox', { name: '案例记录品种' }), 'ETHUSDT')
+  await selectValue(page.getByRole('combobox', { name: '案例品种' }), 'ETHUSDT')
+  await page.getByRole('button', { name: '更多信息', exact: true }).click()
   await selectValue(page.getByRole('combobox', { name: '案例类型' }), 'mistake')
   await page.locator('.composer-btn-primary').click()
   await page.locator('.composer-modal').waitFor({ state: 'hidden', timeout: 10000 })
@@ -353,7 +354,7 @@ try {
   const activityText = await readSystemActivity()
   record(
     '案例详情使用案例语义',
-    placeholder?.includes('案例复盘') === true && activityText.includes('创建了这条案例记录'),
+    placeholder?.includes('案例复盘') === true && activityText.includes('创建了这个案例'),
     `placeholder=${placeholder ?? 'none'}`,
   )
   await page.getByRole('button', { name: '状态 计划中', exact: true }).click()
@@ -516,7 +517,7 @@ try {
   record(
     '今日记录快速创建实盘交易',
     liveActivityText.includes('创建了这笔交易') &&
-      !liveActivityText.includes('创建了这条案例记录') &&
+      !liveActivityText.includes('创建了这个案例') &&
       liveProperties.includes('实盘') &&
       liveProperties.includes('做空') &&
       createdTrade?.openedAt === '2025-06-15' &&
@@ -950,7 +951,7 @@ try {
     JSON.stringify(reviewSurface),
   )
   await page.keyboard.press('Shift+N')
-  await page.getByRole('dialog', { name: '新建案例记录', exact: true }).waitFor({
+  await page.getByRole('dialog', { name: '新建案例', exact: true }).waitFor({
     state: 'visible',
     timeout: 10000,
   })
@@ -1000,7 +1001,6 @@ try {
     { path: '/review-cases', search: '', tab: '全部' },
     { path: '/review-cases/focus', search: '', tab: '重点案例' },
     { path: '/review-cases/mistakes', search: '', tab: '错题' },
-    { path: '/review-cases', search: '?caseType=missed', tab: '错过机会' },
     { path: '/review-cases/unreviewed', search: '', tab: '待复看' },
     { path: '/review-cases/reviewed', search: '', tab: '已掌握' },
   ]
@@ -1031,9 +1031,9 @@ try {
   }
   const caseTabLabels = await page.getByRole('tab').allTextContents()
   const caseTabsIsolated =
-    ['全部', '重点案例', '错题', '错过机会', '待复看', '已掌握'].every((label) => caseTabLabels.includes(label)) &&
+    ['全部', '重点案例', '错题', '待复看', '已掌握'].every((label) => caseTabLabels.includes(label)) &&
     !['本周', '本月', '亏损'].some((label) => caseTabLabels.includes(label))
-  record('六个案例分类使用统一顶部视图且不混入交易入口', caseTabsIsolated, caseTabLabels.join(', '))
+  record('五个案例分类使用统一顶部视图且不混入交易入口', caseTabsIsolated, caseTabLabels.join(', '))
 
   await page.getByRole('button', { name: '筛选案例' }).click()
   await page.getByRole('dialog', { name: '案例筛选' }).waitFor({ state: 'visible' })
@@ -1050,8 +1050,8 @@ try {
   await waitForApp()
   const tradeTabLabels = await page.getByRole('tab').allTextContents()
   const tradeTabsIsolated =
-    ['全部', '本周', '本月', '亏损'].every((label) => tradeTabLabels.includes(label)) &&
-    !['重点案例', '错题', '错过机会', '待复看', '已掌握'].some((label) => tradeTabLabels.includes(label))
+    ['全部', '本周', '本月', '亏损', '星标交易', '错过机会'].every((label) => tradeTabLabels.includes(label)) &&
+    !['重点案例', '错题', '待复看', '已掌握'].some((label) => tradeTabLabels.includes(label))
   record('交易日志顶部视图不混入案例分类', tradeTabsIsolated, tradeTabLabels.join(', '))
 
   await page.goto(`${BASE}/list?symbol=ETHUSDT&side=long`, { waitUntil: 'domcontentloaded' })
