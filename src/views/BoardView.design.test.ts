@@ -16,11 +16,12 @@ export async function testBoardUsesOneSurfaceHierarchySharedWithTheList(): Promi
 
 export async function testCaseBoardDoesNotForkASecondCardDesignLanguage(): Promise<void> {
   const css = await readFile('src/views/BoardView.css', 'utf8')
+  const source = await readFile('src/views/BoardView.tsx', 'utf8')
 
-  assert.match(css, /\.board-scroll-case\s*\{[^}]*background:\s*var\(--bg-app\);/s)
-  assert.match(css, /\.board-scroll-case \.bd-col\s*\{[^}]*background:\s*transparent;/s)
-  assert.match(css, /\.bd-card-case\s*\{[^}]*border-radius:\s*var\(--radius-6\);/s)
-  assert.match(css, /\.bd-card-case\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--bg-surface\) 92%, var\(--bg-elevated\)\);/s)
+  assert.doesNotMatch(css, /\.board-scroll-case/)
+  assert.doesNotMatch(css, /\.bd-card-case/)
+  assert.doesNotMatch(source, /board-scroll-case/)
+  assert.doesNotMatch(source, /bd-card-case/)
 }
 
 export async function testBoardResultUsesTheSameRPresentationAsListRows(): Promise<void> {

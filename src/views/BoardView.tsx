@@ -149,7 +149,7 @@ export function BoardView({
         strategies={strategies}
         actions={filterActions}
       />
-      <div className={'board-scroll' + (isReviewCaseView ? ' board-scroll-case' : '')}>
+      <div className="board-scroll">
         {emptyState ? (
           <WorkbenchEmptyState
             state={emptyState}
@@ -314,11 +314,7 @@ function BoardColumnBody({
             >
               <article
                 data-trade-id={t.id}
-                className={
-                  'bd-card' +
-                  (isReviewCaseView ? ' bd-card-case' : '') +
-                  (dragId === t.id ? ' is-dragging' : '')
-                }
+                className={'bd-card' + (dragId === t.id ? ' is-dragging' : '')}
                 style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
                 draggable
                 onDragStart={(e) => {

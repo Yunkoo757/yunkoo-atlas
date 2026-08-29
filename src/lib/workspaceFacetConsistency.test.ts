@@ -20,6 +20,7 @@ import {
   getWorkspacePrimaryViews,
   isSavedViewInWorkspace,
   searchForWorkspaceViewTarget,
+  syncPrimaryWorkspaceMode,
 } from '@/lib/workspaceViews'
 import type { SidebarWorkspaceItem } from '@/lib/sidebarWorkspace'
 import {
@@ -546,4 +547,22 @@ export function testTradePrimaryViewsOwnStarredAndMissedClassification(): void {
     !getWorkspacePrimaryViews('case').some((view) => view.id === 'missed'),
     '案例库不得继续暴露错过机会快捷视图',
   )
+}
+
+export function testTradeAndCaseWorkspacesShareTheSelectedWorkbenchMode(): void {
+  const boardMemory = syncPrimaryWorkspaceMode({
+    today: { pathname: '/today-record', search: '?view=incomplete' },
+    trade: { pathname: '/period/this-month', search: '?status=loss' },
+    case: { pathname: '/review-cases/focus', search: '?tag=HTF' },
+  }, 'board')
+
+  assert(boardMemory.trade?.pathname === '/period/this-month/board', '交易日志应切换为看板路由')
+  assert(boardMemory.case?.pathname === '/review-cases/focus/board', '案例库应同步切换为看板路由')
+  assert(boardMemory.trade?.search === '?status=loss', '同步视图不得丢失交易日志筛选')
+  assert(boardMemory.case?.search === '?tag=HTF', '同步视图不得丢失案例库筛选')
+  assert(boardMemory.today?.pathname === '/today-record', '共享视图不应改写今日工作台')
+
+  const listMemory = syncPrimaryWorkspaceMode(boardMemory, 'list')
+  assert(listMemory.trade?.pathname === '/period/this-month', '交易日志应恢复列表路由')
+  assert(listMemory.case?.pathname === '/review-cases/focus', '案例库应同步恢复列表路由')
 }

@@ -1,7 +1,12 @@
 import { canonicalizeTradeViewSearch, normalizeSavedViewPath } from '@/lib/savedTradeViews'
 import type { Strategy } from '@/data/strategies'
 import { isValidPeriodSlug } from '@/lib/periods'
-import { listPathFromLegacyTablePath } from '@/lib/routeContext'
+import {
+  listPathFromLegacyTablePath,
+  listPathFromPathname,
+  pathWithWorkbenchMode,
+  type WorkbenchMode,
+} from '@/lib/routeContext'
 import { REVIEW_CASE_SCOPE_LABELS } from '@/lib/reviewCaseScope'
 import {
   isCapabilityEnabledForWorkspace,
@@ -16,6 +21,12 @@ export type RememberableWorkspaceKind = 'today' | 'trade' | 'case'
 export type WorkspaceRouteMemory = {
   pathname: string
   search: string
+}
+
+export type PrimaryWorkspaceMemory = {
+  today?: WorkspaceRouteMemory
+  trade?: WorkspaceRouteMemory
+  case?: WorkspaceRouteMemory
 }
 
 export type WorkspaceViewTarget = {
@@ -266,6 +277,27 @@ export function resolveWorkspaceNavTarget(
     pathname,
     search: memory.search ?? '',
   }
+}
+
+/**
+ * 交易日志与案例库是一组平行工作台，列表 / 看板属于用户的全局浏览方式，
+ * 不应由两个模块各记一份而产生切换跳变。
+ */
+export function syncPrimaryWorkspaceMode(
+  memory: PrimaryWorkspaceMemory | undefined,
+  mode: WorkbenchMode,
+): PrimaryWorkspaceMemory {
+  const next = { ...memory }
+  for (const kind of ['trade', 'case'] as const) {
+    const route = resolveWorkspaceNavTarget(kind, memory?.[kind])
+    const listPath = listPathFromPathname(route.pathname)
+      ?? (kind === 'trade' ? '/list' : '/review-cases')
+    next[kind] = {
+      pathname: pathWithWorkbenchMode(listPath, mode),
+      search: route.search,
+    }
+  }
+  return next
 }
 
 export function workspaceRouteHref(route: WorkspaceRouteMemory): string {

@@ -3,10 +3,11 @@ import { useLocation } from 'react-router-dom'
 import { useStore } from '@/store/useStore'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { buildListNavigationContext } from '@/shortcuts/listNav'
-import { listPathFromPathname } from '@/lib/routeContext'
+import { listPathFromPathname, workbenchModeFromPathname } from '@/lib/routeContext'
 import {
   rememberableWorkspaceKind,
   resolveWorkspaceNavTarget,
+  syncPrimaryWorkspaceMode,
   type WorkspaceKind,
   type WorkspaceRouteMemory,
 } from '@/lib/workspaceViews'
@@ -36,6 +37,24 @@ function useWorkspaceMemorySync() {
         const prev = nextMemory[kind]
         if (prev?.pathname !== pathname || (prev.search ?? '') !== search) {
           nextMemory[kind] = current
+          changed = true
+        }
+      }
+    }
+
+    if (kind === 'trade' || kind === 'case') {
+      const syncedMemory = syncPrimaryWorkspaceMode(
+        nextMemory,
+        workbenchModeFromPathname(pathname),
+      )
+      for (const workspaceKind of ['trade', 'case'] as const) {
+        const prev = nextMemory[workspaceKind]
+        const next = syncedMemory[workspaceKind]
+        if (
+          next &&
+          (prev?.pathname !== next.pathname || (prev.search ?? '') !== next.search)
+        ) {
+          nextMemory[workspaceKind] = next
           changed = true
         }
       }

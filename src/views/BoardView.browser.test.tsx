@@ -90,10 +90,11 @@ async function run(): Promise<void> {
     await waitFor(() => document.querySelectorAll('.bd-col').length === 5, '五个状态列未完整渲染')
     await waitFor(() => document.querySelectorAll('.bd-card').length === 5, '案例卡片未完整渲染')
 
-    const board = document.querySelector<HTMLElement>('.board-scroll-case')
+    const board = document.querySelector<HTMLElement>('.board-scroll')
     const columns = [...document.querySelectorAll<HTMLElement>('.bd-col')]
     const cards = [...document.querySelectorAll<HTMLElement>('.bd-card')]
     assert(board, '缺少案例看板滚动容器')
+    assert(!document.querySelector('.board-scroll-case, .bd-card-case'), '案例库不得启用第二套看板视觉分支')
     assert(getComputedStyle(board).gap === '0px', '看板列之间不得保留卡片式沟槽')
     assert(columns.every((column) => getComputedStyle(column).borderRadius === '0px'), '状态列不得继续使用独立大圆角容器')
     assert(columns.every((column) => getComputedStyle(column).backgroundColor === 'rgba(0, 0, 0, 0)'), '状态列必须共享页面底色')

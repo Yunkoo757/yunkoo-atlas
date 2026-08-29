@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import type { WorkbenchView } from '@/components/Topbar'
 import { rememberTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { workbenchModeFromPathname } from '@/lib/routeContext'
+import { syncPrimaryWorkspaceMode } from '@/lib/workspaceViews'
 import type { ListFilter } from '@/lib/tradeFilters'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { routeWithSearch } from '@/lib/tradeView'
@@ -29,6 +30,10 @@ export function TradesPage({
   const boardPath = listPath === '/list' ? '/board' : `${listPath}/board`
   const view: WorkbenchView = workbenchModeFromPathname(pathname)
   const setView = (nextView: WorkbenchView) => {
+    const state = useStore.getState()
+    state.setDisplay({
+      workspaceMemory: syncPrimaryWorkspaceMode(state.display.workspaceMemory, nextView),
+    })
     const target = nextView === 'board' ? boardPath : listPath
     navigate(routeWithSearch(target, search))
   }
