@@ -35,8 +35,8 @@
   --direction-short-bg: color-mix(in srgb, var(--direction-short-text) 10%, transparent);
   --direction-short-border: color-mix(in srgb, var(--direction-short-text) 28%, transparent);
   /* 高密度列表只保留方向辨识，不让多空与最终结果争夺注意力。 */
-  --direction-list-long: lch(66% 14 225);
-  --direction-list-short: lch(66% 13 305);
+  --direction-list-long: lch(60% 8 225);
+  --direction-list-short: lch(60% 8 305);
   /* 仅在键盘 focus-visible 时显示，确保深色界面中的当前位置可辨认。 */
   --focus-ring-color: color-mix(in srgb, var(--accent) 78%, white);
   --focus-ring-width: 2px;
@@ -143,7 +143,7 @@
   --modal-cta-font-size: var(--type-row-size);
   --field-height-md: 32px;
   --field-padding-inline: 10px;
-  --trade-row-height: 52px;
+  --trade-row-height: 48px;
   --trade-group-height: 36px;
   --filter-bar-height: 43px;
   --toolbar-action-height: var(--field-height-md);
@@ -238,7 +238,12 @@
   --list-text-strong: var(--text-list-strong);
   --list-text-primary: var(--text-nav-hover);
   --list-text-secondary: var(--text-list-secondary);
+  --list-text-context: lch(58% 1 272 / 1);
   --list-group-title: var(--text-primary);
+  --list-status-opacity-rest: 0.72;
+  --list-status-opacity-active: 0.92;
+  --list-interactive-border-rest: color-mix(in srgb, var(--list-text-secondary) 12%, transparent);
+  --list-interactive-border-hover: color-mix(in srgb, var(--list-text-secondary) 24%, transparent);
 
   /* 表单控件表面 */
   --field-bg: color-mix(in srgb, var(--bg-elevated) 72%, var(--bg-surface));
@@ -268,7 +273,7 @@
   /* 高频桌面信息角色：避免侧栏和表格继续复用过暗的辅助灰。 */
   --text-nav-rest: lch(62% 1 272 / 1);
   --text-nav-hover: lch(72% 1 272 / 1);
-  --text-nav-active: lch(88% 0.8 272 / 1);
+  --text-nav-active: lch(94% 0.8 272 / 1);
   /* 侧栏当前位置：文字保持中性，图标用低面积色相帮助快速定位模块。 */
   --nav-icon-today: lch(80% 90 85);
   --nav-icon-notes: lch(72% 48 175);
@@ -284,7 +289,7 @@
   --nav-icon-ws-case: lch(68% 50 310);
   /* 持久导航使用统一强调色；模块身份不再制造彩虹式选中态。 */
   --nav-active-icon: color-mix(in srgb, var(--accent-readable) 58%, var(--text-nav-active));
-  --text-list-strong: lch(88% 0.8 272 / 1);
+  --text-list-strong: lch(95% 0.8 272 / 1);
   --text-list-secondary: lch(64% 1 272 / 1);
   --text-chip: lch(64% 1 272 / 1);
 
@@ -315,10 +320,10 @@
   --result-opportunity: var(--opportunity);
 
   /* 信息标签层级：错误最强、时段次要、普通标签最弱 */
-  --tag-neutral-border: color-mix(in srgb, var(--border-subtle) 78%, transparent);
-  --tag-session-text: lch(70% 15 264);
-  --tag-session-bg: lch(16% 4 264 / 0.2);
-  --tag-session-border: lch(28% 7 264 / 0.26);
+  --tag-neutral-border: transparent;
+  --tag-session-text: lch(62% 8 264);
+  --tag-session-bg: transparent;
+  --tag-session-border: transparent;
   /* 复盘诊断不是财务亏损：使用低色度砖红，与强亏损红分离。 */
   --diagnostic: lch(61% 27 35);
   --diagnostic-text: color-mix(in srgb, var(--diagnostic) 72%, var(--text-secondary));
@@ -329,8 +334,8 @@
   --tag-error-border: var(--diagnostic-border);
 
   /* 品种完整品牌色保留给详情与编辑场景，列表中只保留识别线索。 */
-  --symbol-list-glyph-strength: 72%;
-  --symbol-list-surface-strength: 8%;
+  --symbol-list-glyph-strength: 64%;
+  --symbol-list-surface-strength: 6%;
 
   /* 业务语义色背景（12%透明度，用于标签/徽章背景） */
   --pos-bg: color-mix(in srgb, var(--pos) 12%, transparent);
@@ -446,16 +451,16 @@
   --type-nav-size: 14px;
   --type-nav-line-height: 20px;
   --type-nav-weight: 450;
-  --type-nav-active-weight: 550;
-  --type-list-primary-size: 14px;
+  --type-nav-active-weight: 500;
+  --type-list-primary-size: 13px;
   --type-list-primary-line-height: 20px;
-  --type-list-primary-weight: 550;
+  --type-list-primary-weight: 500;
   --type-list-secondary-size: 13px;
   --type-list-secondary-line-height: 20px;
   --type-list-secondary-weight: 450;
   --type-chip-size: 12px;
   --type-chip-line-height: 18px;
-  --type-chip-weight: 500;
+  --type-chip-weight: 450;
   --type-body-size: var(--font-size-regular);
   --type-body-line-height: 23px;
   --type-data-size: 0.8125rem;

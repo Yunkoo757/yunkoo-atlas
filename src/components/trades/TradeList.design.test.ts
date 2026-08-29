@@ -14,8 +14,8 @@ export async function testTradeListGroupTogglePreservesInteractionContract(): Pr
   assert(source.includes('EASE_OUT_QUART'), '折叠缓动必须使用统一 ease-out-quart')
   assert(source.includes('COLLAPSE_MS'), '折叠时长必须使用统一布局动效')
   assert(source.includes('rowHeight * item.openProgress'), '当前密度行高必须随 openProgress 平滑收展')
-  assert(source.includes('default: 52'), '交易日志必须使用统一的 52px 列表行高')
-  assert(source.includes('comfortable: 52'), '案例列表必须使用统一的 52px 列表行高')
+  assert(source.includes('default: 48'), '交易日志必须使用统一的 48px 列表行高')
+  assert(source.includes('comfortable: 48'), '案例列表必须使用统一的 48px 列表行高')
   assert(source.includes("'--trade-row-height': `${rowHeight}px`"), '虚拟估算与 CSS 行高必须共享同一密度值')
   assert(source.includes('DisclosureChevron'), '分组折叠必须使用语义化 DisclosureChevron')
   assert(source.includes('StatusIndicator'), '复盘分组头应使用语义化状态图标')
@@ -84,7 +84,7 @@ export async function testTradeAndCaseListsShareComfortableRowHeight(): Promise<
     '交易和案例可以保留密度语义，但必须共享同一行高基线',
   )
   const list = await fs.readFile('src/components/trades/TradeList.tsx', 'utf8')
-  assert(list.includes('default: 52') && list.includes('comfortable: 52'), '交易与案例行高必须一致')
+  assert(list.includes('default: 48') && list.includes('comfortable: 48'), '交易与案例行高必须一致')
 }
 
 export async function testCaseListHonorsSharedGroupingPreference(): Promise<void> {
@@ -153,9 +153,19 @@ export async function testTradeListVisualAlignmentContract(): Promise<void> {
     /\.trade-row-strategy\s*\{[\s\S]*?min-height:\s*20px;[\s\S]*?border-radius:\s*var\(--radius-full\);/.test(css),
     '策略与标签必须共享胶囊语义',
   )
-  assert(trash.includes('height: var(--trade-row-height, 52px)'), '回收站必须共享 52px 列表行高')
+  assert(trash.includes('height: var(--trade-row-height, 48px)'), '回收站必须共享 48px 列表行高')
   assert(trash.includes('grid-template-columns: 9ch 18px minmax(0, 1fr)'), '回收站品种与方向也必须固定对齐')
   assert(!trash.includes('.trash-item.is-selected'), '回收站选中态不得额外铺整行底色或左侧强调线')
+  assert(
+    /\.trade-row-tag,\s*\n\.trade-row-more,\s*\n\.trade-row-timeframe\s*\{[\s\S]*?border:\s*1px solid var\(--tag-neutral-border\);/.test(css),
+    '普通标签必须消费透明的中性描边令牌，避免高密度列表产生轮廓噪声',
+  )
+  assert(
+    /\.trade-row-strategy\s*\{[\s\S]*?border:\s*1px solid var\(--list-interactive-border-rest\);/.test(css),
+    '可交互策略入口仍需保留低对比边界，以区别于纯展示标签',
+  )
+  assert(css.includes('opacity: var(--list-status-opacity-rest)'), '静止状态图标必须消费统一透明度令牌')
+  assert(css.includes('color: var(--list-text-context)'), '普通上下文必须使用专用低层级灰阶')
   assert(
     /\.sb-footer\s*\{[\s\S]*?border-top:\s*0;/.test(sidebar)
       && /\.sb-footer\s*\{[\s\S]*?padding:\s*var\(--sp-2\) 0 var\(--sp-1\) var\(--sp-1\);/.test(sidebar)

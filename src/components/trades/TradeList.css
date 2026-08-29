@@ -1,8 +1,5 @@
 .trade-list {
   --trade-list-columns-height: 28px;
-  --trade-strategy-border-rest: color-mix(in srgb, var(--list-text-secondary) 16%, transparent);
-  --trade-strategy-border-hover: color-mix(in srgb, var(--list-text-secondary) 26%, transparent);
-  --trade-tag-border-rest: color-mix(in srgb, var(--list-text-secondary) 13%, transparent);
 
   min-width: 0;
 }
@@ -477,6 +474,16 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   white-space: nowrap;
 }
 
+.trade-row .status-icon {
+  opacity: var(--list-status-opacity-rest);
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.trade-row:hover .status-icon,
+.trade-row:focus-within .status-icon {
+  opacity: var(--list-status-opacity-active);
+}
+
 .trade-row-tags > .hover-preview-anchor {
   flex: 0 1 auto;
   min-width: 3.5ch;
@@ -497,7 +504,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   overflow: hidden;
   color: var(--list-text-secondary);
   background: transparent;
-  border: 1px solid var(--trade-strategy-border-rest);
+  border: 1px solid var(--list-interactive-border-rest);
   border-radius: var(--radius-full);
   box-shadow: none;
   cursor: pointer;
@@ -512,7 +519,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 .trade-row-strategy:hover {
   color: var(--list-text-primary);
   background: var(--bg-hover);
-  border-color: var(--trade-strategy-border-hover);
+  border-color: var(--list-interactive-border-hover);
   box-shadow: none;
 }
 
@@ -526,7 +533,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 .trade-row-strategy:focus-visible {
   color: var(--list-text-primary);
   background: var(--bg-hover);
-  border-color: var(--trade-strategy-border-hover);
+  border-color: var(--list-interactive-border-hover);
   box-shadow: var(--focus-ring-shadow);
 }
 
@@ -591,7 +598,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   min-height: 20px;
   padding: 1px 7px;
   overflow: hidden;
-  color: var(--text-chip);
+  color: var(--list-text-context);
   font-family: var(--font-ui);
   font-size: var(--type-chip-size);
   font-weight: var(--type-chip-weight);
@@ -601,7 +608,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   text-overflow: ellipsis;
   white-space: nowrap;
   background: transparent;
-  border: 1px solid var(--trade-tag-border-rest);
+  border: 1px solid var(--tag-neutral-border);
   border-radius: var(--radius-full);
 }
 
@@ -637,13 +644,13 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 .trade-row-tag.is-review {
   color: var(--text-tertiary);
   background: transparent;
-  border-color: var(--trade-tag-border-rest);
+  border-color: var(--tag-neutral-border);
 }
 
 .trade-row-more {
   color: var(--text-quaternary);
   background: transparent;
-  border-color: var(--border-default);
+  border-color: var(--tag-neutral-border);
   border-style: solid;
 }
 

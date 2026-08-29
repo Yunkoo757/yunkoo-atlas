@@ -82,7 +82,7 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
 
   for (const contract of [
     '--trade-group-height: 36px',
-    '--trade-row-height: 52px',
+    '--trade-row-height: 48px',
     '--toolbar-chip-height: 28px',
     '--surface-row-selected: lch(10.691% 0.493 272 / 1)',
     '--surface-group: lch(7.67% 0.75 272 / 1)',

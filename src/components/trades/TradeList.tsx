@@ -68,8 +68,8 @@ type FlatItem =
   | { kind: 'row'; key: string; trade: Trade; groupKey: string; openProgress: number }
 
 const ROW_HEIGHTS = {
-  default: 52,
-  comfortable: 52,
+  default: 48,
+  comfortable: 48,
 } as const
 const HEADER_CONTENT_HEIGHT = 36
 const HEADER_VERTICAL_GAP = 8

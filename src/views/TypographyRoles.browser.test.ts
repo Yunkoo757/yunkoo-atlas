@@ -186,12 +186,12 @@ async function run(): Promise<void> {
   assert(navRest.fontWeight === '450', '普通导航必须使用真实 450 字重')
   assertComputedTextRole('[data-nav-state="rest"]', '--text-nav-rest')
   const navActive = getComputedStyle(document.querySelector<HTMLElement>('[data-nav-state="active"]')!)
-  assert(navActive.fontWeight === '550', '选中导航必须使用真实 550 字重')
+  assert(navActive.fontWeight === '500', '选中导航必须使用清晰克制的 500 字重')
   assertComputedTextRole('[data-nav-state="active"]', '--text-nav-active')
 
   const tradeSymbol = getComputedStyle(document.querySelector<HTMLElement>('[data-typography-row] .trade-row-symbol strong')!)
-  assert(tradeSymbol.fontSize === '14px' && tradeSymbol.lineHeight === '20px', '交易品种必须计算为 14px/20px')
-  assert(tradeSymbol.fontWeight === '550', '交易品种必须使用 550 字重')
+  assert(tradeSymbol.fontSize === '13px' && tradeSymbol.lineHeight === '20px', '交易品种必须计算为 13px/20px')
+  assert(tradeSymbol.fontWeight === '500', '交易品种必须使用锐利的 500 字重')
   assertComputedTextRole('[data-typography-row] .trade-row-symbol strong', '--text-list-strong')
   const tradeRef = getComputedStyle(document.querySelector<HTMLElement>('[data-typography-row] .trade-row-ref')!)
   assert(tradeRef.fontSize === '13px' && tradeRef.lineHeight === '20px', '交易编号必须计算为 13px/20px')
@@ -202,7 +202,7 @@ async function run(): Promise<void> {
     chip.fontSize === '12px' && chip.lineHeight === '18px',
     `Chip 必须计算为 12px/18px，实际为 ${chip.fontSize}/${chip.lineHeight}`,
   )
-  assert(chip.fontWeight === '500', 'Chip 必须使用 500 字重')
+  assert(chip.fontWeight === '450', 'Chip 必须使用低噪声的 450 字重')
   assertComputedTextRole('.ui-chip', '--text-chip')
 
   assertComputedTextRole('.ui-field-trigger', '--text-secondary')

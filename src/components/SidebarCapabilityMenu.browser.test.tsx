@@ -225,7 +225,7 @@ async function run(): Promise<void> {
     const activeProbeStyle = getComputedStyle(activeProbe)
     assert(
       activePrimaryStyle.color === activeProbeStyle.color
-        && activePrimaryStyle.fontWeight === '550'
+        && activePrimaryStyle.fontWeight === '500'
         && getComputedStyle(activePrimaryIcon).color === getComputedStyle(activeIconProbe).color
         && getComputedStyle(activePrimaryIcon).color !== activePrimaryStyle.color,
       '父层选中的可排序导航必须提升文字与字重，并使用统一的低饱和图标强调色',

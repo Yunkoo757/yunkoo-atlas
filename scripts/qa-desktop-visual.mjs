@@ -243,6 +243,7 @@ async function collectTypographyEvidence(page, hostPlatform) {
       interLoaded: document.fonts.check('13px "Inter Variable"', 'Trader Atlas 123'),
       body: pickStyle(document.body),
       row: pickStyle(document.querySelector('.trade-row')),
+      primary: pickStyle(document.querySelector('.trade-row-symbol strong')),
       metadata: pickStyle(document.querySelector('.trade-list-column')),
       group: pickStyle(group.querySelector('strong')),
       probes: Object.fromEntries(Object.entries(selectors).map(([id, selector]) => [

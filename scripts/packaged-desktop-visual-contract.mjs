@@ -215,12 +215,20 @@ export function buildTypographyCheckResult({ platform, computed, glyphFonts }) {
       id: 'typography-role-metrics',
       pass: exactPixels(computed?.row?.fontSize, 13) && exactPixels(computed?.row?.lineHeight, 20) &&
         computed?.row?.fontWeight === '450' &&
+        exactPixels(computed?.primary?.fontSize, 13) &&
+        exactPixels(computed?.primary?.lineHeight, 20) &&
+        computed?.primary?.fontWeight === '500' &&
         exactPixels(computed?.metadata?.fontSize, 12) &&
         exactPixels(computed?.metadata?.lineHeight, 18) &&
-        computed?.metadata?.fontWeight === '500' &&
-        exactPixels(computed?.group?.fontSize, 14) && exactPixels(computed?.group?.lineHeight, 20) &&
-        computed?.group?.fontWeight === '550',
-      detail: JSON.stringify({ row: computed?.row, metadata: computed?.metadata, group: computed?.group }),
+        computed?.metadata?.fontWeight === '450' &&
+        exactPixels(computed?.group?.fontSize, 13) && exactPixels(computed?.group?.lineHeight, 20) &&
+        computed?.group?.fontWeight === '500',
+      detail: JSON.stringify({
+        row: computed?.row,
+        primary: computed?.primary,
+        metadata: computed?.metadata,
+        group: computed?.group,
+      }),
     },
     {
       id: 'month-group-geometry',
