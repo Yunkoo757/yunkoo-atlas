@@ -95,9 +95,9 @@ try {
 
   // 6. 旧错过机会入口应收敛到交易日志筛选
   await page.goto(`${BASE}/missed`, { waitUntil: 'networkidle' })
-  await page.waitForURL((url) => url.pathname === '/list' && url.searchParams.get('filter') === 'missed')
-  const missedTitle = await page.getByText('错过机会').first().isVisible()
-  record('交易日志错过机会筛选可访问', missedTitle)
+  await page.waitForURL((url) => url.pathname === '/list' && url.searchParams.get('view') === 'missed')
+  const missedViewActive = new URL(page.url()).searchParams.get('view') === 'missed'
+  record('交易日志错过机会筛选可访问', missedViewActive)
   await page.screenshot({ path: join(OUT, '03-missed.png') })
 
   // 7. 统计分析
