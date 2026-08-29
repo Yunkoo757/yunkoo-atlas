@@ -6,6 +6,7 @@ import {
 } from '@/lib/periods'
 import {
   matchesReviewCaseScope,
+  REVIEW_CASE_SCOPE_LABELS,
   REVIEW_CASE_SCOPES,
   type ReviewCaseScope,
 } from '@/lib/reviewCaseScope'
@@ -18,6 +19,19 @@ export type ReviewStageSource =
   | 'current'
   | 'all-history'
   | { stageIds: string[] }
+
+export const REVIEW_STAGE_SOURCE_LABELS = {
+  'current-and-history': '全部阶段',
+  current: '仅当前阶段',
+  'all-history': '仅历史阶段',
+} as const satisfies Record<Exclude<ReviewStageSource, { stageIds: string[] }>, string>
+
+export function reviewStageSourceLabel(stageSource: ReviewStageSource): string {
+  if (typeof stageSource === 'string') return REVIEW_STAGE_SOURCE_LABELS[stageSource]
+  return stageSource.stageIds.length === 0
+    ? '尚未选择实盘阶段'
+    : `自选 ${stageSource.stageIds.length} 个阶段`
+}
 
 export type ReviewStageContext = {
   liveStages: readonly LiveStage[]
@@ -159,7 +173,7 @@ export const REVIEW_SESSION_PRESETS: readonly ReviewSessionPreset[] = [
   },
   {
     id: 'mistakes',
-    label: '错误合集',
+    label: REVIEW_CASE_SCOPE_LABELS.mistakes,
     hint: '错题案例，含未到期与已掌握',
     filters: {
       includeCases: true,
@@ -171,7 +185,7 @@ export const REVIEW_SESSION_PRESETS: readonly ReviewSessionPreset[] = [
   },
   {
     id: 'missed',
-    label: '错过的案例',
+    label: REVIEW_CASE_SCOPE_LABELS.missed,
     hint: '错过机会案例，含未到期与已掌握',
     filters: {
       includeCases: true,

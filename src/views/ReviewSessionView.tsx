@@ -46,7 +46,9 @@ import {
   loadReviewSession,
   loadReviewSessionFilters,
   normalizeReviewStageSource,
+  REVIEW_STAGE_SOURCE_LABELS,
   reconcileReviewSession,
+  reviewStageSourceLabel,
   reviewFiltersForNextRound,
   saveReviewSession,
   saveReviewSessionFilters,
@@ -63,7 +65,7 @@ import {
   type ReviewPoolRef,
   type SystemReviewPoolId,
 } from '@/lib/reviewPools'
-import type { ReviewCaseScope } from '@/lib/reviewCaseScope'
+import { REVIEW_CASE_SCOPE_LABELS, type ReviewCaseScope } from '@/lib/reviewCaseScope'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { toast } from '@/lib/toast'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
@@ -88,12 +90,12 @@ type ReviewNotePresentation = { bodyHtml: string; images: ReviewImageCandidate[]
 
 const CASE_SCOPE_OPTIONS: Array<{ value: ReviewCaseScope; label: string }> = [
   { value: 'all', label: '全部案例' },
-  { value: 'exemplar', label: '优秀范例' },
-  { value: 'mistakes', label: '错误合集' },
-  { value: 'missed', label: '错过的案例' },
-  { value: 'focus', label: '重点' },
-  { value: 'unreviewed', label: '待复看' },
-  { value: 'reviewed', label: '已掌握' },
+  { value: 'exemplar', label: REVIEW_CASE_SCOPE_LABELS.exemplar },
+  { value: 'mistakes', label: REVIEW_CASE_SCOPE_LABELS.mistakes },
+  { value: 'missed', label: REVIEW_CASE_SCOPE_LABELS.missed },
+  { value: 'focus', label: REVIEW_CASE_SCOPE_LABELS.focus },
+  { value: 'unreviewed', label: REVIEW_CASE_SCOPE_LABELS.unreviewed },
+  { value: 'reviewed', label: REVIEW_CASE_SCOPE_LABELS.reviewed },
 ]
 
 const REVIEW_TIMING_OPTIONS = [
@@ -102,9 +104,9 @@ const REVIEW_TIMING_OPTIONS = [
 ]
 
 const REVIEW_STAGE_SOURCE_OPTIONS = [
-  { value: 'current-and-history', label: '当前阶段 + 全部历史' },
-  { value: 'current', label: '仅当前阶段' },
-  { value: 'all-history', label: '全部阶段' },
+  { value: 'current-and-history', label: REVIEW_STAGE_SOURCE_LABELS['current-and-history'] },
+  { value: 'current', label: REVIEW_STAGE_SOURCE_LABELS.current },
+  { value: 'all-history', label: REVIEW_STAGE_SOURCE_LABELS['all-history'] },
   { value: 'custom', label: '自选阶段' },
 ]
 
@@ -160,15 +162,6 @@ const EMPTY_NOTE_STATE: ResolvedNoteState = {
 
 function stageSourceSelectValue(stageSource: ReviewStageSource): string {
   return typeof stageSource === 'object' ? 'custom' : stageSource
-}
-
-function reviewStageSourceLabel(stageSource: ReviewStageSource): string {
-  if (stageSource === 'current-and-history') return '当前阶段 + 全部历史'
-  if (stageSource === 'current') return '仅当前阶段'
-  if (stageSource === 'all-history') return '全部阶段'
-  return stageSource.stageIds.length === 0
-    ? '尚未选择实盘阶段'
-    : `自选 ${stageSource.stageIds.length} 个阶段`
 }
 
 function haveSameReviewFilters(left: ReviewSessionFilters, right: ReviewSessionFilters): boolean {

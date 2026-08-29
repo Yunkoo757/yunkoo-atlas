@@ -2,6 +2,7 @@ import { canonicalizeTradeViewSearch, normalizeSavedViewPath } from '@/lib/saved
 import type { Strategy } from '@/data/strategies'
 import { isValidPeriodSlug } from '@/lib/periods'
 import { listPathFromLegacyTablePath } from '@/lib/routeContext'
+import { REVIEW_CASE_SCOPE_LABELS } from '@/lib/reviewCaseScope'
 import {
   isCapabilityEnabledForWorkspace,
   type SidebarCapabilityId,
@@ -32,7 +33,7 @@ export const WORKSPACE_VIEW_QUERY_KEYS = [
   'reviewCategory',
   'caseType',
   'masteryState',
-  // range 仅在仪表盘/策略分析页生效；kind 已提升为跨页公共上下文。
+  // range 仅在统计分析/策略分析页生效；kind 已提升为跨页公共上下文。
   'range',
   'view',
   'caseScope',
@@ -56,12 +57,12 @@ const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
     { id: 'loss', label: '亏损复盘', pathname: '/sim', search: '?status=loss' },
   ],
   case: [
-    { id: 'all', label: '全部', pathname: '/review-cases' },
-    { id: 'exemplar', label: '交易案例', pathname: '/review-cases/exemplar' },
-    { id: 'focus', label: '重点案例', pathname: '/review-cases/focus' },
-    { id: 'mistakes', label: '错题', pathname: '/review-cases/mistakes' },
-    { id: 'unreviewed', label: '待复看', pathname: '/review-cases/unreviewed' },
-    { id: 'reviewed', label: '已掌握', pathname: '/review-cases/reviewed' },
+    { id: 'all', label: REVIEW_CASE_SCOPE_LABELS.all, pathname: '/review-cases' },
+    { id: 'exemplar', label: REVIEW_CASE_SCOPE_LABELS.exemplar, pathname: '/review-cases/exemplar' },
+    { id: 'focus', label: REVIEW_CASE_SCOPE_LABELS.focus, pathname: '/review-cases/focus' },
+    { id: 'mistakes', label: REVIEW_CASE_SCOPE_LABELS.mistakes, pathname: '/review-cases/mistakes' },
+    { id: 'unreviewed', label: REVIEW_CASE_SCOPE_LABELS.unreviewed, pathname: '/review-cases/unreviewed' },
+    { id: 'reviewed', label: REVIEW_CASE_SCOPE_LABELS.reviewed, pathname: '/review-cases/reviewed' },
   ],
   'historical-trade': [
     { id: 'all', label: '全部', pathname: '/live-history' },
@@ -94,7 +95,7 @@ export function capabilityForWorkspaceViewId(viewId: string): SidebarCapabilityI
   return null
 }
 
-/** 按侧栏能力范围过滤快捷视图；错过的机会始终保留来源工作区本地入口。 */
+/** 按侧栏能力范围过滤快捷视图；错过机会始终保留来源工作区本地入口。 */
 export function filterViewsBySidebarCapabilities(
   kind: WorkspaceKind,
   views: readonly WorkspaceViewTarget[],

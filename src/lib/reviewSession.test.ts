@@ -500,11 +500,11 @@ export function testReviewSessionPresetsCoverCasesMistakesAndMissed(): void {
   )
   assert(
     buildPool(trades, mistakes).map((trade) => trade.id).join(',') === 'mistake',
-    '错误合集预置只能抽到错题案例',
+    '错题预置只能抽到错题案例',
   )
   assert(
     buildPool(trades, missed).map((trade) => trade.id).join(',') === 'missed',
-    '错过的案例预置只能抽到错过机会',
+    '错过案例预置只能抽到错过机会',
   )
 }
 

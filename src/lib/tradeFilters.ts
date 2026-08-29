@@ -39,7 +39,7 @@ export interface ListFilter {
   strategySources?: SidebarQuickWorkspace[]
   /** 策略合并列表里，实盘只保留该阶段。 */
   liveStageId?: string
-  /** 仅用于仪表盘下钻：按平仓日、交易类型与日期范围锁定分析样本。 */
+  /** 仅用于统计分析下钻：按平仓日、交易类型与日期范围锁定分析样本。 */
   analysisScope?: AnalysisScope
   reviewCaseScope?: ReviewCaseScope
   /** 历史实盘仍使用标准工作台；内容类型由此字段决定，stage 范围只由 liveStage 查询解析。 */

@@ -7,6 +7,7 @@ import {
   resolveSharedTradeWorkspaceSearch,
   resolveTradeWorkspaceListFilter,
   sharedTradeWorkspaceSearch,
+  tradeHomeHref,
   tradeHomeSearch,
   writeTradeWorkspaceContext,
 } from '@/lib/tradeWorkspaceQuery'
@@ -102,6 +103,14 @@ export function testTradeHomeKeepsOnlyStageScope(): void {
     '?liveStage=all',
   )
   assert.equal(tradeHomeSearch('?kind=paper&status=open'), '')
+}
+
+export function testTradeHomeRestoresPersistedStageAfterRestart(): void {
+  assert.equal(
+    tradeHomeHref('?status=loss&liveStage=all&kind=paper&strategyId=navigation-2'),
+    '/list?liveStage=all',
+  )
+  assert.equal(tradeHomeHref('?status=loss&kind=paper'), '/list')
 }
 
 export function testSharedTradeWorkspaceContextSurvivesModuleNavigation(): void {

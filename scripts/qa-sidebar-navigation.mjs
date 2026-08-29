@@ -443,7 +443,7 @@ try {
   await expectVisible(group('策略').getByRole('button', {
     name: new RegExp(`^${escapeRegExp(primaryStrategy)}（交易日志 · 策略）：`),
   }))
-  await expectVisible(group('案例库').getByRole('button', { name: /^重点（案例记录）：/ }))
+  await expectVisible(group('案例库').getByRole('button', { name: /^重点案例（案例库）：/ }))
 
   const primaryStrategyButton = strategyButton(primaryStrategy)
   await expectAttribute(primaryStrategyButton, 'aria-label', `${primaryStrategy}（交易日志 · 策略）：未添加，点击添加`)
@@ -462,10 +462,10 @@ try {
 
   await editor.getByRole('button', { name: /^QA 保存视图（交易日志）：/ }).click()
   await strategyButton(primaryStrategy).click()
-  await editor.getByRole('button', { name: /^重点（案例记录）：/ }).click()
+  await editor.getByRole('button', { name: /^重点案例（案例库）：/ }).click()
   await strategyButton(secondaryStrategy).click()
-  await editor.getByRole('button', { name: /^错题（案例记录）：/ }).click()
-  await editor.getByRole('button', { name: /^待复看（案例记录）：/ }).click()
+  await editor.getByRole('button', { name: /^错题（案例库）：/ }).click()
+  await editor.getByRole('button', { name: /^待复看（案例库）：/ }).click()
   await expectText(page.locator('[data-sidebar-capacity]'), /常驻 8 \/ 8/)
   await strategyButton(overflowStrategy).click()
   await expectVisible(editor.getByText(/常驻已满，已放入「更多」/))
@@ -680,7 +680,7 @@ try {
               : request.result
             const ids = snapshot?.display?.sidebarWorkspaceItems?.map((item) => item.id)
             resolve(JSON.stringify(ids) === JSON.stringify([
-              'system:active', 'system:paper',
+              'system:active',
             ]))
           } catch {
             resolve(false)
@@ -697,7 +697,7 @@ try {
   })
   await restoredPage.goto(`${BASE}/list`, { waitUntil: 'domcontentloaded' })
   await restoredPage.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
-  const expectedDefaultLabels = ['进行中', '模拟盘']
+  const expectedDefaultLabels = ['进行中']
   try {
     await restoredPage.waitForFunction((expectedLabels) => {
       const labels = [...document.querySelectorAll('.sb-workspace [data-sidebar-workspace-id] > a .sb-item-label')]
@@ -800,10 +800,10 @@ try {
   await expectVisible(drawer)
   expectEqual(
     await drawer.locator('[data-mobile-workspace-item]').allTextContents(),
-    ['进行中', '星标交易', '错过的机会', '模拟盘', 'QA 保存视图'],
+    ['进行中', '星标交易', '错过机会', '模拟盘', 'QA 保存视图'],
     'More drawer must contain every valid pinned and overflow item in order',
   )
-  const expectedDrawerItems = ['进行中', '星标交易', '错过的机会', '模拟盘', 'QA 保存视图', '随记', '周复盘', '随机复盘', '搜索', '设置', '回收站', '管理我的空间']
+  const expectedDrawerItems = ['进行中', '星标交易', '错过机会', '模拟盘', 'QA 保存视图', '随记', '周复盘', '随机复盘', '搜索', '设置', '回收站', '管理我的空间']
   expectEqual(
     await drawer.locator('[data-mobile-drawer-item]').allTextContents(),
     expectedDrawerItems,

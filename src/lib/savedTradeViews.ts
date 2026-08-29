@@ -1,5 +1,6 @@
 import { listPathFromLegacyTablePath } from '@/lib/routeContext'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
+import { REVIEW_CASE_SCOPE_LABELS } from '@/lib/reviewCaseScope'
 
 export type TradeViewScopeMode = 'current' | 'archive'
 
@@ -38,8 +39,8 @@ const SESSION_LABELS: Record<string, string> = {
 
 const CATEGORY_LABELS: Record<string, string> = {
   normal: '普通',
-  mistake: '错题集',
-  focus: '重点案例',
+  mistake: REVIEW_CASE_SCOPE_LABELS.mistakes,
+  focus: REVIEW_CASE_SCOPE_LABELS.focus,
   ambiguous: '模棱两可',
   recheck: '待复看',
   mastered: '已掌握',
@@ -227,8 +228,8 @@ function routeLabel(pathname: string): string | null {
   if (path === '/favorites') return '星标交易'
   if (path === '/missed') return '错过机会'
   if (path === '/sim') return '模拟'
-  if (path.startsWith('/review-cases/mistakes')) return '错题集'
-  if (path.startsWith('/review-cases/focus')) return '重点案例'
+  if (path.startsWith('/review-cases/mistakes')) return REVIEW_CASE_SCOPE_LABELS.mistakes
+  if (path.startsWith('/review-cases/focus')) return REVIEW_CASE_SCOPE_LABELS.focus
   if (path.startsWith('/review-cases')) return '案例库'
   return null
 }

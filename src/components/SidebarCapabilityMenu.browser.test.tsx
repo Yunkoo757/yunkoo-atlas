@@ -232,7 +232,7 @@ async function run(): Promise<void> {
     )
     assert(
       !document.querySelector('[data-sidebar-workspace-id="system:missed"]'),
-      '错过的机会已提升为交易日志顶部快捷视图，不得在侧栏形成重复入口',
+      '错过机会已提升为交易日志顶部快捷视图，不得在侧栏形成重复入口',
     )
 
     assert(!document.querySelector('.sb-row-drag-handle'), '日常侧栏不应同时暴露来源菜单和排序抓手')
@@ -280,7 +280,7 @@ async function run(): Promise<void> {
 
     assert(!document.querySelector('[data-sidebar-workspace-id="system:missed"]'), '旧版错过机会配置只保留来源范围，不得恢复重复侧栏入口')
     assert(document.querySelector('[data-sidebar-workspace-id="system:active"]'), '用户保存的进行中入口不得被渲染层静默隐藏')
-    assert(!document.querySelector('[aria-label="排序 错过的机会"]'), '系统快捷项排序必须收口到管理器')
+    assert(!document.querySelector('[aria-label="排序 错过机会"]'), '系统快捷项排序必须收口到管理器')
     assert(!document.querySelector('[aria-label="排序 进行中"]'), '系统快捷项排序必须收口到管理器')
 
     assert(!document.querySelector('[aria-label="导航1包含来源"]'), '策略是交易日志筛选，不得再提供跨来源混排菜单')

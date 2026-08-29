@@ -107,10 +107,9 @@ async function run(): Promise<void> {
     )
 
     await waitFor(() => document.body.textContent?.includes('第二阶段') ?? false, '历史阶段没有进入公共上下文')
-    const paperWorkspace = document.querySelector<HTMLAnchorElement>('[data-sidebar-workspace-id="system:paper"] > a')
     assert(
-      paperWorkspace?.getAttribute('href') === '/sim?liveStage=stage-old',
-      '侧栏模拟盘入口必须继承当前阶段范围',
+      !document.querySelector('[data-sidebar-workspace-id="system:paper"]'),
+      '模拟属于交易日志内部类型切换，侧栏不得重复显示模拟盘入口',
     )
     const kindButtons = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="记录类型"] button')]
     const paperButton = kindButtons.find((button) => button.textContent?.trim() === '模拟')
@@ -120,6 +119,10 @@ async function run(): Promise<void> {
       () => document.querySelector('[data-testid="location"]')?.textContent ===
         '/list?liveStage=stage-old&status=loss&kind=paper',
       '切换模拟盘必须保留已选择的阶段范围',
+    )
+    assert(
+      document.querySelector('a[data-primary-id="trades"]')?.getAttribute('aria-current') === 'page',
+      '切换模拟后左侧必须继续完整高亮交易日志',
     )
     liveButton?.click()
     await waitFor(

@@ -22,7 +22,7 @@ export function presentWorkspaceScope(
   else if (filter.analysisScope) summary = `统计分析绩效下钻 · ${describeListFilterDateField(filter)}`
   else if (filter.type === 'active') summary = '进行中'
   else if (filter.type === 'starred') summary = '星标交易'
-  else if (filter.type === 'missed') summary = '未执行机会'
+  else if (filter.type === 'missed') summary = '错过机会'
   else if (filter.type === 'incomplete') summary = '待完善'
   else if (filter.type === 'period' && filter.period) {
     summary = formatPeriodSubtitle(filter.period, options.businessDateAnchor ?? new Date())

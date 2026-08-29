@@ -22,6 +22,7 @@ import { resolveStageScope } from '@/lib/stageArchive'
 import type { LiveStage } from '@/lib/liveStages'
 import { listPathFromPathname } from '@/lib/routeContext'
 import type { ListNavigationContext } from '@/shortcuts/types'
+import { REVIEW_CASE_SCOPE_LABELS } from '@/lib/reviewCaseScope'
 
 /** 可跨工作区配置可见范围的侧栏能力 */
 export type SidebarCapabilityId = 'missed' | 'active'
@@ -66,7 +67,7 @@ export const STRATEGY_SOURCE_LABELS: Record<SidebarQuickWorkspace, string> = {
 }
 
 export const SIDEBAR_CAPABILITY_LABELS: Record<SidebarCapabilityId, string> = {
-  missed: '错过的机会',
+  missed: '错过机会',
   active: '进行中',
 }
 
@@ -139,9 +140,12 @@ export function countCurrentSidebarView(
   return undefined
 }
 
-/** 星标与错过已由交易日志顶部快捷视图承载；旧项仅保留兼容数据，不参与侧栏导航。 */
+/** 星标、错过与模拟已由交易日志顶部切换承载；旧项仅保留兼容数据，不参与侧栏导航。 */
 export function isSidebarNavigationTarget(target: SidebarTarget): boolean {
-  return !(target.kind === 'system' && (target.id === 'favorites' || target.id === 'missed'))
+  return !(
+    target.kind === 'system'
+    && (target.id === 'favorites' || target.id === 'missed' || target.id === 'paper')
+  )
 }
 
 export function sidebarTargetKey(target: SidebarTarget): string {
@@ -307,7 +311,7 @@ export function workspaceKindFromPath(pathname: string): SidebarQuickWorkspace {
   return 'trade'
 }
 
-/** 错过的机会固定进入聚合页；进行中保留当前工作区优先与回退逻辑。 */
+/** 错过机会固定进入聚合页；进行中保留当前工作区优先与回退逻辑。 */
 export function resolveCapabilityNavRoute(
   capability: SidebarCapabilityId,
   workspaces: readonly SidebarQuickWorkspace[],
@@ -423,7 +427,7 @@ export function normalizeSidebarWorkspaceItems(value: unknown): SidebarWorkspace
 
   normalized.sort((a, b) => a.item.order - b.item.order || a.inputIndex - b.inputIndex)
 
-  // 同一能力只保留一项，合并配置范围（避免侧栏出现多个「错过的机会」）
+  // 同一能力只保留一项，合并配置范围（避免侧栏出现多个「错过机会」）
   const mergedByKey = new Map<string, { item: SidebarWorkspaceItem; inputIndex: number }>()
   for (const entry of normalized) {
     const key = sidebarTargetKey(entry.item.target)
@@ -515,12 +519,12 @@ export function migrateSidebarPins(pins: readonly SidebarNavId[]): SidebarWorksp
 }
 
 const CASE_VIEW_LABELS: Record<Exclude<ReviewCaseScope, 'all'>, string> = {
-  focus: '重点',
-  mistakes: '错题',
-  unreviewed: '待复看',
-  reviewed: '已掌握',
-  exemplar: '交易案例',
-  missed: '错过的案例',
+  focus: REVIEW_CASE_SCOPE_LABELS.focus,
+  mistakes: REVIEW_CASE_SCOPE_LABELS.mistakes,
+  unreviewed: REVIEW_CASE_SCOPE_LABELS.unreviewed,
+  reviewed: REVIEW_CASE_SCOPE_LABELS.reviewed,
+  exemplar: REVIEW_CASE_SCOPE_LABELS.exemplar,
+  missed: REVIEW_CASE_SCOPE_LABELS.missed,
 }
 
 export function resolveSidebarWorkspaceItem(

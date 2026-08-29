@@ -6,6 +6,7 @@ import type { CaseType, TradeSide } from '@/data/trades'
 import { Button } from '@/components/ui/Button'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Select } from '@/components/ui/Select'
+import { REVIEW_STAGE_SOURCE_LABELS } from '@/lib/reviewSession'
 import {
   normalizeReviewPoolLayout,
   type ReviewPoolFilters,
@@ -371,9 +372,9 @@ function ReviewPoolEditor({
             value={typeof filters.stageSource === 'string' ? filters.stageSource : 'current-and-history'}
             ariaLabel="实盘阶段"
             options={[
-              { value: 'current-and-history', label: '当前阶段 + 全部历史' },
-              { value: 'current', label: '仅当前阶段' },
-              { value: 'all-history', label: '全部阶段' },
+              { value: 'current-and-history', label: REVIEW_STAGE_SOURCE_LABELS['current-and-history'] },
+              { value: 'current', label: REVIEW_STAGE_SOURCE_LABELS.current },
+              { value: 'all-history', label: REVIEW_STAGE_SOURCE_LABELS['all-history'] },
             ]}
             onValueChange={(value) => patch({ stageSource: value as ReviewPoolFilters['stageSource'] })}
           />

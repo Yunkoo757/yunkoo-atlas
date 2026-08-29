@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { SECONDARY_NAV } from '@/lib/sidebarNav'
 import {
   MAX_PINNED_SIDEBAR_ITEMS,
   SIDEBAR_CAPABILITY_LABELS,
@@ -15,6 +14,7 @@ import {
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 import { isSavedViewInWorkspace } from '@/lib/workspaceViews'
+import { REVIEW_CASE_SCOPE_LABELS } from '@/lib/reviewCaseScope'
 import type { SidebarTargetSources } from '@/components/sidebar/SidebarWorkspaceEditor'
 
 type CatalogItem = {
@@ -34,12 +34,12 @@ type CatalogGroup =
   | { kind: 'simple'; label: string; items: CatalogItem[] }
 
 const CASE_VIEWS: CatalogItem[] = [
-  { label: '交易案例', domain: '案例记录', target: { kind: 'case-view', scope: 'exemplar' } },
-  { label: '重点', domain: '案例记录', target: { kind: 'case-view', scope: 'focus' } },
-  { label: '错题', domain: '案例记录', target: { kind: 'case-view', scope: 'mistakes' } },
-  { label: '错过的案例', domain: '案例记录', target: { kind: 'case-view', scope: 'missed' } },
-  { label: '待复看', domain: '案例记录', target: { kind: 'case-view', scope: 'unreviewed' } },
-  { label: '已掌握', domain: '案例记录', target: { kind: 'case-view', scope: 'reviewed' } },
+  { label: REVIEW_CASE_SCOPE_LABELS.exemplar, domain: '案例库', target: { kind: 'case-view', scope: 'exemplar' } },
+  { label: REVIEW_CASE_SCOPE_LABELS.focus, domain: '案例库', target: { kind: 'case-view', scope: 'focus' } },
+  { label: REVIEW_CASE_SCOPE_LABELS.mistakes, domain: '案例库', target: { kind: 'case-view', scope: 'mistakes' } },
+  { label: REVIEW_CASE_SCOPE_LABELS.missed, domain: '案例库', target: { kind: 'case-view', scope: 'missed' } },
+  { label: REVIEW_CASE_SCOPE_LABELS.unreviewed, domain: '案例库', target: { kind: 'case-view', scope: 'unreviewed' } },
+  { label: REVIEW_CASE_SCOPE_LABELS.reviewed, domain: '案例库', target: { kind: 'case-view', scope: 'reviewed' } },
 ]
 
 function reindex(items: SidebarWorkspaceItem[]): SidebarWorkspaceItem[] {
@@ -70,14 +70,14 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
       .filter((view) => isSavedViewInWorkspace(view, 'paper'))
       .map((view) => ({
         label: view.name,
-        domain: '模拟盘',
+        domain: '交易日志 · 模拟',
         target: { kind: 'saved-view' as const, viewId: view.id },
       }))
     const caseSavedViews = sources.savedViews
       .filter((view) => isSavedViewInWorkspace(view, 'case'))
       .map((view) => ({
         label: view.name,
-        domain: '案例记录',
+        domain: '案例库',
         target: { kind: 'saved-view' as const, viewId: view.id },
       }))
 
@@ -96,19 +96,7 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
       {
         kind: 'simple',
         label: '交易日志',
-        items: tradeViews,
-      },
-      {
-        kind: 'simple',
-        label: '模拟盘',
-        items: [
-          {
-            label: SECONDARY_NAV.find((item) => item.id === 'paper')!.label,
-            domain: '模拟盘',
-            target: { kind: 'system', id: 'paper' },
-          },
-          ...paperViews,
-        ],
+        items: [...tradeViews, ...paperViews],
       },
       {
         kind: 'simple',

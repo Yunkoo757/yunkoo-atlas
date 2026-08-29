@@ -257,7 +257,7 @@ export function TradeOpenRiskDialog() {
             <div>
               <strong>{isStageMismatch ? '历史或未归属交易不能在当前阶段开仓' : '当前实盘阶段尚未建立风险规则'}</strong>
               <p>{isStageMismatch
-                ? '请保留该交易的原阶段归属；如需新交易，请在当前阶段另行创建 planned trade。'
+                ? '请保留该交易的原阶段归属；如需新交易，请在当前阶段另行创建计划交易。'
                 : '请先设置资金基准、日周月止损线并确认本周规则；完成后再重新开仓。'}</p>
             </div>
           </div>

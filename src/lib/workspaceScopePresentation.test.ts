@@ -18,3 +18,8 @@ export function testAdvancedFiltersOnlyClearTheirOwnIncrement(): void {
   assert(scope.summary === undefined, '默认页面不得伪造范围标题')
   assert(scope.clearIntent === 'advanced-only', '高级筛选只能清除自身增量')
 }
+
+export function testWorkspaceScopePresentationUsesCanonicalMissedOpportunityTerm(): void {
+  const scope = presentWorkspaceScope({ type: 'missed', tradeKind: 'live' })
+  assert(scope.summary === '错过机会', '错过视图不得另造“未执行机会”同义词')
+}

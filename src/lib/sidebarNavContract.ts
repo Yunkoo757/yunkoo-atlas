@@ -12,7 +12,7 @@ export const PRIMARY_NAV_ITEMS = [
 export const SECONDARY_NAV_ITEMS = [
   { id: 'active', to: '/active', label: '进行中' },
   { id: 'favorites', to: '/favorites', label: '星标交易' },
-  { id: 'missed', to: '/missed', label: '错过的机会' },
+  { id: 'missed', to: '/missed', label: '错过机会' },
   { id: 'paper', to: '/sim', label: '模拟盘' },
 ] as const satisfies readonly { id: SidebarNavId; to: string; label: string }[]
 
@@ -29,10 +29,10 @@ export const DEFAULT_PRIMARY_SIDEBAR_ORDER: PrimarySidebarNavId[] = PRIMARY_NAV_
 )
 
 /**
- * 星标与错过机会属于交易日志的内置快捷视图，不再作为默认侧栏叶子重复出现。
- * 进行中与模拟盘仍保留为可配置的跨工作区入口。
+ * 星标、错过机会与模拟都属于交易日志内部视图，不在侧栏重复建立第二套导航。
+ * 进行中保留为可配置的跨工作区入口。
  */
-export const DEFAULT_SIDEBAR_PINS: SidebarNavId[] = ['active', 'paper']
+export const DEFAULT_SIDEBAR_PINS: SidebarNavId[] = ['active']
 
 export function normalizePrimarySidebarOrder(input: unknown): PrimarySidebarNavId[] {
   const valid = new Set<PrimarySidebarNavId>(DEFAULT_PRIMARY_SIDEBAR_ORDER)

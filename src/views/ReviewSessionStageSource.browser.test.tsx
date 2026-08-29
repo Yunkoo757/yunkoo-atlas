@@ -156,7 +156,7 @@ async function run(): Promise<void> {
 
   try {
     await waitFor(() => document.body.textContent?.includes('可随机复盘 5 条') === true, '默认池必须覆盖当前、历史与待整理案例')
-    assert(document.body.textContent?.includes('当前阶段 + 全部历史'), '开始页没有显示默认阶段来源')
+    assert(document.body.textContent?.includes('全部阶段'), '开始页没有显示默认阶段来源')
     assert(document.documentElement.scrollWidth <= window.innerWidth, `${window.innerWidth}px 开始页不得横向溢出`)
 
     findButton('更多')?.click()
@@ -165,7 +165,7 @@ async function run(): Promise<void> {
     await waitFor(() => Boolean(document.querySelector('button[aria-label="阶段来源"]')), '设置缺少阶段来源控件')
     const sourceSelect = document.querySelector<HTMLButtonElement>('button[aria-label="阶段来源"]')
     assert(sourceSelect, '设置缺少可操作的阶段来源按钮')
-    assert(sourceSelect.textContent?.includes('当前阶段 + 全部历史'), '阶段来源控件默认值错误')
+    assert(sourceSelect.textContent?.includes('全部阶段'), '阶段来源控件默认值错误')
     const modalRect = document.querySelector<HTMLElement>('.modal-shell')?.getBoundingClientRect()
     assert(modalRect && modalRect.left >= 0 && modalRect.right <= window.innerWidth, `${window.innerWidth}px 设置弹层必须留在桌面视口内`)
 

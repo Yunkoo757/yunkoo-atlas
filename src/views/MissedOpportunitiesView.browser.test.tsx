@@ -339,8 +339,8 @@ async function selectFilter(label: string, value: string): Promise<void> {
 }
 
 async function returnFromDetail(anchorId: string): Promise<void> {
-  const back = document.querySelector<HTMLAnchorElement>('[aria-label="返回错过的机会"]')
-  assert(back, '详情页缺少返回错过的机会入口')
+  const back = document.querySelector<HTMLAnchorElement>('[aria-label="返回错过机会"]')
+  assert(back, '详情页缺少返回错过机会入口')
   back.click()
   await waitFor(() => routerLocation().startsWith('/missed'), '详情返回未恢复聚合页')
   await waitFor(
@@ -595,7 +595,7 @@ async function run(): Promise<void> {
       return
     }
 
-    assert(document.querySelector('h1')?.textContent?.trim() === '错过的机会', '页面标题不准确')
+    assert(document.querySelector('h1')?.textContent?.trim() === '错过机会', '页面标题不准确')
     assert(!document.querySelector('.ui-toolbar-context'), '页面标题已有明确语义时不得重复显示范围副标题')
     assert(document.querySelector('.missed-scope') === null, '不得保留常驻范围配置区')
     assert(document.querySelector('[data-missed-total]')?.textContent?.includes('全部机会 2'), '工具栏结果数不准确')
@@ -851,10 +851,10 @@ async function run(): Promise<void> {
     missingFilterTarget.click()
     await waitFor(() => routerLocation() === '/trade/FILLER-17', '临时筛选 fallback 目标未进入详情')
     useStore.getState().removeTrade('filler-17')
-    document.querySelector<HTMLAnchorElement>('[aria-label="返回错过的机会"]')?.click()
+    document.querySelector<HTMLAnchorElement>('[aria-label="返回错过机会"]')?.click()
     await waitFor(() => document.activeElement?.getAttribute('id') === 'missed-results-heading', '目标删除返回必须聚焦结果标题')
     await assertLiveRegionStable(
-      '原记录已变化，已返回错过的机会列表',
+      '原记录已变化，已返回错过机会列表',
       '目标删除返回必须说明结果变化',
     )
     await ensureFilterOpen()
@@ -878,16 +878,16 @@ async function run(): Promise<void> {
     await waitFor(() => routerLocation() === '/trade/PAPER-001', '来源 fallback 目标未进入详情')
     useStore.getState().removeTrade(paperTrade.id)
     await waitFor(
-      () => document.querySelector<HTMLAnchorElement>('[aria-label="返回错过的机会"]') !== null,
+      () => document.querySelector<HTMLAnchorElement>('[aria-label="返回错过机会"]') !== null,
       '删除目标后详情返回入口丢失',
     )
-    document.querySelector<HTMLAnchorElement>('[aria-label="返回错过的机会"]')?.click()
+    document.querySelector<HTMLAnchorElement>('[aria-label="返回错过机会"]')?.click()
     await waitFor(
       () => document.activeElement?.getAttribute('id') === 'missed-results-heading',
       '返回锚点消失后必须聚焦结果标题',
     )
     await assertLiveRegionStable(
-      '原记录已变化，已返回错过的机会列表',
+      '原记录已变化，已返回错过机会列表',
       '返回锚点消失后必须播报结果变化',
     )
 

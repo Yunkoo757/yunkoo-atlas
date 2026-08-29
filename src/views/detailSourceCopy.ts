@@ -26,7 +26,7 @@ export function resolveTradeDetailSourceCopy(options: {
     || options.fromPathname?.startsWith('/live-archive/')
   const fromWeeklyReview = options.returnPathname === '/weekly-review'
   const breadcrumb = fromMissedOpportunities
-    ? '错过的机会'
+    ? '错过机会'
     : fromLiveArchive
       ? '历史实盘'
       : fromWeeklyReview
@@ -37,14 +37,14 @@ export function resolveTradeDetailSourceCopy(options: {
             ? '模拟'
             : '交易日志'
   const backAriaLabel = fromMissedOpportunities
-    ? '返回错过的机会'
+    ? '返回错过机会'
     : fromLiveArchive
       ? '返回历史实盘'
       : fromWeeklyReview
         ? '返回周复盘'
         : '返回列表'
   const returnDestinationLabel = fromMissedOpportunities
-    ? '错过的机会'
+    ? '错过机会'
     : fromLiveArchive
       ? '历史实盘'
       : fromWeeklyReview

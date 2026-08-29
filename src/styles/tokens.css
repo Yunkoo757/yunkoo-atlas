@@ -369,7 +369,7 @@
   --sp-8: 32px;
 
   /* 桌面语义间距：少量 6/7px 为经过命名的光学校准值。 */
-  --space-control-gap: var(--space-control-gap);
+  --space-control-gap: 6px;
   --space-row-gap: var(--sp-2);
   --space-section-gap: var(--sp-6);
   --page-inset-compact: var(--sp-5);

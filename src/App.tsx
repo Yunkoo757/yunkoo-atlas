@@ -53,6 +53,7 @@ import {
   normalizeTradeWorkspaceSearch,
   parseTradeWorkspaceQuery,
   resolveTradeWorkspaceListFilter,
+  tradeHomeHref,
   tradeWorkspacePageFromSearch,
 } from './lib/tradeWorkspaceQuery'
 import { normalizeReviewCaseScope } from './lib/reviewCaseScope'
@@ -441,6 +442,11 @@ function LegacyRouteFallback() {
   return <RouteNotFound />
 }
 
+function TradeHomeRedirect() {
+  const rememberedSearch = useStore((state) => state.display.workspaceMemory?.trade?.search ?? '')
+  return <Navigate to={tradeHomeHref(rememberedSearch)} replace />
+}
+
 function storageBootstrapErrorMessage(error: unknown): string {
   if (error instanceof DOMException && error.name === 'VersionError') {
     return '本地数据版本不兼容，请刷新页面或更新应用后重试。'
@@ -492,7 +498,7 @@ function Shell() {
         <RouteErrorBoundary resetKey={`${location.pathname}${location.search}`}>
           <Suspense fallback={<DelayedRouteFallback />}>
             <Routes>
-          <Route path="/" element={<Navigate to="/list" replace />} />
+          <Route path="/" element={<TradeHomeRedirect />} />
           <Route
             path="/list"
             element={<TradeLogPage />}

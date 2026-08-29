@@ -49,7 +49,7 @@ export function MissedOpportunitiesView() {
   const location = useLocation()
   const handleMissingReturnAnchor = useCallback(() => {
     returnHeadingRef.current?.focus({ preventScroll: true })
-    setReturnStatus('原记录已变化，已返回错过的机会列表')
+    setReturnStatus('原记录已变化，已返回错过机会列表')
   }, [])
   useTradeReturnAnchor({ onMissing: handleMissingReturnAnchor })
   const existingScope = sidebarWorkspaceItems.find(
@@ -163,7 +163,7 @@ export function MissedOpportunitiesView() {
   return (
     <>
       <Topbar
-        title="错过的机会"
+        title="错过机会"
         showDisplay={false}
         showSaveStatus={false}
       />

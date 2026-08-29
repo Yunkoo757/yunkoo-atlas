@@ -172,3 +172,11 @@ export function tradeHomeSearch(search: string | URLSearchParams): string {
   })
   return `?${next.toString()}`
 }
+
+/**
+ * 应用冷启动回到交易日志首页，但恢复用户上次选择的阶段范围。
+ * 视图、策略和盘型等临时条件不跨启动恢复，避免重新打开软件时落入旧筛选。
+ */
+export function tradeHomeHref(search: string | URLSearchParams): string {
+  return `/list${tradeHomeSearch(search)}`
+}

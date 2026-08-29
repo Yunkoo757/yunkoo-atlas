@@ -19,6 +19,17 @@ export const REVIEW_CASE_SCOPES: readonly ReviewCaseScope[] = [
   'missed',
 ]
 
+/** 案例库各子视图的统一用户可见名称。 */
+export const REVIEW_CASE_SCOPE_LABELS: Record<ReviewCaseScope, string> = {
+  all: '全部',
+  exemplar: '交易案例',
+  focus: '重点案例',
+  mistakes: '错题',
+  missed: '错过案例',
+  unreviewed: '待复看',
+  reviewed: '已掌握',
+}
+
 export function isReviewCaseScope(value: string | undefined): value is ReviewCaseScope {
   return value !== undefined && (REVIEW_CASE_SCOPES as readonly string[]).includes(value)
 }

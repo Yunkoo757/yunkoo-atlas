@@ -142,7 +142,7 @@ export function TradeFilters({
   } else if (filter.type === 'starred') {
     activeFilters.push({ key: 'starred-route', label: '星标交易' })
   } else if (filter.type === 'missed') {
-    activeFilters.push({ key: 'missed-route', label: '错过的机会' })
+    activeFilters.push({ key: 'missed-route', label: '错过机会' })
   }
   if (filter.tradeKind === 'paper' && !unifiedTradeWorkspace) activeFilters.push({ key: 'kind-route', label: '模拟' })
   if (

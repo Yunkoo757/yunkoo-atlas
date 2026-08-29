@@ -636,7 +636,7 @@ try {
     const ordinaryAction = page.locator('[data-trade-id="filler-17"] [data-trade-primary-action]')
     await activateWithTabAndEnter(page, ordinaryAction, '普通项打开动作')
     await waitForRouterLocation(page, '/trade/FILLER-17')
-    const ordinaryBack = page.getByRole('link', { name: '返回错过的机会' })
+    const ordinaryBack = page.getByRole('link', { name: '返回错过机会' })
     await activateWithTabAndEnter(page, ordinaryBack, '普通项详情返回')
     await waitForRouterLocation(page, '/missed')
     await page.waitForFunction(() => document.activeElement?.closest('[data-trade-id]')?.getAttribute('data-trade-id') === 'filler-17')
@@ -675,7 +675,7 @@ try {
     await assertFocused(sourceMenuItem, '共享行菜单重新打开后首项必须自然获得焦点')
     await page.keyboard.press('Enter')
     await waitForRouterLocation(page, '/trade/LIVE-001')
-    await activateWithTabAndEnter(page, page.getByRole('link', { name: '返回错过的机会' }), '原始记录详情返回')
+    await activateWithTabAndEnter(page, page.getByRole('link', { name: '返回错过机会' }), '原始记录详情返回')
     await waitForRouterLocation(page, '/missed')
     await page.waitForFunction(() => {
       const active = document.activeElement
@@ -705,7 +705,7 @@ try {
     await tabToTarget(page, caseMenuItem, '案例共享行菜单必须通过 ArrowDown 到达案例动作', 'ArrowDown')
     await page.keyboard.press('Enter')
     await waitForRouterLocation(page, '/trade/CAS-LINK-1')
-    await activateWithTabAndEnter(page, page.getByRole('link', { name: '返回错过的机会' }), '案例详情返回')
+    await activateWithTabAndEnter(page, page.getByRole('link', { name: '返回错过机会' }), '案例详情返回')
     await waitForRouterLocation(page, '/missed')
     await page.waitForFunction(() => document.activeElement?.closest('[data-trade-id]')?.getAttribute('data-trade-id') === 'live-root')
     await page.waitForTimeout(100)

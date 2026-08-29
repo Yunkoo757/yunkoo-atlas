@@ -81,7 +81,7 @@ export function testSidebarMissedAggregateCountsExecutionEventsOnly(): void {
       order: 0,
     },
     key: 'system:missed',
-    label: '错过的机会',
+    label: '错过机会',
     pathname: '/missed',
     search: '',
     icon: 'missed' as const,
@@ -170,16 +170,9 @@ export function testSidebarSelectionSurvivesLegacyWorkspaceRedirects(): void {
 
   for (const [pathname, search, expectedId] of redirectedLocations) {
     const selection = resolveSidebarSelection({ pathname, search, items })
-    if (expectedId === 'system:favorites' || expectedId === 'system:missed') {
-      assert(selection.activeWorkspaceItemId === undefined, '配置型快捷视图不得在侧栏制造第二个焦点态')
-      assert(selection.primaryContextOnly === false, '交易日志同页快捷视图必须保持一级导航完整高亮')
-    } else {
-      assert(
-        selection.activeWorkspaceItemId === expectedId,
-        `${pathname}${search} 必须继续激活重定向前的工作区入口 ${expectedId}`,
-      )
-      assert(selection.primaryContextOnly === true, '独立工作区入口激活时一级导航只能表达弱上下文')
-    }
+    assert(selection.activeWorkspaceItemId === undefined, `${expectedId} 不得在侧栏制造第二个焦点态`)
+    assert(selection.activePrimaryId === 'trades', `${pathname}${search} 必须归属交易日志`)
+    assert(selection.primaryContextOnly === false, '交易日志同页子视图必须保持一级导航完整高亮')
   }
 
   const missedTopView = resolveSidebarSelection({ pathname: '/missed', search: '', items: [] })

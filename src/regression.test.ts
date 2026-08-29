@@ -250,8 +250,8 @@ export function testLegacySecondarySidebarMetadataSupportsWorkspaceMigration(): 
   const paper = SECONDARY_NAV.find((item) => item.id === 'paper')
   assert(paper?.label === '模拟盘', 'paper 项侧栏文案应为「模拟盘」')
   assert(
-    JSON.stringify(DEFAULT_SIDEBAR_PINS) === JSON.stringify(['active', 'paper']),
-    '默认 sidebarPins 只保留独立工作区入口，星标与错过由交易日志顶部快捷视图承载',
+    JSON.stringify(DEFAULT_SIDEBAR_PINS) === JSON.stringify(['active']),
+    '默认 sidebarPins 只保留进行中；星标、错过与模拟由交易日志顶部切换承载',
   )
 }
 
@@ -270,8 +270,8 @@ export function testReorderSidebarWorkspaceItemKeepsPlacementGroups(): void {
   const moved = reorderSidebarWorkspaceItem(items, 'system:active', 'case-view:focus')
   assert(
     moved.filter((item) => item.placement === 'pinned').map((item) => item.id).join(',') ===
-      'system:paper,case-view:focus,system:active',
-    '常驻组内应能把第一项拖到第三项位置',
+      'case-view:focus,system:active',
+    '常驻组内应能重排，内置交易日志子视图不得重新进入侧栏',
   )
   assert(
     moved.find((item) => item.id === 'system:missed')?.placement === 'overflow',
@@ -305,7 +305,7 @@ export function testCapabilityPinsStaySingleWithWorkspaceVisibility(): void {
     },
   ])
 
-  assert(merged.length === 1, '错过的机会侧栏必须只保留一项')
+  assert(merged.length === 1, '错过机会侧栏必须只保留一项')
   assert(merged[0]?.target.kind === 'system' && merged[0].target.id === 'missed', '应归一为 system:missed')
   assert(
     merged[0]?.target.kind === 'system' &&
@@ -332,7 +332,7 @@ export function testCapabilityPinsStaySingleWithWorkspaceVisibility(): void {
   assert(resolveCapabilityRoute('active', 'case') === null, '案例不得配置进行中能力')
   assert(
     capabilityNavRoutes('missed', ['trade', 'paper']).length === 1,
-    '错过的机会只应有一个交易日志视图路由',
+    '错过机会只应有一个交易日志视图路由',
   )
 
   const resolved = resolveSidebarWorkspaceItem(
@@ -340,7 +340,7 @@ export function testCapabilityPinsStaySingleWithWorkspaceVisibility(): void {
     { savedViews: [], strategies: [] },
     '/sim',
   )
-  assert(resolved.label === '错过的机会', '侧栏仍显示单一短名')
+  assert(resolved.label === '错过机会', '侧栏仍显示单一短名')
   assert(resolved.pathname === '/list' && resolved.search === '?view=missed', '链接必须固定指向交易日志错过视图')
   for (const [pathname, search] of [
     ['/sim', '?status=missed'],
@@ -400,7 +400,7 @@ export function testMissedSidebarCountUsesAggregateInclusionScope(): void {
       starredIds: [],
       display: DEFAULT_DISPLAY,
     }) === 2,
-    '错过的机会侧栏计数必须使用包含范围内的去重聚合总数',
+    '错过机会侧栏计数必须使用包含范围内的去重聚合总数',
   )
 }
 
@@ -412,7 +412,7 @@ export async function testSidebarTargetPickerConfiguresVisibilityNotDuplicatePin
   const missedView = await fs.readFile('src/views/MissedOpportunitiesView.tsx', 'utf8')
   assert(source.includes('toggleCapabilityWorkspace'), '应通过勾选配置同一能力的可见工作区')
   assert(source.includes('setCapabilityWorkspaceEnabled'), '添加项目应复用统一的可见范围写入')
-  assert(!source.includes("id: 'missed'"), '错过的机会已属于交易日志顶部快捷视图，不得再出现在侧栏目标选择器')
+  assert(!source.includes("id: 'missed'"), '错过机会已属于交易日志顶部快捷视图，不得再出现在侧栏目标选择器')
   assert(missedView.includes('<MissedOpportunityScopeMenu'), '错过来源范围应留在错过机会视图内配置')
   assert(!source.includes('canonicalQuickViewTarget'), '不得再按工作区拆成多个钉选目标')
   assert(!editor.includes('sb-editor-capability-scopes'), '管理页不得再放可见工作区行内勾选')
@@ -432,8 +432,8 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
     .map((item) => item.target.kind === 'system' ? item.target.id : '')
 
   assert(
-    defaultSystemTargets.join(',') === 'active,paper',
-    '默认工作区配置不得重复交易日志顶部的星标与错过视图',
+    defaultSystemTargets.join(',') === 'active',
+    '默认工作区配置不得重复交易日志顶部的星标、错过与模拟视图',
   )
   assert(
     PRIMARY_NAV.map((item) => item.id).join(',')
@@ -464,7 +464,7 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
     .map((item) => resolveSidebarWorkspaceItem(item, { savedViews: [savedView], strategies: [strategy] }))
     .filter((item) => !item.invalid)
 
-  assert(dailyItems.length === 6, '日常列表应保留当前默认与自定义 pinned 中的有效项')
+  assert(dailyItems.length === 5, '日常列表应保留进行中与自定义 pinned 中的有效项')
   assert(!dailyItems.some((item) => item.item.id === 'saved-invalid'), '失效项不得进入日常列表')
   assert(source.includes('data-sidebar-overflow'), 'Sidebar 应为 overflow 项渲染「更多」分区')
   assert(source.includes('sb-workspace-editor-backdrop'), 'Sidebar 管理器应支持点击外部关闭')
@@ -808,11 +808,11 @@ export async function testTagSettingsExposeDistinctAccessibleControlNames(): Pro
 export function testResolvePinnedSecondaryNavOrdersAndHidesEmpty(): void {
   const defaultItems = resolvePinnedSecondaryNav(DEFAULT_SIDEBAR_PINS)
   assert(
-    defaultItems.map((item) => item.id).join(',') === 'active,paper',
-    '默认 pins 只应保留进行中与模拟盘',
+    defaultItems.map((item) => item.id).join(',') === 'active',
+    '默认 pins 只应保留进行中',
   )
   assert(
-    defaultItems.map((item) => item.to).join(',') === '/active,/sim',
+    defaultItems.map((item) => item.to).join(',') === '/active',
     '默认 pins 路由顺序错误',
   )
 
@@ -933,7 +933,8 @@ export async function testSidebarWorkspaceSurvivesExportImportAndNormalizesInval
     '导入应按目标 key 规范化 id 并保留顺序',
   )
   assert(items.filter((item) => item.placement === 'pinned').length === 8, '导入后最多保留 8 个 pinned')
-  assert(items[8]?.placement === 'overflow', '第 9 个 pinned 应规范化为 overflow')
+  assert(items[4]?.placement === 'overflow', '旧模拟盘项应保留兼容数据但退出侧栏导航')
+  assert(items[8]?.placement === 'pinned', '隐藏旧项不得占用可见侧栏容量')
   assert(items.some((item) => item.id === 'saved-view:deleted-view'), '导入不得删除失效保存视图引用')
   assert(items.some((item) => item.id === 'strategy:deleted-strategy'), '导入不得删除失效策略引用')
   const paper = resolveSidebarWorkspaceItem(items[4]!, { savedViews: [], strategies: [] })
@@ -995,8 +996,12 @@ export function testNormalizeSidebarWorkspaceItemsDeduplicatesAndLimitsPinnedIte
   assert(items.length === 11, '语义重复项应被删除')
   assert(items.filter((item) => item.placement === 'pinned').length === 8, '最多只能固定 8 项')
   assert(
-    items.filter((item) => isSidebarNavigationTarget(item.target) && item.placement === 'overflow').length === 1,
-    '第 9 个可见固定项应进入 overflow',
+    items.filter((item) => isSidebarNavigationTarget(item.target) && item.placement === 'overflow').length === 0,
+    '隐藏的内置子视图不得占用可见侧栏容量',
+  )
+  assert(
+    items.filter((item) => !isSidebarNavigationTarget(item.target) && item.placement === 'overflow').length === 3,
+    '星标、错过与旧模拟盘项必须统一退出侧栏导航',
   )
   assert(items.map((item) => item.order).join(',') === '0,1,2,3,4,5,6,7,8,9,10', 'order 应连续重写')
 }
@@ -1061,7 +1066,9 @@ export function testSidebarWorkspaceResolvesEveryTargetKindAndKeepsInvalidRefere
 
   for (const alias of ['/sim', '/paper', '/practice']) {
     const selection = resolveSidebarSelection({ pathname: alias, search: '', items: [paper!] })
-    assert(selection.activeWorkspaceItemId === 'paper', `${alias} 应激活 paper 工作区项`)
+    assert(selection.activeWorkspaceItemId === undefined, `${alias} 不得激活旧 paper 侧栏项`)
+    assert(selection.activePrimaryId === 'trades', `${alias} 应继续归属交易日志`)
+    assert(selection.primaryContextOnly === false, `${alias} 应保持交易日志完整焦点态`)
   }
 }
 
@@ -2063,9 +2070,9 @@ export async function testTradeDetailSourceCopyNamesRiskRepairCenter(): Promise<
     returnPathname: '/missed',
     tradeKind: 'live',
   })
-  assert(missedCopy.breadcrumb === '错过的机会', '其他详情来源的面包屑不得改变')
-  assert(missedCopy.backAriaLabel === '返回错过的机会', '其他详情来源的返回标签不得改变')
-  assert(missedCopy.returnDestinationLabel === '错过的机会', '其他详情来源的空状态动作不得改变')
+  assert(missedCopy.breadcrumb === '错过机会', '其他详情来源的面包屑不得改变')
+  assert(missedCopy.backAriaLabel === '返回错过机会', '其他详情来源的返回标签不得改变')
+  assert(missedCopy.returnDestinationLabel === '错过机会', '其他详情来源的空状态动作不得改变')
 
   for (const tradeKind of ['live', 'case'] as const) {
     const historyBoardCopy = resolveTradeDetailSourceCopy({
@@ -2113,15 +2120,15 @@ export async function testMissedDetailReturnRestoresFocusAndMissingTargetSafely(
 
   assert(
     detailView.includes('resolveTradeDetailSourceCopy({'),
-    '聚合来源详情必须显示“错过的机会”面包屑',
+    '聚合来源详情必须显示“错过机会”面包屑',
   )
   const missedCopy = resolveTradeDetailSourceCopy({
     fromPathname: '/missed',
     returnPathname: '/missed',
     tradeKind: 'live',
   })
-  assert(missedCopy.breadcrumb === '错过的机会', '聚合来源详情必须显示“错过的机会”面包屑')
-  assert(missedCopy.backAriaLabel === '返回错过的机会', '聚合来源详情返回按钮必须提供专属 aria-label')
+  assert(missedCopy.breadcrumb === '错过机会', '聚合来源详情必须显示“错过机会”面包屑')
+  assert(missedCopy.backAriaLabel === '返回错过机会', '聚合来源详情返回按钮必须提供专属 aria-label')
   assert(
     returnAnchor.includes('findTradeReturnFocusTarget(target)') &&
       returnAnchor.includes('focus({ preventScroll: true })'),
@@ -2129,7 +2136,7 @@ export async function testMissedDetailReturnRestoresFocusAndMissingTargetSafely(
   )
   assert(returnAnchor.includes('onMissing?: (tradeId: string) => void'), '返回锚点必须支持目标消失回调')
   assert(
-    missedView.includes('原记录已变化，已返回错过的机会列表') &&
+    missedView.includes('原记录已变化，已返回错过机会列表') &&
       missedView.includes('focus({ preventScroll: true })') &&
       missedFilters.includes('id="missed-results-heading"') &&
       missedFilters.includes('tabIndex={-1}'),
@@ -2694,7 +2701,7 @@ export function testMissedWorkspaceStaysInsideLiveTradingJournal(): void {
 
   assert(
     missed.length === 1 && missed[0]?.id === liveMissed.id,
-    '错过的机会必须只含实盘错过，排除案例与模拟',
+    '错过机会必须只含实盘错过，排除案例与模拟',
   )
   assert(
     sidebarMissed.length === 1 && sidebarMissed[0]?.id === liveMissed.id,

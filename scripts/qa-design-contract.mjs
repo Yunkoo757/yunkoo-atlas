@@ -67,6 +67,9 @@ const customPropertyUses = new Set(
 const undefinedCustomProperties = [...customPropertyUses]
   .filter((property) => !customPropertyDefinitions.has(property))
   .sort()
+const selfReferentialCustomProperties = [
+  ...completeCssSource.matchAll(/(--[a-z0-9_-]+)\s*:\s*var\(\1(?:\s*,[^)]*)?\)/gi),
+].map((match) => match[1])
 const sharedUiRawColorFiles = collectFiles('src/components/ui', /\.css$/).filter((file) =>
   /(?:#[\da-f]{3,8}\b|\brgba?\(|\bhsla?\(|\boklch\(|\blch\()/i.test(read(file)),
 )
@@ -128,6 +131,10 @@ const checks = [
   [
     'every consumed custom property has a source definition',
     undefinedCustomProperties.length === 0,
+  ],
+  [
+    'design tokens do not directly reference themselves',
+    selfReferentialCustomProperties.length === 0,
   ],
   [
     'portaled UI keeps the calibrated application font',
