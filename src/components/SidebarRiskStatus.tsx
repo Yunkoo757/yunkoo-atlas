@@ -11,13 +11,14 @@ import {
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import type { RiskPeriodOutcomeSnapshot, RiskPeriodScope } from '@/data/riskManagement'
-import { ChevronRight, Shield } from '@/icons/appIcons'
+import { ChevronRight } from '@/icons/appIcons'
 import { ICON_MD } from '@/icons/iconSize'
 import { fmtR } from '@/lib/format'
 import { getCurrentLiveStage } from '@/lib/liveStages'
 import { resolveRiskOutcomes } from '@/lib/riskBudget'
 import { presentRiskOutcome, type RiskStatusKind, type RiskStatusPresentation } from '@/lib/riskStatus'
 import { useStore } from '@/store/useStore'
+import type { SidebarRiskScope } from '@/lib/tradeFilters'
 
 const PERIODS: ReadonlyArray<{ scope: RiskPeriodScope; shortLabel: string; label: string }> = [
   { scope: 'day', shortLabel: '日', label: '今日' },
@@ -37,6 +38,13 @@ export type SidebarRiskSummary = {
   kind: RiskStatusKind
   label: string
   value: string
+  ariaLabel: string
+}
+
+export type SidebarRiskGauge = {
+  scope: SidebarRiskScope
+  kind: RiskStatusKind
+  remainingRatio: number
   ariaLabel: string
 }
 
@@ -101,20 +109,54 @@ export function buildSidebarRiskSummary(rows: readonly SidebarRiskRow[]): Sideba
   }
 }
 
+export function buildSidebarRiskGauge(
+  rows: readonly SidebarRiskRow[],
+  scope: SidebarRiskScope,
+): SidebarRiskGauge {
+  const row = rows.find((item) => item.scope === scope)
+  const label = row?.label ?? ({ day: '今日', week: '本周', month: '本月' } as const)[scope]
+  if (!row) {
+    return {
+      scope,
+      kind: 'unknown',
+      remainingRatio: 0,
+      ariaLabel: `${label}风险额度待确认，点击查看日周月风险额度`,
+    }
+  }
+  const ratio = row.outcome.limitR > 0
+    ? Math.max(0, Math.min(1, row.outcome.remainingR / row.outcome.limitR))
+    : 0
+  return {
+    scope,
+    kind: row.presentation.kind,
+    remainingRatio: ratio,
+    ariaLabel: `${label}风险额度，剩余 ${formatR(row.outcome.remainingR)}，共 ${row.outcome.limitR > 0 ? formatR(row.outcome.limitR) : '未设置'}，${row.presentation.label}。点击查看日周月风险额度`,
+  }
+}
+
 function SidebarRiskPeriod({ row }: { row: SidebarRiskRow }) {
   const showStatus = row.presentation.kind !== 'normal'
+  const progress = Math.max(0, Math.min(1, row.outcome.progress))
   return (
     <div
       className={`sb-risk-period is-${row.presentation.kind}`}
       data-risk-period={row.scope}
       aria-label={`${row.label}${row.presentation.label}，已用 ${periodValue(row)}`}
     >
-      <span className="sb-risk-period-label">{row.label}</span>
-      {showStatus ? <small>{row.presentation.label}</small> : null}
-      <div className="sb-risk-period-usage">
-        <strong>{formatR(row.outcome.consumedR)}</strong>
-        <span>/ {row.outcome.limitR > 0 ? formatR(row.outcome.limitR) : '—'}</span>
+      <div className="sb-risk-period-head">
+        <span className="sb-risk-period-label">{row.label}</span>
+        {showStatus ? <small>{row.presentation.label}</small> : null}
       </div>
+      <span
+        className="sb-risk-period-track"
+        role="progressbar"
+        aria-label={`${row.label}风险额度使用进度`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress * 100)}
+      >
+        <i style={{ width: `${progress * 100}%` }} />
+      </span>
     </div>
   )
 }
@@ -131,6 +173,7 @@ export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayK
   const liveStages = useStore((state) => state.liveStages)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
+  const sidebarRiskScope = useStore((state) => state.display.sidebarRiskScope ?? 'day')
   const currentStage = getCurrentLiveStage(liveStages, currentLiveStageId)
 
   const rows = useMemo<SidebarRiskRow[]>(() => {
@@ -157,6 +200,10 @@ export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayK
     tradingDayStartHour,
   ])
   const summary = useMemo(() => buildSidebarRiskSummary(rows), [rows])
+  const gauge = useMemo(
+    () => buildSidebarRiskGauge(rows, sidebarRiskScope),
+    [rows, sidebarRiskScope],
+  )
   const popoverStatus = summary.kind === 'normal' ? '充足' : summary.label
 
   const close = useCallback((restoreFocus = false) => {
@@ -220,9 +267,11 @@ export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayK
       <button
         ref={triggerRef}
         type="button"
-        className={`sb-risk-summary is-${summary.kind}`}
-        data-sidebar-risk-state={summary.kind}
-        aria-label={summary.ariaLabel}
+        className={`sb-risk-summary is-${gauge.kind}`}
+        data-sidebar-risk-state={gauge.kind}
+        data-risk-scope={gauge.scope}
+        data-risk-progress={gauge.remainingRatio.toFixed(3)}
+        aria-label={gauge.ariaLabel}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={popoverId}
@@ -235,8 +284,19 @@ export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayK
           setOpen(true)
         }}
       >
-        <Shield size={ICON_MD} aria-hidden="true" />
-        <strong>{summary.label}</strong>
+        <svg className="sb-risk-gauge" viewBox="0 0 20 20" aria-hidden="true">
+          <circle className="sb-risk-gauge-core" cx="10" cy="10" r="5.25" />
+          <circle className="sb-risk-gauge-track" cx="10" cy="10" r="7.5" pathLength="100" />
+          <circle
+            className="sb-risk-gauge-progress"
+            cx="10"
+            cy="10"
+            r="7.5"
+            pathLength="100"
+            strokeDasharray="100"
+            strokeDashoffset={100 - (gauge.remainingRatio * 100)}
+          />
+        </svg>
       </button>
       {open ? createPortal(
         <div
@@ -249,7 +309,7 @@ export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayK
           style={position ?? { visibility: 'hidden' }}
         >
           <header className="sb-risk-popover-head">
-            <strong>当前阶段风险额度</strong>
+            <strong>风险额度</strong>
             <span>{popoverStatus}</span>
           </header>
           <div className="sb-risk-periods">

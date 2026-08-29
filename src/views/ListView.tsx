@@ -41,12 +41,14 @@ export function ListView({
   onView,
   filter = { type: 'all' },
   header,
+  filterActions,
 }: {
   title?: string
   view: WorkbenchView
   onView: (view: WorkbenchView) => void
   filter?: ListFilter
   header?: ReactNode
+  filterActions?: ReactNode
 }) {
   const strategies = useStore((state) => state.strategies)
   const storedTrades = useStore((state) => state.trades)
@@ -99,8 +101,8 @@ export function ListView({
   }, [location.pathname, location.search, navigate])
 
   const groups = useMemo<TradeListGroup[]>(() => {
-    if (filter.tradeKind === 'case' || (filter.type === 'period' && filter.period === 'today')) {
-      return [{ key: filter.tradeKind === 'case' ? 'review-cases' : 'today', items: visible }]
+    if (filter.type === 'period' && filter.period === 'today') {
+      return [{ key: 'today', items: visible }]
     }
 
     if (display.groupByStrategy) {
@@ -341,7 +343,12 @@ export function ListView({
       ) : null}
       {header}
       {emptyState?.kind !== 'library' ? (
-        <TradeFilters filter={filter} trades={trades} strategies={strategies} />
+        <TradeFilters
+          filter={filter}
+          trades={trades}
+          strategies={strategies}
+          actions={filterActions}
+        />
       ) : null}
       <div className="list-scroll" ref={listScrollRef}>
         {emptyState ? (
@@ -366,7 +373,7 @@ export function ListView({
             onToggleStar={toggleRowStar}
             onContextMenu={openContextMenu}
             onCreate={openComposer}
-            recordLabel={filter.tradeKind === 'case' ? '案例记录' : '交易'}
+            recordLabel={filter.tradeKind === 'case' ? '案例' : '交易'}
             strategyStageScope={stageScope}
             density={filter.tradeKind === 'case' ? 'comfortable' : 'default'}
           />

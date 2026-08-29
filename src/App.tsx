@@ -326,7 +326,7 @@ export function TradeLogPage() {
       title="交易日志"
       filter={filter}
       listPath="/list"
-      header={<TradeWorkspaceContext page="log" />}
+      filterActions={<TradeWorkspaceContext page="log" compact />}
     />
   )
 }

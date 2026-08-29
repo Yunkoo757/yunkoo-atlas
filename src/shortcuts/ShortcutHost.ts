@@ -24,7 +24,7 @@ import { getActionMeta } from '@/shortcuts/actions'
 import { requestLightboxClose, requestLightboxReset } from '@/lib/lightboxView'
 import { createQuickNote } from '@/data/quickNotes'
 import { newTradeKindForPath } from '@/lib/tradeKind'
-import { resolveSharedTradeWorkspaceSearch } from '@/lib/tradeWorkspaceQuery'
+import { resolveSharedTradeWorkspaceSearch, tradeHomeHref } from '@/lib/tradeWorkspaceQuery'
 
 export function useShortcutHost({
   onToggleCmdk,
@@ -91,6 +91,15 @@ export function useShortcutHost({
         else if (composerOpen) closeComposer()
         else if (closeTradeRequest) cancelTradeClose()
         else if (pendingTradeOpenRequest) cancelTradeOpen()
+        else if (
+          pathname === '/dashboard' ||
+          pathname === '/weekly-review' ||
+          pathname === '/review-session' ||
+          pathname === '/notes' ||
+          pathname.startsWith('/notes/')
+        ) {
+          navigate(tradeHomeHref(rememberedTradeSearch))
+        }
       },
       'global.toggleFullscreen': () => {
         const bridge = window.journalBridge

@@ -45,7 +45,7 @@ function Fixture() {
     <div style={{ display: 'grid', gridTemplateColumns: '244px 1fr' }}>
       <Sidebar />
       <main>
-        <TradeWorkspaceContext page={page} />
+        <TradeWorkspaceContext page={page} compact={page === 'log'} />
         <output data-testid="location">{location.pathname}{location.search}</output>
       </main>
     </div>
@@ -108,12 +108,19 @@ async function run(): Promise<void> {
 
     await waitFor(() => document.body.textContent?.includes('第二阶段') ?? false, '历史阶段没有进入公共上下文')
     assert(
+      !document.querySelector('[data-workspace-page="log"].trade-workspace-context'),
+      '交易日志不得继续渲染独占的范围栏',
+    )
+    const scopeTrigger = document.querySelector<HTMLButtonElement>('[data-workspace-compact] > button')
+    assert(scopeTrigger?.textContent?.includes('第二阶段 · 实盘'), '紧凑范围按钮必须同时表达阶段与记录类型')
+    assert(
       !document.querySelector('[data-sidebar-workspace-id="system:paper"]'),
       '模拟属于交易日志内部类型切换，侧栏不得重复显示模拟盘入口',
     )
-    const kindButtons = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="记录类型"] button')]
-    const paperButton = kindButtons.find((button) => button.textContent?.trim() === '模拟')
-    const liveButton = kindButtons.find((button) => button.textContent?.trim() === '实盘')
+    scopeTrigger?.click()
+    await waitFor(() => Boolean(document.querySelector('[data-workspace-kind="paper"]')), '数据范围菜单没有打开')
+    const paperButton = document.querySelector<HTMLButtonElement>('[data-workspace-kind="paper"]')
+    const liveButton = document.querySelector<HTMLButtonElement>('[data-workspace-kind="live"]')
     paperButton?.click()
     await waitFor(
       () => document.querySelector('[data-testid="location"]')?.textContent ===
@@ -151,6 +158,22 @@ async function run(): Promise<void> {
       useStore.getState().display.workspaceMemory?.trade?.search === '?status=loss&liveStage=all',
       '统计分析修改阶段后必须写回交易工作区记忆',
     )
+    await waitFor(() => document.querySelector('[role="option"]') === null, '阶段菜单关闭状态没有稳定')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent?.startsWith('/list') === true,
+      `统计分析按 Escape 必须返回交易日志；当前为${document.querySelector('[data-testid="location"]')?.textContent ?? '未知'}`,
+    )
+    assert(
+      document.querySelector('[data-testid="location"]')?.textContent === '/list?liveStage=all',
+      `统计分析按 Escape 必须保留阶段记忆；当前为${document.querySelector('[data-testid="location"]')?.textContent ?? '未知'}`,
+    )
+
+    stats.click()
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?liveStage=all',
+      '返回统计分析失败',
+    )
 
     const review = document.querySelector<HTMLAnchorElement>('a[data-primary-id="weeklyReview"]')
     review?.click()
@@ -159,6 +182,11 @@ async function run(): Promise<void> {
       '周期复盘必须一步到达并保留阶段上下文',
     )
     assert(!document.querySelector('[data-workspace-page="review"] [aria-label="记录类型"]'), '周期复盘不得展示无效盘型筛选')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await waitFor(
+      () => document.querySelector('[data-testid="location"]')?.textContent === '/list?liveStage=all',
+      '周期复盘按 Escape 必须返回交易日志并保留阶段记忆',
+    )
 
     const cases = document.querySelector<HTMLAnchorElement>('a[data-primary-id="reviewCases"]')
     cases?.click()

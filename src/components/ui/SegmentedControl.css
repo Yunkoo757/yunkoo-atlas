@@ -4,9 +4,10 @@
   flex: 0 0 auto;
   gap: 1px;
   padding: 1px;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--surface-control-border);
   border-radius: var(--radius-6);
-  background: transparent;
+  background: var(--surface-control);
+  box-shadow: var(--surface-control-shadow);
 }
 
 .ui-segmented-option {
@@ -16,14 +17,15 @@
   height: calc(var(--control-height-sm) - 4px);
   padding-inline: var(--sp-2);
   border-radius: var(--radius-4);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
   line-height: var(--type-metadata-line-height);
   white-space: nowrap;
   transition: background-color var(--motion-state) var(--ease-out),
-    color var(--motion-state) var(--ease-out);
+    color var(--motion-state) var(--ease-out),
+    box-shadow var(--motion-state) var(--ease-out);
 }
 
 .ui-segmented-md .ui-segmented-option {
@@ -37,13 +39,14 @@
 }
 
 .ui-segmented-option:hover:not(:disabled) {
-  color: var(--text-secondary);
-  background: var(--bg-hover);
+  color: var(--text-primary);
+  background: var(--surface-control-hover);
 }
 
 .ui-segmented-option[aria-pressed='true'] {
   color: var(--text-primary);
-  background: var(--bg-selected);
+  background: var(--surface-control-active);
+  box-shadow: var(--surface-control-shadow-active);
 }
 
 .ui-segmented-option:focus-visible {

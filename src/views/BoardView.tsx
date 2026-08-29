@@ -52,6 +52,7 @@ export function BoardView({
   onOpen,
   filter = { type: 'all' },
   header,
+  filterActions,
 }: {
   title?: string
   view: WorkbenchView
@@ -59,6 +60,7 @@ export function BoardView({
   onOpen: (id: string) => void
   filter?: ListFilter
   header?: ReactNode
+  filterActions?: ReactNode
 }) {
   const strategies = useStore((s) => s.strategies)
   const symbolIcons = useStore((s) => s.symbolIcons)
@@ -96,7 +98,7 @@ export function BoardView({
   }, [visible, display.showEmptyGroups])
 
   const isReviewCaseView = filter.tradeKind === 'case'
-  const recordLabel = isReviewCaseView ? '案例记录' : '交易'
+  const recordLabel = isReviewCaseView ? '案例' : '交易'
   const emptyState = resolveWorkbenchEmptyState({
     totalCount,
     workspaceCount,
@@ -142,7 +144,12 @@ export function BoardView({
     <>
       <Topbar title={title} view={view} onView={onView} />
       {header}
-      <TradeFilters filter={filter} trades={trades} strategies={strategies} />
+      <TradeFilters
+        filter={filter}
+        trades={trades}
+        strategies={strategies}
+        actions={filterActions}
+      />
       <div className={'board-scroll' + (isReviewCaseView ? ' board-scroll-case' : '')}>
         {emptyState ? (
           <WorkbenchEmptyState

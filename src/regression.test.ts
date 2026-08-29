@@ -172,7 +172,7 @@ export function testShortcutRecorderIgnoresModifierOnlyKeydowns(): void {
 
 export function testQuickCaptureDefaultsFollowRouteContext(): void {
   assert(defaultTradeKindForPath('/today-record') === 'live', '今日记录默认创建实盘交易')
-  assert(defaultTradeKindForPath('/review-cases') === 'case', '案例记录默认创建案例')
+  assert(defaultTradeKindForPath('/review-cases') === 'case', '案例库默认创建案例')
   assert(defaultTradeKindForPath('/review-cases/mistakes') === 'case', '案例子视图保持案例类型')
   assert(defaultTradeKindForPath('/sim') === 'paper', '模拟页默认创建模拟交易')
   assert(defaultTradeKindForPath('/paper/archive') === 'paper', 'paper 子路径保持模拟类型')
@@ -438,7 +438,7 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   assert(
     PRIMARY_NAV.map((item) => item.id).join(',')
       === 'trades,dashboard,weeklyReview,reviewCases,reviewSession',
-    '核心模块必须收敛为交易日志、统计分析、周期复盘、案例记录和随机复盘',
+    '核心模块必须收敛为交易日志、统计分析、周期复盘、案例库和随机复盘',
   )
 
   const savedView = {
@@ -682,6 +682,7 @@ export async function testMissedOpportunityUsesTheTradeLogShellContract(): Promi
   const workspaceViews = await fs.readFile('src/lib/workspaceViews.ts', 'utf8')
   const tradeWorkspaceContext = await fs.readFile('src/components/TradeWorkspaceContext.tsx', 'utf8')
   const filterBar = await fs.readFile('src/components/ui/FilterBar.tsx', 'utf8')
+  const tradeFilters = await fs.readFile('src/components/trades/TradeFilters.tsx', 'utf8')
   const missedRouteStart = app.indexOf('path="/missed"')
   const missedRouteEnd = app.indexOf('path="/period/:slug"', missedRouteStart)
   const missedRouteBlock = app.slice(missedRouteStart, missedRouteEnd)
@@ -701,6 +702,15 @@ export async function testMissedOpportunityUsesTheTradeLogShellContract(): Promi
   )
   assert(tradeWorkspaceContext.includes('选择交易阶段'), '交易工作台必须提供统一阶段入口')
   assert(filterBar.includes('actions?: ReactNode'), 'FilterBar 必须继续提供标准右侧动作槽')
+  assert(
+    app.includes('filterActions={<TradeWorkspaceContext page="log" compact />}'),
+    '交易日志的数据范围必须并入筛选行，避免与案例库切换时列表纵向跳动',
+  )
+  assert(
+    !app.includes('header={<TradeWorkspaceContext page="log" />}'),
+    '交易日志不得恢复独占的数据范围行',
+  )
+  assert(tradeFilters.includes('actions={actions}'), '交易筛选栏必须透传统一的数据范围动作')
 }
 
 export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Promise<void> {
@@ -1536,7 +1546,7 @@ export function testWorkspaceViewsNeverCrossRecordDomains(): void {
 
   assert(
     tradeViews.every((view) => !view.pathname.startsWith('/review-cases')),
-    '交易日志顶部不得出现案例记录入口',
+    '交易日志顶部不得出现案例库入口',
   )
   assert(
     tradeViews.every((view) => ['/list', '/favorites', '/missed'].includes(view.pathname))
@@ -1547,7 +1557,7 @@ export function testWorkspaceViewsNeverCrossRecordDomains(): void {
   )
   assert(
     caseViews.every((view) => view.pathname.startsWith('/review-cases')),
-    '案例记录顶部不得出现交易日志入口',
+    '案例库顶部不得出现交易日志入口',
   )
   assert(
     getActiveWorkspaceView('trade', '/list', '?status=loss&symbol=EURUSD')?.id === 'loss',
@@ -2328,6 +2338,19 @@ export function testNormalizeDisplayPersistsPrivacyModeSafely(): void {
   assert(!normalizeDisplay({}).privacyMode, '旧资料库缺少直播模式字段时必须默认关闭')
 }
 
+export function testNormalizeDisplayPersistsSidebarRiskScopeSafely(): void {
+  assert(normalizeDisplay({}).sidebarRiskScope === 'day', '旧资料库缺少侧栏风险周期时必须默认每日')
+  assert(
+    normalizeDisplay({ sidebarRiskScope: 'week' }).sidebarRiskScope === 'week'
+      && normalizeDisplay({ sidebarRiskScope: 'month' }).sidebarRiskScope === 'month',
+    '侧栏风险周期必须保留每周与每月偏好',
+  )
+  assert(
+    normalizeDisplay({ sidebarRiskScope: 'quarter' } as unknown as Partial<DisplayPrefs>).sidebarRiskScope === 'day',
+    '非法侧栏风险周期必须安全回退为每日',
+  )
+}
+
 export function testNormalizeDisplayPersistsKeyboardFocusRingVisibilitySafely(): void {
   assert(
     DEFAULT_DISPLAY.showKeyboardFocusRings === false,
@@ -2709,7 +2732,7 @@ export function testMissedWorkspaceStaysInsideLiveTradingJournal(): void {
   )
   assert(
     !missed.some((item) => item.tradeKind === 'case'),
-    '交易日志错过视图不得混入案例记录',
+    '交易日志错过视图不得混入案例',
   )
   assert(
     paperMissedOnly.length === 1 && paperMissedOnly[0]?.id === paperMissed.id,
@@ -2717,7 +2740,7 @@ export function testMissedWorkspaceStaysInsideLiveTradingJournal(): void {
   )
   assert(
     caseMissedOnly.length === 1 && caseMissedOnly[0]?.id === caseMissed.id,
-    '案例错过机会必须留在案例记录工作区',
+    '案例错过机会必须留在案例库工作区',
   )
 }
 
@@ -2736,7 +2759,7 @@ export function testMissedOpportunityBelongsToAccountTradeDomainsOnly(): void {
   )
   assert(
     !caseViews.some((view) => view.id === 'missed'),
-    '案例记录不得再提供错过机会入口',
+    '案例库不得再提供错过机会入口',
   )
   assert(
     !caseViews.some((view) => view.pathname === '/missed' || view.search?.includes('caseType=missed')),
@@ -2827,7 +2850,7 @@ export function testHideClosedDisplayPrefDoesNotHideReviewCases(): void {
     casesVisible.length === 2 &&
       casesVisible.some((item) => item.id === 'closed-case') &&
       casesVisible.some((item) => item.id === 'open-case'),
-    '案例记录不受隐藏已平仓影响，侧栏有数时列表应能看见',
+    '案例不受隐藏已平仓影响，侧栏有数时列表应能看见',
   )
 }
 

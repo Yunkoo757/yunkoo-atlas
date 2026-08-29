@@ -1773,7 +1773,7 @@ function renderActivity(
     case 'create':
       return (
         <>
-          你 <b>创建</b>了{tradeKind === 'case' ? '这条案例记录' : '这笔交易'} · {fmtDate(event.timestamp)}
+          你 <b>创建</b>了{tradeKind === 'case' ? '这个案例' : '这笔交易'} · {fmtDate(event.timestamp)}
         </>
       )
     case 'status':

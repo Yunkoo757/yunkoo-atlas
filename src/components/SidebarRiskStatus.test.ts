@@ -1,5 +1,6 @@
 import type { RiskPeriodOutcomeSnapshot, RiskPeriodScope } from '@/data/riskManagement'
 import {
+  buildSidebarRiskGauge,
   buildSidebarRiskSummary,
   type SidebarRiskRow,
 } from '@/components/SidebarRiskStatus'
@@ -82,5 +83,32 @@ export function testSidebarRiskSummaryNamesPartialCoverageAsDataConfirmation(): 
   ])
   if (summary.kind !== 'partial' || summary.label !== '数据待确认') {
     throw new Error(`不完整风险数据不得被误写为流程复核：${JSON.stringify(summary)}`)
+  }
+}
+
+export function testSidebarRiskGaugeUsesTheSelectedPeriodRemainingBudget(): void {
+  const rows = [
+    row('day', 'normal', 0.5, 2),
+    row('week', 'near', 4, 5),
+    row('month', 'normal', 2, 10),
+  ]
+  const daily = buildSidebarRiskGauge(rows, 'day')
+  const weekly = buildSidebarRiskGauge(rows, 'week')
+  const monthly = buildSidebarRiskGauge(rows, 'month')
+  if (daily.remainingRatio !== 0.75 || daily.kind !== 'normal') {
+    throw new Error(`每日圆环没有使用每日剩余额度：${JSON.stringify(daily)}`)
+  }
+  if (weekly.remainingRatio !== 0.2 || weekly.kind !== 'near') {
+    throw new Error(`每周圆环没有使用每周剩余额度：${JSON.stringify(weekly)}`)
+  }
+  if (monthly.remainingRatio !== 0.8 || monthly.kind !== 'normal') {
+    throw new Error(`每月圆环没有使用每月剩余额度：${JSON.stringify(monthly)}`)
+  }
+}
+
+export function testSidebarRiskGaugeFallsBackSafelyWhenThePeriodIsUnavailable(): void {
+  const gauge = buildSidebarRiskGauge([], 'week')
+  if (gauge.kind !== 'unknown' || gauge.remainingRatio !== 0 || !gauge.ariaLabel.includes('本周')) {
+    throw new Error(`圆环缺少周期数据时没有安全回退：${JSON.stringify(gauge)}`)
   }
 }

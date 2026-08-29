@@ -207,7 +207,7 @@ export function applyDisplayPrefs(
   prefs: DisplayPrefs,
   filter?: ListFilter,
 ): Trade[] {
-  // 错过机会页要看终态；案例记录是复盘样本，不受「隐藏已平仓」影响
+  // 错过机会页要看终态；案例是复盘样本，不受「隐藏已平仓」影响
   const skipHideClosed = filter?.type === 'starred' || filter?.type === 'missed' || filter?.type === 'incomplete' || filter?.tradeKind === 'case'
   const visible = prefs.hideClosed && !skipHideClosed
     ? trades.filter((trade) => trade.tradeKind === 'case' || !isHiddenWhenClosedFilter(trade.status))

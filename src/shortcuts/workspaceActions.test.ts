@@ -162,8 +162,8 @@ export function testNewTradeAndCaseActionsChooseTheirRecordKindExplicitly(): voi
 
 export function testNewCaseHasAnIndependentConfigurableShortcut(): void {
   const action = getActionMeta('global.newCase')
-  assert(action?.label === '新建案例记录', '案例记录应有独立的新建动作')
-  assert(bindingKey(action!.defaultBinding) === 'shift+n', '新建案例记录默认快捷键应为 Shift+N')
+  assert(action?.label === '新建案例', '案例应有独立的新建动作')
+  assert(bindingKey(action!.defaultBinding) === 'shift+n', '新建案例默认快捷键应为 Shift+N')
 }
 
 export function testOmittedPrimaryNavigationActionsAreConfigurable(): void {

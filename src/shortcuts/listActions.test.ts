@@ -83,6 +83,37 @@ export function testConfiguredListBindingRunsRegisteredHandlerExactlyOnce(): voi
   }
 }
 
+export function testEscapeCanReturnTopLevelPagesToTradeLog(): void {
+  const previousBindings = useShortcutStore.getState().bindings
+  useShortcutStore.setState({ bindings: {} })
+  let calls = 0
+  setShortcutHandlers({
+    'global.closeOverlay': () => {
+      calls += 1
+    },
+  })
+
+  try {
+    assert(getActionMeta('global.closeOverlay')?.scope === 'overlay', '关闭弹层动作必须保持覆盖层作用域')
+    assert(bindingKey(getActionMeta('global.closeOverlay')!.defaultBinding) === 'escape', 'Escape 返回动作默认键异常')
+    const shortcutState = useShortcutStore.getState()
+    assert(!shortcutState.cmdkOpen && shortcutState.modalOverlayCount === 0 && !shortcutState.lightbox, '测试前不得残留弹层状态')
+    const exitPages = ['/dashboard', '/weekly-review', '/review-session', '/notes', '/notes/note-1']
+    for (const pathname of exitPages) {
+      const event = keyboardEvent('Escape')
+      assert(handleShortcutKeydown(event, pathname), `${pathname} 必须消费页面级 Escape`)
+      assert(event.prevented === 1, `${pathname} 的 Escape 必须阻止默认行为`)
+    }
+    assert(calls === exitPages.length, '复盘、分析与随记页面必须共用同一个返回动作')
+
+    const listEscape = keyboardEvent('Escape')
+    assert(!handleShortcutKeydown(listEscape, '/list'), '交易日志首页不得吞掉无意义的 Escape')
+  } finally {
+    setShortcutHandlers({})
+    useShortcutStore.setState({ bindings: previousBindings })
+  }
+}
+
 export function testWorkbenchListActionsCoverFocusOpenAndSelection(): void {
   const items = [{ id: 'a' }, { id: 'b' }]
   let focusIndex = -1

@@ -51,7 +51,7 @@ const IMPORT_TARGETS: Array<{
 }> = [
   { kind: 'live', label: '交易日志', hint: '计入实盘统计', recordLabel: '笔交易' },
   { kind: 'paper', label: '模拟盘', hint: '独立于实盘统计', recordLabel: '笔模拟盘记录' },
-  { kind: 'case', label: '案例记录', hint: '进入案例复看体系', recordLabel: '条案例' },
+  { kind: 'case', label: '案例库', hint: '进入案例复看体系', recordLabel: '条案例' },
 ]
 
 const NOTION_CAPACITY_ERRORS = new Set([
@@ -654,7 +654,7 @@ export function NotionImportModal({ open, onClose }: Props) {
           )}
           <p className="nim-done-hint">
             {targetKind === 'case'
-              ? '已进入案例记录，可继续补充分类与掌握状态。'
+              ? '已进入案例库，可继续补充分类与掌握状态。'
               : '请在详情中补充仓位、止损与结果数据。'}
           </p>
         </div>

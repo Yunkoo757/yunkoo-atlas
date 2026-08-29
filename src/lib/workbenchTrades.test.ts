@@ -112,7 +112,7 @@ export function testCaseWorkbenchKeepsAllStagesAsKnowledgeBase(): void {
   const result = deriveWorkbenchVisibleTrades(options)
   assert(
     result.visible.map((item) => item.id).sort().join() === 'current-case,old-case,pending-case',
-    '案例记录必须跨阶段保留，不得被新实盘阶段切空',
+    '案例必须跨阶段保留，不得被新实盘阶段切空',
   )
 }
 

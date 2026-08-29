@@ -623,16 +623,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
 
       <div className="sb-footer">
         <SidebarRiskStatus currentTradingDayKey={sidebarDateAnchor.currentTradingDayKey} />
-        <nav aria-label="系统导航">
-          <NavLink
-            to="/settings"
-            className={({ isActive }) => `sb-item${isActive ? ' is-active is-page-active' : ''}`}
-            aria-current={path.startsWith('/settings') ? 'page' : undefined}
-          >
-            <Settings2 size={ICON_MD} />
-            <span className="sb-item-label">设置</span>
-          </NavLink>
-        </nav>
       </div>
 
       {workspaceEditorOpen ? (

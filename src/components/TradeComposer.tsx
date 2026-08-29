@@ -134,8 +134,9 @@ export function TradeComposer() {
   const baselineRef = useRef('')
   const defaultKind = defaultTradeKindForPath(location.pathname)
   const activeKind = editing?.tradeKind ?? kind
-  const recordLabel = activeKind === 'case' ? '案例记录' : '交易'
-  const isQuickNew = !editing && activeKind !== 'case'
+  const recordLabel = activeKind === 'case' ? '案例' : '交易'
+  const isNew = !editing
+  const isTradeQuickNew = isNew && activeKind !== 'case'
 
   useEffect(() => {
     if (!open) return
@@ -175,7 +176,7 @@ export function TradeComposer() {
     setSize(nextSize)
     setStopLoss(nextStopLoss)
     setQuickText('')
-    setShowMore(Boolean(editing) || (requestedKind ?? defaultKind) === 'case')
+    setShowMore(Boolean(editing))
     setCaseType(nextCaseType)
     setDiscardConfirmOpen(false)
     baselineRef.current = composerSnapshot({
@@ -445,7 +446,7 @@ export function TradeComposer() {
               onClick={handleQuickCreate}
               disabled={!symbol.trim() || submitting}
             >
-              {submitting ? '保存中…' : editing ? '保存' : isQuickNew ? '保存记录' : `创建${recordLabel}`}
+              {submitting ? '保存中…' : editing ? '保存' : isTradeQuickNew ? '保存记录' : `创建${recordLabel}`}
             </Button>
           </div>
         </>
@@ -494,7 +495,7 @@ export function TradeComposer() {
             </div>
           </section>
 
-          {isQuickNew ? (
+          {isNew ? (
             <div className="composer-quick-context">
               <label htmlFor="composer-quick-text">一句话（可选）</label>
               <input
@@ -508,7 +509,7 @@ export function TradeComposer() {
           ) : null}
 
           {showMore ? <div className="composer-parameter-grid">
-            {isQuickNew ? (
+            {isTradeQuickNew ? (
               <div className="composer-essential-field">
                 <span className="composer-essential-label">记录类型</span>
                 <Select
@@ -522,7 +523,7 @@ export function TradeComposer() {
                 />
               </div>
             ) : null}
-            {isQuickNew ? (
+            {isTradeQuickNew ? (
               <div className="composer-essential-field">
                 <span className="composer-essential-label">状态</span>
                 <Select
@@ -573,7 +574,7 @@ export function TradeComposer() {
                 required
               />
             </div>
-            {isQuickNew ? <>
+            {isTradeQuickNew ? <>
               <label className="composer-essential-field">
                 <span className="composer-essential-label">入场价</span>
                 <input inputMode="decimal" value={entry} placeholder="可选" onChange={(event) => setEntry(event.target.value)} />
@@ -587,26 +588,7 @@ export function TradeComposer() {
                 <input inputMode="decimal" value={stopLoss} placeholder="可选" onChange={(event) => setStopLoss(event.target.value)} />
               </label>
             </> : null}
-          </div> : null}
-
-          <div className={`composer-archive-row${activeKind === 'case' ? ' is-case' : ''}`}>
-            <div className="composer-essential-field">
-              <span className="composer-essential-label">策略</span>
-              <Select
-                value={strategyId}
-                onValueChange={setStrategyId}
-                ariaLabel="交易策略"
-                options={
-                  strategies.length === 0
-                    ? [{ value: '', label: '未设置' }]
-                    : strategies.map((strategy) => ({
-                        value: strategy.id,
-                        label: strategy.name,
-                      }))
-                }
-              />
-            </div>
-            {activeKind === 'case' && (
+            {activeKind === 'case' ? (
               <div className="composer-essential-field">
                 <span className="composer-essential-label">案例类型</span>
                 <Select
@@ -624,7 +606,26 @@ export function TradeComposer() {
                   }))}
                 />
               </div>
-            )}
+            ) : null}
+          </div> : null}
+
+          <div className="composer-archive-row">
+            <div className="composer-essential-field">
+              <span className="composer-essential-label">策略</span>
+              <Select
+                value={strategyId}
+                onValueChange={setStrategyId}
+                ariaLabel="交易策略"
+                options={
+                  strategies.length === 0
+                    ? [{ value: '', label: '未设置' }]
+                    : strategies.map((strategy) => ({
+                        value: strategy.id,
+                        label: strategy.name,
+                      }))
+                }
+              />
+            </div>
           </div>
 
           <div className="composer-media">
@@ -683,7 +684,7 @@ export function TradeComposer() {
               </div>
             )}
           </div>
-          {isQuickNew ? (
+          {isNew ? (
             <Button type="button" variant="ghost" className="composer-more-toggle" onClick={() => setShowMore((value) => !value)}>
               {showMore ? '收起更多信息' : '更多信息'}
             </Button>

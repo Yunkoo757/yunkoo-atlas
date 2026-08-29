@@ -65,6 +65,8 @@ export type { ReviewCaseScope } from '@/lib/reviewCaseScope'
 
 export { applyDisplayPrefs, filterTrades } from '@/lib/workbenchTrades'
 
+export type SidebarRiskScope = 'day' | 'week' | 'month'
+
 export interface DisplayPrefs {
   hideClosed: boolean
   showEmptyGroups: boolean
@@ -80,6 +82,8 @@ export interface DisplayPrefs {
    * 未到该时刻仍算前一交易日；影响今日工作台、今日筛选与新建默认日期。
    */
   tradingDayStartHour: number
+  /** 侧栏风险额度圆环默认观察的周期。 */
+  sidebarRiskScope?: SidebarRiskScope
   /** 交易详情中是否默认固定开头的盘面叙述。 */
   reviewContextPinned?: boolean
   /** 工作台主导航的自定义顺序。 */
@@ -87,7 +91,7 @@ export interface DisplayPrefs {
   /** 旧版侧栏快捷入口偏好，保留用于兼容历史快照 */
   sidebarPins: SidebarNavId[]
   sidebarWorkspaceItems: SidebarWorkspaceItem[]
-  /** 侧栏「今日记录 / 交易日志 / 案例记录」上次进入的工作区路由 */
+  /** 侧栏「交易日志 / 案例库」上次进入的工作区路由 */
   workspaceMemory?: {
     today?: { pathname: string; search: string }
     trade?: { pathname: string; search: string }
@@ -104,6 +108,7 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
   privacyMode: false,
   showKeyboardFocusRings: false,
   tradingDayStartHour: DEFAULT_TRADING_DAY_START_HOUR,
+  sidebarRiskScope: 'day',
   reviewContextPinned: true,
   sidebarPrimaryOrder: [...DEFAULT_PRIMARY_SIDEBAR_ORDER],
   sidebarPins: [...DEFAULT_SIDEBAR_PINS],
@@ -111,6 +116,7 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
 }
 
 const SORT_BY = ['date', 'pnl', 'conviction'] as const
+const SIDEBAR_RISK_SCOPES = ['day', 'week', 'month'] as const
 
 function normalizeWorkspaceRoute(input: unknown): { pathname: string; search: string } | undefined {
   if (!input || typeof input !== 'object') return undefined
@@ -180,6 +186,9 @@ export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayP
         ? d.showKeyboardFocusRings
         : DEFAULT_DISPLAY.showKeyboardFocusRings,
     tradingDayStartHour: normalizeTradingDayStartHour(d.tradingDayStartHour),
+    sidebarRiskScope: SIDEBAR_RISK_SCOPES.includes(d.sidebarRiskScope as SidebarRiskScope)
+      ? d.sidebarRiskScope
+      : DEFAULT_DISPLAY.sidebarRiskScope,
     reviewContextPinned:
       typeof d.reviewContextPinned === 'boolean'
         ? d.reviewContextPinned

@@ -197,7 +197,7 @@ export function TradeList({
   onToggleStar: (trade: Trade) => void
   onContextMenu: (event: React.MouseEvent, trade: Trade) => void
   onCreate: () => void
-  /** 分组新建按钮文案：交易 / 案例记录 */
+  /** 分组新建按钮文案：交易 / 案例 */
   recordLabel?: string
   renderRow?: (trade: Trade, context: TradeListRowRenderContext) => ReactNode
   selectionEnabled?: boolean

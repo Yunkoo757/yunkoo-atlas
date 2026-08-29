@@ -205,7 +205,7 @@ export function testCaseSidebarCountIncludesHistoricalCases(): void {
     currentLiveStageId: 'stage-current',
   }
 
-  assert(countSidebarRoute('/review-cases', '', context) === 2, '案例记录侧栏计数必须含全部历史案例')
+  assert(countSidebarRoute('/review-cases', '', context) === 2, '案例库侧栏计数必须含全部历史案例')
   assert(countSidebarRoute('/review-cases/exemplar', '', context) === 0, '未标记优秀范例时交易案例计数应为 0')
 }
 

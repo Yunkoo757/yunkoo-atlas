@@ -172,8 +172,8 @@ async function run(): Promise<void> {
     root.render(<MemoryRouter><StrategiesPanel /></MemoryRouter>)
     await waitFor(() => document.querySelector('.st-row') !== null, 'StrategiesPanel 未渲染')
     const panelText = document.querySelector('.st-row')?.textContent ?? ''
-    assert(panelText.includes('8 笔当前实盘关联 · 4 笔绩效样本'), 'StrategiesPanel 必须按 stage 统计关联并分开绩效资格样本')
-    assert(panelText.includes('+11.0R') && !panelText.includes('900'), 'StrategiesPanel 不得纳入未来或冲突绩效')
+    assert(panelText.includes('8 笔关联交易'), '策略管理页必须保留简洁而准确的关联数量')
+    assert(!panelText.includes('胜率') && !panelText.includes('总R') && !panelText.includes('绩效样本'), '策略管理页不得重复堆叠策略详情中的绩效信息')
 
     date.set(new Date('2026-08-04T12:00:00').getTime())
     useStore.setState({

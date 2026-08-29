@@ -87,6 +87,44 @@ export async function testTradeAndCaseListsShareComfortableRowHeight(): Promise<
   assert(list.includes('default: 52') && list.includes('comfortable: 52'), '交易与案例行高必须一致')
 }
 
+export async function testCaseListHonorsSharedGroupingPreference(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/views/ListView.tsx', 'utf8')
+
+  assert(
+    !source.includes("filter.tradeKind === 'case' ||"),
+    '案例库不得绕过用户选择的月份或策略分组',
+  )
+  assert(
+    source.includes("if (filter.type === 'period' && filter.period === 'today')"),
+    '只有今日工作台可以使用固定单组语义',
+  )
+  assert(
+    source.includes('if (display.groupByStrategy)') &&
+      source.includes('if (display.groupByDate)') &&
+      source.includes('return groupTradesByMonth(visible)'),
+    '交易日志与案例库必须共用显示设置中的策略和月份分组逻辑',
+  )
+}
+
+export async function testTradeWorkspaceKindUsesSharedSegmentedControl(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/components/TradeWorkspaceContext.tsx', 'utf8')
+  const css = await fs.readFile('src/components/TradeWorkspaceContext.css', 'utf8')
+
+  assert(source.includes("import { SegmentedControl } from '@/components/ui/SegmentedControl'"), '阶段盘型必须复用共享分段控件')
+  assert(source.includes('className="trade-workspace-scope-kinds"'), '阶段盘型必须保留稳定布局入口')
+  assert(!css.includes('.trade-workspace-scope-kinds button'), '阶段盘型不得再维护独立按钮视觉规则')
+}
+
+export async function testTrashRetentionCopyAppearsOnlyOnceInEmptyState(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/views/TradeTrashView.tsx', 'utf8')
+
+  assert(source.includes("context={trashTrades.length > 0 ? `${trashTrades.length} 笔` : undefined}"), '空回收站顶部不得重复显示数量与保留期限')
+  assert(source.includes('hint="已删除的交易会在 30 天后自动清空"'), '空态必须保留一次有用的清理规则说明')
+}
+
 export async function testTradeSelectionAppearsOnlyOnIntent(): Promise<void> {
   const fs = await import('node:fs/promises')
   const css = await fs.readFile('src/components/trades/TradeList.css', 'utf8')
@@ -119,8 +157,11 @@ export async function testTradeListVisualAlignmentContract(): Promise<void> {
   assert(trash.includes('grid-template-columns: 9ch 18px minmax(0, 1fr)'), '回收站品种与方向也必须固定对齐')
   assert(!trash.includes('.trash-item.is-selected'), '回收站选中态不得额外铺整行底色或左侧强调线')
   assert(
-    /\.sb-risk-summary\s*\{[\s\S]*?grid-template-columns:\s*16px minmax\(0, 1fr\);[\s\S]*?gap:\s*9px;[\s\S]*?padding:\s*0 10px;/.test(sidebar),
-    '风险入口与设置入口必须共享侧栏基线',
+    /\.sb-footer\s*\{[\s\S]*?border-top:\s*0;/.test(sidebar)
+      && /\.sb-footer\s*\{[\s\S]*?padding:\s*var\(--sp-2\) 0 var\(--sp-1\) var\(--sp-1\);/.test(sidebar)
+      && /\.sb-risk-summary\s*\{[\s\S]*?width:\s*28px;[\s\S]*?padding:\s*0;/.test(sidebar)
+      && /\.sb-risk-gauge\s*\{[\s\S]*?width:\s*15px;[\s\S]*?height:\s*15px;/.test(sidebar),
+    '纯图形风险入口必须取消分割线、对齐导航图标轴线并保持克制尺寸',
   )
 }
 

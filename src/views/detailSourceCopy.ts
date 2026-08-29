@@ -32,7 +32,7 @@ export function resolveTradeDetailSourceCopy(options: {
       : fromWeeklyReview
         ? '周复盘'
         : options.tradeKind === 'case'
-          ? '案例记录'
+          ? '案例库'
           : options.tradeKind === 'paper'
             ? '模拟'
             : '交易日志'
@@ -50,7 +50,7 @@ export function resolveTradeDetailSourceCopy(options: {
       : fromWeeklyReview
         ? '周复盘'
         : options.tradeKind === 'case'
-          ? '案例记录'
+          ? '案例库'
           : '交易日志'
 
   return { breadcrumb, backAriaLabel, returnDestinationLabel }

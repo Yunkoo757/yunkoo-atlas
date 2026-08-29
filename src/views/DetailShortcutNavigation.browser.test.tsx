@@ -160,7 +160,7 @@ async function run(): Promise<void> {
     assert(findButton('复制案例'), '案例详情更多菜单缺少复制案例')
     const caseMenuLabels = [...document.querySelectorAll<HTMLButtonElement>('.menu-pop [role="menuitem"]')]
       .map((button) => button.textContent?.trim())
-    const expectedCaseActions = ['编辑案例记录', '复制案例', '设为重点案例', '复制链接', '复制编号', '删除案例记录']
+    const expectedCaseActions = ['编辑案例', '复制案例', '设为重点案例', '复制链接', '复制编号', '删除案例']
     const caseActionIndexes = expectedCaseActions.map((label) => caseMenuLabels.indexOf(label))
     assert(
       caseActionIndexes.every((index, position) => index >= 0 && (position === 0 || index > caseActionIndexes[position - 1])),
@@ -170,7 +170,7 @@ async function run(): Promise<void> {
       document.querySelectorAll('.menu-pop [role="separator"]').length === 2,
       '详情菜单必须明确分隔业务动作、工具动作和危险动作',
     )
-    assert(findButton('删除案例记录')?.classList.contains('menu-item-danger'), '详情删除动作必须使用危险语义样式')
+    assert(findButton('删除案例')?.classList.contains('menu-item-danger'), '详情删除动作必须使用危险语义样式')
     findButton('复制编号')?.click()
     await waitFor(() => copied.at(-1) === 'CAS-2', '更多菜单没有复制当前案例编号')
     const tagsSection = [...document.querySelectorAll<HTMLButtonElement>('.dv-section-head')]

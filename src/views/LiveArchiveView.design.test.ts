@@ -64,7 +64,7 @@ export function testHistoricalLiveUsesSharedWorkbenchSubtitleContract(): void {
 export function testCurrentCaseWorkspaceDoesNotRepeatItsPurposeInTheTitle(): void {
   assert(
     getTradesPageSubtitle({ type: 'all', tradeKind: 'case' }) === undefined,
-    '案例记录标题后不得重复显示“独立复盘”说明',
+    '案例库标题后不得重复显示“独立复盘”说明',
   )
 }
 

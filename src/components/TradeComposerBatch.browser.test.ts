@@ -195,17 +195,21 @@ async function run(): Promise<void> {
     })
     try {
       await waitFor(
-        () => Boolean(document.querySelector<HTMLButtonElement>('[role="combobox"][aria-label="案例类型"]')),
+        () => Boolean(document.querySelector<HTMLButtonElement>('[role="dialog"] [role="combobox"][aria-label="案例类型"]')),
         'legacy focus 分类编辑 Composer 未就绪',
       )
-      document.querySelector<HTMLButtonElement>('[role="combobox"][aria-label="案例类型"]')?.click()
+      const caseTypeTrigger = document.querySelector<HTMLButtonElement>(
+        '[role="dialog"] [role="combobox"][aria-label="案例类型"]',
+      )
+      caseTypeTrigger?.focus()
+      caseTypeTrigger?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
       await waitFor(
         () => Boolean(document.querySelector<HTMLButtonElement>('[role="option"][data-value="ambiguous"]')),
         '案例类型选项未打开',
       )
       document.querySelector<HTMLButtonElement>('[role="option"][data-value="ambiguous"]')?.click()
       await waitFor(
-        () => document.querySelector<HTMLButtonElement>('[role="combobox"][aria-label="案例类型"]')?.dataset.value === 'ambiguous',
+        () => document.querySelector<HTMLButtonElement>('[role="dialog"] [role="combobox"][aria-label="案例类型"]')?.dataset.value === 'ambiguous',
         '显式案例类型修改没有进入 Composer 状态',
       )
       findButton('保存')?.click()
@@ -224,6 +228,39 @@ async function run(): Promise<void> {
       !notifications.some((state) => state.category === 'ambiguous' && !state.focused),
       'Composer 不得通知规范化已完成但重点状态未迁移的中间状态',
     )
+
+    useStore.setState({
+      composerOpen: true,
+      composerTrade: null,
+      composerKind: 'case',
+    })
+    await waitFor(() => Boolean(findButton('创建案例')), '新建案例 Composer 未就绪')
+    assert(
+      Boolean(document.querySelector('[data-composer-quick-text]')),
+      '新建案例必须与新建交易共享一句话快速记录入口',
+    )
+    assert(
+      Boolean(document.querySelector('[role="combobox"][aria-label="交易策略"]')),
+      '新建案例基础层必须与新建交易一样保留策略',
+    )
+    assert(
+      !document.querySelector('[role="combobox"][aria-label="案例类型"]') &&
+      !document.querySelector('[role="combobox"][aria-label="参与波段级别"]'),
+      '新建案例首屏不得展开案例分类和交易上下文',
+    )
+    findButton('更多信息')?.click()
+    await waitFor(
+      () => Boolean(document.querySelector('[role="combobox"][aria-label="案例类型"]')),
+      '新建案例更多信息未展示案例类型',
+    )
+    assert(
+      Boolean(document.querySelector('[role="combobox"][aria-label="参与波段级别"]')) &&
+      Boolean(document.querySelector('[role="combobox"][aria-label="交易时段"]')) &&
+      Boolean(document.querySelector('[aria-label="交易日期"]')),
+      '新建案例更多信息必须保留完整交易上下文',
+    )
+    useStore.setState({ composerOpen: false, composerTrade: null })
+    await waitFor(() => !document.querySelector('[role="dialog"]'), '新建案例 Composer 未关闭')
 
     const tradeCountBeforeEmptyQuickCreate = promotedState.trades.length
     useStore.setState({

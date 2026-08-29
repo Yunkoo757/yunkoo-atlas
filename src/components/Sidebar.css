@@ -448,54 +448,73 @@ html[data-ui-settled='1'] .sb-item {
 }
 
 .sb-footer {
-  display: grid;
+  display: flex;
   flex: 0 0 auto;
-  gap: 2px;
-  padding: var(--sp-2);
-  border-top: 1px solid var(--border-subtle);
+  /* 与导航项 10px 内边距 + 16px 图标的中心线精确重合。 */
+  padding: var(--sp-2) 0 var(--sp-1) var(--sp-1);
+  border-top: 0;
 }
 
 .sb-risk-summary {
+  position: relative;
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr);
-  width: 100%;
-  min-width: 0;
+  place-items: center;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
   align-items: center;
-  gap: 9px;
-  min-height: var(--control-height);
-  padding: 0 10px;
-  border-radius: var(--radius-8);
+  padding: 0;
+  border-radius: var(--radius-full);
   color: var(--text-secondary);
-  text-align: left;
   transition:
     color var(--dur-fast) var(--ease-out),
-    background var(--dur-fast) var(--ease-out);
+    background var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
-.sb-risk-summary > svg {
-  width: 16px;
-  height: 16px;
-  justify-self: center;
+.sb-risk-gauge {
+  width: 15px;
+  height: 15px;
+  overflow: visible;
+  transform: rotate(-90deg);
+}
+
+.sb-risk-gauge circle {
+  transform-origin: 10px 10px;
+}
+
+.sb-risk-gauge-core {
+  fill: color-mix(in srgb, currentColor 5%, transparent);
+  stroke: none;
+}
+
+.sb-risk-gauge-track {
+  fill: none;
+  stroke: color-mix(in srgb, currentColor 16%, transparent);
+  stroke-width: 1.7;
+}
+
+.sb-risk-gauge-progress {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 1px color-mix(in srgb, currentColor 38%, transparent));
+  transition:
+    stroke-dashoffset var(--dur-slow) var(--ease-out),
+    stroke var(--dur-fast) var(--ease-out);
 }
 
 .sb-risk-summary:hover {
   color: var(--text-primary);
   background: var(--surface-nav-hover);
+  transform: translateY(-1px);
 }
 
 .sb-risk-summary[aria-expanded='true'] {
   color: var(--text-primary);
   background: var(--surface-nav-active);
-}
-
-.sb-risk-summary strong {
-  overflow: hidden;
-  color: inherit;
-  font-size: var(--type-nav-size);
-  line-height: var(--type-nav-line-height);
-  font-weight: var(--type-nav-weight);
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  transform: none;
 }
 
 .sb-risk-summary.is-near,
@@ -533,12 +552,11 @@ html[data-ui-settled='1'] .sb-item {
 
 .sb-risk-popover-head {
   display: flex;
-  min-height: 44px;
+  min-height: 48px;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-  padding: 0 var(--sp-3);
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 var(--sp-4);
 }
 
 .sb-risk-popover-head strong {
@@ -569,24 +587,23 @@ html[data-ui-settled='1'] .sb-item {
 
 .sb-risk-periods {
   display: grid;
-  padding: var(--sp-1) var(--sp-2);
+  gap: var(--sp-3);
+  padding: 0 var(--sp-4) var(--sp-4);
 }
 
 .sb-risk-period {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
-  min-height: 38px;
+  grid-template-columns: 44px minmax(0, 1fr);
+  min-height: var(--control-height-sm);
   align-items: center;
-  gap: var(--sp-2);
-  padding: 0 var(--sp-1);
-  border-bottom: 1px solid var(--border-subtle);
+  gap: var(--sp-3);
+  padding: 0;
+  color: var(--text-secondary);
   font-size: var(--type-metadata-size);
-  font-variant-numeric: var(--numeric-tabular);
-  font-feature-settings: "tnum" 1, "kern" 1;
 }
 
-.sb-risk-period:last-child {
-  border-bottom: 0;
+.sb-risk-period-head {
+  display: contents;
 }
 
 .sb-risk-period-label {
@@ -594,40 +611,38 @@ html[data-ui-settled='1'] .sb-item {
   font-weight: var(--font-weight-medium);
 }
 
-.sb-risk-period > small {
-  min-width: 0;
-  color: var(--text-tertiary);
-  font-size: var(--type-caption-size);
+.sb-risk-period-head > small {
+  display: none;
+}
+
+.sb-risk-period-track {
+  display: block;
+  height: var(--sp-1);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  border-radius: var(--radius-full);
+  background: var(--surface-control-active);
 }
 
-.sb-risk-period-usage {
-  grid-column: 3;
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--sp-1);
-  white-space: nowrap;
+.sb-risk-period-track > i {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  transition: width var(--dur-slow) var(--ease-out);
 }
 
-.sb-risk-period-usage strong {
-  color: var(--text-primary);
-  font-size: var(--type-row-size);
-  font-weight: var(--font-weight-semibold);
-}
-
-.sb-risk-period-usage span {
-  color: var(--text-tertiary);
-}
-
-.sb-risk-period.is-near > small,
-.sb-risk-period.is-partial > small,
-.sb-risk-period.is-unknown > small {
+.sb-risk-period.is-near,
+.sb-risk-period.is-partial,
+.sb-risk-period.is-unknown,
+.sb-risk-period.is-near .sb-risk-period-head > small,
+.sb-risk-period.is-partial .sb-risk-period-head > small,
+.sb-risk-period.is-unknown .sb-risk-period-head > small {
   color: var(--warn-action);
 }
 
-.sb-risk-period.is-triggered > small {
+.sb-risk-period.is-triggered,
+.sb-risk-period.is-triggered .sb-risk-period-head > small {
   color: var(--neg);
 }
 

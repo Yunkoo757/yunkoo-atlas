@@ -1026,7 +1026,7 @@ function ReviewSessionSettingsModal({
             onChange={(event) => patchFilters({ includeCases: event.target.checked })}
           />
           <BookOpen size={ICON_XL} aria-hidden />
-          <span><strong>案例记录</strong><small>全部历史案例，不随新实盘阶段清空</small></span>
+          <span><strong>案例库</strong><small>全部历史案例，不随新实盘阶段清空</small></span>
         </label>
         <label className={filters.includeLiveTrades ? 'is-selected' : undefined}>
           <input

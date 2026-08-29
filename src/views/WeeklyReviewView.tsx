@@ -52,6 +52,7 @@ import {
 import { Tooltip } from '@/components/ui/Tooltip'
 import { InlineStatus } from '@/components/ui/InlineStatus'
 import { IconButton } from '@/components/ui/IconButton'
+import { Select } from '@/components/ui/Select'
 import {
   tradeDetailNavState,
   tradeDetailPath,
@@ -774,17 +775,19 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
 
           {tab === 'year' ? (
             <div id="weekly-review-panel-year" role="tabpanel" aria-labelledby="weekly-review-tab-year">
-              <label className="wr-trend-scope">
-                趋势范围
-                <select
-                  aria-label="年度趋势阶段范围"
+              <div className="wr-trend-scope">
+                <span>趋势范围</span>
+                <Select
+                  className="wr-trend-select"
+                  ariaLabel="年度趋势阶段范围"
                   value={trendLiveStageId ?? ''}
-                  onChange={(event) => setTrendLiveStageId(event.target.value || undefined)}
-                >
-                  <option value="">全部阶段</option>
-                  {liveStages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
-                </select>
-              </label>
+                  onValueChange={(value) => setTrendLiveStageId(value || undefined)}
+                  options={[
+                    { value: '', label: '全部阶段' },
+                    ...liveStages.map((stage) => ({ value: stage.id, label: stage.name })),
+                  ]}
+                />
+              </div>
               <YearTrend year={year} reviews={scopedYearReviews} data={trendData} />
             </div>
           ) : (

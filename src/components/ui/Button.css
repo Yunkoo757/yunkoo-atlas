@@ -28,7 +28,8 @@
   white-space: nowrap;
   transition: background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out);
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .ui-btn-lg {
@@ -90,7 +91,7 @@
 .ui-btn-ghost:hover:not(:disabled),
 .st-del-btn:hover:not(:disabled),
 .batch-action-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
   color: var(--text-primary);
 }
 
@@ -100,8 +101,9 @@
 .st-io,
 .csv-btn-ghost,
 .nim-btn-ghost {
-  background: transparent;
-  border: 1px solid var(--border-default);
+  background: var(--surface-control);
+  border: 1px solid var(--surface-control-border);
+  box-shadow: var(--surface-control-shadow);
 }
 .ui-btn-bordered:hover:not(:disabled),
 .dio-btn:hover:not(:disabled),
@@ -109,8 +111,10 @@
 .st-io:hover:not(:disabled),
 .csv-btn-ghost:hover:not(:disabled),
 .nim-btn-ghost:hover:not(:disabled) {
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
+  border-color: var(--surface-control-border-active);
   color: var(--text-primary);
+  box-shadow: var(--surface-control-shadow-active);
 }
 
 .ui-btn-primary,
@@ -176,7 +180,7 @@
 
 .ui-btn-danger-solid:disabled,
 .st-del-danger:disabled {
-  color: var(--text-disabled);
+  color: var(--danger-solid-disabled-text);
   background: var(--danger-solid-disabled-bg);
   border-color: var(--danger-solid-disabled-border);
   opacity: 1;

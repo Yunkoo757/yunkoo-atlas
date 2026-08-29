@@ -1,23 +1,16 @@
-import { ICON_LG, ICON_MD } from '@/icons/iconSize'
+import { ICON_MD } from '@/icons/iconSize'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Pencil, Trash2, ChevronRight } from '@/icons/appIcons'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { StrategyFormModal, uniqueStrategyId } from '@/components/StrategyFormModal'
 import { useStore } from '@/store/useStore'
-import {
-  computeStrategyStats,
-  countStrategyReferences,
-  formatStrategyMetricCoverage,
-} from '@/lib/strategies'
-import { fmtR } from '@/lib/format'
+import { countStrategyReferences } from '@/lib/strategies'
 import { toast } from '@/lib/toast'
 import type { Strategy } from '@/data/strategies'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { Select } from '@/components/ui/Select'
 import { ModalShell } from '@/components/ui/ModalShell'
-import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
-import { buildStagePerformanceProjection } from '@/lib/stageArchive'
 import '@/views/StrategiesView.css'
 
 export function StrategiesPanel() {
@@ -26,20 +19,6 @@ export function StrategiesPanel() {
   const addStrategy = useStore((s) => s.addStrategy)
   const updateStrategy = useStore((s) => s.updateStrategy)
   const removeStrategy = useStore((s) => s.removeStrategy)
-  const legacyCashCurrencyAssumption = useStore((s) => s.profile.legacyCashCurrencyAssumption)
-  const currentLiveStageId = useStore((s) => s.currentLiveStageId)
-  const businessDateAnchor = useBusinessDateAnchor()
-
-  const performanceProjection = useMemo(
-    () => buildStagePerformanceProjection({
-      trades,
-      stageScope: { kind: 'current', stageId: currentLiveStageId },
-      analysisScope: { kind: 'live', range: 'all' },
-      anchor: businessDateAnchor,
-      legacyCashCurrencyAssumption,
-    }),
-    [trades, currentLiveStageId, businessDateAnchor, legacyCashCurrencyAssumption],
-  )
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Strategy | null>(null)
@@ -51,26 +30,11 @@ export function StrategiesPanel() {
     () =>
       [...strategies]
         .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
-        .map((s) => {
-          const stats = computeStrategyStats(performanceProjection.records, s.id, {
-            tradeKind: 'live',
-            legacyCashCurrencyAssumption,
-            eligibility: performanceProjection.selection,
-          })
-          return {
-            ...s,
-            count: stats.tradeCount,
-            linkedCount: countStrategyReferences(trades, s.id),
-            pnlCoverage: formatStrategyMetricCoverage(stats.pnlCount, stats.closedCount),
-            rCoverage: formatStrategyMetricCoverage(stats.rCount, stats.closedCount),
-            pendingResultCount: Math.max(
-              0,
-              stats.closedCount - stats.evaluatedCount - stats.conflictCount,
-            ),
-            stats,
-          }
-        }),
-    [strategies, trades, performanceProjection, legacyCashCurrencyAssumption],
+        .map((strategy) => ({
+          ...strategy,
+          linkedCount: countStrategyReferences(trades, strategy.id),
+        })),
+    [strategies, trades],
   )
 
   const existingNames = strategies.map((s) => s.name)
@@ -121,7 +85,7 @@ export function StrategiesPanel() {
           <div>
             <h1 className="settings-page-title">交易策略</h1>
           </div>
-          <button type="button" className="st-add" onClick={openCreate}>
+          <button type="button" className="ui-btn ui-btn-bordered st-add-button" onClick={openCreate}>
             <Plus size={ICON_MD} />
             <span>新建策略</span>
           </button>
@@ -130,29 +94,12 @@ export function StrategiesPanel() {
         <div className="st-list">
           {rows.map((s) => (
             <div className="st-row" key={s.id}>
-              <StrategyIcon icon={s.icon} color={s.color} size={ICON_LG} />
+              <StrategyIcon icon={s.icon} color={s.color} size={ICON_MD} variant="nav" />
               <div className="st-row-main">
-                <Link to={`/strategy/${s.id}`} className="st-row-name" style={{ color: s.color }}>
+                <Link to={`/strategy/${s.id}`} className="st-row-name">
                   {s.name}
                 </Link>
-                <span className="st-row-meta">{s.count} 笔当前实盘关联 · {s.stats.closedCount} 笔绩效样本</span>
-                <div className="st-row-stats">
-                  <span>{s.stats.winRate == null ? '胜率 —' : `${s.stats.winRate.toFixed(0)}% 胜率`}</span>
-                  <span>{s.stats.totalR == null ? '总R —' : `${fmtR(s.stats.totalR)} 总R`}</span>
-                  <span>{s.stats.averageR == null ? '均R —' : `${fmtR(s.stats.averageR)} 均R`}</span>
-                  <span>{s.stats.reviewedCount}/{s.stats.tradeCount} 已复盘</span>
-                  {s.pnlCoverage && <span>盈亏 {s.pnlCoverage}</span>}
-                  {s.rCoverage && <span>R {s.rCoverage}</span>}
-                  {s.pendingResultCount > 0 && <span>{s.pendingResultCount} 笔待补结果</span>}
-                  {s.stats.conflictCount > 0 && <span>{s.stats.conflictCount} 笔结果冲突</span>}
-                </div>
-                {s.stats.topMistakes.length > 0 && (
-                  <div className="st-row-mistakes">
-                    {s.stats.topMistakes.map((m) => (
-                      <span key={m.tag}>{m.tag} ×{m.count}</span>
-                    ))}
-                  </div>
-                )}
+                <span className="st-row-meta">{s.linkedCount} 笔关联交易</span>
               </div>
               <div className="st-row-actions">
                 <Tooltip content="编辑" label={`编辑 ${s.name}`}>

@@ -32,7 +32,7 @@ const SOURCE_LABELS: Record<MissedOpportunitySource, string> = {
 const RECORD_LABELS: Record<Trade['tradeKind'], string> = {
   live: '交易记录',
   paper: '模拟记录',
-  case: '案例记录',
+  case: '案例',
 }
 
 function mergedSourceActionLabel(trade: Trade): string {

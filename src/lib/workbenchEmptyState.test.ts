@@ -84,7 +84,7 @@ export function testEmptyLibraryCreationMatchesTheCurrentWorkspace(): void {
     recordKind: 'paper',
   })
 
-  if (cases?.actionLabel !== '新建案例记录' || paper?.actionLabel !== '新建模拟盘记录') {
+  if (cases?.actionLabel !== '新建案例' || paper?.actionLabel !== '新建模拟盘记录') {
     throw new Error('空资料库的主操作必须沿用当前工作区的记录语义')
   }
 }
@@ -100,7 +100,7 @@ export function testEmptyWorkspaceInvitesCreatingTheRelevantRecordKind(): void {
   if (state?.kind !== 'workspace' || state.action !== 'create') {
     throw new Error('A library without records in this workspace must keep the create action')
   }
-  if (state.title !== '当前工作区暂无案例记录') {
+  if (state.title !== '当前工作区暂无案例') {
     throw new Error('The workspace empty state must name the relevant record kind')
   }
 }

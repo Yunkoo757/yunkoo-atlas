@@ -143,7 +143,10 @@ async function run(): Promise<void> {
 
     const riskTrigger = document.querySelector<HTMLButtonElement>('.sb-risk-summary')
     assert(riskTrigger, '侧栏底部缺少风险状态入口')
-    assert(riskTrigger.textContent?.includes('风险未设置'), '未配置状态必须直接显示风险未设置')
+    assert(riskTrigger.textContent?.trim() === '', '风险入口静止态不得显示任何文字或数字')
+    assert(riskTrigger.querySelector('.sb-risk-gauge'), '风险入口必须以额度圆环呈现')
+    assert(riskTrigger.dataset.riskScope === 'day', '风险圆环默认必须显示每日额度')
+    assert(!document.querySelector('.sb-footer a[href="/settings"]'), '侧栏底部不得重复保留设置入口')
     assert(riskTrigger.getAttribute('aria-expanded') === 'false', '风险弹层默认必须关闭')
     assert(!document.querySelector('.sb-risk-popover'), '风险详情不得在侧栏常驻堆叠')
     riskTrigger.click()
@@ -152,8 +155,8 @@ async function run(): Promise<void> {
     assert(document.querySelectorAll('.sb-risk-period').length === 3, '风险弹层必须同时展示日、周、月')
     assert(!document.querySelector('.sb-risk-track'), '紧凑风险弹层不得重复堆叠三条进度条')
     assert(
-      document.querySelector('.sb-risk-popover-head')?.textContent?.includes('当前阶段风险额度'),
-      '风险弹层标题必须直接说明当前阶段额度',
+      document.querySelector('.sb-risk-popover-head')?.textContent?.includes('风险额度'),
+      '风险弹层标题必须保持紧凑',
     )
     assert(
       document.querySelector<HTMLAnchorElement>('.sb-risk-manage')?.getAttribute('href') === '/settings/risk',
@@ -200,7 +203,7 @@ async function run(): Promise<void> {
       weeklyRiskPreparations: [],
     })
     await waitFor(
-      () => riskTrigger.textContent?.includes('风控中心') ?? false,
+      () => riskTrigger.dataset.sidebarRiskState === 'normal',
       '额度均正常时，周前准备状态不得把侧栏风险入口改成待复核告警',
     )
 

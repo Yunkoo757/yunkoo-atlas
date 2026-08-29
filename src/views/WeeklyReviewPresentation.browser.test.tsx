@@ -142,11 +142,15 @@ async function run(): Promise<void> {
     }
     useStore.setState((state) => ({ weeklyReviews: [...state.weeklyReviews, otherStageReview] }))
     await waitFor(() => !document.querySelector('.wr-chart'), '默认当前阶段趋势混入了其他阶段')
-    const trendScope = document.querySelector<HTMLSelectElement>('[aria-label="年度趋势阶段范围"]')
+    const trendScope = document.querySelector<HTMLButtonElement>('[aria-label="年度趋势阶段范围"]')
     assert(trendScope, '年度趋势缺少阶段范围选择器')
     const reviewsBeforeScopeChange = JSON.stringify(useStore.getState().weeklyReviews)
-    trendScope.value = ''
-    trendScope.dispatchEvent(new Event('change', { bubbles: true }))
+    trendScope.click()
+    await waitFor(() => document.querySelector('.ui-select-menu') !== null, '趋势范围菜单没有打开')
+    const allStagesOption = [...document.querySelectorAll<HTMLButtonElement>('.ui-select-option')]
+      .find((option) => option.textContent?.trim() === '全部阶段')
+    assert(allStagesOption, '趋势范围菜单缺少全部阶段')
+    allStagesOption.click()
     await waitFor(
       () => document.querySelector('.wr-trend-start strong')?.textContent === '3.3',
       '全部阶段同周数据必须聚合为一个带 stage 维度的趋势点',
@@ -154,8 +158,14 @@ async function run(): Promise<void> {
     assert(!document.querySelector('.wr-chart'), '同周多 stage 聚合后仍只能产生一个周趋势点')
     assert(document.querySelector('.wr-year-summary')?.textContent?.includes('2周'), '全部阶段摘要必须保留两个阶段的完成记录')
     assert(JSON.stringify(useStore.getState().weeklyReviews) === reviewsBeforeScopeChange, '切换趋势范围不得修改复盘实体')
-    trendScope.value = previous.currentLiveStageId
-    trendScope.dispatchEvent(new Event('change', { bubbles: true }))
+    trendScope.click()
+    await waitFor(() => document.querySelector('.ui-select-menu') !== null, '趋势范围菜单没有重新打开')
+    const currentStageName = previous.liveStages.find((stage) => stage.id === previous.currentLiveStageId)?.name
+    assert(currentStageName, '测试资料缺少当前阶段名称')
+    const currentStageOption = [...document.querySelectorAll<HTMLButtonElement>('.ui-select-option')]
+      .find((option) => option.textContent?.trim() === currentStageName)
+    assert(currentStageOption, '趋势范围菜单缺少当前阶段')
+    currentStageOption.click()
     await waitFor(() => !document.querySelector('.wr-chart'), '切回当前阶段后趋势仍混入其他阶段')
     useStore.setState((state) => ({
       weeklyReviews: state.weeklyReviews.filter((item) => item.id !== otherStageReview.id),

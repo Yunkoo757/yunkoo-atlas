@@ -111,6 +111,20 @@
 @keyframes wr-skeleton-pulse { from { opacity: .35; } to { opacity: .72; } }
 @media (prefers-reduced-motion: reduce) { .wr-chart-skeleton-line { animation: none; opacity: .58; } }
 
+.wr-trend-scope {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
+}
+
+.wr-trend-select {
+  width: 176px;
+}
+
 @media (max-width: 1099px) {
   .wr-page-head-inner {
     width: calc(100% - var(--page-inset-compact) - var(--page-inset-compact));

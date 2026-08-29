@@ -16,11 +16,13 @@ export function TradesPage({
   filter = { type: 'all' },
   listPath,
   header,
+  filterActions,
 }: {
   title: string
   filter?: ListFilter
   listPath: string
   header?: ReactNode
+  filterActions?: ReactNode
 }) {
   const navigate = useNavigate()
   const { pathname, search } = useLocation()
@@ -32,7 +34,14 @@ export function TradesPage({
   }
 
   return view === 'list' ? (
-    <ListView title={title} view={view} onView={setView} filter={filter} header={header} />
+    <ListView
+      title={title}
+      view={view}
+      onView={setView}
+      filter={filter}
+      header={header}
+      filterActions={filterActions}
+    />
   ) : (
     <BoardView
       title={title}
@@ -40,6 +49,7 @@ export function TradesPage({
       onView={setView}
       filter={filter}
       header={header}
+      filterActions={filterActions}
       onOpen={(id) => {
         const trade = useStore.getState().trades.find((item) => item.id === id)
         const from = { pathname, search, anchorTradeId: trade?.id ?? id }

@@ -209,12 +209,12 @@ async function run(): Promise<void> {
       '可继续导入的重复行仍必须显示未知币种影响',
     )
 
-    const caseTarget = await waitForButton('案例记录')
+    const caseTarget = await waitForButton('案例库')
     assert(caseTarget.getAttribute('role') === 'radio', 'Notion 导入目标应使用可访问的单选语义')
     caseTarget.click()
     await new Promise((resolve) => window.setTimeout(resolve, 50))
     const importButton = await waitForEnabledButton('确认导入')
-    assert(importButton.textContent?.includes('到案例记录'), '确认按钮必须明确显示最终导入目标')
+    assert(importButton.textContent?.includes('到案例库'), '确认按钮必须明确显示最终导入目标')
     importButton.click()
     await waitForBodyText(capacityError)
 
@@ -248,7 +248,7 @@ async function run(): Promise<void> {
     const importedCase = attempted?.trades.find((trade) => trade.id !== 'existing-trade')
     assert(
       importedCase?.tradeKind === 'case' && importedCase.ref === 'CAS-1',
-      '选择案例记录后，原子快照必须写入案例域并使用 CAS 编号',
+      '选择案例库后，原子快照必须写入案例域并使用 CAS 编号',
     )
     assert(importedCase?.closedAt === null, '只有开仓日的 Notion 终态必须保留缺失平仓日')
     assert(importedCase?.closedTradingDayKey === undefined, '缺少来源平仓日不得生成业务日')

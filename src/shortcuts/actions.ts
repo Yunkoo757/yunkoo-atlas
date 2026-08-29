@@ -27,7 +27,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
   {
     id: 'global.newCase',
-    label: '新建案例记录',
+    label: '新建案例',
     category: '通用',
     scope: 'global',
     defaultBinding: getDefaultShortcutBinding('global.newCase'),

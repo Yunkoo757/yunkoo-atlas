@@ -214,6 +214,22 @@ export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): bool
     return false
   }
 
+  const activePathname = pathname ?? (typeof window !== 'undefined' ? window.location.pathname : '')
+  const isTopLevelExitPage =
+    ['/dashboard', '/weekly-review', '/review-session'].includes(activePathname) ||
+    activePathname === '/notes' ||
+    activePathname.startsWith('/notes/')
+  if (
+    chord.key === 'escape' &&
+    !lightbox &&
+    isTopLevelExitPage &&
+    runAction('global.closeOverlay')
+  ) {
+    e.preventDefault()
+    clearSequence()
+    return true
+  }
+
   const matchedChord = findChordMatch(e, pathname)
   if (matchedChord) {
     if (runAction(matchedChord)) {

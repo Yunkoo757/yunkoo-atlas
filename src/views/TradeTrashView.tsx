@@ -222,7 +222,7 @@ export function TradeTrashView() {
         backLabel="返回"
         onBack={handleBack}
         crumbs={[{ label: '回收站', active: true }]}
-        context={`${trashTrades.length} 笔 · 保留 30 天`}
+        context={trashTrades.length > 0 ? `${trashTrades.length} 笔` : undefined}
       />
 
       <div className="trash-content">

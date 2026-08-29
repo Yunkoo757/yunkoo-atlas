@@ -97,7 +97,7 @@ export function testFindAndGroupDuplicates(): void {
 
 export function testDuplicateGroupingNeverCrossesRecordDomains(): void {
   const signature = buildContentSignature(
-    '<p>这是一段从交易日志沉淀到案例记录的完整复盘正文。</p>',
+    '<p>这是一段从交易日志沉淀到案例库的完整复盘正文。</p>',
     ['shared-image-a', 'shared-image-b'],
   )
   const sourceTrade = {

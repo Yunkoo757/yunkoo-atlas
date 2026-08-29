@@ -61,3 +61,123 @@
     padding-inline: var(--sp-2);
   }
 }
+
+.trade-workspace-scope {
+  display: inline-flex;
+  min-width: 0;
+}
+
+.trade-workspace-scope-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-control-gap);
+  max-width: 196px;
+  height: var(--toolbar-chip-height);
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--surface-control-border);
+  border-radius: var(--radius-full);
+  color: var(--list-text-secondary);
+  background: var(--surface-control);
+  box-shadow: var(--surface-control-shadow);
+  font-family: var(--font-ui);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
+  transition:
+    color var(--motion-state) var(--ease-out),
+    background-color var(--motion-state) var(--ease-out),
+    border-color var(--motion-state) var(--ease-out),
+    box-shadow var(--motion-state) var(--ease-out);
+}
+
+.trade-workspace-scope-trigger > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trade-workspace-scope-trigger > svg {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.trade-workspace-scope-trigger:hover,
+.trade-workspace-scope-trigger.is-open,
+.trade-workspace-scope-trigger:focus-visible {
+  color: var(--list-text-strong);
+  border-color: var(--surface-control-border-active);
+  background: var(--surface-control-hover);
+  box-shadow: var(--surface-control-shadow-active);
+}
+
+.trade-workspace-scope-trigger.is-open > svg {
+  transform: rotate(180deg);
+}
+
+.trade-workspace-scope-panel {
+  position: fixed;
+  z-index: var(--z-popover);
+  padding: var(--sp-2);
+}
+
+.trade-workspace-scope-section + .trade-workspace-scope-section {
+  padding-top: var(--sp-2);
+  margin-top: var(--sp-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.trade-workspace-scope-heading {
+  padding: 0 var(--sp-2) var(--sp-1);
+  color: var(--text-tertiary);
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--type-metadata-line-height);
+}
+
+.trade-workspace-scope-options {
+  display: grid;
+  gap: 1px;
+  max-height: 224px;
+  overflow-y: auto;
+}
+
+.trade-workspace-scope-options button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  width: 100%;
+  height: var(--field-height-md);
+  padding: 0 var(--sp-2);
+  border-radius: var(--radius-4);
+  color: var(--text-secondary);
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+}
+
+.trade-workspace-scope-options button > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trade-workspace-scope-options button:hover,
+.trade-workspace-scope-options button.is-selected {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.trade-workspace-scope-options button.is-selected {
+  background: color-mix(in srgb, var(--accent) 11%, var(--bg-hover));
+}
+
+.trade-workspace-scope-kinds {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+}

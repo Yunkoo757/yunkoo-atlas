@@ -28,7 +28,7 @@ export type WorkbenchEmptyAction = {
 
 function createAction(recordKind?: TradeKind): WorkbenchEmptyAction {
   if (recordKind === 'case') {
-    return { id: 'create-case', label: '新建案例记录', intent: 'create' }
+    return { id: 'create-case', label: '新建案例', intent: 'create' }
   }
   if (recordKind === 'paper') {
     return { id: 'create-paper', label: '新建模拟盘记录', intent: 'create' }
@@ -44,7 +44,7 @@ export function resolveWorkbenchEmptyState(options: {
 }): WorkbenchEmptyState | null {
   if (options.visibleCount > 0) return null
   const recordLabel = options.recordKind === 'case'
-    ? '案例记录'
+    ? '案例'
     : options.recordKind === 'paper'
       ? '模拟盘记录'
       : '交易'

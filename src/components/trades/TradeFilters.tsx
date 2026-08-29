@@ -45,10 +45,12 @@ export function TradeFilters({
   filter,
   trades,
   strategies,
+  actions,
 }: {
   filter: ListFilter
   trades: Trade[]
   strategies: Strategy[]
+  actions?: ReactNode
 }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -150,7 +152,7 @@ export function TradeFilters({
     && !filter.historicalLiveScope
     && !location.pathname.startsWith('/review-cases')
   ) {
-    activeFilters.push({ key: 'kind-route', label: '案例记录' })
+    activeFilters.push({ key: 'kind-route', label: '案例库' })
   }
 
   const facetLabels: Array<[string, string]> = [
@@ -562,6 +564,7 @@ export function TradeFilters({
         label={filterLabel}
         shortcutActionId="list.toggleFilters"
         quickViews={<QuickViewBar kind={workspaceKind} />}
+        actions={actions}
       />
       {panel}
     </>

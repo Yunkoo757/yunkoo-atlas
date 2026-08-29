@@ -14,13 +14,13 @@ export function buildRecordActionDescriptors(
 ): RecordActionDescriptor[] {
   const isCase = trade.tradeKind === 'case'
   return [
-    { id: 'edit', label: isCase ? '编辑案例记录' : '编辑交易' },
+    { id: 'edit', label: isCase ? '编辑案例' : '编辑交易' },
     { id: 'copy', label: isCase ? '复制案例' : '复制为新计划' },
     ...(isCase ? [] : [{ id: 'extract-case' as const, label: '提炼为案例' }]),
     ...(isCase
       ? [{ id: 'focus-case' as const, label: options.starred ? '取消重点' : '设为重点案例' }]
       : [{ id: 'star' as const, label: options.starred ? '取消星标' : '加入星标' }]),
-    { id: 'delete', label: isCase ? '删除案例记录' : '删除交易', danger: true },
+    { id: 'delete', label: isCase ? '删除案例' : '删除交易', danger: true },
   ]
 }
 

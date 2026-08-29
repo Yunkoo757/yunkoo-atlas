@@ -95,11 +95,11 @@ interface TradeBase {
    * 通过 reviewCaseClassification 边界同步写入。
    */
   reviewCategory: ReviewCategory
-  /** 案例来源交易；仅案例记录使用，保证知识条目可追溯。 */
+  /** 案例来源交易；仅案例使用，保证知识条目可追溯。 */
   sourceTradeId?: string
-  /** 关联来源交易最近一次成功保存的正文快照；仅案例记录使用。 */
+  /** 关联来源交易最近一次成功保存的正文快照；仅案例使用。 */
   sourceNoteHtml?: string
-  /** 学习优先级；仅案例记录使用，不得与交易星标混用。 */
+  /** 学习优先级；仅案例使用，不得与交易星标混用。 */
   isFocusCase?: boolean
   caseType?: CaseType
   masteryState?: MasteryState
