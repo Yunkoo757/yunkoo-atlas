@@ -93,11 +93,11 @@ try {
   record('刷新后笔记仍在', afterReload.includes(stamp), `stamp=${stamp}`)
   await page.screenshot({ path: join(OUT, '02-detail-note.png') })
 
-  // 6. 错过机会页
+  // 6. 旧错过机会入口应收敛到交易日志筛选
   await page.goto(`${BASE}/missed`, { waitUntil: 'networkidle' })
-  await page.waitForURL((url) => url.pathname === '/missed')
+  await page.waitForURL((url) => url.pathname === '/list' && url.searchParams.get('filter') === 'missed')
   const missedTitle = await page.getByText('错过机会').first().isVisible()
-  record('错过机会页可访问', missedTitle)
+  record('交易日志错过机会筛选可访问', missedTitle)
   await page.screenshot({ path: join(OUT, '03-missed.png') })
 
   // 7. 统计分析

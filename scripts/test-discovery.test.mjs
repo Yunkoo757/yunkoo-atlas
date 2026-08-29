@@ -382,7 +382,8 @@ test('core QA satisfies the quick composer content contract before saving', asyn
   assert.ok(fillIndex >= 0, '核心 QA 必须填写快速记录的一句话必填项')
   assert.ok(saveIndex > fillIndex, '核心 QA 必须在填写一句话后再保存交易')
   assert.ok(openIndex > saveIndex, '快速记录留在列表后，核心 QA 必须主动打开新记录')
-  assert.match(source, /url\.pathname === '\/missed'/)
+  assert.match(source, /url\.pathname === '\/list' && url\.searchParams\.get\('filter'\) === 'missed'/)
+  assert.match(source, /record\('交易日志错过机会筛选可访问'/)
   assert.match(source, /getByRole\('link', \{ name: '统计分析' \}\)/)
 })
 
