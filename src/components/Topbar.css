@@ -1,13 +1,13 @@
 .tb-right {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   flex-shrink: 0;
 }
 .tb-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   padding: var(--sp-1) var(--sp-2);
   border-radius: var(--radius-6);
   font-family: var(--font-ui);

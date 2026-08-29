@@ -58,7 +58,7 @@
 .st-row-mistakes {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-control-gap);
 }
 .st-row-stats span,
 .st-row-mistakes span {

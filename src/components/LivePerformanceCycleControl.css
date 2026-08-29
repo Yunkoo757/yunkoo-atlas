@@ -9,7 +9,7 @@
 .live-performance-cycle-current {
   display: inline-flex;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--space-control-gap);
   min-width: 0;
   color: var(--text-muted);
   font-size: var(--type-metadata-size);

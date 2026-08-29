@@ -4,7 +4,7 @@
   z-index: var(--z-modal);
   background: var(--bg-surface);
   pointer-events: auto;
-  transition: background 210ms var(--ease-out-expo);
+  transition: background var(--motion-panel) var(--ease-out-expo);
 }
 
 .img-lightbox-overlay.is-pending,
@@ -32,7 +32,7 @@
 }
 
 .img-lightbox-overlay.is-closing .img-lightbox-canvas {
-  transition: transform 210ms var(--ease-out-expo);
+  transition: transform var(--motion-panel) var(--ease-out-expo);
 }
 
 .img-lightbox-transition {
@@ -99,7 +99,7 @@
   z-index: var(--z-content);
   pointer-events: none;
   opacity: 1;
-  transition: opacity 120ms var(--ease-out);
+  transition: opacity var(--motion-dialog-out) var(--ease-out);
 }
 
 .img-lightbox-overlay:not(.is-open) .img-lightbox-chrome { opacity: 0; }
@@ -138,7 +138,7 @@
   height: 30px;
   border-radius: var(--radius-6);
   color: var(--text-muted);
-  transition: color 120ms var(--ease-out), background 120ms var(--ease-out);
+  transition: color var(--motion-state) var(--ease-out), background var(--motion-state) var(--ease-out);
 }
 
 .img-lightbox-action:hover,
@@ -166,7 +166,7 @@
   color: var(--text-muted);
   background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
   opacity: 0;
-  transition: opacity 140ms var(--ease-out), color 120ms var(--ease-out), background 120ms var(--ease-out);
+  transition: opacity var(--motion-dialog-in) var(--ease-out), color var(--motion-state) var(--ease-out), background var(--motion-state) var(--ease-out);
 }
 
 .img-lightbox-overlay:hover .img-lightbox-nav,

@@ -188,7 +188,7 @@
 
 .dv-props .tag-selected-row,
 .dv-props .tag-presets-row {
-  gap: 6px;
+  gap: var(--space-control-gap);
 }
 
 .dv-props .tag-presets-row {

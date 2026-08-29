@@ -9,7 +9,7 @@
 .ui-filter-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   height: var(--filter-bar-height);
   padding: 0 15px 0 8px;
   overflow: visible;
@@ -44,7 +44,7 @@
 }
 
 .ui-filter-trigger {
-  gap: 6px;
+  gap: var(--space-control-gap);
   padding: 0 var(--sp-2);
   margin-left: auto;
 }
@@ -53,7 +53,7 @@
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
-  gap: 6px;
+  gap: var(--space-control-gap);
   margin-left: auto;
 }
 

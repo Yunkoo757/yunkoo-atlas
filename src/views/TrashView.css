@@ -12,7 +12,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   border-radius: var(--radius-6);
   font-size: var(--fs-sm);
   transition: background var(--dur-fast) var(--ease-out),
@@ -140,7 +140,7 @@
   z-index: var(--z-content-overlay);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   height: var(--trade-group-height, 36px);
   margin: var(--sp-1) var(--sp-2);
   padding: 0 10px;
@@ -218,7 +218,7 @@
   min-width: 0;
   overflow: hidden;
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0;
   color: var(--text-primary);
   text-overflow: ellipsis;

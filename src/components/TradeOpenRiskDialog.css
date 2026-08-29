@@ -85,7 +85,7 @@
 .trade-open-risk-baseline-retry { display: grid; gap: var(--sp-2); margin-top: var(--sp-3); }
 .trade-open-risk-baseline-retry .trade-open-risk-error { margin: 0; }
 
-.trade-open-risk-reason { display: flex; flex-direction: column; gap: 6px; }
+.trade-open-risk-reason { display: flex; flex-direction: column; gap: var(--space-control-gap); }
 .trade-open-risk-reason > span { display: flex; justify-content: space-between; color: var(--text-secondary); font-size: var(--type-metadata-size); font-weight: var(--font-weight-medium); }
 .trade-open-risk-reason small { color: var(--text-quaternary); font-weight: var(--font-weight-normal); }
 .trade-open-risk-reason textarea {

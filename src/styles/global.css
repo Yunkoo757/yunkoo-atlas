@@ -47,11 +47,11 @@ a {
 /* 条件渲染弹层的统一离场快照：比入场稍短，减少“窗口被抽走”的割裂感。 */
 .ui-exit-clone {
   pointer-events: none !important;
-  animation: uiOverlayExit 120ms var(--ease-in) forwards !important;
+  animation: uiOverlayExit var(--motion-dialog-out) var(--ease-in) forwards !important;
 }
 
 .ui-exit-clone .ui-exit-dialog {
-  animation: uiDialogExit 110ms var(--ease-in) forwards !important;
+  animation: uiDialogExit var(--motion-dialog-out) var(--ease-in) forwards !important;
 }
 
 @keyframes uiOverlayExit {

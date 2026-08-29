@@ -18,7 +18,7 @@
 .shortcuts-reset-all {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   height: var(--control-height);
   padding: 0 9px;
   border: 1px solid transparent;
@@ -248,7 +248,7 @@ button.shortcuts-capture[aria-pressed='true'] {
 }
 
 .shortcuts-keycap-list {
-  gap: 6px;
+  gap: var(--space-control-gap);
 }
 
 .shortcuts-chord {

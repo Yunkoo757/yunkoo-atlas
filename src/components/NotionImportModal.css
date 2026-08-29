@@ -80,7 +80,7 @@
 .nim-format-name {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
   color: var(--text-tertiary);
@@ -367,7 +367,7 @@
   color: var(--accent);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
 }
 
 .nim-err-cell {

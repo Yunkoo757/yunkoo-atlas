@@ -4,18 +4,18 @@
   --quick-view-surface-hover: color-mix(in srgb, var(--surface-control-hover) 84%, var(--surface-control));
   --quick-view-border-rest: color-mix(in srgb, var(--list-text-secondary) 24%, transparent);
   --quick-view-border-hover: color-mix(in srgb, var(--list-text-secondary) 34%, transparent);
-  --quick-view-highlight-rest: lch(100% 0 0 / 0.024);
-  --quick-view-highlight-hover: lch(100% 0 0 / 0.036);
-  --quick-view-highlight-active: lch(100% 0 0 / 0.048);
-  --quick-view-depth-rest: lch(0 0 0 / 0.16);
-  --quick-view-depth-active: lch(0 0 0 / 0.22);
+  --quick-view-highlight-rest: var(--control-highlight-rest);
+  --quick-view-highlight-hover: var(--control-highlight-hover);
+  --quick-view-highlight-active: var(--control-highlight-active);
+  --quick-view-depth-rest: var(--control-depth-rest);
+  --quick-view-depth-active: var(--control-depth-active);
 
   position: relative;
   display: flex;
   align-items: center;
   min-width: 0;
   flex: 1 1 auto;
-  gap: 6px;
+  gap: var(--space-control-gap);
   overflow: visible;
 }
 
@@ -23,7 +23,7 @@
   display: flex;
   align-items: center;
   min-width: 0;
-  gap: 6px;
+  gap: var(--space-control-gap);
   padding: 0;
   overflow: visible;
   background: transparent;
@@ -52,11 +52,11 @@
     inset 0 1px 0 var(--quick-view-highlight-rest),
     0 1px 1px var(--quick-view-depth-rest);
   transition:
-    border-color 150ms,
-    background-color 150ms,
-    color 150ms,
-    box-shadow 150ms,
-    opacity 150ms;
+    border-color var(--motion-state),
+    background-color var(--motion-state),
+    color var(--motion-state),
+    box-shadow var(--motion-state),
+    opacity var(--motion-state);
 }
 
 .quick-view-chip::after,
@@ -72,7 +72,7 @@
 }
 
 .quick-view-chip {
-  padding: 0 10px;
+  padding: 0 var(--field-padding-inline);
   white-space: nowrap;
 }
 
@@ -167,7 +167,7 @@
 .quick-view-group h3,
 .quick-view-manage h3 {
   margin: 0 0 var(--sp-1);
-  padding: 0 7px;
+  padding: 0 var(--space-optical-icon-gap);
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
@@ -181,7 +181,7 @@
   justify-content: space-between;
   width: 100%;
   height: 28px;
-  padding: 0 7px;
+  padding: 0 var(--space-optical-icon-gap);
   color: var(--text-secondary);
   font-size: var(--type-row-size);
   line-height: var(--type-row-line-height);
@@ -213,7 +213,7 @@
 .quick-view-save input {
   min-width: 0;
   height: 28px;
-  padding: 0 7px;
+  padding: 0 var(--space-optical-icon-gap);
   color: var(--text-primary);
   font: inherit;
   font-size: var(--type-row-size);

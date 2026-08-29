@@ -67,7 +67,7 @@
 .hp-head-icon-dot {
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
 }
 
 .hp-head-text {
@@ -116,7 +116,7 @@
   display: inline-flex;
   align-items: center;
   min-width: 0;
-  gap: 6px;
+  gap: var(--space-control-gap);
   white-space: nowrap;
 }
 

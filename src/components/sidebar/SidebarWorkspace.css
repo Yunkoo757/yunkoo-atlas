@@ -43,7 +43,7 @@
 .sb-modified-dot {
   width: 5px;
   height: 5px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
 }
 
 .sb-item.is-modified .sb-modified-dot {
@@ -75,7 +75,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: var(--space-control-gap);
   min-height: 22px;
   padding: 0 var(--sp-1);
 }
@@ -337,7 +337,7 @@
 .sb-editor-defaults {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   min-height: 34px;
   color: var(--text-tertiary);
   font-size: var(--type-caption-size);

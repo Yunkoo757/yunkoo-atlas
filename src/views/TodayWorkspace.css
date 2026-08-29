@@ -210,7 +210,7 @@
 .today-queue-tabs button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   min-height: 32px;
   padding: 0 10px;
   color: var(--text-muted);

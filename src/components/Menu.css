@@ -14,7 +14,7 @@
   border-radius: var(--popover-radius);
   box-shadow: var(--popover-shadow);
   padding: 5px;
-  animation: menu-in 0.12s var(--ease-out);
+  animation: menu-in var(--motion-menu) var(--ease-out);
 }
 .menu-placement-top {
   transform: translateY(-100%);

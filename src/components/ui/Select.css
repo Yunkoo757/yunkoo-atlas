@@ -11,7 +11,7 @@
 .ui-select-value {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -69,7 +69,7 @@
 .ui-select-option-main {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   min-width: 0;
   overflow: hidden;
 }

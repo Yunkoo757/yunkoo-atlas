@@ -92,7 +92,7 @@
 .tag-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-control-gap);
 }
 
 .settings-tag-chip {

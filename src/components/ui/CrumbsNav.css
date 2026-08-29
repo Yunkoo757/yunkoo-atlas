@@ -22,13 +22,13 @@
 
 .crumbs-nav-left {
   flex: 1;
-  gap: 6px;
+  gap: var(--space-control-gap);
   overflow: hidden;
 }
 
 .crumbs-nav-right {
   flex: 0 0 auto;
-  gap: 6px;
+  gap: var(--space-control-gap);
 }
 
 .crumbs-back {

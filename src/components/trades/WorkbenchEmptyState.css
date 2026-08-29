@@ -13,7 +13,7 @@
   padding: 0 var(--sp-2);
   color: var(--text-secondary);
   font-size: var(--type-metadata-size);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: var(--control-height-sm);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-6);

@@ -6,7 +6,7 @@
   place-items: center;
   padding: var(--modal-overlay-padding);
   background: var(--overlay-bg);
-  animation: modalShellFadeIn 120ms var(--ease-out);
+  animation: modalShellFadeIn var(--motion-dialog-in) var(--ease-out);
 }
 
 .modal-shell {
@@ -21,7 +21,7 @@
   border-radius: var(--modal-border-radius);
   box-shadow: var(--popover-shadow-deep);
   outline: none;
-  animation: modalShellSlideIn 140ms var(--ease-out);
+  animation: modalShellSlideIn var(--motion-dialog-in) var(--ease-out);
 }
 
 .modal-shell.is-compact {

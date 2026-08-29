@@ -218,6 +218,12 @@
     0 4px 4px -1px lch(0 0 0 / 0.04),
     0 1px 1px 0 lch(0 0 0 / 0.08);
   --surface-control-shadow-active: 0 0 0 1px var(--surface-control-border-active);
+  /* 有立体感的紧凑控件统一使用这组高光与深度，不在组件内自建黑白色板。 */
+  --control-highlight-rest: color-mix(in srgb, var(--text-primary) 3%, transparent);
+  --control-highlight-hover: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  --control-highlight-active: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  --control-depth-rest: color-mix(in srgb, var(--bg-app) 42%, transparent);
+  --control-depth-active: color-mix(in srgb, var(--bg-app) 58%, transparent);
   --sidebar-create-shadow: 0 0 0 1px lch(100% 0 0 / 0.088);
   /* Tooltip / 浮层内抬升面（如快捷键 kbd） */
   --surface-raised: color-mix(in srgb, var(--popover-bg) 72%, white 14%);
@@ -318,6 +324,10 @@
   --error-action: lch(55 62 28); /* 错误红，用于错误按钮 */
   --error-action-bg: color-mix(in srgb, var(--error-action) 6%, transparent);
   --error-action-border: color-mix(in srgb, var(--error-action) 10%, transparent);
+  /* 危险实心按钮的禁用态必须保持可读，但不能继续表现为可执行的强红 CTA。 */
+  --danger-solid-disabled-bg: color-mix(in srgb, var(--neg) 12%, var(--bg-surface));
+  --danger-solid-disabled-border: color-mix(in srgb, var(--neg) 18%, var(--border-subtle));
+  --danger-solid-disabled-text: color-mix(in srgb, var(--neg) 52%, var(--text-disabled));
 
   /* 语义别名 — 消除分散的自定义属性 fallback 写法 */
   --success: var(--pos);
@@ -359,7 +369,7 @@
   --sp-8: 32px;
 
   /* 桌面语义间距：少量 6/7px 为经过命名的光学校准值。 */
-  --space-control-gap: 6px;
+  --space-control-gap: var(--space-control-gap);
   --space-row-gap: var(--sp-2);
   --space-section-gap: var(--sp-6);
   --page-inset-compact: var(--sp-5);

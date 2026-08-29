@@ -149,7 +149,7 @@
 
 .review-session-preset-list strong {
   font-size: var(--type-row-size);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   line-height: var(--type-row-line-height);
 }
 
@@ -449,7 +449,7 @@
   margin-bottom: 9px;
   color: var(--text-secondary);
   font-size: var(--type-metadata-size);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .review-session-settings-sources label {
@@ -624,7 +624,7 @@
 }
 
 .review-session-item-primary { min-width: 0; gap: var(--sp-2); }
-.review-session-summary { min-width: 0; gap: 6px; }
+.review-session-summary { min-width: 0; gap: var(--space-control-gap); }
 
 .review-session-card-ref {
   color: var(--text-quaternary);
@@ -874,7 +874,7 @@ button.review-session-gallery-slot.is-ready {
 .review-session-assessment-actions button.is-recheck:hover { border-color: color-mix(in srgb, var(--warn) 55%, var(--border-default)); }
 .review-session-assessment-actions button.is-mastered:hover { border-color: color-mix(in srgb, var(--pos) 55%, var(--border-default)); }
 
-.review-session-assessment-actions button > span { font-size: var(--type-metadata-size); font-weight: 600; }
+.review-session-assessment-actions button > span { font-size: var(--type-metadata-size); font-weight: var(--font-weight-semibold); }
 .review-session-assessment-actions button > small { color: var(--text-tertiary); font-size: var(--type-metadata-size); }
 
 .review-session-assessment-actions .ui-kbd {
@@ -938,7 +938,7 @@ button.review-session-gallery-slot.is-ready {
   height: 50px;
   margin-bottom: 18px;
   place-items: center;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--pos) 12%, transparent);
   color: var(--pos);
 }

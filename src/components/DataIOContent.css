@@ -246,7 +246,7 @@
   padding-left: 18px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-control-gap);
   font-size: var(--type-metadata-size);
   color: var(--text-secondary);
   line-height: 1.45;
@@ -361,8 +361,8 @@
   align-items: flex-start;
   margin-top: var(--sp-3);
   color: var(--text-secondary);
-  font-size: var(--type-body-size);
-  line-height: 1.5;
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
   cursor: pointer;
 }
 

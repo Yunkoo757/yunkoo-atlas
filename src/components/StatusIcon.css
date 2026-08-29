@@ -5,7 +5,7 @@
 }
 
 .status-icon.is-animate {
-  animation: status-icon-pop 220ms cubic-bezier(0.5, 1.4, 0.4, 1) both;
+  animation: status-icon-pop var(--motion-panel) cubic-bezier(0.5, 1.4, 0.4, 1) both;
 }
 
 /* 列表中的方向是固定信息列，不使用胶囊；交易、案例与回收站共享同一尺寸和色阶。 */

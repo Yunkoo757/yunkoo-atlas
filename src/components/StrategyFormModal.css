@@ -39,7 +39,7 @@
 .sfm-icon-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
+  gap: var(--space-control-gap);
 }
 
 .sfm-icon-grid > .ui-tooltip-trigger,

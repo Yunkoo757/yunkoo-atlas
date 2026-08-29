@@ -24,7 +24,7 @@
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-control-gap);
 }
 
 .composer-field-quick label,
@@ -73,7 +73,7 @@
 }
 
 .composer-essential-field .ui-date-trigger {
-  gap: 6px;
+  gap: var(--space-control-gap);
   padding: 0 var(--sp-2);
 }
 

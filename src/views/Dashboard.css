@@ -169,7 +169,7 @@
   padding: 14px 18px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-control-gap);
   transition: background var(--motion-fast) var(--ease-out);
 }
 .db-card:last-child {
@@ -265,7 +265,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   height: var(--control-height);
   padding: 0 10px;
   border-radius: var(--radius-6);

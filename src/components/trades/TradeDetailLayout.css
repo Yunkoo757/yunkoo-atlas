@@ -122,7 +122,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: var(--space-control-gap);
     width: auto;
     height: var(--control-height-md);
     padding: 0 10px;

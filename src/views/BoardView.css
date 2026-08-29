@@ -68,7 +68,7 @@
 .bd-col-body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-control-gap);
   padding: 7px;
   overflow-y: auto;
   flex: 1;
@@ -91,7 +91,7 @@
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-control-gap);
   box-shadow: none;
   transition: border-color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out),
@@ -127,12 +127,12 @@
 .bd-card-title {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
 }
 .bd-card-symbol {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   font-size: var(--type-row-size);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
@@ -206,7 +206,7 @@
 }
 
 .board-scroll-case .bd-col-body {
-  gap: 6px;
+  gap: var(--space-control-gap);
   padding: 0 7px var(--sp-2);
 }
 

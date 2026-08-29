@@ -158,7 +158,7 @@
   /* CollapseArrow：暗底上带状态 hue 的实心三角 */
   color: var(--trade-group-chevron);
   /* 离开悬停时淡回 tint */
-  transition: color 0.15s ease-in-out;
+  transition: color var(--motion-state) var(--ease-in-out);
 }
 
 .trade-list-group-chevron svg {
@@ -290,7 +290,7 @@
   border-radius: var(--radius-8);
   isolation: isolate;
   cursor: pointer;
-  transition: color 150ms ease;
+  transition: color var(--motion-state) var(--ease-out);
 }
 
 .trade-row::after {
@@ -451,7 +451,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 .trade-row-symbol-main {
   display: grid;
   grid-template-columns: 14px minmax(0, 1fr);
-  column-gap: 6px;
+  column-gap: var(--space-control-gap);
   align-items: center;
   flex: 0 0 auto;
   width: 11ch;
@@ -724,7 +724,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 
 .trade-row-end {
   justify-content: flex-end;
-  gap: 6px;
+  gap: var(--space-control-gap);
 }
 
 .trade-row-star.is-starred {

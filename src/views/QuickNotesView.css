@@ -29,7 +29,7 @@
   padding: 0 var(--sp-2);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
   color: var(--text-muted);
@@ -88,7 +88,7 @@
 .quick-notes-list-title {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   min-width: 0;
 }
 

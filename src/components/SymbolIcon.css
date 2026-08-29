@@ -32,7 +32,7 @@
 .symbol-label {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   min-width: 0;
 }
 

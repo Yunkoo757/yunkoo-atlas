@@ -16,7 +16,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   height: var(--control-height);
   padding: 0 10px;
   border-radius: var(--radius-6);
@@ -172,4 +172,12 @@
 .ui-btn-danger-solid:hover:not(:disabled),
 .st-del-danger:hover:not(:disabled) {
   background: color-mix(in srgb, var(--neg) 88%, var(--accent-text) 12%);
+}
+
+.ui-btn-danger-solid:disabled,
+.st-del-danger:disabled {
+  color: var(--danger-solid-disabled-text);
+  background: var(--danger-solid-disabled-bg);
+  border-color: var(--danger-solid-disabled-border);
+  opacity: 1;
 }

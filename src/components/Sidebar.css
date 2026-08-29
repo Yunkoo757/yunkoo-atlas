@@ -55,7 +55,7 @@
 .sb-ws {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-control-gap);
   width: auto;
   max-width: 100%;
   min-width: 0;
@@ -523,7 +523,7 @@ html[data-ui-settled='1'] .sb-item {
   border-radius: var(--popover-radius);
   box-shadow: var(--popover-shadow);
   outline: none;
-  animation: sb-risk-popover-in 0.14s var(--ease-out);
+  animation: sb-risk-popover-in var(--motion-menu) var(--ease-out);
 }
 
 @keyframes sb-risk-popover-in {

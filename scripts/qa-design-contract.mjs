@@ -13,6 +13,9 @@ const statusIconComponent = read('src/components/StatusIcon.tsx')
 const filterBarStyles = read('src/components/ui/FilterBar.css')
 const buttonStyles = read('src/components/ui/Button.css')
 const quickViewStyles = read('src/components/trades/QuickViewBar.css')
+const modalShellStyles = read('src/components/ui/ModalShell.css')
+const commandPaletteStyles = read('src/components/CommandPalette.css')
+const menuStyles = read('src/components/Menu.css')
 const topbarStyles = read('src/components/Topbar.css')
 const crumbsStyles = read('src/components/ui/CrumbsNav.css')
 const toolbarStyles = read('src/components/ui/Toolbar.css')
@@ -171,6 +174,26 @@ const checks = [
     'disabled primary actions use a quiet semantic state',
     buttonStyles.includes('.ui-btn-primary:disabled') &&
       buttonStyles.includes('opacity: 1'),
+  ],
+  [
+    'disabled danger-solid actions use their dedicated readable semantic state',
+    ['--danger-solid-disabled-bg', '--danger-solid-disabled-border', '--danger-solid-disabled-text']
+      .every((token) => tokens.includes(token)) &&
+      /\.ui-btn-danger-solid:disabled,[\s\S]*?color:\s*var\(--danger-solid-disabled-text\);[\s\S]*?background:\s*var\(--danger-solid-disabled-bg\);[\s\S]*?border-color:\s*var\(--danger-solid-disabled-border\);[\s\S]*?opacity:\s*1;/s.test(buttonStyles),
+  ],
+  [
+    'quick views consume shared control highlight and depth tokens',
+    ['--control-highlight-rest', '--control-highlight-hover', '--control-highlight-active', '--control-depth-rest', '--control-depth-active']
+      .every((token) => tokens.includes(token) && quickViewStyles.includes(`var(${token})`)) &&
+      !/(?:\blch\(|#[\da-f]{3,8}\b)/i.test(quickViewStyles),
+  ],
+  [
+    'shared overlays consume semantic motion durations',
+    modalShellStyles.includes('var(--motion-dialog-in)') &&
+      commandPaletteStyles.includes('var(--motion-dialog-in)') &&
+      commandPaletteStyles.includes('var(--motion-dialog-out)') &&
+      menuStyles.includes('var(--motion-menu)') &&
+      !/(?:animation|transition)[^;]*(?:\d+ms|\d*\.\d+s)/.test(`${modalShellStyles}\n${commandPaletteStyles}\n${menuStyles}`),
   ],
   [
     'active breadcrumbs match the topbar title weight',

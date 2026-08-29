@@ -7,7 +7,7 @@
   justify-content: center;
   padding-top: 14vh;
   background: var(--overlay-bg);
-  animation: fadeIn 0.12s var(--ease-out);
+  animation: fadeIn var(--motion-dialog-in) var(--ease-out);
 }
 .cmdk {
   width: min(640px, calc(100vw - 32px));
@@ -20,16 +20,16 @@
   border-radius: var(--popover-radius);
   box-shadow: var(--shadow-med);
   overflow: hidden;
-  animation: cmdkIn 0.16s var(--ease-out);
+  animation: cmdkIn var(--motion-dialog-in) var(--ease-out);
 }
 
 .cmdk-overlay.is-closing {
   pointer-events: none;
-  animation: cmdkFadeOut 110ms var(--ease-in) forwards;
+  animation: cmdkFadeOut var(--motion-dialog-out) var(--ease-in) forwards;
 }
 
 .cmdk-overlay.is-closing .cmdk {
-  animation: cmdkOut 100ms var(--ease-in) forwards;
+  animation: cmdkOut var(--motion-dialog-out) var(--ease-in) forwards;
 }
 
 @keyframes cmdkFadeOut {
@@ -64,7 +64,7 @@
 .cmdk-search-icon {
   color: var(--text-muted);
   flex-shrink: 0;
-  transition: opacity 0.15s var(--ease-out);
+  transition: opacity var(--motion-dialog-in) var(--ease-out);
 }
 .cmdk-input-row:focus-within .cmdk-search-icon,
 .cmdk-input-row.has-value .cmdk-search-icon {
@@ -104,7 +104,7 @@
   flex-shrink: 0;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s var(--ease-out), background var(--dur-fast) var(--ease-out);
+  transition: opacity var(--motion-dialog-in) var(--ease-out), background var(--motion-state) var(--ease-out);
 }
 .cmdk-input-row.has-value .cmdk-clear {
   opacity: 1;
@@ -146,7 +146,7 @@
   font-weight: var(--type-row-weight);
   line-height: var(--type-row-line-height);
   text-align: left;
-  transition: background 0.1s var(--ease-out), color 0.1s var(--ease-out);
+  transition: background var(--motion-state) var(--ease-out), color var(--motion-state) var(--ease-out);
 }
 .cmdk-item.is-active {
   color: var(--text-strong);
