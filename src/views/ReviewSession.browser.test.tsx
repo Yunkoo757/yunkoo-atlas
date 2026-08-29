@@ -97,6 +97,11 @@ function DetailProbe() {
   )
 }
 
+function TradeLogProbe() {
+  const location = useLocation()
+  return <main data-trade-log-probe>{location.search}</main>
+}
+
 function TestApp() {
   useShortcutHost({ onToggleCmdk: () => {} })
   return (
@@ -104,6 +109,7 @@ function TestApp() {
       <Routes>
         <Route path="/review-session" element={<ReviewSessionView />} />
         <Route path="/trade/:id" element={<DetailProbe />} />
+        <Route path="/list" element={<TradeLogProbe />} />
       </Routes>
       <ImageLightbox />
     </>
@@ -151,6 +157,16 @@ async function run(): Promise<void> {
     starredIds: [],
     composerOpen: false,
     closeTradeRequest: null,
+    display: {
+      ...previous.display,
+      workspaceMemory: {
+        ...previous.display.workspaceMemory,
+        trade: {
+          pathname: '/list',
+          search: '?liveStage=all&kind=paper&view=missed',
+        },
+      },
+    },
   })
   useShortcutStore.setState({
     bindings: {},
@@ -530,6 +546,31 @@ async function run(): Promise<void> {
       rememberedInputs[0]?.checked === false && rememberedInputs[1]?.checked === true && rememberedInputs[2]?.checked === false,
       '切走再回来必须记住上次应用的仅实盘来源',
     )
+
+    const modalEscapeConsumed = !window.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    }))
+    assert(modalEscapeConsumed, '复盘设置打开时 Esc 必须由弹窗优先处理')
+    await waitFor(() => !document.querySelector('[role="dialog"]'), 'Esc 没有先关闭复盘设置弹窗')
+    await waitFor(
+      () => useShortcutStore.getState().modalOverlayCount === 0,
+      '复盘设置关闭后弹层状态没有释放',
+    )
+    assert(!document.querySelector('[data-trade-log-probe]'), '关闭复盘设置弹窗时不得同时退出随机复盘')
+
+    const pageEscapeConsumed = !window.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Escape',
+      bubbles: true,
+      cancelable: true,
+    }))
+    assert(pageEscapeConsumed, '随机复盘页面必须消费 Esc 退出操作')
+    await waitFor(() => Boolean(document.querySelector('[data-trade-log-probe]')), 'Esc 没有退出随机复盘并回到交易日志')
+    assert(
+      document.querySelector('[data-trade-log-probe]')?.textContent === '?liveStage=all',
+      '退出随机复盘必须恢复交易日志阶段记忆，同时清除临时盘型与视图筛选',
+    )
     remount.unmount()
   } finally {
     root.unmount()
@@ -543,6 +584,7 @@ async function run(): Promise<void> {
       redoStack: previous.redoStack,
       composerOpen: previous.composerOpen,
       closeTradeRequest: previous.closeTradeRequest,
+      display: previous.display,
     })
     useShortcutStore.setState({
       bindings: previousShortcuts.bindings,

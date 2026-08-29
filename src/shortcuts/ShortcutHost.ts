@@ -102,7 +102,6 @@ export function useShortcutHost({
         else if (document.fullscreenEnabled) void document.documentElement.requestFullscreen()
       },
 
-      'nav.today': () => navigate('/today-record'),
       'nav.quickNotes': () => navigate('/notes'),
       'nav.active': () => navigate(sharedTradeViewHref('active')),
       'nav.favorites': () => navigate(sharedTradeViewHref('starred')),
@@ -133,9 +132,6 @@ export function useShortcutHost({
         navigate(`/weekly-review${sharedTradeSearch}`)
       },
       'nav.reviewSession': () => navigate('/review-session'),
-      'nav.board': () => {
-        navigate('/board')
-      },
       'nav.dashboard': () => {
         navigate(`/dashboard${sharedTradeSearch}`)
       },

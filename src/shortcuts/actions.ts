@@ -1,6 +1,6 @@
 import type { ShortcutActionMeta } from '@/shortcuts/types'
 import { getDefaultShortcutBinding } from '@/config/defaultProfile'
-import { PRIMARY_NAV_LABELS, SECONDARY_NAV_LABELS } from '@/lib/sidebarNavContract'
+import { PRIMARY_NAV_LABELS } from '@/lib/sidebarNavContract'
 
 /** 动作名称与作用域在此维护；默认绑定统一来自版本化配置档案。 */
 export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
@@ -71,41 +71,6 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
 
   {
-    id: 'nav.today',
-    label: '今日工作台',
-    category: '导航',
-    scope: 'navigation',
-    defaultBinding: getDefaultShortcutBinding('nav.today'),
-  },
-  {
-    id: 'nav.active',
-    label: SECONDARY_NAV_LABELS.active,
-    category: '导航',
-    scope: 'navigation',
-    defaultBinding: getDefaultShortcutBinding('nav.active'),
-  },
-  {
-    id: 'nav.favorites',
-    label: SECONDARY_NAV_LABELS.favorites,
-    category: '导航',
-    scope: 'navigation',
-    defaultBinding: getDefaultShortcutBinding('nav.favorites'),
-  },
-  {
-    id: 'nav.missed',
-    label: SECONDARY_NAV_LABELS.missed,
-    category: '导航',
-    scope: 'navigation',
-    defaultBinding: getDefaultShortcutBinding('nav.missed'),
-  },
-  {
-    id: 'nav.sim',
-    label: SECONDARY_NAV_LABELS.paper,
-    category: '导航',
-    scope: 'navigation',
-    defaultBinding: getDefaultShortcutBinding('nav.sim'),
-  },
-  {
     id: 'nav.list',
     label: PRIMARY_NAV_LABELS.trades,
     category: '导航',
@@ -141,18 +106,39 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     defaultBinding: getDefaultShortcutBinding('nav.reviewSession'),
   },
   {
-    id: 'nav.board',
-    label: '看板',
-    category: '导航',
-    scope: 'navigation',
-    defaultBinding: getDefaultShortcutBinding('nav.board'),
-  },
-  {
     id: 'nav.dashboard',
     label: PRIMARY_NAV_LABELS.dashboard,
     category: '导航',
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.dashboard'),
+  },
+  {
+    id: 'nav.active',
+    label: '显示进行中交易',
+    category: '交易日志',
+    scope: 'navigation',
+    defaultBinding: getDefaultShortcutBinding('nav.active'),
+  },
+  {
+    id: 'nav.favorites',
+    label: '显示星标交易',
+    category: '交易日志',
+    scope: 'navigation',
+    defaultBinding: getDefaultShortcutBinding('nav.favorites'),
+  },
+  {
+    id: 'nav.missed',
+    label: '显示错过机会',
+    category: '交易日志',
+    scope: 'navigation',
+    defaultBinding: getDefaultShortcutBinding('nav.missed'),
+  },
+  {
+    id: 'nav.sim',
+    label: '切换到模拟盘记录',
+    category: '交易日志',
+    scope: 'navigation',
+    defaultBinding: getDefaultShortcutBinding('nav.sim'),
   },
   {
     id: 'nav.strategies',
@@ -276,6 +262,13 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     category: '随机复盘',
     scope: 'reviewSession',
     defaultBinding: getDefaultShortcutBinding('reviewSession.back'),
+  },
+  {
+    id: 'reviewSession.exit',
+    label: '退出复盘',
+    category: '随机复盘',
+    scope: 'reviewSession',
+    defaultBinding: getDefaultShortcutBinding('reviewSession.exit'),
   },
 
   {

@@ -40,7 +40,7 @@ import { useStore } from '@/store/useStore'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { getShortcutHintModel } from '@/shortcuts/hints'
 import { resolveShortcutWorkspaceHref } from '@/shortcuts/workspaceActions'
-import { PRIMARY_NAV_LABELS, SECONDARY_NAV_LABELS } from '@/lib/sidebarNavContract'
+import { PRIMARY_NAV_LABELS } from '@/lib/sidebarNavContract'
 import {
   resolveSharedTradeWorkspaceSearch,
   tradeHomeSearch,
@@ -156,17 +156,16 @@ function CommandPaletteDialog({
     const paperParams = new URLSearchParams(sharedTradeSearch)
     paperParams.set('kind', 'paper')
     const viewNav: Cmd[] = [
-      { id: 'n-today', group: '导航', icon: <Calendar size={ICON_MD} />, label: '今日工作台', hint: shortcutHint('nav.today'), run: go('/today-record') },
       { id: 'n-quick-notes', group: '导航', icon: <FileText size={ICON_MD} />, label: '随记', keywords: '笔记 灵感 杂谈 notebook', hint: shortcutHint('nav.quickNotes'), run: go('/notes') },
       { id: 'n-list', group: '导航', icon: <ListTodo size={ICON_MD} />, label: PRIMARY_NAV_LABELS.trades, hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies, null, { pathname, search })) },
       { id: 'n-review-cases', group: '导航', icon: <BookOpen size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewCases, hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
       { id: 'n-weekly-review', group: '导航', icon: <CalendarDays size={ICON_MD} />, label: PRIMARY_NAV_LABELS.weeklyReview, keywords: '每周 周总结 复盘', hint: shortcutHint('nav.weeklyReview'), run: go(`/weekly-review${sharedTradeSearch}`) },
       { id: 'n-review-session', group: '导航', icon: <RotateCcw size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewSession, keywords: '随机 抽卡 复盘', hint: shortcutHint('nav.reviewSession'), run: go('/review-session') },
-      { id: 'n-active', group: '导航', icon: <Clock size={ICON_MD} />, label: SECONDARY_NAV_LABELS.active, hint: shortcutHint('nav.active'), run: go(sharedViewHref('active')) },
       { id: 'n-dash', group: '导航', icon: <BarChart3 size={ICON_MD} />, label: PRIMARY_NAV_LABELS.dashboard, hint: shortcutHint('nav.dashboard'), run: go(`/dashboard${sharedTradeSearch}`) },
-      { id: 'n-fav', group: '导航', icon: <Star size={ICON_MD} />, label: SECONDARY_NAV_LABELS.favorites, hint: shortcutHint('nav.favorites'), run: go(sharedViewHref('starred')) },
-      { id: 'n-missed', group: '导航', icon: <Ban size={ICON_MD} />, label: SECONDARY_NAV_LABELS.missed, hint: shortcutHint('nav.missed'), run: go(sharedViewHref('missed')) },
-      { id: 'n-sim', group: '导航', icon: <FlaskConical size={ICON_MD} />, label: SECONDARY_NAV_LABELS.paper, hint: shortcutHint('nav.sim'), run: go(`/list?${paperParams.toString()}`) },
+      { id: 'n-active', group: '交易日志', icon: <Clock size={ICON_MD} />, label: '显示进行中交易', hint: shortcutHint('nav.active'), run: go(sharedViewHref('active')) },
+      { id: 'n-fav', group: '交易日志', icon: <Star size={ICON_MD} />, label: '显示星标交易', hint: shortcutHint('nav.favorites'), run: go(sharedViewHref('starred')) },
+      { id: 'n-missed', group: '交易日志', icon: <Ban size={ICON_MD} />, label: '显示错过机会', hint: shortcutHint('nav.missed'), run: go(sharedViewHref('missed')) },
+      { id: 'n-sim', group: '交易日志', icon: <FlaskConical size={ICON_MD} />, label: '切换到模拟盘记录', hint: shortcutHint('nav.sim'), run: go(`/list?${paperParams.toString()}`) },
     ]
     const periodNav: Cmd[] = CALENDAR_PERIODS.map((slug) => ({
       id: 'n-period-' + slug,
@@ -177,7 +176,7 @@ function CommandPaletteDialog({
       run: go(`/period/${slug}${tradeHomeSearch(sharedTradeSearch)}`),
     }))
     const settingsNav: Cmd[] = [
-      { id: 'n-strat', group: '设置', icon: <Settings2 size={ICON_MD} />, label: '编辑策略', run: go('/settings/strategies') },
+      { id: 'n-strat', group: '设置', icon: <Settings2 size={ICON_MD} />, label: '管理策略', run: go('/settings/strategies') },
       { id: 'n-settings', group: '设置', icon: <Keyboard size={ICON_MD} />, label: '键盘快捷键', run: go('/settings/shortcuts') },
       {
         id: 'a-io',

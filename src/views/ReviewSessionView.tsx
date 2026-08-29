@@ -67,6 +67,7 @@ import {
 } from '@/lib/reviewPools'
 import { REVIEW_CASE_SCOPE_LABELS, type ReviewCaseScope } from '@/lib/reviewCaseScope'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
+import { tradeHomeHref } from '@/lib/tradeWorkspaceQuery'
 import { toast } from '@/lib/toast'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
 import { getStorage } from '@/storage/bootstrap'
@@ -247,6 +248,7 @@ export function ReviewSessionView() {
   const setReviewPoolLayout = useStore((state) => state.setReviewPoolLayout)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
+  const rememberedTradeSearch = useStore((state) => state.display.workspaceMemory?.trade?.search ?? '')
   const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
   const updateTradeData = useStore((state) => state.updateTradeData)
   const starred = useMemo(() => new Set(starredIds), [starredIds])
@@ -272,6 +274,10 @@ export function ReviewSessionView() {
   latestTradesRef.current = trades
   latestStarredRef.current = starred
   sessionRef.current = session
+
+  const exitReviewSession = useCallback(() => {
+    navigate(tradeHomeHref(rememberedTradeSearch))
+  }, [navigate, rememberedTradeSearch])
 
   const pool = useMemo(
     () => buildReviewSessionPool(
@@ -530,6 +536,10 @@ export function ReviewSessionView() {
     }
   }, [])
 
+  useEffect(() => registerShortcutHandlers({
+    'reviewSession.exit': exitReviewSession,
+  }), [exitReviewSession])
+
   useEffect(() => {
     if (!session || roundEnded || !current) return
     return registerShortcutHandlers(createReviewSessionShortcutHandlers({
@@ -719,7 +729,7 @@ export function ReviewSessionView() {
   return (
     <div className="review-session-view">
       <header className="review-session-topbar">
-        <Button type="button" variant="ghost" className="review-session-back" onClick={() => navigate('/today-record')}>
+        <Button type="button" variant="ghost" className="review-session-back" onClick={exitReviewSession}>
           <ChevronLeft size={ICON_MD} aria-hidden />
           <span>{session && session.ids.length > 0 ? '退出复盘' : '返回'}</span>
         </Button>

@@ -75,6 +75,7 @@ export function testReviewSessionActionsExposeStableDefaultsAndScope(): void {
     ['reviewSession.mastered', '3'],
     ['reviewSession.skip', 'n'],
     ['reviewSession.back', 'p'],
+    ['reviewSession.exit', 'escape'],
   ])
 
   for (const [id, defaultBinding] of expected) {

@@ -554,7 +554,6 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'global.redo': 'mod+shift+z',
     'global.closeOverlay': 'escape',
     'global.toggleFullscreen': 'f11',
-    'nav.today': 'alt+t',
     'nav.quickNotes': 'alt+n',
     'nav.active': 'alt+1',
     'nav.favorites': 'alt+2',
@@ -564,7 +563,6 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'nav.reviewCases': 'alt+c',
     'nav.weeklyReview': 'alt+4',
     'nav.reviewSession': 'alt+6',
-    'nav.board': 'alt+5',
     'nav.dashboard': 'i',
     'nav.strategies': 'o',
     'view.list': 'l',
@@ -583,6 +581,7 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'reviewSession.mastered': '3',
     'reviewSession.skip': 'n',
     'reviewSession.back': 'p',
+    'reviewSession.exit': 'escape',
     'image.prev': 'w',
     'image.next': 's',
     'image.close': 'escape',
@@ -707,9 +706,10 @@ export async function testMissedOpportunityUsesTheTradeLogShellContract(): Promi
 export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Promise<void> {
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/views/settings/DataSettingsPanel.tsx', 'utf8')
+  const backupSource = await fs.readFile('electron/library/backup.ts', 'utf8')
 
-  assert(source.includes('最多保留 7 份'), '数据设置应展示桌面端实际的 7 份备份上限')
-  assert(!source.includes('最多保留 20 份'), '不得继续展示旧的 20 份备份上限')
+  assert(backupSource.includes('DEFAULT_MAX_BACKUPS = 7'), '桌面端必须继续执行 7 份备份上限')
+  assert(!source.includes('最多保留 20 份'), '数据设置不得继续展示旧的 20 份备份上限')
   assert(
     source.includes('await Promise.all([refreshBackups(), refreshHealth()])'),
     '创建、恢复或删除备份后应同步刷新恢复点列表和存储健康数据',

@@ -5,6 +5,7 @@ import { bindingKey } from '@/shortcuts/chords'
 import { useStore } from '@/store/useStore'
 import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
 import { getShortcutHintModel } from '@/shortcuts/hints'
+import { migrateShortcutBindings } from '@/shortcuts/migrate'
 import { newTradeKindForPath } from '@/lib/tradeKind'
 
 function assert(condition: unknown, message: string): void {
@@ -167,7 +168,6 @@ export function testNewCaseHasAnIndependentConfigurableShortcut(): void {
 
 export function testOmittedPrimaryNavigationActionsAreConfigurable(): void {
   const expected = new Map([
-    ['nav.today', 'alt+t'],
     ['nav.quickNotes', 'alt+n'],
     ['nav.weeklyReview', 'alt+4'],
     ['nav.reviewSession', 'alt+6'],
@@ -181,6 +181,12 @@ export function testOmittedPrimaryNavigationActionsAreConfigurable(): void {
   }
   assert(getActionMeta('nav.dashboard')?.label === '统计分析', '快捷键设置必须使用“统计分析”')
   assert(getActionMeta('nav.weeklyReview')?.label === '周期复盘', '快捷键设置必须使用“周期复盘”')
+  assert(!getActionMeta('nav.today'), '快捷键设置不得继续暴露已废弃的今日工作台')
+  assert(!getActionMeta('nav.board'), '快捷键设置不得继续暴露与视图切换重复的旧看板入口')
+  assert(getActionMeta('nav.active')?.category === '交易日志', '进行中属于交易日志筛选而非独立导航页')
+  assert(getActionMeta('nav.favorites')?.category === '交易日志', '星标交易属于交易日志筛选而非独立导航页')
+  assert(getActionMeta('nav.missed')?.category === '交易日志', '错过机会属于交易日志筛选而非独立导航页')
+  assert(getActionMeta('nav.sim')?.category === '交易日志', '模拟盘属于交易日志记录类型而非独立导航页')
 }
 
 export function testQuickNotesHaveIndependentNavigationAndCreateShortcuts(): void {
@@ -226,6 +232,16 @@ export function testLegacyModuleShortcutMigratesToTradeWorkspace(): void {
   } finally {
     useShortcutStore.getState().hydrateBindings(previousBindings)
   }
+}
+
+export function testDeprecatedNavigationBindingsAreCleanedUp(): void {
+  const migrated = migrateShortcutBindings({
+    'nav.today': { alt: true, key: 't' },
+    'nav.board': { alt: true, key: '5' },
+  })
+  assert(!('nav.today' in migrated), '废弃的今日工作台绑定必须被清理')
+  assert(!('nav.board' in migrated), '重复的旧看板导航绑定必须被清理')
+  assert(bindingKey(migrated['view.board']!) === 'alt+5', '旧看板自定义绑定应迁移到当前看板视图动作')
 }
 
 export function testWindowHotkeyDisablesConflictingOrdinaryShortcut(): void {

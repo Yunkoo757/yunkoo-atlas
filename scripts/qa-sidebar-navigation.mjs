@@ -334,18 +334,18 @@ try {
   })
   await page.keyboard.press('a')
   await page.waitForURL((url) => url.pathname === '/list' && url.search === '')
-  await page.goto(`${BASE}/active/board?symbol=BTCUSDT`, { waitUntil: 'domcontentloaded' })
+  await page.goto(`${BASE}/list?view=active&symbol=BTCUSDT`, { waitUntil: 'domcontentloaded' })
   await page.locator('.sb-primary a[data-primary-id]').first().waitFor({ state: 'visible', timeout: 10000 })
   await page.evaluate(async () => {
     const { useShortcutStore } = await import('/src/store/shortcutStore.ts')
-    useShortcutStore.getState().setBinding('nav.board', { key: 'd' })
+    useShortcutStore.getState().setBinding('view.board', { key: 'd' })
   })
   await page.keyboard.press('d')
-  await page.waitForURL((url) => url.pathname === '/board' && url.search === '')
+  await page.waitForURL((url) => url.pathname === '/board' && url.search === '?view=active&symbol=BTCUSDT')
   await page.evaluate(async () => {
     const { useShortcutStore } = await import('/src/store/shortcutStore.ts')
     useShortcutStore.getState().resetBinding('nav.list')
-    useShortcutStore.getState().resetBinding('nav.board')
+    useShortcutStore.getState().resetBinding('view.board')
   })
 
   await page.evaluate(async () => {
