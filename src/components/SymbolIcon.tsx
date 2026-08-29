@@ -11,16 +11,27 @@ export function SymbolIcon({
   overrides,
   size = ICON_TILE,
   className = '',
+  quiet = false,
   title: _title,
 }: {
   symbol: string
   overrides?: SymbolIconsMap | null
   size?: number
   className?: string
+  /** 高密度列表中的低噪声呈现；详情、表单与设置仍使用完整资产色。 */
+  quiet?: boolean
   /** @deprecated 不再写入原生 title，避免系统默认气泡 */
   title?: string
 }) {
   const resolved = resolveSymbolIcon(symbol, overrides)
+  const quietColor = (color: string) =>
+    quiet
+      ? `color-mix(in srgb, ${color} var(--symbol-list-glyph-strength), var(--text-tertiary))`
+      : color
+  const quietBackground = (color: string, background: string) =>
+    quiet
+      ? `color-mix(in srgb, ${color} var(--symbol-list-surface-strength), transparent)`
+      : background
 
   if (resolved.type === 'image') {
     return (
@@ -41,8 +52,8 @@ export function SymbolIcon({
         style={{
           width: size,
           height: size,
-          background: resolved.background,
-          color: resolved.color,
+          background: quietBackground(resolved.color, resolved.background),
+          color: quietColor(resolved.color),
         }}
         aria-hidden
       >
@@ -60,8 +71,8 @@ export function SymbolIcon({
       style={{
         width: size,
         height: size,
-        color: resolved.color,
-        background: resolved.background,
+        color: quietColor(resolved.color),
+        background: quietBackground(resolved.color, resolved.background),
         fontSize: Math.max(9, Math.round(size * glyphScale)),
       }}
       aria-hidden

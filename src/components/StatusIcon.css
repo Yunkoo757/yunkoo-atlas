@@ -29,11 +29,11 @@
 }
 
 .side-tag.is-quiet[data-side='long'] {
-  color: var(--direction-long-text);
+  color: var(--direction-list-long);
 }
 
 .side-tag.is-quiet[data-side='short'] {
-  color: var(--direction-short-text);
+  color: var(--direction-list-short);
 }
 
 @keyframes status-icon-pop {

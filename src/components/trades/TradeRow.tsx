@@ -154,7 +154,7 @@ export const TradeRow = memo(function TradeRow({
       symbol={
         <>
           <span className="trade-row-symbol-main">
-            <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_SM} />
+            <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_SM} quiet />
             <strong>{trade.symbol}</strong>
           </span>
           <SideTag side={trade.side} quiet />

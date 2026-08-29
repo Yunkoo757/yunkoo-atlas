@@ -663,22 +663,22 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 }
 
 .trade-row-result [data-value-state='value'][data-value-sign='positive'] {
-  color: var(--pos);
+  color: var(--result-positive);
 }
 
 .trade-row-result [data-value-state='value'][data-value-sign='negative'] {
-  color: var(--neg);
+  color: var(--result-negative);
 }
 
 .trade-row-result [data-value-state='zero'],
 .trade-row-result [data-value-state='not-applicable'],
 .trade-row-result [data-value-state='not-collected'] {
-  color: var(--text-tertiary);
+  color: var(--result-neutral);
 }
 
 .trade-row-result [data-value-state='missed'],
 .trade-row-result-value.is-opportunity {
-  color: var(--opportunity);
+  color: var(--result-opportunity);
 }
 
 .trade-row-result [data-value-state='missing'],

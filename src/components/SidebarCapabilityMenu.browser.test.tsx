@@ -216,7 +216,7 @@ async function run(): Promise<void> {
     activeProbe.style.color = 'var(--text-nav-active)'
     activeProbe.style.background = 'var(--surface-nav-active)'
     const activeIconProbe = document.createElement('span')
-    activeIconProbe.style.color = 'var(--nav-icon-trades)'
+    activeIconProbe.style.color = 'var(--nav-active-icon)'
     document.body.appendChild(activeProbe)
     document.body.appendChild(activeIconProbe)
     const activeProbeStyle = getComputedStyle(activeProbe)
@@ -225,7 +225,7 @@ async function run(): Promise<void> {
         && activePrimaryStyle.fontWeight === '550'
         && getComputedStyle(activePrimaryIcon).color === getComputedStyle(activeIconProbe).color
         && getComputedStyle(activePrimaryIcon).color !== activePrimaryStyle.color,
-      '父层选中的可排序导航必须提升文字与字重，并恢复对应模块的图标强调色',
+      '父层选中的可排序导航必须提升文字与字重，并使用统一的低饱和图标强调色',
     )
     assert(
       getComputedStyle(activePrimaryRow).backgroundColor === activeProbeStyle.backgroundColor
@@ -304,11 +304,11 @@ async function run(): Promise<void> {
     const strategyIcon = strategyLink.querySelector<SVGElement>('.strategy-icon svg')
     assert(strategyIcon, '策略入口缺少图标')
     const strategyColorProbe = document.createElement('span')
-    strategyColorProbe.style.color = '#5e6ad2'
+    strategyColorProbe.style.color = 'var(--nav-active-icon)'
     document.body.appendChild(strategyColorProbe)
     assert(
       getComputedStyle(strategyIcon).color === getComputedStyle(strategyColorProbe).color,
-      '策略入口选中后必须使用该策略保存的强调色',
+      '策略入口选中后必须服从统一的导航激活色，避免策略颜色制造重复焦点',
     )
     strategyColorProbe.remove()
   } finally {

@@ -135,7 +135,7 @@ export function MissedOpportunityRow({
       symbol={
         <>
           <span className="trade-row-symbol-main">
-            <SymbolIcon symbol={primary.symbol} overrides={symbolIcons} size={ICON_SM} />
+            <SymbolIcon symbol={primary.symbol} overrides={symbolIcons} size={ICON_SM} quiet />
             <strong>{primary.symbol}</strong>
           </span>
           <SideTag side={primary.side} quiet />

@@ -149,26 +149,6 @@ export const WORKSPACE_ICONS: Record<
   'case-view': BookOpen,
 }
 
-const PRIMARY_ACTIVE_ICON_COLORS: Record<PrimarySidebarNavId, string> = {
-  today: 'var(--nav-icon-today)',
-  trades: 'var(--nav-icon-trades)',
-  reviewCases: 'var(--nav-icon-cases)',
-  weeklyReview: 'var(--nav-icon-weekly)',
-  reviewSession: 'var(--nav-icon-review-session)',
-  dashboard: 'var(--nav-icon-dashboard)',
-  quickNotes: 'var(--nav-icon-notes)',
-}
-
-const WORKSPACE_ACTIVE_ICON_COLORS: Record<ResolvedSidebarWorkspaceItem['icon'], string> = {
-  active: 'var(--nav-icon-ws-active)',
-  favorites: 'var(--nav-icon-ws-favorites)',
-  missed: 'var(--nav-icon-ws-missed)',
-  paper: 'var(--nav-icon-ws-paper)',
-  'saved-view': 'var(--nav-icon-notes)',
-  strategy: 'var(--accent-readable)',
-  'case-view': 'var(--nav-icon-ws-case)',
-}
-
 function activeIconStyle(color: string): CSSProperties {
   return { '--sb-active-icon-color': color } as CSSProperties
 }
@@ -445,7 +425,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           }`
         }
         data-ws-icon={item.icon}
-        style={activeIconStyle(strategy?.color ?? WORKSPACE_ACTIVE_ICON_COLORS[item.icon])}
+        style={activeIconStyle('var(--nav-active-icon)')}
         onContextMenu={(event) => {
           if (!capabilityMenuId) return
           event.preventDefault()
@@ -563,7 +543,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               key={id}
               className={`sb-sortable-row${active && !contextOnly ? ' is-active is-page-active' : ''}${contextOnly ? ' is-context-active' : ''}`}
               data-primary-id={id}
-              style={activeIconStyle(PRIMARY_ACTIVE_ICON_COLORS[id])}
+              style={activeIconStyle('var(--nav-active-icon)')}
             >
               <Link
                 to={primaryHref(id, to)}

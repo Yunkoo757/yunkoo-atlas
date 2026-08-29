@@ -28,10 +28,10 @@ export async function testTradeListGroupTogglePreservesInteractionContract(): Pr
     '分组三角悬停应保持清晰的纯白高亮',
   )
   assert(tokens.includes('--group-chevron-started:'), '当前状态三角色必须使用专用色值')
-  assert(tokens.includes('--status-completed: var(--pos);'), '盈利完成态色应对齐盈亏绿')
+  assert(tokens.includes('--status-completed: var(--status-win);'), '盈利完成态应使用降噪后的状态绿')
   assert(tokens.includes('--neg:'), '必须保留盈亏红色令牌')
-  assert(statusIcon.includes("win: 'var(--pos)'"), '盈利状态图标必须使用盈亏绿')
-  assert(statusIcon.includes("loss: 'var(--neg)'"), '亏损状态图标必须使用盈亏红')
+  assert(statusIcon.includes("win: 'var(--status-win)'"), '盈利状态图标必须弱于最终结果绿')
+  assert(statusIcon.includes("loss: 'var(--status-loss)'"), '亏损状态图标必须弱于最终结果红')
 
   for (const forbidden of [
     '.trade-row.is-selected::after',
@@ -136,4 +136,6 @@ export async function testSymbolIconsUseQuietCircularSurface(): Promise<void> {
   assert(panelCss.includes('.symbols-preset-swatch') && panelCss.includes('border-radius: var(--radius-full)'), '设置页预设缩略图必须与正式品种图标同为圆形')
   assert(presets.includes('SYMBOL_ICON_SURFACE_TINT = 12'), '品种圆章色底必须固定为低噪声 12%')
   assert(component.includes("resolved.glyph.length > 1 ? 0.46 : 0.56"), '单双字符必须使用稳定光学比例')
+  assert(component.includes('var(--symbol-list-glyph-strength)'), '高密度列表必须降低品种字形色强度')
+  assert(component.includes('var(--symbol-list-surface-strength)'), '高密度列表必须进一步降低品种圆章底色')
 }
