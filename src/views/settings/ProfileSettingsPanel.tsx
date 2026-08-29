@@ -69,9 +69,6 @@ export function ProfileSettingsPanel() {
     <div className="settings-page settings-page--form profile-settings">
       <div className="settings-page-head">
         <h1 className="settings-page-title">个人资料</h1>
-        <p className="settings-page-desc">
-          选择头像并设置显示名称，在侧栏与交易列表中展示。
-        </p>
       </div>
 
       {/* 预览 */}

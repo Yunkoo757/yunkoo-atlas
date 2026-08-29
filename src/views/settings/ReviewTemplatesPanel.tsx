@@ -51,9 +51,6 @@ export function ReviewTemplatesPanel() {
       <div className="settings-page-head review-templates-head">
         <div>
           <h1 className="settings-page-title">复盘起稿</h1>
-          <p className="settings-page-desc">
-            为不同交易场景保存多个开头框架。拖动左侧模板可调整起稿菜单顺序，插入后仍可自由修改。
-          </p>
         </div>
         <button type="button" className="dio-btn dio-btn-primary" onClick={handleAdd}>
           <Plus size={ICON_SM} aria-hidden />

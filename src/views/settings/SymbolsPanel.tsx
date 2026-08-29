@@ -85,9 +85,6 @@ export function SymbolsPanel() {
     <div className="settings-page settings-page--reading symbols-panel">
       <div className="settings-page-head">
         <h1 className="settings-page-title">品种</h1>
-        <p className="settings-page-desc">
-          这里维护的品种目录会与新建交易下拉同步。拖动左侧品种可调整下拉顺序，并可为每个品种配置图标。
-        </p>
       </div>
 
       <div className="symbols-layout">

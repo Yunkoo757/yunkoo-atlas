@@ -18,9 +18,6 @@ export function TagPresetsPanel() {
     <div className="settings-page settings-page--reading tag-presets-panel">
       <div className="settings-page-head">
         <h1 className="settings-page-title">标签管理</h1>
-        <p className="settings-page-desc">
-          统一管理所有案例可直接点选的预置标签。案例中临时输入或随外部数据导入的标签，仅对对应案例生效。
-        </p>
       </div>
 
       <TagSection

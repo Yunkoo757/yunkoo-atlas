@@ -77,9 +77,6 @@ export function UpdatesSettingsPanel() {
     <div className="settings-page settings-page--form update-settings">
       <div className="settings-page-head">
         <h1 className="settings-page-title">软件更新</h1>
-        <p className="settings-page-desc">
-          从公开 GitHub Release 获取正式版本。下载由你确认，安装前自动备份资料库。
-        </p>
       </div>
 
       <section className="update-section" aria-labelledby="update-version-title">
