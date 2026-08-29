@@ -20,15 +20,18 @@ import {
   isBoardPath,
   isDetailPath,
   listPathFromPathname,
+  pathWithWorkbenchMode,
+  workbenchModeFromPathname,
 } from '@/lib/routeContext'
 import { tradeDetailPath, resolveTradeDetailReturn, findTradeByRouteParam } from '@/lib/tradeRoute'
 import { routeWithSearch } from '@/lib/tradeView'
 import { resolveShortcutWorkspaceHref } from '@/shortcuts/workspaceActions'
+import { syncPrimaryWorkspaceMode } from '@/lib/workspaceViews'
 import { getActionMeta } from '@/shortcuts/actions'
 import { requestLightboxClose, requestLightboxReset } from '@/lib/lightboxView'
 import { createQuickNote } from '@/data/quickNotes'
 import { newTradeKindForPath } from '@/lib/tradeKind'
-import { resolveSharedTradeWorkspaceSearch, tradeHomeHref } from '@/lib/tradeWorkspaceQuery'
+import { resolveSharedTradeWorkspaceSearch } from '@/lib/tradeWorkspaceQuery'
 
 export function useShortcutHost({
   onToggleCmdk,
@@ -59,11 +62,15 @@ export function useShortcutHost({
       search,
       rememberedTradeSearch,
     )
+    const preferredWorkbenchMode = workbenchModeFromPathname(
+      useStore.getState().display.workspaceMemory?.trade?.pathname ?? pathname,
+    )
+    const sharedTradePath = pathWithWorkbenchMode('/list', preferredWorkbenchMode)
     const sharedTradeParams = () => new URLSearchParams(sharedTradeSearch)
     const sharedTradeViewHref = (view: 'active' | 'starred' | 'missed') => {
       const params = sharedTradeParams()
       params.set('view', view)
-      return `/list?${params.toString()}`
+      return `${sharedTradePath}?${params.toString()}`
     }
     setShortcutHandlers({
       'global.commandPalette': onToggleCmdk,
@@ -96,7 +103,14 @@ export function useShortcutHost({
         else if (closeTradeRequest) cancelTradeClose()
         else if (pendingTradeOpenRequest) cancelTradeOpen()
         else if (isTradeLogEscapePage(pathname)) {
-          navigate(tradeHomeHref(rememberedTradeSearch))
+          const state = useStore.getState()
+          navigate(resolveShortcutWorkspaceHref(
+            'trade',
+            state.display,
+            state.strategies,
+            null,
+            { pathname, search },
+          ))
         }
       },
       'global.toggleFullscreen': () => {
@@ -116,7 +130,7 @@ export function useShortcutHost({
       'nav.sim': () => {
         const params = sharedTradeParams()
         params.set('kind', 'paper')
-        navigate(`/list?${params.toString()}`)
+        navigate(`${sharedTradePath}?${params.toString()}`)
       },
       'nav.list': () => {
         const state = useStore.getState()
@@ -145,11 +159,19 @@ export function useShortcutHost({
       'nav.strategies': () => navigate('/settings/strategies'),
 
       'view.list': () => {
+        const state = useStore.getState()
+        state.setDisplay({
+          workspaceMemory: syncPrimaryWorkspaceMode(state.display.workspaceMemory, 'list'),
+        })
         const listContext = useShortcutStore.getState().listContext
         const listPath = listPathFromPathname(pathname) ?? listContext?.listPath ?? '/list'
         navigate(routeWithSearch(listPath, search || listContext?.listSearch || ''))
       },
       'view.board': () => {
+        const state = useStore.getState()
+        state.setDisplay({
+          workspaceMemory: syncPrimaryWorkspaceMode(state.display.workspaceMemory, 'board'),
+        })
         const listContext = useShortcutStore.getState().listContext
         const listPath = listPathFromPathname(pathname) ?? listContext?.listPath ?? '/list'
         navigate(routeWithSearch(boardPathFromListPath(listPath), search || listContext?.listSearch || ''))

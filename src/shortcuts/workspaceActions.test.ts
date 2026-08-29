@@ -100,6 +100,42 @@ export function testRepeatedTradeShortcutReturnsToTradeHome(): void {
   )
 }
 
+export function testTradeShortcutPreservesTheSharedBoardMode(): void {
+  const boardDisplay: DisplayPrefs = {
+    ...display,
+    workspaceMemory: {
+      trade: { pathname: '/period/this-week/board', search: '?liveStage=all&status=loss' },
+      case: { pathname: '/review-cases/mistakes/board', search: '?tag=执行' },
+    },
+  }
+
+  assert(
+    resolveShortcutWorkspaceHref(
+      'trade',
+      boardDisplay,
+      [],
+      { pathname: '/list', search: '?liveStage=all&status=loss' },
+      { pathname: '/dashboard', search: '?liveStage=all' },
+    ) === '/board?liveStage=all',
+    '从分析页按 A 必须回到交易日志看板，并清除临时筛选',
+  )
+  assert(
+    resolveShortcutWorkspaceHref(
+      'trade',
+      boardDisplay,
+      [],
+      { pathname: '/list', search: '?liveStage=all' },
+      { pathname: '/board', search: '?liveStage=all&status=loss' },
+    ) === '/board?liveStage=all',
+    '交易日志看板内重复按 A 不得降级成列表',
+  )
+  assert(
+    resolveShortcutWorkspaceHref('case', boardDisplay, []) ===
+      '/review-cases/mistakes/board?tag=执行',
+    '案例库快捷键必须复用同一个看板形态并保留案例范围',
+  )
+}
+
 export function testCaseListContextCannotOverwriteTradeShortcutMemory(): void {
   assert(
     resolveShortcutWorkspaceHref(

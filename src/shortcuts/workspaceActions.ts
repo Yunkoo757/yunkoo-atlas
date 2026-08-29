@@ -8,7 +8,11 @@ import {
   type WorkspaceKind,
   type WorkspaceRouteMemory,
 } from '@/lib/workspaceViews'
-import { listPathFromPathname } from '@/lib/routeContext'
+import {
+  listPathFromPathname,
+  pathWithWorkbenchMode,
+  workbenchModeFromPathname,
+} from '@/lib/routeContext'
 import { tradeHomeSearch } from '@/lib/tradeWorkspaceQuery'
 
 /**
@@ -22,17 +26,29 @@ export function resolveShortcutWorkspaceHref(
   recentRoute?: WorkspaceRouteMemory | null,
   currentRoute?: WorkspaceRouteMemory | null,
 ): string {
-  if (kind === 'trade' && currentRoute?.pathname) {
-    const currentListPath = listPathFromPathname(currentRoute.pathname)
-    if (currentListPath && isTradeWorkspaceEntryPath(currentListPath)) {
-      return `/list${tradeHomeSearch(currentRoute.search)}`
-    }
-  }
-  const memory = recentRoute && rememberableWorkspaceKind(recentRoute.pathname) === kind
-    ? recentRoute
-    : display.workspaceMemory?.[kind]
+  const currentKind = currentRoute?.pathname
+    ? rememberableWorkspaceKind(currentRoute.pathname)
+    : null
+  const recentKind = recentRoute?.pathname
+    ? rememberableWorkspaceKind(recentRoute.pathname)
+    : null
+  const memory = currentKind === kind
+    ? currentRoute
+    : recentKind === kind
+      ? recentRoute
+      : display.workspaceMemory?.[kind]
+  // listContext 只保存列表根路径，会有意剥离 /board；视图形态必须优先读工作区记忆。
+  const modeSource = currentKind === kind
+    ? currentRoute
+    : display.workspaceMemory?.[kind] ?? memory
+  const mode = workbenchModeFromPathname(modeSource?.pathname ?? '')
   if (kind === 'trade') {
-    return `/list${tradeHomeSearch(memory?.search ?? '')}`
+    return `${pathWithWorkbenchMode('/list', mode)}${tradeHomeSearch(memory?.search ?? '')}`
   }
-  return workspaceRouteHref(resolveWorkspaceNavTarget(kind, memory, strategies))
+  const target = resolveWorkspaceNavTarget(kind, memory, strategies)
+  const listPath = listPathFromPathname(target.pathname) ?? '/review-cases'
+  return workspaceRouteHref({
+    pathname: pathWithWorkbenchMode(listPath, mode),
+    search: target.search,
+  })
 }
