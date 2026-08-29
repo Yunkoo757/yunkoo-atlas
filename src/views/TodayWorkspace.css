@@ -304,8 +304,7 @@
 
 .today-workflow-list .trade-row:last-child { border-bottom: 0; }
 .today-workflow-list .trade-row-symbol strong { font-weight: var(--font-weight-semibold); }
-.today-workflow-list .trade-row-pnl,
-.today-workflow-list .trade-row-r { font-weight: var(--font-weight-semibold); }
+.today-workflow-list .trade-row-result { font-weight: var(--font-weight-semibold); }
 .today-workflow-list .trade-row-check-spacer {
   width: 18px;
   height: 18px;

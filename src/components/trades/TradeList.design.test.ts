@@ -99,13 +99,17 @@ export async function testTradeSelectionAppearsOnlyOnIntent(): Promise<void> {
 export async function testTradeListVisualAlignmentContract(): Promise<void> {
   const fs = await import('node:fs/promises')
   const css = await fs.readFile('src/components/trades/TradeList.css', 'utf8')
+  const columns = await fs.readFile('src/components/trades/TradeListColumns.tsx', 'utf8')
   const trash = await fs.readFile('src/views/TrashView.css', 'utf8')
   const sidebar = await fs.readFile('src/components/Sidebar.css', 'utf8')
 
   assert(
-    css.includes('.trade-list-column:is(.is-timeframe, .is-pnl, .is-r, .is-date) { text-align: right; }'),
-    '周期、盈亏、R 与日期标题必须和正文统一右对齐',
+    css.includes('.trade-list-column:is(.is-timeframe, .is-result, .is-date) { text-align: right; }'),
+    '周期、结果与日期标题必须和正文统一右对齐',
   )
+  assert(columns.includes('className="trade-list-column is-result">结果</span>'), '交易列表必须以 R 为唯一常驻结果列')
+  assert(!columns.includes('is-pnl') && !columns.includes('>盈亏</span>'), '现金盈亏不得继续占用交易列表常驻列')
+  assert(!css.includes('.trade-row-date,\n  .trade-list-column.is-date {\n    display: none;'), '桌面窄窗口也必须保留完整日期')
   assert(css.includes('grid-template-columns: 11ch 18px'), '品种与多空方向必须使用稳定列宽')
   assert(
     /\.trade-row-strategy\s*\{[\s\S]*?min-height:\s*20px;[\s\S]*?border-radius:\s*var\(--radius-full\);/.test(css),

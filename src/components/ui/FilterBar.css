@@ -45,8 +45,25 @@
 
 .ui-filter-trigger {
   gap: var(--space-control-gap);
-  padding: 0 var(--sp-2);
+  min-width: var(--toolbar-chip-height);
+  padding: 0 7px;
   margin-left: auto;
+  justify-content: center;
+}
+
+.ui-filter-count {
+  display: grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding-inline: var(--sp-1);
+  color: var(--list-text-strong);
+  font-size: var(--fs-mini);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: var(--numeric-tabular);
+  line-height: 1;
+  border-radius: var(--radius-full);
+  background: var(--surface-control);
 }
 
 .ui-filter-actions {

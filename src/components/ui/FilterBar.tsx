@@ -51,7 +51,9 @@ export function FilterBar({
       aria-label={label}
     >
       <SlidersHorizontal size={ICON_SM} />
-      <span>{activeFilters.length > 0 ? `筛选 · ${activeFilters.length}` : '筛选'}</span>
+      {activeFilters.length > 0 ? (
+        <span className="ui-filter-count" aria-hidden="true">{activeFilters.length}</span>
+      ) : null}
     </button>
   )
   return (

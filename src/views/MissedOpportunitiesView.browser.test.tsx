@@ -269,8 +269,7 @@ function assertAggregateRowUsesTradeRowGeometry(): void {
     '.trade-row-ref',
     '.trade-row-symbol',
     '.trade-row-timeframe-slot',
-    '.trade-row-pnl',
-    '.trade-row-r',
+    '.trade-row-result',
     '.trade-row-date',
   ]) {
     const referenceSlot = reference.querySelector<HTMLElement>(selector)

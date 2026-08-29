@@ -178,22 +178,9 @@ export const TradeRow = memo(function TradeRow({
       timeframe={
         <span className="trade-row-timeframe">{timeframe}</span>
       }
-      pnl={
+      result={
         <span
-          className="trade-row-pnl"
-          data-value-state={result.cash.state}
-          data-value-sign={
-            result.cash.state === 'value'
-              ? trade.pnl != null && trade.pnl > 0 ? 'positive' : 'negative'
-              : undefined
-          }
-        >
-          {result.cash.text}
-        </span>
-      }
-      r={
-        <span
-          className="trade-row-r"
+          className="trade-row-result-value"
           data-value-state={result.r.state}
           data-value-sign={
             result.r.state === 'value'

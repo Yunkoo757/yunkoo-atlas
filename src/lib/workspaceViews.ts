@@ -76,6 +76,7 @@ const PRIMARY_VIEWS: Record<WorkspaceKind, readonly WorkspaceViewTarget[]> = {
     { id: 'cases-all', label: '全部', pathname: '/live-history', search: '?view=cases' },
     { id: 'focus', label: '重点', pathname: '/live-history', search: '?view=cases&caseScope=focus' },
     { id: 'mistakes', label: '错题', pathname: '/live-history', search: '?view=cases&caseScope=mistakes' },
+    { id: 'missed', label: '错过机会', pathname: '/live-history', search: '?view=cases&caseScope=missed' },
     { id: 'unreviewed', label: '待复看', pathname: '/live-history', search: '?view=cases&caseScope=unreviewed' },
     { id: 'reviewed', label: '已掌握', pathname: '/live-history', search: '?view=cases&caseScope=reviewed' },
   ],

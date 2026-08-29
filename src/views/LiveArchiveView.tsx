@@ -5,7 +5,7 @@ import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { describeDashboardResultHealth } from '@/lib/dashboardStats'
 import { fmtMoney } from '@/lib/format'
 import { PERFORMANCE_REPORT_CURRENCY } from '@/lib/performanceSelection'
-import type { ReviewCaseScope } from '@/lib/tradeFilters'
+import { REVIEW_CASE_SCOPES, type ReviewCaseScope } from '@/lib/reviewCaseScope'
 import { pathWithWorkbenchMode, workbenchModeFromPathname } from '@/lib/routeContext'
 import {
   buildStageArchiveOverview,
@@ -18,7 +18,6 @@ import { useStore } from '@/store/useStore'
 import { TradesPage } from '@/views/TradesPage'
 import './LiveArchiveView.css'
 
-const REVIEW_CASE_SCOPES: ReviewCaseScope[] = ['all', 'focus', 'mistakes', 'unreviewed', 'reviewed']
 const ARCHIVE_TABS = ['overview', 'live', 'cases', 'weekly', 'risk'] as const
 type ArchiveTab = (typeof ARCHIVE_TABS)[number]
 

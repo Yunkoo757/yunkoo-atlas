@@ -176,7 +176,7 @@
 
 .ui-btn-danger-solid:disabled,
 .st-del-danger:disabled {
-  color: var(--danger-solid-disabled-text);
+  color: var(--text-disabled);
   background: var(--danger-solid-disabled-bg);
   border-color: var(--danger-solid-disabled-border);
   opacity: 1;

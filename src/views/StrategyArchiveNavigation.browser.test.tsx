@@ -3,6 +3,7 @@ import { createMemoryRouter, RouterProvider, useLocation } from 'react-router-do
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { StrategyPage } from '@/App'
+import type { LiveStage } from '@/lib/liveStages'
 import { useStore } from '@/store/useStore'
 
 declare global { interface Window { __strategyArchiveNavigationTest?: Promise<void> } }
@@ -15,6 +16,16 @@ async function waitFor(check: () => boolean, message: string): Promise<void> {
 function RouteProbe() { const location = useLocation(); return <output data-route>{location.pathname}{location.search}</output> }
 
 const strategy: Strategy = { id: 'archive-strategy', name: '归档策略', icon: 'target', color: '#5e6ad2' }
+const archivedStage: LiveStage = {
+  id: 'stage-archived',
+  sequence: 0,
+  name: '历史阶段',
+  status: 'archived',
+  startsOn: '2026-01-01',
+  endsOn: '2026-01-31',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  archivedAt: '2026-02-01T00:00:00.000Z',
+}
 function trade(id: string, ref: string, liveStageId: string): Trade {
   return {
     id, ref, symbol: 'BTCUSDT', side: 'long', status: 'win', conviction: 'medium',
@@ -31,6 +42,7 @@ async function run(): Promise<void> {
   try {
     useStore.setState({
       strategies: [strategy],
+      liveStages: [archivedStage, ...previous.liveStages],
       trades: [
         trade('strategy-archive-trade', 'TRD-STRATEGY-ARCHIVE', 'stage-archived'),
         trade('strategy-current-trade', 'TRD-STRATEGY-CURRENT', previous.currentLiveStageId),
@@ -42,29 +54,31 @@ async function run(): Promise<void> {
     root.render(<RouterProvider router={router} />)
 
     await waitFor(
-      () => router.state.location.search.includes('liveStage=current')
+      () => !router.state.location.search.includes('liveStage')
         && !router.state.location.search.includes('statsCycle')
         && (document.body.textContent?.includes('TRD-STRATEGY-CURRENT') ?? false),
-      '策略实盘深链必须规范到当前 stage 并展示当前阶段交易',
+      '策略实盘旧深链必须清除过期参数，以默认 URL 展示当前阶段交易',
     )
     assert(!document.body.textContent?.includes('TRD-STRATEGY-ARCHIVE'), '策略绩效不得因日期周期参数混入历史 stage')
 
     await router.navigate('/strategy/archive-strategy?kind=live&range=all&liveStage=stage-archived&symbol=BTCUSDT')
     await waitFor(
-      () => router.state.location.search.includes('liveStage=current')
-        && router.state.location.search.includes('symbol=BTCUSDT'),
-      '策略实盘必须把历史 stage 请求安全规范为 current 且保留筛选',
+      () => router.state.location.search.includes('liveStage=stage-archived')
+        && router.state.location.search.includes('symbol=BTCUSDT')
+        && (document.body.textContent?.includes('TRD-STRATEGY-ARCHIVE') ?? false),
+      '策略实盘必须保留合法历史阶段及筛选，并展示该阶段交易',
     )
+    assert(!document.body.textContent?.includes('TRD-STRATEGY-CURRENT'), '历史策略范围不得混入当前阶段交易')
 
     await router.navigate('/strategy/archive-strategy?kind=paper&range=all&liveStage=stage-archived&symbol=BTCUSDT')
     await waitFor(
-      () => !router.state.location.search.includes('liveStage')
+      () => router.state.location.search.includes('liveStage=stage-archived')
         && router.state.location.search.includes('symbol=BTCUSDT'),
-      '模拟策略必须保持原语义并清除实盘 stage 参数',
+      '模拟策略必须保持盘型语义，并保留跨模块共享的阶段范围',
     )
   } finally {
     root.unmount()
-    useStore.setState({ strategies: previous.strategies, trades: previous.trades })
+    useStore.setState({ strategies: previous.strategies, liveStages: previous.liveStages, trades: previous.trades })
   }
 }
 window.__strategyArchiveNavigationTest = run()

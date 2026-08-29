@@ -12,7 +12,7 @@
   --trade-ref-column: 72px;
   --trade-list-columns:
     var(--trade-select-column) 16px var(--trade-ref-column, 72px) minmax(251px, 0.85fr)
-    minmax(260px, 1.6fr) 62px 80px 72px 72px 24px;
+    minmax(260px, 1.6fr) 56px 80px 72px 24px;
 }
 
 .trade-list-columns {
@@ -42,7 +42,7 @@
   white-space: nowrap;
 }
 
-.trade-list-column:is(.is-timeframe, .is-pnl, .is-r, .is-date) { text-align: right; }
+.trade-list-column:is(.is-timeframe, .is-result, .is-date) { text-align: right; }
 .trade-list-column.is-end { text-align: center; }
 
 .trade-list-virtual {
@@ -277,7 +277,7 @@
 .trade-row {
   position: relative;
   display: grid;
-  /* check | status | ref | identity(固定) | tags(flex) | tf | pnl | R | date | end */
+  /* check | status | ref | identity(固定) | tags(flex) | tf | result(R) | date | end */
   grid-template-columns: var(--trade-list-columns);
   align-items: center;
   column-gap: var(--sp-2);
@@ -647,8 +647,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   border-style: solid;
 }
 
-.trade-row-pnl,
-.trade-row-r,
+.trade-row-result,
 .trade-row-date {
   overflow: hidden;
   text-align: right;
@@ -657,60 +656,37 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   font-variant-numeric: var(--numeric-tabular);
 }
 
-.trade-row-pnl {
+.trade-row-result {
   font-family: var(--font-ui);
   font-size: var(--type-data-size);
   font-weight: var(--font-weight-medium);
 }
 
-.trade-row-r {
-  font-family: var(--font-ui);
-  font-size: var(--type-data-size);
-  font-weight: var(--font-weight-medium);
-}
-
-.trade-row-pnl [data-value-state='value'][data-value-sign='positive'] {
+.trade-row-result [data-value-state='value'][data-value-sign='positive'] {
   color: var(--pos);
 }
 
-.trade-row-pnl [data-value-state='value'][data-value-sign='negative'] {
+.trade-row-result [data-value-state='value'][data-value-sign='negative'] {
   color: var(--neg);
 }
 
-.trade-row-r [data-value-state='value'][data-value-sign='positive'] {
-  color: var(--pos);
-}
-
-.trade-row-r [data-value-state='value'][data-value-sign='negative'] {
-  color: var(--neg);
-}
-
-.trade-row-pnl [data-value-state='zero'],
-.trade-row-r [data-value-state='zero'],
-.trade-row-pnl [data-value-state='not-applicable'],
-.trade-row-r [data-value-state='not-applicable'],
-.trade-row-pnl [data-value-state='not-collected'],
-.trade-row-r [data-value-state='not-collected'] {
+.trade-row-result [data-value-state='zero'],
+.trade-row-result [data-value-state='not-applicable'],
+.trade-row-result [data-value-state='not-collected'] {
   color: var(--text-tertiary);
 }
 
-.trade-row-pnl [data-value-state='missed'] {
-  color: var(--text-tertiary);
-  font-family: var(--font-ui);
-  font-size: var(--type-data-size);
-}
-
-.trade-row-r [data-value-state='missed'] {
+.trade-row-result [data-value-state='missed'],
+.trade-row-result-value.is-opportunity {
   color: var(--opportunity);
 }
 
-.trade-row-pnl [data-value-state='missing'],
-.trade-row-r [data-value-state='missing'] {
+.trade-row-result [data-value-state='missing'],
+.trade-row-result-value.is-zero {
   color: var(--text-tertiary);
 }
 
-.trade-row-pnl [data-value-state='conflict'],
-.trade-row-r [data-value-state='conflict'] {
+.trade-row-result [data-value-state='conflict'] {
   color: var(--text-secondary);
 }
 
@@ -744,7 +720,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   :where(.trade-list-columns, .trade-row) {
     --trade-list-columns:
       var(--trade-select-column, 24px) 16px minmax(180px, 0.85fr) minmax(220px, 1.4fr)
-      56px 76px 68px 68px 24px;
+      52px 72px 68px 24px;
   }
 
   .trade-row-ref,
@@ -766,16 +742,11 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   :where(.trade-list-columns, .trade-row) {
     --trade-list-columns:
       var(--trade-select-column, 18px) 16px minmax(140px, 200px) minmax(120px, 1fr)
-      44px 58px 48px 24px;
+      44px 64px 68px 24px;
   }
 
   .trade-list-columns,
   .trade-row { column-gap: 10px; }
-
-  .trade-row-date,
-  .trade-list-column.is-date {
-    display: none;
-  }
 
   .trade-row-context-item,
   .trade-row-more.is-medium-overflow {

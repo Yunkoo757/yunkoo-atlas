@@ -9,8 +9,7 @@ export function TradeListColumns({ className = '' }: { className?: string }) {
       <span className="trade-list-column is-identity">交易</span>
       <span className="trade-list-column is-tags">策略 / 标签</span>
       <span className="trade-list-column is-timeframe">周期</span>
-      <span className="trade-list-column is-pnl">盈亏</span>
-      <span className="trade-list-column is-r">R</span>
+      <span className="trade-list-column is-result">结果</span>
       <span className="trade-list-column is-date">日期</span>
       <span className="trade-list-column is-end" />
     </div>

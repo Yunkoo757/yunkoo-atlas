@@ -151,9 +151,8 @@ export function MissedOpportunityRow({
         />
       )}
       timeframe={<span className="trade-row-timeframe">{resolveTimeframe(primary.timeframe)}</span>}
-      pnl={<span className="trade-row-pnl is-missed">未成交</span>}
-      r={
-        <span className={'trade-row-r' + (primary.rMultiple != null ? ' is-opportunity' : ' is-zero')}>
+      result={
+        <span className={'trade-row-result-value' + (primary.rMultiple != null ? ' is-opportunity' : ' is-zero')}>
           {fmtR(primary.rMultiple)}
         </span>
       }

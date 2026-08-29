@@ -25,8 +25,7 @@ export type TradeRowLayoutProps = {
   symbol: ReactNode
   tags: ReactNode
   timeframe: ReactNode
-  pnl: ReactNode
-  r: ReactNode
+  result: ReactNode
   date: ReactNode
   end: ReactNode
   onContextMenu?: (event: MouseEvent<HTMLDivElement>) => void
@@ -51,8 +50,7 @@ export function TradeRowLayout({
   symbol,
   tags,
   timeframe,
-  pnl,
-  r,
+  result,
   date,
   end,
   onContextMenu,
@@ -90,8 +88,7 @@ export function TradeRowLayout({
       <span className="trade-row-symbol trade-row-primary">{symbol}</span>
       <span className="trade-row-tags">{tags}</span>
       <span className="trade-row-timeframe-slot">{timeframe}</span>
-      <span className="trade-row-pnl">{pnl}</span>
-      <span className="trade-row-r">{r}</span>
+      <span className="trade-row-result">{result}</span>
       <span className="trade-row-date">{date}</span>
       <span className="trade-row-end">{end}</span>
     </div>

@@ -369,12 +369,19 @@ function LegacyTradeLogRedirect({
 
 export function StrategyPage() {
   const { id } = useParams()
-  const { search } = useLocation()
+  const { pathname, search } = useLocation()
   const strategies = useStore((s) => s.strategies)
+  const liveStages = useStore((state) => state.liveStages)
+  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const strategyId = id ?? ''
   const listPath = `/strategy/${encodeURIComponent(strategyId)}`
   const title = getStrategyName(strategies, strategyId)
-  const parsedScope = parseAnalysisScope(search)
+  const normalized = normalizeTradeWorkspaceSearch(search, liveStages, currentLiveStageId)
+  const normalizedSearch = normalized.toString()
+  if (normalizedSearch !== new URLSearchParams(search).toString()) {
+    return <Navigate to={{ pathname, search: normalizedSearch ? `?${normalizedSearch}` : '' }} replace />
+  }
+  const parsedScope = parseAnalysisScope(normalized)
   const analysisScope = parsedScope.explicit ? parsedScope.scope : undefined
   const params = new URLSearchParams(search)
   if (!analysisScope) {

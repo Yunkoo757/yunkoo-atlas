@@ -370,7 +370,7 @@ export function DataIOContent({
           ) : (
             <p className="dio-desc">正在读取资料库路径…</p>
           )}
-          <p className="dio-desc">更换电脑前请先导出完整备份。</p>
+          <p className="dio-desc">资料库保存在本机磁盘；更换电脑前请先导出完整备份。</p>
           <div className="dio-lib-actions">
             <button
               type="button"
