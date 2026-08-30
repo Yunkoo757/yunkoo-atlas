@@ -21,6 +21,16 @@ function frame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }
 
+async function waitForOverflowTooltip(): Promise<HTMLElement | undefined> {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const tooltip = [...document.querySelectorAll<HTMLElement>('[role="tooltip"]')]
+      .find((item) => item.textContent?.includes('追单') && item.textContent.includes('普通标签'))
+    if (tooltip) return tooltip
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  return undefined
+}
+
 const strategy: Strategy = {
   id: 'row-presentation-strategy',
   name: '行展示策略',
@@ -189,10 +199,7 @@ async function run(): Promise<void> {
     assert(visibleOverflow, '标签溢出计数必须按当前宽度显示')
     assert(getComputedStyle(visibleOverflow).pointerEvents === 'auto', '标签溢出计数必须接收悬浮与键盘事件')
     visibleOverflow.focus()
-    await frame()
-    await frame()
-    const overflowTooltip = [...document.querySelectorAll<HTMLElement>('[role="tooltip"]')]
-      .find((item) => item.textContent?.includes('追单') && item.textContent.includes('普通标签'))
+    const overflowTooltip = await waitForOverflowTooltip()
     assert(overflowTooltip, '标签溢出提示必须列出被省略的错误标签与普通标签')
   } finally {
     delete document.documentElement.dataset.keyboardNavigation
