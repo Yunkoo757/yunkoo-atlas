@@ -201,8 +201,9 @@
   height: 24px;
   min-height: 24px;
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
-  font-weight: var(--font-weight-normal);
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
+  line-height: var(--type-chip-line-height);
 }
 
 .dv-props .tag-chip {
@@ -220,7 +221,9 @@
 .dv-props .tag-preset-label {
   padding-inline: var(--sp-2);
   color: var(--text-tertiary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
+  line-height: var(--type-chip-line-height);
 }
 
 .dv-props .tag-add-btn {
