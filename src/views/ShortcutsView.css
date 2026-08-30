@@ -51,7 +51,7 @@
   padding: var(--sp-5);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-8);
-  background: color-mix(in srgb, var(--surface-raised) 52%, transparent);
+  background: var(--surface-elevated);
 }
 
 .window-hotkey-heading,
@@ -177,7 +177,7 @@
 .shortcuts-row:hover,
 .shortcuts-row:focus-within,
 .shortcuts-row.is-recording {
-  background: color-mix(in srgb, var(--bg-hover) 58%, transparent);
+  background: var(--surface-row-hover);
 }
 
 .shortcuts-label {

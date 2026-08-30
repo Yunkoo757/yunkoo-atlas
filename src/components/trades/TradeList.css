@@ -221,7 +221,7 @@
 }
 
 .trade-list-group-count {
-  color: var(--text-tertiary);
+  color: var(--text-content-metadata);
   font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-normal);
@@ -616,7 +616,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   max-width: none;
   min-width: 2.75ch;
   padding: 2px 6px;
-  color: var(--text-tertiary);
+  color: var(--text-content-metadata);
   font-variant-numeric: var(--numeric-tabular);
   letter-spacing: 0;
   background: transparent;

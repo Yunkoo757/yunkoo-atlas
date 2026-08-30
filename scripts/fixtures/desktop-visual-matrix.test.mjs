@@ -14,6 +14,7 @@ import {
   ensureRuntimeOutput,
   parseDesktopVisualCliArgs,
   removeTemporaryDirectoryBounded,
+  resolveDesktopVisualSelection,
 } from '../qa-desktop-visual.mjs'
 import {
   assertCommitAddressableDesktopVisualPath,
@@ -50,6 +51,7 @@ test('desktop visual matrix owns every supported window and core route', () => {
       ['notes', '/notes'],
       ['missed', '/missed'],
       ['review-cases', '/review-cases'],
+      ['review-cases-board', '/review-cases/board'],
       ['paper-trades', '/sim'],
       ['live-archive', '/live-history'],
       ['live-history-cases', '/live-history?view=cases'],
@@ -106,11 +108,31 @@ test('desktop visual archive readiness matches the unified trade workspace route
 })
 
 test('desktop visual CLI accepts one runtime and one protected output root', () => {
-  assert.deepEqual(parseDesktopVisualCliArgs([]), { runtime: 'renderer', outputRoot: null })
-  assert.deepEqual(parseDesktopVisualCliArgs(['--renderer']), { runtime: 'renderer', outputRoot: null })
+  const emptySelection = {
+    runtime: 'renderer',
+    outputRoot: null,
+    scratchOutputRoot: null,
+    scenarioIds: null,
+    viewportIds: null,
+  }
+  assert.deepEqual(parseDesktopVisualCliArgs([]), emptySelection)
+  assert.deepEqual(parseDesktopVisualCliArgs(['--renderer']), emptySelection)
   assert.deepEqual(
     parseDesktopVisualCliArgs(['--electron', '--output-root', 'evidence']),
-    { runtime: 'electron', outputRoot: 'evidence' },
+    { ...emptySelection, runtime: 'electron', outputRoot: 'evidence' },
+  )
+  assert.deepEqual(
+    parseDesktopVisualCliArgs([
+      '--scratch-output-root', 'scratch',
+      '--scenarios', 'trades,board',
+      '--viewports', '1280x860,1920x1080',
+    ]),
+    {
+      ...emptySelection,
+      scratchOutputRoot: 'scratch',
+      scenarioIds: ['trades', 'board'],
+      viewportIds: ['1280x860', '1920x1080'],
+    },
   )
   assert.throws(
     () => parseDesktopVisualCliArgs(['--renderer', '--electron']),
@@ -121,7 +143,29 @@ test('desktop visual CLI accepts one runtime and one protected output root', () 
     /output-root may only be specified once/i,
   )
   assert.throws(() => parseDesktopVisualCliArgs(['--output-root']), /requires a path/i)
+  assert.throws(
+    () => parseDesktopVisualCliArgs(['--output-root', 'formal', '--scratch-output-root', 'scratch']),
+    /mutually exclusive/i,
+  )
   assert.throws(() => parseDesktopVisualCliArgs(['--unknown']), /unknown desktop visual argument/i)
+})
+
+test('desktop visual targeted selection only accepts manifest scenarios and desktop viewports', () => {
+  assert.deepEqual(resolveDesktopVisualSelection({
+    scenarioIds: ['trades', 'board'],
+    viewportIds: ['1280x860', '1920x1080'],
+  }), {
+    scenarios: DESKTOP_VISUAL_SCENARIOS.filter(({ id }) => id === 'trades' || id === 'board'),
+    viewports: DESKTOP_VISUAL_VIEWPORTS.filter(({ width }) => width === 1280 || width === 1920),
+  })
+  assert.throws(
+    () => resolveDesktopVisualSelection({ scenarioIds: ['unknown'] }),
+    /unknown desktop visual scenario/i,
+  )
+  assert.throws(
+    () => resolveDesktopVisualSelection({ viewportIds: ['1024x768'] }),
+    /unsupported desktop visual viewport/i,
+  )
 })
 
 test('formal desktop visual evidence is bound to the current full commit and attempt', (context) => {
@@ -239,7 +283,7 @@ test('desktop visual report fails closed on runtime errors or horizontal overflo
   }), true)
 })
 
-test('desktop visual report requires the exact unique 6 by 25 capture matrix', () => {
+test('desktop visual report requires the exact unique viewport by scenario capture matrix', () => {
   const captures = createDesktopCaptures()
   const clean = {
     consoleErrors: [],
@@ -266,6 +310,27 @@ test('desktop visual report requires the exact unique 6 by 25 capture matrix', (
       ? { ...capture, scenario: { ...capture.scenario, id: 'unknown-scenario' } }
       : capture),
   }), true)
+})
+
+test('targeted desktop visual reports validate their declared smaller matrix', () => {
+  const viewport = DESKTOP_VISUAL_VIEWPORTS.filter(({ width }) => width === 1280 || width === 1920)
+  const scenario = DESKTOP_VISUAL_SCENARIOS.filter(({ id }) => id === 'trades' || id === 'board')
+  const captures = viewport.flatMap((currentViewport) =>
+    scenario.map((currentScenario) => ({ viewport: currentViewport, scenario: currentScenario })))
+  const clean = {
+    profile: 'targeted',
+    consoleErrors: [],
+    pageErrors: [],
+    metrics: { overflowCaptureCount: 0 },
+    typography: { failureCount: 0 },
+    viewport,
+    scenario,
+    captures,
+  }
+
+  assert.equal(desktopVisualReportHasFailures(clean), false)
+  assert.equal(desktopVisualReportHasFailures({ ...clean, typography: null }), false)
+  assert.equal(desktopVisualReportHasFailures({ ...clean, captures: captures.slice(1) }), true)
 })
 
 test('desktop typography diagnostics are snapshotted after the probe collection', () => {

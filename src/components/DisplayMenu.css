@@ -35,7 +35,7 @@
 }
 
 .display-toggle:hover {
-  background: var(--bg-hover);
+  background: var(--surface-menu-hover);
   color: var(--text-primary);
 }
 
@@ -99,7 +99,7 @@
 }
 
 .display-item:hover {
-  background: var(--bg-hover);
+  background: var(--surface-menu-hover);
   color: var(--text-primary);
 }
 

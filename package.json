@@ -41,6 +41,7 @@
     "qa:image": "node scripts/run-qa-image.mjs",
     "qa:workbench": "node scripts/qa-workbench.mjs",
     "qa:design": "node scripts/qa-design-contract.mjs",
+    "qa:theme-luminance": "node scripts/qa-theme-luminance.mjs",
     "qa:sidebar": "node scripts/run-qa-sidebar.mjs",
     "qa:statistics-truth": "node scripts/qa-statistics-truth.mjs",
     "qa:desktop-visual": "node scripts/qa-desktop-visual.mjs --renderer",

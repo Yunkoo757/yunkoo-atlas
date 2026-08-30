@@ -93,7 +93,7 @@
   max-width: min(560px, calc(100vw - 32px));
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-10);
-  background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
+  background: var(--surface-floating);
   box-shadow: var(--shadow-high);
   color: var(--text-primary);
   backdrop-filter: blur(14px);

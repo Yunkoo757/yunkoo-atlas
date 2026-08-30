@@ -4,7 +4,7 @@
   flex: 1;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-surface);
+  background: var(--surface-pane);
   color: var(--text-primary);
 }
 
@@ -17,7 +17,7 @@
   gap: var(--sp-3);
   padding: 0 var(--sp-4);
   border-bottom: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  background: var(--surface-pane);
 }
 
 .review-session-back,
@@ -381,7 +381,7 @@
   padding: 10px 11px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-8);
-  background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+  background: var(--surface-elevated);
   cursor: pointer;
 }
 
@@ -812,7 +812,7 @@ button.review-session-gallery-slot.is-ready {
   z-index: var(--z-content-raised);
   padding: 13px var(--sp-4);
   border-top: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--bg-elevated) 94%, var(--bg-surface));
+  background: var(--surface-elevated);
 }
 
 .review-session-assessment > div:first-child {

@@ -31,7 +31,7 @@
   padding: 0 var(--sp-2);
   border: 0;
   border-radius: var(--radius-6);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   background: transparent;
   font-size: var(--type-metadata-size);
 }
@@ -45,6 +45,13 @@
   color: var(--text-primary);
   background: var(--surface-control-active);
   box-shadow: var(--surface-control-shadow-active);
+}
+
+.risk-indicator-options button:disabled {
+  cursor: not-allowed;
+  color: var(--text-disabled);
+  background: transparent;
+  box-shadow: none;
 }
 
 .risk-indicator-options button:focus-visible {

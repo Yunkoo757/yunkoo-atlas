@@ -5,7 +5,7 @@
   width: 100%;
   height: 100%;
   min-height: 0;
-  background: var(--bg-app);
+  background: var(--surface-app);
 }
 
 .skip-link {
@@ -42,7 +42,7 @@
   max-width: calc(100% - var(--app-sidebar-width) - var(--main-inset));
   margin: var(--main-inset) var(--main-inset) var(--main-inset) 0;
   overflow: hidden;
-  background: var(--bg-surface);
+  background: var(--surface-pane);
   border: 1px solid var(--border-chrome);
   border-radius: var(--main-radius);
   font-family: var(--font-ui);

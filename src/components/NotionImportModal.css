@@ -7,9 +7,9 @@
 }
 
 .nim-drop {
-  border: 1px dashed color-mix(in srgb, var(--border-default) 80%, transparent);
+  border: 1px dashed var(--border-subtle);
   border-radius: var(--radius-10);
-  background: color-mix(in srgb, var(--bg-elevated) 55%, transparent);
+  background: var(--surface-inset);
   padding: 18px 14px;
   text-align: center;
   cursor: pointer;
@@ -66,7 +66,7 @@
 }
 
 .nim-format.is-rec {
-  background: color-mix(in srgb, var(--bg-elevated) 55%, transparent);
+  background: var(--surface-inset);
 }
 
 .nim-format-code {
@@ -163,7 +163,7 @@
   padding: 3px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-8);
-  background: color-mix(in srgb, var(--bg-elevated) 48%, transparent);
+  background: var(--surface-inset);
 }
 
 .nim-import-target-options button {

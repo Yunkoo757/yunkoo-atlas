@@ -4,14 +4,14 @@
   gap: 0;
   padding: 0 10px 14px;
   overflow-x: auto;
-  background: var(--bg-app);
+  background: var(--surface-pane);
 }
 .bd-col {
   width: 268px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--border-subtle);
+  border-left: 1px solid var(--border-divider);
   background: transparent;
   overflow: visible;
   transition: background var(--dur-base) var(--ease-out),
@@ -43,7 +43,7 @@
 .bd-col-header:hover .bd-col-title { color: var(--text-primary); }
 .bd-col-count {
   font-size: var(--type-metadata-size);
-  color: var(--text-tertiary);
+  color: var(--text-content-metadata);
 }
 .bd-col-add-wrap {
   margin-left: auto;
@@ -99,7 +99,7 @@
 }
 
 .bd-card {
-  background: color-mix(in srgb, var(--bg-surface) 92%, var(--bg-elevated));
+  background: var(--surface-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-6);
   padding: 8px 9px;
@@ -115,7 +115,7 @@
 }
 .bd-card:hover {
   border-color: var(--border-default);
-  background: var(--bg-hover);
+  background: var(--surface-card-hover);
   box-shadow: var(--shadow-low);
 }
 .bd-card.is-dragging {
@@ -137,7 +137,7 @@
 }
 .bd-card-ref {
   font-size: var(--type-caption-size);
-  color: var(--text-tertiary);
+  color: var(--text-content-metadata);
   font-variant-numeric: var(--numeric-tabular);
 }
 .bd-card-title {

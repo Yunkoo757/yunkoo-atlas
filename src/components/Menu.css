@@ -56,11 +56,11 @@
     color var(--dur-fast) var(--ease-out);
 }
 .menu-item:hover {
-  background: var(--bg-hover);
+  background: var(--surface-menu-hover);
   color: var(--text-primary);
 }
 .menu-item:active:not(:disabled) {
-  background: var(--bg-selected);
+  background: var(--surface-menu-pressed);
   transform: translateY(1px);
 }
 .menu-item:disabled {

@@ -10,6 +10,7 @@ import './settings/ProfileSettingsPanel.css'
 import './settings/DisplaySettingsPanel.css'
 import './TrashView.css'
 import './WeeklyReviewView.css'
+import './BoardView.css'
 import '@/components/ui/FieldTrigger.css'
 import '@/components/ui/DatePicker.css'
 import '@/components/ui/Button.css'
@@ -92,14 +93,19 @@ async function run(): Promise<void> {
     <button class="ui-field-trigger">筛选条件</button>
     <div class="ui-date-grid"><button class="is-outside">31</button></div>
     <section class="trade-list">
-      <div class="trade-list-group-header"><button class="trade-list-group-toggle"><strong>本周交易</strong></button></div>
+      <div class="trade-list-group-header"><button class="trade-list-group-toggle"><strong>本周交易</strong><span class="trade-list-group-count">15</span></button></div>
       <div class="trade-row" data-typography-row>
         <span class="trade-row-ref">CAS-32</span>
         <span class="trade-row-symbol"><strong>EURUSD</strong><span class="side-tag is-quiet" data-side="long">多</span></span>
         <span class="trade-row-strategy"><span class="strategy-label">导航1</span></span>
         <span class="trade-row-tags"><span class="trade-row-tag">伦敦收盘</span></span>
+        <span class="trade-row-timeframe">4H</span>
         <span class="trade-row-date">8月27日</span>
       </div>
+    </section>
+    <section class="board-scroll">
+      <div class="bd-column"><span class="bd-col-count">4</span></div>
+      <article class="bd-card"><span class="bd-card-ref">CAS-32</span></article>
     </section>
     <aside class="sidebar" data-typography-sidebar>
       <div class="sb-item" data-nav-state="rest"><span class="sb-item-label">案例库</span><span class="sb-item-count">30</span></div>
@@ -210,6 +216,12 @@ async function run(): Promise<void> {
   assertComputedTextRole('.ui-date-grid button.is-outside', '--text-tertiary')
   assertComputedTextRole('.trade-row', '--text-list-secondary')
   assertComputedTextRole('.trade-list-group-header', '--text-primary')
+  for (const selector of [
+    '.trade-list-group-count',
+    '.trade-row-timeframe',
+    '.bd-col-count',
+    '.bd-card-ref',
+  ]) assertComputedTextRole(selector, '--text-content-metadata')
   assertComputedTextRole('.dv-feed-delete', '--text-tertiary')
   for (const selector of [
     '.tag-chip-remove',

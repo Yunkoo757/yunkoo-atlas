@@ -96,17 +96,17 @@
 
 .ui-select-option.is-active {
   color: var(--text-primary);
-  background: var(--bg-hover);
+  background: var(--surface-menu-hover);
 }
 
 .ui-select-option:active:not(:disabled) {
-  background: var(--bg-selected);
+  background: var(--surface-menu-pressed);
   transform: translateY(1px);
 }
 
 .ui-select-option[aria-selected='true'] {
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--accent) 11%, var(--bg-hover));
+  background: var(--surface-menu-selected);
 }
 
 .ui-select-option:disabled {

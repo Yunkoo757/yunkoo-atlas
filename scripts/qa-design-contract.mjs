@@ -30,6 +30,7 @@ const shortcutsViewCss = read('src/views/ShortcutsView.css')
 const strategiesViewCss = read('src/views/StrategiesView.css')
 const buttonCss = read('src/components/ui/Button.css')
 const displayMenuCss = read('src/components/DisplayMenu.css')
+const selectCss = read('src/components/ui/Select.css')
 const profileSettingsCss = read('src/views/settings/ProfileSettingsPanel.css')
 const sidebarStyles = read('src/components/Sidebar.css')
 const sidebarComponent = read('src/components/Sidebar.tsx')
@@ -37,6 +38,19 @@ const sidebarWorkspaceStyles = read('src/components/sidebar/SidebarWorkspace.css
 const tradeListStyles = read('src/components/trades/TradeList.css')
 const tradeListComponent = read('src/components/trades/TradeList.tsx')
 const tradesPageModule = read('src/views/TradesPage.tsx')
+const appFrameStyles = read('src/components/ui/AppFrame.css')
+const listViewStyles = read('src/views/ListView.css')
+const boardViewStyles = read('src/views/BoardView.css')
+const settingsSurfaceStyles = read('src/views/settings/SettingsLayout.css')
+const riskManagementStyles = read('src/views/settings/RiskManagementSettingsPanel.css')
+const tradeDetailLayoutStyles = read('src/components/trades/TradeDetailLayout.css')
+const quickNotesStyles = read('src/views/QuickNotesView.css')
+const detailStyles = read('src/views/DetailView.css')
+const reviewSessionStyles = read('src/views/ReviewSessionView.css')
+const trashStyles = read('src/views/TrashView.css')
+const weeklyReviewStyles = read('src/views/WeeklyReviewView.css')
+const themeLuminanceContract = read('scripts/theme-luminance-contract.mjs')
+const packageManifest = JSON.parse(read('package.json'))
 const app = read('src/App.tsx')
 const tradesPageStart = app.indexOf('function TradesPage(')
 const strategyPageMatchers = [
@@ -75,6 +89,59 @@ const sharedUiRawColorFiles = collectFiles('src/components/ui', /\.css$/).filter
 )
 
 const checks = [
+  [
+    'theme luminance evidence command and canonical contracts are registered',
+    packageManifest.scripts?.['qa:theme-luminance'] === 'node scripts/qa-theme-luminance.mjs' &&
+      ['THEME_LUMINANCE_PAGES', 'THEME_SURFACE_PROBES', 'THEME_TEXT_PROBES', 'THEME_STATE_CONTRACTS']
+        .every((name) => themeLuminanceContract.includes(`export const ${name}`)) &&
+      ['--surface-app', '--surface-pane', '--surface-elevated', '--text-content-strong', '--text-content-metadata', '--text-content-context', '--text-content-faint']
+        .every((token) => tokens.includes(`${token}:`)),
+  ],
+  [
+    'desktop workspaces consume the canonical surface hierarchy',
+    appFrameStyles.includes('background: var(--surface-app)') &&
+      appFrameStyles.includes('background: var(--surface-pane)') &&
+      listViewStyles.includes('background: var(--surface-pane)') &&
+      /\.board-scroll\s*\{[^}]*background:\s*var\(--surface-pane\);/s.test(boardViewStyles) &&
+      /\.bd-card\s*\{[^}]*background:\s*var\(--surface-elevated\);/s.test(boardViewStyles) &&
+      /\.settings-panel\s*\{[^}]*background:\s*var\(--surface-pane\);/s.test(settingsSurfaceStyles),
+  ],
+  [
+    'long-lived desktop splits consume the structural divider role',
+    /\.bd-col\s*\{[^}]*border-left:\s*1px solid var\(--border-divider\);/s.test(boardViewStyles) &&
+      /\.settings-nav\s*\{[^}]*border-right:\s*1px solid var\(--border-divider\);/s.test(settingsLayoutStyles) &&
+      /\.trade-detail-layout \.dv-props\s*\{[^}]*border-left:\s*1px solid var\(--border-divider\);/s.test(tradeDetailLayoutStyles) &&
+      /\.quick-notes-list-pane\s*\{[^}]*border-right:\s*1px solid var\(--border-divider\);/s.test(quickNotesStyles),
+  ],
+  [
+    'core page surfaces do not maintain private neutral brightness curves',
+    /\.trade-detail-layout \.dv-props\s*\{[^}]*background:\s*var\(--surface-pane\);/s.test(tradeDetailLayoutStyles) &&
+      /\.dv-props\s*\{[^}]*background:\s*var\(--surface-pane\);/s.test(detailStyles) &&
+      /\.dv-note-load\.is-loading\s*\{[^}]*background:\s*var\(--surface-floating\);/s.test(detailStyles) &&
+      /\.quick-notes-list-pane\s*\{[^}]*background:\s*var\(--surface-pane\);/s.test(quickNotesStyles) &&
+      /\.review-session-topbar\s*\{[^}]*background:\s*var\(--surface-pane\);/s.test(reviewSessionStyles) &&
+      /\.review-session-stage-option\s*\{[^}]*background:\s*var\(--surface-elevated\);/s.test(reviewSessionStyles) &&
+      /\.review-session-assessment\s*\{[^}]*background:\s*var\(--surface-elevated\);/s.test(reviewSessionStyles) &&
+      /\.trash-item\s*\{[^}]*border-bottom:\s*1px solid var\(--border-subtle\);/s.test(trashStyles) &&
+      /\.wr-history\s*\{[^}]*background:\s*var\(--surface-pane\);/s.test(weeklyReviewStyles),
+  ],
+  [
+    'cards and floating controls keep carrier-specific interaction states',
+    ['--surface-card-hover:', '--surface-menu-hover:', '--surface-menu-pressed:', '--surface-menu-selected:']
+      .every((token) => tokens.includes(token)) &&
+      /\.bd-card:hover\s*\{[^}]*background:\s*var\(--surface-card-hover\);/s.test(boardViewStyles) &&
+      /\.menu-item:hover\s*\{[^}]*background:\s*var\(--surface-menu-hover\);/s.test(menuStyles) &&
+      /\.menu-item:active:not\(:disabled\)\s*\{[^}]*background:\s*var\(--surface-menu-pressed\);/s.test(menuStyles) &&
+      /\.display-toggle:hover\s*\{[^}]*background:\s*var\(--surface-menu-hover\);/s.test(displayMenuCss) &&
+      /\.display-item:hover\s*\{[^}]*background:\s*var\(--surface-menu-hover\);/s.test(displayMenuCss) &&
+      /\.ui-select-option\.is-active\s*\{[^}]*background:\s*var\(--surface-menu-hover\);/s.test(selectCss) &&
+      /\.ui-select-option:active:not\(:disabled\)\s*\{[^}]*background:\s*var\(--surface-menu-pressed\);/s.test(selectCss) &&
+      /\.ui-select-option\[aria-selected='true'\]\s*\{[^}]*background:\s*var\(--surface-menu-selected\);/s.test(selectCss),
+  ],
+  [
+    'disabled risk scope is visually quieter than selection',
+    /\.risk-indicator-options button:disabled\s*\{[^}]*color:\s*var\(--text-disabled\);[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/s.test(riskManagementStyles),
+  ],
   ['sidebar width', tokens.includes('--sidebar-width: 244px')],
   [
     'sidebar navigation keeps the measured hierarchy',
@@ -240,9 +307,19 @@ const checks = [
   ],
   [
     'trade group counts keep canonical numeric metrics',
-    /\.trade-list-group-count\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--font-weight-normal\);[^}]*font-feature-settings:\s*normal;[^}]*font-variant-numeric:\s*var\(--numeric-tabular\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(
+    /\.trade-list-group-count\s*\{[^}]*color:\s*var\(--text-content-metadata\);[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--font-weight-normal\);[^}]*font-feature-settings:\s*normal;[^}]*font-variant-numeric:\s*var\(--numeric-tabular\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(
       tradeListStyles,
     ),
+  ],
+  [
+    'scan metadata consumes the canonical metadata text role',
+    /\.trade-row-timeframe\s*\{[^}]*color:\s*var\(--text-content-metadata\);/s.test(tradeListStyles) &&
+      /\.bd-col-count\s*\{[^}]*color:\s*var\(--text-content-metadata\);/s.test(boardViewStyles) &&
+      /\.bd-card-ref\s*\{[^}]*color:\s*var\(--text-content-metadata\);/s.test(boardViewStyles),
+  ],
+  [
+    'risk scope choices remain readable body text before selection',
+    /\.risk-indicator-options button\s*\{[^}]*color:\s*var\(--text-secondary\);/s.test(riskManagementStyles),
   ],
   [
     'virtual trade rows preserve native text rasterization',

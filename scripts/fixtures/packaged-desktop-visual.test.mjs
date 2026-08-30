@@ -1080,11 +1080,7 @@ test('macOS packaged workflow uploads both scale-200 artifacts and fails closed 
   )
   assert.match(
     macUpload,
-    /^\s{10}path:\s*test-results\/desktop-visual-packaged\/darwin-\$\{\{ matrix\.arch \}\}-scale-200\/\s*$/m,
-  )
-  assert.doesNotMatch(
-    macUpload,
-    /^\s{10}path:\s*test-results\/desktop-visual-packaged\/darwin-\$\{\{ matrix\.arch \}\}\/\s*$/m,
+    /^\s{10}path:\s*test-results\/desktop-visual-evidence\/candidate\/\$\{\{ github\.sha \}\}\/attempt-\$\{\{ github\.run_attempt \}\}\/\s*$/m,
   )
   assert.match(macUpload, /^\s{10}if-no-files-found:\s*error\s*$/m)
 
@@ -1093,9 +1089,16 @@ test('macOS packaged workflow uploads both scale-200 artifacts and fails closed 
   )?.[0] ?? ''
   assert.match(
     windowsUpload,
-    /^\s{10}path:\s*test-results\/desktop-visual-packaged\/win32-x64-scale-\*\/\s*$/m,
+    /^\s{10}path:\s*test-results\/desktop-visual-evidence\/candidate\/\$\{\{ github\.sha \}\}\/attempt-\$\{\{ github\.run_attempt \}\}\/\s*$/m,
   )
-  assert.match(windowsUpload, /^\s{10}if-no-files-found:\s*warn\s*$/m)
+  assert.match(windowsUpload, /^\s{10}if-no-files-found:\s*error\s*$/m)
+})
+
+test('desktop visual workflow stores packaged matrices and theme states under one commit-addressed attempt', () => {
+  const workflow = readFileSync('.github/workflows/desktop-visual-evidence.yml', 'utf8')
+  assert.match(workflow, /ATLAS_PACKAGED_VISUAL_OUTPUT:\s*test-results\/desktop-visual-evidence\/candidate\/\$\{\{ github\.sha \}\}\/attempt-\$\{\{ github\.run_attempt \}\}\/packaged\/win32-x64-scale-100/)
+  assert.match(workflow, /qa:theme-luminance -- --capture-states --runtime packaged/)
+  assert.match(workflow, /states\/darwin-\$\{\{ matrix\.arch \}\}-scale-200/)
 })
 
 test('forced-kill workflow uploads the actual macOS scale-200 packaged report fail closed', () => {

@@ -84,7 +84,7 @@
 
 .review-template-list {
   padding: var(--sp-2);
-  background: color-mix(in srgb, var(--bg-elevated) 54%, transparent);
+  background: var(--surface-inset);
   border-right: 1px solid var(--border-subtle);
 }
 

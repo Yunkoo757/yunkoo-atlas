@@ -13,8 +13,11 @@ on:
       - 'scripts/desktop-visual-scenarios.mjs'
       - 'scripts/packaged-desktop-visual-contract.mjs'
       - 'scripts/qa-desktop-visual.mjs'
+      - 'scripts/qa-theme-luminance.mjs'
+      - 'scripts/theme-luminance-contract.mjs'
       - 'scripts/qa-packaged-desktop-visual.mjs'
       - 'scripts/fixtures/desktop-visual-*'
+      - 'scripts/fixtures/theme-luminance-*'
       - 'scripts/fixtures/packaged-desktop-visual.test.mjs'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -83,17 +86,26 @@ jobs:
       - name: Run Windows packaged evidence at 100%
         env:
           ATLAS_PACKAGED_SCALE_FACTOR: '1'
-        run: pnpm qa:desktop-visual:packaged
+          ATLAS_PACKAGED_VISUAL_OUTPUT: test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/packaged/win32-x64-scale-100
+        run: |
+          pnpm qa:desktop-visual:packaged
+          pnpm qa:theme-luminance -- --capture-states --runtime packaged --output-root "test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/states/win32-x64-scale-100"
 
       - name: Run Windows packaged evidence at 125%
         env:
           ATLAS_PACKAGED_SCALE_FACTOR: '1.25'
-        run: pnpm qa:desktop-visual:packaged
+          ATLAS_PACKAGED_VISUAL_OUTPUT: test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/packaged/win32-x64-scale-125
+        run: |
+          pnpm qa:desktop-visual:packaged
+          pnpm qa:theme-luminance -- --capture-states --runtime packaged --output-root "test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/states/win32-x64-scale-125"
 
       - name: Run Windows packaged evidence at 150%
         env:
           ATLAS_PACKAGED_SCALE_FACTOR: '1.5'
-        run: pnpm qa:desktop-visual:packaged
+          ATLAS_PACKAGED_VISUAL_OUTPUT: test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/packaged/win32-x64-scale-150
+        run: |
+          pnpm qa:desktop-visual:packaged
+          pnpm qa:theme-luminance -- --capture-states --runtime packaged --output-root "test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/states/win32-x64-scale-150"
 
       - name: Uninstall exact Windows visual payload
         if: always()
@@ -114,8 +126,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: desktop-visual-Windows-x64-scales-attempt-${{ github.run_attempt }}
-          path: test-results/desktop-visual-packaged/win32-x64-scale-*/
-          if-no-files-found: warn
+          path: test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/
+          if-no-files-found: error
           retention-days: 30
 
   macos-packaged-visual:
@@ -182,7 +194,11 @@ jobs:
       - name: Run packaged visual and lifecycle evidence
         env:
           ATLAS_PACKAGED_SCALE_FACTOR: '2'
-        run: pnpm qa:desktop-visual:packaged
+          ATLAS_PACKAGED_VISUAL_OUTPUT: test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/packaged/darwin-${{ matrix.arch }}-scale-200
+        run: |
+          pnpm qa:desktop-visual:packaged
+          pnpm qa:theme-luminance -- --capture-states --runtime packaged \
+            --output-root "test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/states/darwin-${{ matrix.arch }}-scale-200"
 
       - name: Remove extracted macOS visual payload
         if: always()
@@ -193,6 +209,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: desktop-visual-macOS-${{ matrix.arch }}-attempt-${{ github.run_attempt }}
-          path: test-results/desktop-visual-packaged/darwin-${{ matrix.arch }}-scale-200/
+          path: test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/
           if-no-files-found: error
           retention-days: 30

@@ -6,12 +6,13 @@ export async function testBoardUsesOneSurfaceHierarchySharedWithTheList(): Promi
   const columnRule = css.match(/(?:^|\n)\.bd-col\s*\{([^}]*)\}/s)?.[1] ?? ''
 
   assert.match(css, /\.board-scroll\s*\{[^}]*gap:\s*0;/s)
-  assert.match(css, /\.board-scroll\s*\{[^}]*background:\s*var\(--bg-app\);/s)
-  assert.match(css, /\.bd-col\s*\{[^}]*border-left:\s*1px solid var\(--border-subtle\);/s)
+  assert.match(css, /\.board-scroll\s*\{[^}]*background:\s*var\(--surface-pane\);/s)
+  assert.match(css, /\.bd-col\s*\{[^}]*border-left:\s*1px solid var\(--border-divider\);/s)
   assert.match(css, /\.bd-col\s*\{[^}]*background:\s*transparent;/s)
   assert.doesNotMatch(columnRule, /border-radius:/)
-  assert.match(css, /\.bd-card\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--bg-surface\) 92%, var\(--bg-elevated\)\);/s)
+  assert.match(css, /\.bd-card\s*\{[^}]*background:\s*var\(--surface-elevated\);/s)
   assert.match(css, /\.bd-card\s*\{[^}]*border-radius:\s*var\(--radius-6\);/s)
+  assert.match(css, /\.bd-card:hover\s*\{[^}]*background:\s*var\(--surface-card-hover\);/s)
 }
 
 export async function testCaseBoardDoesNotForkASecondCardDesignLanguage(): Promise<void> {

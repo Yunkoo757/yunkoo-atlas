@@ -4,7 +4,7 @@
   min-height: 36px;
   padding: 6px 18px;
   border-bottom: 1px solid var(--border-subtle);
-  background: var(--bg-surface);
+  background: var(--surface-pane);
 }
 
 .list-pending-link {
@@ -24,7 +24,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  background: var(--bg-surface);
+  background: var(--surface-pane);
 }
 
 /* 批量操作条已抽到 components/ui/BatchActionBar.css */

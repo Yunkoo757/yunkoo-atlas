@@ -107,6 +107,9 @@ export function parseDesktopVisualCliArgs(args) {
   let runtime = 'renderer'
   let runtimeFlag = null
   let outputRoot = null
+  let scratchOutputRoot = null
+  let scenarioIds = null
+  let viewportIds = null
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index]
@@ -124,10 +127,67 @@ export function parseDesktopVisualCliArgs(args) {
       index += 1
       continue
     }
+    if (argument === '--scratch-output-root') {
+      if (scratchOutputRoot !== null) throw new Error('--scratch-output-root may only be specified once')
+      const value = args[index + 1]
+      if (!value || value.startsWith('--')) throw new Error('--scratch-output-root requires a path')
+      scratchOutputRoot = value
+      index += 1
+      continue
+    }
+    if (argument === '--scenarios') {
+      if (scenarioIds !== null) throw new Error('--scenarios may only be specified once')
+      const value = args[index + 1]
+      if (!value || value.startsWith('--')) throw new Error('--scenarios requires comma-separated ids')
+      scenarioIds = value.split(/[,\s]+/).map((item) => item.trim()).filter(Boolean)
+      if (scenarioIds.length === 0) throw new Error('--scenarios requires at least one id')
+      index += 1
+      continue
+    }
+    if (argument === '--viewports') {
+      if (viewportIds !== null) throw new Error('--viewports may only be specified once')
+      const value = args[index + 1]
+      if (!value || value.startsWith('--')) throw new Error('--viewports requires comma-separated WIDTHxHEIGHT values')
+      viewportIds = value.split(/[,\s]+/).map((item) => item.trim()).filter(Boolean)
+      if (viewportIds.length === 0) throw new Error('--viewports requires at least one value')
+      index += 1
+      continue
+    }
     throw new Error(`Unknown desktop visual argument: ${argument}`)
   }
 
-  return { runtime, outputRoot }
+  if (outputRoot !== null && scratchOutputRoot !== null) {
+    throw new Error('--output-root and --scratch-output-root are mutually exclusive')
+  }
+  return { runtime, outputRoot, scratchOutputRoot, scenarioIds, viewportIds }
+}
+
+export function resolveDesktopVisualSelection({ scenarioIds = null, viewportIds = null } = {}) {
+  const scenarios = scenarioIds === null
+    ? DESKTOP_VISUAL_SCENARIOS
+    : scenarioIds.map((id) => {
+        const scenario = DESKTOP_VISUAL_SCENARIOS.find((candidate) => candidate.id === id)
+        if (!scenario) throw new Error(`Unknown desktop visual scenario id: ${id}`)
+        return scenario
+      })
+  const viewports = viewportIds === null
+    ? DESKTOP_VISUAL_VIEWPORTS
+    : viewportIds.map((id) => {
+        const match = /^(\d+)x(\d+)$/.exec(id)
+        if (!match) throw new Error(`Invalid desktop visual viewport: ${id}`)
+        const viewport = { width: Number(match[1]), height: Number(match[2]) }
+        const supported = DESKTOP_VISUAL_VIEWPORTS.find((candidate) =>
+          candidate.width === viewport.width && candidate.height === viewport.height)
+        if (!supported) throw new Error(`Unsupported desktop visual viewport: ${id}`)
+        return supported
+      })
+  if (new Set(scenarios.map(({ id }) => id)).size !== scenarios.length) {
+    throw new Error('Desktop visual scenario selection contains duplicates')
+  }
+  if (new Set(viewports.map(({ width, height }) => `${width}x${height}`)).size !== viewports.length) {
+    throw new Error('Desktop visual viewport selection contains duplicates')
+  }
+  return { scenarios, viewports }
 }
 
 export function ensureRuntimeOutput(outputRoot, runtime, { preserveExisting = false } = {}) {
@@ -146,7 +206,7 @@ export function ensureRuntimeOutput(outputRoot, runtime, { preserveExisting = fa
   return { root, runtimeRoot, reportPath }
 }
 
-async function seedBrowserDatabase(page, seed) {
+export async function seedBrowserDatabase(page, seed) {
   await page.evaluate(async ({ payload, schemaVersion }) => {
     await new Promise((resolveDelete) => {
       const request = indexedDB.deleteDatabase('trader-atlas-v3')
@@ -183,7 +243,7 @@ async function seedBrowserDatabase(page, seed) {
   }, { payload: seed.snapshot, schemaVersion: seed.schemaVersion })
 }
 
-async function waitForVisualSettlement(page, readySelector) {
+export async function waitForVisualSettlement(page, readySelector) {
   await page.locator(readySelector).waitFor({ state: 'visible', timeout: 30_000 })
   await page.waitForFunction(() => document.documentElement.dataset.uiSettled === '1', null, {
     timeout: 30_000,
@@ -392,7 +452,7 @@ function bindDiagnostics(page) {
   return diagnostics
 }
 
-async function runRendererQa({ root, runtimeRoot, build, seed }) {
+async function runRendererQa({ root, runtimeRoot, build, seed, scenarios, viewports }) {
   const server = await createServer({
     root,
     configFile: resolve(root, 'vite.config.ts'),
@@ -412,7 +472,7 @@ async function runRendererQa({ root, runtimeRoot, build, seed }) {
     const baseUrl = server.resolvedUrls?.local?.[0]
     if (!baseUrl) throw new Error('Desktop visual Vite server did not expose a local URL')
     browser = await chromium.launch({ headless: true })
-    for (const viewport of DESKTOP_VISUAL_VIEWPORTS) {
+    for (const viewport of viewports) {
       const context = await browser.newContext({ viewport, deviceScaleFactor: 1 })
       const page = await context.newPage()
       const diagnostics = bindDiagnostics(page)
@@ -423,7 +483,7 @@ async function runRendererQa({ root, runtimeRoot, build, seed }) {
         })
         await seedBrowserDatabase(page, seed)
         let applicationStarted = false
-        for (const scenario of DESKTOP_VISUAL_SCENARIOS) {
+        for (const scenario of scenarios) {
           const screenshot = capturePath(runtimeRoot, viewport, scenario)
           const capture = await captureScenario({
             page,
@@ -465,7 +525,7 @@ async function runRendererQa({ root, runtimeRoot, build, seed }) {
     captures,
     typography,
     isolation: {
-      browserContexts: DESKTOP_VISUAL_VIEWPORTS.length,
+      browserContexts: viewports.length,
       database: 'trader-atlas-v3 inside ephemeral Playwright contexts',
       realLibraryAccessed: false,
     },
@@ -479,6 +539,8 @@ async function runElectronQa({
   snapshot,
   packageJson,
   buildExpectation,
+  scenarios,
+  viewports,
   writeReport,
 }) {
   for (const required of ['dist/index.html', 'dist-electron/main.js']) {
@@ -569,14 +631,14 @@ async function runElectronQa({
       return snapshot
     },
     captureEvidence: async () => {
-      for (const viewport of DESKTOP_VISUAL_VIEWPORTS) {
+      for (const viewport of viewports) {
         await application.evaluate(({ BrowserWindow }, size) => {
           const window = BrowserWindow.getAllWindows()[0]
           if (!window) throw new Error('Desktop visual Electron window is unavailable')
           if (window.isMaximized()) window.unmaximize()
           window.setSize(size.width, size.height)
         }, viewport)
-        for (const scenario of DESKTOP_VISUAL_SCENARIOS) {
+        for (const scenario of scenarios) {
           const screenshot = capturePath(runtimeRoot, viewport, scenario)
           const capture = await captureScenario({
             page,
@@ -647,6 +709,8 @@ export async function runDesktopVisualQa({
   root = process.cwd(),
   outputRoot = DEFAULT_OUTPUT_ROOT,
   preserveExisting = false,
+  scenarios = DESKTOP_VISUAL_SCENARIOS,
+  viewports = DESKTOP_VISUAL_VIEWPORTS,
 } = {}) {
   if (runtime !== 'renderer' && runtime !== 'electron') {
     throw new Error(`Unsupported desktop visual runtime: ${runtime}`)
@@ -672,8 +736,10 @@ export async function runDesktopVisualQa({
       build: reportBuild,
       runtime,
       machine: { platform: platform(), release: release(), arch: arch(), node: process.version },
-      viewport: DESKTOP_VISUAL_VIEWPORTS,
-      scenario: DESKTOP_VISUAL_SCENARIOS,
+      profile: scenarios.length === DESKTOP_VISUAL_SCENARIOS.length &&
+        viewports.length === DESKTOP_VISUAL_VIEWPORTS.length ? 'full' : 'targeted',
+      viewport: viewports,
+      scenario: scenarios,
       screenshot: relative(resolvedRoot, output.runtimeRoot).replaceAll('\\', '/'),
       consoleErrors: result.captures.flatMap((capture) => capture.consoleErrors),
       pageErrors: result.captures.flatMap((capture) => capture.pageErrors),
@@ -692,7 +758,14 @@ export async function runDesktopVisualQa({
     return report
   }
   if (runtime === 'renderer') {
-    const result = await runRendererQa({ root: resolvedRoot, runtimeRoot: output.runtimeRoot, build, seed })
+    const result = await runRendererQa({
+      root: resolvedRoot,
+      runtimeRoot: output.runtimeRoot,
+      build,
+      seed,
+      scenarios,
+      viewports,
+    })
     return writeReport(result)
   }
   return runElectronQa({
@@ -702,23 +775,50 @@ export async function runDesktopVisualQa({
     snapshot: seed.snapshot,
     packageJson,
     buildExpectation,
+    scenarios,
+    viewports,
     writeReport,
   })
 }
 
+function hasExactReportCaptureMatrix(report) {
+  const expected = new Set(report.viewport.flatMap((viewport) =>
+    report.scenario.map((scenario) => `${viewport.width}x${viewport.height}:${scenario.id}`)))
+  const actual = report.captures.map(({ viewport, scenario }) =>
+    `${viewport.width}x${viewport.height}:${scenario.id}`)
+  return actual.length === expected.size &&
+    new Set(actual).size === actual.length &&
+    actual.every((key) => expected.has(key))
+}
+
 export function desktopVisualReportHasFailures(report) {
+  const typographyFailed = report.typography
+    ? report.typography.failureCount !== 0
+    : report.profile !== 'targeted'
   return report.consoleErrors.length > 0 ||
     report.pageErrors.length > 0 ||
     report.metrics.overflowCaptureCount > 0 ||
-    report.typography?.failureCount !== 0 ||
-    !hasExactDesktopVisualCaptureMatrix(report.captures)
+    typographyFailed ||
+    !(report.viewport && report.scenario
+      ? hasExactReportCaptureMatrix(report)
+      : hasExactDesktopVisualCaptureMatrix(report.captures))
 }
 
 async function main() {
-  const { runtime, outputRoot } = parseDesktopVisualCliArgs(process.argv.slice(2))
+  const {
+    runtime,
+    outputRoot,
+    scratchOutputRoot,
+    scenarioIds,
+    viewportIds,
+  } = parseDesktopVisualCliArgs(process.argv.slice(2))
+  const { scenarios, viewports } = resolveDesktopVisualSelection({ scenarioIds, viewportIds })
   const report = await runDesktopVisualQa({
     runtime,
+    scenarios,
+    viewports,
     ...(outputRoot === null ? {} : { outputRoot, preserveExisting: true }),
+    ...(scratchOutputRoot === null ? {} : { outputRoot: scratchOutputRoot, preserveExisting: false }),
   })
   process.stdout.write(`${JSON.stringify({
     runtime: report.runtime,

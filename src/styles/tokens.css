@@ -202,6 +202,7 @@
   /* 桌面四层表面：页面只消费语义层，不绑定原始色板。 */
   --surface-app: var(--bg-app);
   --surface-pane: var(--bg-surface);
+  --surface-elevated: var(--bg-elevated);
   --surface-inset: var(--bg-inset);
   --surface-floating: var(--popover-bg);
 
@@ -226,6 +227,11 @@
   --group-add-hover-bg: lch(13.456% 0.943 272);
   --surface-row-hover: var(--bg-hover);
   --surface-row-selected: lch(10.691% 0.493 272 / 1);
+  /* 独立对象与浮层分别从自己的承载面建立状态，不复用 Row 的绝对色。 */
+  --surface-card-hover: var(--bg-hover);
+  --surface-menu-hover: lch(13.1% 0.85 272 / 1);
+  --surface-menu-pressed: lch(15.1% 1 272 / 1);
+  --surface-menu-selected: color-mix(in srgb, var(--accent) 11%, var(--surface-menu-hover));
   --surface-control: var(--color-bg-secondary);
   --surface-control-hover: var(--bg-hover);
   --surface-control-active: lch(16.7% 1 272 / 1);
