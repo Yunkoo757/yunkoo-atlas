@@ -425,6 +425,10 @@
 .dv-document .editor [data-review-context] {
   color: var(--text-detail-body);
 }
+
+.dv-document .editor [data-review-context]::before {
+  color: var(--text-secondary);
+}
 /* D4：空白备注近乎隐身，hover / focus 才加重 */
 .dv-document .editor .ProseMirror p.is-editor-empty:first-child::before {
   opacity: 0.72;
