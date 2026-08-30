@@ -231,29 +231,14 @@
   white-space: nowrap;
 }
 
-.bd-category-badge-mastered {
-  color: var(--pos);
-  border-color: color-mix(in srgb, var(--pos) 20%, var(--border-subtle));
-  background: color-mix(in srgb, var(--pos) 5%, transparent);
-}
-
-.bd-category-badge-focus {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 24%, var(--border-subtle));
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
-}
-
-.bd-category-badge-mistake {
-  color: var(--neg);
-  border-color: color-mix(in srgb, var(--neg) 22%, var(--border-subtle));
-  background: color-mix(in srgb, var(--neg) 5%, transparent);
-}
-
+.bd-category-badge-mastered,
+.bd-category-badge-focus,
+.bd-category-badge-mistake,
 .bd-category-badge-ambiguous,
 .bd-category-badge-recheck {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 22%, var(--border-subtle));
-  background: color-mix(in srgb, var(--warn) 5%, transparent);
+  color: var(--text-content-metadata);
+  border-color: var(--border-subtle);
+  background: transparent;
 }
 
 .bd-case-tags {
