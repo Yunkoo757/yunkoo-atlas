@@ -23,10 +23,7 @@
   height: var(--toolbar-chip-height);
   color: var(--list-text-secondary);
   font-family: var(--font-ui);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--type-metadata-weight);
   font-feature-settings: normal;
-  line-height: var(--type-metadata-line-height);
   /* 描边必须画在盒子内侧：外扩 box-shadow 会被 overflow-x:auto 连带裁掉上下沿 */
   border: 1px solid transparent;
   border-radius: var(--radius-full);
@@ -49,6 +46,18 @@
   padding: 0 7px;
   margin-left: auto;
   justify-content: center;
+}
+
+.ui-filter-trigger {
+  font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
+}
+
+.ui-filter-chip {
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
+  line-height: var(--type-chip-line-height);
 }
 
 .ui-filter-count {

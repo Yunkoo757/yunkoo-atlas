@@ -60,17 +60,23 @@
   margin-right: var(--sp-2);
 }
 
-.stage-rollover-banner-chip,
-.stage-rollover-banner-clear {
-  padding: 2px var(--sp-2);
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--warn) 10%, var(--bg-surface));
+.stage-rollover-banner-note {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
   color: var(--warn);
   white-space: nowrap;
 }
 
-.stage-rollover-banner-clear {
-  background: color-mix(in srgb, var(--pos) 10%, var(--bg-surface));
+.stage-rollover-banner-note::before {
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  content: '';
+}
+
+.stage-rollover-banner-note.is-clear {
   color: var(--pos);
 }
 

@@ -231,7 +231,7 @@ async function run(): Promise<void> {
       () => document.querySelector('[role="dialog"] h2')?.textContent?.trim() === '重新生成当前轮次？',
       '活动轮次来源切换没有打开项目统一确认弹层',
     )
-    assert(document.body.textContent?.includes('本轮已评进度会被丢弃'), '确认弹层没有清楚说明丢弃进度后果')
+    assert(document.body.textContent?.includes('更换范围后将重新开始本轮复盘'), '确认弹层没有清楚说明重启本轮的后果')
     await waitFor(() => document.activeElement?.textContent?.trim() === '保留当前轮次', '确认弹层没有优先聚焦安全取消动作')
     const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
     window.dispatchEvent(escape)

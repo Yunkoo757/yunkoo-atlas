@@ -119,8 +119,10 @@
   border: 1px solid var(--surface-control-border);
   border-radius: var(--radius-full);
   background: var(--surface-control);
-  font-size: var(--fs-micro);
-  font-weight: var(--font-weight-medium);
+  font-family: var(--font-ui);
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
+  line-height: var(--type-chip-line-height);
   white-space: nowrap;
 }
 

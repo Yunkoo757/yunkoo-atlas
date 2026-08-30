@@ -103,7 +103,10 @@
   border-radius: var(--radius-6);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  font-size: var(--fs-sm);
+  font-family: var(--font-ui);
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
+  line-height: var(--type-chip-line-height);
   color: var(--text-secondary);
 }
 

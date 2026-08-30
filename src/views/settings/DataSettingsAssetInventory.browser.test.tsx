@@ -85,7 +85,8 @@ async function run(): Promise<void> {
   const root = createRoot(container)
   try {
     root.render(<MemoryRouter><DataSettingsPanel /></MemoryRouter>)
-    await waitFor(() => container.textContent?.includes('1 张 · 3 B') === true, 'QuickNote-only 附件未计入健康清单')
+    await waitFor(() => container.textContent?.includes('1 张图片 · 3 B') === true, 'QuickNote-only 附件未计入资料概况')
+    assert(!container.querySelector('[data-stage-ownership-health-entry]'), '没有待整理记录时不应常驻显示 0 项状态')
     const stageEntry = [...container.querySelectorAll<HTMLButtonElement>('button')]
       .find((button) => button.textContent?.trim() === '开启新实盘阶段')
     assert(stageEntry, '数据设置必须提供统一的开启新实盘阶段入口')
@@ -97,9 +98,9 @@ async function run(): Promise<void> {
     assert(closeStageManager, '阶段管理弹窗必须可关闭')
     closeStageManager.click()
     await waitFor(() => !document.querySelector('[data-live-stage-manager]'), '阶段管理弹窗关闭失败')
-    assert(container.textContent?.includes('1 张当前库孤立附件'), '孤立附件未展示')
-    assert(container.textContent?.includes('1 个未知或非法附件项'), 'foreign 未展示')
-    assert(container.textContent?.includes('1 个未完成临时附件'), 'temp 未展示')
+    assert(container.textContent?.includes('1 张未被引用'), '孤立附件未展示')
+    assert(container.textContent?.includes('1 个未知项'), 'foreign 未展示')
+    assert(container.textContent?.includes('1 个临时项'), 'temp 未展示')
 
     const previewButton = [...container.querySelectorAll('button')]
       .find((button) => button.textContent?.includes('清理孤立附件'))
@@ -173,8 +174,8 @@ async function run(): Promise<void> {
     await waitFor(() => !document.body.textContent?.includes('当前永久清理已关闭'), '关闭预览后弹窗未消失')
     storage.listAssetRecords = async () => { throw new Error('inventory unavailable') }
     const refresh = [...container.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('刷新检查'))
-    assert(refresh, '缺少刷新检查按钮')
+      .find((button) => button.textContent?.trim() === '刷新')
+    assert(refresh, '缺少刷新资料概况按钮')
     refresh.click()
     await waitFor(
       () => container.querySelector('[role="alert"]')?.textContent?.includes('暂时无法读取存储健康信息') === true,

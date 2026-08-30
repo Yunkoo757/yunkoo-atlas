@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download, RotateCcw, Shield } from '@/icons/appIcons'
+import { Download, RotateCcw } from '@/icons/appIcons'
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { ProgressIndicator } from '@/icons/ProgressIndicator'
-import { ICON_MD, ICON_SM } from '@/icons/iconSize'
+import { ICON_SM } from '@/icons/iconSize'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
 import type { AppUpdateState } from '@/lib/appUpdate'
 import { toast } from '@/lib/toast'
@@ -19,7 +19,7 @@ const FALLBACK_STATE: AppUpdateState = {
 
 function statusLabel(state: AppUpdateState): string {
   switch (state.phase) {
-    case 'idle': return '尚未检查更新'
+    case 'idle': return '等待自动检查'
     case 'checking': return '正在检查更新…'
     case 'available': return `发现新版本 ${state.availableVersion ?? ''}`.trim()
     case 'downloading': return `正在下载 ${state.progress ?? 0}%`
@@ -137,10 +137,6 @@ export function UpdatesSettingsPanel() {
         </div>
       </section>
 
-      <div className="update-security-note">
-        <Shield size={ICON_MD} />
-        <span>自动检查每 6 小时执行一次；无需配置 GitHub 令牌，不会在开发版或 Windows 便携版中下载更新。</span>
-      </div>
     </div>
   )
 }

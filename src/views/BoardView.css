@@ -226,15 +226,17 @@
   display: inline-flex;
   align-items: center;
   max-width: 118px;
-  height: 18px;
+  height: var(--chip-height-sm);
   padding: 0 5px;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-4);
   background: transparent;
   color: var(--text-tertiary);
-  font-size: var(--type-caption-size);
-  font-weight: var(--font-weight-medium);
+  font-family: var(--font-ui);
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
+  line-height: var(--type-chip-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

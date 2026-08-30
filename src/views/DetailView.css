@@ -42,16 +42,6 @@
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
-.dv-cycle-badge {
-  padding: 1px 5px;
-  color: var(--text-tertiary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-4);
-  background: var(--bg-inset);
-  font-size: var(--type-metadata-size);
-  line-height: 1.3;
-  white-space: nowrap;
-}
 .dv-crumb-sep {
   color: var(--text-tertiary);
 }
@@ -193,14 +183,16 @@
 .dv-review-state {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
+  min-height: var(--chip-height-md);
   padding: 0 var(--sp-2);
   border-radius: var(--radius-full);
   border: 1px solid var(--border-default);
   background: var(--bg-inset);
   color: var(--text-tertiary);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
+  font-family: var(--font-ui);
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
+  line-height: var(--type-chip-line-height);
 }
 .dv-summary {
   display: grid;
@@ -1126,21 +1118,6 @@
   text-align: left;
 }
 
-
-.dv-tags-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-1);
-  padding: 2px var(--sp-1);
-}
-.dv-tag {
-  font-size: var(--fs-micro);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-full);
-  padding: 2px 9px;
-  align-self: center;
-}
 
 .dv-props-foot {
   padding: 10px var(--sp-3);

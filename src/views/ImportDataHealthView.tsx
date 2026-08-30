@@ -88,7 +88,7 @@ export function ImportDataHealthView() {
     <>
       <Topbar
         title="导入数据健康"
-        subtitle="只处理经你确认的历史 Notion 日期污染"
+        subtitle="核对历史导入日期"
         showDisplay={false}
       />
       <main className="idh-view">
@@ -131,7 +131,7 @@ export function ImportDataHealthView() {
           {candidates.length === 0 ? (
             <EmptyState
               title="当前没有待核对记录"
-              hint="没有历史实盘记录会被自动修改。高置信记录具备“来源未提供平仓日”的明确元数据；其余记录不会自动选中。"
+              hint="暂无需要处理的记录"
               action={(
                 <Link className="ui-btn ui-btn-bordered" to="/live-history">
                   返回历史实盘
@@ -141,7 +141,7 @@ export function ImportDataHealthView() {
           ) : (
             <div className="idh-list" aria-label="历史 Notion 日期候选">
               <p className="idh-list-hint">
-                高置信记录具备“来源未提供平仓日”的明确元数据；其余记录不会自动选中。
+                已自动选中高置信记录，其余项目请按需核对。
               </p>
               {candidates.map((candidate) => (
                 <article data-health-candidate key={candidate.tradeId} className="idh-row">
@@ -195,7 +195,7 @@ export function ImportDataHealthView() {
       {confirming ? (
         <ModalShell
           title="确认清空平仓日？"
-          description={`将清空 ${selectedCount} 条历史实盘记录的平仓日；提交前会先进入现有备份与持久化边界。`}
+          description={`将清空 ${selectedCount} 条历史实盘记录的平仓日。`}
           busy={busy}
           dismissible={!busy}
           onClose={() => setConfirming(false)}
@@ -210,9 +210,7 @@ export function ImportDataHealthView() {
             </>
           )}
         >
-          <p>
-            清理只修改已选择记录的 <code>closedAt</code> 与冻结平仓业务日，并生成可撤销 patch。人工核对项由你本次勾选确认。
-          </p>
+          <p>完成后可撤销本次操作。</p>
         </ModalShell>
       ) : null}
     </>

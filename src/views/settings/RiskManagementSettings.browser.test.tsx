@@ -133,8 +133,8 @@ async function run(): Promise<void> {
     if (!(preparation.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING)) {
       throw new Error('本周风险规则必须显示在数据摘要之前')
     }
-    if (!summary.textContent?.includes('全局设置 0') || !summary.textContent?.includes('阻断判断 1') || !summary.textContent?.includes('影响完整度 1')) {
-      throw new Error('风险数据摘要没有显示三类独立计数')
+    if (!summary.textContent?.includes('待处理 2 项')) {
+      throw new Error('风险数据摘要没有显示精简后的待处理总数')
     }
     if (panel.textContent?.includes('亏损交易缺少盈亏金额')) {
       throw new Error('风险设置页不得继续渲染逐条问题原因')

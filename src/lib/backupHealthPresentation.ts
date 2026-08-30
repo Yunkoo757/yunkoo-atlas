@@ -11,26 +11,35 @@ export type BackupHealthPresentation = Readonly<{
   lastVerified?: BackupInfo
 }>
 
+export function automaticVerificationTarget(
+  state: BackupListState,
+  backups: readonly BackupInfo[],
+): BackupInfo | undefined {
+  if (state !== 'loaded') return undefined
+  const latest = [...backups].sort((left, right) => right.timestamp - left.timestamp)[0]
+  return latest && !latest.verification ? latest : undefined
+}
+
 export function presentBackupHealth(
   state: BackupListState,
   backups: readonly BackupInfo[],
 ): BackupHealthPresentation {
-  if (state === 'loading') return { tone: 'neutral', title: '正在读取备份', detail: '正在检查本地备份记录与验证状态。', action: 'none' }
-  if (state === 'error') return { tone: 'danger', title: '备份列表读取失败', detail: '当前不能判断备份是否可用，请重试读取。', action: 'retry-load' }
+  if (state === 'loading') return { tone: 'neutral', title: '正在读取备份', detail: '', action: 'none' }
+  if (state === 'error') return { tone: 'danger', title: '无法读取备份', detail: '请重试。', action: 'retry-load' }
   const ordered = [...backups].sort((left, right) => right.timestamp - left.timestamp)
   const latest = ordered[0]
-  if (!latest) return { tone: 'warning', title: '尚无可恢复备份', detail: '立即创建并验证第一份完整备份。', action: 'create' }
+  if (!latest) return { tone: 'neutral', title: '尚未备份', detail: '可创建一份完整备份。', action: 'create' }
   const lastVerified = ordered.find((item) => item.verification?.status === 'verified')
-  if (!latest.verification) return { tone: 'warning', title: '最新备份尚未验证', detail: '验证通过后才能用于恢复。', action: 'verify-latest', latest, lastVerified }
+  if (!latest.verification) return { tone: 'neutral', title: '最新备份 · 未验证', detail: '验证后可用于恢复。', action: 'verify-latest', latest, lastVerified }
   if (latest.verification.status === 'invalid') {
     return {
       tone: lastVerified ? 'warning' : 'danger',
-      title: '最新备份验证失败',
-      detail: lastVerified ? '仍有更早的已验证备份可回退；建议立即重新备份并验证。' : '当前没有已验证的回退备份，请立即重新备份并验证。',
+      title: '最新备份不可用',
+      detail: lastVerified ? '可使用更早的已验证备份。' : '请重新备份。',
       action: 'create',
       latest,
       lastVerified,
     }
   }
-  return { tone: 'positive', title: '最新备份已验证', detail: '需要恢复时可使用这份完整备份。', action: 'none', latest, lastVerified: latest }
+  return { tone: 'positive', title: '最新备份可用', detail: '', action: 'none', latest, lastVerified: latest }
 }

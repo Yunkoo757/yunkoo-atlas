@@ -1070,7 +1070,7 @@ async function run(): Promise<void> {
     ]
     const assertLiveRecomputedState = async (missingType: string, riskUnavailableReason: string) => {
       await waitFor(
-        () => document.body.textContent?.includes('历史快照缺失，指标与交易证据为实时重算；风险无法实时重算，当前不可用') ?? false,
+        () => document.body.textContent?.includes('部分历史指标不可用') ?? false,
         `缺少${missingType}时没有诚实说明各区域数据来源`,
       )
       const metricText = document.querySelector('.wr-metrics')?.textContent ?? ''
@@ -1087,7 +1087,7 @@ async function run(): Promise<void> {
 
     useStore.setState({ trades: liveRecomputedTrades, weeklyReviews: [completed] })
     await waitFor(
-      () => document.body.textContent?.includes('完成周复盘时的数据') ?? false,
+      () => document.body.textContent?.includes('已完成 ·') ?? false,
       '三类快照齐全的 completed 复盘未进入完成时数据展示态',
     )
     assert(document.querySelector('.wr-metrics')?.textContent?.includes('+$100'), '完整快照时指标必须来自完成时快照')

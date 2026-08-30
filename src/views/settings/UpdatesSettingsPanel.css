@@ -39,12 +39,15 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  min-height: 22px;
+  min-height: var(--chip-height-md);
   padding: 0 7px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-4);
   color: var(--text-tertiary);
-  font-size: var(--fs-micro);
+  font-family: var(--font-ui);
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
+  line-height: var(--type-chip-line-height);
   white-space: nowrap;
 }
 
@@ -99,18 +102,4 @@
   border-radius: inherit;
   background: var(--accent);
   transition: transform var(--dur-base) var(--ease-out);
-}
-
-.update-security-note {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-2);
-  color: var(--text-tertiary);
-  font-size: var(--fs-mini);
-  line-height: 1.5;
-}
-
-.update-security-note svg {
-  flex: 0 0 auto;
-  margin-top: 1px;
 }

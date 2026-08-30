@@ -22,6 +22,7 @@ const toolbarStyles = read('src/components/ui/Toolbar.css')
 const tagPresetStyles = read('src/views/settings/TagPresetsPanel.css')
 const settingsLayoutStyles = read('src/views/settings/SettingsLayout.css')
 const settingsDataPanel = read('src/views/settings/DataSettingsPanel.tsx')
+const dataIOContent = read('src/components/DataIOContent.tsx')
 const updatesPanelStyles = read('src/views/settings/UpdatesSettingsPanel.css')
 const dioContentStyles = read('src/components/DataIOContent.css')
 const symbolsPanelStyles = read('src/views/settings/SymbolsPanel.css')
@@ -151,6 +152,11 @@ const checks = [
       /\.sb-item\s*\{[^}]*height:\s*var\(--control-height\);[^}]*font-size:\s*var\(--type-nav-size\);[^}]*font-weight:\s*var\(--type-nav-weight\);[^}]*color:\s*var\(--sb-text\);[^}]*line-height:\s*var\(--type-nav-line-height\);/s.test(sidebarStyles) &&
       /\.sb-item\.is-active,[\s\S]*?font-weight:\s*var\(--type-nav-active-weight\);/s.test(sidebarStyles) &&
       /\.sb-section-label\s*\{[^}]*height:\s*24px;[^}]*font-size:\s*var\(--type-chip-size\);[^}]*font-weight:\s*var\(--type-chip-weight\);[^}]*letter-spacing:\s*0;/s.test(sidebarStyles),
+  ],
+  [
+    'persistent sidebar routes share one active icon semantic',
+    (sidebarComponent.match(/activeIconStyle\('var\(--nav-active-icon\)'\)/g) ?? []).length === 3 &&
+      !/activeIconStyle\('var\(--nav-icon-[^)]+\)'\)/.test(sidebarComponent),
   ],
   [
     'sidebar navigation uses the global keyboard focus frame',
@@ -292,9 +298,9 @@ const checks = [
   ],
   [
     'filters and actions use their canonical semantic typography roles',
-    /\.ui-filter-trigger,\s*\n\.ui-filter-chip\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--type-metadata-weight\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(
-      filterBarStyles,
-    ) &&
+    /\.ui-filter-trigger,\s*\n\.ui-filter-chip\s*\{[^}]*font-family:\s*var\(--font-ui\);/s.test(filterBarStyles) &&
+      /\.ui-filter-trigger\s*\{[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--type-metadata-weight\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(filterBarStyles) &&
+      /\.ui-filter-chip\s*\{[^}]*font-size:\s*var\(--type-chip-size\);[^}]*font-weight:\s*var\(--type-chip-weight\);[^}]*line-height:\s*var\(--type-chip-line-height\);/s.test(filterBarStyles) &&
       /\.quick-view-chip,\s*\n\.quick-view-overflow\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-row-size\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*line-height:\s*var\(--type-row-line-height\);/s.test(
         quickViewStyles,
       ) &&
@@ -367,6 +373,13 @@ const checks = [
   [
     'DataSettingsPanel has no inline style props',
     !settingsDataPanel.includes('style={{'),
+  ],
+  [
+    'data maintenance stays quiet until attention is required',
+    settingsDataPanel.includes('if (pendingCount === 0) return null') &&
+      settingsDataPanel.includes('最新备份尚未验证') === false &&
+      !dataIOContent.includes('className="dio-safety-note"') &&
+      dataIOContent.includes('className="dio-btn"\n              disabled={dataBusy}\n              onClick={electron ? onImportZip'),
   ],
   [
     'Symbols preset swatch uses fs-micro (not bare 10px)',

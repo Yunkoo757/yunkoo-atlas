@@ -69,7 +69,10 @@
 
 .rp-tag {
   padding: 1px 6px;
-  font-size: var(--type-metadata-size);
+  font-family: var(--font-ui);
+  font-size: var(--type-chip-size);
+  font-weight: var(--type-chip-weight);
+  line-height: var(--type-chip-line-height);
   border-radius: var(--radius-full);
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);

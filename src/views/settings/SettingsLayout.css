@@ -182,6 +182,5 @@
 .backup-health-status > div { display: grid; gap: 2px; }
 .backup-health-status strong { color: var(--text-primary); }
 .backup-health-status span, .backup-health-status small { color: var(--text-tertiary); }
-.backup-health-status.is-positive strong { color: var(--pos); }
 .backup-health-status.is-warning strong { color: var(--warn); }
 .backup-health-status.is-danger strong { color: var(--neg); }

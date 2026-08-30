@@ -6,7 +6,10 @@ import type {
   WeeklyRiskPreparation,
 } from '@/data/riskManagement'
 import type { WeeklyReview } from '@/data/weeklyReviews'
+import { isValidLiveCycleDayKey, openedTradingDayKey } from '@/lib/liveCycle'
 import { assertValidLiveStageState, type LiveStage } from '@/lib/liveStages'
+import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
+import { isExecutedClosed, isMissed } from '@/lib/tradeStatus'
 import { isCanonicalWeeklyReviewPeriod, stageContainsWeeklyReviewPeriod } from '@/lib/weeklyReviewPeriod'
 
 export type StageOwnershipEntityType =
@@ -28,6 +31,22 @@ export interface StageOwnershipRepairState {
   riskPolicyVersions: RiskPolicyVersion[]
   monthlyRiskLimits: MonthlyRiskLimit[]
   riskOverrideEvents: RiskOverrideEvent[]
+  display?: { tradingDayStartHour?: number }
+}
+
+export interface RecommendedStageBoundaryRepair {
+  entityType: 'weekly-review'
+  entityId: string
+  expectedFingerprint: string
+  targetStageId: string
+  targetStageName: string
+  previousStageId: string
+  previousStageName: string
+  previousStageEndBefore: string
+  previousStageEndAfter: string
+  targetStageStartBefore: string
+  targetStageStartAfter: string
+  affectedTradeIds: string[]
 }
 
 export interface PendingStageOwnershipContext {
@@ -94,6 +113,8 @@ export type StageOwnershipRepairErrorCode =
   | 'relationship-conflict'
   | 'dependency-pending'
   | 'invalid-weekly-period'
+  | 'weekly-period-crosses-stage-boundary'
+  | 'recommended-repair-unavailable'
   | 'rollback-conflict'
 
 export class StageOwnershipRepairError extends Error {
@@ -114,7 +135,7 @@ type StageOwnedEntity =
   | MonthlyRiskLimit
   | RiskOverrideEvent
 
-type StageOwnedSlice = Exclude<keyof StageOwnershipRepairState, 'liveStages' | 'currentLiveStageId'>
+type StageOwnedSlice = Exclude<keyof StageOwnershipRepairState, 'liveStages' | 'currentLiveStageId' | 'display'>
 
 interface LocatedEntity {
   entityType: StageOwnershipEntityType
@@ -138,6 +159,174 @@ export const STAGE_OWNERSHIP_ENTITY_LABELS: Record<StageOwnershipEntityType, str
 
 function fingerprint(entity: StageOwnedEntity, source?: PendingStageOwnershipSource): string {
   return JSON.stringify(source === undefined ? entity : { entity, source })
+}
+
+function previousDay(day: string): string {
+  const date = new Date(`${day}T00:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() - 1)
+  return date.toISOString().slice(0, 10)
+}
+
+function reliableTradeDay(
+  state: StageOwnershipRepairState,
+  trade: Exclude<Trade, { tradeKind: 'paper' }>,
+): string | null {
+  const startHour = state.display?.tradingDayStartHour ?? 6
+  if (trade.tradeKind === 'case') {
+    for (const value of [trade.recordedAt, trade.openedAt]) {
+      if (typeof value !== 'string') continue
+      const day = openedTradingDayKey({ openedAt: value }, startHour)
+      if (day !== null) return day
+    }
+    return null
+  }
+  if (!isExecutedClosed(trade.status) && !isMissed(trade.status)) {
+    return openedTradingDayKey(trade, startHour)
+  }
+  if (trade.closedTradingDayKey !== undefined) {
+    return isValidLiveCycleDayKey(trade.closedTradingDayKey) ? trade.closedTradingDayKey : null
+  }
+  const day = closedTradingDayKeyFromClosedAt(trade.closedAt, startHour)
+  return day !== null && isValidLiveCycleDayKey(day) ? day : null
+}
+
+function affectedTradesForBoundaryShift(
+  state: StageOwnershipRepairState,
+  previousStageId: string,
+  targetStageId: string,
+  startsOn: string,
+  previousTargetStart: string,
+): string[] {
+  const affected = new Set<string>()
+  const candidates = state.trades.filter((trade): trade is Exclude<Trade, { tradeKind: 'paper' }> => (
+    trade.tradeKind !== 'paper' &&
+    trade.liveStageId === previousStageId &&
+    reliableTradeDay(state, trade) !== null &&
+    reliableTradeDay(state, trade)! >= startsOn &&
+    reliableTradeDay(state, trade)! < previousTargetStart
+  ))
+
+  for (const trade of candidates) {
+    if (trade.tradeKind !== 'case' || !trade.sourceTradeId) affected.add(trade.id)
+  }
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const trade of candidates) {
+      if (trade.tradeKind !== 'case' || !trade.sourceTradeId || affected.has(trade.id)) continue
+      const source = state.trades.find((candidate) => candidate.id === trade.sourceTradeId)
+      if (
+        source?.tradeKind !== 'paper' &&
+        (source?.liveStageId === targetStageId || affected.has(source?.id ?? ''))
+      ) {
+        affected.add(trade.id)
+        changed = true
+      }
+    }
+  }
+  return [...affected]
+}
+
+/**
+ * 为“完整周被旧迁移边界切开”的周复盘生成唯一、可解释的推荐修复。
+ * 只移动边界夹缝内且没有历史来源约束的记录，不根据模糊文本或 ID 猜测。
+ */
+export function recommendStageBoundaryRepair(
+  state: StageOwnershipRepairState,
+  entityId: string,
+): RecommendedStageBoundaryRepair | null {
+  const review = state.weeklyReviews.find((candidate) => candidate.id === entityId)
+  if (
+    !review ||
+    review.liveStageId !== null ||
+    !isCanonicalWeeklyReviewPeriod(review.weekStart, review.weekEnd)
+  ) return null
+
+  const chronological = [...state.liveStages].sort((left, right) => left.sequence - right.sequence)
+  const targetIndex = chronological.findIndex((stage) => (
+    stage.startsOn > review.weekStart && stage.startsOn <= review.weekEnd
+  ))
+  if (targetIndex <= 0) return null
+  const target = chronological[targetIndex]!
+  const previous = chronological[targetIndex - 1]!
+  if (
+    previous.endsOn !== previousDay(target.startsOn) ||
+    review.weekStart <= previous.startsOn ||
+    chronological.some((stage, index) => (
+      index !== targetIndex && index !== targetIndex - 1 &&
+      stage.startsOn >= review.weekStart && stage.startsOn <= review.weekEnd
+    ))
+  ) return null
+
+  return {
+    entityType: 'weekly-review',
+    entityId: review.id,
+    expectedFingerprint: fingerprint(review),
+    targetStageId: target.id,
+    targetStageName: target.name,
+    previousStageId: previous.id,
+    previousStageName: previous.name,
+    previousStageEndBefore: previous.endsOn,
+    previousStageEndAfter: previousDay(review.weekStart),
+    targetStageStartBefore: target.startsOn,
+    targetStageStartAfter: review.weekStart,
+    affectedTradeIds: affectedTradesForBoundaryShift(
+      state,
+      previous.id,
+      target.id,
+      review.weekStart,
+      target.startsOn,
+    ),
+  }
+}
+
+export function applyRecommendedStageBoundaryRepair<T extends StageOwnershipRepairState>(
+  state: T,
+  recommendation: RecommendedStageBoundaryRepair,
+): T {
+  const latest = recommendStageBoundaryRepair(state, recommendation.entityId)
+  if (!latest || JSON.stringify(latest) !== JSON.stringify(recommendation)) {
+    throw new StageOwnershipRepairError(
+      'recommended-repair-unavailable',
+      '推荐设置所依据的阶段或记录已经变化，请刷新后重新核对',
+    )
+  }
+  const affectedTradeIds = new Set(recommendation.affectedTradeIds)
+  const boundaryState = {
+    ...state,
+    liveStages: state.liveStages.map((stage) => {
+      if (stage.id === recommendation.previousStageId) {
+        return { ...stage, endsOn: recommendation.previousStageEndAfter }
+      }
+      if (stage.id === recommendation.targetStageId) {
+        return { ...stage, startsOn: recommendation.targetStageStartAfter }
+      }
+      return stage
+    }),
+    trades: state.trades.map((trade) => (
+      affectedTradeIds.has(trade.id) && trade.tradeKind !== 'paper'
+        ? { ...trade, liveStageId: recommendation.targetStageId }
+        : trade
+    )),
+  }
+  assertValidLiveStageState({
+    liveStages: boundaryState.liveStages,
+    currentLiveStageId: boundaryState.currentLiveStageId,
+  })
+  const assigned = assignPendingStageOwnership(boundaryState, {
+    entityType: 'weekly-review',
+    entityId: recommendation.entityId,
+    liveStageId: recommendation.targetStageId,
+    expectedFingerprint: recommendation.expectedFingerprint,
+  }) as T
+  return {
+    ...assigned,
+    weeklyReviews: assigned.weeklyReviews.map((review) => {
+      if (review.id !== recommendation.entityId) return review
+      const { legacyStageBoundaryOverlap: _legacyStageBoundaryOverlap, ...normalized } = review
+      return normalized
+    }),
+  }
 }
 
 function tradeEntityType(trade: Trade): StageOwnershipEntityType | null {
@@ -428,17 +617,19 @@ function weeklyReviewPeriodForAssignment(
     weekEnd: review.weekEnd,
   }
   const target = state.liveStages.find((stage) => stage.id === request.liveStageId)
-  if (
-    !target ||
-    !isCanonicalWeeklyReviewPeriod(period.weekStart, period.weekEnd) ||
-    (
-      review.legacyStageBoundaryOverlap !== true &&
-      !stageContainsWeeklyReviewPeriod(target, period.weekStart, period.weekEnd)
-    )
-  ) {
+  if (!target || !isCanonicalWeeklyReviewPeriod(period.weekStart, period.weekEnd)) {
     throw new StageOwnershipRepairError(
       'invalid-weekly-period',
-      '修正后的周区间必须是目标阶段内完整的周一至周日',
+      '修正后的周区间必须是完整的周一至周日',
+    )
+  }
+  if (
+    review.legacyStageBoundaryOverlap !== true &&
+    !stageContainsWeeklyReviewPeriod(target, period.weekStart, period.weekEnd)
+  ) {
+    throw new StageOwnershipRepairError(
+      'weekly-period-crosses-stage-boundary',
+      '该周是完整周，但跨越目标阶段边界',
     )
   }
   return period

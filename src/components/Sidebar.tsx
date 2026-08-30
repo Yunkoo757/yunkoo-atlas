@@ -582,7 +582,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         <NavLink
           to="/notes"
           data-primary-id="quickNotes"
-          style={activeIconStyle('var(--nav-icon-notes)')}
+          style={activeIconStyle('var(--nav-active-icon)')}
           className={({ isActive }) => `sb-item${isActive ? ' is-active is-page-active' : ''}`}
         >
           <Bookmark size={ICON_MD} />

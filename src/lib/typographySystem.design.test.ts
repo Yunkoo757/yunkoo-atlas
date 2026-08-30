@@ -893,8 +893,48 @@ export async function testBusinessNumericSurfacesUseUiTabularTypography(): Promi
   ])
   assertRoleDeclarations(cssRule(riskRepair, '.risk-repair-row-title small'), '.risk-repair-row-title small', [
     ['font-family', 'var(--font-ui)'],
-    ['font-size', 'var(--fs-micro)'],
+    ['font-size', 'var(--type-chip-size)'],
+    ['font-weight', 'var(--type-chip-weight)'],
+    ['line-height', 'var(--type-chip-line-height)'],
   ])
+}
+
+export async function testSemanticChipsUseCanonicalTypographyRole(): Promise<void> {
+  const targets: Array<readonly [string, string]> = [
+    ['src/components/ui/Chip.css', '.ui-chip'],
+    ['src/components/ui/FilterBar.css', '.ui-filter-chip'],
+    ['src/components/TagEditor.css', '.tag-preset-label'],
+    ['src/components/TagEditor.css', '.tag-chip'],
+    ['src/components/TagEditor.css', '.tag-add-btn'],
+    ['src/views/settings/TagPresetsPanel.css', '.settings-tag-chip'],
+    ['src/views/BoardView.css', '.bd-category-badge,\n.bd-case-tag'],
+    ['src/components/RowPreviews.css', '.rp-tag'],
+    ['src/components/NotionImportModal.css', '.nim-format-pill'],
+    ['src/components/NotionImportModal.css', '.nim-tag'],
+    ['src/views/DetailView.css', '.dv-review-state'],
+    ['src/views/WeeklyReviewView.css', '.wr-result-choice button,.wr-tag-group button,.wr-trade-roles button'],
+    ['src/views/ImportDataHealthView.css', '.idh-select span'],
+    ['src/views/settings/UpdatesSettingsPanel.css', '.update-status'],
+    ['src/views/StageOwnershipRepairView.css', '.stage-ownership-heading > span'],
+    ['src/views/settings/RiskDataRepairView.css', '.risk-repair-row-title small'],
+    ['src/components/sidebar/SidebarWorkspace.css', '.sb-target-row-state'],
+  ]
+  const sources = Object.fromEntries(await Promise.all(
+    [...new Set(targets.map(([path]) => path))].map(async (path) => [path, await fs.readFile(path, 'utf8')] as const),
+  ))
+
+  for (const [path, selector] of targets) {
+    assertRoleDeclarations(cssRule(sources[path], selector), selector, [
+      ['font-size', 'var(--type-chip-size)'],
+      ['font-weight', 'var(--type-chip-weight)'],
+      ['line-height', 'var(--type-chip-line-height)'],
+    ])
+  }
+
+  assert(
+    !cssRule(sources['src/components/ui/Chip.css'], '.ui-chip-sm').includes('font-size:'),
+    'Chip 尺寸变体不得覆盖语义化 Chip 字号',
+  )
 }
 
 export async function testNarrativeAndOverlayTypographyUsesApprovedTrackingAndEditorInheritance(): Promise<void> {

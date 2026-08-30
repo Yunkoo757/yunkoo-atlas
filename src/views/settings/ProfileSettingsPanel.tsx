@@ -131,7 +131,7 @@ export function ProfileSettingsPanel() {
           {hasCustom && (
             <button
               type="button"
-              className="dio-btn dio-btn-warn"
+              className="dio-btn"
               onClick={() => setCustomAvatar(null)}
             >
               <X size={ICON_SM} />

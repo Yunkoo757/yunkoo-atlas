@@ -91,7 +91,7 @@ function RepairGroup({ group, expanded, onOpen }: {
         onClick={() => onOpen(group.key)}
       >
         <span>{description}</span>
-        <small>{`${group.items.length} 项${group.retained ? ' · 历史风险规则不可回填' : ''}`}</small>
+        <small>{group.items.length} 项</small>
       </button>
       {expanded ? (
         <div className="risk-repair-group-items">
@@ -131,8 +131,7 @@ export function RiskDataRepairView() {
   const queue = useMemo(() => buildRiskDataRepairQueue(issues), [issues])
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedGroup = searchParams.get('group')
-  const defaultGroup = queue.groups.find((group) => !group.retained) ?? queue.groups[0] ?? null
-  const activeGroup = queue.groups.find((group) => group.key === requestedGroup) ?? defaultGroup
+  const activeGroup = queue.groups.find((group) => group.key === requestedGroup) ?? null
   useTradeReturnAnchor({
     resolveRestoreSearch: (tradeId, restoreSearch) => {
       const currentGroup = queue.groups.find((group) => (
@@ -152,7 +151,8 @@ export function RiskDataRepairView() {
 
   function openGroup(key: string) {
     const next = new URLSearchParams(searchParams)
-    next.set('group', key)
+    if (activeGroup?.key === key) next.delete('group')
+    else next.set('group', key)
     setSearchParams(next, { replace: true })
   }
 
@@ -164,12 +164,10 @@ export function RiskDataRepairView() {
       <div className="settings-page-head risk-repair-hero">
         <div>
           <Link className="risk-repair-back" to="/settings/risk">返回风险管理</Link>
-          <h1 className="settings-page-title" tabIndex={-1}>风险数据修复中心</h1>
-          <p className="settings-page-desc">集中处理影响风险判断与完整度的数据缺口；历史规则缺口会持续如实反映。</p>
+          <h1 className="settings-page-title" tabIndex={-1}>风险数据修复</h1>
+          <p className="settings-page-desc">补全影响风险判断的数据。</p>
           <div className="risk-repair-counts" data-risk-repair-counts aria-label="风险数据缺口摘要">
-            <span>问题总数 {queue.counts.total}</span>
-            <span>阻断判断 {queue.counts.blocking}</span>
-            <span>影响完整度 {queue.counts.partial}</span>
+            <span>待处理 {queue.counts.total} 项</span>
           </div>
         </div>
         {queue.nextItem ? (
@@ -184,7 +182,7 @@ export function RiskDataRepairView() {
 
       {queue.retainedOnly ? (
         <p className="risk-repair-retained-conclusion" role="status">
-          没有可直接修复的问题，仍有历史规则缺口影响完整度
+          仅剩无法回填的历史缺口
         </p>
       ) : null}
 
@@ -197,14 +195,14 @@ export function RiskDataRepairView() {
         <>
           <RepairBucket
             title="优先处理"
-            description="这些问题会阻断风险判断，或需要先调整全局核算设置。"
+            description="影响当前风险判断。"
             groups={priorityGroups}
             activeGroup={activeGroup}
             onOpen={openGroup}
           />
           <RepairBucket
             title="补全数据"
-            description="这些问题不阻断判断，但会持续影响风险数据完整度。"
+            description="补齐历史记录。"
             groups={completenessGroups}
             activeGroup={activeGroup}
             onOpen={openGroup}

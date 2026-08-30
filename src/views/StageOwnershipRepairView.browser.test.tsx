@@ -9,7 +9,7 @@ import { getTradingDayKey } from '@/lib/periods'
 import { StageOwnershipRepairView } from '@/views/StageOwnershipRepairView'
 import { StageOwnershipHealthEntry } from '@/views/settings/DataSettingsPanel'
 import { StorageRevisionConflictError } from '@/storage/adapter'
-import { disablePersistWrites, enablePersistWrites, hasPendingChanges, setPreFlushCallback } from '@/storage/persist'
+import { disablePersistWrites, enablePersistWrites, flushPersistNow, hasPendingChanges, setPreFlushCallback } from '@/storage/persist'
 import { getStorage } from '@/storage/provider'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 import type { PersistedSnapshot } from '@/storage/types'
@@ -224,12 +224,16 @@ function row(entityId: string): HTMLElement {
   return target
 }
 
-function selectStage(entityId: string, liveStageId: string): void {
-  const select = row(entityId).querySelector<HTMLSelectElement>('select')
-  assert(select, `${entityId} 缺少目标阶段选择框`)
-  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set
-  setter?.call(select, liveStageId)
-  select.dispatchEvent(new Event('change', { bubbles: true }))
+async function selectStage(entityId: string, liveStageId: string): Promise<void> {
+  const trigger = row(entityId).querySelector<HTMLButtonElement>('.stage-ownership-target [role="combobox"]')
+  assert(trigger, `${entityId} 缺少共享目标阶段选择器`)
+  trigger.click()
+  await waitFor(() => document.querySelector('[role="listbox"]') !== null, `${entityId} 目标阶段菜单没有打开`)
+  const option = [...document.querySelectorAll<HTMLButtonElement>('[role="listbox"] button[data-value]')]
+    .find((candidate) => candidate.dataset.value === liveStageId)
+  assert(option, `${entityId} 缺少目标阶段选项：${liveStageId}`)
+  option.click()
+  await waitFor(() => trigger.dataset.value === liveStageId, `${entityId} 没有保存目标阶段选择`)
 }
 
 function saveButton(entityId: string): HTMLButtonElement {
@@ -238,13 +242,35 @@ function saveButton(entityId: string): HTMLButtonElement {
   return button
 }
 
-function setDate(entityId: string, field: 'weekStart' | 'weekEnd', value: string): void {
-  const input = row(entityId).querySelector<HTMLInputElement>(`input[data-weekly-period-${field}]`)
-  assert(input, `${entityId} 缺少 ${field} 显式日期修复输入`)
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
-  setter?.call(input, value)
-  input.dispatchEvent(new Event('input', { bubbles: true }))
-  input.dispatchEvent(new Event('change', { bubbles: true }))
+async function setDate(entityId: string, field: 'weekStart' | 'weekEnd', value: string): Promise<void> {
+  const trigger = row(entityId).querySelector<HTMLButtonElement>(`.stage-ownership-${field === 'weekStart' ? 'week-start' : 'week-end'} .ui-date-trigger`)
+  assert(trigger, `${entityId} 缺少 ${field} 共享日期选择器`)
+  trigger.click()
+  await waitFor(() => document.querySelector('[role="dialog"] .ui-date-grid') !== null, `${entityId} ${field} 日历没有打开`)
+  const targetMonth = value.slice(0, 7)
+  for (let attempt = 0; attempt < 36; attempt += 1) {
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')
+    assert(dialog, `${entityId} ${field} 日历意外关闭`)
+    const target = dialog.querySelector<HTMLButtonElement>(`[data-day-key="${value}"]`)
+    if (target) {
+      target.click()
+      await waitFor(() => trigger.textContent?.includes(value) === true, `${entityId} ${field} 日期没有更新`)
+      return
+    }
+    const heading = dialog.querySelector('strong')?.textContent ?? ''
+    const match = /^(\d{4})年(\d{1,2})月$/.exec(heading)
+    assert(match, `${entityId} ${field} 日历月份标题无效`)
+    const currentMonth = `${match[1]}-${String(Number(match[2])).padStart(2, '0')}`
+    const direction = currentMonth > targetMonth ? '上个月' : '下个月'
+    const button = dialog.querySelector<HTMLButtonElement>(`button[aria-label="${direction}"]`)
+    assert(button, `${entityId} ${field} 缺少${direction}按钮`)
+    button.click()
+    await waitFor(
+      () => document.querySelector<HTMLElement>('[role="dialog"]')?.querySelector('strong')?.textContent !== heading,
+      `${entityId} ${field} 日历月份没有切换`,
+    )
+  }
+  throw new Error(`${entityId} ${field} 无法定位日期：${value}`)
 }
 
 async function run(): Promise<void> {
@@ -277,7 +303,7 @@ async function run(): Promise<void> {
     assert(!view.textContent?.includes('推荐阶段'), '页面不得根据日期推荐阶段')
     const healthLink = document.querySelector<HTMLAnchorElement>('[data-stage-ownership-health-entry]')
     assert(healthLink?.getAttribute('href') === '/settings/data/stage-ownership-repair', '数据健康入口链接错误')
-    assert(healthLink.textContent?.includes('待归属记录') && healthLink.textContent.includes('9'), '数据健康入口必须显示精确待整理数量')
+    assert(healthLink.textContent?.includes('记录需要整理') && healthLink.textContent.includes('9'), '数据健康入口必须显示精确待整理数量')
 
     const labels = ['实盘交易', '错过机会', '案例', '周复盘', '周风险准备', '风险政策版本', '月度风险限额', '风险覆盖记录']
     for (const label of labels) assert(view.textContent?.includes(label), `页面缺少实体类型：${label}`)
@@ -285,25 +311,33 @@ async function run(): Promise<void> {
     assert(row('review').textContent?.includes('2026-06-08') && row(repairedLimitId).textContent?.includes(currentTradingDayKey.slice(0, 7)), '页面缺少原始周/月上下文')
     assert(row('override').textContent?.includes(currentTradingDayKey), '风险覆盖缺少原始决策日期')
 
-    for (const select of view.querySelectorAll<HTMLSelectElement>('select')) {
-      assert(select.value === '', '目标阶段不得有默认或预选值')
-      assert(select.getAttribute('aria-label')?.includes('选择目标阶段'), '目标阶段选择框缺少可访问标签')
-      const options = [...select.options].map((option) => option.textContent ?? '')
-      assert(options.some((option) => option.includes('当前执行期') && option.includes('当前')), '选择框缺少当前阶段名称与状态')
-      assert(options.some((option) => option.includes('历史训练期')), '选择框缺少历史阶段名称')
+    const stageTriggers = [...view.querySelectorAll<HTMLButtonElement>('.stage-ownership-target [role="combobox"]')]
+    assert(stageTriggers.length === 9, '每条待整理记录都必须使用共享目标阶段选择器')
+    for (const trigger of stageTriggers) {
+      assert(trigger.dataset.value === '', '目标阶段不得有默认或预选值')
+      assert(trigger.getAttribute('aria-label')?.includes('选择目标阶段'), '目标阶段选择器缺少可访问标签')
     }
+    assert(view.querySelector('select') === null, '阶段归属页面不得继续使用原生 select 拼装平行样式')
+    assert(view.querySelector('input[type="date"]') === null, '阶段归属页面不得继续使用原生日期输入拼装平行样式')
+    stageTriggers[0]!.click()
+    await waitFor(() => document.querySelector('[role="listbox"]') !== null, '共享阶段选择器没有打开')
+    const optionLabels = [...document.querySelectorAll<HTMLElement>('[role="listbox"] [role="option"]')].map((option) => option.textContent ?? '')
+    assert(optionLabels.some((option) => option.includes('当前执行期') && option.includes('当前')), '选择器缺少当前阶段名称与状态')
+    assert(optionLabels.some((option) => option.includes('历史训练期')), '选择器缺少历史阶段名称')
+    stageTriggers[0]!.click()
+    assert(row('review').querySelector('.ui-chip.ui-chip-soft.ui-chip-sm')?.textContent === '周复盘', '实体类型必须使用中性共享 Chip')
     assert(saveButton('live').disabled, '未显式选择阶段时不得保存')
 
     const invalidReviewRow = row('invalid-review')
-    assert(invalidReviewRow.textContent?.includes('原始周区间无效') && invalidReviewRow.textContent.includes('修正'), '非法周复盘没有可发现的日期修复说明')
-    selectStage('invalid-review', 'stage-old')
+    assert(invalidReviewRow.textContent?.includes('修正周区间'), '非法周复盘没有可发现的日期修复入口')
+    await selectStage('invalid-review', 'stage-old')
     assert(
       window.localStorage.getItem('trader-atlas:stage-ownership-drafts:v1')?.includes('stage-old'),
       '阶段选择必须立即写入重启可恢复的草稿',
     )
     assert(saveButton('invalid-review').disabled, '隔离周复盘未显式修正日期时不得保存')
-    setDate('invalid-review', 'weekStart', '2026-06-22')
-    setDate('invalid-review', 'weekEnd', '2026-06-28')
+    await setDate('invalid-review', 'weekStart', '2026-06-22')
+    await setDate('invalid-review', 'weekEnd', '2026-06-28')
     assert(!saveButton('invalid-review').disabled, '填写有效周区间并选择阶段后应允许保存')
 
     let invalidRepairAttempts = 0
@@ -347,13 +381,13 @@ async function run(): Promise<void> {
       if (successAttempts === 1) return
       await new Promise<void>((resolve) => { gate.release = resolve })
     }
-    selectStage('live', 'stage-old')
+    await selectStage('live', 'stage-old')
     saveButton('live').click()
     await waitFor(() => successAttempts === 2 && saveButton('live').getAttribute('aria-busy') === 'true', '耐久保存期间必须显示 busy')
     assert(saveButton('live').disabled, '耐久保存期间必须禁用重复提交')
     gate.release?.()
     await waitFor(() => document.querySelector('[data-stage-ownership-id="live"]') === null, '成功保存后项目没有立即离开队列')
-    assert(document.querySelector('[data-stage-ownership-page-status]')?.textContent?.includes('阶段归属已保存'), '成功保存后缺少可访问状态反馈')
+    assert(document.querySelector('[data-stage-ownership-page-status].is-success')?.textContent?.includes('阶段归属已保存'), '成功保存后缺少正向状态反馈')
     const savedLive = saved.at(-1)?.trades.find((item) => item.id === 'live')
     assert(savedLive?.tradeKind === 'live' && savedLive.liveStageId === 'stage-old', '正常持久化快照没有写入显式选择的阶段')
     assert(healthLink.textContent?.includes('7'), '成功修复后数据健康计数没有立即更新')
@@ -368,7 +402,7 @@ async function run(): Promise<void> {
         throw new Error('repair persistence failure')
       }
     }
-    selectStage('missed', 'stage-current')
+    await selectStage('missed', 'stage-current')
     saveButton('missed').click()
     await waitFor(() => failureAttempts === 2 && failureGate.release !== null, '没有进入第二次归属耐久保存')
     setNoteDraft('source', '<p>第二次保存期间并发交易草稿</p>')
@@ -406,7 +440,7 @@ async function run(): Promise<void> {
       if (conflictAttempts === 2) throw new StorageRevisionConflictError(7, 8)
       saved.push(structuredClone(snapshot))
     }
-    selectStage('case', 'stage-current')
+    await selectStage('case', 'stage-current')
     saveButton('case').click()
     await waitFor(() => conflictAttempts === 3, 'typed conflict 后没有持久化回滚')
     await waitFor(() => row('case').textContent?.includes('保存冲突'), 'typed conflict 没有显示冲突反馈')
@@ -419,7 +453,7 @@ async function run(): Promise<void> {
     saveButton('case').click()
     await waitFor(() => document.querySelector('[data-stage-ownership-id="case"]') === null, '冲突后的显式重试没有成功')
 
-    selectStage('review', 'stage-old')
+    await selectStage('review', 'stage-old')
     useStore.setState((state) => ({
       weeklyReviews: state.weeklyReviews.map((item) => item.id === 'review' ? { ...item, contentHtml: '<p>并发更新</p>' } : item),
     }))
@@ -447,7 +481,7 @@ async function run(): Promise<void> {
     await waitFor(() => document.querySelector('[data-stage-ownership-id="review"]') === null, '回滚保存失败后的显式重试没有成功')
     assert(!hasPendingChanges() && useSaveStatus.getState().status === 'saved', '重试完成后必须恢复 saved/clean')
 
-    selectStage(PREPARATION_ID, 'stage-old')
+    await selectStage(PREPARATION_ID, 'stage-old')
     useStore.setState((state) => ({ liveStages: state.liveStages.filter((stage) => stage.id !== 'stage-old') }))
     saveButton(PREPARATION_ID).click()
     await waitFor(() => row(PREPARATION_ID).textContent?.includes('目标阶段已不存在'), 'stale target 没有明确拒绝')
@@ -467,7 +501,7 @@ async function run(): Promise<void> {
       }
       saved.push(structuredClone(snapshot))
     }
-    selectStage('policy', 'stage-current')
+    await selectStage('policy', 'stage-current')
     saveButton('policy').click()
     await waitFor(() => rollbackConflictAttempts === 2 && rollbackConflictGate.release !== null, '没有进入用于 CAS 冲突的第二次保存')
     useStore.setState((state) => ({
@@ -476,7 +510,7 @@ async function run(): Promise<void> {
         : item),
     }))
     rollbackConflictGate.release?.()
-    await waitFor(() => Boolean(document.querySelector('[data-stage-ownership-page-status]')?.textContent?.includes('未覆盖最新资料')), 'CAS 回滚冲突没有在页面级提示恢复指引')
+    await waitFor(() => Boolean(document.querySelector('[data-stage-ownership-page-status].is-error')?.textContent?.includes('未覆盖最新资料')), 'CAS 回滚冲突没有使用错误语义显示恢复指引')
     const concurrentPolicy = useStore.getState().riskPolicyVersions.find((item) => item.id === 'policy')
     assert(Boolean(concurrentPolicy?.liveStageId === 'stage-old' && concurrentPolicy.disciplineText.includes('并发修改')), 'CAS 回滚不得覆盖并发归属或目标其他字段')
     assert(useSaveStatus.getState().status === 'error' && hasPendingChanges(), 'CAS 回滚冲突必须保持 error/dirty 供用户恢复')
@@ -487,7 +521,7 @@ async function run(): Promise<void> {
     saveSnapshot = async (snapshot) => { saved.push(structuredClone(snapshot)) }
 
     async function repairThroughUi(entityId: string, snapshotOwnsEntity: (snapshot: PersistedSnapshot) => boolean): Promise<void> {
-      selectStage(entityId, 'stage-current')
+      await selectStage(entityId, 'stage-current')
       saveButton(entityId).click()
       await waitFor(() => document.querySelector(`[data-stage-ownership-id="${entityId}"]`) === null, `${entityId} 没有通过真实 UI 完成归属`)
       const durable = saved.at(-1)
@@ -519,6 +553,74 @@ async function run(): Promise<void> {
     await waitFor(() => document.querySelector('[data-stage-ownership-empty]') !== null, '全部完成后没有显示空状态')
     assert(view.textContent?.includes('所有迁移数据都已完成阶段归属'), '空状态没有解释所有迁移数据已分配')
     assert(document.documentElement.scrollWidth <= document.documentElement.clientWidth, '桌面宽度产生横向溢出')
+
+    const boundaryFixture = createFullPersistedSnapshotFixture()
+    enablePersistWrites()
+    const historicalSource = trade('boundary-source', {
+      liveStageId: 'stage-old',
+      openedAt: '2026-06-10',
+      closedAt: '2026-06-10',
+      closedTradingDayKey: '2026-06-10',
+    })
+    useStore.setState({
+      liveStages: [{
+        id: 'stage-old', sequence: 1, name: '历史训练期', status: 'archived', startsOn: '2026-06-01', endsOn: '2026-06-30',
+        createdAt: '2026-06-01T00:00:00.000Z', archivedAt: '2026-07-01T00:00:00.000Z',
+      }, {
+        id: 'stage-current', sequence: 2, name: '当前执行期', status: 'current', startsOn: '2026-07-01', endsOn: null,
+        createdAt: '2026-07-01T00:00:00.000Z', archivedAt: null,
+      }],
+      currentLiveStageId: 'stage-current',
+      trades: [
+        historicalSource,
+        trade('boundary-recent', {
+          tradeKind: 'case', liveStageId: 'stage-old', openedAt: '2026-06-29', recordedAt: '2026-06-29T08:00:00.000Z',
+        }),
+        trade('boundary-linked', {
+          tradeKind: 'case', liveStageId: 'stage-old', sourceTradeId: historicalSource.id,
+          openedAt: '2026-06-10', recordedAt: '2026-06-30T08:00:00.000Z',
+        }),
+      ],
+      weeklyReviews: [{
+        ...boundaryFixture.weeklyReviews![0]!,
+        id: 'boundary-review',
+        liveStageId: null,
+        weekStart: '2026-06-29',
+        weekEnd: '2026-07-05',
+        highlightTradeIds: [],
+        mistakeTradeIds: [],
+        followUpTradeIds: [],
+        riskSnapshot: undefined,
+      }],
+      weeklyRiskPreparations: [],
+      riskPolicyVersions: [],
+      monthlyRiskLimits: [],
+      riskOverrideEvents: [],
+    })
+    await flushPersistNow()
+    await waitFor(() => document.querySelector('[data-stage-ownership-id="boundary-review"] [data-stage-ownership-recommendation]') !== null, '跨阶段完整周没有显示推荐设置')
+    const recommendationCopy = row('boundary-review').textContent ?? ''
+    assert(
+      recommendationCopy.includes('2026-06-29') && recommendationCopy.includes('2026-06-28') && recommendationCopy.includes('1 条'),
+      '推荐设置没有清楚预览边界与受影响记录数量',
+    )
+    const recommendedButton = row('boundary-review').querySelector<HTMLButtonElement>('[data-stage-ownership-apply-recommended]')
+    assert(recommendedButton && !recommendedButton.disabled, '推荐修复按钮不可用')
+    saveSnapshot = async (snapshot) => { saved.push(structuredClone(snapshot)) }
+    recommendedButton.click()
+    await waitFor(() => document.querySelector('[data-stage-ownership-id="boundary-review"]') === null, '推荐修复没有完成周复盘归属')
+    const recommendedDurable = saved.at(-1)
+    assert(recommendedDurable, '推荐修复没有生成耐久快照')
+    assertValidPersistedSnapshot(recommendedDurable, '推荐阶段边界修复快照')
+    assert(
+      recommendedDurable.liveStages.find((stage) => stage.id === 'stage-old')?.endsOn === '2026-06-28' &&
+        recommendedDurable.liveStages.find((stage) => stage.id === 'stage-current')?.startsOn === '2026-06-29',
+      `推荐修复没有耐久写入闭合后的阶段边界：${JSON.stringify(recommendedDurable.liveStages)}`,
+    )
+    const moved = recommendedDurable.trades.find((item) => item.id === 'boundary-recent')
+    const constrained = recommendedDurable.trades.find((item) => item.id === 'boundary-linked')
+    assert(moved?.tradeKind === 'case' && moved.liveStageId === 'stage-current', '日期明确的记录没有随推荐边界移动')
+    assert(constrained?.tradeKind === 'case' && constrained.liveStageId === 'stage-old', '带历史来源的案例不应被推荐修复误移')
   } finally {
     root.unmount()
     setPreFlushCallback(null)

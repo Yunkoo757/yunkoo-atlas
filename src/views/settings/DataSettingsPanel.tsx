@@ -1,5 +1,5 @@
 import { ICON_LG, ICON_SM } from '@/icons/iconSize'
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { DataIOContent } from '@/components/DataIOContent'
 import { LivePerformanceCycleControl } from '@/components/LivePerformanceCycleControl'
@@ -37,7 +37,11 @@ import { buildWebJournalArchiveBlob } from '@/lib/importExport'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
 import { listPendingStageOwnership } from '@/lib/stageOwnershipRepair'
 import { notifyStorageRecoveryRequired } from '@/lib/storageRecovery'
-import { presentBackupHealth, type BackupListState } from '@/lib/backupHealthPresentation'
+import {
+  automaticVerificationTarget,
+  presentBackupHealth,
+  type BackupListState,
+} from '@/lib/backupHealthPresentation'
 
 const ASSET_PURGE_COMMIT_ENABLED = import.meta.env.VITE_ENABLE_ASSET_PURGE_COMMIT !== 'false'
 
@@ -90,17 +94,21 @@ export function StageOwnershipHealthEntry() {
     weeklyRiskPreparations,
   ])
 
+  if (pendingCount === 0) return null
+
   return (
     <Link
-      className={`health-card${pendingCount > 0 ? ' health-warn' : ''}`}
+      className="data-attention-row"
       data-stage-ownership-health-entry
       to="/settings/data/stage-ownership-repair"
       aria-label={`待归属记录，${pendingCount} 项`}
     >
-      {pendingCount > 0 ? <AlertCircle size={ICON_LG} /> : <CheckCircle size={ICON_LG} />}
-      <span className="health-label">待归属记录</span>
-      <span className="health-value">{pendingCount} 项</span>
-      <span className="health-note">{pendingCount > 0 ? '选择所属阶段' : '无需处理'}</span>
+      <AlertCircle size={ICON_SM} />
+      <span>
+        <strong>{pendingCount} 条记录需要整理</strong>
+        <small>补充所属实盘阶段</small>
+      </span>
+      <span className="data-attention-action">查看并修复</span>
     </Link>
   )
 }
@@ -131,6 +139,7 @@ export function DataSettingsPanel({
   const [purgeAuthorization, setPurgeAuthorization] = useState<string | null>(null)
   const [purgeConfirmed, setPurgeConfirmed] = useState(false)
   const [stageManagerOpen, setStageManagerOpen] = useState(false)
+  const automaticVerificationAttempts = useRef(new Set<string>())
   const trades = useStore((s) => s.trades)
   const weeklyReviews = useStore((s) => s.weeklyReviews)
   const quickNotes = useStore((s) => s.quickNotes)
@@ -164,9 +173,6 @@ export function DataSettingsPanel({
   useEffect(() => {
     refreshHealth()
   }, [refreshHealth])
-
-  const WARN_ATTACH_SIZE = 100 * 1024 * 1024 // 100 MB
-  const WARN_BACKUP_SIZE = 500 * 1024 * 1024 // 500 MB
 
   const refreshBackups = async () => {
     if (!electron) return
@@ -265,20 +271,30 @@ export function DataSettingsPanel({
     }
   }
 
-  const handleVerify = async (name: string) => {
+  const handleVerify = async (name: string, quiet = false) => {
     if (!electron) return
     setVerifying(name)
     try {
       const result = await getJournalBridge()!.verifyBackup(name)
       await refreshBackups()
-      toast(result.status === 'verified' ? '备份验证通过' : result.error ?? '备份验证失败')
+      if (!quiet || result.status !== 'verified') {
+        toast(result.status === 'verified' ? '备份验证通过' : result.error ?? '备份验证失败')
+      }
     } catch (error) {
       reportDataSettingsFailure('验证备份失败', error)
-      toast('备份验证失败')
+      if (!quiet) toast('备份验证失败')
     } finally {
       setVerifying(null)
     }
   }
+
+  useEffect(() => {
+    if (!electron || verifying !== null || restoring !== null) return
+    const target = automaticVerificationTarget(backupListState, backups)
+    if (!target || automaticVerificationAttempts.current.has(target.name)) return
+    automaticVerificationAttempts.current.add(target.name)
+    void handleVerify(target.name, true)
+  }, [backupListState, backups, electron, restoring, verifying])
 
   const handleVerifyAll = async () => {
     if (!electron || backups.length === 0) return
@@ -442,84 +458,56 @@ export function DataSettingsPanel({
       {/* 存储健康面板 */}
       <section className="settings-page-section">
         <div className="settings-page-head">
-          <h2 className="settings-section-title">存储健康</h2>
+          <h2 className="settings-section-title">资料概况</h2>
         </div>
 
-        <div className="health-grid">
-          <StageOwnershipHealthEntry />
-        </div>
+        <StageOwnershipHealthEntry />
 
         {healthError && (
-          <div className="health-card health-warn" role="alert">
-            <AlertCircle size={ICON_LG} />
-            <span className="health-label">附件清单读取失败</span>
-            <span className="health-note">{healthError}</span>
+          <div className="data-attention-row is-danger" role="alert">
+            <AlertCircle size={ICON_SM} />
+            <span>
+              <strong>无法读取资料概况</strong>
+              <small>{healthError}</small>
+            </span>
           </div>
         )}
 
         {health && (
-          <div className="health-grid">
-            <div className="health-card">
-              <Database size={ICON_LG} />
-              <span className="health-label">交易数</span>
-              <span className="health-value">{health.storage.tradeCount}</span>
-            </div>
-            <div className={'health-card' + (
-              health.storage.attachmentStats.totalBytes > WARN_ATTACH_SIZE ||
-              health.storage.attachmentStats.missingCount > 0 ||
-              health.storage.inventory.orphan.length > 0 ||
-              health.storage.inventory.foreign.length > 0 ||
-              health.storage.inventory.temp.length > 0
-                ? ' health-warn'
-                : ''
-            )}>
-              <Image size={ICON_LG} />
-              <span className="health-label">笔记图片</span>
-              <span className="health-value">
-                {health.storage.attachmentStats.count} 张 · {health.storage.attachmentStats.formattedSize}
-              </span>
-              {health.storage.attachmentStats.totalBytes > WARN_ATTACH_SIZE && (
-                <span className="health-note">
-                  {electron
-                    ? '附件较多，建议创建并验证备份'
-                    : '已接近浏览器完整备份 128 MB 上限，建议清理原图或分库'}
-                </span>
-              )}
-              {health.storage.attachmentStats.missingCount > 0 && (
-                <span className="health-note">
-                  {health.storage.attachmentStats.missingCount} 张附件缺失或损坏
-                </span>
-              )}
-              {health.storage.inventory.orphan.length > 0 && (
-                <span className="health-note">{health.storage.inventory.orphan.length} 张当前库孤立附件</span>
-              )}
-              {health.storage.inventory.foreign.length > 0 && (
-                <span className="health-note">{health.storage.inventory.foreign.length} 个未知或非法附件项</span>
-              )}
-              {health.storage.inventory.temp.length > 0 && (
-                <span className="health-note">{health.storage.inventory.temp.length} 个未完成临时附件</span>
-              )}
-            </div>
-            {electron && (
-              <div className={'health-card' + (health.backupTotalSize > WARN_BACKUP_SIZE ? ' health-warn' : '')}>
-                <HardDrive size={ICON_LG} />
-                <span className="health-label">备份占用</span>
-                <span className="health-value">
-                  {health.backupCount} 份 · {fmtBackupSize(health.backupTotalSize)}
-                </span>
-                {health.backupTotalSize > WARN_BACKUP_SIZE && (
-                  <span className="health-note">超出建议上限，自动清理最旧备份</span>
-                )}
-              </div>
-            )}
+          <div className="storage-summary" aria-label="资料库概况">
+            <span><Database size={ICON_SM} /><strong>{health.storage.tradeCount}</strong> 笔交易</span>
+            <span><Image size={ICON_SM} /><strong>{health.storage.attachmentStats.count}</strong> 张图片 · {health.storage.attachmentStats.formattedSize}</span>
+            {electron ? <span><HardDrive size={ICON_SM} /><strong>{health.backupCount}</strong> 份备份 · {fmtBackupSize(health.backupTotalSize)}</span> : null}
           </div>
         )}
 
+        {health && (
+          health.storage.attachmentStats.missingCount > 0 ||
+          health.storage.inventory.orphan.length > 0 ||
+          health.storage.inventory.foreign.length > 0 ||
+          health.storage.inventory.temp.length > 0
+        ) ? (
+          <div className="data-attention-row">
+            <AlertCircle size={ICON_SM} />
+            <span>
+              <strong>附件需要整理</strong>
+              <small>
+                {[
+                  health.storage.attachmentStats.missingCount > 0 ? `${health.storage.attachmentStats.missingCount} 张缺失或损坏` : '',
+                  health.storage.inventory.orphan.length > 0 ? `${health.storage.inventory.orphan.length} 张未被引用` : '',
+                  health.storage.inventory.foreign.length > 0 ? `${health.storage.inventory.foreign.length} 个未知项` : '',
+                  health.storage.inventory.temp.length > 0 ? `${health.storage.inventory.temp.length} 个临时项` : '',
+                ].filter(Boolean).join(' · ')}
+              </small>
+            </span>
+          </div>
+        ) : null}
+
         <button
-          className="dio-btn data-actions-row is-top"
+          className="dio-btn data-refresh-action"
           onClick={refreshHealth}
         >
-          刷新检查
+          刷新
         </button>
         {health && health.storage.inventory.orphan.length > 0 ? (
           <div className="data-actions-row is-top">
@@ -550,7 +538,7 @@ export function DataSettingsPanel({
           <div className={`backup-health-status is-${backupHealth.tone}`} role={backupListState === 'error' ? 'alert' : 'status'}>
             <div>
               <strong>{backupHealth.title}</strong>
-              <span>{backupHealth.detail}</span>
+              {backupHealth.detail ? <span>{backupHealth.detail}</span> : null}
               {backupHealth.latest?.verification?.checkedAt ? <small>最近验证：{fmtBackupTime(backupHealth.latest.verification.checkedAt)}</small> : null}
               {backupHealth.lastVerified && backupHealth.lastVerified.name !== backupHealth.latest?.name ? <small>最后可用备份：{fmtBackupTime(backupHealth.lastVerified.timestamp)}</small> : null}
             </div>
@@ -568,23 +556,23 @@ export function DataSettingsPanel({
               <Save size={ICON_SM} />
               <span>{backing ? '备份并验证中…' : '立即备份'}</span>
             </button>
-            <button
-              className="dio-btn"
-              onClick={handleVerifyAll}
-              disabled={backups.length === 0 || verifying !== null || restoring !== null}
-            >
-              <CheckCircle size={ICON_SM} />
-              <span>{verifying === 'all' ? '验证中…' : '验证全部'}</span>
-            </button>
           </div>
 
-          {backupListState === 'loaded' && backups.length === 0 && (
-            <p className="dio-section-muted">暂无备份记录</p>
-          )}
-
           {backups.length > 0 && (
-            <div className="backup-list">
-              {backups.map((b) => (
+            <details className="data-maintenance-disclosure">
+              <summary>查看备份 <span>{backups.length}</span></summary>
+              <div className="data-maintenance-actions">
+                <button
+                  className="dio-btn"
+                  onClick={handleVerifyAll}
+                  disabled={verifying !== null || restoring !== null}
+                >
+                  <CheckCircle size={ICON_SM} />
+                  <span>{verifying === 'all' ? '验证中…' : '验证全部'}</span>
+                </button>
+              </div>
+              <div className="backup-list">
+                {backups.map((b) => (
                 <div key={b.name} className="backup-row">
                   <Clock size={ICON_SM} className="backup-icon" />
                   <span className="backup-time">{fmtBackupTime(b.timestamp)}</span>
@@ -646,14 +634,12 @@ export function DataSettingsPanel({
                     </Tooltip>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {backups.length > 0 && (
-            <p className="data-path-note">
-              备份文件位于资料库目录的 <code>backups/</code> 下。
-            </p>
+                ))}
+              </div>
+              <p className="data-path-note">
+                备份保存在资料库的 <code>backups/</code> 目录。
+              </p>
+            </details>
           )}
         </section>
       )}

@@ -586,12 +586,10 @@ export function DataIOContent({
       <section className="dio-group" aria-labelledby="dio-restore-title">
         <div className="dio-group-head">
           <h2 id="dio-restore-title" className="dio-group-title">
-            恢复完整资料库
+            恢复资料库
           </h2>
           <p className="dio-group-desc">
-            {electron
-              ? '替换当前桌面资料库与附件，操作前请先备份。'
-              : '校验浏览器完整备份后，精确替换当前数据、设置与附件。'}
+            从完整备份恢复数据与附件
           </p>
         </div>
         <div className="dio-task-list">
@@ -599,11 +597,11 @@ export function DataIOContent({
             <Archive size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
               <div className="dio-task-title">选择归档文件</div>
-              <div className="dio-task-meta">仅导入可信的 .journal.zip</div>
+              <div className="dio-task-meta">.journal.zip 完整备份</div>
             </div>
             <button
               type="button"
-              className="dio-btn dio-btn-warn"
+              className="dio-btn"
               disabled={dataBusy}
               onClick={electron ? onImportZip : () => archiveFileRef.current?.click()}
             >
@@ -612,16 +610,6 @@ export function DataIOContent({
           </div>
         </div>
       </section>
-
-      <p className="dio-safety-note">
-        <AlertTriangle size={ICON_MD} />
-        <span>
-          仅导入可信文件。
-          {electron
-            ? '完整备份会替换当前资料库，JSON 只合并数据。'
-            : '完整备份恢复会替换当前资料库，JSON 导入只合并数据。'}
-        </span>
-      </p>
       <CsvImportModal open={csvOpen} onClose={() => setCsvOpen(false)} />
       <NotionImportModal open={notionOpen} onClose={() => setNotionOpen(false)} />
       {pendingLibrarySwitch ? (

@@ -1,4 +1,4 @@
-import { AlertCircle, CalendarDays, CheckCircle } from '@/icons/appIcons'
+import { AlertCircle, CalendarDays } from '@/icons/appIcons'
 import { ICON_MD } from '@/icons/iconSize'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { fmtDate } from '@/lib/format'
@@ -54,7 +54,7 @@ export function StageRolloverBanner({
       aria-live="polite"
     >
       <div className="stage-rollover-banner-icon" aria-hidden>
-        {blockers.length > 0 ? <AlertCircle size={ICON_MD} /> : <CheckCircle size={ICON_MD} />}
+        {blockers.length > 0 ? <AlertCircle size={ICON_MD} /> : <CalendarDays size={ICON_MD} />}
       </div>
       <div className="stage-rollover-banner-copy">
         <div className="stage-rollover-banner-title">
@@ -63,16 +63,13 @@ export function StageRolloverBanner({
             : `已预约 ${effectiveDay} 开启新实盘阶段`}</strong>
           <span>{currentStage.name}</span>
         </div>
-        <div className="stage-rollover-banner-detail">
-          <CalendarDays size={ICON_MD} aria-hidden />
-          <span>{due ? '正在按最新资料检查生效条件' : '预约期间当前阶段继续正常使用'}</span>
-          {advisoryCodes.has('planned-trades') ? <span className="stage-rollover-banner-chip">计划中 {plannedCount} 笔将保留在原阶段</span> : null}
-          {blockerCodes.has('open-trades') ? <span className="stage-rollover-banner-chip">持仓中 {openCount} 笔</span> : null}
-          {advisoryCodes.has('weekly-review-incomplete') ? <span className="stage-rollover-banner-chip">周复盘可稍后补做</span> : null}
-          {blockers.length === 0 ? <span className="stage-rollover-banner-clear">当前无业务阻断项</span> : null}
-        </div>
+        {blockers.length > 0 || advisoryCodes.has('planned-trades') || advisoryCodes.has('weekly-review-incomplete') ? <div className="stage-rollover-banner-detail">
+          {advisoryCodes.has('planned-trades') ? <span className="stage-rollover-banner-note">计划中 {plannedCount} 笔将保留在原阶段</span> : null}
+          {blockerCodes.has('open-trades') ? <span className="stage-rollover-banner-note">持仓中 {openCount} 笔</span> : null}
+          {advisoryCodes.has('weekly-review-incomplete') ? <span className="stage-rollover-banner-note">周复盘可稍后补做</span> : null}
+        </div> : null}
         {scheduled.postponedCount > 0 ? (
-          <p>预约不会自动取消；处理全部阻断项后，系统将在新的生效日再次检查。</p>
+          <p>{blockers.length > 0 ? '处理阻断项后将在新的生效日重试。' : '将在新的生效日重试。'}</p>
         ) : null}
       </div>
     </section>

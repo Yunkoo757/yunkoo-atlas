@@ -14,7 +14,6 @@
 
 .ui-chip-sm {
   height: var(--chip-height-sm);
-  font-size: var(--fs-micro);
   padding: 0 6px;
 }
 

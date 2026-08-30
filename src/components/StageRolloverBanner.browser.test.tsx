@@ -149,7 +149,7 @@ async function run(): Promise<void> {
     assert(text().includes('计划中 2 笔将保留在原阶段'), '顺延 banner 必须展示计划记录归属')
     assert(text().includes('持仓中 1 笔'), '顺延 banner 必须展示持仓数量')
     assert(text().includes('周复盘可稍后补做'), '顺延 banner 必须说明周复盘不再阻止切换')
-    assert(text().includes('预约不会自动取消'), '阻断不得静默取消预约')
+    assert(text().includes('处理阻断项后将在新的生效日重试'), '阻断不得静默取消预约')
 
     const create = button('新建交易')
     assert(!create.disabled && !create.closest('[inert]'), '未到期预约不得禁用正常新建交易')

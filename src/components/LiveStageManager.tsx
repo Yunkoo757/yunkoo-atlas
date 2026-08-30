@@ -209,7 +209,7 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
   return (
     <ModalShell
       title="开启新实盘阶段"
-      description="先预约阶段交接；系统只会在下一交易周边界满足封账条件后安全执行。"
+      description="预约下一交易周开启新阶段。"
       size="wide"
       panelClassName="live-stage-manager-shell"
       bodyClassName="live-stage-manager-body"
@@ -242,58 +242,43 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
           </div>
         </section>
 
-        <section className="live-stage-manager-section" aria-labelledby="live-stage-counts-title">
-          <div className="live-stage-manager-section-head">
-            <Archive size={ICON_MD} aria-hidden />
-            <div>
-              <h3 id="live-stage-counts-title">当前阶段归档范围</h3>
-              <p>交易、案例、周复盘和风险记录将归入当前阶段档案。</p>
-            </div>
-          </div>
+        <details className="live-stage-manager-disclosure">
+          <summary><Archive size={ICON_MD} aria-hidden />查看归档范围</summary>
           <div className="live-stage-manager-counts">
-            <div><strong>实盘交易 {currentTrades.length} 笔</strong><span>计划、持仓与已结束记录</span></div>
-            <div><strong>实盘案例 {currentCases.length} 个</strong><span>关联案例与独立案例</span></div>
-            <div><strong>周复盘 {reviewCount} 次</strong><span>正文与完成时快照</span></div>
-            <div><strong>风险记录 {riskCount} 条</strong><span>准备、政策、限额与越权</span></div>
+            <div><strong>{currentTrades.length}</strong><span>实盘交易</span></div>
+            <div><strong>{currentCases.length}</strong><span>实盘案例</span></div>
+            <div><strong>{reviewCount}</strong><span>周复盘</span></div>
+            <div><strong>{riskCount}</strong><span>风险记录</span></div>
           </div>
-        </section>
+        </details>
 
-        <section className="live-stage-manager-section" aria-labelledby="live-stage-blockers-title">
+        {blockers.length > 0 || advisories.length > 0 ? <section className="live-stage-manager-section" aria-labelledby="live-stage-blockers-title">
           <div className="live-stage-manager-section-head">
             {blockers.length > 0
               ? <AlertCircle size={ICON_MD} aria-hidden />
               : <CheckCircle size={ICON_MD} aria-hidden />}
             <div>
               <h3 id="live-stage-blockers-title">当前生效条件</h3>
-              <p>{blockers.length > 0
-                ? '持仓中的交易必须先处理；其他未完成内容会保留在原阶段。'
-                : '当前可以切换；未完善记录与周复盘不会阻止新阶段。'}</p>
+              <p>{blockers.length > 0 ? '先处理持仓交易。' : '以下内容不会阻止切换。'}</p>
             </div>
           </div>
           <div className="live-stage-manager-blockers" aria-label="当前阶段切换阻断项">
             {advisoryCodes.has('planned-trades') ? <span>计划中 {plannedCount} 笔将保留在原阶段</span> : null}
             {blockerCodes.has('open-trades') ? <span>持仓中 {openCount} 笔</span> : null}
             {advisoryCodes.has('weekly-review-incomplete') ? <span>周复盘可稍后补做</span> : null}
-            {blockers.length === 0 ? <span className="is-clear">当前无阻断项</span> : null}
           </div>
-        </section>
+        </section> : null}
 
-        <section className="live-stage-manager-scope" aria-label="阶段交接说明">
-          <div>
-            <strong>新阶段风险恢复为未建档</strong>
-            <span>需要在新阶段重新确认风险政策与限额。</span>
-          </div>
-          <div>
-            <strong>策略、标签、模板、随记和其他全局设置继续保留</strong>
-            <span>交接不会复制、删除或改写旧阶段实体。</span>
-          </div>
-        </section>
+        <details className="live-stage-manager-disclosure">
+          <summary>交接规则</summary>
+          <p>新阶段风险恢复为未建档；策略、标签、模板和随记继续保留。</p>
+        </details>
 
         {scheduledStageRollover ? (
           <section className="live-stage-manager-scheduled" role="status">
             <div>
               <strong>已有阶段切换预约</strong>
-              <span>{fmtDate(scheduledStageRollover.effectiveWeekStart)} 生效；耐久交接开始前可以取消，预约不会被第二次请求覆盖。</span>
+              <span>{fmtDate(scheduledStageRollover.effectiveWeekStart)} 生效，开始交接前可取消。</span>
             </div>
             <Button
               variant="bordered"

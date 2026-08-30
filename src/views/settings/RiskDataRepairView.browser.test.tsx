@@ -239,33 +239,26 @@ async function run(): Promise<void> {
     if (!view.textContent?.includes('优先处理') || !view.textContent?.includes('补全数据')) {
       throw new Error('修复中心缺少两级问题区域')
     }
-    if (!view.textContent?.includes('历史风险规则不可回填')) {
-      throw new Error('保留型历史缺口缺少真实说明')
-    }
-    const identityRow = view.querySelector<HTMLElement>('[data-trade-id="risk-repair-loss-sibling"]')
-    if (!identityRow?.textContent?.includes('做多')) {
-      throw new Error('修复交易行缺少方向身份信息')
-    }
-    if (!identityRow.textContent.includes(currentDay)) {
-      throw new Error('修复交易行缺少平仓交易日身份信息')
-    }
     const counts = view.querySelector<HTMLElement>('[data-risk-repair-counts]')
-    if (counts?.textContent?.replace(/\s+/g, ' ').trim() !== '问题总数 4阻断判断 3影响完整度 1') {
-      throw new Error('修复中心顶部必须显示问题总数、阻断和完整度统计')
+    if (counts?.textContent?.replace(/\s+/g, ' ').trim() !== '待处理 4 项') {
+      throw new Error('修复中心顶部必须显示精简后的待处理总数')
     }
     const next = view.querySelector<HTMLAnchorElement>('[data-risk-repair-next]')
     if (!next?.textContent?.includes('处理下一项')) throw new Error('缺少唯一下一项动作')
     const expanded = [...view.querySelectorAll<HTMLElement>('[data-risk-repair-group]')]
       .filter((group) => group.getAttribute('data-expanded') === 'true')
-    if (expanded.length !== 1) throw new Error('修复中心必须只展开一个原因分组')
+    if (expanded.length !== 0) throw new Error('修复中心默认应收起原因分组')
     const groupSummaries = [...view.querySelectorAll<HTMLElement>('[data-risk-repair-group] .risk-repair-group-toggle small')]
     if (groupSummaries.some((summary) => !/\d+ 项/.test(summary.textContent ?? ''))) {
       throw new Error('每个原因分组标题都必须保留项目计数')
     }
-    const retainedSummary = view.querySelector<HTMLElement>('[data-risk-repair-group="priority:missing-policy"] .risk-repair-group-toggle small')
-    if (retainedSummary?.textContent?.trim() !== '1 项 · 历史风险规则不可回填') {
-      throw new Error('历史原因分组标题必须同时显示计数与不可回填说明')
-    }
+    const identityGroup = [...view.querySelectorAll<HTMLElement>('[data-risk-repair-group]')]
+      .find((group) => group.textContent?.includes('亏损交易缺少盈亏金额'))
+    identityGroup?.querySelector<HTMLButtonElement>('button')?.click()
+    await waitFor(() => identityGroup?.getAttribute('data-expanded') === 'true', '没有按需展开交易原因分组')
+    const identityRow = document.querySelector<HTMLElement>('[data-trade-id="risk-repair-loss-sibling"]')
+    if (!identityRow?.textContent?.includes('做多')) throw new Error('修复交易行缺少方向身份信息')
+    if (!identityRow.textContent.includes(currentDay)) throw new Error('修复交易行缺少平仓交易日身份信息')
 
     const alternateGroup = [...view.querySelectorAll<HTMLElement>('[data-risk-repair-group]')]
       .find((group) => group.getAttribute('data-expanded') === 'false')
@@ -374,11 +367,10 @@ async function run(): Promise<void> {
         : stage),
       trades: [retainedHistory],
     }))
-    await waitFor(() => document.querySelector('[data-trade-id="risk-repair-history"]') !== null, '纯历史缺口分组没有保留')
+    await waitFor(() => document.querySelector('[data-risk-repair-group]') !== null, '纯历史缺口分组没有保留')
     view = document.querySelector<HTMLElement>('[data-risk-data-repair-view]')
     if (!view) throw new Error('纯历史缺口阶段缺少修复中心')
-    if (!view.textContent?.includes('完整度')) throw new Error('纯历史缺口没有持续影响完整度')
-    if (!view.textContent?.includes('没有可直接修复的问题，仍有历史规则缺口影响完整度')) {
+    if (!view.textContent?.includes('仅剩无法回填的历史缺口')) {
       throw new Error('纯历史缺口阶段缺少准确结论')
     }
     if (view.querySelector('[data-risk-repair-next]')) throw new Error('纯历史缺口不应显示处理下一项动作')

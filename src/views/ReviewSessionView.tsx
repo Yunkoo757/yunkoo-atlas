@@ -751,7 +751,7 @@ export function ReviewSessionView() {
 
       {persistenceWarning ? (
         <div className="review-session-warning" role="status">
-          本轮仍可继续，但刷新或打开详情后可能无法自动恢复。
+          本轮进度暂时只在当前页面保留。
         </div>
       ) : null}
 
@@ -1015,7 +1015,7 @@ function ReviewSessionSettingsModal({
               </label>
             ))}
             {filters.stageSource.stageIds.length === 0 ? (
-              <p>尚未选择实盘阶段；不会自动扩大到其他阶段。</p>
+              <p>请选择至少一个阶段。</p>
             ) : null}
           </fieldset>
         ) : null}
@@ -1135,7 +1135,7 @@ function ReviewSessionRegenerationConfirmation({
           onConfirm()
         }}
       >
-        <p className="review-session-active-source">本轮已评进度会被丢弃，且无法从本轮恢复。</p>
+        <p className="review-session-active-source">更换范围后将重新开始本轮复盘。</p>
         <p className="review-session-settings-count">新阶段来源：{reviewStageSourceLabel(filters.stageSource)}</p>
       </form>
     </ModalShell>
@@ -1147,7 +1147,7 @@ function ReviewSessionEmptySelection({ onAdjust }: { onAdjust: () => void }) {
     <section className="review-session-empty-selection" data-review-session-start-focus tabIndex={-1} role="status">
       <span className="review-session-eyebrow">自选阶段</span>
       <h1>尚未选择实盘阶段</h1>
-      <p>原先选择的阶段已不存在，或当前没有选择任何阶段。范围保持为空，不会自动扩大。</p>
+      <p>请选择本轮复盘范围。</p>
       <Button type="button" variant="primary" onClick={onAdjust}>重新选择阶段</Button>
     </section>
   )
@@ -1331,7 +1331,7 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
     return (
       <div className="review-session-reading review-session-note-state is-error" role="alert">
         <AlertCircle size={ICON_LG} aria-hidden />
-        <span>本条图文暂时无法读取，你仍可评估或跳过。</span>
+        <span>图文暂时无法读取</span>
       </div>
     )
   }

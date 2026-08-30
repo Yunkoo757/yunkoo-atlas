@@ -57,9 +57,9 @@
 
 .review-session-warning {
   padding: 7px var(--sp-4);
-  border-bottom: 1px solid color-mix(in srgb, var(--warn) 25%, var(--border-subtle));
-  background: color-mix(in srgb, var(--warn) 8%, var(--bg-surface));
-  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-inset);
+  color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
   text-align: center;
 }

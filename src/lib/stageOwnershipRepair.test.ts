@@ -1,7 +1,9 @@
 import type { Trade } from '@/data/trades'
 import {
+  applyRecommendedStageBoundaryRepair,
   assignPendingStageOwnership,
   listPendingStageOwnership,
+  recommendStageBoundaryRepair,
   rollbackAssignedStageOwnership,
   StageOwnershipRepairError,
   type StageOwnershipEntityType,
@@ -667,13 +669,16 @@ export function testQuarantinedWeeklyReviewRequiresExplicitValidPeriodAndRollsBa
   for (const correctedWeeklyPeriod of [
     { weekStart: '2026-06-09', weekEnd: '2026-06-15' },
     { weekStart: '2026-06-08', weekEnd: '2026-06-13' },
-    { weekStart: '2026-06-29', weekEnd: '2026-07-05' },
   ]) {
     expectRepairError('invalid-weekly-period', () => assignPendingStageOwnership(initial, {
       ...baseRequest,
       correctedWeeklyPeriod,
     }))
   }
+  expectRepairError('weekly-period-crosses-stage-boundary', () => assignPendingStageOwnership(initial, {
+    ...baseRequest,
+    correctedWeeklyPeriod: { weekStart: '2026-06-29', weekEnd: '2026-07-05' },
+  }))
 
   const repaired = assignPendingStageOwnership(initial, {
     ...baseRequest,
@@ -801,4 +806,87 @@ export function testRollbackRejectsOwnershipCasConflictWithoutMutation(): void {
     entityId: 'live',
     assignedLiveStageId: 'stage-old',
   }))
+}
+
+export function testRecommendedBoundaryRepairMovesOnlyReliableUnconstrainedRecords(): void {
+  const state = pendingState()
+  state.weeklyReviews = state.weeklyReviews.map((review) => ({
+    ...review,
+    weekStart: '2026-06-29',
+    weekEnd: '2026-07-05',
+  }))
+  state.trades = [
+    trade('recent-live', {
+      liveStageId: 'stage-old',
+      openedAt: '2026-06-29',
+      closedAt: '2026-06-29',
+      closedTradingDayKey: '2026-06-29',
+    }),
+    trade('recent-case', {
+      tradeKind: 'case',
+      liveStageId: 'stage-old',
+      openedAt: '2026-06-30',
+      recordedAt: '2026-06-30T08:00:00.000Z',
+    }),
+    trade('historical-source', {
+      liveStageId: 'stage-old',
+      openedAt: '2026-06-10',
+      closedAt: '2026-06-10',
+      closedTradingDayKey: '2026-06-10',
+    }),
+    trade('linked-case', {
+      tradeKind: 'case',
+      liveStageId: 'stage-old',
+      sourceTradeId: 'historical-source',
+      openedAt: '2026-06-10',
+      recordedAt: '2026-06-30T09:00:00.000Z',
+    }),
+  ]
+
+  const recommendation = recommendStageBoundaryRepair(state, 'review')
+  assert(recommendation !== null, '跨相邻阶段边界的完整周必须产生推荐设置')
+  assert(
+    recommendation.targetStageStartAfter === '2026-06-29' &&
+      recommendation.previousStageEndAfter === '2026-06-28',
+    '推荐设置必须把后续阶段对齐到周一并闭合前一阶段',
+  )
+  assert(
+    [...recommendation.affectedTradeIds].sort().join(',') === 'recent-case,recent-live',
+    '推荐设置只能移动日期明确且没有历史来源约束的记录',
+  )
+
+  const repaired = applyRecommendedStageBoundaryRepair(state, recommendation)
+  assert(repaired.liveStages[0]?.endsOn === '2026-06-28', '前一阶段截止日必须随边界同步调整')
+  assert(repaired.liveStages[1]?.startsOn === '2026-06-29', '目标阶段必须从完整周周一开始')
+  assert(repaired.weeklyReviews[0]?.liveStageId === 'stage-current', '周复盘必须归入推荐目标阶段')
+  const recentLive = repaired.trades.find((candidate) => candidate.id === 'recent-live')
+  const recentCase = repaired.trades.find((candidate) => candidate.id === 'recent-case')
+  assert(
+    recentLive?.tradeKind !== 'paper' && recentLive?.liveStageId === 'stage-current' &&
+      recentCase?.tradeKind !== 'paper' && recentCase?.liveStageId === 'stage-current',
+    '边界夹缝内的可靠记录必须同步归入目标阶段',
+  )
+  const linkedCase = repaired.trades.find((candidate) => candidate.id === 'linked-case')
+  assert(
+    linkedCase?.tradeKind !== 'paper' && linkedCase?.liveStageId === 'stage-old',
+    '带历史来源约束的案例必须保留原阶段',
+  )
+}
+
+export function testRecommendedBoundaryRepairRejectsStaleRecommendation(): void {
+  const state = pendingState()
+  state.weeklyReviews = state.weeklyReviews.map((review) => ({
+    ...review,
+    weekStart: '2026-06-29',
+    weekEnd: '2026-07-05',
+  }))
+  const recommendation = recommendStageBoundaryRepair(state, 'review')
+  assert(recommendation !== null, '测试前提：必须存在推荐设置')
+  const changed = {
+    ...state,
+    weeklyReviews: state.weeklyReviews.map((review) => ({ ...review, contentHtml: '<p>并发编辑</p>' })),
+  }
+  expectRepairError('recommended-repair-unavailable', () => (
+    applyRecommendedStageBoundaryRepair(changed, recommendation)
+  ))
 }

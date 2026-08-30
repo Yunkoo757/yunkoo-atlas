@@ -3,10 +3,13 @@ import { Link } from 'react-router-dom'
 import { AlertCircle, CheckCircle, Database } from '@/icons/appIcons'
 import { ICON_MD } from '@/icons/iconSize'
 import {
+  applyRecommendedStageBoundaryRepair,
   listPendingStageOwnership,
+  recommendStageBoundaryRepair,
   StageOwnershipRepairError,
   STAGE_OWNERSHIP_ENTITY_LABELS,
   type PendingStageOwnershipItem,
+  type RecommendedStageBoundaryRepair,
   type RollbackAssignedStageOwnershipRequest,
   type StageOwnershipRepairState,
 } from '@/lib/stageOwnershipRepair'
@@ -14,9 +17,13 @@ import { StorageRevisionConflictError } from '@/storage/adapter'
 import { flushPersistNow } from '@/storage/persist'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/Button'
+import { Chip } from '@/components/ui/Chip'
+import { DatePicker } from '@/components/ui/DatePicker'
+import { Select } from '@/components/ui/Select'
 import './StageOwnershipRepairView.css'
 
-type Feedback = { kind: 'error' | 'success'; message: string }
+type Feedback = { kind: 'error' | 'success' | 'progress'; message: string }
+type PageStatus = { kind: 'error' | 'success'; message: string }
 type OwnershipDraft = {
   liveStageId?: string
   weeklyPeriod?: { weekStart: string; weekEnd: string }
@@ -54,6 +61,7 @@ function usePendingOwnership() {
   const riskPolicyVersions = useStore((state) => state.riskPolicyVersions)
   const monthlyRiskLimits = useStore((state) => state.monthlyRiskLimits)
   const riskOverrideEvents = useStore((state) => state.riskOverrideEvents)
+  const display = useStore((state) => state.display)
   return useMemo(() => listPendingStageOwnership({
     liveStages,
     currentLiveStageId,
@@ -63,6 +71,7 @@ function usePendingOwnership() {
     riskPolicyVersions,
     monthlyRiskLimits,
     riskOverrideEvents,
+    display,
   }), [
     currentLiveStageId,
     liveStages,
@@ -72,6 +81,7 @@ function usePendingOwnership() {
     trades,
     weeklyReviews,
     weeklyRiskPreparations,
+    display,
   ])
 }
 
@@ -83,7 +93,9 @@ function domainFailureMessage(error: StageOwnershipRepairError): string {
     case 'ownership-conflict': return '目标阶段已有同周期记录，请核对已有记录或选择其他阶段。'
     case 'relationship-conflict': return '关联实体与目标阶段不一致或已不存在，请核对关系后重试。'
     case 'dependency-pending': return '关联实体仍在待整理队列，请先完成其阶段归属。'
-    case 'invalid-weekly-period': return '修正后的周区间必须是目标阶段内完整的周一至周日。'
+    case 'invalid-weekly-period': return '修正后的周区间必须是完整的周一至周日。'
+    case 'weekly-period-crosses-stage-boundary': return '该周是完整周，但跨越目标阶段边界；请调整阶段边界，或选择能够完整包含该周的阶段。'
+    case 'recommended-repair-unavailable': return '推荐设置所依据的数据已经变化，请刷新后重新核对。'
     case 'missing-fingerprint': return '缺少待整理项校验信息，请刷新页面后重试。'
     case 'rollback-conflict': return '回滚目标已被其他操作修改，未覆盖最新资料；请重新打开应用核对资料库。'
     case 'already-assigned': return '该项目已在其他操作中完成归属，请刷新核对。'
@@ -111,7 +123,7 @@ export function StageOwnershipRepairView() {
   const [feedback, setFeedback] = useState<Record<string, Feedback>>({})
   const [weeklyPeriodCorrections, setWeeklyPeriodCorrections] = useState<Record<string, { weekStart: string; weekEnd: string }>>({})
   const [drafts, setDrafts] = useState<Record<string, OwnershipDraft>>(readOwnershipDrafts)
-  const [pageStatus, setPageStatus] = useState('')
+  const [pageStatus, setPageStatus] = useState<PageStatus | null>(null)
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [savingItem, setSavingItem] = useState<PendingStageOwnershipItem | null>(null)
   const busyRef = useRef<string | null>(null)
@@ -146,8 +158,8 @@ export function StageOwnershipRepairView() {
     busyRef.current = key
     setBusyKey(key)
     setSavingItem(item)
-    setPageStatus('')
-    setFeedback((current) => ({ ...current, [key]: { kind: 'success', message: '正在保存阶段归属…' } }))
+    setPageStatus(null)
+    setFeedback((current) => ({ ...current, [key]: { kind: 'progress', message: '正在保存阶段归属…' } }))
     let stageName = liveStageId
     let rollbackRequest: RollbackAssignedStageOwnershipRequest | null = null
     try {
@@ -184,7 +196,7 @@ export function StageOwnershipRepairView() {
 
     try {
       await flushPersistNow()
-      setPageStatus(`阶段归属已保存：${item.reference} 已归入 ${stageName}。`)
+      setPageStatus({ kind: 'success', message: `阶段归属已保存：${item.reference} 已归入 ${stageName}。` })
       setFeedback((current) => ({ ...current, [key]: { kind: 'success', message: '阶段归属已保存。' } }))
       setSelections((current) => {
         const next = { ...current }
@@ -205,7 +217,7 @@ export function StageOwnershipRepairView() {
         const recoveryMessage = rollbackError instanceof StageOwnershipRepairError
           ? domainFailureMessage(rollbackError)
           : '回滚目标已发生变化，未覆盖最新资料；请重新打开应用核对资料库。'
-        setPageStatus(recoveryMessage)
+        setPageStatus({ kind: 'error', message: recoveryMessage })
         setFeedback((current) => ({
           ...current,
           [key]: {
@@ -239,6 +251,88 @@ export function StageOwnershipRepairView() {
     }
   }
 
+  async function applyRecommendation(
+    item: PendingStageOwnershipItem,
+    recommendation: RecommendedStageBoundaryRepair,
+  ): Promise<void> {
+    const key = itemKey(item)
+    if (busyRef.current) return
+    busyRef.current = key
+    setBusyKey(key)
+    setSavingItem(item)
+    setPageStatus(null)
+    setFeedback((current) => ({ ...current, [key]: { kind: 'progress', message: '正在按推荐设置修复…' } }))
+
+    const before = useStore.getState()
+    let candidate: ReturnType<typeof useStore.getState> | null = null
+    try {
+      await flushPersistNow()
+      const latest = useStore.getState()
+      const refreshed = recommendStageBoundaryRepair(latest, item.entityId)
+      if (!refreshed || JSON.stringify(refreshed) !== JSON.stringify(recommendation)) {
+        throw new StageOwnershipRepairError('recommended-repair-unavailable', '推荐设置已经变化')
+      }
+      candidate = applyRecommendedStageBoundaryRepair(latest, refreshed)
+      useStore.setState({
+        liveStages: candidate.liveStages,
+        trades: candidate.trades,
+        weeklyReviews: candidate.weeklyReviews,
+        weeklyRiskPreparations: candidate.weeklyRiskPreparations,
+        riskPolicyVersions: candidate.riskPolicyVersions,
+        monthlyRiskLimits: candidate.monthlyRiskLimits,
+        riskOverrideEvents: candidate.riskOverrideEvents,
+      })
+      await flushPersistNow()
+      setPageStatus({
+        kind: 'success',
+        message: `推荐修复已完成：${recommendation.targetStageName} 从 ${recommendation.targetStageStartAfter} 开始，` +
+          `${recommendation.affectedTradeIds.length} 条记录已同步校正。`,
+      })
+      setFeedback((current) => ({ ...current, [key]: { kind: 'success', message: '推荐修复已完成。' } }))
+      clearDraft(item)
+    } catch (error) {
+      if (candidate) {
+        const current = useStore.getState()
+        const candidateStillCurrent = (
+          current.liveStages === candidate.liveStages &&
+          current.trades === candidate.trades &&
+          current.weeklyReviews === candidate.weeklyReviews &&
+          current.weeklyRiskPreparations === candidate.weeklyRiskPreparations &&
+          current.riskPolicyVersions === candidate.riskPolicyVersions &&
+          current.monthlyRiskLimits === candidate.monthlyRiskLimits &&
+          current.riskOverrideEvents === candidate.riskOverrideEvents
+        )
+        if (candidateStillCurrent) {
+          useStore.setState({
+            liveStages: before.liveStages,
+            trades: before.trades,
+            weeklyReviews: before.weeklyReviews,
+            weeklyRiskPreparations: before.weeklyRiskPreparations,
+            riskPolicyVersions: before.riskPolicyVersions,
+            monthlyRiskLimits: before.monthlyRiskLimits,
+            riskOverrideEvents: before.riskOverrideEvents,
+          })
+          try { await flushPersistNow() } catch { /* 页面提示已覆盖恢复失败。 */ }
+        }
+      }
+      setFeedback((current) => ({
+        ...current,
+        [key]: {
+          kind: 'error',
+          message: error instanceof StageOwnershipRepairError
+            ? domainFailureMessage(error)
+            : error instanceof StorageRevisionConflictError
+              ? '推荐修复发生同步冲突，已恢复原设置；请核对后重试。'
+              : '推荐修复保存失败，已恢复原设置；请重试。',
+        },
+      }))
+    } finally {
+      busyRef.current = null
+      setBusyKey(null)
+      setSavingItem(null)
+    }
+  }
+
   const displayedPending = savingItem && !pending.some((item) => itemKey(item) === itemKey(savingItem))
     ? [savingItem, ...pending]
     : pending
@@ -259,9 +353,16 @@ export function StageOwnershipRepairView() {
           <strong>{displayedPending.length}</strong>
         </div>
       </header>
-      <p className="stage-ownership-page-status" data-stage-ownership-page-status role="status" aria-live="polite">
-        {pageStatus}
-      </p>
+      {pageStatus ? (
+        <p
+          className={`stage-ownership-page-status is-${pageStatus.kind}`}
+          data-stage-ownership-page-status
+          role={pageStatus.kind === 'error' ? 'alert' : 'status'}
+          aria-live={pageStatus.kind === 'error' ? 'assertive' : 'polite'}
+        >
+          {pageStatus.message}
+        </p>
+      ) : null}
 
       {displayedPending.length === 0 ? (
         <section className="stage-ownership-empty" data-stage-ownership-empty role="status">
@@ -286,6 +387,9 @@ export function StageOwnershipRepairView() {
             const correctionComplete = !item.requiresWeeklyPeriodCorrection || (
               weeklyPeriodCorrection.weekStart.length > 0 && weeklyPeriodCorrection.weekEnd.length > 0
             )
+            const recommendation = item.entityType === 'weekly-review'
+              ? recommendStageBoundaryRepair(useStore.getState(), item.entityId)
+              : null
             return (
               <article
                 className="stage-ownership-row"
@@ -296,7 +400,7 @@ export function StageOwnershipRepairView() {
               >
                 <div className="stage-ownership-copy">
                   <div className="stage-ownership-heading">
-                    <span>{STAGE_OWNERSHIP_ENTITY_LABELS[item.entityType]}</span>
+                    <Chip size="sm" variant="soft">{STAGE_OWNERSHIP_ENTITY_LABELS[item.entityType]}</Chip>
                     <strong>{item.title}</strong>
                     <code>{item.reference}</code>
                   </div>
@@ -319,73 +423,104 @@ export function StageOwnershipRepairView() {
                   </p>
                 </div>
                 <div className="stage-ownership-actions">
-                  {item.requiresWeeklyPeriodCorrection ? (
-                    <fieldset className="stage-ownership-period-correction">
-                      <legend>原始周区间无效，请显式修正</legend>
-                      <p>
-                        原始值：<code>{item.weeklyPeriod?.weekStart}</code> 至 <code>{item.weeklyPeriod?.weekEnd}</code>
-                      </p>
-                      <label htmlFor={`stage-ownership-week-start-${key}`}>修正周起始（周一）</label>
-                      <input
-                        id={`stage-ownership-week-start-${key}`}
-                        type="date"
-                        data-weekly-period-weekstart
-                        value={weeklyPeriodCorrection.weekStart}
+                  {recommendation ? (
+                    <section className="stage-ownership-recommendation" data-stage-ownership-recommendation>
+                      <div className="stage-ownership-recommendation-copy">
+                        <strong>建议调整阶段日期</strong>
+                        <span>同步归档 {recommendation.affectedTradeIds.length} 条记录</span>
+                      </div>
+                      <Button
+                        variant="primary"
+                        busy={busy}
                         disabled={busyKey !== null}
-                        onChange={(event) => {
-                          const weeklyPeriod = { ...weeklyPeriodCorrection, weekStart: event.target.value }
-                          setWeeklyPeriodCorrections((current) => ({ ...current, [key]: weeklyPeriod }))
-                          updateDraft(item, { weeklyPeriod })
-                        }}
-                      />
-                      <label htmlFor={`stage-ownership-week-end-${key}`}>修正周结束（周日）</label>
-                      <input
-                        id={`stage-ownership-week-end-${key}`}
-                        type="date"
-                        data-weekly-period-weekend
-                        value={weeklyPeriodCorrection.weekEnd}
-                        disabled={busyKey !== null}
-                        onChange={(event) => {
-                          const weeklyPeriod = { ...weeklyPeriodCorrection, weekEnd: event.target.value }
-                          setWeeklyPeriodCorrections((current) => ({ ...current, [key]: weeklyPeriod }))
-                          updateDraft(item, { weeklyPeriod })
-                        }}
-                      />
-                    </fieldset>
+                        data-stage-ownership-apply-recommended
+                        onClick={() => void applyRecommendation(item, recommendation)}
+                      >应用建议</Button>
+                      <details className="stage-ownership-impact">
+                        <summary>查看影响</summary>
+                        <p>
+                          “{recommendation.targetStageName}”开始日调整为 {recommendation.targetStageStartAfter}，
+                          “{recommendation.previousStageName}”截止日调整为 {recommendation.previousStageEndAfter}。
+                        </p>
+                        <span>有历史来源约束的案例保持原阶段。</span>
+                      </details>
+                    </section>
                   ) : null}
-                  <label htmlFor={`stage-ownership-target-${key}`}>目标阶段</label>
-                  <select
-                    id={`stage-ownership-target-${key}`}
-                    aria-label={`为 ${item.reference} 选择目标阶段`}
-                    value={selected}
-                    disabled={busyKey !== null}
-                    onChange={(event) => {
-                      const liveStageId = event.target.value
-                      setSelections((current) => ({ ...current, [key]: liveStageId }))
-                      updateDraft(item, { liveStageId })
-                      setFeedback((current) => {
-                        const next = { ...current }
-                        delete next[key]
-                        return next
-                      })
-                    }}
-                  >
-                    <option value="">选择阶段</option>
-                    {stages.map((stage) => (
-                      <option key={stage.id} value={stage.id}>
-                        {stage.name}{stage.status === 'current' ? '（当前）' : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    variant="primary"
-                    busy={busy}
-                    disabled={busyKey !== null || !selected || !correctionComplete}
-                    data-stage-ownership-save
-                    onClick={() => void save(item)}
-                  >保存归属</Button>
+                  <details className={`stage-ownership-manual${recommendation ? ' is-secondary' : ''}`} open={!recommendation}>
+                    <summary>{recommendation ? '手动处理' : '设置归属'}</summary>
+                    <div className="stage-ownership-manual-fields">
+                      {item.requiresWeeklyPeriodCorrection ? (
+                        <fieldset className="stage-ownership-period-correction">
+                          <legend>修正周区间</legend>
+                          <p>
+                            当前：<code>{item.weeklyPeriod?.weekStart}</code> 至 <code>{item.weeklyPeriod?.weekEnd}</code>
+                          </p>
+                          <div className="stage-ownership-date-field" role="group" aria-labelledby={`stage-ownership-week-start-label-${key}`}>
+                            <span id={`stage-ownership-week-start-label-${key}`}>周一</span>
+                            <DatePicker
+                              className="stage-ownership-week-start"
+                              ariaLabel={`为 ${item.reference} 选择修正周起始日期`}
+                              value={weeklyPeriodCorrection.weekStart}
+                              disabled={busyKey !== null}
+                              required
+                              onValueChange={(value) => {
+                                const weeklyPeriod = { ...weeklyPeriodCorrection, weekStart: value }
+                                setWeeklyPeriodCorrections((current) => ({ ...current, [key]: weeklyPeriod }))
+                                updateDraft(item, { weeklyPeriod })
+                              }}
+                            />
+                          </div>
+                          <div className="stage-ownership-date-field" role="group" aria-labelledby={`stage-ownership-week-end-label-${key}`}>
+                            <span id={`stage-ownership-week-end-label-${key}`}>周日</span>
+                            <DatePicker
+                              className="stage-ownership-week-end"
+                              ariaLabel={`为 ${item.reference} 选择修正周结束日期`}
+                              value={weeklyPeriodCorrection.weekEnd}
+                              disabled={busyKey !== null}
+                              required
+                              onValueChange={(value) => {
+                                const weeklyPeriod = { ...weeklyPeriodCorrection, weekEnd: value }
+                                setWeeklyPeriodCorrections((current) => ({ ...current, [key]: weeklyPeriod }))
+                                updateDraft(item, { weeklyPeriod })
+                              }}
+                            />
+                          </div>
+                        </fieldset>
+                      ) : null}
+                      <div className="stage-ownership-target-field" role="group" aria-labelledby={`stage-ownership-target-label-${key}`}>
+                        <span id={`stage-ownership-target-label-${key}`}>目标阶段</span>
+                        <Select
+                          className="stage-ownership-target"
+                          ariaLabel={`为 ${item.reference} 选择目标阶段`}
+                          value={selected}
+                          disabled={busyKey !== null}
+                          placeholder="选择阶段"
+                          options={stages.map((stage) => ({
+                            value: stage.id,
+                            label: `${stage.name}${stage.status === 'current' ? '（当前）' : ''}`,
+                          }))}
+                          onValueChange={(liveStageId) => {
+                            setSelections((current) => ({ ...current, [key]: liveStageId }))
+                            updateDraft(item, { liveStageId })
+                            setFeedback((current) => {
+                              const next = { ...current }
+                              delete next[key]
+                              return next
+                            })
+                          }}
+                        />
+                      </div>
+                      <Button
+                        variant="primary"
+                        busy={busy}
+                        disabled={busyKey !== null || !selected || !correctionComplete}
+                        data-stage-ownership-save
+                        onClick={() => void save(item)}
+                      >保存归属</Button>
+                    </div>
+                  </details>
                   <p
-                    className={`stage-ownership-feedback${itemFeedback?.kind === 'error' ? ' is-error' : ''}`}
+                    className={`stage-ownership-feedback${itemFeedback ? ` is-${itemFeedback.kind}` : ''}`}
                     role={itemFeedback?.kind === 'error' ? 'alert' : 'status'}
                     aria-live="polite"
                   >

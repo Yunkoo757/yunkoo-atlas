@@ -310,7 +310,7 @@ export function TradeTrashView() {
                 <div className="trash-items" role="list">
                   {group.items.map((trade) => {
                     const days = getTradeRemainingDays(trade)
-                    const isUrgent = days <= 7
+                    const isUrgent = days <= 3
                     const isSelected = selected.has(trade.id)
                     const pnlTone = privacyMode ? '' :
                       trade.pnl != null && trade.pnl > 0 ? ' is-positive' : trade.pnl != null && trade.pnl < 0 ? ' is-negative' : ''

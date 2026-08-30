@@ -14,7 +14,7 @@
 .live-stage-manager-hero,
 .live-stage-manager-section,
 .live-stage-manager-scheduled,
-.live-stage-manager-scope > div {
+.live-stage-manager-disclosure {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-8);
   background: var(--bg-inset);
@@ -40,7 +40,7 @@
 
 .live-stage-manager-hero strong,
 .live-stage-manager-scheduled strong,
-.live-stage-manager-scope strong {
+.live-stage-manager-disclosure strong {
   color: var(--text-primary);
   font-size: var(--type-body-size);
 }
@@ -91,7 +91,7 @@
 .live-stage-manager-counts span,
 .live-stage-manager-name-row small,
 .live-stage-manager-scheduled span,
-.live-stage-manager-scope span {
+.live-stage-manager-disclosure p {
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
   line-height: 1.5;
@@ -135,30 +135,54 @@
 }
 
 .live-stage-manager-blockers span {
-  padding: var(--sp-1) var(--sp-2);
-  border: 1px solid color-mix(in srgb, var(--warn) 32%, var(--border-subtle));
-  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
   color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 8%, var(--bg-surface));
   font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
+}
+
+.live-stage-manager-blockers span::before {
+  width: 4px;
+  height: 4px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  content: '';
 }
 
 .live-stage-manager-blockers span.is-clear {
-  border-color: color-mix(in srgb, var(--pos) 32%, var(--border-subtle));
   color: var(--pos);
-  background: color-mix(in srgb, var(--pos) 8%, var(--bg-surface));
 }
 
-.live-stage-manager-scope {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.live-stage-manager-disclosure {
+  padding: 0 var(--sp-4);
+}
+
+.live-stage-manager-disclosure summary {
+  display: flex;
+  align-items: center;
   gap: var(--sp-2);
+  min-height: 42px;
+  color: var(--text-secondary);
+  font-size: var(--type-row-size);
+  cursor: pointer;
+  list-style: none;
 }
 
-.live-stage-manager-scope > div {
-  display: grid;
-  gap: var(--sp-1);
-  padding: var(--sp-3);
+.live-stage-manager-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.live-stage-manager-disclosure[open] summary {
+  color: var(--text-primary);
+}
+
+.live-stage-manager-disclosure .live-stage-manager-counts,
+.live-stage-manager-disclosure > p {
+  margin: 0 0 var(--sp-4);
 }
 
 .live-stage-manager-scheduled {

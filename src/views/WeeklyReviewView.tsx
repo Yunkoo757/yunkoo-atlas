@@ -826,11 +826,15 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
               ) : null}
 
               {review.status === 'completed' ? (
-                usesCompleteSnapshot ? (
-                  <div className="wr-complete-banner"><Check size={ICON_MD} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，完成周复盘时的数据</div>
-                ) : (
-                  <div className="wr-complete-banner"><Check size={ICON_MD} /> 已完成于 {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}，历史快照缺失，指标与交易证据为实时重算；风险无法实时重算，当前不可用（缺少：{missingSnapshotLabels.join('、')}）</div>
-                )
+                <div className="wr-complete-banner">
+                  <span><Check size={ICON_MD} /> 已完成 · {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}</span>
+                  {!usesCompleteSnapshot ? (
+                    <details>
+                      <summary>部分历史指标不可用</summary>
+                      <p>缺少完成时快照：{missingSnapshotLabels.join('、')}</p>
+                    </details>
+                  ) : null}
+                </div>
               ) : null}
 
               <section className="wr-section wr-metrics" data-weekly-section="facts" data-invalid="false">
@@ -1007,7 +1011,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
               </section>
 
               <section className="wr-section wr-commitment" data-weekly-section="commitment" data-invalid={sectionHasIssue('commitment')}>
-                <div className="wr-section-head"><div><span>{previousReview ? '07' : '06'}</span><h2>下周只改变一件事</h2></div><small>必须可以被下一次复盘验证</small></div>
+                <div className="wr-section-head"><div><span>{previousReview ? '07' : '06'}</span><h2>下周只改变一件事</h2></div><small>下次复盘时验证</small></div>
                 <label>行动承诺<input data-weekly-field="commitment-text" aria-invalid={visualIssues.some((issue) => issue.fieldId === 'commitment-text')} value={review.commitmentText} onChange={(event) => commitPatch({ commitmentText: event.target.value })} placeholder="例如：没有触发确认前不提前入场" /></label>
                 <label>验收标准<input data-weekly-field="commitment-criteria" aria-invalid={visualIssues.some((issue) => issue.fieldId === 'commitment-criteria')} value={review.commitmentCriteria} onChange={(event) => commitPatch({ commitmentCriteria: event.target.value })} placeholder="例如：所有入场截图中都能看到确认信号" /></label>
               </section>

@@ -43,21 +43,6 @@
   display: none;
 }
 
-.dio-safety-note {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-2);
-  margin: calc(var(--sp-3) * -1) 0 0;
-  font-size: var(--type-metadata-size);
-  line-height: 1.5;
-  color: var(--text-muted);
-}
-.dio-safety-note svg {
-  flex: 0 0 auto;
-  margin-top: 2px;
-  color: var(--warn-action);
-}
-
 /* ---- 备份列表 ---- */
 .backup-list {
   display: flex;
@@ -133,58 +118,75 @@
 
 
 
-/* ---- 存储健康面板 ---- */
-.health-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0;
-  margin-top: var(--sp-2);
-  border-top: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.health-card {
-  display: grid;
-  grid-template-columns: 20px 1fr;
-  gap: 2px 10px;
-  padding: 14px var(--sp-3);
-  border-radius: 0;
-  background: transparent;
-  border: 0;
-  border-right: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-}
-.health-card:last-child { border-right: 0; }
-.health-card > svg { grid-row: 1 / span 2; margin-top: 2px; color: var(--text-tertiary); }
-
-.health-card.health-warn {
-  --health-note-color: var(--warn-action);
-  background: transparent;
-  border-color: var(--border-subtle);
-}
-.health-card.health-warn > svg {
-  color: var(--warn-action);
-}
-
-.health-label {
+/* ---- 资料概况与按需维护 ---- */
+.storage-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-5);
+  min-height: 48px;
+  padding: var(--sp-2) 0;
+  border-block: 1px solid var(--border-subtle);
   color: var(--text-muted);
-  font-size: var(--type-metadata-size);
-}
-
-.health-value {
-  font-size: var(--type-body-size);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--type-body-line-height);
-  color: var(--text-primary);
-}
-
-.health-note {
-  grid-column: 2;
-  min-width: 0;
-  color: var(--health-note-color, var(--text-tertiary));
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
 }
+
+.storage-summary > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  white-space: nowrap;
+}
+
+.storage-summary svg { color: var(--text-tertiary); }
+.storage-summary strong { color: var(--text-primary); font-weight: var(--font-weight-medium); }
+
+.data-attention-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 48px;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.data-attention-row > svg { color: var(--text-tertiary); }
+.data-attention-row > span:not(.data-attention-action) { display: grid; gap: 1px; min-width: 0; }
+.data-attention-row strong { color: var(--text-primary); font-size: var(--type-row-size); font-weight: var(--type-row-weight); }
+.data-attention-row small { color: var(--text-muted); font-size: var(--type-metadata-size); }
+.data-attention-row.is-danger > svg,
+.data-attention-row.is-danger strong { color: var(--neg); }
+.data-attention-action { color: var(--text-secondary); font-size: var(--type-metadata-size); }
+.data-attention-row:hover .data-attention-action { color: var(--accent-readable); }
+.data-attention-row:focus-visible { outline: var(--focus-ring-outline); outline-offset: 2px; }
+
+.data-refresh-action { margin-top: var(--sp-3); }
+
+.data-maintenance-disclosure {
+  margin-top: var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.data-maintenance-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 44px;
+  color: var(--text-secondary);
+  font-size: var(--type-row-size);
+  cursor: pointer;
+  list-style: none;
+}
+
+.data-maintenance-disclosure > summary::-webkit-details-marker { display: none; }
+.data-maintenance-disclosure > summary::after { content: '›'; margin-left: auto; color: var(--text-tertiary); transform: rotate(90deg); transition: transform var(--dur-fast) var(--ease-out); }
+.data-maintenance-disclosure[open] > summary::after { transform: rotate(-90deg); }
+.data-maintenance-disclosure > summary > span { color: var(--text-muted); font-size: var(--type-metadata-size); }
+.data-maintenance-actions { display: flex; justify-content: flex-end; padding-bottom: var(--sp-2); }
 
 .dio-group { min-width: 0; }
 .dio-disclosure {
