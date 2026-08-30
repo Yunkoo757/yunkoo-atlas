@@ -548,7 +548,7 @@
 
 .dv-comments-title {
   margin: 0 0 6px;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
   line-height: var(--type-metadata-line-height);
