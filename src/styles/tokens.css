@@ -283,6 +283,7 @@
   --border-strong: var(--color-border-tertiary);
   /* 长期结构边界：比卡片内部分隔更清晰，但不扩散到所有控件描边。 */
   --border-divider: lch(12.4% 0.9 272 / 1);
+  --border-list-header: lch(14% 0.9 272 / 1);
   /* 桌面壳层使用低对比 1px 线，跨 Windows/macOS 缩放保持设备像素锐利感。 */
   --border-chrome: var(--color-border-primary);
 

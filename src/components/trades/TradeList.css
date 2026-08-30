@@ -29,7 +29,7 @@
   font-weight: var(--type-chip-weight);
   line-height: var(--type-chip-line-height);
   background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-divider);
+  border-bottom: 1px solid var(--border-list-header);
 }
 
 .trade-list-column {

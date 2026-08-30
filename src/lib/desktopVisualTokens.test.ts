@@ -105,6 +105,7 @@ export async function testDesktopVisualTokensExposeCanonicalRoles(): Promise<voi
     '--surface-control-hover: var(--bg-hover)',
     '--surface-control-active: lch(16.7% 1 272 / 1)',
     '--border-divider: lch(12.4% 0.9 272 / 1)',
+    '--border-list-header: lch(14% 0.9 272 / 1)',
     '--tag-neutral-border: transparent',
     '--tag-session-border: transparent',
     '--symbol-list-glyph-strength: 64%',
