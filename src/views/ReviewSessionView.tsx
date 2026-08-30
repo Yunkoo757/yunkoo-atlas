@@ -870,7 +870,10 @@ function ReviewSessionStart({
               disabled={preset.count === 0}
               onClick={() => onStartPool(preset.ref)}
             >
-              <strong>{preset.label} · {preset.count}</strong>
+              <strong>
+                <span>{preset.label}</span>
+                <span className="review-session-preset-count">· {preset.count}</span>
+              </strong>
             </button>
           ))}
         </div>

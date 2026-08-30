@@ -135,10 +135,18 @@
 }
 
 .review-session-preset-list strong {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
   font-size: var(--type-row-size);
   font-weight: var(--font-weight-semibold);
   line-height: var(--type-row-line-height);
   font-variant-numeric: var(--numeric-tabular);
+}
+
+.review-session-preset-count {
+  color: var(--text-content-metadata);
+  font-weight: var(--font-weight-regular);
 }
 
 .review-pool-manager-section + .review-pool-manager-section {
