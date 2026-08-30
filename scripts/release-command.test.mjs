@@ -428,7 +428,7 @@ test('NSIS 安装向导使用 Atlas 品牌图与简体中文', () => {
   assert.match(iconScript, /installerSidebar\.bmp/)
   assert.match(iconScript, /installerHeader\.bmp/)
   assert.match(iconScript, /encodeBmp24/)
-  assert.match(iconScript, /NSIS_BMP_SCALE = 3/, '安装器位图须按 3× 输出，避免高 DPI 拉伸发糊')
+  assert.match(iconScript, /NSIS_BMP_SCALE = 2/, '安装器位图须按 2× 输出，兼顾高 DPI 清晰度与缩放质量')
 })
 // Quality-Scenario: R-WIN-FAIL
 // Quality-Scenario: R-MAC-FAIL

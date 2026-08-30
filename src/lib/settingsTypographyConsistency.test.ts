@@ -48,7 +48,7 @@ export function testSettingsDescriptionsUseMetadataWithoutFlatteningImportantVal
   expectRole(data, '.dio-desc', 'font-size: var(--type-metadata-size)')
   expectRole(data, '.dio-group-desc', 'font-size: var(--type-metadata-size)')
 
-  expectRole(data, '.health-value', 'font-size: var(--type-body-size)')
+  expectRole(data, '.storage-summary strong', 'font-size: var(--type-body-size)')
   expectRole(data, '.dio-restore-warning', 'font-size: var(--type-body-size)')
   expectRole(data, '.data-purge-summary > strong', 'font-size: var(--type-body-size)')
 }

@@ -308,8 +308,11 @@ export async function testDesktopShellDashboardAndSavedViewsRemainOperable(): Pr
     '仪表盘范围按钮应使用真实筛选语义，并为图表提供键盘数据入口',
   )
   assert(
-    dashboard.includes("value={stats.evaluatedCount === 0 ? '—' : String(stats.winCount)}"),
-    '仪表盘没有有效结果时，盈利笔数必须显示缺失态而不是伪装成 0',
+    !dashboard.includes('label="盈利笔数"') &&
+      dashboard.includes('label="净盈亏"') &&
+      dashboard.includes('label="胜率"') &&
+      dashboard.includes('label="平均 R"'),
+    '仪表盘核心指标应保持精简，不得重新加入可由胜率推导的盈利笔数卡片',
   )
   assert(
     quickView.includes("label: '撤销'") &&

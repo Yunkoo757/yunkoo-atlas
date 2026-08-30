@@ -937,7 +937,7 @@ async function run(): Promise<void> {
       '周次切换必须替换当前历史项',
     )
     clickButton('年度趋势')
-    await waitFor(() => document.body.textContent?.includes('做法评分趋势') ?? false, '年度趋势页不可达')
+    await waitFor(() => Boolean(document.querySelector('#weekly-review-panel-year')), '年度趋势页不可达')
 
     await waitFor(
       () => document.querySelector('[data-testid="weekly-route-probe"]')
@@ -965,7 +965,7 @@ async function run(): Promise<void> {
       </MemoryRouter>,
     )
     await waitFor(
-      () => document.body.textContent?.includes('做法评分趋势') ?? false,
+      () => Boolean(document.querySelector('#weekly-review-panel-year')),
       '重挂载历史年度深链后没有恢复年度趋势',
     )
     await waitFor(

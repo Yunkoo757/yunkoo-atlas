@@ -713,7 +713,7 @@ export async function testSharedTypeRolesStayAlignedAcrossPages(): Promise<void>
   }
 
   for (const [path, selector] of [
-    ['src/components/DataIOContent.css', '.health-value'],
+    ['src/components/DataIOContent.css', '.storage-summary strong'],
     ['src/views/WeeklyReviewView.css', '.wr-page-head p'],
   ] as const) {
     assertRoleDeclarations(cssRule(sources[path], selector), selector, [
@@ -915,7 +915,6 @@ export async function testSemanticChipsUseCanonicalTypographyRole(): Promise<voi
     ['src/views/WeeklyReviewView.css', '.wr-result-choice button,.wr-tag-group button,.wr-trade-roles button'],
     ['src/views/ImportDataHealthView.css', '.idh-select span'],
     ['src/views/settings/UpdatesSettingsPanel.css', '.update-status'],
-    ['src/views/StageOwnershipRepairView.css', '.stage-ownership-heading > span'],
     ['src/views/settings/RiskDataRepairView.css', '.risk-repair-row-title small'],
     ['src/components/sidebar/SidebarWorkspace.css', '.sb-target-row-state'],
   ]

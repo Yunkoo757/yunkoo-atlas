@@ -107,7 +107,7 @@ export async function testCaseListHonorsSharedGroupingPreference(): Promise<void
   assert(
     source.includes('if (display.groupByStrategy)') &&
       source.includes('if (display.groupByDate)') &&
-      source.includes('return groupTradesByMonth(visible)'),
+      source.includes('return groupTradesByMonth(visible, new Date(), display.sortDirection)'),
     '交易日志与案例库必须共用显示设置中的策略和月份分组逻辑',
   )
 }

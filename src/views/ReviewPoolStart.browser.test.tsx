@@ -114,11 +114,11 @@ async function run(): Promise<void> {
   try {
     await waitFor(
       () => [...document.querySelectorAll<HTMLButtonElement>('.review-session-preset-list button')]
-        .some((button) => button.textContent?.includes('近期多看 · 1')),
+        .some((button) => button.textContent?.replace(/\s+/g, '').includes('近期多看·1')),
       '近期多看必须只统计满足通用资格的已标记记录',
     )
     const boosted = [...document.querySelectorAll<HTMLButtonElement>('.review-session-preset-list button')]
-      .find((button) => button.textContent?.includes('近期多看 · 1'))
+      .find((button) => button.textContent?.replace(/\s+/g, '').includes('近期多看·1'))
     assert(boosted && !boosted.disabled, '非空近期多看复盘池必须可直接开始')
     boosted.click()
 

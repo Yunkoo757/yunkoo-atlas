@@ -140,7 +140,12 @@
 }
 
 .storage-summary svg { color: var(--text-tertiary); }
-.storage-summary strong { color: var(--text-primary); font-weight: var(--font-weight-medium); }
+.storage-summary strong {
+  color: var(--text-primary);
+  font-size: var(--type-body-size);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--type-body-line-height);
+}
 
 .data-attention-row {
   display: grid;

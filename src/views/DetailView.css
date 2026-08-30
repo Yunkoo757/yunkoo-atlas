@@ -418,7 +418,7 @@
   color: var(--text-detail-body);
   font-weight: 450;
   line-height: 1.6;
-  letter-spacing: -0.00666667em;
+  letter-spacing: 0;
 }
 
 .dv-document .editor [data-review-context]::before {
