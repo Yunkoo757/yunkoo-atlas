@@ -362,7 +362,7 @@ function BoardColumnBody({
                     <SymbolIcon symbol={t.symbol} overrides={symbolIcons} size={ICON_MD} />
                     {t.symbol}
                   </span>
-                  <SideTag side={t.side} />
+                  <SideTag side={t.side} quiet />
                 </div>
                 <div className="bd-card-strategy">
                   <StrategyLabel strategyId={t.strategyId} strategies={strategies} />
