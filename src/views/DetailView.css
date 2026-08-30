@@ -421,6 +421,10 @@
 .dv-editor .editor .ProseMirror {
   min-height: 96px;
 }
+
+.dv-document .editor [data-review-context] {
+  color: var(--text-detail-body);
+}
 /* D4：空白备注近乎隐身，hover / focus 才加重 */
 .dv-document .editor .ProseMirror p.is-editor-empty:first-child::before {
   opacity: 0.72;

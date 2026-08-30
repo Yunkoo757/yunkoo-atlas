@@ -297,6 +297,7 @@
   --text-content-metadata: lch(62% 1.2 272 / 1);
   --text-content-context: lch(56% 1.2 272 / 1);
   --text-content-faint: lch(38% 1.2 272 / 1);
+  --text-detail-body: lch(87% 0.8 272 / 1);
   --text-primary: var(--text-content-strong);
   --text-secondary: lch(70% 1 272 / 1);
   --text-tertiary: var(--text-content-context);
