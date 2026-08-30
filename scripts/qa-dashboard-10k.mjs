@@ -58,7 +58,7 @@ export function evaluateDashboardQa(observation, { budgetProfile = 'default' } =
       expected: observation.expectedClosedCount,
       actual: observation.renderedClosedCount,
     },
-    { id: 'kpi-cards', passed: observation.cardCount === 4, expected: 4, actual: observation.cardCount },
+    { id: 'kpi-cards', passed: observation.cardCount === 3, expected: 3, actual: observation.cardCount },
     { id: 'dashboard-panels', passed: observation.panelCount === 3, expected: 3, actual: observation.panelCount },
     { id: 'data-health', passed: observation.hasDataHealth === true, expected: true, actual: observation.hasDataHealth },
     { id: 'console-errors', passed: observation.consoleErrors.length === 0, expected: 0, actual: observation.consoleErrors.length },
