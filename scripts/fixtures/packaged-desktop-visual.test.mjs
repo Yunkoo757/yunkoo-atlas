@@ -39,6 +39,12 @@ const windowsCjk = Object.freeze({
   isCustomFont: false,
   glyphCount: 8,
 })
+const windowsNotoCjk = Object.freeze({
+  familyName: 'Noto Sans SC',
+  postScriptName: 'Noto-Sans-SC',
+  isCustomFont: false,
+  glyphCount: 8,
+})
 const macInter = Object.freeze({
   familyName: 'Inter',
   postScriptName: 'Inter-Regular',
@@ -199,9 +205,14 @@ test('typography glyph matching binds Chromium internal names to declared native
     '"Inter Variable", "Noto Sans SC Variable", "Microsoft YaHei UI", sans-serif',
   ), true)
   assert.equal(packagedVisualContract.isPlatformCjkGlyphFont(
-    { familyName: 'Microsoft YaHei UI', isCustomFont: false },
+    { familyName: 'Microsoft YaHei UI', postScriptName: 'MicrosoftYaHeiUI', isCustomFont: false },
     'win32',
     '"Inter Variable", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif',
+  ), true)
+  assert.equal(packagedVisualContract.isPlatformCjkGlyphFont(
+    windowsNotoCjk,
+    'win32',
+    '"Inter Variable", Inter, "Segoe UI", Roboto, sans-serif',
   ), true)
   assert.equal(packagedVisualContract.isPlatformCjkGlyphFont(
     { familyName: 'PingFang SC', postScriptName: 'PingFangSC-Regular', isCustomFont: false },

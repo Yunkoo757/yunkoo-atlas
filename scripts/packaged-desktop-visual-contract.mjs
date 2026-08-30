@@ -131,13 +131,13 @@ export function isPlatformCjkGlyphFont(font, platform, declaredFontFamily) {
       /^(?:NotoSansSC(?:-Regular)?|Noto-Sans-SC-Thin)$/i.test(font?.postScriptName ?? '')
   }
   if (font?.isCustomFont !== false) return false
-  const familyName = font?.familyName?.toLowerCase()
   if (platform === 'win32') {
-    const expectedFamily = familyName === 'microsoft yahei ui'
-      ? 'Microsoft YaHei UI'
-      : familyName === 'microsoft yahei'
-        ? 'Microsoft YaHei'
-        : null
+    const approvedPairs = new Map([
+      ['Microsoft YaHei UI|MicrosoftYaHeiUI', 'Microsoft YaHei UI'],
+      ['Microsoft YaHei|MicrosoftYaHei', 'Microsoft YaHei'],
+      ['Noto Sans SC|Noto-Sans-SC', 'Noto Sans SC'],
+    ])
+    const expectedFamily = approvedPairs.get(`${font?.familyName}|${font?.postScriptName}`)
     const declaresWindowsSystemStack = declaredFontFamilyIncludes(declaredFontFamily, 'Segoe UI')
     return expectedFamily != null &&
       (declaredFontFamilyIncludes(declaredFontFamily, expectedFamily) || declaresWindowsSystemStack)
