@@ -24,7 +24,7 @@
   column-gap: var(--sp-2);
   height: var(--trade-list-columns-height);
   padding: 0 10px;
-  color: var(--text-nav-rest);
+  color: var(--text-list-header);
   font-size: var(--type-chip-size);
   font-weight: var(--type-chip-weight);
   line-height: var(--type-chip-line-height);

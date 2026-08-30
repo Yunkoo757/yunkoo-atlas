@@ -86,7 +86,7 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
     '--toolbar-chip-height: 28px',
     '--surface-row-hover: var(--bg-hover)',
     '--surface-row-selected: lch(10.691% 0.493 272 / 1)',
-    '--surface-group: var(--color-bg-quaternary)',
+    '--surface-group: lch(10.8% 0.85 272 / 1)',
     '--group-chevron-started: lch(50% 7 78)',
     '--group-chevron-done: lch(50% 7 283)',
   ]) {

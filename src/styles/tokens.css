@@ -207,7 +207,7 @@
   --surface-floating: var(--popover-bg);
 
   /* 分组条底色统一；生命力靠三角/状态图标 tint */
-  --surface-group: var(--color-bg-quaternary);
+  --surface-group: lch(10.8% 0.85 272 / 1);
   /*
    * 持久导航位置：active 必须明显强于 hover。
    * 筛选控件继续使用 --surface-control-*，数据多选继续使用
@@ -320,8 +320,9 @@
   /* 持久导航使用统一强调色；模块身份不再制造彩虹式选中态。 */
   --nav-active-icon: color-mix(in srgb, var(--accent-readable) 58%, var(--text-nav-active));
   --text-list-strong: var(--text-content-strong);
-  --text-list-secondary: var(--text-content-metadata);
-  --text-chip: var(--text-content-metadata);
+  --text-list-secondary: lch(74% 1.2 272 / 1);
+  --text-list-header: lch(68% 1.2 272 / 1);
+  --text-chip: lch(68% 1.2 272 / 1);
 
   /* 角色型文字层级：可读内容不直接消费 disabled 灰阶 */
   --text-strong: var(--color-text-primary);
