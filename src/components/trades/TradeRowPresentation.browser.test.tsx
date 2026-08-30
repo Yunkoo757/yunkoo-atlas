@@ -191,9 +191,9 @@ async function run(): Promise<void> {
     visibleOverflow.focus()
     await frame()
     await frame()
-    const overflowTooltip = document.querySelector<HTMLElement>('[role="tooltip"]')
-    assert(overflowTooltip?.textContent?.includes('追单'), '标签溢出提示必须列出被省略的错误标签')
-    assert(overflowTooltip?.textContent?.includes('普通标签'), '标签溢出提示必须列出被省略的普通标签')
+    const overflowTooltip = [...document.querySelectorAll<HTMLElement>('[role="tooltip"]')]
+      .find((item) => item.textContent?.includes('追单') && item.textContent.includes('普通标签'))
+    assert(overflowTooltip, '标签溢出提示必须列出被省略的错误标签与普通标签')
   } finally {
     delete document.documentElement.dataset.keyboardNavigation
     root.unmount()
