@@ -58,7 +58,7 @@
 - 全局设计基线：`design.md`。
 - 主题 Token：`src/styles/tokens.css`。
 - 旧页面证据：`pnpm qa:desktop-visual` 在 `2c080c0` 生成过完整 Renderer 矩阵；该结果用于证明场景可运行，不作为每次视觉实验的固定成本。
-- Linear 登录态页面：`https://linear.app/yunkoo/team/YUN/all`。
+- 外部参照产品的登录态页面（具体地址不写入项目文档）。
 - Linear 本地参考资料：`D:\Trader-Atlas-reference-assets\linear-design-2026-08-28`。
 - 设计合同：`pnpm qa:design`，当前结果为通过。
 
