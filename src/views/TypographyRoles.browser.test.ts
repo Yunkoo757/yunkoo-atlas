@@ -108,7 +108,7 @@ async function run(): Promise<void> {
       <article class="bd-card"><span class="bd-card-ref">CAS-32</span></article>
     </section>
     <aside class="sidebar" data-typography-sidebar>
-      <div class="sb-item" data-nav-state="rest"><span class="sb-item-label">案例库</span><span class="sb-item-count">30</span></div>
+      <div class="sb-item" data-nav-state="rest"><span class="sb-item-label">案例库</span></div>
       <div class="sb-item is-active" data-nav-state="active"><span class="sb-item-label">交易日志</span></div>
       <div class="sb-item"><button class="sb-workspace-capability-menu">菜单</button></div>
     </aside>

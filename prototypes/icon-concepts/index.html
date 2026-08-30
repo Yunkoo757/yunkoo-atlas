@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trader Atlas · 极简图标方向</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #09090a;
+      --surface: #121214;
+      --surface-raised: #18181b;
+      --border: #29292e;
+      --border-strong: #3a3b43;
+      --text: #ededf0;
+      --muted: #92939b;
+      --accent: #6f78e8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .page { width: min(1480px, calc(100% - 64px)); margin: 0 auto; padding: 54px 0 72px; }
+    header { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 34px; }
+    h1 { margin: 0 0 8px; font-size: 27px; letter-spacing: -0.025em; }
+    .subtitle { margin: 0; color: var(--muted); font-size: 14px; }
+    .status { color: var(--muted); font-size: 13px; }
+    .grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+    .card {
+      position: relative;
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      cursor: pointer;
+      transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+    }
+    .card:hover { border-color: var(--border-strong); background: #151517; transform: translateY(-1px); }
+    .card.selected { border-color: color-mix(in srgb, var(--accent) 72%, white 8%); background: #171820; box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent); }
+    .number { position: absolute; top: 14px; right: 14px; color: #686971; font: 12px ui-monospace, monospace; }
+    .hero { height: 154px; display: grid; place-items: center; border-radius: 10px; background: #0d0d0f; border: 1px solid #1d1d20; }
+    .app-tile { width: 112px; height: 112px; display: grid; place-items: center; border: 1px solid #28292e; border-radius: 25px; background: #131417; box-shadow: 0 12px 26px rgb(0 0 0 / 34%); }
+    .app-tile img { width: 70px; height: 70px; }
+    .meta { padding: 15px 2px 2px; }
+    .name { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+    .concept { margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .sizes { display: flex; align-items: center; gap: 13px; margin-top: 14px; min-height: 36px; }
+    .sizes img:nth-child(1) { width: 16px; height: 16px; }
+    .sizes img:nth-child(2) { width: 24px; height: 24px; }
+    .sizes img:nth-child(3) { width: 32px; height: 32px; }
+    .sizes img:nth-child(4) { width: 40px; height: 40px; }
+    .selection {
+      position: sticky;
+      bottom: 18px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin: 24px auto 0;
+      padding: 13px 16px;
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+      background: rgb(24 24 27 / 94%);
+      box-shadow: 0 18px 55px rgb(0 0 0 / 48%);
+      backdrop-filter: blur(16px);
+    }
+    .selection.visible { display: flex; }
+    .selected-label { font-size: 14px; }
+    .selected-label span { color: var(--muted); margin-right: 7px; }
+    .actions { display: flex; gap: 8px; }
+    button, a.button {
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      padding: 8px 12px;
+      background: #202024;
+      color: var(--text);
+      font: inherit;
+      font-size: 13px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    a.primary { border-color: #6972db; background: #5e67d1; color: white; }
+    @media (max-width: 1100px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 720px) { .page { width: min(100% - 28px, 560px); padding-top: 30px; } .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } header { align-items: start; flex-direction: column; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div>
+        <h1>Trader Atlas · 极简图标方向</h1>
+        <p class="subtitle">第二组：单一轮廓、克制负形、桌面品牌符号。点击卡片选择。</p>
+      </div>
+      <div class="status">无装饰外框 · 16 / 24 / 32 / 40 px 识别度</div>
+    </header>
+    <section class="grid" id="grid"></section>
+    <aside class="selection" id="selection">
+      <div class="selected-label"><span>已选择</span><strong id="selectedName"></strong></div>
+      <div class="actions">
+        <button id="clearButton" type="button">取消选择</button>
+        <a class="button primary" id="openSvg" href="#" target="_blank">打开 SVG</a>
+      </div>
+    </aside>
+  </main>
+  <script>
+    const concepts = [
+      ['11-slit-disc.svg', '切隙圆', '完整秩序中的单一方向'],
+      ['12-offset-planes.svg', '错位平面', '记录、覆盖与时间沉积'],
+      ['13-cut-column.svg', '切面柱', '纪律、承托与向下收束'],
+      ['14-quiet-orbit.svg', '静默轨道', '观察、周期与独立节点'],
+      ['15-negative-atlas.svg', '负形 Atlas', '纯粹字标，隐含坐标结构'],
+      ['16-fold-mark.svg', '双折面', '极简地图语义与双向视角'],
+      ['17-north-notch.svg', '北向缺口', '稳定容器中的单一指向'],
+      ['18-axis-gate.svg', '坐标门', '横轴、纵轴与平衡支点'],
+      ['19-measured-arc.svg', '测量弧', '跨度、基准与复盘视野'],
+      ['20-balanced-slabs.svg', '平衡双碑', '两种状态与结构切面']
+    ];
+    const grid = document.querySelector('#grid');
+    const selection = document.querySelector('#selection');
+    const selectedName = document.querySelector('#selectedName');
+    const openSvg = document.querySelector('#openSvg');
+    let selected = localStorage.getItem('trader-atlas-icon-concept');
+
+    function render() {
+      grid.innerHTML = concepts.map(([file, name, concept], index) => `
+        <article class="card ${selected === file ? 'selected' : ''}" data-file="${file}" tabindex="0" role="button" aria-label="选择 ${name}">
+          <span class="number">${String(index + 1).padStart(2, '0')}</span>
+          <div class="hero"><div class="app-tile"><img src="${file}" alt="${name}" /></div></div>
+          <div class="meta">
+            <div class="name">${name}</div>
+            <div class="concept">${concept}</div>
+            <div class="sizes" aria-label="小尺寸预览">
+              <img src="${file}" alt="" /><img src="${file}" alt="" /><img src="${file}" alt="" /><img src="${file}" alt="" />
+            </div>
+          </div>
+        </article>`).join('');
+      const found = concepts.find(([file]) => file === selected);
+      selection.classList.toggle('visible', Boolean(found));
+      if (found) {
+        selectedName.textContent = `${found[1]} · ${found[0]}`;
+        openSvg.href = found[0];
+      }
+    }
+
+    function choose(file) {
+      selected = file;
+      localStorage.setItem('trader-atlas-icon-concept', file);
+      render();
+    }
+
+    grid.addEventListener('click', event => {
+      const card = event.target.closest('.card');
+      if (card) choose(card.dataset.file);
+    });
+    grid.addEventListener('keydown', event => {
+      if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('.card')) {
+        event.preventDefault();
+        choose(event.target.dataset.file);
+      }
+    });
+    document.querySelector('#clearButton').addEventListener('click', () => {
+      selected = null;
+      localStorage.removeItem('trader-atlas-icon-concept');
+      render();
+    });
+    render();
+  </script>
+</body>
+</html>

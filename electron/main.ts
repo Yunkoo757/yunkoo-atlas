@@ -113,10 +113,17 @@ function getDevelopmentIconCandidates(): string[] {
 
 function getWindowIconPath(): string | undefined {
   const candidates = app.isPackaged
-    ? [
-        path.join(app.getAppPath(), 'dist', 'icon.png'),
-        path.join(process.resourcesPath, 'icon.png'),
-      ]
+    ? (process.platform === 'darwin'
+        ? [
+            path.join(app.getAppPath(), 'dist', 'icon.png'),
+            path.join(process.resourcesPath, 'icon.png'),
+          ]
+        : [
+            path.join(app.getAppPath(), 'dist', 'icon.ico'),
+            path.join(process.resourcesPath, 'icon.ico'),
+            path.join(app.getAppPath(), 'dist', 'icon.png'),
+            path.join(process.resourcesPath, 'icon.png'),
+          ])
     : getDevelopmentIconCandidates()
   return candidates.find((candidate) => fs.existsSync(candidate))
 }

@@ -147,6 +147,13 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     scope: 'navigation',
     defaultBinding: getDefaultShortcutBinding('nav.strategies'),
   },
+  ...Array.from({ length: 9 }, (_, index): ShortcutActionMeta => ({
+    id: `nav.strategySlot${index + 1}`,
+    label: `左侧第 ${index + 1} 个策略`,
+    category: '策略导航',
+    scope: 'navigation',
+    defaultBinding: getDefaultShortcutBinding(`nav.strategySlot${index + 1}`),
+  })),
 
   {
     id: 'view.list',

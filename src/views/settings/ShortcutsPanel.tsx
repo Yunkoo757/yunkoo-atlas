@@ -11,11 +11,14 @@ import { resolveBinding, useShortcutStore } from '@/store/shortcutStore'
 import { toast } from '@/lib/toast'
 import { ShortcutKeycaps } from '@/views/settings/ShortcutKeycaps'
 import { WindowHotkeySetting } from '@/views/settings/WindowHotkeySetting'
+import { useStore } from '@/store/useStore'
 import '@/views/ShortcutsView.css'
 
 const WINDOW_HOTKEY_LOADING_COPY = '正在读取系统快捷键，请稍候'
 
 export function ShortcutsPanel() {
+  const strategies = useStore((s) => s.strategies)
+  const sidebarWorkspaceItems = useStore((s) => s.display.sidebarWorkspaceItems)
   const bindings = useShortcutStore((s) => s.bindings)
   const assignBinding = useShortcutStore((s) => s.assignBinding)
   const setBinding = useShortcutStore((s) => s.setBinding)
@@ -31,12 +34,24 @@ export function ShortcutsPanel() {
 
   const categories = useMemo(() => {
     const map = new Map<string, typeof SHORTCUT_ACTIONS>()
+    const strategyNames = new Map(strategies.map((strategy) => [strategy.id, strategy.name]))
+    const visibleStrategyNames = sidebarWorkspaceItems.flatMap((item) => {
+      if (item.target.kind !== 'strategy') return []
+      const name = strategyNames.get(item.target.strategyId)
+      return name ? [name] : []
+    })
     for (const action of SHORTCUT_ACTIONS) {
+      const strategySlotMatch = /^nav\.strategySlot(\d+)$/.exec(action.id)
+      const strategySlot = strategySlotMatch ? Number(strategySlotMatch[1]) : null
+      if (strategySlot && !visibleStrategyNames[strategySlot - 1]) continue
+      const presentedAction = strategySlot
+        ? { ...action, label: visibleStrategyNames[strategySlot - 1]! }
+        : action
       if (!map.has(action.category)) map.set(action.category, [])
-      map.get(action.category)!.push(action)
+      map.get(action.category)!.push(presentedAction)
     }
     return [...map.entries()]
-  }, [])
+  }, [sidebarWorkspaceItems, strategies])
 
   const onRecordKey = useCallback(
     (e: KeyboardEvent) => {

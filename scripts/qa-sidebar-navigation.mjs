@@ -314,7 +314,7 @@ try {
   )
   expectEqual(
     await page.locator('.sb-workspace [data-sidebar-workspace-id] > a .sb-item-label').allTextContents(),
-    ['进行中', '模拟盘'],
+    ['进行中'],
     'Default workspace must not duplicate trade-log quick views',
   )
 
@@ -360,6 +360,16 @@ try {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     })
+    const items = useStore.getState().display.sidebarWorkspaceItems
+    useStore.getState().replaceSidebarWorkspaceItems([
+      ...items,
+      {
+        id: 'case-view:exemplar',
+        target: { kind: 'case-view', scope: 'exemplar' },
+        placement: 'pinned',
+        order: items.length,
+      },
+    ])
   })
 
   const manageButton = page.getByRole('button', { name: '管理我的空间', exact: true })
@@ -431,7 +441,7 @@ try {
     useStore.getState().setDisplayName('QA 父级重渲染')
   })
   await expectFocused(search)
-  for (const group of ['工作区能力', '交易日志', '模拟盘', '案例库', '策略']) {
+  for (const group of ['工作区能力', '交易日志', '案例库', '策略']) {
     await expectVisible(editor.getByRole('heading', { name: group }))
   }
   const group = (name) => editor.locator('.sb-target-group').filter({ hasText: name })
@@ -800,10 +810,10 @@ try {
   await expectVisible(drawer)
   expectEqual(
     await drawer.locator('[data-mobile-workspace-item]').allTextContents(),
-    ['进行中', '星标交易', '错过机会', '模拟盘', 'QA 保存视图'],
+    ['进行中', '星标交易', '错过机会', 'QA 保存视图'],
     'More drawer must contain every valid pinned and overflow item in order',
   )
-  const expectedDrawerItems = ['进行中', '星标交易', '错过机会', '模拟盘', 'QA 保存视图', '随记', '周复盘', '随机复盘', '搜索', '设置', '回收站', '管理我的空间']
+  const expectedDrawerItems = ['进行中', '星标交易', '错过机会', 'QA 保存视图', '随记', '周复盘', '随机复盘', '搜索', '设置', '回收站', '管理我的空间']
   expectEqual(
     await drawer.locator('[data-mobile-drawer-item]').allTextContents(),
     expectedDrawerItems,

@@ -25,7 +25,11 @@ import {
 } from '@/lib/routeContext'
 import { tradeDetailPath, resolveTradeDetailReturn, findTradeByRouteParam } from '@/lib/tradeRoute'
 import { routeWithSearch } from '@/lib/tradeView'
-import { resolveShortcutWorkspaceHref } from '@/shortcuts/workspaceActions'
+import {
+  resolveShortcutWorkspaceHref,
+  resolveSidebarStrategyShortcutHref,
+  SIDEBAR_STRATEGY_SHORTCUT_LIMIT,
+} from '@/shortcuts/workspaceActions'
 import { syncPrimaryWorkspaceMode } from '@/lib/workspaceViews'
 import { getActionMeta } from '@/shortcuts/actions'
 import { requestLightboxClose, requestLightboxReset } from '@/lib/lightboxView'
@@ -72,6 +76,22 @@ export function useShortcutHost({
       params.set('view', view)
       return `${sharedTradePath}?${params.toString()}`
     }
+    const strategySlotHandlers = Object.fromEntries(
+      Array.from({ length: SIDEBAR_STRATEGY_SHORTCUT_LIMIT }, (_, index) => [
+        `nav.strategySlot${index + 1}`,
+        () => {
+          const state = useStore.getState()
+          const href = resolveSidebarStrategyShortcutHref(
+            index + 1,
+            state.display.sidebarWorkspaceItems,
+            state.strategies,
+            state.display.workspaceMemory?.trade?.pathname ?? pathname,
+            sharedTradeSearch,
+          )
+          if (href) navigate(href)
+        },
+      ]),
+    )
     setShortcutHandlers({
       'global.commandPalette': onToggleCmdk,
       'global.commandPaletteMod': onToggleCmdk,
@@ -157,6 +177,7 @@ export function useShortcutHost({
         navigate(`/dashboard${sharedTradeSearch}`)
       },
       'nav.strategies': () => navigate('/settings/strategies'),
+      ...strategySlotHandlers,
 
       'view.list': () => {
         const state = useStore.getState()

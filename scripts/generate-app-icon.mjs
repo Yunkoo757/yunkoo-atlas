@@ -1,9 +1,9 @@
 /**
- * Generate Electron / favicon / NSIS installer assets from the checked-in product icon PNG master.
+ * Generate Electron / favicon / NSIS installer assets from the checked-in product icon SVG master.
  * Usage: node scripts/generate-app-icon.mjs
  *
- * NSIS 侧栏/顶栏按逻辑尺寸的 3× 出图：高 DPI 下 StretchBlt 接近 1:1 或轻度缩小，
- * 避免 164×314 被系统放大后发糊。
+ * NSIS 侧栏/顶栏按逻辑尺寸的 2× 出图。MUI 使用 GDI LoadImage 缩放位图，
+ * 2× 在 Windows 常见 100%–200% DPI 下更接近目标控件尺寸，减少非整数下采样锯齿。
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -13,7 +13,6 @@ import sharp from 'sharp'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 const svgPath = path.join(root, 'build/icon.svg')
-const masterPngPath = path.join(root, 'build/icon.png')
 const traySvgPath = path.join(root, 'build/trayTemplate.svg')
 const buildDir = path.join(root, 'build')
 const publicDir = path.join(root, 'public')
@@ -29,7 +28,7 @@ const BRAND = {
 /** NSIS MUI 逻辑尺寸；实际 BMP 按 SCALE 输出。 */
 const SIDEBAR_LOGIC = { w: 164, h: 314 }
 const HEADER_LOGIC = { w: 150, h: 57 }
-const NSIS_BMP_SCALE = 3
+const NSIS_BMP_SCALE = 2
 
 /** Pack PNG buffers into a multi-size .ico (PNG-in-ICO, Vista+) */
 function pngsToIco(pngBuffers) {
@@ -67,15 +66,30 @@ function readPngSize(buf) {
   return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) }
 }
 
-async function pngAsSvg(pngBuffer) {
-  const metadata = await sharp(pngBuffer).metadata()
-  if (!metadata.width || !metadata.height) throw new Error('Selected Logo PNG has no dimensions')
-  const base64 = pngBuffer.toString('base64')
-  return Buffer.from(`<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${metadata.width}" height="${metadata.height}" viewBox="0 0 ${metadata.width} ${metadata.height}">
-  <image href="data:image/png;base64,${base64}" width="${metadata.width}" height="${metadata.height}" preserveAspectRatio="xMidYMid slice"/>
-</svg>
-`, 'utf8')
+/**
+ * Windows 标题栏会直接使用 16–24px 图层。这里不缩放 512px 母版，
+ * 而是给每个小尺寸单独对齐几何边界，避免环宽、圆心与强调点落在小数像素上。
+ */
+function buildOpticalSmallSvg(size) {
+  const geometry = {
+    16: { inset: 0, radius: 4, cx: 7, cy: 9, ringRadius: 4, ringWidth: 2, dotCx: 12, dotCy: 4, dotRadius: 2 },
+    20: { inset: 1, radius: 4, cx: 9, cy: 11, ringRadius: 4.5, ringWidth: 3, dotCx: 15, dotCy: 5, dotRadius: 2.5 },
+    24: { inset: 1, radius: 5, cx: 11, cy: 13, ringRadius: 6.5, ringWidth: 3, dotCx: 18, dotCy: 6, dotRadius: 3 },
+    32: { inset: 1, radius: 7, cx: 14, cy: 17, ringRadius: 8, ringWidth: 4, dotCx: 24, dotCy: 8, dotRadius: 4 },
+  }[size]
+  if (!geometry) return null
+  const { inset, radius, cx, cy, ringRadius, ringWidth, dotCx, dotCy, dotRadius } = geometry
+  const extent = size - inset * 2
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" fill="none">
+  <rect x="${inset}" y="${inset}" width="${extent}" height="${extent}" rx="${radius}" fill="#121318"/>
+  <circle cx="${cx}" cy="${cy}" r="${ringRadius}" stroke="#E7E7EB" stroke-width="${ringWidth}"/>
+  <circle cx="${dotCx}" cy="${dotCy}" r="${dotRadius}" fill="#737BDD"/>
+</svg>`, 'utf8')
+}
+
+async function renderIconPng(svg, size) {
+  const opticalSvg = buildOpticalSmallSvg(size)
+  return sharp(opticalSvg ?? svg, { density: 384 }).resize(size, size).png().toBuffer()
 }
 
 /** NSIS 需要 24-bit BMP；从 RGBA raw 编码（无 alpha）。 */
@@ -189,31 +203,31 @@ async function buildInstallerHeader(iconPng) {
 }
 
 async function main() {
-  if (!fs.existsSync(masterPngPath)) throw new Error(`Missing selected Logo master ${masterPngPath}`)
+  if (!fs.existsSync(svgPath)) throw new Error(`Missing selected Logo master ${svgPath}`)
   if (!fs.existsSync(traySvgPath)) throw new Error(`Missing ${traySvgPath}`)
   fs.mkdirSync(buildDir, { recursive: true })
   fs.mkdirSync(publicDir, { recursive: true })
 
-  const masterPng = fs.readFileSync(masterPngPath)
-  const svg = await pngAsSvg(masterPng)
-  fs.writeFileSync(svgPath, svg)
-  const png512 = await sharp(masterPng).resize(512, 512).png().toBuffer()
+  const svg = fs.readFileSync(svgPath)
+  const png512 = await sharp(svg, { density: 384 }).resize(512, 512).png().toBuffer()
   fs.writeFileSync(path.join(buildDir, 'icon.png'), png512)
 
   // Web favicon + apple touch + runtime window icon (copied into dist/)
-  const png32 = await sharp(masterPng).resize(32, 32).png().toBuffer()
-  const png180 = await sharp(masterPng).resize(180, 180).png().toBuffer()
+  const png32 = await renderIconPng(svg, 32)
+  const png180 = await sharp(svg, { density: 384 }).resize(180, 180).png().toBuffer()
   fs.writeFileSync(path.join(publicDir, 'favicon.svg'), svg)
   fs.writeFileSync(path.join(publicDir, 'favicon-32.png'), png32)
   fs.writeFileSync(path.join(publicDir, 'apple-touch-icon.png'), png180)
   fs.writeFileSync(path.join(publicDir, 'icon.png'), png512)
 
-  const icoSizes = [16, 24, 32, 48, 64, 128, 256]
+  const icoSizes = [16, 20, 24, 32, 40, 48, 64, 128, 256]
   const icoPngs = []
   for (const size of icoSizes) {
-    icoPngs.push(await sharp(masterPng).resize(size, size).png().toBuffer())
+    icoPngs.push(await renderIconPng(svg, size))
   }
-  fs.writeFileSync(path.join(buildDir, 'icon.ico'), pngsToIco(icoPngs))
+  const ico = pngsToIco(icoPngs)
+  fs.writeFileSync(path.join(buildDir, 'icon.ico'), ico)
+  fs.writeFileSync(path.join(publicDir, 'icon.ico'), ico)
 
   const sidebarBmp = await buildInstallerSidebar(png512)
   const headerBmp = await buildInstallerHeader(png512)
@@ -234,7 +248,7 @@ async function main() {
   console.log('Generated:')
   console.log('  build/icon.svg')
   console.log('  build/icon.png (512)')
-  console.log('  build/icon.ico (16–256)')
+  console.log('  build/icon.ico (16/20/24/32/40/48/64/128/256)')
   console.log(`  build/installerSidebar.bmp (${sidebarW}×${sidebarH}, 24-bit, ${NSIS_BMP_SCALE}× for HiDPI)`)
   console.log(`  build/installerHeader.bmp (${headerW}×${headerH}, 24-bit, ${NSIS_BMP_SCALE}× for HiDPI)`)
   console.log('  build/trayTemplate.png (18, monochrome template)')
@@ -242,6 +256,7 @@ async function main() {
   console.log('  public/favicon.svg')
   console.log('  public/favicon-32.png')
   console.log('  public/apple-touch-icon.png')
+  console.log('  public/icon.ico (Windows window icon)')
   console.log('  public/icon.png (512, window)')
 }
 

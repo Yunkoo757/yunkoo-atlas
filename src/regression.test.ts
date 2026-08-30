@@ -473,7 +473,7 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   assert(source.includes('workspaceKindFromPath'), 'Sidebar 应按当前路径判断能力可见工作区')
   assert(source.includes("if (target.id === 'missed') return true"), '聚合错过入口不得因当前工作区被隐藏')
   assert(source.includes('buildCapabilityVisibilityItems'), 'Sidebar 应在能力项就地配置可见工作区')
-  assert(source.includes('countSidebarTarget'), 'Sidebar 应通过统一计数函数计算条目数量')
+  assert(!source.includes('sb-item-count'), '侧栏导航已做减法，不应恢复右侧数量噪声')
   assert(editor.includes('reorderSidebarWorkspaceItem'), '侧栏管理器应支持工作区项自定义拖拽排序')
   assert(source.includes('data-primary-id'), '工作区主导航必须提供排序命中区')
   assert(editor.includes('reorderPrimarySidebarItem'), '工作区主导航排序必须收口到管理器')
@@ -563,6 +563,15 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'nav.reviewSession': 'alt+6',
     'nav.dashboard': 'i',
     'nav.strategies': 'o',
+    'nav.strategySlot1': 'mod+1',
+    'nav.strategySlot2': 'mod+2',
+    'nav.strategySlot3': 'mod+3',
+    'nav.strategySlot4': 'mod+4',
+    'nav.strategySlot5': 'mod+5',
+    'nav.strategySlot6': 'mod+6',
+    'nav.strategySlot7': 'mod+7',
+    'nav.strategySlot8': 'mod+8',
+    'nav.strategySlot9': 'mod+9',
     'view.list': 'l',
     'view.board': 'b',
     'trade.prev': 'q',
@@ -791,12 +800,11 @@ export async function testDesktopShellDisablesAccidentalSelectionAndAnimatesModa
   }
 }
 
-export async function testStorageHealthWarningStaysInTheContentColumn(): Promise<void> {
+export async function testStorageHealthSummaryUsesQuietInlineContent(): Promise<void> {
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/components/DataIOContent.css', 'utf8')
-  const rule = source.match(/\.health-note\s*\{[^}]*\}/)?.[0] ?? ''
-
-  assert(rule.includes('grid-column: 2'), '存储健康提示必须与数值共用内容列，不得挤入图标列')
+  assert(source.includes('.storage-summary'), '资料概况应保留安静的行内摘要')
+  assert(!source.includes('.health-note'), '旧版常驻健康警告不应恢复')
 }
 
 export async function testTagSettingsExposeDistinctAccessibleControlNames(): Promise<void> {

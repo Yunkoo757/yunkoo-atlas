@@ -384,31 +384,6 @@ html[data-ui-settled='1'] .sb-item {
 .sb-sortable-row.is-active > .sb-item .is-nav svg {
   color: inherit;
 }
-.sb-item-count {
-  margin-left: auto;
-  min-width: 3ch;
-  color: var(--text-nav-rest);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--type-list-secondary-weight);
-  font-variant-numeric: var(--numeric-tabular);
-  text-align: right;
-}
-
-.sb-sortable-row .sb-item-count {
-  width: 3ch;
-  margin-left: 0;
-  justify-self: end;
-}
-
-.sb-item-count.is-empty {
-  visibility: hidden;
-}
-
-.sb-item.is-active .sb-item-count,
-.sb-sortable-row.is-active > .sb-item .sb-item-count {
-  color: var(--sb-text-hover);
-}
-
 .sb-subitem {
   position: relative;
   padding-left: var(--sp-8);
@@ -443,10 +418,6 @@ html[data-ui-settled='1'] .sb-item {
 .sb-subitem.is-current::before {
   width: 1px;
   background: color-mix(in srgb, var(--sb-text-strong) 44%, transparent);
-}
-
-.sb-subitem.is-current .sb-item-count {
-  color: var(--sb-text-hover);
 }
 
 .sb-footer {

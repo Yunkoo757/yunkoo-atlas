@@ -107,19 +107,8 @@ async function run(): Promise<void> {
       </MemoryRouter>,
     )
 
-    await waitFor(
-      () => document.querySelector('[data-primary-id="trades"] .sb-item-count') !== null,
-      '交易日志侧栏计数没有渲染',
-    )
-    const count = document.querySelector<HTMLElement>('[data-primary-id="trades"] .sb-item-count')
-    assert(count, '缺少交易日志侧栏计数')
-    assert(
-      count.textContent?.trim() === '1',
-      '交易日志侧栏计数必须等于点击后当前阶段首页实际显示的记录数',
-    )
-    assert(count.getAttribute('aria-hidden') === 'false', '当前阶段存在实盘记录时计数必须可见')
-    const caseCount = document.querySelector<HTMLElement>('[data-primary-id="reviewCases"] .sb-item-count')
-    assert(caseCount?.textContent?.trim() === '1', '案例库侧栏计数必须等于点击后恢复视图的实际记录数')
+    await waitFor(() => document.querySelector('[data-primary-id="trades"]') !== null, '交易日志侧栏入口没有渲染')
+    assert(document.querySelector('.sb-item-count') === null, '左侧导航不应继续显示记录计数')
   } finally {
     root.unmount()
     useStore.setState(previous, true)

@@ -1,5 +1,8 @@
 import type { DisplayPrefs } from '@/lib/tradeFilters'
-import { resolveShortcutWorkspaceHref } from '@/shortcuts/workspaceActions'
+import {
+  resolveShortcutWorkspaceHref,
+  resolveSidebarStrategyShortcutHref,
+} from '@/shortcuts/workspaceActions'
 import { getActionMeta } from '@/shortcuts/actions'
 import { bindingKey } from '@/shortcuts/chords'
 import { useStore } from '@/store/useStore'
@@ -39,6 +42,29 @@ export function testTradeAndCaseShortcutsRememberTheirWorkspace(): void {
     resolveShortcutWorkspaceHref('case', display, []) ===
       '/review-cases/mistakes?tag=执行',
     '案例快捷键应恢复案例工作区上次使用的位置',
+  )
+}
+
+export function testSidebarStrategyShortcutsFollowVisibleOrderAndWorkbenchMode(): void {
+  const items = [
+    { id: 'system:active', target: { kind: 'system' as const, id: 'active' as const }, placement: 'pinned' as const, order: 0 },
+    { id: 'strategy:first', target: { kind: 'strategy' as const, strategyId: 'first' }, placement: 'pinned' as const, order: 1 },
+    { id: 'strategy:deleted', target: { kind: 'strategy' as const, strategyId: 'deleted' }, placement: 'pinned' as const, order: 2 },
+    { id: 'strategy:second', target: { kind: 'strategy' as const, strategyId: 'second' }, placement: 'overflow' as const, order: 3 },
+  ]
+  const strategies = [{ id: 'first' }, { id: 'second' }]
+  assert(
+    resolveSidebarStrategyShortcutHref(1, items, strategies, '/board', '?liveStage=stage-2') ===
+      '/board?strategyId=first&liveStage=stage-2',
+    '第一个策略快捷键应跟随侧栏顺序，并保留看板与实盘阶段',
+  )
+  assert(
+    resolveSidebarStrategyShortcutHref(2, items, strategies, '/list') === '/list?strategyId=second',
+    '无效策略不应占用快捷键序号，更多区域的策略仍应可跳转',
+  )
+  assert(
+    resolveSidebarStrategyShortcutHref(3, items, strategies, '/list') === null,
+    '不存在对应策略时快捷键应安全地不执行导航',
   )
 }
 

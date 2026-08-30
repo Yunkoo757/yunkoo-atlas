@@ -30,8 +30,6 @@ import {
 import {
   SIDEBAR_CAPABILITY_WORKSPACES,
   SIDEBAR_QUICK_WORKSPACE_LABELS,
-  countSidebarRoute,
-  countSidebarTarget,
   isCapabilityEnabledForWorkspace,
   isSidebarNavigationTarget,
   isSidebarCapabilityId,
@@ -47,8 +45,6 @@ import {
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
-import { getTodayWorkflowBuckets } from '@/lib/tradeWorkflow'
-import { filterStageOwnedRecords } from '@/lib/stageArchive'
 import { sharedTradeWorkspaceSearch, tradeHomeSearch } from '@/lib/tradeWorkspaceQuery'
 import { newTradeKindForPath } from '@/lib/tradeKind'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
@@ -61,6 +57,7 @@ import {
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { SidebarRiskStatus } from '@/components/SidebarRiskStatus'
+import { SIDEBAR_STRATEGY_SHORTCUT_LIMIT } from '@/shortcuts/workspaceActions'
 
 import './Sidebar.css'
 import './sidebar/SidebarWorkspace.css'
@@ -84,18 +81,6 @@ function useSidebarDensity(): SidebarDensity {
   }, [])
 
   return density
-}
-
-function Count({ value, showZero = false }: { value?: number; showZero?: boolean }) {
-  const empty = value === undefined || (!showZero && value === 0)
-  return (
-    <span
-      className={'sb-item-count' + (empty ? ' is-empty' : '')}
-      aria-hidden={empty}
-    >
-      {value ?? 0}
-    </span>
-  )
 }
 
 function buildCapabilityVisibilityItems(
@@ -159,31 +144,9 @@ export function useSidebarNavigationModel() {
   const trades = useStore((state) => state.trades)
   const strategies = useStore((state) => state.strategies)
   const display = useStore((state) => state.display)
-  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
-  const liveStages = useStore((state) => state.liveStages)
-  const starredIds = useStore((state) => state.starredIds)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const savedTradeViews = useStore((state) => state.savedTradeViews)
   const replaceSidebarWorkspaceItems = useStore((state) => state.replaceSidebarWorkspaceItems)
-  const businessDateAnchor = useBusinessDateAnchor()
-  const countContext = useMemo(
-    () => ({
-      trades,
-      starredIds,
-      display,
-      businessDateAnchor,
-      currentLiveStageId,
-      liveStages,
-    }),
-    [
-      trades,
-      starredIds,
-      display,
-      businessDateAnchor,
-      currentLiveStageId,
-      liveStages,
-    ],
-  )
   const workspaceMemory = display.workspaceMemory
   const tradeTarget = resolveWorkspaceNavTarget('trade', workspaceMemory?.trade, strategies)
   const usesCurrentTradeContext = (
@@ -223,15 +186,14 @@ export function useSidebarNavigationModel() {
         const inheritsLiveStage = item.item.target.kind === 'strategy'
           || item.item.target.kind === 'system'
         if (!inheritsLiveStage || !workspaceLiveStage) {
-          return { ...item, count: countSidebarTarget(item, countContext) }
+          return item
         }
         const params = new URLSearchParams(item.search)
         params.set('liveStage', workspaceLiveStage)
         const scoped = { ...item, search: `?${params.toString()}` }
-        return { ...scoped, count: countSidebarTarget(scoped, countContext) }
+        return scoped
       }),
     [
-      countContext,
       path,
       savedTradeViews,
       sidebarWorkspaceItems,
@@ -248,24 +210,6 @@ export function useSidebarNavigationModel() {
   const tradeHomeTarget = {
     pathname: '/list',
     search: tradeHomeSearch(selection.activePrimaryId === 'trades' ? search : tradeTarget.search),
-  }
-  const counts = {
-    today: getTodayWorkflowBuckets(
-      filterStageOwnedRecords(trades, { kind: 'current', stageId: currentLiveStageId }),
-      businessDateAnchor.currentTradingDayKey,
-      display.tradingDayStartHour,
-    ).actionCount,
-    trades: countSidebarRoute(tradeHomeTarget.pathname, tradeHomeTarget.search, countContext),
-    reviewCases: countSidebarRoute(caseTarget.pathname, caseTarget.search, countContext),
-  }
-  const primaryCount = (id: PrimarySidebarNavId) => {
-    if (id === 'today') return counts.today
-    const currentVisible = selection.activePrimaryId === id
-      ? countSidebarRoute(path, search, countContext)
-      : undefined
-    if (id === 'trades') return currentVisible ?? counts.trades
-    if (id === 'reviewCases') return currentVisible ?? counts.reviewCases
-    return undefined
   }
   const primaryHref = (id: PrimarySidebarNavId, fallback: string) => {
     if (id === 'today') return workspaceRouteHref(todayTarget)
@@ -289,10 +233,6 @@ export function useSidebarNavigationModel() {
     replaceSidebarWorkspaceItems,
     workspaceItems,
     selection,
-    primaryCount,
-    currentVisiblePrimaryCount: selection.activePrimaryId
-      ? countSidebarRoute(path, search, countContext)
-      : undefined,
     primaryHref,
   }
 }
@@ -322,8 +262,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     replaceSidebarWorkspaceItems,
     workspaceItems,
     selection,
-    primaryCount,
-    currentVisiblePrimaryCount,
     primaryHref,
   } = useSidebarNavigationModel()
   const pinnedWorkspaceItems = workspaceItems
@@ -331,6 +269,15 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     .slice(0, 8)
   const overflowWorkspaceItems = workspaceItems.filter(
     (item) => item.item.placement === 'overflow',
+  )
+  const strategyShortcutActionByItemId = useMemo(
+    () => new Map(
+      workspaceItems
+        .filter((item) => item.item.target.kind === 'strategy')
+        .slice(0, SIDEBAR_STRATEGY_SHORTCUT_LIMIT)
+        .map((item, index) => [item.item.id, `nav.strategySlot${index + 1}`]),
+    ),
+    [workspaceItems],
   )
   const primaryNav = useMemo(() => resolvePrimarySidebarNav(primaryOrder), [primaryOrder])
 
@@ -362,6 +309,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         : null
     const capabilityMenuId = capabilityId === 'missed' ? null : capabilityId
     const capabilityMenuOpen = Boolean(capabilityMenuId && capabilityMenu?.itemId === item.item.id)
+    const strategyShortcutActionId = strategyShortcutActionByItemId.get(item.item.id)
 
     const toggleCapabilityWorkspace = (
       id: SidebarCapabilityId,
@@ -413,6 +361,29 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
       })
     }
 
+    const workspaceLink = (
+      <NavLink
+        to={workspaceRouteHref(item)}
+        draggable={false}
+        className="sb-item"
+        data-ws-icon={item.icon}
+        aria-current={active ? 'location' : undefined}
+        onDragStart={(event) => event.preventDefault()}
+      >
+        {strategy ? (
+          <StrategyIcon
+            icon={strategy.icon}
+            color={strategy.color}
+            size={ICON_MD}
+            variant="nav"
+          />
+        ) : (
+          <Icon size={ICON_MD} />
+        )}
+        <span className="sb-item-label">{item.label}</span>
+      </NavLink>
+    )
+
     return (
       <div
         key={item.item.id}
@@ -432,30 +403,11 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           openCapabilityMenu(event.clientX, event.clientY, event.currentTarget)
         }}
       >
-        <NavLink
-          to={workspaceRouteHref(item)}
-          draggable={false}
-          className="sb-item"
-          data-ws-icon={item.icon}
-          aria-current={active ? 'location' : undefined}
-          onDragStart={(event) => event.preventDefault()}
-        >
-          {strategy ? (
-            <StrategyIcon
-              icon={strategy.icon}
-              color={strategy.color}
-              size={ICON_MD}
-              variant="nav"
-            />
-          ) : (
-            <Icon size={ICON_MD} />
-          )}
-          <span className="sb-item-label">{item.label}</span>
-          <Count
-            value={strategyTarget && active ? (currentVisiblePrimaryCount ?? item.count) : item.count}
-            showZero={Boolean(strategyTarget && active && currentVisiblePrimaryCount !== undefined)}
-          />
-        </NavLink>
+        {strategyShortcutActionId ? (
+          <ShortcutTooltip actionId={strategyShortcutActionId} label={item.label}>
+            {workspaceLink}
+          </ShortcutTooltip>
+        ) : workspaceLink}
         {capabilityMenuId ? (
           <button
             type="button"
@@ -555,10 +507,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               >
                 <Icon size={ICON_MD} />
                 <span className="sb-item-label">{label}</span>
-                <Count
-                  value={primaryCount(id)}
-                  showZero={active && currentVisiblePrimaryCount !== undefined}
-                />
               </Link>
             </div>
           )
