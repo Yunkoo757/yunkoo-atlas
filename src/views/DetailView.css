@@ -424,6 +424,9 @@
 
 .dv-document .editor [data-review-context] {
   color: var(--text-detail-body);
+  font-weight: 450;
+  line-height: 1.6;
+  letter-spacing: -0.00666667em;
 }
 
 .dv-document .editor [data-review-context]::before {
@@ -781,6 +784,7 @@
 
 /* ===== 右侧分组面板 ===== */
 .dv-props {
+  --text-primary: var(--text-detail-props-strong);
   --text-secondary: var(--text-detail-props-supporting);
   --text-tertiary: var(--text-detail-props-metadata);
   width: auto;

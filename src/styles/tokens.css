@@ -297,9 +297,11 @@
   --text-content-metadata: lch(62% 1.2 272 / 1);
   --text-content-context: lch(56% 1.2 272 / 1);
   --text-content-faint: lch(38% 1.2 272 / 1);
-  --text-detail-body: lch(87% 0.8 272 / 1);
-  --text-detail-props-supporting: lch(78% 0.8 272 / 1);
-  --text-detail-props-metadata: lch(68% 1 272 / 1);
+  /* 详情页 Linear 原值验证档：仅用于快速确认文字动态范围。 */
+  --text-detail-body: lch(90.451% 1.2 272 / 1);
+  --text-detail-props-strong: lch(100% 0 272 / 1);
+  --text-detail-props-supporting: lch(90.451% 1.2 272 / 1);
+  --text-detail-props-metadata: lch(61.803% 1.2 272 / 1);
   --text-primary: var(--text-content-strong);
   --text-secondary: lch(70% 1 272 / 1);
   --text-tertiary: var(--text-content-context);
