@@ -185,6 +185,11 @@
   font-size: var(--type-metadata-size);
   color: var(--text-secondary);
 }
+
+.bd-card-strategy .strategy-icon {
+  color: var(--text-content-metadata) !important;
+  background: transparent !important;
+}
 .bd-card-foot {
   display: flex;
   align-items: center;
