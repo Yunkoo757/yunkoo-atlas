@@ -208,9 +208,12 @@
   color: var(--neg);
 }
 
-.bd-card-result[data-value-state='missing'],
+.bd-card-result[data-value-state='missing'] {
+  color: var(--text-tertiary);
+}
+
 .bd-card-result[data-value-state='conflict'] {
-  color: var(--warn);
+  color: var(--text-secondary);
 }
 
 .bd-category-badge,
