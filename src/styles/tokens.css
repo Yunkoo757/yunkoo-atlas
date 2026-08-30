@@ -263,7 +263,7 @@
   --list-group-title: var(--text-primary);
   --list-status-opacity-rest: 0.72;
   --list-status-opacity-active: 0.92;
-  --list-interactive-border-rest: color-mix(in srgb, var(--list-text-secondary) 12%, transparent);
+  --list-interactive-border-rest: color-mix(in srgb, var(--list-text-secondary) 6%, transparent);
   --list-interactive-border-hover: color-mix(in srgb, var(--list-text-secondary) 24%, transparent);
 
   /* 表单控件表面 */
