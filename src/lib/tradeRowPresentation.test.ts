@@ -42,10 +42,10 @@ export async function testTradeRowContextUsesOneStablePriorityOrder(): Promise<v
   assert.deepEqual(
     items.map((item) => [item.kind, item.label]),
     [
+      ['session', '伦敦开盘'],
       ['mistake', '追单'],
       ['mistake', '过早入场'],
       ['review', '重点'],
-      ['session', '伦敦开盘'],
       ['tag', '普通标签'],
     ],
   )

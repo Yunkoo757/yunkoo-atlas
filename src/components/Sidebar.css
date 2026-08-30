@@ -344,8 +344,21 @@ html[data-ui-settled='1'] .sb-item {
   opacity: 1;
 }
 .sb-item:focus-visible {
-  outline: var(--focus-ring-outline);
-  outline-offset: 1px;
+  outline: none !important;
+}
+
+html[data-keyboard-navigation='true']
+  :is(.sb-item:focus-visible, .sb-sortable-row:has(> .sb-item:focus-visible)) {
+  box-shadow: inset 0 0 0 var(--focus-ring-width) var(--focus-ring-color);
+}
+
+html[data-keyboard-focus-rings='off'][data-keyboard-navigation='true']
+  :is(.sb-item:focus-visible, .sb-sortable-row:has(> .sb-item:focus-visible)) {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-tertiary) 72%, transparent);
+}
+
+html[data-keyboard-navigation='true'] .sb-sortable-row > .sb-item:focus-visible {
+  box-shadow: none;
 }
 .sb-item.is-active,
 .sb-sortable-row.is-active > .sb-item {

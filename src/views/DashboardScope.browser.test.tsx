@@ -123,12 +123,14 @@ async function run(): Promise<void> {
       '统计分析必须保留用户选择的盘型与历史阶段',
     )
     await waitFor(() => document.body.textContent?.includes('+$900') ?? false, 'Dashboard 必须统计所选历史 stage 的已编辑事实')
+    assert(!document.querySelector('[data-currency-merge-status]'), '全部现金盈亏币种一致时不应显示冗余币种说明')
     assert(!document.body.textContent?.includes('+$100'), '当前 stage 不得混入历史阶段 Dashboard')
     assert(!document.body.textContent?.includes('+$1,000'), 'legacy 周期不得重新合并跨 stage 数据')
     const currentRangeHeading = document.querySelector<HTMLElement>('[data-dashboard-current-range]')
     const weekContext = document.querySelector<HTMLElement>('[aria-label="本周交易分析"]')
-    assert(currentRangeHeading && weekContext, 'Dashboard 必须同时标明当前分析范围与本周上下文')
-    assert(Boolean(currentRangeHeading.compareDocumentPosition(weekContext) & Node.DOCUMENT_POSITION_FOLLOWING), '当前分析范围标题必须先于本周上下文')
+    assert(currentRangeHeading, 'Dashboard 必须标明当前分析范围')
+    assert(!weekContext, '本周无数据时不得渲染冗余空区块')
+    assert(!document.querySelector('[data-result-health-alert]'), '结果数据完整时不得渲染冗余健康状态')
 
     const currentLink = document.querySelector<HTMLAnchorElement>('[data-current-live-trade-link]')
     assert(currentLink?.getAttribute('href') === '/list?kind=live&range=all&liveStage=stage-old', '查看交易必须携带所选历史 stage')
@@ -165,8 +167,11 @@ async function run(): Promise<void> {
     )
     await waitFor(() => Boolean(document.querySelector('[data-currency-merge-status="usd-with-exclusions"]')), '混合/未知币种必须显示独立覆盖状态')
     const currencyHealth = document.querySelector('[data-currency-merge-status]')?.textContent ?? ''
-    assert(currencyHealth.includes('USD 覆盖 1/3 笔'), 'Dashboard 必须显示 USD 覆盖数量')
-    assert(currencyHealth.includes('CNY 1 笔') && currencyHealth.includes('币种未知 1 笔'), 'Dashboard 必须解释被排除币种与 unknown')
+    assert(currencyHealth.includes('现金盈亏口径') && currencyHealth.includes('已计入 1/3 笔'), 'Dashboard 必须自然说明现金盈亏统计范围')
+    assert(
+      currencyHealth.includes('未计入：CNY 1 笔') && currencyHealth.includes('币种未知 1 笔'),
+      'Dashboard 必须解释未计入币种与 unknown',
+    )
     assert(document.body.textContent?.includes('+$100'), 'Dashboard 净盈亏只能合并 USD')
     assert(!document.body.textContent?.includes('+$1,050'), 'Dashboard 不得把不同币种相加')
 
@@ -202,17 +207,11 @@ async function run(): Promise<void> {
       <MemoryRouter initialEntries={['/dashboard?kind=live&range=all&liveStage=current&symbol=BTCUSDT']}>
         <Routes>
           <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
-          <Route path="/trade/:id" element={<><DetailView /><LocationProbe /></>} />
         </Routes>
       </MemoryRouter>,
     )
-    await waitFor(() => Boolean(document.querySelector('summary')), 'Dashboard 必须提供累计盈亏数据表入口')
-    document.querySelector('summary')?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    await waitFor(() => Boolean(document.querySelector<HTMLAnchorElement>('a[href="/trade/TRD-currency-usd"]')), 'Dashboard 数据表必须提供详情链接')
-    document.querySelector<HTMLAnchorElement>('a[href="/trade/TRD-currency-usd"]')?.click()
-    await waitFor(() => Boolean(document.querySelector('.dv-back')), 'Dashboard 交易详情必须显示返回入口')
-    document.querySelector<HTMLAnchorElement>('.dv-back')?.click()
-    await waitFor(() => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?kind=live&range=all&liveStage=current&symbol=BTCUSDT', 'Dashboard 详情返回必须恢复 stage、range 与过滤查询')
+    await waitFor(() => Boolean(document.querySelector('[aria-label="本周交易分析"]')), '本周有数据时必须显示有效分析')
+    assert(!document.body.textContent?.includes('查看累计盈亏数据'), 'Dashboard 不得保留重复的内联数据表入口')
 
     root.unmount()
     useStore.setState({ trades: [usdLive] })

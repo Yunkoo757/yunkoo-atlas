@@ -70,6 +70,12 @@ export function buildTradeRowContext(trade: Trade): TradeRowContextItem[] {
   const sessionTagLabels = new Set(session ? [session.raw, session.label] : [])
 
   return unique([
+    ...(session ? [{
+      key: `session-${session.raw}`,
+      kind: 'session' as const,
+      label: session.label,
+      ...(session.raw !== session.label ? { detail: session.raw } : {}),
+    }] : []),
     ...trade.mistakeTags.map((label, index) => ({
       key: `mistake-${index}-${label}`,
       kind: 'mistake' as const,
@@ -79,12 +85,6 @@ export function buildTradeRowContext(trade: Trade): TradeRowContextItem[] {
       key: `review-${trade.caseType ?? trade.reviewCategory}`,
       kind: 'review' as const,
       label: reviewLabel,
-    }] : []),
-    ...(session ? [{
-      key: `session-${session.raw}`,
-      kind: 'session' as const,
-      label: session.label,
-      ...(session.raw !== session.label ? { detail: session.raw } : {}),
     }] : []),
     ...trade.tags
       .filter((label) => !sessionTagLabels.has(label))

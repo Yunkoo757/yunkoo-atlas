@@ -6,9 +6,9 @@ export async function testDashboardPresentsSelectedScopeBeforeWeekContext(): Pro
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/views/Dashboard.tsx', 'utf8')
   const cards = source.indexOf('className="db-cards"')
-  const health = source.indexOf("className={'db-data-health'")
+  const health = source.indexOf('data-result-health-alert')
   const chart = source.indexOf('className="db-chart"', cards)
-  const week = source.indexOf("className={'db-week'")
+  const week = source.indexOf('className="db-week"')
   const strategies = source.indexOf('className="db-strats"')
 
   assert(cards > 0, '仪表盘必须渲染当前范围 KPI')
@@ -16,6 +16,11 @@ export async function testDashboardPresentsSelectedScopeBeforeWeekContext(): Pro
   assert(health < chart, '数据完整度必须先于主图表')
   assert(chart < week, '主图表必须先于本周上下文')
   assert(week < strategies, '本周上下文必须先于策略表现')
+  assert(source.includes('hasResultHealthIssue ? ('), '数据完整度正常时不得占用页面空间')
+  assert(source.includes('!weekCardEmpty ? ('), '本周无数据时不得渲染冗余空区块')
+  assert(!source.includes('label="盈利笔数"'), '胜率已表达盈负结果，不得重复展示盈利笔数 KPI')
+  assert(!source.includes('查看累计盈亏数据'), '主曲线不得再附加重复的内联数据表')
+  assert(!source.includes('db-panel-hint'), '主曲线不得显示可由交互自然发现的冗余提示')
 }
 
 export async function testDashboardUsesOneConstrainedAnalysisRailWithoutTintedWeekCard(): Promise<void> {

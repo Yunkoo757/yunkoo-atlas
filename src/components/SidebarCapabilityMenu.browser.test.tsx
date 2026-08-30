@@ -276,6 +276,21 @@ async function run(): Promise<void> {
     )
     primary.focus()
     await frame()
+    document.documentElement.dataset.keyboardFocusRings = 'on'
+    document.documentElement.dataset.keyboardNavigation = 'true'
+    primary.blur()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }))
+    primary.focus()
+    await frame()
+    assert(getComputedStyle(primary).outlineStyle === 'none', '主导航不得使用会被侧栏裁切的外扩 outline')
+    assert(getComputedStyle(primary).boxShadow === 'none', '可排序导航的内部链接不得只绘制半截焦点框')
+    assert(getComputedStyle(activePrimaryRow).boxShadow !== 'none', '键盘焦点必须覆盖完整导航行')
+    assert(
+      activePrimaryRow.getBoundingClientRect().width > primary.getBoundingClientRect().width,
+      '焦点回归 fixture 必须覆盖带右侧能力菜单的整行导航',
+    )
+    delete document.documentElement.dataset.keyboardNavigation
+    delete document.documentElement.dataset.keyboardFocusRings
     assert(!document.querySelector('[role="tooltip"]'), '聚焦工作台主导航不得显示 Tooltip')
     primary.blur()
     primary.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
@@ -315,6 +330,8 @@ async function run(): Promise<void> {
     )
     strategyColorProbe.remove()
   } finally {
+    delete document.documentElement.dataset.keyboardNavigation
+    delete document.documentElement.dataset.keyboardFocusRings
     root.unmount()
     useStore.setState(previous, true)
   }

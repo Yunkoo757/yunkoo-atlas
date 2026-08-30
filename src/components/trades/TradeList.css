@@ -320,7 +320,8 @@
 }
 
 .trade-row .trade-row-check,
-.trade-row .trade-row-star {
+.trade-row .trade-row-star,
+.trade-row .trade-row-more {
   pointer-events: auto;
 }
 
@@ -652,6 +653,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   background: transparent;
   border-color: var(--tag-neutral-border);
   border-style: solid;
+  cursor: help;
 }
 
 .trade-row-result,

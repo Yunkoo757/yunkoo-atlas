@@ -717,10 +717,16 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
           <header className="wr-page-head">
             <div className="wr-page-head-inner">
               <div>
-                <div className="wr-kicker">{hasReviewHistory ? '' : '首次周复盘 · '}{selectedWeek.slice(0, 4)} · 第 {getIsoWeek(selectedWeek)} 周 · {liveStages.find((stage) => stage.id === reviewLiveStageId)?.name ?? '未知阶段'}</div>
-                <h1>{formatWeekRange(selectedWeek)}</h1>
+                <div className="wr-kicker">
+                  {tab === 'year'
+                    ? `${year} · 年度复盘`
+                    : `${hasReviewHistory ? '' : '首次周复盘 · '}${selectedWeek.slice(0, 4)} · 第 ${getIsoWeek(selectedWeek)} 周 · ${liveStages.find((stage) => stage.id === reviewLiveStageId)?.name ?? '未知阶段'}`}
+                </div>
+                <h1>{tab === 'year' ? '年度趋势' : formatWeekRange(selectedWeek)}</h1>
                 <p>
-                  {selectedWeek === currentWeek && reviewLiveStageId === currentLiveStageId ? '本周进行中 · ' : ''}实盘结果按平仓日 · 错过机会按标记日单列
+                  {tab === 'year'
+                    ? '按已完成周复盘汇总做法评分、常见错误与复盘节奏'
+                    : `${selectedWeek === currentWeek && reviewLiveStageId === currentLiveStageId ? '本周进行中 · ' : ''}实盘结果按平仓日 · 错过机会按标记日单列`}
                 </p>
               </div>
               <div className="wr-head-actions">
@@ -739,7 +745,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                   <button id="weekly-review-tab-review" type="button" role="tab" aria-selected={tab === 'review'} aria-controls="weekly-review-panel-review" tabIndex={tab === 'review' ? 0 : -1} onClick={() => changeTab('review')}>本周复盘</button>
                   <button id="weekly-review-tab-year" type="button" role="tab" aria-selected={tab === 'year'} aria-controls="weekly-review-panel-year" tabIndex={tab === 'year' ? 0 : -1} onClick={() => changeTab('year')}>年度趋势</button>
                 </div>
-                {hasReviewHistory ? (
+                {hasReviewHistory && tab === 'review' ? (
                   <>
                     <IconButton label="上一条复盘" size="md" disabled={!olderHistoryItem} onClick={() => olderHistoryItem && void changeReview(olderHistoryItem)}><ChevronLeft size={ICON_MD} /></IconButton>
                     <IconButton label="下一条复盘" size="md" disabled={!newerHistoryItem} onClick={() => newerHistoryItem && void changeReview(newerHistoryItem)}><ChevronRight size={ICON_MD} /></IconButton>
@@ -775,20 +781,22 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
 
           {tab === 'year' ? (
             <div id="weekly-review-panel-year" role="tabpanel" aria-labelledby="weekly-review-tab-year">
-              <div className="wr-trend-scope">
-                <span>趋势范围</span>
-                <Select
-                  className="wr-trend-select"
-                  ariaLabel="年度趋势阶段范围"
-                  value={trendLiveStageId ?? ''}
-                  onValueChange={(value) => setTrendLiveStageId(value || undefined)}
-                  options={[
-                    { value: '', label: '全部阶段' },
-                    ...liveStages.map((stage) => ({ value: stage.id, label: stage.name })),
-                  ]}
-                />
+              <div className="wr-year">
+                <div className="wr-trend-scope">
+                  <span>阶段范围</span>
+                  <Select
+                    className="wr-trend-select"
+                    ariaLabel="年度趋势阶段范围"
+                    value={trendLiveStageId ?? ''}
+                    onValueChange={(value) => setTrendLiveStageId(value || undefined)}
+                    options={[
+                      { value: '', label: '全部阶段' },
+                      ...liveStages.map((stage) => ({ value: stage.id, label: stage.name })),
+                    ]}
+                  />
+                </div>
+                <YearTrend year={year} reviews={scopedYearReviews} data={trendData} />
               </div>
-              <YearTrend year={year} reviews={scopedYearReviews} data={trendData} />
             </div>
           ) : (
             <div id="weekly-review-panel-review" role="tabpanel" aria-labelledby="weekly-review-tab-review" className="wr-content">
@@ -1045,8 +1053,23 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
   const averages = completed.map(weeklyReviewScoreAverage).filter((score): score is number => score !== null)
   const average = averages.length ? averages.reduce((sum, score) => sum + score, 0) / averages.length : null
   const mistakes = Object.entries(summarizeWeeklyMistakeDimensions(reviews))
+  const weekCount = getIsoWeek(`${year}-12-28`)
+  const firstWeek = weekStartFor(new Date(year, 0, 4))
+
+  if (completed.length === 0) {
+    return (
+      <div className="wr-year-body">
+        <section className="wr-year-empty" aria-label="年度趋势尚未开始">
+          <strong>年度趋势尚未开始</strong>
+          <p>完成一篇周复盘后，这里会汇总做法评分、常见错误与全年节奏。</p>
+          {reviews.length > 0 ? <small>{reviews.length} 篇草稿尚未完成</small> : null}
+        </section>
+      </div>
+    )
+  }
+
   return (
-    <div className="wr-year">
+    <div className="wr-year-body">
       <section className="wr-section wr-year-summary">
         <div><span>已完成</span><strong>{completed.length}</strong><small>周</small></div>
         <div><span>平均做法评分</span><strong>{average?.toFixed(1) ?? '—'}</strong><small>/ 5</small></div>
@@ -1070,11 +1093,10 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
         ) : data.length === 1 ? <div className="wr-trend-start"><div><span>趋势起点</span><strong>{data[0].score.toFixed(1)}</strong><small>/ 5</small></div><p>再完成 1 次周复盘后，这里会显示评分变化。</p></div> : <div className="wr-empty">完成第一篇周复盘后，这里会出现年度趋势。</div>}
       </section>
       <section className="wr-section">
-        <div className="wr-section-head"><div><span>52</span><h2>全年复盘节奏</h2></div><small>颜色越亮，做法评分越高</small></div>
-        <div className="wr-heatmap">
-          {Array.from({ length: 53 }, (_, index) => {
-            const start = weekStartFor(new Date(year, 0, 1))
-            const week = addDays(start, index * 7)
+        <div className="wr-section-head"><div><span>{weekCount}</span><h2>全年复盘节奏</h2></div><small>颜色越亮，做法评分越高</small></div>
+        <div className="wr-heatmap" style={{ '--week-count': weekCount } as CSSProperties}>
+          {Array.from({ length: weekCount }, (_, index) => {
+            const week = addDays(firstWeek, index * 7)
             const aggregate = aggregateWeeklyReviewScoresForWeek(reviews, week)
             const score = aggregate.averageScore
             const stageLabel = aggregate.completedCount > 1 ? ` · ${aggregate.completedCount} 个阶段聚合` : ''

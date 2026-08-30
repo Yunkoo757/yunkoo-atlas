@@ -85,7 +85,6 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
   const privacyMode = useStore((s) => s.display.privacyMode)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
   const openComposer = useStore((s) => s.openComposer)
-  const [curveDataOpen, setCurveDataOpen] = useState(false)
   const [stageManagerOpen, setStageManagerOpen] = useState(false)
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
@@ -206,6 +205,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
     conflictCount: performanceSelection.conflictResultIds.length,
     missingResultCount: performanceSelection.missingResultIds.length,
   }
+  const hasResultHealthIssue = resultHealth.conflictCount > 0 || resultHealth.missingResultCount > 0
   const hasClosedTrades = scopedClosedCount > 0
   const dashboardEmptyState = resolveDashboardEmptyState({
     totalRecordCount: allTrades.filter((trade) => !trade.deletedAt && isAccountTrade(trade)).length,
@@ -322,19 +322,12 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
             accent={stats.averageR == null || stats.averageR === 0 ? undefined : stats.averageR > 0}
             to={performanceDrilldownHref}
           />
-          <Card
-            label="盈利笔数"
-            value={stats.evaluatedCount === 0 ? '—' : String(stats.winCount)}
-            sub={scopedClosedCount > 0 ? `${stats.evaluatedCount} 笔` : undefined}
-            muted
-            to={performanceDrilldownHref}
-          />
         </div>
 
-        {hasClosedTrades && (
-          <div className={'db-data-health' + (resultHealth.conflictCount > 0 ? ' has-conflict' : '')}>
+        {hasResultHealthIssue ? (
+          <div className="db-data-health has-conflict" data-result-health-alert>
             <div>
-              <span className="db-data-health-title">数据完整度</span>
+              <span className="db-data-health-title">结果数据待处理</span>
               <span className="db-data-health-copy">
                 盈亏 {stats.pnlCount}/{scopedClosedCount} · R {stats.rCount}/{scopedClosedCount}
               </span>
@@ -343,25 +336,23 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
               {describeDashboardResultHealth(resultHealth)}
             </span>
           </div>
-        )}
+        ) : null}
 
-        {currencyCashFactCount > 0 ? (
+        {currencyCashFactCount > 0 && performanceSelection.currencyMergeStatus !== 'usd-only' ? (
           <div
             className={'db-data-health' + (performanceSelection.currencyMergeStatus === 'usd-with-exclusions' ? ' has-conflict' : '')}
             data-currency-merge-status={performanceSelection.currencyMergeStatus}
           >
             <div>
-              <span className="db-data-health-title">USD 现金汇总</span>
+              <span className="db-data-health-title">现金盈亏口径</span>
               <span className="db-data-health-copy">
-                USD 覆盖 {performanceSelection.usdCoveredCount}/{currencyCashFactCount} 笔
+                已计入 {performanceSelection.usdCoveredCount}/{currencyCashFactCount} 笔
               </span>
             </div>
             <span className="db-data-health-state">
-              {performanceSelection.currencyMergeStatus === 'usd-only'
-                ? '仅合并 USD'
-                : performanceSelection.currencyMergeStatus === 'no-usd-data'
-                  ? `暂无 USD 现金数据${currencyExclusionLabel ? ` · 已排除 ${currencyExclusionLabel}` : ''}`
-                  : `仅合并 USD · 已排除 ${currencyExclusionLabel}`}
+              {performanceSelection.currencyMergeStatus === 'no-usd-data'
+                ? `当前没有可合并的美元金额${currencyExclusionLabel ? ` · 未计入：${currencyExclusionLabel}` : ''}`
+                : `不同币种不直接相加 · 未计入：${currencyExclusionLabel}`}
             </span>
           </div>
         ) : null}
@@ -407,18 +398,14 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                 {scopedClosedCount} 笔已平仓 · {rangeLabel}
               </div>
             </div>
-            {stats.curve.length > 0 && (
-              <span className="db-panel-hint">悬停查看，点数据表打开交易</span>
-            )}
           </div>
           <div className="db-chart">
             {stats.curve.length === 0 ? (
               <div className="db-chart-empty">已平仓交易尚未填写有效盈亏</div>
             ) : (
-              <>
-                <div aria-hidden="true">
+              <div aria-label={`累计盈亏曲线，共 ${stats.curve.length} 笔有效盈亏交易`}>
                   <ResponsiveContainer width="100%" height={220}>
-                    <AreaChart data={stats.curve} margin={{ left: -16, right: 8, top: 8 }}>
+                    <AreaChart accessibilityLayer data={stats.curve} margin={{ left: -16, right: 8, top: 8 }}>
                   <defs>
                     <linearGradient id="eq" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.35} />
@@ -454,56 +441,19 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
-                <details
-                  className="db-chart-data"
-                  onToggle={(event) => setCurveDataOpen(event.currentTarget.open)}
-                >
-                  <summary>查看累计盈亏数据（{stats.curve.length} 笔）</summary>
-                  {curveDataOpen ? <div className="db-chart-data-scroll">
-                    <table>
-                      <thead>
-                        <tr><th>交易</th><th>日期</th><th>单笔盈亏</th><th>累计盈亏</th></tr>
-                      </thead>
-                      <tbody>
-                        {stats.curve.map((point) => {
-                          const trade = tradeById.get(point.tradeId)
-                          return (
-                            <tr key={point.tradeId}>
-                              <th scope="row">
-                                <Link
-                                  to={trade ? tradeDetailPath(trade) : `/trade/${point.tradeId}`}
-                                  state={tradeDetailNavState({ pathname: location.pathname, search: location.search })}
-                                >
-                                  {point.ref} · {point.label}
-                                </Link>
-                              </th>
-                              <td>{point.date}</td>
-                              <td>{fmtMoney(point.pnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}</td>
-                              <td>{fmtMoney(point.equity, PERFORMANCE_REPORT_CURRENCY, privacyMode)}</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div> : null}
-                </details>
-              </>
             )}
           </div>
         </section>
 
         )}
 
-        <section className={'db-week' + (weekCardEmpty ? ' is-empty' : '')} aria-label="本周交易分析">
+        {!weekCardEmpty ? (
+        <section className="db-week" aria-label="本周交易分析">
           <div className="db-week-head">
             <div>
               <span className="db-week-title">本周交易分析</span>
               <div className="db-week-sub">
-                {weekCardEmpty
-                  ? hasClosedTrades
-                    ? '本周暂无已平仓交易 · 当前范围仍保留上方历史统计'
-                    : '本周尚无已平仓交易 · 平仓后汇总胜率、盈亏与平均 R'
-                  : `${weekRangeLabel} · 按平仓日${weekMetrics.missedCount > 0 ? ` · 错过 ${weekMetrics.missedCount}` : ''}`}
+                {weekRangeLabel} · 按平仓日{weekMetrics.missedCount > 0 ? ` · 错过 ${weekMetrics.missedCount}` : ''}
               </div>
             </div>
             <div className="db-week-actions">
@@ -513,8 +463,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
               >打开周期复盘</Link>
             </div>
           </div>
-          {!weekCardEmpty ? (
-            <div className="db-week-metrics">
+          <div className="db-week-metrics">
               <div className="db-week-metric">
                 <span>平仓</span>
                 <strong>{weekMetrics.tradeCount}</strong>
@@ -539,12 +488,12 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                 </strong>
                 <small>{weekMetrics.rCount}/{weekMetrics.tradeCount} 笔含 R</small>
               </div>
-            </div>
-          ) : null}
+          </div>
           {weekMetrics.missedCount > 0 && missedReasonSummary ? (
             <p className="db-week-missed">执行缺口：{missedReasonSummary}</p>
           ) : null}
         </section>
+        ) : null}
 
         {hasClosedTrades ? (
           <>

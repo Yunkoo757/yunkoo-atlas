@@ -94,13 +94,13 @@ function Fixture() {
 
 function assertDefaultRowHoverUsesHoverToken(defaultRow: HTMLElement): void {
   const hoverTokenProbe = document.createElement('div')
-  hoverTokenProbe.style.backgroundColor = 'var(--bg-hover)'
+  hoverTokenProbe.style.backgroundColor = 'var(--surface-row-hover)'
   document.body.append(hoverTokenProbe)
 
   try {
     assert(
       getComputedStyle(defaultRow, '::after').backgroundColor === getComputedStyle(hoverTokenProbe).backgroundColor,
-      '默认行悬停底色必须等于 --bg-hover 的计算色',
+      '默认行悬停底色必须等于 --surface-row-hover 的计算色',
     )
   } finally {
     hoverTokenProbe.remove()
@@ -183,6 +183,17 @@ async function run(): Promise<void> {
     assert(getComputedStyle(selectedRow, '::after').backgroundColor === 'rgba(0, 0, 0, 0)', '多选不得改变整行底色')
     assert(selectedRow.querySelector('.selection-box.is-selected'), '多选仍必须由复选框表达')
     assertContextHierarchy(selectedRow)
+
+    const visibleOverflow = [...selectedRow.querySelectorAll<HTMLElement>('.trade-row-more')]
+      .find((item) => getComputedStyle(item).display !== 'none')
+    assert(visibleOverflow, '标签溢出计数必须按当前宽度显示')
+    assert(getComputedStyle(visibleOverflow).pointerEvents === 'auto', '标签溢出计数必须接收悬浮与键盘事件')
+    visibleOverflow.focus()
+    await frame()
+    await frame()
+    const overflowTooltip = document.querySelector<HTMLElement>('[role="tooltip"]')
+    assert(overflowTooltip?.textContent?.includes('追单'), '标签溢出提示必须列出被省略的错误标签')
+    assert(overflowTooltip?.textContent?.includes('普通标签'), '标签溢出提示必须列出被省略的普通标签')
   } finally {
     delete document.documentElement.dataset.keyboardNavigation
     root.unmount()
