@@ -359,7 +359,7 @@ function BoardColumnBody({
                 </div>
                 <div className="bd-card-title">
                   <span className="bd-card-symbol">
-                    <SymbolIcon symbol={t.symbol} overrides={symbolIcons} size={ICON_MD} />
+                    <SymbolIcon symbol={t.symbol} overrides={symbolIcons} size={ICON_MD} quiet />
                     {t.symbol}
                   </span>
                   <SideTag side={t.side} quiet />
