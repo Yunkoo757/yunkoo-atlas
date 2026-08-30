@@ -781,6 +781,8 @@
 
 /* ===== 右侧分组面板 ===== */
 .dv-props {
+  --text-secondary: var(--text-detail-props-supporting);
+  --text-tertiary: var(--text-detail-props-metadata);
   width: auto;
   margin: 0;
   padding: 6px var(--sp-2) 10px;
