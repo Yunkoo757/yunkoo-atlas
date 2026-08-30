@@ -159,9 +159,11 @@ const checks = [
       !/activeIconStyle\('var\(--nav-icon-[^)]+\)'\)/.test(sidebarComponent),
   ],
   [
-    'sidebar navigation uses the global keyboard focus frame',
-    /\.sb-item:focus-visible\s*\{[^}]*outline:\s*var\(--focus-ring-outline\);[^}]*outline-offset:\s*1px;/s.test(sidebarStyles) &&
-      !/\.sb-item:focus-visible\s*\{[^}]*outline:\s*none;/s.test(sidebarStyles),
+    'sidebar navigation respects the global keyboard focus preference',
+    sidebarStyles.includes("html[data-keyboard-navigation='true']") &&
+      sidebarStyles.includes('box-shadow: inset 0 0 0 var(--focus-ring-width) var(--focus-ring-color)') &&
+      sidebarStyles.includes("html[data-keyboard-focus-rings='off'][data-keyboard-navigation='true']") &&
+      sidebarStyles.includes('box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-tertiary) 72%, transparent)'),
   ],
   [
     'sidebar avatar uses the rounded-square shape',
