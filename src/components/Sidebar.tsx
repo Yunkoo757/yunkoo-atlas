@@ -404,7 +404,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         }}
       >
         {strategyShortcutActionId ? (
-          <ShortcutTooltip actionId={strategyShortcutActionId} label={item.label}>
+          <ShortcutTooltip actionId={strategyShortcutActionId} label={item.label} mode="shortcut">
             {workspaceLink}
           </ShortcutTooltip>
         ) : workspaceLink}

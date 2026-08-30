@@ -9,7 +9,6 @@ import {
 import { filterTradesByFacets } from '@/lib/tradeView'
 import { parseTradeFacets } from '@/lib/workbenchTrades'
 import { buildStagePerformanceProjection } from '@/lib/stageArchive'
-import { Tooltip } from '@/components/ui/Tooltip'
 import './StrategyHeader.css'
 
 /** 策略页统计条：标题已由 Topbar 承接，这里只保留轻量指标，避免双标题大 banner */
@@ -114,84 +113,42 @@ export function StrategyHeader({
             {stats.winRate == null ? '—' : `${stats.winRate.toFixed(0)}%`}
           </span>
         </div>
-        {pnlCoverage ? (
-          <Tooltip asChild content={`净盈亏仅 ${pnlCoverage}`} label={`净盈亏仅 ${pnlCoverage}`}>
-            <div className="sh-stat">
-              <span className="sh-stat-label">
-                净盈亏 · {stats.pnlCount}/{stats.closedCount}
-              </span>
-              <span
-                className="sh-stat-value"
-                style={{
-                  color:
-                    privacyMode || stats.totalPnl == null
-                      ? 'var(--text-tertiary)'
-                      : stats.totalPnl >= 0
-                        ? 'var(--pos)'
-                        : 'var(--neg)',
-                }}
-              >
-                {fmtMoney(stats.totalPnl, 'USD', privacyMode)}
-              </span>
-            </div>
-          </Tooltip>
-        ) : (
-          <div className="sh-stat">
-            <span className="sh-stat-label">净盈亏</span>
-            <span
-              className="sh-stat-value"
-              style={{
-                color:
-                  privacyMode || stats.totalPnl == null
-                    ? 'var(--text-tertiary)'
-                    : stats.totalPnl >= 0
-                      ? 'var(--pos)'
-                      : 'var(--neg)',
-              }}
-            >
-              {fmtMoney(stats.totalPnl, 'USD', privacyMode)}
-            </span>
-          </div>
-        )}
-        {rCoverage ? (
-          <Tooltip asChild content={`总 R 仅 ${rCoverage}`} label={`总 R 仅 ${rCoverage}`}>
-            <div className="sh-stat">
-              <span className="sh-stat-label">
-                总 R · {stats.rCount}/{stats.closedCount}
-              </span>
-              <span
-                className="sh-stat-value"
-                style={{
-                  color:
-                    stats.totalR == null
-                      ? 'var(--text-tertiary)'
-                      : stats.totalR >= 0
-                        ? 'var(--pos)'
-                        : 'var(--neg)',
-                }}
-              >
-                {fmtR(stats.totalR)}
-              </span>
-            </div>
-          </Tooltip>
-        ) : (
-          <div className="sh-stat">
-            <span className="sh-stat-label">总 R</span>
-            <span
-              className="sh-stat-value"
-              style={{
-                color:
-                  stats.totalR == null
-                    ? 'var(--text-tertiary)'
-                    : stats.totalR >= 0
-                      ? 'var(--pos)'
-                      : 'var(--neg)',
-              }}
-            >
-              {fmtR(stats.totalR)}
-            </span>
-          </div>
-        )}
+        <div className="sh-stat">
+          <span className="sh-stat-label">
+            净盈亏{pnlCoverage ? ` · ${stats.pnlCount}/${stats.closedCount}` : ''}
+          </span>
+          <span
+            className="sh-stat-value"
+            style={{
+              color:
+                privacyMode || stats.totalPnl == null
+                  ? 'var(--text-tertiary)'
+                  : stats.totalPnl >= 0
+                    ? 'var(--pos)'
+                    : 'var(--neg)',
+            }}
+          >
+            {fmtMoney(stats.totalPnl, 'USD', privacyMode)}
+          </span>
+        </div>
+        <div className="sh-stat">
+          <span className="sh-stat-label">
+            总 R{rCoverage ? ` · ${stats.rCount}/${stats.closedCount}` : ''}
+          </span>
+          <span
+            className="sh-stat-value"
+            style={{
+              color:
+                stats.totalR == null
+                  ? 'var(--text-tertiary)'
+                  : stats.totalR >= 0
+                    ? 'var(--pos)'
+                    : 'var(--neg)',
+            }}
+          >
+            {fmtR(stats.totalR)}
+          </span>
+        </div>
         <div className="sh-stat">
           <span className="sh-stat-label">均 R</span>
           <span className="sh-stat-value">
