@@ -1,0 +1,114 @@
+name: Release Recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag
+        required: true
+      source_run_id:
+        description: Source release workflow run ID
+        required: true
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  recover:
+    runs-on: macos-26-intel
+    timeout-minutes: 30
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+
+      - name: Download verified Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: release-windows-attempt-*
+          path: recovered-assets
+          merge-multiple: true
+
+      - name: Download verified macOS arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: release-macos-arm64-attempt-*
+          path: recovered-assets
+          merge-multiple: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Build macOS x64 package without candidate gates
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm exec install-electron
+          pnpm build:app
+          pnpm icons:app
+          pnpm exec electron-builder --mac dmg zip --x64 --publish never
+
+      - name: Publish recovered release assets
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          tag="${{ inputs.tag }}"
+          files=(
+            "recovered-assets/Trader-Atlas-$version-win-x64.exe"
+            "recovered-assets/Trader-Atlas-$version-win-x64.exe.blockmap"
+            "recovered-assets/latest.yml"
+            "recovered-assets/Trader-Atlas-$version-mac-arm64.dmg"
+            "recovered-assets/Trader-Atlas-$version-mac-arm64.zip"
+            "release/Trader-Atlas-$version-mac-x64.dmg"
+            "release/Trader-Atlas-$version-mac-x64.zip"
+          )
+          for file in "${files[@]}"; do
+            test -s "$file" || { echo "Missing or empty release asset: $file"; exit 1; }
+          done
+          (
+            for file in "${files[@]}"; do
+              shasum -a 256 "$file"
+            done
+          ) > SHA256SUMS.txt
+          gh release upload "$tag" "${files[@]}" SHA256SUMS.txt --clobber
+
+      - name: Verify public release assets
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          tag="${{ inputs.tag }}"
+          expected=(
+            "Trader-Atlas-$version-win-x64.exe"
+            "Trader-Atlas-$version-win-x64.exe.blockmap"
+            "latest.yml"
+            "Trader-Atlas-$version-mac-arm64.dmg"
+            "Trader-Atlas-$version-mac-arm64.zip"
+            "Trader-Atlas-$version-mac-x64.dmg"
+            "Trader-Atlas-$version-mac-x64.zip"
+            "SHA256SUMS.txt"
+          )
+          release_json=$(gh release view "$tag" --json isDraft,assets)
+          test "$(jq -r '.isDraft' <<<"$release_json")" = false
+          test "$(jq '.assets | length' <<<"$release_json")" -eq "${#expected[@]}"
+          for name in "${expected[@]}"; do
+            jq -e --arg name "$name" '.assets | any(.name == $name)' <<<"$release_json" >/dev/null
+          done
