@@ -5,6 +5,7 @@ import type { UserProfile } from '@/storage/types'
 
 type DefaultGroupMode = 'date' | 'strategy' | 'none'
 type DefaultSort = 'date' | 'pnl' | 'conviction'
+type DefaultSortDirection = 'asc' | 'desc'
 
 interface DefaultProfile {
   schema: 'trader-atlas-default-profile'
@@ -24,6 +25,7 @@ interface DefaultProfile {
       showEmptyGroups: boolean
       groupMode: DefaultGroupMode
       sortBy: DefaultSort
+      sortDirection: DefaultSortDirection
     }
   }
   tags: {

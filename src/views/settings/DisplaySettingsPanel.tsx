@@ -13,11 +13,21 @@ import type { WindowFrameState, WindowsClosePreference } from '@/types/journal-b
 import '@/components/DisplayMenu.css'
 import './DisplaySettingsPanel.css'
 
-const SORT_OPTS: { value: DisplayPrefs['sortBy']; label: string; description: string }[] = [
-  { value: 'date', label: '最近交易', description: '按开仓时间，新记录在前' },
-  { value: 'pnl', label: '盈亏表现', description: '按盈亏金额，从高到低' },
-  { value: 'conviction', label: '交易信心', description: '按信心度，从高到低' },
-]
+function getSortOptions(
+  sortBy: DisplayPrefs['sortBy'],
+  direction: DisplayPrefs['sortDirection'],
+): {
+  value: DisplayPrefs['sortBy']
+  label: string
+  description: string
+}[] {
+  const isAscending = (value: DisplayPrefs['sortBy']) => value === sortBy && direction === 'asc'
+  return [
+    { value: 'date', label: '最近交易', description: `按开仓时间，${isAscending('date') ? '旧记录在前' : '新记录在前'}` },
+    { value: 'pnl', label: '盈亏表现', description: `按盈亏金额，${isAscending('pnl') ? '从低到高' : '从高到低'}` },
+    { value: 'conviction', label: '交易信心', description: `按信心度，${isAscending('conviction') ? '从低到高' : '从高到低'}` },
+  ]
+}
 
 const TRADING_DAY_OPTS = TRADING_DAY_START_HOUR_OPTIONS.map((option) => ({
   value: option.value,
@@ -207,13 +217,19 @@ export function DisplaySettingsPanel() {
 
         <ChoiceSection
           title="默认排序"
-          hint="决定每个列表或分组内的交易顺序。"
-          options={SORT_OPTS}
+          hint="决定每个列表或分组内的交易顺序；再次点击当前项可切换正序或倒序。"
+          options={getSortOptions(display.sortBy, display.sortDirection)}
           value={display.sortBy}
-          onChange={(value) => setDisplay({
-            sortBy: value,
-            ...(value === 'date' ? {} : { groupByDate: false, groupByStrategy: false }),
-          })}
+          onChange={(value) => {
+            const selected = value === display.sortBy
+            setDisplay({
+              sortBy: value,
+              sortDirection: selected
+                ? display.sortDirection === 'asc' ? 'desc' : 'asc'
+                : 'desc',
+              ...(value === 'date' ? {} : { groupByDate: false, groupByStrategy: false }),
+            })
+          }}
         />
 
         {electron ? (

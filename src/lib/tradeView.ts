@@ -314,7 +314,11 @@ export function monthGroupRecency(key: string, now: Date = new Date()): GroupRec
   return 'archive'
 }
 
-export function groupTradesByMonth(trades: Trade[], now: Date = new Date()): TradeMonthGroup[] {
+export function groupTradesByMonth(
+  trades: Trade[],
+  now: Date = new Date(),
+  direction: 'asc' | 'desc' = 'desc',
+): TradeMonthGroup[] {
   const groups = new Map<string, Trade[]>()
 
   for (const trade of trades) {
@@ -332,7 +336,7 @@ export function groupTradesByMonth(trades: Trade[], now: Date = new Date()): Tra
     .sort(([left], [right]) => {
       if (left === 'unknown') return 1
       if (right === 'unknown') return -1
-      return right.localeCompare(left)
+      return direction === 'asc' ? left.localeCompare(right) : right.localeCompare(left)
     })
     .map(([key, items]) => {
       const [year, month] = key.split('-').map(Number)
@@ -340,7 +344,9 @@ export function groupTradesByMonth(trades: Trade[], now: Date = new Date()): Tra
         key,
         label: key === 'unknown' ? '日期未知' : `${year}年${month}月`,
         recency: monthGroupRecency(key, now),
-        items: sortTradesByOpenedAtDesc(items),
+        items: direction === 'asc'
+          ? sortTradesByOpenedAtDesc(items).reverse()
+          : sortTradesByOpenedAtDesc(items),
       }
     })
 }

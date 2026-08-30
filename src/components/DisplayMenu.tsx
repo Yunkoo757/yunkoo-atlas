@@ -3,7 +3,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent
 import { createPortal } from 'react-dom'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { useModalPortalRoot } from '@/components/ui/ModalShell'
-import { Check, SlidersHorizontal } from '@/icons/appIcons'
+import { ArrowDown, ArrowUp, SlidersHorizontal } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import type { WorkbenchView } from '@/components/Topbar'
@@ -164,13 +164,26 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
                     className={'display-item' + (display.sortBy === o.value ? ' is-on' : '')}
                     role="menuitemradio"
                     aria-checked={display.sortBy === o.value}
-                    onClick={() => setDisplay({
-                      sortBy: o.value,
-                      ...(o.value === 'date' ? {} : { groupByDate: false, groupByStrategy: false }),
-                    })}
+                    aria-label={display.sortBy === o.value
+                      ? `${o.label}，${display.sortDirection === 'asc' ? '正序' : '倒序'}`
+                      : o.label}
+                    onClick={() => {
+                      const selected = display.sortBy === o.value
+                      setDisplay({
+                        sortBy: o.value,
+                        sortDirection: selected
+                          ? display.sortDirection === 'asc' ? 'desc' : 'asc'
+                          : 'desc',
+                        ...(o.value === 'date' ? {} : { groupByDate: false, groupByStrategy: false }),
+                      })
+                    }}
                   >
                     <span>{o.label}</span>
-                    {display.sortBy === o.value && <Check size={ICON_SM} />}
+                    {display.sortBy === o.value && (
+                      display.sortDirection === 'asc'
+                        ? <ArrowUp size={ICON_SM} />
+                        : <ArrowDown size={ICON_SM} />
+                    )}
                   </button>
                 ))}
               </>

@@ -2488,6 +2488,85 @@ const trade: Trade = {
   note: '',
 }
 
+export function testDisplaySortingSupportsAscendingAndDescendingDirections(): void {
+  assert(
+    normalizeDisplay({ sortDirection: undefined }).sortDirection === 'desc' &&
+      normalizeDisplay({ sortDirection: 'invalid' as DisplayPrefs['sortDirection'] }).sortDirection === 'desc',
+    '旧资料库缺少排序方向或保存了非法值时，必须安全回退为倒序',
+  )
+  const records: Trade[] = [
+    {
+      ...trade,
+      id: 'sort-low-old',
+      openedAt: '2026-01-05',
+      pnl: -200,
+      conviction: 'low',
+    },
+    {
+      ...trade,
+      id: 'sort-high-new',
+      openedAt: '2026-02-20',
+      pnl: 500,
+      conviction: 'urgent',
+    },
+    {
+      ...trade,
+      id: 'sort-empty-middle',
+      openedAt: '2026-02-01',
+      pnl: null,
+      conviction: 'medium',
+    },
+  ]
+  const sortedIds = (
+    sortBy: DisplayPrefs['sortBy'],
+    sortDirection: DisplayPrefs['sortDirection'],
+  ) => applyDisplayPrefs(records, {
+    ...DEFAULT_DISPLAY,
+    hideClosed: false,
+    sortBy,
+    sortDirection,
+  }).map((item) => item.id)
+
+  assert(
+    sortedIds('date', 'asc').join(',') ===
+      'sort-low-old,sort-empty-middle,sort-high-new',
+    '开仓时间正序应从早到晚',
+  )
+  assert(
+    sortedIds('date', 'desc').join(',') ===
+      'sort-high-new,sort-empty-middle,sort-low-old',
+    '开仓时间倒序应从晚到早',
+  )
+  assert(
+    sortedIds('pnl', 'asc').join(',') ===
+      'sort-low-old,sort-high-new,sort-empty-middle',
+    '盈亏正序应从低到高，空值保持在末尾',
+  )
+  assert(
+    sortedIds('pnl', 'desc').join(',') ===
+      'sort-high-new,sort-low-old,sort-empty-middle',
+    '盈亏倒序应从高到低，空值保持在末尾',
+  )
+  assert(
+    sortedIds('conviction', 'asc').join(',') ===
+      'sort-low-old,sort-empty-middle,sort-high-new',
+    '信心度正序应从低到高',
+  )
+  assert(
+    sortedIds('conviction', 'desc').join(',') ===
+      'sort-high-new,sort-empty-middle,sort-low-old',
+    '信心度倒序应从高到低',
+  )
+
+  const ascendingGroups = groupTradesByMonth(records, new Date('2026-03-01'), 'asc')
+  assert(
+    ascendingGroups.map((group) => group.key).join(',') === '2026-01,2026-02' &&
+      ascendingGroups[1]?.items.map((item) => item.id).join(',') ===
+        'sort-empty-middle,sort-high-new',
+    '按月份分组时，正序必须同时作用于月份和组内交易',
+  )
+}
+
 function preview(rowIndex: number, errors: string[] = [], sourceId?: string): NotionTradePreview {
   return {
     rowIndex,

@@ -239,6 +239,7 @@ export function createFullPersistedSnapshotFixture(
       groupByStrategy: false,
       groupByDate: false,
       sortBy: 'conviction',
+      sortDirection: 'desc',
       privacyMode: true,
       tradingDayStartHour: 7,
       reviewContextPinned: false,

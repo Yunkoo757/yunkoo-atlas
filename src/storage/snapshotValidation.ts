@@ -19,6 +19,7 @@ const CASE_TYPES = new Set(['exemplar', 'mistake', 'ambiguous', 'missed'])
 const MASTERY_STATES = new Set(['new', 'recheck', 'mastered'])
 const MISS_REASONS = new Set(['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other'])
 const DISPLAY_SORTS = new Set(['date', 'pnl', 'conviction'])
+const DISPLAY_SORT_DIRECTIONS = new Set(['asc', 'desc'])
 const SIDEBAR_SYSTEM_IDS = new Set(['active', 'favorites', 'missed', 'paper'])
 const CASE_VIEW_SCOPES = new Set(['focus', 'mistakes', 'unreviewed', 'reviewed', 'exemplar', 'missed'])
 const WEEKLY_REVIEW_STATUSES = new Set(['draft', 'completed'])
@@ -149,6 +150,10 @@ function isDisplayPrefs(value: unknown): boolean {
     if (value[field] !== undefined && typeof value[field] !== 'boolean') return false
   }
   if (value.sortBy !== undefined && !DISPLAY_SORTS.has(String(value.sortBy))) return false
+  if (
+    value.sortDirection !== undefined &&
+    !DISPLAY_SORT_DIRECTIONS.has(String(value.sortDirection))
+  ) return false
   if (
     value.tradingDayStartHour !== undefined &&
     !(

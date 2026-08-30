@@ -74,6 +74,7 @@ export interface DisplayPrefs {
   groupByStrategy: boolean
   groupByDate: boolean
   sortBy: 'date' | 'pnl' | 'conviction'
+  sortDirection: 'asc' | 'desc'
   /** 直播/演示时隐藏所有现金盈亏与权益金额。 */
   privacyMode: boolean
   /** 是否显示键盘焦点高光。 */
@@ -108,6 +109,7 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
   groupByStrategy: DEFAULT_PROFILE_DISPLAY.groupMode === 'strategy',
   groupByDate: DEFAULT_PROFILE_DISPLAY.groupMode === 'date',
   sortBy: DEFAULT_PROFILE_DISPLAY.sortBy,
+  sortDirection: DEFAULT_PROFILE_DISPLAY.sortDirection,
   privacyMode: false,
   showKeyboardFocusRings: false,
   listRowDensity: 'compact',
@@ -120,6 +122,7 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
 }
 
 const SORT_BY = ['date', 'pnl', 'conviction'] as const
+const SORT_DIRECTIONS = ['asc', 'desc'] as const
 const SIDEBAR_RISK_SCOPES = ['day', 'week', 'month'] as const
 const LIST_ROW_DENSITIES = ['compact', 'comfortable'] as const
 
@@ -162,6 +165,11 @@ export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayP
   const sortBy = SORT_BY.includes(d.sortBy as (typeof SORT_BY)[number])
     ? (d.sortBy as DisplayPrefs['sortBy'])
     : DEFAULT_DISPLAY.sortBy
+  const sortDirection = SORT_DIRECTIONS.includes(
+    d.sortDirection as (typeof SORT_DIRECTIONS)[number],
+  )
+    ? (d.sortDirection as DisplayPrefs['sortDirection'])
+    : DEFAULT_DISPLAY.sortDirection
   const requestedGroupByDate = typeof d.groupByDate === 'boolean'
     ? d.groupByDate
     : DEFAULT_DISPLAY.groupByDate
@@ -184,6 +192,7 @@ export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayP
     groupByStrategy,
     groupByDate,
     sortBy,
+    sortDirection,
     privacyMode:
       typeof d.privacyMode === 'boolean' ? d.privacyMode : DEFAULT_DISPLAY.privacyMode,
     showKeyboardFocusRings:

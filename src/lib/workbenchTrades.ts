@@ -212,20 +212,21 @@ export function applyDisplayPrefs(
   const visible = prefs.hideClosed && !skipHideClosed
     ? trades.filter((trade) => trade.tradeKind === 'case' || !isHiddenWhenClosedFilter(trade.status))
     : [...trades]
+  const direction = prefs.sortDirection === 'asc' ? 1 : -1
   return visible.sort((left, right) => {
-    if (prefs.sortBy === 'pnl') return compareOptionalDesc(left.pnl, right.pnl)
+    if (prefs.sortBy === 'pnl') return compareOptional(left.pnl, right.pnl, direction)
     if (prefs.sortBy === 'conviction') {
-      return CONVICTION_RANK[right.conviction] - CONVICTION_RANK[left.conviction]
+      return direction * (CONVICTION_RANK[left.conviction] - CONVICTION_RANK[right.conviction])
     }
-    return +new Date(right.openedAt) - +new Date(left.openedAt)
+    return direction * (+new Date(left.openedAt) - +new Date(right.openedAt))
   })
 }
 
-function compareOptionalDesc(left: number | null, right: number | null): number {
+function compareOptional(left: number | null, right: number | null, direction: 1 | -1): number {
   if (left == null && right == null) return 0
   if (left == null) return 1
   if (right == null) return -1
-  return right - left
+  return direction * (left - right)
 }
 
 type WorkbenchTradeDerivationOptions = {

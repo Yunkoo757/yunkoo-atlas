@@ -123,11 +123,11 @@ export function ListView({
     }
 
     if (display.groupByDate) {
-      return groupTradesByMonth(visible)
+      return groupTradesByMonth(visible, new Date(), display.sortDirection)
     }
 
     return [{ key: 'all-records', items: visible }]
-  }, [visible, filter.type, filter.period, filter.tradeKind, display.groupByStrategy, display.groupByDate, strategies])
+  }, [visible, filter.type, filter.period, filter.tradeKind, display.groupByStrategy, display.groupByDate, display.sortDirection, strategies])
 
   const orderedItems = useMemo(
     () => groups.flatMap((group) => group.items),

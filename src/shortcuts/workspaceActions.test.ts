@@ -21,6 +21,7 @@ const display: DisplayPrefs = {
   groupByStrategy: false,
   groupByDate: true,
   sortBy: 'date',
+  sortDirection: 'desc',
   privacyMode: false,
   showKeyboardFocusRings: false,
   listRowDensity: 'compact',

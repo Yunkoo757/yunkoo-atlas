@@ -15,7 +15,8 @@
       "hideClosed": false,
       "showEmptyGroups": false,
       "groupMode": "date",
-      "sortBy": "date"
+      "sortBy": "date",
+      "sortDirection": "desc"
     }
   },
   "tags": {

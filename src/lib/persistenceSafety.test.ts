@@ -289,6 +289,7 @@ export function testTransientUiStateDoesNotScheduleAFullSnapshotRewrite(): void 
       groupByStrategy: false,
       groupByDate: true,
       sortBy: 'date',
+      sortDirection: 'desc',
       privacyMode: false,
       showKeyboardFocusRings: false,
       listRowDensity: 'compact',

@@ -48,6 +48,7 @@ export function createElectronQaSeedSnapshot(): PersistedSnapshot {
       groupByStrategy: false,
       groupByDate: true,
       sortBy: 'date',
+      sortDirection: 'desc',
       privacyMode: false,
       showKeyboardFocusRings: false,
       listRowDensity: 'compact',
