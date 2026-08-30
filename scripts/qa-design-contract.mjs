@@ -381,7 +381,7 @@ const checks = [
     settingsDataPanel.includes('if (pendingCount === 0) return null') &&
       settingsDataPanel.includes('最新备份尚未验证') === false &&
       !dataIOContent.includes('className="dio-safety-note"') &&
-      dataIOContent.includes('className="dio-btn"\n              disabled={dataBusy}\n              onClick={electron ? onImportZip'),
+      /className="dio-btn"\s+disabled=\{dataBusy\}\s+onClick=\{electron \? onImportZip/.test(dataIOContent),
   ],
   [
     'Symbols preset swatch uses fs-micro (not bare 10px)',
