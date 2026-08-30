@@ -225,7 +225,7 @@
   --group-add-backlog: lch(62.672% 7 270);
   --group-add-done: lch(62.672% 7 283);
   --group-add-hover-bg: lch(13.456% 0.943 272);
-  --surface-row-hover: var(--bg-hover);
+  --surface-row-hover: lch(10.7% 0.6 272 / 1);
   --surface-row-selected: lch(10.691% 0.493 272 / 1);
   /* 独立对象与浮层分别从自己的承载面建立状态，不复用 Row 的绝对色。 */
   --surface-card-hover: var(--bg-hover);

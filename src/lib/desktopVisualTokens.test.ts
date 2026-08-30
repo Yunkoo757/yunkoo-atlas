@@ -110,7 +110,7 @@ export async function testDesktopVisualTokensExposeCanonicalRoles(): Promise<voi
     '--symbol-list-glyph-strength: 64%',
     '--symbol-list-surface-strength: 6%',
     '--trade-row-height: 44px',
-    '--surface-row-hover: var(--bg-hover)',
+    '--surface-row-hover: lch(10.7% 0.6 272 / 1)',
     '--surface-card-hover: var(--bg-hover)',
     '--surface-menu-hover: lch(13.1% 0.85 272 / 1)',
     '--surface-menu-pressed: lch(15.1% 1 272 / 1)',
