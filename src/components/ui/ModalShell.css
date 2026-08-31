@@ -57,7 +57,7 @@
   color: var(--text-primary);
   font-size: var(--type-dialog-title-size);
   font-weight: var(--type-dialog-title-weight);
-  line-height: 1.35;
+  line-height: var(--type-dialog-title-line-height);
 }
 
 .modal-shell-heading p {

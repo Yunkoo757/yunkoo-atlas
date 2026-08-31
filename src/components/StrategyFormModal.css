@@ -11,7 +11,7 @@
 }
 
 .sfm-label {
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   color: var(--text-tertiary);
   font-weight: var(--font-weight-medium);
 }
@@ -23,7 +23,7 @@
   border: 1px solid var(--field-border);
   background: var(--field-bg);
   color: var(--text-primary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 .sfm-input:focus {
   background: var(--field-bg-focus);
@@ -32,7 +32,7 @@
 }
 
 .sfm-error {
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   color: var(--neg);
 }
 
@@ -96,7 +96,7 @@
   padding: 10px var(--sp-3);
   border-radius: var(--radius-8);
   background: var(--bg-elevated);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
 }
 

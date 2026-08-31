@@ -5,7 +5,7 @@
   overflow: hidden;
   border-radius: var(--radius-full);
   border: none;
-  line-height: 1;
+  line-height: var(--line-height-tight);
   user-select: none;
 }
 

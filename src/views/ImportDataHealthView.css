@@ -23,7 +23,7 @@
   margin: 0;
   margin-right: auto;
   color: var(--text-secondary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
 }
 
@@ -79,7 +79,7 @@
   margin: 0;
   padding: var(--sp-2) var(--sp-4);
   color: var(--list-text-secondary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -146,7 +146,7 @@
 
 .idh-identity strong {
   color: var(--list-text-strong);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
   overflow-wrap: anywhere;
 }
@@ -154,7 +154,7 @@
 .idh-identity span,
 .idh-evidence {
   color: var(--list-text-secondary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
 }
 
 .idh-evidence {
@@ -172,13 +172,13 @@
 
 .idh-facts dt {
   color: var(--list-text-secondary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
 }
 
 .idh-facts dd {
   margin: 2px 0 0;
   color: var(--list-text-primary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }

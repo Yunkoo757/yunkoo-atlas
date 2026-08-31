@@ -31,8 +31,8 @@
 .update-section-head p {
   margin: 0;
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
-  line-height: 1.55;
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
 }
 
 .update-status {

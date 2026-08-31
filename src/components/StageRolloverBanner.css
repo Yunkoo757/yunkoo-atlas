@@ -82,7 +82,7 @@
 
 .stage-rollover-banner-copy p {
   margin: 0;
-  line-height: 1.45;
+  line-height: var(--type-metadata-line-height);
 }
 
 @media (max-width: 1099px) {

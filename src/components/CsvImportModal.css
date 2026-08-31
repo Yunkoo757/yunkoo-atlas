@@ -141,7 +141,7 @@
 
 .csv-map-select .ui-select-trigger {
   height: var(--field-height-md);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
 }
 
 .csv-map-select.is-mapped .ui-select-trigger {
@@ -221,7 +221,7 @@
   align-items: center;
   gap: var(--sp-2);
   margin: 0;
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   color: var(--text-tertiary);
 }
 
@@ -237,7 +237,7 @@
 
 .csv-err-cell {
   color: var(--neg);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -273,11 +273,11 @@
   border-radius: var(--radius-6);
   background: var(--error-action-border);
   color: var(--neg);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 
 .modal-shell-footer .csv-file-status {
   margin-right: auto;
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
 }

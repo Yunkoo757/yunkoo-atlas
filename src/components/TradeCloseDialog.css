@@ -192,7 +192,7 @@
   padding: var(--sp-2) 10px;
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
-  line-height: 1.45;
+  line-height: var(--type-metadata-line-height);
   background: color-mix(in srgb, var(--accent) 6%, var(--bg-surface));
   border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border-subtle));
   border-radius: var(--radius-6);

@@ -25,6 +25,13 @@ function lineNumber(source, index) {
   return source.slice(0, index).split('\n').length
 }
 
+function selectorBefore(source, index) {
+  const openingBrace = source.lastIndexOf('{', index)
+  if (openingBrace < 0) return ''
+  const previousClosingBrace = source.lastIndexOf('}', openingBrace)
+  return source.slice(previousClosingBrace + 1, openingBrace).replace(/\s+/g, ' ').trim()
+}
+
 function addMatches(findings, file, source, label, pattern, predicate = () => true) {
   pattern.lastIndex = 0
   for (const match of source.matchAll(pattern)) {
@@ -91,6 +98,57 @@ for (const file of productionFiles) {
       /(?:#[0-9a-f]{3,8}|\b(?:rgb|hsl|lch|oklch)a?\([^;\n}]+\))/gi,
       (match) => file !== TOKENS && !/mask-image[^\n]*(?:#000|rgb\(0)/i.test(withoutComments.slice(Math.max(0, (match.index ?? 0) - 100), (match.index ?? 0) + 160)),
     )
+    addMatches(
+      findings,
+      file,
+      withoutComments,
+      'raw font size',
+      /font-size\s*:\s*(?:[0-9.]+(?:px|rem|em)|clamp\(|calc\()/gi,
+      (match) => file !== TOKENS && !(
+        normalizedFile === 'src/editor/Editor.css' &&
+        selectorBefore(withoutComments, match.index ?? 0) === '.editor code' &&
+        /font-size\s*:\s*0\.85em/i.test(match[0])
+      ),
+    )
+    addMatches(
+      findings,
+      file,
+      withoutComments,
+      'raw font weight',
+      /font-weight\s*:\s*(?:[1-9]00|450|550|bold|normal)\b/gi,
+      () => file !== TOKENS,
+    )
+    addMatches(
+      findings,
+      file,
+      withoutComments,
+      'raw line height',
+      /line-height\s*:\s*(?:[0-9.]+(?:px)?|normal)\s*;/gi,
+      (match) => {
+        if (file === TOKENS) return false
+        const selector = selectorBefore(withoutComments, match.index ?? 0)
+        return !(
+          (normalizedFile === 'src/components/EmptyState.css' && selector === '.empty-title' && /:\s*1\.5\s*;/i.test(match[0])) ||
+          (normalizedFile === 'src/views/WeeklyReviewView.css' && selector === '.wr-risk-daily > summary::after' && /:\s*1\s*;/i.test(match[0]))
+        )
+      },
+    )
+    addMatches(
+      findings,
+      file,
+      withoutComments,
+      'raw border radius',
+      /border-radius\s*:\s*[0-9.]+(?:px|rem|em|%)\b/gi,
+      () => file !== TOKENS,
+    )
+    addMatches(
+      findings,
+      file,
+      withoutComments,
+      'typography font shorthand',
+      /\bfont\s*:\s*[^;\n}]+;/gi,
+      (match) => file !== TOKENS && !/\bfont\s*:\s*inherit\s*;/i.test(match[0]),
+    )
   }
 
   if (extname(file) === '.tsx') {
@@ -100,6 +158,13 @@ for (const file of productionFiles) {
       source,
       'numeric JSX icon size',
       /<[A-Z][A-Za-z0-9.]*\b[^>]*\bsize=\{\d+\}[^>]*>/g,
+    )
+    addMatches(
+      findings,
+      file,
+      source,
+      'numeric inline font size',
+      /\bfontSize\s*:\s*\d+(?:\.\d+)?\b/g,
     )
   }
 }

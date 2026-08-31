@@ -9,7 +9,7 @@
   display: inline-flex;
   margin-bottom: var(--sp-2);
   color: var(--text-secondary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   text-decoration: none;
 }
 
@@ -55,7 +55,7 @@
 .stage-ownership-context dt { color: var(--text-muted); font-size: var(--type-caption-size); }
 .stage-ownership-context dd { margin: 2px 0 0; color: var(--text-secondary); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); overflow-wrap: anywhere; }
 
-.stage-ownership-reason { display: flex; align-items: flex-start; gap: var(--sp-2); margin: var(--sp-3) 0 0; color: var(--text-muted); font-size: var(--type-caption-size); line-height: 1.5; }
+.stage-ownership-reason { display: flex; align-items: flex-start; gap: var(--sp-2); margin: var(--sp-3) 0 0; color: var(--text-muted); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .stage-ownership-reason > svg { flex: 0 0 auto; margin-top: 2px; color: var(--text-tertiary); }
 
 .stage-ownership-actions { display: grid; align-content: start; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2); }

@@ -47,7 +47,7 @@
   border-radius: var(--main-radius);
   font-family: var(--font-ui);
   font-size: var(--type-ui-base-size);
-  line-height: normal;
+  line-height: var(--type-row-line-height);
   box-shadow: none;
 }
 

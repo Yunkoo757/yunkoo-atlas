@@ -14,7 +14,7 @@
   justify-content: center;
   gap: var(--space-control-gap);
   border-radius: var(--radius-6);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   transition: background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out);
@@ -46,7 +46,7 @@
   background: transparent;
   color: var(--text-primary);
   font: inherit;
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 .trash-search-input::placeholder {
   color: var(--text-quaternary);
@@ -90,7 +90,7 @@
   min-height: 28px;
   padding: 0 6px;
   color: var(--text-secondary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 .trash-select-all-btn:hover {
   background: var(--bg-hover);
@@ -113,7 +113,7 @@
 .trash-search-count {
   margin-left: auto;
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   color: var(--text-quaternary);
   font-variant-numeric: var(--numeric-tabular);
   font-feature-settings: "tnum" 1, "kern" 1;
@@ -151,7 +151,7 @@
   overflow: hidden;
   isolation: isolate;
   color: var(--text-secondary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
 }
 .trash-group-label {
@@ -160,7 +160,7 @@
 .trash-group-count {
   color: var(--text-quaternary);
   font-family: var(--font-ui);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   font-variant-numeric: var(--numeric-tabular);
   font-feature-settings: "tnum" 1, "kern" 1;
 }
@@ -179,7 +179,8 @@
   border-radius: var(--radius-8);
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-secondary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-list-secondary-size);
+  line-height: var(--type-list-secondary-line-height);
   transition: background var(--dur-fast) var(--ease-out);
 }
 .trash-item:hover {
@@ -196,7 +197,8 @@
 .trash-item-id {
   overflow: hidden;
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
+  font-size: var(--type-list-secondary-size);
+  line-height: var(--type-list-secondary-line-height);
   font-variant-numeric: var(--numeric-tabular);
   font-feature-settings: "tnum" 1, "kern" 1;
   color: var(--text-tertiary);
@@ -217,8 +219,9 @@
 .trash-item-symbol {
   min-width: 0;
   overflow: hidden;
-  font-size: var(--fs-sm);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--type-list-primary-size);
+  font-weight: var(--type-list-primary-weight);
+  line-height: var(--type-list-primary-line-height);
   letter-spacing: 0;
   color: var(--text-primary);
   text-overflow: ellipsis;
@@ -250,12 +253,14 @@
   color: var(--neg);
 }
 .trash-item-r {
-  font-size: var(--fs-mini);
+  font-size: var(--type-list-secondary-size);
+  line-height: var(--type-list-secondary-line-height);
   color: var(--text-tertiary);
 }
 
 .trash-item-date {
-  font-size: var(--fs-mini);
+  font-size: var(--type-list-secondary-size);
+  line-height: var(--type-list-secondary-line-height);
   color: var(--text-tertiary);
   font-family: var(--font-ui);
   font-variant-numeric: var(--numeric-tabular);

@@ -43,7 +43,7 @@
   color: var(--text-secondary);
   font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
-  line-height: 1;
+  line-height: var(--type-metadata-line-height);
   text-decoration: none;
 }
 
@@ -248,7 +248,7 @@
   margin: var(--sp-2) 0 var(--sp-5);
   color: var(--text-muted);
   font-size: var(--type-body-size);
-  line-height: 1.6;
+  line-height: var(--type-body-line-height);
 }
 
 .db-empty-action {
@@ -263,7 +263,7 @@
   border: 1px solid transparent;
   color: var(--accent-text);
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
   transition: background var(--dur-fast) var(--ease-out);
 }
@@ -385,7 +385,7 @@
   border: 0.8px solid var(--popover-border);
   border-radius: var(--radius-xl);
   padding: 10px var(--sp-3);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   color: var(--text-primary);
   box-shadow: var(--popover-shadow);
   cursor: pointer;
@@ -404,7 +404,7 @@
   border-color: var(--popover-border);
 }
 .db-chart-tip-ref {
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   color: var(--text-tertiary);
   margin-bottom: 2px;
 }
@@ -439,7 +439,7 @@
 }
 .db-chart-tip-hint {
   margin-top: 6px;
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   color: var(--text-quaternary);
 }
 
@@ -472,12 +472,12 @@ a.db-strat:hover {
   min-width: 0;
 }
 .db-strat-name {
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
   color: var(--text-primary);
 }
 .db-strat-meta {
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   color: var(--text-tertiary);
 }
 .db-strat-bar {
@@ -496,7 +496,7 @@ a.db-strat:hover {
 }
 .db-strat-pnl {
   font-family: var(--font-ui);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: var(--numeric-tabular);
   font-feature-settings: "tnum" 1, "kern" 1;

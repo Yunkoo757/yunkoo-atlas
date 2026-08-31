@@ -413,8 +413,8 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis hide={privacyMode} tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="date" tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} axisLine={false} tickLine={false} />
+                  <YAxis hide={privacyMode} tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} axisLine={false} tickLine={false} />
                   <Tooltip
                     content={<CurveTooltip onOpen={openTrade} privacyMode={privacyMode} />}
                     cursor={{ stroke: 'var(--border-strong)', strokeWidth: 1 }}
@@ -560,8 +560,8 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                   <ResponsiveContainer width="100%" height={160}>
                     <BarChart data={stats.rDist} margin={{ left: -16, right: 8, top: 4 }}>
                   <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'var(--text-tertiary)', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <XAxis dataKey="label" tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip
                     cursor={{ fill: 'color-mix(in srgb, var(--bg-hover) 88%, transparent)' }}
                     content={({ active, payload }) => {

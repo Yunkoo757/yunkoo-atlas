@@ -26,7 +26,7 @@
 }
 .trade-open-risk-callout.is-triggered > svg { color: var(--neg); }
 .trade-open-risk-callout strong { color: var(--text-primary); font-size: var(--type-row-size); }
-.trade-open-risk-callout p { margin: 3px 0 0; color: var(--text-muted); font-size: var(--type-metadata-size); line-height: 1.45; }
+.trade-open-risk-callout p { margin: 3px 0 0; color: var(--text-muted); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }
 
 .trade-open-risk-periods {
   display: grid;
@@ -68,7 +68,7 @@
 .trade-open-risk-policy > div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
 .trade-open-risk-policy span { color: var(--text-muted); font-size: var(--type-caption-size); }
 .trade-open-risk-policy strong { color: var(--text-secondary); font-size: var(--type-metadata-size); font-weight: var(--font-weight-medium); }
-.trade-open-risk-policy p { grid-column: 1 / -1; margin: 0; color: var(--text-muted); font-size: var(--type-metadata-size); line-height: 1.45; }
+.trade-open-risk-policy p { grid-column: 1 / -1; margin: 0; color: var(--text-muted); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }
 .trade-open-risk-baseline-action {
   grid-column: 1 / -1;
   justify-self: start;
@@ -96,7 +96,7 @@
   color: var(--text-primary);
   font: inherit;
   font-size: var(--type-body-size);
-  line-height: 1.5;
+  line-height: var(--type-body-line-height);
   background: var(--field-bg);
   border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
@@ -112,7 +112,7 @@
   padding: 9px 10px;
   color: var(--neg);
   font-size: var(--type-metadata-size);
-  line-height: 1.45;
+  line-height: var(--type-metadata-line-height);
   background: var(--neg-bg);
   border: 1px solid color-mix(in srgb, var(--neg) 30%, transparent);
   border-radius: var(--radius-6);

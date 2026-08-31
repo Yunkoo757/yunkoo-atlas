@@ -73,7 +73,7 @@
   width: 32px;
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   color: var(--text-tertiary);
 }
 
@@ -140,7 +140,7 @@
 .nim-file-name {
   font-weight: var(--font-weight-medium);
   font-family: var(--font-mono);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
 }
 
 .nim-import-target {
@@ -215,7 +215,7 @@
   margin: 0;
   font-size: var(--type-body-size);
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: var(--type-body-line-height);
 }
 
 .nim-preview-table-wrap {
@@ -275,7 +275,7 @@
 .nim-dup-scan,
 .nim-dup-toggle {
   margin: 0;
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   color: var(--text-tertiary);
 }
 
@@ -337,7 +337,7 @@
 }
 
 .nim-new-badge {
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   color: var(--accent);
 }
 
@@ -366,7 +366,7 @@
 
 .nim-done-area .nim-done-images {
   margin: 0;
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-normal);
   color: var(--accent);
   display: flex;
@@ -376,7 +376,7 @@
 
 .nim-err-cell {
   color: var(--neg);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -400,7 +400,7 @@
 
 .nim-done-area .nim-done-hint {
   margin: 0;
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-normal);
   color: var(--text-tertiary);
 }
@@ -420,13 +420,13 @@
   border-radius: var(--radius-6);
   background: var(--error-action-border);
   color: var(--neg);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 
 .modal-shell-footer .nim-file-status {
   margin-right: auto;
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

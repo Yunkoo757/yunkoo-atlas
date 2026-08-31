@@ -4,9 +4,9 @@
   padding: 1px 5px;
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   font-weight: var(--font-weight-medium);
-  line-height: 1.4;
+  line-height: var(--type-caption-line-height);
   text-align: center;
   background: var(--surface-raised);
   border: 0.8px solid var(--border-strong);

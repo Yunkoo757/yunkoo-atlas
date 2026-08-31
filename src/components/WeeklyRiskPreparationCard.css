@@ -54,7 +54,7 @@
   margin: var(--sp-1) 0 0;
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
-  line-height: 1.45;
+  line-height: var(--type-metadata-line-height);
 }
 
 .risk-preparation-card.is-reviewed {
@@ -75,7 +75,7 @@
 .risk-preparation-card.is-reviewed .risk-preparation-summary-copy h2,
 .risk-preparation-card.is-reviewed .risk-preparation-summary-limits {
   margin: 0;
-  line-height: 18px;
+  line-height: var(--type-section-title-line-height);
 }
 
 .risk-preparation-card.is-reviewed .risk-preparation-summary-limits {
@@ -87,7 +87,7 @@
 .risk-preparation-card.is-reviewed .risk-preparation-summary-future {
   width: 100%;
   margin: 0;
-  line-height: 16px;
+  line-height: var(--type-metadata-line-height);
   overflow: visible;
   text-overflow: clip;
   white-space: normal;

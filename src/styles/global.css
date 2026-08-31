@@ -211,7 +211,7 @@ button {
 input[type='file'] {
   color: var(--text-tertiary);
   font-family: var(--font-ui);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 
 input[type='file']::file-selector-button {
@@ -223,7 +223,7 @@ input[type='file']::file-selector-button {
   border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   cursor: pointer;
   transition:
     color var(--dur-fast) var(--ease-out),

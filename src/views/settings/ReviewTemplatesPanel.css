@@ -42,7 +42,7 @@
 .review-pin-setting p {
   margin-top: 3px;
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
 }
 
 .review-pin-options {
@@ -58,7 +58,8 @@
   height: var(--control-height);
   padding: 0 10px;
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
   border-radius: var(--radius-6);
 }
 
@@ -95,7 +96,7 @@
   height: var(--field-height-md);
   overflow: hidden;
   color: var(--text-secondary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   border-radius: var(--radius-6);
   transition: background var(--dur-fast) var(--ease-out),
     box-shadow var(--dur-fast) var(--ease-out),
@@ -213,7 +214,7 @@
   height: var(--field-height-md);
   padding: 0 10px;
   font: inherit;
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 
 .review-template-content-label {
@@ -230,7 +231,7 @@
 
 .review-template-content-label span {
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-normal);
 }
 
@@ -239,8 +240,8 @@
   padding: 11px var(--sp-3);
   resize: vertical;
   font: inherit;
-  font-size: var(--fs-sm);
-  line-height: 1.65;
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
 }
 
 .review-template-name:focus,
@@ -270,9 +271,9 @@
 
 .review-template-empty strong {
   color: var(--text-secondary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 
 .review-template-empty span {
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
 }

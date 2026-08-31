@@ -53,7 +53,7 @@
 
 .ui-date-head strong {
   color: var(--text-primary);
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption-size);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -91,7 +91,7 @@
   height: 28px;
   align-items: center;
   color: var(--text-quaternary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   text-align: center;
 }
 
@@ -103,7 +103,7 @@
   height: 32px;
   color: var(--text-secondary);
   font-family: var(--font-ui);
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption-size);
   font-variant-numeric: var(--numeric-tabular);
   font-feature-settings: "tnum" 1, "kern" 1;
 }
@@ -137,7 +137,7 @@
   padding: 0 5px;
   border-radius: var(--radius-4);
   color: var(--text-tertiary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
 }
 
 .ui-date-footer button:hover {

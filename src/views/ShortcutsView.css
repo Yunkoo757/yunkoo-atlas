@@ -26,7 +26,7 @@
   color: var(--text-tertiary);
   background: transparent;
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
   transition:
     color var(--dur-fast) var(--ease-out),
@@ -81,7 +81,7 @@
   flex: 0 0 auto;
   min-height: var(--control-height);
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
 }
 
 .window-hotkey-status-dot {
@@ -104,7 +104,7 @@
 
 .window-hotkey-label {
   color: var(--text-primary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 
 .window-hotkey-controls {
@@ -124,7 +124,7 @@
 .window-hotkey-conflict-summary {
   gap: var(--sp-4);
   color: var(--text-secondary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 
 .window-hotkey-conflict-key {
@@ -135,15 +135,15 @@
   margin: var(--sp-4) 0 0;
   padding-left: var(--sp-5);
   color: var(--text-primary);
-  font-size: var(--fs-sm);
-  line-height: 1.7;
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
 }
 
 .window-hotkey-conflict-note {
   margin: var(--sp-4) 0 0;
   color: var(--text-tertiary);
-  font-size: var(--fs-xs);
-  line-height: 1.5;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line-height);
 }
 
 .shortcuts-section {
@@ -154,7 +154,7 @@
 .shortcuts-group-label {
   margin: 0 var(--sp-2) var(--sp-2);
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
   letter-spacing: 0;
 }
@@ -182,7 +182,7 @@
 
 .shortcuts-label {
   color: var(--text-primary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 
 .shortcuts-row-controls {
@@ -268,9 +268,9 @@ button.shortcuts-capture[aria-pressed='true'] {
   background: var(--surface-raised);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--border-strong) 70%, transparent);
   font-family: var(--font-mono);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   font-weight: var(--font-weight-medium);
-  line-height: 1.4;
+  line-height: var(--type-caption-line-height);
 }
 
 .shortcuts-sequence-arrow {
@@ -281,7 +281,7 @@ button.shortcuts-capture[aria-pressed='true'] {
 .shortcuts-unassigned {
   padding-right: 2px;
   color: var(--text-quaternary);
-  font-size: var(--fs-xs);
+  font-size: var(--type-caption-size);
 }
 
 .shortcuts-recording {
@@ -290,7 +290,7 @@ button.shortcuts-capture[aria-pressed='true'] {
   gap: 7px;
   padding: 0 2px;
   color: var(--accent);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
 }
 

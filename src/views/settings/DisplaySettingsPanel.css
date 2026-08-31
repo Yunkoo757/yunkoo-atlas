@@ -14,7 +14,7 @@
   padding: 0 10px var(--sp-2);
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
-  line-height: 1.45;
+  line-height: var(--type-metadata-line-height);
 }
 
 .display-settings-section {
@@ -64,14 +64,14 @@
   min-width: 0;
 }
 .display-row-title {
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
   color: var(--text-primary);
 }
 .display-row-desc {
   margin-top: 2px;
   font-size: var(--type-metadata-size);
-  line-height: 1.4;
+  line-height: var(--type-metadata-line-height);
   color: var(--text-muted);
 }
 

@@ -384,9 +384,9 @@ const checks = [
       /className="dio-btn"\s+disabled=\{dataBusy\}\s+onClick=\{electron \? onImportZip/.test(dataIOContent),
   ],
   [
-    'Symbols preset swatch uses fs-micro (not bare 10px)',
+    'Symbols preset swatch uses the semantic caption role (not bare 10px)',
     !symbolsPanelStyles.includes('font-size: 10px') &&
-      /\.symbols-preset-swatch\s*\{[^}]*font-size:\s*var\(--fs-micro\);/s.test(symbolsPanelStyles),
+      /\.symbols-preset-swatch\s*\{[^}]*font-size:\s*var\(--type-caption-size\);/s.test(symbolsPanelStyles),
   ],
   [
     'Tag chip remove uses radius-full (not bare 50%)',

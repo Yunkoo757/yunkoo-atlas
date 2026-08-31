@@ -235,8 +235,8 @@
   margin-right: auto;
   max-width: 220px;
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
-  line-height: 1.45;
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
 }
 
 .composer-footer-actions {

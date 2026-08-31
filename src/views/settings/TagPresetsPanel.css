@@ -12,7 +12,7 @@
   color: var(--text-strong);
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
-  line-height: var(--type-row-line-height);
+  line-height: var(--type-section-title-line-height);
   margin-bottom: var(--sp-1);
 }
 
@@ -36,8 +36,9 @@
   height: var(--field-height-md);
   padding: 0 10px;
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
+  line-height: var(--type-row-line-height);
   border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
   background: var(--field-bg);
@@ -54,7 +55,7 @@
   margin-bottom: 14px;
 }
 .tag-batch-summary {
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   color: var(--text-tertiary);
   cursor: pointer;
   user-select: none;
@@ -70,7 +71,7 @@
   padding: var(--sp-2) 10px;
   margin-bottom: var(--sp-2);
   font: inherit;
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   color: var(--text-primary);
   background: var(--field-bg);
   border: 1px solid var(--field-border);
@@ -85,7 +86,7 @@
 }
 
 .tag-section-empty {
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   color: var(--text-tertiary);
 }
 

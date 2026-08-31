@@ -90,8 +90,8 @@
 .hp-subtitle {
   overflow: hidden;
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
-  line-height: 1.35;
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -108,8 +108,8 @@
   justify-content: space-between;
   gap: var(--sp-3);
   color: var(--text-tertiary);
-  font-size: var(--fs-sm);
-  line-height: 1.4;
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
 }
 
 .hp-meta-item {
@@ -136,6 +136,6 @@
   border-radius: var(--radius-4);
   color: var(--text-tertiary);
   background: var(--bg-elevated);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   font-family: var(--font-ui);
 }

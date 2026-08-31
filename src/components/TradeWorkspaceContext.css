@@ -132,7 +132,7 @@
 .trade-workspace-scope-heading {
   padding: 0 var(--sp-2) var(--sp-1);
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
   line-height: var(--type-metadata-line-height);
 }

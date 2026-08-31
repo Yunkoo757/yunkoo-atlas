@@ -103,7 +103,7 @@
   top: var(--sp-6);
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
-  line-height: 1.55;
+  line-height: var(--type-metadata-line-height);
 }
 
 .settings-page-head {

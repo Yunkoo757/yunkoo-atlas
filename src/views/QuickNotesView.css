@@ -6,7 +6,7 @@
   background: var(--surface-pane);
   color: var(--text-primary);
   font-family: var(--font-ui);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }
 
 .quick-notes-workspace {
@@ -51,7 +51,7 @@
   -webkit-background-clip: text;
   color: var(--text-primary);
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
 }
 

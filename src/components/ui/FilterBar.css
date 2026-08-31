@@ -67,10 +67,10 @@
   height: 16px;
   padding-inline: var(--sp-1);
   color: var(--list-text-strong);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: var(--numeric-tabular);
-  line-height: 1;
+  line-height: var(--type-metadata-line-height);
   border-radius: var(--radius-full);
   background: var(--surface-control);
 }
@@ -156,6 +156,6 @@
 .ui-filter-empty {
   color: var(--text-tertiary);
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
 }

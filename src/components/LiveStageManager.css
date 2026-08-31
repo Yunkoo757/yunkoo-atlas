@@ -94,7 +94,7 @@
 .live-stage-manager-disclosure p {
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
-  line-height: 1.5;
+  line-height: var(--type-metadata-line-height);
 }
 
 .live-stage-manager-counts {

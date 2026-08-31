@@ -28,7 +28,7 @@
 
 .dio-mono {
   font-family: var(--font-mono);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   word-break: break-all;
 }
 
@@ -252,7 +252,7 @@
 .dio-task-meta {
   margin-top: 2px;
   font-size: var(--type-metadata-size);
-  line-height: 1.4;
+  line-height: var(--type-metadata-line-height);
   color: var(--text-muted);
 }
 
@@ -275,7 +275,7 @@
   gap: var(--space-control-gap);
   font-size: var(--type-metadata-size);
   color: var(--text-secondary);
-  line-height: 1.45;
+  line-height: var(--type-metadata-line-height);
 }
 
 .dio-dup-reason {
@@ -298,7 +298,7 @@
   padding: 10px var(--sp-3);
   color: var(--text-secondary);
   font-size: var(--type-body-size);
-  line-height: 1.5;
+  line-height: var(--type-body-line-height);
   background: var(--warn-action-bg);
   border: 1px solid var(--warn-action-border);
   border-radius: var(--radius-8);
@@ -366,14 +366,14 @@
   padding: 3px 0;
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
-  line-height: 1.5;
+  line-height: var(--type-metadata-line-height);
 }
 
 .data-path-note {
   margin: var(--sp-3) 0 0;
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
-  line-height: 1.5;
+  line-height: var(--type-metadata-line-height);
 }
 
 .data-path-note code {
@@ -446,5 +446,5 @@
 
 .data-purge-details p {
   margin: var(--sp-2) 0 0;
-  line-height: 1.5;
+  line-height: var(--type-metadata-line-height);
 }

@@ -30,5 +30,5 @@
 
 .strategy-label-fallback {
   color: var(--text-tertiary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
 }

@@ -80,7 +80,7 @@
   font-family: var(--font-ui);
   font-size: var(--type-dialog-title-size);
   font-weight: var(--font-weight-medium);
-  line-height: 24px;
+  line-height: var(--type-dialog-title-line-height);
   padding: 0 2px;
 }
 .cmdk-input:focus,

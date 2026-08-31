@@ -25,7 +25,7 @@
 
 .trade-filter-head strong {
   color: var(--text-primary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
 }
 
@@ -57,7 +57,7 @@
 .trade-filter-section h3 {
   margin: 0 0 var(--sp-2);
   color: var(--text-tertiary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   font-weight: var(--font-weight-medium);
 }
 
@@ -93,7 +93,7 @@
   gap: var(--sp-1);
   min-width: 0;
   color: var(--text-tertiary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
 }
 
 .trade-filter-field .ui-select-trigger {

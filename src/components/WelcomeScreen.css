@@ -135,14 +135,14 @@
 
 .welcome-error {
   margin: 0;
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   color: var(--neg);
 }
 
 .welcome-hint {
   margin: 0;
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   color: var(--text-quaternary);
-  line-height: 1.6;
+  line-height: var(--type-row-line-height);
   max-width: 360px;
 }

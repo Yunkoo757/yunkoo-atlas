@@ -35,7 +35,7 @@
   color: var(--text-primary);
 }
 .dv-crumb {
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   color: var(--text-secondary);
 }
 .dv-crumb-active {
@@ -59,7 +59,7 @@
   background: transparent;
   box-shadow: none;
   color: var(--text-tertiary);
-  line-height: 0;
+  line-height: var(--line-height-none);
 }
 .dv-detail-crumb-actions .icon-btn:hover {
   background: var(--bg-hover);
@@ -310,7 +310,7 @@
   gap: 1px;
 }
 
-.dv-case-source span { color: var(--text-faint); font-size: var(--fs-micro); }
+.dv-case-source span { color: var(--text-faint); font-size: var(--type-caption-size); }
 .dv-case-source strong {
   overflow: hidden;
   color: var(--text-secondary);
@@ -416,8 +416,8 @@
 
 .dv-document .editor [data-review-context] {
   color: var(--text-detail-body);
-  font-weight: 450;
-  line-height: 1.6;
+  font-weight: var(--type-list-secondary-weight);
+  line-height: var(--type-body-line-height);
   letter-spacing: 0;
 }
 
@@ -564,7 +564,7 @@
   max-width: 100%;
   padding: var(--sp-1) 0;
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
 }
 .dv-activity-toggle:hover {
   color: var(--text-tertiary);
@@ -582,7 +582,7 @@
 .dv-feed-more {
   display: block;
   margin-bottom: var(--sp-3);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   color: var(--text-tertiary);
   padding: 0;
 }
@@ -633,7 +633,7 @@
   background: var(--text-tertiary);
 }
 .dv-feed-text {
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   color: var(--text-tertiary);
   flex: 1;
   min-width: 0;
@@ -670,18 +670,18 @@
 .dv-comment-avatar {
   width: 22px;
   height: 22px;
-  border-radius: 25%;
+  border-radius: var(--radius-6);
   background: transparent;
   border: 0;
   color: var(--accent-text);
   display: grid;
   place-items: center;
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   font-weight: var(--font-weight-semibold);
   flex-shrink: 0;
   margin-top: 6px;
   overflow: hidden;
-  line-height: 1;
+  line-height: var(--type-caption-line-height);
 }
 .dv-comment-box {
   position: relative;
@@ -720,7 +720,7 @@
   color: var(--text-body);
   font-family: var(--font-ui);
   font-size: var(--type-body-size);
-  line-height: 1.5;
+  line-height: var(--type-body-line-height);
   padding: 9px 40px var(--sp-2) 10px;
   overflow-y: auto;
 }
@@ -813,9 +813,9 @@
   padding: 0 6px;
   border-radius: var(--radius-8);
   font-family: var(--font-ui);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-normal);
-  line-height: 20px;
+  line-height: var(--type-row-line-height);
   color: var(--text-tertiary);
   transition:
     background-color var(--dur-fast) var(--ease-out),
@@ -867,9 +867,9 @@
 }
 .dv-prop-label {
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
-  line-height: normal;
+  line-height: var(--type-metadata-line-height);
 }
 .dv-prop-value {
   display: inline-flex;
@@ -882,9 +882,9 @@
   padding: 2px 6px;
   border-radius: var(--radius-full);
   color: var(--text-primary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-normal);
-  line-height: normal;
+  line-height: var(--type-row-line-height);
   transition:
     background-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
@@ -907,7 +907,7 @@
   font-weight: var(--font-weight-normal);
   font-variant-numeric: tabular-nums;
   letter-spacing: normal;
-  line-height: normal;
+  line-height: var(--type-row-line-height);
   white-space: nowrap;
 }
 .dv-prop-chip.is-neutral {
@@ -965,7 +965,7 @@
   padding: 0 7px;
   border-radius: var(--radius-lg);
   color: var(--text-tertiary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
   text-align: left;
   transition: background var(--dur-fast) var(--ease-out),
@@ -1001,7 +1001,7 @@
   color: var(--text-primary);
 }
 .dv-case-id {
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
 }
@@ -1010,11 +1010,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
 }
 .dv-case-state {
   color: var(--text-tertiary);
-  font-size: var(--fs-micro);
+  font-size: var(--type-caption-size);
   white-space: nowrap;
 }
 
@@ -1031,7 +1031,7 @@
   border-radius: var(--radius-full);
   background: transparent;
   font-family: var(--font-ui);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-normal);
   color: var(--text-secondary);
   text-align: left;
@@ -1063,10 +1063,10 @@
   text-align: left;
 }
 .dv-datarow-label {
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
   color: var(--text-tertiary);
-  line-height: normal;
+  line-height: var(--type-metadata-line-height);
 }
 .dv-datarow-value {
   display: inline-flex;
@@ -1075,11 +1075,11 @@
   min-height: 26px;
   padding: 2px 6px;
   border-radius: var(--radius-full);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-normal);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  line-height: normal;
+  line-height: var(--type-row-line-height);
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 .dv-datarow-btn {
@@ -1113,7 +1113,7 @@
   border-radius: var(--radius-lg);
   color: var(--text-primary);
   font-family: var(--font-ui);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-variant-numeric: tabular-nums;
   text-align: left;
 }
@@ -1132,7 +1132,7 @@
   height: 28px;
   padding: 0 6px;
   border-radius: var(--radius-lg);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   color: var(--text-tertiary);
   transition: background var(--dur-fast) var(--ease-out);
 }
@@ -1148,7 +1148,7 @@
   margin: 0;
   padding: 0 6px;
   border-radius: var(--radius-8);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   color: var(--text-tertiary);
   transition:
     background-color var(--dur-fast) var(--ease-out),
@@ -1215,7 +1215,7 @@
   margin: 7px 0 18px;
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
-  line-height: 1.55;
+  line-height: var(--type-metadata-line-height);
 }
 .dv-empty-actions {
   display: flex;

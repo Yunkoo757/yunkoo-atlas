@@ -571,7 +571,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 .trade-row-tags {
   gap: var(--sp-1);
   overflow: hidden;
-  line-height: normal;
+  line-height: var(--type-chip-line-height);
   -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 14px), transparent 100%);
   mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 14px), transparent 100%);
 }

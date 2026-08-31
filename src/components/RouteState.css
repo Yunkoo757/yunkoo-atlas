@@ -38,7 +38,7 @@
 .app-route-state-code {
   color: var(--text-tertiary);
   font-family: var(--font-mono);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -46,7 +46,7 @@
 .app-route-state-label {
   color: var(--text-tertiary);
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
 }
 
 .app-route-state h1 {
@@ -76,6 +76,6 @@
   margin-top: 18px;
   color: var(--text-quaternary);
   font-family: var(--font-mono);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   overflow-wrap: anywhere;
 }

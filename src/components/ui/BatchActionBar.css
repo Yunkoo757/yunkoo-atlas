@@ -30,7 +30,7 @@
 .batch-action-count {
   margin-right: var(--sp-1);
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-variant-numeric: var(--numeric-tabular);
 }
 
@@ -42,7 +42,7 @@
   padding: 0 9px;
   color: var(--text-secondary);
   font-family: var(--font-ui);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
   border-radius: var(--radius-6);
 }

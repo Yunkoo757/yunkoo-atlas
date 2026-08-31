@@ -47,9 +47,9 @@
   width: auto;
   height: auto;
   color: var(--text-quaternary);
-  font-size: var(--fs-sm);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-normal);
-  line-height: normal;
+  line-height: var(--type-row-line-height);
   background: transparent;
 }
 
@@ -60,7 +60,7 @@
 .ui-toolbar-context {
   overflow: hidden;
   color: var(--text-tertiary);
-  font-size: var(--fs-mini);
+  font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
   line-height: var(--type-metadata-line-height);
   text-overflow: ellipsis;
