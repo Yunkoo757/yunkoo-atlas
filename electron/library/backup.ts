@@ -6,6 +6,7 @@ import { getLibraryPath, ensureLibraryDirs, getLibraryPaths } from './paths'
 import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
 import { validateDesktopLibrary, validateLibraryDatabaseFile } from './journalZip'
 import { safeConsoleError } from '../diagnosticSanitizer'
+import { removeDirectManagedDirectory } from './managedPaths'
 
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000 // 15 分钟
 const DEFAULT_MAX_BACKUPS = 7
@@ -84,22 +85,9 @@ function copyRestoreAttachments(
   return entries
 }
 
-function cleanupBackupRestoreRecoveryDirs(libraryRoot: string): void {
-  for (const name of fs.readdirSync(libraryRoot)) {
-    if (name.startsWith(BACKUP_RESTORE_RECOVERY_PREFIX)) {
-      fs.rmSync(path.join(libraryRoot, name), { recursive: true, force: true })
-    }
-  }
-}
-
 export function cleanupCompletedBackupRestoreRecovery(libraryRoot: string): void {
-  if (!fs.existsSync(backupRestoreMarkerPath(libraryRoot))) {
-    try {
-      cleanupBackupRestoreRecoveryDirs(libraryRoot)
-    } catch {
-      /* 已完成恢复的遗留目录不影响活动库，下次打开时重试。 */
-    }
-  }
+  // 没有事务标记就无法证明同前缀目录属于本次操作；保留现场，禁止按前缀猜测删除。
+  void libraryRoot
 }
 
 function validateBackupRestoreRecovery(marker: BackupRestoreMarker, recoveryRoot: string): void {
@@ -160,11 +148,12 @@ export function recoverInterruptedBackupRestore(paths: ReturnType<typeof getLibr
   else fs.rmSync(paths.dbFile, { force: true })
   if (marker.hadManifest) writeFileAtomicallySync(paths.manifestFile, fs.readFileSync(recoveryManifest))
   else fs.rmSync(paths.manifestFile, { force: true })
-  fs.rmSync(paths.attachments, { recursive: true, force: true })
+  removeDirectManagedDirectory(paths.root, paths.attachments, 'attachments')
   copyRestoreAttachments(recoveryAttachments, paths.attachments, true)
   fsyncDirectorySync(paths.root)
   fs.rmSync(markerPath, { force: true })
   fsyncDirectorySync(paths.root)
+  removeDirectManagedDirectory(paths.root, recoveryRoot, marker.recoveryDir)
 }
 
 function backupFileName(timestamp: number): string {
@@ -537,6 +526,18 @@ export async function verifyBackupAtPath(
     const stagedInspection = await validateDesktopLibrary(staged, {
       allowEmptySnapshot: declaredEmptyLibrary,
     })
+    const { LibraryStorage: RuntimeLibraryStorage } = await import('./storage')
+    const openedCandidate = new RuntimeLibraryStorage(verificationRoot, {
+      ensureDirectories: false,
+      allowCreate: false,
+    })
+    try {
+      await openedCandidate.open()
+      const openedSnapshot = openedCandidate.loadSnapshot()
+      if (!openedSnapshot && !declaredEmptyLibrary) throw new Error('临时恢复库无法由正式存储层打开')
+    } finally {
+      openedCandidate.release()
+    }
     if (
       stagedInspection.tradeCount !== inspection.tradeCount ||
       stagedInspection.strategyCount !== inspection.strategyCount ||
@@ -662,7 +663,7 @@ export function restoreBackupAtPath(libraryPath: string, fileName: string): bool
 
   try {
     if (stagedAttachments) {
-      fs.rmSync(attachments, { recursive: true, force: true })
+      removeDirectManagedDirectory(libraryPath, attachments, 'attachments')
       fs.renameSync(stagedAttachments, attachments)
       stagedAttachments = null
     }
@@ -682,6 +683,7 @@ export function restoreBackupAtPath(libraryPath: string, fileName: string): bool
     fsyncDirectorySync(libraryPath)
     fs.rmSync(markerPath, { force: true })
     fsyncDirectorySync(libraryPath)
+    removeDirectManagedDirectory(libraryPath, recoveryRoot, recoveryDir)
     return true
   } catch (error) {
     recoverInterruptedBackupRestore(getLibraryPaths(libraryPath))

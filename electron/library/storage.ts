@@ -33,6 +33,7 @@ import {
 import { recoverInterruptedJournalImport } from './journalZip'
 
 const SNAPSHOT_KEY = 'snapshot'
+const SNAPSHOT_REVISION_KEY = 'snapshotRevision'
 const DATABASE_SCHEMA_KEY = 'schemaVersion'
 const CANONICAL_STAGE_SCHEMA_VERSION = 12
 const ASSET_TRASH_MANIFEST = 'manifest.json'
@@ -843,6 +844,31 @@ export class LibraryStorage {
     return value
   }
 
+  getSnapshotRevision(): number {
+    const db = this.requireDb()
+    const stmt = db.prepare('SELECT value FROM meta WHERE key = ?')
+    try {
+      stmt.bind([SNAPSHOT_REVISION_KEY])
+      if (!stmt.step()) return 0
+      const revision = Number(stmt.getAsObject().value)
+      if (!Number.isSafeInteger(revision) || revision < 0) throw new Error('journal.db 的 snapshotRevision 无效')
+      return revision
+    } finally {
+      stmt.free()
+    }
+  }
+
+  private assertSnapshotRevision(expectedRevision?: number): number {
+    const actualRevision = this.getSnapshotRevision()
+    if (expectedRevision !== undefined && expectedRevision !== actualRevision) {
+      throw new OperationalError(
+        'storage-revision-conflict',
+        `资料库已被更新（预期版本 ${expectedRevision}，实际版本 ${actualRevision}），已阻止旧快照覆盖`,
+      )
+    }
+    return actualRevision
+  }
+
   private readDatabaseSchemaVersion(): number | null {
     const db = this.requireDb()
     const stmt = db.prepare('SELECT value FROM meta WHERE key = ?')
@@ -879,8 +905,9 @@ export class LibraryStorage {
     })
   }
 
-  saveSnapshot(snapshot: PersistedSnapshot): SnapshotSaveResult {
+  saveSnapshot(snapshot: PersistedSnapshot, expectedRevision?: number): SnapshotSaveResult {
     assertValidPersistedSnapshot(snapshot, 'Library snapshot')
+    const nextRevision = this.assertSnapshotRevision(expectedRevision) + 1
     const prepared = this.prepareDatabaseCandidate((candidateDb) => {
       candidateDb.run(
         `INSERT INTO meta (key, value) VALUES (?, ?)
@@ -891,6 +918,11 @@ export class LibraryStorage {
         `INSERT INTO meta (key, value) VALUES (?, ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
         [DATABASE_SCHEMA_KEY, String(SCHEMA_VERSION)],
+      )
+      candidateDb.run(
+        `INSERT INTO meta (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [SNAPSHOT_REVISION_KEY, String(nextRevision)],
       )
     })
     return this.commitDatabaseCandidate('snapshot', prepared, {
@@ -1504,9 +1536,10 @@ export class LibraryStorage {
   async commitImport(
     snapshot: PersistedSnapshot,
     assets: Array<{ id: string; mime: string; buffer: Buffer }>,
-    options?: { pruneUnreferenced?: boolean },
+    options?: { pruneUnreferenced?: boolean; expectedSnapshotRevision?: number },
   ): Promise<void> {
     assertValidPersistedSnapshot(snapshot, 'Imported library snapshot')
+    const nextRevision = this.assertSnapshotRevision(options?.expectedSnapshotRevision) + 1
     const referencedAssetIds = new Set<string>()
     for (const trade of snapshot.trades) {
       for (const html of tradeRichTextEntries(trade)) {
@@ -1602,6 +1635,11 @@ export class LibraryStorage {
           `INSERT INTO meta (key, value) VALUES (?, ?)
            ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
           [SNAPSHOT_KEY, JSON.stringify(snapshot)],
+        )
+        candidateDb.run(
+          `INSERT INTO meta (key, value) VALUES (?, ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+          [SNAPSHOT_REVISION_KEY, String(nextRevision)],
         )
         candidateDb.run('COMMIT')
       } catch (error) {

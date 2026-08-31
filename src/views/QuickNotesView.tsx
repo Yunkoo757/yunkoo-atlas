@@ -50,7 +50,7 @@ export function QuickNotesView() {
   const [query, setQuery] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
   const [loadedNoteId, setLoadedNoteId] = useState<string | null>(null)
-  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null)
   const [editorReady, setEditorReady] = useState(false)
   const [loadState, setLoadState] = useState<'idle' | 'loading' | 'ready' | 'readonly' | 'error'>('idle')
   const [reloadNonce, setReloadNonce] = useState(0)
@@ -192,14 +192,22 @@ export function QuickNotesView() {
   }, [flushDraft, loadedNoteId, selectedNote])
 
   const confirmDelete = () => {
-    if (!selectedNote) return
-    const currentIndex = notes.findIndex((note) => note.id === selectedNote.id)
+    if (!deleteTarget) return
+    const target = notes.find((note) => note.id === deleteTarget.id)
+    if (!target) {
+      setDeleteTarget(null)
+      toast('这条随记已不存在，未执行删除')
+      return
+    }
+    const currentIndex = notes.findIndex((note) => note.id === target.id)
     const next = notes[currentIndex + 1] ?? notes[currentIndex - 1] ?? null
-    clearNoteDraft(`${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`)
-    noteHistoriesRef.current.delete(selectedNote.id)
-    removeNote(selectedNote.id)
-    setDeleteOpen(false)
-    navigate(next ? `/notes/${encodeURIComponent(next.id)}` : '/notes', { replace: true })
+    clearNoteDraft(`${QUICK_NOTE_DRAFT_PREFIX}${target.id}`)
+    noteHistoriesRef.current.delete(target.id)
+    removeNote(target.id)
+    setDeleteTarget(null)
+    if (selectedNote?.id === target.id) {
+      navigate(next ? `/notes/${encodeURIComponent(next.id)}` : '/notes', { replace: true })
+    }
     toast('随记已删除')
   }
 
@@ -288,7 +296,7 @@ export function QuickNotesView() {
                     type="button"
                     className="is-danger"
                     aria-label="删除随记"
-                    onClick={() => setDeleteOpen(true)}
+                    onClick={() => setDeleteTarget({ id: selectedNote.id, title: selectedNote.title })}
                   >
                     <Trash2 size={ICON_MD} />
                   </button>
@@ -343,15 +351,15 @@ export function QuickNotesView() {
         </section>
       </div>
 
-      {deleteOpen && selectedNote ? (
+      {deleteTarget ? (
         <ModalShell
           title="删除这条随记？"
-          description="删除后无法恢复，其中的截图会在后续存储清理时一并移除。"
+          description={`将永久删除“${deleteTarget.title}”及其中的截图。`}
           size="compact"
-          onClose={() => setDeleteOpen(false)}
+          onClose={() => setDeleteTarget(null)}
           footer={(
             <>
-              <button type="button" className="ui-btn ui-btn-bordered" data-autofocus onClick={() => setDeleteOpen(false)}>取消</button>
+              <button type="button" className="ui-btn ui-btn-bordered" data-autofocus onClick={() => setDeleteTarget(null)}>取消</button>
               <button type="button" className="ui-btn ui-btn-danger-solid" onClick={confirmDelete}>删除随记</button>
             </>
           )}

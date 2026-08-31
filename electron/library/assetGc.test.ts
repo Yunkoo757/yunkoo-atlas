@@ -200,9 +200,16 @@ export async function testElectronAssetGcIsRecoverableAndNeverTouchesBackups(): 
 
 export async function testElectronAssetGcRecoveryRejectsUnsafeTrashState(): Promise<void> {
   const expectOpenRejected = async (root: string, message: string): Promise<void> => {
-    const candidate = new LibraryStorage(root)
+    let candidate: LibraryStorage | null = null
     let rejected = false
-    try { await candidate.open() } catch { rejected = true } finally { candidate.close() }
+    try {
+      candidate = new LibraryStorage(root)
+      await candidate.open()
+    } catch {
+      rejected = true
+    } finally {
+      candidate?.close()
+    }
     assert(rejected, message)
   }
 

@@ -417,8 +417,10 @@ export function testTypedBridgeCarriesIntentWithoutSnapshotOrClock(): void {
   const inputEnd = bridge.indexOf('\n}', inputStart)
   const input = bridge.slice(inputStart, inputEnd)
   assert(
-    preload.includes("commitStageRollover: (input) => ipcRenderer.invoke('stage:commitRollover', input)"),
-    'preload must expose the single typed stage commit invoke',
+    preload.includes("commitStageRollover: async (input) =>") &&
+      preload.includes("ipcRenderer.invoke('stage:commitRollover', {") &&
+      preload.includes('writerToken: requireStorageWriterToken()'),
+    'preload must expose the typed stage commit invoke with its private writer token',
   )
   assert(input.includes('expectedRollover: ScheduledStageRollover'), 'intent must carry the full expected schedule')
   assert(!input.includes('snapshot'), 'renderer intent must not carry a library snapshot')

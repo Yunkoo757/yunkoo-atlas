@@ -227,6 +227,7 @@ async function run(): Promise<void> {
     )
     useShortcutStore.getState().closeLightbox()
 
+    useStore.getState().removeTrade(source.id)
     useStore.getState().purgeTrade(source.id)
     await waitFor(
       () => document.body.textContent?.includes('来源已删除（来源不可用）') ?? false,

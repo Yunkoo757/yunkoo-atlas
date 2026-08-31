@@ -339,6 +339,7 @@ export async function testComposerSourceCommitKeepsCaseSnapshotFrozen(): Promise
     assert(publishedCase?.activities === stagedCase.activities, '发布 patch 必须保留案例活动引用')
     assert(publishedCase?.deletedAt === stagedCase.deletedAt, '软删除案例必须同步且保持删除状态')
 
+    useStore.getState().removeTrade(sourceTrade.id)
     useStore.getState().purgeTrade(sourceTrade.id)
     assert(
       !collectAssetIdsFromNotes(useStore.getState().trades).includes('composer-source-latest-asset'),

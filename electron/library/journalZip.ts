@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { clearManagedFlatDirectory } from './managedPaths'
 import { createHash, randomUUID } from 'node:crypto'
 import type { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
@@ -7,7 +8,7 @@ import { ZipArchive } from 'archiver'
 import initSqlJs from 'sql.js'
 import * as yauzl from 'yauzl'
 import type { LibraryStorage } from './storage'
-import { ensureLibraryDirs } from './paths'
+import { ensureLibraryDirs, getLibraryPaths } from './paths'
 import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
 import {
   SCHEMA_VERSION,
@@ -99,13 +100,7 @@ function locateSqlWasm(file: string): string {
 }
 
 function clearDirectory(dir: string): void {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true })
-    return
-  }
-  for (const name of fs.readdirSync(dir)) {
-    fs.rmSync(path.join(dir, name), { recursive: true, force: true })
-  }
+  clearManagedFlatDirectory(path.dirname(dir), dir, path.basename(dir))
 }
 
 export const MAX_DESKTOP_JOURNAL_ARCHIVE_BYTES = 1024 * 1024 * 1024
@@ -114,6 +109,17 @@ export const MAX_DESKTOP_JOURNAL_ENTRY_BYTES = 256 * 1024 * 1024
 export const MAX_DESKTOP_JOURNAL_EXPANDED_BYTES = 2 * 1024 * 1024 * 1024
 const DESKTOP_JOURNAL_EXTRACTION_TIMEOUT_MS = 5 * 60_000
 const JOURNAL_IMPORT_MARKER = '.journal-import.json'
+const CRC32_TABLE = Array.from({ length: 256 }, (_, value) => {
+  let crc = value
+  for (let bit = 0; bit < 8; bit += 1) crc = (crc & 1) ? (0xedb88320 ^ (crc >>> 1)) : (crc >>> 1)
+  return crc >>> 0
+})
+
+function updateCrc32(crc: number, chunk: Buffer): number {
+  let value = crc
+  for (const byte of chunk) value = CRC32_TABLE[(value ^ byte) & 0xff]! ^ (value >>> 8)
+  return value >>> 0
+}
 
 interface JournalImportMarker {
   version: 1
@@ -327,9 +333,11 @@ async function extractZipToDir(zipFilePath: string, destinationDir: string): Pro
         currentReadStream = readStream
         currentWriteStream = writeStream
         let actualEntryBytes = 0
+        let entryCrc32 = 0xffffffff
         readStream.on('data', (chunk: Buffer) => {
           actualEntryBytes += chunk.byteLength
           actualExpandedBytes += chunk.byteLength
+          entryCrc32 = updateCrc32(entryCrc32, chunk)
           if (actualEntryBytes > MAX_DESKTOP_JOURNAL_ENTRY_BYTES) {
             readStream.destroy(archiveLimitError(`entry exceeds ${MAX_DESKTOP_JOURNAL_ENTRY_BYTES / 1024 / 1024} MB (${entry.fileName})`))
           } else if (actualExpandedBytes > MAX_DESKTOP_JOURNAL_EXPANDED_BYTES) {
@@ -339,6 +347,9 @@ async function extractZipToDir(zipFilePath: string, destinationDir: string): Pro
         await pipeline(readStream, writeStream)
         if (actualEntryBytes !== entry.uncompressedSize) {
           throw archiveLimitError(`entry size does not match ZIP directory (${entry.fileName})`)
+        }
+        if (((entryCrc32 ^ 0xffffffff) >>> 0) !== (entry.crc32 >>> 0)) {
+          throw archiveLimitError(`entry CRC does not match ZIP directory (${entry.fileName})`)
         }
         currentReadStream = null
         currentWriteStream = null
@@ -622,6 +633,11 @@ export async function validateLibraryDatabaseFile(
   let db: InstanceType<typeof SQL.Database> | null = null
   try {
     db = new SQL.Database(fs.readFileSync(dbFile))
+    const integrity = db.exec('PRAGMA integrity_check')
+    const integrityRows = integrity[0]?.values ?? []
+    if (integrityRows.length !== 1 || String(integrityRows[0]?.[0]).toLowerCase() !== 'ok') {
+      throw new Error('database integrity_check failed')
+    }
     const tables = db.exec(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('meta', 'assets')",
     )
@@ -1103,5 +1119,58 @@ export async function importJournalZipToPath(
       }
     }
     writeImportProgress('importZip: cleanup done')
+  }
+}
+
+/** 安装已经完成解压、CRC、SQLite 与应用层校验的私有候选；不会再次读取用户归档。 */
+export async function installPreparedLibraryAtPath(
+  libraryRoot: string,
+  preparedRoot: string,
+): Promise<void> {
+  const paths = ensureLibraryDirs(libraryRoot)
+  const preparedPaths = getLibraryPaths(preparedRoot)
+  const operationId = randomUUID()
+  const preImportBackup = path.join(libraryRoot, `.pre-import-${operationId}`)
+  const markerPath = path.join(libraryRoot, JOURNAL_IMPORT_MARKER)
+  let mutationStarted = false
+  let keepRecoveryBackup = false
+
+  const preparedStat = fs.lstatSync(preparedRoot)
+  if (preparedStat.isSymbolicLink() || !preparedStat.isDirectory()) {
+    throw new Error('恢复候选不是普通目录')
+  }
+  await validateDesktopLibrary(preparedPaths)
+
+  try {
+    fs.mkdirSync(preImportBackup)
+    const recoveryMarker = backupCurrentLibrary(paths, preImportBackup)
+    writeFileAtomicallySync(markerPath, JSON.stringify(recoveryMarker, null, 2), 'utf8')
+
+    mutationStarted = true
+    writeFileAtomicallySync(paths.manifestFile, fs.readFileSync(preparedPaths.manifestFile))
+    writeFileAtomicallySync(paths.dbFile, fs.readFileSync(preparedPaths.dbFile))
+    copyAttachmentFiles(preparedPaths.attachments, paths.attachments, { durable: true })
+    await validateDesktopLibrary(paths)
+    fsyncDirectorySync(paths.root)
+    fs.rmSync(markerPath, { force: true })
+    fsyncDirectorySync(paths.root)
+  } catch (error) {
+    if (mutationStarted) {
+      try {
+        recoverInterruptedJournalImport(paths)
+      } catch (restoreError) {
+        keepRecoveryBackup = true
+        throw new Error(
+          `${error instanceof Error ? error.message : String(error)}; ` +
+          `恢复当前交易库失败，安全副本已保留在 ${preImportBackup}: ` +
+          `${restoreError instanceof Error ? restoreError.message : String(restoreError)}`,
+        )
+      }
+    }
+    throw error
+  } finally {
+    if (!keepRecoveryBackup && !fs.existsSync(markerPath)) {
+      try { fs.rmSync(preImportBackup, { recursive: true, force: true, maxRetries: 6, retryDelay: 50 }) } catch { /* 保留现场。 */ }
+    }
   }
 }

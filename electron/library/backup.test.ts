@@ -4,6 +4,7 @@ import path from 'node:path'
 import initSqlJs from 'sql.js'
 import {
   createBackupAtPath,
+  cleanupCompletedBackupRestoreRecovery,
   deleteBackupAtPath,
   getBackupStatsAtPath,
   recoverInterruptedBackupRestore,
@@ -526,6 +527,19 @@ export function testRestoreWithMissingAttachmentLeavesCurrentLibraryUntouched():
       fs.readFileSync(path.join(attachments, 'chart.png'), 'utf8') === 'current-image',
       '失败后当前附件不得改变',
     )
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export function testUnmarkedRecoveryPrefixDirectoryIsNeverGuessedAndDeleted(): void {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-prefix-preserve-'))
+  const unknown = path.join(root, '.backup-restore-recovery-user-data')
+  try {
+    fs.mkdirSync(unknown)
+    fs.writeFileSync(path.join(unknown, 'keep.txt'), 'keep', 'utf8')
+    cleanupCompletedBackupRestoreRecovery(root)
+    assert(fs.existsSync(path.join(unknown, 'keep.txt')), '没有事务标记时不得按前缀猜测并删除目录')
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }

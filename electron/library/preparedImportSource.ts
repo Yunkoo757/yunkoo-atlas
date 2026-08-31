@@ -42,8 +42,20 @@ export interface PreparedJournalArchiveStaging {
   stagedLibraryRoot: string
 }
 
-function sha256(bytes: Buffer): string {
-  return createHash('sha256').update(bytes).digest('hex')
+function sha256File(filePath: string): string {
+  const hash = createHash('sha256')
+  const descriptor = fs.openSync(filePath, 'r')
+  const chunk = Buffer.allocUnsafe(1024 * 1024)
+  try {
+    let bytesRead = 0
+    do {
+      bytesRead = fs.readSync(descriptor, chunk, 0, chunk.length, null)
+      if (bytesRead > 0) hash.update(chunk.subarray(0, bytesRead))
+    } while (bytesRead > 0)
+  } finally {
+    fs.closeSync(descriptor)
+  }
+  return hash.digest('hex')
 }
 
 /** 复制并锁定用户选择的归档字节；预览和最终恢复必须消费这一份私有副本。 */
@@ -63,7 +75,7 @@ export function stagePreparedJournalArchive(
   fs.mkdirSync(stagedLibraryRoot)
   return {
     stagedArchivePath,
-    stagedArchiveSha256: sha256(fs.readFileSync(stagedArchivePath)),
+    stagedArchiveSha256: sha256File(stagedArchivePath),
     stagedLibraryRoot,
   }
 }
@@ -75,7 +87,7 @@ export function matchesStagedJournalArchive(
   try {
     const stat = fs.lstatSync(archivePath)
     return stat.isFile() && !stat.isSymbolicLink() &&
-      sha256(fs.readFileSync(archivePath)) === expectedSha256
+      sha256File(archivePath) === expectedSha256
   } catch {
     return false
   }

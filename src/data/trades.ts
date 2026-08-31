@@ -124,6 +124,8 @@ interface TradeBase {
   comments?: TradeComment[]
   activities?: ActivityEvent[]
   deletedAt?: string // 删除时间（ISO 格式），undefined 表示未删除
+  /** 每次移入回收站都会生成新代次，永久删除据此拒绝 restore -> re-delete 的过期确认。 */
+  deletionId?: string
   deletedBy?: string // 删除操作来源（可选，用于审计）
 }
 
@@ -309,16 +311,20 @@ export function isTradeDeleted(trade: Trade): boolean {
 
 /** 判断交易是否已过期（剩余天数 ≤ 0，与回收站 UI 同一边界） */
 export function isTradeExpired(trade: Trade): boolean {
-  if (!trade.deletedAt) return false
-  return getTradeRemainingDays(trade) <= 0
+  const remainingDays = getTradeRemainingDays(trade)
+  return remainingDays !== null && remainingDays <= 0
 }
 
-/** 计算剩余天数（用于回收站显示） */
-export function getTradeRemainingDays(trade: Trade): number {
-  if (!trade.deletedAt) return -1
+/** 计算距离 30 天的剩余天数；非法、无时区或未来时间返回 null，绝不视为到期。 */
+export function getTradeRemainingDays(trade: Trade): number | null {
+  if (!trade.deletedAt) return null
+  if (!/^\d{4}-\d{2}-\d{2}T/.test(trade.deletedAt) || !/(?:Z|[+-]\d{2}:\d{2})$/.test(trade.deletedAt)) {
+    return null
+  }
   const deletedTime = new Date(trade.deletedAt).getTime()
-  if (!Number.isFinite(deletedTime)) return -1
+  if (!Number.isFinite(deletedTime)) return null
   const now = Date.now()
+  if (deletedTime > now) return null
   const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
   const remainingMs = thirtyDaysMs - (now - deletedTime)
   return Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)))

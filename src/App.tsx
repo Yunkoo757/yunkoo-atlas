@@ -61,7 +61,6 @@ import { getTradingDayKey, isValidPeriodSlug, parseLocalDate, PERIOD_LABELS } fr
 import { routeWithSearch } from './lib/tradeView'
 import { listPathFromLegacyTablePath } from './lib/routeContext'
 import { useShortcutHost } from './shortcuts/ShortcutHost'
-import { cleanExpiredTradeTrash } from './lib/trashCleanup'
 import { lockBottomChrome, unlockBottomChrome } from './lib/toast'
 import { parseAnalysisScope } from './lib/analysisScope'
 import { weekStartFor } from './data/weeklyReviews'
@@ -670,7 +669,6 @@ export function App() {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           document.documentElement.dataset.uiSettled = '1'
-          scheduleExpiredTrashCleanup()
         })
       })
     }
@@ -716,7 +714,6 @@ export function App() {
       setReady(true)
       requestAnimationFrame(() => {
         document.documentElement.dataset.uiSettled = '1'
-        scheduleExpiredTrashCleanup()
       })
     } catch (error) {
       console.error('Storage bootstrap retry failed', error)
@@ -1009,19 +1006,4 @@ export function App() {
       {!isElectron() ? <WebStorageGuard /> : null}
     </>
   )
-}
-
-let expiredTrashCleanupTimer: ReturnType<typeof globalThis.setTimeout> | undefined
-
-function scheduleExpiredTrashCleanup(): void {
-  if (expiredTrashCleanupTimer !== undefined) {
-    globalThis.clearTimeout(expiredTrashCleanupTimer)
-  }
-  expiredTrashCleanupTimer = globalThis.setTimeout(() => {
-    expiredTrashCleanupTimer = undefined
-    const state = useStore.getState()
-    void cleanExpiredTradeTrash(state.trades, state.purgeTrades).catch((error) => {
-      console.error('Expired trash cleanup failed', error)
-    })
-  }, 1_000)
 }

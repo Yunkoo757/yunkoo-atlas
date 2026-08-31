@@ -5,6 +5,13 @@ import type { WindowsClosePreference } from '../src/types/journalBridge'
 import { AsyncGeneration } from '../src/lib/asyncGeneration'
 
 const closeFlushGeneration = new AsyncGeneration()
+let storageWriterToken: string | null = null
+let storageSnapshotRevision = 0
+
+function requireStorageWriterToken(): string {
+  if (!storageWriterToken) throw new Error('资料库写入会话尚未建立，请重新打开资料库')
+  return storageWriterToken
+}
 
 export type {
   BackupInfo,
@@ -96,32 +103,99 @@ const bridge: JournalBridge = {
   activatePreparedLibrary: (token) => ipcRenderer.invoke('library:activatePrepared', token),
   cancelPreparedLibrary: (token) => ipcRenderer.invoke('library:cancelPrepared', token),
   getLibraryPath: () => ipcRenderer.invoke('library:getPath'),
-  storageOpen: () => ipcRenderer.invoke('storage:open'),
+  storageOpen: async () => {
+    const session = await ipcRenderer.invoke('storage:open') as { ok: boolean; writerToken: string; snapshotRevision: number }
+    storageWriterToken = session.writerToken
+    storageSnapshotRevision = session.snapshotRevision
+    return session.ok
+  },
   recoverStorage: () => ipcRenderer.invoke('storage:recover'),
   getManifest: () => ipcRenderer.invoke('storage:getManifest'),
-  loadSnapshot: () => ipcRenderer.invoke('storage:loadSnapshot'),
-  saveSnapshot: (snapshot) => ipcRenderer.invoke('storage:saveSnapshot', snapshot),
-  commitStageRollover: (input) => ipcRenderer.invoke('stage:commitRollover', input),
+  loadSnapshot: async () => {
+    const result = await ipcRenderer.invoke('storage:loadSnapshot') as {
+      snapshot: Awaited<ReturnType<JournalBridge['loadSnapshot']>>
+      revision: number
+    }
+    storageSnapshotRevision = result.revision
+    return result.snapshot
+  },
+  saveSnapshot: async (snapshot) => {
+    const result = await ipcRenderer.invoke('storage:saveSnapshot', {
+      snapshot,
+      expectedRevision: storageSnapshotRevision,
+      writerToken: requireStorageWriterToken(),
+    }) as { revision: number }
+    storageSnapshotRevision = result.revision
+    return true
+  },
+  commitStageRollover: async (input) => {
+    const result = await ipcRenderer.invoke('stage:commitRollover', {
+      input,
+      writerToken: requireStorageWriterToken(),
+    })
+    storageSnapshotRevision = await ipcRenderer.invoke('storage:getSnapshotRevision')
+    return result
+  },
   saveAsset: (data, mime) =>
-    ipcRenderer.invoke('storage:saveAsset', { data, mime }),
+    ipcRenderer.invoke('storage:saveAsset', { data, mime, writerToken: requireStorageWriterToken() }),
   getAssetBytes: (id) => ipcRenderer.invoke('storage:getAssetBytes', id),
   getAssetStats: (ids) => ipcRenderer.invoke('storage:getAssetStats', ids),
   listAssetRecords: () => ipcRenderer.invoke('storage:listAssetRecords'),
   previewAssetPurge: () => ipcRenderer.invoke('storage:previewAssetPurge'),
-  prepareAssetPurgeRecovery: (preview) => ipcRenderer.invoke('storage:prepareAssetPurgeRecovery', preview),
-  cancelAssetPurge: (operationId) => ipcRenderer.invoke('storage:cancelAssetPurge', operationId),
-  commitAssetPurge: (preview, authorization) => ipcRenderer.invoke('storage:commitAssetPurge', { preview, authorization }),
-  importAssets: (assets) => ipcRenderer.invoke('storage:importAssets', assets),
-  commitImport: (snapshot, assets, options) => ipcRenderer.invoke('storage:commitImport', { snapshot, assets, options }),
+  prepareAssetPurgeRecovery: (preview) => ipcRenderer.invoke('storage:prepareAssetPurgeRecovery', {
+    preview,
+    writerToken: requireStorageWriterToken(),
+  }),
+  cancelAssetPurge: (operationId) => ipcRenderer.invoke('storage:cancelAssetPurge', {
+    operationId,
+    writerToken: requireStorageWriterToken(),
+  }),
+  commitAssetPurge: (preview, authorization) => ipcRenderer.invoke('storage:commitAssetPurge', {
+    preview,
+    authorization,
+    writerToken: requireStorageWriterToken(),
+  }),
+  importAssets: (assets) => ipcRenderer.invoke('storage:importAssets', {
+    assets,
+    writerToken: requireStorageWriterToken(),
+  }),
+  commitImport: async (snapshot, assets, options) => {
+    const result = await ipcRenderer.invoke('storage:commitImport', {
+      snapshot,
+      assets,
+      options,
+      expectedRevision: storageSnapshotRevision,
+      writerToken: requireStorageWriterToken(),
+    }) as { ok: boolean; revision: number }
+    storageSnapshotRevision = result.revision
+    return result.ok
+  },
   exportJournalZip: () => ipcRenderer.invoke('journal:exportZip'),
   prepareJournalImport: (prepareRequestId) => ipcRenderer.invoke('journal:prepareImport', prepareRequestId),
   cancelPreparedJournalImport: (tokenOrRequestId) => ipcRenderer.invoke('journal:cancelPreparedImport', tokenOrRequestId),
-  commitPreparedJournalImport: (token) => ipcRenderer.invoke('journal:commitPreparedImport', token),
-  createBackup: () => ipcRenderer.invoke('backup:create'),
+  commitPreparedJournalImport: async (token) => {
+    const result = await ipcRenderer.invoke('journal:commitPreparedImport', {
+      token,
+      writerToken: requireStorageWriterToken(),
+    })
+    if (result?.ok) storageSnapshotRevision = await ipcRenderer.invoke('storage:getSnapshotRevision')
+    return result
+  },
+  createBackup: () => ipcRenderer.invoke('backup:create', requireStorageWriterToken()),
   listBackups: () => ipcRenderer.invoke('backup:list'),
   verifyBackup: (fileName) => ipcRenderer.invoke('backup:verify', fileName),
-  restoreBackup: (fileName) => ipcRenderer.invoke('backup:restore', fileName),
-  deleteBackup: (fileName) => ipcRenderer.invoke('backup:delete', fileName),
+  restoreBackup: async (fileName) => {
+    const result = await ipcRenderer.invoke('backup:restore', {
+      fileName,
+      writerToken: requireStorageWriterToken(),
+    })
+    if (result?.ok) storageSnapshotRevision = await ipcRenderer.invoke('storage:getSnapshotRevision')
+    return result
+  },
+  deleteBackup: (fileName) => ipcRenderer.invoke('backup:delete', {
+    fileName,
+    writerToken: requireStorageWriterToken(),
+  }),
   getBackupStats: () => ipcRenderer.invoke('backup:stats'),
   getWindowState: () => ipcRenderer.invoke('window:getState'),
   applyWindowPreset: (presetId) => ipcRenderer.invoke('window:applyPreset', presetId),

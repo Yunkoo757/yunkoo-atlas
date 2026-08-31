@@ -280,6 +280,7 @@ export function isValidPersistedTrade(
     'sourceTradeId',
     'sourceNoteHtml',
     'deletedAt',
+    'deletionId',
     'deletedBy',
   ]) {
     if (value[field] !== undefined && typeof value[field] !== 'string') return false

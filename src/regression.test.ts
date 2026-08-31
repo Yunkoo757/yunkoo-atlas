@@ -211,6 +211,11 @@ export async function testElectronJournalImportRequiresExplicitReplacementConfir
   const prepareIndex = ipcSource.indexOf("ipcMain.handle('journal:prepareImport'")
   const commitIndex = ipcSource.indexOf("ipcMain.handle('journal:commitPreparedImport'")
   assert(prepareIndex >= 0 && commitIndex > prepareIndex, '桌面整库导入必须先隔离检查，再开放独立提交入口')
+  const commitSource = ipcSource.slice(commitIndex, ipcSource.indexOf("ipcMain.handle('backup", commitIndex))
+  assert(
+    commitSource.includes('assertWriterSession(event, payload?.writerToken, activeStorage)'),
+    '整库恢复提交必须绑定当前窗口与当前资料库生命周期，阻止旧窗口或过期操作覆盖资料库',
+  )
   assert(
     uiSource.includes('title="确认恢复完整资料库"') &&
       uiSource.includes("archiveRestoring ? '正在安全恢复…' : '替换当前资料库'"),
@@ -3011,8 +3016,70 @@ export function testTradeExpiredAlignsWithZeroRemainingDays(): void {
     id: 'still-visible',
     deletedAt: new Date(Date.now() - (thirtyDaysMs - 12 * 60 * 60 * 1000)).toISOString(),
   }
-  assert(getTradeRemainingDays(stillVisible) >= 1, '未满 30 天应仍有剩余天数')
+  const remainingDays = getTradeRemainingDays(stillVisible)
+  assert(remainingDays !== null && remainingDays >= 1, '未满 30 天应仍有剩余天数')
   assert(!isTradeExpired(stillVisible), '未满 30 天不得 purge')
+}
+
+export function testInvalidOrFutureTrashTimestampNeverBecomesAutomaticallyPurgeable(): void {
+  const invalid: Trade = { ...trade, id: 'invalid-trash-time', deletedAt: 'not-a-date' }
+  const future: Trade = {
+    ...trade,
+    id: 'future-trash-time',
+    deletedAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  }
+  assert(getTradeRemainingDays(invalid) === null, '非法删除时间必须进入人工核对态')
+  assert(getTradeRemainingDays(future) === null, '未来删除时间必须进入人工核对态')
+  assert(!isTradeExpired(invalid) && !isTradeExpired(future), '异常时间不得触发任何自动永久删除')
+}
+
+export function testPermanentTradeDeleteRejectsRestoredOrNewDeletionGeneration(): void {
+  const previous = useStore.getState()
+  const deletedAt = '2026-07-01T00:00:00.000Z'
+  try {
+    useStore.setState({
+      trades: [{ ...trade, id: 'generation-guard', deletedAt, deletionId: 'new-generation' }],
+      weeklyReviews: [],
+      starredIds: [],
+      subscribedIds: [],
+    })
+    const stale = useStore.getState().purgeTrades([{
+      id: 'generation-guard',
+      expectedDeletedAt: deletedAt,
+      expectedDeletionId: 'old-generation',
+    }])
+    assert(stale.purgedIds.length === 0 && stale.staleIds[0] === 'generation-guard', '旧确认框不得删除新一代回收站记录')
+    assert(useStore.getState().trades.some((item) => item.id === 'generation-guard'), '代次冲突必须保留交易')
+
+    useStore.getState().restoreTrade('generation-guard')
+    const restored = useStore.getState().purgeTrades([{
+      id: 'generation-guard',
+      expectedDeletedAt: deletedAt,
+      expectedDeletionId: 'new-generation',
+    }])
+    assert(restored.purgedIds.length === 0 && restored.notInTrashIds[0] === 'generation-guard', '恢复后的交易不得被旧确认框永久删除')
+  } finally {
+    useStore.setState({
+      trades: previous.trades,
+      weeklyReviews: previous.weeklyReviews,
+      starredIds: previous.starredIds,
+      subscribedIds: previous.subscribedIds,
+    })
+  }
+}
+
+export function testCsvRollbackRemovesOnlyTheExactImportedRecord(): void {
+  const previous = useStore.getState().trades
+  const imported: Trade = { ...trade, id: 'csv-rollback-exact', ref: 'TRD-CSV-ROLLBACK' }
+  try {
+    useStore.setState({ trades: [imported] })
+    useStore.setState({ trades: [{ ...imported, symbol: '用户已修改' }] })
+    const removed = useStore.getState().rollbackFailedImportedTrades([imported])
+    assert(removed.length === 0, '导入后被用户修改的同 ID 记录不得由失败回滚删除')
+    assert(useStore.getState().trades[0]?.symbol === '用户已修改', '失败回滚必须保留用户并发修改')
+  } finally {
+    useStore.setState({ trades: previous })
+  }
 }
 
 export function testReviewCaseScopesFilterCaseRecords(): void {
@@ -3643,12 +3710,20 @@ export function testBatchTradeLifecycleCommitsOnceAndUndoesAsOneAction(): void {
     assert(state.undoStack.length === 0, '批量恢复必须保持现有的不可撤销语义')
 
     useStore.setState({
-      trades: [first, second, untouched],
+      trades: [
+        { ...first, deletedAt: '2026-07-01T00:00:00.000Z', deletionId: 'delete-first' },
+        { ...second, deletedAt: '2026-07-01T00:00:00.000Z', deletionId: 'delete-second' },
+        untouched,
+      ],
       starredIds: [first.id, second.id, untouched.id],
       subscribedIds: [first.id, second.id, untouched.id],
     })
     commits = 0
-    useStore.getState().purgeTrades([first.id, second.id, 'missing'])
+    useStore.getState().purgeTrades([
+      { id: first.id, expectedDeletedAt: '2026-07-01T00:00:00.000Z', expectedDeletionId: 'delete-first' },
+      { id: second.id, expectedDeletedAt: '2026-07-01T00:00:00.000Z', expectedDeletionId: 'delete-second' },
+      'missing',
+    ])
     state = useStore.getState()
     assert(commits === 1, '批量彻底删除必须只提交一次 store 更新')
     assert(

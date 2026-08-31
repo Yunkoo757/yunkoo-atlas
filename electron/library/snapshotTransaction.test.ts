@@ -15,6 +15,25 @@ function snapshot(label: string): PersistedSnapshot {
   return value
 }
 
+export async function testSnapshotRevisionCasRejectsStaleDesktopWriter(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-snapshot-revision-cas-'))
+  const storage = new LibraryStorage(root)
+  try {
+    await storage.open()
+    assert(storage.getSnapshotRevision() === 0, '新库 revision 必须从 0 开始')
+    storage.saveSnapshot(snapshot('winner'), 0)
+    assert(storage.getSnapshotRevision() === 1, '成功写入必须原子推进 revision')
+    let rejected = false
+    try { storage.saveSnapshot(snapshot('stale'), 0) } catch { rejected = true }
+    assert(rejected, '过期 revision 的桌面写入必须被拒绝')
+    assert(storage.loadSnapshot()?.tagPresets?.[0] === 'winner', 'CAS 冲突不得覆盖已提交快照')
+    assert(storage.getSnapshotRevision() === 1, 'CAS 冲突不得推进 revision')
+  } finally {
+    storage.close()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export async function testSnapshotFailureBeforeReplaceKeepsActiveAndDiskPreviousThenRetries(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-snapshot-before-replace-'))
   let failBeforeReplace = false

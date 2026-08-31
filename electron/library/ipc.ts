@@ -11,8 +11,9 @@ import path from 'node:path'
 import fs from 'node:fs'
 import os from 'node:os'
 import { safeConsoleError } from '../diagnosticSanitizer'
+import { writeFileAtomicallySync } from './atomicFile'
 import { LibraryStorage } from './storage'
-import { exportJournalZip, importJournalZipToPath } from './journalZip'
+import { exportJournalZip, importJournalZipToPath, installPreparedLibraryAtPath } from './journalZip'
 import { saveLibraryConfig, ensureLibraryDirs } from './paths'
 import {
   getLibraryLocationState,
@@ -76,6 +77,37 @@ const assetPurgeAuthorizations = new Map<string, {
 }>()
 let exitPreparedStorage: LibraryStorage | null = null
 const operationGate = new LibraryOperationGate()
+let writerSession: { token: string; ownerWebContentsId: number; lifecycleId: string } | null = null
+
+function issueWriterSession(event: IpcMainInvokeEvent, library: LibraryStorage): string {
+  if (writerSession && writerSession.ownerWebContentsId !== event.sender.id) {
+    throw new Error('交易库已由另一个窗口占用，请关闭重复窗口后重试')
+  }
+  writerSession = {
+    token: randomUUID(),
+    ownerWebContentsId: event.sender.id,
+    lifecycleId: library.getLifecycleId(),
+  }
+  return writerSession.token
+}
+
+function assertWriterSession(event: IpcMainInvokeEvent, token: unknown, library: LibraryStorage): void {
+  if (
+    !writerSession ||
+    typeof token !== 'string' ||
+    token !== writerSession.token ||
+    event.sender.id !== writerSession.ownerWebContentsId ||
+    library.getLifecycleId() !== writerSession.lifecycleId
+  ) {
+    throw new Error('资料库写入会话已失效，已阻止旧窗口写入；请重新打开资料库')
+  }
+}
+
+function adoptWriterSessionLifecycle(ownerWebContentsId: number, library: LibraryStorage): void {
+  if (writerSession?.ownerWebContentsId === ownerWebContentsId) {
+    writerSession.lifecycleId = library.getLifecycleId()
+  }
+}
 
 type PreparedImportState = 'preparing' | 'prepared' | 'committing' | 'consumed' | 'cancelled' | 'expired'
 interface PreparedJournalImport {
@@ -420,8 +452,12 @@ function resolveLibrarySwitchPath(libPath: string, mode: LibrarySwitchMode): str
   const manifestFile = path.join(resolvedPath, 'manifest.json')
   const dbFile = path.join(resolvedPath, 'journal.db')
 
-  if (mode === 'create' && (fs.existsSync(manifestFile) || fs.existsSync(dbFile))) {
-    throw new Error('所选目录已经包含交易库，请改用“打开现有库”')
+  if (mode === 'create' && fs.existsSync(resolvedPath)) {
+    const stat = fs.lstatSync(resolvedPath)
+    if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error('新交易库位置必须是普通目录')
+    if (fs.readdirSync(resolvedPath).length > 0) {
+      throw new Error('新交易库只能创建在空目录中，请选择空目录或新文件夹')
+    }
   }
   if (mode === 'open' && !fs.existsSync(manifestFile)) {
     throw new Error('所选目录中没有找到交易库 (manifest.json)')
@@ -637,7 +673,9 @@ async function activatePreparedLibrarySwitch(
         fresh.candidate.release()
         return { ok: false as const, error: '所选目录已经是当前交易库' }
       }
-      return activateLibraryCandidate(fresh)
+      const result = activateLibraryCandidate(fresh)
+      if (result.ok && storage) adoptWriterSessionLifecycle(event.sender.id, storage)
+      return result
     })
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) }
@@ -791,30 +829,43 @@ export function registerLibraryIpc(): void {
   // ---- 常规 storage IPC ----
   ipcMain.handle('library:getPath', async () => withStorage((lib) => lib.getLibraryPath()))
 
-  ipcMain.handle('storage:open', async () => withStorage(async (lib) => {
+  ipcMain.handle('storage:open', async (event) => withStorage(async (lib) => {
     // 首次打开时启动自动备份（幂等防护）
     if (!autoBackupStarted) {
       startLibraryAutoBackup(lib)
       autoBackupStarted = true
     }
-    return true
+    return {
+      ok: true,
+      writerToken: issueWriterSession(event, lib),
+      snapshotRevision: lib.getSnapshotRevision(),
+    }
   }))
 
   ipcMain.handle('storage:getManifest', async () => withStorage((lib) => lib.readManifest()))
 
-  ipcMain.handle('storage:loadSnapshot', async () => withStorage((lib) => lib.loadSnapshot()))
+  ipcMain.handle('storage:loadSnapshot', async () => withStorage((lib) => ({
+    snapshot: lib.loadSnapshot(),
+    revision: lib.getSnapshotRevision(),
+  })))
 
-  ipcMain.handle('storage:saveSnapshot', async (_e, snapshot) => withStorage((lib) => {
-    lib.saveSnapshot(snapshot)
-    return true
+  ipcMain.handle('storage:getSnapshotRevision', async () => withStorage((lib) => lib.getSnapshotRevision()))
+
+  ipcMain.handle('storage:saveSnapshot', async (event, payload) => withStorage((lib) => {
+    assertWriterSession(event, payload?.writerToken, lib)
+    lib.saveSnapshot(payload.snapshot, payload.expectedRevision)
+    return { revision: lib.getSnapshotRevision() }
   }))
 
   ipcMain.handle('storage:recover', async (event) => recoverActiveStorageLifecycle(event))
 
   ipcMain.handle('stage:commitRollover', async (
-    _e,
-    input: StageRolloverCommitInput,
+    event,
+    payload: { input: StageRolloverCommitInput; writerToken: string },
   ): Promise<StageRolloverCommitResult> => {
+    const active = await ensureStorage()
+    assertWriterSession(event, payload?.writerToken, active)
+    const input = payload.input
     const operation = beginOperation('stage-rollover', { stage: 'reload', revisionBefore: 0 })
     let result: StageRolloverCommitResult
     try {
@@ -846,7 +897,8 @@ export function registerLibraryIpc(): void {
     return result
   })
 
-  ipcMain.handle('storage:saveAsset', async (_e, payload: { data: ArrayBuffer; mime: string }) => withStorage(async (lib) => {
+  ipcMain.handle('storage:saveAsset', async (event, payload: { data: ArrayBuffer; mime: string; writerToken: string }) => withStorage(async (lib) => {
+    assertWriterSession(event, payload.writerToken, lib)
     const id = await lib.saveAssetAsync(
       bufferFromPayload(payload.data),
       payload.mime,
@@ -862,7 +914,9 @@ export function registerLibraryIpc(): void {
 
   ipcMain.handle('storage:previewAssetPurge', async () => withStorage((lib) => lib.previewAssetPurge()))
 
-  ipcMain.handle('storage:prepareAssetPurgeRecovery', async (_e, preview) => operationGate.runExclusive(async () => {
+  ipcMain.handle('storage:prepareAssetPurgeRecovery', async (event, payload) => operationGate.runExclusive(async () => {
+    const preview = payload.preview
+    assertWriterSession(event, payload.writerToken, await ensureStorage())
     const win = BrowserWindow.getFocusedWindow()
     const date = new Date().toISOString().slice(0, 10)
     const options = {
@@ -905,7 +959,7 @@ export function registerLibraryIpc(): void {
     }
   }))
 
-  ipcMain.handle('storage:commitAssetPurge', async (_e, payload) => {
+  ipcMain.handle('storage:commitAssetPurge', async (event, payload) => {
     const operation = beginOperation('gc', {
       operationId: payload.preview.operationId,
       actionId: payload.preview.operationId,
@@ -929,6 +983,7 @@ export function registerLibraryIpc(): void {
           throw new Error('附件清理缺少与本次预览绑定的恢复归档授权')
         }
         const lib = await ensureStorage()
+        assertWriterSession(event, payload.writerToken, lib)
         let recoveryArchiveStat: fs.Stats
         try {
           recoveryArchiveStat = fs.lstatSync(prepared.archivePath)
@@ -961,13 +1016,17 @@ export function registerLibraryIpc(): void {
     }
   })
 
-  ipcMain.handle('storage:cancelAssetPurge', async (_e, operationId: string) => withStorage((lib) => {
+  ipcMain.handle('storage:cancelAssetPurge', async (event, payload) => withStorage((lib) => {
+    assertWriterSession(event, payload.writerToken, lib)
+    const operationId = payload.operationId as string
     assetPurgeAuthorizations.delete(operationId)
     lib.cancelAssetPurge(operationId)
     return true
   }))
 
-  ipcMain.handle('storage:importAssets', async (_e, assets: { id: string; mime: string; data: string }[]) => withStorage((lib) => {
+  ipcMain.handle('storage:importAssets', async (event, payload: { assets: { id: string; mime: string; data: string }[]; writerToken: string }) => withStorage((lib) => {
+    assertWriterSession(event, payload.writerToken, lib)
+    const assets = payload.assets
     for (const a of assets) {
       assertSafeAssetId(a.id)
       const bin = Buffer.from(a.data, 'base64')
@@ -976,16 +1035,19 @@ export function registerLibraryIpc(): void {
     return true
   }))
 
-  ipcMain.handle('storage:commitImport', async (_e, payload: {
+  ipcMain.handle('storage:commitImport', async (event, payload: {
     snapshot: Parameters<LibraryStorage['saveSnapshot']>[0]
     assets: { id: string; mime: string; data: string }[]
     options?: { pruneUnreferenced?: boolean }
+    expectedRevision: number
+    writerToken: string
   }) => {
     const operation = beginOperation('import', { stage: 'validate', revisionBefore: 0 })
     try {
       const committed = await withStorageRecoveryNotification(
         () => operationGate.runExclusive(async () => {
           const lib = await ensureStorage()
+          assertWriterSession(event, payload.writerToken, lib)
           const assets = payload.assets.map((asset) => {
             assertSafeAssetId(asset.id)
             return {
@@ -994,8 +1056,11 @@ export function registerLibraryIpc(): void {
               buffer: Buffer.from(asset.data, 'base64'),
             }
           })
-          await lib.commitImport(payload.snapshot, assets, payload.options)
-          return true
+          await lib.commitImport(payload.snapshot, assets, {
+            ...payload.options,
+            expectedSnapshotRevision: payload.expectedRevision,
+          })
+          return { ok: true, revision: lib.getSnapshotRevision() }
         }),
         notifyStorageRecoveryRequired,
       )
@@ -1033,8 +1098,9 @@ export function registerLibraryIpc(): void {
   })
 
   // ---- 备份 ----
-  ipcMain.handle('backup:create', async () => operationGate.tryRunExclusive(async () => {
+  ipcMain.handle('backup:create', async (event, writerToken: string) => operationGate.tryRunExclusive(async () => {
     const lib = await ensureStorage()
+    assertWriterSession(event, writerToken, lib)
     const result = createBackup(lib)
     if (result) rotateBackups(ensureLibraryDirs(lib.getLibraryPath()).backups)
     return result
@@ -1049,12 +1115,14 @@ export function registerLibraryIpc(): void {
     return verifyBackupAtPath(lib.getLibraryPath(), fileName)
   }))
 
-  ipcMain.handle('backup:restore', async (_e, fileName: string) => {
+  ipcMain.handle('backup:restore', async (event, payload: { fileName: string; writerToken: string }) => {
+    const { fileName } = payload
     let replacementCommitted = false
     try {
       return await withStorageRecoveryNotification(
         () => operationGate.runExclusive(async () => {
           const current = await ensureStorage()
+          assertWriterSession(event, payload.writerToken, current)
           const libraryPath = current.getLibraryPath()
           const verification = await verifyBackupAtPath(libraryPath, fileName)
           if (verification.status !== 'verified') {
@@ -1078,6 +1146,7 @@ export function registerLibraryIpc(): void {
           replacementCommitted = ok
           // 无论恢复是否成功，都重新打开资料库并重建自动备份计时器。
           const reopened = await reopenAfterRestoreFailure()
+          adoptWriterSessionLifecycle(event.sender.id, reopened)
           rotateBackups(ensureLibraryDirs(libraryPath).backups)
           if (!ok) return { ok: false as const, committed: false, error: '恢复操作未提交' }
           const restoredSnapshot = reopened.loadSnapshot()
@@ -1107,8 +1176,12 @@ export function registerLibraryIpc(): void {
     }
   })
 
-  ipcMain.handle('backup:delete', async (_e, fileName: string) => {
-    return operationGate.tryRunExclusive(async () => deleteBackupAtPath((await ensureStorage()).getLibraryPath(), fileName))
+  ipcMain.handle('backup:delete', async (event, payload: { fileName: string; writerToken: string }) => {
+    return operationGate.tryRunExclusive(async () => {
+      const lib = await ensureStorage()
+      assertWriterSession(event, payload.writerToken, lib)
+      return deleteBackupAtPath(lib.getLibraryPath(), payload.fileName)
+    })
   })
 
   ipcMain.handle('backup:stats', async () => withStorage((lib) => {
@@ -1171,6 +1244,13 @@ export function registerLibraryIpc(): void {
     })
     try {
       await importJournalZipToPath(entry.stagedLibraryRoot, entry.stagedArchivePath)
+      const stagedManifestPath = path.join(entry.stagedLibraryRoot, 'manifest.json')
+      const stagedManifest = JSON.parse(fs.readFileSync(stagedManifestPath, 'utf8')) as Record<string, unknown>
+      writeFileAtomicallySync(
+        stagedManifestPath,
+        JSON.stringify({ ...stagedManifest, libraryId: sourceStorage.readManifest().libraryId }, null, 2),
+        'utf8',
+      )
       if (entry.state === 'cancelled') return { ok: false as const, canceled: true as const }
       const stagedLibrary = new LibraryStorage(entry.stagedLibraryRoot, { ensureDirectories: false, allowCreate: false })
       let snapshot: ReturnType<LibraryStorage['loadSnapshot']>
@@ -1219,7 +1299,13 @@ export function registerLibraryIpc(): void {
     return { ok: true, state: 'cancelled' as const }
   })
 
-  ipcMain.handle('journal:commitPreparedImport', async (event, token: string) => {
+  ipcMain.handle('journal:commitPreparedImport', async (
+    event,
+    payload: { token: string; writerToken: string },
+  ) => {
+    const activeStorage = await ensureStorage()
+    assertWriterSession(event, payload?.writerToken, activeStorage)
+    const token = payload?.token
     const entry = resolvePreparedImport(token, event.sender.id)
     if (!entry) return { ok: false as const, committed: false, error: '恢复预览不存在或不属于当前窗口', code: 'TOKEN_EXPIRED' as const }
     if (entry.state === 'expired') return { ok: false as const, committed: false, error: '恢复预览已过期，请重新选择文件', code: 'TOKEN_EXPIRED' as const }
@@ -1266,9 +1352,10 @@ export function registerLibraryIpc(): void {
         current.close()
         storage = null
         try {
-          await importJournalZipToPath(libraryPath, entry.stagedArchivePath)
+          await installPreparedLibraryAtPath(libraryPath, entry.stagedLibraryRoot)
           replacementCommitted = true
           const reopened = await reopenStorageWithAutoBackup()
+          adoptWriterSessionLifecycle(event.sender.id, reopened)
           const snapshot = reopened.loadSnapshot()
           cleanupPreparedImport(entry)
           return { ok: true as const, committed: true as const, snapshot }
@@ -1306,4 +1393,5 @@ export function resetStorageForTests(): void {
   if (storage) storage.close()
   storage = null
   openingStorage = null
+  writerSession = null
 }

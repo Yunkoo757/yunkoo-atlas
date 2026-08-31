@@ -579,7 +579,8 @@ interface State {
   restoreTrade: (id: string) => void
   restoreTrades: (ids: string[]) => void
   purgeTrade: (id: string) => TradePurgeResult
-  purgeTrades: (ids: string[]) => TradePurgeResult
+  purgeTrades: (targets: Array<string | TradePurgeTarget>) => TradePurgeResult
+  rollbackFailedImportedTrades: (trades: Trade[]) => string[]
   createReviewCaseFromTrade: (sourceId: string) => CreateReviewCaseResult
   openComposer: (trade?: Trade | null, kind?: TradeKind | null) => void
   closeComposer: () => void
@@ -624,6 +625,14 @@ interface State {
 export interface TradePurgeResult {
   purgedIds: string[]
   blockedIds: string[]
+  staleIds: string[]
+  notInTrashIds: string[]
+}
+
+export interface TradePurgeTarget {
+  id: string
+  expectedDeletionId?: string
+  expectedDeletedAt: string
 }
 
 function frozenReviewEvidenceTradeIds(review: WeeklyReview): Set<string> {
@@ -1974,7 +1983,7 @@ export const useStore = create<State>()((set, get) => ({
           const after: Trade[] = []
           const trades = s.trades.map((trade) => {
             if (!idSet.has(trade.id) || trade.deletedAt) return trade
-            const updated = { ...trade, deletedAt }
+            const updated = { ...trade, deletedAt, deletionId: crypto.randomUUID() }
             before.push(trade)
             after.push(updated)
             return updated
@@ -1996,21 +2005,42 @@ export const useStore = create<State>()((set, get) => ({
           const trades = s.trades.map((trade) => {
             if (!idSet.has(trade.id) || !trade.deletedAt) return trade
             changed = true
-            return { ...trade, deletedAt: undefined }
+            return { ...trade, deletedAt: undefined, deletionId: undefined }
           })
           return changed ? { trades } : s
         }),
       purgeTrade: (id) => get().purgeTrades([id]),
-      purgeTrades: (ids) => {
-        if (ids.length === 0) return { purgedIds: [], blockedIds: [] }
+      purgeTrades: (targets) => {
+        if (targets.length === 0) {
+          return { purgedIds: [], blockedIds: [], staleIds: [], notInTrashIds: [] }
+        }
         const state = get()
-        const existingIds = new Set(
-          state.trades.filter((trade) => ids.includes(trade.id)).map((trade) => trade.id),
-        )
-        const blocked = tradePurgeBlockers(state, existingIds)
-        const purgedIds = [...existingIds].filter((id) => !blocked.has(id))
-        const blockedIds = [...existingIds].filter((id) => blocked.has(id))
-        if (purgedIds.length === 0) return { purgedIds, blockedIds }
+        const receipts = new Map(targets.map((target) => [
+          typeof target === 'string' ? target : target.id,
+          typeof target === 'string' ? null : target,
+        ]))
+        const eligibleIds = new Set<string>()
+        const staleIds: string[] = []
+        const notInTrashIds: string[] = []
+        for (const [id, receipt] of receipts) {
+          const trade = state.trades.find((candidate) => candidate.id === id)
+          if (!trade || trade.deletedAt === undefined) {
+            notInTrashIds.push(id)
+            continue
+          }
+          if (receipt && (
+            receipt.expectedDeletedAt !== trade.deletedAt ||
+            receipt.expectedDeletionId !== trade.deletionId
+          )) {
+            staleIds.push(id)
+            continue
+          }
+          eligibleIds.add(id)
+        }
+        const blocked = tradePurgeBlockers(state, eligibleIds)
+        const purgedIds = [...eligibleIds].filter((id) => !blocked.has(id))
+        const blockedIds = [...eligibleIds].filter((id) => blocked.has(id))
+        if (purgedIds.length === 0) return { purgedIds, blockedIds, staleIds, notInTrashIds }
         const purged = new Set(purgedIds)
         set((s) => ({
           trades: s.trades.filter((trade) => !purged.has(trade.id)),
@@ -2018,7 +2048,21 @@ export const useStore = create<State>()((set, get) => ({
           starredIds: s.starredIds.filter((id) => !purged.has(id)),
           subscribedIds: s.subscribedIds.filter((id) => !purged.has(id)),
         }))
-        return { purgedIds, blockedIds }
+        return { purgedIds, blockedIds, staleIds, notInTrashIds }
+      },
+      rollbackFailedImportedTrades: (importedTrades) => {
+        if (importedTrades.length === 0) return []
+        const expected = new Map(importedTrades.map((trade) => [trade.id, JSON.stringify(trade)]))
+        const removed: string[] = []
+        set((state) => ({
+          trades: state.trades.filter((trade) => {
+            const fingerprint = expected.get(trade.id)
+            if (fingerprint === undefined || JSON.stringify(trade) !== fingerprint) return true
+            removed.push(trade.id)
+            return false
+          }),
+        }))
+        return removed
       },
       openComposer: (trade = null, kind = null) => {
         // 防御：若被直接绑到 onClick，会收到 MouseEvent，不能当 Trade 用

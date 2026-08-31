@@ -42,7 +42,7 @@ export function CsvImportModal({ open, onClose }: Props) {
   const strategies = useStore((s) => s.strategies)
   const trades = useStore((s) => s.trades)
   const upsertTradesFromNonInteractiveImport = useStore((s) => s.upsertTradesFromNonInteractiveImport)
-  const purgeTrades = useStore((s) => s.purgeTrades)
+  const rollbackFailedImportedTrades = useStore((s) => s.rollbackFailedImportedTrades)
   const privacyMode = useStore((s) => s.display.privacyMode)
 
   const [step, setStep] = useState<'upload' | 'map' | 'preview' | 'done'>('upload')
@@ -219,9 +219,10 @@ export function CsvImportModal({ open, onClose }: Props) {
     importingRef.current = true
     setImporting(true)
     const existingTradeIds = new Set(useStore.getState().trades.map((trade) => trade.id))
-    const insertedTradeIds = batch
+    const insertedTradeIds = new Set(batch
       .filter((trade) => !existingTradeIds.has(trade.id))
-      .map((trade) => trade.id)
+      .map((trade) => trade.id))
+    let insertedTrades: Trade[] = []
     const existingSymbols = new Set(useStore.getState().symbolCatalog)
     const insertedSymbols = new Set(
       batch
@@ -233,10 +234,11 @@ export function CsvImportModal({ open, onClose }: Props) {
     try {
       await withPersistSuspended(() => {
         upsertTradesFromNonInteractiveImport(batch)
+        insertedTrades = useStore.getState().trades.filter((trade) => insertedTradeIds.has(trade.id))
       })
     } catch (err) {
       console.error('[CsvImport] persist failed', err)
-      purgeTrades(insertedTradeIds)
+      rollbackFailedImportedTrades(insertedTrades)
       useStore.setState((state) => {
         const usedSymbols = new Set(state.trades.map((trade) => normalizeSymbol(trade.symbol)))
         return {

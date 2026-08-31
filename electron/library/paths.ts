@@ -2,6 +2,7 @@ import electronRuntime from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
 import { writeFileAtomicallySync } from './atomicFile'
+import { ensureManagedDirectory } from './managedPaths'
 
 const CONFIG_FILE = 'library-config.json'
 const electronApp =
@@ -74,9 +75,14 @@ export function ensureLibraryDirs(libraryPath: string): {
   manifestFile: string
 } {
   const paths = getLibraryPaths(libraryPath)
-  const { attachments, backups } = paths
-  fs.mkdirSync(attachments, { recursive: true })
-  fs.mkdirSync(backups, { recursive: true })
+  const { root, attachments, backups } = paths
+  if (!fs.existsSync(root)) fs.mkdirSync(root, { recursive: true })
+  const rootStat = fs.statSync(root)
+  if (!rootStat.isDirectory()) {
+    throw new Error('资料库根路径不是普通目录')
+  }
+  ensureManagedDirectory(root, attachments, 'attachments')
+  ensureManagedDirectory(root, backups, 'backups')
   return paths
 }
 

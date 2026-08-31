@@ -127,7 +127,7 @@ export async function testTrashRetentionCopyAppearsOnlyOnceInEmptyState(): Promi
   const source = await fs.readFile('src/views/TradeTrashView.tsx', 'utf8')
 
   assert(source.includes("context={trashTrades.length > 0 ? `${trashTrades.length} 笔` : undefined}"), '空回收站顶部不得重复显示数量与保留期限')
-  assert(source.includes('hint="已删除的交易会在 30 天后自动清空"'), '空态必须保留一次有用的清理规则说明')
+  assert(source.includes('hint="已删除的交易会保留，直到你明确选择彻底删除"'), '空态必须明确说明不会自动永久删除')
 }
 
 export async function testTradeSelectionAppearsOnlyOnIntent(): Promise<void> {

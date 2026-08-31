@@ -34,7 +34,11 @@ function installFixture(review: WeeklyReview): ReturnType<typeof useStore.getSta
   const previous = useStore.getState()
   const fixture = createFullPersistedSnapshotFixture()
   useStore.setState({
-    trades: fixture.trades,
+    trades: fixture.trades.map((trade) => ({
+      ...trade,
+      deletedAt: '2026-07-01T00:00:00.000Z',
+      deletionId: `purge-graph-${trade.id}`,
+    })),
     liveStages: fixture.liveStages,
     currentLiveStageId: fixture.currentLiveStageId,
     scheduledStageRollover: fixture.scheduledStageRollover,

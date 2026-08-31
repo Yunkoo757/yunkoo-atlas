@@ -217,8 +217,9 @@ export async function testDesktopJournalImportHasAStartupRecoveryJournal(): Prom
   assert(
     ipc.includes('stagedArchivePath') &&
       ipc.includes('importJournalZipToPath(entry.stagedLibraryRoot, entry.stagedArchivePath)') &&
-      preparedCommit.includes('importJournalZipToPath(libraryPath, entry.stagedArchivePath)'),
-    '完整归档必须预览和提交同一份私有暂存字节，不得在提交时重新读取可变的用户原文件',
+      preparedCommit.includes('installPreparedLibraryAtPath(libraryPath, entry.stagedLibraryRoot)') &&
+      !preparedCommit.includes('importJournalZipToPath(libraryPath, entry.stagedArchivePath)'),
+    '完整归档必须提交已经预览并验证的同一份私有候选库，不得重新读取或再次解压可变来源',
   )
   const backupRestore = ipc.slice(
     ipc.indexOf("ipcMain.handle('backup:restore'"),

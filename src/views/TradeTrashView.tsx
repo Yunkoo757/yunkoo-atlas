@@ -1,12 +1,11 @@
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useStore } from '@/store/useStore'
+import { useStore, type TradePurgeTarget } from '@/store/useStore'
 import {
   type Trade,
   STATUS_META,
   isTradeDeleted,
-  isTradeExpired,
   getTradeRemainingDays,
 } from '@/data/trades'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
@@ -31,11 +30,22 @@ import { ModalShell } from '@/components/ui/ModalShell'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import './TrashView.css'
+import { flushPersistNow } from '@/storage/persist'
+import { getJournalBridge, isElectron } from '@/storage/runtime'
 
 type TrashGroup = { label: string; items: Trade[]; priority: number }
 type PurgeRequest =
-  | { kind: 'single'; ids: string[]; ref: string }
-  | { kind: 'batch'; ids: string[] }
+  | { kind: 'single'; targets: TradePurgeTarget[]; ref: string }
+  | { kind: 'batch'; targets: TradePurgeTarget[] }
+
+function capturePurgeTarget(trade: Trade): TradePurgeTarget | null {
+  if (!trade.deletedAt) return null
+  return {
+    id: trade.id,
+    expectedDeletedAt: trade.deletedAt,
+    expectedDeletionId: trade.deletionId,
+  }
+}
 
 function groupTrash(trades: Trade[]): TrashGroup[] {
   const groups = new Map<string, { items: Trade[]; priority: number }>()
@@ -45,18 +55,24 @@ function groupTrash(trades: Trade[]): TrashGroup[] {
     let label: string
     let priority: number
 
-    if (days <= 7) {
-      label = '即将过期'
+    if (days === null) {
+      label = '删除时间异常'
       priority = 0
-    } else if (days <= 14) {
-      label = '两周内删除'
+    } else if (days === 0) {
+      label = '已满 30 天'
       priority = 1
-    } else if (days <= 21) {
-      label = '三周内删除'
+    } else if (days <= 7) {
+      label = '已删除 3 周以上'
       priority = 2
-    } else {
-      label = '更久后删除'
+    } else if (days <= 14) {
+      label = '已删除 2 周以上'
       priority = 3
+    } else if (days <= 21) {
+      label = '已删除 1 周以上'
+      priority = 4
+    } else {
+      label = '最近删除'
+      priority = 5
     }
 
     if (!groups.has(label)) {
@@ -78,7 +94,6 @@ export function TradeTrashView() {
   const legacyCashCurrencyAssumption = useStore((s) => s.profile.legacyCashCurrencyAssumption)
   const restoreTrade = useStore((s) => s.restoreTrade)
   const restoreTrades = useStore((s) => s.restoreTrades)
-  const purgeTrade = useStore((s) => s.purgeTrade)
   const purgeTrades = useStore((s) => s.purgeTrades)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
@@ -86,7 +101,7 @@ export function TradeTrashView() {
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
 
   const trashTrades = useMemo(() => {
-    return allTrades.filter((t) => isTradeDeleted(t) && !isTradeExpired(t))
+    return allTrades.filter(isTradeDeleted)
   }, [allTrades])
 
   const filteredTrades = useMemo(() => {
@@ -119,21 +134,42 @@ export function TradeTrashView() {
   }
 
   const requestPurge = (trade: Trade) => {
-    setPurgeRequest({ kind: 'single', ids: [trade.id], ref: trade.ref })
+    const target = capturePurgeTarget(trade)
+    if (!target) return
+    setPurgeRequest({ kind: 'single', targets: [target], ref: trade.ref })
   }
 
-  const confirmPurge = () => {
+  const confirmPurge = async () => {
     if (!purgeRequest) return
-    const result = purgeRequest.kind === 'single'
-      ? purgeTrade(purgeRequest.ids[0])
-      : purgeTrades(purgeRequest.ids)
+    if (isElectron()) {
+      try {
+        await flushPersistNow()
+        const bridge = getJournalBridge()
+        const recoveryPoint = await bridge!.createBackup()
+        if (!recoveryPoint) throw new Error('无法创建删除前恢复点')
+        const verification = await bridge!.verifyBackup(recoveryPoint)
+        if (verification.status !== 'verified') {
+          throw new Error(verification.error ?? '删除前恢复点校验失败')
+        }
+      } catch (error) {
+        toast(error instanceof Error ? `${error.message}，已停止删除` : '无法验证删除前恢复点，已停止删除')
+        return
+      }
+    }
+    const result = purgeTrades(purgeRequest.targets)
     setSelected((prev) => {
       const next = new Set(prev)
       for (const id of result.purgedIds) next.delete(id)
       return next
     })
     setPurgeRequest(null)
-    if (result.blockedIds.length > 0) {
+    if (result.staleIds.length > 0 || result.notInTrashIds.length > 0) {
+      toast(
+        result.purgedIds.length > 0
+          ? `已彻底删除 ${result.purgedIds.length} 笔；另有 ${result.staleIds.length + result.notInTrashIds.length} 笔状态已变化，未执行删除`
+          : '交易状态已变化，已停止删除；请重新检查后再试',
+      )
+    } else if (result.blockedIds.length > 0) {
       toast(
         result.purgedIds.length > 0
           ? `已彻底删除 ${result.purgedIds.length} 笔；另有 ${result.blockedIds.length} 笔被旧版完成周复盘引用，请重新打开并完成对应复盘后再试`
@@ -154,7 +190,12 @@ export function TradeTrashView() {
 
   const handleBatchPurge = () => {
     if (selected.size === 0) return
-    setPurgeRequest({ kind: 'batch', ids: [...selected] })
+    const targets = trashTrades
+      .filter((trade) => selected.has(trade.id))
+      .map(capturePurgeTarget)
+      .filter((target): target is TradePurgeTarget => target !== null)
+    if (targets.length === 0) return
+    setPurgeRequest({ kind: 'batch', targets })
   }
 
   const openContextMenu = (event: React.MouseEvent, trade: Trade) => {
@@ -229,7 +270,7 @@ export function TradeTrashView() {
         {trashTrades.length === 0 ? (
           <EmptyState
             title="回收站为空"
-            hint="已删除的交易会在 30 天后自动清空"
+            hint="已删除的交易会保留，直到你明确选择彻底删除"
           />
         ) : (
           <div className="trash-groups">
@@ -310,7 +351,7 @@ export function TradeTrashView() {
                 <div className="trash-items" role="list">
                   {group.items.map((trade) => {
                     const days = getTradeRemainingDays(trade)
-                    const isUrgent = days <= 3
+                    const isUrgent = days !== null && days <= 3
                     const isSelected = selected.has(trade.id)
                     const pnlTone = privacyMode ? '' :
                       trade.pnl != null && trade.pnl > 0 ? ' is-positive' : trade.pnl != null && trade.pnl < 0 ? ' is-negative' : ''
@@ -348,17 +389,11 @@ export function TradeTrashView() {
 
                         <span className={'trash-item-pnl' + pnlTone}>{formatTradeCashPnl(trade, legacyCashCurrencyAssumption, privacyMode)}</span>
                         <span className="trash-item-r">{fmtR(trade.rMultiple)}</span>
-                        <span className="trash-item-date">{fmtDate(trade.deletedAt!)}</span>
-                        <Tooltip
-                          asChild
-                          content={`${days} 天后自动清空`}
-                          label={`${days} 天后自动清空`}
-                        >
-                          <div className={'trash-item-days' + (isUrgent ? ' is-urgent' : '')}>
-                            {isUrgent && <AlertTriangle size={ICON_SM} />}
-                            <span>{days} 天</span>
-                          </div>
-                        </Tooltip>
+                        <span className="trash-item-date">{days === null ? '时间异常' : fmtDate(trade.deletedAt!)}</span>
+                        <div className={'trash-item-days' + (isUrgent ? ' is-urgent' : '')}>
+                          {isUrgent && <AlertTriangle size={ICON_SM} />}
+                          <span>{days === null ? '需核对' : days === 0 ? '已满 30 天' : `剩余 ${days} 天`}</span>
+                        </div>
 
                         <div className="trash-item-actions">
                           <Tooltip content="恢复" label={`恢复 ${trade.ref}`}>
@@ -399,7 +434,7 @@ export function TradeTrashView() {
           size="compact"
           title={purgeRequest.kind === 'single'
             ? `彻底删除 ${purgeRequest.ref}？`
-            : `彻底删除 ${purgeRequest.ids.length} 笔交易？`}
+            : `彻底删除 ${purgeRequest.targets.length} 笔交易？`}
           description="删除后无法恢复，交易及其复盘内容会被永久移除。"
           onClose={() => setPurgeRequest(null)}
           footer={(
