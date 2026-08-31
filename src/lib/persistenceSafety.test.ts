@@ -171,11 +171,12 @@ export async function testDesktopBackupRestoreHasAStartupRecoveryJournal(): Prom
 }
 
 export async function testDesktopJournalImportHasAStartupRecoveryJournal(): Promise<void> {
-  const [journalZip, storage, ipc, importExport] = await Promise.all([
+  const [journalZip, storage, ipc, importExport, dataIo] = await Promise.all([
     fs.readFile('electron/library/journalZip.ts', 'utf8'),
     fs.readFile('electron/library/storage.ts', 'utf8'),
     fs.readFile('electron/library/ipc.ts', 'utf8'),
     fs.readFile('src/lib/importExport.ts', 'utf8'),
+    fs.readFile('src/components/DataIOContent.tsx', 'utf8'),
   ])
 
   assert(journalZip.includes('JOURNAL_IMPORT_MARKER'), '整库导入必须使用固定可发现的恢复标记')
@@ -194,6 +195,40 @@ export async function testDesktopJournalImportHasAStartupRecoveryJournal(): Prom
     ipc.indexOf('// ---- 备份 ----'),
   )
   assert(exportHandler.includes('operationGate.runExclusive'), '整库导出必须与并发保存互斥')
+  assert(
+    !ipc.includes('librarySourceFingerprint'),
+    '恢复预览不得用 journal.db 时间戳判断资料库切换，否则提交前的正常持久化会误杀恢复',
+  )
+  const preparedCommit = ipc.slice(ipc.indexOf("ipcMain.handle('journal:commitPreparedImport'"))
+  const gateEntry = preparedCommit.indexOf('operationGate.tryRunExclusive')
+  const lifecycleCheckInsideGate = preparedCommit.indexOf(
+    'matchesPreparedImportSource(entry.source, current)',
+    gateEntry,
+  )
+  assert(
+    gateEntry >= 0 && lifecycleCheckInsideGate > gateEntry,
+    '恢复提交必须在独占门内再次确认活动资料库生命周期未切换',
+  )
+  assert(
+    dataIo.includes("result.code === 'SOURCE_CHANGED' || result.code === 'TOKEN_EXPIRED'") &&
+      dataIo.includes('setPreparedDesktopArchive(null)'),
+    '恢复令牌失效后必须关闭旧预览，避免再次提交同一失效令牌',
+  )
+  assert(
+    ipc.includes('stagedArchivePath') &&
+      ipc.includes('importJournalZipToPath(entry.stagedLibraryRoot, entry.stagedArchivePath)') &&
+      preparedCommit.includes('importJournalZipToPath(libraryPath, entry.stagedArchivePath)'),
+    '完整归档必须预览和提交同一份私有暂存字节，不得在提交时重新读取可变的用户原文件',
+  )
+  const backupRestore = ipc.slice(
+    ipc.indexOf("ipcMain.handle('backup:restore'"),
+    ipc.indexOf("ipcMain.handle('backup:delete'"),
+  )
+  assert(
+    backupRestore.includes('safetyVerification') &&
+      backupRestore.indexOf('safetyVerification') < backupRestore.indexOf('current.close()'),
+    '备份恢复覆盖当前资料库前必须验证刚创建的安全恢复点',
+  )
 }
 
 export async function testBackupRestoreResultDistinguishesCommittedCutoverFailures(): Promise<void> {
@@ -255,7 +290,7 @@ export async function testBackupRestoreValidatesDatabaseBeforeMutatingCurrentLib
   const storageValidation = ipc.indexOf('const current = await ensureStorage()', restoreHandler)
   const validation = ipc.indexOf('const verification = await verifyBackupAtPath(libraryPath, fileName)', storageValidation)
   const rejection = ipc.indexOf("if (verification.status !== 'verified')", validation)
-  const safetyBackup = ipc.indexOf('if (!createBackup(current))', rejection)
+  const safetyBackup = ipc.indexOf('const safetyBackup = createBackup(current)', rejection)
   assert(storageValidation >= 0 && storageValidation < validation, '恢复前必须先取得通过位置状态机验证的活动库')
   assert(validation >= 0 && rejection > validation, '恢复点必须先通过完整恢复演练')
   assert(safetyBackup > rejection, '校验失败时不得创建安全备份、关闭或替换当前资料库')

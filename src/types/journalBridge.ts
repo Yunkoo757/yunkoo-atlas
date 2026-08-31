@@ -155,7 +155,7 @@ export interface JournalBridge {
   previewAssetPurge(): Promise<AssetPurgePreview>
   prepareAssetPurgeRecovery(preview: AssetPurgePreview): Promise<AssetPurgeRecovery | null>
   cancelAssetPurge(operationId: string): Promise<boolean>
-  commitAssetPurge(preview: AssetPurgePreview, authorization?: string): Promise<AssetPurgeResult>
+  commitAssetPurge(preview: AssetPurgePreview, authorization: string): Promise<AssetPurgeResult>
   importAssets(assets: ExportAssetRecord[]): Promise<boolean>
   commitImport(
     snapshot: PersistedSnapshot,

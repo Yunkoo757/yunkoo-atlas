@@ -336,8 +336,10 @@ export async function testElectronAssetGcIpcUsesTheExclusiveLibraryGate(): Promi
   assert(start >= 0 && handler.includes('operationGate.runExclusive'), 'Electron purge IPC 必须使用 exclusive gate')
   assert(handler.includes("ATLAS_ENABLE_ASSET_PURGE_COMMIT === 'false'"), 'Electron 主进程必须保留显式关闭实际删除的边界')
   assert(
-    handler.includes('assetPurgeAuthorizations') && handler.includes('payload.authorization !== undefined'),
-    'Electron 删除应允许用户跳过归档，但提供授权时必须消费并校验一次性授权',
+    handler.includes('assetPurgeAuthorizations') &&
+      handler.includes('!payload.authorization') &&
+      !handler.includes('payload.authorization !== undefined'),
+    'Electron 永久删除必须无条件消费并校验恢复归档授权，不得从底层接口绕过',
   )
   assert(
     recoveryStart >= 0 &&
@@ -346,6 +348,19 @@ export async function testElectronAssetGcIpcUsesTheExclusiveLibraryGate(): Promi
     recoveryHandler.includes('importJournalZipToPath') &&
     recoveryHandler.indexOf('importJournalZipToPath') < recoveryHandler.indexOf('randomUUID'),
     'Electron 必须独占导出并验证恢复归档后才能签发授权',
+  )
+  assert(
+    recoveryHandler.includes('archiveSha256') &&
+      handler.includes('prepared.archiveSha256') &&
+      handler.includes('sha256File(prepared.archivePath)'),
+    '永久清理授权必须绑定已验证恢复归档的路径与字节，提交时重新核对',
+  )
+  assert(
+    handler.includes('const safetyBackup = createBackup(lib)') &&
+      handler.includes('const safetyVerification = await verifyBackupAtPath(') &&
+      handler.includes('path.basename(safetyBackup)') &&
+      handler.indexOf('verifyBackupAtPath') < handler.indexOf('lib.commitAssetPurge'),
+    '永久清理前还必须创建并验证库内长期安全恢复点，不能只依赖可被移走的导出文件',
   )
 }
 

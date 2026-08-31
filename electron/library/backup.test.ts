@@ -531,6 +531,39 @@ export function testRestoreWithMissingAttachmentLeavesCurrentLibraryUntouched():
   }
 }
 
+export function testRestoreRejectsDatabaseBytesChangedAfterVerificationWithoutTouchingCurrentLibrary(): void {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-source-changed-'))
+  try {
+    fs.mkdirSync(path.join(root, 'attachments'), { recursive: true })
+    fs.writeFileSync(path.join(root, 'journal.db'), 'verified-backup-db')
+    const backup = createBackupAtPath(
+      {
+        getCounts: () => ({ tradeCount: 1, strategyCount: 0, assetCount: 0 }),
+        listCommittedAttachmentFileNames: () => [] as string[],
+      },
+      root,
+      Date.UTC(2026, 7, 31, 10, 0, 0),
+    )!
+
+    fs.writeFileSync(path.join(root, 'journal.db'), 'current-db-must-survive')
+    fs.writeFileSync(backup, 'changed-after-verification')
+
+    let rejected = false
+    try {
+      restoreBackupAtPath(root, path.basename(backup))
+    } catch {
+      rejected = true
+    }
+    assert(rejected, '恢复函数自身必须拒绝验证后发生变化的备份数据库')
+    assert(
+      fs.readFileSync(path.join(root, 'journal.db'), 'utf8') === 'current-db-must-survive',
+      '拒绝变化的备份源时不得触碰当前数据库',
+    )
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export function testBackupAccountingAndDeletionIncludeDeduplicatedAttachments(): void {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-stats-'))
   try {

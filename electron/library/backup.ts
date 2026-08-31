@@ -245,6 +245,10 @@ function sha256File(filePath: string): string {
   return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')
 }
 
+function sha256Bytes(bytes: Buffer): string {
+  return createHash('sha256').update(bytes).digest('hex')
+}
+
 function backupDbFiles(backupsDir: string): string[] {
   if (!fs.existsSync(backupsDir)) return []
   return fs.readdirSync(backupsDir)
@@ -582,6 +586,20 @@ export function restoreBackupAtPath(libraryPath: string, fileName: string): bool
   if (!fs.existsSync(src)) return false
 
   const meta = readBackupMeta(src)
+  const sourceDatabaseBytes = fs.readFileSync(src)
+  if (meta?.databaseSha256 && sha256Bytes(sourceDatabaseBytes) !== meta.databaseSha256) {
+    throw new Error('备份数据库在验证后发生变化或已经损坏')
+  }
+  const savedManifest = backupManifestPath(src)
+  const sourceManifestBytes = fs.existsSync(savedManifest)
+    ? fs.readFileSync(savedManifest)
+    : null
+  if (
+    meta?.manifestSha256 &&
+    (!sourceManifestBytes || sha256Bytes(sourceManifestBytes) !== meta.manifestSha256)
+  ) {
+    throw new Error('备份清单在验证后发生变化或已经损坏')
+  }
   const attachmentEntries = meta?.attachmentEntries ?? meta?.attachmentFiles?.map((fileName) => ({
     fileName,
     vaultName: fileName,
@@ -612,7 +630,6 @@ export function restoreBackupAtPath(libraryPath: string, fileName: string): bool
     }
   }
 
-  const savedManifest = backupManifestPath(src)
   const recoveryDir = `${BACKUP_RESTORE_RECOVERY_PREFIX}${randomUUID()}`
   const recoveryRoot = path.join(libraryPath, recoveryDir)
   const markerPath = backupRestoreMarkerPath(libraryPath)
@@ -650,9 +667,9 @@ export function restoreBackupAtPath(libraryPath: string, fileName: string): bool
       stagedAttachments = null
     }
 
-    writeFileAtomicallySync(dbFile, fs.readFileSync(src))
-    if (fs.existsSync(savedManifest)) {
-      writeFileAtomicallySync(manifestFile, fs.readFileSync(savedManifest))
+    writeFileAtomicallySync(dbFile, sourceDatabaseBytes)
+    if (sourceManifestBytes) {
+      writeFileAtomicallySync(manifestFile, sourceManifestBytes)
     }
     for (const entry of attachmentEntries ?? []) {
       const fileName = path.basename(entry.fileName)

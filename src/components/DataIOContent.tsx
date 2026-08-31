@@ -217,6 +217,9 @@ export function DataIOContent({
         onLibraryChanged?.()
         onDone?.()
       } else {
+        if (result.code === 'SOURCE_CHANGED' || result.code === 'TOKEN_EXPIRED') {
+          setPreparedDesktopArchive(null)
+        }
         toast(userFacingErrorMessage(result.error, result.code === 'LIBRARY_BUSY' ? '资料库正在执行其他操作，请稍后重试' : '恢复资料库失败，请重试'))
       }
     } catch (error) {

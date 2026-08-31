@@ -721,7 +721,7 @@ export function DataSettingsPanel({
                 {purgeArchiveReady
                   ? '恢复归档已导出'
                   : assetPurgeCommitEnabled
-                    ? '导出恢复归档（可选）'
+                    ? '导出恢复归档（必需）'
                     : '导出恢复归档'}
               </button>
               <button
@@ -737,7 +737,7 @@ export function DataSettingsPanel({
                 <button
                   type="button"
                   className="ui-btn ui-btn-danger-solid"
-                  disabled={purgeBusy || !purgeConfirmed}
+                  disabled={purgeBusy || !purgeConfirmed || !purgeArchiveReady || !purgeAuthorization}
                   onClick={() => void handleCommitAssetPurge()}
                 >
                   确认永久清理
@@ -749,7 +749,7 @@ export function DataSettingsPanel({
           <div className="data-purge-summary">
             <span>{assetPurgeCommitEnabled ? '待清理' : '扫描结果'}</span>
             <strong>{purgePreview.candidateIds.length} 个 · {fmtBackupSize(purgePreview.totalBytes)}</strong>
-            <small>{assetPurgeCommitEnabled ? '永久清理不可撤销；恢复归档可选。' : '当前永久清理已关闭。'}</small>
+            <small>{assetPurgeCommitEnabled ? '永久清理不可撤销；必须先导出恢复归档。' : '当前永久清理已关闭。'}</small>
           </div>
           <details className="data-purge-details">
             <summary>安全校验信息</summary>

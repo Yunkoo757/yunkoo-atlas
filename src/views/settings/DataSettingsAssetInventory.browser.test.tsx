@@ -110,23 +110,37 @@ async function run(): Promise<void> {
     assert(Number(previewCalls) === 1, '打开清理确认前必须只执行一次真实 preview')
     assert(document.body.textContent?.includes('历史备份不会被扫描或修改'), 'UI 必须明确历史备份不在清理范围')
     assert(document.body.textContent?.includes('数据版本：7'), 'UI 必须展示绑定提交的数据版本')
-    assert(document.body.textContent?.includes('导出恢复归档（可选）'), '必须保留可选的恢复归档入口')
+    assert(document.body.textContent?.includes('导出恢复归档（必需）'), '永久清理必须先提供恢复归档入口')
     const deleteButton = [...document.body.querySelectorAll('button')]
       .find((button) => button.textContent?.includes('确认永久清理')) as HTMLButtonElement | undefined
     const checkbox = document.body.querySelector<HTMLInputElement>('input[type="checkbox"]')
-    assert(checkbox && !checkbox.disabled, '预览完成后必须允许用户直接确认，不得强制导出归档')
+    assert(checkbox && !checkbox.disabled, '预览完成后必须允许用户确认候选范围')
     assert(deleteButton?.disabled, '未人工确认时永久删除必须禁用')
     checkbox.click()
-    await waitFor(() => !deleteButton.disabled, '人工确认后提交按钮未解锁')
-    deleteButton.click()
+    assert(deleteButton.disabled, '仅人工确认但尚未导出恢复归档时不得解锁永久删除')
+    const firstArchiveButton = [...document.body.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.includes('导出恢复归档（必需）'))
+    assert(firstArchiveButton, '永久清理缺少必需的恢复归档动作')
+    firstArchiveButton.click()
+    await waitFor(() => document.body.textContent?.includes('恢复归档已导出') === true, '必需恢复归档未成功导出')
+    const refreshedCheckbox = document.body.querySelector<HTMLInputElement>('input[type="checkbox"]')
+    refreshedCheckbox?.click()
+    const refreshedDeleteButton = [...document.body.querySelectorAll('button')]
+      .find((button) => button.textContent?.includes('确认永久清理')) as HTMLButtonElement | undefined
+    await waitFor(() => refreshedDeleteButton?.disabled === false, '恢复归档导出并人工确认后提交按钮未解锁')
+    refreshedDeleteButton!.click()
     await waitFor(() => !document.body.textContent?.includes('数据版本：7'), 'stale commit 后必须丢弃 modal/preview')
-    assert(Number(commitCalls) === 1 && Number(prepareCalls) === 0 && cancelCalls >= 1, '不导出归档也必须提交；stale 时取消旧 preview')
+    assert(Number(commitCalls) === 1 && Number(prepareCalls) === 1 && cancelCalls >= 1, 'stale 时必须消费恢复归档授权并取消旧 preview')
 
     const reopenPreview = [...container.querySelectorAll('button')]
       .find((button) => button.textContent?.includes('清理孤立附件'))
     assert(reopenPreview, 'stale 后必须能从完整预览流程重试')
     reopenPreview.click()
     await waitFor(() => document.body.textContent?.includes('数据版本：7') === true, '清理确认重试未打开')
+    const retryArchive = [...document.body.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.includes('导出恢复归档（必需）'))
+    retryArchive?.click()
+    await waitFor(() => document.body.textContent?.includes('恢复归档已导出') === true, '重试恢复归档未成功导出')
     const retryCheckbox = document.body.querySelector<HTMLInputElement>('input[type="checkbox"]')
     retryCheckbox?.click()
     const retryDelete = [...document.body.querySelectorAll('button')]
@@ -134,17 +148,17 @@ async function run(): Promise<void> {
     await waitFor(() => retryDelete?.disabled === false, '重试确认未解锁')
     retryDelete!.click()
     await waitFor(() => !document.body.textContent?.includes('数据版本：7'), '成功提交后 modal 未关闭')
-    assert(Number(commitCalls) === 2 && Number(prepareCalls) === 0, 'stale 后重新预览确认即可成功提交')
+    assert(Number(commitCalls) === 2 && Number(prepareCalls) === 2, 'stale 后必须重新导出恢复归档并确认才能成功提交')
 
     const cancelCallsBefore = cancelCalls
     reopenPreview.click()
     await waitFor(() => document.body.textContent?.includes('数据版本：7') === true, '取消场景未打开')
     const archiveButton = [...document.body.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('导出恢复归档（可选）'))
-    assert(archiveButton, '缺少可选恢复归档动作')
+      .find((button) => button.textContent?.includes('导出恢复归档（必需）'))
+    assert(archiveButton, '缺少必需恢复归档动作')
     archiveButton.click()
     await waitFor(() => document.body.textContent?.includes('恢复归档已导出') === true, '用户主动导出恢复归档未成功')
-    assert(Number(prepareCalls) === 1, '恢复归档只应在用户主动选择时生成')
+    assert(Number(prepareCalls) === 3, '每次永久清理预览都必须生成独立恢复归档授权')
     const cancelButton = [...document.body.querySelectorAll('button')]
       .find((button) => button.textContent?.trim() === '取消')
     assert(cancelButton, '开闸模式必须可取消')
