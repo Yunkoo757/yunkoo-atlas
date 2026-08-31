@@ -12,7 +12,7 @@ import { useSaveStatus } from '@/store/saveStatus'
 import { normalizeDisplay } from '@/lib/tradeFilters'
 import { normalizeTrades } from '@/lib/tradeKind'
 import { normalizeSavedTradeViews } from '@/lib/savedTradeViews'
-import { normalizeSymbolIcons, normalizeSymbolCatalog } from '@/lib/symbolIcons'
+import { normalizeSelectableSymbolCatalog, normalizeSymbolIcons } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeTradeStrategyReferences } from '@/lib/strategies'
 import type { PersistedSnapshot } from '@/storage/types'
@@ -109,7 +109,7 @@ async function runBootstrapStorage(): Promise<void> {
       mistakeTagPresets: mergeTagPresets(snapshot.mistakeTagPresets ?? []),
       savedTradeViews: normalizeSavedTradeViews(snapshot.savedTradeViews),
       symbolIcons: normalizeSymbolIcons(snapshot.symbolIcons),
-      symbolCatalog: normalizeSymbolCatalog(
+      symbolCatalog: normalizeSelectableSymbolCatalog(
         snapshot.symbolCatalog ?? [
           ...Object.keys(normalizeSymbolIcons(snapshot.symbolIcons)),
           ...trades.map((trade) => trade.symbol),

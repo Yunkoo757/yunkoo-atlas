@@ -5,6 +5,7 @@ import {
   normalizeSymbol,
   normalizeSymbolCatalog,
   normalizeSymbolIcons,
+  normalizeSelectableSymbolCatalog,
   type SymbolIconOverride,
   type SymbolIconsMap,
 } from '@/lib/symbolIconCodec'
@@ -16,12 +17,13 @@ export {
   normalizeSymbol,
   normalizeSymbolCatalog,
   normalizeSymbolIcons,
+  normalizeSelectableSymbolCatalog,
 } from '@/lib/symbolIconCodec'
 export type { SymbolIconOverride, SymbolIconsMap } from '@/lib/symbolIconCodec'
 
 export type SymbolMarketKind = 'crypto' | 'forex' | 'metal' | 'index' | 'other'
 
-export type SymbolPresetSvgId = 'gold-bar' | 'silver-bar'
+export type SymbolPresetSvgId = 'gold-bar' | 'silver-bar' | 'eth-diamond'
 
 export type SymbolIconPreset = {
   id: string
@@ -62,17 +64,27 @@ function glyphPreset(
 }
 
 export const SYMBOL_ICON_PRESETS: SymbolIconPreset[] = [
+  glyphPreset('gold', '黄金', 'Au', '#D9B846'),
+  glyphPreset('eur', '欧元', '€', '#639BE6'),
+  glyphPreset('gbp', '英镑', '£', '#D178A5'),
   glyphPreset('btc', 'Bitcoin', '₿', '#F2A33A'),
-  glyphPreset('eth', 'Ethereum', 'Ξ', '#8998EF'),
+  {
+    id: 'eth',
+    label: 'Ethereum',
+    glyph: 'ETH',
+    color: '#8998EF',
+    background: symbolSurface('#8998EF'),
+    svgId: 'eth-diamond',
+  },
+]
+
+const LEGACY_SYMBOL_ICON_PRESETS: SymbolIconPreset[] = [
   glyphPreset('sol', 'Solana', '◎', '#5ED7B1'),
   glyphPreset('bnb', 'BNB', 'B', '#D9B444'),
   glyphPreset('sui', 'Sui', 'S', '#62A8E5'),
   glyphPreset('xrp', 'XRP', 'X', '#B7BCC4'),
-  glyphPreset('gold', '黄金', 'Au', '#D9B846'),
   glyphPreset('silver', '白银', 'Ag', '#B5BDC8'),
   glyphPreset('forex', '外汇', 'Fx', '#70A7D5'),
-  glyphPreset('eur', '欧元', '€', '#639BE6'),
-  glyphPreset('gbp', '英镑', '£', '#D178A5'),
   glyphPreset('jpy', '日元', '¥', '#D87575'),
   glyphPreset('aud', '澳元', 'A$', '#5FBA7C'),
   glyphPreset('usd', '美元', '$', '#5FBA7C'),
@@ -80,7 +92,9 @@ export const SYMBOL_ICON_PRESETS: SymbolIconPreset[] = [
   { id: 'generic', label: '通用', glyph: '·', color: 'var(--text-secondary)', background: 'var(--bg-hover)' },
 ]
 
-const PRESET_BY_ID = new Map(SYMBOL_ICON_PRESETS.map((preset) => [preset.id, preset]))
+const PRESET_BY_ID = new Map(
+  [...SYMBOL_ICON_PRESETS, ...LEGACY_SYMBOL_ICON_PRESETS].map((preset) => [preset.id, preset]),
+)
 
 const BUILTIN_SYMBOL_PRESETS: Record<string, string> = {
   BTCUSDT: 'btc',

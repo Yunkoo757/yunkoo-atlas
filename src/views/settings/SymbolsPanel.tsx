@@ -1,6 +1,6 @@
 import { ICON_HERO, ICON_LG, ICON_SM } from '@/icons/iconSize'
 import { useMemo, useRef, useState } from 'react'
-import { GripVertical, ImagePlus, RotateCcw, Shapes, Trash2 } from '@/icons/appIcons'
+import { GripVertical, ImagePlus, RotateCcw, Shapes } from '@/icons/appIcons'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { SymbolPresetSvg } from '@/components/SymbolPresetSvg'
 import {
@@ -18,14 +18,11 @@ export function SymbolsPanel() {
   const trades = useStore((state) => state.trades)
   const symbolCatalog = useStore((state) => state.symbolCatalog)
   const symbolIcons = useStore((state) => state.symbolIcons)
-  const addSymbolToCatalog = useStore((state) => state.addSymbolToCatalog)
-  const removeSymbolFromCatalog = useStore((state) => state.removeSymbolFromCatalog)
   const setSymbolCatalogOrder = useStore((state) => state.setSymbolCatalogOrder)
   const setSymbolIconPreset = useStore((state) => state.setSymbolIconPreset)
   const setSymbolIconCustom = useStore((state) => state.setSymbolIconCustom)
   const clearSymbolIcon = useStore((state) => state.clearSymbolIcon)
   const [selected, setSelected] = useState<string | null>(null)
-  const [draft, setDraft] = useState('')
   const [draggedSymbol, setDraggedSymbol] = useState<string | null>(null)
   const [dragOverSymbol, setDragOverSymbol] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -33,18 +30,14 @@ export function SymbolsPanel() {
   const symbols = useMemo(() => symbolCatalog, [symbolCatalog])
 
   const active = selected && symbols.includes(selected) ? selected : symbols[0] ?? null
-  const usedInTrades = active
-    ? trades.some((trade) => normalizeSymbol(trade.symbol) === active)
-    : false
-
-  const addSymbol = () => {
-    const key = normalizeSymbol(draft)
-    if (!key) return
-    addSymbolToCatalog(key)
-    setSelected(key)
-    setDraft('')
-    toast(`已添加品种 ${key}`)
-  }
+  const historicalSymbolCount = useMemo(() => {
+    const catalogSet = new Set(symbols)
+    return new Set(
+      trades
+        .map((trade) => normalizeSymbol(trade.symbol))
+        .filter((symbol) => symbol && !catalogSet.has(symbol)),
+    ).size
+  }, [symbols, trades])
 
   const moveSymbol = (source: string, target: string) => {
     if (source === target) return
@@ -56,18 +49,6 @@ export function SymbolsPanel() {
     const target = symbols[index + direction]
     if (!target) return
     moveSymbol(symbol, target)
-  }
-
-  const removeSymbol = () => {
-    if (!active) return
-    removeSymbolFromCatalog(active)
-    clearSymbolIcon(active)
-    setSelected(null)
-    toast(
-      usedInTrades
-        ? `已从目录移除 ${active}（已有交易仍保留该品种）`
-        : `已移除品种 ${active}`,
-    )
   }
 
   const onUpload = async (file: File | null) => {
@@ -89,25 +70,15 @@ export function SymbolsPanel() {
 
       <div className="symbols-layout">
         <section className="symbols-list-panel" aria-label="品种列表">
-          <div className="symbols-add-row">
-            <input
-              className="symbols-input"
-              value={draft}
-              placeholder="添加品种，如 BTCUSDT"
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') addSymbol()
-              }}
-            />
-            <button type="button" className="symbols-btn" onClick={addSymbol}>
-              添加
-            </button>
+          <div className="symbols-catalog-note">
+            <strong>目录固定为 5 个品种</strong>
+            <span>
+              历史交易中的其他品种仍会保留
+              {historicalSymbolCount > 0 ? `（当前 ${historicalSymbolCount} 个）` : ''}
+            </span>
           </div>
-          {symbols.length === 0 ? (
-            <p className="symbols-empty">还没有品种。先记一笔交易，或手动添加。</p>
-          ) : (
-            <ul className="symbols-list">
-              {symbols.map((symbol, index) => (
+          <ul className="symbols-list">
+            {symbols.map((symbol, index) => (
                 <li
                   key={symbol}
                   className={
@@ -167,9 +138,8 @@ export function SymbolsPanel() {
                     <span>{symbol}</span>
                   </button>
                 </li>
-              ))}
-            </ul>
-          )}
+            ))}
+          </ul>
         </section>
 
         <section className="symbols-editor" aria-label="图标编辑">
@@ -249,10 +219,6 @@ export function SymbolsPanel() {
                 >
                   <RotateCcw size={ICON_SM} />
                   <span>恢复默认</span>
-                </button>
-                <button type="button" className="symbols-btn" onClick={removeSymbol}>
-                  <Trash2 size={ICON_SM} />
-                  <span>删除品种</span>
                 </button>
               </div>
             </>

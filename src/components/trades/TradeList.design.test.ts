@@ -180,18 +180,24 @@ export async function testTradeListVisualAlignmentContract(): Promise<void> {
   )
 }
 
-export async function testSymbolIconsUseQuietCircularSurface(): Promise<void> {
+export async function testSymbolIconsUseBareOfficialMarksInDenseLists(): Promise<void> {
   const fs = await import('node:fs/promises')
   const css = await fs.readFile('src/components/SymbolIcon.css', 'utf8')
   const panelCss = await fs.readFile('src/views/settings/SymbolsPanel.css', 'utf8')
   const presets = await fs.readFile('src/lib/symbolIcons.ts', 'utf8')
   const component = await fs.readFile('src/components/SymbolIcon.tsx', 'utf8')
+  const row = await fs.readFile('src/components/trades/TradeRow.tsx', 'utf8')
+  const tradeListCss = await fs.readFile('src/components/trades/TradeList.css', 'utf8')
 
   assert(css.includes('border-radius: var(--radius-full)'), '品种图标必须使用统一圆形容器')
   assert(css.includes('currentColor 8%'), '圆章只允许极弱内描边，不得恢复厚重边框')
   assert(panelCss.includes('.symbols-preset-swatch') && panelCss.includes('border-radius: var(--radius-full)'), '设置页预设缩略图必须与正式品种图标同为圆形')
   assert(presets.includes('SYMBOL_ICON_SURFACE_TINT = 12'), '品种圆章色底必须固定为低噪声 12%')
-  assert(component.includes("resolved.glyph.length > 1 ? 0.46 : 0.56"), '单双字符必须使用稳定光学比例')
-  assert(component.includes('var(--symbol-list-glyph-strength)'), '高密度列表必须降低品种字形色强度')
-  assert(component.includes('var(--symbol-list-surface-strength)'), '高密度列表必须进一步降低品种圆章底色')
+  assert(component.includes("quiet ? 0.66 : resolved.glyph.length > 1 ? 0.46 : 0.56"), '无底列表符号必须扩大字形占比，同时保留大尺寸预览的光学比例')
+  assert(component.includes("quiet ? 'transparent' : background"), '高密度列表品种标识必须取消圆章底色')
+  assert(component.includes("quiet ? ' is-quiet' : ''"), '高密度列表必须暴露稳定的无底样式入口')
+  assert(css.includes('.symbol-icon.is-quiet') && css.includes('border-radius: 0') && css.includes('box-shadow: none'), '无底方案必须同时取消圆形裁切与内描边')
+  assert(row.includes('size={ICON_LG} quiet'), '交易列表无底符号必须使用 18px 光学尺寸')
+  assert(tradeListCss.includes('grid-template-columns: 18px minmax(0, 1fr);'), '交易列表必须为 18px 无底符号预留同尺寸网格轨道')
+  assert(tradeListCss.includes('width: 18px;') && tradeListCss.includes('height: 18px;'), '交易列表符号的布局尺寸必须与组件尺寸一致')
 }

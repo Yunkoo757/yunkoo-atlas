@@ -448,7 +448,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 
 .trade-row-symbol-main {
   display: grid;
-  grid-template-columns: 14px minmax(0, 1fr);
+  grid-template-columns: 18px minmax(0, 1fr);
   column-gap: var(--space-control-gap);
   align-items: center;
   flex: 0 0 auto;
@@ -457,8 +457,8 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 }
 
 .trade-row-symbol-main .symbol-icon {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 }
 

@@ -1,0 +1,11 @@
+{
+  "name": "Trader Atlas 交易列表小尺寸品种图标对比",
+  "date": "2026-08-31",
+  "platforms": ["Windows", "macOS"],
+  "artifact": "finalized.html",
+  "scenarios": ["current", "badge", "bare", "code"],
+  "icon_sizes": [16, 18, 20, 22],
+  "recommended_start": "badge-18",
+  "pretext_tier": "cdn-fallback",
+  "production_code_changed": false
+}

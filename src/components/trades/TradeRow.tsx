@@ -1,4 +1,4 @@
-import { ICON_SM } from '@/icons/iconSize'
+import { ICON_LG, ICON_SM } from '@/icons/iconSize'
 import { memo } from 'react'
 import { Bookmark, Star } from '@/icons/appIcons'
 import type { Strategy } from '@/data/strategies'
@@ -154,7 +154,7 @@ export const TradeRow = memo(function TradeRow({
       symbol={
         <>
           <span className="trade-row-symbol-main">
-            <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_SM} quiet />
+            <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_LG} quiet />
             <strong>{trade.symbol}</strong>
           </span>
           <SideTag side={trade.side} quiet />

@@ -4,9 +4,9 @@ export const DEFAULT_SYMBOL_CATALOG = [
   'GBPUSD',
   'BTCUSDT',
   'ETHUSDT',
-  'SOLUSDT',
-  'BNBUSDT',
 ] as const
+
+const DEFAULT_SYMBOL_SET = new Set<string>(DEFAULT_SYMBOL_CATALOG)
 
 export type SymbolIconOverride = {
   presetId?: string | null
@@ -59,6 +59,24 @@ export function normalizeSymbolCatalog(value: unknown): string[] {
     if (!key || seen.has(key)) continue
     seen.add(key)
     out.push(key)
+  }
+  return out
+}
+
+/** 应用中的可新建目录固定为五个批准品种；保留用户对这五项的排序。 */
+export function normalizeSelectableSymbolCatalog(value: unknown): string[] {
+  const source = normalizeSymbolCatalog(value)
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const symbol of source) {
+    if (!DEFAULT_SYMBOL_SET.has(symbol) || seen.has(symbol)) continue
+    seen.add(symbol)
+    out.push(symbol)
+  }
+  for (const symbol of DEFAULT_SYMBOL_CATALOG) {
+    if (seen.has(symbol)) continue
+    seen.add(symbol)
+    out.push(symbol)
   }
   return out
 }

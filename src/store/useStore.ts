@@ -41,7 +41,7 @@ import {
   normalizeSymbol,
   type SymbolIconsMap,
   DEFAULT_SYMBOL_CATALOG,
-  normalizeSymbolCatalog,
+  normalizeSelectableSymbolCatalog,
 } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeTradeMetrics, resolveTradeResultSource } from '@/lib/tradeTruth'
@@ -323,7 +323,7 @@ function upsertTradeIntoSlice(
   const symbolKey = normalizeSymbol(normalized.symbol)
   const symbolCatalog =
     !previousTrade && symbolKey && !s.symbolCatalog.includes(symbolKey)
-      ? normalizeSymbolCatalog([...s.symbolCatalog, symbolKey])
+      ? normalizeSelectableSymbolCatalog([...s.symbolCatalog, symbolKey])
       : s.symbolCatalog
   if (!previousTrade) {
     const withCreate = createActivity(normalized)
@@ -1186,7 +1186,7 @@ export const useStore = create<State>()((set, get) => ({
         set((s) => {
           const catalog = s.symbolCatalog.includes(key)
             ? s.symbolCatalog
-            : normalizeSymbolCatalog([...s.symbolCatalog, key])
+            : normalizeSelectableSymbolCatalog([...s.symbolCatalog, key])
           if (!presetId) {
             const next = { ...s.symbolIcons }
             const current = next[key]
@@ -1220,7 +1220,7 @@ export const useStore = create<State>()((set, get) => ({
         set((s) => {
           const catalog = s.symbolCatalog.includes(key)
             ? s.symbolCatalog
-            : normalizeSymbolCatalog([...s.symbolCatalog, key])
+            : normalizeSelectableSymbolCatalog([...s.symbolCatalog, key])
           if (!dataUrl) {
             const next = { ...s.symbolIcons }
             const current = next[key]
@@ -1263,18 +1263,16 @@ export const useStore = create<State>()((set, get) => ({
         if (!key) return
         set((s) => {
           if (s.symbolCatalog.includes(key)) return s
-          return { symbolCatalog: normalizeSymbolCatalog([...s.symbolCatalog, key]) }
+          return { symbolCatalog: normalizeSelectableSymbolCatalog([...s.symbolCatalog, key]) }
         })
       },
       removeSymbolFromCatalog: (symbol) => {
         const key = normalizeSymbol(symbol)
         if (!key) return
-        set((s) => ({
-          symbolCatalog: s.symbolCatalog.filter((item) => item !== key),
-        }))
+        set((s) => ({ symbolCatalog: normalizeSelectableSymbolCatalog(s.symbolCatalog) }))
       },
       setSymbolCatalogOrder: (symbols) =>
-        set({ symbolCatalog: normalizeSymbolCatalog(symbols) }),
+        set({ symbolCatalog: normalizeSelectableSymbolCatalog(symbols) }),
       addReviewTemplate: () => {
         const template = createReviewTemplate()
         set((s) => ({ reviewTemplates: [...s.reviewTemplates, template] }))

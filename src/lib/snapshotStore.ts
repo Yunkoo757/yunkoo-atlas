@@ -14,7 +14,7 @@ import { normalizeSavedTradeViews } from '@/lib/savedTradeViews'
 import { normalizeTradeStrategyReferences } from '@/lib/strategies'
 import {
   DEFAULT_SYMBOL_CATALOG,
-  normalizeSymbolCatalog,
+  normalizeSelectableSymbolCatalog,
   normalizeSymbolIcons,
 } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
@@ -54,7 +54,7 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
     mistakeTagPresets: mergeTagPresets(snapshot.mistakeTagPresets ?? []),
     savedTradeViews: normalizeSavedTradeViews(snapshot.savedTradeViews),
     symbolIcons: normalizeSymbolIcons(snapshot.symbolIcons),
-    symbolCatalog: normalizeSymbolCatalog(
+    symbolCatalog: normalizeSelectableSymbolCatalog(
       snapshot.symbolCatalog ?? [
         ...Object.keys(normalizeSymbolIcons(snapshot.symbolIcons)),
         ...trades.map((trade) => trade.symbol),

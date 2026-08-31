@@ -8,6 +8,25 @@ export function SymbolPresetSvg({
   id: SymbolPresetSvgId
   size?: number
 }) {
+  if (id === 'eth-diamond') {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 16 16"
+        fill="none"
+        aria-hidden
+      >
+        <path d="M8 1.35 3.8 8 8 10.45 12.2 8 8 1.35Z" fill="currentColor" />
+        <path
+          d="M8 11.35 3.8 8.9 8 14.65l4.2-5.75L8 11.35Z"
+          fill="currentColor"
+          fillOpacity="0.72"
+        />
+      </svg>
+    )
+  }
+
   if (id === 'silver-bar') {
     return (
       <svg

@@ -374,10 +374,6 @@
   --tag-error-bg: var(--diagnostic-bg);
   --tag-error-border: var(--diagnostic-border);
 
-  /* 品种完整品牌色保留给详情与编辑场景，列表中只保留识别线索。 */
-  --symbol-list-glyph-strength: 64%;
-  --symbol-list-surface-strength: 6%;
-
   /* 业务语义色背景（12%透明度，用于标签/徽章背景） */
   --pos-bg: color-mix(in srgb, var(--pos) 12%, transparent);
   --neg-bg: color-mix(in srgb, var(--neg) 12%, transparent);

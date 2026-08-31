@@ -96,7 +96,16 @@ import {
   tradeDetailNavState,
 } from '@/lib/tradeRoute'
 import { resolveTradeDetailSourceCopy } from '@/views/detailSourceCopy'
-import { detectSymbolMarket, normalizeSymbol, resolveSymbolIcon, collectSymbolOptions, normalizeSymbolCatalog } from '@/lib/symbolIcons'
+import {
+  DEFAULT_SYMBOL_CATALOG,
+  SYMBOL_ICON_PRESETS,
+  collectSymbolOptions,
+  detectSymbolMarket,
+  normalizeSymbol,
+  normalizeSymbolCatalog,
+  normalizeSelectableSymbolCatalog,
+  resolveSymbolIcon,
+} from '@/lib/symbolIcons'
 import { normalizeTimeframe, resolveTimeframe, getTimeframeTone } from '@/data/trades'
 import { bindingKey, chordFromEvent } from '@/shortcuts/chords'
 import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
@@ -2296,6 +2305,12 @@ export function testSymbolIconsResolveDefaultsAndOverrides(): void {
   const xau = resolveSymbolIcon('XAUUSD')
   assert(xau.type === 'glyph' && xau.glyph === 'Au', 'A1：黄金默认使用平面 Au glyph')
 
+  const eth = resolveSymbolIcon('ETHUSDT')
+  assert(
+    eth.type === 'svg' && eth.svgId === 'eth-diamond',
+    'A1：以太坊默认使用官方菱形标识，不再使用临时字符',
+  )
+
   const custom = resolveSymbolIcon('BTCUSDT', {
     BTCUSDT: {
       presetId: null,
@@ -2307,6 +2322,15 @@ export function testSymbolIconsResolveDefaultsAndOverrides(): void {
 }
 
 export function testSymbolCatalogSyncsComposerAndSettings(): void {
+  assert(
+    DEFAULT_SYMBOL_CATALOG.join(',') === 'XAUUSD,EURUSD,GBPUSD,BTCUSDT,ETHUSDT',
+    '可新建品种目录必须固定为五个批准品种',
+  )
+  assert(
+    SYMBOL_ICON_PRESETS.map((preset) => preset.id).join(',') === 'gold,eur,gbp,btc,eth',
+    '设置页只展示五个批准品种的官方符号预设',
+  )
+
   const catalog = normalizeSymbolCatalog(['xauusd', 'BTCUSDT', 'BTCUSDT', ''])
   assert(catalog[0] === 'XAUUSD', '目录应规范化并去重')
   assert(catalog.filter((item) => item === 'BTCUSDT').length === 1, '重复品种只保留一次')
@@ -2319,10 +2343,47 @@ export function testSymbolCatalogSyncsComposerAndSettings(): void {
   const empty = normalizeSymbolCatalog([])
   assert(
     empty.length === 0,
-    '用户显式清空品种目录后不得重新注入固定品种',
+    '底层归档目录规范化必须保留显式空值，避免改写备份字段',
   )
-  assert(collectSymbolOptions([], []).length === 0, '空目录不得自行恢复默认品种')
+  assert(
+    collectSymbolOptions([], []).length === 0,
+    '历史选项合并器只合并显式来源，不得自行注入默认品种',
+  )
   assert(normalizeSymbolCatalog(undefined).length > 0, '缺失旧数据仍应获得初始默认目录')
+
+  const prunedCatalog = normalizeSelectableSymbolCatalog([
+    'SOLUSDT',
+    'BTCUSDT',
+    'BNBUSDT',
+    'ETHUSDT',
+    'DOGEUSDT',
+  ])
+  assert(
+    prunedCatalog.join(',') === 'BTCUSDT,ETHUSDT,XAUUSD,EURUSD,GBPUSD',
+    '旧资料库目录加载时必须移除未批准品种并补齐五个批准品种',
+  )
+  const historicalOptions = collectSymbolOptions(prunedCatalog, ['SOLUSDT'], ['LEGACY'])
+  assert(
+    historicalOptions.includes('SOLUSDT') && historicalOptions.includes('LEGACY'),
+    '目录收敛不得删除历史交易与编辑态旧品种的显示入口',
+  )
+}
+
+export async function testSymbolSettingsExposeOnlyTheFixedCuratedCatalog(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const source = await fs.readFile('src/views/settings/SymbolsPanel.tsx', 'utf8')
+  assert(
+    !source.includes('placeholder="添加品种') && !source.includes('addSymbolToCatalog'),
+    '固定品种目录不得继续暴露任意新增入口',
+  )
+  assert(
+    !source.includes('removeSymbolFromCatalog') && !source.includes('删除品种'),
+    '固定品种目录不得继续暴露删除入口',
+  )
+  assert(
+    source.includes('目录固定为 5 个品种') && source.includes('历史交易中的其他品种仍会保留'),
+    '设置页必须明确说明目录收敛不会删除历史交易',
+  )
 }
 
 export function testNormalizeDisplayPersistsPrivacyModeSafely(): void {
@@ -3541,7 +3602,7 @@ export function testSettingsReorderPersistsSymbolAndReviewTemplateOrder(): void 
   const previousTemplates = useStore.getState().reviewTemplates
   try {
     useStore.setState({
-      symbolCatalog: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'],
+      symbolCatalog: ['XAUUSD', 'EURUSD', 'GBPUSD', 'BTCUSDT', 'ETHUSDT'],
       reviewTemplates: [
         { id: 'template-a', name: '模板 A', content: '' },
         { id: 'template-b', name: '模板 B', content: '' },
@@ -3549,11 +3610,17 @@ export function testSettingsReorderPersistsSymbolAndReviewTemplateOrder(): void 
       ],
     })
 
-    useStore.getState().setSymbolCatalogOrder(['SOLUSDT', 'BTCUSDT', 'ETHUSDT'])
+    useStore.getState().setSymbolCatalogOrder([
+      'ETHUSDT',
+      'BTCUSDT',
+      'XAUUSD',
+      'EURUSD',
+      'GBPUSD',
+    ])
     useStore.getState().reorderReviewTemplates('template-c', 'template-a')
 
     assert(
-      useStore.getState().symbolCatalog.join(',') === 'SOLUSDT,BTCUSDT,ETHUSDT',
+      useStore.getState().symbolCatalog.join(',') === 'ETHUSDT,BTCUSDT,XAUUSD,EURUSD,GBPUSD',
       '品种拖拽顺序必须写回目录并供交易下拉复用',
     )
     assert(

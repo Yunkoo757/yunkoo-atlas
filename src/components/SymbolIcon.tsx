@@ -26,12 +26,10 @@ export function SymbolIcon({
   const resolved = resolveSymbolIcon(symbol, overrides)
   const quietColor = (color: string) =>
     quiet
-      ? `color-mix(in srgb, ${color} var(--symbol-list-glyph-strength), var(--text-tertiary))`
+      ? `color-mix(in srgb, ${color} 86%, var(--text-body))`
       : color
-  const quietBackground = (color: string, background: string) =>
-    quiet
-      ? `color-mix(in srgb, ${color} var(--symbol-list-surface-strength), transparent)`
-      : background
+  const quietBackground = (_color: string, background: string) =>
+    quiet ? 'transparent' : background
 
   if (resolved.type === 'image') {
     return (
@@ -48,7 +46,7 @@ export function SymbolIcon({
   if (resolved.type === 'svg') {
     return (
       <span
-        className={'symbol-icon is-svg' + (className ? ` ${className}` : '')}
+        className={'symbol-icon is-svg' + (quiet ? ' is-quiet' : '') + (className ? ` ${className}` : '')}
         style={{
           width: size,
           height: size,
@@ -57,17 +55,17 @@ export function SymbolIcon({
         }}
         aria-hidden
       >
-        <SymbolPresetSvg id={resolved.svgId} size={Math.max(10, Math.round(size * 0.75))} />
+        <SymbolPresetSvg id={resolved.svgId} size={Math.max(10, Math.round(size * (quiet ? 0.82 : 0.75)))} />
       </span>
     )
   }
 
-  // 单字符与双字符共用稳定的光学重量，避免 € / Ξ 在 40px 预览中过度膨胀。
-  const glyphScale = resolved.glyph.length > 1 ? 0.46 : 0.56
+  // 无底列表符号把有限像素交给字形本身；大尺寸预览仍保持原有光学重量。
+  const glyphScale = quiet ? 0.66 : resolved.glyph.length > 1 ? 0.46 : 0.56
 
   return (
     <span
-      className={'symbol-icon is-glyph' + (className ? ` ${className}` : '')}
+      className={'symbol-icon is-glyph' + (quiet ? ' is-quiet' : '') + (className ? ` ${className}` : '')}
       style={{
         width: size,
         height: size,
