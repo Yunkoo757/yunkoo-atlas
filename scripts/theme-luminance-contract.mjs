@@ -125,7 +125,7 @@ export const THEME_COLOR_MIX_ALLOWLIST = Object.freeze([
   opticalMix('src/components/StrategyIcon.css:9', '策略图标底板需要低于相邻标签表面。', '策略图标建立独立语义 Surface 时'),
   opticalMix('src/components/SymbolIcon.css:21', '品种图标内阴影继承业务 currentColor。', '品种图标改为预渲染资产时'),
   opticalMix('src/components/SymbolIcon.css:25', '品种图标内阴影继承业务 currentColor。', '品种图标改为预渲染资产时'),
-  opticalMix('src/components/SymbolIcon.css:29', '品种图标微边界用于小尺寸抗锯齿补偿。', '品种图标改为预渲染资产时'),
+  opticalMix('src/components/SymbolIcon.css:35', '品种图标微边界用于小尺寸抗锯齿补偿。', '品种图标改为预渲染资产时'),
   opticalMix('src/components/TagEditor.css:28', '标签编辑器嵌入面需要低于标准 Control Hover。', '标签编辑器迁移至共享 Select 时'),
   opticalMix('src/components/TradeComposer.css:149', '交易编辑器内部输入组使用低强度嵌入面。', '交易编辑器输入组迁移至共享 Fieldset 时'),
   opticalMix('src/components/trades/QuickViewBar.css:3', '快捷视图 Rest 是 Control 家族内部插值。', 'Control Token 能直接表达该状态时'),
@@ -143,7 +143,7 @@ export const THEME_COLOR_MIX_ALLOWLIST = Object.freeze([
   opticalMix('src/styles/global.css:274', '全局键盘焦点兜底使用文字色生成非品牌轮廓。', '所有交互元素均具备组件级 Focus Token 时'),
   opticalMix('src/styles/global.css:284', '原生 Placeholder 在两级文字角色之间做跨平台补偿。', 'Windows 与 macOS 原生 Placeholder 统一时'),
   opticalMix('src/views/ReviewSessionView.css:718', '空白图表区棋盘格用于表达可放置媒体区域。', '媒体占位区改为插图或纯色时'),
-  opticalMix('src/views/settings/SymbolsPanel.css:190', '品种预览继承 currentColor 的小尺寸内阴影。', '品种图标改为预渲染资产时'),
+  opticalMix('src/views/settings/SymbolsPanel.css:164', '品种预览继承 currentColor 的小尺寸内阴影。', '品种图标改为预渲染资产时'),
   opticalMix('src/views/ShortcutsView.css:269', '快捷键录制框内阴影用于键帽光学校准。', '快捷键录制框迁移至共享 Kbd 时'),
 ])
 
