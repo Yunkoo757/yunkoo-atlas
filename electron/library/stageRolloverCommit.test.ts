@@ -422,6 +422,11 @@ export function testTypedBridgeCarriesIntentWithoutSnapshotOrClock(): void {
       preload.includes('writerToken: requireStorageWriterToken()'),
     'preload must expose the typed stage commit invoke with its private writer token',
   )
+  assert(
+    preload.includes('activatePreparedLibrary: async (token) =>') &&
+      preload.includes("if (result?.ok) storageSnapshotRevision = await ipcRenderer.invoke('storage:getSnapshotRevision')"),
+    'preload must refresh the target library revision after an activated library switch',
+  )
   assert(input.includes('expectedRollover: ScheduledStageRollover'), 'intent must carry the full expected schedule')
   assert(!input.includes('snapshot'), 'renderer intent must not carry a library snapshot')
   assert(!input.includes('nextStageId') && !input.includes('now'), 'renderer must not control the clock or next stage ID')

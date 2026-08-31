@@ -100,7 +100,11 @@ const bridge: JournalBridge = {
   createNewLibrary: (libPath) => ipcRenderer.invoke('library:createNew', libPath),
   openExistingLibrary: (libPath) => ipcRenderer.invoke('library:openExisting', libPath),
   prepareLibrarySwitch: (libPath, mode) => ipcRenderer.invoke('library:prepareSwitch', { libPath, mode }),
-  activatePreparedLibrary: (token) => ipcRenderer.invoke('library:activatePrepared', token),
+  activatePreparedLibrary: async (token) => {
+    const result = await ipcRenderer.invoke('library:activatePrepared', token)
+    if (result?.ok) storageSnapshotRevision = await ipcRenderer.invoke('storage:getSnapshotRevision')
+    return result
+  },
   cancelPreparedLibrary: (token) => ipcRenderer.invoke('library:cancelPrepared', token),
   getLibraryPath: () => ipcRenderer.invoke('library:getPath'),
   storageOpen: async () => {
