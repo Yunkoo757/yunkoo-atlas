@@ -139,6 +139,46 @@ export async function testTradeSelectionAppearsOnlyOnIntent(): Promise<void> {
   assert(css.includes('.trade-row-star.is-starred'), '星标状态必须保持可见但不抢夺主信息')
 }
 
+export async function testCollapsedContextCountKeepsDefaultCursor(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const css = await fs.readFile('src/components/trades/TradeList.css', 'utf8')
+
+  assert(
+    /\.trade-row-more\s*\{[\s\S]*?cursor:\s*default;/.test(css),
+    '折叠上下文数量必须使用默认箭头光标，不得显示带问号的帮助光标',
+  )
+}
+
+export async function testTradeListNeutralStatesConsumeNamedTokens(): Promise<void> {
+  const fs = await import('node:fs/promises')
+  const css = await fs.readFile('src/components/trades/TradeList.css', 'utf8')
+  const tokens = await fs.readFile('src/styles/tokens.css', 'utf8')
+
+  for (const token of [
+    '--list-group-chevron-collapsed-opacity:',
+    '--group-add-active-bg:',
+    '--list-row-focus-border:',
+  ]) {
+    assert(tokens.includes(token), `交易列表中性状态必须由全局语义令牌定义：${token}`)
+  }
+  assert(
+    css.includes('opacity: var(--list-group-chevron-collapsed-opacity);'),
+    '折叠分组箭头必须消费专用透明度令牌',
+  )
+  assert(
+    css.includes('background-color: var(--group-add-active-bg);'),
+    '分组新增按钮按下态必须消费专用表面令牌',
+  )
+  assert(
+    css.includes('box-shadow: inset 0 0 0 1px var(--list-row-focus-border);'),
+    '交易行键盘焦点框必须消费专用边框令牌',
+  )
+  assert(
+    !/color-mix\([^;]+(?:--trade-group-chevron|--group-add-hover-bg|--focus-ring-color)[^;]+\)/.test(css),
+    '交易列表不得在模块内重新计算中性文字、表面或边框颜色',
+  )
+}
+
 export async function testTradeListVisualAlignmentContract(): Promise<void> {
   const fs = await import('node:fs/promises')
   const css = await fs.readFile('src/components/trades/TradeList.css', 'utf8')

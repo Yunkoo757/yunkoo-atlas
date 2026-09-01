@@ -174,12 +174,14 @@
 }
 
 .trade-list-group-header.is-collapsed .trade-list-group-chevron {
-  color: color-mix(in srgb, var(--trade-group-chevron) 72%, transparent);
+  color: var(--trade-group-chevron);
+  opacity: var(--list-group-chevron-collapsed-opacity);
 }
 
 .trade-list-group-header.is-collapsed .trade-list-group-toggle:hover .trade-list-group-chevron,
 .trade-list-group-header.is-collapsed .trade-list-group-toggle:focus-visible .trade-list-group-chevron {
   color: var(--accent-text);
+  opacity: 1;
   transition-duration: 0s;
 }
 
@@ -260,7 +262,7 @@
 
 .trade-list-group-add:active {
   color: var(--accent-text);
-  background-color: color-mix(in lch, var(--group-add-hover-bg) 88%, white 12%);
+  background-color: var(--group-add-active-bg);
 }
 
 .trade-list-group-add svg {
@@ -339,8 +341,7 @@
 
 html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   background: var(--surface-row-hover);
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--focus-ring-color) 38%, var(--border-subtle));
+  box-shadow: inset 0 0 0 1px var(--list-row-focus-border);
 }
 
 .trade-row-open:focus-visible {
@@ -637,7 +638,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   background: transparent;
   border-color: var(--tag-neutral-border);
   border-style: solid;
-  cursor: help;
+  cursor: default;
 }
 
 .trade-row-result,
