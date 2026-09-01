@@ -95,7 +95,6 @@ async function run(): Promise<void> {
     <section class="trade-list">
       <div class="trade-list-group-header"><button class="trade-list-group-toggle"><strong>本周交易</strong><span class="trade-list-group-count">15</span></button></div>
       <div class="trade-row" data-typography-row>
-        <span class="trade-row-ref">CAS-32</span>
         <span class="trade-row-symbol"><strong>EURUSD</strong><span class="side-tag is-quiet" data-side="long">多</span></span>
         <span class="trade-row-strategy"><span class="strategy-label">导航1</span></span>
         <span class="trade-row-tags"><span class="trade-row-tag">伦敦收盘</span></span>
@@ -200,10 +199,6 @@ async function run(): Promise<void> {
   assert(tradeSymbol.fontSize === '13px' && tradeSymbol.lineHeight === '20px', '交易品种必须计算为 13px/20px')
   assert(tradeSymbol.fontWeight === '500', '交易品种必须使用锐利的 500 字重')
   assertComputedTextRole('[data-typography-row] .trade-row-symbol strong', '--text-list-strong')
-  const tradeRef = getComputedStyle(document.querySelector<HTMLElement>('[data-typography-row] .trade-row-ref')!)
-  assert(tradeRef.fontSize === '13px' && tradeRef.lineHeight === '20px', '交易编号必须计算为 13px/20px')
-  assert(tradeRef.fontWeight === '450', '交易编号必须使用 450 字重')
-  assertComputedTextRole('[data-typography-row] .trade-row-ref', '--text-list-secondary')
   const chip = getComputedStyle(document.querySelector<HTMLElement>('.ui-chip')!)
   assert(
     chip.fontSize === '12px' && chip.lineHeight === '18px',

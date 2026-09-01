@@ -6,9 +6,8 @@
 
 :where(.trade-list-columns, .trade-row) {
   --trade-select-column: 24px;
-  --trade-ref-column: 72px;
   --trade-list-columns:
-    var(--trade-select-column) 16px var(--trade-ref-column, 72px) minmax(251px, 0.85fr)
+    var(--trade-select-column) 16px minmax(251px, 0.85fr)
     minmax(260px, 1.6fr) 56px 80px 72px 24px;
 }
 
@@ -404,7 +403,6 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
 }
 
 .trade-row-status,
-.trade-row-ref,
 .trade-row-symbol,
 .trade-row-strategy,
 .trade-row-tags,
@@ -412,20 +410,6 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   display: flex;
   align-items: center;
   min-width: 0;
-}
-
-.trade-row-ref {
-  overflow: hidden;
-  color: var(--list-text-secondary);
-  font-family: var(--font-ui);
-  font-size: var(--type-list-secondary-size);
-  font-weight: var(--type-list-secondary-weight);
-  font-feature-settings: "calt" 1, "cpsp" 1, "tnum" 1;
-  font-variant-numeric: var(--numeric-tabular);
-  letter-spacing: 0;
-  line-height: var(--type-list-secondary-line-height);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .trade-row-symbol {
@@ -730,11 +714,6 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
     --trade-list-columns:
       var(--trade-select-column, 24px) 16px minmax(180px, 0.85fr) minmax(220px, 1.4fr)
       52px 72px 68px 24px;
-  }
-
-  .trade-row-ref,
-  .trade-list-column.is-ref {
-    display: none;
   }
 
   .trade-row-context-item.is-overflow-medium,

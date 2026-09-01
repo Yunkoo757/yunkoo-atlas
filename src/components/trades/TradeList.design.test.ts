@@ -59,7 +59,7 @@ export async function testTradeListColumnsShareRowGridAndStickyOrder(): Promise<
   assert(!columns.includes('role="columnheader"'), 'list 模型不得混入孤立 columnheader 语义')
   assert(css.includes('grid-template-columns: var(--trade-list-columns)'), '标题和交易行必须共享同一列模板')
   assert(
-    /:where\(\.trade-list-columns, \.trade-row\)\s*\{[\s\S]*?--trade-select-column:\s*24px;[\s\S]*?--trade-ref-column:\s*72px;/.test(css),
+    /:where\(\.trade-list-columns, \.trade-row\)\s*\{[\s\S]*?--trade-select-column:\s*24px;[\s\S]*?--trade-list-columns:/.test(css),
     '共享列模板必须在标题和行自身作用域内声明列宽，不能依赖仅存在于列表容器的继承变量',
   )
   assert(source.includes('const HEADER_CONTENT_HEIGHT = 36'), '月份条内容高度必须保持 36px')
@@ -151,6 +151,7 @@ export async function testTradeListVisualAlignmentContract(): Promise<void> {
     '周期、结果与日期标题必须和正文统一右对齐',
   )
   assert(columns.includes('className="trade-list-column is-result">结果</span>'), '交易列表必须以 R 为唯一常驻结果列')
+  assert(!columns.includes('is-ref') && !columns.includes('>编号</span>'), '交易编号不得占用主列表常驻列')
   assert(!columns.includes('is-pnl') && !columns.includes('>盈亏</span>'), '现金盈亏不得继续占用交易列表常驻列')
   assert(!css.includes('.trade-row-date,\n  .trade-list-column.is-date {\n    display: none;'), '桌面窄窗口也必须保留完整日期')
   assert(css.includes('grid-template-columns: 11ch 18px'), '品种与多空方向必须使用稳定列宽')

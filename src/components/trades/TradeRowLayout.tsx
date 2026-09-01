@@ -21,7 +21,6 @@ export type TradeRowLayoutProps = {
   openAction?: TradeRowOpenAction
   check: ReactNode
   status: ReactNode
-  reference: ReactNode
   symbol: ReactNode
   tags: ReactNode
   timeframe: ReactNode
@@ -46,7 +45,6 @@ export function TradeRowLayout({
   openAction,
   check,
   status,
-  reference,
   symbol,
   tags,
   timeframe,
@@ -84,7 +82,6 @@ export function TradeRowLayout({
       ) : null}
       <span className="trade-row-check-slot">{check}</span>
       <span className="trade-row-status">{status}</span>
-      <span className="trade-row-ref">{reference}</span>
       <span className="trade-row-symbol trade-row-primary">{symbol}</span>
       <span className="trade-row-tags">{tags}</span>
       <span className="trade-row-timeframe-slot">{timeframe}</span>

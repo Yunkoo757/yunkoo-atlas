@@ -150,7 +150,6 @@ export const TradeRow = memo(function TradeRow({
         <span className="trade-row-check-spacer" aria-hidden />
       )}
       status={<StatusIcon status={trade.status} />}
-      reference={trade.ref}
       symbol={
         <>
           <span className="trade-row-symbol-main">

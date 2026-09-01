@@ -155,7 +155,6 @@ async function run(): Promise<void> {
 
     const scrollHost = host.querySelector<HTMLElement>('[data-spacing-scroll-host]')
     const columns = host.querySelector<HTMLElement>('.trade-list-columns')
-    const reference = host.querySelector<HTMLElement>('.trade-row-ref')
     const strategyCell = host.querySelector<HTMLElement>('.trade-row-strategy')
     const resultCell = host.querySelector<HTMLElement>('.trade-row-result')
     const dateCell = host.querySelector<HTMLElement>('.trade-row-date')
@@ -163,7 +162,7 @@ async function run(): Promise<void> {
     const firstHeader = headers.find((header) => header.textContent?.includes('2026 年 8 月'))
     const secondHeader = headers.find((header) => header.textContent?.includes('2026 年 7 月'))
     assert(
-      scrollHost && columns && reference && strategyCell && resultCell && dateCell && firstHeader && secondHeader,
+      scrollHost && columns && strategyCell && resultCell && dateCell && firstHeader && secondHeader,
       '必须渲染列标题、关键交易列与两个真实月份分组',
     )
     assert(
@@ -173,10 +172,7 @@ async function run(): Promise<void> {
     assert(getComputedStyle(strategyCell).display !== 'none', '所有桌面宽度必须保留策略')
     assert(!host.querySelector('.trade-row-pnl'), '交易列表不得继续渲染现金盈亏列')
     assert(getComputedStyle(resultCell).display !== 'none', '所有桌面宽度必须保留 R 结果')
-    assert(
-      (window.innerWidth <= 1439) === (getComputedStyle(reference).display === 'none'),
-      '中窄桌面宽度必须按合同隐藏编号',
-    )
+    assert(!host.querySelector('.trade-row-ref, .trade-list-column.is-ref'), '所有桌面宽度都不得显示交易编号列')
     assert(getComputedStyle(dateCell).display !== 'none', '所有桌面宽度必须保留完整日期')
     assert(
       scrollHost.scrollWidth <= scrollHost.clientWidth + 1,
@@ -186,6 +182,7 @@ async function run(): Promise<void> {
     const list = host.querySelector<HTMLElement>('.trade-list[role="list"]')
     const firstTradeRow = host.querySelector<HTMLElement>('[data-trade-id="august-1"]')
     assert(list && firstTradeRow, '交易集合必须暴露统一的 list/listitem 语义')
+    assert(firstTradeRow.getAttribute('aria-label')?.includes('TRD-AUGUST-1'), '视觉隐藏编号后仍须保留精确无障碍引用')
     assert(columns.getAttribute('aria-hidden') === 'true', '纯视觉列标题必须退出无障碍树')
     assert(!host.querySelector('[role="row"], [role="columnheader"]'), '列表不得混入残缺表格语义')
     assert(firstTradeRow.getAttribute('role') === 'listitem', '交易行必须是列表项')
