@@ -24,7 +24,7 @@ import {
   getSessionSelectValue,
   normalizeSession,
 } from '@/lib/tradeView'
-import { tradeDetailPath } from '@/lib/tradeRoute'
+import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { defaultTradeKindForPath } from '@/lib/tradeKind'
 import { applyCaseClassificationMutation } from '@/lib/reviewCaseClassification'
 import { commitComposerTradeBatch } from '@/lib/tradeComposerCommit'
@@ -380,6 +380,16 @@ export function TradeComposer() {
       }
 
       close()
+      if (!editing && trade.tradeKind === 'case') {
+        navigate(tradeDetailPath(trade), {
+          state: tradeDetailNavState({
+            pathname: location.pathname,
+            search: location.search,
+          }),
+        })
+        toast('已创建案例')
+        return
+      }
       toast(editing ? '已保存' : '已记录', {
         label: '打开记录',
         onClick: () => navigate(tradeDetailPath(trade)),

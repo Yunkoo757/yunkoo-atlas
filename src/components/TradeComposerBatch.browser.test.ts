@@ -1,6 +1,6 @@
-import { createElement } from 'react'
+import { createElement, Fragment } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import { TradeComposer } from '@/components/TradeComposer'
 import { commitComposerTradeBatch } from '@/lib/tradeComposerCommit'
@@ -37,6 +37,14 @@ async function waitFor(condition: () => boolean, message: string): Promise<void>
 function findButton(label: string): HTMLButtonElement | undefined {
   return [...document.querySelectorAll<HTMLButtonElement>('button')]
     .find((button) => button.textContent?.trim() === label)
+}
+
+let currentPath = ''
+
+function LocationProbe() {
+  const location = useLocation()
+  currentPath = `${location.pathname}${location.search}`
+  return null
 }
 
 function candidateTrade(id: string, imageHtml: string, attachCurrentStage = true): Trade {
@@ -144,7 +152,11 @@ async function run(): Promise<void> {
     rootElement = document.createElement('div')
     document.body.append(rootElement)
     root = createRoot(rootElement)
-    root.render(createElement(MemoryRouter, null, createElement(TradeComposer)))
+    root.render(createElement(
+      MemoryRouter,
+      { initialEntries: ['/review-cases'] },
+      createElement(Fragment, null, createElement(LocationProbe), createElement(TradeComposer)),
+    ))
     await waitFor(() => Boolean(findButton('保存')), '案例 Composer 未就绪')
     findButton('保存')?.click()
     await waitFor(() => !useStore.getState().composerOpen, '案例 Composer 未完成保存')
@@ -259,10 +271,17 @@ async function run(): Promise<void> {
       Boolean(document.querySelector('[aria-label="交易日期"]')),
       '新建案例更多信息必须保留完整交易上下文',
     )
-    useStore.setState({ composerOpen: false, composerTrade: null })
-    await waitFor(() => !document.querySelector('[role="dialog"]'), '新建案例 Composer 未关闭')
+    const caseIdsBeforeCreate = new Set(useStore.getState().trades.map((trade) => trade.id))
+    findButton('创建案例')?.click()
+    await waitFor(() => !useStore.getState().composerOpen, '新建案例 Composer 未完成保存')
+    const createdCase = useStore.getState().trades.find((trade) => !caseIdsBeforeCreate.has(trade.id))
+    assert(createdCase?.tradeKind === 'case', '新建案例必须写入案例域')
+    await waitFor(
+      () => currentPath === `/trade/${createdCase.ref}`,
+      '新建案例成功后必须自动进入刚创建案例的详情页',
+    )
 
-    const tradeCountBeforeEmptyQuickCreate = promotedState.trades.length
+    const tradeCountBeforeEmptyQuickCreate = useStore.getState().trades.length
     useStore.setState({
       composerOpen: true,
       composerTrade: null,
@@ -277,7 +296,7 @@ async function run(): Promise<void> {
       '快速记录不得强制要求一句话或截图',
     )
     const emptyQuickTrade = emptyQuickCreateState.trades.find(
-      (trade) => !promotedState.trades.some((previous) => previous.id === trade.id),
+      (trade) => trade.id !== createdCase.id && !promotedState.trades.some((previous) => previous.id === trade.id),
     )
     assert(emptyQuickTrade?.note === '', '无一句话和截图时应保存为空笔记，而不是阻止记录')
   } finally {
