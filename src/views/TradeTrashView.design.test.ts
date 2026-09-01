@@ -64,3 +64,15 @@ export function testTrashIsAnIndependentTopLevelPage() {
     throw new Error('回收站返回动作不得暗示隶属交易日志')
   }
 }
+
+export function testTrashKeepsStandardRecordReferencesReadable() {
+  const source = readFileSync(path.resolve('src/views/TradeTrashView.tsx'), 'utf8')
+  const css = readFileSync(path.resolve('src/views/TrashView.css'), 'utf8')
+
+  if (!css.includes('18px 16px 8ch minmax(180px, 1.4fr)')) {
+    throw new Error('回收站编号列必须按字符宽度容纳完整的标准 TRD/CAS 编号')
+  }
+  if (!source.includes('className="trash-item-id" title={trade.ref}')) {
+    throw new Error('超长或导入编号必须保留完整悬浮信息')
+  }
+}

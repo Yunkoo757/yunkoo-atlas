@@ -169,7 +169,7 @@
 .trash-item {
   display: grid;
   grid-template-columns:
-    18px 16px 58px minmax(180px, 1.4fr)
+    18px 16px 8ch minmax(180px, 1.4fr)
     84px 56px 64px 76px 52px;
   column-gap: var(--sp-3);
   align-items: center;
@@ -327,7 +327,7 @@
 @media (max-width: 1024px) {
   .trash-item {
     grid-template-columns:
-      18px 16px 52px minmax(140px, 1.2fr)
+      18px 16px 8ch minmax(140px, 1.2fr)
       72px 48px 58px 68px 48px;
     column-gap: 10px;
   }

@@ -373,7 +373,7 @@ export function TradeTrashView() {
                         <span className="trash-item-status">
                           <StatusIcon status={trade.status} />
                         </span>
-                        <span className="trash-item-id">{trade.ref}</span>
+                        <span className="trash-item-id" title={trade.ref}>{trade.ref}</span>
 
                         <div className="trash-item-trade">
                           <div className="trash-item-meta">
