@@ -9,7 +9,8 @@ import {
   type WindowSizePresetId,
 } from '@/lib/windowBounds'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
-import type { WindowFrameState, WindowsClosePreference } from '@/types/journal-bridge'
+import type { AutoLaunchState, WindowFrameState, WindowsClosePreference } from '@/types/journal-bridge'
+import { toast } from '@/lib/toast'
 import '@/components/DisplayMenu.css'
 import './DisplaySettingsPanel.css'
 
@@ -72,6 +73,8 @@ export function DisplaySettingsPanel() {
   const [windowsClosePreference, setWindowsClosePreference] =
     useState<WindowsClosePreference>('ask')
   const [windowMessage, setWindowMessage] = useState('')
+  const [autoLaunchState, setAutoLaunchState] = useState<AutoLaunchState | null>(null)
+  const [autoLaunchBusy, setAutoLaunchBusy] = useState(false)
   const groupMode: GroupMode = display.groupByDate
     ? 'date'
     : display.groupByStrategy
@@ -110,6 +113,52 @@ export function DisplaySettingsPanel() {
     })
     return () => { cancelled = true }
   }, [bridge, windows])
+
+  const loadAutoLaunchState = async () => {
+    if (!bridge) return
+    try {
+      setAutoLaunchState(await bridge.getAutoLaunchState())
+    } catch {
+      setAutoLaunchState({
+        supported: true,
+        enabled: false,
+        error: '无法读取系统开机启动状态',
+      })
+    }
+  }
+
+  useEffect(() => {
+    if (!electron || !bridge) return
+    let cancelled = false
+    void bridge.getAutoLaunchState()
+      .then((state) => { if (!cancelled) setAutoLaunchState(state) })
+      .catch(() => {
+        if (!cancelled) {
+          setAutoLaunchState({
+            supported: true,
+            enabled: false,
+            error: '无法读取系统开机启动状态',
+          })
+        }
+      })
+    return () => { cancelled = true }
+  }, [bridge, electron])
+
+  const applyAutoLaunch = async (enabled: boolean) => {
+    if (!bridge || autoLaunchBusy) return
+    setAutoLaunchBusy(true)
+    try {
+      const state = await bridge.setAutoLaunchEnabled(enabled)
+      setAutoLaunchState(state)
+      if (state.error) toast(state.error)
+      else toast(enabled ? '已开启开机自动启动' : '已关闭开机自动启动')
+    } catch {
+      toast('开机启动设置失败，请重试')
+      await loadAutoLaunchState()
+    } finally {
+      setAutoLaunchBusy(false)
+    }
+  }
 
   const applyWindowPreset = async (presetId: WindowSizePresetId) => {
     const bridge = getJournalBridge()
@@ -178,6 +227,36 @@ export function DisplaySettingsPanel() {
             onChange={(v) => setDisplay({ privacyMode: v })}
           />
         </section>
+
+        {electron ? (
+          <section className="display-settings-section" data-auto-launch-setting>
+            <div className="display-settings-section-heading display-section-head">
+              <h2>应用行为</h2>
+            </div>
+            <ToggleRow
+              label="开机自动启动"
+              description={bridge?.platform === 'darwin'
+                ? '登录 macOS 后自动打开 Trader Atlas'
+                : '登录 Windows 后自动打开 Trader Atlas'}
+              checked={autoLaunchState?.enabled ?? false}
+              disabled={autoLaunchBusy || !autoLaunchState || !autoLaunchState.supported || Boolean(autoLaunchState.error)}
+              onChange={(checked) => void applyAutoLaunch(checked)}
+            />
+            {autoLaunchState?.error ? (
+              <div className="display-setting-feedback">
+                <p className="display-settings-hint" role="status">{autoLaunchState.error}</p>
+                <button
+                  type="button"
+                  className="ui-btn ui-btn-bordered"
+                  disabled={autoLaunchBusy}
+                  onClick={() => void loadAutoLaunchState()}
+                >
+                  重试读取
+                </button>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="display-settings-section">
           <div className="display-settings-section-heading display-section-head">
@@ -295,11 +374,13 @@ function ToggleRow({
   label,
   description,
   checked,
+  disabled = false,
   onChange,
 }: {
   label: string
   description: string
   checked: boolean
+  disabled?: boolean
   onChange: (v: boolean) => void
 }) {
   return (
@@ -308,6 +389,7 @@ function ToggleRow({
       className="display-toggle"
       role="switch"
       aria-checked={checked}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
     >
       <span className="display-row-copy">

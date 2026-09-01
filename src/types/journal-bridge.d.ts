@@ -9,4 +9,5 @@ export type {
   WindowFrameState,
   WindowsCloseChoice,
   WindowsClosePreference,
+  AutoLaunchState,
 } from '@/types/journalBridge'

@@ -90,6 +90,8 @@ const bridge: JournalBridge = {
   getWindowsClosePreference: () => ipcRenderer.invoke('app:get-windows-close-preference'),
   setWindowsClosePreference: (preference: WindowsClosePreference) =>
     ipcRenderer.invoke('app:set-windows-close-preference', preference),
+  getAutoLaunchState: () => ipcRenderer.invoke('app:get-auto-launch-state'),
+  setAutoLaunchEnabled: (enabled) => ipcRenderer.invoke('app:set-auto-launch-enabled', enabled),
   requestClose: () => ipcRenderer.invoke('app:request-close'),
   toggleFullscreen: () => ipcRenderer.invoke('app:toggle-fullscreen'),
   getWindowHotkey: () => ipcRenderer.invoke('window-hotkey:get'),

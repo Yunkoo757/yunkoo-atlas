@@ -65,6 +65,7 @@ import {
   ResourceInitializationError,
 } from './lifecycleDisposal'
 import { ELECTRON_BUILD_IDENTITY } from './buildIdentity'
+import { readAutoLaunchState, updateAutoLaunchState } from './autoLaunch'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -642,6 +643,14 @@ if (!hasSingleInstanceLock) {
         reportWindowsClosePreferenceError(error)
       }
       return windowsClosePreference
+    })
+    ipcMain.handle('app:get-auto-launch-state', () => {
+      return readAutoLaunchState(app, process.platform)
+    })
+    ipcMain.handle('app:set-auto-launch-enabled', (_event, enabled: unknown) => {
+      const result = updateAutoLaunchState(app, process.platform, enabled)
+      if (result.error) logDiagnostic('warn', 'auto-launch-update-failed', result.error)
+      return result
     })
     ipcMain.handle('app:resolve-windows-close', (_event, input: unknown) => {
       if (process.platform !== 'win32' || !input || typeof input !== 'object') return

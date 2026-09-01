@@ -41,6 +41,7 @@ declare global {
 }
 
 const activeWeekStart = weekStartFor(parseLocalDate(getTradingDayKey()))
+const activeMonthKey = getTradingDayKey().slice(0, 7)
 const browserPolicyId = 'policybrowserabcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789'
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -477,9 +478,9 @@ async function run(): Promise<void> {
         confirmedAt: `${activeWeekStart}T07:00:00.000Z`,
       }],
       monthlyRiskLimits: [{
-        id: `monthly-risk-limit:${activeWeekStart.slice(0, 7)}`,
+        id: `monthly-risk-limit:${activeMonthKey}`,
         liveStageId: state.currentLiveStageId,
-        monthKey: activeWeekStart.slice(0, 7),
+        monthKey: activeMonthKey,
         limitR: 10,
         sourcePolicyVersionId: browserPolicyId,
         lockedAt: `${activeWeekStart}T07:00:00.000Z`,

@@ -97,6 +97,12 @@ export type WindowFrameState = {
 export type WindowsClosePreference = 'ask' | 'tray' | 'quit'
 export type WindowsCloseChoice = Exclude<WindowsClosePreference, 'ask'>
 
+export type AutoLaunchState = {
+  supported: boolean
+  enabled: boolean
+  error?: string
+}
+
 export type LibraryLocationState =
   | { kind: 'unset' }
   | {
@@ -121,6 +127,8 @@ export interface JournalBridge {
   resolveWindowsClose(choice: WindowsCloseChoice, remember: boolean): Promise<void>
   getWindowsClosePreference(): Promise<WindowsClosePreference>
   setWindowsClosePreference(preference: WindowsClosePreference): Promise<WindowsClosePreference>
+  getAutoLaunchState(): Promise<AutoLaunchState>
+  setAutoLaunchEnabled(enabled: boolean): Promise<AutoLaunchState>
   requestClose(): Promise<void>
   toggleFullscreen(): Promise<boolean>
   getWindowHotkey(): Promise<WindowHotkeyState>

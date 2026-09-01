@@ -79,6 +79,29 @@
   display: grid;
   gap: 2px;
 }
+.display-settings-card .display-toggle:disabled {
+  cursor: default;
+  color: var(--text-disabled);
+}
+.display-settings-card .display-toggle:disabled:hover {
+  background: transparent;
+  color: var(--text-disabled);
+}
+.display-settings-card .display-toggle:disabled .display-row-title,
+.display-settings-card .display-toggle:disabled .display-row-desc {
+  color: var(--text-disabled);
+}
+
+.display-setting-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 0 10px var(--sp-2);
+}
+.display-setting-feedback .display-settings-hint {
+  padding: 0;
+}
 .display-choice {
   min-height: 46px;
   border: 0;
