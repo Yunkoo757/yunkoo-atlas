@@ -8,7 +8,7 @@ export async function testDetailUsesDesktopReviewHierarchy(): Promise<void> {
     readFile('src/views/DetailView.tsx', 'utf8'),
   ])
 
-  assert(layout.includes('minmax(620px, 1fr) 336px'), '交易详情必须优先保证 620px 复盘正文与 336px 属性栏')
+  assert(layout.includes('minmax(0, 1fr) 336px'), '宽桌面详情必须保留 336px 属性栏，正文按可用空间分配')
   assert.match(layout, /\.trade-detail-layout \.dv-props\s*\{[^}]*border-left:\s*1px solid var\(--border-divider\)/s)
   assert.match(layout, /\.trade-detail-layout \.dv-props\s*\{[^}]*background:\s*var\(--surface-pane\)/s)
   assert.match(css, /\.dv-note-load\.is-loading\s*\{[^}]*background:\s*var\(--surface-floating\)/s)

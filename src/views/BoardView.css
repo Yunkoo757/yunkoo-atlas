@@ -186,6 +186,17 @@
   color: var(--text-secondary);
 }
 
+.bd-card-excerpt {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-body);
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .bd-card-strategy .strategy-icon {
   color: var(--text-content-metadata) !important;
   background: transparent !important;

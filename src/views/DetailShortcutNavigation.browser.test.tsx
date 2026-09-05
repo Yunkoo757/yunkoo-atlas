@@ -178,13 +178,13 @@ async function run(): Promise<void> {
     assert(tagsSection, '详情页缺少标签分区')
     tagsSection.click()
     await waitFor(
-      () => document.querySelector('[aria-label="添加标签「计划内」"]') !== null,
-      '详情页必须展示未选择的普通预置标签',
+      () => Boolean(tagsSection.closest('.dv-section')?.querySelector('.tag-add-btn')),
+      '详情页必须保留添加标签入口',
     )
-    assert(
-      document.querySelector('[aria-label="添加标签「周末交易」"]'),
-      '详情页必须展示未选择的错误预置标签',
-    )
+    assert(!document.querySelector('.tag-presets-row'), '阅读时不应常驻未选择的预置标签')
+    tagsSection.closest('.dv-section')?.querySelector<HTMLButtonElement>('.tag-add-btn')?.click()
+    await waitFor(() => Boolean(findButton('计划内')), '添加标签时应按需提供预设')
+    document.querySelector<HTMLInputElement>('.tag-input')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
 
     const caseNavigation = document.querySelector<HTMLElement>('[aria-label="案例导航"]')
     const previousCaseButton = document.querySelector<HTMLButtonElement>('[aria-label^="上一个案例"]')

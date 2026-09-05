@@ -201,6 +201,34 @@ async function run(): Promise<void> {
     visibleOverflow.focus()
     const overflowTooltip = await waitForOverflowTooltip()
     assert(overflowTooltip, '标签溢出提示必须列出被省略的错误标签与普通标签')
+
+    const existingRowHeight = defaultRow.getBoundingClientRect().height
+    let opened = 0
+    root.render(
+      <div className="trade-list">
+        <TradeRow
+          trade={{ ...trade('case'), tradeKind: 'case', note: '<h2>回踩确认后入场</h2><p>保留原有正文。</p>' }}
+          strategies={[strategy]}
+          selected={false}
+          focused={false}
+          starred={false}
+          onOpen={() => { opened += 1 }}
+          onSelect={() => {}}
+          onToggleStar={() => {}}
+        />
+      </div>,
+    )
+    await frame()
+    await frame()
+    const caseRow = document.querySelector<HTMLElement>('[data-trade-id="case"]')!
+    const caseButton = caseRow?.querySelector<HTMLButtonElement>('button.trade-row-symbol-main')
+    assert(caseButton, '案例名称必须提供可聚焦的预览入口')
+    assert(caseRow.getBoundingClientRect().height === existingRowHeight, '案例预览不得增加列表行高')
+    caseButton.focus()
+    for (let attempt = 0; attempt < 60 && !document.querySelector('.case-content-preview'); attempt += 1) await frame()
+    assert(document.querySelector('.case-content-preview')?.textContent?.includes('回踩确认后入场'), '键盘聚焦必须显示原有案例摘要')
+    caseButton.click()
+    assert(opened === 1, '案例预览入口必须保留点击打开详情的操作')
   } finally {
     delete document.documentElement.dataset.keyboardNavigation
     root.unmount()

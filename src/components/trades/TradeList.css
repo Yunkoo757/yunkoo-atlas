@@ -641,6 +641,15 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   cursor: default;
 }
 
+.trade-row-symbol .hover-preview-anchor {
+  pointer-events: auto;
+  min-width: 0;
+}
+
+button.trade-row-symbol-main {
+  text-align: left;
+}
+
 .trade-row-result,
 .trade-row-date {
   overflow: hidden;

@@ -9,7 +9,6 @@
   max-width: 100%;
 }
 
-.trade-detail-properties-toggle,
 .trade-detail-properties-backdrop,
 .trade-detail-properties-close {
   display: none;
@@ -18,7 +17,7 @@
 .trade-detail-layout .dv-body {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(620px, 1fr) 336px;
+  grid-template-columns: minmax(0, 1fr) 336px;
   min-height: 0;
 }
 
@@ -35,6 +34,33 @@
   background: var(--surface-pane);
   border-left: 1px solid var(--border-divider);
   scrollbar-width: none;
+}
+
+.trade-detail-layout.is-properties-hidden .dv-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.trade-detail-layout.is-properties-hidden .dv-props {
+  display: none;
+}
+
+.trade-detail-properties-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: var(--space-control-gap);
+  height: var(--control-height-sm);
+  padding: 0 var(--sp-2);
+  color: var(--text-secondary);
+  border-radius: var(--radius-6);
+  font-size: var(--type-metadata-size);
+}
+
+.trade-detail-properties-toggle:hover,
+.trade-detail-properties-toggle[aria-expanded='true'] {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .trade-detail-layout .dv-main::-webkit-scrollbar {
@@ -62,7 +88,7 @@
   display: none;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1200px) {
   .trade-detail-layout .dv-body {
     display: block;
     overflow-y: auto;
@@ -112,30 +138,6 @@
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
     border-radius: var(--radius-6);
-  }
-
-  .trade-detail-properties-toggle {
-    position: fixed;
-    top: 60px;
-    right: 18px;
-    z-index: var(--z-navigation-action);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-control-gap);
-    width: auto;
-    height: var(--control-height-md);
-    padding: 0 10px;
-    color: var(--text-secondary);
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-6);
-  }
-
-  .trade-detail-properties-toggle::after {
-    content: '属性';
-    font-size: var(--type-metadata-size);
-    font-weight: var(--font-weight-medium);
   }
 
   .trade-detail-properties-backdrop {

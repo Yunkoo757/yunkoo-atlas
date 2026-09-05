@@ -118,7 +118,7 @@ const thirdOnly = svgSource('third-only', '#22c55e')
 const fourthReady = svgSource('fourth-ready', '#3b82f6')
 const fourthBroken = svgSource('broken-image', '#ef4444')
 const cases = [
-  reviewCase('image-case-first', 'CAS-IMG-1', `<img alt="第一张" src="${firstFast}"><img alt="第二张" src="${firstSlow}">`),
+  reviewCase('image-case-first', 'CAS-IMG-1', `<p>原有复盘说明</p><img alt="第一张" src="${firstFast}"><img alt="第二张" src="${firstSlow}">`),
   reviewCase('image-case-stale', 'CAS-IMG-2', `<img alt="旧请求一" src="${staleFast}"><img alt="旧请求二" src="${staleSlow}">`),
   reviewCase('image-case-third', 'CAS-IMG-3', `<img alt="第三条" src="${thirdOnly}">`),
   reviewCase('image-case-broken', 'CAS-IMG-4', `<img alt="可用图" src="${fourthReady}"><img alt="损坏图" src="${fourthBroken}">`),
@@ -200,6 +200,21 @@ async function run(): Promise<void> {
     assert(loadingGallery?.getAttribute('aria-busy') === 'false', '图片组 settled 后必须清除 aria-busy')
     assert(loadingGallery?.querySelectorAll('[role="status"]').length === 0, '图片组 settled 后不得保留加载播报')
     assertRectsEqual(before, galleryRects(), '图片就绪前后画廊几何尺寸发生变化')
+
+    findButton('单图大图')?.click()
+    await waitFor(() => document.querySelector('.review-session-gallery.is-large') !== null, '未切换到单图大图')
+    const largeRects = galleryRects()
+    assert(largeRects[1].y > largeRects[0].y, '单图大图必须纵向排列')
+    findButton('两图对照')?.click()
+    await waitFor(() => document.querySelector('.review-session-gallery.is-compare') !== null, '未恢复两图对照')
+    const compareRects = galleryRects()
+    assert(Math.abs(compareRects[1].y - compareRects[0].y) < 1, '两图对照必须同排显示')
+    findButton('收起说明')?.click()
+    await waitFor(() => document.querySelector<HTMLElement>('.review-session-note-copy')?.hidden === true, '说明未收起')
+    findButton('显示说明')?.click()
+    await waitFor(() => document.querySelector<HTMLElement>('.review-session-note-copy')?.hidden === false, '说明未恢复')
+    assert(useStore.getState().trades.find((item) => item.id === cases[0].id)?.note === cases[0].note,
+      '阅读布局切换不得修改原有图文内容')
 
     findButton('跳过 N')?.click()
     await waitFor(() => staleDecodeStarted, '第二条旧请求没有进入延迟解码')

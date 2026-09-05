@@ -2,6 +2,7 @@ import { ICON_MD } from '@/icons/iconSize'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { PanelRight, X } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { useStore } from '@/store/useStore'
 import './TradeDetailLayout.css'
 
 export function TradeDetailLayout({
@@ -9,17 +10,31 @@ export function TradeDetailLayout({
   content,
   properties,
 }: {
-  header: ReactNode
+  header: (propertiesToggle: ReactNode) => ReactNode
   content: ReactNode
   properties: ReactNode
 }) {
   const [propertiesOpen, setPropertiesOpen] = useState(false)
+  const [compact, setCompact] = useState(() => window.matchMedia('(max-width: 1200px)').matches)
+  const propertiesVisible = useStore((state) => state.display.detailPropertiesVisible !== false)
+  const setDisplay = useStore((state) => state.setDisplay)
+  const expanded = compact ? propertiesOpen : propertiesVisible
   const propertiesId = useId()
   const layoutRef = useRef<HTMLDivElement>(null)
   const propertiesRef = useRef<HTMLElement>(null)
   const toggleRef = useRef<HTMLButtonElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const restoreFocusRef = useRef(false)
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1200px)')
+    const update = () => {
+      setCompact(media.matches)
+      setPropertiesOpen(false)
+    }
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
 
   useEffect(() => {
     if (!propertiesOpen) {
@@ -101,26 +116,32 @@ export function TradeDetailLayout({
     setPropertiesOpen(false)
   }
 
-  return (
-    <div className="trade-detail-layout" ref={layoutRef}>
-      {header}
+  const propertiesToggle = (
       <Tooltip
         asChild
-        content={propertiesOpen ? '关闭交易属性' : '打开交易属性'}
-        label={propertiesOpen ? '关闭交易属性' : '打开交易属性'}
+        content={expanded ? '关闭交易属性' : '打开交易属性'}
+        label={expanded ? '关闭交易属性' : '打开交易属性'}
       >
         <button
           type="button"
           className="trade-detail-properties-toggle"
           ref={toggleRef}
-          onClick={() => setPropertiesOpen((value) => !value)}
+          onClick={() => compact
+            ? setPropertiesOpen((value) => !value)
+            : setDisplay({ detailPropertiesVisible: !propertiesVisible })}
           aria-controls={propertiesId}
-          aria-expanded={propertiesOpen}
-          aria-label={propertiesOpen ? '关闭交易属性' : '打开交易属性'}
+          aria-expanded={expanded}
+          aria-label={expanded ? '关闭交易属性' : '打开交易属性'}
         >
-          {propertiesOpen ? <X size={ICON_MD} /> : <PanelRight size={ICON_MD} />}
+          <PanelRight size={ICON_MD} />
+          <span>属性</span>
         </button>
       </Tooltip>
+  )
+
+  return (
+    <div className={'trade-detail-layout' + (!compact && !propertiesVisible ? ' is-properties-hidden' : '')} ref={layoutRef}>
+      {header(propertiesToggle)}
       <div className="dv-body">
         <section className="dv-main" aria-label="交易详情">{content}</section>
         {propertiesOpen && (

@@ -40,6 +40,7 @@ import {
   shouldResetWorkbenchHideClosed,
 } from '@/lib/workbenchEmptyState'
 import './BoardView.css'
+import { caseExcerpt } from '@/lib/caseExcerpt'
 
 const CARD_ESTIMATE = 118
 const CARD_GAP = 6
@@ -293,6 +294,7 @@ function BoardColumnBody({
         {virtualItems.map((virtualRow) => {
           const t = items[virtualRow.index]!
           const i = virtualRow.index
+          const excerpt = isReviewCaseView ? caseExcerpt(t.note) : ''
           const result = resolveTradeRowResultPresentation(
             t,
             legacyCashCurrencyAssumption,
@@ -401,6 +403,7 @@ function BoardColumnBody({
                     {result.r.text}
                   </span>
                 </div>
+                {excerpt ? <p className="bd-card-excerpt" title={excerpt}>{excerpt}</p> : null}
               </article>
             </div>
           )

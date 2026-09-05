@@ -265,7 +265,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
   {
     id: 'reviewSession.back',
-    label: '上一条',
+    label: '撤销上次评估并返回',
     category: '随机复盘',
     scope: 'reviewSession',
     defaultBinding: getDefaultShortcutBinding('reviewSession.back'),

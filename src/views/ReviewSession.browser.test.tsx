@@ -441,7 +441,7 @@ async function run(): Promise<void> {
     await waitFor(() => loadReviewSession(manifest.libraryId)?.cursor === 1, '无字段变化的重复评估仍必须推进队列')
     assert(useStore.getState().undoStack.length === undoCountBeforeNoOp, '无字段变化的评估不得伪造 UndoAction')
 
-    const backFromFinished = findButton('上一条')
+    const backFromFinished = findButton('撤销上次评估并返回')
     assert(backFromFinished, '完成页必须允许返回上一条 no-op 评估')
     backFromFinished.click()
     await waitFor(() => loadReviewSession(manifest.libraryId)?.cursor === 0, 'no-op 评估返回时没有恢复队列位置')

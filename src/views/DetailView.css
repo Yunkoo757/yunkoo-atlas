@@ -19,6 +19,16 @@
   align-items: center;
   gap: var(--space-control-gap);
   min-width: 0;
+  overflow: hidden;
+}
+.dv-tb-left > .dv-crumb {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dv-tb-left > .dv-back,
+.dv-tb-left > .dv-detail-crumb-actions {
+  flex-shrink: 0;
 }
 .dv-back {
   display: flex;
@@ -85,7 +95,7 @@
   align-items: center;
   gap: var(--space-control-gap);
   flex: 0 1 auto;
-  max-width: 58%;
+  max-width: none;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -174,11 +184,12 @@
   margin: 0;
 }
 .dv-review-toolbar {
-  display: flex;
+  display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sp-3);
-  margin: 0 0 var(--sp-4);
+  gap: var(--sp-2);
+  margin: 0;
 }
 .dv-review-state {
   display: inline-flex;

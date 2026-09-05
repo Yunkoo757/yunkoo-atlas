@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
+import { useShortcutStore } from '@/store/shortcutStore'
 import { DetailView } from '@/views/DetailView'
 import { getStorage } from '@/storage/bootstrap'
 import {
@@ -99,6 +100,7 @@ async function run(): Promise<void> {
   const rootElement = document.getElementById('root')
   assert(rootElement, '缺少测试挂载节点')
   const previous = useStore.getState()
+  const previousShortcuts = useShortcutStore.getState()
   let root = createRoot(rootElement)
   const storage = getStorage()
   const originalSaveAsset = storage.saveAsset.bind(storage)
@@ -121,14 +123,15 @@ async function run(): Promise<void> {
     assert(pendingState?.textContent?.trim() === '待复盘', '复盘状态没有独立显示为待复盘')
     assert(completionAction, '完成复盘操作未出现')
     assert(pendingToolbar.contains(completionAction), '完成复盘动作必须留在轻量工具行内')
-    assert(completionAction.classList.contains('ui-btn-primary') && completionAction.classList.contains('ui-btn-md'), '完成复盘必须使用中等尺寸主按钮')
+    assert(completionAction.classList.contains('ui-btn-primary'), '完成复盘必须使用主按钮')
+    assert(document.querySelector('.dv-topbar')?.contains(completionAction), '完成复盘必须在固定顶栏内随时可达')
     assert(!pendingState.contains(completionAction), '复盘状态与完成命令不得合并为同一节点')
     assert(document.querySelector('[aria-label="复盘正文"]'), '复盘正文编辑器缺少准确名称')
     assert(document.querySelector('[aria-label="补充追记"]'), '复盘追记输入框缺少准确名称')
     const detailMain = document.querySelector<HTMLElement>('.trade-detail-layout .dv-main')
     const detailProperties = document.querySelector<HTMLElement>('.trade-detail-layout .dv-props')
     assert(detailMain && detailProperties, '详情页缺少正文或属性区域')
-    if (window.innerWidth <= 1024) {
+    if (window.innerWidth <= 1200) {
       const propertiesToggle = document.querySelector<HTMLButtonElement>('button[aria-label="打开交易属性"]')
       assert(propertiesToggle && getComputedStyle(propertiesToggle).display !== 'none', '960px 紧凑桌面缺少属性抽屉入口')
       propertiesToggle.click()
@@ -141,6 +144,13 @@ async function run(): Promise<void> {
       assert(Math.abs(detailProperties.getBoundingClientRect().width - 336) < 1, '宽屏属性栏没有稳定为 336px')
       const dividerWidth = getComputedStyle(detailProperties).borderLeftWidth
       assert(Math.abs(Number.parseFloat(dividerWidth) - 1) < 0.1, `正文与属性栏缺少 1px 分隔线：${dividerWidth}`)
+      const beforeWidth = detailMain.getBoundingClientRect().width
+      document.querySelector<HTMLButtonElement>('button[aria-label="关闭交易属性"]')?.click()
+      await waitFor(() => getComputedStyle(detailProperties).display === 'none', '宽桌面属性栏无法收起')
+      assert(detailMain.getBoundingClientRect().width > beforeWidth + 300, '收起属性后没有把空间让给正文')
+      assert(useStore.getState().display.detailPropertiesVisible === false, '属性偏好没有保存到显示设置')
+      document.querySelector<HTMLButtonElement>('button[aria-label="打开交易属性"]')?.click()
+      await waitFor(() => getComputedStyle(detailProperties).display !== 'none', '属性栏无法重新展开')
     }
     findButton('完成复盘')?.click()
     await waitForFrame()
@@ -153,7 +163,11 @@ async function run(): Promise<void> {
 
     root.unmount()
     resetNoteDraftsForTests()
-    useStore.setState({ trades: [filledTrade] })
+    useStore.setState({ trades: [filledTrade, raceTrade] })
+    useShortcutStore.getState().setListContext({
+      listPath: '/list', listSearch: '', filter: { type: 'all', tradeKind: 'live' },
+      orderedIds: [filledTrade.id, raceTrade.id],
+    })
     root = createRoot(rootElement)
     root.render(
       <MemoryRouter initialEntries={['/trade/TRD-REVIEW-FILLED']}>
@@ -181,6 +195,8 @@ async function run(): Promise<void> {
       document.querySelector('.dv-review-complete-meta')?.textContent?.trim() === '已复盘',
       '已完成状态应收敛到顶部应用栏',
     )
+    const nextPending = findButton('下一条待复盘')
+    assert(nextPending && document.querySelector('.dv-topbar')?.contains(nextPending), '完成后缺少常驻下一条待复盘入口')
     document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')?.click()
     await waitFor(() => Boolean(findButton('重新复盘')), '更多菜单缺少重新复盘入口')
     findButton('重新复盘')?.click()
@@ -188,6 +204,11 @@ async function run(): Promise<void> {
       () => useStore.getState().trades[0]?.reviewStatus === 'unreviewed',
       '顶部菜单无法重新打开复盘',
     )
+    await waitFor(() => findButton('完成复盘')?.disabled === false, '重新复盘后完成操作不可用')
+    findButton('完成复盘')?.click()
+    await waitFor(() => Boolean(findButton('下一条待复盘')), '再次完成后下一条入口未恢复')
+    findButton('下一条待复盘')?.click()
+    await waitFor(() => document.querySelector('.dv-crumb-active')?.textContent === raceTrade.ref, '常驻入口未进入同范围下一条待复盘')
 
     root.unmount()
     resetNoteDraftsForTests()
@@ -229,7 +250,8 @@ async function run(): Promise<void> {
     root.unmount()
     storage.saveAsset = originalSaveAsset
     resetNoteDraftsForTests()
-    useStore.setState({ trades: previous.trades, strategies: previous.strategies })
+    useStore.setState({ trades: previous.trades, strategies: previous.strategies, display: previous.display })
+    useShortcutStore.setState(previousShortcuts, true)
   }
 }
 

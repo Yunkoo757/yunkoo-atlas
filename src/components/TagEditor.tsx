@@ -34,11 +34,11 @@ export function TagEditor({
 
   const matches = useMemo(() => {
     const q = value.trim().toLowerCase()
-    if (!q) return []
+    if (!q) return showPresets ? [] : suggestions.filter((s) => !tags.includes(s))
     return suggestions.filter(
       (s) => !tags.includes(s) && s.toLowerCase().includes(q),
     )
-  }, [value, suggestions, tags])
+  }, [value, suggestions, tags, showPresets])
 
   const showDropdown = editing && matches.length > 0
 
@@ -80,7 +80,7 @@ export function TagEditor({
     }
     if (e.key === 'Enter') {
       e.preventDefault()
-      if (showDropdown && matches[activeIdx]) {
+      if (value.trim() && showDropdown && matches[activeIdx]) {
         commit(matches[activeIdx])
       } else {
         commit()

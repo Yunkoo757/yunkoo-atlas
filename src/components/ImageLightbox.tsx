@@ -1,5 +1,5 @@
 import { ICON_2XL, ICON_MD, ICON_SM } from '@/icons/iconSize'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type SetStateAction } from 'react'
 import { ChevronLeft, ChevronRight, Maximize2, X } from '@/icons/appIcons'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useShortcutHint } from '@/shortcuts/useShortcutHint'
@@ -38,6 +38,9 @@ export function ImageLightbox() {
   const viewportRef = useRef<HTMLDivElement>(null)
   const closeTimerRef = useRef<number | null>(null)
   const [view, setView] = useState<LightboxView>(LIGHTBOX_VIEW_RESET)
+  const viewsRef = useRef(new Map<string, LightboxView>())
+  const imageSrc = lightbox?.images[lightbox.index]
+  const isVisible = Boolean(lightbox)
   const [imageLayout, setImageLayout] = useState<LightboxImageLayout | null>(null)
   const [transition, setTransition] = useState<LightboxTransition | null>(null)
   const [phase, setPhase] = useState<LightboxPhase>('pending')
@@ -71,14 +74,19 @@ export function ImageLightbox() {
       document.body.classList.remove('img-lightbox-open')
       previousFocusRef.current?.focus()
     }
-  }, [lightbox])
+  }, [isVisible])
+
+  useLayoutEffect(() => {
+    // 图片组或所属记录变化代表新的观察会话；仅切换索引时保留各图位置。
+    viewsRef.current.clear()
+  }, [lightbox?.images, lightbox?.ownerId])
 
   useEffect(() => {
     if (!lightbox) return
     return registerLightboxCloseHandler(requestClose)
   }, [lightbox, requestClose])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setView(LIGHTBOX_VIEW_RESET)
     setImageLayout(null)
     setTransition(null)
@@ -87,6 +95,14 @@ export function ImageLightbox() {
     suppressClickRef.current = false
     setDragging(false)
   }, [lightbox?.index, lightbox?.images])
+
+  const rememberView = useCallback((update: SetStateAction<LightboxView>) => {
+    setView((current) => {
+      const next = typeof update === 'function' ? update(current) : update
+      if (imageSrc) viewsRef.current.set(imageSrc, next)
+      return next
+    })
+  }, [imageSrc])
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -97,21 +113,21 @@ export function ImageLightbox() {
       const cx = rect.left + rect.width / 2
       const cy = rect.top + rect.height / 2
       const factor = event.deltaY < 0 ? LIGHTBOX_ZOOM_STEP : 1 / LIGHTBOX_ZOOM_STEP
-      setView((current) =>
+      rememberView((current) =>
         zoomLightboxAtCursor(current, event.clientX, event.clientY, cx, cy, factor),
       )
     }
     viewport.addEventListener('wheel', onWheelNative, { passive: false })
     return () => viewport.removeEventListener('wheel', onWheelNative)
-  }, [lightbox])
+  }, [lightbox, rememberView])
 
   const fitImage = useCallback(() => {
-    setView(imageLayout
+    rememberView(imageLayout
       ? { scale: imageLayout.fitScale, tx: 0, ty: 0 }
       : LIGHTBOX_VIEW_RESET)
-  }, [imageLayout])
+  }, [imageLayout, rememberView])
 
-  const showActualSize = useCallback(() => setView(LIGHTBOX_VIEW_RESET), [])
+  const showActualSize = useCallback(() => rememberView(LIGHTBOX_VIEW_RESET), [rememberView])
 
   const onImageLoad = useCallback((event: React.SyntheticEvent<HTMLImageElement>) => {
     const viewport = viewportRef.current
@@ -134,12 +150,12 @@ export function ImageLightbox() {
       height: fitHeight,
     }
     setImageLayout(layout)
-    setView({ scale: layout.fitScale, tx: 0, ty: 0 })
+    setView(viewsRef.current.get(imageSrc ?? '') ?? { scale: layout.fitScale, tx: 0, ty: 0 })
     setTransition(lightbox?.origin
       ? calculateLightboxTransition(lightbox.origin, target, layout.fitScale)
       : null)
     requestAnimationFrame(() => requestAnimationFrame(() => setPhase('open')))
-  }, [lightbox?.origin])
+  }, [lightbox?.origin, imageSrc])
 
   useEffect(() => {
     if (!lightbox) return
@@ -166,8 +182,8 @@ export function ImageLightbox() {
     const dx = event.clientX - drag.startX
     const dy = event.clientY - drag.startY
     if (Math.hypot(dx, dy) > 3) drag.moved = true
-    setView(panLightboxView(drag.origin, dx, dy))
-  }, [])
+    rememberView(panLightboxView(drag.origin, dx, dy))
+  }, [rememberView])
 
   const endDrag = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current
@@ -250,6 +266,7 @@ export function ImageLightbox() {
           <div className="img-lightbox-canvas" style={{ transform: lightboxViewTransform(view) }}>
             <div className="img-lightbox-transition" style={transitionStyle}>
               <img
+                key={src}
                 src={src}
                 alt=""
                 className={'img-lightbox-img' + (imageLayout ? ' is-ready' : '')}

@@ -612,7 +612,7 @@
 .review-session-summary { min-width: 0; gap: var(--space-control-gap); }
 
 .review-session-card-ref {
-  color: var(--text-quaternary);
+  color: var(--text-content-metadata);
   font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
   font-variant-numeric: var(--numeric-tabular);
@@ -664,6 +664,15 @@
   max-height: min(62vh, 720px);
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.review-session-reading-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-5) 0;
 }
 
 .review-session-content {
@@ -730,6 +739,14 @@ button.review-session-gallery-slot.is-ready {
 
 .review-session-gallery.is-multiple .review-session-gallery-slot {
   height: clamp(220px, 31vh, 360px);
+}
+
+.review-session-gallery.is-large {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.review-session-gallery.is-multiple.is-large .review-session-gallery-slot {
+  height: min(58vh, 620px);
 }
 
 .review-session-gallery button.is-ready:hover {
@@ -834,6 +851,7 @@ button.review-session-gallery-slot.is-ready {
 .review-session-assessment > div:first-child span { color: var(--text-tertiary); font-size: var(--type-metadata-size); }
 
 .review-session-assessment-actions {
+  flex-wrap: wrap;
   display: flex;
   align-items: stretch;
   justify-content: flex-end;

@@ -19,6 +19,7 @@ import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
 import { TradeRowLayout } from './TradeRowLayout'
 import { TradeRowStrategy } from './TradeRowStrategy'
+import { CaseContentPreview } from './CaseContentPreview'
 
 export type TradeRowProps = {
   trade: Trade
@@ -152,10 +153,24 @@ export const TradeRow = memo(function TradeRow({
       status={<StatusIcon status={trade.status} />}
       symbol={
         <>
-          <span className="trade-row-symbol-main">
-            <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_LG} quiet />
-            <strong>{trade.symbol}</strong>
-          </span>
+          {isCase ? (
+            <CaseContentPreview trade={trade}>
+              <button
+                type="button"
+                className="trade-row-symbol-main"
+                aria-label={`打开 ${trade.symbol} ${trade.ref}，悬停预览案例内容`}
+                onClick={() => onOpen(trade)}
+              >
+                <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_LG} quiet />
+                <strong>{trade.symbol}</strong>
+              </button>
+            </CaseContentPreview>
+          ) : (
+            <span className="trade-row-symbol-main">
+              <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_LG} quiet />
+              <strong>{trade.symbol}</strong>
+            </span>
+          )}
           <SideTag side={trade.side} quiet />
         </>
       }

@@ -54,7 +54,7 @@ function caseTrade(status: TradeStatus, index: number, currentLiveStageId: strin
     closedAt: status === 'planned' || status === 'open' ? null : '2026-08-24',
     closedTradingDayKey: status === 'planned' || status === 'open' ? undefined : '2026-08-24',
     liveStageId: currentLiveStageId,
-    note: '',
+    note: index === 1 ? '<h2>突破后等待回踩确认</h2><p>复盘正文</p>' : '',
   }
 }
 
@@ -101,6 +101,8 @@ async function run(): Promise<void> {
     assert(getComputedStyle(columns[1]!).borderLeftWidth === '1px', '相邻状态列应以轻分隔线建立结构')
     assert(cards.every((card) => card.getBoundingClientRect().width > 240), '案例卡片宽度不应因内外双层容器被过度压缩')
     assert(document.querySelectorAll('.bd-card-result').length === 5, '每张卡片应只保留一个列表同源结果值')
+    assert(document.querySelector('.bd-card-excerpt')?.textContent === '突破后等待回踩确认', '案例看板没有展示已有正文题眼')
+    assert(document.querySelectorAll('.bd-card-excerpt').length === 1, '无正文案例不应生成空摘要行')
     assert(!document.body.textContent?.includes('$350'), '看板不得重新引入列表已经移除的现金金额')
   } finally {
     if (!preview) {

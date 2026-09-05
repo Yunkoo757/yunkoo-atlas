@@ -1,5 +1,5 @@
 import { ICON_2XL, ICON_LG, ICON_MD, ICON_XL } from '@/icons/iconSize'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
@@ -26,6 +26,7 @@ import { Kbd } from '@/components/ui/Kbd'
 import { Menu } from '@/components/Menu'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Select } from '@/components/ui/Select'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { formatTradeCashPnl } from '@/lib/cashCurrency'
@@ -1271,7 +1272,7 @@ function ReviewSessionItem({
                   aria-keyshortcuts={backShortcut.hint ?? undefined}
                   onClick={onBack}
                 >
-                  上一条 {backShortcut.hint ? <Kbd>{backShortcut.hint}</Kbd> : null}
+                  撤销上次评估并返回 {backShortcut.hint ? <Kbd>{backShortcut.hint}</Kbd> : null}
                 </button>
               ) : null}
             </div>
@@ -1303,6 +1304,9 @@ function ReviewSessionItem({
 
 function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
   const presentation = useMemo(() => splitReviewNoteHtml(note.html), [note.html])
+  const [galleryLayout, setGalleryLayout] = useState<'large' | 'compare'>('compare')
+  const [showNotes, setShowNotes] = useState(true)
+  const notesId = useId()
   const [settledImages, setSettledImages] = useState<{
     tradeId: string | null
     status: 'idle' | 'loading' | 'ready'
@@ -1345,10 +1349,36 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
   }
 
   return (
-    <section className={`review-session-reading review-session-content${hasBody && presentation.images.length > 0 ? ' has-split-content' : ''}`} aria-label="完整复盘内容">
+    <>
+      {presentation.images.length > 0 && (presentation.images.length > 1 || hasBody) ? (
+        <div className="review-session-reading-controls" aria-label="阅读布局">
+          {presentation.images.length > 1 ? (
+            <SegmentedControl
+              label="截图布局"
+              value={galleryLayout}
+              onChange={setGalleryLayout}
+              options={[
+                { value: 'large', label: '单图大图' },
+                { value: 'compare', label: '两图对照' },
+              ]}
+            />
+          ) : null}
+          {hasBody ? (
+            <Button
+              size="sm"
+              aria-controls={notesId}
+              aria-expanded={showNotes}
+              onClick={() => setShowNotes((value) => !value)}
+            >
+              {showNotes ? '收起说明' : '显示说明'}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    <section className={`review-session-reading review-session-content${hasBody && showNotes && presentation.images.length > 0 ? ' has-split-content' : ''}`} aria-label="完整复盘内容">
       {presentation.images.length > 0 ? (
         <div
-          className={`review-session-gallery is-${presentation.images.length === 1 ? 'single' : 'multiple'}`}
+          className={`review-session-gallery is-${presentation.images.length === 1 ? 'single' : 'multiple'} is-${galleryLayout}`}
           aria-label={`交易截图，共 ${presentation.images.length} 张`}
           aria-busy={!imagesReady}
         >
@@ -1399,11 +1429,12 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
         </div>
       ) : null}
       {hasBody ? (
-        <div className="review-session-note-copy">
+        <div className="review-session-note-copy" id={notesId} hidden={presentation.images.length > 0 && !showNotes}>
           <Editor content={presentation.bodyHtml} onChange={() => {}} readOnly allowImages={false} ariaLabel="只读复盘笔记" />
         </div>
       ) : null}
     </section>
+    </>
   )
 }
 
@@ -1441,7 +1472,7 @@ function ReviewSessionFinished({
         <span><strong>{counts.skipped}</strong><small>跳过</small></span>
       </div>
       <div className="review-session-finished-actions">
-        <Button type="button" variant="bordered" onClick={onBack}><ChevronLeft size={ICON_MD} aria-hidden />上一条</Button>
+        <Button type="button" variant="bordered" onClick={onBack}><ChevronLeft size={ICON_MD} aria-hidden />撤销上次评估并返回</Button>
         <Button type="button" variant="primary" size="lg" onClick={onReshuffle}><RotateCcw size={ICON_MD} aria-hidden />再随机一轮</Button>
         <Button type="button" variant="bordered" onClick={onAdjust}><SlidersHorizontal size={ICON_MD} aria-hidden />重新设置</Button>
       </div>

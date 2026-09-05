@@ -1,0 +1,14 @@
+.case-content-preview p {
+  margin: var(--sp-3) 0 0;
+  color: var(--text-body);
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
+  overflow-wrap: anywhere;
+}
+
+.case-content-preview-meta {
+  display: block;
+  margin-top: var(--sp-2);
+  color: var(--text-content-metadata);
+  font-size: var(--type-metadata-size);
+}
