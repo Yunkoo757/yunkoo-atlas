@@ -14,7 +14,7 @@
 }
 
 .stage-ownership-back:hover { color: var(--accent-readable); }
-.stage-ownership-back:focus-visible { outline: var(--focus-ring-outline); outline-offset: 2px; }
+.stage-ownership-back:focus-visible { outline: none; outline-offset: 2px; }
 
 .stage-ownership-total {
   display: grid;

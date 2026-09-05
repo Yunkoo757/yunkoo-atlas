@@ -573,7 +573,7 @@
 .review-session-stage:focus-visible,
 .review-session-start:focus-visible,
 .review-session-finished:focus-visible {
-  outline: 2px solid var(--focus-ring-color);
+  outline: none;
   outline-offset: -4px;
 }
 

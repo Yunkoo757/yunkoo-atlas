@@ -258,17 +258,6 @@ export function DisplaySettingsPanel() {
           </section>
         ) : null}
 
-        <section className="display-settings-section">
-          <div className="display-settings-section-heading display-section-head">
-            <h2>交互反馈</h2>
-          </div>
-          <ToggleRow
-            label="显示键盘焦点高光"
-            description="使用 Tab 或键盘导航时，以轮廓标出当前控件。关闭后仍可使用全部键盘操作。"
-            checked={display.showKeyboardFocusRings}
-            onChange={(checked) => setDisplay({ showKeyboardFocusRings: checked })}
-          />
-        </section>
 
         <ChoiceSection
           title="列表密度"

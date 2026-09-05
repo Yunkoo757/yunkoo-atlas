@@ -1112,8 +1112,8 @@ export async function testFocusRingPreferenceFallsBackOnlyForInvalidNewFieldAcro
 
   const decodedInvalid = decodeCanonicalSnapshot(invalid, { version: SCHEMA_VERSION })
   assert(
-    decodedInvalid.display.showKeyboardFocusRings === false,
-    '中央 codec 必须把非法焦点高光偏好回退为 false，而不是拒绝整份快照',
+    !('showKeyboardFocusRings' in (decodedInvalid.display ?? {})),
+    '中央 codec 必须移除已废弃焦点偏好，而不是拒绝整份快照',
   )
 
   const jsonInvalid = parseImportJson(JSON.stringify({
@@ -1123,14 +1123,14 @@ export async function testFocusRingPreferenceFallsBackOnlyForInvalidNewFieldAcro
   }))
   assert(jsonInvalid.ok, '真实 JSON reader 必须接受仅新增焦点字段非法的快照')
   assert(
-    jsonInvalid.data.display?.showKeyboardFocusRings === false,
-    '真实 JSON reader 必须把非法焦点高光偏好回退为 false',
+    !('showKeyboardFocusRings' in (jsonInvalid.data.display ?? {})),
+    '真实 JSON reader 必须移除已废弃焦点偏好',
   )
 
   const webInvalid = await parseWebJournalArchive(buildWebJournalArchiveBlob(invalid, assets))
   assert(
-    webInvalid.snapshot.display?.showKeyboardFocusRings === false,
-    '真实网页日志 reader 必须把非法焦点高光偏好回退为 false',
+    !('showKeyboardFocusRings' in (webInvalid.snapshot.display ?? {})),
+    '真实网页日志 reader 必须移除已废弃焦点偏好',
   )
 
   const enabled = {
@@ -1138,7 +1138,7 @@ export async function testFocusRingPreferenceFallsBackOnlyForInvalidNewFieldAcro
     display: { ...fixture.display, showKeyboardFocusRings: true },
   }
   const decodedEnabled = decodeCanonicalSnapshot(enabled, { version: SCHEMA_VERSION })
-  assert(decodedEnabled.display.showKeyboardFocusRings === true, '中央 codec 必须保留 true')
+  assert(!('showKeyboardFocusRings' in (decodedEnabled.display ?? {})), '中央 codec 必须移除已废弃焦点偏好')
 
   const jsonEnabled = parseImportJson(JSON.stringify({
     version: SCHEMA_VERSION,
@@ -1146,10 +1146,10 @@ export async function testFocusRingPreferenceFallsBackOnlyForInvalidNewFieldAcro
     assets,
   }))
   assert(jsonEnabled.ok, '真实 JSON reader 必须接受 true 焦点高光偏好')
-  assert(jsonEnabled.data.display?.showKeyboardFocusRings === true, '真实 JSON reader 必须保留 true')
+  assert(!('showKeyboardFocusRings' in (jsonEnabled.data.display ?? {})), '真实 JSON reader 必须移除已废弃焦点偏好')
 
   const webEnabled = await parseWebJournalArchive(buildWebJournalArchiveBlob(enabled, assets))
-  assert(webEnabled.snapshot.display?.showKeyboardFocusRings === true, '真实网页日志 reader 必须保留 true')
+  assert(!('showKeyboardFocusRings' in (webEnabled.snapshot.display ?? {})), '真实网页日志 reader 必须移除已废弃焦点偏好')
 }
 
 export function testSnapshotCodecHasNoRuntimeOrPersistenceDependencies(): void {

@@ -8,24 +8,6 @@
   background: var(--surface-app);
 }
 
-.skip-link {
-  position: fixed;
-  z-index: var(--z-toast);
-  top: var(--sp-2);
-  left: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--radius-6);
-  color: var(--accent-text);
-  background: var(--accent);
-  text-decoration: none;
-  transform: translateY(calc(-100% - var(--sp-4)));
-  transition: transform var(--dur-fast) var(--ease-out);
-}
-
-.skip-link:focus-visible {
-  transform: translateY(0);
-}
-
 .ui-desktop-sidebar {
   display: contents;
 }

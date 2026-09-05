@@ -28,8 +28,7 @@
   border-color: var(--field-border-hover);
 }
 
-.ui-field-trigger[aria-expanded='true'],
-.ui-field-trigger:focus-visible {
+.ui-field-trigger[aria-expanded='true'] {
   outline: none;
   color: var(--text-primary);
   background: var(--field-bg-focus);
@@ -41,7 +40,7 @@
 }
 
 .ui-field-trigger:focus-visible:not([aria-expanded='true']) {
-  box-shadow: var(--focus-ring-shadow);
+  box-shadow: none;
 }
 
 .ui-field-trigger:disabled {

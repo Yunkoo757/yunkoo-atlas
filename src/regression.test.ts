@@ -590,6 +590,7 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'view.board': 'b',
     'trade.prev': 'q',
     'trade.next': 'e',
+    'trade.toggleProperties': 'tab',
     'trade.backToList': 'escape',
     'list.focusNext': 'e',
     'list.focusPrev': 'q',
@@ -2404,24 +2405,9 @@ export function testNormalizeDisplayPersistsSidebarRiskScopeSafely(): void {
   )
 }
 
-export function testNormalizeDisplayPersistsKeyboardFocusRingVisibilitySafely(): void {
-  assert(
-    DEFAULT_DISPLAY.showKeyboardFocusRings === false,
-    '新资料库必须默认关闭键盘焦点高光',
-  )
-  assert(
-    normalizeDisplay({}).showKeyboardFocusRings === false,
-    '旧资料库缺少键盘焦点高光字段时必须默认关闭',
-  )
-  assert(
-    normalizeDisplay({ showKeyboardFocusRings: true }).showKeyboardFocusRings === true,
-    '显式开启的键盘焦点高光必须持久化保留',
-  )
-  assert(
-    normalizeDisplay({ showKeyboardFocusRings: 'yes' } as unknown as Partial<DisplayPrefs>)
-      .showKeyboardFocusRings === false,
-    '非法键盘焦点高光值必须回退为关闭',
-  )
+export function testNormalizeDisplayDropsRemovedKeyboardFocusPreference(): void {
+  const legacy = { showKeyboardFocusRings: true } as unknown as Partial<DisplayPrefs>
+  assert(!('showKeyboardFocusRings' in normalizeDisplay(legacy)), '旧焦点高光偏好应被移除')
 }
 
 export function testNormalizeDisplayPersistsListRowDensitySafely(): void {

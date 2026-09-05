@@ -132,7 +132,7 @@ async function run(): Promise<void> {
     const detailProperties = document.querySelector<HTMLElement>('.trade-detail-layout .dv-props')
     assert(detailMain && detailProperties, '详情页缺少正文或属性区域')
     if (window.innerWidth <= 1200) {
-      const propertiesToggle = document.querySelector<HTMLButtonElement>('button[aria-label="打开交易属性"]')
+      const propertiesToggle = document.querySelector<HTMLButtonElement>('.trade-detail-properties-toggle[aria-expanded="false"]')
       assert(propertiesToggle && getComputedStyle(propertiesToggle).display !== 'none', '960px 紧凑桌面缺少属性抽屉入口')
       propertiesToggle.click()
       await waitFor(() => detailProperties.getAttribute('role') === 'dialog', '属性抽屉没有打开为模态面板')
@@ -145,11 +145,11 @@ async function run(): Promise<void> {
       const dividerWidth = getComputedStyle(detailProperties).borderLeftWidth
       assert(Math.abs(Number.parseFloat(dividerWidth) - 1) < 0.1, `正文与属性栏缺少 1px 分隔线：${dividerWidth}`)
       const beforeWidth = detailMain.getBoundingClientRect().width
-      document.querySelector<HTMLButtonElement>('button[aria-label="关闭交易属性"]')?.click()
+      document.querySelector<HTMLButtonElement>('.trade-detail-properties-toggle[aria-expanded="true"]')?.click()
       await waitFor(() => getComputedStyle(detailProperties).display === 'none', '宽桌面属性栏无法收起')
       assert(detailMain.getBoundingClientRect().width > beforeWidth + 300, '收起属性后没有把空间让给正文')
       assert(useStore.getState().display.detailPropertiesVisible === false, '属性偏好没有保存到显示设置')
-      document.querySelector<HTMLButtonElement>('button[aria-label="打开交易属性"]')?.click()
+      document.querySelector<HTMLButtonElement>('.trade-detail-properties-toggle[aria-expanded="false"]')?.click()
       await waitFor(() => getComputedStyle(detailProperties).display !== 'none', '属性栏无法重新展开')
     }
     findButton('完成复盘')?.click()

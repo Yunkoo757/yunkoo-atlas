@@ -299,10 +299,8 @@
   pointer-events: none;
   background: transparent;
   border-radius: var(--radius-8);
-  box-shadow: inset 0 0 0 transparent;
-  transition:
-    background-color var(--motion-state),
-    box-shadow var(--motion-state);
+  box-shadow: none;
+  transition: background-color var(--motion-state);
 }
 
 .trade-row-open {
@@ -339,10 +337,6 @@
   background: transparent;
 }
 
-html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
-  background: var(--surface-row-hover);
-  box-shadow: inset 0 0 0 1px var(--list-row-focus-border);
-}
 
 .trade-row-open:focus-visible {
   outline: none;
@@ -520,7 +514,7 @@ html[data-keyboard-navigation='true'] .trade-row:focus-within::after {
   color: var(--list-text-primary);
   background: var(--bg-hover);
   border-color: var(--list-interactive-border-hover);
-  box-shadow: var(--focus-ring-shadow);
+  box-shadow: none;
 }
 
 .trade-row-strategy .strategy-label {

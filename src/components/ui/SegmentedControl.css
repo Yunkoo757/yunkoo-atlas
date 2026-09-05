@@ -50,7 +50,7 @@
 }
 
 .ui-segmented-option:focus-visible {
-  outline: var(--focus-ring-outline);
+  outline: none;
   outline-offset: 1px;
 }
 

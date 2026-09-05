@@ -25,7 +25,7 @@ export function testBindingOverwriteClearsConflictingAction(): void {
   if ('error' in result) return
   assert(result.patch['image.reset'] === shared, '应写入新绑定')
   assert(result.patch['image.close'] === null, '应清空冲突方绑定')
-  assert(result.clearedLabels.includes(other!.label), '应记录被覆盖动作名称')
+  assert(result.clearedLabels.includes(`图片查看器 · ${other!.label}`), '应记录被覆盖动作所属范围和名称')
 
   const nextBindings = { ...bindings, ...result.patch }
   assert(resolveBinding('image.reset', nextBindings) !== null, 'reset 应生效')
@@ -56,4 +56,17 @@ export function testBindingConflictsIgnoreDifferentScopes(): void {
     !conflicts.some((item) => item.id === 'trade.prev'),
     '详情与列表分属不同作用域时，复用 q 不得互相覆盖',
   )
+}
+
+export function testPageBindingsConflictWithGlobalButNotOtherPages(): void {
+  const tab = { key: 'tab' }
+  const conflicts = findBindingConflicts('trade.toggleProperties', tab, {
+    'list.focusNext': tab,
+    'reviewSession.skip': tab,
+    'global.newTrade': tab,
+    'nav.list': tab,
+  })
+  assert(conflicts.some((item) => item.id === 'global.newTrade'), '详情与全局同时生效，应提示冲突')
+  assert(conflicts.some((item) => item.id === 'nav.list'), '详情与全局导航同时生效，应提示冲突')
+  assert(!conflicts.some((item) => item.id === 'list.focusNext' || item.id === 'reviewSession.skip'), '互斥页面的绑定不得相互覆盖')
 }

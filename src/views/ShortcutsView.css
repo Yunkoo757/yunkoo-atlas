@@ -225,7 +225,7 @@ button.shortcuts-capture[aria-pressed='true'] {
 }
 
 button.shortcuts-capture:focus-visible:not([aria-pressed='true']) {
-  box-shadow: var(--focus-ring-shadow);
+  box-shadow: none;
 }
 
 button.shortcuts-capture[aria-pressed='true'] {
@@ -344,7 +344,7 @@ button.shortcuts-capture[aria-pressed='true'] {
 }
 
 .shortcuts-action:focus-visible {
-  outline: 1px solid var(--focus-ring-color);
+  outline: none;
   outline-offset: 1px;
 }
 

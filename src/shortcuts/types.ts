@@ -12,6 +12,7 @@ export type ShortcutBinding = KeyChord | KeyChord[]
 export type ShortcutScope =
   | 'global'
   | 'navigation'
+  | 'list'
   | 'detail'
   | 'reviewSession'
   | 'lightbox'

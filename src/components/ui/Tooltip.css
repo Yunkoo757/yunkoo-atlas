@@ -7,7 +7,7 @@
 }
 
 .ui-tooltip-trigger:focus-visible {
-  outline: 1px solid var(--focus-ring-color);
+  outline: none;
   outline-offset: 2px;
   border-radius: var(--radius-full);
 }

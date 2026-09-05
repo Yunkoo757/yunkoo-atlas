@@ -50,7 +50,6 @@ export function createElectronQaSeedSnapshot(): PersistedSnapshot {
       sortBy: 'date',
       sortDirection: 'desc',
       privacyMode: false,
-      showKeyboardFocusRings: false,
       listRowDensity: 'compact',
       tradingDayStartHour: 6,
       sidebarPins: [],

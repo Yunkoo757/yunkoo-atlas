@@ -108,11 +108,8 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   if (/box-shadow:\s*inset\s+(?:var\([^)]*\)|\d+px)\s+0\s+0/.test(list)) {
     throw new Error('focused rows must not render a detached leading rail')
   }
-  if (
-    !list.includes("html[data-keyboard-navigation='true'] .trade-row:focus-within::after")
-    || !list.includes('box-shadow: inset 0 0 0 1px')
-  ) {
-    throw new Error('keyboard-focused rows must render one complete inset outline')
+  if (list.includes("html[data-keyboard-navigation='true']")) {
+    throw new Error('removed keyboard focus highlights must not return')
   }
   if (!list.includes('font-feature-settings: "calt" 1, "cpsp" 1, "tnum" 1')) {
     throw new Error('trade references must preserve the calibrated Inter OpenType features')

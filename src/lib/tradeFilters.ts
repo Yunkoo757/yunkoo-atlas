@@ -77,8 +77,6 @@ export interface DisplayPrefs {
   sortDirection: 'asc' | 'desc'
   /** 直播/演示时隐藏所有现金盈亏与权益金额。 */
   privacyMode: boolean
-  /** 是否显示键盘焦点高光。 */
-  showKeyboardFocusRings: boolean
   /** 交易日志与案例库的桌面列表行距。 */
   listRowDensity: ListRowDensity
   /**
@@ -113,7 +111,6 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
   sortBy: DEFAULT_PROFILE_DISPLAY.sortBy,
   sortDirection: DEFAULT_PROFILE_DISPLAY.sortDirection,
   privacyMode: false,
-  showKeyboardFocusRings: false,
   listRowDensity: 'compact',
   tradingDayStartHour: DEFAULT_TRADING_DAY_START_HOUR,
   sidebarRiskScope: 'day',
@@ -198,10 +195,6 @@ export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayP
     sortDirection,
     privacyMode:
       typeof d.privacyMode === 'boolean' ? d.privacyMode : DEFAULT_DISPLAY.privacyMode,
-    showKeyboardFocusRings:
-      typeof d.showKeyboardFocusRings === 'boolean'
-        ? d.showKeyboardFocusRings
-        : DEFAULT_DISPLAY.showKeyboardFocusRings,
     listRowDensity: LIST_ROW_DENSITIES.includes(d.listRowDensity as ListRowDensity)
       ? d.listRowDensity as ListRowDensity
       : DEFAULT_DISPLAY.listRowDensity,

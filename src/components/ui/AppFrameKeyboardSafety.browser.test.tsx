@@ -23,9 +23,6 @@ async function run() {
   const root = createRoot(element)
 
   try {
-    useStore.setState((state) => ({
-      display: { ...state.display, showKeyboardFocusRings: false },
-    }))
     root.render(
       <AppFrame sidebar={<div />}>
         <button type="button" data-keyboard-target>键盘目标</button>
@@ -43,8 +40,8 @@ async function run() {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }))
       target.focus()
     }
-    assert(document.documentElement.dataset.keyboardNavigation === 'true', 'Tab 必须进入键盘导航状态')
-    assert(getComputedStyle(target).outlineStyle !== 'none', '关闭增强高光时，真实键盘导航仍须显示基础定位线')
+    assert(document.documentElement.dataset.keyboardNavigation === undefined, 'Tab 不得创建键盘导航状态')
+    assert(getComputedStyle(target).outlineStyle === 'none', '键盘操作不得显示定位线')
 
     document.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
     target.blur()

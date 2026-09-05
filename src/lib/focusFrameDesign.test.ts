@@ -1,15 +1,7 @@
-function assert(condition: unknown, message: string): void {
-  if (!condition) throw new Error(message)
-}
-
-export async function testInteractiveControlsExposeVisibleKeyboardFocus(): Promise<void> {
+export async function testRemovedKeyboardFocusHasNoRuntimeOrSetting(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const tokens = await fs.readFile('src/styles/tokens.css', 'utf8')
-
-  assert(
-    !tokens.includes('--focus-ring-color: transparent;') &&
-      !tokens.includes('--focus-ring-outline: none;') &&
-      !tokens.includes('--focus-ring-width: 0;'),
-    '键盘焦点令牌必须提供可见的颜色、轮廓和宽度',
-  )
+  for (const path of ['src/components/ui/AppFrame.tsx', 'src/views/settings/DisplaySettingsPanel.tsx', 'src/lib/tradeFilters.ts']) {
+    const source = await fs.readFile(path, 'utf8')
+    if (/showKeyboardFocusRings|keyboardNavigation|keyboardFocusRings/.test(source)) throw new Error(`${path} 残留焦点高光功能`)
+  }
 }

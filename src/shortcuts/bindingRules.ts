@@ -1,6 +1,18 @@
 import { getActionMeta, SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import { bindingKey } from '@/shortcuts/chords'
-import type { ShortcutBinding } from '@/shortcuts/types'
+import type { ShortcutBinding, ShortcutScope } from '@/shortcuts/types'
+
+export const SHORTCUT_SCOPE_LABELS: Record<ShortcutScope, string> = {
+  global: '全局', navigation: '全局导航', list: '列表 / 看板',
+  detail: '交易 / 案例详情', reviewSession: '随机复盘', lightbox: '图片查看器', overlay: '弹层',
+}
+
+/** 页面之间可复用按键；全局与导航始终与普通页面同时生效。 */
+export function shortcutScopesOverlap(a: ShortcutScope, b: ShortcutScope): boolean {
+  if (a === b) return true
+  if (a === 'lightbox' || b === 'lightbox' || a === 'overlay' || b === 'overlay') return false
+  return a === 'global' || b === 'global' || a === 'navigation' || b === 'navigation'
+}
 
 export function resolveBinding(
   id: string,
@@ -20,13 +32,13 @@ export function findBindingConflicts(
   const conflicts: Array<{ id: string; label: string; sequenceFixed?: boolean }> = []
   for (const action of SHORTCUT_ACTIONS) {
     if (action.id === actionId) continue
-    if (targetScope && action.scope !== targetScope) continue
+    if (targetScope && !shortcutScopesOverlap(action.scope, targetScope)) continue
     const other = resolveBinding(action.id, bindings)
     if (!other) continue
     if (bindingKey(other) === key) {
       conflicts.push({
         id: action.id,
-        label: action.label,
+        label: `${SHORTCUT_SCOPE_LABELS[action.scope]} · ${action.label}`,
         sequenceFixed: action.sequenceFixed,
       })
     }

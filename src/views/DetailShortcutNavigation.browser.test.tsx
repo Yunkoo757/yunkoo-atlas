@@ -155,6 +155,22 @@ async function run(): Promise<void> {
       '初始案例正文未载入',
     )
     assert(!document.querySelector('.dv-copy-id'), '案例正文右侧不得显示复制编号按钮')
+    const propertiesToggle = document.querySelector<HTMLButtonElement>('.trade-detail-properties-toggle')!
+    assert(propertiesToggle.getAttribute('aria-keyshortcuts')?.toLowerCase() === 'tab', '属性入口应显示当前 Tab 绑定')
+    const wasExpanded = propertiesToggle.getAttribute('aria-expanded')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }))
+    await waitFor(() => propertiesToggle.getAttribute('aria-expanded') !== wasExpanded, 'Tab 未切换属性栏')
+    if (window.innerWidth <= 1200) {
+      const closeProperties = document.querySelector<HTMLButtonElement>('.trade-detail-properties-close')!
+      const tabInDrawer = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+      closeProperties.dispatchEvent(tabInDrawer)
+      await waitForFrame()
+      assert(propertiesToggle.getAttribute('aria-expanded') === 'true', '属性抽屉内 Tab 不得关闭抽屉')
+      closeProperties.click()
+    } else {
+      propertiesToggle.click()
+    }
+    await waitFor(() => propertiesToggle.getAttribute('aria-expanded') === wasExpanded, '属性栏初始状态未恢复')
     document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')?.click()
     await waitFor(() => Boolean(findButton('复制编号')), '更多菜单缺少复制编号')
     assert(findButton('复制案例'), '案例详情更多菜单缺少复制案例')

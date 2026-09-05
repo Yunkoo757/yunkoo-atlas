@@ -41,9 +41,8 @@ export async function testTradeListGroupTogglePreservesInteractionContract(): Pr
     if (css.includes(forbidden)) throw new Error(`不得恢复整行高亮：${forbidden}`)
   }
   assert(
-    css.includes("html[data-keyboard-navigation='true'] .trade-row:focus-within::after") &&
-      css.includes('box-shadow: inset 0 0 0 1px'),
-    '只有真实键盘导航才可使用完整的行内焦点框，程序返回定位不得留下短线',
+    !css.includes("html[data-keyboard-navigation='true'] .trade-row:focus-within::after"),
+    '不得保留键盘导航行内焦点框',
   )
 }
 
@@ -157,7 +156,6 @@ export async function testTradeListNeutralStatesConsumeNamedTokens(): Promise<vo
   for (const token of [
     '--list-group-chevron-collapsed-opacity:',
     '--group-add-active-bg:',
-    '--list-row-focus-border:',
   ]) {
     assert(tokens.includes(token), `交易列表中性状态必须由全局语义令牌定义：${token}`)
   }
@@ -170,8 +168,8 @@ export async function testTradeListNeutralStatesConsumeNamedTokens(): Promise<vo
     '分组新增按钮按下态必须消费专用表面令牌',
   )
   assert(
-    css.includes('box-shadow: inset 0 0 0 1px var(--list-row-focus-border);'),
-    '交易行键盘焦点框必须消费专用边框令牌',
+    !css.includes('box-shadow: inset 0 0 0 1px var(--list-row-focus-border);'),
+    '交易行不得保留焦点描边',
   )
   assert(
     !/color-mix\([^;]+(?:--trade-group-chevron|--group-add-hover-bg|--focus-ring-color)[^;]+\)/.test(css),

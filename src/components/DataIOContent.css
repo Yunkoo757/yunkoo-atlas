@@ -167,7 +167,7 @@
 .data-attention-row.is-danger strong { color: var(--neg); }
 .data-attention-action { color: var(--text-secondary); font-size: var(--type-metadata-size); }
 .data-attention-row:hover .data-attention-action { color: var(--accent-readable); }
-.data-attention-row:focus-visible { outline: var(--focus-ring-outline); outline-offset: 2px; }
+.data-attention-row:focus-visible { outline: none; outline-offset: 2px; }
 
 .data-refresh-action { margin-top: var(--sp-3); }
 
@@ -208,7 +208,7 @@
   cursor: pointer;
 }
 .dio-disclosure > summary:focus-visible {
-  outline: var(--focus-ring-outline);
+  outline: none;
   outline-offset: 2px;
 }
 .dio-disclosure[open] > summary { border-bottom: 1px solid var(--border-subtle); }

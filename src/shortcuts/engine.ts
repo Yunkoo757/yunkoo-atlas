@@ -35,6 +35,7 @@ const SCOPE_PRIORITY: Record<ShortcutScope, number> = {
   lightbox: 100,
   overlay: 90,
   detail: 50,
+  list: 50,
   reviewSession: 50,
   navigation: 30,
   global: 10,
@@ -88,6 +89,7 @@ function getActiveScopes(pathname?: string): Set<ShortcutScope> {
   if (cmdkOpen || modalOpen || composerOpen || closeTradeRequest) scopes.add('overlay')
 
   if (p) {
+    if (/^\/(?:list|board|active|favorites|missed|period|strategy|review-cases|sim|today-record|live-history|trade-trash|trash)(?:\/|$)/.test(p)) scopes.add('list')
     if (p.startsWith('/trade/')) scopes.add('detail')
     if (p === '/review-session') scopes.add('reviewSession')
   }
@@ -147,6 +149,10 @@ function findChordMatch(e: KeyboardEvent, pathname?: string): string | null {
     const binding = resolveBinding(action.id, bindings)
     if (!binding || isSequence(binding)) continue
     if (typing && !meta.allowWhenTyping) continue
+    // 属性抽屉、菜单、原生选择框内继续使用 Tab 导航控件。
+    if (meta.id === 'trade.toggleProperties' && (lightbox || (e.target as HTMLElement | null)?.closest?.(
+      '[role="dialog"], [role="menu"], [role="listbox"], [role="combobox"], select',
+    ))) continue
 
     if (meta.id === 'global.closeOverlay') {
       if (!lightbox && !cmdkOpen && !modalOpen && !composerOpen && !closeTradeRequest) continue

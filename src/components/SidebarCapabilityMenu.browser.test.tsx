@@ -284,7 +284,7 @@ async function run(): Promise<void> {
     await frame()
     assert(getComputedStyle(primary).outlineStyle === 'none', '主导航不得使用会被侧栏裁切的外扩 outline')
     assert(getComputedStyle(primary).boxShadow === 'none', '可排序导航的内部链接不得只绘制半截焦点框')
-    assert(getComputedStyle(activePrimaryRow).boxShadow !== 'none', '键盘焦点必须覆盖完整导航行')
+    assert(getComputedStyle(activePrimaryRow).boxShadow === 'none', '导航行不得保留键盘焦点边框')
     assert(
       activePrimaryRow.getBoundingClientRect().width > primary.getBoundingClientRect().width,
       '焦点回归 fixture 必须覆盖带右侧能力菜单的整行导航',

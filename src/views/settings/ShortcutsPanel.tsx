@@ -4,6 +4,7 @@ import { Ban, LockKeyhole, RotateCcw } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import type { WindowHotkeyState } from '@/lib/windowHotkeyBinding'
 import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
+import { SHORTCUT_SCOPE_LABELS } from '@/shortcuts/bindingRules'
 import { formatBinding } from '@/shortcuts/format'
 import { chordFromEvent, chordKey, chordsEqual, isSequence, parseChordKey } from '@/shortcuts/chords'
 import type { KeyChord } from '@/shortcuts/types'
@@ -134,6 +135,7 @@ export function ShortcutsPanel() {
           恢复全部默认
         </button>
       </div>
+      <p className="settings-page-desc">不同页面可以复用按键；全局快捷键与页面快捷键重叠时会提示覆盖。详情页 Tab 切换属性栏，输入框、编辑器和弹窗内保留原有 Tab 行为。</p>
       {isElectron ? <WindowHotkeySetting onStateChange={setWindowHotkeyState} /> : null}
       {categories.map(([category, actions]) => (
         <section key={category} className="shortcuts-section">
@@ -149,7 +151,7 @@ export function ShortcutsPanel() {
                   key={action.id}
                   className={`shortcuts-row${isRecording ? ' is-recording' : ''}`}
                 >
-                  <span className="shortcuts-label">{action.label}</span>
+                  <span className="shortcuts-label" title={`生效范围：${SHORTCUT_SCOPE_LABELS[action.scope]}`}>{action.label}</span>
                   <div className="shortcuts-row-controls">
                     {action.sequenceFixed ? (
                       <Tooltip

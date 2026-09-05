@@ -1,8 +1,10 @@
 import { ICON_MD } from '@/icons/iconSize'
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { PanelRight, X } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
+import { registerShortcutHandlers } from '@/shortcuts/engine'
+import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import './TradeDetailLayout.css'
 
 export function TradeDetailLayout({
@@ -25,6 +27,15 @@ export function TradeDetailLayout({
   const toggleRef = useRef<HTMLButtonElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const restoreFocusRef = useRef(false)
+
+  const toggleProperties = useCallback(() => {
+    if (compact) setPropertiesOpen((value) => !value)
+    else setDisplay({ detailPropertiesVisible: !propertiesVisible })
+  }, [compact, propertiesVisible, setDisplay])
+
+  useEffect(() => registerShortcutHandlers({
+    'trade.toggleProperties': toggleProperties,
+  }), [toggleProperties])
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 1200px)')
@@ -117,18 +128,15 @@ export function TradeDetailLayout({
   }
 
   const propertiesToggle = (
-      <Tooltip
-        asChild
-        content={expanded ? '关闭交易属性' : '打开交易属性'}
+      <ShortcutTooltip
+        actionId="trade.toggleProperties"
         label={expanded ? '关闭交易属性' : '打开交易属性'}
       >
         <button
           type="button"
           className="trade-detail-properties-toggle"
           ref={toggleRef}
-          onClick={() => compact
-            ? setPropertiesOpen((value) => !value)
-            : setDisplay({ detailPropertiesVisible: !propertiesVisible })}
+          onClick={toggleProperties}
           aria-controls={propertiesId}
           aria-expanded={expanded}
           aria-label={expanded ? '关闭交易属性' : '打开交易属性'}
@@ -136,7 +144,7 @@ export function TradeDetailLayout({
           <PanelRight size={ICON_MD} />
           <span>属性</span>
         </button>
-      </Tooltip>
+      </ShortcutTooltip>
   )
 
   return (

@@ -70,6 +70,7 @@
     "view.board": { "key": "b" },
     "trade.prev": { "key": "q" },
     "trade.next": { "key": "e" },
+    "trade.toggleProperties": { "key": "tab" },
     "trade.backToList": { "key": "escape" },
     "list.focusNext": { "key": "e" },
     "list.focusPrev": { "key": "q" },

@@ -81,8 +81,8 @@
 .risk-repair-complete strong { color: var(--pos); font-size: var(--type-row-size); }
 .risk-repair-complete span { color: var(--text-muted); font-size: var(--type-metadata-size); }
 
-.risk-repair-group-toggle:focus-visible { outline: var(--focus-ring-outline); outline-offset: 2px; }
-.risk-repair-action:focus-visible { outline: var(--focus-ring-outline); outline-offset: 2px; }
+.risk-repair-group-toggle:focus-visible { outline: none; outline-offset: 2px; }
+.risk-repair-action:focus-visible { outline: none; outline-offset: 2px; }
 
 @media (max-width: 1099px) {
   .risk-repair-hero,

@@ -38,12 +38,6 @@
   /* 高密度列表只保留方向辨识，不让多空与最终结果争夺注意力。 */
   --direction-list-long: lch(60% 8 225);
   --direction-list-short: lch(60% 8 305);
-  /* 仅在键盘 focus-visible 时显示，确保深色界面中的当前位置可辨认。 */
-  --focus-ring-color: color-mix(in srgb, var(--accent) 78%, white);
-  --focus-ring-width: 2px;
-  --focus-ring-outline: var(--focus-ring-width) solid var(--focus-ring-color);
-  --focus-ring-shadow: 0 0 0 var(--focus-ring-width)
-    color-mix(in srgb, var(--accent) 18%, transparent);
 
   /* —— 全局浮层层级 —— */
   --z-local-base: 0;
@@ -267,7 +261,6 @@
   --list-text-context: var(--text-content-context);
   --list-group-title: var(--text-primary);
   --list-group-chevron-collapsed-opacity: 0.72;
-  --list-row-focus-border: lch(30.2432% 20.089 283.945);
   --list-status-opacity-rest: 0.72;
   --list-status-opacity-active: 0.92;
   --list-interactive-border-rest: color-mix(in srgb, var(--list-text-secondary) 6%, transparent);
