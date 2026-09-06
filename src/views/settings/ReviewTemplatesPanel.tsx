@@ -52,7 +52,7 @@ export function ReviewTemplatesPanel() {
         <div>
           <h1 className="settings-page-title">复盘起稿</h1>
         </div>
-        <button type="button" className="dio-btn dio-btn-primary" onClick={handleAdd}>
+        <button type="button" className="dio-btn" onClick={handleAdd}>
           <Plus size={ICON_SM} aria-hidden />
           新建模板
         </button>

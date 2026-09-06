@@ -70,6 +70,13 @@ async function run(): Promise<void> {
 
     retry.click()
     await waitFor(() => useSaveStatus.getState().status === 'saved', '点击重试后没有完成保存')
+    root.render(<MemoryRouter><SaveStatusIndicator quiet /></MemoryRouter>)
+    await waitFor(() => rootElement.childElementCount === 0, '详情页成功保存不应显示提示或占位')
+    useSaveStatus.getState().setSaving()
+    await waitFor(() => Boolean(document.querySelector('.save-status.is-saving')), '安静模式仍需呈现保存中状态')
+    useSaveStatus.getState().setError(new Error('disk full'))
+    await waitFor(() => Boolean(document.querySelector('button[aria-label*="disk full"]')), '安静模式不得隐藏保存失败与重试入口')
+
   } finally {
     root.unmount()
     disablePersistWrites()

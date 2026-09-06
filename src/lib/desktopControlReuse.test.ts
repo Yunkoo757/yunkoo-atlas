@@ -13,7 +13,7 @@ export function testLowRiskDesktopActionsReuseSharedControls(): void {
   if (!empty.includes("import { Button } from '@/components/ui/Button'")) {
     throw new Error('工作台空状态主操作必须复用 Button')
   }
-  if (!/<Button[\s\S]*?variant="primary"[\s\S]*?workbench-empty-primary/.test(empty)) {
+  if (!empty.includes("variant={create ? 'primary' : 'bordered'}")) {
     throw new Error('工作台空状态主操作必须保留 primary 语义')
   }
   if (!weekly.includes("import { IconButton } from '@/components/ui/IconButton'")) {
@@ -24,13 +24,8 @@ export function testLowRiskDesktopActionsReuseSharedControls(): void {
       throw new Error(`周复盘缺少共享图标按钮：${label}`)
     }
   }
-  for (const contract of [
-    'border: 1px solid var(--surface-control-border)',
-    'background: var(--surface-control)',
-    'box-shadow: var(--surface-control-shadow-active)',
-  ]) {
-    if (!weeklyCss.includes(contract)) {
-      throw new Error(`周复盘分段切换必须复用共享控件 token：${contract}`)
-    }
+  if (!weekly.includes('<SegmentedControl<WeeklyReviewTab>') || weeklyCss.includes('.wr-tab-switch button')) {
+    throw new Error('周复盘页签必须复用公共分段控件并保留 tablist 语义')
   }
+
 }

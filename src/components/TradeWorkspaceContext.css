@@ -79,7 +79,7 @@
   border-radius: var(--radius-full);
   color: var(--list-text-secondary);
   background: var(--surface-control);
-  box-shadow: var(--surface-control-shadow);
+  box-shadow: none;
   font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
@@ -110,7 +110,7 @@
   color: var(--list-text-strong);
   border-color: var(--surface-control-border-active);
   background: var(--surface-control-hover);
-  box-shadow: var(--surface-control-shadow-active);
+  box-shadow: none;
 }
 
 .trade-workspace-scope-trigger.is-open > svg {

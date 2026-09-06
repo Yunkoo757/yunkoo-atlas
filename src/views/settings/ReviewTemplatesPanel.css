@@ -18,8 +18,8 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-6);
-  margin-bottom: 18px;
-  padding: 14px 0;
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-4) 0;
   border: 0;
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);

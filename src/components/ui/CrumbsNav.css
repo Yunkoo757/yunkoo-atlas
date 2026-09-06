@@ -67,7 +67,9 @@
 
 .crumbs-label.is-active {
   color: var(--text-primary);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--type-toolbar-title-size);
+  font-weight: var(--type-toolbar-title-weight);
+  line-height: var(--type-toolbar-title-line-height);
 }
 
 .crumbs-sep {

@@ -18,7 +18,7 @@
 }
 
 .display-settings-section {
-  padding: 18px 0;
+  padding: var(--sp-4) 0;
   border-top: 1px solid var(--border-subtle);
 }
 

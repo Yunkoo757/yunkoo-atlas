@@ -40,6 +40,12 @@ async function run(): Promise<void> {
         <SaveStatusIndicator />
       </MemoryRouter>,
     )
+    useSaveStatus.getState().setSaving()
+    await wait(100)
+    assert(!rootElement.textContent?.includes('保存中'), '快速保存不应闪烁')
+    useSaveStatus.getState().setSaved()
+    await wait(100)
+    assert(!rootElement.textContent?.includes('已保存'), '自动保存成功应保持安静')
     useSaveStatus.getState().setDirty()
 
     await wait(100)

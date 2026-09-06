@@ -301,7 +301,7 @@
 }
 .db-chart {
   width: 100%;
-  max-width: 1200px;
+  max-width: 100%;
   margin: 0 auto;
   padding: 0 var(--sp-3) 18px;
   box-sizing: border-box;

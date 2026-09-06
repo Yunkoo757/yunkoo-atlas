@@ -5,6 +5,8 @@ export type SegmentedControlSize = 'sm' | 'md' | 'lg'
 
 export type SegmentedControlOption<T extends string> = Readonly<{
   value: T
+  id?: string
+  controls?: string
   label: string
   content?: ReactNode
   disabled?: boolean
@@ -18,6 +20,7 @@ export type SegmentedControlProps<T extends string> = Readonly<{
   onChange: (value: T) => void
   size?: SegmentedControlSize
   className?: string
+  role?: 'group' | 'tablist' | 'radiogroup'
 }>
 
 export function SegmentedControl<T extends string>({
@@ -27,6 +30,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   size = 'sm',
   className = '',
+  role = 'group',
 }: SegmentedControlProps<T>) {
   const move = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
@@ -50,7 +54,7 @@ export function SegmentedControl<T extends string>({
 
   return (
     <div
-      role="group"
+      role={role}
       aria-label={label}
       className={['ui-segmented', `ui-segmented-${size}`, className].filter(Boolean).join(' ')}
       onKeyDown={move}
@@ -64,7 +68,12 @@ export function SegmentedControl<T extends string>({
             className="ui-segmented-option"
             data-value={option.value}
             aria-label={option.label}
-            aria-pressed={selected}
+            id={option.id}
+            role={role === 'tablist' ? 'tab' : role === 'radiogroup' ? 'radio' : undefined}
+            aria-controls={option.controls}
+            aria-selected={role === 'tablist' ? selected : undefined}
+            aria-checked={role === 'radiogroup' ? selected : undefined}
+            aria-pressed={role === 'group' ? selected : undefined}
             disabled={option.disabled}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(option.value)}

@@ -18,9 +18,10 @@ export async function testSharedButtonsUseTheCanonicalControlSurfaceTokens(): Pr
   }
 
   assert(button.includes('var(--surface-control-border)'), 'bordered 按钮必须使用共享控件边框 token')
-  assert(button.includes('var(--surface-control-shadow-active)'), 'bordered 按钮必须使用共享激活层级 token')
+  assert(button.includes('border-color: var(--surface-control-border-active)'), 'bordered 悬停必须使用共享边框 token')
+  assert(!button.includes('var(--surface-control-shadow'), '实体边框按钮不得叠加外圈描边')
   assert(segmented.includes('var(--surface-control-active)'), '分段控件选中态必须使用共享激活表面')
-  assert(segmented.includes('var(--surface-control-shadow-active)'), '分段控件选中态必须有可辨识的边界')
+  assert(segmented.includes('inset 0 0 0 1px var(--surface-control-border-active)'), '分段控件选中态必须有可辨识的边界')
 }
 
 export async function testWorkspaceScopeDoesNotCreateAParallelButtonPalette(): Promise<void> {
@@ -32,7 +33,7 @@ export async function testWorkspaceScopeDoesNotCreateAParallelButtonPalette(): P
   assert(!css.includes('.trade-workspace-scope-kinds button'), '记录类型不得覆盖共享按钮视觉状态')
   assert(
     css.includes('border: 1px solid var(--surface-control-border);') &&
-      css.includes('box-shadow: var(--surface-control-shadow);'),
+      css.includes('box-shadow: none;'),
     '范围触发按钮必须使用共享控件表面与边框 token',
   )
 }

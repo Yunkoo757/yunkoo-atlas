@@ -19,6 +19,7 @@ import {
   BookOpen,
   AlertCircle,
   CheckCircle,
+  Check,
 } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import { Editor, type EditorChangeMeta } from '@/editor/Editor'
@@ -214,6 +215,7 @@ export function DetailView() {
             ? '已按平仓业务日计入'
             : '日期有效，结果暂未计入'
     : null
+  const [reviewToolsContainer, setReviewToolsContainer] = useState<HTMLDivElement | null>(null)
   const [comment, setComment] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
   const [feedExpanded, setFeedExpanded] = useState(false)
@@ -714,6 +716,101 @@ export function DetailView() {
     })
   }
 
+  const supplementaryProperties = [
+    { id: 'session', filled: Boolean(getSessionSelectValue(trade)), control: (
+            <Menu
+              value={getSessionSelectValue(trade)}
+              onSelect={(v) =>
+                updateTradeData(trade.id, {
+                  session: normalizeSession(v),
+                })
+              }
+              options={[
+                { value: '', label: '未设置' },
+                ...SESSION_PRESETS.map((preset) => ({
+                  value: preset.value,
+                  label: preset.label,
+                })),
+              ]}
+              trigger={
+                <PropTrigger label="交易时段">
+                  {getSessionSelectValue(trade) ? (
+                    <span
+                      className={
+                        'dv-prop-chip is-session is-' +
+                        (getTradeSessionMeta(trade)?.kind ?? 'other')
+                      }
+                    >
+                      {SESSION_PRESETS.find((p) => p.value === getSessionSelectValue(trade))
+                        ?.label ?? getSessionSelectValue(trade)}
+                    </span>
+                  ) : (
+                    <span className="dv-prop-empty">未设置</span>
+                  )}
+                </PropTrigger>
+              }
+            />
+    ) },
+    { id: 'psychology', filled: Boolean(trade.psychology), control: (
+            <Menu
+              value={trade.psychology ?? ''}
+              onSelect={(v) =>
+                updateTradeData(trade.id, {
+                  psychology: normalizePsychology(v),
+                })
+              }
+              options={[
+                { value: '', label: '未设置' },
+                ...PSYCHOLOGY_PRESETS.map((preset) => ({
+                  value: preset.value,
+                  label: preset.label,
+                })),
+              ]}
+              trigger={
+                <PropTrigger label="心理状态">
+                  {trade.psychology ? (
+                    <span className="dv-prop-chip is-neutral">
+                      {PSYCHOLOGY_PRESETS.find((p) => p.value === trade.psychology)?.label ??
+                        trade.psychology}
+                    </span>
+                  ) : (
+                    <span className="dv-prop-empty">未设置</span>
+                  )}
+                </PropTrigger>
+              }
+            />
+    ) },
+    { id: 'narrative', filled: Boolean(trade.narrative), control: (
+            <Menu
+              value={trade.narrative ?? ''}
+              onSelect={(v) =>
+                updateTradeData(trade.id, {
+                  narrative: normalizeNarrative(v),
+                })
+              }
+              options={[
+                { value: '', label: '未设置' },
+                ...NARRATIVE_PRESETS.map((preset) => ({
+                  value: preset.value,
+                  label: preset.label,
+                })),
+              ]}
+              trigger={
+                <PropTrigger label="市场叙事">
+                  {trade.narrative ? (
+                    <span className="dv-prop-chip is-neutral">
+                      {NARRATIVE_PRESETS.find((p) => p.value === trade.narrative)?.label ??
+                        trade.narrative}
+                    </span>
+                  ) : (
+                    <span className="dv-prop-empty">未设置</span>
+                  )}
+                </PropTrigger>
+              }
+            />
+    ) },
+  ]
+
   const favoriteButton = (
     <IconButton
       label={trade.tradeKind === 'case'
@@ -797,6 +894,24 @@ export function DetailView() {
     />
   )
 
+  const completionHint = reviewSubmitting ? null : reviewIssue ?? (
+    reviewReadiness.ready ? null : '完成前请留下结论、勾选检查项或加入截图证据'
+  )
+  const completionButton = (
+                <Button
+                  variant="bordered"
+                  size="sm"
+                  className="dv-review-complete-action"
+                  busy={reviewSubmitting}
+                  aria-label={reviewSubmitting ? '正在保存…' : '完成复盘'}
+                  disabled={activeNoteLoad.status !== 'ready' || !reviewReadiness.ready}
+                  onClick={() => void completeReview()}
+                >
+                  <Check size={ICON_SM} aria-hidden />
+                  {reviewSubmitting ? '正在保存…' : '完成复盘'}
+                </Button>
+  )
+
   return (
     <>
       <TradeDetailLayout
@@ -820,37 +935,16 @@ export function DetailView() {
           </div>
         </div>
         <div className="dv-tb-right">
+          <div className="dv-review-actions" role="group" aria-label="复盘状态与推进">
           {needsReview && !needsResult ? (
             <div className="dv-review-toolbar" aria-label="复盘状态与操作">
-              <span className="dv-review-state">待复盘</span>
-              <Tooltip
-                asChild
-                content={reviewSubmitting
-                  ? '正在保存…'
-                  : reviewIssue ?? (reviewReadiness.ready ? '完成复盘' : '完成前请留下结论、勾选检查项或加入截图证据')}
-                label={reviewSubmitting ? '正在保存…' : '完成复盘'}
-              >
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="dv-review-complete-action"
-                  busy={reviewSubmitting}
-                  aria-label={reviewSubmitting ? '正在保存…' : '完成复盘'}
-                  disabled={activeNoteLoad.status !== 'ready' || !reviewReadiness.ready}
-                  onClick={() => void completeReview()}
-                >
-                  <CheckCircle size={ICON_SM} aria-hidden />
-                  {reviewSubmitting ? '正在保存…' : '完成复盘'}
-                </Button>
-              </Tooltip>
+              {completionHint ? (
+                <Tooltip asChild content={completionHint} label="无法完成复盘">
+                  {completionButton}
+                </Tooltip>
+              ) : completionButton}
             </div>
           ) : null}
-          {nextPendingReviewId && (
-            <Button variant="primary" size="sm" onClick={() => navigateDetail(nextPendingReviewId)}>
-              下一条待复盘
-              <ChevronDown size={ICON_SM} aria-hidden />
-            </Button>
-          )}
           {reviewComplete && (
             <Tooltip
               asChild
@@ -863,7 +957,13 @@ export function DetailView() {
               </span>
             </Tooltip>
           )}
-          <SaveStatusIndicator />
+          {nextPendingReviewId && (
+            <Button variant="bordered" size="sm" onClick={() => navigateDetail(nextPendingReviewId)}>
+              下一条待复盘
+            </Button>
+          )}
+          </div>
+          <SaveStatusIndicator quiet />
           {detailNavigation && (
             <nav className="dv-detail-navigation" aria-label={`${detailUnit}导航`}>
               <span
@@ -908,6 +1008,15 @@ export function DetailView() {
                 {trade.symbol}
                 <SideTag side={trade.side} />
               </h1>
+            </div>
+            <div className="dv-reading-header">
+            <div className="dv-reading-context" aria-label="交易背景">
+              <span title={`记录日期：${trade.openedAt}`}>{fmtDate(trade.openedAt)}</span>
+              <span>{resolveTimeframe(trade.timeframe)}</span>
+              <span>{STATUS_META[trade.status].label}</span>
+              <span>{TRADE_KIND_META[trade.tradeKind].label}</span>
+            </div>
+            <div className="dv-reading-tools" ref={setReviewToolsContainer} />
             </div>
             {trade.tradeKind === 'case' && trade.sourceTradeId && (
               <section className="dv-case-source" aria-label="案例来源">
@@ -980,7 +1089,7 @@ export function DetailView() {
                   </span>
                 </div>
                 <div className="dv-review-stage-actions">
-                  <button
+                  <Button variant="bordered" size="sm"
                     type="button"
                     onClick={() => requestTradeClose(
                       trade.id,
@@ -990,7 +1099,7 @@ export function DetailView() {
                     )}
                   >
                     {hasResultConflict ? '修正结果' : '补齐结果'}
-                  </button>
+                  </Button>
                 </div>
               </section>
             )}
@@ -1064,6 +1173,7 @@ export function DetailView() {
                 noteDraftId={trade.id}
                 readOnly={activeNoteLoad.status !== 'ready'}
                 reviewContextTools
+                reviewToolsContainer={reviewToolsContainer}
                 reviewTemplates={reviewTemplates}
                 reviewContextPinned={reviewContextPinned}
                 placeholder={
@@ -1244,92 +1354,6 @@ export function DetailView() {
               }
             />
             <Menu
-              value={getSessionSelectValue(trade)}
-              onSelect={(v) =>
-                updateTradeData(trade.id, {
-                  session: normalizeSession(v),
-                })
-              }
-              options={[
-                { value: '', label: '未设置' },
-                ...SESSION_PRESETS.map((preset) => ({
-                  value: preset.value,
-                  label: preset.label,
-                })),
-              ]}
-              trigger={
-                <PropTrigger label="交易时段">
-                  {getSessionSelectValue(trade) ? (
-                    <span
-                      className={
-                        'dv-prop-chip is-session is-' +
-                        (getTradeSessionMeta(trade)?.kind ?? 'other')
-                      }
-                    >
-                      {SESSION_PRESETS.find((p) => p.value === getSessionSelectValue(trade))
-                        ?.label ?? getSessionSelectValue(trade)}
-                    </span>
-                  ) : (
-                    <span className="dv-prop-empty">未设置</span>
-                  )}
-                </PropTrigger>
-              }
-            />
-            <Menu
-              value={trade.psychology ?? ''}
-              onSelect={(v) =>
-                updateTradeData(trade.id, {
-                  psychology: normalizePsychology(v),
-                })
-              }
-              options={[
-                { value: '', label: '未设置' },
-                ...PSYCHOLOGY_PRESETS.map((preset) => ({
-                  value: preset.value,
-                  label: preset.label,
-                })),
-              ]}
-              trigger={
-                <PropTrigger label="心理状态">
-                  {trade.psychology ? (
-                    <span className="dv-prop-chip is-neutral">
-                      {PSYCHOLOGY_PRESETS.find((p) => p.value === trade.psychology)?.label ??
-                        trade.psychology}
-                    </span>
-                  ) : (
-                    <span className="dv-prop-empty">未设置</span>
-                  )}
-                </PropTrigger>
-              }
-            />
-            <Menu
-              value={trade.narrative ?? ''}
-              onSelect={(v) =>
-                updateTradeData(trade.id, {
-                  narrative: normalizeNarrative(v),
-                })
-              }
-              options={[
-                { value: '', label: '未设置' },
-                ...NARRATIVE_PRESETS.map((preset) => ({
-                  value: preset.value,
-                  label: preset.label,
-                })),
-              ]}
-              trigger={
-                <PropTrigger label="市场叙事">
-                  {trade.narrative ? (
-                    <span className="dv-prop-chip is-neutral">
-                      {NARRATIVE_PRESETS.find((p) => p.value === trade.narrative)?.label ??
-                        trade.narrative}
-                    </span>
-                  ) : (
-                    <span className="dv-prop-empty">未设置</span>
-                  )}
-                </PropTrigger>
-              }
-            />
-            <Menu
               value={trade.tradeKind}
               onSelect={(v) => transitionTradeKind(trade.id, v as TradeKind)}
               options={KIND_OPTS.map((k) => ({
@@ -1471,6 +1495,12 @@ export function DetailView() {
             />
           </Section>
 
+          <Section title="补充信息">
+            {supplementaryProperties.map((item) => (
+              <div key={item.id} className="dv-supplementary-field">{item.control}</div>
+            ))}
+          </Section>
+
           <Section title="时间" defaultOpen={false}>
             <EditableDateRow
               label="开仓"
@@ -1501,7 +1531,6 @@ export function DetailView() {
           <Section title="标签" defaultOpen={false}>
             <TagEditor
               tags={trade.tags}
-              showPresets={false}
               suggestions={tagPresets}
               presets={tagPresets}
               onAdd={(tag) => addTag(trade.id, tag)}
@@ -1512,7 +1541,6 @@ export function DetailView() {
           <Section title="错误 / 违规">
             <TagEditor
               tags={trade.mistakeTags}
-              showPresets={false}
               suggestions={mistakeTagPresets}
               presets={mistakeTagPresets}
               onAdd={(tag) =>
@@ -1550,14 +1578,7 @@ export function DetailView() {
             </Link>
           </Section>
 
-          {trade.tradeKind !== 'case' ? (
-            <div className="dv-props-foot">
-              <button type="button" className="dv-copy-id" onClick={copyRef}>
-                <Copy size={ICON_SM} aria-hidden />
-                <span>复制 {trade.ref}</span>
-              </button>
-            </div>
-          ) : null}
+
         </>
       )}
       />
@@ -1576,8 +1597,8 @@ function Section({
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="dv-section">
-      <button className="dv-section-head" onClick={() => setOpen((o) => !o)}>
+    <div className={"dv-section" + (open ? " is-open" : "")}>
+      <button className="dv-section-head" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <span>{title}</span>
         <ChevronDown
           size={ICON_SM}

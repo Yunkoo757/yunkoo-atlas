@@ -13,23 +13,24 @@ const LABELS = {
 } as const
 
 const SAVED_VISIBLE_MS = 1600
-const DIRTY_VISIBLE_DELAY_MS = 600
+const PENDING_VISIBLE_DELAY_MS = 600
 
-export function SaveStatusIndicator() {
+export function SaveStatusIndicator({ quiet = true }: { quiet?: boolean }) {
   const status = useSaveStatus((state) => state.status)
   const errorMessage = useSaveStatus((state) => state.errorMessage)
-  const [dirtyVisible, setDirtyVisible] = useState(false)
+  const [pendingVisible, setPendingVisible] = useState(false)
+  const pending = status === 'dirty' || status === 'saving'
 
   useEffect(() => {
-    if (status !== 'dirty') {
-      setDirtyVisible(false)
+    if (!pending) {
+      setPendingVisible(false)
       return
     }
     const timer = window.setTimeout(() => {
-      setDirtyVisible(true)
-    }, DIRTY_VISIBLE_DELAY_MS)
+      setPendingVisible(true)
+    }, PENDING_VISIBLE_DELAY_MS)
     return () => window.clearTimeout(timer)
-  }, [status])
+  }, [pending])
 
   useEffect(() => {
     if (status !== 'saved') return
@@ -39,7 +40,9 @@ export function SaveStatusIndicator() {
     return () => window.clearTimeout(timer)
   }, [status])
 
-  if (status === 'idle' || (status === 'dirty' && !dirtyVisible)) {
+  if (quiet && (status === 'idle' || status === 'saved' || (pending && !pendingVisible))) return null
+
+  if (status === 'idle' || (pending && !pendingVisible)) {
     return <span className="save-status-slot" aria-hidden />
   }
 

@@ -4,22 +4,16 @@
   gap: var(--sp-2);
   padding: 2px var(--sp-1);
   align-items: stretch;
-}
-
-.tag-selected-row,
+}.tag-selected-row,
 .tag-presets-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: var(--space-control-gap);
   align-items: center;
-}
-
-.tag-presets-row {
+}.tag-presets-row {
   padding-top: var(--sp-2);
   border-top: 1px solid var(--border-subtle);
-}
-
-.tag-preset-chip {
+}.tag-preset-chip {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
@@ -31,14 +25,10 @@
   transition:
     background var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out);
-}
-
-.tag-preset-chip:hover {
+}.tag-preset-chip:hover {
   border-color: var(--border-default);
   background: var(--bg-hover);
-}
-
-.tag-preset-label {
+}.tag-preset-label {
   min-width: 0;
   max-width: 16ch;
   padding: 0 var(--sp-2);
@@ -51,13 +41,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: color var(--dur-fast) var(--ease-out);
-}
-
-.tag-preset-chip:hover .tag-preset-label {
+}.tag-preset-chip:hover .tag-preset-label {
   color: var(--text-secondary);
-}
-
-.tag-chip {
+}.tag-chip {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
@@ -72,17 +58,13 @@
   font-size: var(--type-chip-size);
   font-weight: var(--type-chip-weight);
   line-height: var(--type-chip-line-height);
-}
-
-.tag-chip-label {
+}.tag-chip-label {
   min-width: 0;
   max-width: 16ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.tag-chip-remove {
+}.tag-chip-remove {
   display: grid;
   flex-shrink: 0;
   place-items: center;
@@ -94,35 +76,10 @@
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
     opacity var(--dur-fast) var(--ease-out);
-}
-
-.tag-chip-remove:hover {
+}.tag-chip-remove:hover {
   background: var(--bg-hover);
   color: var(--text-secondary);
-}
-
-.tag-add-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  height: 26px;
-  padding: 0 var(--sp-2) 0 6px;
-  border: 1px dashed var(--border-default);
-  border-radius: var(--radius-full);
-  color: var(--text-tertiary);
-  font-family: var(--font-ui);
-  font-size: var(--type-chip-size);
-  font-weight: var(--type-chip-weight);
-  line-height: var(--type-chip-line-height);
-  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-}
-
-.tag-add-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-secondary);
-}
-
-.tag-input {
+}.tag-input {
   width: 100%;
   height: var(--field-height-md);
   padding: 0 10px;
@@ -131,21 +88,15 @@
   background: var(--field-bg);
   font-size: var(--type-row-size);
   color: var(--text-primary);
-}
-
-.tag-input:focus {
+}.tag-input:focus {
   background: var(--field-bg-focus);
   border-color: var(--field-border-focus);
   box-shadow: var(--field-focus-shadow);
-}
-
-.tag-input-wrap {
+}.tag-input-wrap {
   position: relative;
   flex: 1 1 140px;
   min-width: 120px;
-}
-
-.tag-suggest {
+}.tag-suggest {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
@@ -160,9 +111,7 @@
   box-shadow: var(--shadow-md);
   max-height: 160px;
   overflow-y: auto;
-}
-
-.tag-suggest-item {
+}.tag-suggest-item {
   display: block;
   width: 100%;
   padding: 6px 10px;
@@ -174,92 +123,43 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: background var(--dur-fast) var(--ease-out);
-}
-
-.tag-suggest-item:hover,
+}.tag-suggest-item:hover,
 .tag-suggest-item.is-active {
   background: var(--bg-hover);
   color: var(--text-primary);
-}
-
-/* 详情侧栏：沿用同一套分区，去掉旧的 order / 限高滚动 */
+}/* 详情侧栏：沿用同一套分区，去掉旧的 order / 限高滚动 */
 .dv-props .tag-editor {
   align-self: stretch;
-  gap: 5px;
+  gap: var(--space-control-gap);
   padding: 0;
-}
-
-.dv-props .tag-input-wrap {
+}.dv-props .tag-input-wrap {
   flex-basis: 100%;
   min-width: 100%;
-}
-
-.dv-props .tag-selected-row,
+}.dv-props .tag-selected-row,
 .dv-props .tag-presets-row {
   gap: var(--space-control-gap);
-}
-
-.dv-props .tag-presets-row {
-  padding-top: 10px;
-}
-
-.dv-props .tag-chip,
-.dv-props .tag-preset-chip,
-.dv-props .tag-add-btn {
+}.dv-props .tag-presets-row {
+  padding-top: var(--sp-2);
+}.dv-props .tag-chip,
+.dv-props .tag-preset-chip {
   height: 24px;
   min-height: 24px;
-}
-
-.dv-props .tag-chip {
+}.dv-props .tag-chip {
   padding-inline: var(--sp-2) 3px;
   color: var(--text-secondary);
   background: var(--surface-control);
   border-color: var(--surface-control-border);
-}
-
-.dv-props .tag-preset-chip {
+}.dv-props .tag-preset-chip {
   background: transparent;
   border-color: var(--surface-control-border);
-}
-
-.dv-props .tag-preset-label {
+}.dv-props .tag-preset-label {
   padding-inline: var(--sp-2);
   color: var(--text-tertiary);
-}
-
-.dv-props .tag-add-btn {
-  padding-inline: 7px 9px;
-  border-style: solid;
-  border-color: var(--surface-control-border);
-}
-
-.dv-props .tag-chip:hover,
-.dv-props .tag-preset-chip:hover,
-.dv-props .tag-add-btn:hover {
+}.dv-props .tag-chip:hover,
+.dv-props .tag-preset-chip:hover {
   color: var(--text-primary);
   background: var(--group-add-hover-bg);
   border-color: var(--border-default);
 }
 
-@media (max-width: 1024px) {
-  .tag-preset-chip,
-  .tag-chip,
-  .tag-add-btn {
-    min-height: 44px;
-  }
 
-  .tag-preset-label {
-    max-width: 22ch;
-    padding-inline: var(--sp-3);
-  }
-
-  .tag-chip-label {
-    max-width: 22ch;
-  }
-
-  .tag-chip-remove {
-    width: 32px;
-    height: 32px;
-    opacity: 1;
-  }
-}

@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/Button'
 import { ICON_SM } from '@/icons/iconSize'
 import { useState, useRef, useEffect, useMemo, type KeyboardEvent } from 'react'
 import { Tag, X } from '@/icons/appIcons'
@@ -148,10 +149,10 @@ export function TagEditor({
             )}
           </div>
         ) : (
-          <button type="button" className="tag-add-btn" onClick={() => setEditing(true)}>
+          <Button variant="ghost" size="sm" className="tag-add-btn" onClick={() => setEditing(true)}>
             <Tag size={ICON_SM} />
             <span>添加标签</span>
-          </button>
+          </Button>
         )}
       </div>
 

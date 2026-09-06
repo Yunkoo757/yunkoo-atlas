@@ -140,7 +140,7 @@
 }
 
 .quick-notes-editor-header {
-  padding: var(--sp-4) clamp(var(--sp-5), 4vw, 56px) var(--sp-1);
+  padding: var(--sp-4) clamp(var(--page-inset-compact), 4vw, var(--page-inset-wide)) var(--sp-1);
   display: flex;
   align-items: center;
   gap: var(--sp-3);
@@ -189,7 +189,7 @@
 }
 
 .quick-notes-editor-meta {
-  padding: 0 clamp(var(--sp-5), 4vw, 56px) var(--sp-3);
+  padding: 0 clamp(var(--page-inset-compact), 4vw, var(--page-inset-wide)) var(--sp-3);
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
@@ -200,11 +200,11 @@
   min-height: 0;
   flex: 1;
   overflow: auto;
-  padding: var(--sp-4) clamp(var(--sp-5), 4vw, 56px) 48px;
+  padding: var(--sp-4) clamp(var(--page-inset-compact), 4vw, var(--page-inset-wide)) 48px;
 }
 
 .quick-notes-editor-body .editor {
-  max-width: 900px;
+  max-width: var(--page-rail-reading);
   margin: 0 auto;
 }
 

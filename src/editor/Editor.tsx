@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom'
+import { Button } from '@/components/ui/Button'
 import { useEditor, EditorContent, BubbleMenu, type Editor as TiptapEditor } from '@tiptap/react'
 import type { Content } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
@@ -69,6 +71,7 @@ export function Editor({
   allowImages = true,
   ariaLabel,
   reviewContextTools = false,
+  reviewToolsContainer,
   reviewTemplates = [],
   reviewContextPinned = true,
   onHistoryFallback,
@@ -82,6 +85,7 @@ export function Editor({
   ariaLabel?: string
   /** 交易详情：将开头盘面叙述固定在截图上方，并提供通用起稿骨架。 */
   reviewContextTools?: boolean
+  reviewToolsContainer?: HTMLElement | null
   reviewTemplates?: ReviewTemplate[]
   reviewContextPinned?: boolean
   onHistoryFallback?: (currentHtml: string) => string | null
@@ -278,16 +282,36 @@ export function Editor({
       label="选择复盘起稿"
       asChild
     >
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
         aria-label="选择复盘起稿"
         onMouseDown={(event) => event.preventDefault()}
       >
         <FileText size={ICON_SM} aria-hidden />
         复盘起稿
-      </button>
+      </Button>
     </Tooltip>
   )
+
+  const reviewTools = showReviewStarter && editor && !readOnly ? (
+        <div className="editor-review-tools">
+          <Menu
+            align="right"
+            trigger={reviewButton}
+            options={[
+              ...reviewTemplates.map((template) => ({
+                value: template.id,
+                label: template.name,
+              })),
+            ]}
+            onSelect={(value) => {
+              const template = reviewTemplates.find((item) => item.id === value)
+              if (template) insertReviewTemplate(template.content)
+            }}
+          />
+        </div>
+  ) : null
 
   return (
     <div
@@ -363,24 +387,7 @@ export function Editor({
           </BtnGroup>
         </BubbleMenu>
       )}
-      {showReviewStarter && editor && !readOnly && (
-        <div className="editor-review-tools">
-          <Menu
-            align="right"
-            trigger={reviewButton}
-            options={[
-              ...reviewTemplates.map((template) => ({
-                value: template.id,
-                label: template.name,
-              })),
-            ]}
-            onSelect={(value) => {
-              const template = reviewTemplates.find((item) => item.id === value)
-              if (template) insertReviewTemplate(template.content)
-            }}
-          />
-        </div>
-      )}
+      {reviewTools && (reviewToolsContainer ? createPortal(reviewTools, reviewToolsContainer) : reviewTools)}
       <EditorContent
         editor={editor}
         className="editor"

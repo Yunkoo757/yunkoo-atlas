@@ -155,6 +155,25 @@ async function run(): Promise<void> {
       '初始案例正文未载入',
     )
     assert(!document.querySelector('.dv-copy-id'), '案例正文右侧不得显示复制编号按钮')
+    const context = document.querySelector('.dv-reading-context')
+    assert(context?.textContent?.includes('盈利') && context.textContent.includes('案例'), '正文缺少当前记录的关键背景')
+    const supplementary = [...document.querySelectorAll<HTMLElement>('.dv-section')]
+      .find((section) => section.querySelector('.dv-section-head')?.textContent === '补充信息')!
+    assert(supplementary && !supplementary.querySelector('details'), '补充信息只保留单层折叠')
+    assert(supplementary.textContent?.includes('交易时段') && supplementary.textContent.includes('心理状态'), '补充属性必须保留原字段编辑入口')
+    if (window.innerWidth > 1200) {
+      const rows = [...supplementary.querySelectorAll<HTMLButtonElement>('.dv-prop-row')]
+      assert(rows.length === 3, '三个补充属性应固定显示')
+      const rects = rows.map((row) => row.getBoundingClientRect())
+      assert(rects.every((rect, index) => index === 0 || rect.top >= rects[index - 1].bottom), '补充字段必须逐行排列，不能横向挤在一起')
+      assert(rects.every((rect) => Math.abs(rect.width - rects[0].width) < 1), '补充字段必须使用一致行宽')
+      rows[0].click()
+      await waitFor(() => Boolean(findButton('伦敦开盘')), '未填写属性的编辑菜单无法打开')
+      findButton('伦敦开盘')!.click()
+      await waitFor(() => useStore.getState().trades.find((trade) => trade.id === 'case-2')?.session === 'London Open', '补充信息未写入当前记录')
+      assert(supplementary.querySelector('.dv-prop-row')?.textContent?.includes('伦敦开盘'), '填写后字段必须保持原位置')
+    }
+
     const propertiesToggle = document.querySelector<HTMLButtonElement>('.trade-detail-properties-toggle')!
     assert(propertiesToggle.getAttribute('aria-keyshortcuts')?.toLowerCase() === 'tab', '属性入口应显示当前 Tab 绑定')
     const wasExpanded = propertiesToggle.getAttribute('aria-expanded')
@@ -197,7 +216,7 @@ async function run(): Promise<void> {
       () => Boolean(tagsSection.closest('.dv-section')?.querySelector('.tag-add-btn')),
       '详情页必须保留添加标签入口',
     )
-    assert(!document.querySelector('.tag-presets-row'), '阅读时不应常驻未选择的预置标签')
+    assert(document.querySelector('.tag-presets-row'), '展开的标签分组应直接展示可选预置标签')
     tagsSection.closest('.dv-section')?.querySelector<HTMLButtonElement>('.tag-add-btn')?.click()
     await waitFor(() => Boolean(findButton('计划内')), '添加标签时应按需提供预设')
     document.querySelector<HTMLInputElement>('.tag-input')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
@@ -318,10 +337,7 @@ async function run(): Promise<void> {
     const copiedPlan = useStore.getState().trades.find((trade) => trade.id !== weeklyTrade.id)
     assert(copiedPlan?.pnl === null && copiedPlan.reviewStatus === 'unreviewed', '详情复制的新计划必须清空结果与复盘状态')
     assert(useStore.getState().trades.find((trade) => trade.id === weeklyTrade.id)?.status === 'win', '详情复制不得修改源交易')
-    const liveInlineCopy = document.querySelector<HTMLButtonElement>('.dv-copy-id')
-    assert(liveInlineCopy?.textContent?.trim() === `复制 ${weeklyTrade.ref}`, '实盘详情必须保留正文侧栏复制编号入口')
-    liveInlineCopy.click()
-    await waitFor(() => copied.at(-1) === weeklyTrade.ref, '实盘详情侧栏没有复制正确编号')
+    assert(!document.querySelector('.dv-copy-id'), '低频复制编号不得占用侧栏常驻空间')
     document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')?.click()
     await waitFor(() => Boolean(findButton('复制编号')), '实盘详情更多菜单缺少复制编号')
     findButton('复制编号')?.click()
@@ -398,10 +414,7 @@ async function run(): Promise<void> {
       () => document.querySelector('[aria-label="返回列表"]') !== null,
       '模拟盘非法周复盘来源仍显示周复盘返回名称',
     )
-    const paperInlineCopy = document.querySelector<HTMLButtonElement>('.dv-copy-id')
-    assert(paperInlineCopy?.textContent?.trim() === `复制 ${invalidWeeklyPaper.ref}`, '模拟盘详情必须保留正文侧栏复制编号入口')
-    paperInlineCopy.click()
-    await waitFor(() => copied.at(-1) === invalidWeeklyPaper.ref, '模拟盘详情侧栏没有复制正确编号')
+    assert(!document.querySelector('.dv-copy-id'), '低频复制编号不得占用侧栏常驻空间')
     document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')?.click()
     await waitFor(() => Boolean(findButton('复制编号')), '模拟盘详情更多菜单缺少复制编号')
     findButton('复制编号')?.click()

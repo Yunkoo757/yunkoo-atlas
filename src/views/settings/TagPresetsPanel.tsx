@@ -110,7 +110,7 @@ function TagSection({
         />
         <button
           type="button"
-          className="dio-btn dio-btn-primary"
+          className="dio-btn"
           onClick={handleAdd}
           disabled={!input.trim()}
           aria-label={`添加${title}`}

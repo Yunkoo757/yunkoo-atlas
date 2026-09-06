@@ -89,7 +89,7 @@
 }
 
 .trade-close-mode {
-  height: 30px;
+  height: var(--control-height-sm);
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);

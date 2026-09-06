@@ -25,7 +25,7 @@ export function WorkbenchEmptyState({
       action={(
         <div className="workbench-empty-actions">
           <Button
-            variant="primary"
+            variant={create ? 'primary' : 'bordered'}
             className="workbench-empty-primary"
             onClick={create ? onCreate : onReset}
           >

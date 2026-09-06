@@ -122,7 +122,7 @@
 .nim-btn-ghost {
   background: var(--surface-control);
   border: 1px solid var(--surface-control-border);
-  box-shadow: var(--surface-control-shadow);
+  box-shadow: none;
 }
 .ui-btn-bordered:hover:not(:disabled),
 .dio-btn:hover:not(:disabled),
@@ -133,7 +133,7 @@
   background: var(--surface-control-hover);
   border-color: var(--surface-control-border-active);
   color: var(--text-primary);
-  box-shadow: var(--surface-control-shadow-active);
+  box-shadow: none;
 }
 
 .ui-btn-primary,

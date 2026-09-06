@@ -1,3 +1,4 @@
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { WeeklyRiskPreparationCard } from '@/components/WeeklyRiskPreparationCard'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { RiskDataHealthSummary } from '@/views/settings/RiskDataHealthSummary'
@@ -17,26 +18,17 @@ export function RiskManagementSettingsPanel() {
   const setDisplay = useStore((state) => state.setDisplay)
 
   return (
-    <div className="settings-page settings-page--reading risk-management-settings" data-risk-management-settings>
+    <div className="settings-page settings-page--form risk-management-settings" data-risk-management-settings>
       <div className="settings-page-head">
         <h1 className="settings-page-title">风险管理</h1>
       </div>
       <section className="risk-indicator-setting">
         <strong>侧栏额度环</strong>
-        <div className="risk-indicator-options" role="radiogroup" aria-label="侧栏风险圆环周期">
-          {RISK_SCOPE_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={riskScope === option.value}
-              className={riskScope === option.value ? 'is-selected' : undefined}
-              onClick={() => setDisplay({ sidebarRiskScope: option.value })}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          className="risk-indicator-options" role="radiogroup" label="侧栏风险圆环周期"
+          value={riskScope} onChange={(value) => setDisplay({ sidebarRiskScope: value })}
+          options={RISK_SCOPE_OPTIONS}
+        />
       </section>
       <section className="settings-page-section">
         <WeeklyRiskPreparationCard currentTradingDayKey={today} />

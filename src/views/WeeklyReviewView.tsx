@@ -1,3 +1,4 @@
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { ICON_LG, ICON_MD, ICON_XL } from '@/icons/iconSize'
 import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
@@ -673,7 +674,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
 
   return (
     <>
-      <Topbar title="周期复盘" showDisplay={false} />
+      <Topbar title="周期复盘" showDisplay={false} titleAsHeading={false} />
       {header}
       <div className={`wr-shell${hasReviewHistory ? '' : ' is-first-review'}`}>
         {hasReviewHistory ? (
@@ -730,21 +731,14 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 </p>
               </div>
               <div className="wr-head-actions">
-                <div
-                  className="wr-tab-switch"
-                  role="tablist"
-                  aria-label="周复盘视图"
-                  onKeyDown={(event) => {
-                    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-                    event.preventDefault()
-                    const nextTab: WeeklyReviewTab = tab === 'review' ? 'year' : 'review'
-                    changeTab(nextTab)
-                    requestAnimationFrame(() => document.getElementById(`weekly-review-tab-${nextTab}`)?.focus())
-                  }}
-                >
-                  <button id="weekly-review-tab-review" type="button" role="tab" aria-selected={tab === 'review'} aria-controls="weekly-review-panel-review" tabIndex={tab === 'review' ? 0 : -1} onClick={() => changeTab('review')}>本周复盘</button>
-                  <button id="weekly-review-tab-year" type="button" role="tab" aria-selected={tab === 'year'} aria-controls="weekly-review-panel-year" tabIndex={tab === 'year' ? 0 : -1} onClick={() => changeTab('year')}>年度趋势</button>
-                </div>
+                <SegmentedControl<WeeklyReviewTab>
+                  className="wr-tab-switch" role="tablist" label="周复盘视图"
+                  value={tab} onChange={changeTab}
+                  options={[
+                    { value: 'review', label: '本周复盘', id: 'weekly-review-tab-review', controls: 'weekly-review-panel-review' },
+                    { value: 'year', label: '年度趋势', id: 'weekly-review-tab-year', controls: 'weekly-review-panel-year' },
+                  ]}
+                />
                 {hasReviewHistory && tab === 'review' ? (
                   <>
                     <IconButton label="上一条复盘" size="md" disabled={!olderHistoryItem} onClick={() => olderHistoryItem && void changeReview(olderHistoryItem)}><ChevronLeft size={ICON_MD} /></IconButton>

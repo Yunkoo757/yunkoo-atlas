@@ -35,25 +35,6 @@
   margin: -3px 0 6px;
 }
 
-.editor-review-tools button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 24px;
-  padding: 0 5px;
-  color: var(--text-tertiary);
-  font-size: var(--type-caption-size);
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-4);
-}
-
-.editor-review-tools button:hover,
-.editor-review-tools button.is-active {
-  color: var(--text-secondary);
-  background: color-mix(in srgb, var(--bg-hover) 62%, transparent);
-}
-
 .editor [data-review-context] {
   position: sticky;
   top: 0;

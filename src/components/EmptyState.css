@@ -5,12 +5,12 @@
   justify-content: center;
   gap: var(--space-control-gap);
   height: 100%;
-  padding: 40px;
+  padding: var(--sp-8);
   text-align: center;
   animation: fadeIn var(--dur-slow) var(--ease-out) both;
 }
 .empty-art {
-  margin-bottom: 10px;
+  margin-bottom: var(--sp-3);
   opacity: 0.9;
 }
 
@@ -48,7 +48,7 @@
   margin: 0;
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
-  line-height: 1.5;
+  line-height: var(--type-section-title-line-height);
   color: var(--text-secondary);
 }
 .empty-hint {

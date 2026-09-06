@@ -65,7 +65,7 @@ function RouteFailure({
       <h1>页面暂时无法显示</h1>
       <p>交易数据仍保留在本地。你可以返回交易日志，或重新加载后再试。</p>
       <div className="app-route-state-actions">
-        <Link className="ui-btn ui-btn-primary" to="/list" onClick={onReturn}>
+        <Link className="ui-btn ui-btn-bordered" to="/list" onClick={onReturn}>
           <Home size={ICON_LG} aria-hidden />
           返回交易日志
         </Link>
@@ -87,7 +87,7 @@ export function RouteNotFound() {
       <h1 id="route-not-found-title">找不到这个页面</h1>
       <p>地址可能已失效，或者页面已经移动。</p>
       <div className="app-route-state-actions">
-        <Link className="ui-btn ui-btn-primary" to="/list">
+        <Link className="ui-btn ui-btn-bordered" to="/list">
           <Home size={ICON_LG} aria-hidden />
           返回交易日志
         </Link>

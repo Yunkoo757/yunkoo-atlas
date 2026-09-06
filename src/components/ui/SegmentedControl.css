@@ -7,7 +7,7 @@
   border: 1px solid var(--surface-control-border);
   border-radius: var(--radius-6);
   background: var(--surface-control);
-  box-shadow: var(--surface-control-shadow);
+  box-shadow: none;
 }
 
 .ui-segmented-option {
@@ -43,10 +43,12 @@
   background: var(--surface-control-hover);
 }
 
-.ui-segmented-option[aria-pressed='true'] {
+.ui-segmented-option[aria-pressed='true'],
+.ui-segmented-option[aria-selected='true'],
+.ui-segmented-option[aria-checked='true'] {
   color: var(--text-primary);
   background: var(--surface-control-active);
-  box-shadow: var(--surface-control-shadow-active);
+  box-shadow: inset 0 0 0 1px var(--surface-control-border-active);
 }
 
 .ui-segmented-option:focus-visible {

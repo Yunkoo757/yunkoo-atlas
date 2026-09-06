@@ -203,7 +203,7 @@ export function SymbolsPanel() {
                 />
                 <button
                   type="button"
-                  className="symbols-btn symbols-btn-primary"
+                  className="symbols-btn"
                   onClick={() => fileRef.current?.click()}
                 >
                   <ImagePlus size={ICON_SM} />

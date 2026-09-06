@@ -905,13 +905,11 @@ export async function testSemanticChipsUseCanonicalTypographyRole(): Promise<voi
     ['src/components/ui/FilterBar.css', '.ui-filter-chip'],
     ['src/components/TagEditor.css', '.tag-preset-label'],
     ['src/components/TagEditor.css', '.tag-chip'],
-    ['src/components/TagEditor.css', '.tag-add-btn'],
     ['src/views/settings/TagPresetsPanel.css', '.settings-tag-chip'],
     ['src/views/BoardView.css', '.bd-category-badge,\n.bd-case-tag'],
     ['src/components/RowPreviews.css', '.rp-tag'],
     ['src/components/NotionImportModal.css', '.nim-format-pill'],
     ['src/components/NotionImportModal.css', '.nim-tag'],
-    ['src/views/DetailView.css', '.dv-review-state'],
     ['src/views/WeeklyReviewView.css', '.wr-result-choice button,.wr-tag-group button,.wr-trade-roles button'],
     ['src/views/ImportDataHealthView.css', '.idh-select span'],
     ['src/views/settings/UpdatesSettingsPanel.css', '.update-status'],
@@ -1022,7 +1020,7 @@ export async function testNarrativeAndOverlayTypographyUsesApprovedTrackingAndEd
   assertRoleDeclarations(cssRule(sources['src/components/EmptyState.css'], '.empty-title'), '.empty-title', [
     ['font-size', 'var(--type-section-title-size)'],
     ['font-weight', 'var(--type-section-title-weight)'],
-    ['line-height', '1.5'],
+    ['line-height', 'var(--type-section-title-line-height)'],
   ])
   assertRoleDeclarations(cssRule(sources['src/components/RouteState.css'], '.app-route-state-code'), '.app-route-state-code', [
     ['font-family', 'var(--font-mono)'],
