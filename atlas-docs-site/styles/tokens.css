@@ -1,0 +1,166 @@
+/*
+ * Atlas 教学站 token 子集
+ * 来源：/src/styles/tokens.css 与仓库根目录 design.md
+ * 这里只复制独立发布所需的语义角色，不建立网站专属色板。
+ */
+
+@font-face {
+  font-family: "Inter Variable";
+  src: url("../assets/inter-variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  /* 基础层级 */
+  --bg-color: lch(2.6% 0.4 272 / 1);
+  --color-bg-primary: lch(5.52% 0.4 272 / 1);
+  --color-bg-secondary: lch(7.32% 0.85 272 / 1);
+  --color-bg-tertiary: lch(8.22% 1.3 272 / 1);
+  --color-bg-quaternary: lch(9.35% 0.85 272 / 1);
+
+  /* 文字角色 */
+  --text-content-strong: lch(98% 0.4 272 / 1);
+  --text-content-supporting: lch(88% 0.8 272 / 1);
+  --text-content-metadata: lch(62% 1.2 272 / 1);
+  --text-content-context: lch(56% 1.2 272 / 1);
+  --text-content-faint: lch(38% 1.2 272 / 1);
+  --text-primary: var(--text-content-strong);
+  --text-secondary: lch(70% 1 272 / 1);
+  --text-tertiary: var(--text-content-context);
+  --text-quaternary: var(--text-content-faint);
+  --text-strong: var(--text-primary);
+  --text-body: var(--text-secondary);
+  --text-muted: var(--text-tertiary);
+  --text-faint: color-mix(in srgb, var(--text-tertiary) 72%, var(--text-quaternary));
+  --text-disabled: lch(34% 1 272 / 1);
+
+  /* 边框角色 */
+  --color-border-primary: lch(9.84% 1.48 272 / 1);
+  --color-border-secondary: lch(14.16% 1.48 272 / 1);
+  --color-border-tertiary: lch(16.32% 1.48 272 / 1);
+  --border-subtle: var(--color-border-primary);
+  --border-default: var(--color-border-secondary);
+  --border-strong: var(--color-border-tertiary);
+  --border-divider: lch(12.4% 0.9 272 / 1);
+  --border-chrome: var(--color-border-primary);
+
+  /* 品牌 / 焦点 */
+  --accent: #5e6ad2;
+  --accent-hover: color-mix(in srgb, var(--accent) 90%, black 10%);
+  --accent-readable: color-mix(in srgb, var(--accent) 84%, white 16%);
+  --accent-text: #fff;
+  --accent-bg: color-mix(in srgb, var(--accent) 12%, transparent);
+
+  /* 业务语义 */
+  --pos: lch(72% 45 152);
+  --neg: lch(66% 58 28);
+  --warn: lch(80% 70 85);
+  --pending: lch(68% 40 252);
+  --opportunity: #8290c9;
+  --diagnostic: lch(61% 27 35);
+  --diagnostic-text: color-mix(in srgb, var(--diagnostic) 72%, var(--text-secondary));
+  --diagnostic-bg: color-mix(in srgb, var(--diagnostic) 6%, transparent);
+  --pos-bg: color-mix(in srgb, var(--pos) 12%, transparent);
+  --neg-bg: color-mix(in srgb, var(--neg) 12%, transparent);
+  --pending-bg: color-mix(in srgb, var(--pending) 12%, transparent);
+  --opportunity-bg: color-mix(in srgb, var(--opportunity) 12%, transparent);
+
+  /* 表面角色 */
+  --bg-app: var(--bg-color);
+  --bg-surface: var(--color-bg-primary);
+  --bg-elevated: var(--color-bg-secondary);
+  --bg-hover: lch(10.15% 0.6 272 / 1);
+  --bg-selected: lch(10.8% 0.85 272 / 1);
+  --bg-inset: color-mix(in srgb, var(--bg-elevated) 55%, var(--bg-surface));
+  --surface-app: var(--bg-app);
+  --surface-pane: var(--bg-surface);
+  --surface-elevated: var(--bg-elevated);
+  --surface-inset: var(--bg-inset);
+  --popover-bg: lch(9.92% 0.75 272);
+  --surface-floating: var(--popover-bg);
+  --surface-nav-hover: var(--bg-hover);
+  --surface-nav-active: lch(13.85% 1.3 272 / 1);
+  --surface-row-hover: lch(10.7% 0.6 272 / 1);
+  --surface-control: var(--color-bg-secondary);
+  --surface-control-hover: var(--bg-hover);
+  --surface-control-active: lch(16.7% 1 272 / 1);
+  --surface-control-border: lch(100% 0 0 / 0.045);
+  --surface-control-border-active: lch(100% 0 0 / 0.113);
+  --control-highlight-rest: color-mix(in srgb, var(--text-primary) 3%, transparent);
+  --control-highlight-hover: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  --control-highlight-active: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  --field-bg: color-mix(in srgb, var(--bg-elevated) 72%, var(--bg-surface));
+  --field-bg-hover: color-mix(in srgb, var(--bg-hover) 68%, var(--field-bg));
+  --field-bg-focus: color-mix(in srgb, var(--accent) 5%, var(--field-bg));
+  --field-border: color-mix(in srgb, var(--border-default) 78%, transparent);
+  --field-border-hover: var(--border-strong);
+  --field-border-focus: color-mix(in srgb, var(--accent) 72%, var(--border-strong));
+  --field-placeholder: var(--text-quaternary);
+  --field-focus-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
+
+  /* 字体与尺寸 */
+  --font-ui-base: "Inter Variable", Inter, "SF Pro Display", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-ui: var(--font-ui-base);
+  --font-mono: "JetBrains Mono", "SFMono Regular", Consolas, "Liberation Mono",
+    Menlo, Courier, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans SC", monospace;
+  --font-size-title2: 1.5rem;
+  --font-size-title3: 20px;
+  --font-size-large: 1.125rem;
+  --font-size-regular: 15px;
+  --font-size-small: 13px;
+  --font-size-mini: 12px;
+  --font-size-micro: 11px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --line-height-body: 1.5;
+
+  /* 页面与控件 */
+  --sidebar-width: 244px;
+  --page-rail-wide: 1240px;
+  --page-rail-standard: 1180px;
+  --page-rail-reading: 920px;
+  --page-rail-form: 680px;
+  --control-height-sm: 28px;
+  --control-height-md: 32px;
+  --control-height-lg: 36px;
+  --field-height-md: 32px;
+  --chip-height-md: 24px;
+  --control-border-radius: 8px;
+  --editor-block-radius: 6px;
+  --modal-border-radius: 14px;
+  --radius-rounded: 9999px;
+  --radius-4: 4px;
+  --radius-6: var(--editor-block-radius);
+  --radius-8: var(--control-border-radius);
+  --radius-10: 10px;
+  --radius-14: 14px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 28px;
+  --sp-8: 32px;
+  --space-control-gap: 6px;
+  --space-section-gap: var(--sp-6);
+  --page-inset-default: var(--sp-7);
+
+  /* 动效与浮层 */
+  --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --ease-in-out-cubic: cubic-bezier(0.645, 0.045, 0.355, 1);
+  --motion-state: 100ms;
+  --motion-menu: 100ms;
+  --motion-dialog-in: 150ms;
+  --motion-dialog-out: 120ms;
+  --motion-panel: 220ms;
+  --popover-border: lch(16.5% 1.7 272);
+  --popover-shadow: 0 3px 8px lch(0 0 0 / 0.125), 0 2px 5px lch(0 0 0 / 0.125),
+    0 1px 1px lch(0 0 0 / 0.125);
+}
