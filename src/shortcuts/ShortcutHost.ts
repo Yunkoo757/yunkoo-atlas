@@ -35,7 +35,7 @@ import { getActionMeta } from '@/shortcuts/actions'
 import { requestLightboxClose, requestLightboxReset } from '@/lib/lightboxView'
 import { createQuickNote } from '@/data/quickNotes'
 import { newTradeKindForPath } from '@/lib/tradeKind'
-import { resolveSharedTradeWorkspaceSearch } from '@/lib/tradeWorkspaceQuery'
+import { resolveSharedTradeWorkspaceSearch, isSharedTradeWorkspacePath } from '@/lib/tradeWorkspaceQuery'
 
 export function useShortcutHost({
   onToggleCmdk,
@@ -86,7 +86,7 @@ export function useShortcutHost({
             state.display.sidebarWorkspaceItems,
             state.strategies,
             state.display.workspaceMemory?.trade?.pathname ?? pathname,
-            sharedTradeSearch,
+            isSharedTradeWorkspacePath(pathname) ? search : rememberedTradeSearch,
           )
           if (href) navigate(href)
         },

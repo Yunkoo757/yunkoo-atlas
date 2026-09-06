@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Sidebar } from '@/components/Sidebar'
 import type { SidebarWorkspaceItem } from '@/lib/sidebarWorkspace'
 import { useStore } from '@/store/useStore'
@@ -24,6 +24,20 @@ function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     window.setTimeout(resolve, milliseconds)
   })
+}
+
+function ScopeTestControls() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  return <div>
+    <output data-test-location>{location.pathname}{location.search}</output>
+    {['all', 'paper', 'live'].map((kind) => <button key={kind} data-test-kind={kind} onClick={() => {
+      const params = new URLSearchParams(location.search)
+      params.set('liveStage', 'all')
+      params.set('kind', kind)
+      navigate(`${location.pathname}?${params}`)
+    }}>{kind}</button>)}
+  </div>
 }
 
 function CanonicalRedirects() {
@@ -104,6 +118,7 @@ async function run(): Promise<void> {
       <MemoryRouter initialEntries={['/list']}>
         <Sidebar />
         <CanonicalRedirects />
+        <ScopeTestControls />
       </MemoryRouter>,
     )
 
@@ -329,6 +344,19 @@ async function run(): Promise<void> {
       '策略入口选中后必须服从统一的导航激活色，避免策略颜色制造重复焦点',
     )
     strategyColorProbe.remove()
+
+    // Exercise the actual sidebar links, including stale workspace memory.
+    for (const kind of ['all', 'paper', 'live']) {
+      document.querySelector<HTMLButtonElement>(`[data-test-kind="${kind}"]`)!.click()
+      await waitFor(() => document.querySelector('[data-test-location]')!.textContent!.includes(`kind=${kind}`), '记录类型未切换')
+      for (let round = 0; round < 2; round += 1) {
+        document.querySelector<HTMLAnchorElement>('[data-primary-id="trades"] a')!.click()
+        await waitFor(() => document.querySelector('[data-test-location]')!.textContent === `/list?liveStage=all&kind=${kind}`, '返回交易日志丢失阶段或记录类型')
+        document.querySelector<HTMLAnchorElement>('[data-sidebar-workspace-id="strategy:navigation-1"] a')!.click()
+        await waitFor(() => document.querySelector('[data-test-location]')!.textContent === `/list?strategyId=navigation-1&liveStage=all&kind=${kind}`, '再次进入策略重置了筛选范围')
+      }
+    }
+
   } finally {
     delete document.documentElement.dataset.keyboardNavigation
     delete document.documentElement.dataset.keyboardFocusRings

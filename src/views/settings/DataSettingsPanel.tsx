@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import { DataIOContent } from '@/components/DataIOContent'
 import { LivePerformanceCycleControl } from '@/components/LivePerformanceCycleControl'
 import { LiveStageManager } from '@/components/LiveStageManager'
+import { DataOrganizationPanel } from './DataOrganizationPanel'
+import { StageOwnershipAutoRepair } from '@/components/StageOwnershipAutoRepair'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { BackupInfo } from '@/types/journal-bridge'
@@ -442,6 +444,7 @@ export function DataSettingsPanel({
           void refreshHealth()
         }}
       />
+      <DataOrganizationPanel day={currentTradingDayKey} onCompleted={() => { void refreshBackups(); void refreshHealth() }} />
       <section className="settings-page-section">
         <div className="settings-page-head">
           <h2 className="settings-section-title">实盘阶段</h2>
@@ -462,6 +465,7 @@ export function DataSettingsPanel({
         </div>
 
         <StageOwnershipHealthEntry />
+        <StageOwnershipAutoRepair />
 
         {healthError && (
           <div className="data-attention-row is-danger" role="alert">

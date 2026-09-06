@@ -78,8 +78,8 @@ export function testTradeShortcutPrefersTheLatestSessionContext(): void {
         pathname: '/list',
         search: '?liveStage=all-history&kind=all&status=loss&symbol=XAUUSD',
       },
-    ) === '/list?liveStage=all',
-    '交易快捷键必须优先恢复当前会话最新阶段，但清除记录类型和临时筛选',
+    ) === '/list?liveStage=all&kind=all',
+    '交易快捷键必须保留最新阶段和记录类型，清除临时筛选',
   )
 }
 
@@ -101,8 +101,8 @@ export function testRepeatedTradeShortcutReturnsToTradeHome(): void {
       [],
       { pathname: '/list', search: '?kind=paper&status=open' },
       { pathname: '/list', search: '?kind=paper&status=open' },
-    ) === '/list',
-    '模拟盘内按 A 必须返回交易日志实盘首页，不能继续保留模拟类型',
+    ) === '/list?kind=paper',
+    '模拟盘内返回交易日志首页必须保留模拟类型',
   )
   assert(
     resolveShortcutWorkspaceHref(

@@ -97,20 +97,20 @@ export function testTradeWorkspaceContextSurvivesPageSwitch(): void {
   )
 }
 
-export function testTradeHomeKeepsOnlyStageScope(): void {
+export function testTradeHomeKeepsStageAndRecordKind(): void {
   assert.equal(
     tradeHomeSearch('?liveStage=all&kind=paper&strategyId=navigation-2&status=loss'),
-    '?liveStage=all',
+    '?liveStage=all&kind=paper',
   )
-  assert.equal(tradeHomeSearch('?kind=paper&status=open'), '')
+  assert.equal(tradeHomeSearch('?kind=paper&status=open'), '?kind=paper')
 }
 
 export function testTradeHomeRestoresPersistedStageAfterRestart(): void {
   assert.equal(
     tradeHomeHref('?status=loss&liveStage=all&kind=paper&strategyId=navigation-2'),
-    '/list?liveStage=all',
+    '/list?liveStage=all&kind=paper',
   )
-  assert.equal(tradeHomeHref('?status=loss&kind=paper'), '/list')
+  assert.equal(tradeHomeHref('?status=loss&kind=paper'), '/list?kind=paper')
 }
 
 export function testSharedTradeWorkspaceContextSurvivesModuleNavigation(): void {

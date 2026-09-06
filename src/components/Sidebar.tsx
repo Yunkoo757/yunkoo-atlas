@@ -45,6 +45,7 @@ import {
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
+import { strategyNavigationSearch } from '@/lib/strategyNavigation'
 import { sharedTradeWorkspaceSearch, tradeHomeSearch } from '@/lib/tradeWorkspaceQuery'
 import { newTradeKindForPath } from '@/lib/tradeKind'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
@@ -183,8 +184,10 @@ export function useSidebarNavigationModel() {
         return true
       })
       .map((item) => {
-        const inheritsLiveStage = item.item.target.kind === 'strategy'
-          || item.item.target.kind === 'system'
+        if (item.item.target.kind === 'strategy') {
+          return { ...item, search: strategyNavigationSearch(item.item.target.strategyId, stageContextSearch) }
+        }
+        const inheritsLiveStage = item.item.target.kind === 'system'
         if (!inheritsLiveStage || !workspaceLiveStage) {
           return item
         }
@@ -198,6 +201,7 @@ export function useSidebarNavigationModel() {
       savedTradeViews,
       sidebarWorkspaceItems,
       workspaceLiveStage,
+      stageContextSearch,
       strategies,
     ],
   )
@@ -209,7 +213,7 @@ export function useSidebarNavigationModel() {
   const caseTarget = resolveWorkspaceNavTarget('case', workspaceMemory?.case)
   const tradeHomeTarget = {
     pathname: '/list',
-    search: tradeHomeSearch(selection.activePrimaryId === 'trades' ? search : tradeTarget.search),
+    search: tradeHomeSearch(stageContextSearch),
   }
   const primaryHref = (id: PrimarySidebarNavId, fallback: string) => {
     if (id === 'today') return workspaceRouteHref(todayTarget)

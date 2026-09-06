@@ -15,6 +15,7 @@ import {
   workbenchModeFromPathname,
 } from '@/lib/routeContext'
 import { tradeHomeSearch } from '@/lib/tradeWorkspaceQuery'
+import { strategyNavigationSearch } from '@/lib/strategyNavigation'
 
 export const SIDEBAR_STRATEGY_SHORTCUT_LIMIT = 9
 
@@ -36,11 +37,8 @@ export function resolveSidebarStrategyShortcutHref(
     [slot - 1]
   if (!target || target.target.kind !== 'strategy') return null
 
-  const params = new URLSearchParams({ strategyId: target.target.strategyId })
-  const liveStage = new URLSearchParams(sharedSearch).get('liveStage')
-  if (liveStage) params.set('liveStage', liveStage)
   const mode = workbenchModeFromPathname(modeSourcePathname)
-  return `${pathWithWorkbenchMode('/list', mode)}?${params.toString()}`
+  return `${pathWithWorkbenchMode('/list', mode)}${strategyNavigationSearch(target.target.strategyId, sharedSearch)}`
 }
 
 /**

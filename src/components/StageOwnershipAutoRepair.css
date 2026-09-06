@@ -1,0 +1,2 @@
+.stage-ownership-auto { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin-block: var(--sp-3); }
+.stage-ownership-auto > span { color: var(--text-secondary); font-size: var(--type-metadata-size); font-weight: var(--type-metadata-weight); line-height: var(--type-metadata-line-height); }

@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/Button'
 import { Chip } from '@/components/ui/Chip'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { Select } from '@/components/ui/Select'
+import { StageOwnershipAutoRepair } from '@/components/StageOwnershipAutoRepair'
 import './StageOwnershipRepairView.css'
 
 type Feedback = { kind: 'error' | 'success' | 'progress'; message: string }
@@ -344,7 +345,7 @@ export function StageOwnershipRepairView() {
           <Link className="stage-ownership-back" to="/settings/data">返回数据设置</Link>
           <h1 className="settings-page-title" tabIndex={-1}>待归属记录</h1>
           <p className="settings-page-desc">
-            为旧记录选择所属阶段。选择会自动记住，保存后不再出现。
+            模拟盘与独立案例无需实盘阶段。明确归属可一键修复，其余记录保留手动核对。
           </p>
         </div>
         <div className="stage-ownership-total" aria-label={`待整理 ${pending.length} 项`}>
@@ -353,6 +354,7 @@ export function StageOwnershipRepairView() {
           <strong>{displayedPending.length}</strong>
         </div>
       </header>
+      <StageOwnershipAutoRepair />
       {pageStatus ? (
         <p
           className={`stage-ownership-page-status is-${pageStatus.kind}`}
@@ -414,7 +416,7 @@ export function StageOwnershipRepairView() {
                     {item.source ? (
                       <div>
                         <dt>{item.source.label}</dt>
-                        <dd>{[item.source.reference, item.source.title, item.source.id].filter(Boolean).join(' · ')}</dd>
+                        <dd>{[item.source.reference, item.source.title].filter(Boolean).join(' · ') || '来源记录'}</dd>
                       </div>
                     ) : null}
                   </dl>

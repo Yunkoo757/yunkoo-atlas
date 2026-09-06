@@ -162,21 +162,12 @@ export function mergeSharedTradeWorkspaceSearch(
   return text ? `?${text}` : ''
 }
 
-/** 返回交易日志首页时只保留阶段；模拟/实盘类型与其他筛选都属于临时视图。 */
+/** 返回交易日志首页时保留阶段和记录类型，清除策略等页面筛选。 */
 export function tradeHomeSearch(search: string | URLSearchParams): string {
-  const source = typeof search === 'string' ? new URLSearchParams(search) : search
-  const stage = source.get('liveStage')
-  if (!stage) return ''
-  const next = new URLSearchParams({
-    liveStage: stage === 'all-history' ? 'all' : stage,
-  })
-  return `?${next.toString()}`
+  return sharedTradeWorkspaceSearch(search)
 }
 
-/**
- * 应用冷启动回到交易日志首页，但恢复用户上次选择的阶段范围。
- * 视图、策略和盘型等临时条件不跨启动恢复，避免重新打开软件时落入旧筛选。
- */
+/** 回到交易日志首页，并恢复用户选择的阶段和记录类型。 */
 export function tradeHomeHref(search: string | URLSearchParams): string {
   return `/list${tradeHomeSearch(search)}`
 }

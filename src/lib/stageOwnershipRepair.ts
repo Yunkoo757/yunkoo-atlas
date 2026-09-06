@@ -507,7 +507,13 @@ function allLocatedEntities(state: StageOwnershipRepairState): LocatedEntity[] {
 
 export function listPendingStageOwnership(state: StageOwnershipRepairState): PendingStageOwnershipItem[] {
   return allLocatedEntities(state)
-    .filter(({ entity }) => entity.liveStageId === null)
+    // Cases may intentionally be independent after a live-stage reset. Null is valid,
+    // not evidence that they need assigning back into live statistics.
+    .filter(({ entity, entityType }) => entity.liveStageId === null && (
+      entityType !== 'case-trade' || state.trades.some(source => (
+        source.tradeKind === 'live' && source.id === (entity as Trade).sourceTradeId
+      ))
+    ))
     .map((located) => itemForLocated(state, located))
 }
 
@@ -633,6 +639,37 @@ function weeklyReviewPeriodForAssignment(
     )
   }
   return period
+}
+
+/** Repair only unambiguous dates within existing boundaries; never shift a stage or guess a date. */
+export function prepareAutomaticStageOwnership<T extends StageOwnershipRepairState>(state: T): { snapshot: T; count: number } {
+  let snapshot = state
+  let count = 0
+  for (const item of listPendingStageOwnership(state)) {
+    let candidates: LiveStage[] = []
+    if (item.entityType === 'live-trade' || item.entityType === 'missed-trade') {
+      const trade = snapshot.trades.find(trade => trade.id === item.entityId)
+      if (!trade || trade.tradeKind !== 'live') continue
+      const day = reliableTradeDay(snapshot, trade)
+      if (!day) continue
+      candidates = snapshot.liveStages.filter(stage => stage.startsOn <= day && (stage.endsOn === null || day <= stage.endsOn))
+    } else if (item.entityType === 'weekly-review' && !item.requiresWeeklyPeriodCorrection) {
+      const review = snapshot.weeklyReviews.find(review => review.id === item.entityId)
+      if (!review || !isCanonicalWeeklyReviewPeriod(review.weekStart, review.weekEnd)) continue
+      candidates = snapshot.liveStages.filter(stage => stageContainsWeeklyReviewPeriod(stage, review.weekStart, review.weekEnd))
+    }
+    if (candidates.length !== 1) continue
+    const latest = listPendingStageOwnership(snapshot).find(candidate => candidate.entityId === item.entityId && candidate.entityType === item.entityType)
+    if (!latest) continue
+    try {
+      snapshot = assignPendingStageOwnership(snapshot, { entityType: latest.entityType, entityId: latest.entityId, liveStageId: candidates[0].id, expectedFingerprint: latest.fingerprint })
+      count++
+    } catch (error) {
+      if (!(error instanceof StageOwnershipRepairError)) throw error
+      // Dependencies/conflicts stay in the manual queue, without changing them.
+    }
+  }
+  return { snapshot, count }
 }
 
 function requireReferenceStage(
