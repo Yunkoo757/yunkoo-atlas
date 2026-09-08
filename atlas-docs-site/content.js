@@ -22,8 +22,7 @@ export const lessons = [
         ],
         facts: ['记录过程，而不是追求漂亮结果', '先捕捉，后整理', '用复盘把一次动作变成下一次可执行的改进'],
         demo: 'atlas-shell',
-        screenshot: './assets/screens/01-list.png',
-        caption: '产品实景：交易日志是工作台的起点；截图中的数据不等于当前教学状态。',
+        productView: 'journal',
         actionLabel: '开始练习',
       },
       {
@@ -146,8 +145,7 @@ export const lessons = [
         body: ['中央正文适合记录盘面摘要、市场叙事和复盘判断；右侧属性区适合确认状态、方向、交易数据、标签和策略。'],
         facts: ['正文负责叙述与判断', '属性负责稳定事实', '截图保留当时看到的证据', '来源关系连接记录与案例'],
         demo: 'detail-panel',
-        screenshot: './assets/screens/02-detail-note.png',
-        caption: '产品实景：详情页把正文与属性区并列，收起属性后仍保留记录上下文。',
+        productView: 'detail',
         actionLabel: '打开详情练习',
       },
       {
@@ -322,8 +320,7 @@ export const lessons = [
         body: ['同一个胜率、盈亏或交易数量，在实盘、模拟盘、全部记录和错过机会范围下，含义完全不同。'],
         facts: ['范围决定哪些记录进入计算', '错过机会用于复盘判断，不代表实盘亏损', '教学数字只用于演示口径变化'],
         demo: 'stats-range',
-        screenshot: './assets/screens/04-dashboard.png',
-        caption: '产品实景：统计页在数据范围内展示结论；这里的教学面板使用独立示例数据。',
+        productView: 'stats',
         actionLabel: '开始看统计',
       },
       {
@@ -381,7 +378,7 @@ export const lessons = [
         title: '两个入口解决两个不同问题',
         body: ['周复盘从时间范围出发，适合归纳本周反复出现的模式；随机复盘从一条旧交易出发，适合检查自己还能否说清当时的证据。'],
         facts: ['周复盘：从多条记录看模式', '随机复盘：从一条记录查记忆', '掌握度评估会决定下一次复习节奏'],
-        demo: 'review-session',
+        productView: 'period',
         actionLabel: '开始复盘练习',
       },
       {
@@ -440,8 +437,7 @@ export const lessons = [
         body: ['“我执行了一笔交易”“我看见了但没有执行”“我想先记下一个想法”是三种不同的事情。正确来源会让后续统计和复盘不被混淆。'],
         facts: ['模拟盘：独立练习', '错过机会：复盘判断，不计入实盘绩效', '随记：快速捕捉，不等同于交易记录', '今日工作台：按当天任务组织记录'],
         demo: 'source-compare',
-        screenshot: './assets/screens/03-missed.png',
-        caption: '产品实景：错过机会有自己的筛选语义；它不是一笔被标红的亏损交易。',
+        productView: 'journal',
         actionLabel: '开始来源练习',
       },
       {
@@ -500,8 +496,7 @@ export const lessons = [
         body: ['风险页面关注准备、限制和证据；数据页面关注备份、导入、重复检测、恢复和回收站。它们共同保护你长期积累的记录。'],
         facts: ['风险提示陈述事实，不替你决策', '完整备份包含交易、正文、截图和设置', '恢复与删除操作必须明确后果'],
         demo: 'risk-maintenance',
-        screenshot: './assets/screens/05-data-io.png',
-        caption: '产品实景：数据页把备份、导入、重复检测和恢复集中管理。',
+        productView: 'data',
         actionLabel: '开始维护练习',
       },
       {
@@ -600,7 +595,18 @@ export const lessons = [
   },
 ];
 
+lessons.splice(4,0,{
+ id:'quick-notes',number:'04',kind:'main',group:'主线',navLabel:'随记与反思',title:'随记与反思',eyebrow:'把尚未成形的想法留下来',objective:'记录盘面观察、情绪与纪律，在回看中理解自己的判断。',description:'打开侧栏随记，新建内容后填写标题与正文；用置顶和搜索找回重要记录。',tags:['随记','反思','交易纪律'],
+ steps:[
+ {id:'observe',type:'observe',eyebrow:'01 / 04 · 观察',title:'不必等到成交，才开始记录',body:['盘中闪过的判断、错过机会时的情绪、想反复提醒自己的纪律，都可以先放进随记。','随记提供标题、正文、置顶与搜索。它保存思考，不会把一段文字当成一笔成交或计入交易统计。'],facts:['即时记录观察与反思','置顶需要反复提醒自己的内容','用搜索和列表回到过去的判断'],productView:'notes',actionLabel:'开始练习'},
+ {id:'operate',type:'operate',eyebrow:'02 / 04 · 操作',title:'为一条想法选择合适的位置',body:['Yunkoo 今天没有成交，但发现自己因为担心错过而反复看盘，想把这段感受留给盘后回看。'],prompt:'请选择适合保存这条观察的记录方式。',action:'sourceMapping',success:'随记可以保留没有成交的观察；已有执行事实时，应使用对应的交易记录。',actionLabel:'完成分类'},
+ {id:'understand',type:'understand',eyebrow:'03 / 04 · 理解',title:'回看随记，让感受变得具体',body:['给记录一个以后能搜到的标题，写清发生的情境、当时的判断，以及下一次想验证的事情。重要的纪律可以置顶。','复盘时回看这些观察，分清“看见了什么”和“怎样解释它”。需要形成下一周承诺时，再进入周期复盘整理。'],demo:'source-rule',actionLabel:'我明白了'},
+ {id:'confirm',type:'quiz',eyebrow:'04 / 04 · 确认',title:'确认随记的作用',question:'没有成交，但想记录盘中情绪和观察，应该怎样处理？',options:[{value:'note',label:'写入随记，保留上下文并在之后回看',correct:true},{value:'trade',label:'创建一笔虚构成交，让它进入盈亏统计'},{value:'skip',label:'没有成交，所以不需要留下任何记录'}],explanation:'正确。随记保存思考，交易日志保存执行事实，两者共同支持复盘。',actionLabel:'完成随记学习'}
+ ]
+});
+lessons.forEach((lesson,index)=>{lesson.number=String(index).padStart(2,'0');});
+
 export const lessonGroups = [
-  { id: 'main', label: '主线闭环' },
-  { id: 'branch', label: '分支模块' },
+  { id: 'main', label: '核心工作流' },
+  { id: 'branch', label: '进阶与维护' },
 ];

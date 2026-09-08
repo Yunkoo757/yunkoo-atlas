@@ -1,0 +1,77 @@
+{
+  "capturedAt": "2026-09-06T06:25:19.934Z",
+  "captures": [
+    {
+      "key": "cases",
+      "width": 2648,
+      "height": 1701,
+      "bytes": 279284,
+      "format": "PNG",
+      "source": "running installed Trader Atlas",
+      "method": "PrintWindow PW_RENDERFULLCONTENT; per-monitor DPI aware; no resampling"
+    },
+    {
+      "key": "board",
+      "width": 2648,
+      "height": 1701,
+      "bytes": 302070,
+      "format": "PNG",
+      "source": "running installed Trader Atlas",
+      "method": "PrintWindow PW_RENDERFULLCONTENT; per-monitor DPI aware; no resampling"
+    },
+    {
+      "key": "journal",
+      "width": 2648,
+      "height": 1701,
+      "bytes": 253911,
+      "format": "PNG",
+      "source": "running installed Trader Atlas",
+      "method": "PrintWindow PW_RENDERFULLCONTENT; per-monitor DPI aware; no resampling"
+    },
+    {
+      "key": "detail",
+      "width": 2648,
+      "height": 1701,
+      "bytes": 251303,
+      "format": "PNG",
+      "source": "running installed Trader Atlas",
+      "method": "PrintWindow PW_RENDERFULLCONTENT; per-monitor DPI aware; no resampling"
+    },
+    {
+      "key": "notes",
+      "width": 2648,
+      "height": 1701,
+      "bytes": 259570,
+      "format": "PNG",
+      "source": "running installed Trader Atlas",
+      "method": "PrintWindow PW_RENDERFULLCONTENT; per-monitor DPI aware; no resampling"
+    },
+    {
+      "key": "stats",
+      "width": 2648,
+      "height": 1701,
+      "bytes": 227953,
+      "format": "PNG",
+      "source": "running installed Trader Atlas",
+      "method": "PrintWindow PW_RENDERFULLCONTENT; per-monitor DPI aware; no resampling"
+    },
+    {
+      "key": "period",
+      "width": 2648,
+      "height": 1701,
+      "bytes": 199536,
+      "format": "PNG",
+      "source": "running installed Trader Atlas",
+      "method": "PrintWindow PW_RENDERFULLCONTENT; per-monitor DPI aware; no resampling"
+    },
+    {
+      "key": "random",
+      "width": 2648,
+      "height": 1701,
+      "bytes": 114535,
+      "format": "PNG",
+      "source": "running installed Trader Atlas",
+      "method": "PrintWindow PW_RENDERFULLCONTENT; per-monitor DPI aware; no resampling"
+    }
+  ]
+}

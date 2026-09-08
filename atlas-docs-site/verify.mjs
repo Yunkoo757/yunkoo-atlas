@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { lessons } from './content.js';
 import { searchIndex } from './data.js';
 
-assert.equal(lessons.length, 10, '教学站应包含 10 个章节');
+assert.equal(lessons.length, 11, '教学站应包含 11 个章节');
 
 const ids = new Set(lessons.map((lesson) => lesson.id));
 assert.equal(ids.size, lessons.length, '章节 ID 必须唯一');

@@ -1,0 +1,14 @@
+{
+  "name": "trader-atlas-website",
+  "compatibility_date": "2026-09-06",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    { "pattern": "yunkoo.net/*", "zone_name": "yunkoo.net" },
+    { "pattern": "www.yunkoo.net/*", "zone_name": "yunkoo.net" }
+  ]
+}

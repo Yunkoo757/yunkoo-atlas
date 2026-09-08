@@ -1,0 +1,27 @@
+{
+  "capturedAt": "2026-09-06T05:42:58.652Z",
+  "runtime": "user existing Trader Atlas instance",
+  "captures": [
+    {
+      "name": "cases-live",
+      "width": 2628,
+      "height": 1691,
+      "source": "user-current-running-instance",
+      "format": "png"
+    },
+    {
+      "name": "board-live",
+      "width": 2628,
+      "height": 1691,
+      "source": "user-current-running-instance",
+      "format": "png"
+    },
+    {
+      "name": "detail-live",
+      "width": 2628,
+      "height": 1691,
+      "source": "user-current-running-instance",
+      "format": "png"
+    }
+  ]
+}

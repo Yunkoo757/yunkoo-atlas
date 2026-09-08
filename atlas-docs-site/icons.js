@@ -1,6 +1,14 @@
 const PATHS = {
+  eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  pointer:'<path d="m5 3 14 9-7 1-3 7L5 3Z"/>',
+  checkCircle:'<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
+  external: '<path d="M8 6h10v10M18 6 6 18"/>',
+  expand: '<path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/>',
+  pause: '<path d="M9 5v14M15 5v14"/>',
+  play: '<path d="m8 5 11 7-11 7Z"/>',
+  plus: '<path d="M5 12h14M12 5v14"/>',
   search: '<circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path>',
-  command: '<path d="M18 8a3 3 0 1 0-6 0v8a3 3 0 1 0 6 0"></path><path d="M6 8a3 3 0 1 1 6 0v8a3 3 0 1 1-6 0"></path>',
+  command: '<path d="M8 8V5.5A2.5 2.5 0 1 0 5.5 8H18.5A2.5 2.5 0 1 0 16 5.5v13a2.5 2.5 0 1 0 2.5-2.5h-13A2.5 2.5 0 1 0 8 18.5V8Z"/>',
   check: '<path d="m5 12 4 4L19 6"></path>',
   lock: '<rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path>',
   book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"></path>',
@@ -10,7 +18,7 @@ const PATHS = {
   case: '<path d="M4 5a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"></path><path d="M4 9h16"></path>',
   rotate: '<path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path>',
   note: '<path d="M4 4h16v14H8l-4 3Z"></path><path d="M8 9h8M8 13h5"></path>',
-  settings: '<path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path><path d="m19.4 15 .1.1a2 2 0 1 1-2.8 2.8l-.1-.1a2 2 0 0 0-3.4 1.4V19a2 2 0 1 1-4 0v-.2A2 2 0 0 0 5.8 17l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A2 2 0 0 0 1.6 11H1.5a2 2 0 1 1 0-4h.2A2 2 0 0 0 3 3.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A2 2 0 0 0 9.2 0h.2a2 2 0 1 1 4 0v.2A2 2 0 0 0 16.8 1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A2 2 0 0 0 21 7h.2a2 2 0 1 1 0 4H21a2 2 0 0 0-1.6 4Z" transform="translate(1.5 1.5) scale(.83)"></path>',
+  settings: '<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="var(--atlas-bg)"/><circle cx="15" cy="17" r="2" fill="var(--atlas-bg)"/>',
   close: '<path d="m6 6 12 12M18 6 6 18"></path>',
   arrow: '<path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path>',
   chevron: '<path d="m6 9 6 6 6-6"></path>',
@@ -33,5 +41,5 @@ export function icon(name, size = 'md', label = '') {
   const body = PATHS[name] ?? PATHS.help;
   const pixels = SIZES[size] ?? size;
   const accessible = label ? `role="img" aria-label="${label}"` : 'aria-hidden="true"';
-  return `<svg ${accessible} width="${pixels}" height="${pixels}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+  return `<svg ${accessible} width="${pixels}" height="${pixels}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
 }

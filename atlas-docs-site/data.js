@@ -4,7 +4,7 @@ export const teachingTrade = {
   direction: '做多',
   status: '计划中',
   timeframe: '4H',
-  strategy: 'QA 自动化',
+  strategy: '趋势延续',
   tags: ['仓位大小错误', '情绪化交易'],
   openedAt: '2026-09-05',
   scope: 'live',
@@ -110,6 +110,7 @@ export const maintenanceOptions = [
 ];
 
 export const searchIndex = [
+  {id:'quick-notes',title:'随记与反思',description:'观察、情绪、交易纪律、置顶与搜索回看'},
   { id: 'orientation', title: '认识 Atlas', description: '理解交易日志与复盘工作台的边界' },
   { id: 'record-first-trade', title: '记录第一笔交易', description: '先捕捉交易事实，再补充详情' },
   { id: 'enrich-trade', title: '补充详情', description: '正文、截图、属性和来源关系' },

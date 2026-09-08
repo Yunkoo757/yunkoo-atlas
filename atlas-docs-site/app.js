@@ -1,3 +1,4 @@
+import {siteHeader} from './site-shell.js';
 import { lessons, lessonGroups } from './content.js';
 import {
   maintenanceOptions,
@@ -63,6 +64,8 @@ const defaultState = () => ({
 });
 
 let state = loadState();
+const requestedLesson = new URL(location.href).searchParams.get('lesson');
+if (lessons.some(l=>l.id===requestedLesson)) { state.lessonId=requestedLesson; state.stepIndex=0; state.quizSelection=null; state.quizCorrect=false; state.quizIncorrect=false; state.actionState='idle'; }
 let searchOpen = false;
 let resetOpen = false;
 let searchQuery = '';
@@ -190,7 +193,7 @@ function isActionReady(step = currentStep()) {
     case 'reviewRating':
       return Boolean(demo.review.rating);
     case 'sourceMapping':
-      return Boolean(demo.source);
+      return currentLesson().id === 'quick-notes' ? demo.source === 'notes' : Boolean(demo.source);
     case 'maintenanceChoice':
       return Boolean(demo.maintenance);
     case 'shortcutPractice':
@@ -249,7 +252,7 @@ function advanceStep() {
   if (!canAdvance(step)) {
     state.actionState = 'blocked';
     persist();
-    showToast(step.type === 'quiz' ? '请先选择并验证正确答案。' : '请先完成右侧教练台提示的动作。', 'error');
+    showToast(step.type === 'quiz' ? '请先选择并验证正确答案。' : '请先完成下方操作提示提示的动作。', 'error');
     return;
   }
   if (state.stepIndex >= lesson.steps.length - 1) {
@@ -291,11 +294,12 @@ function render() {
     <div class="site-layout">
       ${renderMap()}
       <main class="lesson-stage" id="lesson-main" tabindex="-1">
+        ${renderLearningTools()}
         ${renderLessonHeader(lesson)}
         ${renderStepProgress(lesson, step)}
         ${state.completedLessons.includes(lesson.id) ? renderCompletion(lesson) : renderCurrentStep(lesson, step)}
+        ${renderCoach(lesson, step)}
       </main>
-      ${renderCoach(lesson, step)}
     </div>
     ${searchOpen ? renderSearchDialog() : ''}
     ${resetOpen ? renderResetDialog() : ''}
@@ -312,31 +316,9 @@ function render() {
 
 render.pendingFocusHeading = false;
 
-function renderTopbar() {
-  return `
-    <header class="site-topbar">
-      <div class="topbar-inner">
-        <a class="brand-lockup" href="#lesson-main" aria-label="Atlas 教学站首页">
-          <img class="brand-mark" src="./assets/favicon.svg" alt="">
-          <span class="brand-name">Trader Atlas</span>
-          <span class="brand-divider" aria-hidden="true"></span>
-          <span class="brand-context">教学站</span>
-        </a>
-        <nav class="topbar-nav" aria-label="教学站导航">
-          <a href="#learning-map">学习路径</a>
-          <a href="#lesson-main">当前章节</a>
-          <a href="#coach-rail">操作提示</a>
-        </nav>
-        <div class="topbar-actions">
-          <button class="topbar-button" type="button" data-search-toggle aria-haspopup="dialog" aria-expanded="${searchOpen}">
-            ${icon('search', 'sm')}<span>搜索章节</span><span class="shortcut-hint">${modifierLabel()} K</span>
-          </button>
-          ${renderPlatformSwitch('topbar')}
-        </div>
-      </div>
-    </header>
-  `;
-}
+function renderTopbar() { return siteHeader('guide'); }
+
+function renderLearningTools() { return `<div class="learning-tools"><span>使用指南 / 从理解到实践</span><div><button class="topbar-button" type="button" data-search-toggle aria-haspopup="dialog" aria-expanded="${searchOpen}">${icon('search','sm')}搜索章节</button>${renderPlatformSwitch('topbar')}</div></div>`; }
 
 function renderPlatformSwitch(context = 'topbar') {
   return `
@@ -378,7 +360,7 @@ function renderMap() {
       ${renderGroup('branch')}
       <div class="map-footer">
         <p class="map-footer-copy">进度只保存在当前浏览器的教学状态里，不会读取或上传你的真实交易数据。</p>
-        <button class="map-action" type="button" data-reset>重新开始教学</button>
+        <button class="map-action" type="button" data-reset>${icon('rotate', 'md')}<span>重新开始教学</span></button>
       </div>
     </aside>
   `;
@@ -425,7 +407,7 @@ function renderStepProgress(lesson, step) {
       ${lesson.steps.map((item, index) => {
         const current = item.id === step.id;
         const done = index < state.stepIndex || isComplete(lesson.id);
-        return `<span class="step-pill ${current ? 'is-current' : ''} ${done ? 'is-done' : ''}"><span class="step-pill-number">${index + 1}</span>${item.type === 'quiz' ? '确认' : item.type === 'observe' ? '观察' : item.type === 'operate' ? '操作' : '理解'}</span>`;
+        return `<span class="step-pill ${current ? 'is-current' : ''} ${done ? 'is-done' : ''}">${icon(done ? 'check' : ({observe:'eye',operate:'pointer',understand:'book',quiz:'checkCircle'})[item.type], 'lg')}${item.type === 'quiz' ? '确认' : item.type === 'observe' ? '观察' : item.type === 'operate' ? '操作' : '理解'}</span>`;
       }).join('')}
     </div>
   `;
@@ -469,7 +451,7 @@ function renderLessonFooter(step) {
         : '继续';
   const disabled = !canAdvance(step);
   const hint = step.type === 'operate'
-    ? disabled ? '完成右侧示例动作后继续。' : '动作已完成，可以进入下一步。'
+    ? disabled ? '完成当前示例动作后继续。' : '动作已完成，可以进入下一步。'
     : step.type === 'quiz'
       ? state.quizCorrect ? '答案已确认，可以继续。' : '先选择答案并点击“验证答案”。'
       : '每一步都可以回到左侧地图重新查看。';
@@ -520,14 +502,15 @@ function renderStepDemo(lesson, step) {
     ? renderInteractiveDemo(step.action)
     : step.type === 'understand'
       ? renderStaticDemo(step.demo)
-      : step.screenshot
-        ? renderScreenshot(step.screenshot, step.caption)
+      : step.productView
+        ? renderProductDemo(step.productView)
         : renderStaticDemo(step.demo);
-  return `<section class="demo-surface" aria-label="${lesson.title}示例工作台"><div class="demo-header"><div class="demo-heading-row"><div><div class="demo-kicker">Atlas 示例工作台</div><h3 class="demo-title">${step.type === 'operate' ? '现在试试' : '看见它在产品里怎样出现'}</h3><p class="demo-subtitle">${step.type === 'operate' ? '这是教学数据，不会写入真实 Atlas。' : '示例只展示概念关系，不代表当前账户数据。'}</p></div><span class="data-badge">只读示例</span></div></div><div class="demo-body">${demo}</div></section>`;
+  return `<section class="demo-surface" aria-label="${lesson.title}示例工作台"><div class="demo-header"><div class="demo-heading-row"><div><div class="demo-kicker">Atlas 示例工作台</div><h3 class="demo-title">${step.type === 'operate' ? '现在试试' : '看见它在产品里怎样出现'}</h3><p class="demo-subtitle">${step.type === 'operate' ? '这是教学数据，不会写入真实 Atlas。' : step.productView && step.productView !== 'data' ? '最新版客户端界面，使用隔离的 Yunkoo 示例资料库。' : '示例只展示概念关系，不代表当前账户数据。'}</p></div><span class="data-badge">只读示例</span></div></div><div class="demo-body">${demo}</div></section>`;
 }
 
-function renderScreenshot(src, caption) {
-  return `<figure class="screenshot-figure"><img src="${src}" alt="Atlas 产品界面示例" loading="lazy"><figcaption class="figure-caption">${icon('help', 'sm')}${caption ?? 'Atlas 产品实景截图。'}</figcaption></figure>`;
+function renderProductDemo(view) {
+  if (view === 'data') return renderMaintenanceRules();
+  return `<figure class="screenshot-figure"><product-shot view="${view==='list'?'cases':view}"></product-shot><figcaption class="figure-caption">Yunkoo 示例资料库 · 客户端实拍；下方练习使用独立教学数据。</figcaption></figure>`;
 }
 
 function renderStaticDemo(kind) {
@@ -535,7 +518,7 @@ function renderStaticDemo(kind) {
     case 'atlas-shell':
       return renderMockShell('交易日志', ['交易日志', '统计分析', '周期复盘', '案例库', '随机复盘'], '交易日志');
     case 'record-list':
-      return renderMockShell('交易日志 · 新记录', ['交易日志', '进行中', '星标交易', '错过机会', '模拟盘'], '进行中', '<div class="mock-list"><div class="mock-list-row"><span><strong>BTCUSDT</strong><small> 计划中 · 4H</small></span><span>QA 自动化</span><span class="mock-number">—</span></div><div class="mock-list-row"><span><strong>先记录事实</strong><small> 教学交易</small></span><span>待补充</span><span class="mock-number">01</span></div></div>');
+      return renderMockShell('交易日志 · 新记录', ['交易日志', '进行中', '星标交易', '错过机会', '模拟盘'], '进行中', '<div class="mock-list"><div class="mock-list-row"><span><strong>BTCUSDT</strong><small> 计划中 · 4H</small></span><span>趋势延续</span><span class="mock-number">—</span></div><div class="mock-list-row"><span><strong>先记录事实</strong><small> 教学交易</small></span><span>待补充</span><span class="mock-number">01</span></div></div>');
     case 'record-state':
       return `<div class="mock-list"><div class="mock-list-row"><span><strong>${teachingTrade.symbol}</strong><small> ${teachingTrade.direction}</small></span><span><span class="data-badge">${teachingTrade.status}</span></span><span class="mock-number">${teachingTrade.timeframe}</span></div><div class="inset-note">状态说明：这条记录仍在工作流里，尚未代表复盘完成。</div></div>`;
     case 'flow':
@@ -691,7 +674,7 @@ function renderCoach(lesson, step) {
         : '继续学习';
   const actionAttrs = complete ? next ? 'data-next-lesson' : 'data-first-lesson' : 'data-next';
   const coachDisabled = !complete && !canAdvance(step);
-  return `<aside class="coach-rail" id="coach-rail" aria-label="当前操作提示"><div class="coach-header"><div class="coach-title-row"><div><div class="coach-kicker">教练台</div><h2 class="coach-title">${complete ? '本节已完成' : '现在做什么'}</h2></div>${icon(complete ? 'check' : 'target', 'lg')}</div></div><div class="coach-body"><p class="coach-copy">${coachCopy}</p><button class="coach-action" type="button" ${actionAttrs} ${coachDisabled ? 'disabled' : ''}>${actionLabel} ${icon(complete ? 'arrow' : 'check', 'sm')}</button><div class="coach-progress-row"><span>本节进度</span><span>${complete ? totalSteps : stepNumber} / ${totalSteps}</span></div><div class="coach-progress-track"><span style="width:${complete ? 100 : Math.round((stepNumber / totalSteps) * 100)}%"></span></div><p class="coach-tip"><strong>小提示</strong><br>${lesson.description}</p></div></aside>`;
+  return `<aside id="coach-rail" class="quiet-coach" aria-label="当前操作提示"><details><summary>${icon('help','sm')}需要一点提示</summary><p>${coachCopy}</p><p>${lesson.description}</p></details></aside>`;
 }
 
 function actionCoachCopy(action) {
@@ -901,7 +884,7 @@ function handleInputEvent(event) {
       if (body) body.innerHTML = `<label class="sr-only" for="search-input">搜索关键词</label><input class="search-input" id="search-input" type="search" value="${escapeHtml(searchQuery)}" placeholder="输入交易日志、案例、风险……" data-search-input><div class="search-results">${renderSearchResults()}</div>`;
       const input = dialog.querySelector('[data-search-input]');
       input?.focus();
-      input?.setSelectionRange(searchQuery.length, searchQuery.length);
+      // Search inputs do not support setSelectionRange in Chromium.
     }
     return;
   }

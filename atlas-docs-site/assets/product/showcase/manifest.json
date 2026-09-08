@@ -1,0 +1,54 @@
+{
+  "capturedAt": "2026-09-06T07:27:14.081Z",
+  "source": "Latest Electron build; isolated Yunkoo demonstration library",
+  "captures": [
+    {
+      "key": "journal",
+      "path": "/list",
+      "width": 4320,
+      "height": 2880
+    },
+    {
+      "key": "cases",
+      "path": "/review-cases",
+      "width": 4320,
+      "height": 2880
+    },
+    {
+      "key": "board",
+      "path": "/review-cases/board",
+      "width": 4320,
+      "height": 2880
+    },
+    {
+      "key": "detail",
+      "path": "/trade/TRD-101",
+      "width": 4320,
+      "height": 2880
+    },
+    {
+      "key": "notes",
+      "path": "/notes",
+      "width": 4320,
+      "height": 2880
+    },
+    {
+      "key": "stats",
+      "path": "/dashboard",
+      "width": 4320,
+      "height": 2880
+    },
+    {
+      "key": "period",
+      "path": "/weekly-review",
+      "width": 4320,
+      "height": 2880
+    },
+    {
+      "key": "random",
+      "path": "/review-session",
+      "width": 4320,
+      "height": 2880
+    }
+  ]
+}

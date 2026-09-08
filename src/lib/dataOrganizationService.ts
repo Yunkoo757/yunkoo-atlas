@@ -1,3 +1,4 @@
+import { prepareResultConflictRepair } from '@/lib/resultConflictRepair'
 import { prepareAutomaticStageOwnership } from '@/lib/stageOwnershipRepair'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
 import type { PersistedSnapshot } from '@/storage/types'
@@ -28,6 +29,9 @@ export async function repairLibraryStageOwnership(expected: string, expectedLibr
     assertValidPersistedSnapshot(result.snapshot)
     return result.snapshot
   }, expectedLibraryId)
+}
+export async function repairLibraryResults(expected: string, ids: readonly string[], libraryId: string) {
+  return commitLibraryOrganization(expected, before => prepareResultConflictRepair(before, ids), libraryId)
 }
 async function commitLibraryOrganization(expected: string, makeCandidate: (before: PersistedSnapshot) => PersistedSnapshot, expectedLibraryId: string) {
   if (running || isStorageCutoverInteractionLocked()) throw new Error('已有资料库操作正在执行，请稍后重试。')

@@ -1,0 +1,9 @@
+.result-repair { display: flex; align-items: center; gap: var(--sp-2); }
+.result-repair-content { display: flex; flex-direction: column; gap: var(--sp-4); font-family: var(--font-ui-base); font-size: var(--type-row-size); line-height: var(--type-row-line-height); }
+.result-repair-content p { margin: 0; color: var(--text-secondary); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }
+.result-repair-table { max-height: 45vh; overflow: auto; }
+.result-repair-table table { width: 100%; border-collapse: collapse; font-variant-numeric: var(--numeric-tabular); }
+.result-repair-table th, .result-repair-table td { text-align: left; padding: var(--sp-3) var(--sp-2); border-bottom: 1px solid var(--border-divider); }
+.result-repair-table th { color: var(--text-secondary); font-weight: var(--font-weight-medium); }
+.result-repair-content label { display: flex; align-items: center; gap: var(--sp-2); }
+.result-repair-content input { accent-color: var(--accent); }

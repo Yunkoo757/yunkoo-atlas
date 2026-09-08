@@ -1,3 +1,4 @@
+import { ResultConflictRepair } from '@/components/ResultConflictRepair'
 import { ICON_MD } from '@/icons/iconSize'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
@@ -332,9 +333,10 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                 盈亏 {stats.pnlCount}/{scopedClosedCount} · R {stats.rCount}/{scopedClosedCount}
               </span>
             </div>
-            <span className="db-data-health-state">
+            <div className="db-data-health-state">
               {describeDashboardResultHealth(resultHealth)}
-            </span>
+              <ResultConflictRepair ids={[...performanceSelection.conflictResultIds, ...performanceSelection.missingResultIds]} onOpenTrade={openTrade} />
+            </div>
           </div>
         ) : null}
 

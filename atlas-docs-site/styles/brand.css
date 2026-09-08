@@ -1,0 +1,94 @@
+/* Shared visual foundation. Color roles come from tokens.css LCH (hue 272). */
+:root {
+  --atlas-bg: var(--color-bg-primary);
+  --atlas-surface: var(--color-bg-secondary);
+  --atlas-raised: var(--color-bg-tertiary);
+  --atlas-text: var(--text-content-strong);
+  --atlas-body: var(--text-secondary);
+  --atlas-muted: var(--text-content-metadata);
+  --atlas-line: var(--border-divider);
+  --atlas-accent: #5e6ad2;
+  --atlas-font: var(--font-ui);
+  --atlas-width: 1200px;
+}
+
+/* Shared typography and spacing scale. */
+:root{
+--atlas-type-10:0.625rem;
+--atlas-type-11:0.6875rem;
+--atlas-type-12:0.75rem;
+--atlas-type-13:0.8125rem;
+--atlas-type-14:0.875rem;
+--atlas-type-15:0.9375rem;
+--atlas-type-16:1rem;
+--atlas-type-17:1.0625rem;
+--atlas-type-18:1.125rem;
+--atlas-type-19:1.1875rem;
+--atlas-type-20:1.25rem;
+--atlas-type-25:1.5625rem;
+--atlas-type-30:1.875rem;
+--atlas-type-37:2.3125rem;
+--atlas-type-38:2.375rem;
+--atlas-type-42:2.625rem;
+--atlas-type-44:2.75rem;
+--atlas-space-0:0rem;
+--atlas-space-4:0.25rem;
+--atlas-space-8:0.5rem;
+--atlas-space-12:0.75rem;
+--atlas-space-16:1rem;
+--atlas-space-20:1.25rem;
+--atlas-space-24:1.5rem;
+--atlas-space-28:1.75rem;
+--atlas-space-32:2rem;
+--atlas-space-40:2.5rem;
+--atlas-space-48:3rem;
+--atlas-space-56:3.5rem;
+--atlas-space-64:4rem;
+--atlas-space-72:4.5rem;
+--atlas-space-80:5rem;
+--atlas-space-96:6rem;
+--atlas-space-112:7rem;
+--atlas-space-128:8rem;
+--atlas-radius-control:6px;--atlas-radius-media:8px;--atlas-leading-body:1.9;--atlas-leading-label:1.5;--atlas-weight-medium:500;--atlas-weight-heading:550;
+--atlas-button-height:50px;--atlas-button-height-sm:36px;--atlas-button-gap:var(--atlas-space-8);
+}
+html{overflow-y:scroll;scrollbar-gutter:stable}body{margin:0}button,input,select,textarea{font-family:var(--atlas-font)}product-shot{display:block;aspect-ratio:3/2;background:var(--atlas-bg);border-radius:var(--atlas-radius-media);overflow:hidden}
+
+:root{--atlas-type-34:2.125rem;--atlas-type-48:3rem;--atlas-type-54:3.375rem;--atlas-type-78:4.875rem;--atlas-type-24:1.5rem;--atlas-type-26:1.625rem;--atlas-type-28:1.75rem;--atlas-type-29:1.8125rem;--atlas-type-46:2.875rem;--atlas-type-60:3.75rem;}
+
+/* Marketing motion and modular presentation; reading pages remain still. */
+:root{
+ --atlas-motion-fast:180ms;--atlas-motion-page:420ms;--atlas-motion-ease:cubic-bezier(.2,.7,.2,1);
+ --atlas-glow-size:720px;--atlas-glow-alpha:.09;--atlas-glow-color:94 106 210;
+ --atlas-module-width:360px;--atlas-module-height:292px;--atlas-module-radius:8px;
+ --atlas-deck-angle:1.5deg;--atlas-deck-offset:12px;--atlas-deck-shadow:var(--popover-shadow);
+ --atlas-control-size:40px;--atlas-surface-soft:var(--control-highlight-rest);--atlas-surface-hover:var(--control-highlight-hover);
+}
+:root{--atlas-marquee-speed:18;--atlas-pattern-radius:320;--atlas-pattern-spacing:22;--atlas-pattern-alpha:.22;--atlas-typewriter-width:280px;--atlas-typewriter-key:110;--atlas-typewriter-hold:2400;--atlas-flow-card-height:224px}
+
+/* Liquid Ether parameters measured from the reference hero, 2026-09-06. */
+:root{--atlas-fluid-force:12;--atlas-fluid-cursor:100;--atlas-fluid-viscosity:45;--atlas-fluid-resolution:.5;--atlas-fluid-speed:.3;--atlas-fluid-intensity:.8;--atlas-fluid-resume:1800;--atlas-fluid-opacity:.32;--atlas-fluid-color-1:var(--atlas-accent);--atlas-fluid-color-2:var(--accent-readable);--atlas-fluid-color-3:color-mix(in srgb,var(--atlas-accent) 55%,white)}
+:root{--atlas-fluid-visibility:1.8;--atlas-fluid-hero-height:760px}
+
+:root{--atlas-header-tint:color-mix(in srgb,var(--color-bg-primary) 62%,transparent);--atlas-header-blur:24px;--atlas-header-line:var(--border-subtle);--atlas-shot-focus-ratio:16/9;--atlas-shot-overview-width:1120px}
+product-shot[framing="focus"],product-shot[framing="stage"]{aspect-ratio:var(--atlas-shot-focus-ratio)}
+
+/* 2160 source pixels support a 1000 CSS-pixel feature viewport at 2x. */
+:root{--atlas-shot-focus-width:1000px}
+@media(min-resolution:2.25dppx){:root{--atlas-shot-focus-width:720px}}
+@media(min-resolution:3.25dppx){:root{--atlas-shot-focus-width:540px}}
+
+/* Shared reading hierarchy; spacing expresses grouping rather than empty space. */
+:root{
+ --atlas-copy-size:var(--atlas-type-16);
+ --atlas-label-size:var(--atlas-type-14);
+ --atlas-caption-size:var(--atlas-type-12);
+ --atlas-subtitle-size:var(--atlas-type-20);
+ --atlas-section-gap:var(--atlas-space-96);
+ --atlas-content-gap:var(--atlas-space-40);
+ --atlas-line-strong:var(--border-strong);
+ --atlas-surface-display:var(--color-bg-secondary);
+ --atlas-reading-width:720px;
+}
+
+:root{--atlas-media-edge:var(--surface-control-border-active);--atlas-media-shadow:var(--popover-shadow);--atlas-surface-highlight:var(--control-highlight-rest)}
