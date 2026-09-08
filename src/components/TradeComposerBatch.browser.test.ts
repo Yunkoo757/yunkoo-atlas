@@ -160,6 +160,7 @@ async function run(): Promise<void> {
     await waitFor(() => Boolean(findButton('保存')), '案例 Composer 未就绪')
     findButton('保存')?.click()
     await waitFor(() => !useStore.getState().composerOpen, '案例 Composer 未完成保存')
+    assert(currentPath === '/review-cases', '编辑保存不得强制跳转')
     const saved = useStore.getState().trades.find((trade) => trade.id === recheckCase.id)!
     assert(saved.masteryState === 'recheck', 'Composer 保存不得改写原掌握状态')
     assert(saved.reviewCategory === 'recheck', 'Composer 普通保存必须原样保留兼容分类')
@@ -299,6 +300,15 @@ async function run(): Promise<void> {
       (trade) => trade.id !== createdCase.id && !promotedState.trades.some((previous) => previous.id === trade.id),
     )
     assert(emptyQuickTrade?.note === '', '无一句话和截图时应保存为空笔记，而不是阻止记录')
+    await waitFor(() => currentPath === `/trade/${emptyQuickTrade.ref}`, '新建实盘日志必须自动打开详情')
+    const existingIds = new Set(useStore.getState().trades.map(t => t.id))
+    useStore.setState({ composerOpen: true, composerTrade: null, composerKind: 'paper' })
+    await waitFor(() => Boolean(findButton('保存记录')), '模拟盘创建入口未就绪')
+    findButton('保存记录')?.click()
+    await waitFor(() => !useStore.getState().composerOpen, '模拟盘未保存')
+    const paper = useStore.getState().trades.find(t => !existingIds.has(t.id))
+    assert(paper?.tradeKind === 'paper', '模拟盘类型必须保留')
+    await waitFor(() => currentPath === `/trade/${paper.ref}`, '新建模拟日志必须自动打开详情')
   } finally {
     root?.unmount()
     rootElement?.remove()

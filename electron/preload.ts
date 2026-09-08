@@ -29,6 +29,7 @@ export type {
 
 const bridge: JournalBridge = {
   isElectron: true,
+  outputImage: (action, bytes) => ipcRenderer.invoke('image:output', action, bytes),
   platform: process.platform === 'win32' || process.platform === 'darwin'
     ? process.platform
     : 'other',

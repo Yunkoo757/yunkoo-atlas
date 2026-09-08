@@ -1,3 +1,4 @@
+import { ImageActions } from './components/ImageActions'
 import {
   BrowserRouter,
   HashRouter,
@@ -584,6 +585,7 @@ function Shell() {
       <TradeCloseDialog />
       <TradeOpenRiskDialog />
       <ImageLightbox />
+      <ImageActions />
       <ToastHost />
     </>
   )

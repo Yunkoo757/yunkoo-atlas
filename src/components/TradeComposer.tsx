@@ -380,14 +380,14 @@ export function TradeComposer() {
       }
 
       close()
-      if (!editing && trade.tradeKind === 'case') {
+      if (!editing) {
         navigate(tradeDetailPath(trade), {
           state: tradeDetailNavState({
             pathname: location.pathname,
             search: location.search,
           }),
         })
-        toast('已创建案例')
+        toast(trade.tradeKind === 'case' ? '已创建案例' : '已记录')
         return
       }
       toast(editing ? '已保存' : '已记录', {

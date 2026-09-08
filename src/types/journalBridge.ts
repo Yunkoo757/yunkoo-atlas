@@ -116,6 +116,7 @@ export type LibraryLocationState =
   | { kind: 'needs-recovery'; configuredPath: string; reason: string }
 
 export interface JournalBridge {
+  outputImage?: (action: 'copy' | 'save', bytes: Uint8Array) => Promise<boolean>
   isElectron: true
   platform: 'win32' | 'darwin' | 'other'
   onBeforeClose(callback: () => void | Promise<void>): () => void

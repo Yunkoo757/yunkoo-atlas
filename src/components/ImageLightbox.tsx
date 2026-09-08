@@ -1,6 +1,6 @@
 import { ICON_2XL, ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type SetStateAction } from 'react'
-import { ChevronLeft, ChevronRight, Maximize2, X } from '@/icons/appIcons'
+import { ChevronLeft, ChevronRight, Maximize2, MoreHorizontal, X } from '@/icons/appIcons'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useShortcutHint } from '@/shortcuts/useShortcutHint'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -128,6 +128,12 @@ export function ImageLightbox() {
   }, [imageLayout, rememberView])
 
   const showActualSize = useCallback(() => rememberView(LIGHTBOX_VIEW_RESET), [rememberView])
+
+  useEffect(() => {
+    if (!lightbox) return
+    window.addEventListener('atlas-image-actual-size', showActualSize)
+    return () => window.removeEventListener('atlas-image-actual-size', showActualSize)
+  }, [lightbox, showActualSize])
 
   const onImageLoad = useCallback((event: React.SyntheticEvent<HTMLImageElement>) => {
     const viewport = viewportRef.current
@@ -293,6 +299,14 @@ export function ImageLightbox() {
               <button type="button" className="img-lightbox-action" onClick={showActualSize} aria-label="原图像素 1:1">
                 <span className="img-lightbox-ratio" aria-hidden>1:1</span>
               </button>
+            </Tooltip>
+            <Tooltip asChild content="图片操作" label="图片操作">
+              <button type="button" className="img-lightbox-action" aria-label="图片操作" onClick={event => {
+                const image = viewportRef.current?.querySelector('img')
+                if (!image) return
+                const rect = event.currentTarget.getBoundingClientRect()
+                window.dispatchEvent(new CustomEvent('atlas-image-actions', { detail: { image, x: rect.left, y: rect.bottom } }))
+              }}><MoreHorizontal size={ICON_SM} aria-hidden /></button>
             </Tooltip>
             <span className="img-lightbox-divider" aria-hidden />
             <Tooltip

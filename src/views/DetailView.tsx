@@ -1863,6 +1863,7 @@ function FeedItem({
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const handleContextMenu = (e: React.MouseEvent) => {
+    if (e.target instanceof Element && e.target.closest('img')) return
     if (!deletable || !onDelete) return
     e.preventDefault()
     setDeleteOpen(true)

@@ -1,3 +1,4 @@
+import { registerImageContextMenu } from './imageContextMenu'
 import {
   app,
   BrowserWindow,
@@ -543,6 +544,7 @@ function createWindow(): BrowserWindow {
   if (windowState.isMaximized) {
     mainWindow.maximize()
   }
+  registerImageContextMenu(mainWindow)
   trackWindowState(mainWindow)
   windowPresence?.attachWindow(mainWindow)
   mainWindow.once('ready-to-show', () => {
