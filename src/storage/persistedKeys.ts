@@ -32,6 +32,7 @@ export const PERSISTED_SNAPSHOT_FIELDS = [
   'symbolCatalog',
   'reviewTemplates',
   'reviewPoolPresets',
+  'reviewComposer',
   'reviewPoolLayout',
 ] as const satisfies readonly ActivePersistedSnapshotKey[]
 

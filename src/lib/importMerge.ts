@@ -259,6 +259,7 @@ export function mergeImportPayload(
     reviewTemplates: Array.from(templatesById.values()),
     reviewPoolPresets,
     // 合并导入保留当前首页布局；新导入的自定义池默认进入“更多复盘池”。
+    reviewComposer: current.reviewComposer,
     reviewPoolLayout: current.reviewPoolLayout,
   }
 }

@@ -160,6 +160,7 @@ function CommandPaletteDialog({
       { id: 'n-list', group: '导航', icon: <ListTodo size={ICON_MD} />, label: PRIMARY_NAV_LABELS.trades, hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies, null, { pathname, search })) },
       { id: 'n-review-cases', group: '导航', icon: <BookOpen size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewCases, hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
       { id: 'n-weekly-review', group: '导航', icon: <CalendarDays size={ICON_MD} />, label: PRIMARY_NAV_LABELS.weeklyReview, keywords: '每周 周总结 复盘', hint: shortcutHint('nav.weeklyReview'), run: go(`/weekly-review${sharedTradeSearch}`) },
+      { id: 'n-review-composer', group: '导航', icon: <RotateCcw size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewComposer, keywords: '离线 复盘 组合 模拟', hint: shortcutHint('nav.reviewComposer'), run: go('/review-composer') },
       { id: 'n-review-session', group: '导航', icon: <RotateCcw size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewSession, keywords: '随机 抽卡 复盘', hint: shortcutHint('nav.reviewSession'), run: go('/review-session') },
       { id: 'n-dash', group: '导航', icon: <BarChart3 size={ICON_MD} />, label: PRIMARY_NAV_LABELS.dashboard, hint: shortcutHint('nav.dashboard'), run: go(`/dashboard${sharedTradeSearch}`) },
       { id: 'n-active', group: '交易日志', icon: <Clock size={ICON_MD} />, label: '显示进行中交易', hint: shortcutHint('nav.active'), run: go(sharedViewHref('active')) },

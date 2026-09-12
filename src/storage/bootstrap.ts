@@ -1,3 +1,4 @@
+import { emptyComposerData } from '@/lib/reviewComposer/model'
 import { getStorage } from '@/storage/provider'
 export { getStorage } from '@/storage/provider'
 import {
@@ -116,7 +117,8 @@ async function runBootstrapStorage(): Promise<void> {
         ],
       ),
       reviewTemplates: normalizeReviewTemplates(snapshot.reviewTemplates),
-      reviewPoolPresets: snapshot.reviewPoolPresets ?? [],
+      reviewComposer: snapshot.reviewComposer ?? emptyComposerData(),
+    reviewPoolPresets: snapshot.reviewPoolPresets ?? [],
       reviewPoolLayout: normalizeReviewPoolLayout(
         snapshot.reviewPoolLayout,
         (snapshot.reviewPoolPresets ?? []).map((preset) => preset.id),

@@ -99,6 +99,12 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     defaultBinding: getDefaultShortcutBinding('nav.weeklyReview'),
   },
   {
+    id: 'nav.reviewComposer',
+    label: PRIMARY_NAV_LABELS.reviewComposer,
+    category: '导航', scope: 'navigation',
+    defaultBinding: getDefaultShortcutBinding('nav.reviewComposer'),
+  },
+  {
     id: 'nav.reviewSession',
     label: PRIMARY_NAV_LABELS.reviewSession,
     category: '导航',

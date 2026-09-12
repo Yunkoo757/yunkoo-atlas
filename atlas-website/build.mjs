@@ -17,4 +17,5 @@ cpSync(path.join(guide,'styles'),path.join(output,'guide/styles'),{recursive:tru
 mkdirSync(path.join(output,'guide/assets'),{recursive:true});
 for(const file of ['favicon.svg','inter-variable.woff2']) copyFileSync(path.join(guide,'assets',file),path.join(output,'guide/assets',file));
 cpSync(path.join(guide,'assets/product'),path.join(output,'guide/assets/product'),{recursive:true});
+cpSync(path.join(guide,'composer'),path.join(output,'guide/composer'),{recursive:true});
 console.log('Built standalone static website and /guide/ at',output);

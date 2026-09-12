@@ -69,4 +69,8 @@
 .demo-choice strong,.source-choice strong,.range-button strong,.rating-button strong{font-size:var(--atlas-label-size)}
 .demo-choice span,.source-choice span,.range-button span,.rating-button span,.choice-hint{font-size:var(--atlas-caption-size)}
 .next-button,.coach-action{font-size:var(--atlas-label-size)}
+.text-link{display:inline-flex;align-items:center;gap:var(--atlas-space-8);font-size:var(--atlas-label-size);color:var(--atlas-accent);text-decoration:none}
+.text-link:hover{color:var(--accent-readable)}
+.text-link svg{width:14px;height:14px}
+.map-footer .map-action + .map-action{margin-top:var(--atlas-space-8)}
 .quiz-option,.quiz-option p{font-size:var(--atlas-copy-size)}

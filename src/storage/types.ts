@@ -60,6 +60,7 @@ export interface UserProfile {
 }
 
 export interface PersistedSnapshot {
+  reviewComposer?: import('@/lib/reviewComposer/model').ComposerData
   trades: PersistedTrade[]
   /** v12：实盘阶段是交易、复盘与风险数据归属的唯一持久化真相。 */
   liveStages: LiveStage[]

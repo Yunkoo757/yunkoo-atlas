@@ -1,0 +1,214 @@
+{
+  "mode": [
+    {
+      "value": "record",
+      "label": "按已知条件搭建"
+    },
+    {
+      "value": "simulation",
+      "label": "虚构模拟"
+    }
+  ],
+  "side": [
+    {
+      "value": "long",
+      "label": "做多"
+    },
+    {
+      "value": "short",
+      "label": "做空"
+    }
+  ],
+  "nav": [
+    {
+      "value": "1",
+      "label": "导航1 · HTF简单结构顺势"
+    },
+    {
+      "value": "2",
+      "label": "导航2 · HTF复杂回调后本级别对齐"
+    },
+    {
+      "value": "3",
+      "label": "导航3 · 参与HTF复杂回调内部"
+    },
+    {
+      "value": "4",
+      "label": "导航4 · HTF打破结构强推动"
+    },
+    {
+      "value": "5",
+      "label": "导航5 · MTF强推动，参考MTF跟随"
+    }
+  ],
+  "period": [
+    {
+      "value": "4H/15m/1m",
+      "label": "4H/15m/1m"
+    },
+    {
+      "value": "1H/15m/1m",
+      "label": "1H/15m/1m"
+    },
+    {
+      "value": "1H/5m/1m",
+      "label": "1H/5m/1m"
+    },
+    {
+      "value": "日线/1H/5m",
+      "label": "日线/1H/5m"
+    }
+  ],
+  "stage": [
+    {
+      "value": "simple",
+      "label": "简单结构"
+    },
+    {
+      "value": "2M",
+      "label": "本级别2M"
+    },
+    {
+      "value": "3C",
+      "label": "本级别3C"
+    }
+  ],
+  "htfLocation": [
+    {
+      "value": "default",
+      "label": "沿用当前背景的POI / 推动位置"
+    },
+    {
+      "value": "modelC",
+      "label": "HTF POI＋流动性模型C"
+    }
+  ],
+  "htfLiquidity": [
+    {
+      "value": "htf",
+      "label": "HTF本级别"
+    },
+    {
+      "value": "mtf",
+      "label": "MTF结构点（跨周期组合）"
+    }
+  ],
+  "htfReaction": [
+    {
+      "value": "touch",
+      "label": "已扫描流动性并触及POI"
+    },
+    {
+      "value": "wait",
+      "label": "尚未到位，等待反应"
+    }
+  ],
+  "alignment": [
+    {
+      "value": "ibos",
+      "label": "单独ibos · 激进观察"
+    },
+    {
+      "value": "bos",
+      "label": "一次bos · 2M对齐"
+    },
+    {
+      "value": "2M",
+      "label": "ibos＋二次bos"
+    },
+    {
+      "value": "3C",
+      "label": "3C确认对齐"
+    }
+  ],
+  "location": [
+    {
+      "value": "poi",
+      "label": "极端POI"
+    },
+    {
+      "value": "modelC",
+      "label": "POI＋流动性模型C"
+    },
+    {
+      "value": "noA",
+      "label": "no IDM预期A＋sweep前控制区fails"
+    },
+    {
+      "value": "noB",
+      "label": "no IDM预期B早期诱导被扫描"
+    }
+  ],
+  "trigger": [
+    {
+      "value": "choch",
+      "label": "choch"
+    },
+    {
+      "value": "second",
+      "label": "choch＋二次bos"
+    },
+    {
+      "value": "flip",
+      "label": "flip"
+    }
+  ],
+  "entry": [
+    {
+      "value": "poi",
+      "label": "决策POI回踩挂单"
+    },
+    {
+      "value": "market",
+      "label": "对齐后市价"
+    },
+    {
+      "value": "break",
+      "label": "二次bos突破单"
+    }
+  ],
+  "sl": [
+    {
+      "value": "ltf",
+      "label": "LTF本单失效高低点"
+    },
+    {
+      "value": "mtf",
+      "label": "执行MTF叙述背景失效高低点"
+    }
+  ],
+  "be": [],
+  "target": [],
+  "manage": [
+    {
+      "value": "target",
+      "label": "按目标计划管理"
+    },
+    {
+      "value": "dynamic",
+      "label": "结合后续结构动态管理"
+    }
+  ],
+  "outcome": [
+    {
+      "value": "plan",
+      "label": "仅设置计划 / 暂无结果"
+    },
+    {
+      "value": "tp",
+      "label": "盈利退出（按目标或动态条件）"
+    },
+    {
+      "value": "sl",
+      "label": "触及SL，止损退出"
+    },
+    {
+      "value": "be",
+      "label": "到达BE位置移SL，回撤保本退出"
+    },
+    {
+      "value": "miss",
+      "label": "挂单未成交，撤单"
+    }
+  ]
+}

@@ -256,6 +256,7 @@ function LegacyLiveArchiveRedirect() {
 const ImportDataHealthView = lazy(() =>
   import('./views/ImportDataHealthView').then((module) => ({ default: module.ImportDataHealthView })),
 )
+const ReviewComposerView = lazy(() => import('./views/ReviewComposerView').then(m => ({ default: m.ReviewComposerView })))
 const ReviewSessionView = lazy(() =>
   import('./views/ReviewSessionView').then((module) => ({ default: module.ReviewSessionView })),
 )
@@ -298,6 +299,7 @@ const SymbolsPanel = lazy(() =>
 const UpdatesSettingsPanel = lazy(() =>
   import('./views/settings/UpdatesSettingsPanel').then((module) => ({ default: module.UpdatesSettingsPanel })),
 )
+const ComposerRulesPanel = lazy(() => import('./views/settings/ComposerRulesPanel').then(m => ({ default: m.ComposerRulesPanel })))
 const ReviewTemplatesPanel = lazy(() =>
   import('./views/settings/ReviewTemplatesPanel').then((module) => ({ default: module.ReviewTemplatesPanel })),
 )
@@ -536,6 +538,7 @@ function Shell() {
           <Route path="/review-cases/board" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope/board" element={<ReviewCasesPage />} />
+          <Route path="/review-composer" element={<ReviewComposerView />} />
           <Route path="/review-session" element={<ReviewSessionView />} />
           <Route path="/weekly-review" element={<WeeklyReviewPage />} />
           <Route path="/paper" element={<Navigate to="/sim" replace />} />
@@ -563,6 +566,7 @@ function Shell() {
             <Route path="risk/data-repair" element={<RiskDataRepairView />} />
             <Route path="tags" element={<TagPresetsPanel />} />
             <Route path="symbols" element={<SymbolsPanel />} />
+            <Route path="composer-rules" element={<ComposerRulesPanel page />} />
             <Route path="review-templates" element={<ReviewTemplatesPanel />} />
             <Route path="dispute-types" element={<Navigate to="/settings/tags" replace />} />
             <Route path="display" element={<DisplaySettingsPanel />} />

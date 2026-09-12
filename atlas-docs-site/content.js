@@ -225,6 +225,7 @@ export const lessons = [
         demo: 'review-state',
         takeaways: ['状态回答“处理到哪一步”', '结果回答“发生了什么”', '改进动作回答“下次怎么做”'],
         actionLabel: '我明白了',
+        toolLink: { href: '/guide/composer/', label: '起草一段复盘正文' },
       },
       {
         id: 'confirm',

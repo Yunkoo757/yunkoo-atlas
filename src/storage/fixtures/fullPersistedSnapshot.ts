@@ -1,3 +1,4 @@
+import { emptyComposerData } from '@/lib/reviewComposer/model'
 import { createQuickNote } from '@/data/quickNotes'
 import { createWeeklyReview } from '@/data/weeklyReviews'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
@@ -223,6 +224,7 @@ export function createFullPersistedSnapshotFixture(
       createdAt: '2026-07-18T08:00:00.000Z',
       updatedAt: '2026-07-18T09:00:00.000Z',
     }],
+    reviewComposer: emptyComposerData(),
     reviewPoolLayout: {
       homeOrder: [
         { kind: 'system', id: 'all' },

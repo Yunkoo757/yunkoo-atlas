@@ -21,7 +21,7 @@ export type ShortcutHandlerMap = Partial<Record<string, ShortcutHandler>>
  */
 export function isTradeLogEscapePage(pathname: string): boolean {
   return (
-    ['/dashboard', '/weekly-review', '/review-session', '/trade-trash', '/trash'].includes(pathname) ||
+    ['/review-composer', '/dashboard', '/weekly-review', '/review-session', '/trade-trash', '/trash'].includes(pathname) ||
     pathname === '/notes' ||
     pathname.startsWith('/notes/') ||
     pathname === '/settings' ||

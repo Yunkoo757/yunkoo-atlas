@@ -1,3 +1,4 @@
+import { emptyComposerData } from '@/lib/reviewComposer/model'
 import { previewHistoricalRiskBackfill, historicalRiskFingerprint, type HistoricalRiskInput, type HistoricalRiskPreview } from '@/lib/historicalRiskBackfill'
 import { create } from 'zustand'
 import {
@@ -466,6 +467,7 @@ interface State {
   symbolCatalog: string[]
   reviewTemplates: ReviewTemplate[]
   reviewPoolPresets: ReviewPoolPreset[]
+  reviewComposer: import('@/lib/reviewComposer/model').ComposerData
   reviewPoolLayout: ReviewPoolLayout
   saveReviewPoolPreset: (preset: ReviewPoolPreset) => void
   removeReviewPoolPreset: (id: string) => void
@@ -953,6 +955,7 @@ export const useStore = create<State>()((set, get) => ({
       symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
       reviewTemplates: createDefaultReviewTemplates(),
       reviewPoolPresets: [],
+      reviewComposer: emptyComposerData(),
       reviewPoolLayout: normalizeReviewPoolLayout(DEFAULT_REVIEW_POOL_LAYOUT, []),
       saveReviewPoolPreset: (preset) => set((state) => {
         const reviewPoolPresets = [

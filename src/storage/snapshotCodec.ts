@@ -1,3 +1,4 @@
+import { emptyComposerData } from '@/lib/reviewComposer/model'
 import { createDefaultUserProfile } from '@/config/defaultProfile'
 import { normalizeQuickNotes } from '@/data/quickNoteCodec'
 import { normalizeReviewTemplates } from '@/data/reviewTemplates'
@@ -305,6 +306,7 @@ export function decodeCanonicalSnapshot(
     symbolCatalog: raw.symbolCatalog as PersistedSnapshot['symbolCatalog'],
     reviewTemplates: raw.reviewTemplates as PersistedSnapshot['reviewTemplates'],
     reviewPoolPresets: (raw.reviewPoolPresets === undefined ? [] : raw.reviewPoolPresets) as PersistedSnapshot['reviewPoolPresets'],
+    reviewComposer: raw.reviewComposer as PersistedSnapshot['reviewComposer'],
     reviewPoolLayout: raw.reviewPoolLayout as PersistedSnapshot['reviewPoolLayout'],
   } as PersistedSnapshot
   const stagedCandidate = options.version <= 11
@@ -388,6 +390,7 @@ export function decodeCanonicalSnapshot(
     symbolIcons,
     symbolCatalog: normalizeSymbolCatalog(symbolCatalogSource),
     reviewTemplates: normalizeReviewTemplates(stagedCandidate.reviewTemplates),
+    reviewComposer: stagedCandidate.reviewComposer ?? emptyComposerData(),
     reviewPoolPresets: stagedCandidate.reviewPoolPresets ?? [],
     reviewPoolLayout: normalizeReviewPoolLayout(
       stagedCandidate.reviewPoolLayout,

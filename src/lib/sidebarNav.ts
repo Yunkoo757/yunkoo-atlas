@@ -46,6 +46,7 @@ const PRIMARY_NAV_ICONS: Record<PrimarySidebarNavId, SidebarNavIcon> = {
   trades: ListTodo,
   reviewCases: BookOpen,
   weeklyReview: CalendarDays,
+  reviewComposer: FlaskConical,
   reviewSession: RotateCcw,
   dashboard: BarChart3,
 }

@@ -54,6 +54,7 @@
     "nav.list": { "alt": true, "key": "w" },
     "nav.reviewCases": { "alt": true, "key": "c" },
     "nav.weeklyReview": { "alt": true, "key": "4" },
+    "nav.reviewComposer": { "key": "r" },
     "nav.reviewSession": { "alt": true, "key": "6" },
     "nav.dashboard": { "key": "i" },
     "nav.strategies": { "key": "o" },

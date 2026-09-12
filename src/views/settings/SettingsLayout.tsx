@@ -12,6 +12,7 @@ const NAV = [
   { to: '/settings/tags', label: '标签', icon: Tag },
   { to: '/settings/symbols', label: '品种', icon: Shapes },
   { to: '/settings/review-templates', label: '复盘起稿', icon: FileText },
+  { to: '/settings/composer-rules', label: '组合器规则', icon: FileText },
   { to: '/settings/display', label: '显示', icon: SlidersHorizontal },
   { to: '/settings/data', label: '数据', icon: HardDriveDownload },
   { to: '/settings/updates', label: '更新', icon: Download },

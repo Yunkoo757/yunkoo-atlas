@@ -41,6 +41,7 @@ export interface ExportPayload {
   symbolCatalog?: string[]
   reviewTemplates?: ReviewTemplate[]
   reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
+  reviewComposer?: PersistedSnapshot['reviewComposer']
   reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
   assets?: ExportAssetRecord[]
 }
@@ -73,5 +74,6 @@ export interface PersistedSlice {
   symbolCatalog?: string[]
   reviewTemplates?: ReviewTemplate[]
   reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
+  reviewComposer?: PersistedSnapshot['reviewComposer']
   reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
 }

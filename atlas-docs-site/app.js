@@ -360,6 +360,7 @@ function renderMap() {
       ${renderGroup('branch')}
       <div class="map-footer">
         <p class="map-footer-copy">进度只保存在当前浏览器的教学状态里，不会读取或上传你的真实交易数据。</p>
+        <a class="map-action" href="/guide/composer/">${icon('note', 'md')}<span>起草复盘正文</span></a>
         <button class="map-action" type="button" data-reset>${icon('rotate', 'md')}<span>重新开始教学</span></button>
       </div>
     </aside>
@@ -430,6 +431,7 @@ function renderCurrentStep(lesson, step) {
         <div class="lesson-panel-body">
           <div class="copy-stack">${(step.body ?? []).map((paragraph) => `<p>${paragraph}</p>`).join('')}</div>
           ${step.facts ? `<ul class="fact-list">${step.facts.map((fact) => `<li>${fact}</li>`).join('')}</ul>` : ''}
+          ${step.toolLink ? `<a class="text-link" href="${step.toolLink.href}">${escapeHtml(step.toolLink.label)} ${icon('arrow', 'sm')}</a>` : ''}
           ${step.prompt ? `<div class="inset-note"><strong>${step.prompt}</strong></div>` : ''}
           ${step.type === 'quiz' ? renderQuiz(step) : ''}
           ${step.type !== 'quiz' ? renderStepDemo(lesson, step) : ''}
@@ -695,7 +697,7 @@ function actionCoachCopy(action) {
 
 function renderCompletion(lesson) {
   const next = nextLessonAfterCurrent();
-  return `<section class="completion-panel" aria-labelledby="completion-heading"><div class="completion-header"><div class="completion-heading-row"><div><div class="completion-kicker">本节完成</div><h2 class="completion-title" id="completion-heading" tabindex="-1">你已经走完「${lesson.title}」</h2></div>${icon('check', 'xl')}</div></div><div class="completion-body"><p>${lesson.description} 现在你可以回看本节，也可以沿任务地图继续推进。</p>${next ? `<div class="completion-next"><div><strong>下一节：${next.title}</strong><span>${next.objective}</span></div><button class="next-button" type="button" data-next-lesson>进入下一节 ${icon('arrow', 'sm')}</button></div>` : `<div class="success-note">全部教学章节已经完成。你可以从左侧回看任意模块，或重新开始一条新的教学路径。</div>`}<div class="button-row"><button class="secondary-button" type="button" data-review-lesson>回看本节</button>${!next ? '<button class="secondary-button" type="button" data-first-lesson>回到第一节</button>' : ''}</div></div></section>`;
+  return `<section class="completion-panel" aria-labelledby="completion-heading"><div class="completion-header"><div class="completion-heading-row"><div><div class="completion-kicker">本节完成</div><h2 class="completion-title" id="completion-heading" tabindex="-1">你已经走完「${lesson.title}」</h2></div>${icon('check', 'xl')}</div></div><div class="completion-body"><p>${lesson.description} 现在你可以回看本节，也可以沿任务地图继续推进。</p>${lesson.id === 'complete-review' ? `<a class="text-link" href="/guide/composer/">起草一段复盘正文 ${icon('arrow', 'sm')}</a>` : ''}${next ? `<div class="completion-next"><div><strong>下一节：${next.title}</strong><span>${next.objective}</span></div><button class="next-button" type="button" data-next-lesson>进入下一节 ${icon('arrow', 'sm')}</button></div>` : `<div class="success-note">全部教学章节已经完成。你可以从左侧回看任意模块，或重新开始一条新的教学路径。</div>`}<div class="button-row"><button class="secondary-button" type="button" data-review-lesson>回看本节</button>${!next ? '<button class="secondary-button" type="button" data-first-lesson>回到第一节</button>' : ''}</div></div></section>`;
 }
 
 function renderSearchDialog() {
