@@ -116,4 +116,3 @@ import Scenario from './scenario.js';
 
  function random(rng=Math.random,locks={}){let error;for(let i=0;i<20;i++){try{const s=candidate(rng,locks);if(!locks.includeWaiting&&(s.scenario.waiting||!s.scenario.events.some(e=>e.id==='entry')||!s.scenario.management.targets?.length))throw Error('随机案例缺少完整参与与管理过程');return s;}catch(e){error=e;}}throw Error('未能生成通过检查的场景，原结果保留。'+(error?.message||''));}
  const api={defaults,navs,periods,normalize,management,generate,random,copy};export default api;
-

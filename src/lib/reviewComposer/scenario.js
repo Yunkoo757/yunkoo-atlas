@@ -234,7 +234,7 @@
     if(!mg.targets.includes(mg.partialTarget))tp+=`${mg.targets.map(name).join('、')}作为目标流动性。`;
     if(!(s.outcome==='tp'&&mg.exitBasis==='reverse-structure'))tp+=`跟踪${mg.exitWatch.timeframe}，反向打破并继续形成反向结构时考虑退出。`;
    }
-   
+
    if(!['4','5'].includes(s.nav)&&mg.dynamic&&s.outcome==='plan')tp+=`计划跟踪${mg.exitWatch.timeframe}结构，反向打破并继续产生反向新结构时考虑退出。`;
    const outcomes={plan:'',tp:'本次成交后到达上述目标，止盈退出。',sl:'本次成交后触及SL，止损退出。',be:'本次到达BE位置后将SL移至进场价，随后回撤保本退出。',miss:'本次挂单未成交，已撤单，未执行BE或TP。'};
    const result=s.outcome==='tp'&&mg.exitBasis==='reverse-structure'?`本次成交后，${mg.exitWatch.timeframe}反向打破并继续形成反向结构，按动态条件退出。`:outcomes[s.outcome];
@@ -243,4 +243,3 @@
   return `${s.symbol}案例分析，导航${s.nav}，${up?'多单':'空单'}（虚构模拟${g.ruleProfile==='historical-aggressive'?' · 单独ibos·激进观察':''}）：\n\n`+lines.map(([k,v])=>k+'：'+v).join('\n\n');
  }
  const api={build,validate,render,signature,sources,policyErrors,allowedTargets};export default api;
-
