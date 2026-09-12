@@ -1,6 +1,6 @@
 import { ICON_MD } from '@/icons/iconSize'
 import { NavLink, Outlet } from 'react-router-dom'
-import { Keyboard, SlidersHorizontal, HardDriveDownload, Settings2, UserCircle, Tag, Shapes, Download, FileText, Shield } from '@/icons/appIcons'
+import { Keyboard, SlidersHorizontal, HardDriveDownload, Settings2, UserCircle, Tag, Shapes, Download, FileText, Shield, FlaskConical } from '@/icons/appIcons'
 import { Topbar } from '@/components/Topbar'
 import './SettingsLayout.css'
 
@@ -12,7 +12,7 @@ const NAV = [
   { to: '/settings/tags', label: '标签', icon: Tag },
   { to: '/settings/symbols', label: '品种', icon: Shapes },
   { to: '/settings/review-templates', label: '复盘起稿', icon: FileText },
-  { to: '/settings/composer-rules', label: '组合器规则', icon: FileText },
+  { to: '/settings/composer-rules', label: '组合器规则', icon: FlaskConical },
   { to: '/settings/display', label: '显示', icon: SlidersHorizontal },
   { to: '/settings/data', label: '数据', icon: HardDriveDownload },
   { to: '/settings/updates', label: '更新', icon: Download },

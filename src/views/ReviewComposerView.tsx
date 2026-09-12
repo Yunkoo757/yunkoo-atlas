@@ -121,7 +121,6 @@ export function ReviewComposerView() {
         <section className="rc-document" aria-label="复盘正文">
           <div className="rc-document-toolbar"><span>{state.scenario?'虚构模拟':'按已知条件搭建'}</span><div className="rc-actions">
             <Button disabled={blocked||!text} onClick={async()=>{try{await navigator.clipboard.writeText(text);setStatus('已复制。')}catch{setStatus('复制失败，请选中正文后按 Ctrl+C（macOS 为 ⌘C）。')}}}>复制</Button>
-            <Button disabled={blocked||!text} onClick={()=>downloadFile('复盘正文.txt',text)}>导出 TXT</Button>
           </div></div>
           {stale&&<div className="rc-notice">已保留原正文。<Button onClick={()=>save({...data,draft:documentFor(state,rules)})}>按新规则更新正文</Button></div>}
           {restored.error&&<p className="rc-error" role="alert">{restored.error} 可导出选项保留副本，再重置条件。</p>}

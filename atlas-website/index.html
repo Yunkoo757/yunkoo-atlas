@@ -6,7 +6,7 @@
   <title>Trader Atlas · 让交易有迹可循</title>
   <meta name="description" content="Trader Atlas 是面向 Windows 和 macOS 的本地优先交易日志与复盘工作台。记录交易、理解表现，将每一次经验沉淀为自己的交易体系。">
   <meta name="theme-color" content="#101114"><meta property="og:title" content="Trader Atlas · 让交易有迹可循"><meta property="og:description" content="从一笔交易，到属于你的交易体系。Windows 与 macOS 桌面复盘工作台。">
-  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/guide/styles/tokens.css"><link rel="stylesheet" href="/guide/styles/brand.css?v=20260913-1"><link rel="stylesheet" href="style.css?v=20260913-2"><script type="module" src="/guide/product-shot.js?v=20260906-3"></script><link rel="stylesheet" href="/guide/styles/site-shell.css?v=20260913-1"><script type="module" src="app.js?v=20260913-2"></script>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/guide/styles/tokens.css?v=20260913-2"><link rel="stylesheet" href="/guide/styles/brand.css?v=20260913-1"><link rel="stylesheet" href="style.css?v=20260913-5"><script type="module" src="/guide/product-shot.js?v=20260906-3"></script><link rel="stylesheet" href="/guide/styles/site-shell.css?v=20260913-1"><script type="module" src="app.js?v=20260913-3"></script>
 </head>
 <body>
 
@@ -20,98 +20,96 @@
   <p class="hero-description">记录每一次决策，把零散经验沉淀为自己的交易体系。</p>
   <div class="actions"><a class="button" href="#download">下载 Trader Atlas <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg></a><a class="button secondary" href="#preview">探索工作台 <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg></a></div>
   <div class="platform-note"><span data-icon="monitor"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 21h8M12 17v4"></path></svg></span> Windows <span class="dot-separator">·</span> macOS</div>
-  <div class="hero-window hero-stage reveal" id="hero-stage" role="region" aria-label="Trader Atlas 工作台示意">
+  <div class="hero-window hero-stage reveal" id="hero-stage" role="region" aria-label="Trader Atlas 交易日志示意">
     <div class="hero-stage-clip">
       <div class="hero-stage-frame" data-stage-view="journal">
-        <nav class="hero-stage-nav" aria-label="示例工作台导航">
-          <div class="hero-stage-brand"><img src="assets/favicon.svg" width="18" height="18" alt=""><span>Trader Atlas</span></div>
-          <p class="hero-stage-profile">Yunkoo · 示例</p>
-          <p class="hero-stage-kicker">工作区</p>
-          <button type="button" data-stage="journal" aria-current="page"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>交易日志</button>
-          <button type="button" data-stage="stats"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="m7 16 4-5 3 3 5-7"></path></svg>统计分析</button>
-          <button type="button" data-stage="period"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>周期复盘</button>
-          <button type="button" data-stage="cases"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"></path><path d="M4 9h16"></path></svg>案例库</button>
-          <button type="button" data-stage="random"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg>随机复盘</button>
-          <p class="hero-stage-kicker">收藏</p>
-          <button type="button" data-stage="journal" data-record="0">XAUUSD · 9月3日</button>
-          <button type="button" data-stage="journal" data-record="1">BTCUSDT · 待复看</button>
-        </nav>
-        <div class="hero-stage-main" data-view="journal">
-          <section class="hero-stage-list" aria-label="示例交易列表">
-            <header class="hero-stage-pane-head"><div><h2>交易日志</h2><p>2026年9月 · 示例 7 笔</p></div><span>示例</span></header>
-            <button type="button" class="hero-stage-row is-current" data-record="0" aria-current="true"><span class="hero-stage-symbol">XAUUSD <small>多</small></span><span class="hero-stage-tag">优秀范例</span><span class="hero-stage-result is-pos">+2.4R</span><span class="hero-stage-date">9月3日</span></button>
-            <button type="button" class="hero-stage-row" data-record="1"><span class="hero-stage-symbol">BTCUSDT <small>多</small></span><span class="hero-stage-tag">待复看</span><span class="hero-stage-result is-neg">-1.0R</span><span class="hero-stage-date">9月3日</span></button>
-            <button type="button" class="hero-stage-row" data-record="2"><span class="hero-stage-symbol">EURUSD <small>空</small></span><span class="hero-stage-tag">困惑盘面</span><span class="hero-stage-result">0.0R</span><span class="hero-stage-date">9月2日</span></button>
-            <button type="button" class="hero-stage-row" data-record="3"><span class="hero-stage-symbol">XAUUSD <small>多</small></span><span class="hero-stage-tag">优秀范例</span><span class="hero-stage-result is-pos">+1.8R</span><span class="hero-stage-date">9月1日</span></button>
-            <button type="button" class="hero-stage-row" data-record="4"><span class="hero-stage-symbol">GBPUSD <small>多</small></span><span class="hero-stage-tag">待复看</span><span class="hero-stage-result is-neg">-1.0R</span><span class="hero-stage-date">8月27日</span></button>
-            <button type="button" class="hero-stage-row" data-record="5"><span class="hero-stage-symbol">XAUUSD <small>空</small></span><span class="hero-stage-tag">结构确认</span><span class="hero-stage-result is-pos">+1.2R</span><span class="hero-stage-date">8月25日</span></button>
-            <button type="button" class="hero-stage-row" data-record="6"><span class="hero-stage-symbol">EURUSD <small>多</small></span><span class="hero-stage-tag">待复看</span><span class="hero-stage-result is-neg">-0.8R</span><span class="hero-stage-date">8月24日</span></button>
-          </section>
-          <article class="hero-stage-detail" aria-label="示例复盘正文">
-            <header class="hero-stage-pane-head"><div><h2 id="stage-title">XAUUSD</h2><p id="stage-meta">多 · 4H · 伦敦收盘 · 优秀范例</p></div><span>已复盘</span></header>
-            <h3>复盘结论</h3>
-            <p id="stage-note">价格回到观察区后等待收线确认，再按原定计划执行。保留了完整判断依据；确认之前仍有提前操作的倾向。</p>
-            <h3>下一次行动</h3>
-            <p id="stage-next">下单前检查结构、确认与风险。缺少一项就继续等待。</p>
-          </article>
-        </div>
-        <div class="hero-stage-main" data-view="cases" hidden>
-          <section class="hero-stage-list" aria-label="示例案例">
-            <header class="hero-stage-pane-head"><div><h2>案例库</h2><p>按掌握状态整理 · 示例</p></div><span>示例</span></header>
-            <button type="button" class="hero-stage-row is-current" data-record="0" aria-current="true"><span class="hero-stage-symbol">XAUUSD <small>多</small></span><span class="hero-stage-tag">已掌握</span><span class="hero-stage-date">9月3日</span></button>
-            <button type="button" class="hero-stage-row" data-record="2"><span class="hero-stage-symbol">EURUSD <small>空</small></span><span class="hero-stage-tag">待复看</span><span class="hero-stage-date">9月2日</span></button>
-            <button type="button" class="hero-stage-row" data-record="1"><span class="hero-stage-symbol">BTCUSDT <small>多</small></span><span class="hero-stage-tag">待复看</span><span class="hero-stage-date">9月3日</span></button>
-            <button type="button" class="hero-stage-row" data-record="3"><span class="hero-stage-symbol">XAUUSD <small>多</small></span><span class="hero-stage-tag">已掌握</span><span class="hero-stage-date">9月1日</span></button>
-          </section>
-          <article class="hero-stage-detail" aria-label="示例案例正文">
-            <header class="hero-stage-pane-head"><div><h2>把这笔留下来</h2><p>优秀范例 · 可再次回看</p></div><span>案例</span></header>
-            <h3>为什么留下</h3>
-            <p>结构确认与风险管理写在同一笔记录里，适合作为对照，而不是只看结果。</p>
-            <h3>下次怎么用</h3>
-            <p>遇到相似回踩时，先核对此案的确认条件，再决定是否执行。</p>
-          </article>
-        </div>
-        <div class="hero-stage-main" data-view="stats" hidden>
-          <section class="hero-stage-list" aria-label="示例统计">
-            <header class="hero-stage-pane-head"><div><h2>统计分析</h2><p>示例范围 · 不代表收益</p></div><span>示例</span></header>
-            <div class="hero-stage-metric"><span>示例交易</span><strong>7 笔</strong></div>
-            <div class="hero-stage-metric"><span>累计结果</span><strong>+2.6R</strong></div>
+        <aside class="hero-stage-sidebar">
+          <div class="hero-stage-ws">
+            <div class="hero-stage-ws-main"><span class="hero-stage-avatar">Y</span><span class="hero-stage-ws-name">Yunkoo</span><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"></path></svg></div>
+            <div class="hero-stage-ws-actions" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg></div>
+          </div>
+          <nav class="hero-stage-nav" aria-label="示例工作台导航">
+            <button type="button" data-stage="journal" aria-current="page"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>交易日志</button>
+            <button type="button" data-stage="stats"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><path d="M3 3v18h18"></path><path d="m7 16 4-5 3 3 5-7"></path></svg>统计分析</button>
+            <button type="button" data-stage="period"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>周期复盘</button>
+            <button type="button" data-stage="cases"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"></path><path d="M4 9h16"></path></svg>案例库</button>
+            <button type="button" data-stage="composer"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>复盘组合器</button>
+            <button type="button" data-stage="random"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg>随机复盘</button>
+            <p class="hero-stage-kicker">更多</p>
+            <button type="button" data-stage="notes"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><path d="M4 4h16v14H8l-4 3Z"></path><path d="M8 9h8M8 13h5"></path></svg>随记</button>
+            <button type="button" data-stage-open="journal"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v2M12 19v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M3 12h2M19 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>结构回踩</button>
+            <button type="button" data-stage-open="journal"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"></path></svg>突破确认</button>
+            <button type="button" tabindex="-1"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg>添加或管理</button>
+          </nav>
+        </aside>
+        <div class="hero-stage-pane">
+          <div class="hero-stage-view" data-view="journal">
+            <header class="hero-stage-toolbar"><h1>交易日志</h1><div class="hero-stage-view-switch" aria-hidden="true"><button type="button" class="is-active" tabindex="-1"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg></button><button type="button" tabindex="-1"><svg width="16" height="16" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg></button><button type="button" tabindex="-1"><svg width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="6" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="18" r="1"></circle></svg></button></div></header>
+            <div class="hero-stage-filters">
+              <button type="button" class="hero-stage-chip is-active" data-filter="all">全部</button>
+              <button type="button" class="hero-stage-chip" data-filter="week">本周</button>
+              <button type="button" class="hero-stage-chip" data-filter="month">本月</button>
+              <button type="button" class="hero-stage-chip" data-filter="loss">亏损</button>
+              <button type="button" class="hero-stage-chip" data-filter="star">星标交易</button>
+              <button type="button" class="hero-stage-chip" data-filter="missed">错过机会</button>
+              <span class="hero-stage-scope">当前阶段 · 实盘 <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"></path></svg></span>
+            </div>
+            <div class="hero-stage-columns" aria-hidden="true"><span></span><span></span><span>交易</span><span>策略 / 标签</span><span class="is-tf">周期</span><span class="is-result">结果</span><span class="is-date">日期</span><span></span></div>
+            <div class="hero-stage-body" aria-label="示例交易列表">
+              <div class="hero-stage-group"><span class="hero-stage-group-toggle"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"></path></svg><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"></path></svg><strong>2026年9月</strong><span class="hero-stage-group-count">10</span></span><span class="hero-stage-group-add" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg></span></div>
+              <button type="button" class="hero-stage-row is-current" data-record="0" aria-current="true"><span></span><span class="hero-stage-status is-even"></span><span class="hero-stage-identity"><span class="hero-stage-unit">₿</span><strong class="hero-stage-symbol">BTCUSDT</strong><span class="hero-stage-side">多</span></span><span class="hero-stage-tags"><span class="hero-stage-pill">结构回踩</span><span class="hero-stage-tag">亚洲盘</span><span class="hero-stage-more">+2</span></span><span class="hero-stage-tf">4H</span><span class="hero-stage-result">0.0R</span><span class="hero-stage-date">9月10日</span><span></span></button>
+              <button type="button" class="hero-stage-row" data-record="1"><span></span><span class="hero-stage-status is-loss"></span><span class="hero-stage-identity"><span class="hero-stage-unit">€</span><strong class="hero-stage-symbol">EURUSD</strong><span class="hero-stage-side">空</span></span><span class="hero-stage-tags"><span class="hero-stage-pill">结构回踩</span><span class="hero-stage-tag">纽约盘</span></span><span class="hero-stage-tf">4H</span><span class="hero-stage-result is-neg">-1.0R</span><span class="hero-stage-date">9月9日</span><span></span></button>
+              <button type="button" class="hero-stage-row" data-record="2"><span></span><span class="hero-stage-status is-loss"></span><span class="hero-stage-identity"><span class="hero-stage-unit">£</span><strong class="hero-stage-symbol">GBPUSD</strong><span class="hero-stage-side">空</span></span><span class="hero-stage-tags"><span class="hero-stage-pill">结构回踩</span><span class="hero-stage-tag">纽约盘</span></span><span class="hero-stage-tf">4H</span><span class="hero-stage-result is-neg">-1.0R</span><span class="hero-stage-date">9月9日</span><span></span></button>
+              <button type="button" class="hero-stage-row" data-record="3"><span></span><span class="hero-stage-status is-win"></span><span class="hero-stage-identity"><span class="hero-stage-unit">£</span><strong class="hero-stage-symbol">GBPUSD</strong><span class="hero-stage-side">多</span></span><span class="hero-stage-tags"><span class="hero-stage-pill">结构回踩</span><span class="hero-stage-tag">纽约盘</span></span><span class="hero-stage-tf">4H</span><span class="hero-stage-result is-pos">+1.3R</span><span class="hero-stage-date">9月9日</span><span></span></button>
+              <button type="button" class="hero-stage-row" data-record="4"><span></span><span class="hero-stage-status is-win"></span><span class="hero-stage-identity"><span class="hero-stage-unit">€</span><strong class="hero-stage-symbol">EURUSD</strong><span class="hero-stage-side">空</span></span><span class="hero-stage-tags"><span class="hero-stage-pill">结构回踩</span><span class="hero-stage-tag">纽约盘</span></span><span class="hero-stage-tf">4H</span><span class="hero-stage-result is-pos">+0.8R</span><span class="hero-stage-date">9月9日</span><span></span></button>
+              <button type="button" class="hero-stage-row" data-record="5"><span></span><span class="hero-stage-status is-win"></span><span class="hero-stage-identity"><span class="hero-stage-unit">£</span><strong class="hero-stage-symbol">GBPUSD</strong><span class="hero-stage-side">多</span></span><span class="hero-stage-tags"><span class="hero-stage-pill">突破确认</span><span class="hero-stage-tag">伦敦盘</span><span class="hero-stage-more">+1</span></span><span class="hero-stage-tf">4H</span><span class="hero-stage-result is-pos">+2.4R</span><span class="hero-stage-date">9月8日</span><span class="hero-stage-star is-on" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24"><path d="m12 3 2.6 6.3L21 10l-4.8 4.4L17.5 21 12 17.8 6.5 21l1.3-6.6L3 10l6.4-.7Z"></path></svg></span></button>
+              <button type="button" class="hero-stage-row" data-record="6"><span></span><span class="hero-stage-status is-loss"></span><span class="hero-stage-identity"><span class="hero-stage-unit">₿</span><strong class="hero-stage-symbol">BTCUSDT</strong><span class="hero-stage-side">空</span></span><span class="hero-stage-tags"><span class="hero-stage-pill">结构回踩</span><span class="hero-stage-tag">纽约盘</span><span class="hero-stage-more">+2</span></span><span class="hero-stage-tf">4H</span><span class="hero-stage-result is-neg">-1.0R</span><span class="hero-stage-date">9月8日</span><span></span></button>
+              <button type="button" class="hero-stage-row" data-record="7"><span></span><span class="hero-stage-status is-win"></span><span class="hero-stage-identity"><span class="hero-stage-unit">Au</span><strong class="hero-stage-symbol">XAUUSD</strong><span class="hero-stage-side">多</span></span><span class="hero-stage-tags"><span class="hero-stage-pill">结构回踩</span><span class="hero-stage-tag">亚洲盘</span></span><span class="hero-stage-tf">4H</span><span class="hero-stage-result is-pos">+1.8R</span><span class="hero-stage-date">9月7日</span><span></span></button>
+              <button type="button" class="hero-stage-row" data-record="8"><span></span><span class="hero-stage-status is-loss"></span><span class="hero-stage-identity"><span class="hero-stage-unit">€</span><strong class="hero-stage-symbol">EURUSD</strong><span class="hero-stage-side">多</span></span><span class="hero-stage-tags"><span class="hero-stage-pill">突破确认</span><span class="hero-stage-tag">伦敦盘</span></span><span class="hero-stage-tf">4H</span><span class="hero-stage-result is-neg">-0.8R</span><span class="hero-stage-date">9月6日</span><span></span></button>
+              <button type="button" class="hero-stage-row" data-record="9"><span></span><span class="hero-stage-status is-win"></span><span class="hero-stage-identity"><span class="hero-stage-unit">Au</span><strong class="hero-stage-symbol">XAUUSD</strong><span class="hero-stage-side">空</span></span><span class="hero-stage-tags"><span class="hero-stage-pill">结构回踩</span><span class="hero-stage-tag">亚洲盘</span><span class="hero-stage-more">+2</span></span><span class="hero-stage-tf">4H</span><span class="hero-stage-result is-pos">+1.2R</span><span class="hero-stage-date">9月5日</span><span></span></button>
+            </div>
+          </div>
+          <div class="hero-stage-view" data-view="cases" hidden>
+            <header class="hero-stage-toolbar"><h1>案例库</h1></header>
+            <div class="hero-stage-columns" aria-hidden="true"><span></span><span></span><span>交易</span><span>策略 / 标签</span><span class="is-tf">周期</span><span class="is-result">结果</span><span class="is-date">日期</span><span></span></div>
+            <div class="hero-stage-body">
+              <div class="hero-stage-group"><span class="hero-stage-group-toggle"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"></path></svg><strong>已掌握</strong><span class="hero-stage-group-count">2</span></span></div>
+              <button type="button" class="hero-stage-row is-current" data-record="c0" aria-current="true"><span></span><span class="hero-stage-status is-win"></span><span class="hero-stage-identity"><span class="hero-stage-unit">Au</span><strong class="hero-stage-symbol">XAUUSD</strong><span class="hero-stage-side">多</span></span><span class="hero-stage-tags"><span class="hero-stage-pill">结构回踩</span><span class="hero-stage-tag">优秀范例</span></span><span class="hero-stage-tf">4H</span><span class="hero-stage-result is-pos">+2.4R</span><span class="hero-stage-date">9月8日</span><span></span></button>
+              <button type="button" class="hero-stage-row" data-record="c1"><span></span><span class="hero-stage-status is-win"></span><span class="hero-stage-identity"><span class="hero-stage-unit">Au</span><strong class="hero-stage-symbol">XAUUSD</strong><span class="hero-stage-side">空</span></span><span class="hero-stage-tags"><span class="hero-stage-pill">结构回踩</span><span class="hero-stage-tag">结构确认</span></span><span class="hero-stage-tf">4H</span><span class="hero-stage-result is-pos">+1.2R</span><span class="hero-stage-date">9月5日</span><span></span></button>
+            </div>
+          </div>
+          <div class="hero-stage-view" data-view="stats" hidden>
+            <header class="hero-stage-toolbar"><h1>统计分析</h1></header>
+            <div class="hero-stage-metric"><span>示例交易</span><strong>10 笔</strong></div>
+            <div class="hero-stage-metric"><span>累计结果</span><strong>+3.7R</strong></div>
             <div class="hero-stage-metric"><span>已复盘</span><strong>4 笔</strong></div>
-          </section>
-          <article class="hero-stage-detail">
-            <header class="hero-stage-pane-head"><div><h2>先看过程</h2><p>统计提供线索，结论回到单笔</p></div></header>
-            <h3>怎么读</h3>
-            <p>数字只描述这组示例记录。要理解一笔交易，仍需打开日志里的依据、图表和复盘正文。</p>
-            <h3>下一步</h3>
-            <p>从待复看的记录开始，检查确认是否写在进场之前。</p>
-          </article>
-        </div>
-        <div class="hero-stage-main" data-view="period" hidden>
-          <section class="hero-stage-list">
-            <header class="hero-stage-pane-head"><div><h2>周期复盘</h2><p>2026-08-31 至 09-06</p></div><span>示例</span></header>
+            <div class="hero-stage-copy"><h2>先看过程</h2><p>数字只描述这组示例记录，不代表收益。要理解一笔交易，仍需打开日志里的依据和复盘正文。</p></div>
+          </div>
+          <div class="hero-stage-view" data-view="period" hidden>
+            <header class="hero-stage-toolbar"><h1>周期复盘</h1></header>
+            <div class="hero-stage-metric"><span>2026-08-31 至 09-06</span><strong>示例周</strong></div>
             <div class="hero-stage-metric"><span>执行</span><strong>4 / 5</strong></div>
             <div class="hero-stage-metric"><span>风险</span><strong>4 / 5</strong></div>
             <div class="hero-stage-metric"><span>情绪</span><strong>3 / 5</strong></div>
-          </section>
-          <article class="hero-stage-detail">
-            <header class="hero-stage-pane-head"><div><h2>本周只改一件事</h2><p>确认完成，再执行计划</p></div></header>
-            <h3>一周观察</h3>
-            <p>不理想的执行，多发生在确认尚未完成的时候。问题不在看不见机会，而在太早作决定。</p>
-            <h3>下周行动</h3>
-            <p>每笔留下入场检查。缺少确认就继续等待。</p>
-          </article>
-        </div>
-        <div class="hero-stage-main" data-view="random" hidden>
-          <section class="hero-stage-list">
-            <header class="hero-stage-pane-head"><div><h2>随机复盘</h2><p>从旧记录里抽看</p></div><span>示例</span></header>
-            <button type="button" class="hero-stage-row is-current" data-record="4" aria-current="true"><span class="hero-stage-symbol">GBPUSD <small>多</small></span><span class="hero-stage-tag">待复看</span><span class="hero-stage-date">8月27日</span></button>
-            <button type="button" class="hero-stage-row" data-record="6"><span class="hero-stage-symbol">EURUSD <small>多</small></span><span class="hero-stage-tag">待复看</span><span class="hero-stage-date">8月24日</span></button>
-          </section>
-          <article class="hero-stage-detail">
-            <header class="hero-stage-pane-head"><div><h2>先不看结果</h2><p>抽到的是示例记录</p></div></header>
-            <h3>这次问自己</h3>
-            <p>如果重来，是否仍会在确认完成前下单？把答案写回这笔记录。</p>
-          </article>
+            <div class="hero-stage-copy"><h2>本周只改一件事</h2><p>不理想的执行，多发生在确认尚未完成的时候。每笔留下入场检查，缺少确认就继续等待。</p></div>
+          </div>
+          <div class="hero-stage-view" data-view="random" hidden>
+            <header class="hero-stage-toolbar"><h1>随机复盘</h1></header>
+            <div class="hero-stage-body">
+              <button type="button" class="hero-stage-row is-current" data-record="r0" aria-current="true"><span></span><span class="hero-stage-status is-loss"></span><span class="hero-stage-identity"><span class="hero-stage-unit">£</span><strong class="hero-stage-symbol">GBPUSD</strong><span class="hero-stage-side">多</span></span><span class="hero-stage-tags"><span class="hero-stage-pill">突破确认</span><span class="hero-stage-tag">待复看</span></span><span class="hero-stage-tf">4H</span><span class="hero-stage-result is-neg">-0.8R</span><span class="hero-stage-date">9月6日</span><span></span></button>
+            </div>
+            <div class="hero-stage-copy"><h2>先不看结果</h2><p>抽到的是示例记录。如果重来，是否仍会在确认完成前下单？</p></div>
+          </div>
+          <div class="hero-stage-view" data-view="composer" hidden>
+            <header class="hero-stage-toolbar"><h1>复盘组合器</h1></header>
+            <div class="hero-stage-copy"><h2>按自己的规则起草</h2><p>把一笔交易的依据、执行和结论写成可回看的复盘正文。这里只作示意，完整起草在使用指南里。</p></div>
+          </div>
+          <div class="hero-stage-view" data-view="notes" hidden>
+            <header class="hero-stage-toolbar"><h1>随记</h1></header>
+            <div class="hero-stage-metric"><span>本周复盘：把等待写进计划</span><strong>置顶</strong></div>
+            <div class="hero-stage-metric"><span>盘中观察：确认之前，先记录</span><strong>9月4日</strong></div>
+            <div class="hero-stage-metric"><span>一次错过机会的反思</span><strong>9月3日</strong></div>
+          </div>
         </div>
       </div>
     </div>

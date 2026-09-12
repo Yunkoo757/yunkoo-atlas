@@ -146,55 +146,35 @@ reducedMotion.addEventListener('change',syncFluid);window.addEventListener('page
 
 const sizeFluid=()=>{const windowTop=document.querySelector('.hero-window').offsetTop;fluidHost.style.height=windowTop+'px';};new ResizeObserver(sizeFluid).observe(document.querySelector('.hero'));sizeFluid();
 
-const stageRecords=[
-  {title:'XAUUSD',meta:'多 · 4H · 伦敦收盘 · 优秀范例',status:'已复盘',note:'价格回到观察区后等待收线确认，再按原定计划执行。保留了完整判断依据；确认之前仍有提前操作的倾向。',next:'下单前检查结构、确认与风险。缺少一项就继续等待。'},
-  {title:'BTCUSDT',meta:'多 · 1H · 纽约盘 · 待复看',status:'待复盘',note:'入场前没有等待充分确认。下次先核对接交易条件，再考虑执行。',next:'把确认步骤写进计划，未完成前不下单。'},
-  {title:'EURUSD',meta:'空 · 4H · 纽约盘 · 困惑盘面',status:'待复盘',note:'方向判断与执行条件不一致，先作为对照留下，等待之后重新理解。',next:'回看相似结构时，只比较当时写下的条件。'},
-  {title:'XAUUSD',meta:'多 · 4H · 伦敦盘 · 优秀范例',status:'已复盘',note:'等待价格回到观察区域，确认之后执行，风险留在计划范围内。',next:'继续用同一份入场检查，不因结果改规则。'},
-  {title:'GBPUSD',meta:'多 · 1H · 伦敦收盘 · 待复看',status:'待复盘',note:'记录执行偏差。结果不理想时，也保留完整的决策上下文。',next:'把偏差写回这笔，而不是只改下一笔的感觉。'},
-  {title:'XAUUSD',meta:'空 · 4H · 伦敦盘 · 结构确认',status:'已复盘',note:'按预先写下的条件入场，离场后及时补上价格反应。',next:'同类结构先找确认，再决定是否跟随。'},
-  {title:'EURUSD',meta:'多 · 4H · 纽约盘 · 待复看',status:'待复盘',note:'将本次交易留作对照，观察相似结构在不同情境下的差异。',next:'下次只复盘条件是否齐，不先看盈亏。'}
-];
 const stageFrame=document.querySelector('.hero-stage-frame');
-const stageTitle=document.getElementById('stage-title');
-const stageMeta=document.getElementById('stage-meta');
-const stageNote=document.getElementById('stage-note');
-const stageNext=document.getElementById('stage-next');
-function selectStageRecord(index){
-  const record=stageRecords[index];
-  if(!record||!stageTitle)return;
-  stageTitle.textContent=record.title;
-  stageMeta.textContent=record.meta;
-  stageNote.textContent=record.note;
-  stageNext.textContent=record.next;
-  const status=stageTitle.closest('.hero-stage-pane-head')?.querySelector('span');
-  if(status)status.textContent=record.status;
-  stageFrame.querySelectorAll('.hero-stage-main[data-view="journal"] [data-record]').forEach(row=>{
-    const current=row.dataset.record===String(index);
-    row.classList.toggle('is-current',current);
-    if(row.hasAttribute('aria-current'))row.setAttribute('aria-current',current?'true':'false');
-  });
-}
 function showStage(view){
   stageFrame.dataset.stageView=view;
-  stageFrame.querySelectorAll('.hero-stage-main').forEach(pane=>{pane.hidden=pane.dataset.view!==view;});
-  stageFrame.querySelectorAll('.hero-stage-nav > button[data-stage]:not([data-record])').forEach(button=>{
+  stageFrame.querySelectorAll('[data-view]').forEach(pane=>{pane.hidden=pane.dataset.view!==view;});
+  stageFrame.querySelectorAll('[data-stage]').forEach(button=>{
     if(button.dataset.stage===view)button.setAttribute('aria-current','page');
     else button.removeAttribute('aria-current');
   });
 }
-stageFrame.querySelectorAll('.hero-stage-nav > button[data-stage]').forEach(button=>{
-  button.addEventListener('click',()=>{
-    showStage(button.dataset.stage);
-    if(button.dataset.record)selectStageRecord(Number(button.dataset.record));
+function selectStageRow(row){
+  row.closest('[data-view]')?.querySelectorAll('[data-record]').forEach(item=>{
+    const current=item===row;
+    item.classList.toggle('is-current',current);
+    if(item.hasAttribute('aria-current'))item.setAttribute('aria-current',current?'true':'false');
   });
+}
+stageFrame.querySelectorAll('[data-stage]').forEach(button=>{
+  button.addEventListener('click',()=>showStage(button.dataset.stage));
 });
-stageFrame.querySelectorAll('.hero-stage-main [data-record]').forEach(row=>{
-  row.addEventListener('click',()=>{
-    if(row.closest('.hero-stage-main')?.dataset.view==='journal')selectStageRecord(Number(row.dataset.record));
-    row.closest('.hero-stage-list')?.querySelectorAll('[data-record]').forEach(item=>{
-      item.classList.toggle('is-current',item===row);
-      if(item.hasAttribute('aria-current'))item.setAttribute('aria-current',item===row?'true':'false');
+stageFrame.querySelectorAll('[data-stage-open]').forEach(button=>{
+  button.addEventListener('click',()=>showStage(button.dataset.stageOpen));
+});
+stageFrame.querySelectorAll('[data-record]').forEach(row=>{
+  row.addEventListener('click',()=>selectStageRow(row));
+});
+stageFrame.querySelectorAll('[data-filter]').forEach(chip=>{
+  chip.addEventListener('click',()=>{
+    chip.parentElement.querySelectorAll('[data-filter]').forEach(item=>{
+      item.classList.toggle('is-active',item===chip);
     });
   });
 });
