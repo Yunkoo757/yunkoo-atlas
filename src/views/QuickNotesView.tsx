@@ -339,7 +339,7 @@ export function QuickNotesView() {
             <EmptyState
               className="quick-notes-empty"
               title="留下一条随记"
-              hint="不用先决定它属于哪笔交易，先把想法和证据保存下来。"
+              hint="记录想法或保存截图。"
               action={(
                 <button type="button" className="empty-btn" onClick={() => void createNote()}>
                   <Plus size={ICON_MD} />

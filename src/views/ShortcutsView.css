@@ -1,14 +1,9 @@
-.shortcuts-panel {
-  width: min(760px, 100%);
-}
-
 .shortcuts-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-4);
-  padding-inline: var(--sp-2);
-  margin-bottom: var(--sp-7);
+  margin-bottom: var(--space-section-gap);
 }
 
 .shortcuts-panel-head .settings-page-title {
@@ -47,11 +42,7 @@
 }
 
 .window-hotkey-setting {
-  margin-bottom: var(--sp-8);
-  padding: var(--sp-5);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
-  background: var(--surface-elevated);
+  margin-bottom: var(--space-section-gap);
 }
 
 .window-hotkey-heading,
@@ -71,7 +62,7 @@
 .window-hotkey-heading {
   align-items: flex-start;
   gap: var(--sp-4);
-  margin-bottom: var(--sp-4);
+  margin-bottom: var(--space-row-gap);
 }
 
 .window-hotkey-status {
@@ -98,7 +89,7 @@
 .window-hotkey-row {
   gap: var(--sp-5);
   min-height: 44px;
-  padding-top: var(--sp-3);
+  padding-block: var(--space-row-gap);
   border-top: 1px solid var(--border-subtle);
 }
 

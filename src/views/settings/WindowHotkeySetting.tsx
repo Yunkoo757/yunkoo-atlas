@@ -26,6 +26,7 @@ export function WindowHotkeySetting({
   onStateChange: (state: WindowHotkeyState) => void
 }) {
   const headingId = useId()
+  const bindings = useShortcutStore((store) => store.bindings)
   const [state, setState] = useState<WindowHotkeyState | null>(null)
   const [recording, setRecording] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -157,14 +158,14 @@ export function WindowHotkeySetting({
     <section
       className="window-hotkey-setting"
       data-window-hotkey-setting
+      data-registered={state?.registered ? 'true' : 'false'}
       aria-labelledby={headingId}
     >
       <div className="window-hotkey-heading">
         <div>
-          <h2 id={headingId} className="settings-section-title">显示/隐藏应用</h2>
-          <p className="settings-section-desc">系统级，会在其他软件中生效。</p>
+          <h2 id={headingId} className="settings-section-title">系统</h2>
         </div>
-        <span
+        {(!state?.registered || state.errorCode || loadError) ? <span
           className={`window-hotkey-status${state?.registered ? ' is-registered' : ''}`}
           role="status"
           aria-live="polite"
@@ -179,7 +180,7 @@ export function WindowHotkeySetting({
                   ? '快捷键当前不可用'
                   : state.registered ? '已注册' : '当前未注册'
               : '正在读取'}
-        </span>
+        </span> : null}
       </div>
       {loadError ? (
         <button type="button" className="ui-btn ui-btn-bordered" onClick={() => { void loadState() }}>
@@ -187,7 +188,7 @@ export function WindowHotkeySetting({
         </button>
       ) : null}
       <div className="window-hotkey-row">
-        <span className="window-hotkey-label">系统快捷键</span>
+        <span className="window-hotkey-label" title="在其他应用中也可使用">显示/隐藏应用</span>
         <div className="window-hotkey-controls">
           <button
             type="button"
@@ -212,7 +213,7 @@ export function WindowHotkeySetting({
               <ShortcutKeycaps binding={state?.binding ?? null} />
             )}
           </button>
-          <button
+          {(!state?.registered || bindingLabel.toLowerCase() !== 'f2' || findWindowHotkeyConflicts(DEFAULT_WINDOW_HOTKEY, bindings).length > 0) ? <button
             type="button"
             className="ui-btn ui-btn-bordered window-hotkey-reset"
             disabled={busy || !state}
@@ -222,7 +223,7 @@ export function WindowHotkeySetting({
             }}
           >
             恢复默认
-          </button>
+          </button> : null}
         </div>
       </div>
 

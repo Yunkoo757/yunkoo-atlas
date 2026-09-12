@@ -98,6 +98,8 @@ export function TradeTrashView() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [purgeRequest, setPurgeRequest] = useState<PurgeRequest | null>(null)
+  const [purgeError, setPurgeError] = useState<string | null>(null)
+  const [purgeBusy, setPurgeBusy] = useState(false)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
 
   const trashTrades = useMemo(() => {
@@ -140,43 +142,51 @@ export function TradeTrashView() {
   }
 
   const confirmPurge = async () => {
-    if (!purgeRequest) return
-    if (isElectron()) {
-      try {
-        await flushPersistNow()
-        const bridge = getJournalBridge()
-        const recoveryPoint = await bridge!.createBackup()
-        if (!recoveryPoint) throw new Error('无法创建删除前恢复点')
-        const verification = await bridge!.verifyBackup(recoveryPoint)
-        if (verification.status !== 'verified') {
-          throw new Error(verification.error ?? '删除前恢复点校验失败')
+    if (!purgeRequest || purgeBusy) return
+    setPurgeError(null)
+    setPurgeBusy(true)
+    try {
+      if (isElectron()) {
+        try {
+          await flushPersistNow()
+          const bridge = getJournalBridge()
+          const recoveryPoint = await bridge!.createBackup()
+          if (!recoveryPoint) throw new Error('无法创建删除前恢复点')
+          const verification = await bridge!.verifyBackup(recoveryPoint)
+          if (verification.status !== 'verified') {
+            throw new Error(verification.error ?? '删除前恢复点校验失败')
+          }
+        } catch (error) {
+          setPurgeError(error instanceof Error ? error.message : '无法验证删除前恢复点')
+          return
         }
-      } catch (error) {
-        toast(error instanceof Error ? `${error.message}，已停止删除` : '无法验证删除前恢复点，已停止删除')
-        return
       }
-    }
-    const result = purgeTrades(purgeRequest.targets)
-    setSelected((prev) => {
-      const next = new Set(prev)
-      for (const id of result.purgedIds) next.delete(id)
-      return next
-    })
-    setPurgeRequest(null)
-    if (result.staleIds.length > 0 || result.notInTrashIds.length > 0) {
-      toast(
-        result.purgedIds.length > 0
-          ? `已彻底删除 ${result.purgedIds.length} 笔；另有 ${result.staleIds.length + result.notInTrashIds.length} 笔状态已变化，未执行删除`
-          : '交易状态已变化，已停止删除；请重新检查后再试',
-      )
-    } else if (result.blockedIds.length > 0) {
-      toast(
-        result.purgedIds.length > 0
-          ? `已彻底删除 ${result.purgedIds.length} 笔；另有 ${result.blockedIds.length} 笔被旧版完成周复盘引用，请重新打开并完成对应复盘后再试`
-          : '该交易被旧版完成周复盘引用；请重新打开并完成对应复盘后再彻底删除',
-      )
-    } else {
-      toast(result.purgedIds.length === 1 ? '已彻底删除' : `已彻底删除 ${result.purgedIds.length} 笔交易`)
+      const result = purgeTrades(purgeRequest.targets)
+      setSelected((prev) => {
+        const next = new Set(prev)
+        for (const id of result.purgedIds) next.delete(id)
+        return next
+      })
+      setPurgeRequest(null)
+      if (result.staleIds.length > 0 || result.notInTrashIds.length > 0) {
+        toast(
+          result.purgedIds.length > 0
+            ? `已彻底删除 ${result.purgedIds.length} 笔；另有 ${result.staleIds.length + result.notInTrashIds.length} 笔状态已变化，未执行删除`
+            : '交易状态已变化，已停止删除；请重新检查后再试',
+        )
+      } else if (result.blockedIds.length > 0) {
+        toast(
+          result.purgedIds.length > 0
+            ? `已彻底删除 ${result.purgedIds.length} 笔；另有 ${result.blockedIds.length} 笔被旧版完成周复盘引用，请重新打开并完成对应复盘后再试`
+            : '该交易被旧版完成周复盘引用；请重新打开并完成对应复盘后再彻底删除',
+        )
+      } else {
+        toast(result.purgedIds.length === 1 ? '已彻底删除' : `已彻底删除 ${result.purgedIds.length} 笔交易`)
+      }
+    } catch (error) {
+      setPurgeError(error instanceof Error ? error.message : '删除失败，请重新检查后再试')
+    } finally {
+      setPurgeBusy(false)
     }
   }
 
@@ -436,27 +446,36 @@ export function TradeTrashView() {
             ? `彻底删除 ${purgeRequest.ref}？`
             : `彻底删除 ${purgeRequest.targets.length} 笔交易？`}
           description="删除后无法恢复，交易及其复盘内容会被永久移除。"
-          onClose={() => setPurgeRequest(null)}
+          busy={purgeBusy}
+          onClose={() => { if (!purgeBusy) { setPurgeRequest(null); setPurgeError(null) } }}
           footer={(
             <>
               <button
                 type="button"
                 className="ui-btn ui-btn-bordered"
                 data-autofocus
-                onClick={() => setPurgeRequest(null)}
+                disabled={purgeBusy}
+                onClick={() => { setPurgeRequest(null); setPurgeError(null) }}
               >
                 取消
               </button>
               <button
                 type="button"
                 className="ui-btn ui-btn-danger-solid"
+                disabled={purgeBusy}
                 onClick={confirmPurge}
               >
-                彻底删除
+                {purgeBusy ? '创建并验证恢复点中…' : purgeError ? '重新验证并删除' : '彻底删除'}
               </button>
             </>
           )}
-        />
+        >
+          <p>推荐设置：删除前自动创建并验证恢复点。验证通过后才执行本次删除。</p>
+          {purgeError ? <div role="alert">
+            <p>删除未完成，本次记录尚未删除。推荐先重试验证；若仍失败，请到设置 → 数据检查备份状态与保存位置，再返回回收站重试。</p>
+            <details><summary>查看失败详情</summary><p>{purgeError}</p></details>
+          </div> : null}
+        </ModalShell>
       ) : null}
     </div>
   )

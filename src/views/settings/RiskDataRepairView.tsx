@@ -1,3 +1,4 @@
+import { HistoricalRiskBackfillPanel } from './HistoricalRiskBackfillPanel'
 import { useMemo } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
@@ -66,9 +67,9 @@ function RepairRow({ item }: { item: RiskRepairItem }) {
           ) : null}
           {!isGlobal ? <small>{item.issue.severity === 'blocking' ? '阻断判断' : '影响完整度'}</small> : null}
         </div>
-        <p>{item.issue.reasons.map(riskDataIssueReasonCopy).join('；')}</p>
+        {!item.retained ? <p>{item.issue.reasons.map(riskDataIssueReasonCopy).join('；')}</p> : null}
         {item.retained ? (
-          <small className="risk-repair-retained-note">历史风险规则不可回填，核对交易事实后仍会如实影响完整度。</small>
+          <small className="risk-repair-retained-note">核对平仓日期；当时已有明确规则的，可通过上方入口补录。</small>
         ) : null}
       </div>
       <RepairAction item={item} className="risk-repair-action" />
@@ -90,7 +91,7 @@ function RepairGroup({ group, expanded, onOpen }: {
         aria-expanded={expanded}
         onClick={() => onOpen(group.key)}
       >
-        <span>{description}</span>
+        <span>{description}{group.retained ? (group.bucket === 'priority' ? ' · 影响风险判断' : ' · 影响统计完整度') : ''}</span>
         <small>{group.items.length} 项</small>
       </button>
       {expanded ? (
@@ -114,7 +115,7 @@ function RepairBucket({ title, description, groups, activeGroup, onOpen }: {
     <section className="settings-page-section risk-repair-bucket">
       <div className="settings-page-head">
         <h2 className="settings-section-title">{title}</h2>
-        <p className="settings-section-desc">{description}</p>
+        {description ? <p className="settings-section-desc">{description}</p> : null}
       </div>
       <div className="risk-repair-groups">
         {groups.map((group) => (
@@ -156,8 +157,8 @@ export function RiskDataRepairView() {
     setSearchParams(next, { replace: true })
   }
 
-  const priorityGroups = queue.groups.filter((group) => group.bucket === 'priority')
-  const completenessGroups = queue.groups.filter((group) => group.bucket === 'completeness')
+  const priorityGroups = queue.groups.filter((group) => group.bucket === 'priority' && !group.retained)
+  const completenessGroups = queue.groups.filter((group) => group.bucket === 'completeness' && !group.retained)
 
   return (
     <div className="settings-page settings-page--reading risk-data-repair-view" data-risk-data-repair-view>
@@ -165,10 +166,11 @@ export function RiskDataRepairView() {
         <div>
           <Link className="risk-repair-back" to="/settings/risk">返回风险管理</Link>
           <h1 className="settings-page-title" tabIndex={-1}>风险数据修复</h1>
-          <p className="settings-page-desc">补全影响风险判断的数据。</p>
-          <div className="risk-repair-counts" data-risk-repair-counts aria-label="风险数据缺口摘要">
-            <span>待处理 {queue.counts.total} 项</span>
-          </div>
+          {queue.counts.total > 0 ? <div className="risk-repair-counts" data-risk-repair-counts aria-label="风险数据缺口摘要">
+            <span>待处理 {queue.counts.total - queue.retainedCount} 项</span>
+            <span>历史缺口 {queue.retainedCount} 项</span>
+            <span>涉及 {new Set(queue.items.map((item) => item.issue.tradeId).filter(Boolean)).size} 笔交易</span>
+          </div> : null}
         </div>
         {queue.nextItem ? (
           <RepairAction
@@ -180,35 +182,34 @@ export function RiskDataRepairView() {
         ) : null}
       </div>
 
-      {queue.retainedOnly ? (
-        <p className="risk-repair-retained-conclusion" role="status">
-          仅剩无法回填的历史缺口
-        </p>
-      ) : null}
+      {queue.groups.length === 0 ? <div className="risk-repair-complete" role="status"><strong>当前风险周期数据完整</strong></div> : null}
+      <HistoricalRiskBackfillPanel today={today} issues={issues} />
 
-      {queue.groups.length === 0 ? (
-        <div className="risk-repair-complete">
-          <strong>当前风险周期数据完整</strong>
-          <span>暂无需要修复的数据缺口</span>
-        </div>
-      ) : (
+      {queue.groups.length > 0 ? (
         <>
           <RepairBucket
             title="优先处理"
-            description="影响当前风险判断。"
+            description=""
             groups={priorityGroups}
             activeGroup={activeGroup}
             onOpen={openGroup}
           />
           <RepairBucket
             title="补全数据"
-            description="补齐历史记录。"
+            description=""
             groups={completenessGroups}
             activeGroup={activeGroup}
             onOpen={openGroup}
           />
+          <RepairBucket
+            title="历史缺口"
+            description="可补录当时适用的规则；未补录的缺口仍影响风险判断。"
+            groups={queue.groups.filter((group) => group.retained)}
+            activeGroup={activeGroup}
+            onOpen={openGroup}
+          />
         </>
-      )}
+      ) : null}
     </div>
   )
 }

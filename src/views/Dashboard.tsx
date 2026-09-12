@@ -481,14 +481,14 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                 <strong style={{ color: privacyMode || weekMetrics.pnlCount === 0 || weekMetrics.totalPnl === 0 ? undefined : weekMetrics.totalPnl > 0 ? 'var(--pos)' : 'var(--neg)' }}>
                   {weekMetrics.pnlCount === 0 ? '—' : fmtMoney(weekMetrics.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}
                 </strong>
-                <small>{weekMetrics.pnlCount}/{weekMetrics.tradeCount} 笔含盈亏</small>
+                {weekMetrics.pnlCount < weekMetrics.tradeCount ? <small>{weekMetrics.pnlCount}/{weekMetrics.tradeCount} 笔含盈亏</small> : null}
               </div>
               <div className="db-week-metric">
                 <span>平均 R</span>
                 <strong style={{ color: weekMetrics.averageR == null || weekMetrics.averageR === 0 ? undefined : weekMetrics.averageR > 0 ? 'var(--pos)' : 'var(--neg)' }}>
                   {weekMetrics.averageR == null ? '—' : `${weekMetrics.averageR > 0 ? '+' : ''}${weekMetrics.averageR.toFixed(2)}`}
                 </strong>
-                <small>{weekMetrics.rCount}/{weekMetrics.tradeCount} 笔含 R</small>
+                {weekMetrics.rCount < weekMetrics.tradeCount ? <small>{weekMetrics.rCount}/{weekMetrics.tradeCount} 笔含 R</small> : null}
               </div>
           </div>
           {weekMetrics.missedCount > 0 && missedReasonSummary ? (
@@ -517,7 +517,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                     <div className="db-strat-name">{s.name}</div>
                   </div>
                   <div className="db-strat-meta">
-                    {s.n}/{s.closedCount} 笔结果有效 · 盈亏 {s.pnlCount}/{s.closedCount} · 胜率 {s.winRate == null ? '—' : `${s.winRate.toFixed(0)}%`}
+                    {s.n === s.closedCount && s.pnlCount === s.closedCount ? `${s.closedCount} 笔` : `${s.n}/${s.closedCount} 笔结果有效 · 盈亏 ${s.pnlCount}/${s.closedCount}`} · 胜率 {s.winRate == null ? '—' : `${s.winRate.toFixed(0)}%`}
                   </div>
                   <div className="db-strat-bar">
                     {s.pnlCount > 0 ? (

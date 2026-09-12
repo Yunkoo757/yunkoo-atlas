@@ -1,3 +1,4 @@
+import { previewHistoricalRiskBackfill, historicalRiskFingerprint, type HistoricalRiskInput, type HistoricalRiskPreview } from '@/lib/historicalRiskBackfill'
 import { create } from 'zustand'
 import {
   isReviewCompleted,
@@ -494,6 +495,7 @@ interface State {
   saveRiskBaseline: (
     input: Omit<ConfirmWeeklyRiskPreparationInput, 'hasClosedLiveTradeOnDay'>,
   ) => void
+  saveHistoricalRiskBackfill: (input: HistoricalRiskInput, expectedFingerprint: string) => HistoricalRiskPreview
   ensureRiskPeriodRecords: (tradingDay: string) => void
   scheduleLiveStageRollover: (currentTradingDayKey: string, now: string) => void
   cancelLiveStageRollover: () => void
@@ -1420,6 +1422,18 @@ export const useStore = create<State>()((set, get) => ({
             riskSetupTradeOpenRequest: null,
           }
         }),
+      saveHistoricalRiskBackfill: (input, expectedFingerprint) => {
+        if (!input.note.trim()) throw new Error('请填写确认历史规则的依据。')
+        let result!: HistoricalRiskPreview
+        set((s) => {
+          currentLiveStageIdForWrite(s)
+          if (historicalRiskFingerprint(s) !== expectedFingerprint) throw new Error('资料已变化，请重新预览后确认补录。')
+          result = previewHistoricalRiskBackfill(s, input)
+          return { riskPolicyVersions: [...s.riskPolicyVersions, result.policy],
+            monthlyRiskLimits: [...s.monthlyRiskLimits, ...result.newMonthlyLimits] }
+        })
+        return result
+      },
       ensureRiskPeriodRecords: (tradingDay) =>
         set((s) => ensureRiskPolicyPeriodRecords({
           currentLiveStageId: currentLiveStageIdForWrite(s),

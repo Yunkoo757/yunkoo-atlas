@@ -105,7 +105,7 @@ async function run(): Promise<void> {
     assert(!document.querySelector('[data-window-hotkey-setting]'), 'Web 设置页不应显示系统热键')
     const webResetAll = document.querySelector<HTMLButtonElement>('.shortcuts-reset-all')
     const webCapture = document.querySelector<HTMLButtonElement>('.shortcuts-table button.shortcuts-capture')
-    assert(webResetAll && !webResetAll.disabled, 'Web 恢复全部默认不应等待 Electron 系统键')
+    assert(!webResetAll, '默认绑定时不应显示无效的恢复操作')
     assert(webCapture && !webCapture.disabled, 'Web 普通快捷键录制不应被 Electron loading 锁定')
     root.unmount()
     root = null
@@ -129,7 +129,7 @@ async function run(): Promise<void> {
     assert(useToast.getState().message === '系统快捷键状态读取失败，请重试', '首次 IPC reject 必须 toast')
     rejectInitialLoad = false
     clickButton('重试读取')
-    await eventually(() => screenText().includes('已注册'), '读取失败后必须允许重试成功')
+    await eventually(() => Boolean(document.querySelector('[data-window-hotkey-setting][data-registered="true"]')), '读取失败后必须允许重试成功')
     root.unmount()
     root = null
 
@@ -222,7 +222,7 @@ async function run(): Promise<void> {
 
     pendingGet.resolve(state)
     await eventually(() => screenText().includes('快捷键当前不可用'), '未注册系统热键错误状态未显示')
-    assert(screenText().includes('系统级，会在其他软件中生效'), '必须解释全局影响')
+    assert(document.querySelector('.window-hotkey-label')?.getAttribute('title') === '在其他应用中也可使用', '系统快捷键必须提供范围说明')
     assert(document.querySelector('[role="status"]'), '注册结果必须使用可访问状态语义')
     await eventually(
       () => !loadingResetAll.disabled &&
@@ -298,6 +298,7 @@ async function run(): Promise<void> {
     assert(calls.length === callCountBeforeCancel, '取消覆盖不得调用 IPC')
     assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] !== null, '取消覆盖不得清空普通绑定')
 
+    await eventually(() => !!document.querySelector('.window-hotkey-reset'), '需要恢复时应显示恢复默认')
     clickButton('恢复默认')
     await eventually(() => calls.at(-1) === 'ipc:reset', '系统快捷键恢复默认未调用 IPC')
     useShortcutStore.setState({ bindings: {} })
@@ -311,13 +312,14 @@ async function run(): Promise<void> {
     clickButton('确认覆盖')
     await eventually(() => useToast.getState().message === '该按键当前无法注册', 'IPC 失败原因未显示')
     assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] !== null, 'IPC 失败绝不能清空普通绑定')
-    assert(screenText().includes('已注册'), 'IPC 失败后应显示桥接层返回的当前状态')
+    assert(Boolean(document.querySelector('[data-window-hotkey-setting][data-registered="true"]')), 'IPC 失败后应显示桥接层返回的当前状态')
 
     await eventually(() => !document.querySelector('[role="dialog"]'), '系统键设置失败后确认弹层未关闭')
     useShortcutStore.setState({ bindings: { 'global.newTrade': { key: 'f2' } } })
     useToast.getState().dismiss()
     nextReset = 'success'
     const resetCallsBeforeCancel = calls.filter((call) => call === 'ipc:reset').length
+    await eventually(() => !!document.querySelector('.window-hotkey-reset'), '需要恢复时应显示恢复默认')
     clickButton('恢复默认')
     await eventually(
       () => document.querySelector('[role="dialog"]')?.textContent?.includes('新建交易') === true,
@@ -344,6 +346,7 @@ async function run(): Promise<void> {
 
     const pendingReset = deferredUpdate()
     nextReset = pendingReset
+    await eventually(() => !!document.querySelector('.window-hotkey-reset'), '需要恢复时应显示恢复默认')
     clickButton('恢复默认')
     await eventually(() => Boolean(document.querySelector('[role="dialog"]')), '确认系统恢复默认时未重新打开弹层')
     clickButton('确认覆盖')
@@ -366,6 +369,7 @@ async function run(): Promise<void> {
     useShortcutStore.setState({ bindings: { 'global.newTrade': { key: 'f2' } } })
     useToast.getState().dismiss()
     nextReset = 'failure'
+    await eventually(() => !!document.querySelector('.window-hotkey-reset'), '需要恢复时应显示恢复默认')
     clickButton('恢复默认')
     await eventually(() => Boolean(document.querySelector('[role="dialog"]')), '系统恢复默认失败场景未打开确认弹层')
     clickButton('确认覆盖')

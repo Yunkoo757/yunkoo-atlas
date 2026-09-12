@@ -149,7 +149,6 @@ export function ProfileSettingsPanel() {
       {/* 预置头像选择 */}
       <section className="profile-section">
         <h2 className="profile-section-title">头像风格</h2>
-        <p className="profile-section-hint">一组为深色界面定制的矢量头像，在侧栏与列表中保持清晰。</p>
         <div className="profile-avatar-grid">
           {AVATAR_PRESETS.map((a) => (
             <button

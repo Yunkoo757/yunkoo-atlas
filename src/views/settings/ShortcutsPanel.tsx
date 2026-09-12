@@ -106,10 +106,10 @@ export function ShortcutsPanel() {
   }, [recordingId, onRecordKey])
 
   return (
-    <div className="settings-page settings-page--standard shortcuts-panel">
+    <div className="settings-page settings-page--form shortcuts-panel">
       <div className="settings-page-head shortcuts-panel-head">
         <h1 className="settings-page-title">键盘快捷键</h1>
-        <button
+        {Object.keys(bindings).length > 0 ? <button
           type="button"
           className="shortcuts-reset-all"
           aria-label={windowHotkeyLoading
@@ -133,9 +133,8 @@ export function ShortcutsPanel() {
         >
           <RotateCcw size={ICON_SM} />
           恢复全部默认
-        </button>
+        </button> : null}
       </div>
-      <p className="settings-page-desc">不同页面可以复用按键；全局快捷键与页面快捷键重叠时会提示覆盖。详情页 Tab 切换属性栏，输入框、编辑器和弹窗内保留原有 Tab 行为。</p>
       {isElectron ? <WindowHotkeySetting onStateChange={setWindowHotkeyState} /> : null}
       {categories.map(([category, actions]) => (
         <section key={category} className="shortcuts-section">

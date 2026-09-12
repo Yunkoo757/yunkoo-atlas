@@ -1,7 +1,7 @@
 .update-settings {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-7);
+  gap: var(--space-section-gap);
 }
 
 .update-settings > .settings-page-head {
@@ -17,7 +17,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--sp-6);
-  padding: var(--sp-4) 0 14px;
+  padding: var(--sp-4) 0 var(--sp-3);
 }
 
 .update-section-head h2 {
@@ -38,9 +38,9 @@
 .update-status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--sp-1);
   min-height: var(--chip-height-md);
-  padding: 0 7px;
+  padding: 0 var(--sp-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-4);
   color: var(--text-tertiary);
@@ -77,8 +77,8 @@
 .update-progress-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 0 0 14px;
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-3);
 }
 
 .update-progress-row .update-progress {
@@ -88,7 +88,7 @@
 
 .update-progress {
   height: 4px;
-  margin: 0 0 14px;
+  margin: 0 0 var(--sp-3);
   overflow: hidden;
   border-radius: var(--radius-full);
   background: var(--bg-elevated);

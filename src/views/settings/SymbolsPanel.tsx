@@ -149,9 +149,6 @@ export function SymbolsPanel() {
                 <SymbolIcon symbol={active} overrides={symbolIcons} size={ICON_HERO} />
                 <div>
                   <div className="symbols-preview-name">{active}</div>
-                  <div className="symbols-preview-hint">
-                    已在新建交易目录中 · 选择预设或上传自定义图标
-                  </div>
                 </div>
               </div>
 

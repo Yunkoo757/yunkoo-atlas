@@ -1,6 +1,4 @@
-import { ICON_LG, ICON_MD } from '@/icons/iconSize'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Shield } from '@/icons/appIcons'
 import type { RiskPolicyDraft, RiskPolicyVersion } from '@/data/riskManagement'
 import { weekStartFor } from '@/data/weeklyReviews'
 import { fmtMoney, fmtR } from '@/lib/format'
@@ -62,11 +60,7 @@ function withRiskAmount(draft: RiskPolicyDraft, riskAmount: number | null): Risk
   }
 }
 
-function nextMonthKey(tradingDay: string): string {
-  const date = parseLocalDate(`${tradingDay.slice(0, 7)}-01`)
-  date.setMonth(date.getMonth() + 1)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-}
+
 
 export function WeeklyRiskPreparationCard({
   currentTradingDayKey,
@@ -84,11 +78,11 @@ export function WeeklyRiskPreparationCard({
   const privacyMode = useStore((state) => state.display.privacyMode)
   const saveRiskBaseline = useStore((state) => state.saveRiskBaseline)
   const policy = useMemo(() => policies
-    .filter((item) => item.liveStageId === currentStage.id)
+    .filter((item) => item.liveStageId === currentStage.id && !item.historicalBackfill)
     .sort((left, right) => left.confirmedAt.localeCompare(right.confirmedAt))
     .at(-1) ?? null, [currentStage.id, policies])
   const previousStagePolicy = useMemo(() => policies
-    .filter((item) => item.liveStageId !== currentStage.id)
+    .filter((item) => item.liveStageId !== currentStage.id && !item.historicalBackfill)
     .sort((left, right) => left.confirmedAt.localeCompare(right.confirmedAt))
     .at(-1) ?? null, [currentStage.id, policies])
   const reviewed = Boolean(policy)
@@ -185,14 +179,11 @@ export function WeeklyRiskPreparationCard({
       aria-labelledby="risk-preparation-title"
     >
       <header className="risk-preparation-header">
-        <span className="risk-preparation-icon" aria-hidden><Shield size={ICON_LG} /></span>
         <div>
-          <span className="risk-preparation-eyebrow">风险基准</span>
-          <h2 id="risk-preparation-title">{reviewed ? '修改风险规则' : '设置当前阶段风险基准'}</h2>
-          <p>{reviewed ? '修改会生成新版本，并从下一交易日起生效。' : previousStagePolicy ? '已预填上一阶段规则；确认后从今天立即生效。' : '设置后系统才能计算日、周、月风险额度。'}</p>
+          <h2 id="risk-preparation-title">{reviewed ? '修改风险规则' : '设置风险规则'}</h2>
+          {!policy ? <p>{previousStagePolicy ? '已参考上一阶段规则，请核对资金基准。' : '已填入初始参考值，请按实际规则调整。'}</p> : null}
         </div>
       </header>
-
       <form className="risk-preparation-form" onSubmit={submit}>
         <div className="risk-preparation-fields">
           <label>
@@ -238,9 +229,7 @@ export function WeeklyRiskPreparationCard({
           ))}
           <label>
             <span>
-              {currentMonthLimit
-                ? `${nextMonthKey(tradingDay)} 起未来月止损默认`
-                : '当前月止损上限（首次确认后锁定）'}
+              {currentMonthLimit ? '未来月止损线' : '月止损线'}
             </span>
             <span className="risk-preparation-inline-input">
               <input
@@ -255,18 +244,14 @@ export function WeeklyRiskPreparationCard({
             </span>
           </label>
         </div>
-        <div className="risk-preparation-month-lock">
-          {currentMonthLimit
-            ? `当前月 ${currentMonthKey} 已锁定：${fmtLimitR(currentMonthLimit.limitR)}`
-            : `首次确认将以 ${fmtLimitR(draft.monthlyLossLimitRDefault)} 建立并锁定当前月 ${currentMonthKey} 上限`}
-          {currentMonthLimit ? '；修改仅影响尚未锁定的未来月份。' : '。'}
-        </div>
-        {diff ? (
+        {preview ? (
           <div className="risk-policy-diff" role="status">
-            <strong>保存影响</strong>
-            <p>{diff.summary}</p>
-            {diff.monthlyImpact ? <p>{diff.monthlyImpact}</p> : null}
-            {diff.changes.length ? <ul>{diff.changes.map((change) => <li key={change}>{change}</li>)}</ul> : null}
+            <p>{preview.policy.effectiveTradingDay} 起生效，此前交易不回写；{currentMonthLimit
+              ? `${currentMonthKey} 额度保持 ${fmtLimitR(currentMonthLimit.limitR)}，月止损线仅用于未锁定月份。`
+              : `本月额度首次锁定为 ${fmtLimitR(draft.monthlyLossLimitRDefault)}。`}</p>
+            {diff && diff.changes.length > 0 ? <details><summary>查看 {diff.changes.length} 项修改</summary>
+              <ul>{diff.changes.map((change) => <li key={change}>{change}</li>)}</ul>
+            </details> : null}
           </div>
         ) : null}
         <div className="risk-preparation-discipline-row">

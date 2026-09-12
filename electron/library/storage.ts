@@ -1,3 +1,4 @@
+import { resolveSnapshotVersion } from './snapshotVersion'
 import fs from 'node:fs'
 import path from 'node:path'
 import electronRuntime from 'electron'
@@ -35,7 +36,6 @@ import { recoverInterruptedJournalImport } from './journalZip'
 const SNAPSHOT_KEY = 'snapshot'
 const SNAPSHOT_REVISION_KEY = 'snapshotRevision'
 const DATABASE_SCHEMA_KEY = 'schemaVersion'
-const CANONICAL_STAGE_SCHEMA_VERSION = 12
 const ASSET_TRASH_MANIFEST = 'manifest.json'
 const ASSET_TRASH_CLEANUP = 'cleanup.json'
 const WINDOWS_RESERVED_BASENAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
@@ -51,15 +51,6 @@ interface AssetTrashManifest {
   version: 1
   operationId: string
   files: Array<{ id: string; fileName: string }>
-}
-
-function hasCanonicalStageOwnershipEnvelope(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Array.isArray((value as Record<string, unknown>).liveStages) &&
-    typeof (value as Record<string, unknown>).currentLiveStageId === 'string' &&
-    Object.prototype.hasOwnProperty.call(value, 'scheduledStageRollover')
 }
 
 export interface AssetBytes {
@@ -894,11 +885,7 @@ export class LibraryStorage {
     // v1-v7 资料库历史上只更新 snapshot，而未同步提升 manifest。只要快照已经
     // 具备 v12 引入的显式阶段合同，就不得再次按旧 schema 迁移，否则人工保存的
     // liveStageId 会在每次重启时重新变回待整理。下一次保存会写入明确的 DB 版本。
-    const snapshotVersion = databaseVersion ?? (
-      manifestVersion <= 7 && hasCanonicalStageOwnershipEnvelope(snapshot)
-        ? CANONICAL_STAGE_SCHEMA_VERSION
-        : manifestVersion
-    )
+    const snapshotVersion = resolveSnapshotVersion(snapshot, databaseVersion, manifestVersion)
     return decodeCanonicalSnapshot(snapshot, {
       version: snapshotVersion,
       label: 'Stored library snapshot',

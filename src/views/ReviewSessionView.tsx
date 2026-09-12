@@ -1136,7 +1136,6 @@ function ReviewSessionRegenerationConfirmation({
           onConfirm()
         }}
       >
-        <p className="review-session-active-source">更换范围后将重新开始本轮复盘。</p>
         <p className="review-session-settings-count">新阶段来源：{reviewStageSourceLabel(filters.stageSource)}</p>
       </form>
     </ModalShell>

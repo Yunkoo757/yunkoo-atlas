@@ -170,7 +170,7 @@ export function ImportDataHealthView() {
                     <div><dt>当前平仓日</dt><dd>{candidate.closedAt}</dd></div>
                     <div><dt>结果</dt><dd>{candidate.result}</dd></div>
                   </dl>
-                  <p className="idh-evidence">{candidate.evidence}</p>
+                  <details className="idh-evidence"><summary>查看依据</summary><p>{candidate.evidence}</p></details>
                 </article>
               ))}
             </div>

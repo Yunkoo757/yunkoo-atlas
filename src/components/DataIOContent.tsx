@@ -456,12 +456,8 @@ export function DataIOContent({
         </div>
       </section>
 
-      <section className="dio-group" aria-labelledby="dio-import-title">
-        <div className="dio-group-head">
-          <h2 id="dio-import-title" className="dio-group-title">
-            导入与迁移
-          </h2>
-        </div>
+      <details className="dio-group dio-disclosure">
+        <summary id="dio-import-title" className="dio-group-title">导入与迁移</summary>
         <input
           ref={fileRef}
           type="file"
@@ -510,14 +506,10 @@ export function DataIOContent({
             </button>
           </div>
         </div>
-      </section>
+      </details>
 
-      <section className="dio-group" aria-labelledby="dio-dup-title">
-        <div className="dio-group-head">
-          <h2 id="dio-dup-title" className="dio-group-title">
-            重复检测
-          </h2>
-        </div>
+<details className="dio-group dio-disclosure">
+        <summary id="dio-dup-title" className="dio-group-title">重复检测</summary>
         <div className="dio-task-list">
           <div className="dio-task">
             <Search size={ICON_LG} className="dio-task-icon" />
@@ -584,7 +576,7 @@ export function DataIOContent({
             )}
           </div>
         )}
-      </section>
+      </details>
 
       <section className="dio-group" aria-labelledby="dio-restore-title">
         <div className="dio-group-head">

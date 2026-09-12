@@ -1,3 +1,4 @@
+import { resolveSnapshotVersion } from './snapshotVersion'
 import fs from 'node:fs'
 import path from 'node:path'
 import { clearManagedFlatDirectory } from './managedPaths'
@@ -653,8 +654,10 @@ export async function validateLibraryDatabaseFile(
       if (!options.allowEmptySnapshot) throw new Error('database snapshot is missing')
     } else {
       const parsed: unknown = JSON.parse(String(snapshotText))
+      const versionRows = db.exec("SELECT value FROM meta WHERE key = 'schemaVersion'")
+      const storedVersion = versionRows[0]?.values[0]?.[0]
       snapshot = decodeCanonicalSnapshot(parsed, {
-        version: options.schemaVersion ?? SCHEMA_VERSION,
+        version: resolveSnapshotVersion(parsed, storedVersion == null ? null : Number(storedVersion), options.schemaVersion ?? SCHEMA_VERSION),
         label: 'database snapshot',
       })
     }

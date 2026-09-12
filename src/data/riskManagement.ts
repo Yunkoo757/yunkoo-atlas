@@ -67,12 +67,21 @@ export interface WeeklyRiskPreparation {
   updatedAt: string
 }
 
+export interface HistoricalRiskBackfill {
+  /** 用户确认这些规则在当时实际适用；confirmedAt 保留真实补录时间。 */
+  confirmedHistorical: true
+  throughTradingDay: string
+  sourcePolicyVersionId: string
+  note: string
+}
+
 export interface RiskPolicyVersion {
   id: string
   /** v12 stage ownership; undefined is accepted only while decoding v1-v11. */
   liveStageId?: string | null
   sourceWeekStart: string
   effectiveTradingDay: string
+  historicalBackfill?: HistoricalRiskBackfill
   capitalBase: number
   riskPercent: number
   riskAmount: number

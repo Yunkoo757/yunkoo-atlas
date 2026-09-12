@@ -45,8 +45,8 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 52px;
-  padding: var(--sp-2) 10px;
+  min-height: var(--field-height-md);
+  padding: var(--sp-2) 0;
   border-radius: var(--radius-6);
   color: var(--text-secondary);
   text-align: left;
@@ -117,3 +117,6 @@
   width: 24px;
   color: var(--accent);
 }
+
+.display-settings-section > .ui-segmented { max-width: 100%; flex-wrap: wrap; }
+.display-sort-direction { margin-top: var(--space-row-gap); color: var(--text-muted); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }

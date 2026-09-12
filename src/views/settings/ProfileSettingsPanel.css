@@ -45,7 +45,7 @@
 }
 
 .profile-section {
-  margin-bottom: var(--sp-7);
+  margin-bottom: var(--space-section-gap);
 }
 
 .profile-section-title {
@@ -59,8 +59,8 @@
 
 .profile-avatar-grid {
   display: grid;
-  grid-template-columns: repeat(8, 62px);
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+  gap: var(--sp-2);
 }
 
 .profile-avatar-item {
@@ -68,7 +68,7 @@
   flex-direction: column;
   align-items: center;
   gap: var(--sp-2);
-  padding: 7px var(--sp-1) 6px;
+  padding: var(--sp-2) var(--sp-1);
   border: 0;
   border-radius: var(--radius-8);
   background: transparent;
@@ -126,7 +126,7 @@
 }
 
 .profile-reset-avatar {
-  margin-top: 10px;
+  margin-top: var(--sp-3);
   font-size: var(--type-row-size);
   line-height: var(--type-row-line-height);
   color: var(--text-tertiary);
@@ -149,9 +149,10 @@
 
 .profile-name-input {
   flex: 1;
+  min-width: 0;
   max-width: 280px;
   height: var(--field-height-md);
-  padding: 0 var(--sp-3);
+  padding: 0 var(--field-padding-inline);
   font-size: var(--type-row-size);
   border: 1px solid var(--field-border);
   border-radius: var(--radius-6);
@@ -169,8 +170,8 @@
 .profile-section-hint {
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
-  margin-bottom: 10px;
-  margin-top: -8px;
+  margin-bottom: var(--sp-3);
+  margin-top: calc(-1 * var(--sp-2));
 }
 
 .profile-upload-row {
@@ -184,3 +185,6 @@
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
 }
+
+.profile-preview-name { min-width: 0; overflow-wrap: anywhere; }
+.profile-avatar-grid { max-width: 100%; }

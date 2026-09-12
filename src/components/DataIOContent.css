@@ -448,3 +448,13 @@
   margin: var(--sp-2) 0 0;
   line-height: var(--type-metadata-line-height);
 }
+
+.data-purge-body { display: grid; gap: var(--sp-4); }
+.data-purge-body .data-purge-details, .data-purge-body .data-purge-confirm { margin-top: 0; }
+.data-purge-body [role="alert"] { display: grid; gap: var(--sp-2); color: var(--neg); font-size: var(--type-metadata-size); overflow-wrap: anywhere; }
+
+.dio-disclosure > summary { cursor: pointer; }
+.dio-disclosure[open] > summary { margin-bottom: var(--space-row-gap); }
+
+.dio-disclosure > summary::before { content: '›'; display: inline-block; margin-right: var(--space-row-gap); }
+.dio-disclosure[open] > summary::before { transform: rotate(90deg); }

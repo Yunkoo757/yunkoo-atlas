@@ -71,7 +71,8 @@ async function run(): Promise<void> {
     assert(toggle, '缺少开机启动开关')
     await waitFor(() => !toggle.disabled, '系统状态读取完成后开关仍被禁用')
     assert(toggle.getAttribute('aria-checked') === 'false', '开关未反映系统关闭状态')
-    assert(toggle.textContent?.includes('登录 macOS 后自动打开 Trader Atlas'), 'macOS 文案不正确')
+    assert(toggle.textContent?.trim() === '开机自动启动', '开关只保留动作名称')
+    assert(!document.querySelector('[data-auto-launch-setting]')?.textContent?.includes('Windows'), 'macOS 不应出现其他平台说明')
 
     toggle.click()
     await waitFor(() => toggle.getAttribute('aria-checked') === 'true', '开关未采用写入后的系统状态')

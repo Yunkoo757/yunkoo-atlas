@@ -1,9 +1,11 @@
 import { ICON_SM } from '@/icons/iconSize'
 import { useState } from 'react'
 import { useStore } from '@/store/useStore'
-import { Tag, X, Plus } from '@/icons/appIcons'
+import { X, Plus } from '@/icons/appIcons'
 import { toast } from '@/lib/toast'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { Button } from '@/components/ui/Button'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import './TagPresetsPanel.css'
 
 export function TagPresetsPanel() {
@@ -14,52 +16,44 @@ export function TagPresetsPanel() {
   const addMistakeTagPreset = useStore((s) => s.addMistakeTagPreset)
   const removeMistakeTagPreset = useStore((s) => s.removeMistakeTagPreset)
 
+  const [category, setCategory] = useState<'normal' | 'mistake'>('normal')
   return (
-    <div className="settings-page settings-page--reading tag-presets-panel">
+    <div className="settings-page settings-page--form tag-presets-panel">
       <div className="settings-page-head">
         <h1 className="settings-page-title">标签管理</h1>
       </div>
-
-      <TagSection
-        title="普通标签"
-        desc="用于交易分类，如「趋势跟随」「突破」「日内」等。"
-        presets={tagPresets}
-        onAdd={addTagPreset}
-        onRemove={(tag) => {
-          removeTagPreset(tag)
-          toast(`已删除预置「${tag}」`)
-        }}
-      />
-
-      <TagSection
-        title="错误 / 违规标签"
-        desc="用于复盘时标记交易错误，如「逆势交易」「过早止盈」「假突破」等。"
-        presets={mistakeTagPresets}
-        onAdd={addMistakeTagPreset}
-        onRemove={(tag) => {
-          removeMistakeTagPreset(tag)
-          toast(`已删除预置「${tag}」`)
-        }}
-      />
+      <SegmentedControl label="标签分类" value={category} onChange={setCategory}
+        options={[
+          { value: 'normal', label: `普通标签 ${tagPresets.length}` },
+          { value: 'mistake', label: `错误 / 违规 ${mistakeTagPresets.length}` },
+        ]} />
+      <div hidden={category !== 'normal'}>
+        <TagSection title="普通标签" presets={tagPresets} onAdd={addTagPreset}
+          onRemove={(tag) => { removeTagPreset(tag); toast(`已删除预置「${tag}」`) }} />
+      </div>
+      <div hidden={category !== 'mistake'}>
+        <TagSection title="错误 / 违规标签" presets={mistakeTagPresets} onAdd={addMistakeTagPreset}
+          onRemove={(tag) => { removeMistakeTagPreset(tag); toast(`已删除预置「${tag}」`) }} />
+      </div>
     </div>
   )
 }
 
 function TagSection({
   title,
-  desc,
   presets,
   onAdd,
   onRemove,
 }: {
   title: string
-  desc: string
   presets: string[]
   onAdd: (tag: string) => void
   onRemove: (tag: string) => void
 }) {
   const [input, setInput] = useState('')
   const [batch, setBatch] = useState('')
+  const [query, setQuery] = useState('')
+  const matches = presets.filter((tag) => tag.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
 
   const handleAdd = () => {
     const trimmed = input.trim()
@@ -80,7 +74,7 @@ function TagSection({
       .filter(Boolean)
     if (lines.length === 0) return
     let added = 0
-    for (const tag of lines) {
+    for (const tag of new Set(lines)) {
       if (!presets.includes(tag)) {
         onAdd(tag)
         added++
@@ -92,9 +86,7 @@ function TagSection({
   }
 
   return (
-    <section className="tag-section">
-      <h2 className="tag-section-title">{title}</h2>
-      <p className="tag-section-desc">{desc}</p>
+    <section className="tag-section" aria-label={title}>
 
       {/* 单个添加 */}
       <div className="tag-add-row">
@@ -108,16 +100,15 @@ function TagSection({
           placeholder="输入标签名…"
           maxLength={24}
         />
-        <button
-          type="button"
-          className="dio-btn"
+        <Button
+          variant="bordered"
           onClick={handleAdd}
           disabled={!input.trim()}
           aria-label={`添加${title}`}
         >
           <Plus size={ICON_SM} />
           <span>添加</span>
-        </button>
+        </Button>
       </div>
 
       {/* 批量添加 */}
@@ -131,25 +122,27 @@ function TagSection({
           placeholder="每行一个标签，或用逗号分隔"
           rows={4}
         />
-        <button
-          type="button"
-          className="dio-btn"
+        <Button
+          variant="bordered"
           onClick={handleBatchAdd}
           disabled={!batch.trim()}
           aria-label={`导入${title}`}
         >
           导入
-        </button>
+        </Button>
       </details>
 
+      {presets.length >= 12 || query ? (
+        <input className="tag-preset-input tag-search" type="search" aria-label={`搜索${title}`}
+          placeholder="搜索标签" value={query} onChange={(event) => setQuery(event.target.value)} />
+      ) : null}
       {/* 列表 */}
       {presets.length === 0 ? (
         <p className="tag-section-empty">暂无预置</p>
       ) : (
         <div className="tag-list">
-          {presets.map((t) => (
+          {matches.map((t) => (
             <span className="settings-tag-chip" key={t}>
-              <Tag size={ICON_SM} />
               {t}
               <Tooltip content="删除" label={`删除「${t}」`}>
                 <button
@@ -165,6 +158,7 @@ function TagSection({
           ))}
         </div>
       )}
+      {presets.length > 0 && matches.length === 0 ? <p className="tag-section-empty">没有匹配的标签</p> : null}
     </section>
   )
 }

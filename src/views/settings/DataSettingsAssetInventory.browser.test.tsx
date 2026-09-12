@@ -166,6 +166,28 @@ async function run(): Promise<void> {
     await waitFor(() => !document.body.textContent?.includes('数据版本：7'), '取消后必须关闭弹窗')
     assert(Number(commitCalls) === 2 && cancelCalls >= cancelCallsBefore + 2, '取消预览必须零写入并撤销归档前后的 adapter preview')
 
+    const successfulPrepare = storage.prepareAssetPurgeRecovery
+    storage.prepareAssetPurgeRecovery = async () => { throw new Error('恢复归档导出已取消') }
+    reopenPreview.click()
+    await waitFor(() => document.body.textContent?.includes('数据版本：7') === true, '取消保存场景未打开')
+    const recoveryAction = [...document.body.querySelectorAll<HTMLButtonElement>('button')]
+      .find((button) => button.textContent?.includes('导出恢复归档（必需）'))!
+    assert(recoveryAction.classList.contains('ui-btn-primary'), '未归档时推荐的归档操作必须是主按钮')
+    recoveryAction.click()
+    await waitFor(() => !recoveryAction.disabled, '取消保存后必须可重试')
+    assert(document.body.textContent?.includes('数据版本：7'), '取消保存不得关闭清理预览')
+    assert(!document.body.textContent?.includes('恢复归档未完成'), '取消保存不应报错')
+    storage.prepareAssetPurgeRecovery = async () => { throw new Error('测试：磁盘空间不足') }
+    recoveryAction.click()
+    await waitFor(() => document.body.textContent?.includes('恢复归档未完成') === true, '归档失败必须持续显示解决办法')
+    assert(document.body.textContent?.includes('选择其他保存位置'), '失败必须说明更换位置的路径')
+    assert(Number(commitCalls) === 2, '归档失败不得执行清理')
+    storage.prepareAssetPurgeRecovery = successfulPrepare
+    recoveryAction.click()
+    await waitFor(() => document.body.textContent?.includes('步骤 2 / 2') === true, '原地重试归档必须进入第二步')
+    ;[...document.body.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '取消')!.click()
+    await waitFor(() => !document.body.textContent?.includes('数据版本：7'), '重试后取消必须关闭')
+
     // 默认未开闸：只展示预览与导出，不出现永久删除主 CTA
     root.render(<MemoryRouter><DataSettingsPanel assetPurgeCommitEnabled={false} /></MemoryRouter>)
     await waitFor(

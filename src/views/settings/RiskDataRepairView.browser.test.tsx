@@ -240,8 +240,8 @@ async function run(): Promise<void> {
       throw new Error('修复中心缺少两级问题区域')
     }
     const counts = view.querySelector<HTMLElement>('[data-risk-repair-counts]')
-    if (counts?.textContent?.replace(/\s+/g, ' ').trim() !== '待处理 4 项') {
-      throw new Error('修复中心顶部必须显示精简后的待处理总数')
+    if (!counts?.textContent?.includes('待处理 3 项') || !counts.textContent.includes('历史缺口 1 项') || !counts.textContent.includes('涉及 4 笔交易')) {
+      throw new Error('修复中心必须分开统计可处理项、历史缺口和交易数')
     }
     const next = view.querySelector<HTMLAnchorElement>('[data-risk-repair-next]')
     if (!next?.textContent?.includes('处理下一项')) throw new Error('缺少唯一下一项动作')
@@ -370,10 +370,12 @@ async function run(): Promise<void> {
     await waitFor(() => document.querySelector('[data-risk-repair-group]') !== null, '纯历史缺口分组没有保留')
     view = document.querySelector<HTMLElement>('[data-risk-data-repair-view]')
     if (!view) throw new Error('纯历史缺口阶段缺少修复中心')
-    if (!view.textContent?.includes('仅剩无法回填的历史缺口')) {
+    if (!view.textContent?.includes('仅补录能确认当时适用的规则')) {
       throw new Error('纯历史缺口阶段缺少准确结论')
     }
     if (view.querySelector('[data-risk-repair-next]')) throw new Error('纯历史缺口不应显示处理下一项动作')
+    if (!view.querySelector('.historical-risk-entry button')) throw new Error('历史缺口必须提供补录入口')
+    if (view.querySelector('[data-risk-preparation]')) throw new Error('历史修复页不应重复嵌入当前规则编辑器')
   } finally {
     root.unmount()
     useStore.setState(previous, true)

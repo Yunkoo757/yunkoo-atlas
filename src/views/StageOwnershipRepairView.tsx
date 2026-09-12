@@ -345,7 +345,7 @@ export function StageOwnershipRepairView() {
           <Link className="stage-ownership-back" to="/settings/data">返回数据设置</Link>
           <h1 className="settings-page-title" tabIndex={-1}>待归属记录</h1>
           <p className="settings-page-desc">
-            模拟盘与独立案例无需实盘阶段。明确归属可一键修复，其余记录保留手动核对。
+            核对记录所属的实盘阶段。
           </p>
         </div>
         <div className="stage-ownership-total" aria-label={`待整理 ${pending.length} 项`}>

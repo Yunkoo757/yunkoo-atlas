@@ -138,6 +138,7 @@ export function DataSettingsPanel({
   const [purgePreview, setPurgePreview] = useState<AssetPurgePreview | null>(null)
   const [purgeBusy, setPurgeBusy] = useState(false)
   const [purgeArchiveReady, setPurgeArchiveReady] = useState(false)
+  const [purgeRecoveryError, setPurgeRecoveryError] = useState<string | null>(null)
   const [purgeAuthorization, setPurgeAuthorization] = useState<string | null>(null)
   const [purgeConfirmed, setPurgeConfirmed] = useState(false)
   const [stageManagerOpen, setStageManagerOpen] = useState(false)
@@ -343,6 +344,7 @@ export function DataSettingsPanel({
   }
 
   const handlePreviewAssetPurge = async () => {
+    setPurgeRecoveryError(null)
     setPurgeBusy(true)
     try {
       await flushPersistNow()
@@ -367,6 +369,7 @@ export function DataSettingsPanel({
   }
 
   const handleCreatePurgeRecoveryArchive = async () => {
+    setPurgeRecoveryError(null)
     if (!purgePreview) return
     setPurgeBusy(true)
     let refreshedPreview: AssetPurgePreview | null = null
@@ -375,7 +378,10 @@ export function DataSettingsPanel({
       refreshedPreview = await getStorage().previewAssetPurge?.() ?? null
       if (!refreshedPreview) throw new Error('恢复归档已导出，但无法重新生成附件清理预览')
       const recovery = await getStorage().prepareAssetPurgeRecovery?.(refreshedPreview)
-      if (!recovery) throw new Error('当前存储后端无法生成清理恢复归档')
+      if (!recovery) {
+        if (refreshedPreview.operationId !== purgePreview.operationId) await getStorage().cancelAssetPurge?.(refreshedPreview.operationId)
+        return
+      }
       if (recovery.webArchive) {
         const blob = buildWebJournalArchiveBlob(
           recovery.webArchive.snapshot,
@@ -400,12 +406,15 @@ export function DataSettingsPanel({
       setPurgeConfirmed(false)
       toast('当前资料库恢复归档已导出')
     } catch (error) {
-      reportDataSettingsFailure('导出清理恢复归档失败', error)
+      const canceled = error instanceof Error && error.message === '恢复归档导出已取消'
+      if (!canceled) reportDataSettingsFailure('导出清理恢复归档失败', error)
       if (refreshedPreview && refreshedPreview.operationId !== purgePreview.operationId) {
         await getStorage().cancelAssetPurge?.(refreshedPreview.operationId)
       }
-      discardPurge()
-      toast(userFacingErrorMessage(error, '恢复归档导出失败'))
+      setPurgeArchiveReady(false)
+      setPurgeAuthorization(null)
+      setPurgeConfirmed(false)
+      if (!canceled) setPurgeRecoveryError(userFacingErrorMessage(error, '恢复归档导出失败'))
     } finally {
       setPurgeBusy(false)
     }
@@ -703,6 +712,7 @@ export function DataSettingsPanel({
       {purgePreview ? (
         <ModalShell
           title={assetPurgeCommitEnabled ? '清理孤立附件' : '预览孤立附件'}
+          bodyClassName="data-purge-body"
           description={
             assetPurgeCommitEnabled
               ? '只处理当前资料库中未被任何内容引用的附件；历史备份不会被扫描或修改。'
@@ -718,8 +728,8 @@ export function DataSettingsPanel({
             <>
               <button
                 type="button"
-                className={assetPurgeCommitEnabled ? 'ui-btn ui-btn-bordered' : 'ui-btn ui-btn-primary'}
-                disabled={purgeBusy}
+                className={!purgeArchiveReady ? 'ui-btn ui-btn-primary' : 'ui-btn ui-btn-bordered'}
+                disabled={purgeBusy || purgeArchiveReady}
                 onClick={() => void handleCreatePurgeRecoveryArchive()}
               >
                 {purgeArchiveReady
@@ -750,6 +760,13 @@ export function DataSettingsPanel({
             </>
           )}
         >
+          <p className="settings-section-desc" role="status">
+            {purgeArchiveReady ? '步骤 2 / 2：恢复归档已验证，确认后可永久清理。' : '步骤 1 / 2：先导出恢复归档。已推荐文件名与文档文件夹，导出后即可确认清理。'}
+          </p>
+          {purgeRecoveryError ? <div role="alert">
+            <p>恢复归档未完成，尚未清理任何附件。请重试导出；磁盘空间或保存权限不足时，选择其他保存位置。</p>
+            <details><summary>查看失败详情</summary><p>{purgeRecoveryError}</p></details>
+          </div> : null}
           <div className="data-purge-summary">
             <span>{assetPurgeCommitEnabled ? '待清理' : '扫描结果'}</span>
             <strong>{purgePreview.candidateIds.length} 个 · {fmtBackupSize(purgePreview.totalBytes)}</strong>

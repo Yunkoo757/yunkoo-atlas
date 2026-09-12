@@ -844,8 +844,8 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 <div className="wr-metric-grid">
                   <Metric label="平仓交易" value={`${metrics.tradeCount}`} hint={`${metrics.reviewedCount} 笔已复盘`} />
                   <Metric label="胜率" value={metrics.winRate === null ? '—' : `${metrics.winRate.toFixed(0)}%`} hint={`${metrics.winCount} 赢 · ${metrics.lossCount} 亏 · ${metrics.breakevenCount} 平`} />
-                  <Metric label="净盈亏" value={metrics.pnlCount ? fmtMoney(metrics.totalPnl, 'USD', privacyMode) : '—'} tone={privacyMode ? undefined : metrics.totalPnl > 0 ? 'positive' : metrics.totalPnl < 0 ? 'negative' : undefined} hint={`${metrics.pnlCount}/${metrics.tradeCount} 笔含盈亏`} />
-                  <Metric label="平均 R" value={fmtR(metrics.averageR)} tone={(metrics.averageR ?? 0) > 0 ? 'positive' : (metrics.averageR ?? 0) < 0 ? 'negative' : undefined} hint={`${metrics.rCount}/${metrics.tradeCount} 笔含 R`} />
+                  <Metric label="净盈亏" value={metrics.pnlCount ? fmtMoney(metrics.totalPnl, 'USD', privacyMode) : '—'} tone={privacyMode ? undefined : metrics.totalPnl > 0 ? 'positive' : metrics.totalPnl < 0 ? 'negative' : undefined} hint={metrics.pnlCount < metrics.tradeCount ? `${metrics.pnlCount}/${metrics.tradeCount} 笔含盈亏` : undefined} />
+                  <Metric label="平均 R" value={fmtR(metrics.averageR)} tone={(metrics.averageR ?? 0) > 0 ? 'positive' : (metrics.averageR ?? 0) < 0 ? 'negative' : undefined} hint={metrics.rCount < metrics.tradeCount ? `${metrics.rCount}/${metrics.tradeCount} 笔含 R` : undefined} />
                 </div>
                 {metrics.missedCount > 0 ? (
                   <div className="wr-missed-summary">
@@ -1032,8 +1032,8 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
   )
 }
 
-function Metric({ label, value, hint, tone }: { label: string; value: string; hint: string; tone?: 'positive' | 'negative' }) {
-  return <div className="wr-metric"><span>{label}</span><strong className={tone ? `is-${tone}` : ''}>{value}</strong><small>{hint}</small></div>
+function Metric({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: 'positive' | 'negative' }) {
+  return <div className="wr-metric"><span>{label}</span><strong className={tone ? `is-${tone}` : ''}>{value}</strong>{hint ? <small>{hint}</small> : null}</div>
 }
 
 function TagGroup({ tone, title, options, selected, onChange, counts }: { tone: 'strength' | 'correction'; title: string; options: string[]; selected: string[]; onChange: (values: string[]) => void; counts?: Record<string, number> }) {

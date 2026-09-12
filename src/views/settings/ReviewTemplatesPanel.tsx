@@ -61,7 +61,6 @@ export function ReviewTemplatesPanel() {
       <section className="review-pin-setting" aria-labelledby="review-pin-setting-title">
         <div>
           <h2 id="review-pin-setting-title">详情页开头</h2>
-          <p>统一决定所有交易的开头叙述是否在浏览截图时保持可见。</p>
         </div>
         <div className="review-pin-options" role="radiogroup" aria-label="详情页开头显示方式">
           <button
@@ -176,9 +175,8 @@ export function ReviewTemplatesPanel() {
               }}
             />
 
-            <label className="review-template-content-label" htmlFor="review-template-content">
+            <label className="review-template-content-label" htmlFor="review-template-content" title="每行一个段落，冒号前的文字自动加粗">
               起稿内容
-              <span>每行插入为一个段落，冒号前的文字会自动加粗</span>
             </label>
             <textarea
               id="review-template-content"

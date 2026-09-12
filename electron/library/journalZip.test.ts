@@ -1,3 +1,4 @@
+import { createBackupAtPath, verifyBackupAtPath } from './backup'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -1234,3 +1235,41 @@ export async function testPathCThirdAttachmentWriteFailureLeavesCurrentLibraryBy
 }
 // Quality-Scenario: H0-C-16
 // Quality-Scenario: H0-D-16
+
+export async function testLegacyManifestWithCurrentRiskSnapshotRoundTrips(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-legacy-risk-backup-'))
+  const storage = new LibraryStorage(path.join(root, 'source'))
+  let restored: LibraryStorage | null = null
+  try {
+    await storage.open()
+    const snapshot = createFullPersistedSnapshotFixture()
+    snapshot.trades = []
+    snapshot.weeklyReviews = []
+    snapshot.quickNotes = []
+    snapshot.riskOverrideEvents = []
+    snapshot.starredIds = []
+    snapshot.subscribedIds = []
+    snapshot.monthlyRiskLimits = snapshot.monthlyRiskLimits.map((limit) => ({
+      ...limit, id: `monthly-risk-limit:${limit.liveStageId}:${limit.monthKey}`,
+    }))
+    storage.saveSnapshot(snapshot)
+    storage.writeManifest({ ...storage.readManifest(), schemaVersion: 5 })
+    const before = fs.readFileSync(storage.getPaths().dbFile)
+    await validateDesktopLibrary(storage.getPaths())
+    const backup = createBackupAtPath(storage, storage.getPaths().root)
+    assert(backup, '应生成删除前恢复点')
+    const verification = await verifyBackupAtPath(storage.getPaths().root, path.basename(backup))
+    assert(verification.status === 'verified', '旧清单与新快照的删除前恢复点必须验证成功')
+    const archive = path.join(root, 'recovery.journal.zip')
+    await exportJournalZip(storage, archive)
+    await importJournalZipToPath(path.join(root, 'restored'), archive)
+    restored = new LibraryStorage(path.join(root, 'restored'))
+    await restored.open()
+    assert(JSON.stringify(restored.loadSnapshot()?.monthlyRiskLimits) === JSON.stringify(snapshot.monthlyRiskLimits), '旧清单不得重新迁移已保存的阶段月度限额')
+    assert(fs.readFileSync(storage.getPaths().dbFile).equals(before), '验证与导出不得修改来源数据库')
+  } finally {
+    storage.release()
+    restored?.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}

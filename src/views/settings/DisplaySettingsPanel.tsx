@@ -1,6 +1,7 @@
 import { ICON_SM } from '@/icons/iconSize'
-import { useEffect, useState } from 'react'
 import { Check } from '@/icons/appIcons'
+import { useEffect, useState } from 'react'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { useStore } from '@/store/useStore'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import { TRADING_DAY_START_HOUR_OPTIONS } from '@/lib/periods'
@@ -49,8 +50,8 @@ const LIST_DENSITY_OPTS: {
   label: string
   description: string
 }[] = [
-  { value: 'compact', label: '紧凑 · 44px', description: '同屏显示更多交易与案例' },
-  { value: 'comfortable', label: '舒展 · 48px', description: '增加行间留白，更易逐行浏览' },
+  { value: 'compact', label: '紧凑', description: '同屏显示更多交易与案例' },
+  { value: 'comfortable', label: '舒展', description: '增加行间留白，更易逐行浏览' },
 ]
 
 const WINDOWS_CLOSE_OPTIONS: {
@@ -200,29 +201,25 @@ export function DisplaySettingsPanel() {
     <div className="settings-page settings-page--form display-settings">
       <div className="settings-page-head">
         <h1 className="settings-page-title">显示偏好</h1>
-        <p className="settings-page-desc">顶栏「显示」与此处共用同一组偏好。</p>
       </div>
       <div className="display-settings-card">
         <section className="display-settings-section">
           <div className="display-section-head">
             <h2>显示内容</h2>
-            <p>控制默认保留哪些记录与空状态。</p>
           </div>
           <ToggleRow
             label="只看未结束交易"
-            description="隐藏盈利、亏损与保本的已结束记录"
             checked={display.hideClosed}
             onChange={(v) => setDisplay({ hideClosed: v })}
           />
           <ToggleRow
-            label="保留空状态"
-            description="显示没有交易的看板列与列表分组"
+            label="显示空分组与空看板列"
             checked={display.showEmptyGroups}
             onChange={(v) => setDisplay({ showEmptyGroups: v })}
           />
           <ToggleRow
             label="直播模式"
-            description="直播或分享屏幕时隐藏所有现金盈亏与权益金额，保留结果状态和 R 倍数"
+            description="隐藏金额，保留结果与 R 倍数"
             checked={display.privacyMode}
             onChange={(v) => setDisplay({ privacyMode: v })}
           />
@@ -235,9 +232,6 @@ export function DisplaySettingsPanel() {
             </div>
             <ToggleRow
               label="开机自动启动"
-              description={bridge?.platform === 'darwin'
-                ? '登录 macOS 后自动打开 Trader Atlas'
-                : '登录 Windows 后自动打开 Trader Atlas'}
               checked={autoLaunchState?.enabled ?? false}
               disabled={autoLaunchBusy || !autoLaunchState || !autoLaunchState.supported || Boolean(autoLaunchState.error)}
               onChange={(checked) => void applyAutoLaunch(checked)}
@@ -261,7 +255,6 @@ export function DisplaySettingsPanel() {
 
         <ChoiceSection
           title="列表密度"
-          hint="应用于交易日志和案例库。"
           options={LIST_DENSITY_OPTS}
           value={display.listRowDensity}
           onChange={(value) => setDisplay({ listRowDensity: value })}
@@ -269,7 +262,7 @@ export function DisplaySettingsPanel() {
 
         <ChoiceSection
           title="交易日开始于"
-          hint="凌晨开平仓仍算前一交易日。影响今日工作台、今日筛选与新建默认日期；统计分析「本周」等仍按日历周。"
+          hint="该时刻前计入前一交易日；统计中的周、月仍按日历计算。"
           options={TRADING_DAY_OPTS}
           value={display.tradingDayStartHour}
           onChange={(value) => setDisplay({ tradingDayStartHour: value })}
@@ -277,7 +270,6 @@ export function DisplaySettingsPanel() {
 
         <ChoiceSection
           title="分组方式"
-          hint="决定交易日志的第一层结构。"
           options={GROUP_OPTS}
           value={groupMode}
           onChange={setGroupMode}
@@ -285,7 +277,7 @@ export function DisplaySettingsPanel() {
 
         <ChoiceSection
           title="默认排序"
-          hint="决定每个列表或分组内的交易顺序；再次点击当前项可切换正序或倒序。"
+          hint="再次点击当前排序可切换升序 / 降序。"
           options={getSortOptions(display.sortBy, display.sortDirection)}
           value={display.sortBy}
           onChange={(value) => {
@@ -305,7 +297,6 @@ export function DisplaySettingsPanel() {
             <div className="display-section-head">
               <h2>主窗口尺寸</h2>
               <p>
-                一键套用常用分辨率；可按需锁定边缘拖拽，下次启动仍会记住。
                 {currentSizeLabel ? ` ${currentSizeLabel}` : ''}
               </p>
             </div>
@@ -333,7 +324,7 @@ export function DisplaySettingsPanel() {
             </div>
             <ToggleRow
               label="锁定窗口大小"
-              description="禁止拖拽窗口边缘缩放；上方尺寸预置仍然可用"
+              description="尺寸预置仍可使用"
               checked={windowState?.resizable === false}
               onChange={(locked) => void applyWindowResizeLock(locked)}
             />
@@ -348,7 +339,6 @@ export function DisplaySettingsPanel() {
         {windows ? (
           <ChoiceSection
             title="关闭主窗口"
-            hint="仅适用于 Windows。macOS 遵循系统习惯：关闭窗口后保留 Dock，使用 ⌘Q 才退出应用。"
             options={WINDOWS_CLOSE_OPTIONS}
             value={windowsClosePreference}
             onChange={(preference) => void applyWindowsClosePreference(preference)}
@@ -367,7 +357,7 @@ function ToggleRow({
   onChange,
 }: {
   label: string
-  description: string
+  description?: string
   checked: boolean
   disabled?: boolean
   onChange: (v: boolean) => void
@@ -383,7 +373,7 @@ function ToggleRow({
     >
       <span className="display-row-copy">
         <span className="display-row-title">{label}</span>
-        <span className="display-row-desc">{description}</span>
+        {description ? <span className="display-row-desc">{description}</span> : null}
       </span>
       <span className={'display-switch' + (checked ? ' is-on' : '')}>
         <span className="display-switch-knob" />
@@ -400,7 +390,7 @@ function ChoiceSection<T extends string | number>({
   onChange,
 }: {
   title: string
-  hint: string
+  hint?: string
   options: { value: T; label: string; description: string }[]
   value: T
   onChange: (value: T) => void
@@ -409,27 +399,15 @@ function ChoiceSection<T extends string | number>({
     <section className="display-settings-section">
       <div className="display-section-head">
         <h2>{title}</h2>
-        <p>{hint}</p>
+        {hint ? <p>{hint}</p> : null}
       </div>
-      <div className="display-choice-list">
-        {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            className={'display-choice' + (value === option.value ? ' is-selected' : '')}
-            aria-pressed={value === option.value}
-            onClick={() => onChange(option.value)}
-          >
-            <span className="display-row-copy">
-              <span className="display-row-title">{option.label}</span>
-              <span className="display-row-desc">{option.description}</span>
-            </span>
-            <span className="display-choice-check">
-              {value === option.value && <Check size={ICON_SM} />}
-            </span>
-          </button>
-        ))}
-      </div>
+      <SegmentedControl label={title} value={String(value)}
+        options={options.map((option) => ({ value: String(option.value), label: option.label,
+          wrap: (button) => <span key={option.value} title={option.description}>{button}</span>,
+        }))}
+        onChange={(next) => { const option = options.find((item) => String(item.value) === next); if (option) onChange(option.value) }} />
+      {title === '默认排序' ? <p className="display-sort-direction">{options.find((option) => option.value === value)?.description}</p> : null}
+
     </section>
   )
 }

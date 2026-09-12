@@ -172,14 +172,15 @@
 }
 
 .review-template-editor {
-  padding: 22px var(--sp-6) var(--sp-6);
+  padding: var(--sp-4);
+  min-width: 0;
 }
 
 .review-template-field-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 7px;
+  margin-bottom: var(--sp-2);
   color: var(--text-strong);
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
@@ -219,10 +220,11 @@
 
 .review-template-content-label {
   display: flex;
-  align-items: baseline;
+  align-items: start;
+  flex-direction: column;
   justify-content: space-between;
   gap: var(--sp-3);
-  margin: var(--sp-5) 0 7px;
+  margin: var(--space-section-gap) 0 var(--sp-2);
   color: var(--text-strong);
   font-size: var(--type-section-title-size);
   font-weight: var(--type-section-title-weight);
@@ -237,7 +239,7 @@
 
 .review-template-content {
   min-height: 250px;
-  padding: 11px var(--sp-3);
+  padding: var(--sp-3);
   resize: vertical;
   font: inherit;
   font-size: var(--type-row-size);
@@ -258,7 +260,7 @@
   justify-content: center;
   width: 100%;
   min-height: 320px;
-  gap: 7px;
+  gap: var(--sp-2);
   color: var(--text-tertiary);
   border: 1px dashed var(--border-default);
   border-radius: var(--radius-xl);
@@ -276,4 +278,10 @@
 
 .review-template-empty span {
   font-size: var(--type-metadata-size);
+}
+
+@media (max-width: 1099px) {
+  .review-templates-workspace { grid-template-columns: minmax(0, 1fr); }
+  .review-template-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-1); border-right: 0; border-bottom: 1px solid var(--border-subtle); }
+  .review-pin-setting { align-items: start; flex-direction: column; gap: var(--sp-3); }
 }

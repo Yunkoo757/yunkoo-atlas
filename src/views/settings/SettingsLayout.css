@@ -111,7 +111,7 @@
 }
 
 .settings-page-title {
-  margin: 0 0 6px;
+  margin: 0 0 var(--sp-1);
   color: var(--text-strong);
   font-size: var(--type-page-title-size);
   font-weight: var(--font-weight-semibold);
@@ -148,11 +148,11 @@
 }
 
 .settings-page-section + .settings-page-section {
-  margin-top: var(--sp-8);
+  margin-top: var(--space-section-gap);
 }
 
 .settings-page > :not(.settings-page-head) + .settings-page-section {
-  margin-top: var(--sp-8);
+  margin-top: var(--space-section-gap);
 }
 
 @media (max-width: 1099px) {

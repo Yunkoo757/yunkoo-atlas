@@ -595,6 +595,14 @@ function isRiskPolicyVersion(value: unknown): boolean {
     isNonEmptyString(value.id) &&
     isCanonicalDate(value.sourceWeekStart) &&
     isCanonicalDate(value.effectiveTradingDay) &&
+    (value.historicalBackfill === undefined || (
+      isRecord(value.historicalBackfill) &&
+      value.historicalBackfill.confirmedHistorical === true &&
+      isCanonicalDate(value.historicalBackfill.throughTradingDay) &&
+      value.historicalBackfill.throughTradingDay >= value.effectiveTradingDay &&
+      isNonEmptyString(value.historicalBackfill.sourcePolicyVersionId) &&
+      isNonEmptyString(value.historicalBackfill.note)
+    )) &&
     hasCanonicalRiskAmount(value) &&
     isPositiveFiniteNumber(value.dailyLossLimitR) &&
     isPositiveFiniteNumber(value.weeklyLossLimitR) &&

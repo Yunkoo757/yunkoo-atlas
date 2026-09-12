@@ -65,7 +65,7 @@ function positiveFinite(value: number | null, label: string): number {
   return value
 }
 
-function canonicalDraft(draft: RiskPolicyDraft): Omit<RiskPolicyVersion, 'id' | 'liveStageId' | 'sourceWeekStart' | 'effectiveTradingDay' | 'confirmedAt'> {
+export function canonicalDraft(draft: RiskPolicyDraft): Omit<RiskPolicyVersion, 'id' | 'liveStageId' | 'sourceWeekStart' | 'effectiveTradingDay' | 'confirmedAt'> {
   const capitalBase = positiveFinite(draft.capitalBase, '资金基准')
   const riskPercent = positiveFinite(draft.riskPercent, 'R 百分比')
   const dailyLossLimitR = positiveFinite(draft.dailyLossLimitR, '日止损线')

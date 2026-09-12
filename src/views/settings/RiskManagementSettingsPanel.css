@@ -68,6 +68,7 @@
 }
 
 @media (max-width: 1099px) {
+  .risk-management-settings .risk-preparation-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .risk-data-summary { grid-template-columns: minmax(0, 1fr); align-items: start; }
   .risk-data-summary-status { justify-content: space-between; text-align: left; }
 }

@@ -1,40 +1,22 @@
 .tag-section {
-  margin-bottom: var(--sp-7);
-  padding-bottom: var(--sp-7);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.tag-section:last-child {
-  border-bottom: 0;
-}
-
-.tag-section-title {
-  color: var(--text-strong);
-  font-size: var(--type-section-title-size);
-  font-weight: var(--type-section-title-weight);
-  line-height: var(--type-section-title-line-height);
-  margin-bottom: var(--sp-1);
-}
-
-.tag-section-desc {
-  color: var(--text-muted);
-  font-size: var(--type-metadata-size);
-  line-height: var(--type-metadata-line-height);
-  margin-bottom: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-row-gap);
+  margin-top: var(--space-section-gap);
 }
 
 .tag-add-row {
   display: flex;
   gap: var(--sp-2);
   align-items: center;
-  margin-bottom: var(--sp-3);
+
 }
 
 .tag-preset-input {
   flex: 1;
-  max-width: 260px;
+  min-width: 0;
   height: var(--field-height-md);
-  padding: 0 10px;
+  padding: 0 var(--sp-3);
   font-family: var(--font-ui);
   font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
@@ -52,7 +34,8 @@
 }
 
 .tag-batch {
-  margin-bottom: 14px;
+  order: 2;
+  margin-top: var(--sp-3);
 }
 .tag-batch-summary {
   font-size: var(--type-metadata-size);
@@ -67,8 +50,8 @@
 .tag-batch-input {
   display: block;
   width: 100%;
-  max-width: 360px;
-  padding: var(--sp-2) 10px;
+
+  padding: var(--sp-2) var(--sp-3);
   margin-bottom: var(--sp-2);
   font: inherit;
   font-size: var(--type-row-size);
@@ -102,8 +85,8 @@
   gap: var(--sp-1);
   padding: var(--sp-1) var(--sp-2);
   border-radius: var(--radius-6);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
+  background: transparent;
+  border: 1px solid var(--border-divider);
   font-family: var(--font-ui);
   font-size: var(--type-chip-size);
   font-weight: var(--type-chip-weight);
@@ -126,3 +109,8 @@
   background: var(--bg-hover);
   color: var(--neg);
 }
+
+.settings-tag-chip-remove { opacity: 0; }
+.settings-tag-chip:hover .settings-tag-chip-remove,
+.settings-tag-chip:focus-within .settings-tag-chip-remove { opacity: 1; }
+.tag-search { flex: none; width: 100%; }
