@@ -582,6 +582,7 @@ function Shell() {
       </AppFrame>
       <CommandPalette
         open={cmdkOpen}
+        onOpen={() => setCmdkOpen(true)}
         onClose={() => setCmdkOpen(false)}
         returnFocusTo={cmdkReturnFocus}
       />

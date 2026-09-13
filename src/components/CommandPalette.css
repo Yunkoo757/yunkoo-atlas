@@ -171,7 +171,20 @@
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
   font-variant-numeric: tabular-nums;
+  flex-shrink: 1;
+  max-width: 20%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cmdk-item-date,
+.cmdk-item-source {
   flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
+  font-weight: var(--type-metadata-weight);
+  font-variant-numeric: tabular-nums;
 }
 .cmdk-item-enter {
   color: var(--text-muted);
@@ -185,13 +198,22 @@
 }
 
 .cmdk-result-note {
-  position: sticky;
-  bottom: 0;
-  padding: var(--sp-2) 10px 6px;
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-row-gap);
+  padding: var(--sp-2) var(--sp-3);
   border-top: 1px solid var(--border-subtle);
   background: var(--popover-bg);
   color: var(--text-muted);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line-height);
   text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmdk-overlay, .cmdk, .cmdk-overlay.is-closing, .cmdk-overlay.is-closing .cmdk {
+    animation: none;
+  }
 }

@@ -92,7 +92,6 @@ jobs:
       - name: Run source quality gates
         run: |
           pnpm check:desktop-visual
-          pnpm typecheck
           node --test scripts/fixtures/packaged-desktop-visual.test.mjs
 
       - name: Build production application

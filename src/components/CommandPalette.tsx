@@ -31,6 +31,8 @@ import { sortStrategies } from '@/lib/strategies'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { matchesSearchQuery } from '@/lib/tradeFilters'
 import { collectLimitedCommandMatches } from '@/lib/commandPaletteSearch'
+import { findDateSearchTrades, parseCommandDateQuery, type CommandSearchSession } from '@/lib/commandDateSearch'
+import { Button } from '@/components/ui/Button'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
 import { STATUS_META, type TradeStatus } from '@/data/trades'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
@@ -54,6 +56,8 @@ interface Cmd {
   icon: React.ReactNode
   label: string
   hint?: string
+  date?: string
+  source?: string
   keywords?: string
   run: () => void
 }
@@ -73,23 +77,53 @@ export function CommandPalette({
   open,
   onClose,
   returnFocusTo,
+  onOpen,
 }: {
   open: boolean
   onClose: () => void
   returnFocusTo?: HTMLElement | null
+  onOpen?: () => void
 }) {
+  const location = useLocation()
+  const remembered = useRef<CommandSearchSession | undefined>()
+  const pendingReturn = useRef<CommandSearchSession | undefined>()
+  const restoredKey = useRef<string | null>(null)
+  const remember = useCallback((session: CommandSearchSession) => { remembered.current = session }, [])
+  const rememberNavigation = useCallback((session: CommandSearchSession) => {
+    remembered.current = session
+    pendingReturn.current = session
+  }, [])
+  useEffect(() => {
+    if (restoredKey.current === location.key) return
+    restoredKey.current = location.key
+    const explicit = (location.state as { restoreCommandSearch?: CommandSearchSession } | null)?.restoreCommandSearch
+    const session = explicit ?? (pendingReturn.current?.origin.key === location.key ? pendingReturn.current : undefined)
+    if (session) {
+      remembered.current = session
+      pendingReturn.current = undefined
+      onOpen?.()
+    }
+  }, [location.key, location.state, onOpen])
   if (!open) return null
-  return <CommandPaletteDialog onClose={onClose} returnFocusTo={returnFocusTo} />
+  return <CommandPaletteDialog onClose={onClose} returnFocusTo={returnFocusTo}
+    initialSession={remembered.current} onRemember={remember} onNavigateResult={rememberNavigation} />
 }
 
 function CommandPaletteDialog({
   onClose,
   returnFocusTo,
+  initialSession,
+  onRemember,
+  onNavigateResult,
 }: {
   onClose: () => void
   returnFocusTo?: HTMLElement | null
+  initialSession?: CommandSearchSession
+  onRemember: (session: CommandSearchSession) => void
+  onNavigateResult: (session: CommandSearchSession) => void
 }) {
-  const [q, setQ] = useState('')
+  const [q, setQ] = useState(initialSession?.query ?? '')
+  const [limit, setLimit] = useState(initialSession?.limit ?? MAX_SEARCH_RESULTS)
   const [closing, setClosing] = useState(false)
   const closeTimerRef = useRef<number | null>(null)
   const requestClose = useCallback(() => {
@@ -107,7 +141,9 @@ function CommandPaletteDialog({
   const deferredQuery = useDeferredValue(q)
   const [active, setActive] = useState(0)
   const navigate = useNavigate()
-  const { pathname, search } = useLocation()
+  const location = useLocation()
+  const { pathname, search } = location
+  const origin = useRef({ pathname, search, key: location.key })
   const trades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
   const display = useStore((s) => s.display)
@@ -131,6 +167,8 @@ function CommandPaletteDialog({
   const listboxId = useId()
   const returnFocusRef = useRef<HTMLElement | null>(null)
   const returnFocusFrameRef = useRef<number | null>(null)
+  const sessionRef = useRef<CommandSearchSession>({ query: q, limit, scrollTop: 0, origin: origin.current })
+  const dateQuery = useMemo(() => parseCommandDateQuery(deferredQuery), [deferredQuery])
 
   useEffect(() => () => {
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
@@ -255,9 +293,33 @@ function CommandPaletteDialog({
       return { commands, total: commands.length }
     }
 
+    const strategyNames = new Map(strategies.map((strategy) => [strategy.id, strategy.name]))
+    const resolveStrategyName = (strategyId: string | undefined) =>
+      (strategyId ? strategyNames.get(strategyId) : undefined) ?? '未分类'
+    const tradeCommand = (trade: (typeof trades)[number]): Cmd => ({
+      id: 't-' + trade.id,
+      group: dateQuery.kind === 'date' ? dateQuery.label : '交易',
+      icon: <StatusIcon status={trade.status} size={ICON_MD} />,
+      label: `${trade.symbol} · ${resolveStrategyName(trade.strategyId)}`,
+      hint: trade.ref,
+      date: trade.openedAt.slice(0, 10),
+      source: trade.tradeKind === 'case' ? '案例' : trade.tradeKind === 'paper' ? '模拟盘' : '日志',
+      run: () => {
+        const session = { ...sessionRef.current, activeId: 't-' + trade.id, scrollTop: listRef.current?.scrollTop ?? 0 }
+        onNavigateResult(session)
+        navigate(tradeDetailPath(trade), { state: { commandSearch: session } })
+        requestClose()
+      },
+    })
+    if (dateQuery.kind === 'incomplete' || dateQuery.kind === 'invalid') return { commands: [], total: 0 }
+    if (dateQuery.kind === 'date') {
+      const matches = findDateSearchTrades(trades, dateQuery, strategyNames)
+      return { commands: matches.slice(0, limit).map(tradeCommand), total: matches.length }
+    }
+
     const fixedCommands = [...contextActions, ...viewNav, ...periodNav, ...settingsNav, ...actions]
       .filter((command) => matchesSearchQuery(query, command.label, command.hint, command.keywords))
-    const commands = fixedCommands.slice(0, MAX_SEARCH_RESULTS)
+    const commands = fixedCommands.slice(0, limit)
     let total = fixedCommands.length
 
     const searchableTrades = trades.filter((trade) => !trade.deletedAt)
@@ -280,7 +342,7 @@ function CommandPaletteDialog({
         keywords: `strategy ${strategy.name}`,
         run: go(`/strategy/${strategy.id}`),
       }),
-      MAX_SEARCH_RESULTS - commands.length,
+      limit - commands.length,
     )
     commands.push(...strategyMatches.items)
     total += strategyMatches.total
@@ -317,14 +379,11 @@ function CommandPaletteDialog({
           run: go(`${candidate.path}?${new URLSearchParams({ tag }).toString()}`),
         }
       },
-      MAX_SEARCH_RESULTS - commands.length,
+      limit - commands.length,
     )
     commands.push(...tagMatches.items)
     total += tagMatches.total
 
-    const strategyNames = new Map(strategies.map((strategy) => [strategy.id, strategy.name]))
-    const resolveStrategyName = (strategyId: string | undefined) =>
-      (strategyId ? strategyNames.get(strategyId) : undefined) ?? '未分类'
     const tradeMatches = collectLimitedCommandMatches(
       searchableTrades,
       query,
@@ -332,19 +391,8 @@ function CommandPaletteDialog({
         const strategyName = resolveStrategyName(trade.strategyId)
         return [trade.ref, trade.symbol, strategyName, trade.tags.join(' ')]
       },
-      (trade): Cmd => {
-        const strategyName = resolveStrategyName(trade.strategyId)
-        return {
-          id: 't-' + trade.id,
-          group: '交易',
-          icon: <StatusIcon status={trade.status} size={ICON_MD} />,
-          label: `${trade.symbol} · ${strategyName}`,
-          hint: trade.ref,
-          keywords: `${trade.ref} ${trade.symbol} ${strategyName} ${trade.tags.join(' ')}`,
-          run: go(tradeDetailPath(trade)),
-        }
-      },
-      MAX_SEARCH_RESULTS - commands.length,
+      tradeCommand,
+      limit - commands.length,
     )
     commands.push(...tradeMatches.items)
     total += tradeMatches.total
@@ -370,6 +418,9 @@ function CommandPaletteDialog({
     toggleStar,
     toggleCaseFocus,
     trades,
+    dateQuery,
+    limit,
+    onNavigateResult,
   ])
 
   const commands = searchResult.commands
@@ -401,7 +452,28 @@ function CommandPaletteDialog({
     requestAnimationFrame(() => inputRef.current?.focus())
   }, [])
 
-  useEffect(() => setActive(0), [q])
+  const updateQuery = (value: string) => {
+    setQ(value)
+    setActive(0)
+    setLimit(MAX_SEARCH_RESULTS)
+    if (listRef.current) listRef.current.scrollTop = 0
+  }
+
+  useEffect(() => {
+    const restoredActive = initialSession?.activeId
+      ? commands.findIndex((command) => command.id === initialSession.activeId) : -1
+    if (restoredActive >= 0) setActive(restoredActive)
+    const frame = requestAnimationFrame(() => {
+      if (listRef.current) listRef.current.scrollTop = initialSession?.scrollTop ?? 0
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [])
+
+  useEffect(() => {
+    if (queryPending || closing) return
+    sessionRef.current = { query: q, limit, activeId: visibleCommands[active]?.id, scrollTop: listRef.current?.scrollTop ?? 0, origin: origin.current }
+    onRemember(sessionRef.current)
+  }, [q, limit, active, visibleCommands, queryPending, closing, onRemember])
 
   useEffect(() => {
     setActive((current) => Math.min(current, Math.max(0, visibleCommands.length - 1)))
@@ -416,7 +488,10 @@ function CommandPaletteDialog({
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActive((a) => Math.min(a + 1, Math.max(0, visibleCommands.length - 1)))
+      if (!queryPending && hasMore && active === visibleCommands.length - 1) {
+        setLimit((current) => current + MAX_SEARCH_RESULTS)
+        setActive(active + 1)
+      } else setActive((a) => Math.min(a + 1, Math.max(0, visibleCommands.length - 1)))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setActive((a) => Math.max(a - 1, 0))
@@ -478,16 +553,18 @@ function CommandPaletteDialog({
             aria-expanded="true"
             aria-controls={listboxId}
             aria-activedescendant={activeOptionId}
-            placeholder="搜索交易、跳转视图…"
+            placeholder="搜索交易、日期（如 202405）、跳转视图…"
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => updateQuery(e.target.value)}
+            aria-invalid={dateQuery.kind === 'invalid' && !queryPending || undefined}
+            aria-describedby={q.trim() ? `${listboxId}-status` : undefined}
             onKeyDown={onKey}
           />
           {q ? (
             <button
               type="button"
               className="cmdk-clear"
-              onClick={() => { setQ(''); inputRef.current?.focus() }}
+              onClick={() => { updateQuery(''); inputRef.current?.focus() }}
               aria-label="清除搜索"
             >
               <X size={ICON_SM} />
@@ -500,9 +577,17 @@ function CommandPaletteDialog({
           ref={listRef}
           role="listbox"
           aria-label="命令结果"
+          aria-busy={queryPending}
+          onScroll={() => {
+            sessionRef.current = { ...sessionRef.current, scrollTop: listRef.current?.scrollTop ?? 0 }
+            onRemember(sessionRef.current)
+          }}
         >
           {visibleCommands.length === 0 && !queryPending && (
-            <div className="cmdk-empty" role="status">没有匹配项</div>
+            <div className="cmdk-empty" id={`${listboxId}-status`} role="status">
+              {dateQuery.kind === 'incomplete' || dateQuery.kind === 'invalid' ? dateQuery.message
+                : dateQuery.kind === 'date' ? `${dateQuery.label}没有匹配的记录` : '没有匹配项'}
+            </div>
           )}
           {visibleCommands.map((c) => {
             flatIndex++
@@ -523,8 +608,10 @@ function CommandPaletteDialog({
                   onClick={() => c.run()}
                 >
                   <span className="cmdk-item-icon">{c.icon}</span>
-                  <span className="cmdk-item-label">{c.label}</span>
-                  {c.hint && <span className="cmdk-item-hint">{c.hint}</span>}
+                  {c.date && <span className="cmdk-item-date">{c.date}</span>}
+                  <span className="cmdk-item-label" title={c.label}>{c.label}</span>
+                  {c.source && <span className="cmdk-item-source">{c.source}</span>}
+                  {c.hint && <span className="cmdk-item-hint" title={c.hint}>{c.hint}</span>}
                   {idx === active && (
                     <CornerDownLeft size={ICON_SM} className="cmdk-item-enter" />
                   )}
@@ -532,14 +619,20 @@ function CommandPaletteDialog({
               </div>
             )
           })}
-          {(queryPending || hasMore) && (
-            <div className="cmdk-result-note" role="status">
+        </div>
+          {(queryPending || visibleCommands.length > 0 && q.trim()) && (
+            <div className="cmdk-result-note">
+              <span id={`${listboxId}-status`} role="status">
               {queryPending
                 ? '正在筛选…'
-                : `显示前 ${commands.length} 项，共 ${searchResult.total} 项 · 继续输入可缩小范围`}
+                : `已显示 ${commands.length} / ${searchResult.total} 项`}
+              </span>
+              {!queryPending && hasMore && <Button size="sm" onClick={() => {
+                setLimit((current) => current + MAX_SEARCH_RESULTS)
+                inputRef.current?.focus()
+              }}>加载更多</Button>}
             </div>
           )}
-        </div>
       </div>
     </div>,
     document.body,

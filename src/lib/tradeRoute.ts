@@ -1,4 +1,5 @@
 import type { Trade } from '@/data/trades'
+import type { CommandSearchSession } from '@/lib/commandDateSearch'
 import { routeWithSearch } from '@/lib/tradeView'
 import {
   isCaseWorkspaceEntryPath,
@@ -15,6 +16,7 @@ export type TradeDetailFrom = {
 
 export type TradeDetailLocationState = {
   from?: TradeDetailFrom
+  commandSearch?: CommandSearchSession
 }
 
 /** 路由参数：支持内部 id 或 TRD-xxx 编号 */

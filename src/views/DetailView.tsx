@@ -272,24 +272,31 @@ export function DetailView() {
   }, [trade, routeParam, navigate, location.state])
 
   const from = (location.state as TradeDetailLocationState | null)?.from
+  const commandSearch = (location.state as TradeDetailLocationState | null)?.commandSearch
+  const detailReturnState = commandSearch
+    ? { restoreCommandSearch: commandSearch }
+    : tradeReturnLocationState(from)
   const detailKind = trade?.tradeKind ?? deletedTrade?.tradeKind
   const detailReturn = useMemo(() => {
+    if (commandSearch) return commandSearch.origin
     return resolveTradeDetailReturn({
       from,
       listPath: listContext?.listPath,
       listSearch: listContext?.listSearch,
       tradeKind: detailKind,
     })
-  }, [from, listContext?.listPath, listContext?.listSearch, detailKind])
+  }, [commandSearch, from, listContext?.listPath, listContext?.listSearch, detailKind])
   const {
-    breadcrumb: detailCrumb,
-    backAriaLabel,
+    breadcrumb: sourceCrumb,
+    backAriaLabel: sourceBackLabel,
     returnDestinationLabel,
   } = resolveTradeDetailSourceCopy({
     fromPathname: from?.pathname,
     returnPathname: detailReturn.pathname,
     tradeKind: detailKind,
   })
+  const detailCrumb = commandSearch ? '搜索结果' : sourceCrumb
+  const backAriaLabel = commandSearch ? '返回搜索结果' : sourceBackLabel
 
   const persistEditorNote = useCallback((html: string, tradeId: string) => {
     pendingHtmlRef.current = html
@@ -490,7 +497,7 @@ export function DetailView() {
           <div className="dv-tb-left">
             <Link
               to={detailReturn}
-              state={tradeReturnLocationState(from)}
+              state={detailReturnState}
               className="dv-back"
               aria-label={backAriaLabel}
             >
@@ -515,7 +522,7 @@ export function DetailView() {
             <div className="dv-empty-actions">
               <Link
                 to={detailReturn}
-                state={tradeReturnLocationState(from)}
+                state={detailReturnState}
                 className="ui-btn ui-btn-bordered"
               >
                 返回{returnDestinationLabel}
@@ -601,7 +608,7 @@ export function DetailView() {
         toast('已从回收站恢复')
       },
     })
-    navigate(detailReturn, { state: tradeReturnLocationState(from) })
+    navigate(detailReturn, { state: detailReturnState })
   }
 
   const createCaseFromCurrentTrade = async () => {
@@ -920,7 +927,7 @@ export function DetailView() {
         <div className="dv-tb-left">
           <Link
             to={detailReturn}
-            state={tradeReturnLocationState(from)}
+            state={detailReturnState}
             className="dv-back"
             aria-label={backAriaLabel}
           >
