@@ -44,6 +44,8 @@ const listViewStyles = read('src/views/ListView.css')
 const boardViewStyles = read('src/views/BoardView.css')
 const settingsSurfaceStyles = read('src/views/settings/SettingsLayout.css')
 const riskManagementStyles = read('src/views/settings/RiskManagementSettingsPanel.css')
+const riskManagementComponent = read('src/views/settings/RiskManagementSettingsPanel.tsx')
+const segmentedStyles = read('src/components/ui/SegmentedControl.css')
 const tradeDetailLayoutStyles = read('src/components/trades/TradeDetailLayout.css')
 const quickNotesStyles = read('src/views/QuickNotesView.css')
 const detailStyles = read('src/views/DetailView.css')
@@ -140,8 +142,11 @@ const checks = [
       /\.ui-select-option\[aria-selected='true'\]\s*\{[^}]*background:\s*var\(--surface-menu-selected\);/s.test(selectCss),
   ],
   [
-    'disabled risk scope is visually quieter than selection',
-    /\.risk-indicator-options button:disabled\s*\{[^}]*color:\s*var\(--text-disabled\);[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/s.test(riskManagementStyles),
+    'risk scope inherits shared segmented disabled text and interaction states',
+    /<SegmentedControl\s+className="risk-indicator-options"\s+role="radiogroup"/.test(riskManagementComponent) &&
+      /\.ui-segmented-option:disabled\s*\{[^}]*color:\s*var\(--text-disabled\);[^}]*cursor:\s*not-allowed;/s.test(segmentedStyles) &&
+      segmentedStyles.includes('.ui-segmented-option:hover:not(:disabled)') &&
+      !riskManagementStyles.includes('.risk-indicator-options'),
   ],
   ['sidebar width', tokens.includes('--sidebar-width: 244px')],
   [
@@ -159,11 +164,10 @@ const checks = [
       !/activeIconStyle\('var\(--nav-icon-[^)]+\)'\)/.test(sidebarComponent),
   ],
   [
-    'sidebar navigation respects the global keyboard focus preference',
-    sidebarStyles.includes("html[data-keyboard-navigation='true']") &&
-      sidebarStyles.includes('box-shadow: inset 0 0 0 var(--focus-ring-width) var(--focus-ring-color)') &&
-      sidebarStyles.includes("html[data-keyboard-focus-rings='off'][data-keyboard-navigation='true']") &&
-      sidebarStyles.includes('box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-tertiary) 72%, transparent)'),
+    'sidebar follows the current no-focus-highlight contract',
+    /\.sb-item:focus-visible\s*\{\s*outline:\s*none !important;\s*\}/s.test(sidebarStyles) &&
+      /(?:^|\n):focus-visible\s*\{\s*outline:\s*none !important;\s*\}/s.test(globalStyles) &&
+      !/data-keyboard-(?:navigation|focus-rings)/.test(sidebarStyles),
   ],
   [
     'sidebar avatar uses the rounded-square shape',
@@ -279,8 +283,9 @@ const checks = [
       !/(?:animation|transition)[^;]*(?:\d+ms|\d*\.\d+s)/.test(`${modalShellStyles}\n${commandPaletteStyles}\n${menuStyles}`),
   ],
   [
-    'active breadcrumbs match the topbar title weight',
-    /\.crumbs-label\.is-active\s*\{[^}]*font-weight:\s*var\(--font-weight-semibold\)/s.test(crumbsStyles),
+    'active breadcrumbs consume the canonical toolbar title typography',
+    /\.crumbs-label\.is-active\s*\{[^}]*font-size:\s*var\(--type-toolbar-title-size\);[^}]*font-weight:\s*var\(--type-toolbar-title-weight\);[^}]*line-height:\s*var\(--type-toolbar-title-line-height\);/s.test(crumbsStyles) &&
+      /--type-toolbar-title-weight:\s*var\(--font-weight-semibold\);/.test(tokens),
   ],
   [
     'meaningful metadata stays above the disabled contrast tier',
@@ -326,8 +331,9 @@ const checks = [
       /\.bd-card-ref\s*\{[^}]*color:\s*var\(--text-content-metadata\);/s.test(boardViewStyles),
   ],
   [
-    'risk scope choices remain readable body text before selection',
-    /\.risk-indicator-options button\s*\{[^}]*color:\s*var\(--text-secondary\);/s.test(riskManagementStyles),
+    'risk scope choices inherit readable shared segmented typography',
+    riskManagementComponent.includes('options={RISK_SCOPE_OPTIONS}') &&
+      /\.ui-segmented-option\s*\{[^}]*color:\s*var\(--text-secondary\);[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--type-metadata-weight\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(segmentedStyles),
   ],
   [
     'virtual trade rows preserve native text rasterization',

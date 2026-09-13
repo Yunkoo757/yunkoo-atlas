@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client'
+import { useState } from 'react'
 import { Star } from '@/icons/appIcons'
 import { Button } from '@/components/ui/Button'
 import { IconButton } from '@/components/ui/IconButton'
@@ -30,6 +31,8 @@ async function waitFor(condition: () => boolean, message: string): Promise<void>
 }
 
 function Harness() {
+  const [view, setView] = useState('list')
+  const [scope, setScope] = useState('day')
   return (
     <main>
       <Button size="sm">工具</Button>
@@ -40,13 +43,16 @@ function Harness() {
       </IconButton>
       <SegmentedControl
         label="视图"
-        value="list"
+        value={view}
         options={[
           { value: 'list', label: '列表' },
           { value: 'board', label: '看板' },
         ]}
-        onChange={() => undefined}
+        onChange={setView}
       />
+      <SegmentedControl label="风险周期" role="radiogroup" value={scope}
+        options={[{ value: 'day', label: '每日' }, { value: 'week', label: '每周', disabled: true }, { value: 'month', label: '每月' }]}
+        onChange={setScope} />
     </main>
   )
 }
@@ -74,9 +80,20 @@ async function run(): Promise<void> {
     assert(group, '缺少分段控件 group 语义')
     const segments = [...group.querySelectorAll<HTMLButtonElement>('button')]
     assert(segments.length === 2, '分段控件选项数量错误')
+    assert(segments[0]?.getAttribute('aria-pressed') === 'true', 'group 应暴露当前筛选状态')
+    assert(!segments[0]?.hasAttribute('aria-selected'), '普通筛选不得使用页签选中语义')
     segments[0]?.focus()
     segments[0]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
     assert(document.activeElement === segments[1], '右方向键没有移动到下一项')
+    await waitFor(() => segments[1]?.getAttribute('aria-pressed') === 'true', '方向键没有更新筛选状态')
+    const radios = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="风险周期"] [role="radio"]')]
+    assert(radios.length === 3 && radios[0]?.getAttribute('aria-checked') === 'true', '风险周期应使用单选语义')
+    assert(!radios[0]?.hasAttribute('aria-pressed'), '单选不得混用按压语义')
+    assert(radios[1]?.disabled, '禁用选项必须保留原生 disabled')
+    radios[0]!.focus()
+    radios[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    await waitFor(() => radios[2]?.getAttribute('aria-checked') === 'true', '方向键应跳过禁用项并更新单选状态')
+    assert(document.activeElement === radios[2], '焦点应到达下一个可用选项')
   } finally {
     root.unmount()
   }

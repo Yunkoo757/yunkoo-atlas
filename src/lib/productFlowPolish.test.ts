@@ -75,19 +75,27 @@ export async function testCommandPaletteUsesActiveWorkspaceTagFilters(): Promise
 
 export async function testSmallInteractionCopyAndContrastContracts(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [menu, actions, display, profileCss, tokens] = await Promise.all([
+  const [menu, actions, display, profileCss, tokens, displayMenu, store] = await Promise.all([
     fs.readFile('src/lib/tradeMenu.tsx', 'utf8'),
     fs.readFile('src/shortcuts/actions.ts', 'utf8'),
     fs.readFile('src/views/settings/DisplaySettingsPanel.tsx', 'utf8'),
     fs.readFile('src/views/settings/ProfileSettingsPanel.css', 'utf8'),
     fs.readFile('src/styles/tokens.css', 'utf8'),
+    fs.readFile('src/components/DisplayMenu.tsx', 'utf8'),
+    fs.readFile('src/store/useStore.ts', 'utf8'),
   ])
 
   assert(!menu.includes("hint: 'E'"), '未实现的编辑快捷键不得出现在右键菜单')
   assert(actions.includes("label: '上一条记录'"), '上一条动作应使用通用记录文案')
   assert(actions.includes("label: '下一条记录'"), '下一条动作应使用通用记录文案')
   assert(!actions.includes("label: '上一个案例'"), '交易详情不得继续使用案例专属文案')
-  assert(display.includes('顶栏「显示」与此处共用同一组偏好'), '显示设置应说明真实持久化边界')
+  assert(
+    [display, displayMenu].every((source) =>
+      /useStore\(\(\w+\) => \w+\.display\)/.test(source) &&
+      /useStore\(\(\w+\) => \w+\.setDisplay\)/.test(source)) &&
+      store.includes('display: normalizeDisplay({ ...s.display, ...patch })'),
+    '显示设置与顶栏显示必须读写同一组偏好，不以常驻说明代替实际共享',
+  )
   assert(!display.includes('临时调整当前视图'), '显示设置不得暗示修改仅临时生效')
   assert(
     profileCss.includes('.profile-avatar-item.is-selected .profile-avatar-label') &&
@@ -301,8 +309,9 @@ export async function testDesktopShellDashboardAndSavedViewsRemainOperable(): Pr
   assert(
     dashboard.includes('<SegmentedControl') &&
       dashboard.includes('label="统计周期"') &&
-      segmentedControl.includes('role="group"') &&
-      segmentedControl.includes('aria-pressed={selected}') &&
+      segmentedControl.includes("role = 'group'") &&
+      segmentedControl.includes('role={role}') &&
+      segmentedControl.includes("aria-pressed={role === 'group' ? selected : undefined}") &&
       !dashboard.includes('role="tablist"') &&
       dashboard.includes('db-chart-data'),
     '仪表盘范围按钮应使用真实筛选语义，并为图表提供键盘数据入口',
