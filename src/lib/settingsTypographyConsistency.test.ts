@@ -38,13 +38,12 @@ export function testSharedSettingsTypographyUsesCanonicalRoles(): void {
 
 export function testSettingsDescriptionsUseMetadataWithoutFlatteningImportantValues(): void {
   const display = read('src/views/settings/DisplaySettingsPanel.css')
-  const tags = read('src/views/settings/TagPresetsPanel.css')
+  const tags = read('src/views/settings/TagPresetsPanel.tsx')
   const data = read('src/components/DataIOContent.css')
 
   expectRole(display, '.display-section-head p', 'font-size: var(--type-metadata-size)')
   expectRole(display, '.display-section-head p', 'line-height: var(--type-metadata-line-height)')
-  expectRole(tags, '.tag-section-desc', 'font-size: var(--type-metadata-size)')
-  expectRole(tags, '.tag-section-desc', 'line-height: var(--type-metadata-line-height)')
+  if (tags.includes('tag-section-desc')) throw new Error('标签设置不得恢复已移除的重复说明')
   expectRole(data, '.dio-desc', 'font-size: var(--type-metadata-size)')
   expectRole(data, '.dio-group-desc', 'font-size: var(--type-metadata-size)')
 

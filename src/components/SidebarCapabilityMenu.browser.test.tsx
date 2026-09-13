@@ -127,7 +127,7 @@ async function run(): Promise<void> {
     const primaryLabels = [...document.querySelectorAll<HTMLElement>('.sb-primary [data-primary-id] .sb-item-label')]
       .map((node) => node.textContent?.trim())
     assert(
-      primaryLabels.join(',') === '统计分析,随机复盘,周期复盘,案例库,交易日志',
+      primaryLabels.join(',') === '统计分析,随机复盘,周期复盘,案例库,交易日志,复盘组合器',
       '工作区必须按用户保存的顺序渲染',
     )
 

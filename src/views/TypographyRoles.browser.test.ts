@@ -86,7 +86,6 @@ async function run(): Promise<void> {
     <p class="settings-section-desc">设置区块说明</p>
     <strong class="profile-preview-name">桌面视觉样本</strong>
     <div class="display-section-head"><p>显示设置说明</p></div>
-    <p class="tag-section-desc">标签设置说明</p>
     <p class="dio-group-desc">资料库设置说明</p>
     <main class="route-state"><h1 class="route-state-title">范围不存在</h1></main>
     <span class="trash-item-pnl">+123.45</span>
@@ -115,7 +114,7 @@ async function run(): Promise<void> {
     <div class="dv-feed-item-deletable"><button class="dv-feed-delete">删除</button></div>
     <button class="tag-chip-remove">删除标签</button>
     <div class="nim-import-target-options"><button><strong>交易日志</strong><span>计入实盘统计</span></button></div>
-    <div class="editor-review-tools"><button>插入起稿</button></div>
+    <div class="editor-review-tools"><button class="ui-btn ui-btn-sm ui-btn-ghost">复盘起稿</button></div>
     <button class="settings-tag-chip-remove">删除预设标签</button>
     <button class="review-template-delete">删除起稿</button>
     <button class="review-template-select"><svg aria-hidden="true"></svg><span>选择起稿模板</span></button>
@@ -130,7 +129,7 @@ async function run(): Promise<void> {
     <button class="welcome-path-btn" disabled>禁用欢迎路径</button>
     <button class="welcome-btn" disabled>禁用欢迎操作</button>
     <button class="shortcuts-reset-all" disabled>禁用快捷键重置</button>
-    <div class="dv-review-stage-actions"><button disabled>禁用复盘阶段操作</button></div>
+    <div class="dv-review-stage-actions"><button class="ui-btn ui-btn-sm ui-btn-bordered" disabled>禁用复盘阶段操作</button></div>
     <button class="ui-icon-btn ui-icon-btn-md" disabled>禁用周复盘导航</button>
     <div class="shortcuts-row"><div class="shortcuts-actions"><button class="shortcuts-action">快捷键操作</button></div></div>
     <div class="trash-item"><div class="trash-item-actions"><button class="trash-btn-purge">删除</button></div></div>
@@ -156,7 +155,6 @@ async function run(): Promise<void> {
     '.settings-page-desc',
     '.settings-section-desc',
     '.display-section-head p',
-    '.tag-section-desc',
     '.dio-group-desc',
   ]) {
     const style = getComputedStyle(document.querySelector<HTMLElement>(selector)!)
@@ -218,11 +216,11 @@ async function run(): Promise<void> {
     '.bd-card-ref',
   ]) assertComputedTextRole(selector, '--text-content-metadata')
   assertComputedTextRole('.dv-feed-delete', '--text-tertiary')
+  assertComputedTextRole('.editor-review-tools button', '--text-secondary')
   for (const selector of [
     '.tag-chip-remove',
     '.nim-import-target-options button',
     '.nim-import-target-options span',
-    '.editor-review-tools button',
     '.settings-tag-chip-remove',
     '.review-template-delete',
     '.review-template-select svg',

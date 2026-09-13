@@ -523,8 +523,9 @@
 }
 
 .trade-row-context {
+  position: relative;
   display: flex;
-  flex: 0 1 auto;
+  flex: 1 1 0;
   align-items: center;
   gap: var(--sp-1);
   min-width: 0;
@@ -532,15 +533,25 @@
 }
 
 .trade-row-context .trade-row-context-item {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
   text-overflow: ellipsis;
 }
 
-.trade-row-tags > .trade-row-more {
+.trade-row-context > .trade-row-more {
   flex: 0 0 auto;
   color: var(--text-content-metadata);
 }
+
+.trade-row-context-measure {
+  position: absolute;
+  display: flex;
+  width: max-content;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.trade-row-context-measure > span { flex: 0 0 auto; }
 
 button.trade-row-symbol-main {
   pointer-events: auto;
@@ -695,15 +706,6 @@ button.trade-row-symbol-main {
   color: var(--star-color);
 }
 
-.trade-row-more.is-medium-overflow,
-.trade-row-more.is-compact-overflow {
-  display: none;
-}
-
-.trade-row-context-item.is-overflow-wide {
-  display: none;
-}
-
 @media (max-width: 1439px) {
   .trade-row {
     --trade-list-columns:
@@ -711,14 +713,6 @@ button.trade-row-symbol-main {
       52px 72px 68px 24px;
   }
 
-  .trade-row-context-item.is-overflow-medium,
-  .trade-row-more.is-wide-overflow {
-    display: none;
-  }
-
-  .trade-row-more.is-medium-overflow {
-    display: inline-flex;
-  }
 }
 
 @media (max-width: 1268px) {

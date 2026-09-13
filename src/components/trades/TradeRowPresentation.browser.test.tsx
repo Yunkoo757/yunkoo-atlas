@@ -194,13 +194,25 @@ async function run(): Promise<void> {
     assert(selectedRow.querySelector('.selection-box.is-selected'), '多选仍必须由复选框表达')
     assertContextHierarchy(selectedRow)
 
-    const visibleOverflow = [...selectedRow.querySelectorAll<HTMLElement>('.trade-row-more')]
+    const context = selectedRow.querySelector<HTMLElement>('.trade-row-context')!
+    for (let attempt = 0; attempt < 30 && context.querySelector('.trade-row-more:not([data-more-measure])'); attempt += 1) await frame()
+    assert(context.querySelectorAll(':scope > .trade-row-context-item').length === 3, '短策略与短标签有足够空间时必须全部展示')
+    assert(!context.querySelector(':scope > .trade-row-more'), '全部放得下时不得提前显示 +N')
+    context.style.flex = '0 0 70px'
+    for (let attempt = 0; attempt < 30 && !context.querySelector(':scope > .trade-row-more'); attempt += 1) await frame()
+
+    const visibleOverflow = [...selectedRow.querySelectorAll<HTMLElement>('.trade-row-context > .trade-row-more')]
       .find((item) => getComputedStyle(item).display !== 'none')
     assert(visibleOverflow, '标签溢出计数必须按当前宽度显示')
     assert(getComputedStyle(visibleOverflow).pointerEvents === 'auto', '标签溢出计数必须接收悬浮与键盘事件')
     visibleOverflow.focus()
     const overflowTooltip = await waitForOverflowTooltip()
     assert(overflowTooltip, '标签溢出提示必须列出被省略的错误标签与普通标签')
+    context.style.flex = ''
+    for (let attempt = 0; attempt < 30 && context.querySelector(':scope > .trade-row-more'); attempt += 1) await frame()
+    assert(!context.querySelector(':scope > .trade-row-more'), '放大后必须重新展示标签')
+    assert(document.activeElement === selectedRow.querySelector('.trade-row-open'), '+N 消失时焦点须回到当前行而非页面正文')
+    assert(!context.querySelector('.trade-row-context-measure [tabindex]'), '测量副本不得引入重复键盘入口')
 
     const existingRowHeight = defaultRow.getBoundingClientRect().height
     let opened = 0

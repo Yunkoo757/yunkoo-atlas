@@ -724,8 +724,8 @@
 
 .review-session-gallery-slot.is-ready {
   background:
-    linear-gradient(45deg, color-mix(in srgb, var(--bg-hover) 75%, transparent) 25%, transparent 25%) 0 0 / 18px 18px,
-    linear-gradient(-45deg, color-mix(in srgb, var(--bg-hover) 75%, transparent) 25%, transparent 25%) 0 9px / 18px 18px,
+    linear-gradient(45deg, var(--surface-control) 25%, transparent 25%) 0 0 / 18px 18px,
+    linear-gradient(-45deg, var(--surface-control) 25%, transparent 25%) 0 9px / 18px 18px,
     var(--bg-surface);
 }
 

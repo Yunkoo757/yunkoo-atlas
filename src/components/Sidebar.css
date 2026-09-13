@@ -406,7 +406,7 @@ html[data-ui-settled='1'] .sb-item {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: color-mix(in srgb, var(--border-default) 64%, transparent);
+  background: var(--border-divider);
 }
 
 .sb-subitem.is-current {
@@ -417,7 +417,7 @@ html[data-ui-settled='1'] .sb-item {
 
 .sb-subitem.is-current::before {
   width: 1px;
-  background: color-mix(in srgb, var(--sb-text-strong) 44%, transparent);
+  background: var(--border-strong);
 }
 
 .sb-footer {
@@ -457,13 +457,13 @@ html[data-ui-settled='1'] .sb-item {
 }
 
 .sb-risk-gauge-core {
-  fill: color-mix(in srgb, currentColor 5%, transparent);
+  fill: var(--surface-nav-hover);
   stroke: none;
 }
 
 .sb-risk-gauge-track {
   fill: none;
-  stroke: color-mix(in srgb, currentColor 16%, transparent);
+  stroke: var(--border-default);
   stroke-width: 1.7;
 }
 
@@ -472,7 +472,6 @@ html[data-ui-settled='1'] .sb-item {
   stroke: currentColor;
   stroke-width: 1.7;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 1px color-mix(in srgb, currentColor 38%, transparent));
   transition:
     stroke-dashoffset var(--dur-slow) var(--ease-out),
     stroke var(--dur-fast) var(--ease-out);

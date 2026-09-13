@@ -27,7 +27,7 @@ export async function testDashboardUsesOneConstrainedAnalysisRailWithoutTintedWe
   const fs = await import('node:fs/promises')
   const css = await fs.readFile('src/views/Dashboard.css', 'utf8')
   assert(/\.db-analysis-rail\s*\{[^}]*max-width:\s*var\(--page-rail-wide\);/s.test(css), '分析内容必须使用宽数据语义轨道')
-  assert(/\.db-chart\s*\{[^}]*max-width:\s*1200px;/s.test(css), '主图表必须限制在 1200px 内')
+  assert(/\.db-chart\s*\{[^}]*max-width:\s*100%;/s.test(css), '主图表必须跟随宽数据语义轨道，不建立第二条限宽轨道')
   assert(!/\.db-week\s*\{[^}]*background:\s*color-mix\([^}]*accent/s.test(css), '本周上下文不得使用强调色卡片')
   assert(!/\.db-card\s*\{[^}]*box-shadow:/s.test(css), 'KPI 不得恢复四卡阴影')
 }

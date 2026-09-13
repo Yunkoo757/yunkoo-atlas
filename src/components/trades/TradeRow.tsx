@@ -12,7 +12,7 @@ import {
   buildTradeRowAccessibleLabel,
   buildTradeRowContext,
   resolveTradeRowResultPresentation,
-  type TradeRowContextItem,
+
 } from '@/lib/tradeRowPresentation'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -20,6 +20,7 @@ import { useStore } from '@/store/useStore'
 import { TradeRowLayout } from './TradeRowLayout'
 import { TradeRowStrategy } from './TradeRowStrategy'
 import { CaseContentPreview } from './CaseContentPreview'
+import { TradeRowContext } from './TradeRowContext'
 
 export type TradeRowProps = {
   trade: Trade
@@ -76,48 +77,6 @@ export const TradeRow = memo(function TradeRow({
   const emphasisLabel = isCase
     ? (starred ? '取消重点' : '设为重点案例')
     : (starred ? '取消星标' : '星标交易')
-
-  const contextItem = (item: TradeRowContextItem, index: number) => {
-    const content = (
-      <span
-        key={item.key}
-        title={item.detail ?? item.label}
-        className={
-          `trade-row-tag is-${item.kind} trade-row-context-item` +
-          (index >= 2 ? ' is-overflow-wide' : '') +
-          (index >= 1 ? ' is-overflow-medium' : '')
-        }
-      >
-        {item.label}
-      </span>
-    )
-    return item.detail ? (
-      <Tooltip key={item.key} asChild content={item.detail} label={`${item.label}：${item.detail}`}>
-        {content}
-      </Tooltip>
-    ) : content
-  }
-
-  const overflow = (visibleCount: number, className: string) => {
-    const hidden = context.slice(visibleCount)
-    if (hidden.length === 0) return null
-    const labels = hidden.map((item) => item.label)
-    return (
-      <Tooltip
-        asChild
-        content={labels.join(' · ')}
-        label={`其余上下文：${labels.join('、')}`}
-      >
-        <span
-          className={`trade-row-more ${className}`}
-          tabIndex={0}
-          aria-label={`其余上下文：${labels.join('、')}`}
-        >
-          +{hidden.length}
-        </span>
-      </Tooltip>
-    )
-  }
 
   return (
     <TradeRowLayout
@@ -187,10 +146,7 @@ export const TradeRow = memo(function TradeRow({
             ariaLabel={`打开 ${trade.ref} 交易详情`}
             onClick={() => onOpen(trade)}
           />
-          <span className="trade-row-context">{context.map(contextItem)}</span>
-          {overflow(2, 'is-wide-overflow')}
-          {overflow(1, 'is-medium-overflow')}
-          {overflow(0, 'is-compact-overflow')}
+          <TradeRowContext items={context} />
         </>
       }
       timeframe={

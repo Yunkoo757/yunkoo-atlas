@@ -1107,7 +1107,7 @@ function ReviewSessionRegenerationConfirmation({
   return (
     <ModalShell
       title="重新生成当前轮次？"
-      description="应用新的复盘范围会重新生成随机队列。"
+      description="更换范围后将重新开始本轮复盘，丢弃本轮进度并重新生成随机队列。"
       size="compact"
       busy={busy}
       initialFocusSelector="[data-review-regeneration-cancel]"

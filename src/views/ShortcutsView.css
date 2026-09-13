@@ -257,7 +257,7 @@ button.shortcuts-capture[aria-pressed='true'] {
   border-radius: var(--radius-4);
   color: var(--text-primary);
   background: var(--surface-raised);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--border-strong) 70%, transparent);
+  box-shadow: var(--shadow-low);
   font-family: var(--font-mono);
   font-size: var(--type-caption-size);
   font-weight: var(--font-weight-medium);

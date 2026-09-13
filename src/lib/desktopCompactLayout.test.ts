@@ -25,8 +25,9 @@ export function testCompactDesktopLayoutsRemainReadable(): void {
 }
 
 export function testWeeklyTabsDoNotWrapOnCompactDesktop(): void {
-  const css = read('src/views/WeeklyReviewView.css')
-  if (!/\.wr-tab-switch button\s*\{[^}]*white-space:\s*nowrap/s.test(css)) {
+  const source = read('src/views/WeeklyReviewView.tsx')
+  const css = read('src/components/ui/SegmentedControl.css')
+  if (!source.includes('<SegmentedControl<WeeklyReviewTab>') || !/\.ui-segmented-option\s*\{[^}]*white-space:\s*nowrap/s.test(css)) {
     throw new Error('周复盘切换标签不得换行')
   }
 }

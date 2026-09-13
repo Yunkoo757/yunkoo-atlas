@@ -56,19 +56,19 @@ async function run(): Promise<void> {
     await waitFor(
       () => !router.state.location.search.includes('liveStage')
         && !router.state.location.search.includes('statsCycle')
-        && (document.body.textContent?.includes('TRD-STRATEGY-CURRENT') ?? false),
+        && Boolean(document.querySelector('[data-trade-id="strategy-current-trade"]')),
       '策略实盘旧深链必须清除过期参数，以默认 URL 展示当前阶段交易',
     )
-    assert(!document.body.textContent?.includes('TRD-STRATEGY-ARCHIVE'), '策略绩效不得因日期周期参数混入历史 stage')
+    assert(!document.querySelector('[data-trade-id="strategy-archive-trade"]'), '策略绩效不得因日期周期参数混入历史 stage')
 
     await router.navigate('/strategy/archive-strategy?kind=live&range=all&liveStage=stage-archived&symbol=BTCUSDT')
     await waitFor(
       () => router.state.location.search.includes('liveStage=stage-archived')
         && router.state.location.search.includes('symbol=BTCUSDT')
-        && (document.body.textContent?.includes('TRD-STRATEGY-ARCHIVE') ?? false),
+        && Boolean(document.querySelector('[data-trade-id="strategy-archive-trade"]')),
       '策略实盘必须保留合法历史阶段及筛选，并展示该阶段交易',
     )
-    assert(!document.body.textContent?.includes('TRD-STRATEGY-CURRENT'), '历史策略范围不得混入当前阶段交易')
+    assert(!document.querySelector('[data-trade-id="strategy-current-trade"]'), '历史策略范围不得混入当前阶段交易')
 
     await router.navigate('/strategy/archive-strategy?kind=paper&range=all&liveStage=stage-archived&symbol=BTCUSDT')
     await waitFor(

@@ -264,7 +264,7 @@ a {
 }
 
 a.lv-row:visited .lv-title {
-  color: color-mix(in srgb, var(--text-secondary) 82%, var(--text-quaternary) 18%);
+  color: var(--text-secondary);
 }
 
 /* ===== 全局微动效关键帧 ===== */

@@ -188,11 +188,15 @@ async function run(): Promise<void> {
     const identity = first.querySelector<HTMLElement>('.trade-row-symbol')!.getBoundingClientRect()
     const tagArea = first.querySelector<HTMLElement>('.trade-row-tags')!.getBoundingClientRect()
     assert(tagArea.left - identity.right <= 12, '品种与策略间不得随宽屏产生大块空洞')
-    const more = [...first.querySelectorAll<HTMLElement>('.trade-row-more')].find((el) => getComputedStyle(el).display !== 'none')!
-    assert(more && more.tabIndex === 0, '隐藏上下文必须有可聚焦的入口')
-    const moreRect = more.getBoundingClientRect()
-    assert(moreRect.width > 0 && moreRect.left >= tagArea.left && moreRect.right <= tagArea.right + 1,
-      '长错误标签不得挤掉或裁切 +N 入口')
+    const more = first.querySelector<HTMLElement>('.trade-row-context > .trade-row-more')
+    if (more) {
+      assert(more.tabIndex === 0, '隐藏上下文必须有可聚焦的入口')
+      const moreRect = more.getBoundingClientRect()
+      assert(moreRect.width > 0 && moreRect.left >= tagArea.left && moreRect.right <= tagArea.right + 1,
+        '长错误标签不得挤掉或裁切 +N 入口')
+    } else {
+      assert(first.querySelectorAll('.trade-row-context > .trade-row-context-item').length === 5, '没有折叠入口时必须完整呈现所有上下文')
+    }
     assert(getComputedStyle(first.querySelector('.trade-row-tags')!).maskImage === 'none', '上下文入口不得被渐隐遮挡')
     assert(getComputedStyle(dateCell).fontSize === '12px', '日期应使用元数据字号')
     assert(

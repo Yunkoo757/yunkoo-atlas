@@ -568,8 +568,8 @@ async function run(): Promise<void> {
     assert(pageEscapeConsumed, '随机复盘页面必须消费 Esc 退出操作')
     await waitFor(() => Boolean(document.querySelector('[data-trade-log-probe]')), 'Esc 没有退出随机复盘并回到交易日志')
     assert(
-      document.querySelector('[data-trade-log-probe]')?.textContent === '?liveStage=all',
-      '退出随机复盘必须恢复交易日志阶段记忆，同时清除临时盘型与视图筛选',
+      document.querySelector('[data-trade-log-probe]')?.textContent === '?liveStage=all&kind=paper',
+      '退出随机复盘必须恢复交易日志阶段与盘型记忆，同时清除临时视图筛选',
     )
     remount.unmount()
   } finally {
