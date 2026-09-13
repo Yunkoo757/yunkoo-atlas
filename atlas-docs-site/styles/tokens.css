@@ -62,6 +62,7 @@
   --diagnostic: lch(61% 27 35);
   --diagnostic-text: color-mix(in srgb, var(--diagnostic) 72%, var(--text-secondary));
   --diagnostic-bg: color-mix(in srgb, var(--diagnostic) 6%, transparent);
+  --diagnostic-border: color-mix(in srgb, var(--diagnostic) 26%, transparent);
   --pos-bg: color-mix(in srgb, var(--pos) 12%, transparent);
   --neg-bg: color-mix(in srgb, var(--neg) 12%, transparent);
   --pending-bg: color-mix(in srgb, var(--pending) 12%, transparent);
@@ -149,6 +150,8 @@
   --type-row-size: var(--font-size-small);
   --type-row-line-height: 20px;
   --type-row-weight: var(--font-weight-normal);
+  --type-body-size: var(--font-size-regular);
+  --type-body-line-height: 24px;
   --type-nav-size: 14px;
   --type-nav-line-height: 20px;
   --type-nav-weight: 450;
@@ -169,6 +172,7 @@
   --text-nav-rest: var(--text-content-metadata);
   --text-nav-hover: var(--text-content-supporting);
   --text-nav-active: var(--text-content-strong);
+  --nav-active-icon: color-mix(in srgb, var(--accent-readable) 58%, var(--text-nav-active));
   --list-text-strong: var(--text-content-strong);
   --list-text-primary: var(--text-nav-hover);
   --list-text-secondary: lch(74% 1.2 272 / 1);
@@ -180,9 +184,22 @@
   --list-interactive-border-rest: color-mix(in srgb, var(--list-text-secondary) 6%, transparent);
   --list-interactive-border-hover: color-mix(in srgb, var(--list-text-secondary) 24%, transparent);
   --tag-neutral-border: transparent;
+  --tag-session-text: lch(62% 8 264);
+  --tag-session-border: transparent;
+  --tag-error-text: var(--diagnostic-text);
+  --tag-error-bg: var(--diagnostic-bg);
+  --tag-error-border: var(--diagnostic-border);
+  --icon-stroke-width: 1.75;
   --status-win: color-mix(in srgb, var(--pos) 66%, var(--text-secondary));
   --status-loss: color-mix(in srgb, var(--neg) 66%, var(--text-secondary));
   --status-missed: lch(58% 14 55);
+  --direction-list-long: lch(60% 8 225);
+  --direction-list-short: lch(60% 8 305);
+  --control-depth-rest: color-mix(in srgb, var(--bg-app) 42%, transparent);
+  --control-depth-active: color-mix(in srgb, var(--bg-app) 58%, transparent);
+  --group-chevron-started: lch(50% 7 78);
+  --list-status-opacity-rest: 0.72;
+  --list-status-opacity-active: 0.92;
   --control-border-radius: 8px;
   --editor-block-radius: 6px;
   --modal-border-radius: 14px;
@@ -201,8 +218,15 @@
   --sp-7: 28px;
   --sp-8: 32px;
   --space-control-gap: 6px;
+  --space-row-gap: var(--sp-2);
   --space-section-gap: var(--sp-6);
+  --page-inset-compact: var(--sp-5);
   --page-inset-default: var(--sp-7);
+  --type-section-title-size: var(--font-size-small);
+  --type-section-title-line-height: 20px;
+  --type-section-title-weight: var(--font-weight-semibold);
+  --type-financial-size: 1.25rem;
+  --type-financial-line-height: 1.15;
 
   /* 动效与浮层 */
   --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);

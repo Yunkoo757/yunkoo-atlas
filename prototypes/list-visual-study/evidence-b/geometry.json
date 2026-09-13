@@ -1,0 +1,85 @@
+{
+  "results": [
+    {
+      "mode": "new",
+      "page": "journal",
+      "width": 1440,
+      "rowHeight": 44,
+      "nameToStrategy": 298.734375,
+      "nameToResult": 854,
+      "horizontalOverflow": false,
+      "font": "13px"
+    },
+    {
+      "mode": "new",
+      "page": "cases",
+      "width": 1440,
+      "rowHeight": 44,
+      "nameToStrategy": 298.734375,
+      "nameToResult": 854,
+      "horizontalOverflow": false,
+      "font": "13px"
+    },
+    {
+      "mode": "old",
+      "page": "journal",
+      "width": 1440,
+      "rowHeight": 44,
+      "nameToStrategy": 298.734375,
+      "nameToResult": 854,
+      "horizontalOverflow": false,
+      "font": "13px"
+    },
+    {
+      "mode": "old",
+      "page": "cases",
+      "width": 1440,
+      "rowHeight": 44,
+      "nameToStrategy": 298.734375,
+      "nameToResult": 854,
+      "horizontalOverflow": false,
+      "font": "13px"
+    },
+    {
+      "mode": "new",
+      "page": "journal",
+      "width": 960,
+      "rowHeight": 44,
+      "nameToStrategy": 259,
+      "nameToResult": 527,
+      "horizontalOverflow": true,
+      "font": "13px"
+    },
+    {
+      "mode": "new",
+      "page": "cases",
+      "width": 960,
+      "rowHeight": 44,
+      "nameToStrategy": 259,
+      "nameToResult": 527,
+      "horizontalOverflow": true,
+      "font": "13px"
+    },
+    {
+      "mode": "old",
+      "page": "journal",
+      "width": 960,
+      "rowHeight": 44,
+      "nameToStrategy": 259,
+      "nameToResult": 527,
+      "horizontalOverflow": true,
+      "font": "13px"
+    },
+    {
+      "mode": "old",
+      "page": "cases",
+      "width": 960,
+      "rowHeight": 44,
+      "nameToStrategy": 259,
+      "nameToResult": 527,
+      "horizontalOverflow": true,
+      "font": "13px"
+    }
+  ],
+  "errors": []
+}

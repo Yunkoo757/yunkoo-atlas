@@ -70,7 +70,7 @@ html{overflow-y:scroll;scrollbar-gutter:stable}body{margin:0}button,input,select
 :root{--atlas-fluid-force:12;--atlas-fluid-cursor:100;--atlas-fluid-viscosity:45;--atlas-fluid-resolution:.5;--atlas-fluid-speed:.3;--atlas-fluid-intensity:.8;--atlas-fluid-resume:1800;--atlas-fluid-opacity:.32;--atlas-fluid-color-1:var(--atlas-accent);--atlas-fluid-color-2:var(--accent-readable);--atlas-fluid-color-3:color-mix(in srgb,var(--atlas-accent) 55%,white)}
 :root{--atlas-fluid-visibility:1.8;--atlas-fluid-hero-height:760px}
 
-:root{--atlas-header-tint:color-mix(in srgb,var(--color-bg-primary) 62%,transparent);--atlas-header-blur:24px;--atlas-header-line:var(--border-subtle);--atlas-shot-focus-ratio:16/9;--atlas-shot-overview-width:1120px;--atlas-stage-width:1320px;--atlas-stage-height:720px}
+:root{--atlas-header-tint:color-mix(in srgb,var(--color-bg-primary) 62%,transparent);--atlas-header-blur:24px;--atlas-header-line:var(--border-subtle);--atlas-shot-focus-ratio:16/9;--atlas-shot-overview-width:1120px;--atlas-stage-width:1320px;--atlas-stage-height:720px;--atlas-stage-inset:24px}
 product-shot[framing="focus"],product-shot[framing="stage"]{aspect-ratio:var(--atlas-shot-focus-ratio)}
 
 /* 2160 source pixels support a 1000 CSS-pixel feature viewport at 2x. */

@@ -147,13 +147,22 @@ reducedMotion.addEventListener('change',syncFluid);window.addEventListener('page
 const sizeFluid=()=>{const windowTop=document.querySelector('.hero-window').offsetTop;fluidHost.style.height=windowTop+'px';};new ResizeObserver(sizeFluid).observe(document.querySelector('.hero'));sizeFluid();
 
 const stageFrame=document.querySelector('.hero-stage-frame');
+const stageViews=new Set(['journal','stats','period','cases','composer','random','notes','detail']);
 function showStage(view){
+  if(!stageViews.has(view))return;
   stageFrame.dataset.stageView=view;
   stageFrame.querySelectorAll('[data-view]').forEach(pane=>{pane.hidden=pane.dataset.view!==view;});
-  stageFrame.querySelectorAll('[data-stage]').forEach(button=>{
-    if(button.dataset.stage===view)button.setAttribute('aria-current','page');
+  const navView=view==='detail'?'journal':view;
+  stageFrame.querySelectorAll('.hero-stage-nav [data-stage]').forEach(button=>{
+    const on=button.dataset.stage===navView;
+    button.classList.toggle('is-active',on);
+    if(on)button.setAttribute('aria-current','page');
     else button.removeAttribute('aria-current');
   });
+  const next=new URL(location.href);
+  if(view==='journal')next.searchParams.delete('stage');
+  else next.searchParams.set('stage',view);
+  history.replaceState(null,'',next);
 }
 function selectStageRow(row){
   row.closest('[data-view]')?.querySelectorAll('[data-record]').forEach(item=>{
@@ -166,10 +175,10 @@ stageFrame.querySelectorAll('[data-stage]').forEach(button=>{
   button.addEventListener('click',()=>showStage(button.dataset.stage));
 });
 stageFrame.querySelectorAll('[data-stage-open]').forEach(button=>{
-  button.addEventListener('click',()=>showStage(button.dataset.stageOpen));
-});
-stageFrame.querySelectorAll('[data-record]').forEach(row=>{
-  row.addEventListener('click',()=>selectStageRow(row));
+  button.addEventListener('click',()=>{
+    if(button.hasAttribute('data-record'))selectStageRow(button);
+    showStage(button.dataset.stageOpen);
+  });
 });
 stageFrame.querySelectorAll('[data-filter]').forEach(chip=>{
   chip.addEventListener('click',()=>{
@@ -178,3 +187,10 @@ stageFrame.querySelectorAll('[data-filter]').forEach(chip=>{
     });
   });
 });
+stageFrame.querySelectorAll('[data-composer-step]').forEach(step=>{
+  step.addEventListener('click',()=>{
+    stageFrame.querySelectorAll('[data-composer-step]').forEach(item=>item.classList.toggle('is-on',item===step));
+  });
+});
+const requestedStage=new URLSearchParams(location.search).get('stage');
+if(requestedStage)showStage(requestedStage);
