@@ -66,7 +66,11 @@ async function assertFocusReveal(hiddenSelector: string, focusSelector: string, 
   assert(hidden && focusTarget, `缺少${label}样例`)
   assert(getComputedStyle(hidden).opacity === '0', `${label} 应在未聚焦时隐藏`)
   focusTarget.focus()
-  await new Promise<void>((resolve) => window.setTimeout(resolve, 120))
+  // 等待实际显现；固定 120ms 恰好卡在过渡边界，繁忙机器可能尚未绘制最后一帧。
+  for (let attempt = 0; attempt < 50 && getComputedStyle(hidden).opacity !== '1'; attempt += 1) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 20))
+  }
+  assert(document.activeElement === focusTarget, `${label} 必须保留键盘焦点`)
   assert(getComputedStyle(hidden).opacity === '1', `${label} 必须通过键盘焦点显现`)
 }
 

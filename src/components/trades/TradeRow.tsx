@@ -12,7 +12,6 @@ import {
   buildTradeRowAccessibleLabel,
   buildTradeRowContext,
   resolveTradeRowResultPresentation,
-
 } from '@/lib/tradeRowPresentation'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -146,7 +145,7 @@ export const TradeRow = memo(function TradeRow({
             ariaLabel={`打开 ${trade.ref} 交易详情`}
             onClick={() => onOpen(trade)}
           />
-          <TradeRowContext items={context} />
+          <TradeRowContext items={context} onOpen={() => onOpen(trade)} />
         </>
       }
       timeframe={

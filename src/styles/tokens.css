@@ -258,7 +258,7 @@
   --list-text-strong: var(--text-list-strong);
   --list-text-primary: var(--text-nav-hover);
   --list-text-secondary: var(--text-list-secondary);
-  --list-text-context: var(--text-content-context);
+  --list-text-context: var(--text-content-metadata);
   --list-group-title: var(--text-primary);
   --list-group-chevron-collapsed-opacity: 0.72;
   --list-status-opacity-rest: 0.72;
@@ -356,16 +356,16 @@
   --result-neutral: var(--text-tertiary);
   --result-opportunity: var(--opportunity);
 
-  /* 信息标签层级：错误最强、时段次要、普通标签最弱 */
+  /* 信息标签层级：错误突出诊断语义；时段与普通标签保持扫描可读性。 */
   --tag-neutral-border: transparent;
   --tag-session-text: lch(62% 8 264);
   --tag-session-bg: transparent;
   --tag-session-border: transparent;
   /* 复盘诊断不是财务亏损：使用低色度砖红，与强亏损红分离。 */
-  --diagnostic: lch(61% 27 35);
+  --diagnostic: lch(66% 27 35);
   --diagnostic-text: color-mix(in srgb, var(--diagnostic) 72%, var(--text-secondary));
-  --diagnostic-bg: color-mix(in srgb, var(--diagnostic) 6%, transparent);
-  --diagnostic-border: color-mix(in srgb, var(--diagnostic) 26%, transparent);
+  --diagnostic-bg: color-mix(in srgb, var(--diagnostic) 10%, transparent);
+  --diagnostic-border: color-mix(in srgb, var(--diagnostic) 40%, transparent);
   --tag-error-text: var(--diagnostic-text);
   --tag-error-bg: var(--diagnostic-bg);
   --tag-error-border: var(--diagnostic-border);

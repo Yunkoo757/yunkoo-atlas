@@ -16,7 +16,7 @@ export function fitContextItems(widths: number[], available: number, gap: number
   return visible
 }
 
-export function TradeRowContext({ items }: { items: TradeRowContextItem[] }) {
+export function TradeRowContext({ items, onOpen }: { items: TradeRowContextItem[]; onOpen: () => void }) {
   const root = useRef<HTMLSpanElement>(null)
   const measure = useRef<HTMLSpanElement>(null)
   const [visible, setVisible] = useState(0)
@@ -54,14 +54,15 @@ export function TradeRowContext({ items }: { items: TradeRowContextItem[] }) {
   }, [signature])
 
   const hidden = items.slice(visible)
-  const labels = hidden.map(item => item.label)
+  const labels = hidden.map(item => item.detail ? `${item.label}（${item.detail}）` : item.label)
   return (
     <span className="trade-row-context" ref={root}>
       {items.slice(0, visible).map((item, index) => (
         <Tooltip key={item.key} asChild content={item.detail ?? item.label} label={item.detail ?? item.label}>
-          <span className={`trade-row-tag is-${item.kind} trade-row-context-item`} data-context-index={index}>
+          <button type="button" tabIndex={item.detail ? 0 : -1} onClick={onOpen}
+            className={`trade-row-tag is-${item.kind} trade-row-context-item`} data-context-index={index}>
             {item.label}
-          </span>
+          </button>
         </Tooltip>
       ))}
       {hidden.length > 0 && (

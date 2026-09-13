@@ -535,8 +535,11 @@
 .trade-row-context .trade-row-context-item {
   flex: 0 0 auto;
   min-width: 0;
-  text-overflow: ellipsis;
+  pointer-events: auto;
 }
+
+/* 完整测量标签，空间不足时整条收进 +N，不把裁切后的宽度当成完整文本。 */
+.trade-row-context .trade-row-tag { max-width: none; }
 
 .trade-row-context > .trade-row-more {
   flex: 0 0 auto;
@@ -624,9 +627,9 @@ button.trade-row-symbol-main {
 }
 
 .trade-row-tag.is-review {
-  color: var(--text-tertiary);
-  background: transparent;
-  border-color: var(--tag-neutral-border);
+  color: var(--text-chip);
+  background: var(--surface-control);
+  border-color: var(--border-default);
 }
 
 .trade-row-more {

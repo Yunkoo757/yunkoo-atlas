@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { caseExcerpt } from './caseExcerpt'
+import { caseExcerpt, resolveCasePreview, casePreviewSummary } from './caseExcerpt'
 import { normalizeDisplay } from './tradeFilters'
 
 export function testCaseExcerptUsesExistingHeadingOrFirstMeaningfulParagraph() {
@@ -14,4 +14,17 @@ export function testDetailPropertiesPreferenceSurvivesNormalization() {
   assert.equal(normalizeDisplay({}).detailPropertiesVisible, true)
   assert.equal(normalizeDisplay({ detailPropertiesVisible: false }).detailPropertiesVisible, false)
   assert.equal(normalizeDisplay({ detailPropertiesVisible: true }).detailPropertiesVisible, true)
+}
+
+export function testCasePreviewKeepsSourceSeparateAndRecognizesImages() {
+  const sourceNoteHtml = '<p>来源入场分析</p><img src="journal-asset://source">'
+  const own = resolveCasePreview({ note: '<p>独立沉淀</p>', sourceNoteHtml })
+  assert.equal(own.source, 'note')
+  assert.equal(casePreviewSummary(own), '独立沉淀')
+  const source = resolveCasePreview({ note: '<p><br></p>', sourceNoteHtml })
+  assert.equal(casePreviewSummary(source), '来源复盘 · 来源入场分析')
+  assert.equal(source.imageCount, 1)
+  assert.equal(casePreviewSummary(resolveCasePreview({ note: '', sourceNoteHtml: '<img src="journal-asset://1"><img src="journal-asset://2">' })), '来源复盘 · 2 张截图')
+  assert.equal(casePreviewSummary(resolveCasePreview({ note: '<img src="journal-asset://own">', sourceNoteHtml })), '1 张截图')
+  assert.equal(resolveCasePreview({ note: '', sourceNoteHtml: '' }).source, 'empty')
 }

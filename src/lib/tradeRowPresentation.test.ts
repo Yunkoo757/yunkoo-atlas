@@ -51,6 +51,14 @@ export async function testTradeRowContextUsesOneStablePriorityOrder(): Promise<v
   )
 }
 
+export function testCaseClassificationPrecedesFoldableContext(): void {
+  const items = buildTradeRowContext(fixture({ tradeKind: 'case', caseType: 'exemplar' }))
+  assert.equal(items[0]?.kind, 'review')
+  assert.equal(items[0]?.label, '优秀范例')
+  assert.deepEqual(items.slice(1).map(item => item.kind), ['session', 'mistake', 'mistake', 'tag'])
+  assert.equal(buildTradeRowContext(fixture({ tradeKind: 'case', caseType: 'missed', status: 'missed' }))[0]?.label, '错过机会')
+}
+
 export async function testTradeRowResultsDistinguishMissingZeroAndUncollected(): Promise<void> {
   const pnlOnly = resolveTradeRowResultPresentation(fixture({ pnl: 0, status: 'breakeven' }), null, false)
   assert.deepEqual(pnlOnly.cash, { text: '$0', state: 'zero' })

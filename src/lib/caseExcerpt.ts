@@ -1,4 +1,21 @@
 import { stripNoteToPlainText } from './tradeDuplicates'
+import type { Trade } from '@/data/trades'
+
+/** 来源复盘与独立沉淀保持分离；这里只选择预览，不写回任何字段。 */
+export function resolveCasePreview(trade: Pick<Trade, 'note' | 'sourceNoteHtml'>) {
+  const read = (html: string) => ({ excerpt: caseExcerpt(html), imageCount: html.match(/<img\b/gi)?.length ?? 0 })
+  const own = read(trade.note)
+  if (own.excerpt || own.imageCount) return { ...own, source: 'note' as const }
+  const source = read(trade.sourceNoteHtml ?? '')
+  if (source.excerpt || source.imageCount) return { ...source, source: 'source' as const }
+  return { ...own, source: 'empty' as const }
+}
+
+export function casePreviewSummary(preview: ReturnType<typeof resolveCasePreview>): string {
+  if (preview.source === 'empty') return ''
+  const content = preview.excerpt || `${preview.imageCount} 张截图`
+  return preview.source === 'source' ? `来源复盘 · ${content}` : content
+}
 
 /** 从已有正文提取题眼，不生成新内容、不读取图片附件。 */
 export function caseExcerpt(html: string, maxLength = 160): string {

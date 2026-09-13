@@ -143,9 +143,9 @@ function assertContextHierarchy(row: HTMLElement): void {
   const status = row.querySelector<HTMLElement>('.status-icon')!
   const side = row.querySelector<HTMLElement>('.side-tag.is-quiet')!
   const strategyEntry = row.querySelector<HTMLElement>('.trade-row-strategy')!
-  const mistake = row.querySelector<HTMLElement>('.trade-row-tag.is-mistake')!
-  const session = row.querySelector<HTMLElement>('.trade-row-tag.is-session')!
-  const ordinary = row.querySelector<HTMLElement>('.trade-row-tag.is-tag')!
+  const mistake = row.querySelector<HTMLElement>('.trade-row-context > .is-mistake')!
+  const session = row.querySelector<HTMLElement>('.trade-row-context > .is-session')!
+  const ordinary = row.querySelector<HTMLElement>('.trade-row-context > .is-tag')!
   assert(status && side && strategyEntry && mistake && session && ordinary, '列表层级 fixture 必须包含完整上下文')
 
   assert(getComputedStyle(status).opacity === '0.72', '静止状态图标必须以令牌化透明度退后')
@@ -193,6 +193,9 @@ async function run(): Promise<void> {
     assert(getComputedStyle(selectedRow, '::after').backgroundColor === 'rgba(0, 0, 0, 0)', '多选不得改变整行底色')
     assert(selectedRow.querySelector('.selection-box.is-selected'), '多选仍必须由复选框表达')
     assertContextHierarchy(selectedRow)
+    const visibleTag = selectedRow.querySelector<HTMLButtonElement>('.trade-row-context > .is-tag')!
+    assert(getComputedStyle(visibleTag).pointerEvents === 'auto', '可见标签必须能够响应实际鼠标悬停')
+    assert(visibleTag.scrollWidth <= visibleTag.clientWidth + 1, '可见标签不得裁切内容')
 
     const context = selectedRow.querySelector<HTMLElement>('.trade-row-context')!
     for (let attempt = 0; attempt < 30 && context.querySelector('.trade-row-more:not([data-more-measure])'); attempt += 1) await frame()
@@ -241,6 +244,8 @@ async function run(): Promise<void> {
     assert(document.querySelector('.case-content-preview')?.textContent?.includes('回踩确认后入场'), '键盘聚焦必须显示原有案例摘要')
     caseButton.click()
     assert(opened === 1, '案例预览入口必须保留点击打开详情的操作')
+    caseRow.querySelector<HTMLButtonElement>('.trade-row-context > .trade-row-context-item')!.click()
+    assert(Number(opened) === 2, '点击可见标签必须继续打开当前详情')
   } finally {
     delete document.documentElement.dataset.keyboardNavigation
     root.unmount()

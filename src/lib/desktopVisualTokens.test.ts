@@ -34,7 +34,7 @@ export async function testDesktopVisualTokensExposeCanonicalRoles(): Promise<voi
     '--list-text-strong: var(--text-list-strong)',
     '--list-text-primary: var(--text-nav-hover)',
     '--list-text-secondary: var(--text-list-secondary)',
-    '--list-text-context: var(--text-content-context)',
+    '--list-text-context: var(--text-content-metadata)',
     '--list-group-title: var(--text-primary)',
     '--list-status-opacity-rest: 0.72',
     '--list-status-opacity-active: 0.92',

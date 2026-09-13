@@ -60,16 +60,22 @@ function unique(items: TradeRowContextItem[]): TradeRowContextItem[] {
 export function buildTradeRowContext(trade: Trade): TradeRowContextItem[] {
   const session = getTradeSessionMeta(trade)
   const reviewLabel =
-    trade.status === 'missed'
-      ? null
-      : trade.tradeKind === 'case' && trade.caseType
-        ? CASE_TYPE_META[trade.caseType].label
+    trade.tradeKind === 'case' && trade.caseType
+      ? CASE_TYPE_META[trade.caseType].label
+      : trade.status === 'missed'
+        ? null
         : trade.reviewCategory !== 'normal'
           ? REVIEW_CATEGORY_META[trade.reviewCategory].label
           : null
   const sessionTagLabels = new Set(session ? [session.raw, session.label] : [])
+  const review: TradeRowContextItem[] = reviewLabel ? [{
+    key: `review-${trade.caseType ?? trade.reviewCategory}`,
+    kind: 'review',
+    label: reviewLabel,
+  }] : []
 
   return unique([
+    ...(trade.tradeKind === 'case' ? review : []),
     ...(session ? [{
       key: `session-${session.raw}`,
       kind: 'session' as const,
@@ -81,11 +87,7 @@ export function buildTradeRowContext(trade: Trade): TradeRowContextItem[] {
       kind: 'mistake' as const,
       label,
     })),
-    ...(reviewLabel ? [{
-      key: `review-${trade.caseType ?? trade.reviewCategory}`,
-      kind: 'review' as const,
-      label: reviewLabel,
-    }] : []),
+    ...(trade.tradeKind !== 'case' ? review : []),
     ...trade.tags
       .filter((label) => !sessionTagLabels.has(label))
       .map((label, index) => ({
