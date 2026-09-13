@@ -25,7 +25,6 @@ import {
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
 import { TradeRow } from '@/components/trades/TradeRow'
-import { TradeListColumns } from '@/components/trades/TradeListColumns'
 import type { StrategyPreviewStats } from '@/components/RowPreviews'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -447,7 +446,6 @@ export function TradeList({
           {selectionMode || selectedIds.size > 0 ? '完成选择' : '选择'}
         </button>
       ) : null}
-      <TradeListColumns />
       <div
       className={
         'trade-list trade-list-virtual' +
@@ -487,7 +485,7 @@ export function TradeList({
             aria-setsize={item.kind === 'header' ? flatItems.length : undefined}
             style={{
               position: isSticky ? 'sticky' : 'absolute',
-              top: isSticky ? 'var(--trade-list-columns-height)' : virtualRow.start,
+              top: isSticky ? 0 : virtualRow.start,
               left: 0,
               width: '100%',
               height:

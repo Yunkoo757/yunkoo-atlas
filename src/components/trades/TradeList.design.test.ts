@@ -46,19 +46,16 @@ export async function testTradeListGroupTogglePreservesInteractionContract(): Pr
   )
 }
 
-export async function testTradeListColumnsShareRowGridAndStickyOrder(): Promise<void> {
+export async function testTradeListStartsWithGroupsAndKeepsRowGrid(): Promise<void> {
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/components/trades/TradeList.tsx', 'utf8')
-  const columns = await fs.readFile('src/components/trades/TradeListColumns.tsx', 'utf8')
   const css = await fs.readFile('src/components/trades/TradeList.css', 'utf8')
 
-  assert(source.includes('<TradeListColumns'), '交易日志必须提供稳定列标题')
-  assert(columns.includes('aria-hidden="true"'), '视觉列标题必须退出无障碍树')
-  assert(!columns.includes('role="row"'), 'list 模型不得混入孤立 row 语义')
-  assert(!columns.includes('role="columnheader"'), 'list 模型不得混入孤立 columnheader 语义')
-  assert(css.includes('grid-template-columns: var(--trade-list-columns)'), '标题和交易行必须共享同一列模板')
+  assert(!source.includes('TradeListColumns'), '列表不再显示独立列标题栏')
+  assert(!css.includes('--trade-list-columns-height'), '不得保留列标题高度占位')
+  assert(css.includes('grid-template-columns: var(--trade-list-columns)'), '交易行必须使用统一列模板')
   assert(
-    /:where\(\.trade-list-columns, \.trade-row\)\s*\{[\s\S]*?--trade-select-column:\s*24px;[\s\S]*?--trade-list-columns:/.test(css),
+    /\.trade-row\s*\{[\s\S]*?--trade-select-column:\s*24px;[\s\S]*?--trade-list-columns:/.test(css),
     '共享列模板必须在标题和行自身作用域内声明列宽，不能依赖仅存在于列表容器的继承变量',
   )
   assert(source.includes('const HEADER_CONTENT_HEIGHT = 36'), '月份条内容高度必须保持 36px')
@@ -72,7 +69,7 @@ export async function testTradeListColumnsShareRowGridAndStickyOrder(): Promise<
     source.includes("(item.kind === 'header' ? ' is-header' : ' is-row')"),
     '虚拟项必须输出稳定的 is-header 类型 class',
   )
-  assert(source.includes("top: isSticky ? 'var(--trade-list-columns-height)'"), '月份标题必须吸附在列标题下方')
+  assert(source.includes('top: isSticky ? 0 : virtualRow.start'), '月份标题必须吸附在滚动区顶部')
 }
 
 export async function testTradeAndCaseListsShareUserSelectedRowHeight(): Promise<void> {
@@ -180,17 +177,17 @@ export async function testTradeListNeutralStatesConsumeNamedTokens(): Promise<vo
 export async function testTradeListVisualAlignmentContract(): Promise<void> {
   const fs = await import('node:fs/promises')
   const css = await fs.readFile('src/components/trades/TradeList.css', 'utf8')
-  const columns = await fs.readFile('src/components/trades/TradeListColumns.tsx', 'utf8')
+  const row = await fs.readFile('src/components/trades/TradeRow.tsx', 'utf8')
   const trash = await fs.readFile('src/views/TrashView.css', 'utf8')
   const sidebar = await fs.readFile('src/components/Sidebar.css', 'utf8')
 
   assert(
-    css.includes('.trade-list-column:is(.is-timeframe, .is-result, .is-date) { text-align: right; }'),
-    '周期、结果与日期标题必须和正文统一右对齐',
+    /\.trade-row-result,\s*\.trade-row-date\s*\{[^}]*text-align: right;/s.test(css),
+    '结果与日期正文必须保持右对齐',
   )
-  assert(columns.includes('className="trade-list-column is-result">结果</span>'), '交易列表必须以 R 为唯一常驻结果列')
-  assert(!columns.includes('is-ref') && !columns.includes('>编号</span>'), '交易编号不得占用主列表常驻列')
-  assert(!columns.includes('is-pnl') && !columns.includes('>盈亏</span>'), '现金盈亏不得继续占用交易列表常驻列')
+  assert(row.includes('{result.r.text}'), '交易列表必须以 R 为常驻结果')
+  assert(!row.includes('className="trade-row-ref"'), '交易编号不得占用主列表常驻列')
+  assert(!row.includes('className="trade-row-pnl"'), '现金盈亏不得继续占用交易列表常驻列')
   assert(!css.includes('.trade-row-date,\n  .trade-list-column.is-date {\n    display: none;'), '桌面窄窗口也必须保留完整日期')
   assert(css.includes('grid-template-columns: 11ch 18px'), '品种与多空方向必须使用稳定列宽')
   assert(

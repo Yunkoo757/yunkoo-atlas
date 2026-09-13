@@ -1,45 +1,13 @@
 .trade-list {
-  --trade-list-columns-height: 28px;
-
   min-width: 0;
 }
 
-:where(.trade-list-columns, .trade-row) {
+.trade-row {
   --trade-select-column: 24px;
   --trade-list-columns:
-    var(--trade-select-column) 16px minmax(251px, 0.85fr)
-    minmax(260px, 1.6fr) 56px 80px 72px 24px;
+    var(--trade-select-column) 16px calc(11ch + 18px + var(--sp-1))
+    minmax(0, 1fr) 56px 80px 72px 24px;
 }
-
-.trade-list-columns {
-  --trade-list-columns-height: 28px;
-
-  position: sticky;
-  top: 0;
-  z-index: var(--z-content-overlay);
-  display: grid;
-  grid-template-columns: var(--trade-list-columns);
-  align-items: center;
-  column-gap: var(--sp-2);
-  height: var(--trade-list-columns-height);
-  padding: 0 10px;
-  color: var(--text-list-header);
-  font-size: var(--type-chip-size);
-  font-weight: var(--type-chip-weight);
-  line-height: var(--type-chip-line-height);
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-list-header);
-}
-
-.trade-list-column {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.trade-list-column:is(.is-timeframe, .is-result, .is-date) { text-align: right; }
-.trade-list-column.is-end { text-align: center; }
 
 .trade-list-virtual {
   width: 100%;
@@ -275,7 +243,7 @@
 .trade-row {
   position: relative;
   display: grid;
-  /* check | status | ref | identity(固定) | tags(flex) | tf | result(R) | date | end */
+  /* check | status | identity(稳定) | tags(flex) | tf | result(R) | date | end */
   grid-template-columns: var(--trade-list-columns);
   align-items: center;
   column-gap: var(--sp-2);
@@ -467,7 +435,7 @@
 .trade-row-tags > .hover-preview-anchor {
   flex: 0 1 auto;
   min-width: 3.5ch;
-  max-width: 15ch;
+  max-width: 50%;
 }
 
 .trade-row-strategy {
@@ -525,9 +493,9 @@
   overflow: hidden;
   color: inherit;
   font-family: var(--font-ui);
-  font-size: var(--type-chip-size);
-  font-weight: var(--type-chip-weight);
-  line-height: var(--type-chip-line-height);
+  font-size: var(--type-list-secondary-size);
+  font-weight: var(--type-list-secondary-weight);
+  line-height: var(--type-list-secondary-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -551,8 +519,31 @@
   gap: var(--sp-1);
   overflow: hidden;
   line-height: var(--type-chip-line-height);
-  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 14px), transparent 100%);
-  mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 14px), transparent 100%);
+
+}
+
+.trade-row-context {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.trade-row-context .trade-row-context-item {
+  flex: 0 1 auto;
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+
+.trade-row-tags > .trade-row-more {
+  flex: 0 0 auto;
+  color: var(--text-content-metadata);
+}
+
+button.trade-row-symbol-main {
+  pointer-events: auto;
 }
 
 .trade-row-timeframe-slot {
@@ -688,11 +679,11 @@ button.trade-row-symbol-main {
 }
 
 .trade-row-date {
-  color: var(--list-text-secondary);
+  color: var(--text-content-metadata);
   font-family: var(--font-ui);
-  font-size: var(--type-list-secondary-size);
-  font-weight: var(--type-list-secondary-weight);
-  line-height: var(--type-list-secondary-line-height);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
 }
 
 .trade-row-end {
@@ -714,9 +705,9 @@ button.trade-row-symbol-main {
 }
 
 @media (max-width: 1439px) {
-  :where(.trade-list-columns, .trade-row) {
+  .trade-row {
     --trade-list-columns:
-      var(--trade-select-column, 24px) 16px minmax(180px, 0.85fr) minmax(220px, 1.4fr)
+      var(--trade-select-column, 24px) 16px calc(11ch + 18px + var(--sp-1)) minmax(0, 1fr)
       52px 72px 68px 24px;
   }
 
@@ -731,23 +722,14 @@ button.trade-row-symbol-main {
 }
 
 @media (max-width: 1268px) {
-  :where(.trade-list-columns, .trade-row) {
+  .trade-row {
     --trade-list-columns:
-      var(--trade-select-column, 18px) 16px minmax(140px, 200px) minmax(120px, 1fr)
+      var(--trade-select-column, 18px) 16px calc(11ch + 18px + var(--sp-1)) minmax(0, 1fr)
       44px 64px 68px 24px;
   }
 
-  .trade-list-columns,
   .trade-row { column-gap: 10px; }
 
-  .trade-row-context-item,
-  .trade-row-more.is-medium-overflow {
-    display: none;
-  }
-
-  .trade-row-more.is-compact-overflow {
-    display: inline-flex;
-  }
 }
 
 .trade-list-mobile-select-toggle {

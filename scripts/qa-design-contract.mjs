@@ -269,10 +269,10 @@ const checks = [
       /\.ui-btn-danger-solid:disabled,[\s\S]*?color:\s*var\(--danger-solid-disabled-text\);[\s\S]*?background:\s*var\(--danger-solid-disabled-bg\);[\s\S]*?border-color:\s*var\(--danger-solid-disabled-border\);[\s\S]*?opacity:\s*1;/s.test(buttonStyles),
   ],
   [
-    'quick views consume shared control highlight and depth tokens',
-    ['--control-highlight-rest', '--control-highlight-hover', '--control-highlight-active', '--control-depth-rest', '--control-depth-active']
+    'quick views consume shared control surfaces without decorative depth',
+    ['--surface-control', '--surface-control-hover', '--surface-control-active', '--surface-control-border', '--surface-control-border-active']
       .every((token) => tokens.includes(token) && quickViewStyles.includes(`var(${token})`)) &&
-      !/(?:\blch\(|#[\da-f]{3,8}\b)/i.test(quickViewStyles),
+      !/(?:\blch\(|#[\da-f]{3,8}\b|inset 0 1px)/i.test(quickViewStyles),
   ],
   [
     'shared overlays consume semantic motion durations',
@@ -337,7 +337,7 @@ const checks = [
   ],
   [
     'virtual trade rows preserve native text rasterization',
-    /top:\s*isSticky\s*\?\s*['"]var\(--trade-list-columns-height\)['"]\s*:\s*virtualRow\.start/.test(
+    /top:\s*isSticky\s*\?\s*0\s*:\s*virtualRow\.start/.test(
       tradeListComponent,
     ) &&
       !tradeListComponent.includes('translateY(${virtualRow.start}px)'),

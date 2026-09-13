@@ -182,8 +182,13 @@
   border-color: var(--border-subtle);
 }
 .bd-card-strategy {
+  min-width: 0;
   font-size: var(--type-metadata-size);
   color: var(--text-secondary);
+}
+
+.bd-card-strategy .strategy-label {
+  max-width: 100%;
 }
 
 .bd-card-excerpt {

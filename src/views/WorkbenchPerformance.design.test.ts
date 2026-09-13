@@ -111,8 +111,8 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   if (list.includes("html[data-keyboard-navigation='true']")) {
     throw new Error('removed keyboard focus highlights must not return')
   }
-  if (!list.includes('font-feature-settings: "calt" 1, "cpsp" 1, "tnum" 1')) {
-    throw new Error('trade references must preserve the calibrated Inter OpenType features')
+  if (!/\.trade-row-result,\s*\.trade-row-date\s*\{[^}]*font-variant-numeric:\s*var\(--numeric-tabular\)/s.test(list)) {
+    throw new Error('trade results and dates must preserve tabular numeric alignment')
   }
   if (!quickViews.includes('.quick-view-chip::after') || !quickViews.includes('box-shadow: var(--surface-control-shadow-active)')) {
     throw new Error('quick-view pills must retain the calibrated ::after contract layer')
@@ -126,9 +126,9 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   if (
     !quickViews.includes('--quick-view-surface-rest:')
     || !quickViews.includes('background: var(--quick-view-surface-rest)')
-    || !quickViews.includes('inset 0 1px 0 var(--quick-view-highlight-rest)')
+    || !quickViews.includes('--quick-view-surface-rest: var(--surface-control);')
   ) {
-    throw new Error('quick-view pills must retain a quiet raised surface instead of regressing to transparent outline-only chips')
+    throw new Error('quick-view pills must use the shared control surface in their default state')
   }
   if (
     !quickViews.includes('height: var(--quick-view-control-height)')

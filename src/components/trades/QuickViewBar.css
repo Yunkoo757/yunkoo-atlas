@@ -1,14 +1,9 @@
 .quick-view-bar {
   --quick-view-control-height: 30px;
-  --quick-view-surface-rest: color-mix(in srgb, var(--surface-control-hover) 56%, var(--surface-control));
-  --quick-view-surface-hover: color-mix(in srgb, var(--surface-control-hover) 84%, var(--surface-control));
-  --quick-view-border-rest: color-mix(in srgb, var(--list-text-secondary) 24%, transparent);
-  --quick-view-border-hover: color-mix(in srgb, var(--list-text-secondary) 34%, transparent);
-  --quick-view-highlight-rest: var(--control-highlight-rest);
-  --quick-view-highlight-hover: var(--control-highlight-hover);
-  --quick-view-highlight-active: var(--control-highlight-active);
-  --quick-view-depth-rest: var(--control-depth-rest);
-  --quick-view-depth-active: var(--control-depth-active);
+  --quick-view-surface-rest: var(--surface-control);
+  --quick-view-surface-hover: var(--surface-control-hover);
+  --quick-view-border-rest: var(--surface-control-border);
+  --quick-view-border-hover: var(--surface-control-border-active);
 
   position: relative;
   display: flex;
@@ -48,9 +43,7 @@
   border: 1px solid var(--quick-view-border-rest);
   border-radius: var(--radius-full);
   background: var(--quick-view-surface-rest);
-  box-shadow:
-    inset 0 1px 0 var(--quick-view-highlight-rest),
-    0 1px 1px var(--quick-view-depth-rest);
+  box-shadow: none;
   transition:
     border-color var(--motion-state),
     background-color var(--motion-state),
@@ -81,9 +74,7 @@
   color: var(--list-text-primary);
   background: var(--quick-view-surface-hover);
   border-color: var(--quick-view-border-hover);
-  box-shadow:
-    inset 0 1px 0 var(--quick-view-highlight-hover),
-    0 1px 1px var(--quick-view-depth-rest);
+  box-shadow: none;
 }
 
 .quick-view-chip.is-active,
@@ -91,9 +82,7 @@
   color: var(--list-text-strong);
   background: var(--surface-control-active);
   border-color: var(--surface-control-border-active);
-  box-shadow:
-    inset 0 1px 0 var(--quick-view-highlight-active),
-    0 1px 2px var(--quick-view-depth-active);
+  box-shadow: none;
 }
 
 .quick-view-saved {

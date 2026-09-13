@@ -81,6 +81,7 @@ export const TradeRow = memo(function TradeRow({
     const content = (
       <span
         key={item.key}
+        title={item.detail ?? item.label}
         className={
           `trade-row-tag is-${item.kind} trade-row-context-item` +
           (index >= 2 ? ' is-overflow-wide' : '') +
@@ -166,10 +167,13 @@ export const TradeRow = memo(function TradeRow({
               </button>
             </CaseContentPreview>
           ) : (
-            <span className="trade-row-symbol-main">
-              <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_LG} quiet />
-              <strong>{trade.symbol}</strong>
-            </span>
+            <Tooltip asChild content={trade.symbol} label={trade.symbol}>
+              <button type="button" className="trade-row-symbol-main"
+                aria-label={`打开 ${trade.symbol} ${trade.ref}`} onClick={() => onOpen(trade)}>
+                <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_LG} quiet />
+                <strong>{trade.symbol}</strong>
+              </button>
+            </Tooltip>
           )}
           <SideTag side={trade.side} quiet />
         </>
@@ -183,7 +187,7 @@ export const TradeRow = memo(function TradeRow({
             ariaLabel={`打开 ${trade.ref} 交易详情`}
             onClick={() => onOpen(trade)}
           />
-          {context.map(contextItem)}
+          <span className="trade-row-context">{context.map(contextItem)}</span>
           {overflow(2, 'is-wide-overflow')}
           {overflow(1, 'is-medium-overflow')}
           {overflow(0, 'is-compact-overflow')}

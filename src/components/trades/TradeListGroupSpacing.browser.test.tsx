@@ -85,6 +85,10 @@ const fixtureTrades = [
   trade('july-5', '2026-07-27T09:00:00.000Z', 'long'),
   trade('july-6', '2026-07-26T09:00:00.000Z', 'short'),
 ]
+fixtureTrades[0]!.mistakeTags = ['等待高周期确认后仍过早入场的超长错误标签']
+fixtureTrades[0]!.tags = ['结构观察', '回踩确认', '长文本标签用于验证剩余信息入口']
+fixtureTrades[1]!.symbol = 'CUSTOM-LONG-SYMBOL-2026'
+fixtureTrades[1]!.strategyId = 'missing-strategy'
 
 const groups: TradeListGroup[] = [
   {
@@ -162,8 +166,8 @@ async function run(): Promise<void> {
     const firstHeader = headers.find((header) => header.textContent?.includes('2026 年 8 月'))
     const secondHeader = headers.find((header) => header.textContent?.includes('2026 年 7 月'))
     assert(
-      scrollHost && columns && strategyCell && resultCell && dateCell && firstHeader && secondHeader,
-      '必须渲染列标题、关键交易列与两个真实月份分组',
+      scrollHost && !columns && strategyCell && resultCell && dateCell && firstHeader && secondHeader,
+      '必须移除列标题并保留关键交易列与两个真实月份分组',
     )
     assert(
       Math.abs(scrollHost.clientWidth - (window.innerWidth - 48)) <= 1 && scrollHost.clientHeight === 240,
@@ -174,6 +178,23 @@ async function run(): Promise<void> {
     assert(getComputedStyle(resultCell).display !== 'none', '所有桌面宽度必须保留 R 结果')
     assert(!host.querySelector('.trade-row-ref, .trade-list-column.is-ref'), '所有桌面宽度都不得显示交易编号列')
     assert(getComputedStyle(dateCell).display !== 'none', '所有桌面宽度必须保留完整日期')
+    const first = host.querySelector<HTMLElement>('[data-trade-id="august-1"]')!
+    const second = host.querySelector<HTMLElement>('[data-trade-id="august-2"]')!
+    for (const selector of ['.side-tag', '.trade-row-tags', '.trade-row-result', '.trade-row-date']) {
+      const a = first.querySelector<HTMLElement>(selector)!.getBoundingClientRect()
+      const b = second.querySelector<HTMLElement>(selector)!.getBoundingClientRect()
+      assert(Math.abs(a.left - b.left) < 1, `${selector} 不得随品种长度或缺失策略改变列轴`)
+    }
+    const identity = first.querySelector<HTMLElement>('.trade-row-symbol')!.getBoundingClientRect()
+    const tagArea = first.querySelector<HTMLElement>('.trade-row-tags')!.getBoundingClientRect()
+    assert(tagArea.left - identity.right <= 12, '品种与策略间不得随宽屏产生大块空洞')
+    const more = [...first.querySelectorAll<HTMLElement>('.trade-row-more')].find((el) => getComputedStyle(el).display !== 'none')!
+    assert(more && more.tabIndex === 0, '隐藏上下文必须有可聚焦的入口')
+    const moreRect = more.getBoundingClientRect()
+    assert(moreRect.width > 0 && moreRect.left >= tagArea.left && moreRect.right <= tagArea.right + 1,
+      '长错误标签不得挤掉或裁切 +N 入口')
+    assert(getComputedStyle(first.querySelector('.trade-row-tags')!).maskImage === 'none', '上下文入口不得被渐隐遮挡')
+    assert(getComputedStyle(dateCell).fontSize === '12px', '日期应使用元数据字号')
     assert(
       scrollHost.scrollWidth <= scrollHost.clientWidth + 1,
       `目标桌面宽度不得横向溢出，实际 ${scrollHost.scrollWidth}/${scrollHost.clientWidth}`,
@@ -183,7 +204,7 @@ async function run(): Promise<void> {
     const firstTradeRow = host.querySelector<HTMLElement>('[data-trade-id="august-1"]')
     assert(list && firstTradeRow, '交易集合必须暴露统一的 list/listitem 语义')
     assert(firstTradeRow.getAttribute('aria-label')?.includes('TRD-AUGUST-1'), '视觉隐藏编号后仍须保留精确无障碍引用')
-    assert(columns.getAttribute('aria-hidden') === 'true', '纯视觉列标题必须退出无障碍树')
+    assert(!columns, '列表不得重新加入列标题栏')
     assert(!host.querySelector('[role="row"], [role="columnheader"]'), '列表不得混入残缺表格语义')
     assert(firstTradeRow.getAttribute('role') === 'listitem', '交易行必须是列表项')
     assert(firstTradeRow.parentElement?.getAttribute('role') === 'presentation', '虚拟定位层不得重复列表项语义')
@@ -211,7 +232,7 @@ async function run(): Promise<void> {
     const describedBy = firstTradeRow.getAttribute('aria-describedby')
     assert(describedBy && document.getElementById(describedBy)?.textContent === '2026 年 8 月', '交易行必须关联所属月份')
 
-    const initialGap = firstHeader.getBoundingClientRect().top - columns.getBoundingClientRect().bottom
+    const initialGap = firstHeader.getBoundingClientRect().top - scrollHost.getBoundingClientRect().top
     assert(Math.abs(initialGap - 4) <= 1, `列标题与月份条应相距 4px，实际 ${initialGap}px`)
 
     const firstVirtualHeader = firstHeader.parentElement
@@ -257,7 +278,7 @@ async function run(): Promise<void> {
       '折叠动画结束后首组交易行必须移出虚拟列表',
     )
     assert(
-      Math.abs(firstHeader.getBoundingClientRect().top - columns.getBoundingClientRect().bottom - 4) <= 1,
+      Math.abs(firstHeader.getBoundingClientRect().top - scrollHost.getBoundingClientRect().top - 4) <= 1,
       '折叠后首组间距不得跳位',
     )
     toggleButton.click()
@@ -286,9 +307,9 @@ async function run(): Promise<void> {
       stickyLabel === '2026 年 7 月',
       `滚动到底部后必须由第二个月份接管 sticky，实际为 ${stickyLabel ?? '未知月份'}`,
     )
-    const stickyGap = stickyHeader.getBoundingClientRect().top - columns.getBoundingClientRect().bottom
+    const stickyGap = stickyHeader.getBoundingClientRect().top - scrollHost.getBoundingClientRect().top
     assert(
-      stickyHeader.getBoundingClientRect().top >= columns.getBoundingClientRect().bottom + 3,
+      stickyHeader.getBoundingClientRect().top >= scrollHost.getBoundingClientRect().top + 3,
       '吸顶月份条不得遮挡列标题',
     )
     assert(Math.abs(stickyGap - 4) <= 1, `吸顶月份条应保留 4px 上间距，实际 ${stickyGap}px`)

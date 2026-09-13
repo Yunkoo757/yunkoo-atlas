@@ -31,7 +31,10 @@ test('active project text is vendor neutral', () => {
   for (const filePath of trackedPaths) {
     if (!existsSync(filePath) || compatibilityFiles.has(filePath) || binaryExtensions.test(filePath)) continue
     const source = readFileSync(filePath, 'utf8')
-    if (vendorText.test(source) || vendorIdentifier.test(source)) violations.push(filePath)
+    // Bundled graphics libraries use Linear* for interpolation and color math.
+    // Continue checking literal branding there; identifier naming is project-owned.
+    const bundledGraphics = filePath.startsWith('atlas-website/vendor/')
+    if (vendorText.test(source) || (!bundledGraphics && vendorIdentifier.test(source))) violations.push(filePath)
   }
   assert.deepEqual(violations, [])
 })
