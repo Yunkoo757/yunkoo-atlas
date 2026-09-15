@@ -1594,6 +1594,7 @@ export function DetailView() {
 
           <Section title="错误 / 违规">
             <TagEditor
+              tone="diagnostic"
               tags={trade.mistakeTags}
               suggestions={mistakeTagPresets}
               presets={mistakeTagPresets}

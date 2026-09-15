@@ -17,7 +17,7 @@
   display: inline-flex;
   align-items: center;
   max-width: 100%;
-  height: 24px;
+  height: var(--chip-height-md);
   border-radius: var(--radius-full);
   background: var(--surface-control);
   border: 1px solid transparent;
@@ -47,7 +47,7 @@
   display: inline-flex;
   align-items: center;
   max-width: 100%;
-  min-height: 24px;
+  min-height: var(--chip-height-md);
   gap: 2px;
   padding: 0 3px 0 var(--sp-2);
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border-default));
@@ -142,8 +142,8 @@
   padding-top: var(--sp-2);
 }.dv-props .tag-chip,
 .dv-props .tag-preset-chip {
-  height: 24px;
-  min-height: 24px;
+  height: var(--chip-height-md);
+  min-height: var(--chip-height-md);
 }.dv-props .tag-chip {
   padding-inline: var(--sp-2) 3px;
   color: var(--text-secondary);
@@ -163,3 +163,41 @@
 }
 
 
+
+/* 已记录的错误与列表保持同一语义；未选预置项仍为中性。 */
+.tag-editor[data-tone='diagnostic'] .tag-chip {
+  color: var(--tag-error-text);
+  background: var(--tag-error-bg);
+  border-color: var(--tag-error-border);
+}
+.tag-editor[data-tone='diagnostic'] .tag-chip-remove {
+  color: inherit;
+}
+.tag-preset-chip:focus-within {
+  border-color: var(--border-default);
+  background: var(--bg-hover);
+}
+.tag-preset-chip:focus-within .tag-preset-label {
+  color: var(--text-secondary);
+}
+.tag-chip-remove:focus-visible {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* 详情中的名称需要完整可读；短标签保持单行，长名称按属性区宽度换行。 */
+.dv-props .tag-chip,
+.dv-props .tag-preset-chip {
+  height: auto;
+  border-radius: var(--radius-8);
+  padding-block: var(--sp-1);
+}
+.dv-props .tag-chip-label,
+.dv-props .tag-preset-label {
+  max-width: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.dv-props .tag-preset-label {
+  text-align: left;
+}

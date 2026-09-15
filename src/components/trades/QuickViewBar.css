@@ -143,7 +143,8 @@
   border-radius: var(--radius-4);
 }
 
-.quick-view-save-entry:hover {
+.quick-view-save-entry:hover,
+.quick-view-save-entry:focus-visible {
   background: var(--bg-hover);
 }
 
@@ -182,7 +183,9 @@
 }
 
 .quick-view-group button:hover,
-.quick-view-manage-name:hover {
+.quick-view-manage-name:hover,
+.quick-view-group button:focus-visible,
+.quick-view-manage-name:focus-visible {
   color: var(--text-primary);
   background: var(--bg-hover);
 }
@@ -232,12 +235,14 @@
   border-radius: var(--radius-4);
 }
 
-.quick-view-icon:hover {
+.quick-view-icon:hover,
+.quick-view-icon:focus-visible {
   color: var(--text-primary);
   background: var(--bg-hover);
 }
 
-.quick-view-icon.is-danger:hover {
+.quick-view-icon.is-danger:hover,
+.quick-view-icon.is-danger:focus-visible {
   color: var(--neg);
 }
 
@@ -290,4 +295,10 @@
   .quick-view-saved {
     display: none;
   }
+}
+
+.quick-view-chip.is-active:focus-visible,
+.quick-view-overflow.is-active:focus-visible {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
 }

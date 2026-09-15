@@ -11,4 +11,6 @@
   margin-top: var(--sp-2);
   color: var(--text-content-metadata);
   font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
 }

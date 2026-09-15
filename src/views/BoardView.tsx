@@ -1,3 +1,4 @@
+import { BoardCardTags } from '@/components/trades/BoardCardTags'
 import { ICON_MD } from '@/icons/iconSize'
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -339,6 +340,7 @@ function BoardColumnBody({
                 }}
                 onClick={() => onOpen(t.id)}
                 onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return
                   if (event.key !== 'Enter' && event.key !== ' ') return
                   event.preventDefault()
                   onOpen(t.id)
@@ -375,20 +377,7 @@ function BoardColumnBody({
                   >
                     {resolveTimeframe(t.timeframe)}
                   </span>
-                  {isReviewCaseView &&
-                    t.mistakeTags.slice(0, 2).map((tag) => (
-                      <span className="bd-case-tag bd-case-tag-danger" key={tag}>
-                        {tag}
-                      </span>
-                    ))}
-                  {isReviewCaseView &&
-                    t.tags
-                      .slice(0, t.mistakeTags.length > 0 ? 1 : 2)
-                      .map((tag) => (
-                        <span className="bd-case-tag" key={tag}>
-                          {tag}
-                        </span>
-                      ))}
+                  {isReviewCaseView && <BoardCardTags errors={t.mistakeTags} tags={t.tags} />}
                 </div>
                 <div className="bd-card-foot">
                   <span

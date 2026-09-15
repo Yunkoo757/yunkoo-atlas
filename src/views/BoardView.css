@@ -270,12 +270,13 @@
 .bd-case-tags {
   display: flex;
   align-items: center;
-  gap: var(--sp-1);
+  gap: var(--space-control-gap);
   min-width: 0;
   overflow: hidden;
 }
 
 .bd-case-tag {
+  border-color: var(--tag-neutral-border);
   color: var(--list-text-context);
   background: transparent;
 }
@@ -291,4 +292,49 @@
   color: var(--tag-error-text);
   border-color: var(--tag-error-border);
   background: var(--tag-error-bg);
+}
+
+.bd-col-add:focus-visible,
+.bd-col-header:focus-within .bd-col-add {
+  opacity: 1;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.bd-card:focus-visible {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+
+.bd-card-timeframe {
+  flex: 0 0 auto;
+}
+.bd-tags-rail {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: var(--space-control-gap);
+  align-items: center;
+}
+.bd-tags-rail .bd-case-tag,
+.bd-tags-more {
+  flex: 0 0 auto;
+  max-width: none;
+}
+.bd-tags-more {
+  color: var(--list-text-context);
+  font-size: var(--type-chip-size);
+  line-height: var(--type-chip-line-height);
+  border-radius: var(--radius-6);
+}
+.bd-tags-more:focus-visible {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+.bd-tags-measure {
+  position: absolute;
+  display: flex;
+  width: max-content;
+  visibility: hidden;
+  pointer-events: none;
 }

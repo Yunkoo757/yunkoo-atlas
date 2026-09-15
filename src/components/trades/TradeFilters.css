@@ -45,7 +45,8 @@
   color: var(--text-tertiary);
 }
 
-.trade-filter-head-actions button:hover {
+.trade-filter-head-actions button:hover,
+.trade-filter-head-actions button:focus-visible {
   color: var(--text-primary);
   background: var(--bg-hover);
 }
