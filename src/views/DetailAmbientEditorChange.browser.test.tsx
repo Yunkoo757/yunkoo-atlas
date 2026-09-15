@@ -90,6 +90,16 @@ async function run(): Promise<void> {
       '只读打开详情时，展示性摘要同步不得标记为用户未保存编辑',
     )
     assert(!hasNoteDraft(trade.id), '展示性摘要同步不得创建笔记草稿')
+    assert(
+      rootElement.querySelector('.ProseMirror')?.getAttribute('contenteditable') === 'false',
+      '打开详情时正文应处于浏览态',
+    )
+
+    rootElement.querySelector<HTMLButtonElement>('[aria-label^="编辑正文"]')?.click()
+    await waitFor(
+      () => rootElement.querySelector('.ProseMirror')?.getAttribute('contenteditable') === 'true',
+      '编辑正文后必须进入可写状态',
+    )
 
     const editable = rootElement.querySelector<HTMLElement>('.ProseMirror')
     const editor = (editable as (HTMLElement & { editor?: TiptapEditor }) | null)?.editor

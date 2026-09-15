@@ -161,3 +161,20 @@ export function testReadOnlyEditorCannotBecomeEditableWhenLightboxCloses(): void
     'read-only recovery must stay locked when the image lightbox is closed',
   )
 }
+
+export function testBrowseEditorCannotBecomeEditableWhenLightboxCloses(): void {
+  const calls: Array<[boolean, boolean | undefined]> = []
+  const editor = {
+    setEditable(editable: boolean, emitUpdate?: boolean) {
+      calls.push([editable, emitUpdate])
+    },
+  }
+
+  syncEditorLightboxEditable(editor, true, false, false)
+  syncEditorLightboxEditable(editor, false, false, false)
+
+  assert(
+    JSON.stringify(calls) === JSON.stringify([[false, false], [false, false]]),
+    'browse mode must stay locked when the image lightbox is closed',
+  )
+}

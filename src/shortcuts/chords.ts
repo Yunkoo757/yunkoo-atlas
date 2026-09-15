@@ -78,6 +78,22 @@ export function isTypingTarget(target: EventTarget | null): boolean {
   return !!el.closest?.('[contenteditable="true"]')
 }
 
+/** Enter 应交给按钮、链接和表单控件，而不是开始编辑详情正文。 */
+export function shouldYieldEnterToControl(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null
+  if (!el) return false
+  if (typeof document !== 'undefined' && (el === document.body || el === document.documentElement)) {
+    return false
+  }
+  const tag = el.tagName
+  if (tag === 'BUTTON' || tag === 'A' || tag === 'SUMMARY' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+    return true
+  }
+  return !!el.closest?.(
+    'button, a, input, textarea, select, summary, [role="menu"], [role="listbox"], [role="dialog"], [role="combobox"]',
+  )
+}
+
 export function eventMatchesChord(e: KeyboardEvent, chord: KeyChord): boolean {
   const c = chordFromEvent(e)
   if (!c.key) return false

@@ -205,6 +205,13 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     defaultBinding: getDefaultShortcutBinding('trade.toggleProperties'),
   },
   {
+    id: 'trade.editNote',
+    label: '编辑正文',
+    category: '交易 / 案例详情',
+    scope: 'detail',
+    defaultBinding: getDefaultShortcutBinding('trade.editNote'),
+  },
+  {
     id: 'list.focusNext',
     label: '下一行',
     category: '列表 / 看板',

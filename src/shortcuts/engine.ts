@@ -6,6 +6,7 @@ import {
   eventMatchesChord,
   isSequence,
   isTypingTarget,
+  shouldYieldEnterToControl,
 } from '@/shortcuts/chords'
 import { resolveBinding } from '@/shortcuts/bindingRules'
 import { useShortcutStore } from '@/store/shortcutStore'
@@ -153,6 +154,7 @@ function findChordMatch(e: KeyboardEvent, pathname?: string): string | null {
     if (meta.id === 'trade.toggleProperties' && (lightbox || (e.target as HTMLElement | null)?.closest?.(
       '[role="dialog"], [role="menu"], [role="listbox"], [role="combobox"], select',
     ))) continue
+    if (meta.id === 'trade.editNote' && (lightbox || shouldYieldEnterToControl(e.target))) continue
 
     if (meta.id === 'global.closeOverlay') {
       if (!lightbox && !cmdkOpen && !modalOpen && !composerOpen && !closeTradeRequest) continue
@@ -208,7 +210,7 @@ export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): bool
 
   if (typing && !lightbox) {
     clearSequence()
-    // 详情正文编辑器（contenteditable）按 Esc 仍可返回记忆中的列表；
+    // 详情正文编辑中 Esc 先退出编辑；未在编辑时才返回列表。
     // 普通 input/textarea 不抢，避免打断标签/评论输入。
     const el = e.target as HTMLElement | null
     const inFormField =
@@ -220,6 +222,10 @@ export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): bool
       chord.key === 'escape' &&
       (pathname ?? window.location.pathname).startsWith('/trade/')
     ) {
+      if (runAction('trade.exitNoteEdit')) {
+        e.preventDefault()
+        return true
+      }
       if (runAction('trade.backToList')) {
         e.preventDefault()
         return true

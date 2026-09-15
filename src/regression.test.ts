@@ -592,6 +592,7 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'trade.prev': 'q',
     'trade.next': 'e',
     'trade.toggleProperties': 'tab',
+    'trade.editNote': 'enter',
     'trade.backToList': 'escape',
     'list.focusNext': 'e',
     'list.focusPrev': 'q',

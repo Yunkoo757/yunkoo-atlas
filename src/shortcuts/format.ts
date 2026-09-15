@@ -3,6 +3,7 @@ import { chordKey, isSequence } from '@/shortcuts/chords'
 
 const KEY_LABELS: Record<string, string> = {
   escape: 'Esc',
+  enter: 'Enter',
   arrowleft: '←',
   arrowright: '→',
   arrowup: '↑',

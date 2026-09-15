@@ -99,6 +99,7 @@ import { evaluateReviewCompletion } from '@/lib/reviewCompletion'
 import { addDaysToCurrentTradingDay } from '@/lib/periods'
 import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
 import { useShortcutStore } from '@/store/shortcutStore'
+import { registerShortcutHandlers } from '@/shortcuts/engine'
 import { getDetailNavigation } from '@/shortcuts/listNav'
 import { collectImageSrcsFromHtml } from '@/shortcuts/images'
 import { buildPerformanceSelection } from '@/lib/performanceSelection'
@@ -218,6 +219,7 @@ export function DetailView() {
   const [reviewToolsContainer, setReviewToolsContainer] = useState<HTMLDivElement | null>(null)
   const [comment, setComment] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
+  const [noteEditing, setNoteEditing] = useState(false)
   const [feedExpanded, setFeedExpanded] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
   const [noteLoadAttempt, setNoteLoadAttempt] = useState(0)
@@ -270,6 +272,22 @@ export function DetailView() {
       state: location.state,
     })
   }, [trade, routeParam, navigate, location.state])
+
+  const noteReady = Boolean(
+    trade && noteLoad.tradeId === trade.id && noteLoad.state.status === 'ready',
+  )
+
+  useEffect(() => {
+    setNoteEditing(false)
+  }, [trade?.id])
+
+  useEffect(() => {
+    if (!trade?.id || !noteReady) return
+    return registerShortcutHandlers({
+      'trade.editNote': () => { if (!noteEditing) setNoteEditing(true) },
+      ...(noteEditing ? { 'trade.exitNoteEdit': () => setNoteEditing(false) } : {}),
+    })
+  }, [trade?.id, noteReady, noteEditing])
 
   const from = (location.state as TradeDetailLocationState | null)?.from
   const commandSearch = (location.state as TradeDetailLocationState | null)?.commandSearch
@@ -1023,7 +1041,33 @@ export function DetailView() {
               <span>{STATUS_META[trade.status].label}</span>
               <span>{TRADE_KIND_META[trade.tradeKind].label}</span>
             </div>
-            <div className="dv-reading-tools" ref={setReviewToolsContainer} />
+            <div className="dv-reading-tools">
+              {activeNoteLoad.status === 'ready' && (
+                noteEditing ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="完成编辑"
+                    onClick={() => setNoteEditing(false)}
+                  >
+                    完成编辑
+                  </Button>
+                ) : (
+                  <ShortcutTooltip actionId="trade.editNote" label="编辑正文">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label="编辑正文"
+                      onClick={() => setNoteEditing(true)}
+                    >
+                      <Pencil size={ICON_SM} aria-hidden />
+                      编辑正文
+                    </Button>
+                  </ShortcutTooltip>
+                )
+              )}
+              <div ref={setReviewToolsContainer} />
+            </div>
             </div>
             {trade.tradeKind === 'case' && trade.sourceTradeId && (
               <section className="dv-case-source" aria-label="案例来源">
@@ -1113,7 +1157,8 @@ export function DetailView() {
             <div
               className={'dv-document dv-editor'
                 + (activeNoteLoad.status === 'loading' ? ' is-note-loading' : '')
-                + (activeNoteLoad.status === 'error' ? ' is-note-readonly' : '')}
+                + (activeNoteLoad.status === 'error' ? ' is-note-readonly' : '')
+                + (activeNoteLoad.status === 'ready' && !noteEditing ? ' is-note-browsing' : '')}
             >
               {trade.tradeKind === 'case' && (
                 <div className="dv-case-note-heading">
@@ -1179,6 +1224,8 @@ export function DetailView() {
                 ariaLabel={trade.tradeKind === 'case' ? '案例沉淀正文' : '复盘正文'}
                 noteDraftId={trade.id}
                 readOnly={activeNoteLoad.status !== 'ready'}
+                editing={noteEditing}
+                onEditingChange={setNoteEditing}
                 reviewContextTools
                 reviewToolsContainer={reviewToolsContainer}
                 reviewTemplates={reviewTemplates}

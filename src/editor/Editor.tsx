@@ -54,8 +54,9 @@ export function syncEditorLightboxEditable(
   editor: Pick<TiptapEditor, 'setEditable'>,
   lightboxOpen: boolean,
   readOnly = false,
+  editing = true,
 ): void {
-  editor.setEditable(!lightboxOpen && !readOnly, false)
+  editor.setEditable(!lightboxOpen && !readOnly && editing, false)
 }
 
 export type EditorChangeMeta = Readonly<{
@@ -67,6 +68,8 @@ export function Editor({
   onChange,
   placeholder = '写下这笔交易的复盘思路… 输入 “- ” 开始清单，“> ” 引用，可直接粘贴/拖入截图',
   readOnly = false,
+  editing = true,
+  onEditingChange,
   noteDraftId,
   allowImages = true,
   ariaLabel,
@@ -80,6 +83,9 @@ export function Editor({
   onChange: (html: string, meta: EditorChangeMeta) => void
   placeholder?: string
   readOnly?: boolean
+  /** 详情正文浏览态为 false；其他编辑器默认保持可写。 */
+  editing?: boolean
+  onEditingChange?: (editing: boolean) => void
   noteDraftId?: string
   allowImages?: boolean
   ariaLabel?: string
@@ -93,6 +99,9 @@ export function Editor({
   const lightboxOpen = useShortcutStore((s) => s.lightbox !== null)
   const onChangeRef = useRef(onChange)
   const readOnlyRef = useRef(readOnly)
+  const editingRef = useRef(editing)
+  const onEditingChangeRef = useRef(onEditingChange)
+  const wasEditingRef = useRef(editing)
   const editorRef = useRef<TiptapEditor | null>(null)
   const noteDraftIdRef = useRef(noteDraftId)
   const allowImagesRef = useRef(allowImages)
@@ -101,6 +110,8 @@ export function Editor({
   const [hasLeadingReviewText, setHasLeadingReviewText] = useState(false)
   onChangeRef.current = onChange
   readOnlyRef.current = readOnly
+  editingRef.current = editing
+  onEditingChangeRef.current = onEditingChange
   noteDraftIdRef.current = noteDraftId
   allowImagesRef.current = allowImages
   onHistoryFallbackRef.current = onHistoryFallback
@@ -123,7 +134,7 @@ export function Editor({
     useShortcutStore.getState().openLightbox(list, indexOfImageSrc(list, src), ownerId, origin)
   }
   const editor = useEditor({
-    editable: !readOnly,
+    editable: !readOnly && editing,
     extensions: [
       StarterKit,
       TaskList,
@@ -163,7 +174,7 @@ export function Editor({
         return true
       },
       handlePaste(_view, event) {
-        if (!allowImagesRef.current) return false
+        if (!allowImagesRef.current || !editorRef.current?.isEditable) return false
         const items = event.clipboardData?.items
         if (!items) return false
         for (const it of Array.from(items)) {
@@ -180,7 +191,7 @@ export function Editor({
         return false
       },
       handleDrop(_view, event) {
-        if (!allowImagesRef.current) return false
+        if (!allowImagesRef.current || !editorRef.current?.isEditable) return false
         const files = (event as DragEvent).dataTransfer?.files
         if (files && files.length && files[0].type.startsWith('image/')) {
           if (editorRef.current) {
@@ -204,6 +215,7 @@ export function Editor({
           return true
         },
         click(view, event) {
+          if (!editorRef.current?.isEditable) return false
           const target = event.target as HTMLElement
           if (!target.classList.contains('ProseMirror')) return false
           const coords = view.posAtCoords({
@@ -220,7 +232,7 @@ export function Editor({
       const doc = editor.getJSON()
       setHasReviewContext(hasReviewContextDocument(doc))
       setHasLeadingReviewText(hasLeadingReviewParagraphs(doc))
-      if (!readOnlyRef.current) {
+      if (!readOnlyRef.current && editingRef.current) {
         onChangeRef.current(editor.getHTML(), { origin: 'user' })
       }
     },
@@ -235,8 +247,18 @@ export function Editor({
 
   useEffect(() => {
     if (!editor) return
-    syncEditorLightboxEditable(editor, lightboxOpen, readOnly)
-  }, [editor, lightboxOpen, readOnly])
+    syncEditorLightboxEditable(editor, lightboxOpen, readOnly, editing)
+  }, [editor, lightboxOpen, readOnly, editing])
+
+  useEffect(() => {
+    if (!editor || readOnly || lightboxOpen) {
+      wasEditingRef.current = editing
+      return
+    }
+    if (editing && !wasEditingRef.current) editor.commands.focus('end')
+    if (!editing && wasEditingRef.current) editor.commands.blur()
+    wasEditingRef.current = editing
+  }, [editor, editing, readOnly, lightboxOpen])
 
   useLayoutEffect(() => {
     if (!editor) return
@@ -268,6 +290,10 @@ export function Editor({
 
   const insertReviewTemplate = (templateContent: string) => {
     if (!editor || readOnly) return
+    if (!editingRef.current) {
+      onEditingChangeRef.current?.(true)
+      editor.setEditable(true, false)
+    }
     let next = toggleReviewContextDocument(editor.getJSON(), templateContent)
     if (!reviewContextPinned) next = toggleReviewContextDocument(next)
     editor.commands.setContent(next, true)
@@ -325,7 +351,7 @@ export function Editor({
           tippyOptions={{ duration: 120 }}
           className="bubble-menu"
           shouldShow={({ editor: ed, state }) => {
-            if (lightboxOpen || readOnly) return false
+            if (lightboxOpen || readOnly || !ed.isEditable) return false
             if (ed.isActive('image')) return false
             return !state.selection.empty
           }}

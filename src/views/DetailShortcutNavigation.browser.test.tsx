@@ -154,6 +154,10 @@ async function run(): Promise<void> {
       () => document.querySelector('.ProseMirror')?.textContent?.includes('案例 2') ?? false,
       '初始案例正文未载入',
     )
+    assert(
+      document.querySelector('.ProseMirror')?.getAttribute('contenteditable') === 'false',
+      '打开详情时正文应为浏览态',
+    )
     assert(!document.querySelector('.dv-copy-id'), '案例正文右侧不得显示复制编号按钮')
     const context = document.querySelector('.dv-reading-context')
     assert(context?.textContent?.includes('盈利') && context.textContent.includes('案例'), '正文缺少当前记录的关键背景')

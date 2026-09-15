@@ -204,6 +204,12 @@
   margin-bottom: var(--sp-6);
 }
 .dv-reading-header .dv-reading-context { margin-bottom: 0; }
+.dv-reading-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
 .dv-reading-tools:empty { display: none; }
 .dv-reading-tools .editor-review-tools { margin: 0; min-height: 0; }
 .dv-supplementary-field,
@@ -519,6 +525,9 @@
 }
 .dv-document.is-note-readonly .editor .ProseMirror {
   cursor: default;
+}
+.dv-document.is-note-browsing .editor .ProseMirror {
+  caret-color: transparent;
 }
 @keyframes dv-note-spin {
   to { transform: rotate(360deg); }
