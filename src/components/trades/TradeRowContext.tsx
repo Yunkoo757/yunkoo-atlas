@@ -57,14 +57,19 @@ export function TradeRowContext({ items, onOpen }: { items: TradeRowContextItem[
   const labels = hidden.map(item => item.detail ? `${item.label}（${item.detail}）` : item.label)
   return (
     <span className="trade-row-context" ref={root}>
-      {items.slice(0, visible).map((item, index) => (
-        <Tooltip key={item.key} asChild content={item.detail ?? item.label} label={item.detail ?? item.label}>
-          <button type="button" tabIndex={item.detail ? 0 : -1} onClick={onOpen}
+      {items.slice(0, visible).map((item, index) => {
+        const tag = (
+          <button key={item.key} type="button" tabIndex={item.detail ? 0 : -1} onClick={onOpen}
             className={`trade-row-tag is-${item.kind} trade-row-context-item`} data-context-index={index}>
             {item.label}
           </button>
-        </Tooltip>
-      ))}
+        )
+        return item.detail ? (
+          <Tooltip key={item.key} asChild content={item.detail} label={item.detail}>
+            {tag}
+          </Tooltip>
+        ) : tag
+      })}
       {hidden.length > 0 && (
         <Tooltip asChild content={labels.join(' · ')} label={`其余上下文：${labels.join('、')}`}>
           <span className="trade-row-more" tabIndex={0} aria-label={`其余上下文：${labels.join('、')}`}>

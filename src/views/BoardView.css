@@ -242,11 +242,11 @@
   display: inline-flex;
   align-items: center;
   max-width: 118px;
-  height: var(--chip-height-sm);
-  padding: 0 5px;
+  min-height: var(--chip-height-md);
+  padding: 0 var(--space-control-gap);
   overflow: hidden;
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-4);
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--text-tertiary);
   font-family: var(--font-ui);

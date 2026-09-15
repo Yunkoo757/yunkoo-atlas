@@ -145,6 +145,15 @@ async function run(): Promise<void> {
       '案例页缺少来源复盘',
     )
     await waitFor(
+      () => document.querySelector('[aria-label="案例沉淀正文"]')?.getAttribute('contenteditable') === 'false',
+      '案例沉淀默认应为浏览态',
+    )
+    await waitFor(
+      () => Boolean(document.querySelector('button[aria-label^="编辑正文"]')),
+      '编辑正文入口未就绪',
+    )
+    document.querySelector<HTMLButtonElement>('button[aria-label^="编辑正文"]')!.click()
+    await waitFor(
       () =>
         document.querySelector('[aria-label="来源复盘正文"]')?.getAttribute('contenteditable') === 'false' &&
         document.querySelector('[aria-label="案例沉淀正文"]')?.getAttribute('contenteditable') === 'true',
@@ -203,6 +212,11 @@ async function run(): Promise<void> {
     await waitForFrame()
     assert(document.activeElement !== caseEditor, '来源正文空白点击不得聚焦案例 Editor')
 
+    document.querySelector<HTMLButtonElement>('button[aria-label^="编辑正文"]')!.click()
+    await waitFor(
+      () => caseEditor.getAttribute('contenteditable') === 'true',
+      '重新打开案例后，显式编辑应解锁案例正文',
+    )
     caseEditor.focus()
     assert(document.activeElement === caseEditor, '案例 Editor 无法建立焦点前置条件')
     sourceImage.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }))

@@ -1,5 +1,5 @@
 .quick-view-bar {
-  --quick-view-control-height: 30px;
+  --quick-view-control-height: var(--toolbar-chip-height);
   --quick-view-surface-rest: var(--surface-control);
   --quick-view-surface-hover: var(--surface-control-hover);
   --quick-view-border-rest: var(--surface-control-border);
@@ -37,7 +37,7 @@
   color: var(--list-text-secondary);
   font-family: var(--font-ui);
   font-size: var(--type-row-size);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--type-list-secondary-weight);
   line-height: var(--type-row-line-height);
   /* 描边用 border（盒内），避免外扩 shadow / ::after 在非整数 DPR 或 overflow 下被裁 */
   border: 1px solid var(--quick-view-border-rest);
@@ -70,7 +70,9 @@
 }
 
 .quick-view-chip:hover,
-.quick-view-overflow:hover {
+.quick-view-overflow:hover,
+.quick-view-chip:focus-visible,
+.quick-view-overflow:focus-visible {
   color: var(--list-text-primary);
   background: var(--quick-view-surface-hover);
   border-color: var(--quick-view-border-hover);
@@ -80,6 +82,7 @@
 .quick-view-chip.is-active,
 .quick-view-overflow.is-active {
   color: var(--list-text-strong);
+  font-weight: var(--type-list-primary-weight);
   background: var(--surface-control-active);
   border-color: var(--surface-control-border-active);
   box-shadow: none;

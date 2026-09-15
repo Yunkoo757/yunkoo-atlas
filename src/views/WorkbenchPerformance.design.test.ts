@@ -133,9 +133,10 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   if (
     !quickViews.includes('height: var(--quick-view-control-height)')
     || !quickViews.includes('font-size: var(--type-row-size)')
-    || !quickViews.includes('font-weight: var(--font-weight-medium)')
+    || !quickViews.includes('font-weight: var(--type-list-secondary-weight)')
+    || !quickViews.includes('--quick-view-control-height: var(--toolbar-chip-height)')
   ) {
-    throw new Error('quick-view pills must preserve the calibrated 30px control geometry and readable toolbar typography')
+    throw new Error('quick-view pills must preserve the shared toolbar control geometry and readable toolbar typography')
   }
   if (!list.includes('inset: 2px 8px') || !list.includes('padding: 0 10px')) {
     throw new Error('trade rows must preserve symmetric 2px vertical breathing room and content padding')

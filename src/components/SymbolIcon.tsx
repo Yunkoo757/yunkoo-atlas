@@ -71,7 +71,9 @@ export function SymbolIcon({
         height: size,
         color: quietColor(resolved.color),
         background: quietBackground(resolved.color, resolved.background),
-        fontSize: Math.max(9, Math.round(size * glyphScale)),
+        fontSize: quiet
+          ? resolved.glyph.length > 1 ? 'var(--type-caption-size)' : 'var(--type-metadata-size)'
+          : Math.max(9, Math.round(size * glyphScale)),
       }}
       aria-hidden
     >

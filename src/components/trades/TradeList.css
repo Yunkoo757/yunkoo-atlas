@@ -446,9 +446,9 @@
   min-width: 0;
   max-width: 100%;
   height: auto;
-  min-height: 20px;
-  margin-right: var(--sp-1);
-  padding: 1px 7px;
+  min-height: var(--chip-height-md);
+  margin-right: 0;
+  padding: 0 var(--space-control-gap);
   overflow: hidden;
   color: var(--list-text-secondary);
   background: transparent;
@@ -489,7 +489,7 @@
   width: auto;
   min-width: 0;
   max-width: 100%;
-  gap: 5px;
+  gap: var(--space-control-gap);
   overflow: hidden;
   color: inherit;
   font-family: var(--font-ui);
@@ -527,7 +527,7 @@
   display: flex;
   flex: 1 1 0;
   align-items: center;
-  gap: var(--sp-1);
+  gap: var(--space-control-gap);
   min-width: 0;
   overflow: hidden;
 }
@@ -578,10 +578,10 @@ button.trade-row-symbol-main {
   max-width: 18ch;
   min-width: 0;
   box-sizing: border-box;
-  /* 用 padding 撑高，避免固定 height + line-height:1 把中文/拉丁基线压偏、底边被裁 */
+  /* 统一胶囊最小高度，保留文字角色行高，避免中英文字形被裁切。 */
   height: auto;
-  min-height: 20px;
-  padding: 1px 7px;
+  min-height: var(--chip-height-md);
+  padding: 0 var(--space-control-gap);
   overflow: hidden;
   color: var(--list-text-context);
   font-family: var(--font-ui);
@@ -731,4 +731,17 @@ button.trade-row-symbol-main {
 
 .trade-list-mobile-select-toggle {
   display: none;
+}
+
+/* 标签可点击，但不重复弹出已完整显示的文字；反馈不改变文字测量宽度。 */
+.trade-row-context > button.trade-row-tag {
+  cursor: pointer;
+  transition: background-color var(--motion-state) var(--ease-out);
+}
+.trade-row-context > button.trade-row-tag:hover,
+.trade-row-context > button.trade-row-tag:focus-visible {
+  background-color: var(--bg-hover);
+}
+.trade-row-context > button.trade-row-tag:active {
+  background-color: var(--bg-selected);
 }

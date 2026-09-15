@@ -96,7 +96,8 @@
 }
 
 .ui-filter-trigger:hover,
-.ui-filter-chip:hover {
+.ui-filter-chip:hover,
+.ui-filter-chip:not(.ui-filter-chip-static):focus-visible {
   color: var(--list-text-strong);
   background: var(--surface-control-hover);
   border-color: var(--filter-chip-border-hover);

@@ -191,7 +191,7 @@ export async function testTradeListVisualAlignmentContract(): Promise<void> {
   assert(!css.includes('.trade-row-date,\n  .trade-list-column.is-date {\n    display: none;'), '桌面窄窗口也必须保留完整日期')
   assert(css.includes('grid-template-columns: 11ch 18px'), '品种与多空方向必须使用稳定列宽')
   assert(
-    /\.trade-row-strategy\s*\{[\s\S]*?min-height:\s*20px;[\s\S]*?border-radius:\s*var\(--radius-full\);/.test(css),
+    /\.trade-row-strategy\s*\{[\s\S]*?min-height:\s*var\(--chip-height-md\);[\s\S]*?border-radius:\s*var\(--radius-full\);/.test(css),
     '策略与标签必须共享胶囊语义',
   )
   assert(trash.includes('height: var(--trade-row-height, 44px)'), '回收站必须共享 44px 列表行高')

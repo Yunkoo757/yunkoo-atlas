@@ -308,7 +308,7 @@ const checks = [
     /\.ui-filter-trigger,\s*\n\.ui-filter-chip\s*\{[^}]*font-family:\s*var\(--font-ui\);/s.test(filterBarStyles) &&
       /\.ui-filter-trigger\s*\{[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--type-metadata-weight\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(filterBarStyles) &&
       /\.ui-filter-chip\s*\{[^}]*font-size:\s*var\(--type-chip-size\);[^}]*font-weight:\s*var\(--type-chip-weight\);[^}]*line-height:\s*var\(--type-chip-line-height\);/s.test(filterBarStyles) &&
-      /\.quick-view-chip,\s*\n\.quick-view-overflow\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-row-size\);[^}]*font-weight:\s*var\(--font-weight-medium\);[^}]*line-height:\s*var\(--type-row-line-height\);/s.test(
+      /\.quick-view-chip,\s*\n\.quick-view-overflow\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-row-size\);[^}]*font-weight:\s*var\(--type-list-secondary-weight\);[^}]*line-height:\s*var\(--type-row-line-height\);/s.test(
         quickViewStyles,
       ) &&
       /\.tb-btn\s*\{[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-row-size\);[^}]*font-weight:\s*var\(--font-weight-normal\);[^}]*line-height:\s*var\(--type-row-line-height\);/s.test(
