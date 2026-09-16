@@ -881,7 +881,7 @@
   min-width: 0;
   padding: 2px 6px;
   border-radius: var(--radius-full);
-  color: var(--text-primary);
+  color: var(--text-detail-props-supporting);
   font-size: var(--type-row-size);
   font-weight: var(--font-weight-normal);
   line-height: var(--type-row-line-height);

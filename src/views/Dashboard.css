@@ -150,6 +150,10 @@
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
 }
+/* 相邻时由工具栏绘制边界，透明占位保留指标区几何尺寸。 */
+.db-toolbar + .db-cards {
+  border-top-color: transparent;
+}
 .db-card {
   min-width: 0;
   background: transparent;
