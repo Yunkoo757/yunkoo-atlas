@@ -66,9 +66,12 @@ export function createDefaultMistakeTagPresets(): string[] {
   return [...DEFAULT_PROFILE.tags.mistakes]
 }
 
-export function getDefaultShortcutBinding(id: string): ShortcutBinding {
+export function getDefaultShortcutBinding(id: string): ShortcutBinding | null {
+  if (!Object.prototype.hasOwnProperty.call(DEFAULT_PROFILE.shortcuts, id)) {
+    throw new Error(`默认配置缺少快捷键动作：${id}`)
+  }
   const binding = DEFAULT_PROFILE.shortcuts[id]
-  if (!binding) throw new Error(`默认配置缺少快捷键动作：${id}`)
+  if (binding === null) return null
   return Array.isArray(binding)
     ? binding.map((chord) => ({ ...chord }))
     : { ...binding }

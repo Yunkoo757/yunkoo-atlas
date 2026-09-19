@@ -182,18 +182,18 @@ export function testTradeAndCaseShortcutsHaveSeparateConfigurableBindings(): voi
   const reviewCases = getActionMeta('nav.reviewCases')
   assert(trade?.label === '交易日志', '交易工作区动作应使用稳定名称')
   assert(reviewCases?.label === '案例库', '案例工作区应与主导航使用同一名称')
-  assert(bindingKey(trade!.defaultBinding) === 'alt+w', '交易日志默认快捷键应为 Alt+W')
-  assert(bindingKey(reviewCases!.defaultBinding) === 'alt+c', '案例库默认快捷键应为 Alt+C')
+  assert(bindingKey(trade!.defaultBinding!) === 'a', '交易日志默认快捷键应为 A')
+  assert(bindingKey(reviewCases!.defaultBinding!) === 'd', '案例库默认快捷键应为 D')
   assert(!getActionMeta('global.switchModule'), '不应继续暴露结果不稳定的模块切换动作')
 }
 
 export function testTradeDetailNavigationKeepsQForPreviousAndEForNext(): void {
   assert(
-    bindingKey(getActionMeta('trade.prev')!.defaultBinding) === 'q',
+    bindingKey(getActionMeta('trade.prev')!.defaultBinding!) === 'q',
     '交易详情上一条默认快捷键应保持 Q',
   )
   assert(
-    bindingKey(getActionMeta('trade.next')!.defaultBinding) === 'e',
+    bindingKey(getActionMeta('trade.next')!.defaultBinding!) === 'e',
     '交易详情下一条默认快捷键应保持 E',
   )
 }
@@ -226,21 +226,21 @@ export function testNewTradeAndCaseActionsChooseTheirRecordKindExplicitly(): voi
 export function testNewCaseHasAnIndependentConfigurableShortcut(): void {
   const action = getActionMeta('global.newCase')
   assert(action?.label === '新建案例', '案例应有独立的新建动作')
-  assert(bindingKey(action!.defaultBinding) === 'shift+n', '新建案例默认快捷键应为 Shift+N')
+  assert(bindingKey(action!.defaultBinding!) === 'shift+n', '新建案例默认快捷键应为 Shift+N')
 }
 
 export function testOmittedPrimaryNavigationActionsAreConfigurable(): void {
   const expected = new Map([
-    ['nav.quickNotes', 'alt+n'],
-    ['nav.weeklyReview', 'alt+4'],
-    ['nav.reviewSession', 'alt+6'],
+    ['nav.quickNotes', 'q'],
+    ['nav.weeklyReview', 'w'],
+    ['nav.reviewSession', 'g'],
     ['view.board', 'b'],
     ['list.toggleFilters', 'f'],
   ])
   for (const [id, binding] of expected) {
     const action = getActionMeta(id)
     assert(Boolean(action), `${id} 应出现在快捷键设置中`)
-    assert(bindingKey(action!.defaultBinding) === binding, `${id} 应使用默认快捷键 ${binding}`)
+    assert(bindingKey(action!.defaultBinding!) === binding, `${id} 应使用默认快捷键 ${binding}`)
   }
   assert(getActionMeta('nav.dashboard')?.label === '统计分析', '快捷键设置必须使用“统计分析”')
   assert(getActionMeta('nav.weeklyReview')?.label === '周期复盘', '快捷键设置必须使用“周期复盘”')
@@ -254,11 +254,11 @@ export function testOmittedPrimaryNavigationActionsAreConfigurable(): void {
 
 export function testQuickNotesHaveIndependentNavigationAndCreateShortcuts(): void {
   assert(
-    bindingKey(getActionMeta('nav.quickNotes')!.defaultBinding) === 'alt+n',
-    '随记导航默认快捷键应为 Alt+N',
+    bindingKey(getActionMeta('nav.quickNotes')!.defaultBinding!) === 'q',
+    '随记导航默认快捷键应为 Q',
   )
   assert(
-    bindingKey(getActionMeta('global.newQuickNote')!.defaultBinding) === 'shift+alt+n',
+    bindingKey(getActionMeta('global.newQuickNote')!.defaultBinding!) === 'shift+alt+n',
     '新建随记默认快捷键应为 Alt+Shift+N',
   )
 }
@@ -266,7 +266,7 @@ export function testQuickNotesHaveIndependentNavigationAndCreateShortcuts(): voi
 export function testFullscreenHasAConfigurableF11Default(): void {
   const action = getActionMeta('global.toggleFullscreen')
   assert(action?.label === '切换应用全屏', '应用全屏应出现在快捷键设置中')
-  assert(bindingKey(action!.defaultBinding) === 'f11', '应用全屏默认快捷键应为 F11')
+  assert(bindingKey(action!.defaultBinding!) === 'f11', '应用全屏默认快捷键应为 F11')
 }
 
 export function testShortcutHintsReflectCustomAndDisabledBindings(): void {
@@ -312,8 +312,7 @@ export function testWindowHotkeyDisablesConflictingOrdinaryShortcut(): void {
   try {
     useShortcutStore.setState({ bindings: {} })
     const clearedLabels = useShortcutStore.getState().disableConflictsWithWindowHotkey({
-      mod: true,
-      key: 'k',
+      key: 't',
     })
     const bindings = useShortcutStore.getState().bindings
 
@@ -345,11 +344,11 @@ export function testResetDefaultsKeepsSystemConflictDisabled(): void {
 export function testHydrationDisablesActiveSystemHotkeyConflict(): void {
   const previous = useShortcutStore.getState().bindings
   try {
-    useShortcutStore.getState().setWindowHotkeyState({ binding: { mod: true, key: 'k' }, registered: true })
+    useShortcutStore.getState().setWindowHotkeyState({ binding: { key: 't' }, registered: true })
     const cleared = useShortcutStore.getState().hydrateBindings({})
     assert(cleared.includes('命令面板（Ctrl+K）'), '水合必须协调全部 scope 的系统热键冲突')
     assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] === null, '系统热键必须优先并产生 null 覆盖')
-    useShortcutStore.getState().hydrateBindings({ 'global.commandPaletteMod': { mod: true, key: 'k' } })
+    useShortcutStore.getState().hydrateBindings({ 'global.commandPaletteMod': { key: 't' } })
     assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] === null, '切库后的再次水合必须重新协调冲突')
     useShortcutStore.getState().hydrateBindings({})
     assert(bindingsForPersist(useShortcutStore.getState().bindings)['global.commandPaletteMod'] === null, '导入/水合协调结果必须进入普通持久化快照')

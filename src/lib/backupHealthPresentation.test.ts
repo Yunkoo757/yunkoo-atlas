@@ -26,12 +26,15 @@ export function testOnlyLatestUnverifiedBackupIsAutomaticallyVerified(): void {
   assert.equal(automaticVerificationTarget('loaded', [verified]), undefined)
 }
 
-export function testBackupHealthOnlySurfacesWhenActionNeeded(): void {
+export function testBackupHealthOnlySurfacesFailuresInTheSidebar(): void {
   assert.equal(shouldSurfaceBackupHealth(presentBackupHealth('loading', [])), false)
   assert.equal(shouldSurfaceBackupHealth(presentBackupHealth('error', [])), true)
-  assert.equal(shouldSurfaceBackupHealth(presentBackupHealth('loaded', [])), true)
+  assert.equal(shouldSurfaceBackupHealth(presentBackupHealth('loaded', [])), false)
   const unverified = { name: 'latest', timestamp: 2, size: 1 }
-  assert.equal(shouldSurfaceBackupHealth(presentBackupHealth('loaded', [unverified])), true)
+  assert.equal(shouldSurfaceBackupHealth(presentBackupHealth('loaded', [unverified])), false)
   const verified = { name: 'ok', timestamp: 3, size: 1, verification: { status: 'verified' as const, checkedAt: 3 } }
   assert.equal(shouldSurfaceBackupHealth(presentBackupHealth('loaded', [verified])), false)
+  const invalid = { name: 'broken', timestamp: 4, size: 1, verification: { status: 'invalid' as const, checkedAt: 4 } }
+  assert.equal(shouldSurfaceBackupHealth(presentBackupHealth('loaded', [invalid])), true)
+  assert.equal(shouldSurfaceBackupHealth(presentBackupHealth('loaded', [verified, invalid])), true)
 }

@@ -83,7 +83,7 @@ export function testReviewSessionActionsExposeStableDefaultsAndScope(): void {
     assert(Boolean(action), `${id} 应注册为可配置动作`)
     assert(action!.scope === 'reviewSession', `${id} 应隔离在随机复盘作用域`)
     assert(
-      bindingKey(action!.defaultBinding) === defaultBinding,
+      bindingKey(action!.defaultBinding!) === defaultBinding,
       `${id} 应保持默认快捷键 ${defaultBinding.toUpperCase()}`,
     )
   }

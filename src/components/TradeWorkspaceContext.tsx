@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useEffect,
   useId,
   useLayoutEffect,
@@ -22,7 +24,15 @@ import {
   type TradeWorkspacePage,
 } from '@/lib/tradeWorkspaceQuery'
 import { useStore } from '@/store/useStore'
+import { fmtDate } from '@/lib/format'
+import { shouldSurfaceStageRolloverBanner } from '@/lib/stageRollover'
+import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import './TradeWorkspaceContext.css'
+
+const LiveStageManager = lazy(async () => {
+  const module = await import('@/components/LiveStageManager')
+  return { default: module.LiveStageManager }
+})
 
 const KIND_OPTIONS: Array<{ value: TradeWorkspaceKind; label: string }> = [
   { value: 'all', label: '全部' },
@@ -41,6 +51,29 @@ export function TradeWorkspaceContext({
   const navigate = useNavigate()
   const liveStages = useStore((state) => state.liveStages)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
+  const scheduled = useStore((state) => state.scheduledStageRollover)
+  const currentTradingDayKey = useLocalDateKey()
+  const [stageManagerOpen, setStageManagerOpen] = useState(false)
+  const quietSchedule = scheduled && !shouldSurfaceStageRolloverBanner(scheduled, currentTradingDayKey)
+    ? scheduled
+    : null
+  const scheduleHint = quietSchedule ? (
+    <button
+      type="button"
+      className="trade-workspace-schedule-hint"
+      onClick={() => setStageManagerOpen(true)}
+    >
+      已预约 {fmtDate(quietSchedule.effectiveWeekStart)}
+    </button>
+  ) : null
+  const stageManager = stageManagerOpen ? (
+    <Suspense fallback={null}>
+      <LiveStageManager
+        currentTradingDayKey={currentTradingDayKey}
+        onClose={() => setStageManagerOpen(false)}
+      />
+    </Suspense>
+  ) : null
   const weeklyReviews = useStore((state) => state.weeklyReviews)
   const query = useMemo(
     () => parseTradeWorkspaceQuery(location.search, liveStages, currentLiveStageId),
@@ -79,18 +112,25 @@ export function TradeWorkspaceContext({
 
   if (compact && page !== 'review') {
     return (
-      <TradeWorkspaceScopeMenu
-        page={page}
-        stage={contextStage}
-        kind={query.kind}
-        stageOptions={stageOptions}
-        onStageChange={(stage) => update({ stage })}
-        onKindChange={(kind) => update({ kind })}
-      />
+      <>
+        <div className="trade-workspace-scope-cluster">
+          <TradeWorkspaceScopeMenu
+            page={page}
+            stage={contextStage}
+            kind={query.kind}
+            stageOptions={stageOptions}
+            onStageChange={(stage) => update({ stage })}
+            onKindChange={(kind) => update({ kind })}
+          />
+          {scheduleHint}
+        </div>
+        {stageManager}
+      </>
     )
   }
 
   return (
+    <>
     <div className="trade-workspace-context" data-workspace-page={page} aria-label="交易数据范围">
       <div className="trade-workspace-stage">
         <Select
@@ -99,6 +139,7 @@ export function TradeWorkspaceContext({
           ariaLabel={currentStage ? `选择交易阶段；当前阶段为${currentStage.name}` : '选择交易阶段'}
           options={stageOptions}
         />
+        {scheduleHint}
       </div>
       {page !== 'review' ? <div className="trade-workspace-kind" role="group" aria-label="记录类型">
         {KIND_OPTIONS.map((option) => (
@@ -114,6 +155,8 @@ export function TradeWorkspaceContext({
         ))}
       </div> : null}
     </div>
+    {stageManager}
+    </>
   )
 }
 

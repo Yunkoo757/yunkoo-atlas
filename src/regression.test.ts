@@ -556,9 +556,9 @@ export function testEmptyLibraryUsesApprovedDefaultProfile(): void {
 }
 
 export function testApprovedShortcutDefaultsMatchProfile(): void {
-  const expected: Record<string, string> = {
+  const expected: Record<string, string | null> = {
     'global.commandPalette': 'w',
-    'global.commandPaletteMod': 'mod+k',
+    'global.commandPaletteMod': 't',
     'global.newTrade': 'n',
     'global.newCase': 'shift+n',
     'global.newQuickNote': 'shift+alt+n',
@@ -566,22 +566,22 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'global.redo': 'mod+shift+z',
     'global.closeOverlay': 'escape',
     'global.toggleFullscreen': 'f11',
-    'nav.quickNotes': 'alt+n',
+    'nav.quickNotes': 'q',
     'nav.active': 'alt+1',
-    'nav.favorites': 'alt+2',
-    'nav.missed': 'alt+3',
-    'nav.sim': 'g',
-    'nav.list': 'alt+w',
-    'nav.reviewCases': 'alt+c',
-    'nav.weeklyReview': 'alt+4',
-    'nav.reviewSession': 'alt+6',
+    'nav.favorites': null,
+    'nav.missed': null,
+    'nav.sim': 'alt+g',
+    'nav.list': 'a',
+    'nav.reviewCases': 'd',
+    'nav.weeklyReview': 'w',
+    'nav.reviewSession': 'g',
     'nav.reviewComposer': 'r',
-    'nav.dashboard': 'i',
+    'nav.dashboard': 'e',
     'nav.strategies': 'o',
-    'nav.strategySlot1': 'mod+1',
-    'nav.strategySlot2': 'mod+2',
-    'nav.strategySlot3': 'mod+3',
-    'nav.strategySlot4': 'mod+4',
+    'nav.strategySlot1': '1',
+    'nav.strategySlot2': '2',
+    'nav.strategySlot3': '3',
+    'nav.strategySlot4': '4',
     'nav.strategySlot5': 'mod+5',
     'nav.strategySlot6': 'mod+6',
     'nav.strategySlot7': 'mod+7',
@@ -594,8 +594,8 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'trade.toggleProperties': 'tab',
     'trade.editNote': 'enter',
     'trade.backToList': 'escape',
-    'list.focusNext': 'e',
-    'list.focusPrev': 'q',
+    'list.focusNext': null,
+    'list.focusPrev': null,
     'list.openFocused': 'enter',
     'list.selectAll': 'mod+a',
     'list.clearSelection': 'escape',
@@ -616,9 +616,10 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     '默认配置应覆盖每一个可配置快捷键动作',
   )
   for (const action of SHORTCUT_ACTIONS) {
+    const actual = action.defaultBinding ? bindingKey(action.defaultBinding) : null
     assert(
-      bindingKey(action.defaultBinding) === expected[action.id],
-      `${action.label} 应使用已确认的默认快捷键 ${expected[action.id]}`,
+      actual === expected[action.id],
+      `${action.label} 应使用已确认的默认快捷键 ${expected[action.id] ?? '未设置'}`,
     )
   }
 

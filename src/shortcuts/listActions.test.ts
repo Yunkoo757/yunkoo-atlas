@@ -31,14 +31,14 @@ function keyboardEvent(
   return event as unknown as KeyboardEvent & { prevented: number }
 }
 
-export function testListNavigationDefaultsMatchDetailDirection(): void {
+export function testListNavigationDefaultsLeaveFocusKeysUnset(): void {
   assert(
-    bindingKey(getActionMeta('list.focusPrev')!.defaultBinding) === 'q',
-    '列表上一条默认快捷键应与详情上一条统一为 Q',
+    getActionMeta('list.focusPrev')!.defaultBinding === null,
+    '列表上一条默认不得占用 Q，以便导航使用 Q',
   )
   assert(
-    bindingKey(getActionMeta('list.focusNext')!.defaultBinding) === 'e',
-    '列表下一条默认快捷键应与详情下一条统一为 E',
+    getActionMeta('list.focusNext')!.defaultBinding === null,
+    '列表下一条默认不得占用 E，以便导航使用 E',
   )
 }
 
@@ -95,7 +95,7 @@ export function testEscapeCanReturnTopLevelPagesToTradeLog(): void {
 
   try {
     assert(getActionMeta('global.closeOverlay')?.scope === 'overlay', '关闭弹层动作必须保持覆盖层作用域')
-    assert(bindingKey(getActionMeta('global.closeOverlay')!.defaultBinding) === 'escape', 'Escape 返回动作默认键异常')
+    assert(bindingKey(getActionMeta('global.closeOverlay')!.defaultBinding!) === 'escape', 'Escape 返回动作默认键异常')
     const shortcutState = useShortcutStore.getState()
     assert(!shortcutState.cmdkOpen && shortcutState.modalOverlayCount === 0 && !shortcutState.lightbox, '测试前不得残留弹层状态')
     const exitPages = [

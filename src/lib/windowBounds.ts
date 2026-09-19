@@ -1,4 +1,4 @@
-export const DEFAULT_WINDOW_BOUNDS = { width: 1280, height: 860 } as const
+export const DEFAULT_WINDOW_BOUNDS = { width: 1440, height: 900 } as const
 export const MIN_WINDOW_BOUNDS = { width: 960, height: 640 } as const
 
 export type PersistedWindowState = {
@@ -54,17 +54,17 @@ export type WindowSizePreset = {
 export const WINDOW_SIZE_PRESETS: readonly WindowSizePreset[] = [
   {
     id: 'default',
-    label: '1280 × 860',
-    description: '默认工作尺寸，适合多数笔记本',
-    width: 1280,
-    height: 860,
+    label: '1440 × 900',
+    description: '默认工作尺寸，适合日常使用',
+    width: 1440,
+    height: 900,
   },
   {
     id: 'comfort',
-    label: '1440 × 900',
-    description: '更宽的日常视图',
-    width: 1440,
-    height: 900,
+    label: '1280 × 860',
+    description: '适合较小笔记本',
+    width: 1280,
+    height: 860,
   },
   {
     id: 'large',

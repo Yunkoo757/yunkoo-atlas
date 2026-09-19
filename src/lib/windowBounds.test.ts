@@ -89,8 +89,14 @@ export function testNormalizeWindowStateFallsBackToDefaults(): void {
 }
 
 export function testMatchWindowSizePresetRecognizesExactAndMaximized(): void {
+  assert.equal(DEFAULT_WINDOW_BOUNDS.width, 1440)
+  assert.equal(DEFAULT_WINDOW_BOUNDS.height, 900)
   assert.equal(
     matchWindowSizePreset({ width: 1440, height: 900, isMaximized: false }),
+    'default',
+  )
+  assert.equal(
+    matchWindowSizePreset({ width: 1280, height: 860, isMaximized: false }),
     'comfort',
   )
   assert.equal(

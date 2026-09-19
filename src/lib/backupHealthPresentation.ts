@@ -44,6 +44,7 @@ export function presentBackupHealth(
   return { tone: 'positive', title: '最新备份可用', detail: '', action: 'none', latest, lastVerified: latest }
 }
 
+/** 侧栏只报备份失败或最新备份不可用；尚未备份、未验证留在设置页。 */
 export function shouldSurfaceBackupHealth(presentation: BackupHealthPresentation): boolean {
-  return presentation.action !== 'none'
+  return presentation.tone === 'warning' || presentation.tone === 'danger'
 }

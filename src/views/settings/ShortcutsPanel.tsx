@@ -206,6 +206,7 @@ export function ShortcutsPanel() {
                               setRecordingId(null)
                               if (
                                 windowHotkeyState?.registered &&
+                                action.defaultBinding &&
                                 !isSequence(action.defaultBinding) &&
                                 chordsEqual(action.defaultBinding, windowHotkeyState.binding)
                               ) {

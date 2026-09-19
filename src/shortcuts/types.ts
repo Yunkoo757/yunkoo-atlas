@@ -23,8 +23,8 @@ export interface ShortcutActionMeta {
   label: string
   category: string
   scope: ShortcutScope
-  /** 默认绑定；序列键 v1 不可在设置页修改 */
-  defaultBinding: ShortcutBinding
+  /** 默认绑定；null 表示出厂未设置。序列键 v1 不可在设置页修改 */
+  defaultBinding: ShortcutBinding | null
   /** 为 true 时输入框聚焦时仍可触发（如 Escape） */
   allowWhenTyping?: boolean
   /** 序列键固定，设置页只读 */

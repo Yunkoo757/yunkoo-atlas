@@ -115,6 +115,7 @@ export async function testTradeWorkspaceKindUsesSharedSegmentedControl(): Promis
 
   assert(source.includes("import { SegmentedControl } from '@/components/ui/SegmentedControl'"), '阶段盘型必须复用共享分段控件')
   assert(source.includes('className="trade-workspace-scope-kinds"'), '阶段盘型必须保留稳定布局入口')
+  assert(source.includes('trade-workspace-schedule-hint'), '未到期预约必须落在阶段范围旁，而不是壳层横幅')
   assert(!css.includes('.trade-workspace-scope-kinds button'), '阶段盘型不得再维护独立按钮视觉规则')
 }
 

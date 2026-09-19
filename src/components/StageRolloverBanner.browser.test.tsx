@@ -148,7 +148,7 @@ async function run(): Promise<void> {
     assert(text().includes('阶段切换已顺延至 9月7日'), '顺延 banner 必须展示新的有效日期')
     assert(text().includes('计划中 2 笔将保留在原阶段'), '顺延 banner 必须展示计划记录归属')
     assert(text().includes('持仓中 1 笔'), '顺延 banner 必须展示持仓数量')
-    assert(text().includes('周复盘可稍后补做'), '顺延 banner 必须说明周复盘不再阻止切换')
+    assert(!text().includes('周复盘可稍后补做'), '周复盘说明不得进入工作台横幅')
     assert(text().includes('处理阻断项后将在新的生效日重试'), '阻断不得静默取消预约')
 
     const create = button('新建交易')
@@ -160,6 +160,19 @@ async function run(): Promise<void> {
     assert(Boolean(document.querySelector('[data-stage-rollover-banner]')), 'banner 必须位于跨页面 app shell 中持续存在')
     assert(text().includes('阶段切换已顺延至 9月7日'), '路由切换后 banner 不得消失')
     assert(document.documentElement.scrollWidth <= document.documentElement.clientWidth, '桌面宽度不得产生横向溢出')
+
+    useStore.setState({
+      scheduledStageRollover: {
+        id: 'rollover-quiet',
+        requestedAt: '2026-08-28T00:00:00.000Z',
+        effectiveWeekStart: '2026-09-21',
+        postponedCount: 0,
+      },
+    })
+    await waitFor(
+      () => !document.querySelector('[data-stage-rollover-banner]'),
+      '未到期且未顺延的预约不得常驻工作台横幅',
+    )
   } finally {
     root.unmount()
     useStore.setState(previous)

@@ -12,6 +12,7 @@
   display: flex;
   min-width: 0;
   align-items: center;
+  gap: var(--space-control-gap);
 }
 
 .trade-workspace-stage .ui-select-trigger {
@@ -60,6 +61,37 @@
   .trade-workspace-context {
     padding-inline: var(--sp-2);
   }
+}
+
+.trade-workspace-scope-cluster {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-control-gap);
+}
+
+.trade-workspace-schedule-hint {
+  flex: 0 0 auto;
+  height: var(--toolbar-chip-height);
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--radius-6);
+  color: var(--text-tertiary);
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.trade-workspace-schedule-hint:hover,
+.trade-workspace-schedule-hint:focus-visible {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
 }
 
 .trade-workspace-scope {

@@ -9,6 +9,7 @@ import {
   listStageRolloverBlockers,
   postponeStageRollover,
   scheduleStageRollover,
+  shouldSurfaceStageRolloverBanner,
   type StageRolloverState,
 } from '@/lib/stageRollover'
 
@@ -188,12 +189,29 @@ export function testCaseRecordsNeverCreatePlannedOrOpenRolloverBlockers(): void 
   )
 }
 
+export function testQuietScheduleDoesNotSurfaceTheWorkbenchBanner(): void {
+  const upcoming = scheduled()
+  assert(
+    shouldSurfaceStageRolloverBanner(upcoming, '2026-08-28') === false,
+    '未到期且未顺延的预约不得占用工作台横幅',
+  )
+  assert(
+    shouldSurfaceStageRolloverBanner(upcoming, '2026-08-31') === true,
+    '生效日当天必须显示横幅',
+  )
+  assert(
+    shouldSurfaceStageRolloverBanner({ ...upcoming, postponedCount: 1, effectiveWeekStart: '2026-09-07' }, '2026-09-01') === true,
+    '已顺延即使尚未到期也必须显示横幅',
+  )
+  assert(shouldSurfaceStageRolloverBanner(null, '2026-08-31') === false, '没有预约不得显示横幅')
+}
+
 export function testCurrentBlockersCanBeShownBeforeTheScheduleIsDue(): void {
   const state = blockedState()
   const blockers = listStageRolloverBlockers(state, state.scheduledStageRollover!.effectiveWeekStart)
   assert(
     blockers.map((item) => item.code).join(',') === 'open-trades',
-    '预约确认与未到期 banner 必须只把持仓显示为阻断项',
+    '预约确认弹窗必须只把持仓显示为阻断项',
   )
 }
 

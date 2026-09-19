@@ -66,6 +66,12 @@ async function run(): Promise<void> {
         { id: 'stage-current', sequence: 2, name: '当前阶段', status: 'current', startsOn: '2026-07-01', endsOn: null, createdAt: '2026-07-01T00:00:00.000Z', archivedAt: null },
       ],
       currentLiveStageId: 'stage-current',
+      scheduledStageRollover: {
+        id: 'quiet-schedule',
+        requestedAt: '2026-08-28T00:00:00.000Z',
+        effectiveWeekStart: '2099-01-05',
+        postponedCount: 0,
+      },
       display: {
         ...previous.display,
         sidebarWorkspaceItems: [{
@@ -113,6 +119,13 @@ async function run(): Promise<void> {
     )
     const scopeTrigger = document.querySelector<HTMLButtonElement>('[data-workspace-compact] > button')
     assert(scopeTrigger?.textContent?.includes('第二阶段 · 实盘'), '紧凑范围按钮必须同时表达阶段与记录类型')
+    const scheduleHint = [...document.querySelectorAll('button')].find((button) => button.textContent?.includes('已预约'))
+    assert(scheduleHint?.textContent?.includes('1月5日'), '未到期预约必须作为范围旁的弱提示')
+    assert(!document.querySelector('[data-stage-rollover-banner]'), '未到期预约不得再占壳层横幅')
+    scheduleHint?.click()
+    await waitFor(() => Boolean(document.querySelector('[data-live-stage-manager]')), '弱提示必须打开阶段管理')
+    ;[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === '关闭')?.click()
+    await waitFor(() => !document.querySelector('[data-live-stage-manager]'), '阶段管理关闭失败')
     assert(
       !document.querySelector('[data-sidebar-workspace-id="system:paper"]'),
       '模拟属于交易日志内部类型切换，侧栏不得重复显示模拟盘入口',

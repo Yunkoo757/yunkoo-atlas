@@ -150,6 +150,15 @@ export function inspectDueStageRollover(
     : { kind: 'eligible', scheduled }
 }
 
+/** 未到期的正常预约不占壳层；顺延或已到生效日才需要工作台横幅。 */
+export function shouldSurfaceStageRolloverBanner(
+  scheduled: ScheduledStageRollover | null,
+  currentTradingDayKey: string,
+): boolean {
+  if (!scheduled) return false
+  return scheduled.postponedCount > 0 || currentTradingDayKey >= scheduled.effectiveWeekStart
+}
+
 export function postponeStageRollover(
   scheduled: ScheduledStageRollover,
   currentTradingDayKey: string,

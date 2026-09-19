@@ -67,13 +67,11 @@ export function bindingsForPersist(
     const b = bindings[action.id]
     const def = action.defaultBinding
     if (b === null) {
-      out[action.id] = null
+      if (def !== null) out[action.id] = null
       continue
     }
     if (b === undefined) continue
-    const same =
-      (isSequence(b) && isSequence(def) && JSON.stringify(b) === JSON.stringify(def)) ||
-      (!isSequence(b) && !isSequence(def) && JSON.stringify(b) === JSON.stringify(def))
+    const same = def !== null && JSON.stringify(b) === JSON.stringify(def)
     if (!same) out[action.id] = b
   }
   return out

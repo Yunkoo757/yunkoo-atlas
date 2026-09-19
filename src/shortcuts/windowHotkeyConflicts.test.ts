@@ -9,7 +9,7 @@ function assert(condition: unknown, message: string): void {
 }
 
 export function testSystemHotkeyConflictsAcrossAllShortcutScopes(): void {
-  const conflicts = findWindowHotkeyConflicts({ mod: true, key: 'k' }, {})
+  const conflicts = findWindowHotkeyConflicts({ key: 't' }, {})
 
   assert(
     conflicts.some((item) => item.id === 'global.commandPaletteMod'),
