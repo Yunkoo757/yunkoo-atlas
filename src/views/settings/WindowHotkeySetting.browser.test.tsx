@@ -192,7 +192,10 @@ async function run(): Promise<void> {
     )]
     assert(loadingStatus?.textContent?.includes('正在读取'), '系统键加载期间必须显示可访问状态')
     assert(loadingResetAll?.disabled, '系统键加载期间恢复全部默认必须禁用')
-    assert(loadingResetAll.title.includes('正在读取系统快捷键'), '恢复全部默认必须解释禁用原因')
+    assert(
+      loadingResetAll.getAttribute('aria-label')?.includes('正在读取系统快捷键') === true,
+      '恢复全部默认必须解释禁用原因',
+    )
     assert(loadingCaptures.length > 0, '测试夹具缺少普通快捷键录制入口')
     assert(loadingCaptures.every((button) => button.disabled), '系统键加载期间普通录制入口必须禁用')
     assert(
@@ -202,8 +205,8 @@ async function run(): Promise<void> {
     assert(loadingRestores.length > 0, '测试夹具缺少单项恢复入口')
     assert(loadingRestores.every((button) => button.disabled), '系统键加载期间单项恢复必须禁用')
     assert(
-      loadingRestores.every((button) => button.title.includes('正在读取系统快捷键')),
-      '单项恢复必须用 title 解释禁用原因',
+      loadingRestores.every((button) => button.getAttribute('aria-label')?.includes('正在读取系统快捷键')),
+      '单项恢复必须用 aria-label 解释禁用原因',
     )
     const loadingBindings = JSON.stringify(useShortcutStore.getState().bindings)
     loadingResetAll.click()
@@ -244,7 +247,7 @@ async function run(): Promise<void> {
       () => !document.querySelector('.shortcuts-capture[aria-pressed="true"]'),
       '普通快捷键录制成功后状态未退出',
     )
-    useShortcutStore.setState({ bindings: {} })
+    useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': { mod: true, key: 'k' } } })
 
     const pendingSuccess = deferredUpdate()
     nextSet = pendingSuccess
@@ -283,12 +286,12 @@ async function run(): Promise<void> {
     useToast.getState().dismiss()
     clickButton('恢复全部默认')
     await eventually(
-      () => useShortcutStore.getState().bindings['global.commandPaletteMod'] === null,
-      '恢复默认必须保留系统热键冲突为禁用',
+      () => useShortcutStore.getState().bindings['global.commandPaletteMod'] === undefined,
+      '恢复默认必须回到原厂 T，不再与 Ctrl+K 系统键冲突',
     )
-    assert(useToast.getState().message?.includes('系统快捷键占用'), '恢复默认必须报告因系统热键占用而保留禁用')
+    assert(useToast.getState().message === '已恢复全部默认快捷键', '无冲突时恢复默认不得误报系统热键占用')
 
-    useShortcutStore.setState({ bindings: {} })
+    useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': { mod: true, key: 'k' } } })
     const callCountBeforeCancel = calls.length
     nextSet = 'success'
     await recordSystemChord({ ctrlKey: true, key: 'k' })
@@ -301,7 +304,7 @@ async function run(): Promise<void> {
     await eventually(() => !!document.querySelector('.window-hotkey-reset'), '需要恢复时应显示恢复默认')
     clickButton('恢复默认')
     await eventually(() => calls.at(-1) === 'ipc:reset', '系统快捷键恢复默认未调用 IPC')
-    useShortcutStore.setState({ bindings: {} })
+    useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': { mod: true, key: 'k' } } })
     useToast.getState().dismiss()
     nextSet = 'failure'
     await recordSystemChord({ ctrlKey: true, key: 'k' })
@@ -385,30 +388,19 @@ async function run(): Promise<void> {
     await eventually(() => !document.querySelector('[role="dialog"]'), '系统恢复默认失败后弹层未关闭')
     useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': null } })
     useToast.getState().dismiss()
-    nextSet = 'success'
-    await recordSystemChord({ ctrlKey: true, key: 'k' })
     await eventually(
-      () => document.querySelector('[data-window-hotkey-capture]')
-        ?.getAttribute('aria-label')?.includes('Ctrl+K') === true,
-      '单项恢复场景未把系统快捷键切换为 Ctrl+K',
-    )
-    assert(
-      useShortcutStore.getState().bindings['global.commandPaletteMod'] === null,
-      '单项恢复前普通 Ctrl+K 动作必须保持显式禁用',
+      () => Boolean(document.querySelector('button[aria-label="恢复命令面板（Ctrl+K）的默认快捷键"]')),
+      '缺少命令面板的单项恢复按钮',
     )
     const restoreCommandPalette = document.querySelector<HTMLButtonElement>(
       'button[aria-label="恢复命令面板（Ctrl+K）的默认快捷键"]',
     )
-    assert(restoreCommandPalette, '缺少命令面板 Ctrl+K 的单项恢复按钮')
     restoreCommandPalette.click()
     await eventually(
-      () => useToast.getState().message === '该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键',
-      '单项恢复撞系统键时必须给出拒绝原因',
+      () => useShortcutStore.getState().bindings['global.commandPaletteMod'] === undefined,
+      '原厂默认 T 不与当前系统键冲突，单项恢复必须成功',
     )
-    assert(
-      useShortcutStore.getState().bindings['global.commandPaletteMod'] === null,
-      '单项恢复不得删除系统键冲突的 null 覆盖',
-    )
+    assert(useToast.getState().message === '已恢复默认', '单项恢复成功必须提示已恢复默认')
   } finally {
     root?.unmount()
     useShortcutStore.setState({ bindings: originalBindings })

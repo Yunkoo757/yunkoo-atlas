@@ -97,7 +97,7 @@ async function run(): Promise<void> {
       bindings: {
         ...previousShortcuts.bindings,
         'nav.list': { key: 'a' },
-        'nav.dashboard': { key: 'd' },
+        'nav.dashboard': { key: 'e' },
       },
       listContext: {
         listPath: '/list',
@@ -216,7 +216,7 @@ async function run(): Promise<void> {
         filter: { type: 'all', tradeKind: 'case' },
       },
     })
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', bubbles: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'e', bubbles: true }))
     await waitFor(
       () => document.querySelector('[data-testid="location"]')?.textContent ===
         '/dashboard?liveStage=all',
@@ -228,7 +228,7 @@ async function run(): Promise<void> {
         '/list?liveStage=all',
       '从统计分析按 A 返回交易日志时必须保留阶段并清除临时筛选',
     )
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', bubbles: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'e', bubbles: true }))
     await waitFor(
       () => document.querySelector('[data-testid="location"]')?.textContent ===
         '/dashboard?liveStage=all',
@@ -238,7 +238,7 @@ async function run(): Promise<void> {
     await waitFor(
       () => document.querySelector('[data-testid="location"]')?.textContent ===
         '/list?liveStage=all',
-      '重复使用 A / D 后仍必须恢复阶段范围且不恢复临时筛选',
+      '重复使用 A / E 后仍必须恢复阶段范围且不恢复临时筛选',
     )
   } finally {
     root.unmount()
