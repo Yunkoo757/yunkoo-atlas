@@ -100,10 +100,10 @@ export function JudgmentDeskView() {
     <div className="jd-scroll" ref={scrollRef} onScroll={event => { scrollTop.current = event.currentTarget.scrollTop }}><div className="jd-rail">
       <div className="jd-heading"><div className="jd-topic"><Select ariaLabel="当前主题" value={theme?.id ?? ''} options={data.themes.map(t => ({ value: t.id, label: t.title }))} onValueChange={id => {
         setTraining(false); setComparing(false); setImageIndex(0); update(d => ({ ...d, currentThemeId: id, currentSampleId: d.samples.find(s => s.themeId === id)?.id ?? null }))
-      }} placeholder="选择研究主题" /></div>
-        <Menu align="right" trigger={<Button aria-label="主题选项"><MoreHorizontal size={ICON_MD} /></Button>} options={[...theme && !blind ? [{ value: 'theme', label: '当前认识' }] : [], { value: 'newTheme', label: '新建主题' }]} onSelect={value => setModal(value === 'theme' ? 'theme' : 'newTheme')} />
+      }} placeholder="选择主题" />{theme && !blind && <Button onClick={() => setModal('theme')}>当前口径</Button>}</div>
+        <Menu align="right" trigger={<Button aria-label="主题选项"><MoreHorizontal size={ICON_MD} /></Button>} options={[{ value: 'newTheme', label: '新建主题' }]} onSelect={() => setModal('newTheme')} />
       </div>
-      {!sample ? <div className="jd-empty"><h2>{theme ? '从一组有疑问的图开始' : '想弄清哪条规则的边界？'}</h2><p>{theme ? '收图上传或粘贴，也可在案例、日志图片上右键收录。' : '新建一个主题，再收录你想反复对照的图。'}</p></div> : <>
+      {!sample ? <div className="jd-empty"><h2>{theme ? '从一组有疑问的图开始' : '新建一个判断主题'}</h2><p>{theme ? '收图上传或粘贴，也可在案例、日志图片上右键收录。' : '新建一个主题，再收录你想反复对照的图。'}</p></div> : <>
         <div className="jd-heading jd-sample-heading"><div className="jd-wrap jd-title-source"><h2 title={!blind ? sample.title : undefined}>{training ? '主题复盘' : sample.title || `素材 ${index + 1}`}</h2>{!blind && <SourceLink sourceTradeId={image?.sourceTradeId} />}</div>
           <div className="jd-row">{training ? <Button onClick={() => { setTraining(false); setResultId(null) }}>结束复盘</Button> : <><Button disabled={samples.length < 2} onClick={() => { setComparing(v => !v); setActiveSide('A'); setOtherImageIndex(0); setOtherId(samples.find(s => s.id !== sample.id)?.id ?? '') }}>{comparing ? '结束对照' : '对照'}</Button><Button title="随机复盘当前主题，每组素材一次" onClick={start}>随机复盘</Button></>}
           {!training && <Menu align="right" trigger={<Button aria-label="素材选项"><MoreHorizontal size={ICON_MD} /></Button>} options={[
@@ -136,7 +136,7 @@ export function JudgmentDeskView() {
     {modal === 'order' && sample && <ImageOrderEditor sample={sample} onClose={() => { setModal(null); setImageIndex(0) }} />}
     {modal === 'history' && sample && <ModalShell title="复盘历史" onClose={() => setModal(null)}><div className="jd-fields">
       {!history.length && <p className="jd-muted">暂无复盘记录</p>}
-      {history.slice(historyPage * 10, (historyPage + 1) * 10).map(a => <article key={a.id} className="jd-history"><div>{new Date(a.at).toLocaleString()} · {JUDGMENT_LABELS[a.answer]}</div><p className="jd-muted">{attemptComparison(a)}</p><details><summary>查看当时依据</summary><p className="jd-prose">{a.understanding || '当时尚未填写当前认识'}</p><p>{a.reference ? `参考：${JUDGMENT_LABELS[a.reference.answer]}${a.reference.needsReview ? '（待确认，未用于比较）' : ''}` : '当时没有参考判断'}</p>{a.reference?.reason && <p className="jd-prose">{a.reference.reason}</p>}</details></article>)}
+      {history.slice(historyPage * 10, (historyPage + 1) * 10).map(a => <article key={a.id} className="jd-history"><div>{new Date(a.at).toLocaleString()} · {JUDGMENT_LABELS[a.answer]}</div><p className="jd-muted">{attemptComparison(a)}</p><details><summary>查看当时依据</summary><p className="jd-prose">{a.understanding || '当时尚未填写当前口径'}</p><p>{a.reference ? `参考：${JUDGMENT_LABELS[a.reference.answer]}${a.reference.needsReview ? '（待确认，未用于比较）' : ''}` : '当时没有参考判断'}</p>{a.reference?.reason && <p className="jd-prose">{a.reference.reason}</p>}</details></article>)}
       {history.length > 10 && <div className="jd-row"><Button disabled={!historyPage} onClick={() => setHistoryPage(p => p - 1)}>上一页</Button><Button disabled={(historyPage + 1) * 10 >= history.length} onClick={() => setHistoryPage(p => p + 1)}>下一页</Button></div>}
     </div></ModalShell>}
     {modal === 'remove' && sample && <ModalShell title="移除这组判断素材？" description="同时移除它的重判记录。交易、案例及其他素材引用的原图会保留。" onClose={() => setModal(null)} footer={<><Button onClick={() => setModal(null)}>取消</Button><Button variant="danger-solid" onClick={() => { update(d => ({ ...d, samples: d.samples.filter(s => s.id !== sample.id), attempts: d.attempts.filter(a => a.sampleId !== sample.id), currentSampleId: null })); setModal(null); setTraining(false); setComparing(false) }}>移除</Button></>} />}
@@ -165,19 +165,20 @@ function ThemeEditor({ theme, onClose }: { theme?: JudgmentTheme; onClose: () =>
   const update = useStore(s => s.updateJudgmentDesk), samples = useStore(s => s.judgmentDesk.samples)
   const [title, setTitle] = useState(theme?.title ?? ''), [note, setNote] = useState(theme?.understanding ?? '')
   const [changed, setChanged] = useState(false), [selected, setSelected] = useState<string[]>([]), [error, setError] = useState('')
+  const titleInput = useRef<HTMLInputElement>(null)
   const referenced = samples.filter(s => s.themeId === theme?.id && s.reference)
-  return <DraftModal dirty={title !== (theme?.title ?? '') || note !== (theme?.understanding ?? '') || (changed && selected.length > 0)} title={theme ? '当前认识' : '新建主题'} onClose={onClose} footer={<><Button variant="primary" onClick={() => {
-    if (!title.trim()) { setError('请写下你想研究的问题'); return }
+  return <DraftModal dirty={title !== (theme?.title ?? '') || note !== (theme?.understanding ?? '') || (changed && selected.length > 0)} title={theme ? '当前口径' : '新建主题'} onClose={onClose} footer={<><Button variant="primary" onClick={() => {
+    if (!title.trim()) { setError('请输入主题名称'); titleInput.current?.focus(); return }
     const id = theme?.id ?? crypto.randomUUID()
     update(d => ({ ...d, themes: theme ? d.themes.map(t => t.id === id ? { ...t, title: title.trim(), understanding: note } : t) : [...d.themes, { id, title: title.trim(), understanding: note }],
       samples: changed ? d.samples.map(s => selected.includes(s.id) && s.reference ? { ...s, reference: { ...s.reference, needsReview: true } } : s) : d.samples,
       currentThemeId: id, currentSampleId: theme ? d.currentSampleId : null,
     })); onClose()
   }}>保存</Button></>}><div className="jd-fields">
-    <label className="jd-field">研究问题<input value={title} onChange={e => setTitle(e.target.value)} placeholder="什么样的 POI 属于 4H 决策 POI？" aria-invalid={!!error} /></label>
-    {error && <p className="jd-error" role="alert">{error}</p>}
-    <label className="jd-field">当前认识<textarea rows={6} value={note} onChange={e => setNote(e.target.value)} placeholder="先用自己的话留一句，不必一次写成完整规则。" /></label>
-    {!!referenced.length && <label className="jd-check"><input type="checkbox" checked={changed} onChange={e => setChanged(e.target.checked)} />判定标准有变化</label>}
+    <label className="jd-field">主题名称<input ref={titleInput} value={title} onChange={e => { setTitle(e.target.value); setError('') }} placeholder="例如：4H 决策POI" aria-invalid={!!error} aria-describedby={error ? 'jd-theme-title-error' : undefined} /></label>
+    {error && <p id="jd-theme-title-error" className="jd-error" role="alert">{error}</p>}
+    <label className="jd-field">当前口径（可选）<textarea rows={6} value={note} onChange={e => setNote(e.target.value)} placeholder="什么算、什么不算、还有哪里没确定。" /></label>
+    {!!referenced.length && <label className="jd-check"><input type="checkbox" checked={changed} onChange={e => setChanged(e.target.checked)} />判定口径有变化</label>}
     {changed && <><p className="jd-muted">选择需要重新确认参考判断的素材。过去的记录保留当时依据。</p><Button onClick={() => setSelected(referenced.map(s => s.id))}>全选</Button>{referenced.map((s, i) => <label className="jd-check" key={s.id}><input type="checkbox" checked={selected.includes(s.id)} onChange={e => setSelected(old => e.target.checked ? [...old, s.id] : old.filter(id => id !== s.id))} />{s.title || `素材 ${i + 1}`}</label>)}</>}
   </div></DraftModal>
 }
@@ -201,8 +202,8 @@ function SampleEditor({ sample, onClose }: { sample: JudgmentSample; onClose: ()
   }}>保存</Button></>}><div className="jd-fields">
     <label className="jd-field">素材名称<input value={title} onChange={e => setTitle(e.target.value)} /></label>
     <label className="jd-field">这次看到了什么<textarea rows={4} value={note} onChange={e => setNote(e.target.value)} /></label>
-    <div className="jd-field"><span>参考判断（由你确定）</span><Select ariaLabel="参考判断" value={reference} onValueChange={setReference} options={[{ value: '', label: '暂不设置' }, { value: 'yes', label: '倾向是' }, { value: 'no', label: '倾向不是' }]} /></div>
+    <div className="jd-field"><span>参考判断（由你确定）</span><Select ariaLabel="参考判断" value={reference} onValueChange={setReference} options={[{ value: '', label: '暂不设置' }, { value: 'yes', label: '是' }, { value: 'no', label: '否' }]} /></div>
     {!!reference && <label className="jd-field">依据（可选）<textarea rows={3} value={reason} onChange={e => setReason(e.target.value)} /></label>}
-    {sample.reference?.needsReview && !!reference && <label className="jd-check"><input type="checkbox" checked={confirm} onChange={e => setConfirm(e.target.checked)} />已按当前标准重新确认</label>}
+    {sample.reference?.needsReview && !!reference && <label className="jd-check"><input type="checkbox" checked={confirm} onChange={e => setConfirm(e.target.checked)} />已按当前口径重新确认</label>}
   </div></DraftModal>
 }

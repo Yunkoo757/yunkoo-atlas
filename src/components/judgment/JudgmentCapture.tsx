@@ -67,8 +67,8 @@ export default function JudgmentCapture({ initial, onClose }: { initial?: ImageR
   }
   return <ModalShell title="收图" size="wide" busy={busy} onClose={onClose} footer={<><span className="jd-muted">已选 {chosen.length + files.length} 张</span><Button onClick={onClose}>取消</Button><Button variant="primary" busy={busy} onClick={() => void save()}>{committed.current ? '重试保存' : '收录'}</Button></>}>
     <div className="jd-fields">
-      <div className="jd-field"><span>研究主题</span><Select ariaLabel="研究主题" value={themeId} options={[...data.themes.map(t => ({ value: t.id, label: t.title })), { value: '', label: '新建主题…' }]} onValueChange={setThemeId} disabled={committed.current} /></div>
-      {!themeId && <label className="jd-field">新主题<input ref={input} value={newTheme} disabled={committed.current} onChange={e => setNewTheme(e.target.value)} placeholder="例如：什么样的 POI 属于 4H 决策 POI？" /></label>}
+      <div className="jd-field"><span>主题</span><Select ariaLabel="主题" value={themeId} options={[...data.themes.map(t => ({ value: t.id, label: t.title })), { value: '', label: '新建主题…' }]} onValueChange={setThemeId} disabled={committed.current} /></div>
+      {!themeId && <label className="jd-field">新主题<input ref={input} value={newTheme} disabled={committed.current} onChange={e => setNewTheme(e.target.value)} placeholder="例如：4H 决策POI" /></label>}
       <input aria-label="素材名称（可选）" value={title} disabled={committed.current} onChange={e => setTitle(e.target.value)} placeholder="素材名称（可选）" />
       {record && <span className="jd-muted">{record.tradeKind === 'case' ? '案例' : '交易'} · {record.ref} · {record.symbol}</span>}
       {initial ? <>

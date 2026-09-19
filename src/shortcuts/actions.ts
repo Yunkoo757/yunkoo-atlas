@@ -5,9 +5,9 @@ import { PRIMARY_NAV_LABELS } from '@/lib/sidebarNavContract'
 /** 动作名称与作用域在此维护；默认绑定统一来自版本化配置档案。 */
 export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   { id: 'nav.judgmentDesk', label: '判断台', category: '导航', scope: 'navigation', defaultBinding: getDefaultShortcutBinding('nav.judgmentDesk') },
-  { id: 'judgment.yes', label: '倾向是', category: '判断台', scope: 'judgmentDesk', defaultBinding: getDefaultShortcutBinding('judgment.yes') },
-  { id: 'judgment.no', label: '倾向不是', category: '判断台', scope: 'judgmentDesk', defaultBinding: getDefaultShortcutBinding('judgment.no') },
-  { id: 'judgment.uncertain', label: '拿不准', category: '判断台', scope: 'judgmentDesk', defaultBinding: getDefaultShortcutBinding('judgment.uncertain') },
+  { id: 'judgment.yes', label: '是', category: '判断台', scope: 'judgmentDesk', defaultBinding: getDefaultShortcutBinding('judgment.yes') },
+  { id: 'judgment.no', label: '否', category: '判断台', scope: 'judgmentDesk', defaultBinding: getDefaultShortcutBinding('judgment.no') },
+  { id: 'judgment.uncertain', label: '待定', category: '判断台', scope: 'judgmentDesk', defaultBinding: getDefaultShortcutBinding('judgment.uncertain') },
   { id: 'judgment.prev', label: '上一个素材', category: '判断台', scope: 'judgmentDesk', defaultBinding: getDefaultShortcutBinding('judgment.prev') },
   { id: 'judgment.next', label: '下一个素材', category: '判断台', scope: 'judgmentDesk', defaultBinding: getDefaultShortcutBinding('judgment.next') },
   { id: 'judgment.prevImage', label: '上一张图', category: '判断台', scope: 'judgmentDesk', defaultBinding: getDefaultShortcutBinding('judgment.prevImage') },

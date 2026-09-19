@@ -1,5 +1,5 @@
 import type { Judgment, JudgmentAttempt, JudgmentDeskData } from './model'
-export const JUDGMENT_LABELS: Record<Judgment, string> = { yes: '倾向是', no: '倾向不是', uncertain: '拿不准' }
+export const JUDGMENT_LABELS: Record<Judgment, string> = { yes: '是', no: '否', uncertain: '待定' }
 export function recordJudgment(data: JudgmentDeskData, sampleId: string, value: Judgment, attemptId: string, at: string): JudgmentDeskData {
   const sample = data.samples.find(s => s.id === sampleId)
   if (!sample || data.attempts.some(a => a.id === attemptId)) return data

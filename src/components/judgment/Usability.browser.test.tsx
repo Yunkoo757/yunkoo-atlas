@@ -39,7 +39,7 @@ async function run() {
     await waitFor(() => document.querySelector('a'), '来源未打开')
     document.querySelector<HTMLAnchorElement>('a')!.click()
     await waitFor(() => panels().length === 2 && panels().every(p => p.textContent?.includes('图 2 / 2')), '返回来源后丢失图片页码或对照状态')
-    await click('参考：倾向是')
+    await click('参考：是')
     assert(document.querySelector('.jd-reference-details')?.textContent?.includes('已有依据'), '依据应可直接阅读')
     await click('编辑备注与参考判断')
     const note = document.querySelector<HTMLTextAreaElement>('textarea')!
