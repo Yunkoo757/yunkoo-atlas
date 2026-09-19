@@ -6,6 +6,9 @@
   margin-bottom: var(--space-section-gap);
 }
 
+.shortcuts-search { display:flex; align-items:center; gap:var(--space-control-gap); margin-bottom:var(--space-section-gap); }
+.shortcuts-search input { flex:1; min-width:0; }
+
 .shortcuts-panel-head .settings-page-title {
   margin-bottom: 0;
 }

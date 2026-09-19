@@ -102,7 +102,7 @@
   transition: opacity var(--motion-dialog-out) var(--ease-out);
 }
 
-.img-lightbox-overlay:not(.is-open) .img-lightbox-chrome { opacity: 0; }
+.img-lightbox-overlay.is-closing .img-lightbox-chrome { opacity: 0; }
 .img-lightbox-chrome > * { pointer-events: auto; }
 
 .img-lightbox-toolbar {

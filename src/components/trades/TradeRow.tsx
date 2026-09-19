@@ -7,7 +7,7 @@ import { StatusIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import type { StrategyPreviewStats } from '@/components/RowPreviews'
 import { SelectionBox } from '@/components/ui/SelectionBox'
-import { fmtDate } from '@/lib/format'
+import { fmtDate, fmtFullDateTime } from '@/lib/format'
 import {
   buildTradeRowAccessibleLabel,
   buildTradeRowContext,
@@ -164,7 +164,7 @@ export const TradeRow = memo(function TradeRow({
           {result.r.text}
         </span>
       }
-      date={date}
+      date={<Tooltip asChild content={<>{trade.ref}<br />{isCase && trade.sourceTradeId ? '来源日期' : '记录日期'}：{fmtFullDateTime(trade.openedAt)}{isCase && trade.recordedAt && <><br />收录日期：{fmtFullDateTime(trade.recordedAt)}</>}</>} label={`${trade.ref}，${fmtFullDateTime(trade.openedAt)}`}><button type="button" className="trade-row-date-detail" aria-label={`${trade.ref}，${fmtFullDateTime(trade.openedAt)}`} onClick={() => onOpen(trade)}>{date}</button></Tooltip>}
       end={
         <Tooltip
           asChild

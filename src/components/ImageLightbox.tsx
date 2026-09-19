@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Maximize2, MoreHorizontal, X } from '@/icons
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useShortcutHint } from '@/shortcuts/useShortcutHint'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { Button } from '@/components/ui/Button'
 import {
   LIGHTBOX_VIEW_RESET,
   LIGHTBOX_ZOOM_STEP,
@@ -36,6 +37,12 @@ export function ImageLightbox() {
   const closeRef = useRef<HTMLButtonElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
+  const imageRef = useRef<HTMLImageElement>(null)
+  const layoutRef = useRef<LightboxImageLayout | null>(null)
+  const fittingRef = useRef(true)
+  const fitModesRef = useRef(new Map<string, boolean>())
+  const [failed, setFailed] = useState(false)
+  const [retry, setRetry] = useState(0)
   const closeTimerRef = useRef<number | null>(null)
   const [view, setView] = useState<LightboxView>(LIGHTBOX_VIEW_RESET)
   const viewsRef = useRef(new Map<string, LightboxView>())
@@ -79,6 +86,7 @@ export function ImageLightbox() {
   useLayoutEffect(() => {
     // 图片组或所属记录变化代表新的观察会话；仅切换索引时保留各图位置。
     viewsRef.current.clear()
+    fitModesRef.current.clear()
   }, [lightbox?.images, lightbox?.ownerId])
 
   useEffect(() => {
@@ -91,6 +99,9 @@ export function ImageLightbox() {
     setImageLayout(null)
     setTransition(null)
     setPhase('pending')
+    setFailed(false)
+    layoutRef.current = null
+    fittingRef.current = fitModesRef.current.get(imageSrc ?? '') ?? true
     dragRef.current = null
     suppressClickRef.current = false
     setDragging(false)
@@ -109,6 +120,9 @@ export function ImageLightbox() {
     if (!viewport || !lightbox) return
     const onWheelNative = (event: WheelEvent) => {
       event.preventDefault()
+      if (!layoutRef.current) return
+      fittingRef.current = false
+      if (imageSrc) fitModesRef.current.set(imageSrc, false)
       const rect = viewport.getBoundingClientRect()
       const cx = rect.left + rect.width / 2
       const cy = rect.top + rect.height / 2
@@ -122,12 +136,18 @@ export function ImageLightbox() {
   }, [lightbox, rememberView])
 
   const fitImage = useCallback(() => {
+    fittingRef.current = true
+    if (imageSrc) fitModesRef.current.set(imageSrc, true)
     rememberView(imageLayout
       ? { scale: imageLayout.fitScale, tx: 0, ty: 0 }
       : LIGHTBOX_VIEW_RESET)
-  }, [imageLayout, rememberView])
+  }, [imageLayout, rememberView, imageSrc])
 
-  const showActualSize = useCallback(() => rememberView(LIGHTBOX_VIEW_RESET), [rememberView])
+  const showActualSize = useCallback(() => {
+    fittingRef.current = false
+    if (imageSrc) fitModesRef.current.set(imageSrc, false)
+    rememberView(LIGHTBOX_VIEW_RESET)
+  }, [rememberView, imageSrc])
 
   useEffect(() => {
     if (!lightbox) return
@@ -156,12 +176,34 @@ export function ImageLightbox() {
       height: fitHeight,
     }
     setImageLayout(layout)
-    setView(viewsRef.current.get(imageSrc ?? '') ?? { scale: layout.fitScale, tx: 0, ty: 0 })
+    layoutRef.current = layout
+    setFailed(false)
+    setView(fittingRef.current ? { scale: layout.fitScale, tx: 0, ty: 0 } : viewsRef.current.get(imageSrc ?? '') ?? LIGHTBOX_VIEW_RESET)
     setTransition(lightbox?.origin
       ? calculateLightboxTransition(lightbox.origin, target, layout.fitScale)
       : null)
     requestAnimationFrame(() => requestAnimationFrame(() => setPhase('open')))
   }, [lightbox?.origin, imageSrc])
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport || !isVisible) return
+    const resize = () => {
+      const image = imageRef.current, previous = layoutRef.current
+      if (!image?.naturalWidth || !previous) return
+      const rect = viewport.getBoundingClientRect()
+      const layout = calculateLightboxImageLayout({ naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight, viewportWidth: rect.width, viewportHeight: rect.height, devicePixelRatio: window.devicePixelRatio })
+      layoutRef.current = layout
+      setImageLayout(layout)
+      rememberView(current => fittingRef.current
+        ? { scale: layout.fitScale, tx: 0, ty: 0 }
+        : { ...current, scale: current.scale * previous.width / layout.width })
+    }
+    const observer = new ResizeObserver(resize)
+    observer.observe(viewport)
+    window.addEventListener('resize', resize)
+    return () => { observer.disconnect(); window.removeEventListener('resize', resize) }
+  }, [isVisible, rememberView])
 
   useEffect(() => {
     if (!lightbox) return
@@ -188,8 +230,12 @@ export function ImageLightbox() {
     const dx = event.clientX - drag.startX
     const dy = event.clientY - drag.startY
     if (Math.hypot(dx, dy) > 3) drag.moved = true
+    if (drag.moved) {
+      fittingRef.current = false
+      if (imageSrc) fitModesRef.current.set(imageSrc, false)
+    }
     rememberView(panLightboxView(drag.origin, dx, dy))
-  }, [rememberView])
+  }, [rememberView, imageSrc])
 
   const endDrag = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current
@@ -268,16 +314,20 @@ export function ImageLightbox() {
             <span className="img-lightbox-loading-indicator" aria-hidden />
             <span>正在载入当前案例图片…</span>
           </div>
+        ) : failed ? (
+          <div className="img-lightbox-loading" role="alert" onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}><span>图片载入失败，请重试或返回来源检查附件。</span><Button onClick={() => { setFailed(false); setPhase('pending'); setRetry(value => value + 1) }}>重新载入</Button></div>
         ) : (
           <div className="img-lightbox-canvas" style={{ transform: lightboxViewTransform(view) }}>
             <div className="img-lightbox-transition" style={transitionStyle}>
               <img
-                key={src}
+                key={`${src}:${retry}`}
+                ref={imageRef}
                 src={src}
                 alt=""
                 className={'img-lightbox-img' + (imageLayout ? ' is-ready' : '')}
                 draggable={false}
                 onLoad={onImageLoad}
+                onError={() => { setFailed(true); setImageLayout(null); layoutRef.current = null; setPhase('open') }}
                 style={imageLayout ? { width: imageLayout.width, height: imageLayout.height } : undefined}
               />
             </div>
@@ -286,8 +336,9 @@ export function ImageLightbox() {
       </div>
 
       <div className="img-lightbox-chrome">
-        {!lightbox.loading && (
+        {(
           <div className="img-lightbox-toolbar">
+            {!lightbox.loading && !failed && imageLayout && <>
             <span className="img-lightbox-scale">{Math.round(view.scale * 100)}%</span>
             {hasMany && <span className="img-lightbox-counter">{lightbox.index + 1} / {lightbox.images.length}</span>}
             <Tooltip asChild content={resetShortcut ? `适合窗口 · ${resetShortcut}` : '适合窗口'} label="适合窗口">
@@ -309,6 +360,7 @@ export function ImageLightbox() {
               }}><MoreHorizontal size={ICON_SM} aria-hidden /></button>
             </Tooltip>
             <span className="img-lightbox-divider" aria-hidden />
+            </>}
             <Tooltip
               asChild
               content={closeShortcut ? `关闭预览 · ${closeShortcut}` : '关闭预览'}

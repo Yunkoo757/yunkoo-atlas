@@ -84,6 +84,32 @@ async function run() {
     useShortcutStore.getState().openLightbox(images, 0, 'first-case')
     await ready(0)
     assert(transform() === fit, '新一轮预览不应继承已结束会话的位置')
+    const viewport = document.querySelector<HTMLElement>('.img-lightbox-viewport')!
+    viewport.style.width = '480px'
+    await waitFor(() => transform() !== fit, '适合模式应随观察窗口缩小重新计算')
+    zoomAtOffset()
+    const scaled = transform()
+    await waitFor(() => transform() !== scaled, '用户缩放未生效')
+    const manual = transform()
+    viewport.style.width = '600px'
+    await new Promise(resolve => setTimeout(resolve, 100))
+    assert(transform() === manual, '窗口变化不应重置手动缩放和平移')
+    document.querySelector<HTMLButtonElement>('[aria-label="适合窗口"]')!.click()
+    await waitFor(() => transform() !== manual, '适合窗口应使用最新窗口尺寸')
+    useShortcutStore.getState().openLightbox(['data:image/png;base64,broken'], 0, 'broken-image')
+    await waitFor(() => Boolean(document.querySelector('.img-lightbox-loading[role="alert"]')), '失败图片必须显示可恢复状态')
+    const close = document.querySelector<HTMLButtonElement>('.img-lightbox-close')!
+    assert(getComputedStyle(close.closest('.img-lightbox-chrome')!).opacity === '1', '图片失败时关闭入口必须可见')
+    const retry = [...document.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent === '重新载入')!
+    assert(retry, '失败时必须提供重新载入')
+    let reachedCanvas = false
+    document.querySelector<HTMLElement>('.img-lightbox-viewport')!.setPointerCapture = () => { reachedCanvas = true }
+    retry.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }))
+    assert(!reachedCanvas, '重试按钮不得被画布拖拽捕获')
+    retry.click()
+    await waitFor(() => Boolean(document.querySelector('.img-lightbox-loading[role="alert"]')), '重试失败仍应允许关闭或再次重试')
+    close.click()
+    await waitFor(() => !document.querySelector('.img-lightbox-overlay'), '图片失败时关闭入口应可用')
   } finally {
     root.unmount()
     useShortcutStore.setState(previous, true)

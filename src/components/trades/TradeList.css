@@ -745,3 +745,5 @@ button.trade-row-symbol-main {
 .trade-row-context > button.trade-row-tag:active {
   background-color: var(--bg-selected);
 }
+
+.trade-row-date-detail { pointer-events:auto; padding:0; border:0; background:transparent; color:inherit; font:inherit; cursor:pointer; }

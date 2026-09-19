@@ -86,7 +86,7 @@
     "reviewSession.skip": { "key": "n" },
     "reviewSession.back": { "key": "p" },
     "reviewSession.exit": { "key": "escape" },
-    "nav.judgmentDesk": null,
+    "nav.judgmentDesk": { "key": "z" },
     "judgment.yes": { "key": "1" },
     "judgment.no": { "key": "2" },
     "judgment.uncertain": { "key": "3" },

@@ -2,6 +2,7 @@ import { ICON_SM } from '@/icons/iconSize'
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Ban, LockKeyhole, RotateCcw } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { Button } from '@/components/ui/Button'
 import type { WindowHotkeyState } from '@/lib/windowHotkeyBinding'
 import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import { formatBinding } from '@/shortcuts/format'
@@ -28,6 +29,7 @@ export function ShortcutsPanel() {
     (s) => s.resetAllBindingsForWindowHotkey,
   )
   const [recordingId, setRecordingId] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
   const [windowHotkeyState, setWindowHotkeyState] = useState<WindowHotkeyState | null>(null)
   const isElectron = window.journalBridge?.isElectron === true
   const windowHotkeyLoading = isElectron && windowHotkeyState === null
@@ -47,11 +49,14 @@ export function ShortcutsPanel() {
       const presentedAction = strategySlot
         ? { ...action, label: visibleStrategyNames[strategySlot - 1]! }
         : action
+      const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean)
+      const searchable = `${presentedAction.label} ${action.category} ${formatBinding(resolveBinding(action.id, bindings))}`.toLocaleLowerCase()
+      if (!words.every(word => searchable.includes(word))) continue
       if (!map.has(action.category)) map.set(action.category, [])
       map.get(action.category)!.push(presentedAction)
     }
     return [...map.entries()]
-  }, [sidebarWorkspaceItems, strategies])
+  }, [sidebarWorkspaceItems, strategies, query, bindings])
 
   const onRecordKey = useCallback(
     (e: KeyboardEvent) => {
@@ -133,7 +138,12 @@ export function ShortcutsPanel() {
           恢复全部默认
         </button> : null}
       </div>
-      {isElectron ? <WindowHotkeySetting onStateChange={setWindowHotkeyState} /> : null}
+      <div className="shortcuts-search">
+        <input type="search" aria-label="查找快捷键" placeholder="查找动作或按键…" value={query} onChange={event => { setQuery(event.target.value); setRecordingId(null) }} />
+        {query && <Button size="sm" onClick={() => setQuery('')}>清除</Button>}
+      </div>
+      <div hidden={!!query}>{isElectron ? <WindowHotkeySetting onStateChange={setWindowHotkeyState} /> : null}</div>
+      {!categories.length && <p role="status">没有匹配的快捷键</p>}
       {categories.map(([category, actions]) => (
         <section key={category} className="shortcuts-section">
           <h2 className="shortcuts-group-label">{category}</h2>
@@ -184,7 +194,7 @@ export function ShortcutsPanel() {
                         {isRecording ? (
                           <span className="shortcuts-recording">
                             <span className="shortcuts-recording-dot" />
-                            等待输入
+                            按下新快捷键 · Esc 取消
                           </span>
                         ) : (
                           <ShortcutKeycaps binding={binding} />

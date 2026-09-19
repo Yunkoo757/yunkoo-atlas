@@ -549,6 +549,7 @@ function CommandPaletteDialog({
   }, [active])
 
   const onKey = (e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       if (!queryPending && hasMore && active === visibleCommands.length - 1) {

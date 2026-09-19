@@ -1275,6 +1275,7 @@ export function DetailView() {
                       adjustCommentHeight()
                     }}
                     onKeyDown={(event) => {
+                      if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
                       if (event.key === 'Enter' && !event.shiftKey) {
                         event.preventDefault()
                         sendComment()

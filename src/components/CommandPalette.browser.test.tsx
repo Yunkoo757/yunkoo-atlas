@@ -86,6 +86,13 @@ async function run(): Promise<void> {
 
     const firstActiveId = input.getAttribute('aria-activedescendant')
     assert(firstActiveId, '搜索框必须指向当前结果')
+    for (const key of ['Enter', 'Escape', 'ArrowDown']) {
+      const composition = new KeyboardEvent('keydown', { key, isComposing: true, bubbles: true, cancelable: true })
+      input.dispatchEvent(composition)
+      await waitForFrame()
+      assert(!composition.defaultPrevented, '输入法候选键不得被搜索面板接管')
+      assert(document.querySelector('.cmdk') && input.getAttribute('aria-activedescendant') === firstActiveId, '输入法确认不得执行或切换命令')
+    }
     assert(
       document.getElementById(firstActiveId)?.getAttribute('aria-selected') === 'true',
       '当前命令必须具有 option 选中语义',

@@ -7,15 +7,16 @@ export function JudgmentImage({ assetId, group, onSelect, selected, sourceTradeI
 }) {
   const [url, setUrl] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
+  const [retry, setRetry] = useState(0)
   useEffect(() => {
     let active = true
     setUrl(null); setFailed(false)
     void getStorage().getAssetObjectUrl(assetId).then(value => { if (active) { setUrl(value); setFailed(!value) } }, () => { if (active) setFailed(true) })
     return () => { active = false }
-  }, [assetId])
+  }, [assetId, retry])
   return <button type="button" className={`jd-image${compact ? ' jd-image-compact' : ''}`} data-source-trade-id={sourceTradeId ?? undefined}
-    aria-label={onSelect ? (selected ? '取消选择图片' : '选择图片') : '查看大图'} aria-pressed={onSelect ? !!selected : undefined}
-    onClick={onSelect ?? (() => {
+    aria-label={failed ? '重新载入图片' : onSelect ? (selected ? '取消选择图片' : '选择图片') : '查看大图'} aria-pressed={onSelect ? !!selected : undefined}
+    onClick={failed ? () => setRetry(value => value + 1) : onSelect ?? (() => {
       if (!url) return
       const ids = group ?? [assetId]
       void Promise.all(ids.map(id => getStorage().getAssetObjectUrl(id))).then(urls => {
@@ -24,7 +25,7 @@ export function JudgmentImage({ assetId, group, onSelect, selected, sourceTradeI
         if (index >= 0) useShortcutStore.getState().openLightbox(available.map(i => i.url), index)
       }).catch(() => setFailed(true))
     })}>
-    {url ? <img draggable={false} src={url} data-asset-id={assetId} alt="判断素材" onError={() => { setUrl(null); setFailed(true) }} /> : <span>{failed ? '图片不可用，请检查资料库附件' : '正在载入图片…'}</span>}
+    {url ? <img draggable={false} src={url} data-asset-id={assetId} alt="判断素材" onError={() => { setUrl(null); setFailed(true) }} /> : <span>{failed ? '图片载入失败 · 点击重试；若仍失败，请检查资料库附件' : '正在载入图片…'}</span>}
     {onSelect && <span className="jd-image-selection">{selected ? '已选' : '选择'}</span>}
   </button>
 }

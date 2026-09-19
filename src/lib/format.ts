@@ -62,3 +62,10 @@ export function fmtDateTime(iso: string): string {
   if (isNaN(d.getTime())) return '—'
   return `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
+
+/** Full metadata label; date-only records must not invent a time. */
+export function fmtFullDateTime(iso: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return fmtDate(iso) === '—' ? '—' : iso
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime()) ? '—' : `${date.getFullYear()}年${fmtDateTime(iso)}`
+}

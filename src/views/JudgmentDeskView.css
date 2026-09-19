@@ -51,6 +51,7 @@
 .jd-title-source h2 { flex:0 1 auto; min-width:0; }
 .jd-source-link { flex-shrink:0; }
 .jd-reference { align-self:flex-start; }
+.jd-reference-details { display:flex; flex-direction:column; align-items:flex-start; gap:var(--space-row-gap); }
 .jd-image-nav.is-single { visibility:hidden; }
 .jd-sample-heading { flex-wrap:nowrap; min-height:var(--control-height-md); }
 .jd-sample-heading > .jd-wrap { flex:1; overflow:hidden; }

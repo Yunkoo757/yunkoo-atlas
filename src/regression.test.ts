@@ -606,7 +606,7 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'reviewSession.skip': 'n',
     'reviewSession.back': 'p',
     'reviewSession.exit': 'escape',
-    'nav.judgmentDesk': null,
+    'nav.judgmentDesk': 'z',
     'judgment.yes': '1',
     'judgment.no': '2',
     'judgment.uncertain': '3',

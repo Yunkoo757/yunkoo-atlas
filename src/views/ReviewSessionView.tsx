@@ -787,6 +787,7 @@ export function ReviewSessionView() {
           onExtractCase={extractCurrentAsCase}
           onSkip={advance}
           onBack={session.cursor > 0 ? rewind : undefined}
+          backLabel={session.assessments[session.ids[session.cursor - 1]] ? '撤销评估并返回' : '返回上一条'}
           onOpenDetail={openDetail}
           privacyMode={privacyMode}
           legacyCashCurrencyAssumption={legacyCashCurrencyAssumption}
@@ -1188,6 +1189,7 @@ function ReviewSessionItem({
   onExtractCase,
   onSkip,
   onBack,
+  backLabel,
   onOpenDetail,
   privacyMode,
   legacyCashCurrencyAssumption,
@@ -1200,6 +1202,7 @@ function ReviewSessionItem({
   onExtractCase: () => void
   onSkip: () => void
   onBack?: () => void
+  backLabel: string
   onOpenDetail: () => void
   privacyMode: boolean
   legacyCashCurrencyAssumption: import('@/storage/types').LegacyCashCurrencyAssumption | null
@@ -1212,7 +1215,7 @@ function ReviewSessionItem({
     'reviewSession.skip',
     trade.tradeKind === 'case' ? '跳过' : '下一条',
   )
-  const backShortcut = useShortcutHint('reviewSession.back')
+  const backShortcut = useShortcutHint('reviewSession.back', backLabel)
   return (
     <section className="review-session-stage" data-review-session-focus tabIndex={-1}>
       <article className="review-session-workspace" aria-label={`${trade.symbol} 随机复盘`}>
@@ -1271,7 +1274,7 @@ function ReviewSessionItem({
                   aria-keyshortcuts={backShortcut.hint ?? undefined}
                   onClick={onBack}
                 >
-                  撤销上次评估并返回 {backShortcut.hint ? <Kbd>{backShortcut.hint}</Kbd> : null}
+                  {backLabel} {backShortcut.hint ? <Kbd>{backShortcut.hint}</Kbd> : null}
                 </button>
               ) : null}
             </div>
@@ -1283,6 +1286,7 @@ function ReviewSessionItem({
               <span>账户交易不记录案例掌握度</span>
             </div>
             <div className="review-session-assessment-actions review-session-account-actions">
+              {onBack && <button type="button" className="review-session-skip" aria-label={backShortcut.ariaLabel} aria-keyshortcuts={backShortcut.hint ?? undefined} onClick={onBack}>{backLabel} {backShortcut.hint ? <Kbd>{backShortcut.hint}</Kbd> : null}</button>}
               <button type="button" onClick={onExtractCase}>提炼为案例</button>
               <button
                 type="button"
