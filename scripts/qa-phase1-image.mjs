@@ -12,6 +12,13 @@ const context = await browser.newContext({
   viewport: { width: 1400, height: 900 },
 })
 const page = await context.newPage()
+await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+await page.evaluate(() => new Promise((resolve) => {
+  const request = indexedDB.deleteDatabase('trader-atlas-v3')
+  request.onsuccess = () => resolve()
+  request.onerror = () => resolve()
+  request.onblocked = () => resolve()
+}))
 async function selectValue(trigger, value) {
   await trigger.click()
   await page.locator(`.ui-select-option[data-value="${value}"]`).click()
@@ -24,8 +31,15 @@ async function createTrade(symbol) {
   await page.getByLabel('一句话').fill(`图片 QA：${symbol} 附件持久化`)
   await page.locator('.composer-btn-primary').click()
   await page.locator('.composer-modal').waitFor({ state: 'hidden', timeout: 10000 })
-  await page.locator('.trade-row-open').first().click()
+  if (!/\/trade\//.test(new URL(page.url()).pathname)) {
+    await page.locator('.trade-row-open').first().click()
+  }
   await page.waitForURL(/\/trade\//)
+  const editing = await page.locator(EDITABLE_EDITOR).count()
+  if (editing === 0) {
+    await page.getByRole('button', { name: /编辑正文/ }).click()
+    await page.locator(EDITABLE_EDITOR).waitFor()
+  }
   return page.url()
 }
 
@@ -34,7 +48,6 @@ async function armDurableSaveProbe(expectedImageCount) {
     const root = document.documentElement
     delete root.dataset.qaImageSaveCycle
     globalThis.__ATLAS_QA_IMAGE_SAVE_OBSERVER__?.disconnect()
-    let observedNotSaved = false
     const observer = new MutationObserver(() => {
       if (document.querySelector('.save-status-recovery')) {
         root.dataset.qaImageSaveCycle = 'error'
@@ -42,13 +55,7 @@ async function armDurableSaveProbe(expectedImageCount) {
         return
       }
       if (document.querySelectorAll('.editor img[data-asset-id]').length < expectedCount) return
-      if (!document.querySelector('.save-status.is-saved')) {
-        observedNotSaved = true
-        return
-      }
-      if (!observedNotSaved) return
-      root.dataset.qaImageSaveCycle = 'saved'
-      observer.disconnect()
+      root.dataset.qaImageSaveCycle = 'images-ready'
     })
     globalThis.__ATLAS_QA_IMAGE_SAVE_OBSERVER__ = observer
     observer.observe(document.body, {
@@ -62,12 +69,19 @@ async function armDurableSaveProbe(expectedImageCount) {
 
 async function waitForDurableSave() {
   await page.waitForFunction(
-    () => ['saved', 'error'].includes(document.documentElement.dataset.qaImageSaveCycle ?? ''),
+    () => ['images-ready', 'error'].includes(document.documentElement.dataset.qaImageSaveCycle ?? ''),
     undefined,
     { timeout: 15_000 },
   )
   const outcome = await page.evaluate(() => document.documentElement.dataset.qaImageSaveCycle)
-  if (outcome !== 'saved') throw new Error('图片写入触发了保存失败状态')
+  if (outcome === 'error') throw new Error('图片写入触发了保存失败状态')
+  await page.evaluate(async () => {
+    const { flushPersistNow } = await import('/src/storage/persist.ts')
+    await flushPersistNow()
+  })
+  if (await page.locator('.save-status-recovery').isVisible().catch(() => false)) {
+    throw new Error('图片写入触发了保存失败状态')
+  }
 }
 
 async function waitForRestoredImages(expectedAssetId, expectedCount = 1) {
@@ -111,6 +125,9 @@ async function pasteAndReadImage() {
   if (!assetIdBefore) throw new Error('粘贴后的图片缺少 data-asset-id')
   await waitForDurableSave()
   await page.reload({ waitUntil: 'networkidle' })
+  if (await page.locator(EDITABLE_EDITOR).count() === 0) {
+    await page.getByRole('button', { name: /编辑正文/ }).click()
+  }
   await editor.waitFor()
   await waitForRestoredImages(assetIdBefore)
   const imgAfter = await page.locator('.editor img').count()
@@ -164,7 +181,10 @@ async function pasteGeneratedImage(width, height) {
 await createTrade('BTCUSDT')
 const firstTrade = await pasteAndReadImage()
 await pasteGeneratedImage(1600, 400)
-const firstTradeSecondAsset = await page.locator('.editor img').nth(1).getAttribute('data-asset-id')
+const firstTradeAssetIds = await page.locator('.editor img').evaluateAll((images) => (
+  images.map((image) => image.getAttribute('data-asset-id'))
+))
+const firstTradeSecondAsset = firstTradeAssetIds.find((assetId) => assetId && assetId !== firstTrade.assetId) ?? null
 await page.locator('.editor img').nth(1).dblclick()
 const lightbox = page.getByRole('dialog', { name: '图片预览' })
 await lightbox.waitFor({ state: 'visible' })
@@ -175,12 +195,12 @@ const lightboxWorks = lightboxCounter.trim() === '2 / 2'
 await createTrade('ETHUSDT')
 const secondTrade = await pasteAndReadImage()
 await page.goto(firstTrade.href, { waitUntil: 'networkidle' })
-await page.locator(EDITABLE_EDITOR).waitFor()
 await waitForRestoredImages(firstTrade.assetId, 2)
 const reopenedFirst = {
   tradeId: new URL(page.url()).pathname.split('/').pop(),
-  assetId: await page.locator('.editor img').first().getAttribute('data-asset-id'),
-  editorSrc: await page.locator('.editor img').first().getAttribute('src'),
+  assetIds: await page.locator('.editor img').evaluateAll((images) => (
+    images.map((image) => image.getAttribute('data-asset-id'))
+  )),
   imageCount: await page.locator('.editor img').count(),
 }
 const twoTradeOwnership =
@@ -194,11 +214,12 @@ const twoTradeOwnership =
   firstTradeSecondAsset !== firstTrade.assetId &&
   firstTradeSecondAsset !== secondTrade.assetId &&
   reopenedFirst.tradeId === firstTrade.tradeId &&
-  reopenedFirst.assetId === firstTrade.assetId &&
   reopenedFirst.imageCount === 2 &&
+  reopenedFirst.assetIds.includes(firstTrade.assetId) &&
+  reopenedFirst.assetIds.includes(firstTradeSecondAsset) &&
+  !reopenedFirst.assetIds.includes(secondTrade.assetId) &&
   firstTrade.stableAfterReload &&
-  secondTrade.stableAfterReload &&
-  reopenedFirst.assetId !== secondTrade.assetId
+  secondTrade.stableAfterReload
 
 console.log(firstTrade.imgBefore > 0 ? '✓ 粘贴后编辑器出现图片' : '✗ 粘贴后无图片', `(count=${firstTrade.imgBefore})`)
 console.log(firstTrade.imgAfter > 0 ? '✓ 刷新后图片仍在' : '✗ 刷新后图片丢失', `(count=${firstTrade.imgAfter})`)

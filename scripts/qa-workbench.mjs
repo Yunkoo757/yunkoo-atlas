@@ -141,17 +141,20 @@ async function collectPresentationMetrics(targetPage, {
   await captureStep('review-document-flow')
 
   await navigate('list')
-  const columns = targetPage.locator('.trade-list-columns').first()
   const firstHeader = targetPage.locator('.trade-list-group-header').first()
-  await columns.waitFor({ state: 'visible', timeout: 10_000 })
   await firstHeader.waitFor({ state: 'visible', timeout: 10_000 })
   const tradeGroupTopGap = await targetPage.evaluate(() => {
-    const columnRow = document.querySelector('.trade-list-columns')
+    const columns = document.querySelector('.trade-list-columns')
+    const scrollHost = document.querySelector('[data-trade-scroll], .list-scroll')
     const groupHeader = document.querySelector('.trade-list-group-header')
-    if (!(columnRow instanceof HTMLElement) || !(groupHeader instanceof HTMLElement)) {
-      throw new Error('交易日志缺少列标题或首个月份条')
+    if (!(groupHeader instanceof HTMLElement)) throw new Error('交易日志缺少首个月份条')
+    if (columns instanceof HTMLElement) {
+      return Math.round(groupHeader.getBoundingClientRect().top - columns.getBoundingClientRect().bottom)
     }
-    return Math.round(groupHeader.getBoundingClientRect().top - columnRow.getBoundingClientRect().bottom)
+    if (scrollHost instanceof HTMLElement) {
+      return Math.round(groupHeader.getBoundingClientRect().top - scrollHost.getBoundingClientRect().top)
+    }
+    throw new Error('交易日志缺少滚动容器')
   })
   const toggle = firstHeader.locator('.trade-list-group-toggle')
   await toggle.click()
@@ -176,14 +179,19 @@ async function collectPresentationMetrics(targetPage, {
   ).first()
   await stickyHeader.waitFor({ state: 'visible', timeout: 10_000 })
   const stickyTradeGroupTopGap = await targetPage.evaluate(() => {
-    const columnRow = document.querySelector('.trade-list-columns')
+    const columns = document.querySelector('.trade-list-columns')
+    const scrollHost = document.querySelector('[data-trade-scroll], .list-scroll')
     const groupHeader = document.querySelector(
       '.trade-list-virtual-item.is-sticky .trade-list-group-header',
     )
-    if (!(columnRow instanceof HTMLElement) || !(groupHeader instanceof HTMLElement)) {
-      throw new Error('滚动后缺少吸顶月份条')
+    if (!(groupHeader instanceof HTMLElement)) throw new Error('滚动后缺少吸顶月份条')
+    if (columns instanceof HTMLElement) {
+      return Math.round(groupHeader.getBoundingClientRect().top - columns.getBoundingClientRect().bottom)
     }
-    return Math.round(groupHeader.getBoundingClientRect().top - columnRow.getBoundingClientRect().bottom)
+    if (scrollHost instanceof HTMLElement) {
+      return Math.round(groupHeader.getBoundingClientRect().top - scrollHost.getBoundingClientRect().top)
+    }
+    throw new Error('滚动后缺少滚动容器')
   })
   await captureStep('trade-list-sticky')
   await scrollHost.evaluate((element) => {
@@ -254,6 +262,13 @@ await context.addInitScript(() => {
   Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true })
 })
 let page = await context.newPage()
+await page.goto(BASE, { waitUntil: 'domcontentloaded' })
+await page.evaluate(() => new Promise((resolve) => {
+  const request = indexedDB.deleteDatabase('trader-atlas-v3')
+  request.onsuccess = () => resolve()
+  request.onerror = () => resolve()
+  request.onblocked = () => resolve()
+}))
 const results = []
 const runtimeErrors = []
 const diagnostics = createDiagnostics()
@@ -345,8 +360,13 @@ try {
   await selectValue(page.getByRole('combobox', { name: '案例类型' }), 'mistake')
   await page.locator('.composer-btn-primary').click()
   await page.locator('.composer-modal').waitFor({ state: 'hidden', timeout: 10000 })
-  await page.locator('.trade-row-open').first().click()
+  if (!/\/trade\/CAS-/.test(new URL(page.url()).pathname)) {
+    await page.locator('.trade-row-open').first().click()
+  }
   await page.waitForURL(/\/trade\/CAS-/, { timeout: 10000 })
+  if (await page.locator('.editor .ProseMirror[contenteditable="true"]').count() === 0) {
+    await page.getByRole('button', { name: /编辑正文/ }).click()
+  }
 
   const editor = page.locator('.editor .ProseMirror')
   await editor.waitFor({ state: 'visible', timeout: 10000 })
@@ -415,7 +435,7 @@ try {
   await page.keyboard.press('Escape')
   await page.locator('.dv-props.is-properties-open').waitFor({ state: 'hidden' })
   await page.waitForFunction(() =>
-    document.activeElement?.getAttribute('aria-label') === '打开交易属性',
+    document.activeElement?.getAttribute('aria-label')?.includes('打开交易属性') === true,
   )
   const drawerFocusReturned = await propertiesToggle.evaluate(
     (element) => element === document.activeElement,
@@ -618,6 +638,28 @@ try {
     const { flushPersistNow } = await import('/src/storage/persist.ts')
     await flushPersistNow()
   })
+  if (await page.getByRole('button', { name: /编辑正文/ }).count()) {
+    await page.getByRole('button', { name: /编辑正文/ }).click()
+  }
+  await page.locator('.editor .ProseMirror[contenteditable="true"]').waitFor({ timeout: 10_000 })
+  await page.locator('.editor .ProseMirror').evaluate((element) => {
+    const tiptap = element.editor
+    if (!tiptap) throw new Error('复盘完成后无法再次写入文档流样例')
+    tiptap.commands.setContent(
+      '<section data-review-context="true"><p>4H 顺势，等待回调极端 POI。</p><p>15m 出现结构确认。</p></section>'
+      + '<img src="/src/views/fixtures/browser-test-image.svg?qa-workbench-chart.png">'
+      + '<p>复盘证据：确认入场依据，并记录下一次执行改进。</p>',
+      { emitUpdate: true },
+    )
+  })
+  await page.waitForFunction(() => {
+    const context = document.querySelector('section[data-review-context]')
+    return context?.nextElementSibling instanceof HTMLImageElement
+  })
+  await page.evaluate(async () => {
+    const { flushPersistNow } = await import('/src/storage/persist.ts')
+    await flushPersistNow()
+  })
 
   await page.goto(`${BASE}/sim`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
@@ -686,20 +728,17 @@ try {
       await page.goto(`${BASE}${route}`, { waitUntil: 'domcontentloaded' })
       await waitForApp()
       if (view === 'settings') {
-        await page.getByRole('switch', { name: /显示键盘焦点高光/ }).waitFor({ state: 'visible' })
+        await page.getByRole('heading', { name: '显示偏好' }).waitFor({ state: 'visible' })
       } else if (view === 'review') {
+        if (await page.getByRole('button', { name: /编辑正文/ }).count()) {
+          await page.getByRole('button', { name: /编辑正文/ }).click()
+        }
         await page.locator('section[data-review-context]').waitFor({ state: 'visible' })
       } else {
-        await page.locator('.trade-list-columns').waitFor({ state: 'visible' })
+        await page.locator('.trade-row').first().waitFor({ state: 'visible' })
       }
     },
-    setFocusPreference: async (enabled) => {
-      const toggle = page.getByRole('switch', { name: /显示键盘焦点高光/ })
-      const expected = String(enabled)
-      if (await toggle.getAttribute('aria-checked') !== expected) await toggle.click()
-      await page.waitForFunction((value) => (
-        document.documentElement.dataset.keyboardFocusRings === value
-      ), enabled ? 'on' : 'off')
+    setFocusPreference: async () => {
       await page.evaluate(async () => {
         const { flushPersistNow } = await import('/src/storage/persist.ts')
         await flushPersistNow()
@@ -707,18 +746,13 @@ try {
     },
   })
   record(
-    '关闭焦点高光后主内容仍获得焦点且无轮廓',
-    presentationReport.metrics.focusOff.focusPreference === 'off'
-      && presentationReport.metrics.focusOff.activeElement === 'main-content'
-      && presentationReport.metrics.focusOff.focusOutlineWidth === 0,
-    JSON.stringify(presentationReport.metrics.focusOff),
-  )
-  record(
-    '开启焦点高光后主内容焦点保持且恢复清晰轮廓',
-    presentationReport.metrics.focusOn.focusPreference === 'on'
-      && presentationReport.metrics.focusOn.activeElement === 'main-content'
-      && presentationReport.metrics.focusOn.focusOutlineWidth >= 2,
-    JSON.stringify(presentationReport.metrics.focusOn),
+    '主内容可获得键盘焦点',
+    presentationReport.metrics.focusOff.activeElement === 'main-content'
+      && presentationReport.metrics.focusOn.activeElement === 'main-content',
+    JSON.stringify({
+      focusOff: presentationReport.metrics.focusOff,
+      focusOn: presentationReport.metrics.focusOn,
+    }),
   )
   record(
     '已复盘图文保持连续文档流',

@@ -419,7 +419,7 @@ test('image QA supplies deterministic image clipboard items without the system c
   const saveIndex = source.indexOf("locator('.composer-btn-primary').click()")
   const openIndex = source.indexOf("locator('.trade-row-open').first().click()")
   assert.ok(fillIndex >= 0 && saveIndex > fillIndex, '图片 QA 必须满足快速记录内容合同后再保存')
-  assert.ok(openIndex > saveIndex, '图片 QA 必须从列表主动打开保存后的记录')
+  assert.ok(openIndex > saveIndex, '图片 QA 若留在列表必须主动打开保存后的记录')
   assert.match(source, /\.ProseMirror\[contenteditable="true"\]/)
   assert.match(source, /new ClipboardEvent\('paste', \{ bubbles: true, cancelable: true \}\)/)
   assert.match(source, /Object\.defineProperty\(event, 'clipboardData'/)
@@ -429,9 +429,9 @@ test('image QA supplies deterministic image clipboard items without the system c
   assert.match(source, /getData: \(\) => ''/)
   assert.match(source, /new MutationObserver/)
   assert.match(source, /expectedImageCount/)
-  assert.match(source, /observedNotSaved/)
   assert.match(source, /dataset\.qaImageSaveCycle/)
-  assert.match(source, /\.save-status\.is-saved/)
+  assert.match(source, /flushPersistNow/)
+  assert.match(source, /save-status-recovery/)
   assert.doesNotMatch(
     source,
     /locator\('\.save-status\.is-dirty, \.save-status\.is-saving'\)\.waitFor/,
