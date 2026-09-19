@@ -395,6 +395,7 @@ async function run(): Promise<void> {
     const restoreCommandPalette = document.querySelector<HTMLButtonElement>(
       'button[aria-label="恢复命令面板（Ctrl+K）的默认快捷键"]',
     )
+    assert(restoreCommandPalette, '缺少命令面板的单项恢复按钮')
     restoreCommandPalette.click()
     await eventually(
       () => useShortcutStore.getState().bindings['global.commandPaletteMod'] === undefined,
