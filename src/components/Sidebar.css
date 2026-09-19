@@ -322,7 +322,7 @@
 
 .sb-sortable-row.is-scope-active,
 .sb-item.is-scope-active {
-  background: color-mix(in srgb, var(--surface-nav-active) 42%, transparent);
+  background: var(--sb-selected-bg);
 }
 
 .sb-sortable-row.is-scope-active > .sb-item {
@@ -387,7 +387,7 @@ html[data-ui-settled='1'] .sb-item {
 }
 .sb-workspace-capability-menu:hover,
 .sb-workspace-capability-menu:focus-visible {
-  background: color-mix(in srgb, var(--bg-hover) 80%, transparent);
+  background: var(--sb-hover-bg);
   color: var(--text-secondary);
   outline: none;
 }
