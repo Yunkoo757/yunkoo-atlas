@@ -15,6 +15,7 @@ export type ShortcutScope =
   | 'list'
   | 'detail'
   | 'reviewSession'
+  | 'judgmentDesk'
   | 'lightbox'
   | 'overlay'
 

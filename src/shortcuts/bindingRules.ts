@@ -4,7 +4,7 @@ import type { ShortcutBinding, ShortcutScope } from '@/shortcuts/types'
 
 export const SHORTCUT_SCOPE_LABELS: Record<ShortcutScope, string> = {
   global: '全局', navigation: '全局导航', list: '列表 / 看板',
-  detail: '交易 / 案例详情', reviewSession: '随机复盘', lightbox: '图片查看器', overlay: '弹层',
+  judgmentDesk: '判断台', detail: '交易 / 案例详情', reviewSession: '随机复盘', lightbox: '图片查看器', overlay: '弹层',
 }
 
 /** 页面之间可复用按键；全局与导航始终与普通页面同时生效。 */

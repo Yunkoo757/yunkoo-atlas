@@ -1,4 +1,4 @@
-export type PrimarySidebarNavId = 'today' | 'quickNotes' | 'trades' | 'reviewCases' | 'weeklyReview' | 'reviewSession' | 'dashboard' | 'reviewComposer'
+export type PrimarySidebarNavId = 'today' | 'quickNotes' | 'trades' | 'reviewCases' | 'weeklyReview' | 'reviewSession' | 'dashboard' | 'reviewComposer' | 'judgmentDesk'
 export type SidebarNavId = 'active' | 'favorites' | 'missed' | 'paper'
 
 export const PRIMARY_NAV_ITEMS = [
@@ -7,6 +7,7 @@ export const PRIMARY_NAV_ITEMS = [
   { id: 'weeklyReview', to: '/weekly-review', label: '周期复盘' },
   { id: 'reviewCases', to: '/review-cases', label: '案例库' },
   { id: 'reviewComposer', to: '/review-composer', label: '复盘组合器' },
+  { id: 'judgmentDesk', to: '/judgment-desk', label: '判断台' },
   { id: 'reviewSession', to: '/review-session', label: '随机复盘' },
 ] as const satisfies readonly { id: PrimarySidebarNavId; to: string; label: string }[]
 

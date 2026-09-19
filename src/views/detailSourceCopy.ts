@@ -11,6 +11,13 @@ export function resolveTradeDetailSourceCopy(options: {
   returnPathname: string
   tradeKind?: Trade['tradeKind']
 }): TradeDetailSourceCopy {
+  if (options.returnPathname === '/judgment-desk') {
+    return {
+      breadcrumb: '判断台',
+      backAriaLabel: '返回判断台',
+      returnDestinationLabel: '判断台',
+    }
+  }
   if (options.fromPathname === '/settings/risk/data-repair') {
     return {
       breadcrumb: '风险数据修复中心',

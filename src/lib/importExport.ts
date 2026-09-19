@@ -1,3 +1,5 @@
+import { remapJudgmentAssets } from '@/lib/judgment/transfer'
+import { emptyJudgmentDesk, judgmentAssetEntries } from '@/lib/judgment/model'
 import { emptyComposerData } from '@/lib/reviewComposer/model'
 import { DEFAULT_STRATEGIES, type Strategy } from '@/data/strategies'
 import {
@@ -135,6 +137,7 @@ interface ExportState extends PersistedSlice {
   symbolCatalog?: string[]
   reviewTemplates?: ReviewTemplate[]
   reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
+  judgmentDesk?: PersistedSnapshot['judgmentDesk']
   reviewComposer?: PersistedSnapshot['reviewComposer']
   reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
 }
@@ -163,6 +166,7 @@ interface PortableSnapshotState {
   symbolCatalog?: PersistedSnapshot['symbolCatalog']
   reviewTemplates?: PersistedSnapshot['reviewTemplates']
   reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
+  judgmentDesk?: PersistedSnapshot['judgmentDesk']
   reviewComposer?: PersistedSnapshot['reviewComposer']
   reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
 }
@@ -197,6 +201,7 @@ export function buildPortableSnapshotFromState(
     symbolIcons: normalizeSymbolIcons(state.symbolIcons),
     symbolCatalog: normalizeSymbolCatalog(state.symbolCatalog),
     reviewTemplates: normalizeReviewTemplates(state.reviewTemplates),
+    judgmentDesk: state.judgmentDesk ?? emptyJudgmentDesk(),
     reviewComposer: state.reviewComposer ?? emptyComposerData(),
     reviewPoolPresets: state.reviewPoolPresets ?? [],
     reviewPoolLayout: normalizeReviewPoolLayout(
@@ -376,7 +381,7 @@ export async function loadReferencedAssetsForExport(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, liveStages, currentLiveStageId, scheduledStageRollover, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates, reviewPoolPresets, reviewPoolLayout, reviewComposer } =
+  const { trades, liveStages, currentLiveStageId, scheduledStageRollover, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates, reviewPoolPresets, reviewPoolLayout, reviewComposer, judgmentDesk } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
@@ -405,6 +410,7 @@ export async function buildExportPayload(): Promise<ExportPayload> {
       symbolCatalog,
       reviewTemplates,
       reviewPoolPresets,
+      judgmentDesk,
       reviewComposer,
       reviewPoolLayout,
     },
@@ -454,6 +460,7 @@ export function serializeJsonExportPayload(payload: unknown): string {
       ...snapshot.trades.flatMap(tradeRichTextEntries),
       ...(snapshot.weeklyReviews ?? []).map((review) => review.contentHtml),
       ...(snapshot.quickNotes ?? []).map((note) => note.contentHtml),
+    ...judgmentAssetEntries(snapshot.judgmentDesk),
     ], payload.assets)
   } catch (error) {
     if (error instanceof JsonImportBudgetError) throw error
@@ -792,6 +799,7 @@ export function parseImportJson(
       ...snapshotCandidate.trades.flatMap(tradeRichTextEntries),
       ...(snapshotCandidate.weeklyReviews ?? []).map((review) => review.contentHtml),
       ...(snapshotCandidate.quickNotes ?? []).map((note) => note.contentHtml),
+    ...judgmentAssetEntries(snapshotCandidate.judgmentDesk),
     ], raw.assets)
   } catch (error) {
     if (error instanceof JsonImportBudgetError) return importFailure(error.code)
@@ -912,6 +920,7 @@ export function prepareImportPayloadForCommit(
     ...payload.trades.flatMap(tradeRichTextEntries),
     ...(payload.weeklyReviews ?? []).map((review) => review.contentHtml),
     ...(payload.quickNotes ?? []).map((note) => note.contentHtml),
+    ...judgmentAssetEntries(payload.judgmentDesk),
   ], payload.assets)
   const idMap = new Map<string, string>()
   const generatedIds = new Set<string>()
@@ -963,7 +972,7 @@ export function prepareImportPayloadForCommit(
   }))
 
   return {
-    payload: { ...payload, trades, weeklyReviews, quickNotes, assets },
+    payload: { ...payload, trades, weeklyReviews, quickNotes, judgmentDesk: remapJudgmentAssets(payload.judgmentDesk, idMap), assets },
     assets,
   }
 }

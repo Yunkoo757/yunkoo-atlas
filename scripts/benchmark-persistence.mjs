@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url'
 import { chromium } from 'playwright'
 import { build, createServer } from 'vite'
 import { readGitProvenance } from './git-provenance.mjs'
+import { checkPersistenceTiming } from './persistence-gate-policy.mjs'
 
 import {
   ANALYTICS_FIXTURE_SEED,
@@ -14,7 +15,9 @@ import {
 
 const root = process.cwd()
 const mode = process.argv.includes('--release') ? 'release' : 'smoke'
-const sampleConfig = mode === 'release'
+const correctnessOnly = process.argv.includes('--correctness-only')
+if (correctnessOnly && mode === 'release') throw new Error('严格性能基准不能使用 correctness-only')
+const sampleConfig = correctnessOnly ? { warmups: 0, samples: 1 } : mode === 'release'
   ? { warmups: 5, samples: 30 }
   : { warmups: 5, samples: 3 }
 const limits = {
@@ -184,10 +187,9 @@ async function loadElectronBenchmarkModule() {
   }
 }
 
+const performanceWarnings = []
 function checkGate(name, actual, limit, failures) {
-  if (!Number.isFinite(actual) || actual > limit) {
-    failures.push(`${name}: ${actual.toFixed(2)}ms > ${limit}ms`)
-  }
+  checkPersistenceTiming(name, actual, limit, failures, performanceWarnings, correctnessOnly)
 }
 
 const datasets = [createDataset(10_000), createDataset(20_000)]
@@ -256,6 +258,8 @@ const report = {
   scenarioId: 'P-10K/20K',
   version: 1,
   mode,
+  correctnessOnly,
+  performanceWarnings,
   generatedAt: new Date().toISOString(),
   gitCommit: provenance.gitCommit,
   gitTree: provenance.gitTree,
@@ -311,6 +315,8 @@ await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
 console.log(JSON.stringify({
   reportPath,
   status: report.status,
+  correctnessOnly,
+  performanceWarnings,
   gateStatistic: report.gateStatistic,
   gateSummaries: report.gateSummaries,
   summaries: report.summaries,

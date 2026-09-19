@@ -1,3 +1,4 @@
+import { emptyJudgmentDesk } from '@/lib/judgment/model'
 import { emptyComposerData } from '@/lib/reviewComposer/model'
 import { createDefaultUserProfile } from '@/config/defaultProfile'
 import { normalizeQuickNotes } from '@/data/quickNoteCodec'
@@ -306,6 +307,7 @@ export function decodeCanonicalSnapshot(
     symbolCatalog: raw.symbolCatalog as PersistedSnapshot['symbolCatalog'],
     reviewTemplates: raw.reviewTemplates as PersistedSnapshot['reviewTemplates'],
     reviewPoolPresets: (raw.reviewPoolPresets === undefined ? [] : raw.reviewPoolPresets) as PersistedSnapshot['reviewPoolPresets'],
+    judgmentDesk: raw.judgmentDesk as PersistedSnapshot['judgmentDesk'],
     reviewComposer: raw.reviewComposer as PersistedSnapshot['reviewComposer'],
     reviewPoolLayout: raw.reviewPoolLayout as PersistedSnapshot['reviewPoolLayout'],
   } as PersistedSnapshot
@@ -390,6 +392,7 @@ export function decodeCanonicalSnapshot(
     symbolIcons,
     symbolCatalog: normalizeSymbolCatalog(symbolCatalogSource),
     reviewTemplates: normalizeReviewTemplates(stagedCandidate.reviewTemplates),
+    judgmentDesk: stagedCandidate.judgmentDesk ?? emptyJudgmentDesk(),
     reviewComposer: stagedCandidate.reviewComposer ?? emptyComposerData(),
     reviewPoolPresets: stagedCandidate.reviewPoolPresets ?? [],
     reviewPoolLayout: normalizeReviewPoolLayout(

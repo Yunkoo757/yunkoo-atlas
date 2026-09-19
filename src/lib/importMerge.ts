@@ -1,3 +1,4 @@
+import { mergeJudgmentDesk } from '@/lib/judgment/transfer'
 import { mergeQuickNotes } from '@/data/quickNotes'
 import { normalizeReviewTemplates } from '@/data/reviewTemplates'
 import type { Strategy } from '@/data/strategies'
@@ -259,6 +260,7 @@ export function mergeImportPayload(
     reviewTemplates: Array.from(templatesById.values()),
     reviewPoolPresets,
     // 合并导入保留当前首页布局；新导入的自定义池默认进入“更多复盘池”。
+    judgmentDesk: mergeJudgmentDesk(current.judgmentDesk, riskMerged.judgmentDesk, id => stableImportedTradeId(payloadDigest, `judgment:${id}`)),
     reviewComposer: current.reviewComposer,
     reviewPoolLayout: current.reviewPoolLayout,
   }

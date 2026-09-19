@@ -268,6 +268,39 @@ export async function testNormalV11OpenMigratesCanonicalStageOwnership(): Promis
   } finally { fs.rmSync(library.path, { recursive: true, force: true }) }
 }
 
+export async function testV13OpenAddsJudgmentDeskAndCommitsBothVersionMarkers(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-schema-v13-judgment-'))
+  let storage: LibraryStorage | undefined
+  try {
+    storage = new LibraryStorage(root)
+    await storage.open()
+    storage.release()
+    const snapshot = createFullPersistedSnapshotFixture()
+    delete snapshot.judgmentDesk
+    const SQL = await sqlRuntime()
+    const db = new SQL.Database(fs.readFileSync(path.join(root, 'journal.db')))
+    db.run("INSERT INTO meta (key, value) VALUES ('snapshot', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(snapshot)])
+    db.run("INSERT INTO meta (key, value) VALUES ('schemaVersion', '13') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+    fs.writeFileSync(path.join(root, 'journal.db'), Buffer.from(db.export()))
+    db.close()
+    const manifestPath = path.join(root, 'manifest.json')
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    fs.writeFileSync(manifestPath, JSON.stringify({ ...manifest, schemaVersion: 13 }), 'utf8')
+    storage = new LibraryStorage(root, { allowCreate: false })
+    await storage.open()
+    assert(storage.readManifest().schemaVersion === SCHEMA_VERSION, 'v13 manifest 必须同步升级')
+    assert(storage.loadSnapshot()?.judgmentDesk?.samples.length === 0, '历史库必须补齐空判断台')
+    assert(storage.loadSnapshot()?.trades.length === snapshot.trades.length, '不得改变历史交易')
+    storage.release()
+    storage = new LibraryStorage(root, { allowCreate: false })
+    await storage.open()
+    assert(storage.loadSnapshot()?.judgmentDesk?.themes.length === 0, '重开后判断台迁移必须耐久')
+  } finally {
+    storage?.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export async function testV11OpenDisambiguatesNormalizedStageNamesBeforeV12Validation(): Promise<void> {
   const library = await createV11LibraryFixture({ normalizedNameCollisions: true })
   try {

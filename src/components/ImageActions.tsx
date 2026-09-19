@@ -1,3 +1,5 @@
+import { requestJudgmentCapture } from '@/components/judgment/captureRequest'
+import { isSafeAssetId } from '@/storage/assetId'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Copy, Download, Maximize2 } from '@/icons/appIcons'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
@@ -32,6 +34,9 @@ export function ImageActions() {
     const open = (image: HTMLImageElement, x: number, y: number) => {
       const ready = image.complete && image.naturalWidth > 0
       const full = !!image.closest('.img-lightbox-overlay')
+      const original = image.dataset.assetId ? image : [...document.querySelectorAll<HTMLImageElement>('img[data-asset-id]')].find(i => i.src === image.src)
+      const assetId = original?.dataset.assetId
+      const sourceTradeId = original?.closest<HTMLElement>('[data-source-trade-id]')?.dataset.sourceTradeId ?? null
       const output = async (action: 'copy' | 'save') => {
         if (busy.current) return
         busy.current = true
@@ -44,6 +49,7 @@ export function ImageActions() {
         finally { busy.current = false }
       }
       setMenu({x, y, items: [
+        ...(assetId && isSafeAssetId(assetId) ? [{type:'item' as const,label:'加入判断台…',onClick:()=>requestJudgmentCapture({assetId,sourceTradeId})}] : []),
         {type:'item',label:'复制图片',icon:<Copy size={ICON_SM}/>,disabled:!ready,onClick:()=>void output('copy')},
         {type:'item',label:'另存为 PNG…',icon:<Download size={ICON_SM}/>,disabled:!ready,onClick:()=>void output('save')},
         {type:'divider'},

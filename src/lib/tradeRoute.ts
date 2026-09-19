@@ -79,6 +79,7 @@ function isValidDetailSource(pathname: string, tradeKind: Trade['tradeKind'] | u
   if (pathname === '/live-history' || pathname === '/live-history/board') return true
   if (pathname === '/live-archive' || pathname.startsWith('/live-archive/')) return true
   if (pathname === '/missed') return true
+  if (pathname === '/judgment-desk') return true
   if (pathname === '/review-session') return true
   if (pathname === '/settings/risk') return tradeKind === 'live'
   if (pathname === '/settings/risk/data-repair') {

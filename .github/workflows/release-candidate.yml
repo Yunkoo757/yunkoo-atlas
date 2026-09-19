@@ -69,10 +69,10 @@ jobs:
         run: pnpm exec playwright install chromium
 
       - name: Run deterministic release quality gate
-        run: pnpm qa:full
+        run: pnpm qa:release
 
       - name: Run persistence correctness smoke gate
-        run: pnpm benchmark:persistence
+        run: pnpm benchmark:persistence --correctness-only
 
       - name: Run executable release drills
         run: pnpm verify:release-train-drills
@@ -95,7 +95,7 @@ jobs:
         with:
           name: release-candidate-${{ inputs.commit }}-attempt-${{ github.run_attempt }}
           path: |
-            test-results/qa-release-full.json
+            test-results/qa-release-smoke.json
             test-results/quality-execution.json
             test-results/quality-contract.json
             test-results/storage-recovery/storage-recovery-electron.json

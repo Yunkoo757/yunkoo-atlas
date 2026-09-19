@@ -62,7 +62,6 @@ import { useExitClone } from '@/components/ui/useExitClone'
 import { SidebarRiskStatus } from '@/components/SidebarRiskStatus'
 import { SidebarBackupHealth } from '@/components/SidebarBackupHealth'
 import { countExpiringTradeTrash } from '@/lib/trashCleanup'
-import { useReviewSessionRemaining } from '@/hooks/useReviewSessionRemaining'
 import { SIDEBAR_STRATEGY_SHORTCUT_LIMIT } from '@/shortcuts/workspaceActions'
 
 import './Sidebar.css'
@@ -291,7 +290,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   )
   const primaryNav = useMemo(() => resolvePrimarySidebarNav(primaryOrder), [primaryOrder])
 
-  const reviewSessionRemaining = useReviewSessionRemaining()
   const trashCount = trades.filter((trade) => Boolean(trade.deletedAt)).length
   const expiringTrashCount = countExpiringTradeTrash(trades)
   const trashLabel = expiringTrashCount > 0
@@ -528,9 +526,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               >
                 <Icon size={ICON_MD} />
                 <span className="sb-item-label">
-                  {id === 'reviewSession' && reviewSessionRemaining > 0
-                    ? `${label} · 还剩 ${reviewSessionRemaining}`
-                    : label}
+                  {label}
                 </span>
               </Link>
             </div>

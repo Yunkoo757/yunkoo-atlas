@@ -302,9 +302,8 @@ export async function testDesktopShellDashboardAndSavedViewsRemainOperable(): Pr
 
   assert(
     sidebar.includes("type SidebarDensity = 'standard' | 'compact'") &&
-      sidebar.includes('data-density={density}') &&
-      sidebar.includes('还剩 ${reviewSessionRemaining}'),
-    '桌面侧栏必须公开标准与紧凑密度状态，并在随机复盘未完成时显示剩余条数',
+      sidebar.includes('data-density={density}'),
+    '桌面侧栏必须公开标准与紧凑密度状态',
   )
   assert(
     !batchCss.includes('safe-area-inset') &&

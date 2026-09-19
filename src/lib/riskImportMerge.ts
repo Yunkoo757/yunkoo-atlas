@@ -273,6 +273,7 @@ export function mergeRiskImport(
 
   return {
     ...current,
+    judgmentDesk: imported.judgmentDesk ? { ...imported.judgmentDesk, samples: imported.judgmentDesk.samples.map(s => ({ ...s, images: s.images.map(i => ({ ...i, sourceTradeId: i.sourceTradeId ? idMap.get(i.sourceTradeId) ?? null : null })) })) } : undefined,
     trades: [...tradesById.values()],
     weeklyRiskPreparations: mergeWeeklyPreparations(
       current.weeklyRiskPreparations ?? [],

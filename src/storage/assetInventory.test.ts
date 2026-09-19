@@ -48,8 +48,8 @@ export function testAssetInventoryDeduplicatesSharedReferencesAcrossAllRichTextD
 
 export function testRichTextAssetDomainsAreRegisteredInOneInventoryTable(): void {
   assert(
-    RICH_TEXT_ASSET_DOMAINS.map((entry) => entry.domain).join(',') === 'trade,weeklyReview,quickNote',
-    '三个当前富文本域必须通过统一注册表接入盘点',
+    RICH_TEXT_ASSET_DOMAINS.map((entry) => entry.domain).join(',') === 'judgmentDesk,trade,weeklyReview,quickNote',
+    '判断台与富文本域必须通过统一注册表接入盘点',
   )
 }
 

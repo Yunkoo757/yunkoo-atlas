@@ -38,6 +38,7 @@ const SCOPE_PRIORITY: Record<ShortcutScope, number> = {
   detail: 50,
   list: 50,
   reviewSession: 50,
+  judgmentDesk: 50,
   navigation: 30,
   global: 10,
 }
@@ -83,7 +84,7 @@ function getActiveScopes(pathname?: string): Set<ShortcutScope> {
   const modalOpen = modalOverlayCount > 0
   const p = pathname ?? (typeof window !== 'undefined' ? window.location.pathname : undefined)
 
-  if (lightbox && p === '/review-session') return new Set<ShortcutScope>(['lightbox'])
+  if (lightbox && (p === '/review-session' || p === '/judgment-desk')) return new Set<ShortcutScope>(['lightbox'])
 
   const scopes = new Set<ShortcutScope>(['global', 'navigation'])
   if (lightbox) scopes.add('lightbox')
@@ -92,6 +93,7 @@ function getActiveScopes(pathname?: string): Set<ShortcutScope> {
   if (p) {
     if (/^\/(?:list|board|active|favorites|missed|period|strategy|review-cases|sim|today-record|live-history|trade-trash|trash)(?:\/|$)/.test(p)) scopes.add('list')
     if (p.startsWith('/trade/')) scopes.add('detail')
+    if (p === '/judgment-desk') scopes.add('judgmentDesk')
     if (p === '/review-session') scopes.add('reviewSession')
   }
 

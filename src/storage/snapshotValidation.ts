@@ -1,3 +1,4 @@
+import { assertJudgmentDesk } from '../lib/judgment/model'
 import { assertComposerData } from '../lib/reviewComposer/model'
 import type { PersistedSnapshot } from '@/storage/types'
 import { normalizeCashCurrency } from '@/data/trades'
@@ -950,6 +951,7 @@ export function assertValidPersistedSnapshot(
   if (!isDisplayPrefs(value.display)) throw new Error(`${label} contains invalid display settings`)
   if (!isReviewTemplates(value.reviewTemplates)) throw new Error(`${label} contains invalid review templates`)
   if (!isReviewPoolPresets(value.reviewPoolPresets)) throw new Error(`${label} contains invalid review pool presets`)
+  assertJudgmentDesk(value.judgmentDesk)
   assertComposerData(value.reviewComposer)
   if (!isReviewPoolLayout(value.reviewPoolLayout)) throw new Error(`${label} contains invalid review pool layout`)
   if (!isShortcutOverrides(value.shortcuts)) throw new Error(`${label} contains invalid shortcuts`)

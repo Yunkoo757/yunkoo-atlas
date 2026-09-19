@@ -19,7 +19,7 @@ if (!allowedLevels.has(level)) {
 }
 
 if (skipGates) {
-  console.log('⚠ 已跳过发布门禁（qa:release + candidate certify）')
+  console.log('⚠ 已跳过远端候选认证')
 }
 
 function run(name, args, options = {}) {
@@ -122,11 +122,7 @@ if (local !== remote) {
   process.exit(1)
 }
 
-if (skipGates) {
-  console.log('跳过 qa:release ...')
-} else {
-  run('pnpm', ['qa:release'])
-}
+// qa:release 在精确提交的远端候选认证执行一次，避免本地重复整套检查。
 
 let pkg = JSON.parse(readFileSync('package.json', 'utf8'))
 let tag = `v${pkg.version}`
@@ -163,4 +159,4 @@ if (taggedCommit && taggedCommit !== candidateCommit) {
 if (!taggedCommit) run('git', ['tag', tag])
 run('git', ['push', 'origin', tag])
 
-console.log(`已发布 ${tag}。GitHub Actions 将自动构建私有 Release。`)
+console.log(`已推送 ${tag}，正式发布尚未完成。请等待 Release 工作流成功并核对 Windows、macOS 全部资产。`)

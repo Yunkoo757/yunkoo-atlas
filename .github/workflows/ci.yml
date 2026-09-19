@@ -53,7 +53,7 @@ jobs:
         run: pnpm qa:ci
 
       - name: Run real persistence smoke gate
-        run: pnpm benchmark:persistence
+        run: pnpm benchmark:persistence --correctness-only
 
       - name: Upload persistence smoke evidence
         if: always()

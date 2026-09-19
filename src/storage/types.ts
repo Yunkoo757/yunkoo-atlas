@@ -29,7 +29,7 @@ export type PersistedTrade = Trade & {
   importProvenance?: NotionTradeImportProvenance
 }
 
-export const SCHEMA_VERSION = 13
+export const SCHEMA_VERSION = 14
 
 export interface LibraryManifest {
   schemaVersion: number
@@ -60,6 +60,7 @@ export interface UserProfile {
 }
 
 export interface PersistedSnapshot {
+  judgmentDesk?: import('@/lib/judgment/model').JudgmentDeskData
   reviewComposer?: import('@/lib/reviewComposer/model').ComposerData
   trades: PersistedTrade[]
   /** v12：实盘阶段是交易、复盘与风险数据归属的唯一持久化真相。 */

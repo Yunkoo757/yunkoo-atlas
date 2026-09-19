@@ -942,7 +942,7 @@ export function DetailView() {
 
   return (
     <>
-      <TradeDetailLayout
+      <TradeDetailLayout sourceTradeId={trade.id}
       header={(propertiesToggle) => (
       <header className="dv-topbar">
         <div className="dv-tb-left">

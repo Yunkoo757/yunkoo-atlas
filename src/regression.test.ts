@@ -239,7 +239,7 @@ export async function testElectronJournalImportRequiresExplicitReplacementConfir
 
 export function testPrimarySidebarNavigationMatchesApprovedArchitecture(): void {
   const routes = PRIMARY_NAV.map((item) => item.to)
-  const expected = ['/list', '/dashboard', '/weekly-review', '/review-cases', '/review-composer', '/review-session']
+  const expected = ['/list', '/dashboard', '/weekly-review', '/review-cases', '/review-composer', '/judgment-desk', '/review-session']
   assert(
     JSON.stringify(routes) === JSON.stringify(expected),
     `一级导航应为 ${expected.join(', ')}，实际为 ${routes.join(', ')}`,
@@ -449,8 +449,8 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   )
   assert(
     PRIMARY_NAV.map((item) => item.id).join(',')
-      === 'trades,dashboard,weeklyReview,reviewCases,reviewComposer,reviewSession',
-    '核心模块必须收敛为交易日志、统计分析、周期复盘、案例库、复盘组合器和随机复盘',
+      === 'trades,dashboard,weeklyReview,reviewCases,reviewComposer,judgmentDesk,reviewSession',
+    '核心模块必须收敛为交易日志、统计分析、周期复盘、案例库、复盘组合器、判断台和随机复盘',
   )
 
   const savedView = {
@@ -606,6 +606,15 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'reviewSession.skip': 'n',
     'reviewSession.back': 'p',
     'reviewSession.exit': 'escape',
+    'nav.judgmentDesk': null,
+    'judgment.yes': '1',
+    'judgment.no': '2',
+    'judgment.uncertain': '3',
+    'judgment.prev': 'q',
+    'judgment.next': 'e',
+    'judgment.prevImage': 'w',
+    'judgment.nextImage': 's',
+    'judgment.exit': 'escape',
     'image.prev': 'w',
     'image.next': 's',
     'image.close': 'escape',
@@ -754,37 +763,37 @@ export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Pro
 export function testPrimarySidebarKeepsLegacyOrderCompatibleButRendersCanonicalOrder(): void {
   assert(
     normalizePrimarySidebarOrder(['dashboard', 'trades', 'dashboard', 'unknown'])
-      .join(',') === 'dashboard,trades,weeklyReview,reviewCases,reviewComposer,reviewSession',
+      .join(',') === 'dashboard,trades,weeklyReview,reviewCases,reviewComposer,judgmentDesk,reviewSession',
     '旧快照中的合法入口顺序应被兼容读取，并补齐新的一级入口',
   )
   assert(
     resolvePrimarySidebarNav().map((item) => item.id).join(',')
-      === 'trades,dashboard,weeklyReview,reviewCases,reviewComposer,reviewSession',
+      === 'trades,dashboard,weeklyReview,reviewCases,reviewComposer,judgmentDesk,reviewSession',
     '未自定义时工作区导航必须使用标准顺序',
   )
   assert(
     reorderPrimarySidebarItem(undefined, 'reviewCases', 'dashboard').join(',')
-      === 'trades,reviewCases,dashboard,weeklyReview,reviewComposer,reviewSession',
+      === 'trades,reviewCases,dashboard,weeklyReview,reviewComposer,judgmentDesk,reviewSession',
     '拖动工作区入口必须生成可持久化的新顺序',
   )
   assert(
     reorderPrimarySidebarItem(undefined, 'trades', 'dashboard').join(',')
-      === 'dashboard,trades,weeklyReview,reviewCases,reviewComposer,reviewSession',
+      === 'dashboard,trades,weeklyReview,reviewCases,reviewComposer,judgmentDesk,reviewSession',
     '相邻工作区入口向下移动时不得原地不动',
   )
   assert(
     reorderPrimarySidebarItem(undefined, 'dashboard', 'trades').join(',')
-      === 'dashboard,trades,weeklyReview,reviewCases,reviewComposer,reviewSession',
+      === 'dashboard,trades,weeklyReview,reviewCases,reviewComposer,judgmentDesk,reviewSession',
     '相邻工作区入口向上移动时必须保持对称语义',
   )
   assert(
     reorderPrimarySidebarItem(undefined, 'trades', 'trades').join(',')
-      === 'trades,dashboard,weeklyReview,reviewCases,reviewComposer,reviewSession',
+      === 'trades,dashboard,weeklyReview,reviewCases,reviewComposer,judgmentDesk,reviewSession',
     '拖到自身时不得改变工作区入口顺序',
   )
   assert(
     resolvePrimarySidebarNav(['reviewSession', 'trades']).map((item) => item.id).join(',')
-      === 'reviewSession,trades,dashboard,weeklyReview,reviewCases,reviewComposer',
+      === 'reviewSession,trades,dashboard,weeklyReview,reviewCases,reviewComposer,judgmentDesk',
     '侧栏必须按已保存顺序渲染并补齐新增入口',
   )
 }

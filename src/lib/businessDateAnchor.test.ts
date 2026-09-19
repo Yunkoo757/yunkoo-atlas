@@ -30,7 +30,7 @@ export function testCalendarRangesAndBoundaryDelayUseLocalCalendarArithmetic(): 
 }
 
 export function testReviewPoolsUpgradePersistenceSchema(): void {
-  assert(SCHEMA_VERSION === 13, '自定义复盘池持久化包必须升级到 schema v13')
+  assert(SCHEMA_VERSION >= 13, '自定义复盘池持久化包必须升级到 schema v13')
 }
 
 export function testBusinessDateBoundaryDelayAcrossNewYorkDstTransitions(): void {

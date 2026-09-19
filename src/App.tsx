@@ -1,3 +1,4 @@
+import { JudgmentCaptureHost } from './components/judgment/JudgmentCaptureHost'
 import { ImageActions } from './components/ImageActions'
 import {
   BrowserRouter,
@@ -47,7 +48,7 @@ import { LoadingIndicator } from './icons/LoadingIndicator'
 import { ICON_XL } from './icons/iconSize'
 import { TradesPage } from './views/TradesPage'
 import { SettingsLayout } from './views/settings/SettingsLayout'
-import { TradeTrashView } from './views/TradeTrashView'
+const TradeTrashView = lazy(() => import('./views/TradeTrashView').then(m => ({ default: m.TradeTrashView })))
 import { StrategyHeader } from './components/StrategyHeader'
 import { getStrategyName } from './lib/strategies'
 import {
@@ -257,6 +258,7 @@ function LegacyLiveArchiveRedirect() {
 const ImportDataHealthView = lazy(() =>
   import('./views/ImportDataHealthView').then((module) => ({ default: module.ImportDataHealthView })),
 )
+const JudgmentDeskView = lazy(() => import('./views/JudgmentDeskView').then(m => ({ default: m.JudgmentDeskView })))
 const ReviewComposerView = lazy(() => import('./views/ReviewComposerView').then(m => ({ default: m.ReviewComposerView })))
 const ReviewSessionView = lazy(() =>
   import('./views/ReviewSessionView').then((module) => ({ default: module.ReviewSessionView })),
@@ -539,6 +541,7 @@ function Shell() {
           <Route path="/review-cases/board" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope/board" element={<ReviewCasesPage />} />
+          <Route path="/judgment-desk" element={<JudgmentDeskView />} />
           <Route path="/review-composer" element={<ReviewComposerView />} />
           <Route path="/review-session" element={<ReviewSessionView />} />
           <Route path="/weekly-review" element={<WeeklyReviewPage />} />
@@ -592,6 +595,7 @@ function Shell() {
       <TradeOpenRiskDialog />
       <ImageLightbox />
       <ImageActions />
+      <JudgmentCaptureHost />
       <ToastHost />
     </>
   )

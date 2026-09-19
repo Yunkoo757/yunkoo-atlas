@@ -1,3 +1,4 @@
+import { judgmentAssetEntries, type JudgmentDeskData } from '../lib/judgment/model'
 import type { StorageAdapter } from '@/storage/adapter'
 import { isSafeAssetId } from '@/storage/assetId'
 import {
@@ -219,11 +220,13 @@ export function collectAssetIdsFromNotes(trades: TradeRichTextCarrier[]): string
 }
 
 export function collectAssetIdsFromSnapshot(snapshot: {
+  judgmentDesk?: JudgmentDeskData
   trades: TradeRichTextCarrier[]
   weeklyReviews?: { contentHtml: string }[]
   quickNotes?: { contentHtml: string }[]
 }): string[] {
   return collectAssetIdsFromHtml([
+    ...judgmentAssetEntries(snapshot.judgmentDesk),
     ...snapshot.trades.flatMap(tradeRichTextEntries),
     ...(snapshot.weeklyReviews ?? []).map((review) => review.contentHtml),
     ...(snapshot.quickNotes ?? []).map((note) => note.contentHtml),
