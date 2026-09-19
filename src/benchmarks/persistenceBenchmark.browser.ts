@@ -175,7 +175,7 @@ window.runWebPersistenceBenchmark = async (input) => {
     await uiAdapter.open()
     await uiAdapter.commitImport(input.snapshot, input.assets)
     await bootstrapStorage()
-    indicatorRoot.render(createElement(SaveStatusIndicator))
+    indicatorRoot.render(createElement(SaveStatusIndicator, { quiet: false }))
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
     const dirtyConfirmedSamplesMs: number[] = []
     const longTaskSamplesMs: number[] = []
