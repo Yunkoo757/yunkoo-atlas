@@ -58,7 +58,9 @@ try {
     await page.getByLabel('一句话').fill('QA 自动化：验证快速记录与详情持久化')
     await page.locator('.composer-btn-primary').click()
     await page.locator('.composer-modal').waitFor({ state: 'hidden', timeout: 10000 })
-    await page.locator('.trade-row-open').first().click()
+    if (!/\/trade\//.test(new URL(page.url()).pathname)) {
+      await page.locator('.trade-row-open').first().click()
+    }
     await page.waitForURL(/\/trade\//, { timeout: 10000 })
     tradeCount = 1
   } else {
