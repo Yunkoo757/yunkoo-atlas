@@ -402,11 +402,11 @@ function ChoiceSection<T extends string | number>({
         {hint ? <p>{hint}</p> : null}
       </div>
       <SegmentedControl label={title} value={String(value)}
-        options={options.map((option) => ({ value: String(option.value), label: option.label,
-          wrap: (button) => <span key={option.value} title={option.description}>{button}</span>,
-        }))}
+        options={options.map((option) => ({ value: String(option.value), label: option.label }))}
         onChange={(next) => { const option = options.find((item) => String(item.value) === next); if (option) onChange(option.value) }} />
-      {title === '默认排序' ? <p className="display-sort-direction">{options.find((option) => option.value === value)?.description}</p> : null}
+      {title === '默认排序' || title === '关闭主窗口'
+        ? <p className="display-sort-direction">{options.find((option) => option.value === value)?.description}</p>
+        : null}
 
     </section>
   )

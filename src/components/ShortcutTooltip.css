@@ -21,8 +21,3 @@
   border-radius: var(--radius-4);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--border-strong) 70%, transparent);
 }
-
-.shortcut-tooltip-content kbd.is-unset {
-  color: var(--text-tertiary);
-  font-weight: var(--font-weight-normal);
-}

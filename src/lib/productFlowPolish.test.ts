@@ -61,6 +61,7 @@ export async function testCommandPaletteUsesActiveWorkspaceTagFilters(): Promise
     '命令面板不得搜索回收站记录',
   )
   assert(source.includes('textFromQuickNoteHtml'), '命令面板应索引随记正文')
+  assert(source.includes('textFromQuickNoteHtml(trade.note)'), '命令面板应索引交易正文')
   assert(source.includes('savedTradeViews'), '命令面板应索引保存的视图')
   for (const route of ["path: '/list'", "path: '/sim'", "path: '/review-cases'"]) {
     assert(source.includes(route), `标签命令缺少工作区路由：${route}`)
@@ -189,7 +190,9 @@ export async function testPrimaryIconActionsUseTheSharedTooltipLanguage(): Promi
       !strategyHeader.includes('title={rCoverage') &&
       !detailView.includes('title={trade.reviewedAt') &&
       !detailView.includes("title={masked ? '直播模式下") &&
-      !detailView.includes('title={\n                    reviewSubmitting'),
+      !detailView.includes('title={\n                    reviewSubmitting') &&
+      !detailView.includes('title={`记录日期') &&
+      !detailView.includes('ShortcutTooltip actionId="trade.editNote"'),
     '主要图标操作不得残留原生 title 提示；有可见文字的控件可不包 Tooltip',
   )
 }
@@ -299,8 +302,9 @@ export async function testDesktopShellDashboardAndSavedViewsRemainOperable(): Pr
 
   assert(
     sidebar.includes("type SidebarDensity = 'standard' | 'compact'") &&
-      sidebar.includes('data-density={density}'),
-    '桌面侧栏必须公开标准与紧凑密度状态',
+      sidebar.includes('data-density={density}') &&
+      sidebar.includes('还剩 ${reviewSessionRemaining}'),
+    '桌面侧栏必须公开标准与紧凑密度状态，并在随机复盘未完成时显示剩余条数',
   )
   assert(
     !batchCss.includes('safe-area-inset') &&

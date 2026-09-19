@@ -25,10 +25,10 @@ export function ShortcutTooltip({
     ...(model.hint ? { 'aria-keyshortcuts': model.hint } : {}),
   } as Record<string, string>)
 
+  if (!model.hint) return trigger
+
   const shortcutOnly = mode === 'shortcut'
-  const tipLabel = shortcutOnly
-    ? (model.hint ?? model.label)
-    : model.ariaLabel
+  const tipLabel = shortcutOnly ? model.hint : model.ariaLabel
 
   return (
     <Tooltip
@@ -38,8 +38,12 @@ export function ShortcutTooltip({
       label={tipLabel}
       content={(
         <span className={`shortcut-tooltip-content${shortcutOnly ? ' is-shortcut-only' : ''}`}>
-          {shortcutOnly ? null : <span>{model.label}</span>}
-          <kbd className={!model.hint ? 'is-unset' : undefined}>{model.hint ?? '未设置'}</kbd>
+          {shortcutOnly ? model.hint : (
+            <>
+              <span>{model.label}</span>
+              <kbd>{model.hint}</kbd>
+            </>
+          )}
         </span>
       )}
     >

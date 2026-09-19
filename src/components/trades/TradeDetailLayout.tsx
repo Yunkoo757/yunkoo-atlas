@@ -4,7 +4,7 @@ import { PanelRight, X } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
 import { registerShortcutHandlers } from '@/shortcuts/engine'
-import { ShortcutTooltip } from '@/components/ShortcutTooltip'
+import { useShortcutHint } from '@/shortcuts/useShortcutHint'
 import './TradeDetailLayout.css'
 
 export function TradeDetailLayout({
@@ -21,6 +21,10 @@ export function TradeDetailLayout({
   const propertiesVisible = useStore((state) => state.display.detailPropertiesVisible !== false)
   const setDisplay = useStore((state) => state.setDisplay)
   const expanded = compact ? propertiesOpen : propertiesVisible
+  const propertiesHint = useShortcutHint(
+    'trade.toggleProperties',
+    expanded ? '关闭交易属性' : '打开交易属性',
+  )
   const propertiesId = useId()
   const layoutRef = useRef<HTMLDivElement>(null)
   const propertiesRef = useRef<HTMLElement>(null)
@@ -128,10 +132,6 @@ export function TradeDetailLayout({
   }
 
   const propertiesToggle = (
-      <ShortcutTooltip
-        actionId="trade.toggleProperties"
-        label={expanded ? '关闭交易属性' : '打开交易属性'}
-      >
         <button
           type="button"
           className="trade-detail-properties-toggle"
@@ -139,12 +139,12 @@ export function TradeDetailLayout({
           onClick={toggleProperties}
           aria-controls={propertiesId}
           aria-expanded={expanded}
-          aria-label={expanded ? '关闭交易属性' : '打开交易属性'}
+          aria-label={propertiesHint.ariaLabel}
+          {...(propertiesHint.hint ? { 'aria-keyshortcuts': propertiesHint.hint } : {})}
         >
           <PanelRight size={ICON_MD} />
           <span>属性</span>
         </button>
-      </ShortcutTooltip>
   )
 
   return (

@@ -175,8 +175,9 @@ export function ReviewTemplatesPanel() {
               }}
             />
 
-            <label className="review-template-content-label" htmlFor="review-template-content" title="每行一个段落，冒号前的文字自动加粗">
+            <label className="review-template-content-label" htmlFor="review-template-content">
               起稿内容
+              <span>每行一个段落，冒号前的文字自动加粗</span>
             </label>
             <textarea
               id="review-template-content"

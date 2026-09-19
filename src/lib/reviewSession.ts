@@ -515,6 +515,13 @@ export function saveReviewSession(
   }
 }
 
+export function remainingReviewSessionCount(
+  snapshot: ReviewSessionSnapshot | null | undefined,
+): number {
+  if (!snapshot || snapshot.cursor >= snapshot.ids.length) return 0
+  return snapshot.ids.length - snapshot.cursor
+}
+
 export function loadReviewSession(
   libraryId: string,
   storage: ReviewSessionStorage | null = browserSessionStorage(),

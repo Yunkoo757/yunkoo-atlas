@@ -93,9 +93,23 @@
   border-top: 1px solid var(--border-subtle);
 }
 
+.window-hotkey-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
 .window-hotkey-label {
   color: var(--text-primary);
   font-size: var(--type-row-size);
+}
+
+.window-hotkey-hint {
+  color: var(--text-tertiary);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
 }
 
 .window-hotkey-controls {

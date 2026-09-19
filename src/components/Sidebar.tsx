@@ -20,6 +20,8 @@ import {
 import { UserAvatar } from '@/components/UserAvatar'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
+import { useShortcutStore } from '@/store/shortcutStore'
+import { getShortcutHintModel } from '@/shortcuts/hints'
 import { Menu } from '@/components/Menu'
 import { ContextMenu, type CtxItem, type CtxState } from '@/components/ContextMenu'
 import {
@@ -60,6 +62,7 @@ import { useExitClone } from '@/components/ui/useExitClone'
 import { SidebarRiskStatus } from '@/components/SidebarRiskStatus'
 import { SidebarBackupHealth } from '@/components/SidebarBackupHealth'
 import { countExpiringTradeTrash } from '@/lib/trashCleanup'
+import { useReviewSessionRemaining } from '@/hooks/useReviewSessionRemaining'
 import { SIDEBAR_STRATEGY_SHORTCUT_LIMIT } from '@/shortcuts/workspaceActions'
 
 import './Sidebar.css'
@@ -257,6 +260,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const setDisplay = useStore((state) => state.setDisplay)
   const profile = useStore((state) => state.profile)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
+  const shortcutBindings = useShortcutStore((state) => state.bindings)
   const sidebarDateAnchor = useBusinessDateAnchor()
   const {
     path,
@@ -287,6 +291,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   )
   const primaryNav = useMemo(() => resolvePrimarySidebarNav(primaryOrder), [primaryOrder])
 
+  const reviewSessionRemaining = useReviewSessionRemaining()
   const trashCount = trades.filter((trade) => Boolean(trade.deletedAt)).length
   const expiringTrashCount = countExpiringTradeTrash(trades)
   const trashLabel = expiringTrashCount > 0
@@ -322,6 +327,9 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
     const capabilityMenuId = capabilityId === 'missed' ? null : capabilityId
     const capabilityMenuOpen = Boolean(capabilityMenuId && capabilityMenu?.itemId === item.item.id)
     const strategyShortcutActionId = strategyShortcutActionByItemId.get(item.item.id)
+    const strategyShortcutHint = strategyShortcutActionId
+      ? getShortcutHintModel(strategyShortcutActionId, shortcutBindings, item.label).hint
+      : null
 
     const toggleCapabilityWorkspace = (
       id: SidebarCapabilityId,
@@ -380,6 +388,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         className="sb-item"
         data-ws-icon={item.icon}
         aria-current={active ? 'location' : undefined}
+        aria-keyshortcuts={strategyShortcutHint ?? undefined}
         onDragStart={(event) => event.preventDefault()}
       >
         {strategy ? (
@@ -393,6 +402,9 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <Icon size={ICON_MD} />
         )}
         <span className="sb-item-label">{item.label}</span>
+        {strategyShortcutHint ? (
+          <span className="sb-item-shortcut" aria-hidden="true">{strategyShortcutHint}</span>
+        ) : null}
       </NavLink>
     )
 
@@ -415,11 +427,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           openCapabilityMenu(event.clientX, event.clientY, event.currentTarget)
         }}
       >
-        {strategyShortcutActionId ? (
-          <ShortcutTooltip actionId={strategyShortcutActionId} label={item.label} mode="shortcut">
-            {workspaceLink}
-          </ShortcutTooltip>
-        ) : workspaceLink}
+        {workspaceLink}
         {capabilityMenuId ? (
           <button
             type="button"
@@ -519,7 +527,11 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
                 aria-current={active ? (contextOnly ? 'location' : 'page') : undefined}
               >
                 <Icon size={ICON_MD} />
-                <span className="sb-item-label">{label}</span>
+                <span className="sb-item-label">
+                  {id === 'reviewSession' && reviewSessionRemaining > 0
+                    ? `${label} · 还剩 ${reviewSessionRemaining}`
+                    : label}
+                </span>
               </Link>
             </div>
           )

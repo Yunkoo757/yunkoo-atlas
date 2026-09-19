@@ -30,7 +30,6 @@ import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
 import { toast } from '@/lib/toast'
 import type { ReviewTemplate } from '@/data/reviewTemplates'
 import { Menu } from '@/components/Menu'
-import { Tooltip } from '@/components/ui/Tooltip'
 import {
   ReviewContext,
   hasLeadingReviewParagraphs,
@@ -303,21 +302,15 @@ export function Editor({
   const showReviewStarter = reviewContextTools && !reviewContextActive && !leadingReviewText
 
   const reviewButton = (
-    <Tooltip
-      content="从自定义模板开始本次复盘"
-      label="选择复盘起稿"
-      asChild
+    <Button
+      variant="ghost"
+      size="sm"
+      aria-label="选择复盘起稿"
+      onMouseDown={(event) => event.preventDefault()}
     >
-      <Button
-        variant="ghost"
-        size="sm"
-        aria-label="选择复盘起稿"
-        onMouseDown={(event) => event.preventDefault()}
-      >
-        <FileText size={ICON_SM} aria-hidden />
-        复盘起稿
-      </Button>
-    </Tooltip>
+      <FileText size={ICON_SM} aria-hidden />
+      复盘起稿
+    </Button>
   )
 
   const reviewTools = showReviewStarter && editor && !readOnly ? (

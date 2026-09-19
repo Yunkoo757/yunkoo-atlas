@@ -159,6 +159,35 @@ function toggleValue(values: string[], value: string): string[] {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value]
 }
 
+function WeeklyResultIssueLink({
+  tradeId,
+  trades,
+  testId,
+  children,
+  detailFrom,
+}: {
+  tradeId: string | undefined
+  trades: readonly Trade[]
+  testId: string
+  children: ReactNode
+  detailFrom: (anchorTradeId: string) => TradeDetailFrom
+}) {
+  const trade = tradeId ? trades.find((item) => item.id === tradeId) : undefined
+  if (!trade) return null
+  const from = detailFrom(`weekly-trade:${trade.id}`)
+  return (
+    <Link
+      className="wr-data-warning-link"
+      data-weekly-result-link={testId}
+      to={tradeDetailPath(trade)}
+      state={tradeDetailNavState(from)}
+      onClick={() => rememberTradeReturnAnchor(from)}
+    >
+      {children}
+    </Link>
+  )
+}
+
 function TradeEvidence({
   trade,
   review,
@@ -875,8 +904,32 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                     </p>
                   </div>
                 ) : null}
-                {metrics.conflictCount > 0 ? <p className="wr-data-warning">有 {metrics.conflictCount} 笔结果口径冲突，未进入绩效计算。</p> : null}
-                {metrics.pendingResultCount > 0 ? <p className="wr-data-warning">有 {metrics.pendingResultCount} 笔待补结果，未进入绩效计算。</p> : null}
+                {metrics.conflictCount > 0 ? (
+                  <p className="wr-data-warning">
+                    有 {metrics.conflictCount} 笔结果口径冲突，未进入绩效计算。
+                    <WeeklyResultIssueLink
+                      tradeId={weekTradeSelection.conflictResultIds[0]}
+                      trades={weekTrades}
+                      testId="conflict"
+                      detailFrom={detailFrom}
+                    >
+                      去核对
+                    </WeeklyResultIssueLink>
+                  </p>
+                ) : null}
+                {metrics.pendingResultCount > 0 ? (
+                  <p className="wr-data-warning">
+                    有 {metrics.pendingResultCount} 笔待补结果，未进入绩效计算。
+                    <WeeklyResultIssueLink
+                      tradeId={weekTradeSelection.missingResultIds[0]}
+                      trades={weekTrades}
+                      testId="pending"
+                      detailFrom={detailFrom}
+                    >
+                      去补结果
+                    </WeeklyResultIssueLink>
+                  </p>
+                ) : null}
               </section>
 
               <WeeklyRiskEvidence

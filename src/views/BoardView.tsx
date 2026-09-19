@@ -31,9 +31,11 @@ import { STATUS_ORDER } from '@/lib/tradeStatus'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
+import { ResultConflictRepair } from '@/components/ResultConflictRepair'
+import { collectWorkbenchResultRepairIds } from '@/lib/workbenchResultHealth'
 import { useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
-import { Tooltip } from '@/components/ui/Tooltip'
+import { OverflowTooltip, Tooltip } from '@/components/ui/Tooltip'
 import type { Strategy } from '@/data/strategies'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import {
@@ -42,6 +44,7 @@ import {
   shouldResetWorkbenchHideClosed,
 } from '@/lib/workbenchEmptyState'
 import './BoardView.css'
+import './ListView.css'
 import { casePreviewSummary, resolveCasePreview } from '@/lib/caseExcerpt'
 
 const CARD_ESTIMATE = 118
@@ -88,6 +91,10 @@ export function BoardView({
   useListContextSync(filter)
   useTradeReturnAnchor()
   const { trades, visible, totalCount, workspaceCount, businessDateAnchor } = useWorkbenchVisibleTrades(filter)
+  const resultRepairIds = useMemo(
+    () => collectWorkbenchResultRepairIds(trades),
+    [trades],
+  )
 
   const cols = useMemo(() => {
     const map = new Map<TradeStatus, Trade[]>()
@@ -167,6 +174,17 @@ export function BoardView({
   return (
     <>
       <Topbar title={title} view={view} onView={onView} />
+      {resultRepairIds.length > 0 ? (
+        <div className="list-pending-entry">
+          <div className="list-result-repair" data-workbench-result-repair>
+            <span>结果待核对 {resultRepairIds.length}</span>
+            <ResultConflictRepair
+              ids={resultRepairIds}
+              onOpenTrade={(id) => onOpen(id)}
+            />
+          </div>
+        </div>
+      ) : null}
       {header}
       <TradeFilters
         filter={filter}
@@ -426,7 +444,11 @@ function BoardColumnBody({
                     {result.r.text}
                   </span>
                 </div>
-                {excerpt ? <p className="bd-card-excerpt" title={excerpt}>{excerpt}</p> : null}
+                {excerpt ? (
+                  <OverflowTooltip text={excerpt}>
+                    <p className="bd-card-excerpt">{excerpt}</p>
+                  </OverflowTooltip>
+                ) : null}
               </article>
             </div>
           )

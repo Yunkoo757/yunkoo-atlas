@@ -25,6 +25,7 @@ import { useStore } from '@/store/useStore'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { fmtMoney } from '@/lib/format'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
+import { collectPerformanceCloseDayRepairIds } from '@/lib/performanceCloseDayRepair'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { isActive } from '@/lib/tradeStatus'
 import {
@@ -158,16 +159,17 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
     ),
     [scopedTrades, performanceSelection.eligibleMetricIds, performanceSelection.pnlIds, strategyDefs, tradingDayStartHour],
   )
-  const missingPerformanceCloseDayCount = useMemo(
-    () => {
-      const liveTradeIds = new Set(scopedTrades.filter((trade) => trade.tradeKind === 'live').map((trade) => trade.id))
-      return [
+  const closeDayRepairIds = useMemo(
+    () => collectPerformanceCloseDayRepairIds(
+      [
         ...performanceSelection.missingCloseDayIds,
         ...performanceSelection.invalidCloseDayIds,
-      ].filter((id) => liveTradeIds.has(id)).length
-    },
+      ],
+      scopedTrades,
+    ),
     [scopedTrades, performanceSelection.invalidCloseDayIds, performanceSelection.missingCloseDayIds],
   )
+  const missingPerformanceCloseDayCount = closeDayRepairIds.length
   const weekStart = useMemo(() => weekStartFor(new Date(`${localDateKey}T12:00:00`)), [localDateKey])
   const weekRangeLabel = useMemo(() => formatDashboardWeekRange(weekStart), [weekStart])
   const weekPerformanceSelection = useMemo(
@@ -245,10 +247,13 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
   const kindLabel = scope.kind === 'all' ? '全部记录' : scope.kind === 'paper' ? '模拟盘' : '实盘'
   const sampleLabel = (count: number) => scopedClosedCount > 0 ? `${count}/${scopedClosedCount} 笔` : undefined
 
-  const openTrade = (tradeId: string) => {
+  const openTrade = (tradeId: string, extras?: { focusField?: 'closedAt' }) => {
     const t = tradeById.get(tradeId)
     navigate(t ? tradeDetailPath(t) : `/trade/${tradeId}`, {
-      state: tradeDetailNavState({ pathname: location.pathname, search: location.search }),
+      state: tradeDetailNavState(
+        { pathname: location.pathname, search: location.search },
+        extras,
+      ),
     })
   }
 
@@ -365,7 +370,17 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
             <span className="db-data-health-state">
               {missingPerformanceCloseDayCount} 笔实盘缺少有效平仓日期，暂未计入当前统计
             </span>
-            <Link to="/import-data-health" className="db-live-link" data-import-close-day-repair>修复数据 {missingPerformanceCloseDayCount}</Link>
+            <button
+              type="button"
+              className="db-live-link"
+              data-close-day-repair
+              onClick={() => {
+                const firstId = closeDayRepairIds[0]
+                if (firstId) openTrade(firstId, { focusField: 'closedAt' })
+              }}
+            >
+              补平仓日期 {missingPerformanceCloseDayCount}
+            </button>
           </div>
         ) : null}
 

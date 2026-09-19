@@ -55,9 +55,14 @@
 }
 
 .db-live-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--text-muted);
+  font: inherit;
   font-size: var(--type-metadata-size);
   text-decoration: none;
+  cursor: pointer;
 }
 
 .db-live-link:hover {

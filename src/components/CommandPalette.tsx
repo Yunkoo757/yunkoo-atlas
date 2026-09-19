@@ -39,6 +39,7 @@ import {
   suggestSavedViewName,
 } from '@/lib/savedTradeViews'
 import { Button } from '@/components/ui/Button'
+import { OverflowTooltip } from '@/components/ui/Tooltip'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
 import { STATUS_META, type TradeStatus } from '@/data/trades'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
@@ -397,7 +398,7 @@ function CommandPaletteDialog({
       query,
       (trade) => {
         const strategyName = resolveStrategyName(trade.strategyId)
-        return [trade.ref, trade.symbol, strategyName, trade.tags.join(' ')]
+        return [trade.ref, trade.symbol, strategyName, trade.tags.join(' '), textFromQuickNoteHtml(trade.note)]
       },
       tradeCommand,
       limit - commands.length,
@@ -670,9 +671,15 @@ function CommandPaletteDialog({
                 >
                   <span className="cmdk-item-icon">{c.icon}</span>
                   {c.date && <span className="cmdk-item-date">{c.date}</span>}
-                  <span className="cmdk-item-label" title={c.label}>{c.label}</span>
+                  <OverflowTooltip text={c.label}>
+                    <span className="cmdk-item-label">{c.label}</span>
+                  </OverflowTooltip>
                   {c.source && <span className="cmdk-item-source">{c.source}</span>}
-                  {c.hint && <span className="cmdk-item-hint" title={c.hint}>{c.hint}</span>}
+                  {c.hint ? (
+                    <OverflowTooltip text={c.hint}>
+                      <span className="cmdk-item-hint">{c.hint}</span>
+                    </OverflowTooltip>
+                  ) : null}
                   {idx === active && (
                     <CornerDownLeft size={ICON_SM} className="cmdk-item-enter" />
                   )}

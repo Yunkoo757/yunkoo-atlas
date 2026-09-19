@@ -224,3 +224,46 @@ export function Tooltip({
     </>
   )
 }
+
+/** 仅在文字被裁切时提示完整内容，避免重复可见原文。 */
+export function OverflowTooltip({
+  text,
+  children,
+}: {
+  text: string
+  children: ReactElement
+}) {
+  const nodeRef = useRef<HTMLElement | null>(null)
+  const [overflowed, setOverflowed] = useState(false)
+  const child = isValidElement(children)
+    ? children as ReactElement<Record<string, unknown>>
+    : null
+
+  useLayoutEffect(() => {
+    const node = nodeRef.current
+    if (!node) return
+    const update = () => {
+      setOverflowed(node.scrollWidth - node.clientWidth > 1)
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [text])
+
+  if (!child) return children
+
+  const trigger = cloneElement(child, {
+    ref: (node: HTMLElement | null) => {
+      nodeRef.current = node
+      assignElementRef((child as ReactElement & { ref?: unknown }).ref, node)
+    },
+  } as Record<string, unknown>)
+
+  if (!overflowed) return trigger
+  return (
+    <Tooltip asChild content={text} label={text}>
+      {trigger}
+    </Tooltip>
+  )
+}

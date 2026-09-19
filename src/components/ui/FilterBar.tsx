@@ -87,7 +87,7 @@ export function FilterBar({
         <div className="ui-filter-actions">
           {actions}
           {shortcutActionId ? (
-            <ShortcutTooltip actionId={shortcutActionId} label={label} mode="shortcut">
+            <ShortcutTooltip actionId={shortcutActionId} label={label}>
               {trigger}
             </ShortcutTooltip>
           ) : trigger}

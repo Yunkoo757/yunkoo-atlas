@@ -420,8 +420,8 @@ export function StageOwnershipRepairView() {
                       </div>
                     ) : null}
                   </dl>
-                  <p className="stage-ownership-reason" title={item.reason}>
-                    <AlertCircle size={ICON_MD} aria-hidden />旧记录缺少阶段信息
+                  <p className="stage-ownership-reason">
+                    <AlertCircle size={ICON_MD} aria-hidden />{item.reason}
                   </p>
                 </div>
                 <div className="stage-ownership-actions">

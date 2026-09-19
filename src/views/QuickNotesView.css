@@ -189,11 +189,21 @@
 }
 
 .quick-notes-editor-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
   padding: 0 clamp(var(--page-inset-compact), 4vw, var(--page-inset-wide)) var(--sp-3);
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
+}
+
+.quick-notes-editor-organize {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
 }
 
 .quick-notes-editor-body {

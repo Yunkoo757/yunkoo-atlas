@@ -14,7 +14,7 @@ import {
   resolveTradeRowResultPresentation,
 } from '@/lib/tradeRowPresentation'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
-import { Tooltip } from '@/components/ui/Tooltip'
+import { OverflowTooltip, Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
 import { TradeRowLayout } from './TradeRowLayout'
 import { TradeRowStrategy } from './TradeRowStrategy'
@@ -125,13 +125,13 @@ export const TradeRow = memo(function TradeRow({
               </button>
             </CaseContentPreview>
           ) : (
-            <Tooltip asChild content={trade.symbol} label={trade.symbol}>
-              <button type="button" className="trade-row-symbol-main"
-                aria-label={`打开 ${trade.symbol} ${trade.ref}`} onClick={() => onOpen(trade)}>
-                <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_LG} quiet />
+            <button type="button" className="trade-row-symbol-main"
+              aria-label={`打开 ${trade.symbol} ${trade.ref}`} onClick={() => onOpen(trade)}>
+              <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_LG} quiet />
+              <OverflowTooltip text={trade.symbol}>
                 <strong>{trade.symbol}</strong>
-              </button>
-            </Tooltip>
+              </OverflowTooltip>
+            </button>
           )}
           <SideTag side={trade.side} quiet />
         </>

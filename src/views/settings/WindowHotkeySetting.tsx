@@ -188,7 +188,10 @@ export function WindowHotkeySetting({
         </button>
       ) : null}
       <div className="window-hotkey-row">
-        <span className="window-hotkey-label" title="在其他应用中也可使用">显示/隐藏应用</span>
+        <span className="window-hotkey-copy">
+          <span className="window-hotkey-label">显示/隐藏应用</span>
+          <span className="window-hotkey-hint">在其他应用中也可使用</span>
+        </span>
         <div className="window-hotkey-controls">
           <button
             type="button"

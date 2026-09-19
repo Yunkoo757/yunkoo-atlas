@@ -222,7 +222,7 @@ async function run(): Promise<void> {
 
     pendingGet.resolve(state)
     await eventually(() => screenText().includes('快捷键当前不可用'), '未注册系统热键错误状态未显示')
-    assert(document.querySelector('.window-hotkey-label')?.getAttribute('title') === '在其他应用中也可使用', '系统快捷键必须提供范围说明')
+    assert(document.querySelector('.window-hotkey-hint')?.textContent === '在其他应用中也可使用', '系统快捷键必须提供范围说明')
     assert(document.querySelector('[role="status"]'), '注册结果必须使用可访问状态语义')
     await eventually(
       () => !loadingResetAll.disabled &&

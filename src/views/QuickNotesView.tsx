@@ -7,7 +7,9 @@ import {
   textFromQuickNoteHtml,
   titleFromQuickNoteHtml,
 } from '@/data/quickNotes'
-import { useStore } from '@/store/useStore'
+import { currentLiveStageIdForWrite, useStore } from '@/store/useStore'
+import { tradeDetailPath } from '@/lib/tradeRoute'
+import { buildQuickNoteRecord, getNextTradeRef } from '@/lib/quickNoteRecordDraft'
 import { getStorage } from '@/storage/bootstrap'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
 import {
@@ -47,6 +49,8 @@ export function QuickNotesView() {
   const upsertNote = useStore((state) => state.upsertQuickNote)
   const updateNote = useStore((state) => state.updateQuickNote)
   const removeNote = useStore((state) => state.removeQuickNote)
+  const upsertTrade = useStore((state) => state.upsertTrade)
+  const [converting, setConverting] = useState(false)
   const [query, setQuery] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
   const [loadedNoteId, setLoadedNoteId] = useState<string | null>(null)
@@ -211,6 +215,34 @@ export function QuickNotesView() {
     toast('随记已删除')
   }
 
+  const convertNote = async (kind: 'live' | 'case') => {
+    if (!selectedNote || converting) return
+    const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
+    if (!await flushDraft(draftId)) return
+    setConverting(true)
+    try {
+      const store = useStore.getState()
+      const latest = store.quickNotes.find((note) => note.id === selectedNote.id) ?? selectedNote
+      const created = buildQuickNoteRecord({
+        note: latest,
+        kind,
+        id: crypto.randomUUID(),
+        ref: getNextTradeRef(store.trades, kind),
+        strategyId: store.strategies[0]?.id ?? '',
+        symbol: store.symbolCatalog[0] ?? latest.title,
+        liveStageId: currentLiveStageIdForWrite(store),
+        tradingDayStartHour: store.display.tradingDayStartHour,
+      })
+      if (upsertTrade(created) !== 'updated') throw new Error(kind === 'case' ? '案例未写入' : '交易未写入')
+      toast(kind === 'case' ? '已写入案例草稿' : '已写入交易草稿')
+      navigate(tradeDetailPath(created))
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '未能写入记录', { tone: 'error' })
+    } finally {
+      setConverting(false)
+    }
+  }
+
   return (
     <section className="quick-notes-page">
       <Toolbar
@@ -303,9 +335,31 @@ export function QuickNotesView() {
                 </div>
               </header>
               <div className="quick-notes-editor-meta">
-                更新于 {new Intl.DateTimeFormat('zh-CN', {
-                  year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
-                }).format(new Date(selectedNote.updatedAt))}
+                <span>
+                  更新于 {new Intl.DateTimeFormat('zh-CN', {
+                    year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                  }).format(new Date(selectedNote.updatedAt))}
+                </span>
+                <div className="quick-notes-editor-organize">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    data-note-convert-live
+                    disabled={converting || loadState === 'loading'}
+                    onClick={() => void convertNote('live')}
+                  >
+                    转为交易
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    data-note-convert-case
+                    disabled={converting || loadState === 'loading'}
+                    onClick={() => void convertNote('case')}
+                  >
+                    转为案例
+                  </Button>
+                </div>
               </div>
               <div className="quick-notes-editor-body">
                 {loadState === 'loading' ? (

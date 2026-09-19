@@ -28,6 +28,7 @@ import { IconButton } from '@/components/ui/IconButton'
 import { Button } from '@/components/ui/Button'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
+import { useShortcutHint } from '@/shortcuts/useShortcutHint'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { TagEditor } from '@/components/TagEditor'
@@ -197,6 +198,7 @@ export function DetailView() {
   const privacyMode = useStore((s) => s.display.privacyMode)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
   const businessDateAnchor = useBusinessDateAnchor()
+  const editNoteHint = useShortcutHint('trade.editNote', '编辑正文')
   const performanceSelection = useMemo(
     () => buildPerformanceSelection(trade ? [trade] : [], {
       scope: { kind: 'all', range: 'all' },
@@ -291,6 +293,7 @@ export function DetailView() {
 
   const from = (location.state as TradeDetailLocationState | null)?.from
   const commandSearch = (location.state as TradeDetailLocationState | null)?.commandSearch
+  const focusField = (location.state as TradeDetailLocationState | null)?.focusField
   const detailReturnState = commandSearch
     ? { restoreCommandSearch: commandSearch }
     : tradeReturnLocationState(from)
@@ -1036,7 +1039,7 @@ export function DetailView() {
             </div>
             <div className="dv-reading-header">
             <div className="dv-reading-context" aria-label="交易背景">
-              <span title={`记录日期：${trade.openedAt}`}>{fmtDate(trade.openedAt)}</span>
+              <span>{fmtDate(trade.openedAt)}</span>
               <span>{resolveTimeframe(trade.timeframe)}</span>
               <span>{STATUS_META[trade.status].label}</span>
               <span>{TRADE_KIND_META[trade.tradeKind].label}</span>
@@ -1053,17 +1056,16 @@ export function DetailView() {
                     完成编辑
                   </Button>
                 ) : (
-                  <ShortcutTooltip actionId="trade.editNote" label="编辑正文">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-label="编辑正文"
-                      onClick={() => setNoteEditing(true)}
-                    >
-                      <Pencil size={ICON_SM} aria-hidden />
-                      编辑正文
-                    </Button>
-                  </ShortcutTooltip>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={editNoteHint.ariaLabel}
+                    {...(editNoteHint.hint ? { 'aria-keyshortcuts': editNoteHint.hint } : {})}
+                    onClick={() => setNoteEditing(true)}
+                  >
+                    <Pencil size={ICON_SM} aria-hidden />
+                    编辑正文
+                  </Button>
                 )
               )}
               <div ref={setReviewToolsContainer} />
@@ -1555,7 +1557,7 @@ export function DetailView() {
             ))}
           </Section>
 
-          <Section title="时间" defaultOpen={false}>
+          <Section title="时间" defaultOpen={focusField === 'closedAt'}>
             <EditableDateRow
               label="开仓"
               value={trade.openedAt}
@@ -1565,6 +1567,7 @@ export function DetailView() {
               <EditableDateRow
                 label="平仓"
                 value={trade.closedAt ?? ''}
+                autoEdit={focusField === 'closedAt'}
                 onSave={(v) => requestTradeDataUpdate({ closedAt: v })}
               />
             ) : (
@@ -1783,12 +1786,14 @@ function EditableDateRow({
   label,
   value,
   onSave,
+  autoEdit = false,
 }: {
   label: string
   value: string
   onSave: (v: string) => void
+  autoEdit?: boolean
 }) {
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(autoEdit)
   const [draft, setDraft] = useState(value.slice(0, 10))
   if (editing) {
     return (

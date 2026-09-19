@@ -11,6 +11,7 @@ import {
   clearReviewSessionStorage,
   loadReviewSession,
   loadReviewSessionFilters,
+  remainingReviewSessionCount,
   reconcileReviewSession,
   reviewFiltersForNextRound,
   reviewSessionFiltersStorageKey,
@@ -581,6 +582,8 @@ export function testReviewSessionStorageIsVersionedAndIsolatedByLibrary(): void 
   const runtimeSnapshot = Object.assign({}, snapshot, { transientTrade: baseTrade })
   assert(saveReviewSession('library-a', runtimeSnapshot, storage), '可用 sessionStorage 应保存成功')
   assert(loadReviewSession('library-a', storage)?.cursor === 1, '同一资料库应恢复当前进度')
+  assert(remainingReviewSessionCount(loadReviewSession('library-a', storage)) === 1, '游标之后的条目应计为还剩条数')
+  assert(remainingReviewSessionCount({ ...snapshot, cursor: 2 }) === 0, '整轮结束后不得显示剩余')
   assert(loadReviewSession('library-b', storage) === null, '其他资料库不得读取当前队列')
   assert(reviewSessionStorageKey('library-a').includes(':v3:'), '拆分实盘/模拟盘后的会话存储键必须使用 v3')
 

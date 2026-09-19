@@ -3,15 +3,20 @@ import path from 'node:path'
 
 export function testVisibleSidebarLabelsDoNotRepeatInShortcutTooltips(): void {
   const source = readFileSync(path.resolve('src/components/Sidebar.tsx'), 'utf8').replace(/\r\n/g, '\n')
-  const strategyTooltip = source.match(
-    /<ShortcutTooltip actionId=\{strategyShortcutActionId\} label=\{item\.label\}([^>]*)>/,
-  )
 
-  if (!strategyTooltip) {
-    throw new Error('找不到侧栏策略快捷键提示')
+  if (source.includes('strategyShortcutActionId') && source.includes('<ShortcutTooltip')) {
+    const strategyTooltip = source.match(
+      /<ShortcutTooltip actionId=\{strategyShortcutActionId\}[\s\S]*?<\/ShortcutTooltip>/,
+    )
+    if (strategyTooltip) {
+      throw new Error('侧栏策略名称已经直接可见，不得再用 ShortcutTooltip 重复报名或浮层键帽')
+    }
   }
-  if (!strategyTooltip[1].includes('mode="shortcut"')) {
-    throw new Error('侧栏策略名称已经直接可见，Tooltip 只能补充快捷键，不得重复名称')
+  if (!source.includes('sb-item-shortcut')) {
+    throw new Error('侧栏策略快捷键应使用行尾提示，而不是浮层')
+  }
+  if (!source.includes('getShortcutHintModel')) {
+    throw new Error('侧栏策略快捷键必须使用真实绑定，不得写死修饰键')
   }
 }
 

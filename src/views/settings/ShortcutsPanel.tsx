@@ -4,7 +4,6 @@ import { Ban, LockKeyhole, RotateCcw } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import type { WindowHotkeyState } from '@/lib/windowHotkeyBinding'
 import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
-import { SHORTCUT_SCOPE_LABELS } from '@/shortcuts/bindingRules'
 import { formatBinding } from '@/shortcuts/format'
 import { chordFromEvent, chordKey, chordsEqual, isSequence, parseChordKey } from '@/shortcuts/chords'
 import type { KeyChord } from '@/shortcuts/types'
@@ -115,7 +114,6 @@ export function ShortcutsPanel() {
           aria-label={windowHotkeyLoading
             ? `恢复全部默认，${WINDOW_HOTKEY_LOADING_COPY}`
             : undefined}
-          title={windowHotkeyLoading ? WINDOW_HOTKEY_LOADING_COPY : undefined}
           disabled={windowHotkeyLoading}
           onClick={() => {
             if (!windowHotkeyState?.registered) {
@@ -150,7 +148,7 @@ export function ShortcutsPanel() {
                   key={action.id}
                   className={`shortcuts-row${isRecording ? ' is-recording' : ''}`}
                 >
-                  <span className="shortcuts-label" title={`生效范围：${SHORTCUT_SCOPE_LABELS[action.scope]}`}>{action.label}</span>
+                  <span className="shortcuts-label">{action.label}</span>
                   <div className="shortcuts-row-controls">
                     {action.sequenceFixed ? (
                       <Tooltip
@@ -177,7 +175,6 @@ export function ShortcutsPanel() {
                             : `${action.label}，当前快捷键 ${bindingLabel}，点击修改`
                         }
                         aria-pressed={isRecording}
-                        title={windowHotkeyLoading ? WINDOW_HOTKEY_LOADING_COPY : undefined}
                         disabled={windowHotkeyLoading}
                         onClick={() => setRecordingId(isRecording ? null : action.id)}
                         onBlur={() => {
@@ -204,7 +201,6 @@ export function ShortcutsPanel() {
                             aria-label={windowHotkeyLoading
                               ? `恢复${action.label}的默认快捷键，${WINDOW_HOTKEY_LOADING_COPY}`
                               : `恢复${action.label}的默认快捷键`}
-                            title={windowHotkeyLoading ? WINDOW_HOTKEY_LOADING_COPY : undefined}
                             disabled={windowHotkeyLoading}
                             onClick={() => {
                               setRecordingId(null)

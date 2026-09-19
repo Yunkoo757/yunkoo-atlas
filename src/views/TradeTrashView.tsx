@@ -25,7 +25,7 @@ import { StrategyLabel } from '@/components/StrategyIcon'
 import { BatchActionBar } from '@/components/ui/BatchActionBar'
 import { CrumbsNav } from '@/components/ui/CrumbsNav'
 import { SelectionBox } from '@/components/ui/SelectionBox'
-import { Tooltip } from '@/components/ui/Tooltip'
+import { OverflowTooltip, Tooltip } from '@/components/ui/Tooltip'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
@@ -383,7 +383,9 @@ export function TradeTrashView() {
                         <span className="trash-item-status">
                           <StatusIcon status={trade.status} />
                         </span>
-                        <span className="trash-item-id" title={trade.ref}>{trade.ref}</span>
+                        <OverflowTooltip text={trade.ref}>
+                          <span className="trash-item-id">{trade.ref}</span>
+                        </OverflowTooltip>
 
                         <div className="trash-item-trade">
                           <div className="trash-item-meta">

@@ -72,7 +72,10 @@ export function testTrashKeepsStandardRecordReferencesReadable() {
   if (!css.includes('18px 16px 8ch minmax(180px, 1.4fr)')) {
     throw new Error('回收站编号列必须按字符宽度容纳完整的标准 TRD/CAS 编号')
   }
-  if (!source.includes('className="trash-item-id" title={trade.ref}')) {
-    throw new Error('超长或导入编号必须保留完整悬浮信息')
+  if (source.includes('title={trade.ref}')) {
+    throw new Error('回收站编号不得使用浏览器原生 title')
+  }
+  if (!source.includes('OverflowTooltip text={trade.ref}')) {
+    throw new Error('超长或导入编号必须在裁切时用统一 Tooltip 显示完整编号')
   }
 }

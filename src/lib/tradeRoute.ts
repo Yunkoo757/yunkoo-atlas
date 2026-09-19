@@ -14,9 +14,12 @@ export type TradeDetailFrom = {
   anchorTradeId?: string
 }
 
+export type TradeDetailFocusField = 'closedAt'
+
 export type TradeDetailLocationState = {
   from?: TradeDetailFrom
   commandSearch?: CommandSearchSession
+  focusField?: TradeDetailFocusField
 }
 
 /** 路由参数：支持内部 id 或 TRD-xxx 编号 */
@@ -35,7 +38,10 @@ export function tradeDetailPath(trade: Pick<Trade, 'ref'>): string {
   return `/trade/${trade.ref}`
 }
 
-export function tradeDetailNavState(from: TradeDetailFrom): TradeDetailLocationState {
+export function tradeDetailNavState(
+  from: TradeDetailFrom,
+  extras?: Pick<TradeDetailLocationState, 'focusField'>,
+): TradeDetailLocationState {
   return {
     from: {
       pathname: from.pathname,
@@ -43,6 +49,7 @@ export function tradeDetailNavState(from: TradeDetailFrom): TradeDetailLocationS
       ...(from.restoreSearch !== undefined ? { restoreSearch: from.restoreSearch } : {}),
       ...(from.anchorTradeId ? { anchorTradeId: from.anchorTradeId } : {}),
     },
+    ...(extras?.focusField ? { focusField: extras.focusField } : {}),
   }
 }
 
