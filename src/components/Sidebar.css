@@ -118,6 +118,39 @@
   overflow: visible;
 }
 
+.sb-backup-health {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0 0 var(--sp-2);
+  padding: 0 var(--sp-1);
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
+  text-decoration: none;
+}
+
+.sb-backup-health strong {
+  color: var(--text-body);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.sb-backup-health:hover,
+.sb-backup-health:focus-visible {
+  color: var(--text-body);
+  text-decoration: underline;
+}
+
+.sb-backup-health.is-warning strong,
+.sb-backup-health.is-danger strong {
+  color: var(--warn);
+}
+
+.sb-backup-health.is-danger strong {
+  color: var(--neg);
+}
+
 /*
  * Sidebar IconButton 几何（Search / Create 共用）：
  * 28×28、radius 9999、padding 0 2px、min-width 28、图标 16、fill lch(60.307%)

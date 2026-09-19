@@ -1,10 +1,21 @@
 .list-pending-entry {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-5);
   min-height: 36px;
   padding: 6px 18px;
   border-bottom: 1px solid var(--border-subtle);
   background: var(--surface-pane);
+}
+
+.list-result-repair {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-secondary);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--font-weight-medium);
 }
 
 .list-pending-link {

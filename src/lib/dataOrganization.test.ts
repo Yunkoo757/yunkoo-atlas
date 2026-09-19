@@ -2,7 +2,13 @@ import assert from 'node:assert/strict'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import { createInitialLiveStage } from '@/lib/liveStages'
 import { createWeeklyReview } from '@/data/weeklyReviews'
-import { prepareDataOrganization, commitDataOrganization, type OrganizationBoundary } from './dataOrganization'
+import {
+  extraDuplicateWeeklyReviewIds,
+  findDuplicateWeeklyReviewWeeks,
+  prepareDataOrganization,
+  commitDataOrganization,
+  type OrganizationBoundary,
+} from './dataOrganization'
 import type { Trade } from '@/data/trades'
 import { listPendingStageOwnership, prepareAutomaticStageOwnership } from '@/lib/stageOwnershipRepair'
 
@@ -89,4 +95,15 @@ export async function testOrganizationCommitOrPublishFailureStopsOldAutosave() {
     assert(events.includes('halt'));assert.equal(events.at(-1),'unlock')
     assert.equal(s.trades[0].tradeKind,'live')
   }
+}
+export function testDuplicateWeeklyReviewWeeksKeepOnePerWeek(): void {
+  const reviews = [
+    { id: 'a', weekStart: '2026-08-03' },
+    { id: 'b', weekStart: '2026-08-10' },
+    { id: 'c', weekStart: '2026-08-03' },
+  ]
+  assert.deepEqual(findDuplicateWeeklyReviewWeeks(reviews), [
+    { weekStart: '2026-08-03', ids: ['a', 'c'] },
+  ])
+  assert.deepEqual(extraDuplicateWeeklyReviewIds(reviews), ['c'])
 }

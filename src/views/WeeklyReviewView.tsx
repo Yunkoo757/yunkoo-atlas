@@ -830,13 +830,25 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
               {review.status === 'completed' ? (
                 <div className="wr-complete-banner">
                   <span><Check size={ICON_MD} /> 已完成 · {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}</span>
-                  {!usesCompleteSnapshot ? (
-                    <details>
-                      <summary>部分历史指标不可用</summary>
-                      <p>缺少完成时快照：{missingSnapshotLabels.join('、')}</p>
-                    </details>
-                  ) : null}
                 </div>
+              ) : null}
+              {review.status === 'completed' && !usesCompleteSnapshot ? (
+                <InlineStatus
+                  tone="warning"
+                  title="部分历史指标不可用"
+                  className="wr-snapshot-cta"
+                  detail={`缺少完成时快照：${missingSnapshotLabels.join('、')}。重新打开后可按当前数据完成并冻结。`}
+                  action={(
+                    <button
+                      type="button"
+                      className="ui-btn ui-btn-bordered"
+                      data-weekly-snapshot-cta
+                      onClick={reopenReview}
+                    >
+                      重新打开
+                    </button>
+                  )}
+                />
               ) : null}
 
               <section className="wr-section wr-metrics" data-weekly-section="facts" data-invalid="false">

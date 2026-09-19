@@ -365,7 +365,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
             <span className="db-data-health-state">
               {missingPerformanceCloseDayCount} 笔实盘缺少有效平仓日期，暂未计入当前统计
             </span>
-            <Link to="/settings/data-health" className="db-live-link">修复数据 {missingPerformanceCloseDayCount}</Link>
+            <Link to="/import-data-health" className="db-live-link" data-import-close-day-repair>修复数据 {missingPerformanceCloseDayCount}</Link>
           </div>
         ) : null}
 

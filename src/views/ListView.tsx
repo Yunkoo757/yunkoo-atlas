@@ -33,6 +33,8 @@ import { ModalShell } from '@/components/ui/ModalShell'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import { useStore } from '@/store/useStore'
 import { filterStageTrades } from '@/lib/stageArchive'
+import { ResultConflictRepair } from '@/components/ResultConflictRepair'
+import { collectWorkbenchResultRepairIds } from '@/lib/workbenchResultHealth'
 import './ListView.css'
 
 export function ListView({
@@ -79,6 +81,11 @@ export function ListView({
   }, [filter.tradeKind, storedTrades])
   const showPendingLink = filter.tradeKind === 'live'
     && pendingCount > 0
+  const resultRepairIds = useMemo(
+    () => collectWorkbenchResultRepairIds(storedTrades),
+    [storedTrades],
+  )
+  const showResultRepair = resultRepairIds.length > 0
 
   useListContextSync(filter)
   useTradeReturnAnchor()
@@ -329,16 +336,30 @@ export function ListView({
   return (
     <>
       <Topbar title={title} view={view} onView={onView} />
-      {showPendingLink ? (
+      {showPendingLink || showResultRepair ? (
         <div className="list-pending-entry">
-          <Link
-            data-pending-log-link
-            className="list-pending-link"
-            to="/settings/data-health"
-            aria-label={`修复待归属记录，共 ${pendingCount} 条`}
-          >
-            待归属 {pendingCount}
-          </Link>
+          {showPendingLink ? (
+            <Link
+              data-pending-log-link
+              className="list-pending-link"
+              to="/settings/data/stage-ownership-repair"
+              aria-label={`修复待归属记录，共 ${pendingCount} 条`}
+            >
+              待归属 {pendingCount}
+            </Link>
+          ) : null}
+          {showResultRepair ? (
+            <div className="list-result-repair" data-workbench-result-repair>
+              <span>结果待核对 {resultRepairIds.length}</span>
+              <ResultConflictRepair
+                ids={resultRepairIds}
+                onOpenTrade={(id) => {
+                  const trade = storedTrades.find((item) => item.id === id && !item.deletedAt)
+                  if (trade) openTrade(trade)
+                }}
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
       {header}

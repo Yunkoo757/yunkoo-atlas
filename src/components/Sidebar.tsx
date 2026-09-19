@@ -58,6 +58,8 @@ import {
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { SidebarRiskStatus } from '@/components/SidebarRiskStatus'
+import { SidebarBackupHealth } from '@/components/SidebarBackupHealth'
+import { countExpiringTradeTrash } from '@/lib/trashCleanup'
 import { SIDEBAR_STRATEGY_SHORTCUT_LIMIT } from '@/shortcuts/workspaceActions'
 
 import './Sidebar.css'
@@ -286,6 +288,12 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   const primaryNav = useMemo(() => resolvePrimarySidebarNav(primaryOrder), [primaryOrder])
 
   const trashCount = trades.filter((trade) => Boolean(trade.deletedAt)).length
+  const expiringTrashCount = countExpiringTradeTrash(trades)
+  const trashLabel = expiringTrashCount > 0
+    ? `回收站 · ${expiringTrashCount} 即将到期`
+    : trashCount > 0
+      ? `回收站 · ${trashCount}`
+      : '回收站'
   const openWorkspaceEditor = (
     button: HTMLButtonElement,
     section: 'pinned' | 'overflow' = 'pinned',
@@ -455,7 +463,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
             },
             {
               value: 'trash',
-              label: trashCount > 0 ? `回收站 · ${trashCount}` : '回收站',
+              label: trashLabel,
               icon: <Trash2 size={ICON_MD} />,
             },
           ]}
@@ -487,6 +495,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           </ShortcutTooltip>
         </div>
       </div>
+      <SidebarBackupHealth />
 
       <div className="sb-scroll">
       <nav className="sb-section sb-primary" aria-label="主要导航">

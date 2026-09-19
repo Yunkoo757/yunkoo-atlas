@@ -74,6 +74,7 @@ import {
 } from './lib/stageRolloverCommit'
 import { STORAGE_RECOVERY_REQUIRED_EVENT, notifyStorageRecoveryRequired } from './lib/storageRecovery'
 import { createForegroundStageRolloverScheduler } from './lib/stageRolloverScheduler'
+import { runStartupTrashCleanup } from './lib/trashCleanup'
 import './App.css'
 
 const CLOSE_SAVE_RECEIPT_MS = 560
@@ -668,6 +669,7 @@ export function App() {
       // Normal bootstrap
       await bootstrapStorage()
       await checkDueStageRollover()
+      await runStartupTrashCleanup()
 
       // 等字体就绪再亮屏，避免 Inter swap 导致列表从左到右重排
       await waitForUiFonts()
@@ -695,6 +697,7 @@ export function App() {
     try {
       await bootstrapStorage()
       await checkDueStageRollover()
+      await runStartupTrashCleanup()
       await waitForUiFonts()
     } catch (e) {
       console.error('Storage bootstrap failed after welcome', e)
@@ -718,6 +721,7 @@ export function App() {
     try {
       await bootstrapStorage()
       await checkDueStageRollover()
+      await runStartupTrashCleanup()
       setReady(true)
       requestAnimationFrame(() => {
         document.documentElement.dataset.uiSettled = '1'

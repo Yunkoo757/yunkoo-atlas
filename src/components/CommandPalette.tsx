@@ -32,6 +32,12 @@ import { StrategyIcon } from '@/components/StrategyIcon'
 import { matchesSearchQuery } from '@/lib/tradeFilters'
 import { collectLimitedCommandMatches } from '@/lib/commandPaletteSearch'
 import { findDateSearchTrades, parseCommandDateQuery, type CommandSearchSession } from '@/lib/commandDateSearch'
+import { textFromQuickNoteHtml } from '@/data/quickNotes'
+import {
+  normalizeSavedViewPath,
+  savedViewSearch,
+  suggestSavedViewName,
+} from '@/lib/savedTradeViews'
 import { Button } from '@/components/ui/Button'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
 import { STATUS_META, type TradeStatus } from '@/data/trades'
@@ -146,6 +152,8 @@ function CommandPaletteDialog({
   const origin = useRef({ pathname, search, key: location.key })
   const trades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
+  const quickNotes = useStore((s) => s.quickNotes)
+  const savedTradeViews = useStore((s) => s.savedTradeViews)
   const display = useStore((s) => s.display)
   const openComposer = useStore((s) => s.openComposer)
   const toggleStar = useStore((s) => s.toggleStar)
@@ -397,6 +405,57 @@ function CommandPaletteDialog({
     commands.push(...tradeMatches.items)
     total += tradeMatches.total
 
+    const noteMatches = collectLimitedCommandMatches(
+      quickNotes,
+      query,
+      (note) => [note.title, textFromQuickNoteHtml(note.contentHtml)],
+      (note): Cmd => ({
+        id: 'note-' + note.id,
+        group: '随记',
+        icon: <FileText size={ICON_MD} />,
+        label: note.title.trim() || '未命名随记',
+        hint: textFromQuickNoteHtml(note.contentHtml).slice(0, 48) || undefined,
+        keywords: '随记 笔记 灵感',
+        run: go(`/notes/${note.id}`),
+      }),
+      limit - commands.length,
+    )
+    commands.push(...noteMatches.items)
+    total += noteMatches.total
+
+    const savedViewMatches = collectLimitedCommandMatches(
+      savedTradeViews,
+      query,
+      (view) => [
+        view.name,
+        suggestSavedViewName(
+          view.pathname,
+          new URLSearchParams(view.search),
+          view.search.strategyId
+            ? strategyNames.get(view.search.strategyId)
+            : undefined,
+        ),
+      ],
+      (view): Cmd => ({
+        id: 'saved-view-' + view.id,
+        group: '保存的视图',
+        icon: <Bookmark size={ICON_MD} />,
+        label: view.name,
+        hint: suggestSavedViewName(
+          view.pathname,
+          new URLSearchParams(view.search),
+          view.search.strategyId
+            ? strategyNames.get(view.search.strategyId)
+            : undefined,
+        ),
+        keywords: '保存视图 筛选',
+        run: go(`${normalizeSavedViewPath(view.pathname)}${savedViewSearch(view)}`),
+      }),
+      limit - commands.length,
+    )
+    commands.push(...savedViewMatches.items)
+    total += savedViewMatches.total
+
     return { commands, total }
   }, [
     activeTrade,
@@ -418,6 +477,8 @@ function CommandPaletteDialog({
     toggleStar,
     toggleCaseFocus,
     trades,
+    quickNotes,
+    savedTradeViews,
     dateQuery,
     limit,
     onNavigateResult,

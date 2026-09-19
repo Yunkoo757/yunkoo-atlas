@@ -300,7 +300,9 @@
   background: var(--bg-hover);
   color: var(--text-primary);
 }
-.bd-card:focus-visible {
+.bd-card:focus-visible,
+.bd-card.is-focused,
+.bd-card.is-selected {
   border-color: var(--border-strong);
   background: var(--bg-hover);
 }

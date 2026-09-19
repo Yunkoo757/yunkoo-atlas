@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { DatePicker } from '@/components/ui/DatePicker'
@@ -10,6 +11,10 @@ import { useStore } from '@/store/useStore'
 import { useSaveStatus } from '@/store/saveStatus'
 import { emptyComposerData, BUILTIN_RULES, type ComposerData } from '@/lib/reviewComposer/model'
 import { engine, normalizeState, readState, defaultState, generate, randomState, documentFor, downloadFile } from '@/lib/reviewComposer/service'
+import { buildComposerReviewCase, composerTextToNoteHtml } from '@/lib/reviewComposer/caseDraft'
+import { getNextReviewCaseRef } from '@/lib/reviewCases'
+import { tradeDetailPath } from '@/lib/tradeRoute'
+import { currentLiveStageIdForWrite } from '@/store/useStore'
 import type { ComposerState } from '@/lib/reviewComposer/engine.js'
 import options from '@/lib/reviewComposer/options.json'
 import { ComposerRulesPanel } from './settings/ComposerRulesPanel'
@@ -17,7 +22,9 @@ import './ReviewComposerView.css'
 
 const steps = ['案例与背景','位置与衔接','进场执行','管理与结果','补充信息']
 export function ReviewComposerView() {
+  const navigate=useNavigate()
   const stored=useStore(s=>s.reviewComposer)
+  const upsertTrade=useStore(s=>s.upsertTrade)
   const data=useMemo(()=>stored ?? emptyComposerData(),[stored])
   const rules=data.activeRules ?? BUILTIN_RULES
   const [step,setStep]=useState('0')
@@ -121,6 +128,27 @@ export function ReviewComposerView() {
         <section className="rc-document" aria-label="复盘正文">
           <div className="rc-document-toolbar"><span>{state.scenario?'虚构模拟':'按已知条件搭建'}</span><div className="rc-actions">
             <Button disabled={blocked||!text} onClick={async()=>{try{await navigator.clipboard.writeText(text);setStatus('已复制。')}catch{setStatus('复制失败，请选中正文后按 Ctrl+C（macOS 为 ⌘C）。')}}}>复制</Button>
+            <Button data-composer-save-case disabled={blocked||!text} onClick={()=>{
+              try {
+                const store=useStore.getState()
+                const created=buildComposerReviewCase({
+                  id:crypto.randomUUID(),
+                  ref:getNextReviewCaseRef(store.trades),
+                  symbol:state.symbol,
+                  side:state.side,
+                  strategyId:store.strategies[0]?.id ?? '',
+                  openedAt:state.date || new Date().toISOString().slice(0,10),
+                  noteHtml:composerTextToNoteHtml(text),
+                  liveStageId:currentLiveStageIdForWrite(store),
+                  tradingDayStartHour:store.display.tradingDayStartHour,
+                })
+                if(upsertTrade(created)!=='updated') throw new Error('案例未写入')
+                setStatus('已写入案例草稿。')
+                navigate(tradeDetailPath(created))
+              } catch(error) {
+                setStatus(error instanceof Error ? error.message : '未能写入案例草稿。')
+              }
+            }}>另存为案例</Button>
           </div></div>
           {stale&&<div className="rc-notice">已保留原正文。<Button onClick={()=>save({...data,draft:documentFor(state,rules)})}>按新规则更新正文</Button></div>}
           {restored.error&&<p className="rc-error" role="alert">{restored.error} 可导出选项保留副本，再重置条件。</p>}

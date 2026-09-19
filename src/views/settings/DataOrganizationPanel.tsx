@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useStore } from '@/store/useStore'
 import { getStorage } from '@/storage'
 import { isElectron } from '@/storage/runtime'
 import { Button } from '@/components/ui/Button'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { captureOrganizationSnapshot, organizeLibrary } from '@/lib/dataOrganizationService'
-import { prepareDataOrganization } from '@/lib/dataOrganization'
+import { extraDuplicateWeeklyReviewIds, findDuplicateWeeklyReviewWeeks, prepareDataOrganization } from '@/lib/dataOrganization'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
 import './DataOrganizationPanel.css'
 
@@ -21,6 +21,8 @@ export function DataOrganizationPanel({ day, onCompleted }: { day: string; onCom
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState('')
   const live = trades.filter(trade => trade.tradeKind === 'live')
+  const duplicateWeeks = useMemo(() => findDuplicateWeeklyReviewWeeks(reviews), [reviews])
+  const extraDuplicateIds = useMemo(() => extraDuplicateWeeklyReviewIds(reviews), [reviews])
   const request = { migrateLive: migrate, resetStages: reset, deleteWeeklyIds: weekly }
   const resetPreview = () => { setPreview(null); setResult('') }
   const showPreview = async () => {
@@ -55,8 +57,20 @@ export function DataOrganizationPanel({ day, onCompleted }: { day: string; onCom
         <Button className="data-organization-shortcut" variant="ghost" disabled={busy} onClick={() => { setMigrate(true); setReset(true); resetPreview() }}>重新开始实盘记录</Button>
         <div className="data-organization-group"><label><input type="checkbox" checked={migrate} disabled={busy} onChange={e => { setMigrate(e.target.checked); resetPreview() }} />实盘日志全部移至模拟盘（{live.length} 条）</label>
         <p className="data-organization-muted">直接进入模拟盘默认列表，保留代号、正文、截图、标签和策略，不归档。回收站中的 {live.filter(t => t.deletedAt).length} 条记录也会转换类型，并继续保留在回收站。</p></div>
-        <div className="data-organization-group"><label><input type="checkbox" checked={reset} disabled={busy} onChange={e => { setReset(e.target.checked); resetPreview() }} />清空旧实盘阶段（{stages.length} 个），建立空白当前阶段</label>
-        <p className="data-organization-muted">同时清空阶段风险准备、规则版本、月度限额和风险例外记录。案例不迁移，仅解除旧阶段关联。未删除的周复盘保留正文与冻结证据，并解除旧阶段关联。</p></div>
+        <div className="data-organization-group"><label><input type="checkbox" checked={reset} disabled={busy} onChange={e => {
+          const checked = e.target.checked
+          setReset(checked)
+          if (checked && extraDuplicateIds.length) {
+            setWeekly(current => [...new Set([...current, ...extraDuplicateIds])])
+          }
+          resetPreview()
+        }} />清空旧实盘阶段（{stages.length} 个），建立空白当前阶段</label>
+        <p className="data-organization-muted">同时清空阶段风险准备、规则版本、月度限额和风险例外记录。案例不迁移，仅解除旧阶段关联。未删除的周复盘保留正文与冻结证据，并解除旧阶段关联。</p>
+        {reset && duplicateWeeks.length > 0 ? (
+          <p className="data-organization-muted" data-duplicate-weekly-weeks>
+            不同阶段存在同一周的复盘：{duplicateWeeks.map((group) => `${group.weekStart}（${group.ids.length} 篇）`).join('、')}。已预选需删除的重复篇，可在下方调整。
+          </p>
+        ) : null}</div>
         <div className="data-organization-group"><div className="data-organization-weekly-head"><h3>删除周复盘（已选 {weekly.length} / {reviews.length}）</h3>
           <Button size="sm" disabled={busy} onClick={() => { setWeekly(weekly.length === reviews.length ? [] : reviews.map(r => r.id)); resetPreview() }}>{weekly.length === reviews.length && reviews.length ? '取消全选' : '全选'}</Button></div>
         <div className="data-organization-weeks">{reviews.map(review => <label key={review.id}><input type="checkbox" checked={weekly.includes(review.id)} disabled={busy} onChange={e => { setWeekly(e.target.checked ? [...weekly, review.id] : weekly.filter(id => id !== review.id)); resetPreview() }} />{review.weekStart} — {review.weekEnd}</label>)}{!reviews.length && <span className="data-organization-muted">暂无周复盘</span>}</div></div>

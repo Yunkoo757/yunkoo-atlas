@@ -43,3 +43,7 @@ export function presentBackupHealth(
   }
   return { tone: 'positive', title: '最新备份可用', detail: '', action: 'none', latest, lastVerified: latest }
 }
+
+export function shouldSurfaceBackupHealth(presentation: BackupHealthPresentation): boolean {
+  return presentation.action !== 'none'
+}

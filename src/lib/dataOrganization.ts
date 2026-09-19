@@ -8,6 +8,27 @@ export interface DataOrganizationRequest {
   deleteWeeklyIds: string[]
 }
 
+export function findDuplicateWeeklyReviewWeeks(
+  reviews: readonly { id: string; weekStart: string }[],
+): Array<{ weekStart: string; ids: string[] }> {
+  const byWeek = new Map<string, string[]>()
+  for (const review of reviews) {
+    const ids = byWeek.get(review.weekStart) ?? []
+    ids.push(review.id)
+    byWeek.set(review.weekStart, ids)
+  }
+  return [...byWeek.entries()]
+    .filter(([, ids]) => ids.length > 1)
+    .map(([weekStart, ids]) => ({ weekStart, ids }))
+    .sort((left, right) => left.weekStart.localeCompare(right.weekStart))
+}
+
+export function extraDuplicateWeeklyReviewIds(
+  reviews: readonly { id: string; weekStart: string }[],
+): string[] {
+  return findDuplicateWeeklyReviewWeeks(reviews).flatMap((group) => group.ids.slice(1))
+}
+
 /** A complete candidate: no store mutation and no attachment deletion. */
 export function prepareDataOrganization(
   before: PersistedSnapshot,

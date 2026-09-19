@@ -29,6 +29,7 @@ import { toast } from '@/lib/toast'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
+import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import { useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
@@ -80,6 +81,8 @@ export function BoardView({
   const [dragId, setDragId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<TradeStatus | null>(null)
   const [ctx, setCtx] = useState<CtxState | null>(null)
+  const [focusIndex, setFocusIndex] = useState(-1)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const navigate = useNavigate()
   const location = useLocation()
   useListContextSync(filter)
@@ -97,6 +100,26 @@ export function BoardView({
       (c) => display.showEmptyGroups || c.items.length > 0,
     )
   }, [visible, display.showEmptyGroups])
+  const orderedItems = useMemo(() => cols.flatMap((column) => column.items), [cols])
+  const orderedIdsKey = useMemo(
+    () => orderedItems.map((item) => item.id).join('\u0000'),
+    [orderedItems],
+  )
+  const focusedId = focusIndex >= 0 && focusIndex < orderedItems.length
+    ? orderedItems[focusIndex].id
+    : null
+
+  useWorkbenchListKeyboard({
+    items: orderedItems,
+    selectedIds,
+    setSelectedIds,
+    focusIndex,
+    setFocusIndex,
+    onOpenFocused: (index) => onOpen(orderedItems[index].id),
+    enableNav: true,
+  })
+
+  useEffect(() => setFocusIndex(-1), [orderedIdsKey])
 
   const isReviewCaseView = filter.tradeKind === 'case'
   const recordLabel = isReviewCaseView ? '案例' : '交易'
@@ -196,6 +219,8 @@ export function BoardView({
                 legacyCashCurrencyAssumption={legacyCashCurrencyAssumption}
                 dragId={dragId}
                 overCol={overCol}
+                focusedId={focusedId}
+                selectedIds={selectedIds}
                 setDragId={setDragId}
                 setOverCol={setOverCol}
                 onOpen={onOpen}
@@ -247,6 +272,8 @@ function BoardColumnBody({
   legacyCashCurrencyAssumption,
   dragId,
   overCol,
+  focusedId,
+  selectedIds,
   setDragId,
   setOverCol,
   onOpen,
@@ -261,6 +288,8 @@ function BoardColumnBody({
   legacyCashCurrencyAssumption: import('@/storage/types').LegacyCashCurrencyAssumption | null
   dragId: string | null
   overCol: TradeStatus | null
+  focusedId: string | null
+  selectedIds: Set<string>
   setDragId: (id: string | null) => void
   setOverCol: (status: TradeStatus | null) => void
   onOpen: (id: string) => void
@@ -317,7 +346,12 @@ function BoardColumnBody({
             >
               <article
                 data-trade-id={t.id}
-                className={'bd-card' + (dragId === t.id ? ' is-dragging' : '')}
+                className={
+                  'bd-card'
+                  + (dragId === t.id ? ' is-dragging' : '')
+                  + (focusedId === t.id ? ' is-focused' : '')
+                  + (selectedIds.has(t.id) ? ' is-selected' : '')
+                }
                 style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
                 draggable
                 onDragStart={(e) => {

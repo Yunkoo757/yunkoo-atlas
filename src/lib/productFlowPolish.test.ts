@@ -60,6 +60,8 @@ export async function testCommandPaletteUsesActiveWorkspaceTagFilters(): Promise
     source.includes('trades.filter((trade) => !trade.deletedAt)'),
     '命令面板不得搜索回收站记录',
   )
+  assert(source.includes('textFromQuickNoteHtml'), '命令面板应索引随记正文')
+  assert(source.includes('savedTradeViews'), '命令面板应索引保存的视图')
   for (const route of ["path: '/list'", "path: '/sim'", "path: '/review-cases'"]) {
     assert(source.includes(route), `标签命令缺少工作区路由：${route}`)
   }
