@@ -71,6 +71,7 @@ try {
 
   // 3. 详情页 + 笔记编辑
   await page.waitForURL(/\/trade\//)
+  await page.getByRole('button', { name: /编辑正文/ }).click()
   const editor = page.locator('.editor .ProseMirror')
   await editor.waitFor({ timeout: 5000 })
   const stamp = `QA-${Date.now()}`
