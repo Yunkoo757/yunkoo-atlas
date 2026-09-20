@@ -1,4 +1,4 @@
-import type { KeyboardEvent, ReactElement, ReactNode } from 'react'
+import { useLayoutEffect, useRef, type KeyboardEvent, type ReactElement, type ReactNode } from 'react'
 import './SegmentedControl.css'
 
 export type SegmentedControlSize = 'sm' | 'md' | 'lg'
@@ -32,6 +32,52 @@ export function SegmentedControl<T extends string>({
   className = '',
   role = 'group',
 }: SegmentedControlProps<T>) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  const indicatorRef = useRef<HTMLSpanElement>(null)
+  const previousValue = useRef(value)
+  const geometryRef = useRef<string | null>(null)
+
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    const indicator = indicatorRef.current
+    if (!root || !indicator) return
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>('.ui-segmented-option')]
+    const selected = buttons.find((button) => button.dataset.value === value)
+    const align = (animate: boolean) => {
+      const rootRect = root.getBoundingClientRect()
+      const selectedRect = selected?.getBoundingClientRect()
+      if (!selectedRect?.width || !selectedRect.height || !rootRect.width || !rootRect.height) {
+        delete root.dataset.indicatorReady
+        geometryRef.current = null
+        return
+      }
+      // Measure in the control's coordinate space, including inside an entering/scaled dialog.
+      const style = getComputedStyle(root)
+      const scaleX = rootRect.width / parseFloat(style.width)
+      const scaleY = rootRect.height / parseFloat(style.height)
+      const x = (selectedRect.left - rootRect.left) / scaleX - parseFloat(style.borderLeftWidth)
+      const y = (selectedRect.top - rootRect.top) / scaleY - parseFloat(style.borderTopWidth)
+      const width = selectedRect.width / scaleX
+      const height = selectedRect.height / scaleY
+      const geometry = [x, y, width, height].map((part) => part.toFixed(3)).join(',')
+      if (geometry === geometryRef.current) return
+      root.dataset.indicatorMoving = String(animate && geometryRef.current !== null)
+      indicator.style.transform = `translate(${x}px, ${y}px)`
+      indicator.style.width = `${width}px`
+      indicator.style.height = `${height}px`
+      root.dataset.indicatorReady = 'true'
+      geometryRef.current = geometry
+    }
+
+    align(previousValue.current !== value)
+    previousValue.current = value
+    // The buttons also need observation: labels/fonts can change without resizing a fixed-width group.
+    const observer = new ResizeObserver(() => align(false))
+    observer.observe(root)
+    buttons.forEach((button) => observer.observe(button))
+    return () => observer.disconnect()
+  })
+
   const move = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
     const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')]
@@ -54,11 +100,13 @@ export function SegmentedControl<T extends string>({
 
   return (
     <div
+      ref={rootRef}
       role={role}
       aria-label={label}
       className={['ui-segmented', `ui-segmented-${size}`, className].filter(Boolean).join(' ')}
       onKeyDown={move}
     >
+      <span ref={indicatorRef} className="ui-segmented-indicator" aria-hidden="true" />
       {options.map((option) => {
         const selected = option.value === value
         const button = (

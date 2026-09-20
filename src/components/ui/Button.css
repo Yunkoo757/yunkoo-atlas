@@ -29,7 +29,8 @@
   transition: background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
-    box-shadow var(--dur-fast) var(--ease-out);
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--motion-state) var(--ease-out);
 }
 
 .ui-btn-lg {
@@ -83,6 +84,7 @@
 .batch-action-btn:active:not(:disabled) {
   transform: translateY(1px);
   filter: brightness(0.94);
+  transition-duration: 0s;
 }
 
 .ui-btn:disabled,
@@ -203,4 +205,10 @@
   background: var(--danger-solid-disabled-bg);
   border-color: var(--danger-solid-disabled-border);
   opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.ui-btn, .dio-btn, .symbols-btn, .st-io, .st-add, .st-del-btn, .empty-btn, .csv-btn, .nim-btn, .sfm-btn, .batch-action-btn):active:not(:disabled) {
+    transform: none;
+  }
 }

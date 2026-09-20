@@ -55,7 +55,7 @@ export function StatusIcon({
 }: {
   status: TradeStatus
   size?: number
-  /** 状态切换时播放轻量 pop；列表首次挂载不播，避免刷屏 */
+  /** 状态切换时轻量淡入；列表首次挂载不播，避免刷屏 */
   animate?: boolean
 }) {
   const seen = useRef(false)

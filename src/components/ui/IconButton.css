@@ -13,7 +13,8 @@
     background-color var(--motion-state) var(--ease-out),
     color var(--motion-state) var(--ease-out),
     opacity var(--motion-state) var(--ease-out),
-    box-shadow var(--motion-state) var(--ease-out);
+    box-shadow var(--motion-state) var(--ease-out),
+    transform var(--motion-state) var(--ease-out);
 }
 
 .ui-icon-btn-sm {
@@ -46,6 +47,7 @@
 .ui-icon-btn:active:not(:disabled) {
   background-color: var(--bg-selected);
   transform: translateY(1px);
+  transition-duration: 0s;
 }
 
 .ui-icon-btn.is-pressed {
@@ -60,4 +62,10 @@
   color: var(--text-disabled);
   cursor: not-allowed;
   opacity: 0.64;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-icon-btn:active:not(:disabled) {
+    transform: none;
+  }
 }

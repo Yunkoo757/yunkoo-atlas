@@ -69,6 +69,13 @@
   border-radius: var(--radius-4);
 }
 
+.ui-date-head button,
+.ui-date-grid button,
+.ui-date-footer button {
+  transition: background-color var(--motion-state) var(--ease-out),
+    color var(--motion-state) var(--ease-out);
+}
+
 .ui-date-head button {
   width: 28px;
   height: 28px;

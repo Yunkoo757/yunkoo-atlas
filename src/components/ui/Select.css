@@ -64,6 +64,9 @@
   font-weight: var(--font-weight-medium);
   line-height: var(--type-row-line-height);
   text-align: left;
+  transition: background-color var(--motion-state) var(--ease-out),
+    color var(--motion-state) var(--ease-out),
+    transform var(--motion-state) var(--ease-out);
 }
 
 .ui-select-option-main {
@@ -102,6 +105,7 @@
 .ui-select-option:active:not(:disabled) {
   background: var(--surface-menu-pressed);
   transform: translateY(1px);
+  transition-duration: 0s;
 }
 
 .ui-select-option[aria-selected='true'] {
@@ -131,5 +135,9 @@
 @media (prefers-reduced-motion: reduce) {
   .ui-select-menu {
     animation: none;
+  }
+
+  .ui-select-option:active:not(:disabled) {
+    transform: none;
   }
 }

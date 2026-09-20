@@ -54,6 +54,16 @@ a {
   animation: uiDialogExit var(--motion-dialog-out) var(--ease-in) forwards !important;
 }
 
+/* 快照只播放离场；内部图标、加载状态不可重新入场。 */
+.ui-exit-clone * {
+  animation: none !important;
+  transition: none !important;
+}
+
+.ui-exit-clone:not(:has(.ui-exit-dialog)) {
+  animation-duration: var(--motion-menu) !important;
+}
+
 @keyframes uiOverlayExit {
   to { opacity: 0; }
 }
@@ -78,6 +88,10 @@ a {
   .ui-exit-clone,
   .ui-exit-clone .ui-exit-dialog {
     animation: none !important;
+  }
+
+  .ui-exit-clone {
+    display: none !important;
   }
 }
 
@@ -281,8 +295,11 @@ a.lv-row:visited .lv-title {
   *::before,
   *::after {
     animation-duration: 0.001ms !important;
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
   }
 }
 

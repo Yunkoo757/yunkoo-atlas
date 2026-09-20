@@ -12,6 +12,7 @@
   box-shadow: var(--popover-shadow);
   overflow-x: hidden;
   overflow-y: auto;
+  animation: fadeIn var(--motion-menu) var(--ease-out);
 }
 
 .trade-filter-head {

@@ -23,7 +23,8 @@
   color: var(--text-secondary);
   text-align: left;
   transition: background var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
+    color var(--dur-fast) var(--ease-out),
+    transform var(--motion-state) var(--ease-out);
 }
 .ctx-item:hover {
   background: var(--bg-hover);
@@ -32,6 +33,7 @@
 .ctx-item:active:not(:disabled) {
   background: var(--bg-selected);
   transform: translateY(1px);
+  transition-duration: 0s;
 }
 .ctx-item:disabled {
   cursor: not-allowed;
@@ -81,4 +83,8 @@
   line-height: var(--type-metadata-line-height);
   color: var(--text-tertiary);
   padding: 6px var(--sp-2) var(--sp-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ctx-item:active:not(:disabled) { transform: none; }
 }

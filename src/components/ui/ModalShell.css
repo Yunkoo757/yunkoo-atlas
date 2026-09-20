@@ -77,11 +77,20 @@
   background: transparent;
   border: 0;
   border-radius: var(--radius-6);
+  transition: background-color var(--motion-state) var(--ease-out),
+    color var(--motion-state) var(--ease-out),
+    transform var(--motion-state) var(--ease-out);
 }
 
-.modal-shell-close:hover:not(:disabled) {
+.modal-shell-close:hover:not(:disabled),
+.modal-shell-close:focus-visible:not(:disabled) {
   color: var(--text-primary);
   background: var(--bg-hover);
+}
+
+.modal-shell-close:active:not(:disabled) {
+  transform: translateY(1px);
+  transition-duration: 0s;
 }
 
 .modal-shell-close:disabled {
@@ -118,4 +127,8 @@
 @media (prefers-reduced-motion: reduce) {
   .modal-shell-overlay,
   .modal-shell { animation: none; }
+
+  .modal-shell-close:active:not(:disabled) {
+    transform: none;
+  }
 }
