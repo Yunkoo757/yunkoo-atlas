@@ -3,8 +3,10 @@ import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { useExitClone } from '@/components/ui/useExitClone'
+import { EmptyState } from '@/components/EmptyState'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
+import '@/components/DataIOContent.css'
 
 declare global {
   interface Window {
@@ -33,6 +35,20 @@ function pauseAt(node: HTMLElement, milliseconds: number): void {
   }
 }
 
+function feedbackAppearance(node: HTMLElement): string {
+  const style = getComputedStyle(node)
+  return JSON.stringify({
+    display: style.display,
+    gap: style.gap,
+    color: style.color,
+    fontSize: style.fontSize,
+    overflowWrap: style.overflowWrap,
+    flexDirection: style.flexDirection,
+    alignItems: style.alignItems,
+    height: style.height,
+  })
+}
+
 let controls: {
   menu: (open: boolean) => void
   modal: (open: boolean) => void
@@ -50,6 +66,13 @@ function Menu({ open = true }: { open?: boolean }) {
         <div id="exit-inner-content" style={{ width: 400, height: 180 }}>保留内层横向及纵向滚动</div>
       </div>
       <span className="exit-animated-child">状态</span>
+      <div className="data-purge-body">
+        <div role="alert">
+          <p>恢复归档未完成，尚未清理任何附件。请重试导出。</p>
+          <details><summary>查看失败详情</summary><p>隔离测试错误</p></details>
+        </div>
+      </div>
+      <EmptyState variant="complete" title="检查完成" hint="当前没有待处理项。" />
     </div>
   ) : null
 }
@@ -118,12 +141,23 @@ async function run(): Promise<void> {
     const initialOpacity = before.opacity
     const initialTransform = before.transform
     const initialScale = before.scale
+    const alert = menu.querySelector<HTMLElement>('[role="alert"]')
+    const status = menu.querySelector<HTMLElement>('.empty > [role="status"]')
+    assert(alert && status, '真实反馈样式夹具未渲染')
+    assert(getComputedStyle(alert).display === 'grid', '必须载入真实 DataIOContent 错误样式')
+    assert(getComputedStyle(status).display === 'flex', '必须载入真实 EmptyState 布局样式')
+    const alertAppearance = feedbackAppearance(alert)
+    const statusAppearance = feedbackAppearance(status)
     flushSync(() => controls?.menu(false))
     const clone = document.querySelector<HTMLElement>('.ui-exit-clone')
     assert(clone, '关闭菜单未生成离场快照')
     assert(clone.inert && clone.getAttribute('aria-hidden') === 'true', '快照必须退出交互和可访问树')
     assert(!clone.id && !clone.hasAttribute('role'), '快照根节点不得保留 ID 或角色')
-    assert(!clone.querySelector('[id], [role], [aria-labelledby]'), '快照子节点不得保留 ID、角色或 ARIA 引用')
+    assert(!clone.querySelector('[id], [role]:not([role="alert"]):not([role="status"]), [aria-labelledby]'), '快照子节点不得保留 ID、交互角色或 ARIA 引用')
+    const clonedAlert = clone.querySelector<HTMLElement>('[role="alert"]')
+    const clonedStatus = clone.querySelector<HTMLElement>('.empty > [role="status"]')
+    assert(clonedAlert && feedbackAppearance(clonedAlert) === alertAppearance, '离场必须保留错误反馈的网格、间距、错误色、字号、断词和高度')
+    assert(clonedStatus && feedbackAppearance(clonedStatus) === statusAppearance, '离场必须保留 EmptyState 的 flex 排列、间距、对齐和高度')
     assert(clone.scrollTop === 170, '长菜单离场时滚动位置回到了顶部')
     const clonedScroll = clone.querySelector<HTMLElement>('.exit-scroll-child')
     assert(clonedScroll?.scrollTop === 70 && clonedScroll.scrollLeft === 90, '内层滚动位置未保留')

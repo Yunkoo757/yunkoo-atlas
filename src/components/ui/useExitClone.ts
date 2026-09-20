@@ -55,7 +55,10 @@ function appendExitClone(source: HTMLElement | null, snapshot: ExitSnapshot | nu
   // 快照不再参与弹层栈、焦点、ARIA 引用或 DOM 身份查询。
   const nodes = [clone, ...clone.querySelectorAll<HTMLElement>('*')]
   for (const element of nodes) {
-    for (const attribute of ['id', 'role', 'aria-modal', 'aria-labelledby', 'aria-describedby', 'aria-controls', 'aria-activedescendant', 'aria-owns', 'data-modal-shell-id']) {
+    // alert / status 也是现有反馈样式的选择器；保留外观，整个快照仍由 aria-hidden + inert 隔离。
+    const role = element.getAttribute('role')
+    if (role !== 'alert' && role !== 'status') element.removeAttribute('role')
+    for (const attribute of ['id', 'aria-modal', 'aria-labelledby', 'aria-describedby', 'aria-controls', 'aria-activedescendant', 'aria-owns', 'data-modal-shell-id']) {
       element.removeAttribute(attribute)
     }
   }
