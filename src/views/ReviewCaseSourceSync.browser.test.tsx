@@ -200,6 +200,10 @@ async function run(): Promise<void> {
     const sourceImage = findEditorImage('来源复盘正文', SOURCE_IMAGE_MARKER)
     const caseImage = findEditorImage('案例沉淀正文', CASE_IMAGE_MARKER)
     assert(sourceEditor && caseEditor && sourceImage && caseImage, '案例双正文附件挂载不完整')
+    const sourceDisclosure = document.querySelector<HTMLDetailsElement>('.dv-case-source-note details')
+    assert(sourceDisclosure && !sourceDisclosure.open, '已有独立沉淀时，冻结来源应默认收起')
+    sourceDisclosure.querySelector<HTMLElement>('summary')!.click()
+    await waitFor(() => sourceDisclosure.open && sourceEditor.getBoundingClientRect().height > 0, '冻结来源必须可以展开阅读全文和图片')
 
     const navigationButton = findButton('切换到第二来源')
     assert(navigationButton, '缺少测试焦点锚点')

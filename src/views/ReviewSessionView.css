@@ -204,9 +204,8 @@
 .review-pool-manager-row {
   min-height: 42px;
   padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
-  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
 }
 
 .review-pool-manager-row > div:first-child {
@@ -224,8 +223,6 @@
 .review-pool-empty {
   margin: 0;
   padding: var(--sp-3);
-  border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-8);
 }
 
 .review-pool-editor {
@@ -586,10 +583,10 @@
   flex: 0 1 auto;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-14);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-low);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .review-session-item-header {
@@ -639,9 +636,8 @@
 
 .review-session-summary > span {
   min-width: 0;
-  padding: 5px var(--sp-2);
-  border-radius: var(--radius-6);
-  background: var(--bg-hover);
+  padding-right: var(--sp-2);
+  background: transparent;
   color: var(--text-tertiary);
   font-family: var(--font-ui);
   font-variant-numeric: var(--numeric-tabular);
@@ -908,10 +904,10 @@ button.review-session-gallery-slot.is-ready {
   margin: auto;
   align-items: center;
   flex-direction: column;
-  padding: 42px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-14);
-  background: var(--bg-elevated);
+  padding: var(--sp-6);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   text-align: center;
 }
 
@@ -958,19 +954,23 @@ button.review-session-gallery-slot.is-ready {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 3px;
-  padding: var(--sp-3) 6px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
-  background: var(--bg-hover);
+  gap: var(--sp-1);
+  padding: var(--sp-3) var(--sp-2);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
+
+.review-session-result-grid > span + span { border-left: 1px solid var(--border-divider); }
 
 .review-session-result-grid strong { font-family: var(--font-ui); font-size: var(--type-financial-size); line-height: var(--type-financial-line-height); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
 .review-session-result-grid small { color: var(--text-tertiary); font-size: var(--type-metadata-size); }
 
 .review-session-finished-actions {
   display: flex;
-  gap: 9px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
   margin-top: var(--sp-6);
 }
 

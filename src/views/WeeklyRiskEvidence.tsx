@@ -66,7 +66,7 @@ export function WeeklyRiskEvidence({
       <section className="wr-section wr-risk-evidence" data-weekly-section="risk" data-risk-availability={availability}>
         <div className="wr-section-head">
           <div><span>R</span><h2>风控执行</h2></div>
-          <small>{draft ? '完成复盘后冻结' : incompleteSnapshot ? '快照集合不完整' : '历史记录'}</small>
+          {draft ? null : <small>{incompleteSnapshot ? '快照集合不完整' : '历史记录'}</small>}
         </div>
         <div className="wr-risk-unavailable">
           <strong>{draft ? '完成复盘后生成风控证据' : incompleteSnapshot ? '快照集合不完整，已停用冻结风险展示，避免混合来源' : '历史记录未包含风控快照'}</strong>

@@ -61,6 +61,7 @@ import {
 } from '@/data/trades'
 import { fmtMoney, fmtR, fmtPrice, fmtDate, fmtDateTime } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
+import { resolveCasePreview } from '@/lib/caseExcerpt'
 import { getTradeActivities, partitionDisplayActivities, type DisplayActivityEvent } from '@/lib/activities'
 import {
   findTradeByRouteParam,
@@ -229,6 +230,7 @@ export function DetailView() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [caseCreating, setCaseCreating] = useState(false)
   const [reviewIssue, setReviewIssue] = useState<string | null>(null)
+  const [sourceDisclosure, setSourceDisclosure] = useState<{ tradeId: string; open: boolean } | null>(null)
   const [noteLoad, setNoteLoad] = useState<{
     tradeId: string | null
     state: DetailNoteLoadResult | { status: 'loading' }
@@ -1087,10 +1089,13 @@ export function DetailView() {
             )}
             {sourceSnapshotHtml !== undefined && (
               <section className="dv-case-source-note" aria-labelledby="case-source-note-title">
-                <div className="dv-case-note-heading">
+                <details key={trade.id}
+                  open={sourceDisclosure?.tradeId === trade.id ? sourceDisclosure.open : resolveCasePreview(trade).source !== 'note'}
+                  onToggle={(event) => setSourceDisclosure({ tradeId: trade.id, open: event.currentTarget.open })}>
+                <summary className="dv-case-note-heading">
                   <h2 id="case-source-note-title">来源复盘</h2>
-                  <span>创建案例时冻结 · 只读</span>
-                </div>
+                  <span>{activeSourceNoteLoad.status === 'error' ? '附件未完整载入 · 只读' : '创建案例时冻结 · 只读'}</span>
+                </summary>
                 {activeSourceNoteLoad.status === 'loading' && (
                   <div className="dv-case-source-note-status" role="status" aria-live="polite">
                     来源复盘载入中…
@@ -1112,6 +1117,7 @@ export function DetailView() {
                   readOnly
                   allowImages={false}
                 />
+                </details>
               </section>
             )}
             {trade.tradeKind === 'case' && trade.sourceTradeId && sourceSnapshotHtml === undefined ? (
@@ -1596,7 +1602,7 @@ export function DetailView() {
             />
           </Section>
 
-          <Section title="错误 / 违规">
+          <Section title={`错误 / 违规${trade.mistakeTags.length ? ` · ${trade.mistakeTags.length}` : ''}`} defaultOpen={false}>
             <TagEditor
               tone="diagnostic"
               tags={trade.mistakeTags}

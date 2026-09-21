@@ -15,9 +15,9 @@
 .live-stage-manager-section,
 .live-stage-manager-scheduled,
 .live-stage-manager-disclosure {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
-  background: var(--bg-inset);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .live-stage-manager-hero {
@@ -25,7 +25,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-4);
-  padding: var(--sp-4);
+  padding-block: var(--sp-2);
 }
 
 .live-stage-manager-hero > div:first-child {
@@ -61,7 +61,8 @@
 .live-stage-manager-section {
   display: grid;
   gap: var(--sp-3);
-  padding: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .live-stage-manager-section-head {
@@ -106,9 +107,7 @@
 .live-stage-manager-counts > div {
   min-width: 0;
   padding: var(--sp-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-6);
-  background: var(--bg-surface);
+  border-left: 1px solid var(--border-subtle);
 }
 
 .live-stage-manager-counts strong,
@@ -138,7 +137,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
-  color: var(--warn);
+  color: var(--text-secondary);
   font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
   line-height: var(--type-metadata-line-height);
@@ -156,9 +155,10 @@
 .live-stage-manager-blockers span.is-clear {
   color: var(--pos);
 }
+.live-stage-manager-blockers span.is-blocking { color: var(--warn); }
 
 .live-stage-manager-disclosure {
-  padding: 0 var(--sp-4);
+  padding: 0;
 }
 
 .live-stage-manager-disclosure summary {
@@ -207,12 +207,14 @@
 
 .live-stage-manager-name-row {
   display: grid;
-  grid-template-columns: minmax(150px, 0.8fr) minmax(220px, 1.4fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--sp-3);
   padding-top: var(--sp-2);
   border-top: 1px solid var(--border-subtle);
 }
+.live-stage-manager-name-row.is-editing { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto; }
+.live-stage-name-error { grid-column: 1 / -1; margin: 0; color: var(--neg); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }
 
 .live-stage-manager-name-row > div {
   display: grid;
@@ -228,7 +230,7 @@
 
 .live-stage-manager-name-row input {
   min-width: 0;
-  height: 34px;
+  height: var(--control-height-md);
   padding: 0 var(--sp-2);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-6);
@@ -248,8 +250,9 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .live-stage-manager-name-row {
-    grid-template-columns: minmax(130px, 0.7fr) minmax(180px, 1.3fr) auto;
+  .live-stage-manager-name-row.is-editing {
+    grid-template-columns: minmax(0, 1fr) auto auto;
     gap: var(--sp-2);
   }
+  .live-stage-manager-name-row.is-editing > div { grid-column: 1 / -1; }
 }

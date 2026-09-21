@@ -1,0 +1,78 @@
+{
+  "extractedAt": "2026-09-16",
+  "repository": "Yunkoo757/yunkoo-atlas",
+  "commit": "429470054b32e4c568d7341bd296e9f3a1641891",
+  "version": "1.4.25",
+  "sourceFiles": [
+    {
+      "path": "src/styles/tokens.css",
+      "sha256": "d2d70b63e1e9d331730e2d6b45a377a289f266752141e1a72ad5aa092989a1b6"
+    },
+    {
+      "path": "src/styles/global.css",
+      "sha256": "8e475856b867dbf4c99134fc6ddca09e5e99b017456a9444e2ed478701a6ca72"
+    },
+    {
+      "path": "src/components/ui/Button.css",
+      "sha256": "90691b13b97edeab796f880401081e4dd5374190abd1e46fd72f10523eaf6283"
+    },
+    {
+      "path": "src/components/ui/IconButton.css",
+      "sha256": "54e95af3a372b2d5848193e70ca70f7cc7f70ed589c57981e063b0b06f9ea464"
+    },
+    {
+      "path": "src/components/ui/SegmentedControl.css",
+      "sha256": "85ca3f2fd88378a3d5a95eec5f6af3791805d502f4013f4b4c40d4069ee7212c"
+    },
+    {
+      "path": "src/components/ui/FieldTrigger.css",
+      "sha256": "3b9e06a3612bdad50e58cb6d24f85ae644d0eda5d8a868487b133ea0ebced71f"
+    },
+    {
+      "path": "src/components/ui/ModalShell.css",
+      "sha256": "d174ca4f000e5eebccdad50e66032a6b7097995bce9f5d7d991cc620e1881884"
+    },
+    {
+      "path": "src/components/Sidebar.css",
+      "sha256": "6f081822e6d339392b56e2224876755fd39ae4accd86c21cb20fdcbf06210d1a"
+    },
+    {
+      "path": "design.md",
+      "sha256": "13a8b65d4e353b31b2694d1bb731c7f5cf1e2d17b6a7490d83405ac46bcac04a"
+    }
+  ],
+  "defaultTokenCount": 346,
+  "excludedBusinessTokenCount": 52,
+  "renamedTokens": {
+    "--dense-row-height": "--trade-row-height",
+    "--dense-group-height": "--trade-group-height"
+  },
+  "fonts": [
+    {
+      "file": "fonts/inter-latin-variable.woff2",
+      "source": "@fontsource-variable/inter 5.2.8 / files/inter-latin-wght-normal.woff2",
+      "sha256": "3100e775e8616cd2611beecfa23a4263d7037586789b43f035236a2e6fbd4c62",
+      "license": "fonts/Inter-OFL.txt",
+      "coverage": "Latin variable weight 100–900; CJK uses platform fallback; this is not the complete language family"
+    },
+    {
+      "file": "fonts/jetbrains-mono-latin-400-normal.woff2",
+      "source": "@fontsource/jetbrains-mono 5.2.8 / files/jetbrains-mono-latin-400-normal.woff2",
+      "sha256": "14425ba9c695763c1547f48a206b7aa60350a33ae23de09f0407877f3fcd89eb",
+      "license": "fonts/JetBrainsMono-OFL.txt",
+      "coverage": "Latin static weight 400"
+    },
+    {
+      "file": "fonts/jetbrains-mono-latin-500-normal.woff2",
+      "source": "@fontsource/jetbrains-mono 5.2.8 / files/jetbrains-mono-latin-500-normal.woff2",
+      "sha256": "cb182feeed4d798ff6961d3c79f7026279448fca0676438aaecb21f3fc39553a",
+      "license": "fonts/JetBrainsMono-OFL.txt",
+      "coverage": "Latin static weight 500"
+    }
+  ],
+  "adaptations": [
+    "Removed business-only token families from default CSS; all original definitions are retained in source/atlas-tokens.snapshot.css for evidence only.",
+    "Neutral row/group aliases retain source dimensions.",
+    "Source comments are not universal requirements. No global app reset or routing/storage behavior is copied."
+  ]
+}

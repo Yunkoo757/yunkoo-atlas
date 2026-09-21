@@ -139,11 +139,11 @@ export function TradeFilters({
     activeFilters.push({ key: 'period', label: PERIOD_LABELS[filter.period] })
   } else if (filter.type === 'strategy') {
     activeFilters.push({ key: 'strategy-route', label: getStrategyName(strategies, filter.strategyId) })
-  } else if (filter.type === 'active') {
+  } else if (filter.type === 'active' && !unifiedTradeWorkspace) {
     activeFilters.push({ key: 'active-route', label: '进行中' })
-  } else if (filter.type === 'starred') {
+  } else if (filter.type === 'starred' && !unifiedTradeWorkspace) {
     activeFilters.push({ key: 'starred-route', label: '星标交易' })
-  } else if (filter.type === 'missed') {
+  } else if (filter.type === 'missed' && !unifiedTradeWorkspace) {
     activeFilters.push({ key: 'missed-route', label: '错过机会' })
   }
   if (filter.tradeKind === 'paper' && !unifiedTradeWorkspace) activeFilters.push({ key: 'kind-route', label: '模拟' })

@@ -480,7 +480,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
               >打开周期复盘</Link>
             </div>
           </div>
-          <div className="db-week-metrics">
+          {scope.range === 'this-week' ? <p className="db-week-sub">{weekMetrics.reviewedCount} 笔已复盘 · {weekMetrics.tradeCount - weekMetrics.reviewedCount} 笔待复盘</p> : <div className="db-week-metrics">
               <div className="db-week-metric">
                 <span>平仓</span>
                 <strong>{weekMetrics.tradeCount}</strong>
@@ -505,7 +505,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                 </strong>
                 {weekMetrics.rCount < weekMetrics.tradeCount ? <small>{weekMetrics.rCount}/{weekMetrics.tradeCount} 笔含 R</small> : null}
               </div>
-          </div>
+          </div>}
           {weekMetrics.missedCount > 0 && missedReasonSummary ? (
             <p className="db-week-missed">执行缺口：{missedReasonSummary}</p>
           ) : null}

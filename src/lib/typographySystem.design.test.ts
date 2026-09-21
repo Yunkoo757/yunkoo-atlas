@@ -908,7 +908,6 @@ export async function testSemanticChipsUseCanonicalTypographyRole(): Promise<voi
     ['src/views/settings/TagPresetsPanel.css', '.settings-tag-chip'],
     ['src/views/BoardView.css', '.bd-category-badge,\n.bd-case-tag'],
     ['src/components/RowPreviews.css', '.rp-tag'],
-    ['src/components/NotionImportModal.css', '.nim-format-pill'],
     ['src/components/NotionImportModal.css', '.nim-tag'],
     ['src/views/WeeklyReviewView.css', '.wr-result-choice button,.wr-tag-group button,.wr-trade-roles button'],
     ['src/views/ImportDataHealthView.css', '.idh-select span'],

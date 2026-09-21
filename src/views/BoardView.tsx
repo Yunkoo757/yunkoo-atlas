@@ -419,6 +419,11 @@ function BoardColumnBody({
                     {t.symbol}
                   </span>
                   <SideTag side={t.side} quiet />
+                  {result.r.state !== 'not-applicable' ? <span
+                    className="bd-card-result"
+                    data-value-state={result.r.state}
+                    data-value-sign={result.r.state === 'value' ? t.rMultiple != null && t.rMultiple > 0 ? 'positive' : 'negative' : undefined}
+                  >{result.r.text}</span> : null}
                 </div>
                 <div className="bd-card-strategy">
                   <StrategyLabel strategyId={t.strategyId} strategies={strategies} />
@@ -430,19 +435,6 @@ function BoardColumnBody({
                     {resolveTimeframe(t.timeframe)}
                   </span>
                   {isReviewCaseView && <BoardCardTags errors={t.mistakeTags} tags={t.tags} />}
-                </div>
-                <div className="bd-card-foot">
-                  <span
-                    className="bd-card-result"
-                    data-value-state={result.r.state}
-                    data-value-sign={
-                      result.r.state === 'value'
-                        ? t.rMultiple != null && t.rMultiple > 0 ? 'positive' : 'negative'
-                        : undefined
-                    }
-                  >
-                    {result.r.text}
-                  </span>
                 </div>
                 {excerpt ? (
                   <OverflowTooltip text={excerpt}>

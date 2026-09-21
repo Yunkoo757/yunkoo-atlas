@@ -50,69 +50,6 @@
   color: var(--text-tertiary);
 }
 
-.nim-formats {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.nim-format {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 30px;
-  padding: 5px var(--sp-2);
-  border-radius: var(--radius-8);
-}
-
-.nim-format.is-rec {
-  background: var(--surface-inset);
-}
-
-.nim-format-code {
-  width: 32px;
-  flex-shrink: 0;
-  font-family: var(--font-mono);
-  font-size: var(--type-caption-size);
-  color: var(--text-tertiary);
-}
-
-.nim-format-name {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-control-gap);
-  font-size: var(--type-metadata-size);
-  line-height: var(--type-metadata-line-height);
-  color: var(--text-tertiary);
-}
-
-.nim-format.is-rec .nim-format-name {
-  color: var(--text-primary);
-}
-
-.nim-format-pill {
-  display: inline-flex;
-  align-items: center;
-  height: var(--chip-height-sm);
-  padding: 0 6px;
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--pos) 14%, transparent);
-  color: var(--pos);
-  font-family: var(--font-ui);
-  font-size: var(--type-chip-size);
-  font-weight: var(--type-chip-weight);
-  line-height: var(--type-chip-line-height);
-}
-
-.nim-upload-tip {
-  margin: 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--border-subtle);
-  font-size: var(--type-metadata-size);
-  line-height: var(--type-metadata-line-height);
-  color: var(--text-tertiary);
-}
-
 .nim-file-input-hidden {
   position: absolute;
   width: 1px;

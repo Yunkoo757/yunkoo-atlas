@@ -116,7 +116,7 @@
 .bd-card:hover {
   border-color: var(--border-default);
   background: var(--surface-card-hover);
-  box-shadow: var(--shadow-low);
+  box-shadow: none;
 }
 .bd-card.is-dragging {
   opacity: 0.4;
@@ -206,18 +206,12 @@
   color: var(--text-content-metadata) !important;
   background: transparent !important;
 }
-.bd-card-foot {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-height: 18px;
-  font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
-  font-variant-numeric: var(--numeric-tabular);
-  margin-top: 0;
-}
 
 .bd-card-result {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: var(--type-metadata-size);
+  font-variant-numeric: var(--numeric-tabular);
   color: var(--text-tertiary);
 }
 

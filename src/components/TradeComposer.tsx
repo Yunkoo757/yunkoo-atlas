@@ -433,6 +433,7 @@ export function TradeComposer() {
     <ModalShell
       title={editing ? `编辑${TRADE_KIND_META[editing.tradeKind].label}` : `新建${recordLabel}`}
       busy={submitting}
+      size="compact"
       panelClassName="composer-modal"
       bodyClassName="composer-body-quick"
       footerClassName="composer-footer-quick"
@@ -440,11 +441,6 @@ export function TradeComposer() {
       onClose={requestClose}
       footer={(
         <>
-          {!editing && (
-            <span className="composer-footer-hint">
-              状态默认「计划中」，价格与仓位可稍后在详情补充
-            </span>
-          )}
           <div className="composer-footer-actions">
             <Button variant="bordered" size="lg" onClick={requestClose} disabled={submitting}>
               取消
@@ -575,7 +571,7 @@ export function TradeComposer() {
                 ]}
               />
             </div>
-            <div className="composer-essential-field">
+            <div className="composer-essential-field composer-date-field">
               <span className="composer-essential-label">交易日期</span>
               <DatePicker
                 value={openedAt}

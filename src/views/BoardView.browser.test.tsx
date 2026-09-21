@@ -100,7 +100,7 @@ async function run(): Promise<void> {
     assert(columns.every((column) => getComputedStyle(column).backgroundColor === 'rgba(0, 0, 0, 0)'), '状态列必须共享页面底色')
     assert(getComputedStyle(columns[1]!).borderLeftWidth === '1px', '相邻状态列应以轻分隔线建立结构')
     assert(cards.every((card) => card.getBoundingClientRect().width > 240), '案例卡片宽度不应因内外双层容器被过度压缩')
-    assert(document.querySelectorAll('.bd-card-result').length === 5, '每张卡片应只保留一个列表同源结果值')
+    assert(document.querySelectorAll('.bd-card-result').length === 4, '已结束和有潜在 R 的错过卡片应保留结果值，计划不展示不适用占位')
     assert(document.querySelector('.bd-card-excerpt')?.textContent === '突破后等待回踩确认', '案例看板没有展示已有正文题眼')
     assert(document.querySelectorAll('.bd-card-excerpt').length === 1, '无正文案例不应生成空摘要行')
     assert(!document.body.textContent?.includes('$350'), '看板不得重新引入列表已经移除的现金金额')

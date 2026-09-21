@@ -97,9 +97,9 @@ export function ImportDataHealthView() {
             <ArrowLeft size={ICON_SM} aria-hidden />
             返回历史实盘
           </Link>
-          <p className="idh-toolbar-meta" id="import-health-title">
+          {candidates.length > 0 ? <p className="idh-toolbar-meta" id="import-health-title">
             平仓日待核对 <span>{candidates.length}</span>
-          </p>
+          </p> : null}
           {candidates.length > 0 ? (
             <button type="button" className="ui-btn ui-btn-ghost idh-toolbar-action" onClick={toggleAllHigh}>
               切换高置信选中
@@ -131,12 +131,6 @@ export function ImportDataHealthView() {
           {candidates.length === 0 ? (
             <EmptyState
               title="当前没有待核对记录"
-              hint="暂无需要处理的记录"
-              action={(
-                <Link className="ui-btn ui-btn-bordered" to="/live-history">
-                  返回历史实盘
-                </Link>
-              )}
             />
           ) : (
             <div className="idh-list" aria-label="历史 Notion 日期候选">

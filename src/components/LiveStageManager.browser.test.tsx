@@ -213,6 +213,9 @@ async function run(): Promise<void> {
     const stageBeforeRename = useStore.getState().liveStages[1]!
     const tradeBeforeRename = useStore.getState().trades[0]
     const scheduleBeforeRename = useStore.getState().scheduledStageRollover
+    assert(!document.querySelector('input[data-stage-name-current]'), '阶段名称默认应以只读行呈现')
+    button('重命名').click()
+    await waitFor(() => Boolean(document.querySelector('input[data-stage-name-current]')), '重命名入口未打开当前阶段字段')
     changeInput('阶段名称', '  第一次实盘  ')
     button('保存名称').click()
     await waitFor(() => !button('保存名称').disabled, '重复名称校验后必须恢复操作')
@@ -303,6 +306,8 @@ async function run(): Promise<void> {
     assert(savedSnapshots.at(-1)?.scheduledStageRollover === null, '冲突恢复后的显式重试必须保存当前内存真相')
 
     let renameSaveAttempts = 0
+    button('重命名').click()
+    await waitFor(() => Boolean(document.querySelector('input[data-stage-name-current]')), '再次重命名未打开字段')
     saveSnapshot = async (value) => {
       renameSaveAttempts += 1
       if (renameSaveAttempts === 1) throw new Error('manager persistence failure')

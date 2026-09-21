@@ -323,9 +323,6 @@ export function TradeTrashView() {
                   找到 {filteredTrades.length} 笔交易
                 </span>
               )}
-              {selected.size === 0 && !searchQuery && (
-                <span className="trash-search-count">共 {filteredTrades.length} 笔</span>
-              )}
               <BatchActionBar count={selected.size} placement="inline">
                 <button type="button" className="batch-bar-action-btn" onClick={handleBatchRestore}>
                   <RotateCcw size={ICON_SM} />

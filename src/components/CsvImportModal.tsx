@@ -308,7 +308,7 @@ export function CsvImportModal({ open, onClose }: Props) {
   const footer =
     step === 'upload' ? (
       <>
-        <span className="csv-file-status">{fileName || '未选择文件'}</span>
+        {fileName ? <span className="csv-file-status">{fileName}</span> : null}
         <Button variant="primary" size="lg" onClick={pickFile}>
           选择文件
         </Button>

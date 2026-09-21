@@ -22,7 +22,7 @@ function renderContinuityState(availability: ContinuityProps['availability']): s
 export function testDraftWeekKeepsRiskEvidenceInTheReviewFlow(): void {
   const html = renderContinuityState('draft')
   assert(html.includes('风控执行'), '草稿周必须保留风控执行区，避免周次之间结构跳变')
-  assert(html.includes('完成复盘后冻结'), '草稿周必须解释何时生成冻结证据')
+  assert(html.includes('完成复盘后生成风控证据'), '草稿周必须解释何时生成冻结证据')
 }
 
 export function testLegacyCompletedWeekExplainsMissingFrozenEvidence(): void {

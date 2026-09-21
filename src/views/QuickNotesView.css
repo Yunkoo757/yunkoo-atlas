@@ -22,6 +22,7 @@
   border-right: 1px solid var(--border-divider);
   background: var(--surface-pane);
 }
+.quick-notes-workspace.is-empty { grid-template-columns: minmax(0, 1fr); }
 
 .quick-notes-search {
   height: var(--control-height);

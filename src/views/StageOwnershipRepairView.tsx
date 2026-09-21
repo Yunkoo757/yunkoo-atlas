@@ -348,11 +348,11 @@ export function StageOwnershipRepairView() {
             核对记录所属的实盘阶段。
           </p>
         </div>
-        <div className="stage-ownership-total" aria-label={`待整理 ${pending.length} 项`}>
+        {displayedPending.length > 0 ? <div className="stage-ownership-total" aria-label={`待整理 ${pending.length} 项`}>
           <Database size={ICON_MD} aria-hidden />
           <span>待整理</span>
           <strong>{displayedPending.length}</strong>
-        </div>
+        </div> : null}
       </header>
       <StageOwnershipAutoRepair />
       {pageStatus ? (
@@ -371,7 +371,6 @@ export function StageOwnershipRepairView() {
           <CheckCircle size={ICON_MD} aria-hidden />
           <div>
             <strong>所有迁移数据都已完成阶段归属</strong>
-            <span>当前没有需要人工整理的阶段实体。</span>
           </div>
         </section>
       ) : (

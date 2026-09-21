@@ -81,15 +81,14 @@ export function ListView({
   }, [filter.tradeKind, storedTrades])
   const showPendingLink = filter.tradeKind === 'live'
     && pendingCount > 0
-  const resultRepairIds = useMemo(
-    () => collectWorkbenchResultRepairIds(storedTrades),
-    [storedTrades],
-  )
-  const showResultRepair = resultRepairIds.length > 0
-
   useListContextSync(filter)
   useTradeReturnAnchor()
   const { trades, visible, totalCount, workspaceCount, businessDateAnchor, stageScope } = useWorkbenchVisibleTrades(filter)
+  const resultRepairIds = useMemo(
+    () => collectWorkbenchResultRepairIds(trades),
+    [trades],
+  )
+  const showResultRepair = resultRepairIds.length > 0
 
   const openTrade = useCallback((trade: Trade) => {
     const inheritedFrom = (location.state as TradeDetailLocationState | null)?.from

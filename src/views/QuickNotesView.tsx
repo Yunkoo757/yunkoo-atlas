@@ -258,8 +258,8 @@ export function QuickNotesView() {
         ) : undefined}
       />
 
-      <div className="quick-notes-workspace">
-        <aside className="quick-notes-list-pane" aria-label="随记列表">
+      <div className={`quick-notes-workspace${notes.length === 0 ? ' is-empty' : ''}`}>
+        {notes.length > 0 ? <aside className="quick-notes-list-pane" aria-label="随记列表">
           <label className="quick-notes-search">
             <Search size={ICON_SM} aria-hidden="true" />
             <input
@@ -294,7 +294,7 @@ export function QuickNotesView() {
               <div className="quick-notes-list-empty">没有匹配的随记</div>
             ) : null}
           </div>
-        </aside>
+        </aside> : null}
 
         <section className="quick-notes-editor-pane" aria-label="随记编辑区">
           {selectedNote ? (

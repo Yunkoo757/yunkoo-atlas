@@ -332,7 +332,19 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
   )
   const { selectedWeek, selectedReviewId, tab } = routeResolution.state
   const [editorHtml, setEditorHtml] = useState('')
+  const [showAllEvidence, setShowAllEvidence] = useState(Boolean(returnRequest))
   const mainContentRef = useRef<HTMLElement>(null)
+  const sectionNavRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const main = mainContentRef.current
+    const nav = sectionNavRef.current
+    if (!main || !nav) return
+    const measure = () => main.style.setProperty('--wr-nav-height', `${nav.getBoundingClientRect().height}px`)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(nav)
+    return () => { observer.disconnect(); main.style.removeProperty('--wr-nav-height') }
+  }, [tab])
   const [overrideEventsOpen, setOverrideEventsOpen] = useState(false)
   const [trendLiveStageId, setTrendLiveStageId] = useState<string | undefined>(selectedReviewStageId)
   useEffect(() => setTrendLiveStageId(selectedReviewStageId), [selectedReviewStageId])
@@ -482,6 +494,11 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
   const evidenceMissedTrades = usesCompleteSnapshot
     ? review.evidenceSnapshot!.missedTrades
     : weekMissedTrades
+  const evidenceCount = evidenceTrades.length + evidenceMissedTrades.length
+  const markedEvidenceIds = new Set([...review.highlightTradeIds, ...review.mistakeTradeIds, ...review.followUpTradeIds])
+  const compactEvidence = evidenceCount > 6 && !showAllEvidence
+  const displayedEvidenceTrades = compactEvidence ? evidenceTrades.filter((trade) => markedEvidenceIds.has(trade.id)) : evidenceTrades
+  const displayedMissedTrades = compactEvidence ? evidenceMissedTrades.filter((trade) => markedEvidenceIds.has(trade.id)) : evidenceMissedTrades
   const evidenceCashCurrencyAssumption = usesCompleteSnapshot
     ? review.evidenceSnapshot?.legacyCashCurrencyAssumption ?? null
     : legacyCashCurrencyAssumption
@@ -776,8 +793,10 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 ) : null}
               </div>
             </div>
+          </header>
             {tab === 'review' ? (
-              <nav className="wr-section-nav" aria-label="周复盘章节">
+              <nav ref={sectionNavRef} className="wr-section-nav" aria-label="周复盘章节">
+                <span className="wr-nav-context">{selectedReviewStage?.name ?? '未知阶段'} · {formatWeekRange(selectedWeek)}</span>
                 {[
                   ['facts', '本周事实'],
                   ['risk', '风控执行'],
@@ -800,7 +819,6 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 ))}
               </nav>
             ) : null}
-          </header>
 
           {tab === 'year' ? (
             <div id="weekly-review-panel-year" role="tabpanel" aria-labelledby="weekly-review-tab-year">
@@ -823,7 +841,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
             </div>
           ) : (
             <div id="weekly-review-panel-review" role="tabpanel" aria-labelledby="weekly-review-tab-review" className="wr-content">
-              <div className="wr-progress-summary" aria-label={`周复盘必填项已完成 ${completedRequiredFields} / 5`}>
+              {!locked ? <div className="wr-progress-summary" aria-label={`周复盘必填项已完成 ${completedRequiredFields} / 5`}>
                 <span>{locked ? '完成快照' : '复盘进度'}</span>
                 <strong>{locked ? '已形成闭环' : `${completedRequiredFields} / 5 项必填`}</strong>
                 {!locked ? (
@@ -837,7 +855,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                     <i style={{ width: `${completedRequiredFields / 5 * 100}%` }} />
                   </span>
                 ) : null}
-              </div>
+              </div> : null}
 
               {visualIssues.length > 0 ? (
                 <InlineStatus
@@ -858,7 +876,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
 
               {review.status === 'completed' ? (
                 <div className="wr-complete-banner">
-                  <span><Check size={ICON_MD} /> 已完成 · {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')}</span>
+                  <span><Check size={ICON_MD} /> 已完成 · {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')} · {usesCompleteSnapshot ? '数据已冻结' : '历史快照不完整'}</span>
                 </div>
               ) : null}
               {review.status === 'completed' && !usesCompleteSnapshot ? (
@@ -992,7 +1010,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                               </button>
                             ))}
                           </div>
-                          <span className={`wr-score-status ${tone}`}><b>{selectedScore ?? '—'}</b>{selectedLevel?.label ?? '尚未评分'}</span>
+                          <span className={`wr-score-status ${tone}`}>{selectedLevel?.label ?? '尚未评分'}</span>
                         </div>
                       </div>
                     )
@@ -1023,18 +1041,20 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
 
               <section className="wr-section" data-weekly-section="evidence" data-invalid="false">
                 <div className="wr-section-head"><div><span>{previousReview ? '05' : '04'}</span><h2>关键交易证据</h2></div><small>标记角色后，可在年度复盘中回看</small></div>
+                {evidenceCount > 6 ? <button type="button" className="ui-btn ui-btn-ghost wr-evidence-toggle" aria-expanded={showAllEvidence} onClick={() => setShowAllEvidence((value) => !value)}>{showAllEvidence ? '只看已标记证据' : `查看和标记全部 ${evidenceCount} 笔交易`}</button> : null}
+                {compactEvidence && displayedEvidenceTrades.length + displayedMissedTrades.length === 0 ? <p className="wr-empty">尚未标记关键证据。</p> : null}
                 {evidenceTrades.length || evidenceMissedTrades.length ? (
                   <div className="wr-evidence-groups">
-                    {evidenceTrades.length ? (
+                    {displayedEvidenceTrades.length ? (
                       <div className="wr-evidence-group">
-                        {evidenceMissedTrades.length ? <div className="wr-evidence-group-title">已执行并平仓</div> : null}
+                        {displayedMissedTrades.length ? <div className="wr-evidence-group-title">已执行并平仓</div> : null}
                         <div className="wr-trade-list">
-                          {evidenceTrades.map((trade) => (
+                          {displayedEvidenceTrades.map((trade) => (
                             <TradeEvidence
                               key={trade.id}
                               trade={trade}
                               review={review}
-                              onPatch={commitPatch}
+                              onPatch={(patch) => { if (compactEvidence) setShowAllEvidence(true); commitPatch(patch) }}
                               detailFrom={detailFrom(`weekly-trade:${trade.id}`)}
                               legacyCashCurrencyAssumption={evidenceCashCurrencyAssumption}
                             />
@@ -1042,16 +1062,16 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                         </div>
                       </div>
                     ) : null}
-                    {evidenceMissedTrades.length ? (
+                    {displayedMissedTrades.length ? (
                       <div className="wr-evidence-group">
                         <div className="wr-evidence-group-title">错过机会 <small>仅作执行证据，不计入绩效</small></div>
                         <div className="wr-trade-list">
-                          {evidenceMissedTrades.map((trade) => (
+                          {displayedMissedTrades.map((trade) => (
                             <TradeEvidence
                               key={trade.id}
                               trade={trade}
                               review={review}
-                              onPatch={commitPatch}
+                              onPatch={(patch) => { if (compactEvidence) setShowAllEvidence(true); commitPatch(patch) }}
                               detailFrom={detailFrom(`weekly-trade:${trade.id}`)}
                               legacyCashCurrencyAssumption={evidenceCashCurrencyAssumption}
                             />
@@ -1064,7 +1084,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
               </section>
 
               <section className="wr-section" data-weekly-section="judgment" data-invalid={sectionHasIssue('judgment')}>
-                <div className="wr-section-head"><div><span>{previousReview ? '06' : '05'}</span><h2>判断与截图</h2></div><small>支持清单、引用和直接粘贴截图</small></div>
+                <div className="wr-section-head"><div><span>{previousReview ? '06' : '05'}</span><h2>判断与截图</h2></div></div>
                 <div className="wr-editor-wrap" data-weekly-field="review-content" data-invalid={sectionHasIssue('judgment')}>
                   <Editor
                     content={editorHtml}
@@ -1084,7 +1104,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
               </section>
 
               <div className="wr-footer-action">
-                <div><strong>{review.status === 'completed' ? '这周已经形成闭环' : '完成后会冻结本周事实，并带入下周验证'}</strong></div>
+                {review.status !== 'completed' ? <div><strong>完成后会冻结本周事实，并带入下周验证</strong></div> : null}
                 {review.status === 'completed'
                   ? <button type="button" className="ui-btn ui-btn-bordered" onClick={reopenReview}><RotateCcw size={ICON_MD} /> 重新打开</button>
                   : <button type="button" className="ui-btn ui-btn-primary" onClick={() => void completeReview()}><Check size={ICON_MD} /> 完成本周复盘</button>}
@@ -1120,7 +1140,7 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
       <div className="wr-year-body">
         <section className="wr-year-empty" aria-label="年度趋势尚未开始">
           <strong>年度趋势尚未开始</strong>
-          <p>完成一篇周复盘后，这里会汇总做法评分、常见错误与全年节奏。</p>
+          <p>完成第一篇周复盘后查看。</p>
           {reviews.length > 0 ? <small>{reviews.length} 篇草稿尚未完成</small> : null}
         </section>
       </div>
@@ -1149,7 +1169,7 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
           )}>
             <WeeklyReviewScoreChart data={data} />
           </Suspense>
-        ) : data.length === 1 ? <div className="wr-trend-start"><div><span>趋势起点</span><strong>{data[0].score.toFixed(1)}</strong><small>/ 5</small></div><p>再完成 1 次周复盘后，这里会显示评分变化。</p></div> : <div className="wr-empty">完成第一篇周复盘后，这里会出现年度趋势。</div>}
+        ) : data.length === 1 ? <div className="wr-trend-start"><p>再完成 1 次周复盘后，这里会显示评分变化。</p></div> : <div className="wr-empty">完成第一篇周复盘后，这里会出现年度趋势。</div>}
       </section>
       <section className="wr-section">
         <div className="wr-section-head"><div><span>{weekCount}</span><h2>全年复盘节奏</h2></div><small>颜色越亮，做法评分越高</small></div>

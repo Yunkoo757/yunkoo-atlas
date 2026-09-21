@@ -226,7 +226,7 @@ export function ReviewPoolManagerModal({
                 <div><strong>{pool.label}</strong><span>{hidden ? '已隐藏' : isOnHome(ref) ? '首页展示' : '可用'}</span></div>
                 <div>
                   {pool.id !== 'all' ? <Button type="button" variant="ghost" size="sm" onClick={() => toggleSystemVisibility(pool.id as Exclude<SystemReviewPoolId, 'all'>)}>{hidden ? '取消隐藏' : '隐藏'}</Button> : null}
-                  {!hidden && pool.id !== 'all' ? <Button type="button" variant="bordered" size="sm" disabled={!isOnHome(ref) && normalizedLayout.homeOrder.length >= 6} onClick={() => toggleHome(ref)}>{isOnHome(ref) ? '移出首页' : '放到首页'}</Button> : null}
+                  {!hidden && !isOnHome(ref) && pool.id !== 'all' ? <Button type="button" variant="bordered" size="sm" disabled={normalizedLayout.homeOrder.length >= 6} onClick={() => toggleHome(ref)}>放到首页</Button> : null}
                 </div>
               </div>
             )
@@ -257,7 +257,7 @@ export function ReviewPoolManagerModal({
                     >
                       <Trash2 size={ICON_SM} />
                     </Button>
-                    <Button type="button" variant="bordered" size="sm" disabled={!isOnHome(ref) && normalizedLayout.homeOrder.length >= 6} onClick={() => toggleHome(ref)}>{isOnHome(ref) ? '移出首页' : '放到首页'}</Button>
+                    {!isOnHome(ref) ? <Button type="button" variant="bordered" size="sm" disabled={normalizedLayout.homeOrder.length >= 6} onClick={() => toggleHome(ref)}>放到首页</Button> : null}
                   </div>
                 </div>
               )

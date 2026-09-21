@@ -56,6 +56,7 @@
   border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
+.update-status:not(.is-accent):not(.is-ok):not(.is-warn) { padding: 0; border: 0; }
 
 .update-status.is-ok {
   color: var(--pos);

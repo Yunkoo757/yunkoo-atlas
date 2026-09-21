@@ -70,8 +70,8 @@ export function HistoricalRiskBackfillPanel({ today, issues }: { today: string; 
     {result ? <p role="status" className="historical-risk-result">{result}</p> : null}
     {missing.length > 0 ? <section className="settings-page-section historical-risk-entry" aria-label="历史规则补录">
       <h2 className="settings-section-title">补录历史规则</h2>
-      <p className="settings-section-desc">仅补录能确认当时适用的规则。</p>
-      <button className="ui-btn ui-btn-primary" onClick={start} disabled={!source}>补录历史风险规则</button>
+      {source ? <><p className="settings-section-desc">仅补录能确认当时适用的规则。</p>
+      <button className="ui-btn ui-btn-bordered" onClick={start}>补录历史风险规则</button></> : null}
       {!source ? <p className="settings-section-desc">请先<Link to="/settings/risk">设置当前风险规则</Link>，生效后再补录。</p> : null}
     </section> : null}
     {history.length ? <section className="settings-page-section historical-risk-history" aria-label="历史补录记录">

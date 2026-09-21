@@ -78,14 +78,14 @@
   grid-template-columns: 190px minmax(0, 1fr);
   min-height: 410px;
   overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  background: var(--bg-surface);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .review-template-list {
   padding: var(--sp-2);
-  background: var(--surface-inset);
+  background: transparent;
   border-right: 1px solid var(--border-subtle);
 }
 

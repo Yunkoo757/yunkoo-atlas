@@ -99,9 +99,7 @@
 }
 
 .profile-avatar-item.is-selected .profile-avatar-art {
-  box-shadow:
-    0 0 0 1px var(--accent-color),
-    0 0 0 4px color-mix(in srgb, var(--accent-color) 18%, transparent);
+  box-shadow: 0 0 0 1px var(--accent-color);
 }
 
 .profile-avatar-art svg,

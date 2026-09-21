@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Download, RotateCcw } from '@/icons/appIcons'
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
-import { ProgressIndicator } from '@/icons/ProgressIndicator'
 import { ICON_SM } from '@/icons/iconSize'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
 import type { AppUpdateState } from '@/lib/appUpdate'
@@ -90,12 +89,7 @@ export function UpdatesSettingsPanel() {
 
         {state.phase === 'downloading' && (
           <div className="update-progress-row">
-            <ProgressIndicator
-              progress={(state.progress ?? 0) / 100}
-              size={ICON_SM}
-              aria-hidden
-            />
-            <div className="update-progress" aria-label={`下载进度 ${state.progress ?? 0}%`}>
+            <div className="update-progress" role="progressbar" aria-label="下载进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={state.progress ?? 0}>
               <span style={{ transform: `scaleX(${(state.progress ?? 0) / 100})` }} />
             </div>
           </div>
@@ -110,12 +104,7 @@ export function UpdatesSettingsPanel() {
               <Download size={ICON_SM} />
               下载更新
             </button>
-          ) : state.phase === 'downloading' ? (
-            <button className="dio-btn dio-btn-primary" disabled aria-busy="true">
-              <LoadingIndicator size={ICON_SM} aria-hidden />
-              下载中… {state.progress != null ? `${state.progress}%` : ''}
-            </button>
-          ) : state.phase === 'downloaded' ? (
+          ) : state.phase === 'downloading' ? null : state.phase === 'downloaded' ? (
             <button className="dio-btn dio-btn-primary" onClick={() => void installUpdate()}>
               <RotateCcw size={ICON_SM} />
               备份并重启更新

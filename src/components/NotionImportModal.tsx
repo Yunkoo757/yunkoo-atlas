@@ -392,7 +392,7 @@ export function NotionImportModal({ open, onClose }: Props) {
   const footer =
     step === 'upload' ? (
       <>
-        <span className="nim-file-status">{fileName || '未选择文件'}</span>
+        {fileName ? <span className="nim-file-status">{fileName}</span> : null}
         <Button variant="primary" size="lg" onClick={pickFile} disabled={parsing}>
           {parsing ? '正在解析…' : '选择文件'}
         </Button>
@@ -432,7 +432,7 @@ export function NotionImportModal({ open, onClose }: Props) {
   return (
     <ModalShell
       title="从 Notion 导入"
-      description={step === 'upload' ? '请先导出 Markdown & CSV，再选择文件' : undefined}
+      description={step === 'upload' ? '导出 Markdown & CSV，并勾选「包含子页面」' : undefined}
       busy={step === 'importing'}
       size={step === 'upload' || step === 'done' || step === 'importing' ? 'compact' : 'wide'}
       onClose={requestClose}
@@ -467,21 +467,8 @@ export function NotionImportModal({ open, onClose }: Props) {
               <Upload size={ICON_MD} />
             </div>
             <p className="nim-drop-title">拖放或选择文件</p>
-            <p className="nim-drop-hint">.zip · .csv</p>
+            <p className="nim-drop-hint">.zip 含截图（推荐） · .csv 仅数据</p>
           </div>
-          <div className="nim-formats">
-            <div className="nim-format is-rec">
-              <span className="nim-format-code">.zip</span>
-              <span className="nim-format-name">
-                含截图 <span className="nim-format-pill">推荐</span>
-              </span>
-            </div>
-            <div className="nim-format">
-              <span className="nim-format-code">.csv</span>
-              <span className="nim-format-name">仅数据</span>
-            </div>
-          </div>
-          <p className="nim-upload-tip">导出时勾选「包含子页面」</p>
           <input
             ref={fileRef}
             type="file"

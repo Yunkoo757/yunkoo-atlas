@@ -313,7 +313,7 @@ export function DisplaySettingsPanel() {
                   >
                     <span className="display-row-copy">
                       <span className="display-row-title">{preset.label}</span>
-                      <span className="display-row-desc">{preset.description}</span>
+                      {selected ? <span className="display-row-desc">{preset.description}</span> : null}
                     </span>
                     <span className="display-choice-check">
                       {selected ? <Check size={ICON_SM} /> : null}
@@ -396,7 +396,7 @@ function ChoiceSection<T extends string | number>({
   onChange: (value: T) => void
 }) {
   return (
-    <section className="display-settings-section">
+    <section className="display-settings-section display-settings-choice">
       <div className="display-section-head">
         <h2>{title}</h2>
         {hint ? <p>{hint}</p> : null}

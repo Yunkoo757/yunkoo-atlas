@@ -364,6 +364,13 @@
   min-height: 120px;
 }
 
+.dv-case-source-note summary { cursor: pointer; list-style: none; margin-bottom: 0; }
+.dv-case-source-note summary::-webkit-details-marker { display: none; }
+.dv-case-source-note summary::before { content: '›'; color: var(--text-tertiary); }
+.dv-case-source-note summary h2 { flex: 1; }
+.dv-case-source-note details[open] > summary { margin-bottom: var(--sp-3); }
+.dv-case-source-note details[open] > summary::before { transform: rotate(90deg); }
+
 .dv-case-source-note .dv-note-load.is-error {
   grid-template-columns: 18px minmax(0, 1fr);
 }

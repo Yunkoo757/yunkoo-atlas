@@ -103,7 +103,7 @@
   padding: 0;
 }
 .display-choice {
-  min-height: 46px;
+  min-height: var(--field-height-md);
   border: 0;
   border-radius: var(--radius-6);
 }
@@ -119,4 +119,7 @@
 }
 
 .display-settings-section > .ui-segmented { max-width: 100%; flex-wrap: wrap; }
+.display-settings-choice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-4); }
+.display-settings-choice .display-section-head { flex: 1; min-width: 0; margin: 0; }
+.display-settings-choice .display-sort-direction { flex-basis: 100%; margin: 0; }
 .display-sort-direction { margin-top: var(--space-row-gap); color: var(--text-muted); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }

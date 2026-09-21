@@ -201,6 +201,10 @@ async function run(): Promise<void> {
     }))
     assert(useStore.getState().requestTradeOpen('target') === 'pending-confirmation', '未建档记录必须进入可继续的未知风险确认')
     await waitFor(() => Boolean(document.querySelector('[data-trade-open-risk-dialog]')), '未建档记录没有显示未知风险确认')
+    const unknownBudgetRows = [...document.querySelectorAll('.trade-open-risk-periods > div')]
+    assert(unknownBudgetRows.length === 3, '未知风险仍须呈现日周月证据')
+    assert(unknownBudgetRows.every((row) => row.querySelector('strong')?.textContent === '无法确认'), '未建档预算不得被表现为确定的零值')
+    assert(unknownBudgetRows.every((row) => row.textContent?.includes('限额 未设置') && row.textContent?.includes('记录覆盖：')), '预算未设置和记录覆盖必须分别表达')
     click('取消开仓')
     await waitFor(() => !document.querySelector('[role="dialog"]'), '取消没有关闭风险确认')
 

@@ -38,6 +38,8 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
   const cancelLiveStageRollover = useStore((state) => state.cancelLiveStageRollover)
   const renameLiveStage = useStore((state) => state.renameLiveStage)
   const [operation, setOperation] = useState<Operation>(null)
+  const [editingStageId, setEditingStageId] = useState<string | null>(null)
+  const [renameError, setRenameError] = useState('')
   const operationRef = useRef<Operation>(null)
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>(() =>
     Object.fromEntries(liveStages.map((stage) => [stage.id, stage.name])),
@@ -175,13 +177,15 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
     const draft = nameDrafts[stageId] ?? ''
     if (!renameLiveStage(stageId, draft)) {
       const stage = previousStages.find((item) => item.id === stageId)
-      if (!draft.trim()) toast('阶段名称不能为空')
-      else if (stage?.name === draft.trim()) toast('阶段名称没有变化')
+      let message = '阶段名称无法保存'
+      if (!draft.trim()) message = '阶段名称不能为空'
+      else if (stage?.name === draft.trim()) message = '阶段名称没有变化'
       else if (previousStages.some((item) =>
         item.id !== stageId &&
         normalizeLiveStageName(item.name) === normalizeLiveStageName(draft),
-      )) toast('阶段名称已存在，请使用其他名称')
-      else toast('阶段名称无法保存')
+      )) message = '阶段名称已存在，请使用其他名称'
+      setRenameError(message)
+      toast(message)
       finishOperation()
       return
     }
@@ -189,18 +193,26 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
       await flushPersistNow()
       const saved = useStore.getState().liveStages.find((stage) => stage.id === stageId)
       if (saved) setNameDrafts((drafts) => ({ ...drafts, [stageId]: saved.name }))
+      setEditingStageId(null)
+      restoreRenameFocus(stageId)
       toast('阶段名称已保存')
     } catch {
       useStore.setState({ liveStages: previousStages })
       try {
         await flushPersistNow()
         toast('阶段名称保存失败，原名称已保留')
+        setRenameError('阶段名称保存失败，原名称已保留，请重试。')
       } catch {
         toast('阶段名称保存与回滚均失败，请重新打开应用核对')
+        setRenameError('阶段名称保存与回滚均失败，请重新打开应用核对。')
       }
     } finally {
       finishOperation()
     }
+  }
+
+  function restoreRenameFocus(stageId: string) {
+    requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(`[data-stage-rename="${CSS.escape(stageId)}"]`)?.focus())
   }
 
   const orderedStages = [...liveStages].sort((left, right) => right.sequence - left.sequence)
@@ -214,7 +226,6 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
       panelClassName="live-stage-manager-shell"
       bodyClassName="live-stage-manager-body"
       busy={busy}
-      initialFocusSelector="[data-stage-name-current]"
       onClose={onClose}
       footer={(
         <>
@@ -264,7 +275,7 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
           </div>
           <div className="live-stage-manager-blockers" aria-label="当前阶段切换阻断项">
             {advisoryCodes.has('planned-trades') ? <span>计划中 {plannedCount} 笔将保留在原阶段</span> : null}
-            {blockerCodes.has('open-trades') ? <span>持仓中 {openCount} 笔</span> : null}
+            {blockerCodes.has('open-trades') ? <span className="is-blocking">持仓中 {openCount} 笔</span> : null}
             {advisoryCodes.has('weekly-review-incomplete') ? <span>周复盘可稍后补做</span> : null}
           </div>
         </section> : null}
@@ -299,19 +310,23 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
           </div>
           <div className="live-stage-manager-names">
             {orderedStages.map((stage) => (
-              <div className="live-stage-manager-name-row" key={stage.id}>
+              <div className={`live-stage-manager-name-row${editingStageId === stage.id ? ' is-editing' : ''}`} key={stage.id}>
                 <div>
-                  <span>{stage.status === 'current' ? '当前阶段' : '历史阶段'} · 第 {stage.sequence} 阶段</span>
-                  <small>{fmtDate(stage.startsOn)}{stage.endsOn ? ` — ${fmtDate(stage.endsOn)}` : ' 至今'}</small>
+                  <span>{stage.name}</span>
+                  <small>{stage.status === 'current' ? '当前阶段' : '历史阶段'} · {fmtDate(stage.startsOn)}{stage.endsOn ? ` — ${fmtDate(stage.endsOn)}` : ' 至今'}</small>
                 </div>
+                {editingStageId === stage.id ? <>
                 <input
+                  autoFocus
                   type="text"
                   value={nameDrafts[stage.id] ?? stage.name}
                   aria-label={stage.status === 'current' ? '阶段名称' : `阶段名称：${stage.name}`}
                   data-stage-name-current={stage.status === 'current' || undefined}
                   maxLength={80}
                   disabled={busy}
-                  onChange={(event) => setNameDrafts((drafts) => ({ ...drafts, [stage.id]: event.target.value }))}
+                  aria-invalid={Boolean(renameError)}
+                  aria-describedby={renameError ? 'stage-rename-error' : undefined}
+                  onChange={(event) => { setRenameError(''); setNameDrafts((drafts) => ({ ...drafts, [stage.id]: event.target.value })) }}
                 />
                 <Button
                   size="sm"
@@ -320,6 +335,14 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
                   disabled={busy || !(nameDrafts[stage.id] ?? '').trim()}
                   onClick={() => void persistRename(stage.id)}
                 >保存名称</Button>
+                <Button size="sm" disabled={busy} onClick={() => {
+                  setNameDrafts((drafts) => ({ ...drafts, [stage.id]: stage.name }))
+                  setEditingStageId(null)
+                  setRenameError('')
+                  restoreRenameFocus(stage.id)
+                }}>取消</Button>
+                {renameError ? <p className="live-stage-name-error" id="stage-rename-error" role="alert">{renameError}</p> : null}
+                </> : <Button size="sm" disabled={busy} data-stage-rename={stage.id} aria-label={`重命名：${stage.name}`} onClick={() => { setRenameError(''); setEditingStageId(stage.id) }}>重命名</Button>}
               </div>
             ))}
           </div>

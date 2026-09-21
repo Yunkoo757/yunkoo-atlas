@@ -322,14 +322,10 @@ export function TradeOpenRiskDialog() {
         <section className={`trade-open-risk-callout is-${request.decisionType}`}>
           <Shield size={ICON_LG} aria-hidden />
           <div>
-            <strong>
-              {request.decisionType === 'unknown'
-                ? '无法确认当前是否触线'
-                : `${triggeredPeriods.join('、') || '当前'}止损预算已触线`}
-            </strong>
+            {request.decisionType !== 'unknown' ? <strong>{triggeredPeriods.join('、') || '当前'}止损预算已触线</strong> : null}
             <p>
               {request.decisionType === 'unknown'
-                ? unknownReasonText || '当前风险数据覆盖不足。'
+                ? !policy ? `当前未设置有效风险规则，无法计算可用预算。${unknownReasonText}` : unknownReasonText || '当前风险数据覆盖不足。'
                 : '继续开仓会形成不可撤销的风险确认审计记录。'}
             </p>
           </div>
@@ -341,9 +337,9 @@ export function TradeOpenRiskDialog() {
             return (
               <div key={scope} className={outcome.triggered ? 'is-triggered' : outcome.coverage === 'unknown' ? 'is-unknown' : ''}>
                 <span>{label}</span>
-                <strong>{fmtR(outcome.netBudgetR)}</strong>
-                <small>已用 {fmtBudgetR(outcome.consumedR)} / 限额 {fmtBudgetR(outcome.limitR)}</small>
-                <em>{outcome.coverage === 'complete' ? '完整' : outcome.coverage === 'partial' ? '部分' : '未知'}</em>
+                <strong>{!policy || outcome.coverage === 'unknown' ? '无法确认' : fmtR(outcome.netBudgetR)}</strong>
+                <small>{outcome.coverage === 'complete' ? '已用' : '已知已用'} {fmtBudgetR(outcome.consumedR)} / 限额 {policy ? fmtBudgetR(outcome.limitR) : '未设置'}</small>
+                <em>记录覆盖：{outcome.coverage === 'complete' ? '完整' : outcome.coverage === 'partial' ? '部分' : '未知'}</em>
               </div>
             )
           })}
@@ -381,7 +377,7 @@ export function TradeOpenRiskDialog() {
             data-autofocus
             value={reason}
             maxLength={500}
-            rows={4}
+            rows={2}
             disabled={commitState === 'committing' || reloadRequired}
             onChange={(event) => {
               setReason(event.target.value)

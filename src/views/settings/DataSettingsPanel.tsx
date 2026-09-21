@@ -556,7 +556,6 @@ export function DataSettingsPanel({
               {backupHealth.lastVerified && backupHealth.lastVerified.name !== backupHealth.latest?.name ? <small>最后可用备份：{fmtBackupTime(backupHealth.lastVerified.timestamp)}</small> : null}
             </div>
             {backupHealth.action === 'retry-load' ? <button type="button" className="dio-btn" onClick={() => void refreshBackups()}>重试读取</button> : null}
-            {backupHealth.action === 'create' ? <button type="button" className="dio-btn" disabled={backing} onClick={() => void handleCreateBackup()}>重新备份并验证</button> : null}
             {backupHealth.action === 'verify-latest' && backupHealth.latest ? <button type="button" className="dio-btn" disabled={verifying !== null} onClick={() => void handleVerify(backupHealth.latest!.name)}>验证最新备份</button> : null}
           </div>
 
@@ -567,7 +566,7 @@ export function DataSettingsPanel({
               disabled={backing}
             >
               <Save size={ICON_SM} />
-              <span>{backing ? '备份并验证中…' : '立即备份'}</span>
+              <span>{backing ? '备份并验证中…' : backupHealth.action === 'create' ? backups.length ? '重新备份并验证' : '创建并验证备份' : '立即备份'}</span>
             </button>
           </div>
 
@@ -700,7 +699,7 @@ export function DataSettingsPanel({
             </>
           )}
         >
-          <dl className="dio-restore-grid">
+          <dl className="dio-backup-facts">
             <div><dt>备份时间</dt><dd>{fmtBackupTime(confirmRequest.backup.timestamp)}</dd></div>
             <div><dt>交易与案例</dt><dd>{confirmRequest.backup.tradeCount ?? '—'}</dd></div>
             <div><dt>策略</dt><dd>{confirmRequest.backup.strategyCount ?? '—'}</dd></div>

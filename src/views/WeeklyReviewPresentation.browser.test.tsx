@@ -113,7 +113,8 @@ async function run(): Promise<void> {
       return style.borderTopWidth !== '0px' && style.borderRadius !== '0px'
     })
     assert(elevatedSections.length <= 3, '周复盘保留了超过三块抬升章节')
-    assert(document.querySelector('.wr-progress-summary'), '周复盘缺少紧凑进度摘要')
+    assert(!document.querySelector('.wr-progress-summary'), '完成态不应重复呈现进度摘要')
+    assert(document.querySelector('.wr-complete-banner'), '完成状态与日期必须保留')
     assert(getComputedStyle(document.querySelector<HTMLElement>('.wr-footer-action')!).position === 'sticky', '周复盘主操作栏没有保持 sticky')
     assert(![...document.querySelectorAll<HTMLButtonElement>('.wr-tag-group button')].some((button) => button.textContent?.startsWith('FOMO')), '自定义交易标签不应成为统计选项')
     assert(document.querySelector('.wr-evidence-tags')?.textContent?.includes('FOMO×1'), '自定义标签及次数没有作为证据显示')
@@ -127,7 +128,7 @@ async function run(): Promise<void> {
     const yearButton = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === '年度趋势')
     assert(yearButton, '年度趋势入口不存在')
     yearButton.click()
-    await waitFor(() => document.body.textContent?.includes('趋势起点') ?? false, '单周数据没有显示趋势起点')
+    await waitFor(() => document.body.textContent?.includes('再完成 1 次周复盘') ?? false, '单周数据没有说明形成趋势所需条件')
     assert(document.querySelector('.wr-page-head h1')?.textContent === '年度趋势', '年度页不得继续使用当前周日期作为主标题')
     const yearRail = document.querySelector<HTMLElement>('.wr-year')
     const trendScopeRow = document.querySelector<HTMLElement>('.wr-trend-scope')
@@ -160,7 +161,7 @@ async function run(): Promise<void> {
     assert(allStagesOption, '趋势范围菜单缺少全部阶段')
     allStagesOption.click()
     await waitFor(
-      () => document.querySelector('.wr-trend-start strong')?.textContent === '3.3',
+      () => document.querySelector('.wr-year-summary')?.textContent?.includes('3.3') ?? false,
       '全部阶段同周数据必须聚合为一个带 stage 维度的趋势点',
     )
     assert(!document.querySelector('.wr-chart'), '同周多 stage 聚合后仍只能产生一个周趋势点')
@@ -194,7 +195,7 @@ async function run(): Promise<void> {
     const reviewTab = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === '本周复盘')
     assert(reviewTab, '本周复盘入口不存在')
     reviewTab.click()
-    await waitFor(() => Boolean(document.querySelector('.wr-progress-summary')), '本周复盘页缺少进度摘要')
+    await waitFor(() => Boolean(document.querySelector('.wr-complete-banner')), '本周复盘页缺少完成状态')
     await waitFor(() => Boolean(document.querySelector('.wr-history')), '有两条以上记录时必须显示左栏')
     const rail = document.querySelector<HTMLElement>('.wr-history')
     const week = document.querySelector<HTMLElement>('.wr-history-week')
@@ -202,7 +203,7 @@ async function run(): Promise<void> {
     assert(rail && week && stage, '左栏缺少周标识或阶段名结构')
     assert(rail.getBoundingClientRect().width >= 168, '左栏在常用桌面宽度下必须可读')
     assert(getComputedStyle(week).whiteSpace === 'nowrap', '周标识不得逐字换行')
-    const progress = document.querySelector<HTMLElement>('.wr-progress-summary')
+    const progress = document.querySelector<HTMLElement>('.wr-complete-banner')
     const sectionHead = document.querySelector<HTMLElement>('.wr-section-head')
     const alignedPageHead = document.querySelector<HTMLElement>('.wr-page-head-inner')
     assert(alignedPageHead && progress && sectionHead, '页头、进度或章节标题缺失')

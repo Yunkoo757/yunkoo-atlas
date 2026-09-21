@@ -151,7 +151,6 @@ export function TradeCloseDialog() {
       onClose={cancelTradeClose}
       footer={(
         <>
-          <span>保存后进入「待复盘」</span>
           <div>
             <Button type="button" variant="bordered" size="lg" onClick={() => {
               cancelTradeClose()

@@ -1282,7 +1282,6 @@ function ReviewSessionItem({
         ) : (
           <footer className="review-session-assessment is-account-trade">
             <div>
-              <strong>把这笔交易沉淀成可复看的知识</strong>
               <span>账户交易不记录案例掌握度</span>
             </div>
             <div className="review-session-assessment-actions review-session-account-actions">

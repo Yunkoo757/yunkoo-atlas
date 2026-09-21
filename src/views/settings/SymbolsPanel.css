@@ -141,7 +141,7 @@
   color: var(--text-secondary);
   font-size: var(--type-metadata-size);
   text-align: left;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid transparent;
   border-radius: var(--radius-6);
   background: transparent;
 }
@@ -168,10 +168,7 @@
   display: grid;
   gap: var(--sp-1);
   margin-bottom: var(--sp-4);
-  padding: var(--sp-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
-  background: var(--surface-inset);
+  padding-block: var(--sp-2);
 }
 
 .symbols-catalog-note strong {

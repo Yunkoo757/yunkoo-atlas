@@ -1,21 +1,14 @@
-.modal-shell.composer-modal {
-  width: 480px;
-  max-width: calc(100vw - 32px);
-}
-
 .modal-shell-body.composer-body-quick {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 22px 22px var(--sp-2);
+  gap: var(--space-section-gap);
   overflow: auto;
 }
 
-/* B：品种 + 方向作为视觉主角 */
 .composer-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 160px;
-  gap: 14px;
+  gap: var(--sp-3);
   align-items: end;
 }
 
@@ -57,11 +50,11 @@
 }
 
 .composer-input-symbol .ui-select-trigger {
-  height: 52px;
+  height: var(--field-height-md);
   padding: 0 var(--sp-3);
   color: var(--text-strong);
-  font-size: var(--type-dialog-title-size);
-  font-weight: var(--type-dialog-title-weight);
+  font-size: var(--type-row-size);
+  font-weight: var(--type-row-weight);
 }
 
 .composer-essential-field .ui-select-trigger,
@@ -83,6 +76,8 @@
   gap: var(--sp-3);
 }
 
+.composer-parameter-grid .composer-date-field { grid-column: span 2; }
+
 .composer-archive-row {
   display: grid;
   grid-template-columns: 1fr;
@@ -94,13 +89,13 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2px;
   padding: 2px;
-  height: 52px;
+  height: var(--field-height-md);
 }
 
 .composer-side-control button {
   min-width: 0;
   color: var(--text-muted);
-  font-size: var(--type-body-size);
+  font-size: var(--type-row-size);
   font-family: inherit;
   background: transparent;
   border: 0;
@@ -127,7 +122,6 @@
   font-weight: var(--font-weight-medium);
 }
 
-/* B：截图前置为整宽拖拽区 */
 .composer-media {
   display: flex;
   flex-direction: column;
@@ -137,18 +131,18 @@
 
 .composer-drop-zone {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: var(--sp-1);
+  gap: var(--space-control-gap);
   width: 100%;
-  min-height: 76px;
-  padding: 14px var(--sp-3);
+  min-height: var(--control-height-lg);
+  padding: var(--sp-2) var(--sp-3);
   color: var(--text-tertiary);
   font-size: var(--type-row-size);
-  background: color-mix(in srgb, var(--bg-elevated) 30%, transparent);
-  border: 1.5px dashed var(--border-strong);
-  border-radius: var(--radius-10);
+  background: transparent;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-6);
   cursor: pointer;
   transition:
     border-color var(--dur-fast) var(--ease-out),
@@ -226,17 +220,7 @@
 
 .modal-shell-footer.composer-footer-quick {
   justify-content: flex-end;
-  gap: 10px;
-  min-height: 60px;
-  padding: 14px 22px;
-}
-
-.composer-footer-hint {
-  margin-right: auto;
-  max-width: 220px;
-  color: var(--text-tertiary);
-  font-size: var(--type-metadata-size);
-  line-height: var(--type-metadata-line-height);
+  gap: var(--space-control-gap);
 }
 
 .composer-footer-actions {

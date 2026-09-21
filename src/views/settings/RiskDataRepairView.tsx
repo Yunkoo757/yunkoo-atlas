@@ -183,7 +183,6 @@ export function RiskDataRepairView() {
       </div>
 
       {queue.groups.length === 0 ? <div className="risk-repair-complete" role="status"><strong>当前风险周期数据完整</strong></div> : null}
-      <HistoricalRiskBackfillPanel today={today} issues={issues} />
 
       {queue.groups.length > 0 ? (
         <>
@@ -210,6 +209,7 @@ export function RiskDataRepairView() {
           />
         </>
       ) : null}
+      <HistoricalRiskBackfillPanel today={today} issues={issues} />
     </div>
   )
 }

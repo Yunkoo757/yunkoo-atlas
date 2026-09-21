@@ -1,7 +1,7 @@
 .trade-open-risk-dialog {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-section-gap);
 }
 
 .trade-open-risk-callout {
@@ -30,20 +30,15 @@
 
 .trade-open-risk-periods {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  overflow: hidden;
-  background: var(--border-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-6);
+  gap: 0;
+  border-block: 1px solid var(--border-subtle);
 }
 
 .trade-open-risk-periods > div {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 3px 7px;
-  padding: 10px;
-  background: var(--bg-elevated);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-1) var(--sp-3);
+  padding-block: var(--sp-2);
 }
 
 .trade-open-risk-periods span,
@@ -54,8 +49,9 @@
   font-style: normal;
 }
 .trade-open-risk-periods strong { color: var(--text-primary); font-family: var(--font-ui); font-size: var(--type-row-size); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
-.trade-open-risk-periods small { grid-column: 1 / -1; font-family: var(--font-ui); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
-.trade-open-risk-periods em { grid-column: 1 / -1; color: var(--text-quaternary); }
+.trade-open-risk-periods > div + div { border-top: 1px solid var(--border-subtle); }
+.trade-open-risk-periods small { font-family: var(--font-ui); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
+.trade-open-risk-periods em { text-align: right; }
 .trade-open-risk-periods .is-triggered em { color: var(--neg); }
 .trade-open-risk-periods .is-unknown em { color: var(--warn-action); }
 
@@ -90,7 +86,7 @@
 .trade-open-risk-reason small { color: var(--text-quaternary); font-weight: var(--font-weight-normal); }
 .trade-open-risk-reason textarea {
   width: 100%;
-  min-height: 94px;
+  min-height: calc(var(--type-body-line-height) * 2 + var(--sp-4));
   resize: vertical;
   padding: 9px 10px;
   color: var(--text-primary);
