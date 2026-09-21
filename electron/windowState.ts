@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, screen, type IpcMainInvokeEvent } from 'el
 import fs from 'node:fs'
 import path from 'node:path'
 import { safeConsoleError } from './diagnosticSanitizer'
+import { applyNativeWindowBounds } from './nativeWindowBounds'
 import {
   normalizeWindowState,
   DEFAULT_WINDOW_BOUNDS,
@@ -146,7 +147,7 @@ export function registerWindowIpc(): void {
           workArea,
         )
         if (win.isMaximized()) win.unmaximize()
-        win.setBounds(next)
+        applyNativeWindowBounds(win, next, process.platform)
       }
     } finally {
       if (restoreResizeLock) win.setResizable(false)

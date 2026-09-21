@@ -1,4 +1,5 @@
 import { registerImageContextMenu } from './imageContextMenu'
+import { applyNativeWindowBounds } from './nativeWindowBounds'
 import {
   app,
   BrowserWindow,
@@ -541,6 +542,13 @@ function createWindow(): BrowserWindow {
     },
   })
 
+  if (process.platform === 'win32') {
+    applyNativeWindowBounds(mainWindow, {
+      ...mainWindow.getBounds(),
+      width: windowState.width,
+      height: windowState.height,
+    }, process.platform)
+  }
   if (windowState.isMaximized) {
     mainWindow.maximize()
   }
