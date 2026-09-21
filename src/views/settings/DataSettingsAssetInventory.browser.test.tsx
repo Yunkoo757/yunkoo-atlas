@@ -7,6 +7,7 @@ import { useStore } from '@/store/useStore'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { pickPersisted } from '@/storage/persist'
 import { StorageRevisionConflictError } from '@/storage/adapter'
+import { emptyJudgmentDesk } from '@/lib/judgment/model'
 
 declare global {
   interface Window {
@@ -45,6 +46,7 @@ async function run(): Promise<void> {
     trades: [],
     weeklyReviews: [],
     quickNotes: [{ ...note, contentHtml: `<img src="journal-asset://${quickAssetId}">` }],
+    judgmentDesk: emptyJudgmentDesk(),
   })
   storage.listAssetRecords = async () => [
     { id: quickAssetId, state: 'healthy', source: 'committed', actualBytes: 3 },
@@ -86,6 +88,22 @@ async function run(): Promise<void> {
   try {
     root.render(<MemoryRouter><DataSettingsPanel /></MemoryRouter>)
     await waitFor(() => container.textContent?.includes('1 张图片 · 3 B') === true, 'QuickNote-only 附件未计入资料概况')
+    // The same physical attachment must stop being orphaned as soon as a judgment sample owns it.
+    const judgmentDesk = {
+      ...emptyJudgmentDesk(),
+      themes: [{ id: 'inventory-theme', title: '盘点测试', understanding: '' }],
+      samples: [{
+        id: 'inventory-sample', themeId: 'inventory-theme', title: '仅判断台引用',
+        createdAt: '2026-09-21T00:00:00.000Z',
+        images: [{ assetId: 'orphan-only', sourceTradeId: null }],
+        note: '', opinion: 'uncertain' as const, reference: null,
+      }],
+    }
+    useStore.setState({ judgmentDesk })
+    await waitFor(() => container.textContent?.includes('2 张图片 · 7 B') === true, '判断台引用变化必须自动刷新附件概况')
+    assert(!container.textContent?.includes('1 张未被引用'), '仅判断台引用的图片不得被误报为孤立附件')
+    useStore.setState({ judgmentDesk: emptyJudgmentDesk() })
+    await waitFor(() => container.textContent?.includes('1 张未被引用') === true, '删除最后一个判断台引用后必须重新识别真正的孤立附件')
     assert(!container.querySelector('[data-stage-ownership-health-entry]'), '没有待整理记录时不应常驻显示 0 项状态')
     const stageEntry = [...container.querySelectorAll<HTMLButtonElement>('button')]
       .find((button) => button.textContent?.trim() === '开启新实盘阶段')

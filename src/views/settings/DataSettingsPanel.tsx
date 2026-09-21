@@ -146,6 +146,7 @@ export function DataSettingsPanel({
   const trades = useStore((s) => s.trades)
   const weeklyReviews = useStore((s) => s.weeklyReviews)
   const quickNotes = useStore((s) => s.quickNotes)
+  const judgmentDesk = useStore((s) => s.judgmentDesk)
 
   const refreshHealth = useCallback(async () => {
     try {
@@ -171,7 +172,7 @@ export function DataSettingsPanel({
       reportDataSettingsFailure('读取存储健康失败', error)
       setHealthError(userFacingErrorMessage(error, '暂时无法读取存储健康信息'))
     }
-  }, [trades, weeklyReviews, quickNotes, electron])
+  }, [trades, weeklyReviews, quickNotes, judgmentDesk, electron])
 
   useEffect(() => {
     refreshHealth()

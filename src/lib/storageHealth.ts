@@ -30,12 +30,11 @@ async function readCurrentAssetInventory(): Promise<AssetInventory> {
   if (!storage.listAssetRecords) {
     throw new Error('当前存储适配器不支持附件物理清单')
   }
-  const { trades, weeklyReviews, quickNotes } = useStore.getState()
   const records = await storage.listAssetRecords()
-  return buildAssetInventory({ trades, weeklyReviews, quickNotes }, records)
+  return buildAssetInventory(useStore.getState(), records)
 }
 
-/** 只返回健康且没有被三个富文本域引用的已提交附件。 */
+/** 使用完整引用域，只返回健康且没有被任何内容引用的已提交附件。 */
 export async function detectOrphanedAttachments(): Promise<string[]> {
   return (await readCurrentAssetInventory()).orphan.map((record) => record.id)
 }
