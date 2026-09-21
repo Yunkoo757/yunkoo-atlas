@@ -2,7 +2,7 @@
   "name": "trader-atlas",
   "productName": "Trader Atlas",
   "private": true,
-  "version": "1.4.30",
+  "version": "1.4.31",
   "description": "Trader Atlas — trading journal with IndexedDB and Electron desktop support",
   "author": "Trader Atlas",
   "type": "module",
