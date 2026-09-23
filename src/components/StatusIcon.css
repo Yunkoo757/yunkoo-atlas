@@ -5,7 +5,7 @@
 }
 
 .status-icon.is-animate {
-  animation: status-icon-reveal var(--motion-dialog-in) var(--ease-out) both;
+  animation: status-icon-reveal var(--motion-dialog-in) var(--ease-out) backwards;
 }
 
 /* 列表中的方向是固定信息列，不使用胶囊；交易、案例与回收站共享同一尺寸和色阶。 */
@@ -44,7 +44,6 @@
 
   to {
     transform: scale(1);
-    opacity: 1;
   }
 }
 

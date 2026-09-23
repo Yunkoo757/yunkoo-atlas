@@ -4,7 +4,22 @@ import test from 'node:test'
 import {
   createThemeInventory,
   parseThemeLuminanceCliArgs,
+  collectResolvedProbe,
 } from '../qa-theme-luminance.mjs'
+import { chromium } from 'playwright'
+
+test('resolved contrast composes ancestor opacity and the real row hover underlay', async () => {
+  const browser = await chromium.launch({ headless: true })
+  try {
+    const page = await browser.newPage()
+    await page.setContent('<style>body{background:#000}.trade-row{position:relative}.trade-row::after{content:"";position:absolute;inset:0;background:#333;z-index:0}.trade-row span{position:relative;z-index:2;color:white}</style><div style="opacity:.5"><span id="faded" style="color:white">文字</span></div><div class="trade-row"><span id="row">文字</span></div>')
+    const faded = await collectResolvedProbe(page, '#faded', {})
+    const row = await collectResolvedProbe(page, '#row', {})
+    assert.ok(faded.contrast > 5.2 && faded.contrast < 5.4, `opacity was not composed: ${faded.contrast}`)
+    assert.equal(row.effectiveBackground, 'rgb(51, 51, 51)')
+    assert.ok(row.contrast > 12.5 && row.contrast < 12.7)
+  } finally { await browser.close() }
+})
 
 test('theme luminance CLI keeps inventory, resolved, and state modes unambiguous', () => {
   assert.deepEqual(parseThemeLuminanceCliArgs([]), {
@@ -55,5 +70,5 @@ test('theme inventory discovers source selectors and excludes canonical token co
       .every((entry) => entry.classification === 'Business Semantic'),
     true,
   )
-  assert.equal(inventory.states.length, 9)
+  assert.equal(inventory.states.length, 12)
 })

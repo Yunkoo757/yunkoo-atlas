@@ -144,6 +144,37 @@ async function run(): Promise<void> {
     press(document.activeElement!, 'Escape')
     await waitFor(() => document.activeElement === dateTrigger, '关闭日历后没有归还焦点')
 
+    dateTrigger.click()
+    await waitFor(() => Boolean(document.querySelector('.ui-date-heading')), '日历年月入口缺失')
+    document.querySelector<HTMLButtonElement>('.ui-date-heading')!.click()
+    await waitFor(() => document.activeElement?.classList.contains('ui-date-year-input') === true, '年份输入未自动聚焦')
+    const setYear = (value: string) => {
+      const input = document.querySelector<HTMLInputElement>('.ui-date-year-input')!
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+    setYear('0')
+    await waitForFrame()
+    press(document.activeElement!, 'Enter')
+    await waitFor(() => Boolean(document.querySelector('.ui-date-year-error')), '无效年份必须在输入处说明')
+    setYear('1988')
+    await waitForFrame()
+    press(document.activeElement!, 'Enter')
+    await waitFor(() => Boolean(document.querySelector('[aria-label="选择月份"]')), '远年跳转后应选择月份')
+    const february = Array.from(document.querySelectorAll<HTMLButtonElement>('.ui-date-period-grid button')).find((button) => button.textContent === '2月')!
+    february.click()
+    await waitFor(() => Boolean(document.querySelector('[data-day-key="1988-02-29"]')), '闰年二月日期未显示')
+    assert(dateTrigger.textContent?.includes('2026-01-15'), '浏览年月不应提前提交日期')
+    document.querySelector<HTMLButtonElement>('[data-day-key="1988-02-29"]')!.click()
+    await waitFor(() => dateTrigger.textContent?.includes('1988-02-29') === true, '历史日期没有正确提交')
+    dateTrigger.click()
+    await waitFor(() => document.activeElement?.getAttribute('data-day-key') === '1988-02-29', '重新打开应定位已选历史日期')
+    document.querySelector<HTMLButtonElement>('.ui-date-heading')!.click()
+    await waitFor(() => Boolean(document.querySelector('.ui-date-year-input')), '年份页无法重新打开')
+    press(document.activeElement!, 'Escape')
+    await waitFor(() => document.activeElement === dateTrigger, '关闭年份页应归还焦点')
+    assert(dateTrigger.textContent?.includes('1988-02-29'), '取消年份选择不能改变日期')
+
     assert(document.querySelector('.ui-select-trigger.ui-field-trigger'), 'Select 未消费 FieldTrigger')
     assert(document.querySelector('.ui-date-trigger.ui-field-trigger'), 'DatePicker 未消费 FieldTrigger')
   } finally {

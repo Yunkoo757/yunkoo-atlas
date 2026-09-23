@@ -1,0 +1,520 @@
+{
+  "mounts": [
+    {
+      "slug": "folder-tab-card",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "folder-tab-card",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "diagonal-card-stack",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "diagonal-card-stack",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "perspective-flip-deck",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "perspective-flip-deck",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "orbital-card-arch",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "orbital-card-arch",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "editorial-3-d-orbit-carousel",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "editorial-3-d-orbit-carousel",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "arch-card-carousel",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "arch-card-carousel",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "morphing-tab-navbar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "morphing-tab-navbar",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "magnetic-pill-navbar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "magnetic-pill-navbar",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "liquid-underline-navbar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "liquid-underline-navbar",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "kinetic-lens-sidebar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "kinetic-lens-sidebar",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "sidebar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "flower-sidebar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "flower-sidebar",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "neumorphic-download-button",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "neumorphic-download-button",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "slide-to-confirm-button",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "slide-to-confirm-button",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "gloss-button",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "gloss-button",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "morph-search-capsule",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "morph-search-capsule",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "animated-search-demo",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "animated-search-demo",
+      "mode": "atlas",
+      "status": "可操作预览 · 可点击“重新播放”重置"
+    },
+    {
+      "slug": "hero-morph-navbar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "pill-expand-navbar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "pixel-dot-navbar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "dark-mode-mobile-navbar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "fluid-wave-navbar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "circular-radial-navbar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "curtain-reveal-navbar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "jelly-scoop-navbar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "orbiting-planets-navbar",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "googly-eyes-button",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "rainbow-button",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "chrome-border-button",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "book-a-call-button",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "shimmer-button",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "day-night-sky-toggle",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "landscape-orb-toggle",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "glass-orb-toggle",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "liquid-cursor-gradient",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "ascii-matrix-hover",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "elastic-line-grid",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "spotlight-grid",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "ripple-grid",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "soft-aurora",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "plexus-engine",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "particle-wave",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "hyperspeed-warp",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "sine-ribbons",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "ambient-glow-orbs",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "refracted-beams",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "cosmic-dust",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "pixel-snow-background",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "water-caustics-background",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "gradient-wave-background",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "pixel-cloud-background",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "silk-waves-background",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "singularity-flare-background",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "layered-paper-waves-background",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "kinetic-reel-text",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "split-text-reveal",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "word-by-word-text",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "character-scramble-text",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "gradient-reveal-text",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "spotlight-text",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "flip-3-d-text",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "typewriter-text",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "velocity-marquee-text",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "marbled-fluid-orb",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "particle-dot-orb",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "fluid-morph-orb",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "wireframe-ring-orb",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "particle-morph-orb",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "pill-trail-cursor",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    },
+    {
+      "slug": "halftone-dot-cursor",
+      "mode": "original",
+      "status": "可操作预览 · 可点击“重新播放”重置",
+      "outerOverflow": false
+    }
+  ],
+  "errors": [],
+  "networkFailures": [],
+  "interactions": [
+    "Folder open and return",
+    "Chinese navigation tab selection",
+    "Download animation idle -> busy -> done",
+    "Original vs Atlas split view",
+    "Save/filter/export selection",
+    "1024 desktop / light theme / expand preview"
+  ],
+  "limits": [
+    "Windows Edge, scale 1 only",
+    "70 original mounts and 16 contextual mounts are smoke coverage, not exhaustive interaction or accessibility testing",
+    "Remote upstream stock images may still need network",
+    "macOS and production Electron are not tested"
+  ]
+}

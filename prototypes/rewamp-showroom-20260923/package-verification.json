@@ -1,0 +1,48 @@
+{
+  "sha256": "92746697c1b20cd9ceff3f5030acefcbe8fd308ab8d01bdc631bd04bce9907ac",
+  "bytes": 4285626,
+  "checks": [
+    {
+      "slug": "folder-tab-card",
+      "images": []
+    },
+    {
+      "slug": "flower-sidebar",
+      "images": [
+        {
+          "loaded": true,
+          "src": "data:image/svg+xml;base64,PHN2ZyB3a"
+        }
+      ]
+    },
+    {
+      "slug": "hero-morph-navbar",
+      "images": [
+        {
+          "loaded": true,
+          "src": "data:image/svg+xml;base64,PHN2ZyB3a"
+        }
+      ]
+    },
+    {
+      "slug": "curtain-reveal-navbar",
+      "images": [
+        {
+          "loaded": true,
+          "src": "data:image/svg+xml;base64,PHN2ZyB3a"
+        }
+      ]
+    },
+    {
+      "slug": "soft-aurora",
+      "images": [
+        {
+          "loaded": true,
+          "src": "data:image/svg+xml;base64,PHN2ZyB3a"
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "failedRequests": []
+}

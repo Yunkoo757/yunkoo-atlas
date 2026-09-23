@@ -34,6 +34,16 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
+export function testUnifiedPaperQuickViewsKeepTheirSelectedState() {
+  for (const pathname of ['/list', '/board']) {
+    assert(getActiveWorkspaceView('paper', pathname, '?kind=paper')?.id === 'all', '模拟全部视图应选中')
+    assert(getActiveWorkspaceView('paper', pathname, '?kind=paper&status=planned')?.id === 'planned', '待执行应选中')
+    assert(getActiveWorkspaceView('paper', pathname, '?kind=paper&status=loss&strategyId=s1')?.id === 'loss', '上下文不应干扰亏损复盘选中')
+    assert(getActiveWorkspaceView('paper', pathname, '?kind=live') == null, '实盘不得匹配模拟视图')
+  }
+  assert(getActiveWorkspaceView('paper', '/sim', '?status=loss')?.id === 'loss', '旧模拟入口应保持兼容')
+}
+
 const caseTrade: Trade = {
   id: 'case-1',
   ref: 'CAS-1',

@@ -259,8 +259,8 @@
   --list-text-primary: var(--text-nav-hover);
   --list-text-secondary: var(--text-list-secondary);
   --list-text-context: var(--text-content-metadata);
-  --list-group-title: var(--text-primary);
-  --list-group-chevron-collapsed-opacity: 0.72;
+  --list-group-title: var(--text-content-supporting);
+  --list-group-chevron-collapsed-opacity: 1;
   --list-status-opacity-rest: 0.72;
   --list-status-opacity-active: 0.92;
   --list-interactive-border-rest: color-mix(in srgb, var(--list-text-secondary) 6%, transparent);
@@ -353,7 +353,7 @@
   /* 最终结果是高密度列表唯一允许保持完整强度的业务色。 */
   --result-positive: var(--pos);
   --result-negative: var(--neg);
-  --result-neutral: var(--text-tertiary);
+  --result-neutral: var(--text-content-metadata);
   --result-opportunity: var(--opportunity);
 
   /* 信息标签层级：错误突出诊断语义；时段与普通标签保持扫描可读性。 */

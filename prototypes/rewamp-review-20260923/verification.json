@@ -1,0 +1,60 @@
+{
+  "checks": [
+    "export: busy -> success",
+    "export: error -> retry -> success",
+    "export: reset clears pending timer",
+    "collection: keyboard open, back restores focus, list mode",
+    "search: filter, empty, Esc, synthetic IME composition",
+    "1440/1024 layouts: no horizontal overflow; reduced motion"
+  ],
+  "geometry": [
+    {
+      "width": 1440,
+      "page": "export",
+      "title": "20px",
+      "button": "28px",
+      "bodyFont": "13px"
+    },
+    {
+      "width": 1440,
+      "page": "folder",
+      "title": "20px",
+      "button": "28px",
+      "bodyFont": "13px"
+    },
+    {
+      "width": 1440,
+      "page": "search",
+      "title": "20px",
+      "button": "28px",
+      "bodyFont": "13px"
+    },
+    {
+      "width": 1024,
+      "page": "export",
+      "title": "20px",
+      "button": "28px",
+      "bodyFont": "13px"
+    },
+    {
+      "width": 1024,
+      "page": "folder",
+      "title": "20px",
+      "button": "28px",
+      "bodyFont": "13px"
+    },
+    {
+      "width": 1024,
+      "page": "search",
+      "title": "20px",
+      "button": "28px",
+      "bodyFont": "13px"
+    }
+  ],
+  "errors": [],
+  "limits": [
+    "Edge on Windows, device scale 1",
+    "Synthetic IME events only; native IME and macOS not tested",
+    "Independent HTML only; no production Electron integration"
+  ]
+}

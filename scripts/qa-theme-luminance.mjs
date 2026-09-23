@@ -336,6 +336,8 @@ async function createDesktopHarness(root, runtime) {
     mkdirSync(libraryPath, { recursive: true })
     const created = await page.evaluate((nextLibraryPath) => window.journalBridge?.createNewLibrary(nextLibraryPath), libraryPath)
     if (!created?.ok) throw new Error(`Unable to create isolated ${runtime} theme library: ${created?.error ?? 'unknown'}`)
+    const opened = await page.evaluate(() => window.journalBridge?.storageOpen())
+    if (!opened) throw new Error(`Unable to open isolated ${runtime} theme write session`)
     const seed = createDesktopVisualSeedEnvelope()
     const imported = await page.evaluate(
       (snapshot) => window.journalBridge?.commitImport(snapshot, [], { pruneUnreferenced: true }),
@@ -384,7 +386,7 @@ async function createStateHarness(root, runtime) {
   return runtime === 'renderer' ? createRendererHarness(root) : createDesktopHarness(root, runtime)
 }
 
-async function collectResolvedProbe(page, selector, tokenMap) {
+export async function collectResolvedProbe(page, selector, tokenMap) {
   const result = await page.evaluate(({ selector: targetSelector, tokenMap: roles }) => {
     const colorCanvas = document.createElement('canvas')
     colorCanvas.width = 1
@@ -423,24 +425,38 @@ async function collectResolvedProbe(page, selector, tokenMap) {
       const b = luminance(right)
       return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
     }
-    const effectiveBackground = (element) => {
-      const layers = []
+    const effectivePixels = (element, ink) => {
+      let foreground = ink
+      let background = { r: 0, g: 0, b: 0, a: 0 }
+      const compositedLayers = []
       let current = element
       while (current instanceof Element) {
-        const parsed = parseColor(getComputedStyle(current).backgroundColor)
-        if (parsed && parsed.a > 0) layers.push(parsed)
+        const style = getComputedStyle(current)
+        let surface = parseColor(style.backgroundColor)
+        // TradeList 的真实 hover 面位于 z=0 的 ::after，文字子项位于 z=2。
+        if (current !== element && current.matches('.trade-row')) {
+          const pseudo = getComputedStyle(current, '::after')
+          if (pseudo.content !== 'none' && pseudo.content !== 'normal') {
+            const paint = parseColor(pseudo.backgroundColor)
+            if (paint) surface = over({ ...paint, a: paint.a * Number(pseudo.opacity) }, surface)
+          }
+        }
+        foreground = over(foreground, surface)
+        background = over(background, surface)
+        const opacity = Number(style.opacity)
+        foreground.a *= opacity
+        background.a *= opacity
+        compositedLayers.push({ element: current.tagName, opacity, surface })
         current = current.parentElement
       }
-      let result = { r: 255, g: 255, b: 255, a: 1 }
-      for (let index = layers.length - 1; index >= 0; index -= 1) result = over(layers[index], result)
-      return result
+      const canvas = { r: 255, g: 255, b: 255, a: 1 }
+      return { foreground: over(foreground, canvas), background: over(background, canvas), compositedLayers }
     }
     const element = document.querySelector(targetSelector)
-    if (!(element instanceof HTMLElement)) return { found: false }
+    if (!(element instanceof Element)) return { found: false }
     const style = getComputedStyle(element)
-    const background = effectiveBackground(element)
     const declaredForeground = parseColor(style.color)
-    const foreground = declaredForeground ? over(declaredForeground, background) : null
+    const { foreground, background, compositedLayers } = effectivePixels(element, declaredForeground)
     const tokenColors = Object.fromEntries(Object.entries(roles).map(([role, token]) => {
       const probe = document.createElement('span')
       probe.style.color = `var(${token})`
@@ -457,6 +473,7 @@ async function collectResolvedProbe(page, selector, tokenMap) {
       backgroundColor: style.backgroundColor,
       effectiveBackground: `rgb(${Math.round(background.r)}, ${Math.round(background.g)}, ${Math.round(background.b)})`,
       contrast: foreground ? contrast(foreground, background) : null,
+      compositedLayers,
       fontFamily: style.fontFamily,
       fontSize: style.fontSize,
       fontWeight: style.fontWeight,
@@ -523,11 +540,13 @@ async function collectResolvedEvidence(root, build) {
       }
       const probes = []
       for (const probe of textProbesForPage(pageContract.id)) {
-        const resolved = await collectResolvedProbe(harness.page, probe.selector, TEXT_ROLE_TOKENS)
+        const expectedToken = probe.expectedToken ?? TEXT_ROLE_TOKENS[probe.targetRole]
+        const resolved = await collectResolvedProbe(harness.page, probe.selector, { ...TEXT_ROLE_TOKENS, expected: expectedToken })
         const threshold = THEME_LUMINANCE_THRESHOLDS[probe.targetRole] ?? null
-        const pass = resolved.found && (threshold == null || resolved.contrast >= threshold)
+        const rolePass = resolved.found && resolved.color === resolved.tokenColors.expected
+        const pass = rolePass && (threshold == null || resolved.contrast >= threshold)
         probes.push({ ...probe, threshold, pass, resolved })
-        checks.push({ id: probe.id, category: 'text', pass, detail: resolved.found ? `contrast=${resolved.contrast?.toFixed(2) ?? 'n/a'}` : 'selector missing' })
+        checks.push({ id: probe.id, category: 'text', pass, detail: resolved.found ? `contrast=${resolved.contrast?.toFixed(2) ?? 'n/a'}; role=${rolePass ? 'matched' : `expected ${expectedToken}, got ${resolved.color}`}` : 'selector missing' })
       }
       pages.push({ ...pageContract, rootStyle, surfaces, probes })
     }
@@ -645,7 +664,8 @@ async function captureStates(root, outputRoot, build, runtime) {
         })
       }
       const target = harness.page.locator(state.target).first()
-      if (state.trigger) await harness.page.locator(state.trigger).click()
+      if (state.trigger) await harness.page.locator(state.trigger).first().click()
+      if (state.kind === 'click') await harness.page.mouse.move(1, 1)
       await target.waitFor({ state: 'visible', timeout: 10_000 })
       const before = await styleSnapshot(harness.page, state.target, state.pseudo)
       const referenceBefore = state.reference ? await styleSnapshot(harness.page, state.reference) : null
@@ -661,7 +681,7 @@ async function captureStates(root, outputRoot, build, runtime) {
             break
           }
         }
-      } else if (state.kind === 'popover' || state.kind.startsWith('inject-')) {
+      } else if (['popover', 'click', 'observe'].includes(state.kind) || state.kind.startsWith('inject-')) {
         // Triggering the menu is the state transition.
       } else {
         await target.hover()
@@ -675,6 +695,11 @@ async function captureStates(root, outputRoot, build, runtime) {
         referenceBefore,
         referenceAfter,
       })
+      const contrastEvidence = state.contrastProbe
+        ? await collectResolvedProbe(harness.page, state.contrastProbe, TEXT_ROLE_TOKENS) : null
+      if (state.contrastProbe && !(contrastEvidence?.contrast >= state.minimumContrast)) {
+        semanticFailures.push(`contrast: ${contrastEvidence?.contrast ?? 'missing'} < ${state.minimumContrast}`)
+      }
       await harness.page.screenshot({ path: screenshot, animations: 'disabled' })
       if (state.restore === 'escape') await harness.page.keyboard.press('Escape')
       else if (state.restore === 'blur') await harness.page.locator('body').click({ position: { x: 2, y: 2 } })
@@ -694,6 +719,7 @@ async function captureStates(root, outputRoot, build, runtime) {
         pass,
         ...(pass ? {} : { reason: semanticFailures.length > 0 ? semanticFailures.join('; ') : changeRequired && !stateChanged ? 'resolved style did not change' : 'target/reference missing' }),
         semanticFailures,
+        contrastEvidence,
         stateChanged,
         interactionSucceeded,
         before,

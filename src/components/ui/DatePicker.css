@@ -30,6 +30,8 @@
   position: fixed;
   z-index: var(--z-popover);
   width: 286px;
+  max-height: calc(100vh - var(--sp-2) * 2);
+  overflow-y: auto;
   padding: var(--sp-2);
   animation: uiDateIn var(--motion-menu) var(--ease-out) both;
 }
@@ -53,7 +55,7 @@
 
 .ui-date-head strong {
   color: var(--text-primary);
-  font-size: var(--type-caption-size);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -97,7 +99,7 @@
 .ui-date-weekdays {
   height: 28px;
   align-items: center;
-  color: var(--text-quaternary);
+  color: var(--text-content-metadata);
   font-size: var(--type-caption-size);
   text-align: center;
 }
@@ -156,6 +158,80 @@
   margin-left: auto;
   color: color-mix(in srgb, var(--accent) 72%, white);
 }
+
+.ui-date-head .ui-date-heading {
+  display: inline-flex;
+  gap: var(--sp-1);
+  width: auto;
+  padding-inline: var(--sp-1);
+  color: var(--text-primary);
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ui-date-heading svg { color: var(--text-content-metadata); }
+
+.ui-date-year-entry {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1);
+  color: var(--text-content-metadata);
+  font-size: var(--type-metadata-size);
+}
+
+.ui-date-year-input {
+  width: 100%;
+  min-width: 0;
+  height: var(--field-height-md);
+  padding-inline: var(--field-padding-inline);
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-6);
+  background: var(--field-bg);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--type-row-size);
+  font-variant-numeric: var(--numeric-tabular);
+}
+
+.ui-date-year-input:focus { border-color: var(--field-border-focus); }
+.ui-date-year-input[aria-invalid='true'] { border-color: var(--neg); }
+.ui-date-year-error { grid-column: 1 / -1; color: var(--neg); }
+
+.ui-date-jump {
+  height: var(--field-height-md);
+  padding-inline: var(--field-padding-inline);
+  border: 1px solid var(--surface-control-border);
+  border-radius: var(--radius-6);
+  background: var(--surface-control);
+  color: var(--text-content-supporting);
+}
+
+.ui-date-period-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-1);
+  min-height: calc(var(--field-height-md) * 6 + var(--sp-2) * 3);
+  padding: var(--sp-1);
+}
+
+.ui-date-year-entry + .ui-date-period-grid {
+  min-height: calc(var(--field-height-md) * 5 + var(--sp-2) * 2);
+}
+
+.ui-date-period-grid button {
+  border-radius: var(--radius-4);
+  color: var(--text-secondary);
+  font-size: var(--type-row-size);
+  font-variant-numeric: var(--numeric-tabular);
+}
+
+.ui-date-period-grid button:hover,
+.ui-date-jump:hover { background: var(--surface-menu-hover); color: var(--text-primary); }
+.ui-date-period-grid button[aria-pressed='true'] { background: var(--surface-control-active); color: var(--text-primary); }
+.ui-date-popover button:focus-visible { outline: 1px solid var(--accent-readable); outline-offset: -1px; }
+.ui-date-popover button:disabled { color: var(--text-disabled); background: transparent; cursor: default; }
 
 @keyframes uiDateIn {
   from { opacity: 0; scale: 0.985; }

@@ -58,16 +58,13 @@ export function StatusIcon({
   /** 状态切换时轻量淡入；列表首次挂载不播，避免刷屏 */
   animate?: boolean
 }) {
-  const seen = useRef(false)
+  const previousStatus = useRef(status)
   const [motionTick, setMotionTick] = useState(0)
 
   useLayoutEffect(() => {
-    if (!animate) return
-    if (!seen.current) {
-      seen.current = true
-      return
-    }
-    setMotionTick((tick) => tick + 1)
+    const changed = previousStatus.current !== status
+    previousStatus.current = status
+    if (animate && changed) setMotionTick((tick) => tick + 1)
   }, [status, animate])
 
   const mapped = status === 'missed' ? null : STATUS_PRESENTATION[status]
@@ -88,6 +85,7 @@ export function StatusIcon({
   return (
     <span
       key={`${status}-${motionTick}`}
+      onAnimationEnd={() => setMotionTick(0)}
       className={
         motionTick > 0 ? 'status-icon is-animate' : 'status-icon'
       }

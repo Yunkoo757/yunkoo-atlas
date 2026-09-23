@@ -135,8 +135,12 @@ export function matchesWorkspaceView(
   pathname: string,
   search: string,
 ): boolean {
-  if (normalizeSavedViewPath(pathname) !== target.pathname) return false
   const current = new URLSearchParams(search)
+  const currentPath = normalizeSavedViewPath(pathname)
+  // 模拟日志已合并到 /list?kind=paper；保留旧入口和已保存视图的兼容性。
+  const unifiedPaper = target.pathname === '/sim'
+    && currentPath === '/list' && current.get('kind') === 'paper'
+  if (currentPath !== target.pathname && !unifiedPaper) return false
   const required = new URLSearchParams(target.search ?? '')
   if (![...required.entries()].every(([key, value]) => current.get(key) === value)) return false
   if (target.id === 'all') {
