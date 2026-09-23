@@ -308,7 +308,7 @@ async function selectDate(trigger, value) {
   const calendar = page.getByRole('dialog', { name: `${ariaLabel}日历` })
   await calendar.waitFor({ state: 'visible' })
   for (let attempt = 0; attempt < 240; attempt += 1) {
-    const heading = await calendar.locator('.ui-date-head strong').innerText()
+    const heading = await calendar.locator('.ui-date-heading').innerText()
     const match = /^(\d+)年(\d+)月$/.exec(heading)
     if (!match) throw new Error(`Unexpected calendar heading: ${heading}`)
     const current = Number(match[1]) * 12 + Number(match[2])
