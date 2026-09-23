@@ -243,6 +243,7 @@ function saveButton(entityId: string): HTMLButtonElement {
 }
 
 async function setDate(entityId: string, field: 'weekStart' | 'weekEnd', value: string): Promise<void> {
+  await waitFor(() => Boolean(row(entityId).querySelector(`.stage-ownership-${field === 'weekStart' ? 'week-start' : 'week-end'} .ui-date-trigger`)), `${entityId} ${field} 日期选择器未完成加载`)
   const trigger = row(entityId).querySelector<HTMLButtonElement>(`.stage-ownership-${field === 'weekStart' ? 'week-start' : 'week-end'} .ui-date-trigger`)
   assert(trigger, `${entityId} 缺少 ${field} 共享日期选择器`)
   trigger.click()
@@ -257,7 +258,7 @@ async function setDate(entityId: string, field: 'weekStart' | 'weekEnd', value: 
       await waitFor(() => trigger.textContent?.includes(value) === true, `${entityId} ${field} 日期没有更新`)
       return
     }
-    const heading = dialog.querySelector('strong')?.textContent ?? ''
+    const heading = dialog.querySelector('.ui-date-heading')?.textContent ?? ''
     const match = /^(\d{4})年(\d{1,2})月$/.exec(heading)
     assert(match, `${entityId} ${field} 日历月份标题无效`)
     const currentMonth = `${match[1]}-${String(Number(match[2])).padStart(2, '0')}`
@@ -266,7 +267,7 @@ async function setDate(entityId: string, field: 'weekStart' | 'weekEnd', value: 
     assert(button, `${entityId} ${field} 缺少${direction}按钮`)
     button.click()
     await waitFor(
-      () => document.querySelector<HTMLElement>('[role="dialog"]')?.querySelector('strong')?.textContent !== heading,
+      () => document.querySelector<HTMLElement>('[role="dialog"]')?.querySelector('.ui-date-heading')?.textContent !== heading,
       `${entityId} ${field} 日历月份没有切换`,
     )
   }

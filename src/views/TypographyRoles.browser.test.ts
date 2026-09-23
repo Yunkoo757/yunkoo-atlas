@@ -212,7 +212,7 @@ async function run(): Promise<void> {
   assertComputedTextRole('.ui-field-trigger', '--text-secondary')
   assertComputedTextRole('.ui-date-grid button.is-outside', '--text-tertiary')
   assertComputedTextRole('.trade-row', '--text-list-secondary')
-  assertComputedTextRole('.trade-list-group-header', '--text-primary')
+  assertComputedTextRole('.trade-list-group-header', '--text-content-supporting')
   for (const selector of [
     '.trade-list-group-count',
     '.trade-row-timeframe',

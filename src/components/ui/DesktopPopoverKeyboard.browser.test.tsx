@@ -105,6 +105,7 @@ async function run(): Promise<void> {
     press(menu, 'Escape')
     await waitFor(() => document.activeElement === contextTrigger, '关闭菜单后没有归还焦点')
 
+    await waitFor(() => Boolean(document.querySelector('.ui-date-trigger')), '日期选择器未完成加载')
     const dateTrigger = document.querySelector<HTMLButtonElement>('.ui-date-trigger')
     assert(dateTrigger, '日期触发器不存在')
     dateTrigger.focus()
