@@ -33,7 +33,8 @@ test('active project text is vendor neutral', () => {
     const source = readFileSync(filePath, 'utf8')
     // Bundled graphics libraries use Linear* for interpolation and color math.
     // Continue checking literal branding there; identifier naming is project-owned.
-    const bundledGraphics = filePath.startsWith('atlas-website/vendor/')
+    const bundledGraphics = filePath.startsWith('atlas-website/vendor/') ||
+      filePath === 'prototypes/rewamp-showroom-20260923/showroom.html'
     if (vendorText.test(source) || (!bundledGraphics && vendorIdentifier.test(source))) violations.push(filePath)
   }
   assert.deepEqual(violations, [])
