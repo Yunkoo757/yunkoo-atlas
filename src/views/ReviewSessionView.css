@@ -114,7 +114,7 @@
   min-width: 0;
   min-height: var(--control-height-lg);
   align-items: center;
-  padding: 0 var(--sp-3);
+  padding: var(--sp-1) var(--sp-3);
   border: 1px solid transparent;
   border-radius: var(--radius-8);
   background: var(--bg-elevated);
@@ -128,6 +128,11 @@
   background: var(--bg-hover);
 }
 
+.review-session-preset-list button:focus-visible:not(:disabled) {
+  border-color: var(--text-tertiary);
+  background: var(--bg-hover);
+}
+
 .review-session-preset-list button:disabled {
   color: var(--text-disabled);
   cursor: default;
@@ -136,6 +141,8 @@
 
 .review-session-preset-list strong {
   display: inline-flex;
+  min-width: 0;
+  flex: 1;
   align-items: baseline;
   gap: 4px;
   font-size: var(--type-row-size);
@@ -144,9 +151,16 @@
   font-variant-numeric: var(--numeric-tabular);
 }
 
+.review-session-preset-list strong > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .review-session-preset-count {
+  flex: 0 0 auto;
   color: var(--text-content-metadata);
   font-weight: var(--font-weight-normal);
+  white-space: nowrap;
 }
 
 .review-pool-manager-section + .review-pool-manager-section {
@@ -202,10 +216,21 @@
 
 .review-pool-home-order li,
 .review-pool-manager-row {
+  min-width: 0;
   min-height: 42px;
   padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--border-subtle);
   background: transparent;
+}
+
+.review-pool-home-order li > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.review-pool-home-order li > div,
+.review-pool-manager-row > div:last-child {
+  flex: 0 0 auto;
 }
 
 .review-pool-manager-row > div:first-child {
@@ -213,6 +238,11 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
+}
+
+.review-pool-manager-row strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .review-pool-fixed {
@@ -287,6 +317,8 @@
 }
 
 .review-pool-choice-group label {
+  min-width: 0;
+  max-width: 100%;
   padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-8);
@@ -294,8 +326,19 @@
   font-size: var(--type-row-size);
 }
 
+.review-pool-choice-group label > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.review-pool-choice-group label:has(input:focus-visible),
+.review-pool-content-toggle:has(input:focus-visible) {
+  border-color: var(--text-tertiary);
+}
+
 .review-pool-choice-group input,
 .review-pool-content-toggle input {
+  flex: 0 0 auto;
   width: 16px;
   height: 16px;
   accent-color: var(--accent);

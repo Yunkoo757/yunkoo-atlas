@@ -192,6 +192,31 @@ async function run(): Promise<void> {
       () => Boolean(document.querySelector('.wr-chart svg')),
       '第二个完成周出现后应按需载入年度评分折线图',
     )
+    const annualRail = document.querySelector<HTMLElement>('.wr-year')
+    const heatmap = document.querySelector<HTMLElement>('.wr-heatmap')
+    assert(annualRail && heatmap, '年度评分趋势必须保留全年周格')
+    const savedRailWidth = annualRail.style.width
+    try {
+      // Reproduce the actual content widths around the desktop shell's breakpoint.
+      // The outer scroller is wider than this rail because of its insets and scrollbar.
+      for (const width of [481, 564, 569, 574, 580, 621]) {
+        annualRail.style.width = `${width}px`
+        await waitForFrame()
+        await waitForFrame()
+        const cells = [...heatmap.querySelectorAll<HTMLElement>('i')]
+        const bounds = heatmap.getBoundingClientRect()
+        assert(cells.length >= 52 && cells.length <= 53, '年度节奏必须保留完整的 52 或 53 周')
+        assert(heatmap.scrollWidth <= heatmap.clientWidth + 1, `${width}px 年度周格不得横向溢出`)
+        assert(annualRail.scrollWidth <= annualRail.clientWidth + 1, `${width}px 年度内容轨道不得横向溢出`)
+        for (const cell of cells) {
+          const rect = cell.getBoundingClientRect()
+          assert(rect.width >= 8 && Math.abs(rect.width - rect.height) < 1, `${width}px 周格必须保持可见方格`)
+          assert(rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1, `${width}px 全部周格必须位于内容轨道内`)
+        }
+      }
+    } finally {
+      annualRail.style.width = savedRailWidth
+    }
     const reviewTab = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === '本周复盘')
     assert(reviewTab, '本周复盘入口不存在')
     reviewTab.click()

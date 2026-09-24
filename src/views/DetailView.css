@@ -1207,3 +1207,17 @@
   color: var(--accent-text);
   background: var(--accent-hover);
 }
+
+/* 详情局部控件使用内边界标识键盘位置，属性只标记值而不高亮整行。 */
+.dv-back:focus-visible,
+.dv-section-head:focus-visible,
+.dv-activity-toggle:focus-visible {
+  background: var(--bg-hover);
+  box-shadow: inset 0 0 0 1px var(--text-tertiary);
+}
+
+.dv-prop-row:focus-visible .dv-prop-value,
+.dv-datarow-btn:focus-visible .dv-datarow-value {
+  background: var(--group-add-hover-bg);
+  box-shadow: inset 0 0 0 1px var(--text-tertiary);
+}

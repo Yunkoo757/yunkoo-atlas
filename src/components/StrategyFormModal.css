@@ -100,6 +100,11 @@
   font-weight: var(--font-weight-medium);
 }
 
+.sfm-preview > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .sfm-foot {
   justify-content: flex-end;
   gap: var(--sp-2);

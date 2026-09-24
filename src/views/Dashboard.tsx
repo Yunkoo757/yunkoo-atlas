@@ -1,6 +1,6 @@
 import { ResultConflictRepair } from '@/components/ResultConflictRepair'
 import { ICON_MD } from '@/icons/iconSize'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AreaChart,
@@ -159,6 +159,8 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
     ),
     [scopedTrades, performanceSelection.eligibleMetricIds, performanceSelection.pnlIds, strategyDefs, tradingDayStartHour],
   )
+  const [curveChartRef, curveAxisWidth] = useChartYAxisWidth(stats.curve, privacyMode)
+  const [distributionChartRef, distributionAxisWidth] = useChartYAxisWidth(stats.rDist)
   const closeDayRepairIds = useMemo(
     () => collectPerformanceCloseDayRepairIds(
       [
@@ -416,13 +418,13 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
               </div>
             </div>
           </div>
-          <div className="db-chart">
+          <div className="db-chart" ref={curveChartRef}>
             {stats.curve.length === 0 ? (
               <div className="db-chart-empty">已平仓交易尚未填写有效盈亏</div>
             ) : (
               <div aria-label={`累计盈亏曲线，共 ${stats.curve.length} 笔有效盈亏交易`}>
                   <ResponsiveContainer width="100%" height={220}>
-                    <AreaChart accessibilityLayer data={stats.curve} margin={{ left: -16, right: 8, top: 8 }}>
+                    <AreaChart accessibilityLayer data={stats.curve} margin={{ left: 0, right: 8, top: 8 }}>
                   <defs>
                     <linearGradient id="eq" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.35} />
@@ -431,7 +433,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                   </defs>
                   <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
                   <XAxis dataKey="date" tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} axisLine={false} tickLine={false} />
-                  <YAxis hide={privacyMode} tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} axisLine={false} tickLine={false} />
+                  <YAxis width={curveAxisWidth} hide={privacyMode} tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} axisLine={false} tickLine={false} />
                   <Tooltip
                     content={<CurveTooltip onOpen={openTrade} privacyMode={privacyMode} />}
                     cursor={{ stroke: 'var(--border-strong)', strokeWidth: 1 }}
@@ -568,17 +570,17 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
           <div className="db-panel-head">
             <span className="db-panel-title">R 倍数分布</span>
           </div>
-          <div className="db-chart">
+          <div className="db-chart" ref={distributionChartRef}>
             {stats.rCount === 0 ? (
               <div className="db-chart-empty">已平仓交易尚未填写有效 R</div>
             ) : (
               <>
                 <div aria-hidden="true">
                   <ResponsiveContainer width="100%" height={160}>
-                    <BarChart data={stats.rDist} margin={{ left: -16, right: 8, top: 4 }}>
+                    <BarChart data={stats.rDist} margin={{ left: 0, right: 8, top: 4 }}>
                   <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
                   <XAxis dataKey="label" tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <YAxis width={distributionAxisWidth} tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip
                     cursor={{ fill: 'color-mix(in srgb, var(--bg-hover) 88%, transparent)' }}
                     content={({ active, payload }) => {
@@ -632,6 +634,41 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
       </div>
     </>
   )
+}
+
+/** Recharts 2 needs a numeric axis width; measure its actual tick labels after layout. */
+function useChartYAxisWidth(data: unknown, hidden = false) {
+  const chartRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(44)
+
+  useLayoutEffect(() => {
+    const chart = chartRef.current
+    if (!chart || hidden) return
+    let frame = 0
+    let disposed = false
+    const measure = () => {
+      frame = 0
+      const labels = chart.querySelectorAll<SVGTextElement>('.recharts-yAxis .recharts-cartesian-axis-tick-value')
+      if (!labels.length) return
+      // Retain the existing compact plot gutter, growing it for signs and long amounts.
+      const tickWidth = Math.max(...Array.from(labels, (label) => label.getBBox().width))
+      setWidth(Math.max(44, Math.ceil(tickWidth + 16)))
+    }
+    const schedule = () => {
+      if (!disposed && !frame) frame = requestAnimationFrame(measure)
+    }
+    const observer = new ResizeObserver(schedule)
+    observer.observe(chart)
+    schedule()
+    void document.fonts.ready.then(schedule)
+    return () => {
+      disposed = true
+      observer.disconnect()
+      cancelAnimationFrame(frame)
+    }
+  }, [data, hidden])
+
+  return [chartRef, width] as const
 }
 
 function CurveTooltip({

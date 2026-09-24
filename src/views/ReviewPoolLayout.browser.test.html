@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="atlas-browser-viewports" content="947x606,1427x866" />
+    <title>Review pool long name layout test</title>
+    <style>#root { display: flex; height: 100vh; padding-left: 244px; }</style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      window.$RefreshReg$ = function () {}
+      window.$RefreshSig$ = function () { return function (type) { return type } }
+    </script>
+    <script type="module" src="/src/views/ReviewPoolLayout.browser.test.tsx"></script>
+  </body>
+</html>

@@ -92,6 +92,12 @@
   font-weight: var(--type-chip-weight);
   line-height: var(--type-chip-line-height);
   color: var(--text-secondary);
+  max-width: 100%;
+}
+
+.settings-tag-chip-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .settings-tag-chip-remove {
@@ -108,6 +114,10 @@
 .settings-tag-chip-remove:hover {
   background: var(--bg-hover);
   color: var(--neg);
+}
+
+.settings-tag-chip-remove:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--text-tertiary);
 }
 
 .settings-tag-chip-remove { opacity: 0; }

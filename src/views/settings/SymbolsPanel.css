@@ -89,6 +89,12 @@
   color: inherit;
   font-size: inherit;
   text-align: left;
+  border-radius: var(--radius-6);
+}
+
+.symbols-item-select:focus-visible,
+.symbols-drag-handle:focus-visible:not(:disabled) {
+  box-shadow: inset 0 0 0 1px var(--text-tertiary);
 }
 
 .symbols-empty {
@@ -151,6 +157,10 @@
   color: var(--text-primary);
   border-color: var(--border-strong);
   background: var(--bg-hover);
+}
+
+.symbols-preset:focus-visible {
+  border-color: var(--text-tertiary);
 }
 
 .symbols-preset-swatch {

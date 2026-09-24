@@ -1173,7 +1173,7 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
       </section>
       <section className="wr-section">
         <div className="wr-section-head"><div><span>{weekCount}</span><h2>全年复盘节奏</h2></div><small>颜色越亮，做法评分越高</small></div>
-        <div className="wr-heatmap" style={{ '--week-count': weekCount } as CSSProperties}>
+        <div className="wr-heatmap" style={{ '--week-count': weekCount, '--week-compact-columns': Math.ceil(weekCount / 2) } as CSSProperties}>
           {Array.from({ length: weekCount }, (_, index) => {
             const week = addDays(firstWeek, index * 7)
             const aggregate = aggregateWeeklyReviewScoresForWeek(reviews, week)

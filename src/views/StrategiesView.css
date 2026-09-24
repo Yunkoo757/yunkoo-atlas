@@ -50,9 +50,13 @@
   font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
   text-decoration: none;
+  overflow-wrap: anywhere;
 }
 .st-row-name:hover {
   color: var(--text-strong);
+}
+.st-row-name:focus-visible {
+  text-decoration: underline;
 }
 
 .st-row-meta {
@@ -96,6 +100,9 @@
 }
 .st-act-danger:hover {
   color: var(--neg);
+}
+.st-act:focus-visible:not(:disabled) {
+  box-shadow: inset 0 0 0 1px var(--text-tertiary);
 }
 .st-act:disabled {
   color: var(--text-disabled);

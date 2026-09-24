@@ -207,6 +207,11 @@
   opacity: 1;
 }
 
+/* 键盘位置使用控件原有边界，不添加外扩焦点框或改变按钮尺寸。 */
+:is(.ui-btn, .dio-btn, .symbols-btn, .st-io, .st-add, .st-del-btn, .empty-btn, .csv-btn, .nim-btn, .sfm-btn, .batch-action-btn):focus-visible:not(:disabled) {
+  border-color: var(--text-tertiary);
+}
+
 @media (prefers-reduced-motion: reduce) {
   :is(.ui-btn, .dio-btn, .symbols-btn, .st-io, .st-add, .st-del-btn, .empty-btn, .csv-btn, .nim-btn, .sfm-btn, .batch-action-btn):active:not(:disabled) {
     transform: none;

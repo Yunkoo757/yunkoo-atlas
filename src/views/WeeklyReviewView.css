@@ -24,7 +24,9 @@
 .wr-page-head h1 { margin: 0; font-size: var(--type-page-title-size); font-weight: var(--font-weight-semibold); line-height: var(--type-page-title-line-height); letter-spacing: 0; }.wr-page-head p { margin: 7px 0 0; color: var(--text-tertiary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); }
 .wr-head-actions { display: flex; gap: var(--space-control-gap); align-items: center; }
 .wr-content,.wr-year { width: min(var(--page-rail-reading), calc(100% - var(--page-inset-default) - var(--page-inset-default))); margin: 0 auto; padding: var(--sp-5) 0 96px; }
-.wr-year-body { min-width: 0; }
+.wr-year-body { min-width: 0; container: weekly-review-year / inline-size; }
+.wr-heatmap > .ui-tooltip-trigger { display: block; min-width: 0; }
+.wr-heatmap i { display: block; width: 100%; }
 .wr-section { margin: 0; padding: var(--sp-6) 0; border: 0; border-top: 1px solid var(--border-subtle); border-radius: 0; background: transparent; }
 .wr-previous,.wr-commitment { margin: var(--sp-4) 0; padding: var(--sp-5); border: 1px solid var(--border-subtle); border-radius: var(--radius-8); background: var(--bg-elevated); }
 .wr-progress-summary { min-height: 30px; display: grid; grid-template-columns: auto auto minmax(120px, 1fr); align-items: center; gap: var(--sp-3); padding: 0 0 var(--sp-4); color: var(--text-tertiary); font-size: var(--type-metadata-size); }
@@ -164,4 +166,9 @@
   .wr-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wr-metric:nth-child(2n) { border-right: 0; }
   .wr-metric:nth-child(n + 3) { border-top: 1px solid var(--border-subtle); }
+}
+
+/* A 53-week row needs 53 × 8px cells + 52 × 3px gaps in the actual content rail. */
+@container weekly-review-year (max-width: 580px) {
+  .wr-heatmap { grid-template-columns: repeat(var(--week-compact-columns), minmax(8px, 1fr)); }
 }

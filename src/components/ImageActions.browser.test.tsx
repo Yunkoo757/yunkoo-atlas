@@ -7,6 +7,12 @@ import '@/styles/global.css'
 declare global { interface Window { __imageActionsTest: Promise<void> } }
 async function waitFor(check:()=>boolean){for(let i=0;i<250;i++){if(check())return;await new Promise(r=>setTimeout(r,20))}throw new Error('UI expectation failed')}
 function button(label:string){const b=[...document.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent===label||b.getAttribute('aria-label')===label);if(!b)throw new Error('Missing '+label);return b}
+async function assertMenuHitTarget(label:string){
+ await waitFor(()=>{
+  const target=button(label),rect=target.getBoundingClientRect()
+  return target.contains(document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2))
+ })
+}
 window.__imageActionsTest=(async()=>{
  const bridge=window.journalBridge,root=createRoot(document.getElementById('root')!)
  const calls:string[]=[]
@@ -18,13 +24,15 @@ window.__imageActionsTest=(async()=>{
   await waitFor(()=>!!document.querySelector<HTMLImageElement>('#inline')?.naturalWidth)
   document.querySelector('#inline')!.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:30,clientY:40}))
   await waitFor(()=>!!document.querySelector('.ctx'))
+  if(document.querySelector('.ctx')!.classList.contains('image-actions-lightbox-menu'))throw new Error('Inline image menu must retain the context layer')
+  await assertMenuHitTarget('复制图片')
   button('复制图片').click();await waitFor(()=>calls.length===1)
   document.querySelector('#inline')!.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:30,clientY:40}))
   await waitFor(()=>!!document.querySelector('.ctx'));button('查看大图').click()
   await waitFor(()=>!!document.querySelector('.img-lightbox-img.is-ready'))
   document.querySelector('.img-lightbox-viewport')!.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:100,clientY:100}))
-  await waitFor(()=>!!document.querySelector('.ctx'));button('复制图片').click();await waitFor(()=>calls.length===2)
-  button('图片操作').click();await waitFor(()=>!!document.querySelector('.ctx'));button('另存为 PNG…').click();await waitFor(()=>calls.length===3)
+  await waitFor(()=>!!document.querySelector('.ctx'));await assertMenuHitTarget('复制图片');button('复制图片').click();await waitFor(()=>calls.length===2)
+  button('图片操作').click();await waitFor(()=>!!document.querySelector('.ctx'));await assertMenuHitTarget('另存为 PNG…');button('另存为 PNG…').click();await waitFor(()=>calls.length===3)
   if(calls.join(',')!=='copy,copy,save')throw new Error('Wrong actions')
  }finally{root.unmount();useShortcutStore.getState().closeLightbox();window.journalBridge=bridge}
 })()

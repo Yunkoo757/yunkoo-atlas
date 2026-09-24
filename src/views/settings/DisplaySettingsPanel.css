@@ -58,6 +58,11 @@
   color: var(--text-primary);
 }
 
+.display-settings-card .display-toggle:focus-visible:not(:disabled),
+.display-choice:focus-visible:not(:disabled) {
+  box-shadow: inset 0 0 0 1px var(--text-tertiary);
+}
+
 .display-row-copy {
   display: flex;
   flex-direction: column;
@@ -123,3 +128,9 @@
 .display-settings-choice .display-section-head { flex: 1; min-width: 0; margin: 0; }
 .display-settings-choice .display-sort-direction { flex-basis: 100%; margin: 0; }
 .display-sort-direction { margin-top: var(--space-row-gap); color: var(--text-muted); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }
+
+@media (max-width: 1099px) {
+  .display-settings-choice .display-section-head:has(p) {
+    flex-basis: 100%;
+  }
+}

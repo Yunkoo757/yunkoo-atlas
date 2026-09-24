@@ -13,7 +13,7 @@
 .jd-panel { display:flex; min-width:0; flex-direction:column; gap:var(--space-row-gap); }
 .jd-image { position:relative; display:flex; align-items:center; justify-content:center; width:100%; min-width:0; height:clamp(200px,48vh,560px); padding:0; border:1px solid var(--border-subtle); border-radius:var(--radius-8); background:var(--bg-app); color:var(--text-secondary); cursor:zoom-in; overflow:hidden; font:inherit; }
 .jd-image img { width:100%; height:100%; object-fit:contain; }
-.jd-image:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.jd-image:focus-visible { border-color:var(--text-tertiary); }
 .jd-image-compact { height:160px; cursor:pointer; }
 .jd-image[aria-pressed='true'] { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
 .jd-image-selection { position:absolute; bottom:var(--sp-2); right:var(--sp-2); background:var(--bg-elevated); border-radius:var(--radius-4); padding:var(--sp-1) var(--sp-2); font-size:var(--type-metadata-size); line-height:var(--type-metadata-line-height); }

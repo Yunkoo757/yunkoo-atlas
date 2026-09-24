@@ -43,12 +43,14 @@ export function ContextMenu({
   anchor,
   onClose,
   restoreFocusRef,
+  className,
 }: {
   state?: CtxState | null
   items?: CtxItem[]
   anchor?: { x: number; y: number } | null
   onClose: () => void
   restoreFocusRef?: RefObject<HTMLElement>
+  className?: string
 }) {
   const resolvedAnchor = state ? { x: state.x, y: state.y } : anchor ?? null
   const resolvedItems = state?.items ?? items ?? []
@@ -128,7 +130,7 @@ export function ContextMenu({
       ref={assignMenuRef}
       kind="menu"
       role="menu"
-      className="ctx"
+      className={['ctx', className].filter(Boolean).join(' ')}
       style={{ left: x, top: y }}
       onKeyDown={handleMenuKeyDown}
       onClick={(e) => e.stopPropagation()}

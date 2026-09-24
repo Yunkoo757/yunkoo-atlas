@@ -122,6 +122,10 @@
   font-weight: var(--font-weight-medium);
 }
 
+.composer-side-control button:focus-visible:not(:disabled) {
+  box-shadow: inset 0 0 0 1px var(--text-tertiary);
+}
+
 .composer-media {
   display: flex;
   flex-direction: column;
@@ -255,7 +259,7 @@
 .composer-btn-primary {
   color: var(--accent-text);
   background: var(--accent);
-  border: 0;
+  border: 1px solid transparent;
 }
 
 .composer-btn-primary:hover:not(:disabled) {

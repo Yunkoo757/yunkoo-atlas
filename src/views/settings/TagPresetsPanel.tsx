@@ -143,7 +143,7 @@ function TagSection({
         <div className="tag-list">
           {matches.map((t) => (
             <span className="settings-tag-chip" key={t}>
-              {t}
+              <span className="settings-tag-chip-label">{t}</span>
               <Tooltip content="删除" label={`删除「${t}」`}>
                 <button
                   type="button"

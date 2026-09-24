@@ -624,6 +624,9 @@ async function runElectronQa({
     seedLibrary: async () => {
       const imported = await page.evaluate(async (payload) => {
         if (!window.journalBridge) return false
+        // createNewLibrary 切换资料库后，先建立写入会话与 revision 再导入隔离样例。
+        await window.journalBridge.storageOpen()
+        await window.journalBridge.loadSnapshot()
         return window.journalBridge.commitImport(payload, [], { pruneUnreferenced: true })
       }, snapshot)
       if (!imported) throw new Error('Desktop visual Electron fixture import failed')

@@ -72,5 +72,5 @@ export function ImageActions() {
     window.addEventListener('atlas-image-actions',toolbar)
     return ()=>{document.removeEventListener('contextmenu',context,true);window.removeEventListener('atlas-image-actions',toolbar)}
   }, [])
-  return <ContextMenu state={menu} onClose={close}/>
+  return <ContextMenu state={menu} onClose={close} className={lightbox ? 'image-actions-lightbox-menu' : undefined}/>
 }

@@ -142,7 +142,9 @@
 }
 
 .img-lightbox-action:hover,
-.img-lightbox-close:hover {
+.img-lightbox-action:focus-visible,
+.img-lightbox-close:hover,
+.img-lightbox-close:focus-visible {
   color: var(--text-primary);
   background: var(--bg-hover);
 }
@@ -175,8 +177,17 @@
   color: var(--text-primary);
   background: color-mix(in srgb, var(--bg-hover) 88%, transparent);
 }
+.img-lightbox-action:focus-visible,
+.img-lightbox-close:focus-visible,
+.img-lightbox-nav:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--text-tertiary);
+}
 .img-lightbox-nav.is-prev { left: 12px; }
 .img-lightbox-nav.is-next { right: 12px; }
+
+.ctx.image-actions-lightbox-menu {
+  z-index: var(--z-popover);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .img-lightbox-loading-indicator {
