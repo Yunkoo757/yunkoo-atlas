@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import type { MonthlyRiskLimit, RiskPolicyDraft, RiskPolicyVersion } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
-import { TradeOpenRiskDialog } from '@/components/TradeOpenRiskDialog'
+import { DeferredTradeOverlays } from '@/components/DeferredTradeOverlays'
 import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { weekStartFor } from '@/data/weeklyReviews'
 import { useStore } from '@/store/useStore'
@@ -159,7 +159,7 @@ function Harness() {
           </button>
         ) : null}
       </main>
-      <TradeOpenRiskDialog />
+      <DeferredTradeOverlays />
     </MemoryRouter>
   )
 }

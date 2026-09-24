@@ -2,7 +2,7 @@ import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { DEFAULT_TRADING_DAY_START_HOUR } from '@/lib/periods'
 import { closedTradingDayKey } from '@/lib/riskBudget'
-import { isVerifiedTradeResult, summarizeTradeResults } from '@/lib/tradeTruth'
+import { resolveTradeTruth, TradeResultAccumulator } from '@/lib/tradeTruth'
 
 export const MAX_DASHBOARD_CURVE_POINTS = 600
 
@@ -109,67 +109,110 @@ export function buildDashboardStats(
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
   eligibleUsdPnlIds: readonly string[] = [],
 ) {
-  const tradeById = new Map(closed.map((trade) => [trade.id, trade]))
-  const selected = eligibleMetricIds === undefined
-    ? closed
-    : eligibleMetricIds.flatMap((id) => {
-        const trade = tradeById.get(id)
-        return trade ? [trade] : []
-      })
-  const summary = summarizeTradeResults(selected)
+  let selected = closed
+  if (eligibleMetricIds !== undefined) {
+    const tradeById = new Map<string, Trade>()
+    for (const trade of closed) tradeById.set(trade.id, trade)
+    selected = []
+    for (const id of eligibleMetricIds) {
+      const trade = tradeById.get(id)
+      if (trade) selected.push(trade)
+    }
+  }
+
+  const accumulator = new TradeResultAccumulator()
+  const eligibleUsdPnlIdSet = new Set(eligibleUsdPnlIds)
+  const byStrategy = new Map<string, {
+    tradeIds: string[]
+    accumulator: TradeResultAccumulator
+    pnl: number
+    pnlCount: number
+  }>()
+  const pnlTradesByDay = new Map<string, Trade[]>()
+  // 同一业务日/平仓时间只校验一次；缓存仅存活于本次计算，不会跨交易修改失效。
+  const frozenDayCache = new Map<string, string | null>()
+  const closedAtCache = new Map<string | null, string | null>()
+  const rValues: number[] = []
+  let totalPnl = 0
+  let pnlCount = 0
+
+  for (const trade of selected) {
+    const truth = resolveTradeTruth(trade)
+    accumulator.add(trade, truth)
+    let group = byStrategy.get(trade.strategyId)
+    if (!group) {
+      group = { tradeIds: [], accumulator: new TradeResultAccumulator(), pnl: 0, pnlCount: 0 }
+      byStrategy.set(trade.strategyId, group)
+    }
+    group.tradeIds.push(trade.id)
+    group.accumulator.add(trade, truth)
+    const eligiblePnl = typeof trade.pnl === 'number' && Number.isFinite(trade.pnl) &&
+      eligibleUsdPnlIdSet.has(trade.id)
+    if (eligiblePnl) {
+      group.pnl += trade.pnl!
+      group.pnlCount += 1
+    }
+    if (!truth.isResultComplete) continue
+    if (typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple)) {
+      rValues.push(trade.rMultiple)
+    }
+    if (!eligiblePnl) continue
+    totalPnl += trade.pnl!
+    pnlCount += 1
+    let day: string | null | undefined
+    if (trade.closedTradingDayKey !== undefined) {
+      day = frozenDayCache.get(trade.closedTradingDayKey)
+      if (day === undefined) {
+        day = closedTradingDayKey(trade, tradingDayStartHour)
+        frozenDayCache.set(trade.closedTradingDayKey, day)
+      }
+    } else {
+      day = closedAtCache.get(trade.closedAt)
+      if (day === undefined) {
+        day = closedTradingDayKey(trade, tradingDayStartHour)
+        closedAtCache.set(trade.closedAt, day)
+      }
+    }
+    if (day !== null) {
+      const dayTrades = pnlTradesByDay.get(day)
+      if (dayTrades) dayTrades.push(trade)
+      else pnlTradesByDay.set(day, [trade])
+    }
+  }
+
+  const summary = accumulator.summarize()
   const missingResultCount = Math.max(
     0,
     summary.closedCount - summary.evaluatedCount - summary.conflictCount,
   )
-  const verified = selected.filter(isVerifiedTradeResult)
-  const eligibleUsdPnlIdSet = new Set(eligibleUsdPnlIds)
-  const pnlTrades = verified.filter(
-    (trade): trade is Trade & { pnl: number } =>
-      typeof trade.pnl === 'number' && Number.isFinite(trade.pnl) &&
-      eligibleUsdPnlIdSet.has(trade.id),
-  )
-  const rTrades = verified.filter(
-    (trade): trade is Trade & { rMultiple: number } =>
-      typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple),
-  )
-
-  const sorted = [...pnlTrades]
-    .map((trade) => ({ trade, day: closedTradingDayKey(trade, tradingDayStartHour) }))
-    .filter((item): item is { trade: Trade & { pnl: number }, day: string } => item.day !== null)
-    .sort((left, right) => left.day.localeCompare(right.day))
+  // 只排序不同业务日，同日按选择器顺序追加，等价于对所有交易执行稳定日期排序。
   let cumulative = 0
-  const fullCurve: DashboardCurvePoint[] = sorted.map(({ trade, day }) => {
-    cumulative += trade.pnl
-    return {
-      date: day.slice(5),
-      equity: cumulative,
-      label: trade.symbol,
-      tradeId: trade.id,
-      ref: trade.ref,
-      pnl: trade.pnl,
+  const fullCurve: DashboardCurvePoint[] = []
+  for (const day of [...pnlTradesByDay.keys()].sort()) {
+    const date = day.slice(5)
+    for (const trade of pnlTradesByDay.get(day)!) {
+      cumulative += trade.pnl!
+      fullCurve.push({
+        date,
+        equity: cumulative,
+        label: trade.symbol,
+        tradeId: trade.id,
+        ref: trade.ref,
+        pnl: trade.pnl!,
+      })
     }
-  })
-
-  const byStrategy = new Map<string, Trade[]>()
-  for (const trade of selected) {
-    const strategyTrades = byStrategy.get(trade.strategyId)
-    if (strategyTrades) strategyTrades.push(trade)
-    else byStrategy.set(trade.strategyId, [trade])
   }
+
   const strategyById = new Map(strategyDefs.map((strategy) => [strategy.id, strategy]))
   const strategies = [...byStrategy.entries()]
-    .map(([id, strategyTrades]) => {
-      const result = summarizeTradeResults(strategyTrades)
-      const usdPnlTrades = strategyTrades.filter((trade) =>
-        typeof trade.pnl === 'number' && Number.isFinite(trade.pnl) &&
-        eligibleUsdPnlIdSet.has(trade.id),
-      )
+    .map(([id, group]) => {
+      const result = group.accumulator.summarize()
       const meta = strategyById.get(id)
       return {
         id,
-        tradeIds: strategyTrades.map((trade) => trade.id),
-        pnl: usdPnlTrades.reduce((total, trade) => total + (trade.pnl ?? 0), 0),
-        pnlCount: usdPnlTrades.length,
+        tradeIds: group.tradeIds,
+        pnl: group.pnl,
+        pnlCount: group.pnlCount,
         n: result.evaluatedCount,
         closedCount: result.closedCount,
         wins: result.winCount,
@@ -187,21 +230,19 @@ export function buildDashboardStats(
       if (right.pnlCount === 0 && left.pnlCount > 0) return -1
       return right.pnl - left.pnl
     })
-  const maxAbs = Math.max(
-    1,
-    ...strategies
-      .filter((strategy) => strategy.pnlCount > 0)
-      .map((strategy) => Math.abs(strategy.pnl)),
-  )
+  let maxAbs = 1
+  for (const strategy of strategies) {
+    if (strategy.pnlCount > 0) maxAbs = Math.max(maxAbs, Math.abs(strategy.pnl))
+  }
 
   return {
     ...summary,
-    totalPnl: pnlTrades.reduce((total, trade) => total + trade.pnl, 0),
-    pnlCount: pnlTrades.length,
+    totalPnl,
+    pnlCount,
     missingResultCount,
     curve: downsampleDashboardCurve(fullCurve),
     strategies,
     maxAbs,
-    rDist: buildRDistribution(rTrades.map((trade) => trade.rMultiple)),
+    rDist: buildRDistribution(rValues),
   }
 }

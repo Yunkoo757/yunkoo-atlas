@@ -51,19 +51,15 @@ export function resolveTradeTruth(trade: Trade): TradeTruth {
   const rOutcome = metricOutcome(trade.rMultiple)
   const declared = declaredOutcome(trade.status)
   const resultSource = resolveTradeResultSource(trade)
-  const metricOutcomes = (
-    resultSource === 'pnl'
-      ? [pnlOutcome]
-      : resultSource === 'r' || resultSource === 'price'
-        ? [rOutcome]
-        : resultSource === 'imported' && pnlOutcome !== null && rOutcome !== null
-          ? [pnlOutcome, rOutcome]
-          : []
-  ).filter(
-    (value): value is Exclude<TradeOutcome, 'unknown' | 'conflict'> => value !== null,
-  )
-  const metricConflict = new Set(metricOutcomes).size > 1
-  const resolvedMetric = metricConflict ? null : metricOutcomes[0] ?? null
+  const hasImportedPair = resultSource === 'imported' && pnlOutcome !== null && rOutcome !== null
+  const metricConflict = hasImportedPair && pnlOutcome !== rOutcome
+  const resolvedMetric = resultSource === 'pnl'
+    ? pnlOutcome
+    : resultSource === 'r' || resultSource === 'price'
+      ? rOutcome
+      : hasImportedPair && !metricConflict
+        ? pnlOutcome
+        : null
   const declaredConflict = Boolean(declared && resolvedMetric && declared !== resolvedMetric)
   const hasConflict = metricConflict || declaredConflict
   const outcome: TradeOutcome =
@@ -173,37 +169,61 @@ export function normalizeTradeMetrics(trade: Trade): Trade {
   }
 }
 
-export function summarizeTradeResults(trades: Trade[]): TradeResultSummary {
-  const closed = trades.filter((trade) => isExecutedClosed(trade.status))
-  const truths = closed.map(resolveTradeTruth)
-  const evaluated = truths.filter(
-    (truth) =>
-      truth.outcome === 'win' ||
-      truth.outcome === 'loss' ||
-      truth.outcome === 'breakeven',
-  )
-  const verifiedClosed = closed.filter((_, index) => truths[index]?.isResultComplete)
-  const pnlValues = verifiedClosed
-    .map((trade) => finiteMetric(trade.pnl))
-    .filter((value): value is number => value !== null)
-  const rValues = verifiedClosed
-    .map((trade) => finiteMetric(trade.rMultiple))
-    .filter((value): value is number => value !== null)
-  const winCount = evaluated.filter((truth) => truth.outcome === 'win').length
+/** 同一条已解析结果可同时计入总计和分组，避免反复解析及创建中间数组。 */
+export class TradeResultAccumulator {
+  private closedCount = 0
+  private evaluatedCount = 0
+  private winCount = 0
+  private lossCount = 0
+  private breakevenCount = 0
+  private conflictCount = 0
+  private pnlCount = 0
+  private rCount = 0
+  private totalPnl = 0
+  private totalR = 0
 
-  return {
-    closedCount: closed.length,
-    evaluatedCount: evaluated.length,
-    winCount,
-    lossCount: evaluated.filter((truth) => truth.outcome === 'loss').length,
-    breakevenCount: evaluated.filter((truth) => truth.outcome === 'breakeven').length,
-    conflictCount: truths.filter((truth) => truth.hasConflict).length,
-    winRate: evaluated.length ? (winCount / evaluated.length) * 100 : null,
-    pnlCount: pnlValues.length,
-    rCount: rValues.length,
-    totalPnl: pnlValues.reduce((sum, value) => sum + value, 0),
-    averageR: rValues.length
-      ? rValues.reduce((sum, value) => sum + value, 0) / rValues.length
-      : null,
+  add(trade: Trade, truth: TradeTruth): void {
+    if (!isExecutedClosed(trade.status)) return
+    this.closedCount += 1
+    if (truth.hasConflict) this.conflictCount += 1
+    if (!truth.isResultComplete) return
+    this.evaluatedCount += 1
+    if (truth.outcome === 'win') this.winCount += 1
+    else if (truth.outcome === 'loss') this.lossCount += 1
+    else if (truth.outcome === 'breakeven') this.breakevenCount += 1
+    const pnl = finiteMetric(trade.pnl)
+    if (pnl !== null) {
+      this.pnlCount += 1
+      this.totalPnl += pnl
+    }
+    const r = finiteMetric(trade.rMultiple)
+    if (r !== null) {
+      this.rCount += 1
+      this.totalR += r
+    }
   }
+
+  summarize(): TradeResultSummary {
+    return {
+      closedCount: this.closedCount,
+      evaluatedCount: this.evaluatedCount,
+      winCount: this.winCount,
+      lossCount: this.lossCount,
+      breakevenCount: this.breakevenCount,
+      conflictCount: this.conflictCount,
+      winRate: this.evaluatedCount ? (this.winCount / this.evaluatedCount) * 100 : null,
+      pnlCount: this.pnlCount,
+      rCount: this.rCount,
+      totalPnl: this.totalPnl,
+      averageR: this.rCount ? this.totalR / this.rCount : null,
+    }
+  }
+}
+
+export function summarizeTradeResults(trades: Trade[]): TradeResultSummary {
+  const accumulator = new TradeResultAccumulator()
+  for (const trade of trades) {
+    if (isExecutedClosed(trade.status)) accumulator.add(trade, resolveTradeTruth(trade))
+  }
+  return accumulator.summarize()
 }

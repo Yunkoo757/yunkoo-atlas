@@ -32,6 +32,7 @@ import { StrategyIcon } from '@/components/StrategyIcon'
 import { matchesSearchQuery } from '@/lib/tradeFilters'
 import { collectLimitedCommandMatches } from '@/lib/commandPaletteSearch'
 import { findDateSearchTrades, parseCommandDateQuery, type CommandSearchSession } from '@/lib/commandDateSearch'
+import { findIndexedCommandMatches, indexCommandNote, indexCommandTrade } from './commandPaletteIndex'
 import { textFromQuickNoteHtml } from '@/data/quickNotes'
 import {
   normalizeSavedViewPath,
@@ -168,9 +169,9 @@ function CommandPaletteDialog({
   const routeParam = pathname.startsWith('/trade/')
     ? decodeURIComponent(pathname.slice('/trade/'.length))
     : null
-  const activeTrade = routeParam
+  const activeTrade = useMemo(() => routeParam
     ? findTradeByRouteParam(trades.filter((trade) => !trade.deletedAt), routeParam)
-    : undefined
+    : undefined, [trades, routeParam])
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listboxId = useId()
@@ -178,6 +179,35 @@ function CommandPaletteDialog({
   const returnFocusFrameRef = useRef<number | null>(null)
   const sessionRef = useRef<CommandSearchSession>({ query: q, limit, scrollTop: 0, origin: origin.current })
   const dateQuery = useMemo(() => parseCommandDateQuery(deferredQuery), [deferredQuery])
+  const textSearchEnabled = dateQuery.kind === 'text' && Boolean(deferredQuery.trim())
+  const strategyNames = useMemo(() => new Map(strategies.map((strategy) => [strategy.id, strategy.name])), [strategies])
+  const searchableTrades = useMemo(() => trades.filter((trade) => !trade.deletedAt), [trades])
+  const tradeIndex = useMemo(() => textSearchEnabled
+    ? searchableTrades.map((trade) => indexCommandTrade(trade, strategyNames.get(trade.strategyId) ?? '未分类'))
+    : [], [searchableTrades, strategyNames, textSearchEnabled])
+  const noteIndex = useMemo(() => textSearchEnabled ? quickNotes.map(indexCommandNote) : [], [quickNotes, textSearchEnabled])
+  const matchingTrades = useMemo(() => dateQuery.kind === 'date'
+    ? findDateSearchTrades(searchableTrades, dateQuery, strategyNames)
+    : findIndexedCommandMatches(tradeIndex, deferredQuery), [dateQuery, searchableTrades, strategyNames, tradeIndex, deferredQuery])
+  const matchingNotes = useMemo(() => findIndexedCommandMatches(noteIndex, deferredQuery), [noteIndex, deferredQuery])
+  const { strategyCounts, tagCandidates } = useMemo(() => {
+    const strategyCounts = new Map<string, number>()
+    const tagWorkspaces = [
+      { kind: 'live', path: '/list', group: '交易标签', unit: '笔交易' },
+      { kind: 'paper', path: '/sim', group: '模拟盘标签', unit: '笔模拟盘记录' },
+      { kind: 'case', path: '/review-cases', group: '案例标签', unit: '个案例' },
+    ] as const
+    const tagsByKind = new Map(tagWorkspaces.map(({ kind }) => [kind, new Map<string, number>()]))
+    if (textSearchEnabled) for (const trade of searchableTrades) {
+      if (trade.tradeKind === 'live') strategyCounts.set(trade.strategyId, (strategyCounts.get(trade.strategyId) ?? 0) + 1)
+      const counts = tagsByKind.get(trade.tradeKind)
+      if (counts) for (const tag of trade.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1)
+    }
+    const tagCandidates: TagCommandCandidate[] = tagWorkspaces.flatMap((workspace) =>
+      [...tagsByKind.get(workspace.kind)!].map(([tag, count]) => ({ ...workspace, tag, count })),
+    )
+    return { strategyCounts, tagCandidates }
+  }, [searchableTrades, textSearchEnabled])
 
   useEffect(() => () => {
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
@@ -303,7 +333,6 @@ function CommandPaletteDialog({
       return { commands, total: commands.length }
     }
 
-    const strategyNames = new Map(strategies.map((strategy) => [strategy.id, strategy.name]))
     const resolveStrategyName = (strategyId: string | undefined) =>
       (strategyId ? strategyNames.get(strategyId) : undefined) ?? '未分类'
     const tradeCommand = (trade: (typeof trades)[number]): Cmd => ({
@@ -323,8 +352,7 @@ function CommandPaletteDialog({
     })
     if (dateQuery.kind === 'incomplete' || dateQuery.kind === 'invalid') return { commands: [], total: 0 }
     if (dateQuery.kind === 'date') {
-      const matches = findDateSearchTrades(trades, dateQuery, strategyNames)
-      return { commands: matches.slice(0, limit).map(tradeCommand), total: matches.length }
+      return { commands: matchingTrades.slice(0, limit).map(tradeCommand), total: matchingTrades.length }
     }
 
     const fixedCommands = [...contextActions, ...viewNav, ...periodNav, ...settingsNav, ...actions]
@@ -332,13 +360,6 @@ function CommandPaletteDialog({
     const commands = fixedCommands.slice(0, limit)
     let total = fixedCommands.length
 
-    const searchableTrades = trades.filter((trade) => !trade.deletedAt)
-
-    const strategyCounts = new Map<string, number>()
-    for (const trade of searchableTrades) {
-      if (trade.tradeKind !== 'live') continue
-      strategyCounts.set(trade.strategyId, (strategyCounts.get(trade.strategyId) ?? 0) + 1)
-    }
     const strategyMatches = collectLimitedCommandMatches(
       sortStrategies(strategies, []),
       query,
@@ -357,22 +378,6 @@ function CommandPaletteDialog({
     commands.push(...strategyMatches.items)
     total += strategyMatches.total
 
-    const tagWorkspaces = [
-      { kind: 'live', path: '/list', group: '交易标签', unit: '笔交易' },
-      { kind: 'paper', path: '/sim', group: '模拟盘标签', unit: '笔模拟盘记录' },
-      { kind: 'case', path: '/review-cases', group: '案例标签', unit: '个案例' },
-    ] as const
-    const tagCandidates: TagCommandCandidate[] = []
-    for (const workspace of tagWorkspaces) {
-      const counts = new Map<string, number>()
-      for (const trade of searchableTrades) {
-        if (trade.tradeKind !== workspace.kind) continue
-        for (const tag of trade.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1)
-      }
-      for (const [tag, count] of counts) {
-        tagCandidates.push({ ...workspace, tag, count })
-      }
-    }
     const tagMatches = collectLimitedCommandMatches(
       tagCandidates,
       query,
@@ -394,24 +399,10 @@ function CommandPaletteDialog({
     commands.push(...tagMatches.items)
     total += tagMatches.total
 
-    const tradeMatches = collectLimitedCommandMatches(
-      searchableTrades,
-      query,
-      (trade) => {
-        const strategyName = resolveStrategyName(trade.strategyId)
-        return [trade.ref, trade.symbol, strategyName, trade.tags.join(' '), textFromQuickNoteHtml(trade.note)]
-      },
-      tradeCommand,
-      limit - commands.length,
-    )
-    commands.push(...tradeMatches.items)
-    total += tradeMatches.total
+    commands.push(...matchingTrades.slice(0, Math.max(0, limit - commands.length)).map(tradeCommand))
+    total += matchingTrades.length
 
-    const noteMatches = collectLimitedCommandMatches(
-      quickNotes,
-      query,
-      (note) => [note.title, textFromQuickNoteHtml(note.contentHtml)],
-      (note): Cmd => ({
+    commands.push(...matchingNotes.slice(0, Math.max(0, limit - commands.length)).map((note): Cmd => ({
         id: 'note-' + note.id,
         group: '随记',
         icon: <FileText size={ICON_MD} />,
@@ -419,11 +410,8 @@ function CommandPaletteDialog({
         hint: textFromQuickNoteHtml(note.contentHtml).slice(0, 48) || undefined,
         keywords: '随记 笔记 灵感',
         run: go(`/notes/${note.id}`),
-      }),
-      limit - commands.length,
-    )
-    commands.push(...noteMatches.items)
-    total += noteMatches.total
+      })))
+    total += matchingNotes.length
 
     const savedViewMatches = collectLimitedCommandMatches(
       savedTradeViews,
@@ -484,6 +472,11 @@ function CommandPaletteDialog({
     dateQuery,
     limit,
     onNavigateResult,
+    strategyNames,
+    strategyCounts,
+    tagCandidates,
+    matchingTrades,
+    matchingNotes,
   ])
 
   const commands = searchResult.commands

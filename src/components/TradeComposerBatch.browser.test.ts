@@ -2,7 +2,7 @@ import { createElement, Fragment } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
-import { TradeComposer } from '@/components/TradeComposer'
+import { DeferredTradeOverlays } from '@/components/DeferredTradeOverlays'
 import { commitComposerTradeBatch } from '@/lib/tradeComposerCommit'
 import { pickPersisted } from '@/storage/persist'
 import { StorageRevisionConflictError } from '@/storage/adapter'
@@ -155,7 +155,7 @@ async function run(): Promise<void> {
     root.render(createElement(
       MemoryRouter,
       { initialEntries: ['/review-cases'] },
-      createElement(Fragment, null, createElement(LocationProbe), createElement(TradeComposer)),
+      createElement(Fragment, null, createElement(LocationProbe), createElement(DeferredTradeOverlays)),
     ))
     await waitFor(() => Boolean(findButton('保存')), '案例 Composer 未就绪')
     findButton('保存')?.click()

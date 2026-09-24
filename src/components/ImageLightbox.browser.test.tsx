@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client'
-import { ImageLightbox } from './ImageLightbox'
+import { DeferredTradeOverlays } from './DeferredTradeOverlays'
 import { useShortcutStore } from '@/store/shortcutStore'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
@@ -50,7 +50,7 @@ async function run() {
   const root = createRoot(host)
   const previous = useShortcutStore.getState()
   try {
-    root.render(<ImageLightbox />)
+    root.render(<DeferredTradeOverlays />)
     useShortcutStore.getState().openLightbox(images, 0, 'first-case')
     await ready(0)
     const fit = transform()

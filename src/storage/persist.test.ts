@@ -13,6 +13,7 @@ import {
 } from '@/storage/persist'
 import type { PersistedSnapshot } from '@/storage/types'
 import { PERSISTED_SNAPSHOT_FIELDS } from '@/storage/persistedKeys'
+import { createPersistedSnapshotCoordinator } from '@/storage/persistedSnapshotCoordinator'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
@@ -66,6 +67,41 @@ export function testPickPersistedAlwaysWritesEveryCanonicalField(): void {
   })
   const binding = custom.shortcuts['nav.list']
   assert(!Array.isArray(binding) && binding?.key === 'j', '自定义快捷键覆盖必须保留')
+}
+
+export function testUnchangedStoreCapturesDoNotScheduleFullSnapshotWrites(): void {
+  const original = useStore.getState()
+  let state = original
+  const scheduled: PersistedSnapshot[] = []
+  const capture = () => pickPersisted(state, {})
+  const coordinator = createPersistedSnapshotCoordinator(capture(), {
+    capture,
+    schedule: (snapshot) => { scheduled.push(snapshot) },
+  })
+  for (let index = 0; index < 100; index += 1) {
+    state = { ...state }
+    coordinator.observe(capture(), { source: 'store' })
+  }
+  assert(scheduled.length === 0, '非持久化 Store 更新不得触发全量快照保存')
+
+  state = { ...state, liveStages: state.liveStages.map((stage) => ({ ...stage, name: `${stage.name} 修改` })) }
+  coordinator.observe(capture(), { source: 'store' })
+  assert(Number(scheduled.length) === 1, '真实阶段编辑必须调度保存')
+  const persistedStages = scheduled[0]!.liveStages
+  state = { ...state, liveStages: state.liveStages.map((stage) => ({ ...stage, name: `${stage.name} 再次修改` })) }
+  coordinator.observe(capture(), { source: 'store' })
+  assert(Number(scheduled.length) === 2, '后续不可变编辑必须生成新快照')
+  assert(persistedStages !== state.liveStages, '后续编辑不得改变待保存快照的阶段数组')
+
+  state = { ...state, scheduledStageRollover: {
+    id: 'rollover-performance-test',
+    effectiveWeekStart: '2026-10-05',
+    requestedAt: '2026-09-24T00:00:00.000Z',
+    postponedCount: 0,
+  } }
+  coordinator.observe(capture(), { source: 'store' })
+  coordinator.observe(capture(), { source: 'store' })
+  assert(Number(scheduled.length) === 3, '预约修改仅保存一次，后续相同引用不得重复调度')
 }
 
 export async function testExplicitFlushPersistsChangesScheduledDuringAnActiveSave(): Promise<void> {

@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useSearchParams } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import type { ListFilter } from '@/lib/tradeFilters'
@@ -28,7 +29,12 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
   stageScope: StageScope | undefined
 } {
   const storedTrades = useStore((state) => state.trades)
-  const display = useStore((state) => state.display)
+  const display = useStore(useShallow((state) => ({
+    hideClosed: state.display.hideClosed,
+    sortBy: state.display.sortBy,
+    sortDirection: state.display.sortDirection,
+    tradingDayStartHour: state.display.tradingDayStartHour,
+  })))
   const starredIds = useStore((state) => state.starredIds)
   const liveStages = useStore((state) => state.liveStages)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
@@ -117,7 +123,13 @@ export function useWorkbenchVisibleTrades(filter: ListFilter): {
   }, [
     businessDateAnchor,
     display.tradingDayStartHour,
-    filter,
+    filter.type,
+    filter.strategyId,
+    filter.period,
+    filter.reviewCaseScope,
+    filter.liveStageId,
+    filter.analysisScope?.kind,
+    filter.analysisScope?.range,
     filter.historicalLiveScope,
     filter.strategySources,
     filter.tradeKind,

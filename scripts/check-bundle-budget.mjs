@@ -36,6 +36,17 @@ function gzipJavaScriptBytes(roots) {
 }
 
 const weeklyEntry = 'src/views/WeeklyReviewView.tsx'
+const initialChunks = staticChunkKeys(['index.html'])
+for (const entry of [
+  'src/components/TradeComposer.tsx',
+  'src/components/TradeCloseDialog.tsx',
+  'src/components/TradeOpenRiskDialog.tsx',
+  'src/components/ImageLightbox.tsx',
+]) {
+  if (!manifest[entry]?.isDynamicEntry || initialChunks.has(entry)) {
+    throw new Error(`全局弹窗必须保持按需加载：${entry}`)
+  }
+}
 const scoreChartEntry = 'src/views/WeeklyReviewScoreChart.tsx'
 const weeklyChunk = manifest[weeklyEntry]
 if (!weeklyChunk?.dynamicImports?.includes(scoreChartEntry)) {

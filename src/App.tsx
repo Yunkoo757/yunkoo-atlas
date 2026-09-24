@@ -31,9 +31,7 @@ import { TradeWorkspaceContext } from './components/TradeWorkspaceContext'
 import { AppFrame } from './components/ui/AppFrame'
 import { StageRolloverBanner } from './components/StageRolloverBanner'
 import { CommandPalette } from './components/CommandPalette'
-import { TradeComposer } from './components/TradeComposer'
-import { TradeCloseDialog } from './components/TradeCloseDialog'
-import { TradeOpenRiskDialog } from './components/TradeOpenRiskDialog'
+import { DeferredTradeOverlays } from './components/DeferredTradeOverlays'
 import { ToastHost } from './components/Toast'
 import { Button } from './components/ui/Button'
 import { InlineStatus, type InlineStatusTone } from './components/ui/InlineStatus'
@@ -41,7 +39,6 @@ import { ModalShell } from './components/ui/ModalShell'
 import type { WindowsCloseChoice } from './types/journalBridge'
 import { toast } from './lib/toast'
 import { AsyncGeneration } from './lib/asyncGeneration'
-import { ImageLightbox } from './components/ImageLightbox'
 import { WebStorageGuard } from './components/WebStorageGuard'
 import { DelayedRouteFallback, RouteErrorBoundary, RouteNotFound } from './components/RouteState'
 import { LoadingIndicator } from './icons/LoadingIndicator'
@@ -590,10 +587,7 @@ function Shell() {
         onClose={() => setCmdkOpen(false)}
         returnFocusTo={cmdkReturnFocus}
       />
-      <TradeComposer />
-      <TradeCloseDialog />
-      <TradeOpenRiskDialog />
-      <ImageLightbox />
+      <DeferredTradeOverlays />
       <ImageActions />
       <JudgmentCaptureHost />
       <ToastHost />

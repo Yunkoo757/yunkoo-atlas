@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client'
-import { TradeCloseDialog } from '@/components/TradeCloseDialog'
+import { DeferredTradeOverlays } from '@/components/DeferredTradeOverlays'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
 import { useToast } from '@/lib/toast'
@@ -74,7 +74,7 @@ async function run(): Promise<void> {
       undoStack: [],
       redoStack: [],
     })
-    root.render(<TradeCloseDialog />)
+    root.render(<DeferredTradeOverlays />)
 
     await waitFor(() => Boolean(document.querySelector('[role="dialog"]')), '平仓弹窗没有打开')
     const pnlInput = document.querySelector<HTMLInputElement>('input[aria-label="盈亏金额"]')
@@ -142,7 +142,7 @@ async function run(): Promise<void> {
       redoStack: [],
       display: { ...previous.display, tradingDayStartHour: 0 },
     })
-    root.render(<TradeCloseDialog />)
+    root.render(<DeferredTradeOverlays />)
     await waitFor(() => document.body.textContent?.includes('TRD-ARCHIVE') ?? false, '迁移场景必须加载新交易')
     await waitFor(() => Boolean(document.querySelector('input[aria-label="盈亏金额"]')), '迁移场景平仓弹窗没有打开')
     const archivePnl = document.querySelector<HTMLInputElement>('input[aria-label="盈亏金额"]')

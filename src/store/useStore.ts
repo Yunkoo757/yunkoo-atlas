@@ -290,13 +290,13 @@ function withoutLiveStageForPaper(trade: Trade): Trade {
   return paper as Trade
 }
 
-function upsertTradeIntoSlice(
-  s: TradeUpsertSlice,
+function prepareTradeUpsert(
+  s: Pick<TradeUpsertSlice, 'strategies' | 'symbolCatalog'>,
   trade: Trade,
+  previousTrade: Trade | undefined,
   tradingDayStartHour: number,
-): TradeUpsertSlice {
-  const previousTrade = s.trades.find((t) => t.id === trade.id)
-  if (previousTrade && (trade.tradeKind ?? 'live') !== previousTrade.tradeKind) return s
+): { trade: Trade; strategies: Strategy[]; symbolCatalog: string[] } | null {
+  if (previousTrade && (trade.tradeKind ?? 'live') !== previousTrade.tradeKind) return null
   trade = withoutLiveStageForPaper(trade)
   if (previousTrade && previousTrade.tradeKind !== 'paper' && trade.tradeKind !== 'paper') {
     trade = { ...trade, liveStageId: previousTrade.liveStageId }
@@ -329,13 +329,10 @@ function upsertTradeIntoSlice(
       ? normalizeSelectableSymbolCatalog([...s.symbolCatalog, symbolKey])
       : s.symbolCatalog
   if (!previousTrade) {
-    const withCreate = createActivity(normalized)
     return {
-      trades: [withCreate, ...s.trades],
+      trade: createActivity(normalized),
       strategies,
       symbolCatalog,
-      tagPresets: s.tagPresets,
-      mistakeTagPresets: s.mistakeTagPresets,
     }
   }
   const prev = previousTrade
@@ -347,9 +344,26 @@ function upsertTradeIntoSlice(
     })
   }
   return {
-    trades: s.trades.map((t) => (t.id === trade.id ? normalized : t)),
+    trade: normalized,
     strategies,
     symbolCatalog,
+  }
+}
+
+function upsertTradeIntoSlice(
+  s: TradeUpsertSlice,
+  trade: Trade,
+  tradingDayStartHour: number,
+): TradeUpsertSlice {
+  const previousTrade = s.trades.find((candidate) => candidate.id === trade.id)
+  const prepared = prepareTradeUpsert(s, trade, previousTrade, tradingDayStartHour)
+  if (!prepared) return s
+  return {
+    trades: previousTrade
+      ? s.trades.map((candidate) => candidate.id === trade.id ? prepared.trade : candidate)
+      : [prepared.trade, ...s.trades],
+    strategies: prepared.strategies,
+    symbolCatalog: prepared.symbolCatalog,
     tagPresets: s.tagPresets,
     mistakeTagPresets: s.mistakeTagPresets,
   }
@@ -371,17 +385,44 @@ export function applyTradeUpsertsToSlice(
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
   currentLiveStageId?: string,
 ): TradeUpsertSlice {
-  let slice = initial
+  if (trades.length === 0) return initial
+  // 每条输入仍顺序归一化，重复 ID 看到前一条结果；整批只构建一次列表。
+  const byId = new Map<string, Trade>()
+  for (const trade of initial.trades) {
+    if (!byId.has(trade.id)) byId.set(trade.id, trade)
+  }
+  const addedIds: string[] = []
+  const replacements = new Map<string, Trade>()
+  let strategies = initial.strategies
+  let symbolCatalog = initial.symbolCatalog
   for (const trade of trades) {
-    const existing = slice.trades.find((candidate) => candidate.id === trade.id)
+    const existing = byId.get(trade.id)
     const owned = existing || !currentLiveStageId
       ? withoutLiveStageForPaper(trade)
       : trade.tradeKind === 'paper'
         ? withoutLiveStageForPaper(trade)
         : { ...trade, liveStageId: currentLiveStageId }
-    slice = upsertTradeIntoSlice(slice, owned, tradingDayStartHour)
+    const prepared = prepareTradeUpsert({ strategies, symbolCatalog }, owned, existing, tradingDayStartHour)
+    if (!prepared) continue
+    if (!existing) addedIds.push(trade.id)
+    else replacements.set(trade.id, prepared.trade)
+    byId.set(trade.id, prepared.trade)
+    strategies = prepared.strategies
+    symbolCatalog = prepared.symbolCatalog
   }
-  return slice
+  if (addedIds.length === 0 && replacements.size === 0) return initial
+  const existingTrades = replacements.size === 0
+    ? initial.trades
+    : initial.trades.map((trade) => replacements.get(trade.id) ?? trade)
+  return {
+    trades: addedIds.length === 0
+      ? existingTrades
+      : [...addedIds.reverse().map((id) => byId.get(id)!), ...existingTrades],
+    strategies,
+    symbolCatalog,
+    tagPresets: initial.tagPresets,
+    mistakeTagPresets: initial.mistakeTagPresets,
+  }
 }
 
 function upsertRequiresOpenGate(
@@ -1952,19 +1993,22 @@ export const useStore = create<State>()((set, get) => ({
         return result
       },
       upsertTrades: (trades) => {
+        if (trades.length === 0) return 'unchanged'
         const currentState = get()
-        const currentTrades = currentState.trades
+        const currentTrades = new Map<string, Trade>()
+        for (const trade of currentState.trades) {
+          if (!currentTrades.has(trade.id)) currentTrades.set(trade.id, trade)
+        }
         if (trades.some((trade) => openTargetsAnotherLiveStage(
-          currentTrades.find((item) => item.id === trade.id),
+          currentTrades.get(trade.id),
           trade,
           currentState.currentLiveStageId,
         ))) return 'not-current-stage'
         if (trades.some((trade) => upsertRequiresOpenGate(
           currentState,
-          currentTrades.find((item) => item.id === trade.id),
+          currentTrades.get(trade.id),
           trade,
         ))) return 'requires-risk-gate'
-        if (trades.length === 0) return 'unchanged'
         set((s) => applyTradeUpsertsToSlice({
             trades: s.trades,
             strategies: s.strategies,
@@ -1972,7 +2016,7 @@ export const useStore = create<State>()((set, get) => ({
             tagPresets: s.tagPresets,
             mistakeTagPresets: s.mistakeTagPresets,
           },
-          trades.map((trade) => stageOwnedTradeForUpsert(s, trade)),
+          trades,
           s.display.tradingDayStartHour,
           currentLiveStageIdForWrite(s),
         ))
@@ -1988,7 +2032,7 @@ export const useStore = create<State>()((set, get) => ({
             tagPresets: s.tagPresets,
             mistakeTagPresets: s.mistakeTagPresets,
           },
-          trades.map((trade) => stageOwnedTradeForUpsert(s, trade)),
+          trades,
           s.display.tradingDayStartHour,
           currentLiveStageIdForWrite(s),
         )

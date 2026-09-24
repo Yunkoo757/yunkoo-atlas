@@ -55,6 +55,9 @@ const CONVICTION_RANK: Record<Trade['conviction'], number> = {
   low: 1,
 }
 
+/** Only these preferences change which records are visible or their ordering. */
+export type WorkbenchTradeDisplay = Pick<DisplayPrefs, 'hideClosed' | 'sortBy' | 'sortDirection' | 'tradingDayStartHour'>
+
 export function parseTradeFacets(search: string | URLSearchParams): TradeFacetFilters {
   const params = typeof search === 'string' ? new URLSearchParams(search) : search
   const tradeKind = params.get('tradeKind')
@@ -204,7 +207,7 @@ function matchesListFilter(
 
 export function applyDisplayPrefs(
   trades: Trade[],
-  prefs: DisplayPrefs,
+  prefs: WorkbenchTradeDisplay,
   filter?: ListFilter,
 ): Trade[] {
   // 错过机会页要看终态；案例是复盘样本，不受「隐藏已平仓」影响
@@ -233,7 +236,7 @@ type WorkbenchTradeDerivationOptions = {
   trades: Trade[]
   filter: ListFilter
   starredIds: string[]
-  display: DisplayPrefs
+  display: WorkbenchTradeDisplay
   search: string | URLSearchParams
   businessDateAnchor?: BusinessDateAnchor
   stageScope?: StageScope

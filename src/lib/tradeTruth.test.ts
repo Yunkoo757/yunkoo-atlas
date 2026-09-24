@@ -140,3 +140,42 @@ export function testDeclaredAuthorityNeverFallsBackWhenItsMetricIsMissing(): voi
   assert(truth.outcome === 'unknown', 'missing authoritative cash must remain incomplete')
   assert(!truth.isResultComplete, 'non-authoritative R must not complete a cash-authority result')
 }
+
+export function testResultAuthorityPreservesConflictAndIncompleteBoundaries(): void {
+  const cases: { patch: Partial<Trade>, outcome: string, conflict: boolean }[] = [
+    { patch: { status: 'breakeven', pnl: -0, rMultiple: 0, resultSource: 'imported' }, outcome: 'breakeven', conflict: false },
+    { patch: { pnl: 10, rMultiple: -1, resultSource: 'imported' }, outcome: 'conflict', conflict: true },
+    { patch: { pnl: 10, rMultiple: null, resultSource: 'imported' }, outcome: 'unknown', conflict: false },
+    { patch: { pnl: Number.POSITIVE_INFINITY, rMultiple: 2, resultSource: 'imported' }, outcome: 'unknown', conflict: false },
+    { patch: { pnl: Number.NaN, rMultiple: 2, resultSource: undefined }, outcome: 'win', conflict: false },
+    { patch: { pnl: -10, rMultiple: 2, resultSource: 'price' }, outcome: 'win', conflict: false },
+    { patch: { status: 'loss', pnl: 10, rMultiple: -2, resultSource: 'r' }, outcome: 'loss', conflict: false },
+    { patch: { status: 'loss', pnl: 10, rMultiple: -2, resultSource: 'pnl' }, outcome: 'conflict', conflict: true },
+    { patch: { status: 'open', pnl: 10, rMultiple: -2, resultSource: 'imported' }, outcome: 'unknown', conflict: true },
+  ]
+  for (const [index, item] of cases.entries()) {
+    const truth = resolveTradeTruth({ ...baseTrade, ...item.patch })
+    assert(truth.outcome === item.outcome, `authority case ${index} must preserve its outcome`)
+    assert(truth.hasConflict === item.conflict, `authority case ${index} must preserve conflict diagnostics`)
+  }
+}
+
+export function testSummaryKeepsNonClosedResultsOutAndPreservesFractionalAddition(): void {
+  const summary = summarizeTradeResults([
+    { ...baseTrade, pnl: 0.1, rMultiple: 0.1 },
+    { ...baseTrade, pnl: 0.2, rMultiple: 0.2 },
+    { ...baseTrade, status: 'breakeven', pnl: 0, rMultiple: 0 },
+    { ...baseTrade, status: 'loss', pnl: -0.3, rMultiple: -0.3 },
+    { ...baseTrade, status: 'planned' },
+    { ...baseTrade, status: 'open' },
+    { ...baseTrade, status: 'missed' },
+    { ...baseTrade, pnl: 10, rMultiple: -2 },
+    { ...baseTrade, pnl: null, rMultiple: null },
+  ])
+  assert(summary.closedCount === 6 && summary.evaluatedCount === 4, 'only executed closed records enter summary coverage')
+  assert(summary.winCount === 2 && summary.lossCount === 1 && summary.breakevenCount === 1, 'each verified outcome is counted exactly once')
+  assert(summary.conflictCount === 1 && summary.winRate === 50, 'conflicts remain excluded from win-rate denominator')
+  assert(summary.pnlCount === 4 && summary.rCount === 4, 'zero is a valid covered breakeven result')
+  assert(summary.totalPnl === 0.1 + 0.2 - 0.3, 'sum order and floating-point behavior must remain unchanged')
+  assert(summary.averageR === (0.1 + 0.2 - 0.3) / 4, 'average R must include the verified breakeven denominator')
+}

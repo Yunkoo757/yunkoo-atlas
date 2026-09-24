@@ -3,6 +3,9 @@ function assert(condition: unknown, message: string): void {
 }
 
 import { collectLimitedCommandMatches } from './commandPaletteSearch'
+import type { Trade } from '@/data/trades'
+import type { QuickNote } from '@/data/quickNotes'
+import { findIndexedCommandMatches, indexCommandNote, indexCommandTrade } from '@/components/commandPaletteIndex'
 
 export function testCommandPaletteFiltersBeforeProjectingCappedResults(): void {
   const candidates = Array.from({ length: 100 }, (_, index) => ({
@@ -60,8 +63,46 @@ export async function testCommandPaletteUsesActiveWorkspaceTagFilters(): Promise
     source.includes('trades.filter((trade) => !trade.deletedAt)'),
     '命令面板不得搜索回收站记录',
   )
-  assert(source.includes('textFromQuickNoteHtml'), '命令面板应索引随记正文')
-  assert(source.includes('textFromQuickNoteHtml(trade.note)'), '命令面板应索引交易正文')
+  assert(
+    source.includes("from './commandPaletteIndex'") &&
+      source.includes('searchableTrades.map((trade) => indexCommandTrade(trade,') &&
+      source.includes('findIndexedCommandMatches(tradeIndex, deferredQuery)') &&
+      source.includes('matchingTrades.slice('),
+    '命令面板必须把未删除交易传入正文索引，并使用索引匹配结果生成可见命令',
+  )
+  assert(
+    source.includes('quickNotes.map(indexCommandNote)') &&
+      source.includes('findIndexedCommandMatches(noteIndex, deferredQuery)') &&
+      source.includes('matchingNotes.slice('),
+    '命令面板必须把随记传入正文索引，并使用索引匹配结果生成可见命令',
+  )
+  const trade: Trade = {
+    id: 'search-body', ref: 'TRD-BODY', symbol: 'EURUSD', strategyId: '', side: 'long',
+    status: 'planned', conviction: 'medium', tags: [], mistakeTags: [], reviewStatus: 'unreviewed',
+    reviewCategory: 'normal', tradeKind: 'paper', openedAt: '2026-09-24', closedAt: null,
+    entry: 1, exit: null, size: 1, pnl: null, rMultiple: null,
+    note: '<p>价格 &amp; 流动性 <strong>确认</strong></p>',
+  }
+  const note: QuickNote = {
+    id: 'search-note', title: '复盘随记', contentHtml: '<p>风险 &amp; <strong>Reward</strong></p>',
+    pinned: false, createdAt: '2026-09-24', updatedAt: '2026-09-24',
+  }
+  const tradeIndex = [indexCommandTrade(trade, '结构策略')]
+  const noteIndex = [indexCommandNote(note)]
+  assert(
+    findIndexedCommandMatches(tradeIndex, 'eurusd 确认 &')[0] === trade &&
+      findIndexedCommandMatches(tradeIndex, '结构策略 流动性')[0] === trade,
+    '交易索引必须支持元数据与解码后的 HTML 正文组合检索',
+  )
+  assert(
+    findIndexedCommandMatches(noteIndex, '复盘 reward &')[0] === note,
+    '随记索引必须支持标题与解码后的 HTML 正文组合检索',
+  )
+  assert(
+    findIndexedCommandMatches(tradeIndex, 'strong').length === 0 &&
+      findIndexedCommandMatches(noteIndex, 'strong').length === 0,
+    '正文检索必须使用可见文字，不得把 HTML 标签作为正文索引',
+  )
   assert(source.includes('savedTradeViews'), '命令面板应索引保存的视图')
   for (const route of ["path: '/list'", "path: '/sim'", "path: '/review-cases'"]) {
     assert(source.includes(route), `标签命令缺少工作区路由：${route}`)

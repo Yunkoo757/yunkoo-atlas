@@ -21,11 +21,10 @@ export function pickPersisted(
   const currentStage = getCurrentLiveStage(state.liveStages, state.currentLiveStageId)
   return {
     trades: state.trades,
-    liveStages: state.liveStages.map((stage) => ({ ...stage })),
+    // Store 持久化字段使用不可变更新；保留引用才能让订阅区分 UI 更新与真实编辑。
+    liveStages: state.liveStages,
     currentLiveStageId: currentStage.id,
-    scheduledStageRollover: state.scheduledStageRollover
-      ? { ...state.scheduledStageRollover }
-      : null,
+    scheduledStageRollover: state.scheduledStageRollover,
     weeklyRiskPreparations: state.weeklyRiskPreparations,
     riskPolicyVersions: state.riskPolicyVersions,
     monthlyRiskLimits: state.monthlyRiskLimits,

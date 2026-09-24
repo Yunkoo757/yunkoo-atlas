@@ -207,12 +207,13 @@ export function TradeList({
   const listInstanceId = useId().replace(/:/g, '')
   const listRef = useRef<HTMLDivElement>(null)
   const [selectionMode, setSelectionMode] = useState(false)
+  const starredSet = useMemo(() => new Set(starredIds), [starredIds])
   const symbolIcons = useStore((state) => state.symbolIcons) as SymbolIconsMap
   const allTrades = useStore((state) => state.trades)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
   const density = useStore((state) => state.display.listRowDensity)
-  const profile = useStore((state) => state.profile)
+  const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
   const businessDateAnchor = useBusinessDateAnchor()
   const rowHeight = ROW_HEIGHTS[density]
   /** 分组展开进度 0..1；缺省视为 1 */
@@ -312,9 +313,9 @@ export function TradeList({
       stageScope: resolveStrategyStageScope(strategyStageScope, currentLiveStageId),
       analysisScope: { kind: 'live', range: 'all' },
       anchor: businessDateAnchor,
-      legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption,
+      legacyCashCurrencyAssumption,
     }),
-    [allTrades, businessDateAnchor, currentLiveStageId, profile.legacyCashCurrencyAssumption, strategyStageScope],
+    [allTrades, businessDateAnchor, currentLiveStageId, legacyCashCurrencyAssumption, strategyStageScope],
   )
   const strategyStatsById = useMemo(
     () => new Map(
@@ -338,28 +339,38 @@ export function TradeList({
   const pendingScrollTradeIdRef = useRef<string | null>(null)
   const activeStickyIndexRef = useRef(0)
 
-  const getScrollElement = () =>
-    scrollParentRef?.current ?? listRef.current?.closest('.list-scroll') ?? null
+  const getScrollElement = useCallback(() =>
+    scrollParentRef?.current ?? listRef.current?.closest('.list-scroll') ?? null,
+  [scrollParentRef])
+  const estimateSize = useCallback((index: number) => {
+    const item = flatItems[index]
+    if (!item) return rowHeight
+    if (item.kind === 'header') return HEADER_HEIGHT
+    return Math.max(0, rowHeight * item.openProgress)
+  }, [flatItems, rowHeight])
+  const rangeExtractor = useCallback((range: Range) => {
+    // Headers are already ordered. Avoid copying and reversing all groups on
+    // every scroll update; find the nearest preceding header in logarithmic time.
+    let low = 0
+    let high = stickyIndexes.length
+    while (low < high) {
+      const middle = (low + high) >>> 1
+      if (stickyIndexes[middle] <= range.startIndex) low = middle + 1
+      else high = middle
+    }
+    const stickyIndex = stickyIndexes[low - 1]
+    activeStickyIndexRef.current = stickyIndex ?? 0
+    const indexes = defaultRangeExtractor(range)
+    if (stickyIndex !== undefined && stickyIndex < indexes[0]) indexes.unshift(stickyIndex)
+    return indexes
+  }, [stickyIndexes])
 
   const virtualizer = useVirtualizer({
     count: flatItems.length,
     getScrollElement,
-    estimateSize: (index) => {
-      const item = flatItems[index]
-      if (!item) return rowHeight
-      if (item.kind === 'header') return HEADER_HEIGHT
-      return Math.max(0, rowHeight * item.openProgress)
-    },
+    estimateSize,
     overscan,
-    rangeExtractor: (range: Range) => {
-      activeStickyIndexRef.current =
-        [...stickyIndexes].reverse().find((index) => range.startIndex >= index) ?? 0
-      const next = new Set([
-        activeStickyIndexRef.current,
-        ...defaultRangeExtractor(range),
-      ])
-      return [...next].sort((a, b) => a - b)
-    },
+    rangeExtractor,
   })
 
   useEffect(() => {
@@ -453,7 +464,7 @@ export function TradeList({
         (selectionMode || selectedIds.size > 0 ? ' is-selection-mode' : '')
       }
       role="list"
-      aria-label={`${recordLabel}列表，共 ${flatItems.filter((item) => item.kind === 'row').length} 条，${flatItems.filter((item) => item.kind === 'header').length} 个分组`}
+      aria-label={`${recordLabel}列表，共 ${flatItems.length - stickyIndexes.length} 条，${stickyIndexes.length} 个分组`}
       ref={listRef}
       style={{
         '--trade-row-height': `${rowHeight}px`,
@@ -568,7 +579,7 @@ export function TradeList({
                 symbolIcons={symbolIcons}
                 focused={item.trade.id === focusedId}
                 selected={selectedIds.has(item.trade.id)}
-                starred={starredIds.includes(item.trade.id)}
+                starred={starredSet.has(item.trade.id)}
                 selectable={selectionEnabled}
                 ariaPosInSet={virtualRow.index + 1}
                 ariaSetSize={flatItems.length}

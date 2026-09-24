@@ -182,3 +182,80 @@ export function testDashboardStatsOnlyAggregatesTheProvidedUsdPnlIds(): void {
   assert(stats.curve.map((point) => point.tradeId).join(',') === 'usd', '累计现金曲线必须与 USD pnlIds 同源')
   assert(stats.strategies[0]?.pnl === 100, '策略现金汇总不得绕过 USD guardrail')
 }
+
+export function testDashboardGroupedCurveMatchesStableOrderingAndSampling(): void {
+  const trades = Array.from({ length: 2_507 }, (_, index) => {
+    const pnl = (index % 7) - 3
+    return closedTrade(`curve-${index}`, {
+      status: pnl > 0 ? 'win' : pnl < 0 ? 'loss' : 'breakeven',
+      pnl,
+      rMultiple: null,
+      resultSource: 'pnl',
+      closedTradingDayKey: `2026-07-${String((index * 17) % 28 + 1).padStart(2, '0')}`,
+      closedAt: 'invalid-but-frozen-day-is-authoritative',
+    })
+  })
+  const selectedIds = trades.map((trade) => trade.id).reverse()
+  const stats = buildDashboardStats(trades, [strategy], selectedIds, 6, selectedIds)
+  const sorted = [...trades].reverse().sort((left, right) =>
+    left.closedTradingDayKey!.localeCompare(right.closedTradingDayKey!),
+  )
+  let equity = 0
+  const expected = sorted.map((trade) => {
+    equity += trade.pnl!
+    return {
+      date: trade.closedTradingDayKey!.slice(5),
+      equity,
+      label: trade.symbol,
+      tradeId: trade.id,
+      ref: trade.ref,
+      pnl: trade.pnl!,
+    }
+  })
+  assert(
+    JSON.stringify(stats.curve) === JSON.stringify(downsampleDashboardCurve(expected)),
+    '日期分桶必须保持原稳定排序、逐笔累计、小数舍入顺序和极值采样',
+  )
+  assert(trades[0].id === 'curve-0', '统计不得重排调用者的交易数组')
+}
+
+export function testDashboardSelectionPreservesDuplicateIdsAndLastDefinition(): void {
+  const older = closedTrade('duplicate', { pnl: 5, rMultiple: null, resultSource: 'pnl' })
+  const newer = closedTrade('duplicate', { pnl: 12.5, rMultiple: null, resultSource: 'pnl' })
+  const stats = buildDashboardStats(
+    [older, newer],
+    [strategy, { ...strategy, name: '最新策略名' }],
+    ['missing', 'duplicate', 'duplicate'],
+    6,
+    ['duplicate'],
+  )
+  assert(stats.closedCount === 2 && stats.totalPnl === 25, '选择顺序和重复成员必须保留，重复定义取最后一笔')
+  assert(stats.strategies[0].name === '最新策略名', '重复策略定义必须保持最后一项优先')
+  assert(stats.curve.map((point) => point.equity).join() === '12.5,25', '同日重复成员的累计曲线必须保留')
+  const implicit = buildDashboardStats([older, newer], [strategy], undefined, 6, ['duplicate'])
+  assert(implicit.totalPnl === 17.5, '未传选择器时仍应逐笔使用原数组，不按 ID 折叠')
+}
+
+export function testDashboardDateCacheKeepsFrozenAuthorityAndDoesNotSurviveEdits(): void {
+  const make = (id: string, patch: Partial<Trade>) => closedTrade(id, {
+    pnl: 1,
+    rMultiple: null,
+    resultSource: 'pnl',
+    ...patch,
+  })
+  const trades = [
+    make('frozen', { closedTradingDayKey: '2026-07-02', closedAt: null }),
+    make('legacy', { closedAt: '2026-07-02' }),
+    make('invalid-frozen', { closedTradingDayKey: '2026-02-30', closedAt: '2026-07-02' }),
+    make('invalid-legacy', { closedAt: '2026-02-30' }),
+  ]
+  const ids = trades.map((trade) => trade.id)
+  const first = buildDashboardStats(trades, [strategy], ids, 6, ids)
+  assert(first.totalPnl === 4 && first.pnlCount === 4, '无合法日期的有效结果仍计入现金总计')
+  assert(first.curve.map((point) => point.tradeId).join() === 'frozen,legacy', '非法冻结业务日不得回退平仓日；非法历史日期不得进入曲线')
+  trades[0].closedTradingDayKey = '2026-07-03'
+  trades[1].pnl = 2
+  const second = buildDashboardStats(trades, [strategy], ids, 6, ids)
+  assert(second.curve.map((point) => point.tradeId).join() === 'legacy,frozen', '修改日期后必须重新计算业务日顺序')
+  assert(second.totalPnl === 5 && second.curve.at(-1)?.equity === 3, '本轮缓存不得遮住下次结果修改')
+}

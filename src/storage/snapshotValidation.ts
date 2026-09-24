@@ -745,7 +745,10 @@ function assertReferenceBelongsToStage(
 }
 
 function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void {
-  const ids = new Set(snapshot.liveStages.map((stage) => stage.id))
+  const stagesById = new Map(snapshot.liveStages.map((stage) => [stage.id, stage]))
+  const ids = new Set(stagesById.keys())
+  const nonPaperTradesById = new Map<string, PersistedSnapshot['trades'][number]>()
+  const policiesById = new Map(snapshot.riskPolicyVersions.map((policy) => [policy.id, policy]))
   for (const trade of snapshot.trades) {
     if (trade.tradeKind === 'paper') {
       if (Object.prototype.hasOwnProperty.call(trade, 'liveStageId')) {
@@ -753,6 +756,7 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
       }
       continue
     }
+    nonPaperTradesById.set(trade.id, trade)
     if (trade.tradeKind !== 'live' && trade.tradeKind !== 'case') continue
     if (trade.liveStageId !== null && !ids.has(trade.liveStageId ?? '')) {
       throw new Error(`${label}.trades contains an unknown liveStageId`)
@@ -765,7 +769,7 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
       `${label}.weeklyReviews contains an unknown liveStageId`,
     )
     if (review.liveStageId !== null) {
-      const stage = snapshot.liveStages.find((candidate) => candidate.id === review.liveStageId)
+      const stage = stagesById.get(review.liveStageId ?? '')
       if (
         !stage ||
         review.legacyPeriodQuarantine === true ||
@@ -792,9 +796,7 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
     if (typeof review.liveStageId === 'string') {
       const embeddedPolicies = review.riskSnapshot?.policyVersions ?? []
       for (const event of review.riskSnapshot?.overrideEvents ?? []) {
-        const sourceTrade = snapshot.trades.find(
-          (trade) => trade.id === event.tradeId && trade.tradeKind !== 'paper',
-        )
+        const sourceTrade = nonPaperTradesById.get(event.tradeId)
         // override event 自带冻结交易身份；来源被永久删除后仍是完整历史证据。
         if (sourceTrade) {
           assertReferenceBelongsToStage(
@@ -806,7 +808,7 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
         if (event.policyVersionId) {
           assertReferenceBelongsToStage(
             embeddedPolicies.find((policy) => policy.id === event.policyVersionId)
-              ?? snapshot.riskPolicyVersions.find((policy) => policy.id === event.policyVersionId),
+              ?? policiesById.get(event.policyVersionId),
             review.liveStageId,
             `${label}.weeklyReviews contains a cross-stage override policy reference`,
           )
@@ -828,9 +830,7 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
         ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
       ])
       for (const tradeId of tradeIds) {
-        const sourceTrade = snapshot.trades.find(
-          (trade) => trade.id === tradeId && trade.tradeKind !== 'paper',
-        )
+        const sourceTrade = nonPaperTradesById.get(tradeId)
         if (sourceTrade) {
           assertReferenceBelongsToStage(
             sourceTrade,
@@ -860,7 +860,7 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
   for (const preparation of snapshot.weeklyRiskPreparations) {
     if (typeof preparation.liveStageId === 'string' && preparation.confirmedPolicyVersionId) {
       assertReferenceBelongsToStage(
-        snapshot.riskPolicyVersions.find((policy) => policy.id === preparation.confirmedPolicyVersionId),
+        policiesById.get(preparation.confirmedPolicyVersionId),
         preparation.liveStageId,
         `${label}.weeklyRiskPreparations contains a cross-stage policy reference`,
       )
@@ -869,7 +869,7 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
   for (const limit of snapshot.monthlyRiskLimits) {
     if (typeof limit.liveStageId === 'string') {
       assertReferenceBelongsToStage(
-        snapshot.riskPolicyVersions.find((policy) => policy.id === limit.sourcePolicyVersionId),
+        policiesById.get(limit.sourcePolicyVersionId),
         limit.liveStageId,
         `${label}.monthlyRiskLimits contains a cross-stage policy reference`,
       )
@@ -877,9 +877,7 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
   }
   for (const event of snapshot.riskOverrideEvents) {
     if (typeof event.liveStageId !== 'string') continue
-    const sourceTrade = snapshot.trades.find(
-      (trade) => trade.id === event.tradeId && trade.tradeKind !== 'paper',
-    )
+    const sourceTrade = nonPaperTradesById.get(event.tradeId)
     // 顶层 override event 的 tradeIdentityAtDecision 是自包含冻结证据；只有来源
     // 仍存在时才需要验证其当前 stage，永久删除不得破坏历史风险图。
     if (sourceTrade) {
@@ -891,7 +889,7 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
     }
     if (event.policyVersionId) {
       assertReferenceBelongsToStage(
-        snapshot.riskPolicyVersions.find((policy) => policy.id === event.policyVersionId),
+        policiesById.get(event.policyVersionId),
         event.liveStageId,
         `${label}.riskOverrideEvents contains a cross-stage policy reference`,
       )

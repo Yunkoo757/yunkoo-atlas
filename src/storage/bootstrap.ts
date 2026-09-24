@@ -18,6 +18,7 @@ import { normalizeSelectableSymbolCatalog, normalizeSymbolIcons } from '@/lib/sy
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeTradeStrategyReferences } from '@/lib/strategies'
 import type { PersistedSnapshot } from '@/storage/types'
+import type { StorageAdapter } from '@/storage/adapter'
 import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 import { normalizeReviewTemplates } from '@/data/reviewTemplates'
 import { normalizeReviewPoolLayout } from '@/lib/reviewPools'
@@ -58,6 +59,19 @@ export function publishDurableStoreRefresh(publish: () => void): void {
   else publish()
 }
 
+/** 已有资料库只读取一次；迁移写入后仍重读，以取得规范化快照和最新 revision。 */
+export async function loadBootstrapSnapshot(
+  adapter: StorageAdapter,
+  mode: 'electron' | 'web-editable' | 'web-readonly',
+  indexedDbAdapter?: StorageAdapter,
+): Promise<PersistedSnapshot | null> {
+  const existing = await adapter.loadSnapshot()
+  if (existing || mode === 'web-readonly') return existing
+  if (mode === 'electron') await migrateElectronLibraryIfNeeded(adapter, indexedDbAdapter)
+  else await migrateFromLocalStorageIfNeeded(adapter)
+  return adapter.loadSnapshot()
+}
+
 async function runBootstrapStorage(): Promise<void> {
   const adapter = getStorage()
   await adapter.open()
@@ -76,13 +90,9 @@ async function runBootstrapStorage(): Promise<void> {
     await initializeWebWriterOwnership(manifest.libraryId)
   }
 
-  if (isElectron()) {
-    await migrateElectronLibraryIfNeeded(adapter)
-  } else if (getWebWriteGuardState().phase === 'editable') {
-    await migrateFromLocalStorageIfNeeded(adapter)
-  }
-
-  const snapshot = await adapter.loadSnapshot()
+  const snapshot = await loadBootstrapSnapshot(adapter, isElectron()
+    ? 'electron'
+    : getWebWriteGuardState().phase === 'editable' ? 'web-editable' : 'web-readonly')
   let reconciledWindowHotkeyConflict = false
   if (snapshot) {
     // 阶段图是全部运行时写入的归属根；无效快照必须在开启持久化前终止启动。
