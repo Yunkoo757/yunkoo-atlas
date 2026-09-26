@@ -76,8 +76,11 @@ jobs:
           $version = (Get-Content package.json | ConvertFrom-Json).version
           $artifact = (Resolve-Path "release/Trader-Atlas-$version-win-x64.exe").Path
           $installRoot = Join-Path $env:RUNNER_TEMP 'trader-atlas-packaged-visual-installed'
-          & $artifact /S "/D=$installRoot"
-          if ($LASTEXITCODE -ne 0) { throw "NSIS installation failed: $LASTEXITCODE" }
+          $installer = Start-Process -FilePath $artifact -ArgumentList '/S', "/D=$installRoot" -PassThru -Wait -WindowStyle Hidden
+          if ($installer.ExitCode -ne 0) { throw "NSIS installation failed: $($installer.ExitCode)" }
+          if (-not (Test-Path -LiteralPath (Join-Path $installRoot 'Trader Atlas.exe') -PathType Leaf)) {
+            throw 'NSIS installer did not create Trader Atlas.exe'
+          }
           "ATLAS_PACKAGED_ARTIFACT=$artifact" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "ATLAS_PACKAGED_EXECUTABLE=$(Join-Path $installRoot 'Trader Atlas.exe')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "ATLAS_PACKAGED_INSTALL_ROOT=$installRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -88,7 +91,7 @@ jobs:
           ATLAS_PACKAGED_VISUAL_OUTPUT: test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/packaged/win32-x64-scale-100
         run: |
           pnpm qa:desktop-visual:packaged
-          pnpm qa:theme-luminance -- --capture-states --runtime packaged --output-root "test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/states/win32-x64-scale-100"
+          pnpm qa:theme-luminance --capture-states --runtime packaged --output-root "test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/states/win32-x64-scale-100"
 
       - name: Run Windows packaged evidence at 125%
         env:
@@ -96,7 +99,7 @@ jobs:
           ATLAS_PACKAGED_VISUAL_OUTPUT: test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/packaged/win32-x64-scale-125
         run: |
           pnpm qa:desktop-visual:packaged
-          pnpm qa:theme-luminance -- --capture-states --runtime packaged --output-root "test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/states/win32-x64-scale-125"
+          pnpm qa:theme-luminance --capture-states --runtime packaged --output-root "test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/states/win32-x64-scale-125"
 
       - name: Run Windows packaged evidence at 150%
         env:
@@ -104,19 +107,26 @@ jobs:
           ATLAS_PACKAGED_VISUAL_OUTPUT: test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/packaged/win32-x64-scale-150
         run: |
           pnpm qa:desktop-visual:packaged
-          pnpm qa:theme-luminance -- --capture-states --runtime packaged --output-root "test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/states/win32-x64-scale-150"
+          pnpm qa:theme-luminance --capture-states --runtime packaged --output-root "test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/states/win32-x64-scale-150"
 
       - name: Uninstall exact Windows visual payload
         if: always()
         shell: pwsh
         run: |
+          if (-not $env:ATLAS_PACKAGED_INSTALL_ROOT) { return }
+          $resolvedInstallRoot = [IO.Path]::GetFullPath($env:ATLAS_PACKAGED_INSTALL_ROOT)
+          $resolvedRunnerTemp = [IO.Path]::GetFullPath($env:RUNNER_TEMP)
+          if (-not $resolvedInstallRoot.StartsWith($resolvedRunnerTemp + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
+              [IO.Path]::GetFileName($resolvedInstallRoot) -ne 'trader-atlas-packaged-visual-installed') {
+            throw 'Packaged visual cleanup target is outside its dedicated runner temp directory'
+          }
           $uninstaller = Get-ChildItem -LiteralPath $env:ATLAS_PACKAGED_INSTALL_ROOT -Filter 'Uninstall*.exe' | Select-Object -First 1
           if ($null -eq $uninstaller) { throw 'Packaged visual uninstaller is missing' }
-          & $uninstaller.FullName /S
-          if ($LASTEXITCODE -ne 0) { throw "NSIS uninstall failed: $LASTEXITCODE" }
+          $uninstall = Start-Process -FilePath $uninstaller.FullName -ArgumentList '/S' -PassThru -Wait -WindowStyle Hidden
+          if ($uninstall.ExitCode -ne 0) { throw "NSIS uninstall failed: $($uninstall.ExitCode)" }
           $deadline = [DateTime]::UtcNow.AddSeconds(30)
           do {
-            try { Remove-Item -LiteralPath $env:ATLAS_PACKAGED_INSTALL_ROOT -Recurse -Force -ErrorAction Stop; break }
+            try { Remove-Item -LiteralPath $resolvedInstallRoot -Recurse -Force -ErrorAction Stop; break }
             catch { if ([DateTime]::UtcNow -ge $deadline) { throw }; Start-Sleep -Milliseconds 100 }
           } while ($true)
 
@@ -195,7 +205,7 @@ jobs:
           ATLAS_PACKAGED_VISUAL_OUTPUT: test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/packaged/darwin-${{ matrix.arch }}-scale-200
         run: |
           pnpm qa:desktop-visual:packaged
-          pnpm qa:theme-luminance -- --capture-states --runtime packaged \
+          pnpm qa:theme-luminance --capture-states --runtime packaged \
             --output-root "test-results/desktop-visual-evidence/candidate/${{ github.sha }}/attempt-${{ github.run_attempt }}/states/darwin-${{ matrix.arch }}-scale-200"
 
       - name: Remove extracted macOS visual payload
