@@ -266,6 +266,12 @@ test('desktop visual isolation accepts canonical aliases and rejects symlink esc
       temporaryRoot: root,
       realApplicationDataRoots: [],
     }))
+    assert.doesNotThrow(() => assertSafeElectronIsolationPaths({
+      userDataPath: join(alias, 'new-user-data'),
+      libraryPath: join(root, 'new-library'),
+      temporaryRoot: root,
+      realApplicationDataRoots: [],
+    }))
     symlinkSync(outside, join(root, 'escaped'), process.platform === 'win32' ? 'junction' : 'dir')
     assert.throws(() => assertSafeElectronIsolationPaths({
       userDataPath: join(root, 'escaped'),

@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { arch, homedir, platform, release, tmpdir } from 'node:os'
-import { isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { _electron as electron, chromium } from 'playwright'
@@ -51,12 +51,20 @@ const TYPOGRAPHY_PROBE_SELECTORS = Object.freeze({
 })
 
 function canonicalPath(value) {
-  const resolved = resolve(value)
+  let existing = resolve(value)
+  const missing = []
+  while (!existsSync(existing)) {
+    const parent = dirname(existing)
+    if (parent === existing) break
+    missing.unshift(basename(existing))
+    existing = parent
+  }
   try {
-    const canonical = realpathSync.native(resolved)
+    const canonical = resolve(realpathSync.native(existing), ...missing)
     return process.platform === 'win32' ? canonical.toLowerCase() : canonical
   } catch {
-    return process.platform === 'win32' ? resolved.toLowerCase() : resolved
+    const unresolved = resolve(value)
+    return process.platform === 'win32' ? unresolved.toLowerCase() : unresolved
   }
 }
 
@@ -83,7 +91,7 @@ export function assertSafeElectronIsolationPaths({
     ['libraryPath', libraryPath],
   ]) {
     if (!isSameOrDescendant(value, temporaryRoot) || canonicalPath(value) === canonicalPath(temporaryRoot)) {
-      throw new Error(`${label} must be a child of the temporary root`)
+      throw new Error(`${label} must be a child of the temporary root: ${canonicalPath(value)} outside ${canonicalPath(temporaryRoot)}`)
     }
     for (const root of realApplicationDataRoots) {
       if (isSameOrDescendant(value, root)) {
