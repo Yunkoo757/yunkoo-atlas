@@ -591,6 +591,9 @@ try {
       applicationExitedByQuitCommand,
       `native Quit menu command invoked=${nativeQuitInvoked}; application exited=${applicationExitedByQuitCommand}`,
     )
+    // Playwright may release its application dispatcher as soon as the process exits.
+    // The finalizer still verifies both PIDs and the temporary profile below.
+    if (applicationExitedByQuitCommand) application = null
   }
 } catch (error) {
   primaryError = error

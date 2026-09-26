@@ -507,6 +507,7 @@ test('macOS packaged evidence uses native display, shortcut settings, and menu q
   assert.match(source, /viewport: metrics\.actualViewport/)
   assert.match(source, /page\.locator\(selector\)\.first\(\)\.waitFor/)
   assert.match(source, /waitForProcessExit\(child, 20_000\)/)
+  assert.match(source, /if \(applicationExitedByQuitCommand\) application = null/)
   assert.doesNotMatch(source, /page\.keyboard\.press\('Meta\+q'\)/)
   assert.doesNotMatch(source, /quitMenuItem\.click/)
 })
