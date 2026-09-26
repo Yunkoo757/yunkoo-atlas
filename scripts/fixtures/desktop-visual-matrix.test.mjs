@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import test from 'node:test'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 
 import {
   DESKTOP_VISUAL_SCENARIOS,
@@ -250,6 +250,37 @@ test('desktop visual Electron mode rejects real application data paths', () => {
     temporaryRoot: realApplicationData,
     realApplicationDataRoots: [realApplicationData],
   }), /real application data/i)
+})
+
+test('desktop visual isolation accepts canonical aliases and rejects symlink escapes', () => {
+  const root = mkdtempSync(join(tmpdir(), 'atlas-visual-paths-'))
+  const alias = `${root}-alias`
+  const outside = mkdtempSync(join(tmpdir(), 'atlas-visual-outside-'))
+  try {
+    mkdirSync(join(root, 'user-data'))
+    mkdirSync(join(root, 'library'))
+    symlinkSync(root, alias, process.platform === 'win32' ? 'junction' : 'dir')
+    assert.doesNotThrow(() => assertSafeElectronIsolationPaths({
+      userDataPath: join(alias, 'user-data'),
+      libraryPath: join(root, 'library'),
+      temporaryRoot: root,
+      realApplicationDataRoots: [],
+    }))
+    symlinkSync(outside, join(root, 'escaped'), process.platform === 'win32' ? 'junction' : 'dir')
+    assert.throws(() => assertSafeElectronIsolationPaths({
+      userDataPath: join(root, 'escaped'),
+      libraryPath: join(root, 'library'),
+      temporaryRoot: root,
+      realApplicationDataRoots: [],
+    }), /must be a child/)
+  } finally {
+    rmSync(alias, { force: true })
+    for (const target of [root, outside]) {
+      const absolute = resolve(target)
+      if (!absolute.startsWith(resolve(tmpdir()) + sep)) throw new Error('Unsafe visual fixture cleanup path')
+      rmSync(absolute, { force: true, recursive: true })
+    }
+  }
 })
 
 test('desktop visual report fails closed on runtime errors or horizontal overflow', () => {

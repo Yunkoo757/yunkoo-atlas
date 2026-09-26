@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
@@ -49,8 +50,18 @@ const TYPOGRAPHY_PROBE_SELECTORS = Object.freeze({
   numeric: '.qa-type-numeric',
 })
 
+function canonicalPath(value) {
+  const resolved = resolve(value)
+  try {
+    const canonical = realpathSync.native(resolved)
+    return process.platform === 'win32' ? canonical.toLowerCase() : canonical
+  } catch {
+    return process.platform === 'win32' ? resolved.toLowerCase() : resolved
+  }
+}
+
 function isSameOrDescendant(target, root) {
-  const delta = relative(resolve(root), resolve(target))
+  const delta = relative(canonicalPath(root), canonicalPath(target))
   return delta === '' || (delta !== '..' && !delta.startsWith(`..${sep}`) && !isAbsolute(delta))
 }
 
@@ -71,7 +82,7 @@ export function assertSafeElectronIsolationPaths({
     ['userDataPath', userDataPath],
     ['libraryPath', libraryPath],
   ]) {
-    if (!isSameOrDescendant(value, temporaryRoot) || resolve(value) === resolve(temporaryRoot)) {
+    if (!isSameOrDescendant(value, temporaryRoot) || canonicalPath(value) === canonicalPath(temporaryRoot)) {
       throw new Error(`${label} must be a child of the temporary root`)
     }
     for (const root of realApplicationDataRoots) {
