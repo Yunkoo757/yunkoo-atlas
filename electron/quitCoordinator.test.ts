@@ -398,7 +398,7 @@ export function testAllElectronExitEntrypointsUseTheSingleCoordinator(): void {
   const backup = fs.readFileSync(path.resolve('electron/library/backup.ts'), 'utf8')
   const libraryIpc = fs.readFileSync(path.resolve('electron/library/ipc.ts'), 'utf8')
   const preload = fs.readFileSync(path.resolve('electron/preload.ts'), 'utf8')
-  assert(main.includes("quitCoordinator.request('close')"), '窗口关闭必须进入统一协调器')
+  assert(main.includes("process.platform === 'darwin' ? 'quit' : 'close'"), 'macOS 窗口关闭必须与 Command+Q 进入相同退出流程')
   assert(main.includes("quitCoordinator.request('quit')"), '应用退出必须进入统一协调器')
   assert(main.includes('BrowserWindow.getAllWindows()) window.close()'), '窗口关闭提交必须覆盖全部已确认窗口')
   assert(updater.includes("requestExit('quit-and-install')"), '更新安装必须进入统一协调器')

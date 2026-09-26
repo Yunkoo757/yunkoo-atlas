@@ -98,10 +98,6 @@ function createPresenceFixture(options: {
       calls.push('quit')
       return options.quitResult ?? { ok: true }
     },
-    requestWindowClose: async () => {
-      calls.push('close-window')
-      return options.quitResult ?? { ok: true }
-    },
     isExitAuthorized: () => options.exitAuthorized ?? false,
     platform: options.platform ?? 'win32',
     getWindowsClosePreference: () => options.closePreference ?? 'ask',
@@ -238,7 +234,7 @@ export function testRememberFailureReceiptPrecedesCurrentWindowsQuit(): void {
   )
 }
 
-export async function testMacCloseKeepsDockVisibleAndClosesOnlyWindow(): Promise<void> {
+export async function testMacCloseRequestsSafeApplicationQuit(): Promise<void> {
   const fixture = createPresenceFixture({ platform: 'darwin' })
   fixture.controller.initialize()
   fixture.controller.attachWindow(fixture.window)
@@ -247,9 +243,8 @@ export async function testMacCloseKeepsDockVisibleAndClosesOnlyWindow(): Promise
   await Promise.resolve()
 
   assert(event.prevented, 'macOS 关闭窗口前仍需完成可靠保存')
-  assert(fixture.calls.includes('close-window'), 'macOS 必须只关闭当前窗口')
-  assert(!fixture.calls.includes('quit'), 'macOS 关闭窗口不得退出应用')
-  assert(!fixture.calls.includes('dock:hide'), 'macOS 关闭窗口不得隐藏 Dock')
+  assert(fixture.calls.includes('quit'), 'macOS 红色关闭按钮必须进入与 Command+Q 相同的安全退出')
+  assert(!fixture.calls.includes('window:hide'), 'macOS 退出不得只隐藏窗口')
 }
 
 export async function testTrayFailureFallsBackToReliableClose(): Promise<void> {

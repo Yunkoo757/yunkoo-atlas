@@ -118,7 +118,6 @@ export interface WindowPresenceDependencies {
   getWindow(): PresenceWindow | null
   createTray(actions: PresenceTrayActions): PresenceTray
   requestQuit(): Promise<PresenceQuitResult>
-  requestWindowClose?(): Promise<PresenceQuitResult>
   isExitAuthorized(): boolean
   platform?: 'win32' | 'darwin'
   getWindowsClosePreference?(): WindowsClosePreference
@@ -138,9 +137,7 @@ export class WindowPresenceController {
     event.preventDefault()
 
     if (this.dependencies.platform === 'darwin') {
-      void this.requestCloseAndRecover(
-        this.dependencies.requestWindowClose ?? this.dependencies.requestQuit,
-      )
+      void this.requestQuitAndRecover()
       return
     }
 

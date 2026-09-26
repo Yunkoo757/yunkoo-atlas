@@ -278,7 +278,6 @@ function initializeWindowPresence(): void {
           buildMenu: (items) => Menu.buildFromTemplate([...items]),
         }),
         requestQuit: () => quitCoordinator.request('quit'),
-        requestWindowClose: () => quitCoordinator.request('close'),
         isExitAuthorized: () => gracefulExitAuthorized,
         platform: process.platform === 'darwin' ? 'darwin' : 'win32',
         getWindowsClosePreference: () => windowsClosePreference,
@@ -473,19 +472,6 @@ const quitCoordinator = new QuitCoordinator({
   commitExit(resolveIntent: () => QuitIntent, signal: AbortSignal, deadlineAt: number) {
     return commitStorageExit(signal, deadlineAt, async () => {
       const intent = resolveIntent()
-      if (intent === 'close' && process.platform === 'darwin') {
-        try {
-          assertExitWithinDeadline(signal, deadlineAt)
-          gracefulExitAuthorized = true
-          await waitForElectronTerminal(intent, signal, deadlineAt, () => {
-            for (const window of BrowserWindow.getAllWindows()) window.close()
-          })
-        } catch (error) {
-          gracefulExitAuthorized = false
-          throw error
-        }
-        return
-      }
       try {
         await disposeLifecycleServices()
         assertExitWithinDeadline(signal, deadlineAt)
@@ -603,7 +589,6 @@ function createWindow(): BrowserWindow {
 
   mainWindow.on('closed', () => {
     mainWindow = null
-    if (process.platform === 'darwin') gracefulExitAuthorized = false
   })
 
   return mainWindow
@@ -680,7 +665,7 @@ if (!hasSingleInstanceLock) {
         reportPersistenceError: (error) => reportWindowsClosePreferenceError(error, choice),
       })
     })
-    ipcMain.handle('app:request-close', () => quitCoordinator.request('close'))
+    ipcMain.handle('app:request-close', () => quitCoordinator.request(process.platform === 'darwin' ? 'quit' : 'close'))
     ipcMain.handle('app:toggle-fullscreen', () => {
       if (!mainWindow || mainWindow.isDestroyed()) return false
       const next = !mainWindow.isFullScreen()

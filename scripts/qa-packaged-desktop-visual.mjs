@@ -317,21 +317,23 @@ function record(id, pass, detail) {
   process.stdout.write(`${pass ? 'PASS' : 'FAIL'} ${id}: ${detail}\n`)
 }
 
+const launchOptions = {
+  executablePath,
+  args: [
+    `--user-data-dir=${userDataPath}`,
+    ...(requestedScaleFactor == null ? [] : [`--force-device-scale-factor=${requestedScaleFactor}`]),
+  ],
+  cwd: root,
+  env: {
+    ...process.env,
+    TRADER_ATLAS_LIBRARY: libraryPath,
+    ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
+  },
+  timeout: 30_000,
+}
+
 try {
-  application = await electron.launch({
-    executablePath,
-    args: [
-      `--user-data-dir=${userDataPath}`,
-      ...(requestedScaleFactor == null ? [] : [`--force-device-scale-factor=${requestedScaleFactor}`]),
-    ],
-    cwd: root,
-    env: {
-      ...process.env,
-      TRADER_ATLAS_LIBRARY: libraryPath,
-      ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
-    },
-    timeout: 30_000,
-  })
+  application = await electron.launch(launchOptions)
   launcherProcessId = application.process()?.pid ?? null
   mainProcessId = await application.evaluate(() => process.pid)
   page = await application.firstWindow({ timeout: 30_000 })
@@ -538,7 +540,8 @@ try {
       JSON.stringify({ commandShortcutLabel, quitMenuItem, menuHasCommandQuit, menuUsesProductName }),
     )
 
-    const closePage = page.waitForEvent('close', { timeout: 15_000 })
+    const closePage = page.waitForEvent('close', { timeout: 20_000 })
+    const closeExited = waitForProcessExit(application.process(), 20_000)
     await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close())
     await page.waitForTimeout(120).catch(() => {})
     const windowsCopyVisible = page.isClosed()
@@ -546,21 +549,27 @@ try {
       : await page.getByRole('dialog', { name: '关闭 Trader Atlas' }).isVisible().catch(() => false)
     record('mac-no-windows-copy', !windowsCopyVisible, 'Windows close explanation is absent')
     await closePage
-    const macCloseState = await application.evaluate(({ app, BrowserWindow }) => ({
-      ready: app.isReady(),
-      windowCount: BrowserWindow.getAllWindows().length,
-      hasDock: Boolean(app.dock),
-    }))
+    const macCloseExited = await closeExited
     record(
-      'mac-close-keeps-app',
-      macCloseState.ready && macCloseState.windowCount === 0 && macCloseState.hasDock,
-      JSON.stringify(macCloseState),
+      'mac-close-quits-app',
+      macCloseExited,
+      `red window close exited application=${macCloseExited}`,
     )
+    if (!macCloseExited) throw new Error('macOS red window close did not terminate the application')
 
-    const reopened = application.waitForEvent('window', { timeout: 15_000 })
-    await application.evaluate(({ app }) => { app.emit('activate') })
-    page = await reopened
+    application = await electron.launch(launchOptions)
+    launcherProcessId = application.process()?.pid ?? null
+    mainProcessId = await application.evaluate(() => process.pid)
+    page = await application.firstWindow({ timeout: 30_000 })
     await page.waitForLoadState('domcontentloaded')
+    await waitForUiHydration(page)
+    const libraryStatus = await page.evaluate(() => window.journalBridge?.getLibraryStatus())
+    const recoveryPageVisible = await page.getByText('已停止进入工作区，避免覆盖现有数据').isVisible().catch(() => false)
+    record(
+      'mac-relaunch-library-ready',
+      libraryStatus?.kind === 'ready' && !recoveryPageVisible,
+      `library status=${libraryStatus?.kind ?? 'unavailable'}; recovery page=${recoveryPageVisible}`,
+    )
     const child = application.process()
     // 主进程的安全退出合同最长 15 秒；留出终态事件传播余量后再判失败。
     const exited = waitForProcessExit(child, 20_000)
