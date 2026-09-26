@@ -542,7 +542,7 @@ try {
     const menuUsesProductName = quitMenuItem?.label.includes(packageJson.productName) === true
     record(
       'mac-command-labels',
-      commandShortcutLabel?.includes('⌘K') === true && menuHasCommandQuit && menuUsesProductName,
+      commandShortcutLabel?.includes('当前快捷键') === true && menuHasCommandQuit && menuUsesProductName,
       JSON.stringify({ commandShortcutLabel, quitMenuItem, menuHasCommandQuit, menuUsesProductName }),
     )
 
