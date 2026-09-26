@@ -209,7 +209,7 @@ async function collectTypographyEvidence(page, nativePlatform) {
       body: pickStyle(document.body),
       row: pickStyle(document.querySelector('.trade-row')),
       primary: pickStyle(document.querySelector('.trade-row-symbol strong')),
-      metadata: pickStyle(document.querySelector('.trade-list-column')),
+      metadata: pickStyle(document.querySelector('.trade-row-timeframe')),
       group: pickStyle(group.querySelector('strong')),
       probes: Object.fromEntries(Object.entries(selectors).map(([id, selector]) => [
         id,

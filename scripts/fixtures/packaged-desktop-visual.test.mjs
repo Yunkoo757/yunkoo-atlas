@@ -498,6 +498,7 @@ test('macOS packaged evidence uses native display, shortcut settings, and menu q
   assert.match(source, /Math\.abs\(dpr - runtime\.displayScaleFactor\)/)
   assert.match(source, /#\/settings\/shortcuts/)
   assert.match(source, /getDefaultRoleAccelerator/)
+  assert.match(source, /metadata: pickStyle\(document\.querySelector\('\.trade-row-timeframe'\)\)/)
   assert.match(source, /app\.quit\(\)/)
   assert.match(source, /\.save-status\.is-dirty/)
   assert.match(source, /requestedViewport: viewport/)
