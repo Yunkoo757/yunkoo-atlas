@@ -510,6 +510,11 @@ test('macOS packaged evidence uses native display, shortcut settings, and menu q
 
 test('packaged visual waits for hydrated UI before routing the first scenario', () => {
   const source = readFileSync('scripts/qa-packaged-desktop-visual.mjs', 'utf8')
+  const afterCreate = source.slice(source.indexOf('const created = await page.evaluate'))
+  assert.ok(afterCreate.indexOf('await bridge.storageOpen()') < afterCreate.indexOf('bridge.commitImport('),
+    'creating a library must establish a storage writer before fixture import')
+  assert.ok(afterCreate.indexOf('await bridge.loadSnapshot()') < afterCreate.indexOf('bridge.commitImport('),
+    'fixture import must use the opened library revision')
   const afterReload = source.slice(source.indexOf("await page.reload({ waitUntil: 'domcontentloaded'"))
   const hydration = afterReload.indexOf('await waitForUiHydration(page)')
   const scenarioLoop = afterReload.indexOf('for (const viewport of DESKTOP_VISUAL_VIEWPORTS)')

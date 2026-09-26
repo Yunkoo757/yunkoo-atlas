@@ -392,8 +392,14 @@ try {
 
   const created = await page.evaluate((path) => window.journalBridge?.createNewLibrary(path), libraryPath)
   if (!created?.ok) throw new Error(`Unable to create isolated packaged library: ${created?.error ?? 'unknown'}`)
-  const imported = await page.evaluate(
-    (snapshot) => window.journalBridge?.commitImport(snapshot, [], { pruneUnreferenced: true }),
+  const imported = await page.evaluate(async (snapshot) => {
+    const bridge = window.journalBridge
+    if (!bridge) throw new Error('Packaged visual Electron bridge is unavailable')
+    // 切换资料库后先建立写入会话和 revision，再导入隔离样例。
+    await bridge.storageOpen()
+    await bridge.loadSnapshot()
+    return bridge.commitImport(snapshot, [], { pruneUnreferenced: true })
+  },
     createDesktopVisualSnapshot(),
   )
   if (!imported) throw new Error('Unable to import packaged desktop visual fixture')
