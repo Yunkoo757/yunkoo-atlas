@@ -479,7 +479,10 @@ function Shell() {
   const [cmdkOpen, setCmdkOpen] = useState(false)
   const [cmdkReturnFocus, setCmdkReturnFocus] = useState<HTMLElement | null>(null)
   const location = useLocation()
+  const navigate = useNavigate()
   const setCmdkOpenStore = useShortcutStore((s) => s.setCmdkOpen)
+
+  useEffect(() => window.journalBridge?.onTrayNavigate((destination) => navigate(destination)), [navigate])
 
   const toggleCmdk = useCallback(() => {
     setCmdkReturnFocus(null)

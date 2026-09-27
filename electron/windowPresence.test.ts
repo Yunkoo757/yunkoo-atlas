@@ -13,12 +13,14 @@ function assert(condition: unknown, message: string): void {
 
 interface FixtureWindow extends PresenceWindow {
   emitClose(): { prevented: boolean }
+  emitVisibility(event: 'show' | 'hide' | 'minimize' | 'restore'): void
 }
 
 interface PresenceFixture {
   calls: string[]
   controller: WindowPresenceController
   window: FixtureWindow
+  menuStates: boolean[]
 }
 
 function createPresenceFixture(options: {
@@ -33,11 +35,13 @@ function createPresenceFixture(options: {
   closePreference?: 'ask' | 'tray' | 'quit'
 } = {}): PresenceFixture {
   const calls: string[] = []
+  const menuStates: boolean[] = []
   let visible = options.visible ?? true
   let focused = options.focused ?? true
   let minimized = options.minimized ?? false
   let currentWindow: FixtureWindow | null = null
   let closeListener: ((event: PresenceWindowCloseEvent) => void) | null = null
+  const visibilityListeners = new Map<string, () => void>()
   const window: FixtureWindow = {
     isVisible: () => visible,
     isFocused: () => focused,
@@ -60,11 +64,20 @@ function createPresenceFixture(options: {
       visible = false
       focused = false
     },
-    on: (_event, listener) => {
-      closeListener = listener
+    on: (event, listener) => {
+      if (event === 'close') closeListener = listener as (event: PresenceWindowCloseEvent) => void
+      else visibilityListeners.set(event, listener as () => void)
     },
-    removeListener: (_event, listener) => {
-      if (closeListener === listener) closeListener = null
+    removeListener: (event, listener) => {
+      if (event === 'close' && closeListener === listener) closeListener = null
+      else if (visibilityListeners.get(event) === listener) visibilityListeners.delete(event)
+    },
+    emitVisibility: (event) => {
+      if (event === 'minimize') minimized = true
+      if (event === 'restore') minimized = false
+      if (event === 'show') visible = true
+      if (event === 'hide') visible = false
+      visibilityListeners.get(event)?.()
     },
     emitClose: () => {
       let prevented = false
@@ -88,7 +101,7 @@ function createPresenceFixture(options: {
       calls.push('tray:create')
       if (options.trayFailure) throw new Error('tray unavailable')
       return {
-        refreshMenu: () => {},
+        refreshMenu: (windowVisible) => { menuStates.push(windowVisible) },
         dispose: () => {
           calls.push('tray:dispose')
         },
@@ -110,7 +123,20 @@ function createPresenceFixture(options: {
     calls,
     controller,
     window,
+    menuStates,
   }
+}
+
+export function testNativeVisibilityChangesRefreshTrayActions(): void {
+  const fixture = createPresenceFixture()
+  fixture.controller.initialize()
+  fixture.controller.attachWindow(fixture.window)
+  fixture.window.emitVisibility('minimize')
+  fixture.window.emitVisibility('restore')
+  fixture.window.emitVisibility('hide')
+  fixture.window.emitVisibility('show')
+  assert(fixture.menuStates.join('|') === 'true|false|true|false|true', '系统最小化、恢复和显示状态变化必须同步托盘主操作')
+  fixture.controller.dispose()
 }
 
 export function testFocusedWindowTogglesToHiddenWithoutQuit(): void {
@@ -313,6 +339,7 @@ export function testElectronTrayFactoryUsesInjectedMenuAndTrayBoundaries(): void
       menuItems = [...items]
       return { items }
     },
+    openDestination: (destination) => { calls.push(`destination:${destination}`) },
   })
   const tray = createTray({
     toggle: () => { calls.push('action:toggle') },
@@ -323,18 +350,22 @@ export function testElectronTrayFactoryUsesInjectedMenuAndTrayBoundaries(): void
 
   clickListener.current?.()
   tray.refreshMenu(true)
-  const showItem = menuItems.find((item) => item.label === '显示 Trader Atlas')
-  const hideItem = menuItems.find((item) => item.label === '隐藏 Trader Atlas')
-  const quitItem = menuItems.find((item) => item.label === '彻底退出 Trader Atlas')
-  assert(showItem?.enabled === false && hideItem?.enabled === true, '菜单状态必须反映当前窗口可见性')
-  showItem?.click?.()
+  const hideItem = menuItems.find((item) => item.label === '隐藏主窗口')
+  const quitItem = menuItems.find((item) => item.label === '退出 Trader Atlas')
+  const destinations = ['交易日志', '统计分析', '设置…']
+  assert(menuItems.map((item) => item.label ?? '|').join('|') === '隐藏主窗口|||交易日志|统计分析|设置…|||退出 Trader Atlas', '菜单只展示当前可执行的窗口操作及分组快捷入口')
   hideItem?.click?.()
+  for (const label of destinations) menuItems.find((item) => item.label === label)?.click?.()
   quitItem?.click?.()
+  tray.refreshMenu(false)
+  const showItem = menuItems.find((item) => item.label === '打开 Trader Atlas')
+  assert(Boolean(showItem) && !menuItems.some((item) => item.enabled === false), '隐藏窗口时只提供可执行的打开操作，不应留灰色菜单项')
+  showItem?.click?.()
   tray.dispose()
 
   assert(
     calls.join('|') ===
-      'action:toggle|tray:menu|action:show|action:hide|action:quit|tray:destroy',
+      'action:toggle|tray:menu|action:hide|action:show|destination:/list|action:show|destination:/dashboard|action:show|destination:/settings|action:quit|tray:menu|action:show|tray:destroy',
     '托盘适配器必须通过注入边界连接点击、菜单与释放动作',
   )
 }
@@ -383,6 +414,7 @@ export function testFailedInitialTrayMenuIsDisposedBeforeCleanRetry(): void {
         }
         return {}
       },
+      openDestination: () => {},
     })
     const controller = new WindowPresenceController({
       ensureWindow: () => window,

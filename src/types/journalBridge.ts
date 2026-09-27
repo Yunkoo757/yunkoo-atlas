@@ -115,6 +115,8 @@ export type LibraryLocationState =
   | { kind: 'invalid'; configuredPath: string; reason: string }
   | { kind: 'needs-recovery'; configuredPath: string; reason: string }
 
+export type TrayDestination = '/list' | '/dashboard' | '/settings'
+
 export interface JournalBridge {
   outputImage?: (action: 'copy' | 'save', bytes: Uint8Array) => Promise<boolean>
   isElectron: true
@@ -125,6 +127,7 @@ export interface JournalBridge {
   onStorageRecoveryRequired(callback: (state: StorageRecoveryRequiredState) => void): () => void
   onWindowsCloseExplanation(callback: () => void): () => void
   onWindowsClosePreferenceError(callback: (message: string) => void): () => void
+  onTrayNavigate(callback: (destination: TrayDestination) => void): () => void
   resolveWindowsClose(choice: WindowsCloseChoice, remember: boolean): Promise<void>
   getWindowsClosePreference(): Promise<WindowsClosePreference>
   setWindowsClosePreference(preference: WindowsClosePreference): Promise<WindowsClosePreference>

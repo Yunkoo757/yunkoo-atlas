@@ -349,11 +349,16 @@ export async function testDarwinTrayUsesPackagedTransparentTemplateAsset(): Prom
     assert(info.width === expectedSizes[index] && info.height === expectedSizes[index], '托盘 PNG 尺寸必须为 18px/@2x')
     const alpha = data.filter((_value, offset) => offset % 4 === 3)
     assert(alpha.some((value) => value === 0) && alpha.some((value) => value > 0), '托盘 PNG 必须同时包含透明背景和非空图形')
+    const pixelAlpha = (x: number, y: number) => data[(y * info.width + x) * 4 + 3]
+    const scale = expectedSizes[index] / 18
+    assert(pixelAlpha(9 * scale, 9 * scale) === 0, '菜单栏品牌环形标记中心必须保持透明，不能退化成实心方块')
+    assert(pixelAlpha(13 * scale, 5 * scale) > 0, '菜单栏品牌标记必须包含右上角识别点')
   }
   assert(
     main.includes("'trayTemplate.png'") && main.includes('setTemplateImage(true)') &&
+      main.includes('image.addRepresentation({ scaleFactor: 2') &&
       pkg.includes('build/trayTemplate@2x.png'),
-    'Darwin 托盘必须使用打包的 18px/@2x 透明单色 template 资产',
+    'Darwin 托盘必须同时加载打包的 18px/@2x 透明单色 template 资产',
   )
 }
 

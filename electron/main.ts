@@ -133,17 +133,21 @@ function getWindowIconPath(): string | undefined {
 
 function getTrayImage(): Electron.NativeImage {
   const iconPath = process.platform === 'darwin'
-    ? (app.isPackaged
-        ? path.join(process.resourcesPath, 'trayTemplate.png')
-        : path.join(process.cwd(), 'build', 'trayTemplate.png'))
+    ? path.join(app.isPackaged ? process.resourcesPath : path.join(process.cwd(), 'build'), 'trayTemplate.png')
     : getWindowIconPath()
   if (!iconPath) throw new Error('找不到托盘图标')
   const image = nativeImage.createFromPath(iconPath)
   if (image.isEmpty()) throw new Error('托盘图标为空')
-  const size = process.platform === 'darwin' ? 18 : 16
-  const trayImage = image.resize({ width: size, height: size, quality: 'best' })
+  if (process.platform === 'darwin') {
+    const retinaPath = iconPath.replace(/\.png$/, '@2x.png')
+    const retinaImage = nativeImage.createFromPath(retinaPath)
+    if (retinaImage.isEmpty()) throw new Error('托盘高清图标为空')
+    image.addRepresentation({ scaleFactor: 2, dataURL: retinaImage.toDataURL() })
+    image.setTemplateImage(true)
+    return image
+  }
+  const trayImage = image.resize({ width: 16, height: 16, quality: 'best' })
   if (trayImage.isEmpty()) throw new Error('托盘图标缩放失败')
-  if (process.platform === 'darwin') trayImage.setTemplateImage(true)
   return trayImage
 }
 
@@ -276,6 +280,14 @@ function initializeWindowPresence(): void {
             }
           },
           buildMenu: (items) => Menu.buildFromTemplate([...items]),
+          openDestination: (destination) => {
+            const contents = ensureMainWindow().webContents
+            const send = () => {
+              if (!contents.isDestroyed()) contents.send('app:tray-navigate', destination)
+            }
+            if (contents.isLoadingMainFrame()) contents.once('did-finish-load', send)
+            else send()
+          },
         }),
         requestQuit: () => quitCoordinator.request('quit'),
         isExitAuthorized: () => gracefulExitAuthorized,

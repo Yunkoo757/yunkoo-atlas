@@ -1,12 +1,20 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AppUpdateState } from '../src/lib/appUpdate'
-import type { JournalBridge, StorageRecoveryRequiredState } from '../src/types/journalBridge'
+import type { JournalBridge, StorageRecoveryRequiredState, TrayDestination } from '../src/types/journalBridge'
 import type { WindowsClosePreference } from '../src/types/journalBridge'
 import { AsyncGeneration } from '../src/lib/asyncGeneration'
 
 const closeFlushGeneration = new AsyncGeneration()
 let storageWriterToken: string | null = null
 let storageSnapshotRevision = 0
+let pendingTrayDestination: TrayDestination | null = null
+let trayNavigationListener: ((destination: TrayDestination) => void) | null = null
+
+ipcRenderer.on('app:tray-navigate', (_event, destination: unknown) => {
+  if (destination !== '/list' && destination !== '/dashboard' && destination !== '/settings') return
+  if (trayNavigationListener) trayNavigationListener(destination)
+  else pendingTrayDestination = destination
+})
 
 function requireStorageWriterToken(): string {
   if (!storageWriterToken) throw new Error('资料库写入会话尚未建立，请重新打开资料库')
@@ -85,6 +93,16 @@ const bridge: JournalBridge = {
     const listener = (_event: Electron.IpcRendererEvent, message: string) => callback(message)
     ipcRenderer.on('app:windows-close-preference-error', listener)
     return () => ipcRenderer.removeListener('app:windows-close-preference-error', listener)
+  },
+  onTrayNavigate: (callback) => {
+    trayNavigationListener = callback
+    if (pendingTrayDestination) {
+      callback(pendingTrayDestination)
+      pendingTrayDestination = null
+    }
+    return () => {
+      if (trayNavigationListener === callback) trayNavigationListener = null
+    }
   },
   resolveWindowsClose: (choice, remember) =>
     ipcRenderer.invoke('app:resolve-windows-close', { choice, remember }),

@@ -1,3 +1,5 @@
+import type { TrayDestination } from '../src/types/journalBridge'
+
 export interface PresenceWindowCloseEvent {
   preventDefault(): void
 }
@@ -12,7 +14,9 @@ export interface PresenceWindow {
   focus(): void
   hide(): void
   on(event: 'close', listener: (event: PresenceWindowCloseEvent) => void): void
+  on(event: 'show' | 'hide' | 'minimize' | 'restore', listener: () => void): void
   removeListener(event: 'close', listener: (event: PresenceWindowCloseEvent) => void): void
+  removeListener(event: 'show' | 'hide' | 'minimize' | 'restore', listener: () => void): void
 }
 
 export interface PresenceTray {
@@ -43,6 +47,7 @@ export interface ElectronTrayAdapter {
 export interface ElectronTrayFactoryDependencies {
   createTray(): ElectronTrayAdapter
   buildMenu(items: readonly ElectronTrayMenuItem[]): unknown
+  openDestination(destination: TrayDestination): void
 }
 
 export type PresenceTrayFactory = (actions: PresenceTrayActions) => PresenceTray
@@ -57,18 +62,24 @@ export function createElectronTrayFactory(
       refreshMenu(windowVisible) {
         tray.setContextMenu(dependencies.buildMenu([
           {
-            label: '显示 Trader Atlas',
-            enabled: !windowVisible,
-            click: actions.show,
-          },
-          {
-            label: '隐藏 Trader Atlas',
-            enabled: windowVisible,
-            click: actions.hide,
+            label: windowVisible ? '隐藏主窗口' : '打开 Trader Atlas',
+            click: windowVisible ? actions.hide : actions.show,
           },
           { type: 'separator' },
+          ...([
+            ['/list', '交易日志'],
+            ['/dashboard', '统计分析'],
+            ['/settings', '设置…'],
+          ] as const).map(([destination, label]) => ({
+            label,
+            click: () => {
+              actions.show()
+              dependencies.openDestination(destination)
+            },
+          })),
+          { type: 'separator' },
           {
-            label: '彻底退出 Trader Atlas',
+            label: '退出 Trader Atlas',
             click: actions.quit,
           },
         ]))
@@ -132,6 +143,8 @@ export class WindowPresenceController {
   private attachedWindow: PresenceWindow | null = null
   private disposed = false
   private windowsCloseExplanationPending = false
+  private readonly visibilityListener = (): void => { this.refreshTrayMenu() }
+  private readonly visibilityEvents = ['show', 'hide', 'minimize', 'restore'] as const
   private readonly closeListener = (event: PresenceWindowCloseEvent): void => {
     if (this.dependencies.isExitAuthorized()) return
     event.preventDefault()
@@ -193,9 +206,13 @@ export class WindowPresenceController {
     if (this.disposed) return
     if (this.attachedWindow === window) return
     this.attachedWindow?.removeListener('close', this.closeListener)
+    for (const event of this.visibilityEvents) {
+      this.attachedWindow?.removeListener(event, this.visibilityListener)
+    }
     this.attachedWindow = window
     this.windowsCloseExplanationPending = false
     window.on('close', this.closeListener)
+    for (const event of this.visibilityEvents) window.on(event, this.visibilityListener)
   }
 
   show(): void {
@@ -232,6 +249,9 @@ export class WindowPresenceController {
     this.tray?.dispose()
     this.disposed = true
     this.attachedWindow?.removeListener('close', this.closeListener)
+    for (const event of this.visibilityEvents) {
+      this.attachedWindow?.removeListener(event, this.visibilityListener)
+    }
     this.attachedWindow = null
     this.tray = null
   }
@@ -239,7 +259,7 @@ export class WindowPresenceController {
   private refreshTrayMenu(windowVisible?: boolean, recoverWindow = true): boolean {
     const window = this.dependencies.getWindow()
     try {
-      this.tray?.refreshMenu(windowVisible ?? Boolean(window && !window.isDestroyed() && window.isVisible()))
+      this.tray?.refreshMenu(windowVisible ?? Boolean(window && !window.isDestroyed() && window.isVisible() && !window.isMinimized()))
       return true
     } catch (error) {
       const tray = this.tray
