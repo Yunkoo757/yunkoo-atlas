@@ -50,6 +50,7 @@ async function run(): Promise<void> {
         isElectron: true,
         platform: 'darwin',
         getWindowState: async () => null,
+        getWindowsClosePreference: async () => 'ask',
         getAutoLaunchState: async () => state,
         setAutoLaunchEnabled: async (enabled: boolean) => {
           writes.push(enabled)
