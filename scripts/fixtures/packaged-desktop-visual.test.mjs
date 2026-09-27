@@ -478,6 +478,7 @@ test('platform check plans demand direct native lifecycle evidence', () => {
     'native-file-picker',
     'save-error-recovery',
     'mac-command-labels',
+    'mac-close-preferences',
     'mac-close-quits-app',
     'mac-relaunch-library-ready',
     'mac-no-windows-copy',

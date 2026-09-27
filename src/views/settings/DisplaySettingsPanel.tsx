@@ -59,8 +59,8 @@ const WINDOWS_CLOSE_OPTIONS: {
   label: string
   description: string
 }[] = [
-  { value: 'ask', label: '每次询问', description: '首次关闭时说明差异并让你选择' },
-  { value: 'tray', label: '隐藏到系统托盘', description: '关闭主窗口后继续保护和自动备份资料库' },
+  { value: 'ask', label: '每次询问', description: '每次点击关闭按钮时选择隐藏或退出' },
+  { value: 'tray', label: '隐藏主窗口', description: '软件继续运行，保留当前页面并自动保存' },
   { value: 'quit', label: '彻底退出', description: '安全保存完成后结束 Trader Atlas' },
 ]
 
@@ -69,7 +69,6 @@ export function DisplaySettingsPanel() {
   const setDisplay = useStore((s) => s.setDisplay)
   const electron = isElectron()
   const bridge = getJournalBridge()
-  const windows = electron && bridge?.platform === 'win32'
   const [windowState, setWindowState] = useState<WindowFrameState | null>(null)
   const [windowsClosePreference, setWindowsClosePreference] =
     useState<WindowsClosePreference>('ask')
@@ -107,13 +106,13 @@ export function DisplaySettingsPanel() {
   }, [electron])
 
   useEffect(() => {
-    if (!windows || !bridge) return
+    if (!electron || !bridge) return
     let cancelled = false
     void bridge.getWindowsClosePreference().then((preference) => {
       if (!cancelled) setWindowsClosePreference(preference)
     })
     return () => { cancelled = true }
-  }, [bridge, windows])
+  }, [bridge, electron])
 
   const loadAutoLaunchState = async () => {
     if (!bridge) return
@@ -336,7 +335,7 @@ export function DisplaySettingsPanel() {
           </section>
         ) : null}
 
-        {windows ? (
+        {electron ? (
           <ChoiceSection
             title="关闭主窗口"
             options={WINDOWS_CLOSE_OPTIONS}

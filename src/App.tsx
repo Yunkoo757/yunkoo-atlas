@@ -202,21 +202,23 @@ export function WindowsClosePrompt({
   return (
     <ModalShell
       title="关闭 Trader Atlas"
-      description="选择关闭主窗口后软件在 Windows 中的行为。"
+      description="选择点击窗口关闭按钮后的行为。"
       size="compact"
       dismissible={false}
       onClose={() => {}}
       footer={(
         <>
           <Button variant="bordered" onClick={() => onChoose('quit')}>彻底退出</Button>
-          <Button data-autofocus variant="primary" onClick={() => onChoose('tray')}>隐藏到托盘</Button>
+          <Button data-autofocus variant="primary" onClick={() => onChoose('tray')}>隐藏主窗口</Button>
         </>
       )}
     >
       <InlineStatus
         tone="info"
         title="隐藏后仍会继续保护和自动备份本地资料库"
-        detail="你可以从系统托盘重新打开；选择彻底退出会先完成安全保存。"
+        detail={window.journalBridge?.platform === 'darwin'
+          ? '可从菜单栏图标或 Dock 重新打开；Command+Q 始终安全退出。'
+          : '可从系统托盘重新打开；选择彻底退出会先完成安全保存。'}
       />
       <label className="app-windows-close-remember">
         <input
@@ -912,6 +914,30 @@ export function App() {
     }
   }, [])
 
+  const closingUi = (
+    <>
+      <CloseSaveReceipt
+        state={closeSaveState}
+        onDismiss={() => setCloseSaveState({ phase: 'idle' })}
+        onRetry={() => {
+          const bridge = window.journalBridge
+          if (bridge?.requestClose) void bridge.requestClose()
+        }}
+      />
+      {windowsClosePromptOpen ? (
+        <WindowsClosePrompt
+          remember={rememberWindowsClose}
+          onRememberChange={setRememberWindowsClose}
+          onChoose={(choice) => {
+            setWindowsClosePromptOpen(false)
+            const bridge = window.journalBridge
+            if (bridge) void bridge.resolveWindowsClose(choice, rememberWindowsClose)
+          }}
+        />
+      ) : null}
+    </>
+  )
+
   if (storageError) {
     return (
       <div className="app-storage-error">
@@ -973,12 +999,13 @@ export function App() {
             </div>
           )}
         />
+        {closingUi}
       </div>
     )
   }
 
   if (needsWelcome) {
-    return <WelcomeScreen onReady={handleWelcomeReady} />
+    return <><WelcomeScreen onReady={handleWelcomeReady} />{closingUi}</>
   }
 
   if (!ready) {
@@ -986,6 +1013,7 @@ export function App() {
       <div className="app-loading" role="status" aria-live="polite">
         <LoadingIndicator size={ICON_XL} aria-hidden />
         <span>加载资料库…</span>
+        {closingUi}
       </div>
     )
   }
@@ -996,25 +1024,7 @@ export function App() {
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Shell />
       </Router>
-      <CloseSaveReceipt
-        state={closeSaveState}
-        onDismiss={() => setCloseSaveState({ phase: 'idle' })}
-        onRetry={() => {
-          const bridge = window.journalBridge
-          if (bridge?.requestClose) void bridge.requestClose()
-        }}
-      />
-      {windowsClosePromptOpen ? (
-        <WindowsClosePrompt
-          remember={rememberWindowsClose}
-          onRememberChange={setRememberWindowsClose}
-          onChoose={(choice) => {
-            setWindowsClosePromptOpen(false)
-            const bridge = window.journalBridge
-            if (bridge) void bridge.resolveWindowsClose(choice, rememberWindowsClose)
-          }}
-        />
-      ) : null}
+      {closingUi}
       {!isElectron() ? <WebStorageGuard /> : null}
     </>
   )

@@ -261,7 +261,7 @@ export function testRememberFailureReceiptPrecedesCurrentWindowsQuit(): void {
 }
 
 export async function testMacCloseRequestsSafeApplicationQuit(): Promise<void> {
-  const fixture = createPresenceFixture({ platform: 'darwin' })
+  const fixture = createPresenceFixture({ platform: 'darwin', closePreference: 'quit' })
   fixture.controller.initialize()
   fixture.controller.attachWindow(fixture.window)
 
@@ -269,8 +269,29 @@ export async function testMacCloseRequestsSafeApplicationQuit(): Promise<void> {
   await Promise.resolve()
 
   assert(event.prevented, 'macOS 关闭窗口前仍需完成可靠保存')
-  assert(fixture.calls.includes('quit'), 'macOS 红色关闭按钮必须进入与 Command+Q 相同的安全退出')
+  assert(fixture.calls.includes('quit'), 'macOS 选择退出后关闭按钮必须安全退出')
   assert(!fixture.calls.includes('window:hide'), 'macOS 退出不得只隐藏窗口')
+}
+
+export function testMacCloseAsksAndCanHideWithoutClosingStorage(): void {
+  const fixture = createPresenceFixture({ platform: 'darwin', closePreference: 'ask' })
+  fixture.controller.initialize()
+  fixture.controller.attachWindow(fixture.window)
+  assert(fixture.window.emitClose().prevented, '未选择前不得销毁窗口')
+  assert(fixture.calls.includes('close:explain') && !fixture.calls.includes('quit'), 'macOS 首次关闭应询问')
+  fixture.controller.resolveWindowsClose('tray')
+  assert(fixture.calls.includes('window:hide') && !fixture.calls.includes('quit'), '隐藏不得进入关闭资料库的退出事务')
+  assert(!fixture.calls.includes('dock:hide'), 'macOS 隐藏窗口后保留 Dock 恢复入口')
+  fixture.controller.show()
+  assert(fixture.calls.includes('window:show'), '隐藏后能恢复原窗口')
+}
+
+export function testMacRememberedHideSkipsPrompt(): void {
+  const fixture = createPresenceFixture({ platform: 'darwin', closePreference: 'tray' })
+  fixture.controller.initialize()
+  fixture.controller.attachWindow(fixture.window)
+  fixture.window.emitClose()
+  assert(fixture.calls.includes('window:hide') && !fixture.calls.includes('close:explain') && !fixture.calls.includes('quit'), 'macOS 必须尊重已保存的隐藏偏好')
 }
 
 export async function testTrayFailureFallsBackToReliableClose(): Promise<void> {

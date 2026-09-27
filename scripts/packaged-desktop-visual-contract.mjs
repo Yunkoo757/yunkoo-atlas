@@ -39,6 +39,7 @@ const REQUIRED_PLATFORM_CHECKS = Object.freeze({
     'native-file-picker',
     'save-error-recovery',
     'mac-command-labels',
+    'mac-close-preferences',
     'mac-close-quits-app',
     'mac-relaunch-library-ready',
     'mac-no-windows-copy',

@@ -45,7 +45,7 @@ async function run(): Promise<void> {
   const dialog = document.querySelector<HTMLElement>('[role="dialog"]')
   const remember = document.querySelector<HTMLInputElement>('input[type="checkbox"]')
   const hide = [...document.querySelectorAll<HTMLButtonElement>('button')]
-    .find((button) => button.textContent?.trim() === '隐藏到托盘')
+    .find((button) => button.textContent?.trim() === '隐藏主窗口')
   const quit = [...document.querySelectorAll<HTMLButtonElement>('button')]
     .find((button) => button.textContent?.trim() === '彻底退出')
   assert(dialog && remember && hide && quit, '关闭说明必须提供完整选择与记住选项')
@@ -61,6 +61,21 @@ async function run(): Promise<void> {
   assert(selectedChoice === 'tray' && selectedRemember, '必须提交选择及记住状态')
 
   root.unmount()
+  const originalBridge = Object.getOwnPropertyDescriptor(window, 'journalBridge')
+  const macRoot = createRoot(rootElement)
+  try {
+    Object.defineProperty(window, 'journalBridge', { configurable: true, value: { platform: 'darwin' } })
+    macRoot.render(<Harness />)
+    await nextFrame()
+    await nextFrame()
+    const copy = document.querySelector('[role="dialog"]')?.textContent ?? ''
+    assert(copy.includes('Dock') && copy.includes('Command+Q'), 'macOS 必须说明 Dock 恢复及显式退出入口')
+    assert(!copy.includes('Windows') && !copy.includes('系统托盘'), 'macOS 不显示 Windows 专用说明')
+  } finally {
+    macRoot.unmount()
+    if (originalBridge) Object.defineProperty(window, 'journalBridge', originalBridge)
+    else Reflect.deleteProperty(window, 'journalBridge')
+  }
 }
 
 window.__windowsClosePromptBrowserTest = run()

@@ -660,7 +660,7 @@ if (!hasSingleInstanceLock) {
       return result
     })
     ipcMain.handle('app:resolve-windows-close', (_event, input: unknown) => {
-      if (process.platform !== 'win32' || !input || typeof input !== 'object') return
+      if (!input || typeof input !== 'object') return
       const request = input as { choice?: unknown; remember?: unknown }
       const choice: WindowsCloseChoice | null = request.choice === 'tray' || request.choice === 'quit'
         ? request.choice

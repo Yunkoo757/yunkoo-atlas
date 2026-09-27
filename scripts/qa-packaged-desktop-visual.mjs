@@ -515,7 +515,7 @@ try {
     const closePrompt = page.getByRole('dialog', { name: '关闭 Trader Atlas' })
     await closePrompt.waitFor({ state: 'visible', timeout: 10_000 })
     record('windows-close-explanation', await closePrompt.isVisible(), 'first-close choice is visible')
-    await closePrompt.getByRole('button', { name: '隐藏到托盘' }).click()
+    await closePrompt.getByRole('button', { name: '隐藏主窗口' }).click()
     await page.waitForTimeout(250)
     const hidden = await application.evaluate(
       ({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isVisible() === false,
@@ -546,6 +546,22 @@ try {
       JSON.stringify({ commandShortcutLabel, quitMenuItem, menuHasCommandQuit, menuUsesProductName }),
     )
 
+    await page.evaluate(() => window.journalBridge.setWindowsClosePreference('ask'))
+    await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close())
+    const closeChoice = page.getByRole('dialog', { name: '关闭 Trader Atlas' })
+    await closeChoice.waitFor({ state: 'visible', timeout: 10_000 })
+    const hasMacCopy = (await closeChoice.innerText()).includes('Command+Q')
+    await closeChoice.getByRole('button', { name: '隐藏主窗口' }).click()
+    await page.waitForTimeout(250)
+    const hiddenByChoice = await application.evaluate(({ BrowserWindow }) => !BrowserWindow.getAllWindows()[0]?.isVisible())
+    await application.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0]
+      window?.show()
+      window?.focus()
+    })
+    const statusAfterHide = await page.evaluate(() => window.journalBridge.getLibraryStatus())
+    record('mac-close-preferences', hasMacCopy && hiddenByChoice && statusAfterHide.kind === 'ready', 'close asks; hide preserves the library and recoverable window')
+    await page.evaluate(() => window.journalBridge.setWindowsClosePreference('quit'))
     const closePage = page.waitForEvent('close', { timeout: 20_000 })
     const closeExited = waitForProcessExit(application.process(), 20_000)
     await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close())
@@ -559,7 +575,7 @@ try {
     record(
       'mac-close-quits-app',
       macCloseExited,
-      `red window close exited application=${macCloseExited}`,
+      `explicit quit preference exited application=${macCloseExited}`,
     )
     if (!macCloseExited) throw new Error('macOS red window close did not terminate the application')
 

@@ -149,11 +149,6 @@ export class WindowPresenceController {
     if (this.dependencies.isExitAuthorized()) return
     event.preventDefault()
 
-    if (this.dependencies.platform === 'darwin') {
-      void this.requestQuitAndRecover()
-      return
-    }
-
     const preference = this.dependencies.getWindowsClosePreference?.() ?? 'tray'
     if (preference === 'ask' && this.dependencies.explainWindowsClose) {
       if (!this.windowsCloseExplanationPending) {
