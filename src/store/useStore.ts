@@ -1,6 +1,9 @@
+import { toast } from '@/lib/toast'
 import { emptyJudgmentDesk, assertJudgmentDesk } from '@/lib/judgment/model'
 import { emptyComposerData } from '@/lib/reviewComposer/model'
 import { previewHistoricalRiskBackfill, historicalRiskFingerprint, type HistoricalRiskInput, type HistoricalRiskPreview } from '@/lib/historicalRiskBackfill'
+import type { BacktestProject } from '@/lib/backtestProjects'
+import { isBacktestProject } from '@/lib/backtestProjects'
 import { create } from 'zustand'
 import {
   isReviewCompleted,
@@ -285,7 +288,7 @@ function freezeUpsertedClosedTradingDay(
 }
 
 function withoutLiveStageForPaper(trade: Trade): Trade {
-  if (trade.tradeKind !== 'paper') return trade
+  if (trade.tradeKind !== 'paper' && trade.tradeKind !== 'backtest') return trade
   const { liveStageId: _liveStageId, ...paper } = trade as Trade & { liveStageId?: unknown }
   return paper as Trade
 }
@@ -297,8 +300,9 @@ function prepareTradeUpsert(
   tradingDayStartHour: number,
 ): { trade: Trade; strategies: Strategy[]; symbolCatalog: string[] } | null {
   if (previousTrade && (trade.tradeKind ?? 'live') !== previousTrade.tradeKind) return null
+  if (previousTrade?.tradeKind === 'backtest' && (previousTrade.backtestProjectId !== trade.backtestProjectId || previousTrade.symbol !== trade.symbol)) return null
   trade = withoutLiveStageForPaper(trade)
-  if (previousTrade && previousTrade.tradeKind !== 'paper' && trade.tradeKind !== 'paper') {
+  if (previousTrade && (previousTrade.tradeKind === 'live' || previousTrade.tradeKind === 'case') && (trade.tradeKind === 'live' || trade.tradeKind === 'case')) {
     trade = { ...trade, liveStageId: previousTrade.liveStageId }
   }
   const strategies = s.strategies.length > 0 ? s.strategies : createDefaultStrategies()
@@ -399,7 +403,7 @@ export function applyTradeUpsertsToSlice(
     const existing = byId.get(trade.id)
     const owned = existing || !currentLiveStageId
       ? withoutLiveStageForPaper(trade)
-      : trade.tradeKind === 'paper'
+      : trade.tradeKind === 'paper' || trade.tradeKind === 'backtest' || (trade.tradeKind === 'case' && trade.backtestProjectId)
         ? withoutLiveStageForPaper(trade)
         : { ...trade, liveStageId: currentLiveStageId }
     const prepared = prepareTradeUpsert({ strategies, symbolCatalog }, owned, existing, tradingDayStartHour)
@@ -474,6 +478,9 @@ interface State {
   composerTrade: Trade | null
   /** 仅用于显式“新建交易/案例”动作；null 时仍按当前页面推断。 */
   composerKind: TradeKind | null
+  composerProjectId: string | null
+  backtestProjects: BacktestProject[]
+  saveBacktestProject: (project: BacktestProject) => void
   closeTradeRequest: {
     tradeId: string
     targetStatus?: Extract<TradeStatus, 'win' | 'loss' | 'breakeven'>
@@ -630,7 +637,7 @@ interface State {
   purgeTrades: (targets: Array<string | TradePurgeTarget>) => TradePurgeResult
   rollbackFailedImportedTrades: (trades: Trade[]) => string[]
   createReviewCaseFromTrade: (sourceId: string) => CreateReviewCaseResult
-  openComposer: (trade?: Trade | null, kind?: TradeKind | null) => void
+  openComposer: (trade?: Trade | null, kind?: TradeKind | null, projectId?: string | null) => void
   closeComposer: () => void
   requestTradeClose: (
     tradeId: string,
@@ -764,15 +771,16 @@ export function currentLiveStageIdForWrite(
 }
 
 function withCurrentStage(state: State, trade: Trade): Trade {
-  if (trade.tradeKind === 'paper') return withoutLiveStageForPaper(trade)
+  if (trade.tradeKind === 'paper' || trade.tradeKind === 'backtest') return withoutLiveStageForPaper(trade)
+  if (trade.tradeKind === 'case' && trade.backtestProjectId) return { ...trade, liveStageId: null }
   return { ...trade, liveStageId: currentLiveStageIdForWrite(state) }
 }
 
 function stageOwnedTradeForUpsert(state: State, trade: Trade): Trade {
   const previous = state.trades.find((candidate) => candidate.id === trade.id)
   if (!previous) return withCurrentStage(state, trade)
-  if (trade.tradeKind === 'paper') return withCurrentStage(state, trade)
-  if (previous.tradeKind === 'paper') return trade
+  if (trade.tradeKind === 'paper' || trade.tradeKind === 'backtest') return withCurrentStage(state, trade)
+  if (previous.tradeKind === 'paper' || previous.tradeKind === 'backtest') return trade
   return { ...trade, liveStageId: previous.liveStageId }
 }
 
@@ -799,6 +807,16 @@ export const useStore = create<State>()((set, get) => ({
       composerOpen: false,
       composerTrade: null,
       composerKind: null,
+      composerProjectId: null,
+      backtestProjects: [],
+      saveBacktestProject: (project) => {
+        if (!isBacktestProject(project)) return
+        set(state => {
+          const previous = state.backtestProjects.find(item => item.id === project.id)
+          if (previous && state.trades.some(trade => trade.backtestProjectId === project.id) && (previous.symbol !== project.symbol || previous.startedAt !== project.startedAt || previous.rules !== project.rules)) return state
+          return { backtestProjects: previous ? state.backtestProjects.map(item => item.id === project.id ? project : item) : [...state.backtestProjects, project] }
+        })
+      },
       closeTradeRequest: null,
       pendingTradeOpenRequest: null,
       riskSetupTradeOpenRequest: null,
@@ -1938,6 +1956,7 @@ export const useStore = create<State>()((set, get) => ({
           if (count > 0 && !reassignToId) return s
           return {
             strategies: s.strategies.filter((x) => x.id !== id),
+            backtestProjects: s.backtestProjects.map(project => project.defaultStrategyId === id ? { ...project, defaultStrategyId: reassignToId ?? null } : project),
             pinnedStrategyIds: s.pinnedStrategyIds.filter((x) => x !== id),
             display: {
               ...s.display,
@@ -1981,7 +2000,7 @@ export const useStore = create<State>()((set, get) => ({
             now: new Date(),
             tradingDayStartHour: state.display.tradingDayStartHour,
           })
-          const sourceStageId = source.tradeKind === 'paper'
+          const sourceStageId = source.tradeKind === 'backtest' ? null : source.tradeKind === 'paper'
             ? currentLiveStageIdForWrite(state)
             : source.liveStageId === undefined
               ? currentLiveStageIdForWrite(state)
@@ -2128,7 +2147,7 @@ export const useStore = create<State>()((set, get) => ({
         }))
         return removed
       },
-      openComposer: (trade = null, kind = null) => {
+      openComposer: (trade = null, kind = null, projectId = null) => {
         // 防御：若被直接绑到 onClick，会收到 MouseEvent，不能当 Trade 用
         const safe =
           trade &&
@@ -2137,13 +2156,16 @@ export const useStore = create<State>()((set, get) => ({
           typeof (trade as Trade).id === 'string'
             ? (trade as Trade)
             : null
+        const targetProjectId = safe?.tradeKind === 'backtest' ? safe.backtestProjectId : projectId
+        if (!safe && targetProjectId && get().backtestProjects.find(project => project.id === targetProjectId)?.archivedAt) { toast('项目已归档，请从项目操作重新打开'); return }
         set({
           composerOpen: true,
           composerTrade: safe,
-          composerKind: safe?.tradeKind ?? kind,
+          composerKind: safe?.tradeKind ?? (projectId ? 'backtest' : kind),
+          composerProjectId: safe?.tradeKind === 'backtest' ? safe.backtestProjectId ?? null : projectId,
         })
       },
-      closeComposer: () => set({ composerOpen: false, composerTrade: null, composerKind: null }),
+      closeComposer: () => set({ composerOpen: false, composerTrade: null, composerKind: null, composerProjectId: null }),
       requestTradeClose: (tradeId, targetStatus) => {
         const active =
           typeof document !== 'undefined' && document.activeElement instanceof HTMLElement

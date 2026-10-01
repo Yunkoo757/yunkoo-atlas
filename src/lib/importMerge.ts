@@ -46,7 +46,7 @@ type StageOwned = { liveStageId?: string | null }
 function validateImportedStageReferences(payload: ExportPayload, localStages: readonly LiveStage[]): void {
   const localIds = new Set(localStages.map((stage) => stage.id))
   const entities: StageOwned[] = [
-    ...payload.trades.filter((trade) => trade.tradeKind !== 'paper'),
+    ...payload.trades.filter((trade) => trade.tradeKind === 'live' || trade.tradeKind === 'case'),
     ...(payload.weeklyReviews ?? []),
     ...(payload.weeklyReviews ?? []).flatMap((review) => review.riskSnapshot?.policyVersions ?? []),
     ...(payload.weeklyReviews ?? []).flatMap((review) => review.riskSnapshot?.overrideEvents ?? []),
@@ -59,7 +59,7 @@ function validateImportedStageReferences(payload: ExportPayload, localStages: re
 }
 
 function withoutPaperStage(trade: Trade): Trade {
-  if (trade.tradeKind !== 'paper') return trade
+  if (trade.tradeKind !== 'paper' && trade.tradeKind !== 'backtest') return trade
   const { liveStageId: _liveStageId, ...paper } = trade as Trade & { liveStageId?: unknown }
   return paper as Trade
 }
@@ -73,17 +73,18 @@ function assignImportOwnership(
   const localStageIds = new Set(current.liveStages.map((stage) => stage.id))
 
   const accountTrades = payload.trades.map((trade): Trade => {
-    if (trade.tradeKind === 'paper') return withoutPaperStage(trade)
+    if (trade.tradeKind === 'paper' || trade.tradeKind === 'backtest') return withoutPaperStage(trade)
     if (trade.tradeKind === 'case') return trade
     return { ...trade, liveStageId: currentStageId }
   })
   const sourcesById = new Map([...current.trades, ...accountTrades].map((trade) => [trade.id, trade]))
   const trades = accountTrades.map((trade): Trade => {
     if (trade.tradeKind !== 'case') return trade
+    if (trade.backtestProjectId) return { ...trade, liveStageId: null }
     const source = trade.sourceTradeId ? sourcesById.get(trade.sourceTradeId) : undefined
     const inherited = source?.tradeKind === 'paper'
       ? currentStageId
-      : source && source.liveStageId !== undefined
+      : source && (source.tradeKind === 'live' || source.tradeKind === 'case') && source.liveStageId !== undefined
         ? source.liveStageId
         : currentStageId
     return { ...trade, liveStageId: inherited }
@@ -177,6 +178,19 @@ export function mergeImportPayload(
   payloadDigest = canonicalImportValue(payload),
   identityPayload: ImportIdentityPayload = payload,
 ): PersistedSlice {
+  const projects = new Map((current.backtestProjects ?? []).map(project => [project.id, project]))
+  const projectIdMap = new Map<string, string>()
+  for (const project of payload.backtestProjects ?? []) {
+    const existing = projects.get(project.id)
+    const id = existing && canonicalImportValue(existing) !== canonicalImportValue(project)
+      ? stableImportedTradeId(payloadDigest, `backtest-project:${project.id}`) : project.id
+    projectIdMap.set(project.id, id)
+    if (!projects.has(id)) projects.set(id, { ...project, id })
+  }
+  const remapProjects = (trades: ExportPayload['trades']) => trades.map(trade => trade.backtestProjectId
+    ? { ...trade, backtestProjectId: projectIdMap.get(trade.backtestProjectId) ?? trade.backtestProjectId } as Trade : trade)
+  payload = { ...payload, trades: remapProjects(payload.trades) }
+  identityPayload = { ...identityPayload, trades: remapProjects(identityPayload.trades) }
   const ownedPayload = assignImportOwnership(current, payload)
   const ownedIdentityPayload = assignImportOwnership(current, {
     ...payload,
@@ -199,14 +213,14 @@ export function mergeImportPayload(
     current,
     {
       ...ownedPayload,
-      trades: migrated,
+      trades: migrated.map(trade => trade.backtestProjectId ? normalizeTrades([trade])[0]! : trade),
       strategies,
       liveStages: current.liveStages,
       currentLiveStageId: current.currentLiveStageId,
       scheduledStageRollover: current.scheduledStageRollover,
     },
     payloadDigest,
-    identityTrades,
+    identityTrades.map(trade => trade.backtestProjectId ? normalizeTrades([trade])[0]! : trade),
   )
   const templatesById = new Map(
     normalizeReviewTemplates(current.reviewTemplates ?? []).map((template) => [template.id, template]),
@@ -222,6 +236,7 @@ export function mergeImportPayload(
     payloadDigest,
   )
   return {
+    backtestProjects: [...projects.values()],
     strategies,
     trades: normalizeTrades(riskMerged.trades),
     liveStages: current.liveStages.map((stage) => ({ ...stage })),

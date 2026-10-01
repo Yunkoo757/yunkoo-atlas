@@ -283,6 +283,7 @@ export function decodeCanonicalSnapshot(
     ? backfillCaseSourceSnapshots(tradingDayNormalizedTrades)
     : tradingDayNormalizedTrades
   const candidate = {
+    backtestProjects: (raw.backtestProjects === undefined ? [] : raw.backtestProjects) as PersistedSnapshot['backtestProjects'],
     trades: (versionedTrades === undefined ? [] : versionedTrades) as PersistedSnapshot['trades'],
     liveStages: raw.liveStages as PersistedSnapshot['liveStages'],
     currentLiveStageId: raw.currentLiveStageId as PersistedSnapshot['currentLiveStageId'],
@@ -348,6 +349,7 @@ export function decodeCanonicalSnapshot(
     : candidate.symbolCatalog
 
   const normalized: CanonicalSnapshot = {
+    backtestProjects: (stagedCandidate.backtestProjects ?? []).map(project => ({ ...project, defaultStrategyId: normalizedRelations.strategies.some(strategy => strategy.id === project.defaultStrategyId) ? project.defaultStrategyId : null })),
     trades,
     liveStages: stagedCandidate.liveStages.map((stage) => ({ ...stage })),
     currentLiveStageId: stagedCandidate.currentLiveStageId,

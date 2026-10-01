@@ -27,6 +27,12 @@
   font-weight: var(--type-metadata-weight);
 }
 
+input.composer-input-quick {
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
+  font-weight: var(--type-row-weight);
+}
+
 .composer-input-quick .ui-select-trigger,
 .composer-essential-field .ui-select-trigger,
 .composer-essential-field .ui-date-trigger,
@@ -305,3 +311,27 @@
 .composer-more-toggle {
   align-self: flex-start;
 }
+
+.composer-validation { margin: 0; color: var(--neg); font-size: var(--type-row-size); line-height: var(--type-row-line-height); }
+
+/* 回测高频录入：保留公共控件尺寸，按字段关系组合，避免重复品种选择。 */
+.composer-backtest .composer-body-quick { gap: var(--sp-4); }
+.composer-backtest-context { display: flex; align-items: center; gap: var(--space-row-gap); min-width: 0; font-size: var(--type-metadata-size); font-weight: var(--type-metadata-weight); line-height: var(--type-metadata-line-height); }
+.composer-backtest-symbol { flex: 0 0 auto; color: var(--text-content-supporting); font-weight: var(--type-list-primary-weight); }
+.composer-backtest-project { min-width: 0; color: var(--text-content-metadata); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.composer-backtest-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+.composer-backtest-result { display: flex; flex-direction: column; gap: var(--space-row-gap); }
+.composer-backtest-hint { margin: 0; color: var(--text-content-metadata); font-size: var(--type-metadata-size); font-weight: var(--type-metadata-weight); line-height: var(--type-metadata-line-height); }
+.composer-backtest .composer-essential-label,
+.composer-backtest .composer-field-quick label { line-height: var(--type-metadata-line-height); }
+.composer-backtest .composer-essential-field .ui-select-trigger,
+.composer-backtest .composer-essential-field .ui-date-trigger { border-color: var(--field-border); border-radius: var(--radius-6); }
+.composer-backtest .composer-essential-field .ui-select-trigger:hover,
+.composer-backtest .composer-essential-field .ui-date-trigger:hover { border-color: var(--field-border-hover); }
+.composer-backtest .composer-essential-field .ui-select-trigger:focus-visible,
+.composer-backtest .composer-essential-field .ui-date-trigger:focus-visible { border-color: var(--field-border-focus); background: var(--field-bg-focus); box-shadow: var(--field-focus-shadow); }
+.composer-backtest .composer-quick-context input,
+.composer-backtest .composer-parameter-grid input { min-height: var(--field-height-md); padding-inline: var(--field-padding-inline); border-color: var(--field-border); border-radius: var(--radius-6); }
+.composer-backtest .composer-quick-context input:focus-visible,
+.composer-backtest .composer-parameter-grid input:focus-visible { border-color: var(--field-border-focus); background: var(--field-bg-focus); box-shadow: var(--field-focus-shadow); }
+.composer-backtest .composer-footer-actions { gap: var(--space-row-gap); }

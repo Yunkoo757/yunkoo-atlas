@@ -82,6 +82,15 @@
   color: var(--text-secondary);
   flex-shrink: 0;
 }
+.menu-pop-bounded {
+  overflow-y: auto;
+}
+.menu-pop-bounded .menu-item-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .menu-item-danger {
   color: var(--neg);
 }

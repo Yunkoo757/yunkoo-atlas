@@ -89,3 +89,15 @@ export function testContextMenuUsesTheCanonicalBusinessActionOrder(): void {
     '右键菜单业务动作必须遵循编辑、复制、提炼、星标、删除的固定顺序',
   )
 }
+
+export function testBacktestMenuSharesActionsAndDisablesCopyForArchivedProjects(): void {
+  const items = buildTradeCtxItems({ ...source, tradeKind: 'backtest', backtestProjectId: 'bt' }, {
+    setStatus: () => {}, requestTradeOpen: () => {}, openComposer: () => {}, removeTrade: () => {},
+    createReviewCase: () => {}, toggleStar: () => {}, canCopy: false,
+  })
+  const business = items.filter(item => item.type === 'item' && ['编辑回测记录', '复制为待确认记录', '提炼为案例', '加入星标', '删除回测记录'].includes(item.label))
+  assert(business.length === 5, '回测右键菜单必须沿用编辑、复制、提炼、星标和删除')
+  const copy = business.find(item => item.type === 'item' && item.label === '复制为待确认记录')
+  assert(copy?.type === 'item' && copy.disabled, '归档项目不可创建副本')
+  assert(business.every(item => item.type === 'item' && (item === copy || !item.disabled)), '归档不应禁用既有记录的其他操作')
+}

@@ -136,6 +136,7 @@ interface ExportState extends PersistedSlice {
   symbolIcons?: SymbolIconsMap
   symbolCatalog?: string[]
   reviewTemplates?: ReviewTemplate[]
+  backtestProjects?: PersistedSnapshot['backtestProjects']
   reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
   judgmentDesk?: PersistedSnapshot['judgmentDesk']
   reviewComposer?: PersistedSnapshot['reviewComposer']
@@ -165,6 +166,7 @@ interface PortableSnapshotState {
   symbolIcons?: PersistedSnapshot['symbolIcons']
   symbolCatalog?: PersistedSnapshot['symbolCatalog']
   reviewTemplates?: PersistedSnapshot['reviewTemplates']
+  backtestProjects?: PersistedSnapshot['backtestProjects']
   reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
   judgmentDesk?: PersistedSnapshot['judgmentDesk']
   reviewComposer?: PersistedSnapshot['reviewComposer']
@@ -203,6 +205,7 @@ export function buildPortableSnapshotFromState(
     reviewTemplates: normalizeReviewTemplates(state.reviewTemplates),
     judgmentDesk: state.judgmentDesk ?? emptyJudgmentDesk(),
     reviewComposer: state.reviewComposer ?? emptyComposerData(),
+    backtestProjects: state.backtestProjects ?? [],
     reviewPoolPresets: state.reviewPoolPresets ?? [],
     reviewPoolLayout: normalizeReviewPoolLayout(
       state.reviewPoolLayout,
@@ -381,7 +384,7 @@ export async function loadReferencedAssetsForExport(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, liveStages, currentLiveStageId, scheduledStageRollover, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates, reviewPoolPresets, reviewPoolLayout, reviewComposer, judgmentDesk } =
+  const { trades, liveStages, currentLiveStageId, scheduledStageRollover, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates, backtestProjects, reviewPoolPresets, reviewPoolLayout, reviewComposer, judgmentDesk } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
@@ -409,6 +412,7 @@ export async function buildExportPayload(): Promise<ExportPayload> {
       symbolIcons,
       symbolCatalog,
       reviewTemplates,
+      backtestProjects,
       reviewPoolPresets,
       judgmentDesk,
       reviewComposer,
@@ -1118,6 +1122,7 @@ function buildImportSnapshot(
     symbolIcons: merged.symbolIcons ?? current.state.symbolIcons,
     symbolCatalog: merged.symbolCatalog ?? current.state.symbolCatalog,
     reviewTemplates: merged.reviewTemplates ?? current.state.reviewTemplates,
+    backtestProjects: merged.backtestProjects ?? current.state.backtestProjects,
     reviewPoolPresets: merged.reviewPoolPresets ?? current.state.reviewPoolPresets,
     reviewPoolLayout: merged.reviewPoolLayout ?? current.state.reviewPoolLayout,
     profile: current.state.profile,

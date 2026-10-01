@@ -53,6 +53,8 @@ export const DatePicker = forwardRef<
     value: string
     onValueChange: (value: string) => void
     ariaLabel: string
+    ariaInvalid?: boolean
+    ariaDescribedBy?: string
     className?: string
     disabled?: boolean
     required?: boolean
@@ -66,6 +68,8 @@ export const DatePicker = forwardRef<
     value,
     onValueChange,
     ariaLabel,
+    ariaInvalid,
+    ariaDescribedBy,
     className = '',
     disabled = false,
     required = false,
@@ -291,6 +295,8 @@ export const DatePicker = forwardRef<
         className="ui-date-trigger"
         expanded={open}
         aria-label={ariaLabel}
+        aria-invalid={ariaInvalid || undefined}
+        aria-describedby={ariaDescribedBy}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? id : undefined}

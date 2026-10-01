@@ -109,6 +109,8 @@ export function testEscapeCanReturnTopLevelPagesToTradeLog(): void {
       '/settings/risk/data-repair',
       '/trade-trash',
       '/trash',
+      '/backtests',
+      '/backtests/fixed-rule-100',
     ]
     for (const pathname of exitPages) {
       const event = keyboardEvent('Escape')
@@ -174,4 +176,23 @@ export function testWorkbenchListActionsCoverFocusOpenAndSelection(): void {
     setFocusIndex: () => {},
   })
   assert(Object.keys(empty).length === 0, '无可操作内容时不应吞掉列表快捷键')
+}
+
+export function testBacktestDetailSupportsListSelectionWithoutCapturingProjectIndex(): void {
+  const previousBindings = useShortcutStore.getState().bindings
+  useShortcutStore.setState({ bindings: { 'list.selectAll': { key: 'a', mod: true } } })
+  setShortcutHandlers({})
+  let calls = 0
+  const unregister = registerShortcutHandlers({ 'list.selectAll': () => { calls += 1 } })
+  try {
+    assert(handleShortcutKeydown(keyboardEvent('a', { ctrlKey: true }), '/backtests/project-1'), '项目记录必须支持列表全选')
+    assert(!handleShortcutKeydown(keyboardEvent('a', { ctrlKey: true }), '/backtests'), '项目入口不能误触记录全选')
+    const input = { tagName: 'INPUT', isContentEditable: false } as unknown as EventTarget
+    assert(!handleShortcutKeydown(keyboardEvent('a', { ctrlKey: true, target: input }), '/backtests/project-1'), '输入框全选不能选中回测记录')
+    assert(calls === 1, '只有项目记录列表可执行一次全选')
+  } finally {
+    unregister()
+    setShortcutHandlers({})
+    useShortcutStore.setState({ bindings: previousBindings })
+  }
 }

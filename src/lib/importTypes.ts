@@ -40,6 +40,7 @@ export interface ExportPayload {
   symbolIcons?: SymbolIconsMap
   symbolCatalog?: string[]
   reviewTemplates?: ReviewTemplate[]
+  backtestProjects?: PersistedSnapshot['backtestProjects']
   reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
   judgmentDesk?: PersistedSnapshot['judgmentDesk']
   reviewComposer?: PersistedSnapshot['reviewComposer']
@@ -74,6 +75,7 @@ export interface PersistedSlice {
   symbolIcons?: SymbolIconsMap
   symbolCatalog?: string[]
   reviewTemplates?: ReviewTemplate[]
+  backtestProjects?: PersistedSnapshot['backtestProjects']
   reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
   judgmentDesk?: PersistedSnapshot['judgmentDesk']
   reviewComposer?: PersistedSnapshot['reviewComposer']

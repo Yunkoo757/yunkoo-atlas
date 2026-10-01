@@ -11,6 +11,7 @@ export function resolveTradeDetailSourceCopy(options: {
   returnPathname: string
   tradeKind?: Trade['tradeKind']
 }): TradeDetailSourceCopy {
+  if (options.returnPathname.startsWith('/backtests')) return { breadcrumb: '回测项目', backAriaLabel: '返回回测项目', returnDestinationLabel: '回测项目' }
   if (options.returnPathname === '/judgment-desk') {
     return {
       breadcrumb: '判断台',

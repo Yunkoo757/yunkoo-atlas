@@ -35,7 +35,7 @@ function assetImage(id: string): string {
 }
 
 /**
- * 唯一全量合同 fixture。21 个活跃字段都使用非默认哨兵值，
+ * 唯一全量合同 fixture。所有活跃字段都使用非默认哨兵值，
  * 并覆盖三个内容域的独立附件以及跨内容域共享附件。
  */
 export function createFullPersistedSnapshotFixture(
@@ -46,6 +46,7 @@ export function createFullPersistedSnapshotFixture(
   const quickNote = createQuickNote(timestamp)
 
   return {
+    backtestProjects: [{ id: 'backtest-contract', name: '固定规则合同样例', symbol: 'XAUUSD', startedAt: '2025-02-26', targetCount: 100, defaultStrategyId: 'strategy-contract', rules: '连续参与同一套规则下的机会', archivedAt: null, completedAt: null, createdAt: timestamp.toISOString(), updatedAt: timestamp.toISOString() }],
     trades: normalizeTrades([{
       id: 'trade-contract',
       ref: 'TRD-CONTRACT',

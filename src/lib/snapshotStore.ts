@@ -36,6 +36,7 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
   const trades = normalizeTrades(normalized.trades)
   useStore.setState({
     trades,
+    backtestProjects: snapshot.backtestProjects ?? [],
     liveStages: snapshot.liveStages.map((stage) => ({ ...stage })),
     currentLiveStageId: snapshot.currentLiveStageId,
     scheduledStageRollover: snapshot.scheduledStageRollover
@@ -81,6 +82,7 @@ export function resetEmptyLibraryIntoStore(): void {
   const empty = createEmptyPersistedSnapshot()
   useStore.setState({
     trades: [],
+    backtestProjects: [],
     liveStages: empty.liveStages,
     currentLiveStageId: empty.currentLiveStageId,
     scheduledStageRollover: empty.scheduledStageRollover,
@@ -95,6 +97,7 @@ export function resetEmptyLibraryIntoStore(): void {
     composerOpen: false,
     composerTrade: null,
     composerKind: null,
+    composerProjectId: null,
     closeTradeRequest: null,
     undoStack: [],
     redoStack: [],
@@ -123,6 +126,7 @@ export function clearSessionUiAfterLibrarySwitch(): void {
     composerOpen: false,
     composerTrade: null,
     composerKind: null,
+    composerProjectId: null,
     closeTradeRequest: null,
     undoStack: [],
     redoStack: [],

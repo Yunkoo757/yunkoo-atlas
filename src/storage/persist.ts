@@ -20,6 +20,7 @@ export function pickPersisted(
   const shortcuts = bindingsForPersist(shortcutBindings ?? {})
   const currentStage = getCurrentLiveStage(state.liveStages, state.currentLiveStageId)
   return {
+    backtestProjects: state.backtestProjects,
     trades: state.trades,
     // Store 持久化字段使用不可变更新；保留引用才能让订阅区分 UI 更新与真实编辑。
     liveStages: state.liveStages,

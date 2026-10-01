@@ -61,7 +61,7 @@ export function filterStageTrades(trades: readonly Trade[], scope: StageScope): 
 }
 
 export function filterStageCases(trades: readonly Trade[], scope: StageScope): Trade[] {
-  return trades.filter((trade) => trade.tradeKind === 'case' && matchesStageScope(trade, scope))
+  return trades.filter((trade) => trade.tradeKind === 'case' && (trade.backtestProjectId !== undefined || matchesStageScope(trade, scope)))
 }
 
 export function filterStageOwnedRecords(trades: readonly Trade[], scope: StageScope): Trade[] {

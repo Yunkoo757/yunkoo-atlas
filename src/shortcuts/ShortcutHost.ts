@@ -1,3 +1,4 @@
+import { backtestProjectIdForPath } from '@/lib/backtestProjects'
 import { useEffect } from 'react'
 import { isStorageCutoverInteractionLocked } from '@/storage/cutover'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -96,7 +97,7 @@ export function useShortcutHost({
       'global.commandPalette': onToggleCmdk,
       'global.commandPaletteMod': onToggleCmdk,
       'global.newTrade': () => {
-        openComposer(null, newTradeKindForPath(pathname, search))
+        openComposer(null, newTradeKindForPath(pathname, search), backtestProjectIdForPath(pathname, useStore.getState().trades))
       },
       'global.newCase': () => {
         openComposer(null, 'case')

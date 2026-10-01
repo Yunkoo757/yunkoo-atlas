@@ -8,6 +8,7 @@ export type ActivePersistedSnapshotKey = Exclude<keyof PersistedSnapshot, Deprec
  * 已废弃的 cases / disputeTypes 仅允许读取时忽略，不属于活跃合同。
  */
 export const PERSISTED_SNAPSHOT_FIELDS = [
+  'backtestProjects',
   'trades',
   'liveStages',
   'currentLiveStageId',

@@ -47,16 +47,21 @@
   border-radius: var(--radius-6);
 }
 
-.batch-bar-action-btn:hover {
+.batch-bar-action-btn:hover:not(:disabled) {
   color: var(--text-primary);
   background: var(--bg-hover);
+}
+
+.batch-bar-action-btn:disabled {
+  color: var(--text-disabled);
+  cursor: default;
 }
 
 .batch-bar-action-btn-danger {
   color: var(--neg);
 }
 
-.batch-bar-action-btn-danger:hover {
+.batch-bar-action-btn-danger:hover:not(:disabled) {
   color: var(--neg);
   background: var(--error-action-bg);
 }

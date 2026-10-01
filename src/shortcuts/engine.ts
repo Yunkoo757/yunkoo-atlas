@@ -25,6 +25,8 @@ export function isTradeLogEscapePage(pathname: string): boolean {
     ['/review-composer', '/dashboard', '/weekly-review', '/review-session', '/trade-trash', '/trash'].includes(pathname) ||
     pathname === '/notes' ||
     pathname.startsWith('/notes/') ||
+    pathname === '/backtests' ||
+    pathname.startsWith('/backtests/') ||
     pathname === '/settings' ||
     pathname.startsWith('/settings/')
   )
@@ -92,6 +94,7 @@ function getActiveScopes(pathname?: string): Set<ShortcutScope> {
 
   if (p) {
     if (/^\/(?:list|board|active|favorites|missed|period|strategy|review-cases|sim|today-record|live-history|trade-trash|trash)(?:\/|$)/.test(p)) scopes.add('list')
+    if (/^\/backtests\/[^/]+$/.test(p)) scopes.add('list')
     if (p.startsWith('/trade/')) scopes.add('detail')
     if (p === '/judgment-desk') scopes.add('judgmentDesk')
     if (p === '/review-session') scopes.add('reviewSession')
@@ -243,6 +246,13 @@ export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): bool
   }
 
   const activePathname = pathname ?? (typeof window !== 'undefined' ? window.location.pathname : '')
+  const matchedChord = findChordMatch(e, pathname)
+  // 回测记录沿用列表取消选择；没有选择时才执行模块返回。
+  if (chord.key === 'escape' && matchedChord === 'list.clearSelection' && runAction(matchedChord)) {
+    e.preventDefault()
+    clearSequence()
+    return true
+  }
   if (
     chord.key === 'escape' &&
     !lightbox &&
@@ -254,7 +264,6 @@ export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): bool
     return true
   }
 
-  const matchedChord = findChordMatch(e, pathname)
   if (matchedChord) {
     if (runAction(matchedChord)) {
       e.preventDefault()

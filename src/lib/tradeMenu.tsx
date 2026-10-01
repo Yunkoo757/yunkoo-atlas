@@ -18,6 +18,7 @@ export function buildTradeCtxItems(
     changeStatus?: (status: TradeStatus) => void
     openComposer: (t?: Trade | null) => void
     removeTrade: (id: string) => void
+    canCopy?: boolean
     createReviewCase?: (trade: Trade) => void
     toggleStar?: (id: string) => void
     isStarred?: (id: string) => boolean
@@ -91,6 +92,7 @@ export function buildTradeCtxItems(
         icon: actionIcons[action.id],
         label: action.label,
         danger: action.danger,
+        disabled: action.id === 'copy' && a.canCopy === false,
         onClick: actionHandlers[action.id],
       }),
     )

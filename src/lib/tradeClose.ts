@@ -36,9 +36,9 @@ export function prepareTradeClose(_trade: Trade, input: TradeCloseInput): TradeC
   let resultSource: Trade['resultSource']
 
   if (input.outcome === 'breakeven') {
-    pnl = 0
+    pnl = _trade.tradeKind === 'backtest' ? null : 0
     rMultiple = 0
-    resultSource = 'imported'
+    resultSource = _trade.tradeKind === 'backtest' ? 'r' : 'imported'
   } else {
     if (pnlInput === 0 || rInput === 0) {
       return { ok: false, error: '非保本交易的结果数值必须大于 0' }

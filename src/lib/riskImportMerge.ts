@@ -57,6 +57,7 @@ function stableTradeIdentity(trade: Trade): Record<string, string> | null {
 }
 
 export function isSameTradeIdentity(left: Trade, right: Trade): boolean {
+  if (left.backtestProjectId !== right.backtestProjectId) return false
   const leftIdentity = stableTradeIdentity(left)
   const rightIdentity = stableTradeIdentity(right)
   if (leftIdentity && rightIdentity) return canonicalJson(leftIdentity) === canonicalJson(rightIdentity)
@@ -250,17 +251,27 @@ export function mergeRiskImport(
     const mappedId = local && !isSameTradeIdentity(local, identityTrade)
       ? stableImportedTradeId(payloadDigest, trade.id)
       : trade.id
+    idMap.set(trade.id, mappedId)
+  }
+
+  // 来源交易可能出现在案例之后；先建立完整映射，再校验重复导入的身份。
+  for (const trade of imported.trades) {
+    const mappedId = idMap.get(trade.id) ?? trade.id
+    const identityTrade = identityById.get(trade.id) ?? trade
     const mappedOccupant = mappedId === trade.id ? undefined : currentById.get(mappedId)
+    const rewrittenIdentity = {
+      ...identityTrade,
+      id: mappedId,
+      ...(identityTrade.sourceTradeId === undefined ? {} : {
+        sourceTradeId: idMap.get(identityTrade.sourceTradeId) ?? identityTrade.sourceTradeId,
+      }),
+    }
     if (
       mappedOccupant &&
-      !isSameTradeIdentity(mappedOccupant, { ...identityTrade, id: mappedId })
+      !isSameTradeIdentity(mappedOccupant, rewrittenIdentity)
     ) {
       throw new Error(`导入冲突：稳定导入交易 ID ${mappedId} 已被其他交易占用。`)
     }
-    idMap.set(
-      trade.id,
-      mappedId,
-    )
   }
 
   const rewritten = rewriteTradeReferences(imported, idMap, current.trades)

@@ -1,3 +1,4 @@
+import { backtestProjectIdForPath } from '@/lib/backtestProjects'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { AppIcon } from '@/icons/appIcons'
@@ -9,6 +10,7 @@ import {
   Clock,
   Compose,
   FlaskConical,
+  FolderClock,
   MoreHorizontal,
   Plus,
   Search,
@@ -494,7 +496,7 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               type="button"
               className="sb-hbtn sb-hbtn-create"
               aria-label="记录交易"
-              onClick={() => openComposer(null, newTradeKindForPath(path, search))}
+              onClick={() => openComposer(null, newTradeKindForPath(path, search), backtestProjectIdForPath(path, useStore.getState().trades))}
             >
               <Compose size={ICON_MD} />
             </button>
@@ -556,6 +558,10 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         >
           <Bookmark size={ICON_MD} />
           <span className="sb-item-label">随记</span>
+        </NavLink>
+        <NavLink to="/backtests" style={activeIconStyle('var(--nav-active-icon)')} className={({ isActive }) => `sb-item${isActive ? ' is-active is-page-active' : ''}`}>
+          <FolderClock size={ICON_MD} />
+          <span className="sb-item-label">回测项目</span>
         </NavLink>
         {pinnedWorkspaceItems.map(renderWorkspaceLink)}
         {overflowWorkspaceItems.length > 0 ? (

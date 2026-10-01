@@ -8,7 +8,7 @@ export type TradeStatus =
   | 'loss' // 已平 - 亏损（像 Canceled）
   | 'breakeven' // 已平 - 保本
 
-export type TradeKind = 'live' | 'paper' | 'case'
+export type TradeKind = 'live' | 'paper' | 'case' | 'backtest'
 
 export type MissReason =
   | 'hesitation'
@@ -67,6 +67,8 @@ export interface ActivityEvent {
 }
 
 interface TradeBase {
+  /** 回测记录的项目归属；案例使用同一字段保留回测来源。 */
+  backtestProjectId?: string
   id: string
   ref: string // 形如 TRD-128
   symbol: string // 标的，如 BTC/AAPL
@@ -146,7 +148,13 @@ export type CaseTrade = TradeBase & {
   liveStageId?: string | null
 }
 
-export type Trade = LiveTrade | PaperTrade | CaseTrade
+/** 归属由快照合同强制校验：必须有 backtestProjectId，不能持久化 liveStageId。 */
+export type BacktestTrade = TradeBase & {
+  tradeKind: 'backtest'
+  liveStageId?: string | null
+}
+
+export type Trade = LiveTrade | PaperTrade | CaseTrade | BacktestTrade
 
 /**
  * ISO 4217 active List One snapshot，发布日 2026-01-01。
@@ -187,6 +195,7 @@ export const TRADE_KIND_META: Record<TradeKind, { label: string }> = {
   live: { label: '实盘' },
   paper: { label: '模拟' },
   case: { label: '案例' },
+  backtest: { label: '回测' },
 }
 
 export const REVIEW_CATEGORY_META: Record<ReviewCategory, { label: string }> = {

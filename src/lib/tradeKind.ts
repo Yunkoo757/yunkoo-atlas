@@ -9,10 +9,12 @@ import { normalizeInitialStopLoss } from '@/lib/tradeResult'
 export function normalizeTradeKind(kind: string | undefined): TradeKind {
   if (kind === 'live') return 'live'
   if (kind === 'case') return 'case'
+  if (kind === 'backtest') return 'backtest'
   return 'paper'
 }
 
 export function defaultTradeKindForPath(pathname: string): TradeKind {
+  if (pathname.startsWith('/backtests/')) return 'backtest'
   if (pathname.startsWith('/review-cases')) return 'case'
   if (
     pathname.startsWith('/sim') ||
@@ -28,7 +30,8 @@ export function defaultTradeKindForPath(pathname: string): TradeKind {
 export function newTradeKindForPath(
   pathname: string,
   search = '',
-): Extract<TradeKind, 'live' | 'paper'> {
+): Extract<TradeKind, 'live' | 'paper' | 'backtest'> {
+  if (pathname.startsWith('/backtests/')) return 'backtest'
   if (pathname === '/list') {
     const params = new URLSearchParams(search)
     if (params.get('kind') === 'paper' || params.get('source') === 'paper') return 'paper'
@@ -59,7 +62,7 @@ export function transitionTradeKind(
   target: TradeKind,
 ): TradeKindTransitionResult {
   if (trade.tradeKind === target) return { ok: true, changed: false, trade }
-  if (trade.tradeKind === 'case' || target === 'case') {
+  if (trade.tradeKind === 'case' || target === 'case' || trade.tradeKind === 'backtest' || target === 'backtest') {
     return {
       ok: false,
       code: 'trade-kind-transition-forbidden',

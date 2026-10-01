@@ -29,7 +29,7 @@ export type PersistedTrade = Trade & {
   importProvenance?: NotionTradeImportProvenance
 }
 
-export const SCHEMA_VERSION = 14
+export const SCHEMA_VERSION = 15
 
 export interface LibraryManifest {
   schemaVersion: number
@@ -60,6 +60,7 @@ export interface UserProfile {
 }
 
 export interface PersistedSnapshot {
+  backtestProjects?: import('@/lib/backtestProjects').BacktestProject[]
   judgmentDesk?: import('@/lib/judgment/model').JudgmentDeskData
   reviewComposer?: import('@/lib/reviewComposer/model').ComposerData
   trades: PersistedTrade[]

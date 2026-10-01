@@ -43,6 +43,7 @@ export {
   Flame,
   FlaskConical,
   FolderOpen,
+  FolderClock,
   Gauge,
   GripVertical,
   HardDrive,

@@ -307,8 +307,9 @@ export function DetailView() {
       listPath: listContext?.listPath,
       listSearch: listContext?.listSearch,
       tradeKind: detailKind,
+      backtestProjectId: trade?.backtestProjectId,
     })
-  }, [commandSearch, from, listContext?.listPath, listContext?.listSearch, detailKind])
+  }, [commandSearch, from, listContext?.listPath, listContext?.listSearch, detailKind, trade?.backtestProjectId])
   const {
     breadcrumb: sourceCrumb,
     backAriaLabel: sourceBackLabel,
@@ -676,7 +677,7 @@ export function DetailView() {
     }
   }
 
-  const detailUnit = trade.tradeKind === 'case'
+  const detailUnit = trade.tradeKind === 'backtest' ? '回测记录' : trade.tradeKind === 'case'
     ? '案例'
     : trade.tradeKind === 'paper'
       ? '模拟盘记录'
@@ -1419,7 +1420,7 @@ export function DetailView() {
             <Menu
               value={trade.tradeKind}
               onSelect={(v) => transitionTradeKind(trade.id, v as TradeKind)}
-              options={KIND_OPTS.map((k) => ({
+              options={(trade.tradeKind === 'backtest' ? ['backtest' as const] : KIND_OPTS).map((k) => ({
                 value: k,
                 label: TRADE_KIND_META[k].label,
               }))}
@@ -1568,7 +1569,11 @@ export function DetailView() {
             <EditableDateRow
               label="开仓"
               value={trade.openedAt}
-              onSave={(v) => updateTradeData(trade.id, { openedAt: v })}
+              onSave={(v) => {
+                const project = useStore.getState().backtestProjects.find(item => item.id === trade.backtestProjectId)
+                if (trade.tradeKind === 'backtest' && project && v.slice(0, 10) < project.startedAt) { toast('历史日期不能早于项目开始日期'); return }
+                updateTradeData(trade.id, { openedAt: v })
+              }}
             />
             {isTerminal(trade.status) ? (
               <EditableDateRow

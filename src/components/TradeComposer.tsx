@@ -1,4 +1,5 @@
-import { ICON_2XL, ICON_SM, ICON_XL } from '@/icons/iconSize'
+import { getProjectTrades, projectPath } from '@/lib/backtestProjects'
+import { ICON_2XL, ICON_SM, ICON_XL, ICON_MD } from '@/icons/iconSize'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, X } from '@/icons/appIcons'
@@ -34,6 +35,7 @@ import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
 import { toast } from '@/lib/toast'
 import { Button } from '@/components/ui/Button'
 import { ModalShell } from '@/components/ui/ModalShell'
+import { OverflowTooltip } from '@/components/ui/Tooltip'
 import './TradeComposer.css'
 
 const CASE_TYPES: CaseType[] = ['exemplar', 'mistake', 'ambiguous', 'missed']
@@ -56,6 +58,7 @@ function composerSnapshot(input: {
   entry: string
   size: string
   stopLoss: string
+  backtestR: string
   quickText: string
   caseType: CaseType
   imageIds: string[]
@@ -93,6 +96,9 @@ export function TradeComposer() {
   const location = useLocation()
   const open = useStore((s) => s.composerOpen)
   const editing = useStore((s) => s.composerTrade)
+  const projectId = useStore(s => s.composerProjectId)
+  const projects = useStore(s => s.backtestProjects)
+  const project = projects.find(item => item.id === projectId)
   const requestedKind = useStore((s) => s.composerKind)
   const strategies = useStore((s) => s.strategies)
   const symbolCatalog = useStore((s) => s.symbolCatalog)
@@ -120,6 +126,8 @@ export function TradeComposer() {
   const [entry, setEntry] = useState('')
   const [size, setSize] = useState('')
   const [stopLoss, setStopLoss] = useState('')
+  const [backtestError, setBacktestError] = useState<{ field: 'date' | 'r'; message: string } | null>(null)
+  const [backtestR, setBacktestR] = useState('')
   const [quickText, setQuickText] = useState('')
   const [showMore, setShowMore] = useState(false)
   const [caseType, setCaseType] = useState<CaseType>('exemplar')
@@ -134,7 +142,7 @@ export function TradeComposer() {
   const baselineRef = useRef('')
   const defaultKind = defaultTradeKindForPath(location.pathname)
   const activeKind = editing?.tradeKind ?? kind
-  const recordLabel = activeKind === 'case' ? '案例' : '交易'
+  const recordLabel = activeKind === 'backtest' ? '回测记录' : activeKind === 'case' ? '案例' : '交易'
   const isNew = !editing
   const isTradeQuickNew = isNew && activeKind !== 'case'
 
@@ -145,12 +153,12 @@ export function TradeComposer() {
 
   useEffect(() => {
     if (!open) return
-    const nextSymbol = editing?.symbol ?? defaultSymbol
+    const nextSymbol = editing?.symbol ?? project?.symbol ?? defaultSymbol
     const nextSide = editing?.side ?? 'long'
     const nextTimeframe = resolveTimeframe(editing?.timeframe)
     const nextSession = editing ? getSessionSelectValue(editing) : ''
-    const nextOpenedAt = editing?.openedAt.slice(0, 10) ?? defaultTradingDay()
-    const nextStrategyId = editing?.strategyId ?? strategies[0]?.id ?? ''
+    const nextOpenedAt = editing?.openedAt.slice(0, 10) ?? (project ? getProjectTrades(useStore.getState().trades, project.id).at(-1)?.openedAt.slice(0, 10) ?? project.startedAt : defaultTradingDay())
+    const nextStrategyId = editing?.strategyId ?? project?.defaultStrategyId ?? strategies[0]?.id ?? ''
     const nextKind = editing?.tradeKind ?? requestedKind ?? defaultKind
     const nextStatus = editing?.status === 'missed' ? 'missed' : 'planned'
     const nextEntry = editing?.entry ? String(editing.entry) : ''
@@ -175,6 +183,8 @@ export function TradeComposer() {
     setEntry(nextEntry)
     setSize(nextSize)
     setStopLoss(nextStopLoss)
+    setBacktestError(null)
+    setBacktestR(editing?.rMultiple != null ? String(editing.rMultiple) : '')
     setQuickText('')
     setShowMore(Boolean(editing))
     setCaseType(nextCaseType)
@@ -191,11 +201,12 @@ export function TradeComposer() {
       entry: nextEntry,
       size: nextSize,
       stopLoss: nextStopLoss,
+      backtestR: editing?.rMultiple != null ? String(editing.rMultiple) : '',
       quickText: '',
       caseType: nextCaseType,
       imageIds: [],
     })
-  }, [open, editing, strategies, defaultSymbol, tradingDayStartHour])
+  }, [open, editing, strategies, defaultSymbol, tradingDayStartHour, project, requestedKind, defaultKind])
 
   // 重置状态
   useEffect(() => {
@@ -289,11 +300,16 @@ export function TradeComposer() {
     }
   }
 
-  const handleQuickCreate = () => {
+  const handleQuickCreate = (continueRecording = false) => {
     if (submittingRef.current) return
     if (!symbol.trim()) {
       toast('请先选择交易品种')
       return
+    }
+    if (activeKind === 'backtest') {
+      if (!project || (project.archivedAt && !editing)) { toast('请先打开一个未归档的回测项目'); return }
+      if (openedAt < project.startedAt) { setBacktestError({ field: 'date', message: '历史日期不能早于项目开始日期' }); document.querySelector<HTMLButtonElement>('.composer-date-field button')?.focus(); return }
+      if ((backtestR.trim() && optionalNumber(backtestR) === null) || (document.getElementById('backtest-r') as HTMLInputElement | null)?.validity.badInput) { setBacktestError({ field: 'r', message: '请输入有效的 R 数值' }); document.getElementById('backtest-r')?.focus(); return }
     }
     submittingRef.current = true
     setSubmitting(true)
@@ -309,6 +325,7 @@ export function TradeComposer() {
         session: normalizeSession(session),
         strategyId,
         openedAt,
+        ...(kind === 'backtest' ? { backtestProjectId: project!.id, symbol: project!.symbol, rMultiple: status === 'missed' ? null : optionalNumber(backtestR), resultSource: status !== 'missed' && optionalNumber(backtestR) !== null ? 'r' as const : undefined, pnl: null, status: status === 'missed' ? 'missed' as const : optionalNumber(backtestR) === null ? 'planned' as const : Number(backtestR) > 0 ? 'win' as const : Number(backtestR) < 0 ? 'loss' as const : 'breakeven' as const, closedAt: status !== 'missed' && optionalNumber(backtestR) !== null ? openedAt : null } : {}),
         entry: Number(entry) || 0,
         size: Number(size) || 0,
         stopLoss: optionalNumber(stopLoss),
@@ -345,7 +362,7 @@ export function TradeComposer() {
             status,
             conviction: 'medium',
             tradeKind: kind,
-            ...(kind === 'paper'
+            ...(kind === 'paper' || kind === 'backtest'
               ? {}
               : { liveStageId: currentLiveStageIdForWrite(state) }),
             tags: [],
@@ -380,6 +397,12 @@ export function TradeComposer() {
       }
 
       close()
+      if (continueRecording && project && !editing) {
+        navigate(projectPath(project.id))
+        setTimeout(() => useStore.getState().openComposer(null, 'backtest', project.id), 0)
+        toast('已保存，可继续下一笔')
+        return
+      }
       if (!editing) {
         navigate(tradeDetailPath(trade), {
           state: tradeDetailNavState({
@@ -418,6 +441,7 @@ export function TradeComposer() {
       entry,
       size,
       stopLoss,
+      backtestR,
       quickText,
       caseType,
       imageIds: images.map((image) => image.id),
@@ -428,28 +452,41 @@ export function TradeComposer() {
 
   if (!open) return null
 
+  const directionField = <div className="composer-essential-field">
+    <span className="composer-essential-label">方向</span>
+    <div className="composer-side-control" role="group" aria-label="交易方向">
+      <button type="button" className={`is-long${side === 'long' ? ' is-on' : ''}`} aria-pressed={side === 'long'} onClick={() => setSide('long')}>做多</button>
+      <button type="button" className={`is-short${side === 'short' ? ' is-on' : ''}`} aria-pressed={side === 'short'} onClick={() => setSide('short')}>做空</button>
+    </div>
+  </div>
+  const strategyField = <div className="composer-essential-field">
+    <span className="composer-essential-label">策略</span>
+    <Select value={strategyId} onValueChange={setStrategyId} ariaLabel="交易策略" options={strategies.length === 0 ? [{ value: '', label: '未设置' }] : strategies.map(strategy => ({ value: strategy.id, label: strategy.name }))} />
+  </div>
+
   return (
     <>
     <ModalShell
       title={editing ? `编辑${TRADE_KIND_META[editing.tradeKind].label}` : `新建${recordLabel}`}
       busy={submitting}
       size="compact"
-      panelClassName="composer-modal"
+      panelClassName={`composer-modal${activeKind === 'backtest' ? ' composer-backtest' : ''}`}
       bodyClassName="composer-body-quick"
       footerClassName="composer-footer-quick"
-      initialFocusSelector=".composer-input-symbol .ui-select-trigger"
+      initialFocusSelector={activeKind === 'backtest' ? '#backtest-r' : '.composer-input-symbol .ui-select-trigger'}
       onClose={requestClose}
       footer={(
         <>
           <div className="composer-footer-actions">
+            {activeKind === 'backtest' && !editing && <Button variant="bordered" size="lg" disabled={submitting} onClick={() => handleQuickCreate(true)}>保存并继续</Button>}
             <Button variant="bordered" size="lg" onClick={requestClose} disabled={submitting}>
               取消
             </Button>
             <Button
               variant="primary"
               size="lg"
-              className="composer-btn-primary"
-              onClick={handleQuickCreate}
+              className={activeKind === 'backtest' ? undefined : 'composer-btn-primary'}
+              onClick={() => handleQuickCreate()}
               disabled={!symbol.trim() || submitting}
             >
               {submitting ? '保存中…' : editing ? '保存' : isTradeQuickNew ? '保存记录' : `创建${recordLabel}`}
@@ -458,7 +495,19 @@ export function TradeComposer() {
         </>
       )}
     >
-          <section className="composer-hero" aria-label={`${recordLabel}身份`}>
+          {activeKind === 'backtest' && <>
+            <div className="composer-backtest-context"><SymbolIcon symbol={symbol} overrides={symbolIcons} size={ICON_MD} quiet /><span className="composer-backtest-symbol">{symbol}</span>{project && <OverflowTooltip text={project.name}><span className="composer-backtest-project">{project.name}</span></OverflowTooltip>}</div>
+            <div className="composer-backtest-result">
+              <div className="composer-backtest-pair">
+                <div className="composer-field-quick"><label htmlFor="backtest-r">R 结果</label><input id="backtest-r" aria-label="回测 R 结果" type="number" step="any" className="composer-input-quick" value={backtestR} aria-describedby={backtestError?.field === 'r' ? 'backtest-error backtest-r-help' : 'backtest-r-help'} aria-invalid={backtestError?.field === 'r'} onChange={event => { if (backtestError?.field === 'r') setBacktestError(null); setBacktestR(event.target.value) }} /></div>
+                <div className="composer-essential-field composer-date-field"><span className="composer-essential-label">历史日期</span><DatePicker value={openedAt} onValueChange={value => { if (backtestError?.field === 'date') setBacktestError(null); setOpenedAt(value) }} ariaLabel="回测历史日期" ariaInvalid={backtestError?.field === 'date'} ariaDescribedBy={backtestError?.field === 'date' ? 'backtest-error' : undefined} required /></div>
+              </div>
+              <p id="backtest-r-help" className="composer-backtest-hint">正数盈利，负数亏损，0 保本；留空待确认。</p>
+              {backtestError && <p id="backtest-error" className="composer-validation" role="alert">{backtestError.message}</p>}
+            </div>
+            <div className="composer-backtest-pair">{directionField}{strategyField}</div>
+          </>}
+          {activeKind !== 'backtest' && <section className="composer-hero" aria-label={`${recordLabel}身份`}>
             <div className="composer-field-quick">
               <label>品种</label>
               <Select
@@ -478,28 +527,8 @@ export function TradeComposer() {
                 }))}
               />
             </div>
-            <div className="composer-essential-field">
-              <span className="composer-essential-label">方向</span>
-              <div className="composer-side-control" role="group" aria-label="交易方向">
-                <button
-                  type="button"
-                  className={`is-long${side === 'long' ? ' is-on' : ''}`}
-                  aria-pressed={side === 'long'}
-                  onClick={() => setSide('long')}
-                >
-                  做多
-                </button>
-                <button
-                  type="button"
-                  className={`is-short${side === 'short' ? ' is-on' : ''}`}
-                  aria-pressed={side === 'short'}
-                  onClick={() => setSide('short')}
-                >
-                  做空
-                </button>
-              </div>
-            </div>
-          </section>
+            {directionField}
+          </section>}
 
           {isNew ? (
             <div className="composer-quick-context">
@@ -515,7 +544,7 @@ export function TradeComposer() {
           ) : null}
 
           {showMore ? <div className="composer-parameter-grid">
-            {isTradeQuickNew ? (
+            {isTradeQuickNew && activeKind !== 'backtest' ? (
               <div className="composer-essential-field">
                 <span className="composer-essential-label">记录类型</span>
                 <Select
@@ -571,7 +600,7 @@ export function TradeComposer() {
                 ]}
               />
             </div>
-            <div className="composer-essential-field composer-date-field">
+            {activeKind !== 'backtest' && <div className="composer-essential-field composer-date-field">
               <span className="composer-essential-label">交易日期</span>
               <DatePicker
                 value={openedAt}
@@ -579,7 +608,7 @@ export function TradeComposer() {
                 ariaLabel="交易日期"
                 required
               />
-            </div>
+            </div>}
             {isTradeQuickNew ? <>
               <label className="composer-essential-field">
                 <span className="composer-essential-label">入场价</span>
@@ -615,24 +644,7 @@ export function TradeComposer() {
             ) : null}
           </div> : null}
 
-          <div className="composer-archive-row">
-            <div className="composer-essential-field">
-              <span className="composer-essential-label">策略</span>
-              <Select
-                value={strategyId}
-                onValueChange={setStrategyId}
-                ariaLabel="交易策略"
-                options={
-                  strategies.length === 0
-                    ? [{ value: '', label: '未设置' }]
-                    : strategies.map((strategy) => ({
-                        value: strategy.id,
-                        label: strategy.name,
-                      }))
-                }
-              />
-            </div>
-          </div>
+          {activeKind !== 'backtest' && <div className="composer-archive-row">{strategyField}</div>}
 
           <div className="composer-media">
             <input

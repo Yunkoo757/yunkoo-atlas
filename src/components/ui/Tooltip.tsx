@@ -68,6 +68,7 @@ export function Tooltip({
   side = 'auto',
   focusable = false,
   asChild = false,
+  disabled = false,
 }: {
   children: ReactNode
   content: ReactNode
@@ -76,6 +77,7 @@ export function Tooltip({
   side?: TooltipSide
   focusable?: boolean
   asChild?: boolean
+  disabled?: boolean
 }) {
   const id = useId()
   const triggerRef = useRef<HTMLElement | null>(null)
@@ -95,6 +97,7 @@ export function Tooltip({
   }
 
   const scheduleOpen = (wait: number) => {
+    if (disabled) return
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => {
       const rect = triggerRef.current?.getBoundingClientRect()
@@ -107,6 +110,10 @@ export function Tooltip({
 
   const schedulePointerOpen = () => scheduleOpen(delay)
   const openFromFocus = () => scheduleOpen(0)
+
+  useEffect(() => {
+    if (disabled) close()
+  }, [disabled])
 
   useLayoutEffect(() => {
     if (!open) return
@@ -260,9 +267,8 @@ export function OverflowTooltip({
     },
   } as Record<string, unknown>)
 
-  if (!overflowed) return trigger
   return (
-    <Tooltip asChild content={text} label={text}>
+    <Tooltip asChild content={text} label={text} disabled={!overflowed}>
       {trigger}
     </Tooltip>
   )

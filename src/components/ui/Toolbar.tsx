@@ -4,6 +4,7 @@ import { MoreHorizontal } from '@/icons/appIcons'
 import { Menu } from '@/components/Menu'
 import { Button } from '@/components/ui/Button'
 import { IconButton } from '@/components/ui/IconButton'
+import { OverflowTooltip } from '@/components/ui/Tooltip'
 import './Toolbar.css'
 
 export type ToolbarOverflowAction = {
@@ -16,6 +17,7 @@ export type ToolbarOverflowAction = {
 type ToolbarProps = {
   title: string
   titleAsHeading?: boolean
+  titleTooltip?: boolean
   context?: ReactNode
   actions?: ReactNode
   overflowActions?: ToolbarOverflowAction[]
@@ -25,20 +27,20 @@ type ToolbarProps = {
 export function Toolbar({
   title,
   titleAsHeading = true,
+  titleTooltip = false,
   context,
   actions,
   overflowActions = [],
   children,
 }: ToolbarProps) {
+  const titleElement = titleAsHeading
+    ? <h1 className="ui-toolbar-title">{title}</h1>
+    : <span className="ui-toolbar-title">{title}</span>
   return (
     <header className="ui-toolbar">
       <div className="ui-toolbar-main">
         <div className="ui-toolbar-heading">
-          {titleAsHeading ? (
-            <h1 className="ui-toolbar-title">{title}</h1>
-          ) : (
-            <span className="ui-toolbar-title">{title}</span>
-          )}
+          {titleTooltip ? <OverflowTooltip text={title}>{titleElement}</OverflowTooltip> : titleElement}
           {context ? (
             <>
               <span className="ui-toolbar-sep" aria-hidden="true" />

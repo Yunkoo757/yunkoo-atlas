@@ -59,8 +59,9 @@ export function resolveTradeDetailReturn(options: {
   listPath?: string | null
   listSearch?: string | null
   tradeKind?: Trade['tradeKind']
+  backtestProjectId?: string
 }): { pathname: string; search: string } {
-  const fallback = options.tradeKind === 'case' ? '/review-cases' : '/list'
+  const fallback = options.tradeKind === 'backtest' ? (options.backtestProjectId ? `/backtests/${encodeURIComponent(options.backtestProjectId)}` : '/backtests') : options.tradeKind === 'case' ? '/review-cases' : '/list'
 
   if (options.from?.pathname && isValidDetailSource(options.from.pathname, options.tradeKind)) {
     return routeWithSearch(
@@ -75,6 +76,8 @@ export function resolveTradeDetailReturn(options: {
 }
 
 function isValidDetailSource(pathname: string, tradeKind: Trade['tradeKind'] | undefined): boolean {
+  if (/^\/backtests\/[^/]+$/.test(pathname)) return tradeKind === 'backtest' || tradeKind === 'case'
+  if (tradeKind === 'backtest') return false
   if (pathname === '/dashboard') return tradeKind !== 'case'
   if (pathname === '/live-history' || pathname === '/live-history/board') return true
   if (pathname === '/live-archive' || pathname.startsWith('/live-archive/')) return true

@@ -101,6 +101,7 @@ async function runBootstrapStorage(): Promise<void> {
     const trades = normalizeTrades(normalized.trades)
     useStore.setState({
       trades,
+      backtestProjects: snapshot.backtestProjects ?? [],
       liveStages: snapshot.liveStages.map((stage) => ({ ...stage })),
       currentLiveStageId: snapshot.currentLiveStageId,
       scheduledStageRollover: snapshot.scheduledStageRollover

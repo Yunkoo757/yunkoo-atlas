@@ -71,13 +71,15 @@ export function getDetailNavigation(
 
   const activeById = new Map(
     trades
-      .filter((trade) => !trade.deletedAt && trade.tradeKind === currentTrade.tradeKind)
+      .filter((trade) => !trade.deletedAt && trade.tradeKind === currentTrade.tradeKind && (currentTrade.tradeKind !== 'backtest' || trade.backtestProjectId === currentTrade.backtestProjectId))
       .map((trade) => [trade.id, trade]),
   )
   const contextIds = ctx?.orderedIds.filter((id) => activeById.has(id)) ?? []
   const orderedIds = contextIds.includes(currentTrade.id)
     ? contextIds
-    : currentTrade.tradeKind === 'case'
+    : currentTrade.tradeKind === 'backtest'
+      ? [...activeById.values()].sort((a, b) => a.openedAt.localeCompare(b.openedAt) || a.ref.localeCompare(b.ref, undefined, { numeric: true })).map(trade => trade.id)
+      : currentTrade.tradeKind === 'case'
       ? sortReviewCasesByRecentActivity([...activeById.values()]).map((trade) => trade.id)
       : buildOrderedTradeIds(
           trades,

@@ -40,7 +40,7 @@ function copyAccountTrade(
     pnl: null,
     rMultiple: null,
     resultSource: undefined,
-    openedAt: formatYmd(now),
+    openedAt: source.tradeKind === 'backtest' ? source.openedAt : formatYmd(now),
     recordedAt: now.toISOString(),
     closedAt: null,
     missReason: undefined,

@@ -330,7 +330,7 @@ export function applyRecommendedStageBoundaryRepair<T extends StageOwnershipRepa
 }
 
 function tradeEntityType(trade: Trade): StageOwnershipEntityType | null {
-  if (trade.tradeKind === 'paper') return null
+  if (trade.tradeKind === 'paper' || trade.tradeKind === 'backtest' || trade.backtestProjectId !== undefined) return null
   if (trade.tradeKind === 'case') return 'case-trade'
   return trade.status === 'missed' ? 'missed-trade' : 'live-trade'
 }

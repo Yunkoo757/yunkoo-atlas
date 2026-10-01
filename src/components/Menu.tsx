@@ -14,6 +14,7 @@ import { createPortal } from 'react-dom'
 import { Check } from '@/icons/appIcons'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { useModalPortalRoot } from '@/components/ui/ModalShell'
+import { OverflowTooltip } from '@/components/ui/Tooltip'
 import './Menu.css'
 
 export interface MenuItemOption {
@@ -59,12 +60,15 @@ export function Menu({
   value,
   onSelect,
   align = 'left',
+  maxWidth,
 }: {
   trigger: ReactNode
   options: MenuOption[]
   value?: string
   onSelect: (value: string) => void
   align?: 'left' | 'right'
+  /** 用户命名的选项限制宽度，截断后可悬停查看全文。 */
+  maxWidth?: number
 }) {
   const menuId = useId()
   const [open, setOpen] = useState(false)
@@ -192,6 +196,10 @@ export function Menu({
     left: position.left,
     top: position.top,
     minWidth: position.minWidth,
+    ...(maxWidth === undefined ? {} : {
+      width: Math.min(maxWidth, window.innerWidth - 16),
+      maxHeight: Math.max(30, position.placement === 'bottom' ? window.innerHeight - position.top - 8 : position.top - 8),
+    }),
   }
 
   const assignPopRef = (node: HTMLDivElement | null) => {
@@ -235,7 +243,7 @@ export function Menu({
         createPortal(
           <div
             id={menuId}
-            className={`menu-pop menu-placement-${position.placement}`}
+            className={`menu-pop menu-placement-${position.placement}${maxWidth === undefined ? '' : ' menu-pop-bounded'}`}
             role="menu"
             ref={assignPopRef}
             style={popStyle}
@@ -258,7 +266,7 @@ export function Menu({
                 }}
               >
                 {option.icon && <span className="menu-item-icon">{option.icon}</span>}
-                <span className="menu-item-label">{option.label}</span>
+                {maxWidth === undefined ? <span className="menu-item-label">{option.label}</span> : <OverflowTooltip text={option.label}><span className="menu-item-label">{option.label}</span></OverflowTooltip>}
                 {isSelectionMenu && option.value === value && (
                   <Check size={ICON_SM} className="menu-item-check" />
                 )}

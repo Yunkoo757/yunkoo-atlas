@@ -6,7 +6,7 @@ import { useStore } from '@/store/useStore'
 export type TradeCopyActionResult =
   | Readonly<{ status: 'copied'; source: Trade; copy: Trade }>
   | Readonly<{ status: 'source-missing' }>
-  | Readonly<{ status: 'failed' }>
+  | Readonly<{ status: 'failed'; reason?: 'project-archived' }>
 
 export function copyTradeRecord(
   tradeId: string,
@@ -18,6 +18,9 @@ export function copyTradeRecord(
   const state = useStore.getState()
   const source = state.trades.find((trade) => trade.id === tradeId && !trade.deletedAt)
   if (!source) return { status: 'source-missing' }
+  if (source.tradeKind === 'backtest' && state.backtestProjects.some(project => project.id === source.backtestProjectId && project.archivedAt)) {
+    return { status: 'failed', reason: 'project-archived' }
+  }
 
   try {
     const [copy] = buildSafeTradeCopies([source], state.trades, {
@@ -36,9 +39,9 @@ export function copyTradeRecordWithFeedback(tradeId: string): TradeCopyActionRes
   if (result.status === 'source-missing') {
     toast('源记录已变更，无法复制', { tone: 'error' })
   } else if (result.status === 'failed') {
-    toast('复制失败，请重试', { tone: 'error' })
+    toast(result.reason === 'project-archived' ? '项目已归档，请重新打开后复制' : '复制失败，请重试', { tone: 'error' })
   } else {
-    toast(result.source.tradeKind === 'case' ? '已复制为新案例' : '已复制为新计划', {
+    toast(result.source.tradeKind === 'case' ? '已复制为新案例' : result.source.tradeKind === 'backtest' ? '已复制为待确认回测记录' : '已复制为新计划', {
       tone: 'success',
     })
   }

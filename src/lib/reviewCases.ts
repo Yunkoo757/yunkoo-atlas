@@ -39,6 +39,7 @@ export function buildReviewCaseFromTrade(
     id: options.id,
     ref: options.ref,
     tradeKind: 'case',
+    ...(source.tradeKind === 'backtest' ? { liveStageId: null } : {}),
     sourceTradeId: source.id,
     sourceNoteHtml: source.note,
     caseType: undefined,

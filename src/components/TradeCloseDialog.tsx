@@ -73,7 +73,7 @@ export function TradeCloseDialog() {
     setOutcome(nextOutcome)
     setPnl(trade.pnl == null ? '' : String(Math.abs(trade.pnl)))
     setRMultiple(trade.rMultiple == null ? '' : String(Math.abs(trade.rMultiple)))
-    setClosedAt(trade.closedAt ?? toTradingDay(new Date(), tradingDayStartHour))
+    setClosedAt(trade.closedAt ?? (trade.tradeKind === 'backtest' ? trade.openedAt.slice(0, 10) : toTradingDay(new Date(), tradingDayStartHour)))
     setError('')
   }, [trade?.id, request?.targetStatus, tradingDayStartHour])
 
@@ -146,7 +146,7 @@ export function TradeCloseDialog() {
       panelClassName="trade-close-dialog"
       bodyClassName="trade-close-body"
       footerClassName="trade-close-footer"
-      initialFocusSelector=".trade-close-fields input:not(:disabled), .trade-close-outcome"
+      initialFocusSelector={trade.tradeKind === 'backtest' ? 'input[aria-label="R 倍数"]' : '.trade-close-fields input:not(:disabled), .trade-close-outcome'}
       returnFocusTo={request.returnFocus}
       onClose={cancelTradeClose}
       footer={(

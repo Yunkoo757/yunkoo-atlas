@@ -8,7 +8,7 @@ const CalendarControl = lazy(() => import('./DatePickerControl').then((module) =
 export const DatePicker = forwardRef<HTMLButtonElement, ComponentPropsWithoutRef<typeof DatePickerControl>>(
   function DatePicker(props, ref) {
     return (
-      <Suspense fallback={<FieldTrigger disabled aria-label={props.ariaLabel}>{props.value || '选择日期'}</FieldTrigger>}>
+      <Suspense fallback={<FieldTrigger disabled aria-label={props.ariaLabel} aria-invalid={props.ariaInvalid || undefined} aria-describedby={props.ariaDescribedBy}>{props.value || '选择日期'}</FieldTrigger>}>
         <CalendarControl {...props} ref={ref} />
       </Suspense>
     )

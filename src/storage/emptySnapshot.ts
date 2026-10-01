@@ -14,6 +14,7 @@ export function createEmptyPersistedSnapshot(): PersistedSnapshot {
     'live-stage-initial',
   )
   return {
+    backtestProjects: [],
     trades: [],
     liveStages: [stage],
     currentLiveStageId: stage.id,

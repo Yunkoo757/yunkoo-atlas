@@ -45,6 +45,7 @@ import { LoadingIndicator } from './icons/LoadingIndicator'
 import { ICON_XL } from './icons/iconSize'
 import { TradesPage } from './views/TradesPage'
 import { SettingsLayout } from './views/settings/SettingsLayout'
+const BacktestProjectsView = lazy(() => import('./views/BacktestProjectsView').then(m => ({ default: m.BacktestProjectsView })))
 const TradeTrashView = lazy(() => import('./views/TradeTrashView').then(m => ({ default: m.TradeTrashView })))
 import { StrategyHeader } from './components/StrategyHeader'
 import { getStrategyName } from './lib/strategies'
@@ -534,6 +535,8 @@ function Shell() {
           <Route path="/period/:slug" element={<PeriodPage />} />
           <Route path="/period/:slug/board" element={<PeriodPage />} />
           <Route path="/today-record" element={<LegacyTradeLogRedirect filter="incomplete" />} />
+          <Route path="/backtests" element={<BacktestProjectsView />} />
+          <Route path="/backtests/:id" element={<BacktestProjectsView />} />
           <Route path="/notes" element={<QuickNotesView />} />
           <Route path="/notes/:id" element={<QuickNotesView />} />
           <Route path="/today-record/board" element={<Navigate to="/today-record" replace />} />

@@ -1,3 +1,4 @@
+import { backtestProjectIdForPath } from '@/lib/backtestProjects'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -17,6 +18,7 @@ import {
   Calendar,
   CalendarDays,
   FlaskConical,
+  FolderClock,
   Clock,
   X,
   Keyboard,
@@ -200,7 +202,7 @@ function CommandPaletteDialog({
     const tagsByKind = new Map(tagWorkspaces.map(({ kind }) => [kind, new Map<string, number>()]))
     if (textSearchEnabled) for (const trade of searchableTrades) {
       if (trade.tradeKind === 'live') strategyCounts.set(trade.strategyId, (strategyCounts.get(trade.strategyId) ?? 0) + 1)
-      const counts = tagsByKind.get(trade.tradeKind)
+      const counts = tagsByKind.get(trade.tradeKind as 'live' | 'paper' | 'case')
       if (counts) for (const tag of trade.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1)
     }
     const tagCandidates: TagCommandCandidate[] = tagWorkspaces.flatMap((workspace) =>
@@ -233,6 +235,7 @@ function CommandPaletteDialog({
     const paperParams = new URLSearchParams(sharedTradeSearch)
     paperParams.set('kind', 'paper')
     const viewNav: Cmd[] = [
+      { id: 'n-backtests', group: '导航', icon: <FolderClock size={ICON_MD} />, label: '回测项目', keywords: 'backtest 历史 固定规则 项目', run: go('/backtests') },
       { id: 'n-quick-notes', group: '导航', icon: <FileText size={ICON_MD} />, label: '随记', keywords: '笔记 灵感 杂谈 notebook', hint: shortcutHint('nav.quickNotes'), run: go('/notes') },
       { id: 'n-list', group: '导航', icon: <ListTodo size={ICON_MD} />, label: PRIMARY_NAV_LABELS.trades, hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies, null, { pathname, search })) },
       { id: 'n-review-cases', group: '导航', icon: <BookOpen size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewCases, hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
@@ -267,7 +270,7 @@ function CommandPaletteDialog({
       },
     ]
     const actions: Cmd[] = [
-      { id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: '记录交易', hint: shortcutHint('global.newTrade'), run: () => { requestClose(); openComposer(null, newTradeKindForPath(pathname, search)) } },
+      { id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: '记录交易', hint: shortcutHint('global.newTrade'), run: () => { requestClose(); openComposer(null, newTradeKindForPath(pathname, search), backtestProjectIdForPath(pathname, useStore.getState().trades)) } },
       { id: 'a-new-case', group: '操作', icon: <BookOpen size={ICON_MD} />, label: '新建案例', hint: shortcutHint('global.newCase'), run: () => { requestClose(); openComposer(null, 'case') } },
       { id: 'a-fullscreen', group: '操作', icon: <Maximize2 size={ICON_MD} />, label: '切换应用全屏', hint: shortcutHint('global.toggleFullscreen'), run: () => {
         requestClose()

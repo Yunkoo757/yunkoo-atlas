@@ -80,6 +80,7 @@ function isHideableSystemReviewPoolId(value: unknown): value is Exclude<SystemRe
 }
 
 function isGenerallyEligible(trade: Trade): boolean {
+  if (trade.tradeKind === 'backtest') return false
   if (trade.deletedAt) return false
   if (trade.tradeKind === 'case') return true
   return trade.status === 'win' || trade.status === 'loss' || trade.status === 'breakeven' || trade.status === 'missed'

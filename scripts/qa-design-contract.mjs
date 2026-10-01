@@ -160,7 +160,7 @@ const checks = [
   ],
   [
     'persistent sidebar routes share one active icon semantic',
-    (sidebarComponent.match(/activeIconStyle\('var\(--nav-active-icon\)'\)/g) ?? []).length === 3 &&
+    (sidebarComponent.match(/activeIconStyle\('var\(--nav-active-icon\)'\)/g) ?? []).length === 4 &&
       !/activeIconStyle\('var\(--nav-icon-[^)]+\)'\)/.test(sidebarComponent),
   ],
   [

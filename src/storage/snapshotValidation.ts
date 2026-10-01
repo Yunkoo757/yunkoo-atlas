@@ -1,3 +1,4 @@
+import { isBacktestProject } from '@/lib/backtestProjects'
 import { assertJudgmentDesk } from '../lib/judgment/model'
 import { assertComposerData } from '../lib/reviewComposer/model'
 import type { PersistedSnapshot } from '@/storage/types'
@@ -11,7 +12,7 @@ import { isCanonicalWeeklyReviewPeriod, stageContainsWeeklyReviewPeriod } from '
 
 const TRADE_SIDES = new Set(['long', 'short'])
 const TRADE_STATUSES = new Set(['planned', 'open', 'missed', 'win', 'loss', 'breakeven'])
-const TRADE_KINDS = new Set(['live', 'paper', 'case'])
+const TRADE_KINDS = new Set(['live', 'paper', 'case', 'backtest'])
 const CONVICTIONS = new Set(['low', 'medium', 'high', 'urgent'])
 const RESULT_SOURCES = new Set(['pnl', 'r', 'price', 'imported'])
 const REVIEW_STATUSES = new Set(['unreviewed', 'reviewed', 'focus'])
@@ -280,6 +281,7 @@ export function isValidPersistedTrade(
     'psychology',
     'recordedAt',
     'sourceTradeId',
+    'backtestProjectId',
     'sourceNoteHtml',
     'deletedAt',
     'deletionId',
@@ -750,7 +752,7 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
   const nonPaperTradesById = new Map<string, PersistedSnapshot['trades'][number]>()
   const policiesById = new Map(snapshot.riskPolicyVersions.map((policy) => [policy.id, policy]))
   for (const trade of snapshot.trades) {
-    if (trade.tradeKind === 'paper') {
+    if (trade.tradeKind === 'paper' || trade.tradeKind === 'backtest') {
       if (Object.prototype.hasOwnProperty.call(trade, 'liveStageId')) {
         throw new Error(`${label}.trades paper records must not contain liveStageId`)
       }
@@ -922,6 +924,17 @@ export function assertValidPersistedSnapshot(
   if (!value.trades.every(isValidPersistedTrade)) throw new Error(`${label} contains an invalid trade`)
   if (!value.strategies.every(isStrategy)) throw new Error(`${label} contains an invalid strategy`)
   if (hasDuplicateStringId(value.trades)) throw new Error(`${label} contains duplicate trade ids`)
+  const projects = value.backtestProjects === undefined ? [] : value.backtestProjects
+  if (!Array.isArray(projects) || !projects.every(isBacktestProject) || hasDuplicateStringId(projects)) throw new Error(`${label} contains invalid backtest projects`)
+  const projectsById = new Map(projects.map(project => [project.id, project]))
+  for (const trade of value.trades) {
+    if (trade.tradeKind === 'backtest' || trade.backtestProjectId !== undefined) {
+      const project = projectsById.get(trade.backtestProjectId ?? '')
+      if (!project || (trade.tradeKind !== 'backtest' && trade.tradeKind !== 'case')) throw new Error(`${label} contains invalid backtest ownership`)
+      if (trade.tradeKind === 'backtest' && (trade.symbol !== project.symbol || trade.openedAt.slice(0, 10) < project.startedAt)) throw new Error(`${label} contains a different backtest symbol`)
+      if (trade.tradeKind === 'case' && trade.liveStageId !== null) throw new Error(`${label} backtest cases must be independent of live stages`)
+    }
+  }
   assertValidRiskEntities(value, label)
   if (value.weeklyReviews !== undefined) {
     if (!Array.isArray(value.weeklyReviews) || !value.weeklyReviews.every(isWeeklyReview)) {

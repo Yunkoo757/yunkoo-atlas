@@ -49,6 +49,7 @@ export function testCaseRecordActionsUseTheCanonicalSubsetAndLabels(): void {
 }
 
 export function testBatchCopyUsesCanonicalLabelsForHomogeneousAndMixedSelections(): void {
+  assert(getBatchCopyActionLabel([{ ...liveTrade, tradeKind: 'backtest' }]) === '复制为待确认记录', '回测复制不得暗示继承已确认结果')
   assert(getBatchCopyActionLabel([liveTrade]) === '复制为新计划', '交易批量复制名称必须与单条动作一致')
   assert(getBatchCopyActionLabel([caseTrade]) === '复制案例', '案例批量复制名称必须与单条动作一致')
   assert(
