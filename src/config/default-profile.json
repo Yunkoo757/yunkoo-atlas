@@ -47,6 +47,7 @@
     "global.closeOverlay": { "key": "escape" },
     "global.toggleFullscreen": { "key": "f11" },
     "nav.quickNotes": { "key": "q" },
+    "nav.backtests": null,
     "nav.active": { "alt": true, "key": "1" },
     "nav.favorites": null,
     "nav.missed": null,

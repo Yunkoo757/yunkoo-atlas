@@ -402,9 +402,6 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           <Icon size={ICON_MD} />
         )}
         <span className="sb-item-label">{item.label}</span>
-        {strategyShortcutHint ? (
-          <span className="sb-item-shortcut" aria-hidden="true">{strategyShortcutHint}</span>
-        ) : null}
       </NavLink>
     )
 

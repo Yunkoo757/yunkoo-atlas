@@ -235,7 +235,7 @@ function CommandPaletteDialog({
     const paperParams = new URLSearchParams(sharedTradeSearch)
     paperParams.set('kind', 'paper')
     const viewNav: Cmd[] = [
-      { id: 'n-backtests', group: '导航', icon: <FolderClock size={ICON_MD} />, label: '回测项目', keywords: 'backtest 历史 固定规则 项目', run: go('/backtests') },
+      { id: 'n-backtests', group: '导航', icon: <FolderClock size={ICON_MD} />, label: '回测项目', keywords: 'backtest 历史 固定规则 项目', hint: shortcutHint('nav.backtests'), run: go('/backtests') },
       { id: 'n-quick-notes', group: '导航', icon: <FileText size={ICON_MD} />, label: '随记', keywords: '笔记 灵感 杂谈 notebook', hint: shortcutHint('nav.quickNotes'), run: go('/notes') },
       { id: 'n-list', group: '导航', icon: <ListTodo size={ICON_MD} />, label: PRIMARY_NAV_LABELS.trades, hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies, null, { pathname, search })) },
       { id: 'n-review-cases', group: '导航', icon: <BookOpen size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewCases, hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },

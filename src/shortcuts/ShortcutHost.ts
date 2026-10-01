@@ -145,6 +145,7 @@ export function useShortcutHost({
       },
 
       'nav.quickNotes': () => navigate('/notes'),
+      'nav.backtests': () => navigate('/backtests'),
       'nav.active': () => navigate(sharedTradeViewHref('active')),
       'nav.favorites': () => navigate(sharedTradeViewHref('starred')),
       'nav.missed': () => navigate(sharedTradeViewHref('missed')),

@@ -12,8 +12,8 @@ export function testVisibleSidebarLabelsDoNotRepeatInShortcutTooltips(): void {
       throw new Error('侧栏策略名称已经直接可见，不得再用 ShortcutTooltip 重复报名或浮层键帽')
     }
   }
-  if (!source.includes('sb-item-shortcut')) {
-    throw new Error('侧栏策略快捷键应使用行尾提示，而不是浮层')
+  if (source.includes('sb-item-shortcut')) {
+    throw new Error('侧栏策略不得显示行尾快捷键提示')
   }
   if (!source.includes('getShortcutHintModel')) {
     throw new Error('侧栏策略快捷键必须使用真实绑定，不得写死修饰键')

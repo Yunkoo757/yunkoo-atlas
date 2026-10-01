@@ -252,6 +252,29 @@ export function testOmittedPrimaryNavigationActionsAreConfigurable(): void {
   assert(getActionMeta('nav.sim')?.category === '交易日志', '模拟盘属于交易日志记录类型而非独立导航页')
 }
 
+export function testBacktestNavigationSupportsCustomDisabledAndPersistedBindings(): void {
+  const action = getActionMeta('nav.backtests')
+  assert(action?.label === '回测项目' && action.category === '导航', '回测必须接入导航快捷键设置')
+  assert(action?.defaultBinding === null, '回测默认不占用已有快捷键')
+  const previous = useShortcutStore.getState().bindings
+  try {
+    useShortcutStore.getState().hydrateBindings({ 'nav.backtests': { alt: true, key: 'b' } })
+    assert(getShortcutHintModel('nav.backtests', useShortcutStore.getState().bindings).hint === 'Alt+B', '回测自定义绑定必须正确显示')
+    const persisted = bindingsForPersist(useShortcutStore.getState().bindings)
+    useShortcutStore.getState().hydrateBindings(persisted)
+    assert(getShortcutHintModel('nav.backtests', useShortcutStore.getState().bindings).hint === 'Alt+B', '回测绑定必须可保存并恢复')
+    const assigned = useShortcutStore.getState().assignBinding('nav.backtests', { key: 'a' })
+    assert(assigned.ok, '回测必须沿用通用冲突覆盖流程')
+    assert(useShortcutStore.getState().bindings['nav.list'] === null, '冲突按键必须禁用旧动作，避免同时跳转')
+    useShortcutStore.getState().setBinding('nav.backtests', null)
+    assert(getShortcutHintModel('nav.backtests', useShortcutStore.getState().bindings).hint === null, '回测快捷键必须支持禁用')
+    useShortcutStore.getState().resetBinding('nav.backtests')
+    assert(!('nav.backtests' in useShortcutStore.getState().bindings), '恢复默认必须移除自定义绑定')
+  } finally {
+    useShortcutStore.getState().hydrateBindings(previous)
+  }
+}
+
 export function testQuickNotesHaveIndependentNavigationAndCreateShortcuts(): void {
   assert(
     bindingKey(getActionMeta('nav.quickNotes')!.defaultBinding!) === 'q',

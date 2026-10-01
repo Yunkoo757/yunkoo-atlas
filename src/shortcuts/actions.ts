@@ -95,6 +95,13 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     defaultBinding: getDefaultShortcutBinding('nav.reviewCases'),
   },
   {
+    id: 'nav.backtests',
+    label: '回测项目',
+    category: '导航',
+    scope: 'navigation',
+    defaultBinding: getDefaultShortcutBinding('nav.backtests'),
+  },
+  {
     id: 'nav.quickNotes',
     label: '随记',
     category: '导航',
