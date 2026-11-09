@@ -24,6 +24,7 @@
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
 }
 
 .trade-close-outcomes {
@@ -127,6 +128,7 @@
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
+  line-height: var(--type-metadata-line-height);
 }
 
 .trade-close-date-field .ui-date-trigger {
@@ -139,33 +141,6 @@
 
 .trade-close-price-exit {
   order: -1;
-}
-
-.trade-close-zero-result {
-  display: flex;
-  min-width: 0;
-  grid-column: 1 / -1;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.trade-close-zero-result > span {
-  color: var(--text-muted);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--type-metadata-weight);
-}
-
-.trade-close-zero-result > strong {
-  display: flex;
-  align-items: center;
-  height: var(--field-height-md);
-  padding: 0 10px;
-  color: var(--text-secondary);
-  font-size: var(--type-row-size);
-  font-weight: var(--font-weight-medium);
-  background: var(--field-bg);
-  border: 1px solid transparent;
-  border-radius: var(--radius-6);
 }
 
 .trade-close-fields input {
@@ -185,6 +160,10 @@
   background: var(--field-bg-focus);
   border-color: var(--field-border-focus);
   box-shadow: var(--field-focus-shadow);
+}
+
+.trade-close-fields input[aria-invalid='true'] {
+  border-color: var(--neg);
 }
 
 .trade-close-summary {

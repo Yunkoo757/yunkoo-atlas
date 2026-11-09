@@ -203,7 +203,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 75
     env:
-      # 未配置 Apple 开发者证书时跳过签名，产出可手动安装的 DMG/ZIP。
+      # 未配置 Apple 开发者证书时使用 ad-hoc 签名，保持包内应用签名完整。
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
     steps:
@@ -293,7 +293,7 @@ jobs:
           fi
 
       - name: Build macOS DMG and ZIP
-        run: pnpm exec electron-builder --mac dmg zip --${{ matrix.arch }} --publish never
+        run: pnpm exec electron-builder --mac dmg zip --${{ matrix.arch }} --publish never --config.mac.identity=-
 
       - name: Validate macOS assets
         run: |

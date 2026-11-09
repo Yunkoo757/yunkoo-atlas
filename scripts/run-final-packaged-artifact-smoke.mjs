@@ -263,6 +263,13 @@ async function materializeFinalArtifact(options, temporaryRoot, state, trackedPr
   if (!fs.existsSync(state.executablePath) || !fs.existsSync(state.appAsarPath)) {
     throw new Error('macOS artifact did not contain the exact Trader Atlas.app payload')
   }
+  // Verify the app inside the final DMG/ZIP, after packaging has finished.
+  await spawnBounded('codesign', ['--verify', '--deep', '--strict', state.application], {
+    timeoutMs: 60_000,
+    onSpawn: (child) => {
+      if (Number.isSafeInteger(child.pid)) trackedProcesses.add(child.pid)
+    },
+  })
 }
 
 async function runPackagedQaMode(executablePath, mode, libraryRoot, trackedProcesses, onSpawn) {

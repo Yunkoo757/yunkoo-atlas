@@ -1,3 +1,4 @@
+import { DurableStorePublishError, durablePublishFailure, publishDurablyCommitted } from '@/lib/committedPublish'
 import type { Trade } from '@/data/trades'
 import { isSafeAssetId } from '@/storage/assetId'
 import type { StorageAdapter } from '@/storage/adapter'
@@ -143,6 +144,7 @@ export async function commitComposerTradeBatch({
   const unlockInteraction = lockStorageCutoverInteraction()
   let suspended = false
   let released = false
+  let durablyCommitted = false
 
   try {
     await flushPersistNow()
@@ -160,6 +162,7 @@ export async function commitComposerTradeBatch({
     const snapshot = pickPersisted({ ...revision.state, ...patch }, revision.bindings)
 
     await storage.commitImport(snapshot, prepared.assets)
+    durablyCommitted = true
 
     const latest = captureRevision()
     const originalTarget = revision.state.trades.find((item) => item.id === targetTradeId)
@@ -179,7 +182,7 @@ export async function commitComposerTradeBatch({
     const finalPatch = sameRevision(revision, latest)
       ? patch
       : buildTradePatch(latest.state, finalCandidate)
-    useStore.setState(finalPatch)
+    publishDurablyCommitted(() => useStore.setState(finalPatch))
 
     let trailingSaveFailed = false
     if (sameRevision(revision, latest)) {
@@ -199,6 +202,15 @@ export async function commitComposerTradeBatch({
 
     return { trade: finalTrade, imageCount: prepared.assets.length, trailingSaveFailed }
   } catch (error) {
+    if (durablyCommitted && !released && !(error instanceof DurableStorePublishError)) {
+      error = durablePublishFailure(error)
+    }
+    if (error instanceof DurableStorePublishError) {
+      if (suspended) discardPendingAndResumePersist()
+      suspended = false
+      released = true
+      throw error
+    }
     if (!released) {
       released = true
       try {

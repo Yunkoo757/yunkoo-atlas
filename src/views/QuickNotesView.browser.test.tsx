@@ -29,7 +29,9 @@ function pressUndo(target: HTMLElement): void {
   target.dispatchEvent(new KeyboardEvent('keydown', {
     key: 'z',
     code: 'KeyZ',
-    ctrlKey: true,
+    // ProseMirror 使用宿主平台的 Mod；macOS 原生撤销为 ⌘Z。
+    ctrlKey: !/Mac/.test(navigator.platform),
+    metaKey: /Mac/.test(navigator.platform),
     bubbles: true,
     cancelable: true,
   }))

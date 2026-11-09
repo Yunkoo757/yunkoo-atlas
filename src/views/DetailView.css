@@ -533,9 +533,6 @@
 .dv-document.is-note-readonly .editor .ProseMirror {
   cursor: default;
 }
-.dv-document.is-note-browsing .editor .ProseMirror {
-  caret-color: transparent;
-}
 @keyframes dv-note-spin {
   to { transform: rotate(360deg); }
 }

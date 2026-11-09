@@ -3,6 +3,7 @@ import { DeferredTradeOverlays } from '@/components/DeferredTradeOverlays'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
 import { useToast } from '@/lib/toast'
+import { resolveTradeTruth, summarizeTradeResults } from '@/lib/tradeTruth'
 
 declare global {
   interface Window {
@@ -158,6 +159,29 @@ async function run(): Promise<void> {
     assert(useStore.getState().trades[0]?.closedTradingDayKey === '2026-07-01', '保存后必须更新平仓业务日事实')
     const savedArchiveCandidate = useStore.getState().trades[0]
     assert(savedArchiveCandidate?.tradeKind === 'live' && savedArchiveCandidate.liveStageId === previous.currentLiveStageId, '平仓日期编辑必须保留原 stage ID')
+
+    for (const amount of ['-2.5', '1.25', '']) {
+      useStore.setState({ trades: [trade], closeTradeRequest: { tradeId: trade.id, targetStatus: 'breakeven' } })
+      await waitFor(() => Boolean(document.querySelector('input[aria-label="盈亏金额"]')), '保本必须开放金额输入')
+      const cash = document.querySelector<HTMLInputElement>('input[aria-label="盈亏金额"]')!
+      const save = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '保存并待复盘')!
+      assert(document.body.textContent?.includes('可正可负'), '保本必须提示使用正负数输入')
+      enterValue(cash, '-')
+      await waitFor(() => save.disabled && cash.getAttribute('aria-invalid') === 'true', '未完成的负数输入必须阻止保存')
+      enterValue(cash, amount)
+      await waitFor(() => !save.disabled, '有效保本金额及留空零必须可保存')
+      save.click()
+      await waitFor(() => useStore.getState().closeTradeRequest === null, '保本登记未完成')
+      const saved = useStore.getState().trades[0]
+      assert(saved.status === 'breakeven' && saved.pnl === Number(amount), '保本分类与实际金额必须保存')
+      assert(resolveTradeTruth(saved).isResultComplete, '保本金额不得被统计视为冲突')
+      assert(summarizeTradeResults([saved]).totalPnl === Number(amount), '保本实际金额必须进入汇总')
+      useStore.getState().requestTradeClose(saved.id)
+      await waitFor(() => document.querySelector<HTMLInputElement>('input[aria-label="盈亏金额"]')?.value === String(Number(amount)), '重开保本弹窗必须保留金额正负号')
+      ;[...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '取消')?.click()
+      await waitFor(() => useStore.getState().closeTradeRequest === null, '取消补录必须关闭弹窗')
+      assert(useStore.getState().trades[0].pnl === Number(amount), '取消不得改动已存保本结果')
+    }
   } finally {
     root.unmount()
     returnFocus.remove()

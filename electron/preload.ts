@@ -37,6 +37,7 @@ export type {
 
 const bridge: JournalBridge = {
   isElectron: true,
+  copyCaseContent: (content) => ipcRenderer.invoke('case:copy-content', content),
   outputImage: (action, bytes) => ipcRenderer.invoke('image:output', action, bytes),
   platform: process.platform === 'win32' || process.platform === 'darwin'
     ? process.platform

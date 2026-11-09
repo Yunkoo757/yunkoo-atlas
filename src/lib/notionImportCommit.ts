@@ -1,3 +1,4 @@
+import { DurableStorePublishError, durablePublishFailure, publishDurablyCommitted } from '@/lib/committedPublish'
 import type { Strategy } from '@/data/strategies'
 import type { Trade, TradeKind } from '@/data/trades'
 import {
@@ -170,6 +171,7 @@ export async function commitNotionImportBatch(
   const unlockInteraction = lockStorageCutoverInteraction()
   let suspended = false
   let released = false
+  let durablyCommitted = false
 
   try {
     await flushStorageBeforeCutover()
@@ -204,13 +206,14 @@ export async function commitNotionImportBatch(
     const snapshot = buildSnapshot(revision, patch)
 
     await storage.commitImport(snapshot, prepared.assets)
+    durablyCommitted = true
 
     // commit 等待期间若有其他设置变化，只把本批内容合并进最新 store，绝不回退并发编辑。
     const latest = captureRevision()
     const finalPatch = sameRevision(revision, latest)
       ? patch
       : buildStorePatch(latest.state, importedTrades, newStrategies)
-    useStore.setState(finalPatch)
+    publishDurablyCommitted(() => useStore.setState(finalPatch))
     const committedImportedTrades = importedTrades.map((trade) =>
       finalPatch.trades.find((candidate) => candidate.id === trade.id) ?? trade,
     )
@@ -240,6 +243,15 @@ export async function commitNotionImportBatch(
       trailingSaveFailed,
     }
   } catch (error) {
+    if (durablyCommitted && !released && !(error instanceof DurableStorePublishError)) {
+      error = durablePublishFailure(error)
+    }
+    if (error instanceof DurableStorePublishError) {
+      if (suspended) discardPendingAndResumePersist()
+      suspended = false
+      released = true
+      throw error
+    }
     if (!released) {
       released = true
       try {

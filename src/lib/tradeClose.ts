@@ -29,6 +29,10 @@ function finiteOrNull(value: number | null | undefined): number | null {
  * 不再写入 exit；出入场价不参与平仓主路径。
  */
 export function prepareTradeClose(_trade: Trade, input: TradeCloseInput): TradeCloseResult {
+  if ((input.pnl != null && !Number.isFinite(input.pnl)) ||
+      (input.rMultiple != null && !Number.isFinite(input.rMultiple))) {
+    return { ok: false, error: '请输入有效的盈亏金额或 R 倍数' }
+  }
   const pnlInput = finiteOrNull(input.pnl)
   const rInput = finiteOrNull(input.rMultiple)
   let pnl: number | null = null
@@ -36,9 +40,10 @@ export function prepareTradeClose(_trade: Trade, input: TradeCloseInput): TradeC
   let resultSource: Trade['resultSource']
 
   if (input.outcome === 'breakeven') {
-    pnl = _trade.tradeKind === 'backtest' ? null : 0
-    rMultiple = 0
-    resultSource = _trade.tradeKind === 'backtest' ? 'r' : 'imported'
+    // 保本是交易分类；滑点、手续费等实际进出保留用户填写的正负数。
+    const hasInput = pnlInput != null || rInput != null
+    pnl = hasInput ? pnlInput : _trade.tradeKind === 'backtest' ? null : 0
+    rMultiple = hasInput ? rInput : 0
   } else {
     if (pnlInput === 0 || rInput === 0) {
       return { ok: false, error: '非保本交易的结果数值必须大于 0' }
@@ -49,12 +54,10 @@ export function prepareTradeClose(_trade: Trade, input: TradeCloseInput): TradeC
     const direction = input.outcome === 'loss' ? -1 : 1
     pnl = pnlInput == null ? null : direction * Math.abs(pnlInput)
     rMultiple = rInput == null ? null : direction * Math.abs(rInput)
-    resultSource = pnl != null && rMultiple != null
-      ? 'imported'
-      : pnl != null
-        ? 'pnl'
-        : 'r'
   }
+  resultSource = pnl != null && rMultiple != null
+    ? 'imported'
+    : pnl != null ? 'pnl' : 'r'
 
   return {
     ok: true,

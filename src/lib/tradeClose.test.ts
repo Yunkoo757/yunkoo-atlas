@@ -145,6 +145,35 @@ export function testCloseRejectsMissingPrimaryResult(): void {
   assert(!missing.ok, 'cash mode should require a cash result')
 }
 
+export function testBreakevenKeepsSignedActualResultsWithoutInventingMissingMetric(): void {
+  for (const pnl of [-2.5, 3.25, 0]) {
+    const result = prepareTradeClose(trade, {
+      outcome: 'breakeven', resultMode: 'pnl', pnl, rMultiple: null, closedAt: '2026-10-06',
+    })
+    assert(result.ok, '保本必须允许登记正负金额及零')
+    if (!result.ok) continue
+    assert(result.status === 'breakeven' && result.patch.pnl === pnl, '保本分类和实际金额必须同时保留')
+    assert(result.patch.rMultiple === null && result.patch.resultSource === 'pnl', '只填金额不得虚构 R')
+  }
+  const pair = prepareTradeClose(trade, {
+    outcome: 'breakeven', resultMode: 'pnl', pnl: -2.5, rMultiple: 0, closedAt: '2026-10-06',
+  })
+  assert(pair.ok && pair.patch.pnl === -2.5 && pair.patch.rMultiple === 0 && pair.patch.resultSource === 'imported', '保本允许实际金额与零 R 并存')
+  const rOnly = prepareTradeClose({ ...trade, tradeKind: 'backtest' }, {
+    outcome: 'breakeven', resultMode: 'r', pnl: null, rMultiple: -0.02, closedAt: '2026-10-06',
+  })
+  assert(rOnly.ok && rOnly.patch.pnl === null && rOnly.patch.rMultiple === -0.02 && rOnly.status === 'breakeven', '保本 R 必须保留正负方向')
+}
+
+export function testBreakevenRejectsInvalidInputInsteadOfSilentlySavingZero(): void {
+  for (const pnl of [Number.NaN, Number.POSITIVE_INFINITY]) {
+    const result = prepareTradeClose(trade, {
+      outcome: 'breakeven', resultMode: 'pnl', pnl, rMultiple: null, closedAt: '2026-10-06',
+    })
+    assert(!result.ok, '无效保本金额不能被当成留空零保存')
+  }
+}
+
 export function testClosePreservesExistingExitOnTrade(): void {
   const withExit = { ...trade, exit: 110 }
   const result = prepareTradeClose(withExit, {

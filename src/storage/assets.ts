@@ -8,8 +8,6 @@ import {
 
 export const ASSET_URL_PREFIX = 'journal-asset://'
 
-const DATA_URL_IMG_RE =
-  /<img([^>]*)\ssrc=["'](data:image\/[^"']+)["']([^>]*)>/gi
 const ASSET_IMG_RE =
   /<img([^>]*)\ssrc=["']journal-asset:\/\/([^"']+)["']([^>]*)>/gi
 
@@ -44,12 +42,13 @@ export async function externalizeNoteImages(
 ): Promise<string> {
   if (!html.includes('data:image/')) return html
 
+  // saveAsset 会让出执行权；每份正文独立持有游标，避免并发迁移时重复或漏扫图片。
+  const imagePattern = /<img([^>]*)\ssrc=["'](data:image\/[^"']+)["']([^>]*)>/gi
   const parts: string[] = []
   let last = 0
   let match: RegExpExecArray | null
 
-  DATA_URL_IMG_RE.lastIndex = 0
-  while ((match = DATA_URL_IMG_RE.exec(html)) !== null) {
+  while ((match = imagePattern.exec(html)) !== null) {
     parts.push(html.slice(last, match.index))
     const parsed = dataUrlToBlob(match[2])
     if (parsed) {

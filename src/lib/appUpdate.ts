@@ -41,6 +41,9 @@ export function reduceUpdateState(
   state: AppUpdateState,
   event: AppUpdateEvent,
 ): AppUpdateState {
+  // 检查与下载的原生事件可交错；已经拥有的下载任务或安装候选不能被迟到检查撤销。
+  if (state.phase === 'downloaded' && event.type !== 'downloaded' && event.type !== 'unsupported') return state
+  if (state.phase === 'downloading' && ['checking', 'available', 'not-available'].includes(event.type)) return state
   switch (event.type) {
     case 'checking':
       return { ...state, phase: 'checking', progress: null, message: null }

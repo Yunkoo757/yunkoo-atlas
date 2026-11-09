@@ -5,6 +5,8 @@ import { useShortcutHost } from '@/shortcuts/ShortcutHost'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
 import { DetailView } from '@/views/DetailView'
+import type { Editor as TiptapEditor } from '@tiptap/core'
+import { flushNoteDraftToStore, resetNoteDraftsForTests } from '@/storage/noteDrafts'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
 
@@ -53,7 +55,7 @@ function makeTrade(index: number): Trade {
     resultSource: 'imported',
     openedAt: `2026-09-0${index}`,
     closedAt: `2026-09-0${index}`,
-    note: `<p>浏览态正文 ${index}</p>`,
+    note: `<blockquote><p>浏览态正文 ${index}</p></blockquote>`,
   }
 }
 
@@ -114,27 +116,38 @@ async function run(): Promise<void> {
       '详情正文未载入',
     )
     const editor = document.querySelector<HTMLElement>('.ProseMirror')
-    assert(editor?.getAttribute('contenteditable') === 'false', '打开详情应为浏览态')
-    assert(document.querySelector('[aria-label^="编辑正文"]'), '浏览态应提供编辑正文入口')
-    editor?.click()
-    await waitForFrame()
-    assert(
-      document.querySelector('.ProseMirror')?.getAttribute('contenteditable') === 'false',
-      '点空白不得进入编辑',
-    )
+    assert(editor?.getAttribute('contenteditable') === 'true', '打开详情应可直接编辑')
+    assert(!document.querySelector('[aria-label^="编辑正文"]'), '不应保留编辑正文开关')
+    assert(!document.querySelector('[aria-label="完成编辑"]'), '不应保留完成编辑开关')
+    assert(document.activeElement !== editor, '打开详情不得自动聚焦正文')
 
     const before = editor?.textContent ?? ''
     press('e')
     await waitFor(
       () => document.querySelector('.ProseMirror')?.textContent?.includes('浏览态正文 2') ?? false,
-      '浏览态按 E 应翻到下一条，而不是写入正文',
+      '未聚焦正文时按 E 应翻到下一条',
     )
     assert(
       !document.body.textContent?.includes(`${before}e`) &&
-        document.querySelector('.ProseMirror')?.getAttribute('contenteditable') === 'false',
-      '切换记录后应保持浏览态',
+        document.activeElement !== document.querySelector('.ProseMirror'),
+      '切换记录后不得自动聚焦正文',
     )
 
+    const current = document.querySelector<HTMLElement>('.ProseMirror') as HTMLElement & { editor?: TiptapEditor }
+    current.focus()
+    assert(document.activeElement === current, '正文无需开关即可聚焦输入')
+    assert(current.editor, '缺少 Tiptap 编辑器')
+    current.editor.commands.insertContent('直接补充')
+    assert(current.textContent?.includes('直接补充'), '正文应可直接补充')
+    current.editor.commands.undo()
+    assert(!current.textContent?.includes('直接补充'), '误输入应可撤销')
+    current.editor.commands.insertContent('保存到第二笔')
+    assert(await flushNoteDraftToStore(trades[1].id), '离开前应可保存草稿')
+    assert(useStore.getState().trades[1].note.includes('保存到第二笔'), '正文修改应写入对应记录')
+    assert(!useStore.getState().trades[0].note.includes('保存到第二笔'), '编辑不得写入前一笔记录')
+
+    press('Escape')
+    await waitFor(() => document.activeElement !== current, 'Esc 应移出正文焦点')
     press('Enter')
     await waitFor(
       () => {
@@ -142,9 +155,8 @@ async function run(): Promise<void> {
         return note?.getAttribute('contenteditable') === 'true'
           && document.activeElement === note
       },
-      'Enter 应进入编辑态并聚焦正文',
+      'Enter 应聚焦正文',
     )
-    assert(document.querySelector('[aria-label="完成编辑"]'), '编辑态应提供完成编辑')
 
     press('q')
     await waitForFrame()
@@ -155,12 +167,12 @@ async function run(): Promise<void> {
 
     press('Escape')
     await waitFor(
-      () => document.querySelector('.ProseMirror')?.getAttribute('contenteditable') === 'false',
-      '第一次 Esc 应回到浏览态',
+      () => document.activeElement !== document.querySelector('.ProseMirror'),
+      '第一次 Esc 应移出正文焦点',
     )
     assert(
       document.querySelector('.ProseMirror')?.textContent?.includes('浏览态正文 2') ?? false,
-      '退出编辑后应留在当前记录',
+      '移出焦点后应留在当前记录',
     )
 
     press('Escape')
@@ -170,6 +182,7 @@ async function run(): Promise<void> {
     )
   } finally {
     root.unmount()
+    resetNoteDraftsForTests()
     useStore.setState({ trades: previousStore.trades })
     useShortcutStore.setState({
       bindings: previousShortcuts.bindings,

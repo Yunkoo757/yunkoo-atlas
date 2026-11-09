@@ -1,3 +1,4 @@
+import { DurableStorePublishError } from '@/lib/committedPublish'
 import { getProjectTrades, projectPath } from '@/lib/backtestProjects'
 import { ICON_2XL, ICON_SM, ICON_XL, ICON_MD } from '@/icons/iconSize'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -419,6 +420,10 @@ export function TradeComposer() {
       })
     })().catch((error) => {
       console.error('[TradeComposer] quick create failed', error)
+      if (error instanceof DurableStorePublishError) {
+        close()
+        return // 已提交后的发布失败由资料库恢复页处理。
+      }
       toast('保存失败，交易和本次截图均未写入；请重试')
     }).finally(() => {
       submittingRef.current = false

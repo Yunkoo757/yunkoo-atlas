@@ -1,8 +1,10 @@
 import { clipboard, dialog, ipcMain, nativeImage, type BrowserWindow } from 'electron'
 import { writeFile } from 'node:fs/promises'
+import { registerCaseClipboard } from './caseClipboard'
 
 /** Renderer owns the token-based menu; main process only handles desktop image output. */
 export function registerImageContextMenu(window: BrowserWindow): void {
+  registerCaseClipboard(window)
   ipcMain.removeHandler('image:output')
   ipcMain.handle('image:output', async (event, action: unknown, bytes: unknown) => {
     if (event.sender !== window.webContents || window.isDestroyed()) throw new Error('无效图片窗口')

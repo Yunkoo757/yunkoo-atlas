@@ -223,7 +223,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
   {
     id: 'trade.editNote',
-    label: '编辑正文',
+    label: '聚焦正文',
     category: '交易 / 案例详情',
     scope: 'detail',
     defaultBinding: getDefaultShortcutBinding('trade.editNote'),

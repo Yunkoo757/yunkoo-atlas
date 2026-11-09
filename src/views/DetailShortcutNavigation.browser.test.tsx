@@ -155,8 +155,8 @@ async function run(): Promise<void> {
       '初始案例正文未载入',
     )
     assert(
-      document.querySelector('.ProseMirror')?.getAttribute('contenteditable') === 'false',
-      '打开详情时正文应为浏览态',
+      document.querySelector('.ProseMirror')?.getAttribute('contenteditable') === 'true',
+      '打开详情时正文应可直接编辑',
     )
     assert(!document.querySelector('.dv-copy-id'), '案例正文右侧不得显示复制编号按钮')
     const context = document.querySelector('.dv-reading-context')

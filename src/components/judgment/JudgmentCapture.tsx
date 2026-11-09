@@ -11,6 +11,7 @@ import { collectAssetIdsFromNotes, getStorage } from '@/storage'
 import { flushPersistNow } from '@/storage/persist'
 import { lockStorageCutoverInteraction, isStorageCutoverInteractionLocked } from '@/storage/cutover'
 import { toast } from '@/lib/toast'
+import { revokeObjectUrlAfterExit } from '@/lib/objectUrl'
 import '@/views/JudgmentDeskView.css'
 
 export default function JudgmentCapture({ initial, onClose }: { initial?: ImageRef; onClose: () => void }) {
@@ -24,6 +25,7 @@ export default function JudgmentCapture({ initial, onClose }: { initial?: ImageR
   const [files, setFiles] = useState<{ id: string; file: File }[]>([])
   const [error, setError] = useState(''), [busy, setBusy] = useState(false)
   const committing = useRef(false), committed = useRef(false)
+  const preparedUploads = useRef<{ libraryId: string; assets: Map<string, string> } | null>(null)
   const input = useRef<HTMLInputElement>(null)
   const record = trades.find(t => t.id === recordId)
   const images = record ? collectAssetIdsFromNotes([record]) : initial ? [initial.assetId] : []
@@ -49,8 +51,17 @@ export default function JudgmentCapture({ initial, onClose }: { initial?: ImageR
     try {
       if (!committed.current) {
         const storage = getStorage(), libraryId = (await storage.getManifest()).libraryId
+        if (preparedUploads.current?.libraryId !== libraryId) {
+          preparedUploads.current = { libraryId, assets: new Map() }
+        }
+        const prepared = preparedUploads.current.assets
         const added = [...chosen]
-        for (const { file } of files) added.push({ assetId: await storage.saveAsset(file, file.type), sourceTradeId: null })
+        for (const { id, file } of files) {
+          // 某张失败后保留此前已保存的原件；重试只补齐未成功的上传。
+          const assetId = prepared.get(id) ?? await storage.saveAsset(file, file.type)
+          prepared.set(id, assetId)
+          added.push({ assetId, sourceTradeId: null })
+        }
         if ((await storage.getManifest()).libraryId !== libraryId) throw new Error('资料库已切换，请重新收录')
         const sampleId = crypto.randomUUID(), target = themeId || crypto.randomUUID()
         useStore.getState().updateJudgmentDesk(d => ({ ...d,
@@ -85,6 +96,6 @@ export default function JudgmentCapture({ initial, onClose }: { initial?: ImageR
 
 function UploadPreview({ file }: { file: File }) {
   const [url, setUrl] = useState('')
-  useEffect(() => { const value = URL.createObjectURL(file); setUrl(value); return () => URL.revokeObjectURL(value) }, [file])
+  useEffect(() => { const value = URL.createObjectURL(file); setUrl(value); return () => revokeObjectUrlAfterExit(value) }, [file])
   return <img className="jd-upload-image" src={url || undefined} draggable={false} alt={file.name} />
 }

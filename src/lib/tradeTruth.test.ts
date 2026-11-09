@@ -33,6 +33,24 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
+export function testBreakevenClassificationIncludesActualFeesAndSlippageInTotals(): void {
+  const trades: Trade[] = [
+    { ...baseTrade, status: 'breakeven', pnl: -2.5, rMultiple: 0, resultSource: 'imported' },
+    { ...baseTrade, status: 'breakeven', pnl: 1.25, rMultiple: null, resultSource: 'pnl' },
+    { ...baseTrade, status: 'breakeven', pnl: -0.5, rMultiple: 0.01, resultSource: 'imported' },
+  ]
+  for (const trade of trades) {
+    const truth = resolveTradeTruth(normalizeTradeMetrics(trade))
+    assert(truth.outcome === 'breakeven' && truth.isResultComplete && !truth.hasConflict, '保本实际进出必须作为完整结果计入')
+  }
+  const summary = summarizeTradeResults(trades)
+  assert(summary.breakevenCount === 3 && summary.winCount === 0 && summary.lossCount === 0, '保本分类不得由小额进出改变')
+  assert(summary.totalPnl === -1.75 && summary.pnlCount === 3, '实际手续费及滑点金额必须计入绩效')
+  assert(summary.rCount === 2 && summary.averageR === 0.005, '实际 R 与零 R 必须按覆盖数汇总')
+  const missing = resolveTradeTruth({ ...baseTrade, status: 'breakeven', pnl: null, rMultiple: null })
+  assert(!missing.isResultComplete, '未登记结果的保本记录仍不能凭标签进入统计')
+}
+
 export function testClosedTradeWithoutMetricsRemainsUnevaluated(): void {
   const trade = {
     ...baseTrade,

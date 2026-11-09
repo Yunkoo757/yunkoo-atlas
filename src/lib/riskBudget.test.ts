@@ -78,6 +78,14 @@ export function testRiskBudgetReturnsProfitCredit(): void {
   assert(result.day.consumedR === 0, '盈利后已用额度应返还到 0R')
 }
 
+export function testBreakevenFeesStillConsumeActualRiskBudget(): void {
+  const input = fixture({ pnls: [-2.5] })
+  input.trades[0] = { ...input.trades[0]!, status: 'breakeven', rMultiple: 0, resultSource: 'imported' }
+  const result = resolveRiskOutcomes(input)
+  assert(result.day.netBudgetR === -0.0025 && result.day.consumedR === 0.0025, '保本手续费必须按实际金额扣减风险预算')
+  assert(result.unknownReasons.length === 0, '保本实际进出不得导致预算覆盖未知')
+}
+
 export function testRiskBudgetUsesOnlySelectedStageEntitiesAndStart(): void {
   const input = fixture({ pnls: [-2_000] })
   input.trades[0] = {

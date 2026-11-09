@@ -6,6 +6,7 @@ import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/st
 import type { PhysicalAssetRecord } from '@/storage/adapter'
 import type { AssetPurgePreview, AssetPurgeRecovery, AssetPurgeResult } from '@/storage/adapter'
 import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
+import type { CaseClipboardContent, CaseClipboardResult } from '@/lib/caseClipboardContract'
 
 export interface BackupInfo {
   name: string
@@ -118,6 +119,7 @@ export type LibraryLocationState =
 export type TrayDestination = '/list' | '/dashboard' | '/settings'
 
 export interface JournalBridge {
+  copyCaseContent?: (content: CaseClipboardContent) => Promise<CaseClipboardResult>
   outputImage?: (action: 'copy' | 'save', bytes: Uint8Array) => Promise<boolean>
   isElectron: true
   platform: 'win32' | 'darwin' | 'other'

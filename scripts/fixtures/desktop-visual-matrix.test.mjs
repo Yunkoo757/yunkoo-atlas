@@ -235,18 +235,18 @@ test('formal desktop visual runtimes coexist but never overwrite runtime or repo
 })
 
 test('desktop visual Electron mode rejects real application data paths', () => {
-  const tempRoot = 'C:\\Temp\\desktop-visual-run'
-  const realApplicationData = 'C:\\Users\\Trader\\AppData\\Roaming\\Trader Atlas'
+  const tempRoot = join(tmpdir(), 'desktop-visual-run')
+  const realApplicationData = join(tmpdir(), 'isolated-real-data-fixture', 'Trader Atlas')
 
   assert.doesNotThrow(() => assertSafeElectronIsolationPaths({
-    userDataPath: `${tempRoot}\\user-data`,
-    libraryPath: `${tempRoot}\\library`,
+    userDataPath: join(tempRoot, 'user-data'),
+    libraryPath: join(tempRoot, 'library'),
     temporaryRoot: tempRoot,
     realApplicationDataRoots: [realApplicationData],
   }))
   assert.throws(() => assertSafeElectronIsolationPaths({
-    userDataPath: `${realApplicationData}\\qa-user-data`,
-    libraryPath: `${realApplicationData}\\qa-library`,
+    userDataPath: join(realApplicationData, 'qa-user-data'),
+    libraryPath: join(realApplicationData, 'qa-library'),
     temporaryRoot: realApplicationData,
     realApplicationDataRoots: [realApplicationData],
   }), /real application data/i)

@@ -52,7 +52,8 @@ export function resolveTradeTruth(trade: Trade): TradeTruth {
   const declared = declaredOutcome(trade.status)
   const resultSource = resolveTradeResultSource(trade)
   const hasImportedPair = resultSource === 'imported' && pnlOutcome !== null && rOutcome !== null
-  const metricConflict = hasImportedPair && pnlOutcome !== rOutcome
+  // 明确登记的保本分类允许实际金额/R 因滑点、费用而偏离零。
+  const metricConflict = declared !== 'breakeven' && hasImportedPair && pnlOutcome !== rOutcome
   const resolvedMetric = resultSource === 'pnl'
     ? pnlOutcome
     : resultSource === 'r' || resultSource === 'price'
@@ -60,14 +61,16 @@ export function resolveTradeTruth(trade: Trade): TradeTruth {
       : hasImportedPair && !metricConflict
         ? pnlOutcome
         : null
-  const declaredConflict = Boolean(declared && resolvedMetric && declared !== resolvedMetric)
+  const declaredConflict = Boolean(declared && declared !== 'breakeven' && resolvedMetric && declared !== resolvedMetric)
   const hasConflict = metricConflict || declaredConflict
   const outcome: TradeOutcome =
     executionState !== 'closed'
       ? 'unknown'
       : hasConflict
         ? 'conflict'
-        : resolvedMetric ?? 'unknown'
+        : declared === 'breakeven' && resolvedMetric !== null
+          ? 'breakeven'
+          : resolvedMetric ?? 'unknown'
 
   return {
     executionState,

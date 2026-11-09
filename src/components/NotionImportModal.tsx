@@ -1,3 +1,4 @@
+import { DurableStorePublishError } from '@/lib/committedPublish'
 import { useEffect, useState, useRef, useMemo, type DragEvent } from 'react'
 import { Upload, ArrowRight, CheckCircle, AlertCircle, FileText, Image } from '@/icons/appIcons'
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
@@ -315,6 +316,10 @@ export function NotionImportModal({ open, onClose }: Props) {
       committed = await commitNotionImportBatch(selectedPreviews, { targetKind })
     } catch (err) {
       console.error('[NotionImport] persist failed', err)
+      if (err instanceof DurableStorePublishError) {
+        setError(err.message)
+        return // 全局资料库恢复页接管；不返回可重复提交的预览状态。
+      }
       setImportedImages(0)
       setStep('preview')
       setError(

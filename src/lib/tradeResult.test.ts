@@ -31,6 +31,14 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
+export function testDetailEditsPreserveBreakevenClassificationAndActualPair(): void {
+  const result = prepareTradeResultEdit({ ...trade, status: 'breakeven', pnl: 0, rMultiple: 0, resultSource: 'imported' }, {
+    kind: 'result', source: 'pnl', value: -2.5,
+  })
+  assert(result.status === 'breakeven' && result.patch.pnl === -2.5, '详情补录金额不得把保本改成亏损')
+  assert(result.patch.rMultiple === undefined && result.patch.resultSource === 'imported', '补录保本费用不得清除原有零 R')
+}
+
 export function testExecutionEditsNeverOverwriteAnExplicitCashResult(): void {
   const result = prepareTradeResultEdit(trade, {
     kind: 'execution',

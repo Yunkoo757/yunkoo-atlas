@@ -27,8 +27,7 @@ function toTradingDay(value = new Date(), startHour?: number): string {
 
 function parseOptionalNumber(value: string): number | null {
   if (!value.trim()) return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
+  return Number(value)
 }
 
 function initialOutcome(
@@ -71,8 +70,8 @@ export function TradeCloseDialog() {
       trade.rMultiple,
     )
     setOutcome(nextOutcome)
-    setPnl(trade.pnl == null ? '' : String(Math.abs(trade.pnl)))
-    setRMultiple(trade.rMultiple == null ? '' : String(Math.abs(trade.rMultiple)))
+    setPnl(trade.pnl == null ? '' : String(nextOutcome === 'breakeven' ? trade.pnl : Math.abs(trade.pnl)))
+    setRMultiple(trade.rMultiple == null ? '' : String(nextOutcome === 'breakeven' ? trade.rMultiple : Math.abs(trade.rMultiple)))
     setClosedAt(trade.closedAt ?? (trade.tradeKind === 'backtest' ? trade.openedAt.slice(0, 10) : toTradingDay(new Date(), tradingDayStartHour)))
     setError('')
   }, [trade?.id, request?.targetStatus, tradingDayStartHour])
@@ -115,16 +114,21 @@ export function TradeCloseDialog() {
     })
     if (!result.ok) {
       setError(result.error)
+      const invalidField = event.currentTarget.querySelector<HTMLInputElement>('input[aria-invalid="true"]')
+        ?? event.currentTarget.querySelector<HTMLInputElement>('input[aria-label="盈亏金额"]')
+      invalidField?.focus()
       return
     }
     commitClose(result.status, result.patch)
   }
 
   const preview = previewResult?.ok ? previewResult : null
+  const pnlInvalid = Boolean(pnl.trim() && !Number.isFinite(Number(pnl)))
+  const rInvalid = Boolean(rMultiple.trim() && !Number.isFinite(Number(rMultiple)))
+  const validationError = error || ((pnlInvalid || rInvalid) && previewResult && !previewResult.ok ? previewResult.error : '')
   const summary = (() => {
-    if (error) return error
+    if (validationError) return validationError
     if (!preview) {
-      if (outcome === 'breakeven') return '将记录为保本，无需再填写 0。'
       if (previewResult && !previewResult.ok) return previewResult.error
       return '至少填写盈亏金额或 R 倍数中的一项；两项都会保存。'
     }
@@ -136,7 +140,7 @@ export function TradeCloseDialog() {
       ),
       preview.patch.rMultiple == null ? null : fmtR(preview.patch.rMultiple),
     ].filter(Boolean)
-    return `将记录 ${values.join(' · ')}`
+    return `将记录${outcome === 'breakeven' ? '保本 · ' : ' '}${values.join(' · ')}`
   })()
 
   return (
@@ -146,7 +150,7 @@ export function TradeCloseDialog() {
       panelClassName="trade-close-dialog"
       bodyClassName="trade-close-body"
       footerClassName="trade-close-footer"
-      initialFocusSelector={trade.tradeKind === 'backtest' ? 'input[aria-label="R 倍数"]' : '.trade-close-fields input:not(:disabled), .trade-close-outcome'}
+      initialFocusSelector={trade.tradeKind === 'backtest' ? 'input[aria-label="R 倍数"]' : 'input[aria-label="盈亏金额"]'}
       returnFocusTo={request.returnFocus}
       onClose={cancelTradeClose}
       footer={(
@@ -172,6 +176,15 @@ export function TradeCloseDialog() {
                   aria-checked={outcome === item.value}
                   className={`trade-close-outcome is-${item.value}${outcome === item.value ? ' is-active' : ''}`}
                   onClick={() => {
+                    // 在绝对值和带符号输入之间切换时保留已有数字及其方向。
+                    if (item.value === 'breakeven' && outcome !== 'breakeven') {
+                      const direction = outcome === 'loss' ? -1 : 1
+                      setPnl((value) => value.trim() && Number.isFinite(Number(value)) ? String(direction * Math.abs(Number(value))) : value)
+                      setRMultiple((value) => value.trim() && Number.isFinite(Number(value)) ? String(direction * Math.abs(Number(value))) : value)
+                    } else if (outcome === 'breakeven' && item.value !== 'breakeven') {
+                      setPnl((value) => value.trim() && Number.isFinite(Number(value)) ? String(Math.abs(Number(value))) : value)
+                      setRMultiple((value) => value.trim() && Number.isFinite(Number(value)) ? String(Math.abs(Number(value))) : value)
+                    }
                     setOutcome(item.value)
                     setError('')
                   }}
@@ -184,52 +197,45 @@ export function TradeCloseDialog() {
           </section>
 
           <div className="trade-close-fields">
-            {outcome !== 'breakeven' ? (
               <label>
-                <span>盈亏金额 · 输入绝对值</span>
+                <span>盈亏金额 · {outcome === 'breakeven' ? '可正可负' : '输入绝对值'}</span>
                 <input
                   aria-label="盈亏金额"
                   type={privacyMode ? 'password' : 'text'}
                   autoComplete="off"
                   inputMode="decimal"
+                  aria-describedby="trade-close-summary"
+                  aria-invalid={pnlInvalid || undefined}
                   value={pnl}
                   onChange={(event) => {
                     setPnl(event.target.value)
                     setError('')
                   }}
-                  placeholder="例如 500"
-                  autoFocus
+                  placeholder={outcome === 'breakeven' ? '例如 -2.5 或 2.5' : '例如 500'}
                 />
               </label>
-            ) : null}
-            {outcome !== 'breakeven' ? (
               <label>
-                <span>R 倍数 · 输入绝对值</span>
+                <span>R 倍数 · {outcome === 'breakeven' ? '可正可负' : '输入绝对值'}</span>
                 <input
                   aria-label="R 倍数"
                   inputMode="decimal"
+                  aria-describedby="trade-close-summary"
+                  aria-invalid={rInvalid || undefined}
                   value={rMultiple}
                   onChange={(event) => {
                     setRMultiple(event.target.value)
                     setError('')
                   }}
-                  placeholder="例如 1.5"
+                  placeholder={outcome === 'breakeven' ? '例如 -0.02 或 0.02' : '例如 1.5'}
                 />
               </label>
-            ) : null}
-            {outcome === 'breakeven' ? (
-              <div className="trade-close-zero-result">
-                <span>结果数值</span>
-                <strong>0 · 无需填写</strong>
-              </div>
-            ) : null}
             <div className="trade-close-date-field">
               <span>平仓日期</span>
               <DatePicker value={closedAt} onValueChange={setClosedAt} ariaLabel="平仓日期" required />
             </div>
           </div>
 
-          <div className={`trade-close-summary${error ? ' is-error' : ''}`} role={error ? 'alert' : 'status'}>
+          <div id="trade-close-summary" className={`trade-close-summary${validationError ? ' is-error' : ''}`} role={validationError ? 'alert' : 'status'}>
             {summary}
           </div>
       </form>

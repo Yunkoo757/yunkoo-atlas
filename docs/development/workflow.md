@@ -17,6 +17,7 @@
 | 局部 TS 逻辑 | `node scripts/run-regression-tests.mjs --unit-only <仓库相对测试路径>`；该路径必须是当前发现器支持的 `.test.ts` / `.test.tsx`。涉及类型边界时运行 `pnpm typecheck`。 |
 | 桌面界面 | 相关行为回归，加 [UI 质量与验收](ui-quality.md) 要求的实际界面自检。`pnpm qa:design`、`pnpm check:desktop-visual` 是静态约束检查，不是视觉验收。 |
 | 存储、恢复、迁移 | 相关单测和对应 Electron 生命周期场景；执行前核对脚本是否自行隔离，未隔离时先指定临时资料库。按故障风险覆盖中断、失败恢复与原数据完整性。 |
+| Windows 会话退出 | `pnpm test:windows-session-end:electron` 向本轮隔离客户端的 HWND 发送真实 Win32 会话结束消息，检查取消、前台确认、后台确认和退出保存；不重启、关机或注销当前电脑。`--executable <解包客户端 exe>` 可核对打包运行时，`--keep-open` 仅在通过后保留一个复核窗口。 |
 | 跨模块集成或提交前全面健康检查 | `pnpm qa:ci` 包含完整 `pnpm test`、静态设计检查和类型检查；其中 test 含浏览器回归，不是几秒钟的纯静态检查。 |
 | 发布准备 | 在发布授权范围内执行 `pnpm qa:release`；扩展检查用 `pnpm qa:full`。正式发布入口是 `node scripts/release.mjs` 的 patch / minor / major（`pnpm release:*`），由 tag 触发 [Release 工作流](../../.github/workflows/release.yml)。完整资产以 `scripts/release-artifacts.mjs` 的 `expectedReleaseAssetNames` 为准：Windows x64 安装包与 blockmap、`latest.yml`，以及 macOS arm64/x64 的 dmg 与 zip。本地 `pnpm dist:win`、只上传 exe、或 `gh release` 只发 Windows，都不是产品发布。推送 tag 后必须等到该工作流成功，并用 `gh release view` 核对上述资产齐全后再交付；忽略门禁也不豁免 macOS。已公开但缺 macOS 的 Release 会让后续正式发布因哈希或清单冲突失败，不得把 Windows-only 说成已发布。 |
 

@@ -79,6 +79,8 @@ async function flushSingleNoteDraft(tradeId: string): Promise<boolean> {
     try {
       const normalized = await normalizeNoteForStorage(html, getStorage())
       if (generation !== draftGeneration) return true
+      // 归一化让出执行权后，只发布仍属于本次扫描的正文。
+      if (drafts.get(tradeId) !== html) continue
       const weeklyReviewId = weeklyReviewIdFromDraftId(tradeId)
       if (weeklyReviewId) {
         const current = useStore.getState().weeklyReviews.find((review) => review.id === weeklyReviewId)
@@ -138,6 +140,7 @@ export function applyNoteDraftsToSnapshot(snapshot: PersistedSnapshot): Persiste
 /** 加载资料库最新版前使全部草稿及在途异步归一化失效，防止旧内容延迟写回。 */
 export function discardAllNoteDrafts(): void {
   draftGeneration += 1
+  activeTradeFlushes.clear()
   drafts.clear()
 }
 

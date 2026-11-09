@@ -62,7 +62,8 @@ export function prepareTradeResultEdit(
       }
     }
     const pairedValue = edit.source === 'pnl' ? trade.rMultiple : trade.pnl
-    const keepPair = pairedValue != null && pnlToStatus(pairedValue) === pnlToStatus(value)
+    const keepPair = pairedValue != null && Number.isFinite(pairedValue) &&
+      (trade.status === 'breakeven' || pnlToStatus(pairedValue) === pnlToStatus(value))
     return {
       patch: edit.source === 'pnl'
         ? {
@@ -75,7 +76,9 @@ export function prepareTradeResultEdit(
             rMultiple: value,
             resultSource: keepPair ? 'imported' : 'r',
           },
-      status: isExecutedClosed(trade.status) ? pnlToStatus(value) : undefined,
+      status: isExecutedClosed(trade.status)
+        ? trade.status === 'breakeven' ? 'breakeven' : pnlToStatus(value)
+        : undefined,
     }
   }
   if (resolveTradeResultSource(trade) === 'price') {

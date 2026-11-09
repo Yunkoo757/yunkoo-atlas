@@ -47,7 +47,7 @@ export function testEnterOnControlsDoesNotStartNoteEdit(): void {
   )
 }
 
-export function testDetailEnterAndEscapeSplitBrowseAndEdit(): void {
+export function testDetailEnterFocusAndEscapeBlurBeforeReturn(): void {
   const previousShortcuts = useShortcutStore.getState()
   const store = useStore.getState()
   let editing = 0

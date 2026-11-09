@@ -12,6 +12,7 @@ function assert(condition: unknown, message: string): void {
 }
 
 type Entry = 'file' | 'directory' | 'denied'
+const fixturePath = (name: string) => path.join(os.tmpdir(), 'atlas-location-fixture', name)
 
 function dependencies(options: {
   config?: string
@@ -21,13 +22,13 @@ function dependencies(options: {
   validation?: Record<string, { libraryId: string } | Error>
   probes?: string[]
 } = {}): LibraryLocationResolverDependencies {
-  const configPath = 'C:\\user\\library-config.json'
+  const configPath = fixturePath('config.json')
   const entries = new Map(Object.entries(options.entries ?? {}))
   if (options.config !== undefined) entries.set(configPath, 'file')
   return {
     configPath,
     environmentPath: options.environmentPath,
-    defaultPath: options.defaultPath ?? 'C:\\Documents\\Trader Atlas',
+    defaultPath: options.defaultPath ?? fixturePath('default-library'),
     readTextFile(filePath) {
       if (filePath !== configPath || options.config === undefined) {
         throw Object.assign(new Error('missing'), { code: 'ENOENT' })
@@ -64,11 +65,11 @@ export async function testCorruptConfigurationFailsClosedWithoutDefaultProbe(): 
   const probes: string[] = []
   const state = await resolveLibraryLocation(dependencies({ config: '{broken', probes }))
   assert(state.kind === 'invalid', '损坏配置必须返回 invalid')
-  assert(!probes.includes('C:\\Documents\\Trader Atlas'), '损坏配置后不得探测或回退默认库')
+  assert(!probes.includes(fixturePath('default-library')), '损坏配置后不得探测或回退默认库')
 }
 
 export async function testMissingConfiguredLibraryDoesNotFallBack(): Promise<void> {
-  const configuredPath = 'D:\\missing-library'
+  const configuredPath = fixturePath('missing-library')
   const probes: string[] = []
   const state = await resolveLibraryLocation(dependencies({
     config: JSON.stringify({ libraryPath: configuredPath }),
@@ -76,19 +77,19 @@ export async function testMissingConfiguredLibraryDoesNotFallBack(): Promise<voi
   }))
   assert(state.kind === 'unavailable', '配置目标丢失必须返回 unavailable')
   assert(state.kind !== 'unset' && state.configuredPath === configuredPath, '错误状态必须保留原配置路径')
-  assert(!probes.includes('C:\\Documents\\Trader Atlas'), '配置目标丢失后不得回退默认库')
+  assert(!probes.includes(fixturePath('default-library')), '配置目标丢失后不得回退默认库')
 }
 
 export async function testEnvironmentPathFailsClosed(): Promise<void> {
-  const environmentPath = 'E:\\portable-library'
+  const environmentPath = fixturePath('portable-library')
   const state = await resolveLibraryLocation(dependencies({ environmentPath }))
   assert(state.kind === 'unavailable', '显式环境路径不可用时必须 fail-closed')
   assert(state.kind !== 'unset' && state.configuredPath === environmentPath, '必须向恢复界面报告环境路径')
 }
 
 export async function testNonDirectoryAndPermissionFailureAreDistinguished(): Promise<void> {
-  const filePath = 'D:\\library-file'
-  const deniedPath = 'D:\\denied-library'
+  const filePath = fixturePath('library-file')
+  const deniedPath = fixturePath('denied-library')
   const invalid = await resolveLibraryLocation(dependencies({
     config: JSON.stringify({ libraryPath: filePath }),
     entries: { [filePath]: 'file' },
@@ -102,7 +103,7 @@ export async function testNonDirectoryAndPermissionFailureAreDistinguished(): Pr
 }
 
 export async function testValidationFailureNeedsRecovery(): Promise<void> {
-  const libraryPath = 'D:\\damaged-library'
+  const libraryPath = fixturePath('damaged-library')
   const state = await resolveLibraryLocation(dependencies({
     config: JSON.stringify({ libraryPath }),
     entries: { [libraryPath]: 'directory' },
@@ -112,7 +113,7 @@ export async function testValidationFailureNeedsRecovery(): Promise<void> {
 }
 
 export async function testValidationTargetDisappearanceIsUnavailable(): Promise<void> {
-  const libraryPath = 'D:\\vanished-library'
+  const libraryPath = fixturePath('vanished-library')
   const missing = Object.assign(new Error('vanished during validation'), { code: 'ENOENT' })
   const state = await resolveLibraryLocation(dependencies({
     config: JSON.stringify({ libraryPath }),
@@ -123,7 +124,7 @@ export async function testValidationTargetDisappearanceIsUnavailable(): Promise<
 }
 
 export async function testConfiguredLibraryIdentityMismatchIsInvalid(): Promise<void> {
-  const libraryPath = 'D:\\other-library'
+  const libraryPath = fixturePath('other-library')
   const state = await resolveLibraryLocation(dependencies({
     config: JSON.stringify({ libraryPath, libraryId: 'expected-library' }),
     entries: { [libraryPath]: 'directory' },
@@ -133,7 +134,7 @@ export async function testConfiguredLibraryIdentityMismatchIsInvalid(): Promise<
 }
 
 export async function testValidLegacyAndDefaultLibrariesAreReady(): Promise<void> {
-  const configuredPath = 'D:\\legacy-library'
+  const configuredPath = fixturePath('legacy-library')
   const configured = await resolveLibraryLocation(dependencies({
     config: JSON.stringify({ libraryPath: configuredPath }),
     entries: { [configuredPath]: 'directory' },
@@ -145,7 +146,7 @@ export async function testValidLegacyAndDefaultLibrariesAreReady(): Promise<void
     '内部验证结果必须携带 libraryId 供正式打开时二次比对',
   )
 
-  const defaultPath = 'C:\\Documents\\Trader Atlas'
+  const defaultPath = fixturePath('default-library')
   const fallback = await resolveLibraryLocation(dependencies({
     entries: { [defaultPath]: 'directory' },
     validation: { [defaultPath]: { libraryId: 'default-id' } },

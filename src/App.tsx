@@ -20,9 +20,11 @@ import {
   isStorageHydrated,
   publishDurableStoreRefresh,
 } from './storage'
-import { disablePersistWrites, flushPersistNow, hasPendingChanges, setPreFlushCallback } from './storage/persist'
+import { disablePersistWrites, flushPersistNow, hasPendingChanges, setPreFlushCallback, suspendPersist, resumePersist } from './storage/persist'
 import { flushNoteDraftsToStore, hasPendingNoteDrafts } from './storage/noteDrafts'
-import { flushStorageBeforeCutover } from './storage/cutover'
+import { flushStorageBeforeCutover, lockStorageCutoverInteraction } from './storage/cutover'
+import { waitForPendingStorageOperations } from './storage/pendingOperations'
+import { RendererCloseBarrier } from './storage/closeBarrier'
 import { shouldPreventAppUnload } from './storage/unloadGuard'
 import { isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
@@ -614,6 +616,13 @@ export function App() {
   const [windowsClosePromptOpen, setWindowsClosePromptOpen] = useState(false)
   const [rememberWindowsClose, setRememberWindowsClose] = useState(false)
   const closeSaveGeneration = useRef(new AsyncGeneration())
+  const closeBarrier = useRef(new RendererCloseBarrier({
+    lockInteraction: lockStorageCutoverInteraction,
+    suspend: suspendPersist,
+    resume: () => resumePersist({ flushNow: false }),
+    drain: waitForPendingStorageOperations,
+    flush: flushPersistNow,
+  }))
   const storageRecoveryReloadAuthorized = useRef(false)
 
   useEffect(() => {
@@ -771,7 +780,7 @@ export function App() {
     })
     const safeFlush = () => {
       // hydrate 完成前禁止 flush，避免空默认 store 覆盖磁盘资料库
-      if (!isStorageHydrated()) return
+      if (!isStorageHydrated() || closeBarrier.current.isHolding()) return
       flushPersistNow().catch(() => {})
     }
     const rolloverScheduler = createForegroundStageRolloverScheduler({
@@ -843,16 +852,18 @@ export function App() {
             const generation = closeSaveGeneration.current.begin()
             lockBottomChrome()
             setCloseSaveState({ phase: 'saving' })
+            const closeAttempt = closeBarrier.current.begin()
             // 给状态至少一帧绘制时间，避免快速落盘时提示从未真正出现。
             await waitForCloseFeedback(48)
             try {
-              if (isStorageHydrated()) await flushPersistNow()
+              if (isStorageHydrated()) await closeBarrier.current.flush(closeAttempt)
               if (!closeSaveGeneration.current.isCurrent(generation)) return
               setCloseSaveState({ phase: 'saved' })
               await waitForCloseFeedback(CLOSE_SAVE_RECEIPT_MS)
               if (!closeSaveGeneration.current.isCurrent(generation)) return
             } catch (error) {
               if (!closeSaveGeneration.current.isCurrent(generation)) return
+              closeBarrier.current.cancel()
               setCloseSaveState({
                 phase: 'error',
                 message: error instanceof Error ? error.message : '请检查磁盘空间后重试。',
@@ -877,6 +888,7 @@ export function App() {
         if (bridge?.onCloseSaveError) {
           unsubscribeCloseError = bridge.onCloseSaveError((message: string) => {
             closeSaveGeneration.current.invalidate()
+            closeBarrier.current.cancel()
             lockBottomChrome()
             // 错误回执已覆盖底部通知，不再额外 toast，避免双条重叠
             setCloseSaveState({ phase: 'error', message })
@@ -891,6 +903,7 @@ export function App() {
       } catch { /* bridge not available */ }
 
       return () => {
+        closeBarrier.current.cancel()
         setPreFlushCallback(null)
         rolloverScheduler.stop()
         unsubscribeRolloverBoundary()

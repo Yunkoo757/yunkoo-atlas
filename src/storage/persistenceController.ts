@@ -43,10 +43,11 @@ export class PersistenceController {
   private timer: unknown = null
   private pending: PersistedSnapshot | null = null
   private maxPendingSnapshotCount: 0 | 1 = 0
-  private flushing: Promise<void> | null = null
+  private flushing: { generation: number; operation: Promise<void> } | null = null
   private explicitFlushing: Promise<void> | null = null
   private suspendDepth = 0
   private writesEnabled = false
+  private writeGeneration = 0
 
   constructor(private readonly dependencies: PersistenceControllerDependencies) {
     this.debounceMs = dependencies.debounceMs ?? 400
@@ -63,6 +64,7 @@ export class PersistenceController {
 
   disableWrites(): void {
     this.writesEnabled = false
+    this.writeGeneration += 1
     this.clearTimer()
     this.setPending(null)
   }
@@ -100,6 +102,7 @@ export class PersistenceController {
   }
 
   discardPendingAndResume(): void {
+    this.writeGeneration += 1
     this.suspendDepth = Math.max(0, this.suspendDepth - 1)
     this.clearTimer()
     this.setPending(null)
@@ -129,9 +132,10 @@ export class PersistenceController {
 
   async flushNow(): Promise<void> {
     if (!this.writesEnabled) return
+    const generation = this.writeGeneration
     const previous = this.explicitFlushing
     const operation = (previous ? previous.catch(() => {}) : Promise.resolve()).then(
-      () => this.runExplicitFlush(),
+      () => this.isCurrent(generation) ? this.runExplicitFlush(generation) : undefined,
     )
     this.explicitFlushing = operation
     void operation.then(
@@ -152,53 +156,76 @@ export class PersistenceController {
     if (snapshot !== null) this.maxPendingSnapshotCount = 1
   }
 
-  private async flushPending(): Promise<void> {
-    while (this.pending) {
+  private isCurrent(generation: number): boolean {
+    return this.writesEnabled && generation === this.writeGeneration
+  }
+
+  private async flushPending(generation: number, explicit: boolean): Promise<void> {
+    while (this.isCurrent(generation) && this.pending && (explicit || this.suspendDepth === 0)) {
       const snapshot = this.pending
       this.setPending(null)
       this.dependencies.status.setSaving()
       try {
         await this.dependencies.saveSnapshot(snapshot)
       } catch (error) {
-        this.dependencies.status.setError(error)
-        if (this.pending === null) this.setPending(snapshot)
+        if (this.isCurrent(generation)) {
+          this.dependencies.status.setError(error)
+          if (this.pending === null) this.setPending(snapshot)
+        }
         throw error
       }
     }
+    if (!this.isCurrent(generation) || this.pending) return
     this.clearTimer()
     this.dependencies.status.setSaved()
   }
 
-  private startPendingFlush(): Promise<void> {
-    if (this.flushing) return this.flushing
+  private startPendingFlush(generation = this.writeGeneration, explicit = false): Promise<void> {
+    if (!this.isCurrent(generation)) return Promise.resolve()
+    if (this.flushing) {
+      const active = this.flushing
+      return active.operation.catch(error => {
+        if (active.generation === generation) throw error
+      }).then(() => this.startPendingFlush(generation, explicit))
+    }
+    if (!this.pending || (!explicit && this.suspendDepth > 0)) return Promise.resolve()
     this.clearTimer()
-    const operation = this.flushPending().finally(() => {
-      if (this.flushing === operation) this.flushing = null
+    const operation = this.flushPending(generation, explicit).finally(() => {
+      if (this.flushing?.operation === operation) this.flushing = null
     })
-    this.flushing = operation
+    this.flushing = { generation, operation }
     return operation
   }
 
-  private async runExplicitFlush(): Promise<void> {
+  private async runExplicitFlush(generation: number): Promise<void> {
     this.clearTimer()
-    if (this.flushing) await this.flushing
+    if (this.flushing) {
+      const active = this.flushing
+      await active.operation.catch(error => {
+        if (active.generation === generation) throw error
+      })
+    }
+    if (!this.isCurrent(generation)) return
     if (!this.preFlushCallback) {
       this.setPending(this.dependencies.captureSnapshot().snapshot)
-      await this.startPendingFlush()
+      await this.startPendingFlush(generation, true)
       return
     }
 
     let writes = 0
-    while (true) {
+    while (this.isCurrent(generation)) {
       if (writes > 0) this.dependencies.status.setSaving()
       const before = this.dependencies.captureSnapshot()
       try {
         await this.preFlushCallback()
       } catch (error) {
-        this.setPending(this.dependencies.captureSnapshot().snapshot)
-        this.dependencies.status.setError(error)
+        if (this.isCurrent(generation)) {
+          this.setPending(this.dependencies.captureSnapshot().snapshot)
+          this.dependencies.status.setError(error)
+        }
         throw error
       }
+      if (!this.isCurrent(generation)) return
       const after = this.dependencies.captureSnapshot()
       const stable = after.stateReference === before.stateReference &&
         after.shortcutReference === before.shortcutReference
@@ -213,7 +240,7 @@ export class PersistenceController {
         throw error
       }
       this.setPending(after.snapshot)
-      await this.startPendingFlush()
+      await this.startPendingFlush(generation, true)
       writes += 1
     }
   }

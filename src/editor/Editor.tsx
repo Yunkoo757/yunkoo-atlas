@@ -77,12 +77,13 @@ export function Editor({
   reviewTemplates = [],
   reviewContextPinned = true,
   onHistoryFallback,
+  blurOnEscape = false,
 }: {
   content: string
   onChange: (html: string, meta: EditorChangeMeta) => void
   placeholder?: string
   readOnly?: boolean
-  /** 详情正文浏览态为 false；其他编辑器默认保持可写。 */
+  /** 可选的外部编辑开关；默认可写且不自动聚焦。 */
   editing?: boolean
   onEditingChange?: (editing: boolean) => void
   noteDraftId?: string
@@ -94,6 +95,8 @@ export function Editor({
   reviewTemplates?: ReviewTemplate[]
   reviewContextPinned?: boolean
   onHistoryFallback?: (currentHtml: string) => string | null
+  /** 详情正文：先移出焦点，避免内置选父节点快捷键截获 Esc。 */
+  blurOnEscape?: boolean
 }) {
   const lightboxOpen = useShortcutStore((s) => s.lightbox !== null)
   const onChangeRef = useRef(onChange)
@@ -105,6 +108,7 @@ export function Editor({
   const noteDraftIdRef = useRef(noteDraftId)
   const allowImagesRef = useRef(allowImages)
   const onHistoryFallbackRef = useRef(onHistoryFallback)
+  const blurOnEscapeRef = useRef(blurOnEscape)
   const [hasReviewContext, setHasReviewContext] = useState(false)
   const [hasLeadingReviewText, setHasLeadingReviewText] = useState(false)
   onChangeRef.current = onChange
@@ -114,6 +118,7 @@ export function Editor({
   noteDraftIdRef.current = noteDraftId
   allowImagesRef.current = allowImages
   onHistoryFallbackRef.current = onHistoryFallback
+  blurOnEscapeRef.current = blurOnEscape
   const openLightboxForEditor = (src: string, ownerId?: string, source?: HTMLElement) => {
     const currentEditor = editorRef.current
     currentEditor?.commands.blur()
@@ -162,6 +167,11 @@ export function Editor({
       },
       handleKeyDown(_view, event) {
         const currentEditor = editorRef.current
+        if (currentEditor && blurOnEscapeRef.current && event.key === 'Escape' && !event.isComposing) {
+          event.preventDefault()
+          currentEditor.view.dom.blur()
+          return true
+        }
         const fallback = onHistoryFallbackRef.current
         const mod = event.ctrlKey || event.metaKey
         const key = event.key.toLowerCase()

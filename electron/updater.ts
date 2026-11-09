@@ -21,6 +21,7 @@ let autoCheckTimer: ReturnType<typeof setInterval> | null = null
 let autoCheckDelayTimer: ReturnType<typeof setTimeout> | null = null
 let registered = false
 let downloadInFlight = false
+let checkInFlight: Promise<AppUpdateState> | null = null
 
 function initialState(): AppUpdateState {
   return {
@@ -72,20 +73,30 @@ function configurePublicGitHubProvider(): void {
 }
 
 async function checkForUpdates(): Promise<AppUpdateState> {
+  if (checkInFlight) return checkInFlight
+  if (downloadInFlight || state.phase === 'downloading' || state.phase === 'downloaded') return state
   const unsupported = supportMessage()
   if (unsupported) return transition({ type: 'unsupported', message: unsupported })
 
-  configurePublicGitHubProvider()
-  transition({ type: 'checking' })
+  const operation = Promise.resolve().then(async () => {
+    configurePublicGitHubProvider()
+    transition({ type: 'checking' })
+    try {
+      await autoUpdater.checkForUpdates()
+    } catch (error) {
+      transition({
+        type: 'error',
+        message: redactUpdateError(error instanceof Error ? error.message : String(error)),
+      })
+    }
+    return state
+  })
+  checkInFlight = operation
   try {
-    await autoUpdater.checkForUpdates()
-  } catch (error) {
-    transition({
-      type: 'error',
-      message: redactUpdateError(error instanceof Error ? error.message : String(error)),
-    })
+    return await operation
+  } finally {
+    if (checkInFlight === operation) checkInFlight = null
   }
-  return state
 }
 
 function registerUpdaterEvents(): void {

@@ -29,6 +29,13 @@ async function eventually(condition: () => boolean, message: string): Promise<vo
   throw new Error(message)
 }
 
+// 夹具中的 ctrlKey 表示平台 Mod；macOS 系统热键使用 Command。
+function platformChord(init: KeyboardEventInit): KeyboardEventInit {
+  return /Mac/.test(navigator.platform) && init.ctrlKey
+    ? { ...init, ctrlKey: false, metaKey: true }
+    : init
+}
+
 function clickButton(label: string): void {
   const button = [...document.body.querySelectorAll('button')]
     .find((item) => item.textContent?.trim() === label)
@@ -43,7 +50,7 @@ async function recordSystemChord(init: KeyboardEventInit): Promise<void> {
   button.click()
   await eventually(() => button.getAttribute('aria-pressed') === 'true', '系统快捷键未进入录制状态')
   window.dispatchEvent(new KeyboardEvent('keydown', {
-    ...init,
+    ...platformChord(init),
     bubbles: true,
     cancelable: true,
   }))
@@ -56,7 +63,7 @@ async function recordOrdinaryChord(actionLabel: string, init: KeyboardEventInit)
   button.click()
   await eventually(() => button.getAttribute('aria-pressed') === 'true', '普通快捷键未进入录制状态')
   window.dispatchEvent(new KeyboardEvent('keydown', {
-    ...init,
+    ...platformChord(init),
     bubbles: true,
     cancelable: true,
   }))

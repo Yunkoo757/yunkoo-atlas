@@ -28,7 +28,6 @@ import { IconButton } from '@/components/ui/IconButton'
 import { Button } from '@/components/ui/Button'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
-import { useShortcutHint } from '@/shortcuts/useShortcutHint'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { TagEditor } from '@/components/TagEditor'
@@ -62,6 +61,7 @@ import {
 import { fmtMoney, fmtR, fmtPrice, fmtDate, fmtDateTime } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
 import { resolveCasePreview } from '@/lib/caseExcerpt'
+import { prepareCaseClipboard } from '@/lib/caseClipboard'
 import { getTradeActivities, partitionDisplayActivities, type DisplayActivityEvent } from '@/lib/activities'
 import {
   findTradeByRouteParam,
@@ -90,6 +90,7 @@ import { resolveNoteForDisplayResult } from '@/storage/assets'
 import {
   flushNoteDraftsToStore,
   flushNoteDraftToStore,
+  getNoteDraft,
   setNoteDraft,
 } from '@/storage/noteDrafts'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
@@ -199,7 +200,6 @@ export function DetailView() {
   const privacyMode = useStore((s) => s.display.privacyMode)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
   const businessDateAnchor = useBusinessDateAnchor()
-  const editNoteHint = useShortcutHint('trade.editNote', '编辑正文')
   const performanceSelection = useMemo(
     () => buildPerformanceSelection(trade ? [trade] : [], {
       scope: { kind: 'all', range: 'all' },
@@ -222,13 +222,16 @@ export function DetailView() {
   const [reviewToolsContainer, setReviewToolsContainer] = useState<HTMLDivElement | null>(null)
   const [comment, setComment] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
-  const [noteEditing, setNoteEditing] = useState(false)
   const [feedExpanded, setFeedExpanded] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
   const [noteLoadAttempt, setNoteLoadAttempt] = useState(0)
   const [noteRetrying, setNoteRetrying] = useState(false)
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [caseCreating, setCaseCreating] = useState(false)
+  const [contentCopying, setContentCopying] = useState(false)
+  const [contentCopyIssue, setContentCopyIssue] = useState<{ tradeId: string; message: string } | null>(null)
+  const contentCopyOwnerRef = useRef(false)
+  const contentCopyIssueRef = useRef<HTMLDivElement>(null)
   const [reviewIssue, setReviewIssue] = useState<string | null>(null)
   const [sourceDisclosure, setSourceDisclosure] = useState<{ tradeId: string; open: boolean } | null>(null)
   const [noteLoad, setNoteLoad] = useState<{
@@ -249,6 +252,7 @@ export function DetailView() {
   const activeTradeIdRef = useRef<string | null>(trade?.id ?? null)
   const detailMountedRef = useRef(true)
   const commentRef = useRef<HTMLTextAreaElement>(null)
+  const noteDocumentRef = useRef<HTMLDivElement>(null)
 
   const sourceTrade = trade?.sourceTradeId
     ? trades.find((item) => item.id === trade.sourceTradeId)
@@ -282,16 +286,21 @@ export function DetailView() {
   )
 
   useEffect(() => {
-    setNoteEditing(false)
-  }, [trade?.id])
+    if (contentCopyIssue?.tradeId === trade?.id) contentCopyIssueRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [contentCopyIssue, trade?.id])
 
   useEffect(() => {
     if (!trade?.id || !noteReady) return
     return registerShortcutHandlers({
-      'trade.editNote': () => { if (!noteEditing) setNoteEditing(true) },
-      ...(noteEditing ? { 'trade.exitNoteEdit': () => setNoteEditing(false) } : {}),
+      'trade.editNote': () => {
+        noteDocumentRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus()
+      },
+      'trade.exitNoteEdit': () => {
+        const active = document.activeElement
+        if (active instanceof HTMLElement && noteDocumentRef.current?.contains(active)) active.blur()
+      },
     })
-  }, [trade?.id, noteReady, noteEditing])
+  }, [trade?.id, noteReady])
 
   const from = (location.state as TradeDetailLocationState | null)?.from
   const commandSearch = (location.state as TradeDetailLocationState | null)?.commandSearch
@@ -608,6 +617,28 @@ export function DetailView() {
       toast(`已复制 ${trade.ref}`)
     } catch {
       toast('复制失败，请重试')
+    }
+  }
+
+  const copyContent = async () => {
+    if (contentCopyOwnerRef.current) return
+    contentCopyOwnerRef.current = true
+    setContentCopying(true)
+    setContentCopyIssue(null)
+    try {
+      if (activeNoteLoad.status !== 'ready') throw new Error('正文尚未完整载入，请重新载入正文后重试')
+      const copy = window.journalBridge?.copyCaseContent
+      if (!copy) throw new Error('请重启最新桌面客户端后重试')
+      const content = await prepareCaseClipboard(trade, getNoteDraft(trade.id) ?? editorHtml, getStorage())
+      const result = await copy(content)
+      if (!result.ok) throw new Error(result.error)
+      toast(content.images.length ? `已复制正文文件和 ${content.images.length} 张原图` : '文字已复制', { tone: 'success' })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '图文复制失败，请重试'
+      if (detailMountedRef.current && activeTradeIdRef.current === trade.id) setContentCopyIssue({ tradeId: trade.id, message })
+    } finally {
+      contentCopyOwnerRef.current = false
+      if (detailMountedRef.current) setContentCopying(false)
     }
   }
 
@@ -966,6 +997,11 @@ export function DetailView() {
           </div>
         </div>
         <div className="dv-tb-right">
+          <Button variant="ghost" size="sm" busy={contentCopying}
+            disabled={activeNoteLoad.status === 'loading'} onClick={() => void copyContent()}>
+            <Copy size={ICON_SM} aria-hidden />
+            {contentCopying ? '正在复制' : '复制图文'}
+          </Button>
           <div className="dv-review-actions" role="group" aria-label="复盘状态与推进">
           {needsReview && !needsResult ? (
             <div className="dv-review-toolbar" aria-label="复盘状态与操作">
@@ -1048,32 +1084,15 @@ export function DetailView() {
               <span>{TRADE_KIND_META[trade.tradeKind].label}</span>
             </div>
             <div className="dv-reading-tools">
-              {activeNoteLoad.status === 'ready' && (
-                noteEditing ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label="完成编辑"
-                    onClick={() => setNoteEditing(false)}
-                  >
-                    完成编辑
-                  </Button>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label={editNoteHint.ariaLabel}
-                    {...(editNoteHint.hint ? { 'aria-keyshortcuts': editNoteHint.hint } : {})}
-                    onClick={() => setNoteEditing(true)}
-                  >
-                    <Pencil size={ICON_SM} aria-hidden />
-                    编辑正文
-                  </Button>
-                )
-              )}
               <div ref={setReviewToolsContainer} />
             </div>
             </div>
+            {contentCopyIssue?.tradeId === trade.id && (
+              <div ref={contentCopyIssueRef} className="dv-note-load is-error" role="alert">
+                <AlertCircle size={ICON_MD} aria-hidden />
+                <span>{contentCopyIssue.message}</span>
+              </div>
+            )}
             {trade.tradeKind === 'case' && trade.sourceTradeId && (
               <section className="dv-case-source" aria-label="案例来源">
                 <BookOpen size={ICON_MD} aria-hidden />
@@ -1164,10 +1183,10 @@ export function DetailView() {
               </section>
             )}
             <div
+              ref={noteDocumentRef}
               className={'dv-document dv-editor'
                 + (activeNoteLoad.status === 'loading' ? ' is-note-loading' : '')
-                + (activeNoteLoad.status === 'error' ? ' is-note-readonly' : '')
-                + (activeNoteLoad.status === 'ready' && !noteEditing ? ' is-note-browsing' : '')}
+                + (activeNoteLoad.status === 'error' ? ' is-note-readonly' : '')}
             >
               {trade.tradeKind === 'case' && (
                 <div className="dv-case-note-heading">
@@ -1228,13 +1247,13 @@ export function DetailView() {
                 )}
               </div>
               <Editor
+                key={trade.id}
                 content={noteEditorContent}
                 onChange={onEditorChange}
                 ariaLabel={trade.tradeKind === 'case' ? '案例沉淀正文' : '复盘正文'}
                 noteDraftId={trade.id}
                 readOnly={activeNoteLoad.status !== 'ready'}
-                editing={noteEditing}
-                onEditingChange={setNoteEditing}
+                blurOnEscape
                 reviewContextTools
                 reviewToolsContainer={reviewToolsContainer}
                 reviewTemplates={reviewTemplates}

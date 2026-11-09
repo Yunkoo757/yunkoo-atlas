@@ -215,7 +215,7 @@ export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): bool
 
   if (typing && !lightbox) {
     clearSequence()
-    // 详情正文编辑中 Esc 先退出编辑；未在编辑时才返回列表。
+    // 详情正文聚焦时 Esc 先移出焦点；再按 Esc 返回列表。
     // 普通 input/textarea 不抢，避免打断标签/评论输入。
     const el = e.target as HTMLElement | null
     const inFormField =

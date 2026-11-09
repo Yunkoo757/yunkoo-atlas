@@ -1526,7 +1526,6 @@ export class LibraryStorage {
     options?: { pruneUnreferenced?: boolean; expectedSnapshotRevision?: number },
   ): Promise<void> {
     assertValidPersistedSnapshot(snapshot, 'Imported library snapshot')
-    const nextRevision = this.assertSnapshotRevision(options?.expectedSnapshotRevision) + 1
     const referencedAssetIds = new Set<string>()
     for (const trade of snapshot.trades) {
       for (const html of tradeRichTextEntries(trade)) {
@@ -1549,6 +1548,8 @@ export class LibraryStorage {
     // sql.js 初始化是本方法唯一的 await。之后重新从 journal.db 权威字节
     // 建 candidate，绝不持有 await 前的 active DB，也不 export 内存分叉状态。
     await getSql()
+    // 初始化 SQL 会让出执行权；CAS 必须与候选创建位于同一个同步提交区间。
+    const nextRevision = this.assertSnapshotRevision(options?.expectedSnapshotRevision) + 1
     type AttachmentPlan = {
       fileName: string
       filePath: string
