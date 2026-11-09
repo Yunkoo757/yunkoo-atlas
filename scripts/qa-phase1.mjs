@@ -71,8 +71,8 @@ try {
 
   // 3. 详情页 + 笔记编辑
   await page.waitForURL(/\/trade\//)
-  await page.getByRole('button', { name: /编辑正文/ }).click()
-  const editor = page.locator('.editor .ProseMirror')
+  // 正文载入后可直接编辑，不再依赖旧版编辑开关。
+  const editor = page.locator('.dv-document .editor .ProseMirror[contenteditable="true"]')
   await editor.waitFor({ timeout: 5000 })
   const stamp = `QA-${Date.now()}`
   await editor.click()
