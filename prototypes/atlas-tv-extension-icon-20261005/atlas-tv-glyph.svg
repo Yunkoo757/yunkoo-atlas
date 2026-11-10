@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 64 64" fill="none" role="img" aria-labelledby="title"><title id="title">Atlas TV · 透明图形</title><defs>
+  <linearGradient id="plate" x1="12" y1="2" x2="52" y2="62" gradientUnits="userSpaceOnUse"><stop stop-color="#E7E7EB"/><stop offset=".2" stop-color="#121318"/><stop offset="1" stop-color="#121318"/></linearGradient>
+  <linearGradient id="porcelain" x1="15" y1="13" x2="43" y2="54" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFFFF"/><stop offset=".55" stop-color="#E7E7EB"/><stop offset="1" stop-color="#E7E7EB" stop-opacity=".85"/></linearGradient>
+  <linearGradient id="locator" x1="44" y1="12" x2="52" y2="23" gradientUnits="userSpaceOnUse"><stop stop-color="#E7E7EB"/><stop offset=".22" stop-color="#737BDD"/><stop offset="1" stop-color="#5e6ad2"/></linearGradient>
+</defs><circle cx="29" cy="34" r="18" stroke="url(#porcelain)" stroke-width="7"/>
+<path d="M25 30v15M33 24v16" stroke="#E7E7EB" stroke-width="2" stroke-linecap="round"/>
+<rect x="22.5" y="34" width="5" height="8" rx="1.5" fill="url(#porcelain)"/>
+<rect x="30.5" y="27" width="5" height="10" rx="1.5" fill="url(#porcelain)"/>
+<circle cx="48" cy="17" r="5.5" fill="url(#locator)"/></svg>

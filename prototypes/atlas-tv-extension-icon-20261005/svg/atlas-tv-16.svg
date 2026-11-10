@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"><title>Atlas TV · 16px 光学校正版</title>
+<rect x="0" y="0" width="16" height="16" rx="4" fill="#121318"/>
+<rect x="0.25" y="0.25" width="15.5" height="15.5" rx="3.75" stroke="#FFFFFF" stroke-opacity=".12" stroke-width=".5"/>
+<circle cx="7.5" cy="8.5" r="5" stroke="#E7E7EB" stroke-width="2"/>
+
+<rect x="6" y="8" width="1" height="3" rx="0.5" fill="#E7E7EB"/><rect x="8" y="6" width="1" height="4" rx="0.5" fill="#E7E7EB"/>
+<circle cx="12" cy="4" r="2" fill="#737BDD"/></svg>

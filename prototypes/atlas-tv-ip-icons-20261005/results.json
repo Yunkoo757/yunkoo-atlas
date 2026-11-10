@@ -1,0 +1,257 @@
+{
+  "provider": "built-in image_gen",
+  "model": "Runtime did not expose a specific model name",
+  "constraintMode": "main-prompt constraints",
+  "results": [
+    {
+      "label": "A1",
+      "subject": "猫头鹰",
+      "rationale": "观察与判断",
+      "corner": "lower-left",
+      "colors": {
+        "subject": [
+          "#E8D5AD",
+          "#3F405A"
+        ],
+        "background": "#747AB4"
+      },
+      "requestedDimensions": [
+        1536,
+        1536
+      ],
+      "provider": "built-in image_gen",
+      "constraintMode": "main-prompt constraints",
+      "prompt": "Create one complete full-bleed 1:1 square image, approximately 1536 × 1536.\nBackground: fill the entire square with solid #747AB4. Keep #747AB4 visible in every open area and in the corners not occupied by the character; the assigned emergence corner must be occupied by the character.\nSubject: place one extremely simplified, cute, endearing rounded baby owl with a single broad two-lobed facial disk, both softly rounded ear nubs visible IP character on the background, reduced to one soft rounded continuous silhouette and one defining feature.\nComplexity: use only 4–7 large basic shapes and at most two broad internal color regions. Use two simple eyes and add one tiny mouth only when it helps the expression. Remove every nonessential line, outline, anatomical detail, texture, and decoration. Keep the character readable at 32 × 32.\nColor behavior: use exactly three semantic colors in the complete image: exactly two IP base colors #E8D5AD and #3F405A, plus the background color #747AB4. Organize the two IP colors into broad purposeful masses, and reuse the darker one for facial marks. Use the second color in one broad continuous defining region. Keep the background gently muted but clearly chromatic, clean, and intentional. Keep the IP, facial marks, and background clearly separated.\nComposition: keep the character upright and emerging from the assigned lower-left, filling about 85–95% of the square so it remains visually dominant. Cropping at the bottom or assigned side is welcome when it strengthens the corner emergence. Preserve both paired identifying features. Never center or bottom-center the character.\nStyle: make simplification, cuteness, and lovable baby-like appeal the strongest qualities. Use large soft forms, compact proportions, thick rounded contours, and an ultra-clean graphic treatment. Prefer one clear shape over several explanatory details. Add an extremely, extremely subtle, almost imperceptible sense of depth through a barely-there neo-skeuomorphic treatment.\nFinish: show only the character on the full-canvas background, with clean surfaces and normal square outer corners.\nConstraints: Use no text or watermark. Add no borders, frames, cards, or presentation masks. Include one character only, with no extra subjects or scenery. Use no fragile lines, sharp tips, unnecessary outlines, tiny details, or decorative marks. Add no photorealistic material, dramatic bevel, glossy hotspot, deep occlusion, extrusion, strong three-dimensional rendering, or external cast shadow. Keep the background solid and uniform, with no texture, vignette, or lighting variation.",
+      "path": "D:/Trader-Atlas/prototypes/atlas-tv-ip-icons-20261005/images/A1.png",
+      "width": 1254,
+      "height": 1254,
+      "sourcePath": "C:/Users/Yunko/.codex/generated_images/01a10a4d-c496-7f21-89ae-215791514982/exec-d8998c67-295c-4037-a99a-76e613a285f3.png",
+      "relativePath": "images/A1.png"
+    },
+    {
+      "label": "A2",
+      "subject": "猫头鹰",
+      "rationale": "观察与判断",
+      "corner": "lower-right",
+      "colors": {
+        "subject": [
+          "#B9CEE0",
+          "#3C4664"
+        ],
+        "background": "#AB9DBD"
+      },
+      "requestedDimensions": [
+        1536,
+        1536
+      ],
+      "provider": "built-in image_gen",
+      "constraintMode": "main-prompt constraints",
+      "prompt": "Create one complete full-bleed 1:1 square image, approximately 1536 × 1536.\nBackground: fill the entire square with solid #AB9DBD. Keep #AB9DBD visible in every open area and in the corners not occupied by the character; the assigned emergence corner must be occupied by the character.\nSubject: place one extremely simplified, cute, endearing plump baby owl, round head and broad heart-like facial disk with every tip blunt and rounded, both small rounded ear nubs visible IP character on the background, reduced to one soft rounded continuous silhouette and one defining feature.\nComplexity: use only 4–7 large basic shapes and at most two broad internal color regions. Use two simple eyes and add one tiny mouth only when it helps the expression. Remove every nonessential line, outline, anatomical detail, texture, and decoration. Keep the character readable at 32 × 32.\nColor behavior: use exactly three semantic colors in the complete image: exactly two IP base colors #B9CEE0 and #3C4664, plus the background color #AB9DBD. Organize the two IP colors into broad purposeful masses, and reuse the darker one for facial marks. Use the second color in one broad continuous defining region. Keep the background gently muted but clearly chromatic, clean, and intentional. Keep the IP, facial marks, and background clearly separated.\nComposition: keep the character upright and emerging from the assigned lower-right, filling about 85–95% of the square so it remains visually dominant. Cropping at the bottom or assigned side is welcome when it strengthens the corner emergence. Preserve both paired identifying features. Never center or bottom-center the character.\nStyle: make simplification, cuteness, and lovable baby-like appeal the strongest qualities. Use large soft forms, compact proportions, thick rounded contours, and an ultra-clean graphic treatment. Prefer one clear shape over several explanatory details. Add an extremely, extremely subtle, almost imperceptible sense of depth through a barely-there neo-skeuomorphic treatment.\nFinish: show only the character on the full-canvas background, with clean surfaces and normal square outer corners.\nConstraints: Use no text or watermark. Add no borders, frames, cards, or presentation masks. Include one character only, with no extra subjects or scenery. Use no fragile lines, sharp tips, unnecessary outlines, tiny details, or decorative marks. Add no photorealistic material, dramatic bevel, glossy hotspot, deep occlusion, extrusion, strong three-dimensional rendering, or external cast shadow. Keep the background solid and uniform, with no texture, vignette, or lighting variation.",
+      "path": "D:/Trader-Atlas/prototypes/atlas-tv-ip-icons-20261005/images/A2.png",
+      "width": 1254,
+      "height": 1254,
+      "sourcePath": "C:/Users/Yunko/.codex/generated_images/01a10a55-07df-74b3-8da7-5d0e7b1e5de2/exec-1a568bea-790b-49c8-a9a7-0c354e872052.png",
+      "relativePath": "images/A2.png"
+    },
+    {
+      "label": "A3",
+      "subject": "猫头鹰",
+      "rationale": "观察与判断",
+      "corner": "lower-left",
+      "colors": {
+        "subject": [
+          "#DDBA80",
+          "#544333"
+        ],
+        "background": "#839BA4"
+      },
+      "requestedDimensions": [
+        1536,
+        1536
+      ],
+      "provider": "built-in image_gen",
+      "constraintMode": "main-prompt constraints",
+      "prompt": "Create one complete full-bleed 1:1 square image, approximately 1536 × 1536.\nBackground: fill the entire square with solid #839BA4. Keep #839BA4 visible in every open area and in the corners not occupied by the character; the assigned emergence corner must be occupied by the character.\nSubject: place one extremely simplified, cute, endearing compact round baby owl with tiny rounded ear nubs and one simple continuous wide face region, both ear nubs visible IP character on the background, reduced to one soft rounded continuous silhouette and one defining feature.\nComplexity: use only 4–7 large basic shapes and at most two broad internal color regions. Use two simple eyes and add one tiny mouth only when it helps the expression. Remove every nonessential line, outline, anatomical detail, texture, and decoration. Keep the character readable at 32 × 32.\nColor behavior: use exactly three semantic colors in the complete image: exactly two IP base colors #DDBA80 and #544333, plus the background color #839BA4. Organize the two IP colors into broad purposeful masses, and reuse the darker one for facial marks. Use the second color in one broad continuous defining region. Keep the background gently muted but clearly chromatic, clean, and intentional. Keep the IP, facial marks, and background clearly separated.\nComposition: keep the character upright and emerging from the assigned lower-left, filling about 85–95% of the square so it remains visually dominant. Cropping at the bottom or assigned side is welcome when it strengthens the corner emergence. Preserve both paired identifying features. Never center or bottom-center the character.\nStyle: make simplification, cuteness, and lovable baby-like appeal the strongest qualities. Use large soft forms, compact proportions, thick rounded contours, and an ultra-clean graphic treatment. Prefer one clear shape over several explanatory details. Add an extremely, extremely subtle, almost imperceptible sense of depth through a barely-there neo-skeuomorphic treatment.\nFinish: show only the character on the full-canvas background, with clean surfaces and normal square outer corners.\nConstraints: Use no text or watermark. Add no borders, frames, cards, or presentation masks. Include one character only, with no extra subjects or scenery. Use no fragile lines, sharp tips, unnecessary outlines, tiny details, or decorative marks. Add no photorealistic material, dramatic bevel, glossy hotspot, deep occlusion, extrusion, strong three-dimensional rendering, or external cast shadow. Keep the background solid and uniform, with no texture, vignette, or lighting variation.",
+      "path": "D:/Trader-Atlas/prototypes/atlas-tv-ip-icons-20261005/images/A3.png",
+      "width": 1254,
+      "height": 1254,
+      "sourcePath": "C:/Users/Yunko/.codex/generated_images/01a10a55-07df-74b3-8da7-5d0e7b1e5de2/exec-31e2b773-4b56-4c61-bc27-0f7b2ca01d37.png",
+      "relativePath": "images/A3.png"
+    },
+    {
+      "label": "A4",
+      "subject": "猫头鹰",
+      "rationale": "观察与判断",
+      "corner": "lower-right",
+      "colors": {
+        "subject": [
+          "#D7D0F0",
+          "#514773"
+        ],
+        "background": "#8594AC"
+      },
+      "requestedDimensions": [
+        1536,
+        1536
+      ],
+      "provider": "built-in image_gen",
+      "constraintMode": "main-prompt constraints",
+      "prompt": "Create one complete full-bleed 1:1 square image, approximately 1536 × 1536.\nBackground: fill the entire square with solid #8594AC. Keep #8594AC visible in every open area and in the corners not occupied by the character; the assigned emergence corner must be occupied by the character.\nSubject: place one extremely simplified, cute, endearing soft squat baby owl with an oversized round head, one large gently scalloped facial region and two visibly rounded ear nubs IP character on the background, reduced to one soft rounded continuous silhouette and one defining feature.\nComplexity: use only 4–7 large basic shapes and at most two broad internal color regions. Use two simple eyes and add one tiny mouth only when it helps the expression. Remove every nonessential line, outline, anatomical detail, texture, and decoration. Keep the character readable at 32 × 32.\nColor behavior: use exactly three semantic colors in the complete image: exactly two IP base colors #D7D0F0 and #514773, plus the background color #8594AC. Organize the two IP colors into broad purposeful masses, and reuse the darker one for facial marks. Use the second color in one broad continuous defining region. Keep the background gently muted but clearly chromatic, clean, and intentional. Keep the IP, facial marks, and background clearly separated.\nComposition: keep the character upright and emerging from the assigned lower-right, filling about 85–95% of the square so it remains visually dominant. Cropping at the bottom or assigned side is welcome when it strengthens the corner emergence. Preserve both paired identifying features. Never center or bottom-center the character.\nStyle: make simplification, cuteness, and lovable baby-like appeal the strongest qualities. Use large soft forms, compact proportions, thick rounded contours, and an ultra-clean graphic treatment. Prefer one clear shape over several explanatory details. Add an extremely, extremely subtle, almost imperceptible sense of depth through a barely-there neo-skeuomorphic treatment.\nFinish: show only the character on the full-canvas background, with clean surfaces and normal square outer corners.\nConstraints: Use no text or watermark. Add no borders, frames, cards, or presentation masks. Include one character only, with no extra subjects or scenery. Use no fragile lines, sharp tips, unnecessary outlines, tiny details, or decorative marks. Add no photorealistic material, dramatic bevel, glossy hotspot, deep occlusion, extrusion, strong three-dimensional rendering, or external cast shadow. Keep the background solid and uniform, with no texture, vignette, or lighting variation.",
+      "path": "D:/Trader-Atlas/prototypes/atlas-tv-ip-icons-20261005/images/A4.png",
+      "width": 1254,
+      "height": 1254,
+      "sourcePath": "C:/Users/Yunko/.codex/generated_images/01a10a55-07df-74b3-8da7-5d0e7b1e5de2/exec-a2915904-0fca-4333-8dc8-de3cde911b76.png",
+      "relativePath": "images/A4.png"
+    },
+    {
+      "label": "B1",
+      "subject": "狐狸",
+      "rationale": "快捷与敏捷操作",
+      "corner": "lower-left",
+      "colors": {
+        "subject": [
+          "#D89168",
+          "#FAE0B0"
+        ],
+        "background": "#727CA6"
+      },
+      "requestedDimensions": [
+        1536,
+        1536
+      ],
+      "provider": "built-in image_gen",
+      "constraintMode": "main-prompt constraints",
+      "prompt": "Create one complete full-bleed 1:1 square image, approximately 1536 × 1536.\nBackground: fill the entire square with solid #727CA6. Keep #727CA6 visible in every open area and in the corners not occupied by the character; the assigned emergence corner must be occupied by the character.\nSubject: place one extremely simplified, cute, endearing cute baby fox with an oversized rounded head and both thick blunt rounded ears, one continuous cream muzzle region, no tail detail IP character on the background, reduced to one soft rounded continuous silhouette and one defining feature.\nComplexity: use only 4–7 large basic shapes and at most two broad internal color regions. Use two simple eyes and add one tiny mouth only when it helps the expression. Remove every nonessential line, outline, anatomical detail, texture, and decoration. Keep the character readable at 32 × 32.\nColor behavior: use exactly three semantic colors in the complete image: exactly two IP base colors #D89168 and #FAE0B0, plus the background color #727CA6. Organize the two IP colors into broad purposeful masses, and reuse the darker one for facial marks. Use the second color in one broad continuous defining region. Keep the background gently muted but clearly chromatic, clean, and intentional. Keep the IP, facial marks, and background clearly separated.\nComposition: keep the character upright and emerging from the assigned lower-left, filling about 85–95% of the square so it remains visually dominant. Cropping at the bottom or assigned side is welcome when it strengthens the corner emergence. Preserve both paired identifying features. Never center or bottom-center the character.\nStyle: make simplification, cuteness, and lovable baby-like appeal the strongest qualities. Use large soft forms, compact proportions, thick rounded contours, and an ultra-clean graphic treatment. Prefer one clear shape over several explanatory details. Add an extremely, extremely subtle, almost imperceptible sense of depth through a barely-there neo-skeuomorphic treatment.\nFinish: show only the character on the full-canvas background, with clean surfaces and normal square outer corners.\nConstraints: Use no text or watermark. Add no borders, frames, cards, or presentation masks. Include one character only, with no extra subjects or scenery. Use no fragile lines, sharp tips, unnecessary outlines, tiny details, or decorative marks. Add no photorealistic material, dramatic bevel, glossy hotspot, deep occlusion, extrusion, strong three-dimensional rendering, or external cast shadow. Keep the background solid and uniform, with no texture, vignette, or lighting variation.",
+      "path": "D:/Trader-Atlas/prototypes/atlas-tv-ip-icons-20261005/images/B1.png",
+      "width": 1254,
+      "height": 1254,
+      "sourcePath": "C:/Users/Yunko/.codex/generated_images/01a10a55-3c58-7f40-99af-fa267db3c8d9/exec-fef99f68-0138-4ec6-9776-ee92c79bb315.png",
+      "relativePath": "images/B1.png"
+    },
+    {
+      "label": "B2",
+      "subject": "狐狸",
+      "rationale": "快捷与敏捷操作",
+      "corner": "lower-right",
+      "colors": {
+        "subject": [
+          "#B86E61",
+          "#F4D5B2"
+        ],
+        "background": "#8B9E9B"
+      },
+      "requestedDimensions": [
+        1536,
+        1536
+      ],
+      "provider": "built-in image_gen",
+      "constraintMode": "main-prompt constraints",
+      "prompt": "Create one complete full-bleed 1:1 square image, approximately 1536 × 1536.\nBackground: fill the entire square with solid #8B9E9B. Keep #8B9E9B visible in every open area and in the corners not occupied by the character; the assigned emergence corner must be occupied by the character.\nSubject: place one extremely simplified, cute, endearing endearing compact baby fox with a broad cheek silhouette, two short blunt rounded ears and one simple broad muzzle region IP character on the background, reduced to one soft rounded continuous silhouette and one defining feature.\nComplexity: use only 4–7 large basic shapes and at most two broad internal color regions. Use two simple eyes and add one tiny mouth only when it helps the expression. Remove every nonessential line, outline, anatomical detail, texture, and decoration. Keep the character readable at 32 × 32.\nColor behavior: use exactly three semantic colors in the complete image: exactly two IP base colors #B86E61 and #F4D5B2, plus the background color #8B9E9B. Organize the two IP colors into broad purposeful masses, and reuse the darker one for facial marks. Use the second color in one broad continuous defining region. Keep the background gently muted but clearly chromatic, clean, and intentional. Keep the IP, facial marks, and background clearly separated.\nComposition: keep the character upright and emerging from the assigned lower-right, filling about 85–95% of the square so it remains visually dominant. Cropping at the bottom or assigned side is welcome when it strengthens the corner emergence. Preserve both paired identifying features. Never center or bottom-center the character.\nStyle: make simplification, cuteness, and lovable baby-like appeal the strongest qualities. Use large soft forms, compact proportions, thick rounded contours, and an ultra-clean graphic treatment. Prefer one clear shape over several explanatory details. Add an extremely, extremely subtle, almost imperceptible sense of depth through a barely-there neo-skeuomorphic treatment.\nFinish: show only the character on the full-canvas background, with clean surfaces and normal square outer corners.\nConstraints: Use no text or watermark. Add no borders, frames, cards, or presentation masks. Include one character only, with no extra subjects or scenery. Use no fragile lines, sharp tips, unnecessary outlines, tiny details, or decorative marks. Add no photorealistic material, dramatic bevel, glossy hotspot, deep occlusion, extrusion, strong three-dimensional rendering, or external cast shadow. Keep the background solid and uniform, with no texture, vignette, or lighting variation.",
+      "path": "D:/Trader-Atlas/prototypes/atlas-tv-ip-icons-20261005/images/B2.png",
+      "width": 1254,
+      "height": 1254,
+      "sourcePath": "C:/Users/Yunko/.codex/generated_images/01a10a55-3c58-7f40-99af-fa267db3c8d9/exec-36d50889-bad1-4aab-b69b-edca2ef1fded.png",
+      "relativePath": "images/B2.png"
+    },
+    {
+      "label": "B3",
+      "subject": "狐狸",
+      "rationale": "快捷与敏捷操作",
+      "corner": "lower-left",
+      "colors": {
+        "subject": [
+          "#E3AD69",
+          "#5C443F"
+        ],
+        "background": "#A294B9"
+      },
+      "requestedDimensions": [
+        1536,
+        1536
+      ],
+      "provider": "built-in image_gen",
+      "constraintMode": "main-prompt constraints",
+      "prompt": "Create one complete full-bleed 1:1 square image, approximately 1536 × 1536.\nBackground: fill the entire square with solid #A294B9. Keep #A294B9 visible in every open area and in the corners not occupied by the character; the assigned emergence corner must be occupied by the character.\nSubject: place one extremely simplified, cute, endearing tiny calm baby fox with a broad round head, two capsule-like blunt rounded ears, one large connected muzzle and cheek region IP character on the background, reduced to one soft rounded continuous silhouette and one defining feature.\nComplexity: use only 4–7 large basic shapes and at most two broad internal color regions. Use two simple eyes and add one tiny mouth only when it helps the expression. Remove every nonessential line, outline, anatomical detail, texture, and decoration. Keep the character readable at 32 × 32.\nColor behavior: use exactly three semantic colors in the complete image: exactly two IP base colors #E3AD69 and #5C443F, plus the background color #A294B9. Organize the two IP colors into broad purposeful masses, and reuse the darker one for facial marks. Use the second color in one broad continuous defining region. Keep the background gently muted but clearly chromatic, clean, and intentional. Keep the IP, facial marks, and background clearly separated.\nComposition: keep the character upright and emerging from the assigned lower-left, filling about 85–95% of the square so it remains visually dominant. Cropping at the bottom or assigned side is welcome when it strengthens the corner emergence. Preserve both paired identifying features. Never center or bottom-center the character.\nStyle: make simplification, cuteness, and lovable baby-like appeal the strongest qualities. Use large soft forms, compact proportions, thick rounded contours, and an ultra-clean graphic treatment. Prefer one clear shape over several explanatory details. Add an extremely, extremely subtle, almost imperceptible sense of depth through a barely-there neo-skeuomorphic treatment.\nFinish: show only the character on the full-canvas background, with clean surfaces and normal square outer corners.\nConstraints: Use no text or watermark. Add no borders, frames, cards, or presentation masks. Include one character only, with no extra subjects or scenery. Use no fragile lines, sharp tips, unnecessary outlines, tiny details, or decorative marks. Add no photorealistic material, dramatic bevel, glossy hotspot, deep occlusion, extrusion, strong three-dimensional rendering, or external cast shadow. Keep the background solid and uniform, with no texture, vignette, or lighting variation.",
+      "path": "D:/Trader-Atlas/prototypes/atlas-tv-ip-icons-20261005/images/B3.png",
+      "width": 1254,
+      "height": 1254,
+      "sourcePath": "C:/Users/Yunko/.codex/generated_images/01a10a55-3c58-7f40-99af-fa267db3c8d9/exec-de6f64ad-db10-4d6d-920c-c3dceaf3b238.png",
+      "relativePath": "images/B3.png"
+    },
+    {
+      "label": "C1",
+      "subject": "水豚",
+      "rationale": "沉着与耐心",
+      "corner": "lower-right",
+      "colors": {
+        "subject": [
+          "#D3B98F",
+          "#675240"
+        ],
+        "background": "#899EAB"
+      },
+      "requestedDimensions": [
+        1536,
+        1536
+      ],
+      "provider": "built-in image_gen",
+      "constraintMode": "main-prompt constraints",
+      "prompt": "Create one complete full-bleed 1:1 square image, approximately 1536 × 1536.\nBackground: fill the entire square with solid #899EAB. Keep #899EAB visible in every open area and in the corners not occupied by the character; the assigned emergence corner must be occupied by the character.\nSubject: place one extremely simplified, cute, endearing extremely simple baby capybara with a broad rounded rectangular head, both tiny round ears visible and one large blunt muzzle region, no nostrils IP character on the background, reduced to one soft rounded continuous silhouette and one defining feature.\nComplexity: use only 4–7 large basic shapes and at most two broad internal color regions. Use two simple eyes and add one tiny mouth only when it helps the expression. Remove every nonessential line, outline, anatomical detail, texture, and decoration. Keep the character readable at 32 × 32.\nColor behavior: use exactly three semantic colors in the complete image: exactly two IP base colors #D3B98F and #675240, plus the background color #899EAB. Organize the two IP colors into broad purposeful masses, and reuse the darker one for facial marks. Use the second color in one broad continuous defining region. Keep the background gently muted but clearly chromatic, clean, and intentional. Keep the IP, facial marks, and background clearly separated.\nComposition: keep the character upright and emerging from the assigned lower-right, filling about 85–95% of the square so it remains visually dominant. Cropping at the bottom or assigned side is welcome when it strengthens the corner emergence. Preserve both paired identifying features. Never center or bottom-center the character.\nStyle: make simplification, cuteness, and lovable baby-like appeal the strongest qualities. Use large soft forms, compact proportions, thick rounded contours, and an ultra-clean graphic treatment. Prefer one clear shape over several explanatory details. Add an extremely, extremely subtle, almost imperceptible sense of depth through a barely-there neo-skeuomorphic treatment.\nFinish: show only the character on the full-canvas background, with clean surfaces and normal square outer corners.\nConstraints: Use no text or watermark. Add no borders, frames, cards, or presentation masks. Include one character only, with no extra subjects or scenery. Use no fragile lines, sharp tips, unnecessary outlines, tiny details, or decorative marks. Add no photorealistic material, dramatic bevel, glossy hotspot, deep occlusion, extrusion, strong three-dimensional rendering, or external cast shadow. Keep the background solid and uniform, with no texture, vignette, or lighting variation.",
+      "path": "D:/Trader-Atlas/prototypes/atlas-tv-ip-icons-20261005/images/C1.png",
+      "width": 1254,
+      "height": 1254,
+      "sourcePath": "C:/Users/Yunko/.codex/generated_images/01a10a55-6dac-70b1-9036-dc9b60cb18f4/exec-31326536-4490-44be-a9cc-2f967925dd22.png",
+      "relativePath": "images/C1.png"
+    },
+    {
+      "label": "C2",
+      "subject": "水豚",
+      "rationale": "沉着与耐心",
+      "corner": "lower-left",
+      "colors": {
+        "subject": [
+          "#DDBAA0",
+          "#765758"
+        ],
+        "background": "#9293B4"
+      },
+      "requestedDimensions": [
+        1536,
+        1536
+      ],
+      "provider": "built-in image_gen",
+      "constraintMode": "main-prompt constraints",
+      "prompt": "Create one complete full-bleed 1:1 square image, approximately 1536 × 1536.\nBackground: fill the entire square with solid #9293B4. Keep #9293B4 visible in every open area and in the corners not occupied by the character; the assigned emergence corner must be occupied by the character.\nSubject: place one extremely simplified, cute, endearing sleepy friendly baby capybara, broad soft capsule head, two visible tiny rounded ears and one broad continuous muzzle color region, no nostrils IP character on the background, reduced to one soft rounded continuous silhouette and one defining feature.\nComplexity: use only 4–7 large basic shapes and at most two broad internal color regions. Use two simple eyes and add one tiny mouth only when it helps the expression. Remove every nonessential line, outline, anatomical detail, texture, and decoration. Keep the character readable at 32 × 32.\nColor behavior: use exactly three semantic colors in the complete image: exactly two IP base colors #DDBAA0 and #765758, plus the background color #9293B4. Organize the two IP colors into broad purposeful masses, and reuse the darker one for facial marks. Use the second color in one broad continuous defining region. Keep the background gently muted but clearly chromatic, clean, and intentional. Keep the IP, facial marks, and background clearly separated.\nComposition: keep the character upright and emerging from the assigned lower-left, filling about 85–95% of the square so it remains visually dominant. Cropping at the bottom or assigned side is welcome when it strengthens the corner emergence. Preserve both paired identifying features. Never center or bottom-center the character.\nStyle: make simplification, cuteness, and lovable baby-like appeal the strongest qualities. Use large soft forms, compact proportions, thick rounded contours, and an ultra-clean graphic treatment. Prefer one clear shape over several explanatory details. Add an extremely, extremely subtle, almost imperceptible sense of depth through a barely-there neo-skeuomorphic treatment.\nFinish: show only the character on the full-canvas background, with clean surfaces and normal square outer corners.\nConstraints: Use no text or watermark. Add no borders, frames, cards, or presentation masks. Include one character only, with no extra subjects or scenery. Use no fragile lines, sharp tips, unnecessary outlines, tiny details, or decorative marks. Add no photorealistic material, dramatic bevel, glossy hotspot, deep occlusion, extrusion, strong three-dimensional rendering, or external cast shadow. Keep the background solid and uniform, with no texture, vignette, or lighting variation.",
+      "path": "D:/Trader-Atlas/prototypes/atlas-tv-ip-icons-20261005/images/C2.png",
+      "width": 1254,
+      "height": 1254,
+      "sourcePath": "C:/Users/Yunko/.codex/generated_images/01a10a55-6dac-70b1-9036-dc9b60cb18f4/exec-3de2419c-75b7-4036-9c3b-276cda21ed52.png",
+      "relativePath": "images/C2.png"
+    },
+    {
+      "label": "C3",
+      "subject": "水豚",
+      "rationale": "沉着与耐心",
+      "corner": "lower-right",
+      "colors": {
+        "subject": [
+          "#C9C791",
+          "#505D49"
+        ],
+        "background": "#AF9691"
+      },
+      "requestedDimensions": [
+        1536,
+        1536
+      ],
+      "provider": "built-in image_gen",
+      "constraintMode": "main-prompt constraints",
+      "prompt": "Create one complete full-bleed 1:1 square image, approximately 1536 × 1536.\nBackground: fill the entire square with solid #AF9691. Keep #AF9691 visible in every open area and in the corners not occupied by the character; the assigned emergence corner must be occupied by the character.\nSubject: place one extremely simplified, cute, endearing calm endearing baby capybara, oversized wide rounded head, both small rounded ears and one softly rectangular broad muzzle color region, no nostrils IP character on the background, reduced to one soft rounded continuous silhouette and one defining feature.\nComplexity: use only 4–7 large basic shapes and at most two broad internal color regions. Use two simple eyes and add one tiny mouth only when it helps the expression. Remove every nonessential line, outline, anatomical detail, texture, and decoration. Keep the character readable at 32 × 32.\nColor behavior: use exactly three semantic colors in the complete image: exactly two IP base colors #C9C791 and #505D49, plus the background color #AF9691. Organize the two IP colors into broad purposeful masses, and reuse the darker one for facial marks. Use the second color in one broad continuous defining region. Keep the background gently muted but clearly chromatic, clean, and intentional. Keep the IP, facial marks, and background clearly separated.\nComposition: keep the character upright and emerging from the assigned lower-right, filling about 85–95% of the square so it remains visually dominant. Cropping at the bottom or assigned side is welcome when it strengthens the corner emergence. Preserve both paired identifying features. Never center or bottom-center the character.\nStyle: make simplification, cuteness, and lovable baby-like appeal the strongest qualities. Use large soft forms, compact proportions, thick rounded contours, and an ultra-clean graphic treatment. Prefer one clear shape over several explanatory details. Add an extremely, extremely subtle, almost imperceptible sense of depth through a barely-there neo-skeuomorphic treatment.\nFinish: show only the character on the full-canvas background, with clean surfaces and normal square outer corners.\nConstraints: Use no text or watermark. Add no borders, frames, cards, or presentation masks. Include one character only, with no extra subjects or scenery. Use no fragile lines, sharp tips, unnecessary outlines, tiny details, or decorative marks. Add no photorealistic material, dramatic bevel, glossy hotspot, deep occlusion, extrusion, strong three-dimensional rendering, or external cast shadow. Keep the background solid and uniform, with no texture, vignette, or lighting variation.",
+      "path": "D:/Trader-Atlas/prototypes/atlas-tv-ip-icons-20261005/images/C3.png",
+      "width": 1254,
+      "height": 1254,
+      "sourcePath": "C:/Users/Yunko/.codex/generated_images/01a10a55-6dac-70b1-9036-dc9b60cb18f4/exec-c157f48d-3ea2-475f-a0f9-be9f0b87840b.png",
+      "relativePath": "images/C3.png"
+    }
+  ]
+}
