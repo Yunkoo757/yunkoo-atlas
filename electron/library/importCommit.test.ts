@@ -578,3 +578,34 @@ export async function testImportCommitUnknownAttachmentBytesLocksAndPreservesWho
   }
 }
 // Quality-Scenario: H0-C-ASSET-N
+
+export async function testPrunedImportDropsRetiredStateAndPreservesSharedBusinessImages(): Promise<void> {
+  for (const previouslyImported of [false, true]) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-import-retired-domains-'))
+    const storage = new LibraryStorage(root)
+    try {
+      await storage.open()
+      const shared = { id: 'shared-business-image', mime: 'image/png', buffer: Buffer.from('shared-original') }
+      const retired = { id: 'retired-only-import', mime: 'image/png', buffer: Buffer.from('retired-original') }
+      storage.importAsset('preexisting-unrelated-image', 'image/png', Buffer.from('preexisting-unrelated'))
+      if (previouslyImported) {
+        storage.importAsset(shared.id, shared.mime, shared.buffer)
+        storage.importAsset(retired.id, retired.mime, retired.buffer)
+      }
+      const next = snapshotWithAsset('retired-domains', shared.id)
+      const legacy = { ...next, judgmentDesk: { samples: [{ images: [{ assetId: shared.id }, { assetId: retired.id }] }] }, reviewComposer: { obsolete: true } }
+      await storage.commitImport(legacy, [shared, retired], { pruneUnreferenced: true })
+      assert(Buffer.from(storage.getAssetBytes(shared.id)?.bytes ?? []).equals(shared.buffer), '导入prune必须保留现行业务共享图的完整字节')
+      assert(storage.getAssetBytes(retired.id) === null, '仅退役状态引用的本批附件不应继续导入')
+      assert(storage.getAssetBytes('preexisting-unrelated-image') !== null, '导入不得顺带清理非本批历史物理图片')
+      storage.close()
+      await storage.open()
+      const loaded = storage.loadSnapshot()!
+      assert(!('judgmentDesk' in loaded) && !('reviewComposer' in loaded), '重开后不得复活退役专属状态')
+      assert(Buffer.from(storage.getAssetBytes(shared.id)?.bytes ?? []).equals(shared.buffer), '重开后共享图必须仍然完整')
+    } finally {
+      storage.close()
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  }
+}

@@ -143,7 +143,8 @@ async function testDeleteFailureRollsBackAndSuccessRevokesCache(): Promise<void>
   const databaseName = `asset-gc-atomic-${crypto.randomUUID()}`
   const { storage, liveId } = await createFixture(databaseName)
   try {
-    await storage.getAssetObjectUrl('orphan-a')
+    const cachedUrl = await storage.getAssetObjectUrl('orphan-a')
+    assert(cachedUrl, '清理前必须实际缓存待删除附件的 Object URL')
     const before = await fingerprint(storage)
     const canceled = await storage.previewAssetPurge()
     const canceledRecovery = await storage.prepareAssetPurgeRecovery(canceled)
@@ -222,10 +223,15 @@ async function testDeleteFailureRollsBackAndSuccessRevokesCache(): Promise<void>
       assert(successfulGcLogs.map((record) => record.event).join(',') === 'gc:start,gc:success', 'GC 成功必须只记录 start→success')
       assert(successfulGcLogs[1].revisionAfter === result.revision, 'GC 仅在提交后记录新 revision')
       assert(result.deletedIds.join(',') === 'orphan-a,orphan-b', '成功结果必须精确返回预览候选')
+      assert(await storage.getAssetObjectUrl('orphan-a') === null, '提交后新读取不能复用已删除附件的缓存')
+      const deadline = Date.now() + 2_000
+      while (!revoked.includes(cachedUrl) && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 10))
+      }
+      assert(revoked.length === 1 && revoked[0] === cachedUrl, '成功删除必须在离场交接后精确回收旧 Object URL')
     } finally {
       URL.revokeObjectURL = originalRevoke
     }
-    assert(revoked.length === 1, '成功删除已缓存附件时必须失效对应 Object URL')
     assert(await storage.getAssetForExport('orphan-a') === null, 'orphan-a 物理记录必须删除')
     assert(await storage.getAssetForExport('orphan-b') === null, 'orphan-b 物理记录必须删除')
     assert(await storage.getAssetForExport(liveId), '三个富文本域共享的 live 附件必须保留')

@@ -2,6 +2,7 @@ import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { createInitialLiveStage } from '../../src/lib/liveStages'
+import { stripRetiredSnapshotDomains } from '../../src/storage/retiredSnapshotDomains'
 
 export { SCHEMA_VERSION }
 export function addTagPresets(snapshot: any, key: 'tagPresets' | 'mistakeTagPresets', text: string) {
@@ -23,7 +24,7 @@ export function assignStrategy(snapshot: any, ids: Set<string>, strategyId: stri
 }
 export function decode(raw: any, version: number) {
   // Keep extension fields, while applying Atlas's own migrations and defaults.
-  const decoded = { ...raw, ...decodeCanonicalSnapshot(raw, { version, label: '离线编辑器' }) }
+  const decoded = { ...stripRetiredSnapshotDomains(raw), ...decodeCanonicalSnapshot(raw, { version, label: '离线编辑器' }) }
   delete decoded.livePerformanceCycles
   delete decoded.liveStatsStartTradingDayKey
   return decoded

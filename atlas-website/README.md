@@ -35,3 +35,25 @@ node atlas-docs-site/verify.mjs 检查章节结构；构建后检查静态截图
 
 
 新版展示素材：先运行 pnpm build:app，再运行 node atlas-website/capture-showcase.mjs。脚本创建独立 userData 与 library，核对实际路径后导入 showcase-fixture.mjs；在空白渲染页导入以避免界面旧状态回写。截图为最新 Electron 3x 原生输出，4320×2880，无重采样。输出 assets/product/showcase；页面明确标注示例数据。保留 test-results 下隔离资料库用于复核。不得改用实际用户资料库路径。
+
+
+## 可复现构建与按需背景
+
+构建先核对全部必要输入，缺件时保留上一份成功的 `dist`。
+
+官网流体模块只在精细指针、允许动态效果、文档可见且首屏实际可见时加载，并等待正文首帧和空闲时机。直接打开页脚等深链接不会先为离开的首屏加载图形模块；之后回到首屏仍会显示原有动效。减少动态效果或页面离开时释放效果，已挂载效果继续沿用 vendor 自带的离屏/后台暂停。Three.js 和上游许可保留，不改变页面排版。
+
+源码构建与加载时序回归：
+
+```sh
+node --test scripts/fixtures/website-build.test.mjs scripts/fixtures/website-fluid.test.mjs
+node atlas-website/build.mjs
+```
+
+浏览器运行验证（先启动本地预览，或将 `ATLAS_WEBSITE_BASE_URL` 指向构建产物的本地服务器）：
+
+```sh
+node atlas-website/verify-runtime.mjs
+```
+
+该脚本使用独立浏览器上下文检查 1440 / 1100 两档桌面宽度、7 个画廊页签，以及流体的首帧、深链接、媒体与缓存行为。结果写入 `test-results/website-runtime/`；不连接真实桌面资料库、不部署线上站点。

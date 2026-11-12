@@ -68,3 +68,17 @@ export function testSharedCopyActionFailsClosedWhenTheSourceNoLongerExists(): vo
   }
 }
 
+
+
+export function testSharedCopyActionReadsTheLatestTradingDayPreference(): void {
+  const previous = useStore.getState()
+  const early = new Date(2026, 0, 1, 2, 0)
+  try {
+    useStore.setState({ trades: [source], display: { ...previous.display, tradingDayStartHour: 6 } })
+    const beforeBoundary = copyTradeRecord(source.id, { now: early, createId: () => 'copy-business-day' })
+    assert(beforeBoundary.status === 'copied' && beforeBoundary.copy.openedAt === '2025-12-31', '详情和共享复制入口必须读取当前换日设置')
+    useStore.setState({ display: { ...useStore.getState().display, tradingDayStartHour: 0 } })
+    const calendarBoundary = copyTradeRecord(source.id, { now: early, createId: () => 'copy-calendar-day' })
+    assert(calendarBoundary.status === 'copied' && calendarBoundary.copy.openedAt === '2026-01-01', '复制动作不得缓存旧的换日设置')
+  } finally { useStore.setState(previous, true) }
+}

@@ -1,3 +1,4 @@
+import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { ICON_LG, ICON_MD, ICON_XL } from '@/icons/iconSize'
 import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
@@ -606,7 +607,8 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     editorReadyRef.current = false
     setEditorHtml('')
     let cancelled = false
-    void resolveNoteForDisplayResult(review.contentHtml, getStorage()).then((result) => {
+    const imageScope = new AssetObjectUrlScope()
+    void resolveNoteForDisplayResult(review.contentHtml, getStorage(), imageScope).then((result) => {
       if (cancelled) return
       setEditorHtml(result.html)
       editorReadyRef.current = result.editable
@@ -614,6 +616,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     })
     return () => {
       cancelled = true
+      imageScope.release()
       if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
       noteTimerRef.current = null
       void flushNoteDraftToStore(draftId)

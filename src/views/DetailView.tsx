@@ -1,3 +1,4 @@
+import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { ICON_2XL, ICON_MD, ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
@@ -352,9 +353,10 @@ export function DetailView() {
       setNoteLoad({ tradeId: trade.id, state: { status: 'loading' } })
     }
     let cancelled = false
+    const imageScope = new AssetObjectUrlScope()
     void loadDetailNote(trade.note, async (html) => {
       if (cancelled) return html
-      return resolveNoteForDisplayResult(html, getStorage())
+      return resolveNoteForDisplayResult(html, getStorage(), imageScope)
     }, async () => {
       if (!(await flushNoteDraftsToStore())) return false
       return useStore.getState().trades.find((item) => item.id === trade.id)?.note ?? trade.note
@@ -369,6 +371,7 @@ export function DetailView() {
     })
     return () => {
       cancelled = true
+      imageScope.release()
       if (noteSaveTimer.current) {
         clearTimeout(noteSaveTimer.current)
         noteSaveTimer.current = null
@@ -390,15 +393,17 @@ export function DetailView() {
     const tradeId = trade.id
     setSourceNoteLoad({ tradeId, sourceHtml: sourceSnapshotHtml, state: { status: 'loading' } })
     let cancelled = false
+    const imageScope = new AssetObjectUrlScope()
     void loadDetailNote(
       sourceSnapshotHtml,
-      (html) => resolveNoteForDisplayResult(html, getStorage()),
+      (html) => resolveNoteForDisplayResult(html, getStorage(), imageScope),
     ).then((result) => {
       if (cancelled) return
       setSourceNoteLoad({ tradeId, sourceHtml: sourceSnapshotHtml, state: result })
     })
     return () => {
       cancelled = true
+      imageScope.release()
     }
   }, [trade?.id, sourceSnapshotHtml])
 
@@ -976,7 +981,7 @@ export function DetailView() {
 
   return (
     <>
-      <TradeDetailLayout sourceTradeId={trade.id}
+      <TradeDetailLayout
       header={(propertiesToggle) => (
       <header className="dv-topbar">
         <div className="dv-tb-left">

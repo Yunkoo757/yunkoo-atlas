@@ -1,4 +1,5 @@
 import {icon} from '/guide/icons.js';
+import {observeLiquidEther} from './fluid-loader.js';
 // Header is present in the initial HTML to preserve first-paint geometry.
 // The frame follows the actual text bounds; only the selected word stays sharp.
 const focusLine = document.querySelector('.focus-line');
@@ -82,8 +83,6 @@ bindTabs('[data-tab]', tab => {
   document.querySelector('#preview-demo').setAttribute('view',key);
   document.querySelector('#preview-copy').textContent = screen.copy;
   document.querySelector('#preview-guide').href='/guide/?lesson='+({cases:'case-library',board:'case-library',detail:'complete-review',notes:'quick-notes',stats:'read-statistics',period:'review-loop',random:'review-loop'}[key]);
-  const composer=document.querySelector('#preview-composer');
-  if(composer) composer.hidden=key!=='detail';
   document.querySelector('#preview-panel').setAttribute('aria-labelledby', tab.id);
   const page=[...document.querySelectorAll('[data-tab]')].indexOf(tab);
   document.querySelector('.deck-count').textContent=String(page+1).padStart(2,'0')+' / 07';
@@ -138,16 +137,15 @@ function typeTick(){if(document.hidden||reducedMotion.matches||pill.matches(':ho
 function startTyping(){stopTyping();if(!reducedMotion.matches&&!document.hidden)typeTimer=setTimeout(typeTick,tokenNumber('--atlas-typewriter-hold'));}
 pill.addEventListener('pointerenter',stopTyping);pill.addEventListener('pointerleave',startTyping);pill.addEventListener('focusin',stopTyping);pill.addEventListener('focusout',startTyping);document.addEventListener('visibilitychange',()=>document.hidden?stopTyping():startTyping());reducedMotion.addEventListener('change',()=>{stopTyping();typing.textContent=phrases[0];phrase=0;letters=Array.from(phrases[0]).length;deleting=true;startTyping();});startTyping();
 
-// Liquid Ether: same fluid engine family and configuration as the reference site.
-const fluidHost=document.querySelector('.ambient-fluid');let disposeFluid=null,fluidGeneration=0;
+// Load the decorative fluid only after content paint and while its hero is eligible.
+const fluidHost=document.querySelector('.ambient-fluid');
 function resolveCssColor(value){const probe=document.createElement('span');probe.style.color=value;document.documentElement.appendChild(probe);const resolved=getComputedStyle(probe).color;probe.remove();return resolved;}
-async function syncFluid(){const generation=++fluidGeneration;if(disposeFluid){disposeFluid();disposeFluid=null;}fluidHost.replaceChildren();if(reducedMotion.matches)return;try{const {mountLiquidEther}=await import('./vendor/liquid-ether.js');if(generation!==fluidGeneration)return;const s=getComputedStyle(document.documentElement);const number=name=>parseFloat(s.getPropertyValue('--atlas-fluid-'+name));disposeFluid=mountLiquidEther(fluidHost,{visibilityGain:number('visibility'),mouseForce:number('force'),cursorSize:number('cursor'),viscous:number('viscosity'),resolution:number('resolution'),autoSpeed:number('speed'),autoIntensity:number('intensity'),autoResumeDelay:number('resume'),colors:[1,2,3].map(n=>resolveCssColor(s.getPropertyValue('--atlas-fluid-color-'+n).trim()))});}catch(error){fluidHost.replaceChildren();console.warn('背景流体不可用，保留静态背景。',error);}}
-reducedMotion.addEventListener('change',syncFluid);window.addEventListener('pagehide',()=>{fluidGeneration++;disposeFluid?.();});window.addEventListener('pageshow',e=>{if(e.persisted)syncFluid();});syncFluid();
+observeLiquidEther(fluidHost,()=>{const s=getComputedStyle(document.documentElement);const number=name=>parseFloat(s.getPropertyValue('--atlas-fluid-'+name));return {visibilityGain:number('visibility'),mouseForce:number('force'),cursorSize:number('cursor'),viscous:number('viscosity'),resolution:number('resolution'),autoSpeed:number('speed'),autoIntensity:number('intensity'),autoResumeDelay:number('resume'),colors:[1,2,3].map(n=>resolveCssColor(s.getPropertyValue('--atlas-fluid-color-'+n).trim()))};});
 
 const sizeFluid=()=>{const windowTop=document.querySelector('.hero-window').offsetTop;fluidHost.style.height=windowTop+'px';};new ResizeObserver(sizeFluid).observe(document.querySelector('.hero'));sizeFluid();
 
 const stageFrame=document.querySelector('.hero-stage-frame');
-const stageViews=new Set(['journal','stats','period','cases','composer','random','notes','detail']);
+const stageViews=new Set(['journal','stats','period','cases','random','notes','detail']);
 function showStage(view){
   if(!stageViews.has(view))return;
   stageFrame.dataset.stageView=view;
@@ -185,11 +183,6 @@ stageFrame.querySelectorAll('[data-filter]').forEach(chip=>{
     chip.parentElement.querySelectorAll('[data-filter]').forEach(item=>{
       item.classList.toggle('is-active',item===chip);
     });
-  });
-});
-stageFrame.querySelectorAll('[data-composer-step]').forEach(step=>{
-  step.addEventListener('click',()=>{
-    stageFrame.querySelectorAll('[data-composer-step]').forEach(item=>item.classList.toggle('is-on',item===step));
   });
 });
 const requestedStage=new URLSearchParams(location.search).get('stage');

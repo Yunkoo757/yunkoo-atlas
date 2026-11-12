@@ -1,5 +1,6 @@
+import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Editor } from '@/editor/Editor'
 import {
@@ -10,7 +11,9 @@ import {
 import { currentLiveStageIdForWrite, useStore } from '@/store/useStore'
 import { tradeDetailPath } from '@/lib/tradeRoute'
 import { buildQuickNoteRecord, getNextTradeRef } from '@/lib/quickNoteRecordDraft'
+import { acquireQuickNoteConversion, isQuickNoteConverting, registerQuickNoteConversionView, subscribeQuickNoteConversions } from '@/lib/quickNoteConversion'
 import { getStorage } from '@/storage/bootstrap'
+import { trackPendingStorageOperation } from '@/storage/pendingOperations'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
 import {
   clearNoteDraft,
@@ -50,7 +53,6 @@ export function QuickNotesView() {
   const updateNote = useStore((state) => state.updateQuickNote)
   const removeNote = useStore((state) => state.removeQuickNote)
   const upsertTrade = useStore((state) => state.upsertTrade)
-  const [converting, setConverting] = useState(false)
   const [query, setQuery] = useState('')
   const [editorHtml, setEditorHtml] = useState('')
   const [loadedNoteId, setLoadedNoteId] = useState<string | null>(null)
@@ -72,6 +74,14 @@ export function QuickNotesView() {
     ))
   }, [notes, query])
   const selectedNote = notes.find((note) => note.id === id) ?? null
+  const converting = useSyncExternalStore(
+    subscribeQuickNoteConversions,
+    () => selectedNote ? isQuickNoteConverting(selectedNote.id) : false,
+  )
+
+  useLayoutEffect(() => selectedNote
+    ? registerQuickNoteConversionView(selectedNote.id)
+    : undefined, [selectedNote?.id])
 
   const reportDraftFailure = useCallback((draftId: string) => {
     const retry = () => {
@@ -126,7 +136,8 @@ export function QuickNotesView() {
     if (!selectedNote) return
     const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
     let cancelled = false
-    void resolveNoteForDisplayResult(selectedNote.contentHtml, getStorage())
+    const imageScope = new AssetObjectUrlScope()
+    void resolveNoteForDisplayResult(selectedNote.contentHtml, getStorage(), imageScope)
       .then((result) => {
         if (cancelled) return
         setEditorHtml(result.html)
@@ -144,6 +155,7 @@ export function QuickNotesView() {
       })
     return () => {
       cancelled = true
+      imageScope.release()
       if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
       noteTimerRef.current = null
       void flushDraft(draftId)
@@ -215,32 +227,39 @@ export function QuickNotesView() {
     toast('随记已删除')
   }
 
-  const convertNote = async (kind: 'live' | 'case') => {
-    if (!selectedNote || converting) return
-    const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
-    if (!await flushDraft(draftId)) return
-    setConverting(true)
-    try {
-      const store = useStore.getState()
-      const latest = store.quickNotes.find((note) => note.id === selectedNote.id) ?? selectedNote
-      const created = buildQuickNoteRecord({
-        note: latest,
-        kind,
-        id: crypto.randomUUID(),
-        ref: getNextTradeRef(store.trades, kind),
-        strategyId: store.strategies[0]?.id ?? '',
-        symbol: store.symbolCatalog[0] ?? latest.title,
-        liveStageId: currentLiveStageIdForWrite(store),
-        tradingDayStartHour: store.display.tradingDayStartHour,
-      })
-      if (upsertTrade(created) !== 'updated') throw new Error(kind === 'case' ? '案例未写入' : '交易未写入')
-      toast(kind === 'case' ? '已写入案例草稿' : '已写入交易草稿')
-      navigate(tradeDetailPath(created))
-    } catch (error) {
-      toast(error instanceof Error ? error.message : '未能写入记录', { tone: 'error' })
-    } finally {
-      setConverting(false)
-    }
+  const convertNote = (kind: 'live' | 'case') => {
+    if (!selectedNote) return
+    const releaseConversion = acquireQuickNoteConversion(selectedNote.id)
+    if (!releaseConversion) return
+    const operation = (async () => {
+      let succeeded = false
+      try {
+        const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
+        if (!await flushDraft(draftId)) return
+        const store = useStore.getState()
+        const latest = store.quickNotes.find((note) => note.id === selectedNote.id)
+        if (!latest) return
+        const created = buildQuickNoteRecord({
+          note: latest,
+          kind,
+          id: crypto.randomUUID(),
+          ref: getNextTradeRef(store.trades, kind),
+          strategyId: store.strategies[0]?.id ?? '',
+          symbol: store.symbolCatalog[0] ?? latest.title,
+          liveStageId: currentLiveStageIdForWrite(store),
+          tradingDayStartHour: store.display.tradingDayStartHour,
+        })
+        if (upsertTrade(created) !== 'updated') throw new Error(kind === 'case' ? '案例未写入' : '交易未写入')
+        succeeded = true
+        toast(kind === 'case' ? '已写入案例草稿' : '已写入交易草稿')
+        navigate(tradeDetailPath(created))
+      } catch (error) {
+        toast(error instanceof Error ? error.message : '未能写入记录', { tone: 'error' })
+      } finally {
+        releaseConversion(succeeded)
+      }
+    })()
+    return trackPendingStorageOperation(operation)
   }
 
   return (

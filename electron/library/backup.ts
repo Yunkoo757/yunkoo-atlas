@@ -51,6 +51,7 @@ interface BackupRestoreMarker {
   hadManifest: boolean
   databaseSha256?: string
   manifestSha256?: string
+  installedDatabaseSha256?: string
   attachmentEntries?: Array<{ fileName: string; sha256: string }>
 }
 
@@ -288,7 +289,7 @@ function deleteBackupFiles(dbPath: string): void {
 }
 
 export function createBackupAtPath(
-  storage: Pick<LibraryStorage, 'getCounts' | 'listCommittedAttachmentFileNames'>,
+  storage: Pick<LibraryStorage, 'getCounts' | 'listCommittedAttachmentFileNames' | 'exportSnapshotDatabaseBytes'>,
   libraryPath: string,
   now: number = Date.now(),
   options: { emptyLibrary?: boolean } = {},
@@ -303,7 +304,7 @@ export function createBackupAtPath(
     dest = path.join(backups, backupFileName(timestamp))
   }
   try {
-    fs.copyFileSync(dbFile, dest)
+    writeFileAtomicallySync(dest, storage.exportSnapshotDatabaseBytes())
     if (fs.existsSync(manifestFile)) {
       fs.copyFileSync(manifestFile, backupManifestPath(dest))
     }
@@ -334,7 +335,7 @@ export function createBackupAtPath(
       tradeCount: counts.tradeCount,
       strategyCount: counts.strategyCount,
       attachmentCount: counts.assetCount,
-      librarySizeBytes: fs.statSync(dbFile).size,
+      librarySizeBytes: fs.statSync(dest).size,
       databaseSha256: sha256File(dest),
       ...(fs.existsSync(backupManifestPath(dest))
         ? { manifestSha256: sha256File(backupManifestPath(dest)) }
@@ -580,7 +581,11 @@ export function verifyBackup(fileName: string): Promise<BackupVerificationResult
   return verifyBackupAtPath(getLibraryPath(), path.basename(fileName))
 }
 
-export function restoreBackupAtPath(libraryPath: string, fileName: string): boolean {
+export function restoreBackupAtPath(
+  libraryPath: string,
+  fileName: string,
+  cleanDatabaseBytes: (bytes: Buffer) => Buffer = bytes => bytes,
+): boolean {
   const { backups, dbFile, manifestFile, attachments } = ensureLibraryDirs(libraryPath)
   const safeName = path.basename(fileName)
   const src = path.join(backups, safeName)
@@ -601,6 +606,8 @@ export function restoreBackupAtPath(libraryPath: string, fileName: string): bool
   ) {
     throw new Error('备份清单在验证后发生变化或已经损坏')
   }
+  const restoredDatabaseBytes = cleanDatabaseBytes(sourceDatabaseBytes)
+  const installedDatabaseSha256 = sha256Bytes(restoredDatabaseBytes)
   const attachmentEntries = meta?.attachmentEntries ?? meta?.attachmentFiles?.map((fileName) => ({
     fileName,
     vaultName: fileName,
@@ -640,6 +647,7 @@ export function restoreBackupAtPath(libraryPath: string, fileName: string): bool
     recoveryDir,
     hadDatabase: fs.existsSync(dbFile),
     hadManifest: fs.existsSync(manifestFile),
+    installedDatabaseSha256,
   }
   const recoveryDb = path.join(recoveryRoot, 'journal.db')
   const recoveryManifest = path.join(recoveryRoot, 'manifest.json')
@@ -668,7 +676,8 @@ export function restoreBackupAtPath(libraryPath: string, fileName: string): bool
       stagedAttachments = null
     }
 
-    writeFileAtomicallySync(dbFile, sourceDatabaseBytes)
+    writeFileAtomicallySync(dbFile, restoredDatabaseBytes)
+    if (sha256File(dbFile) !== marker.installedDatabaseSha256) throw new Error('恢复候选数据库回读校验失败')
     if (sourceManifestBytes) {
       writeFileAtomicallySync(manifestFile, sourceManifestBytes)
     }
@@ -820,15 +829,6 @@ export function stopAutoBackup(): void {
     intervalTimer = null
   }
   storageRef = null
-}
-
-export function restoreBackup(fileName: string): boolean {
-  try {
-    return restoreBackupAtPath(getLibraryPath(), path.basename(fileName))
-  } catch (err) {
-    safeConsoleError('backup-restore-failed', err)
-    return false
-  }
 }
 
 export function deleteBackup(fileName: string): boolean {

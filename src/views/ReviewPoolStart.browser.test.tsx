@@ -4,6 +4,7 @@ import type { Trade } from '@/data/trades'
 import {
   clearReviewSessionStorage,
   loadReviewSession,
+  saveReviewSession,
 } from '@/lib/reviewSession'
 import { bootstrapStorage, getStorage } from '@/storage'
 import { useStore } from '@/store/useStore'
@@ -130,6 +131,22 @@ async function run(): Promise<void> {
     const stored = loadReviewSession(manifest.libraryId)
     assert(stored?.systemPoolId === 'boosted', '临时会话必须记住系统池来源')
     assert(stored.ids.join(',') === reviewCase.id, '近期多看不得因 open 标记而放宽候选资格')
+
+    // 模拟离开页面后返回已完成轮次，再开始下一轮。
+    saveReviewSession(manifest.libraryId, { ...stored, cursor: stored.ids.length })
+    root.render(<MemoryRouter key="restored-pool" initialEntries={['/review-session']}>
+      <Routes><Route path="/review-session" element={<ReviewSessionView />} /></Routes>
+    </MemoryRouter>)
+    await waitFor(() => Boolean(document.querySelector('.review-session-finished')), '未恢复已完成的轮次')
+    const reshuffle = [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find(button => button.textContent?.includes('再随机一轮'))
+    assert(reshuffle, '缺少再随机一轮入口')
+    reshuffle.click()
+    await waitFor(() => Boolean(document.querySelector('.review-session-workspace')), '未开始下一轮')
+    await waitFor(() => loadReviewSession(manifest.libraryId)?.cursor === 0, '新轮次未保存')
+    const next = loadReviewSession(manifest.libraryId)
+    assert(next?.systemPoolId === 'boosted' && next.ids.join(',') === reviewCase.id,
+      '恢复后的下一轮必须保留近期多看池，不得混入未标记交易')
   } finally {
     root.unmount()
     clearReviewSessionStorage(manifest.libraryId)

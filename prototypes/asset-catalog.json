@@ -1,0 +1,72 @@
+{
+  "policy": "Historical design assets retained in place; excluded from application build; no Git history rewrite",
+  "baselineFiles": 252,
+  "baselineBytes": 56603869,
+  "groups": {
+    "app-icon-family-20261002": {
+      "files": 17,
+      "bytes": 200908,
+      "archives": [
+        {
+          "path": "prototypes/app-icon-family-20261002/atlas-app-icons.zip",
+          "sha256": "3f6b0c4e0f242e2cebd12e43ae6a06d5acabc06d003607fcc59971e1d80958ba"
+        }
+      ]
+    },
+    "atlas-tv-extension-icon-20261005": {
+      "files": 26,
+      "bytes": 311555,
+      "archives": [
+        {
+          "path": "prototypes/atlas-tv-extension-icon-20261005/atlas-tv-icon-pack.zip",
+          "sha256": "e5dd9750559511e629baaacb4acd32a37a63d5f6c2125615d8ea1740c99b2495"
+        }
+      ]
+    },
+    "atlas-tv-ip-icons-20261005": {
+      "files": 28,
+      "bytes": 21177799,
+      "archives": [
+        {
+          "path": "prototypes/atlas-tv-ip-icons-20261005/atlas-tv-ip-10-icons.zip",
+          "sha256": "a8e7c3c78688ec165d7630ca80fdf1e3b56e6276a004ed15084c9a3d919bd121"
+        }
+      ]
+    },
+    "atlas-tv-reference-icons-20261005": {
+      "files": 89,
+      "bytes": 21217865,
+      "archives": [
+        {
+          "path": "prototypes/atlas-tv-reference-icons-20261005/atlas-tv-reference-10-icons.zip",
+          "sha256": "e86730fe821b98cfb40ebe155cb3076127e3d25b9ff34a8d480ed06932ecf73b"
+        }
+      ]
+    },
+    "icon-concepts": {
+      "files": 21,
+      "bytes": 14463,
+      "archives": []
+    },
+    "list-visual-study": {
+      "files": 38,
+      "bytes": 7239762,
+      "archives": []
+    },
+    "rewamp-review-20260923": {
+      "files": 11,
+      "bytes": 605743,
+      "archives": []
+    },
+    "rewamp-showroom-20260923": {
+      "files": 17,
+      "bytes": 5356474,
+      "archives": []
+    },
+    "trade-list-symbol-icons-20260831": {
+      "files": 5,
+      "bytes": 479300,
+      "archives": []
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import { stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
 import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 import type { RiskOverrideEvent } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
@@ -283,8 +284,7 @@ export function mergeRiskImport(
   }
 
   return {
-    ...current,
-    judgmentDesk: imported.judgmentDesk ? { ...imported.judgmentDesk, samples: imported.judgmentDesk.samples.map(s => ({ ...s, images: s.images.map(i => ({ ...i, sourceTradeId: i.sourceTradeId ? idMap.get(i.sourceTradeId) ?? null : null })) })) } : undefined,
+    ...stripRetiredSnapshotDomains(current),
     trades: [...tradesById.values()],
     weeklyRiskPreparations: mergeWeeklyPreparations(
       current.weeklyRiskPreparations ?? [],

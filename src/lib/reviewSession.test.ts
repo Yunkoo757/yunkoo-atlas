@@ -998,3 +998,18 @@ export function testReviewSessionIsAValidDetailReturnForCasesAndTrades(): void {
 }
 
 // Quality-Scenario: LS-REVIEW-DEFAULT
+
+export function testRestoredSourcePoolKeepsItsIdentityForTheNextRound(): void {
+  for (const source of [{ systemPoolId: 'boosted' as const }, { customPoolId: 'isolated-custom-pool' }]) {
+    const snapshot: ReviewSessionSnapshot = {
+      ids: [baseTrade.id], cursor: 1,
+      filters: { ...DEFAULT_REVIEW_SESSION_FILTERS, includeLiveTrades: true, reviewTiming: 'all' },
+      assessments: {}, ...source,
+    }
+    const restored = reconcileReviewSession(snapshot, [baseTrade], new Set(), FIXED_TRADING_DAY_KEY,
+      FIXED_TRADING_DAY_START_HOUR, REVIEW_STAGE_CONTEXT)
+    assert(restored !== null, '已完成的来源池轮次应能恢复')
+    assert(restored?.systemPoolId === snapshot.systemPoolId && restored?.customPoolId === snapshot.customPoolId,
+      '恢复必须保留系统/自定义池来源，下一轮不得扩散到通用池')
+  }
+}

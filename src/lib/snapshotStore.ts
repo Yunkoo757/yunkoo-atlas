@@ -1,5 +1,3 @@
-import { emptyJudgmentDesk } from '@/lib/judgment/model'
-import { emptyComposerData } from '@/lib/reviewComposer/model'
 import { DEFAULT_STRATEGIES } from '@/data/strategies'
 import {
   createDefaultMistakeTagPresets,
@@ -64,8 +62,6 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
       ],
     ),
     reviewTemplates: normalizeReviewTemplates(snapshot.reviewTemplates),
-    judgmentDesk: snapshot.judgmentDesk ?? emptyJudgmentDesk(),
-    reviewComposer: snapshot.reviewComposer ?? emptyComposerData(),
     reviewPoolPresets: snapshot.reviewPoolPresets ?? [],
     reviewPoolLayout: normalizeReviewPoolLayout(
       snapshot.reviewPoolLayout,
@@ -111,8 +107,6 @@ export function resetEmptyLibraryIntoStore(): void {
     symbolIcons: {},
     symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
     reviewTemplates: createDefaultReviewTemplates(),
-    judgmentDesk: emptyJudgmentDesk(),
-    reviewComposer: emptyComposerData(),
     reviewPoolPresets: [],
     reviewPoolLayout: normalizeReviewPoolLayout(undefined, []),
   })

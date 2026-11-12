@@ -95,17 +95,27 @@ export async function testWebBootstrapReusesExistingSnapshotAndNeverMigratesRead
 }
 
 export async function testFreshWebBootstrapReloadsPersistedSeedAndMigrationFailuresPropagate(): Promise<void> {
-  const storage = new MemoryAdapter(null)
-  const durable = createEmptyPersistedSnapshot()
-  storage.onSave = () => durable
-  assert(await loadBootstrapSnapshot(storage, 'web-editable') === durable, '首次 Web 初始化后必须重新读取权威快照')
-  assert(storage.loads === 3 && storage.saves === 1, '首次 Web 初始化保留迁移检查与落盘后读取')
+  const previousLocalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: { getItem: () => null, removeItem: () => {} },
+  })
+  try {
+    const storage = new MemoryAdapter(null)
+    const durable = createEmptyPersistedSnapshot()
+    storage.onSave = () => durable
+    assert(await loadBootstrapSnapshot(storage, 'web-editable') === durable, '首次 Web 初始化后必须重新读取权威快照')
+    assert(storage.loads === 3 && storage.saves === 1, '首次 Web 初始化保留迁移检查与落盘后读取')
 
-  const failure = new Error('隔离写入失败')
-  const failedStorage = new MemoryAdapter(null)
-  failedStorage.onSave = () => { throw failure }
-  let actual: unknown
-  try { await loadBootstrapSnapshot(failedStorage, 'web-editable') } catch (error) { actual = error }
-  assert(actual === failure, '迁移写入失败必须阻止启动 hydration，不能转为成功结果')
-  assert(failedStorage.loads === 2 && failedStorage.snapshot === null, '迁移失败后不得继续读取或发布未保存候选')
+    const failure = new Error('隔离写入失败')
+    const failedStorage = new MemoryAdapter(null)
+    failedStorage.onSave = () => { throw failure }
+    let actual: unknown
+    try { await loadBootstrapSnapshot(failedStorage, 'web-editable') } catch (error) { actual = error }
+    assert(actual === failure, '迁移写入失败必须阻止启动 hydration，不能转为成功结果')
+    assert(failedStorage.loads === 2 && failedStorage.snapshot === null, '迁移失败后不得继续读取或发布未保存候选')
+  } finally {
+    if (previousLocalStorage) Object.defineProperty(globalThis, 'localStorage', previousLocalStorage)
+    else Reflect.deleteProperty(globalThis, 'localStorage')
+  }
 }

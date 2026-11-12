@@ -1,9 +1,10 @@
 import type { Trade } from '@/data/trades'
-import { formatYmd } from '@/lib/periods'
+import { getTradingDayKey } from '@/lib/periods'
 import { applyCaseClassificationMutation } from '@/lib/reviewCaseClassification'
 
 export interface SafeTradeCopyOptions {
   now: Date
+  tradingDayStartHour?: number
   createId: () => string
 }
 
@@ -19,6 +20,7 @@ function copyAccountTrade(
   id: string,
   ref: string,
   now: Date,
+  tradingDayStartHour?: number,
 ): Trade {
   return {
     ...source,
@@ -40,9 +42,10 @@ function copyAccountTrade(
     pnl: null,
     rMultiple: null,
     resultSource: undefined,
-    openedAt: source.tradeKind === 'backtest' ? source.openedAt : formatYmd(now),
+    openedAt: source.tradeKind === 'backtest' ? source.openedAt : getTradingDayKey(now, tradingDayStartHour),
     recordedAt: now.toISOString(),
     closedAt: null,
+    closedTradingDayKey: undefined,
     missReason: undefined,
     note: '',
     comments: [],
@@ -107,6 +110,6 @@ export function buildSafeTradeCopies(
     if (source.tradeKind === 'case') {
       return copyReviewCase(source, id, `CAS-${nextCaseNumber++}`, options.now)
     }
-    return copyAccountTrade(source, id, `TRD-${nextTradeNumber++}`, options.now)
+    return copyAccountTrade(source, id, `TRD-${nextTradeNumber++}`, options.now, options.tradingDayStartHour)
   })
 }

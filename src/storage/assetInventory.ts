@@ -1,4 +1,3 @@
-import { judgmentAssetEntries } from '../lib/judgment/model'
 import type { PersistedSnapshot } from '@/storage/types'
 import type { PhysicalAssetRecord } from '@/storage/adapter'
 import { collectAssetIdsFromHtml } from '@/storage/assets'
@@ -11,14 +10,13 @@ export interface AssetInventoryItem {
   record?: PhysicalAssetRecord
 }
 
-export type AssetReferenceDomain = 'trade' | 'weeklyReview' | 'quickNote' | 'judgmentDesk'
+export type AssetReferenceDomain = 'trade' | 'weeklyReview' | 'quickNote'
 
 /** 新增富文本域时只需在此注册其 HTML 选择器，盘点算法无需再复制扫描逻辑。 */
 export const RICH_TEXT_ASSET_DOMAINS: ReadonlyArray<{
   domain: AssetReferenceDomain
-  selectHtml(snapshot: Pick<PersistedSnapshot, 'trades' | 'weeklyReviews' | 'quickNotes' | 'judgmentDesk'>): string[]
+  selectHtml(snapshot: Pick<PersistedSnapshot, 'trades' | 'weeklyReviews' | 'quickNotes'>): string[]
 }> = [
-  { domain: 'judgmentDesk', selectHtml: s => judgmentAssetEntries(s.judgmentDesk) },
   { domain: 'trade', selectHtml: (snapshot) => snapshot.trades.flatMap(tradeRichTextEntries) },
   {
     domain: 'weeklyReview',
@@ -41,7 +39,7 @@ export interface AssetInventory {
 }
 
 export function buildAssetInventory(
-  snapshot: Pick<PersistedSnapshot, 'trades' | 'weeklyReviews' | 'quickNotes' | 'judgmentDesk'>,
+  snapshot: Pick<PersistedSnapshot, 'trades' | 'weeklyReviews' | 'quickNotes'>,
   physicalRecords: readonly PhysicalAssetRecord[],
 ): AssetInventory {
   const domainsById = new Map<string, Set<AssetReferenceDomain>>()

@@ -1,6 +1,4 @@
-import { remapJudgmentAssets } from '@/lib/judgment/transfer'
-import { emptyJudgmentDesk, judgmentAssetEntries } from '@/lib/judgment/model'
-import { emptyComposerData } from '@/lib/reviewComposer/model'
+import { collectRetiredSnapshotAssetIds, stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
 import { DEFAULT_STRATEGIES, type Strategy } from '@/data/strategies'
 import {
   createDefaultUserProfile,
@@ -138,8 +136,6 @@ interface ExportState extends PersistedSlice {
   reviewTemplates?: ReviewTemplate[]
   backtestProjects?: PersistedSnapshot['backtestProjects']
   reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
-  judgmentDesk?: PersistedSnapshot['judgmentDesk']
-  reviewComposer?: PersistedSnapshot['reviewComposer']
   reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
 }
 
@@ -168,8 +164,6 @@ interface PortableSnapshotState {
   reviewTemplates?: PersistedSnapshot['reviewTemplates']
   backtestProjects?: PersistedSnapshot['backtestProjects']
   reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
-  judgmentDesk?: PersistedSnapshot['judgmentDesk']
-  reviewComposer?: PersistedSnapshot['reviewComposer']
   reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
 }
 
@@ -195,7 +189,7 @@ export function buildPortableSnapshotFromState(
     starredIds: state.starredIds,
     subscribedIds: state.subscribedIds,
     pinnedStrategyIds: state.pinnedStrategyIds,
-    display: state.display,
+    display: normalizeDisplay(state.display),
     tagPresets: state.tagPresets ?? [],
     mistakeTagPresets: state.mistakeTagPresets ?? [],
     profile: state.profile ?? createDefaultUserProfile(),
@@ -203,8 +197,6 @@ export function buildPortableSnapshotFromState(
     symbolIcons: normalizeSymbolIcons(state.symbolIcons),
     symbolCatalog: normalizeSymbolCatalog(state.symbolCatalog),
     reviewTemplates: normalizeReviewTemplates(state.reviewTemplates),
-    judgmentDesk: state.judgmentDesk ?? emptyJudgmentDesk(),
-    reviewComposer: state.reviewComposer ?? emptyComposerData(),
     backtestProjects: state.backtestProjects ?? [],
     reviewPoolPresets: state.reviewPoolPresets ?? [],
     reviewPoolLayout: normalizeReviewPoolLayout(
@@ -302,6 +294,7 @@ function assertValidInlineImportImages(
 function normalizeAndValidateImportAssets(
   htmlEntries: readonly string[],
   value: unknown,
+  retiredAssetIds: ReadonlySet<string> = new Set(),
 ): ExportAssetRecord[] {
   if (value !== undefined && !Array.isArray(value)) {
     throw new Error('assets 数据格式不正确')
@@ -330,10 +323,10 @@ function normalizeAndValidateImportAssets(
     if (!assetIds.has(id)) throw new Error(`导入内容缺少附件：${id}`)
   }
   for (const id of assetIds) {
-    if (!referencedIds.has(id)) throw new Error(`附件 ${id} 未被任何正文引用`)
+    if (!referencedIds.has(id) && !retiredAssetIds.has(id)) throw new Error(`附件 ${id} 未被任何正文引用`)
   }
   assertValidInlineImportImages(htmlEntries, attachmentBudget)
-  return normalized
+  return normalized.filter(asset => referencedIds.has(asset.id))
 }
 
 export async function buildExportPayloadFromState(
@@ -384,7 +377,7 @@ export async function loadReferencedAssetsForExport(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, liveStages, currentLiveStageId, scheduledStageRollover, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates, backtestProjects, reviewPoolPresets, reviewPoolLayout, reviewComposer, judgmentDesk } =
+  const { trades, liveStages, currentLiveStageId, scheduledStageRollover, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates, backtestProjects, reviewPoolPresets, reviewPoolLayout } =
     useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
@@ -414,8 +407,6 @@ export async function buildExportPayload(): Promise<ExportPayload> {
       reviewTemplates,
       backtestProjects,
       reviewPoolPresets,
-      judgmentDesk,
-      reviewComposer,
       reviewPoolLayout,
     },
     (id) => storage.getAssetForExport(id),
@@ -460,12 +451,12 @@ export function serializeJsonExportPayload(payload: unknown): string {
   try {
     assertJsonEntityBudget(payload)
     const snapshot = decodeCanonicalSnapshot(payload, { version: payload.version, label: 'JSON export' })
-    normalizeAndValidateImportAssets([
+    const assets = normalizeAndValidateImportAssets([
       ...snapshot.trades.flatMap(tradeRichTextEntries),
       ...(snapshot.weeklyReviews ?? []).map((review) => review.contentHtml),
       ...(snapshot.quickNotes ?? []).map((note) => note.contentHtml),
-    ...judgmentAssetEntries(snapshot.judgmentDesk),
-    ], payload.assets)
+    ], payload.assets, collectRetiredSnapshotAssetIds(payload))
+    payload = { ...stripRetiredSnapshotDomains(payload), ...(payload.assets === undefined ? {} : { assets }) }
   } catch (error) {
     if (error instanceof JsonImportBudgetError) throw error
     throw new JsonImportBudgetError('json-contract-invalid', error)
@@ -532,6 +523,7 @@ export function buildWebJournalArchiveBlob(
   assets: readonly ExportAssetRecord[],
   options: { recoveryOrphanAssetIds?: readonly string[] } = {},
 ): Blob {
+  snapshot = stripRetiredSnapshotDomains(snapshot)
   const referencedIds = new Set(collectAssetIdsFromSnapshot(snapshot))
   const recoveryOrphanAssetIds = [...new Set(options.recoveryOrphanAssetIds ?? [])]
   for (const id of recoveryOrphanAssetIds) {
@@ -803,8 +795,7 @@ export function parseImportJson(
       ...snapshotCandidate.trades.flatMap(tradeRichTextEntries),
       ...(snapshotCandidate.weeklyReviews ?? []).map((review) => review.contentHtml),
       ...(snapshotCandidate.quickNotes ?? []).map((note) => note.contentHtml),
-    ...judgmentAssetEntries(snapshotCandidate.judgmentDesk),
-    ], raw.assets)
+    ], raw.assets, collectRetiredSnapshotAssetIds(raw))
   } catch (error) {
     if (error instanceof JsonImportBudgetError) return importFailure(error.code)
     return importFailure('json-contract-invalid')
@@ -858,7 +849,7 @@ export async function buildWebConflictRecoveryPayload(
   return {
     missingAssetIds,
     payload: {
-      ...snapshot,
+      ...stripRetiredSnapshotDomains(snapshot),
       version: EXPORT_VERSION,
       schemaVersion: SCHEMA_VERSION,
       assets,
@@ -924,8 +915,7 @@ export function prepareImportPayloadForCommit(
     ...payload.trades.flatMap(tradeRichTextEntries),
     ...(payload.weeklyReviews ?? []).map((review) => review.contentHtml),
     ...(payload.quickNotes ?? []).map((note) => note.contentHtml),
-    ...judgmentAssetEntries(payload.judgmentDesk),
-  ], payload.assets)
+  ], payload.assets, collectRetiredSnapshotAssetIds(payload))
   const idMap = new Map<string, string>()
   const generatedIds = new Set<string>()
   const nextAssetId = (): string => {
@@ -976,7 +966,7 @@ export function prepareImportPayloadForCommit(
   }))
 
   return {
-    payload: { ...payload, trades, weeklyReviews, quickNotes, judgmentDesk: remapJudgmentAssets(payload.judgmentDesk, idMap), assets },
+    payload: { ...stripRetiredSnapshotDomains(payload), trades, weeklyReviews, quickNotes, assets },
     assets,
   }
 }

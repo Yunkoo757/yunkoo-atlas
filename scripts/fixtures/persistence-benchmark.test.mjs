@@ -23,7 +23,11 @@ test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durabl
   const prepareMutation = adapter.match(
     /async function prepareIndexedDbMutation\([\s\S]*?\n}\n\nexport \{ StorageRevisionConflictError/,
   )?.[0] ?? ''
-  assert.match(prepareMutation, /\{\s*await yieldMainThread\(\)/)
+  assert.match(
+    prepareMutation,
+    /\{\s*(?:input = \{ \.\.\.input, snapshot: stripRetiredSnapshotDomains\(input\.snapshot\) \}\s*)?await yieldMainThread\(\)\s+await assertValidPersistedSnapshotCooperatively/,
+    '首次让步前只允许旧域浅过滤，完整快照验证必须在让步后开始',
+  )
   assert.match(prepareMutation, /assertValidPersistedSnapshotCooperatively/)
   assert.match(prepareMutation, /collectAssetIdsFromSnapshotCooperatively/)
   assert.match(prepareMutation, /serializeSnapshotToBlobCooperatively/)

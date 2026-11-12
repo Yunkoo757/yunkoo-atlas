@@ -1,4 +1,5 @@
 import type { ShortcutBinding } from '@/shortcuts/types'
+import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 
 export function migrateShortcutBindings(
   bindings: Record<string, ShortcutBinding | null> | undefined,
@@ -15,10 +16,6 @@ export function migrateShortcutBindings(
   delete next['nav.today']
   delete next['nav.board']
   delete next['view.table']
-  // A newly introduced default must not take an explicitly customized R binding.
-  if (!('nav.reviewComposer' in next) && Object.values(next).some(binding => {
-    const first = Array.isArray(binding) ? binding[0] : binding
-    return first?.key.toLowerCase() === 'r' && !first.mod && !first.alt && !first.shift
-  })) next['nav.reviewComposer'] = null
-  return next
+  const activeIds = new Set(SHORTCUT_ACTIONS.map(action => action.id))
+  return Object.fromEntries(Object.entries(next).filter(([id]) => activeIds.has(id)))
 }

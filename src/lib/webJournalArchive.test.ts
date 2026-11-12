@@ -411,6 +411,44 @@ export async function testRejectsDeclaredAssetThatNoTradeReferences(): Promise<v
   )
 }
 
+export async function testWebArchiveDropsOnlyRetiredWorkspaceAssetsAndKeepsSharedAndRecoveryImages(): Promise<void> {
+  const snapshot = createFullPersistedSnapshotFixture()
+  const ids = [...Object.values(FULL_SNAPSHOT_ASSET_IDS), 'retired-sample', 'retired-history', 'recovery-only']
+  const raw = {
+    ...snapshot, version: WEB_JOURNAL_EXPORT_VERSION, schemaVersion: SCHEMA_VERSION,
+    judgmentDesk: {
+      samples: [{ images: [{ assetId: FULL_SNAPSHOT_ASSET_IDS.shared }, { assetId: 'retired-sample' }, { assetId: 'missing-retired-reference' }] }],
+      attempts: [{ evidence: { images: [{ assetId: 'retired-history' }] } }],
+    },
+    reviewComposer: 'obsolete malformed state is ignored',
+    recoveryOrphanAssetIds: ['recovery-only', 'retired-history'],
+    assets: ids.map(id => ({ id, mime: 'image/png' })),
+  }
+  const files = Object.fromEntries(ids.map((id, index) => [`assets/${id}.png`, new Uint8Array([index + 1])]))
+  const parsed = await parseWebJournalArchive(await buildZip(raw, files))
+  assert(!('judgmentDesk' in parsed.snapshot) && !('reviewComposer' in parsed.snapshot), '退役工作区不得出现在恢复快照中')
+  assert(parsed.assets.length === 5 && parsed.assets.every(asset => !asset.id.startsWith('retired-')), '仅退役域独占的当前与历史图片应从恢复附件中移除')
+  assert(parsed.assets.some(asset => asset.id === FULL_SNAPSHOT_ASSET_IDS.shared), '仍被交易或周复盘使用的共享图片必须保留')
+  assert(parsed.assets.some(asset => asset.id === 'recovery-only') && parsed.recoveryOrphanAssetIds?.join() === 'recovery-only', '原恢复孤立附件语义必须保留，退役独占附件除外')
+  assert(parsed.preview.assetCount === 5 && parsed.preview.assetBytes === 5, '恢复预览应只统计保留的附件')
+  assert(parsed.snapshot.trades[0].note === snapshot.trades[0].note && parsed.snapshot.weeklyReviews?.[0].contentHtml === snapshot.weeklyReviews?.[0].contentHtml, '退役清理不得修改现行业务正文')
+}
+
+export async function testRetiredArchiveAssetsDoNotLoosenClosureValidation(): Promise<void> {
+  const raw = makePayload({
+    judgmentDesk: { samples: [{ images: [{ assetId: 'known-retired' }] }], unrelated: [{ assetId: 'unrelated-extra' }] },
+    assets: [{ id: 'known-retired', mime: 'image/png' }, { id: 'unrelated-extra', mime: 'image/png' }],
+  })
+  await expectArchiveError(async () => parseWebJournalArchive(await buildZip(raw, {
+    'assets/known-retired.png': new Uint8Array([1]),
+    'assets/unrelated-extra.png': new Uint8Array([2]),
+  })), '未被任何正文引用', 'invalid-asset')
+  await expectArchiveError(async () => parseWebJournalArchive(await buildZip(makePayload({
+    judgmentDesk: { attempts: [{ evidence: { images: [{ assetId: 'known-retired' }] } }] },
+    assets: [{ id: 'known-retired', mime: 'image/png' }],
+  }))), '文件缺失', 'invalid-asset')
+}
+
 export async function testRecoveryArchiveRequiresEveryWhitelistedAssetByte(): Promise<void> {
   const snapshot = createFullPersistedSnapshotFixture()
   const assets = Object.values(FULL_SNAPSHOT_ASSET_IDS).map((id, index) => ({

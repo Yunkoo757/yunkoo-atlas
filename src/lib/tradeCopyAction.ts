@@ -25,6 +25,7 @@ export function copyTradeRecord(
   try {
     const [copy] = buildSafeTradeCopies([source], state.trades, {
       now: options.now ?? new Date(),
+      tradingDayStartHour: state.display.tradingDayStartHour,
       createId: options.createId ?? (() => crypto.randomUUID()),
     })
     if (!copy || state.upsertTrades([copy]) !== 'updated') return { status: 'failed' }

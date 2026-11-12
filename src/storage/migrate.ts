@@ -32,10 +32,12 @@ interface ZustandPersistEnvelope {
 function parseLegacyLocalStorage(): PersistedSnapshot | null {
   try {
     const raw = localStorage.getItem(LEGACY_LOCAL_STORAGE_KEY)
-    if (!raw) return null
+    if (raw === null) return null
     const parsed = JSON.parse(raw) as ZustandPersistEnvelope
     const s = parsed.state
-    if (!s) return null
+    if (!s || typeof s !== 'object' || Array.isArray(s)) {
+      throw new Error('legacy state is missing or invalid')
+    }
     return decodeCanonicalSnapshot(
       {
         trades: s.trades ?? [],
@@ -47,8 +49,8 @@ function parseLegacyLocalStorage(): PersistedSnapshot | null {
       },
       { version: 8, label: 'legacy localStorage snapshot' },
     )
-  } catch {
-    return null
+  } catch (cause) {
+    throw Object.assign(new Error('旧版交易资料无法解析或格式无效，已停止迁移并保留原始数据。'), { cause })
   }
 }
 

@@ -1,7 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import fs, { readFileSync } from 'node:fs'
 import { resolveCommand } from './release-command.mjs'
+import os from 'node:os'
+import path from 'node:path'
+import { execFileSync, spawnSync } from 'node:child_process'
 
 function workflowJob(workflow, name) {
   const headings = [...workflow.matchAll(/^  ([a-z0-9-]+):\s*$/gm)]
@@ -434,3 +437,74 @@ test('NSIS 安装向导使用 Atlas 品牌图与简体中文', () => {
 })
 // Quality-Scenario: R-WIN-FAIL
 // Quality-Scenario: R-MAC-FAIL
+
+
+test('认证等待期间 HEAD 前进也只能给已认证提交打标签', () => {
+  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-release-head-race-'))
+  const working = path.join(temporaryRoot, 'working')
+  const remote = path.join(temporaryRoot, 'remote.git')
+  const stateFile = path.join(temporaryRoot, 'candidate.json')
+  const ghStub = path.join(temporaryRoot, 'gh-stub.mjs')
+  const environment = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: path.join(temporaryRoot, 'empty-gitconfig'), GIT_TERMINAL_PROMPT: '0' }
+  delete environment.GIT_DIR
+  delete environment.GIT_WORK_TREE
+  delete environment.GIT_INDEX_FILE
+  const git = (...args) => execFileSync('git', args, { cwd: working, env: environment, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  try {
+    fs.mkdirSync(path.join(working, 'scripts'), { recursive: true })
+    fs.writeFileSync(environment.GIT_CONFIG_GLOBAL, '', 'utf8')
+    git('init', '--initial-branch=main')
+    git('config', 'user.name', 'Isolated release regression')
+    git('config', 'user.email', 'isolated-release@example.invalid')
+    git('config', 'commit.gpgSign', 'false')
+    git('init', '--bare', remote)
+    git('remote', 'add', 'origin', remote)
+    fs.writeFileSync(path.join(working, 'package.json'), JSON.stringify({ version: '1.0.0' }), 'utf8')
+    fs.copyFileSync('scripts/release.mjs', path.join(working, 'scripts', 'release.mjs'))
+    // Only Git operates for real, against the two temporary repositories; gh is fully isolated.
+    fs.writeFileSync(path.join(working, 'scripts', 'release-command.mjs'), `
+      export function resolveCommand(name, args) {
+        if (name === 'gh') return { file: process.execPath, args: [${JSON.stringify(ghStub)}, ...args] }
+        if (name !== 'git') throw new Error('Unexpected external release command: ' + name)
+        return { file: name, args }
+      }
+    `, 'utf8')
+    fs.writeFileSync(ghStub, `
+      import fs from 'node:fs'
+      import path from 'node:path'
+      import { execFileSync } from 'node:child_process'
+      const args = process.argv.slice(2), file = ${JSON.stringify(stateFile)}
+      const state = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {}
+      if (args[0] === 'workflow' && args[1] === 'run') {
+        state.commit = args.find(value => value.startsWith('commit=')).slice(7)
+        fs.writeFileSync(file, JSON.stringify(state))
+      } else if (args[0] === 'run' && args[1] === 'watch') {
+        fs.writeFileSync(path.join(process.cwd(), 'later.txt'), 'A separate operation advanced HEAD during certification.\\n')
+        for (const command of [['add', 'later.txt'], ['commit', '-m', 'later unrelated work']]) {
+          execFileSync('git', command, { cwd: process.cwd(), stdio: 'pipe' })
+        }
+        state.certified = true
+        fs.writeFileSync(file, JSON.stringify(state))
+      } else if (args[0] === 'run' && args[1] === 'list') {
+        const successfulOnly = args.includes('--status')
+        console.log(JSON.stringify(state.commit && (!successfulOnly || state.certified)
+          ? [{ databaseId: 73, headSha: state.commit, status: state.certified ? 'completed' : 'in_progress', conclusion: state.certified ? 'success' : '' }]
+          : []))
+      } else throw new Error('Unexpected gh command: ' + args.join(' '))
+    `, 'utf8')
+    git('add', '.')
+    git('commit', '-m', 'chore: release v1.0.0')
+    git('push', 'origin', 'main')
+    const candidateCommit = git('rev-parse', 'HEAD')
+    const result = spawnSync(process.execPath, [path.join(working, 'scripts', 'release.mjs'), 'patch'], {
+      cwd: working, env: environment, encoding: 'utf8', timeout: 20_000,
+    })
+    assert.equal(result.status, 0, result.stderr || result.error?.message)
+    assert.notEqual(git('rev-parse', 'HEAD'), candidateCommit, 'fixture 必须实际推进 HEAD，才能覆盖认证与打标间的交错')
+    assert.equal(git('rev-parse', 'v1.0.0'), candidateCommit, '本地标签必须绑定通过认证的精确提交')
+    assert.equal(git('ls-remote', '--tags', 'origin', 'refs/tags/v1.0.0').split(/\s+/)[0], candidateCommit,
+      '向隔离 bare remote 推送的标签也必须指向已认证提交')
+  } finally {
+    fs.rmSync(temporaryRoot, { recursive: true, force: true })
+  }
+})

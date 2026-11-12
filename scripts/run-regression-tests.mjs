@@ -7,7 +7,7 @@ import {
   discoverUnitTestEntries,
 } from './test-discovery.mjs'
 import { runBrowserRegressionTests } from './run-browser-tests.mjs'
-import { executionReportPath, writeExecutionReport } from './quality-execution.mjs'
+import { writeExecutionReport } from './quality-execution.mjs'
 
 const root = process.cwd()
 const originalNodeEnv = process.env.NODE_ENV
@@ -33,9 +33,8 @@ const passedEntries = []
 const passedTests = []
 for (const entry of entries) {
   let entryFailed = false
-  const outDir = path.resolve(`.tmp-${entry.replace(/\W/g, '-')}`)
+  const outDir = await fs.mkdtemp(path.join(root, `.tmp-${entry.replace(/\W/g, '-')}-`))
   try {
-    await fs.rm(outDir, { recursive: true, force: true })
     await build({
       configFile: path.resolve('vite.config.ts'),
       logLevel: 'error',
@@ -94,14 +93,11 @@ failed += browserResult.failed
 if (failed > 0) {
   process.exitCode = 1
 } else if (requestedEntries.length === 0) {
-  let previousFiles = []
-  try {
-    const previous = JSON.parse(await fs.readFile(executionReportPath(root), 'utf8'))
-    previousFiles = Object.keys(previous.executedFiles ?? {})
-  } catch {}
+  // The report writer retains prior evidence only when its source fingerprint matches.
+  // Reusing old paths here revives retired tests and can attest tests not run on this source.
   await writeExecutionReport(
     root,
-    [...previousFiles, ...passedEntries, ...browserResult.passedEntries],
+    [...passedEntries, ...browserResult.passedEntries],
     [...passedTests, ...browserResult.passedTests],
   )
 }

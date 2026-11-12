@@ -1,3 +1,4 @@
+import type { AssetObjectUrlLease } from './assetObjectUrls'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 
 export interface AssetStorageStats {
@@ -49,6 +50,7 @@ export interface StorageAdapter {
 
   saveAsset(blob: Blob, mime: string): Promise<string>
   getAssetObjectUrl(id: string): Promise<string | null>
+  acquireAssetObjectUrl?(id: string): Promise<AssetObjectUrlLease | null>
   getAssetForExport(id: string): Promise<ExportAssetRecord | null>
   getAssetStats(ids: string[]): Promise<AssetStorageStats>
   listAssetRecords?(): Promise<PhysicalAssetRecord[]>

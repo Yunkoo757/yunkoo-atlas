@@ -8,12 +8,10 @@ import { useShortcutHint } from '@/shortcuts/useShortcutHint'
 import './TradeDetailLayout.css'
 
 export function TradeDetailLayout({
-  sourceTradeId,
   header,
   content,
   properties,
 }: {
-  sourceTradeId?: string
   header: (propertiesToggle: ReactNode) => ReactNode
   content: ReactNode
   properties: ReactNode
@@ -150,7 +148,7 @@ export function TradeDetailLayout({
   )
 
   return (
-    <div className={'trade-detail-layout' + (!compact && !propertiesVisible ? ' is-properties-hidden' : '')} ref={layoutRef} data-source-trade-id={sourceTradeId}>
+    <div className={'trade-detail-layout' + (!compact && !propertiesVisible ? ' is-properties-hidden' : '')} ref={layoutRef}>
       {header(propertiesToggle)}
       <div className="dv-body">
         <section className="dv-main" aria-label="交易详情">{content}</section>

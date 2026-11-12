@@ -9,6 +9,7 @@ import {
 const EXTENSIONS = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' } as const
 const DAY_MS = 24 * 60 * 60 * 1000
 const MARKER = '.atlas-clipboard-export.json'
+export const CASE_CLIPBOARD_CACHE_LIMITS = Object.freeze({ maxEntries: 32, maxBytes: 256 * 1024 * 1024 })
 
 function imageBytes(image: CaseClipboardImage): Buffer {
   if (!image || !Object.prototype.hasOwnProperty.call(EXTENSIONS, image.mime) || typeof image.data !== 'string' || !image.data || image.data.length > Math.ceil(CASE_CLIPBOARD_MAX_IMAGE_BYTES / 3) * 4) throw new Error('图片无效或单张超过 20 MB，请检查图片后重试')
@@ -58,17 +59,39 @@ export async function prepareCaseClipboardFiles(content: CaseClipboardContent, r
   }
 }
 
-/** 下一次成功复制后清理超过一天的旧缓存；保留当前剪贴板引用及其他目录。 */
-export async function cleanupCaseClipboardFiles(root: string, keep: string, now = Date.now()): Promise<void> {
+/** 成功复制后按时间、份数与字节清理；当前剪贴板和未标识目录始终保留。 */
+export async function cleanupCaseClipboardFiles(
+  root: string,
+  keep: string,
+  now = Date.now(),
+  limits: { maxEntries: number; maxBytes: number } = CASE_CLIPBOARD_CACHE_LIMITS,
+): Promise<void> {
   const entries = await fs.readdir(root, { withFileTypes: true }).catch(() => [])
+  const owned: { directory: string; createdAt: number; bytes: number }[] = []
   for (const entry of entries) {
     if (!entry.isDirectory() || !/^copy-[0-9a-f-]{36}$/.test(entry.name)) continue
     const directory = path.join(root, entry.name)
-    if (directory === keep) continue
     try {
       const marker = JSON.parse(await fs.readFile(path.join(directory, MARKER), 'utf8'))
-      if (marker.kind !== 'atlas-clipboard-export' || typeof marker.createdAt !== 'number' || now - marker.createdAt <= DAY_MS) continue
-      await fs.rm(directory, { recursive: true, force: true })
-    } catch { /* 未标识目录不属于本功能，不作清理。 */ }
+      if (marker.kind !== 'atlas-clipboard-export' || !Number.isFinite(marker.createdAt)) continue
+      let bytes = 0
+      for (const file of await fs.readdir(directory)) {
+        const info = await fs.lstat(path.join(directory, file))
+        if (info.isFile()) bytes += info.size
+      }
+      owned.push({ directory, createdAt: marker.createdAt, bytes })
+    } catch { /* 无法识别归属或读取大小时不擅自删除。 */ }
+  }
+  let count = owned.length
+  let bytes = owned.reduce((sum, entry) => sum + entry.bytes, 0)
+  owned.sort((a, b) => a.createdAt - b.createdAt || a.directory.localeCompare(b.directory))
+  for (const entry of owned) {
+    if (path.resolve(entry.directory) === path.resolve(keep)) continue
+    if (now - entry.createdAt <= DAY_MS && count <= limits.maxEntries && bytes <= limits.maxBytes) continue
+    try {
+      await fs.rm(entry.directory, { recursive: true, force: true })
+      count -= 1
+      bytes -= entry.bytes
+    } catch { /* 清理失败不影响已成功写入的当前剪贴板。 */ }
   }
 }

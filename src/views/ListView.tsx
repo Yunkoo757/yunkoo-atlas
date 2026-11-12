@@ -226,6 +226,7 @@ export function ListView({
     try {
       const copies = buildSafeTradeCopies(sources, trades, {
         now: new Date(),
+        tradingDayStartHour: useStore.getState().display.tradingDayStartHour,
         createId: () => crypto.randomUUID(),
       })
       if (upsertTrades(copies) !== 'updated') throw new Error('复制失败，请重试')

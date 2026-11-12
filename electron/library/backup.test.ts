@@ -115,6 +115,7 @@ async function createVerifiableBackup(
           strategyCount: 0,
           assetCount: includeAsset ? 1 : 0,
         }),
+        exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => (includeAsset ? ['asset-1.bin'] : []),
       },
       root,
@@ -298,6 +299,7 @@ export function testDefaultBackupRotationKeepsSevenLatestRestorePoints(): void {
     fs.writeFileSync(path.join(root, 'journal.db'), 'snapshot')
     const counts = {
       getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 0 }),
+      exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
       listCommittedAttachmentFileNames: () => [] as string[],
     }
     for (let hour = 0; hour < 8; hour += 1) {
@@ -323,6 +325,7 @@ export function testBackupsCreatedInTheSameMillisecondRemainIndependent(): void 
     fs.writeFileSync(path.join(root, 'journal.db'), 'first-snapshot')
     const counts = {
       getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 0 }),
+      exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
       listCommittedAttachmentFileNames: () => [] as string[],
     }
     const now = Date.UTC(2026, 6, 13, 8, 0, 0)
@@ -348,6 +351,7 @@ export function testBackupRotationKeepsLatestRestorePointAndItsAttachments(): vo
     fs.writeFileSync(path.join(attachments, 'old.png'), 'old-image')
     const counts = {
       getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
+      exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
       listCommittedAttachmentFileNames: () =>
         fs.existsSync(path.join(attachments, 'new.png')) ? ['new.png'] : ['old.png'],
     }
@@ -379,6 +383,7 @@ export function testBackupRotationPrefersAUserVerifiedRestorePoint(): void {
     fs.writeFileSync(path.join(root, 'journal.db'), 'snapshot')
     const counts = {
       getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 0 }),
+      exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
       listCommittedAttachmentFileNames: () => [] as string[],
     }
     const verified = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 8, 0, 0))!
@@ -405,6 +410,7 @@ export function testBackupRotationKeepsANonEmptyRestorePointAheadOfVerifiedEmpty
     let tradeCount = 1
     const counts = {
       getCounts: () => ({ tradeCount, strategyCount: 0, assetCount: 0 }),
+      exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
       listCommittedAttachmentFileNames: () => [] as string[],
     }
     const nonEmpty = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 8, 0, 0))!
@@ -437,6 +443,7 @@ export function testCorruptBackupMetadataPreventsAssetVaultPruning(): void {
     const first = createBackupAtPath(
       {
         getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
+        exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => ['old.png'],
       },
       root,
@@ -449,6 +456,7 @@ export function testCorruptBackupMetadataPreventsAssetVaultPruning(): void {
     const current = createBackupAtPath(
       {
         getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
+        exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => ['current.png'],
       },
       root,
@@ -475,6 +483,7 @@ export function testBackupRotationNeverDeletesTheOnlyLatestRestorePoint(): void 
     createBackupAtPath(
       {
         getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
+        exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => ['large.png'],
       },
       root,
@@ -502,6 +511,7 @@ export function testRestoreWithMissingAttachmentLeavesCurrentLibraryUntouched():
     const backup = createBackupAtPath(
       {
         getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
+        exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => ['chart.png'],
       },
       root,
@@ -553,6 +563,7 @@ export function testRestoreRejectsDatabaseBytesChangedAfterVerificationWithoutTo
     const backup = createBackupAtPath(
       {
         getCounts: () => ({ tradeCount: 1, strategyCount: 0, assetCount: 0 }),
+        exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => [] as string[],
       },
       root,
@@ -588,6 +599,7 @@ export function testBackupAccountingAndDeletionIncludeDeduplicatedAttachments():
     const backup = createBackupAtPath(
       {
         getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
+        exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => ['large.png'],
       },
       root,
@@ -621,6 +633,7 @@ export function testBackupRestoreProtectsDatabaseManifestAndOriginalAttachments(
     const backup = createBackupAtPath(
       {
         getCounts: () => ({ tradeCount: 1, strategyCount: 2, assetCount: 1 }),
+        exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => ['chart.png'],
       },
       root,
@@ -734,6 +747,7 @@ export function testBackupKeepsHistoricalBytesWhenAnAttachmentNameIsReused(): vo
     fs.writeFileSync(path.join(attachments, 'shared.png'), Buffer.from('first-image'))
     const counts = {
       getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
+      exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
       listCommittedAttachmentFileNames: () => ['shared.png'],
     }
     const first = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 8, 0, 0))!

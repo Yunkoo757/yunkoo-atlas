@@ -1,3 +1,4 @@
+import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/Button'
 import { useEditor, EditorContent, BubbleMenu, type Editor as TiptapEditor } from '@tiptap/react'
@@ -447,6 +448,19 @@ function BBtn({
   )
 }
 
+const editorImageScopes = new WeakMap<TiptapEditor, AssetObjectUrlScope>()
+function imageScopeForEditor(editor: TiptapEditor): AssetObjectUrlScope {
+  let scope = editorImageScopes.get(editor)
+  if (!scope) {
+    scope = new AssetObjectUrlScope()
+    editorImageScopes.set(editor, scope)
+    const owned = scope
+    // 包含编辑器撤销历史中的图片；销毁记录编辑器时统一释放。
+    editor.on('destroy', () => { owned.release(); editorImageScopes.delete(editor) })
+  }
+  return scope
+}
+
 // 粘贴/拖入图片：立即持久化到存储，获取可显示的 blob URL，标记 data-asset-id 建立永久关联
 async function insertImageFile(
   editor: TiptapEditor,
@@ -466,7 +480,7 @@ async function insertImageFile(
       if (noteDraftId) await appendAssetToNoteDraft(noteDraftId, savedAssetId)
       return
     }
-    const displayUrl = await storage.getAssetObjectUrl(savedAssetId)
+    const displayUrl = await imageScopeForEditor(editor).get(storage, savedAssetId)
     if (!displayUrl) throw new Error('getAssetObjectUrl returned null')
 
     if (editor.isDestroyed) {

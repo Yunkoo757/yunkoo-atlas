@@ -98,6 +98,14 @@ try {
   const persisted = JSON.parse(fs.readFileSync(path.join(data,'records',fs.readdirSync(path.join(data,'records')).filter(n=>n.endsWith('.json')).sort().at(-1)),'utf8'));
   assert.equal(persisted.type,'complete');
   await page.locator('#minimize').click();
+  // Native window minimization completes asynchronously after the IPC send.
+  await app.evaluate(({BrowserWindow}) => new Promise((resolve, reject) => {
+    const window = BrowserWindow.getAllWindows()[0];
+    if (window.isMinimized()) return resolve();
+    const timeout = setTimeout(() => { window.removeListener('minimize', done); reject(new Error('Window did not minimize')); }, 5000);
+    function done() { clearTimeout(timeout); resolve(); }
+    window.once('minimize', done);
+  }));
   assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isMinimized()),true);
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].restore());
   await shot(page,{path:path.join(output,'08-window-controls.png')});

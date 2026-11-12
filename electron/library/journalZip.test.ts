@@ -471,6 +471,58 @@ export async function testElectronWebImportRejectsDeclaredAssetWithoutNoteRefere
   assert(error.includes('未被任何交易正文引用'), 'Electron 必须拒绝未被笔记引用的附件声明')
 }
 
+export async function testElectronWebImportDropsRetiredOnlyAssetsAndKeepsSharedCaseImage(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-retired-web-archive-'))
+  const archive = path.join(root, 'candidate.journal.zip')
+  const sharedBytes = new Uint8Array([9, 8, 7, 6])
+  let storage: LibraryStorage | null = null
+  try {
+    const source = snapshotWithCaseSourceAsset('shared-image')
+    await writeWebArchive(archive, {
+      ...source, version: WEB_JOURNAL_EXPORT_VERSION, schemaVersion: SCHEMA_VERSION,
+      judgmentDesk: {
+        samples: [{ images: [{ assetId: 'shared-image' }, { assetId: 'retired-sample' }, { assetId: 'missing-retired-reference' }] }],
+        attempts: [{ evidence: { images: [{ assetId: 'retired-history' }] } }],
+      },
+      reviewComposer: { invalidLegacyState: true },
+      assets: ['shared-image', 'retired-sample', 'retired-history'].map(id => ({ id, mime: 'image/png' })),
+    }, {
+      'assets/shared-image.png': sharedBytes,
+      'assets/retired-sample.png': new Uint8Array([1]),
+      'assets/retired-history.png': new Uint8Array([2]),
+    })
+    await importJournalZipToPath(root, archive)
+    storage = new LibraryStorage(root)
+    await storage.open()
+    const restored = storage.loadSnapshot()!
+    assert(!('judgmentDesk' in restored) && !('reviewComposer' in restored), '原生恢复后的快照必须彻底剥离退役状态')
+    assert(restored.trades[0].sourceNoteHtml === source.trades[0].sourceNoteHtml, '旧归档退役清理不得修改案例来源快照')
+    assert(Buffer.from(storage.getAssetBytes('shared-image')?.bytes ?? []).equals(Buffer.from(sharedBytes)), '案例仍引用的共享附件必须逐字节保留')
+    assert(storage.getAssetBytes('retired-sample') === null && storage.getAssetBytes('retired-history') === null, '退役工作区当前与冻结历史独占附件均不应导入')
+  } finally {
+    storage?.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testElectronRetiredAssetsDoNotBypassArchiveClosureChecks(): Promise<void> {
+  const error = await captureImportError({
+    ...emptySnapshot(), version: WEB_JOURNAL_EXPORT_VERSION, schemaVersion: SCHEMA_VERSION,
+    judgmentDesk: { samples: [{ images: [{ assetId: 'known-retired' }] }], unrelated: [{ assetId: 'unknown-extra' }] },
+    assets: ['known-retired', 'unknown-extra'].map(id => ({ id, mime: 'image/png' })),
+  }, {
+    'assets/known-retired.png': new Uint8Array([1]),
+    'assets/unknown-extra.png': new Uint8Array([2]),
+  })
+  assert(error.includes('未被任何交易正文引用'), '旧退役引用不得为未知路径上的孤立附件放宽闭包')
+  const missing = await captureImportError({
+    ...emptySnapshot(), version: WEB_JOURNAL_EXPORT_VERSION, schemaVersion: SCHEMA_VERSION,
+    judgmentDesk: { attempts: [{ evidence: { images: [{ assetId: 'known-retired' }] } }] },
+    assets: [{ id: 'known-retired', mime: 'image/png' }],
+  })
+  assert(missing.includes('declared asset is missing'), '即使退役专属图片也必须维持声明与文件闭包')
+}
+
 export async function testElectronWebImportRejectsAssetDeclarationAndFileMismatches(): Promise<void> {
   const snapshot = snapshotWithAsset('asset-one')
   const base = {

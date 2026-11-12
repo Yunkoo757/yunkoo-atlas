@@ -84,13 +84,13 @@ export async function testAttachmentPreviewCachesAreBoundedAndInvalidatedOnImpor
     fs.readFile('src/storage/electronAdapter.ts', 'utf8'),
     fs.readFile('src/lib/importExport.ts', 'utf8'),
   ])
+  const cache = await fs.readFile('src/storage/assetObjectUrls.ts', 'utf8')
+  assert(cache.includes('MAX_IDLE_ENTRIES = 128'), '未持有的图片预览缓存必须有数量上限')
+  assert(cache.includes('MAX_IDLE_BYTES = 64 * 1024 * 1024'), '未持有的图片预览缓存必须有字节预算')
+  assert(cache.includes('revokeObjectUrlAfterExit'), '无消费者的退休地址必须在离场快照退出后释放')
   for (const [name, source] of [['IndexedDB', indexedDb], ['Electron', electron]] as const) {
-    assert(source.includes('MAX_OBJECT_URL_CACHE = 128'), `${name} 图片预览缓存必须有上限`)
-    assert(source.includes('URL.revokeObjectURL'), `${name} 淘汰预览时必须释放 Blob URL`)
-    assert(
-      /this\.objectUrlCache\.delete\((?:asset|record)\.id\)/.test(source),
-      `${name} 导入同 ID 图片时必须失效旧缓存`,
-    )
+    assert(source.includes('new AssetObjectUrlCache()'), `${name} 必须复用有租约的有界缓存`)
+    assert(source.includes('this.objectUrls.invalidate('), `${name} 写入提交后必须失效相应旧预览`)
   }
   assert(
     importExport.includes('getElectronAdapter().clearObjectUrlCache()'),

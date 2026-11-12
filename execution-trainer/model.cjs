@@ -2,8 +2,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID, createHash } = require('node:crypto');
 
+const dayFormatters = new Map();
 function dayAt(iso, zone) {
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(iso));
+  let formatter = dayFormatters.get(zone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat('en-US', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' });
+    if (dayFormatters.size >= 64) dayFormatters.delete(dayFormatters.keys().next().value);
+    dayFormatters.set(zone, formatter);
+  }
+  const parts = formatter.formatToParts(new Date(iso));
   const get = type => parts.find(p => p.type === type).value;
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
@@ -13,12 +20,11 @@ function validate(input) {
   if (!Number.isSafeInteger(input.target) || input.target < 1 || input.target > 100000) throw new Error('总次数需要是 1–100000 的整数。');
   if (!Number.isSafeInteger(input.daily) || input.daily < 1 || input.daily > input.target) throw new Error('每日最低量需要是 1 到总次数之间的整数。');
 }
-function summary(training, now) {
+function summary(training, now, today = dayAt(now, training.zone)) {
   const counts = new Map();
   for (const event of training.records) counts.set(event.day, (counts.get(event.day) || 0) + 1);
   const total = training.records.length;
   const finished = total === training.target;
-  const today = dayAt(now, training.zone);
   const end = finished ? training.records.at(-1).day : today;
   const days = [];
   let before = 0;
@@ -38,6 +44,7 @@ const digest = value => createHash('sha256').update(JSON.stringify(value)).diges
 class Store {
   constructor(root, clock = () => new Date()) {
     this.root = root; this.clock = clock; this.events = []; this.trainings = [];
+    this.summaryCache = new Map(); this.listCache = null;
     fs.mkdirSync(root, { recursive: true });
     const files = fs.readdirSync(root).filter(n => /^\d{10}\.json$/.test(n)).sort();
     for (const [i, file] of files.entries()) {
@@ -89,6 +96,32 @@ class Store {
     if (training.records.length >= training.target) throw new Error('这个训练已经完成。');
     this.append({ type: 'complete', id });
   }
-  list() { const now = this.now(); return this.trainings.map(t => summary(t, now)); }
+  state() {
+    const now = this.now();
+    const dates = new Map();
+    for (const training of this.trainings) {
+      if (!dates.has(training.zone)) dates.set(training.zone, dayAt(now, training.zone));
+    }
+    return { now, dates, revision: JSON.stringify([this.events.length, [...dates]]) };
+  }
+  listFor(state) {
+    if (this.listCache?.revision === state.revision) return this.listCache.trainings;
+    const trainings = this.trainings.map(training => {
+      const today = state.dates.get(training.zone);
+      const cached = this.summaryCache.get(training.id);
+      if (cached?.total === training.records.length && cached.today === today) return cached.value;
+      const value = summary(training, state.now, today);
+      this.summaryCache.set(training.id, { total: training.records.length, today, value });
+      return value;
+    });
+    this.listCache = { revision: state.revision, trainings };
+    return trainings;
+  }
+  list() { return this.listFor(this.state()); }
+  snapshot(knownRevision) {
+    const state = this.state();
+    if (knownRevision === state.revision) return { revision: state.revision, unchanged: true };
+    return { revision: state.revision, trainings: this.listFor(state) };
+  }
 }
 module.exports = { Store, dayAt, summary, validate };

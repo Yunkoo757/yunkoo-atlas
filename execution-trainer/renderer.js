@@ -1,6 +1,10 @@
 const root = document.querySelector('#app');
 const errorBox = document.querySelector('#error');
-let trainings = [], selected = null, view = 'list', busy = false;
+let trainings = [], selected = null, view = 'list', busy = false, revision = null;
+function accept(result) {
+  if (Array.isArray(result.trainings)) trainings = result.trainings;
+  if (typeof result.revision === 'string') revision = result.revision;
+}
 const escape = text => String(text).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 function error(message) {
   errorBox.hidden = !message;
@@ -16,7 +20,7 @@ async function request(operation) {
   try {
     const result = await operation();
     if (result.error) { error(result.error); return null; }
-    trainings = result.trainings; error(''); return result;
+    accept(result); error(''); return result;
   } catch { error('无法连接记录服务，请关闭并重新打开工具。'); return null; }
   finally { busy = false; root.setAttribute('aria-busy', 'false'); buttons.forEach(([button, disabled]) => button.disabled = disabled); }
 }
@@ -42,6 +46,8 @@ function render() {
   if (!samePage) motion(root, [{ opacity:0, transform:'translateY(4px)' }, { opacity:1, transform:'translateY(0)' }], '--motion-dialog-in');
   else {
     expanded.forEach(id => { const node = document.getElementById(id); if (node) node.open = true; });
+    const t = trainings.find(t => t.id === selected), history = root.querySelector('#history');
+    if (t && history) populateHistory(t, history);
     const value = root.querySelector('.count-value');
     if (value && Number(value.textContent) > oldTotal) {
       motion(value, [{ opacity:0.4, transform:'translateY(3px)' }, { opacity:1, transform:'translateY(0)' }], '--motion-panel');
@@ -78,9 +84,43 @@ function renderForm() {
     if (result) { selected = result.selected; view = 'detail'; render(); document.querySelector('#complete')?.focus(); }
   };
 }
+const historyLimits = new Map();
+let timestampZone, timestampFormatter;
+function populateHistory(t, history) {
+  if (root.querySelector('#history') !== history) return;
+  const days = history.querySelector('.history-days'), times = history.querySelector('.history-times');
+  if (!history.open) { days.innerHTML = ''; times.innerHTML = ''; return; }
+  let limits = historyLimits.get(t.id);
+  if (!limits) { limits = { days:100, times:100 }; historyLimits.set(t.id, limits); }
+  const dayRows = [];
+  for (let i = t.days.length - 1; i >= Math.max(0, t.days.length - limits.days); i--) {
+    const d = t.days[i];
+    dayRows.push(`<div class="day"><span>${d.day}</span><span>${d.actual} / ${d.minimum}</span><span class="status">${d.status}</span></div>`);
+  }
+  const moreDays = Math.max(0, t.days.length - limits.days);
+  days.innerHTML = dayRows.join('') + (moreDays ? `<button type="button" class="ghost" data-more-days>更早的日期 · 剩余 ${moreDays} 天</button>` : '');
+  const timestamps = history.querySelector('#timestamps');
+  if (timestamps.open) {
+    if (timestampZone !== t.zone) { timestampZone = t.zone; timestampFormatter = new Intl.DateTimeFormat('zh-CN', { timeZone:t.zone, dateStyle:'medium', timeStyle:'medium', hour12:false }); }
+    const rows = [];
+    for (let i = t.records.length - 1; i >= Math.max(0, t.records.length - limits.times); i--) {
+      rows.push(`<div class="row record metadata"><span>#${i + 1}</span><time>${escape(timestampFormatter.format(new Date(t.records[i].at)))}</time></div>`);
+    }
+    const moreTimes = Math.max(0, t.records.length - limits.times);
+    times.innerHTML = rows.join('') + (moreTimes ? `<button type="button" class="ghost" data-more-times>更早的完成时间 · 剩余 ${moreTimes} 次</button>` : '') || '<p class="metadata">还没有完成记录。</p>';
+  } else times.innerHTML = '';
+  for (const [attribute, key] of [['data-more-days','days'], ['data-more-times','times']]) {
+    const button = history.querySelector(`[${attribute}]`);
+    if (button) button.onclick = () => {
+      limits[key] += 100;
+      populateHistory(t, history);
+      (history.querySelector(`[${attribute}]`) || history.querySelector('summary')).focus({ preventScroll:true });
+    };
+  }
+}
 function renderTraining(t) {
   const today = t.today;
-  const markup = `<div class="stack"><div class="row heading"><h1>${escape(t.name)}</h1><button class="ghost" id="back" aria-label="所有训练">训练 ↗</button></div><div class="tight"><div class="counter" aria-live="polite"><strong class="count-value">${t.total}</strong> <span>/ ${t.target}</span></div><div class="progress" role="progressbar" aria-valuenow="${t.total}" aria-valuemin="0" aria-valuemax="${t.target}" aria-label="训练总进度"><i></i></div></div><section class="stack"><div class="row"><span class="metadata">${t.finished ? '训练完成' : '今日'}</span><span class="today-value">${today ? `${today.actual} / ${today.minimum}` : 'DONE'}${today?.status === 'DONE' ? '<span class="status"> · DONE</span>' : ''}</span></div><button class="primary complete" id="complete" ${t.finished ? 'disabled' : ''}>${t.finished ? '全部完成' : '完成一次'}</button></section><div class="row stats metadata"><span>第 ${t.days.length} 天</span><span>${t.settledDays ? `${t.completedDays} / ${t.settledDays} 天达标` : '今日尚未结算'}</span></div><details id="history"><summary>记录</summary><div class="tight"><p class="metadata">剩余 ${t.remaining} 次 · ${escape(t.zone)}<br>未结束的当天不计入完成率；训练完成时立即结算。</p>${[...t.days].reverse().map(d => `<div class="day"><span>${d.day}</span><span>${d.actual} / ${d.minimum}</span><span class="status">${d.status}</span></div>`).join('')}<details id="timestamps"><summary>完成时间 · ${t.total} 次</summary>${t.records.length ? [...t.records].reverse().map((r, i) => `<div class="row record metadata"><span>#${t.total - i}</span><time>${escape(new Intl.DateTimeFormat('zh-CN', { timeZone:t.zone, dateStyle:'medium', timeStyle:'medium', hour12:false }).format(new Date(r.at)))}</time></div>`).join('') : '<p class="metadata">还没有完成记录。</p>'}</details></div></details></div>`;
+  const markup = `<div class="stack"><div class="row heading"><h1>${escape(t.name)}</h1><button class="ghost" id="back" aria-label="所有训练">训练 ↗</button></div><div class="tight"><div class="counter" aria-live="polite"><strong class="count-value">${t.total}</strong> <span>/ ${t.target}</span></div><div class="progress" role="progressbar" aria-valuenow="${t.total}" aria-valuemin="0" aria-valuemax="${t.target}" aria-label="训练总进度"><i></i></div></div><section class="stack"><div class="row"><span class="metadata">${t.finished ? '训练完成' : '今日'}</span><span class="today-value">${today ? `${today.actual} / ${today.minimum}` : 'DONE'}${today?.status === 'DONE' ? '<span class="status"> · DONE</span>' : ''}</span></div><button class="primary complete" id="complete" ${t.finished ? 'disabled' : ''}>${t.finished ? '全部完成' : '完成一次'}</button></section><div class="row stats metadata"><span>第 ${t.days.length} 天</span><span>${t.settledDays ? `${t.completedDays} / ${t.settledDays} 天达标` : '今日尚未结算'}</span></div><details id="history"><summary>记录</summary><div class="tight"><p class="metadata">剩余 ${t.remaining} 次 · ${escape(t.zone)}<br>未结束的当天不计入完成率；训练完成时立即结算。</p><div class="history-days"></div><details id="timestamps"><summary>完成时间 · ${t.total} 次</summary><div class="history-times"></div></details></div></details></div>`;
   if (root.dataset.training === t.id && root.querySelector('#complete')) {
     const template = document.createElement('template');
     template.innerHTML = markup;
@@ -94,6 +134,9 @@ function renderTraining(t) {
     root.querySelector('#history').replaceWith(updated.querySelector('#history'));
   } else root.innerHTML = markup;
   root.dataset.training = t.id;
+  const history = root.querySelector('#history');
+  history.ontoggle = () => populateHistory(t, history);
+  history.querySelector('#timestamps').ontoggle = () => populateHistory(t, history);
   root.querySelector('.progress i').style.transform = `scaleX(${t.total / t.target})`;
   document.querySelector('#back').onclick = () => { view = 'list'; render(); document.querySelector('#new').focus(); };
   document.querySelector('#complete').onclick = () => {
@@ -118,7 +161,7 @@ async function drainCompletions() {
         error(result.error + ' 后续排队点击已停止，请检查后重新点击。');
         break;
       }
-      trainings = result.trainings;
+      accept(result);
       error('');
       if (view !== 'create') render();
     }
@@ -129,13 +172,12 @@ async function drainCompletions() {
 }
 async function refresh() {
   if (busy || completing) return;
-  const before = JSON.stringify(trainings);
   const focused = document.activeElement?.id;
   const expanded = [...root.querySelectorAll('details[open]')].map(d => d.id);
-  const result = await request(() => window.trainer.list());
+  const result = await request(() => window.trainer.list(revision));
   if (result) {
     if (view === 'create') return;
-    if (before === JSON.stringify(trainings) && root.innerHTML) return;
+    if (result.unchanged && root.innerHTML) return;
     if (!selected && trainings.length === 1) { selected = trainings[0].id; view = 'detail'; }
     render(); expanded.forEach(id => { const node = document.getElementById(id); if (node) node.open = true; });
     if (focused && document.activeElement === document.body) document.getElementById(focused)?.focus();

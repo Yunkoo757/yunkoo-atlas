@@ -1,6 +1,7 @@
 import JSZip from 'jszip'
 import { isSafeAssetId } from '@/storage/assetId'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
+import { collectRetiredSnapshotAssetIds } from '@/storage/retiredSnapshotDomains'
 import { tradeRichTextEntries } from '@/storage/tradeRichText'
 import {
   SCHEMA_VERSION,
@@ -603,7 +604,7 @@ function validateNoteAssetReferences(
   snapshot: PersistedSnapshot,
   declaredIds: ReadonlySet<string>,
   allowedUnreferencedIds: ReadonlySet<string> = new Set(),
-): void {
+): Set<string> {
   const referencedIds = new Set<string>()
   for (const trade of snapshot.trades) {
     for (const html of tradeRichTextEntries(trade)) {
@@ -654,6 +655,7 @@ function validateNoteAssetReferences(
   for (const id of allowedUnreferencedIds) {
     if (!declaredIds.has(id)) throw archiveError('invalid-asset', `恢复附件 ${id} 缺少声明或文件`)
   }
+  return referencedIds
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -851,7 +853,9 @@ export async function parseWebJournalArchive(
   }
   const assetFiles = parseAssetFiles(entries, declarations)
   const declaredIds = new Set(declarations.map((asset) => asset.id))
-  validateNoteAssetReferences(snapshot, declaredIds, new Set(recoveryOrphanAssetIds))
+  const retiredIds = new Set([...collectRetiredSnapshotAssetIds(raw)].filter(id => declaredIds.has(id)))
+  const referencedIds = validateNoteAssetReferences(snapshot, declaredIds, new Set([...recoveryOrphanAssetIds, ...retiredIds]))
+  const retiredOnlyIds = new Set([...retiredIds].filter(id => !referencedIds.has(id)))
 
   const assets: ExportAssetRecord[] = []
   let expandedBytes = dataJson.byteLength
@@ -876,7 +880,6 @@ export async function parseWebJournalArchive(
     if (assetData.byteLength > MAX_WEB_JOURNAL_ENTRY_BYTES) {
       throw archiveError('entry-too-large', `附件 ${declaration.id} 超过单文件容量限制`)
     }
-    assetBytes += assetData.byteLength
     expandedBytes += assetData.byteLength
     if (expandedBytes > MAX_WEB_JOURNAL_EXPANDED_BYTES) {
       throw archiveError(
@@ -884,6 +887,8 @@ export async function parseWebJournalArchive(
         `归档实际解压后超过 ${MAX_WEB_JOURNAL_EXPANDED_BYTES / 1024 / 1024} MB，请减少附件后重试`,
       )
     }
+    if (retiredOnlyIds.has(declaration.id)) continue
+    assetBytes += assetData.byteLength
     assets.push({
       id: declaration.id,
       mime: declaration.mime,
@@ -894,7 +899,7 @@ export async function parseWebJournalArchive(
   return {
     snapshot,
     assets,
-    recoveryOrphanAssetIds,
+    recoveryOrphanAssetIds: recoveryOrphanAssetIds.filter(id => !retiredOnlyIds.has(id)),
     preview: {
       exportVersion,
       schemaVersion,

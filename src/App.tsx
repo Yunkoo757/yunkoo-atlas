@@ -1,4 +1,3 @@
-import { JudgmentCaptureHost } from './components/judgment/JudgmentCaptureHost'
 import { ImageActions } from './components/ImageActions'
 import {
   BrowserRouter,
@@ -25,6 +24,7 @@ import { flushNoteDraftsToStore, hasPendingNoteDrafts } from './storage/noteDraf
 import { flushStorageBeforeCutover, lockStorageCutoverInteraction } from './storage/cutover'
 import { waitForPendingStorageOperations } from './storage/pendingOperations'
 import { RendererCloseBarrier } from './storage/closeBarrier'
+import { assertTradeComposerDraftCanClose, UnsavedTradeComposerDraftError } from './lib/tradeComposerDraftGuard'
 import { shouldPreventAppUnload } from './storage/unloadGuard'
 import { isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
@@ -147,7 +147,7 @@ type CloseSaveState =
   | { phase: 'idle' }
   | { phase: 'saving' }
   | { phase: 'saved' }
-  | { phase: 'error'; message: string }
+  | { phase: 'error'; message: string; unsavedComposer?: boolean }
 
 function waitForCloseFeedback(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
@@ -174,6 +174,21 @@ function CloseSaveReceipt({
     : state.phase === 'saved'
       ? 'success'
       : 'error'
+
+  if (state.phase === 'error' && state.unsavedComposer) {
+    return (
+      <ModalShell
+        title={message}
+        description={state.message}
+        size="compact"
+        onClose={onDismiss}
+        footer={<>
+          <Button variant="bordered" onClick={onRetry}>重试退出</Button>
+          <Button variant="primary" data-autofocus onClick={onDismiss}>继续使用</Button>
+        </>}
+      />
+    )
+  }
 
   return (
     <div className={`app-close-save is-${state.phase}`}>
@@ -260,8 +275,6 @@ function LegacyLiveArchiveRedirect() {
 const ImportDataHealthView = lazy(() =>
   import('./views/ImportDataHealthView').then((module) => ({ default: module.ImportDataHealthView })),
 )
-const JudgmentDeskView = lazy(() => import('./views/JudgmentDeskView').then(m => ({ default: m.JudgmentDeskView })))
-const ReviewComposerView = lazy(() => import('./views/ReviewComposerView').then(m => ({ default: m.ReviewComposerView })))
 const ReviewSessionView = lazy(() =>
   import('./views/ReviewSessionView').then((module) => ({ default: module.ReviewSessionView })),
 )
@@ -304,7 +317,6 @@ const SymbolsPanel = lazy(() =>
 const UpdatesSettingsPanel = lazy(() =>
   import('./views/settings/UpdatesSettingsPanel').then((module) => ({ default: module.UpdatesSettingsPanel })),
 )
-const ComposerRulesPanel = lazy(() => import('./views/settings/ComposerRulesPanel').then(m => ({ default: m.ComposerRulesPanel })))
 const ReviewTemplatesPanel = lazy(() =>
   import('./views/settings/ReviewTemplatesPanel').then((module) => ({ default: module.ReviewTemplatesPanel })),
 )
@@ -548,8 +560,6 @@ function Shell() {
           <Route path="/review-cases/board" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope" element={<ReviewCasesPage />} />
           <Route path="/review-cases/:scope/board" element={<ReviewCasesPage />} />
-          <Route path="/judgment-desk" element={<JudgmentDeskView />} />
-          <Route path="/review-composer" element={<ReviewComposerView />} />
           <Route path="/review-session" element={<ReviewSessionView />} />
           <Route path="/weekly-review" element={<WeeklyReviewPage />} />
           <Route path="/paper" element={<Navigate to="/sim" replace />} />
@@ -577,7 +587,6 @@ function Shell() {
             <Route path="risk/data-repair" element={<RiskDataRepairView />} />
             <Route path="tags" element={<TagPresetsPanel />} />
             <Route path="symbols" element={<SymbolsPanel />} />
-            <Route path="composer-rules" element={<ComposerRulesPanel page />} />
             <Route path="review-templates" element={<ReviewTemplatesPanel />} />
             <Route path="dispute-types" element={<Navigate to="/settings/tags" replace />} />
             <Route path="display" element={<DisplaySettingsPanel />} />
@@ -599,7 +608,6 @@ function Shell() {
       />
       <DeferredTradeOverlays />
       <ImageActions />
-      <JudgmentCaptureHost />
       <ToastHost />
     </>
   )
@@ -858,6 +866,7 @@ export function App() {
             try {
               if (isStorageHydrated()) await closeBarrier.current.flush(closeAttempt)
               if (!closeSaveGeneration.current.isCurrent(generation)) return
+              assertTradeComposerDraftCanClose()
               setCloseSaveState({ phase: 'saved' })
               await waitForCloseFeedback(CLOSE_SAVE_RECEIPT_MS)
               if (!closeSaveGeneration.current.isCurrent(generation)) return
@@ -867,6 +876,7 @@ export function App() {
               setCloseSaveState({
                 phase: 'error',
                 message: error instanceof Error ? error.message : '请检查磁盘空间后重试。',
+                unsavedComposer: error instanceof UnsavedTradeComposerDraftError,
               })
               throw error
             }
@@ -891,7 +901,11 @@ export function App() {
             closeBarrier.current.cancel()
             lockBottomChrome()
             // 错误回执已覆盖底部通知，不再额外 toast，避免双条重叠
-            setCloseSaveState({ phase: 'error', message })
+            setCloseSaveState((state) => ({
+              phase: 'error',
+              message,
+              unsavedComposer: state.phase === 'error' && state.unsavedComposer,
+            }))
           })
         }
         if (bridge?.onWindowsCloseExplanation) {

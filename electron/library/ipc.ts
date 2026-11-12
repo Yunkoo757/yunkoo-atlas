@@ -61,6 +61,7 @@ import {
   capturePreparedImportSource,
   matchesStagedJournalArchive,
   matchesPreparedImportSource,
+  recoverPreparedImportCommitFailure,
   stagePreparedJournalArchive,
   type PreparedImportSource,
 } from './preparedImportSource'
@@ -1139,10 +1140,11 @@ export function registerLibraryIpc(): void {
           }
           stopAutoBackup()
           autoBackupStarted = false
+          const cleanRestoredDatabase = current.createSnapshotDatabaseCleaner()
           current.close()
           storage = null
 
-          const ok = restoreBackupAtPath(libraryPath, fileName)
+          const ok = restoreBackupAtPath(libraryPath, fileName, cleanRestoredDatabase)
           replacementCommitted = ok
           // 无论恢复是否成功，都重新打开资料库并重建自动备份计时器。
           const reopened = await reopenAfterRestoreFailure()
@@ -1309,7 +1311,7 @@ export function registerLibraryIpc(): void {
     const entry = resolvePreparedImport(token, event.sender.id)
     if (!entry) return { ok: false as const, committed: false, error: '恢复预览不存在或不属于当前窗口', code: 'TOKEN_EXPIRED' as const }
     if (entry.state === 'expired') return { ok: false as const, committed: false, error: '恢复预览已过期，请重新选择文件', code: 'TOKEN_EXPIRED' as const }
-    if (entry.state !== 'prepared') return { ok: false as const, committed: entry.state === 'consumed', error: '恢复预览已经使用或取消' }
+    if (entry.state !== 'prepared') return { ok: false as const, committed: entry.state === 'consumed', error: '恢复预览已经使用或取消', code: 'TOKEN_EXPIRED' as const }
     if (!matchesStagedJournalArchive(entry.stagedArchivePath, entry.stagedArchiveSha256)) {
       entry.state = 'expired'
       cleanupPreparedImport(entry)
@@ -1360,9 +1362,15 @@ export function registerLibraryIpc(): void {
           cleanupPreparedImport(entry)
           return { ok: true as const, committed: true as const, snapshot }
         } catch (error) {
-          if (!storage) await reopenAfterRestoreFailure()
-          cleanupPreparedImport(entry)
-          return { ok: false as const, committed: replacementCommitted || storage === null, error: toErrorMessage(error) }
+          return recoverPreparedImportCommitFailure({
+            error,
+            replacementCommitted,
+            currentStorage: () => storage,
+            reopen: reopenAfterRestoreFailure,
+            adoptWriter: reopened => adoptWriterSessionLifecycle(event.sender.id, reopened),
+            invalidatePreview: () => cleanupPreparedImport(entry),
+            reportFailure: cause => safeConsoleError('journal-prepared-import-commit-failed', cause),
+          })
         }
       })
       if (outcome.ok) operation.success({ stage: 'committed', revisionAfter: 0 })

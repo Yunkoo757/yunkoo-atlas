@@ -34,6 +34,8 @@ import { addDaysToCurrentTradingDay, getTradingDayKey } from '@/lib/periods'
 import { trackPendingStorageOperation } from '@/storage/pendingOperations'
 import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
 import { toast } from '@/lib/toast'
+import { revokeObjectUrlAfterExit } from '@/lib/objectUrl'
+import { registerTradeComposerDraftGuard } from '@/lib/tradeComposerDraftGuard'
 import { Button } from '@/components/ui/Button'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { OverflowTooltip } from '@/components/ui/Tooltip'
@@ -136,6 +138,7 @@ export function TradeComposer() {
   const [isDragging, setIsDragging] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
+  const previewUrlsRef = useRef(new Set<string>())
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const submittingRef = useRef(false)
@@ -146,6 +149,12 @@ export function TradeComposer() {
   const recordLabel = activeKind === 'backtest' ? '回测记录' : activeKind === 'case' ? '案例' : '交易'
   const isNew = !editing
   const isTradeQuickNew = isNew && activeKind !== 'case'
+  const currentSnapshotRef = useRef('')
+  currentSnapshotRef.current = composerSnapshot({
+    symbol, side, timeframe, session, openedAt, strategyId, kind, status,
+    entry, size, stopLoss, backtestR, quickText, caseType,
+    imageIds: images.map((image) => image.id),
+  })
 
   useEffect(() => {
     if (!open) return
@@ -209,10 +218,22 @@ export function TradeComposer() {
     })
   }, [open, editing, strategies, defaultSymbol, tradingDayStartHour, project, requestedKind, defaultKind])
 
+  useEffect(() => registerTradeComposerDraftGuard(() =>
+    useStore.getState().composerOpen && currentSnapshotRef.current !== baselineRef.current,
+  ), [])
+
+  const releaseImagePreview = (preview: string) => {
+    if (previewUrlsRef.current.delete(preview)) revokeObjectUrlAfterExit(preview)
+  }
+
+  useEffect(() => () => {
+    previewUrlsRef.current.forEach(releaseImagePreview)
+  }, [])
+
   // 重置状态
   useEffect(() => {
     if (!open) {
-      images.forEach((img) => URL.revokeObjectURL(img.preview))
+      previewUrlsRef.current.forEach(releaseImagePreview)
       setSymbol(defaultSymbol)
       setSide('long')
       setTimeframe(DEFAULT_TIMEFRAME)
@@ -265,16 +286,15 @@ export function TradeComposer() {
     }
     const id = crypto.randomUUID()
     const preview = URL.createObjectURL(file)
+    previewUrlsRef.current.add(preview)
     setImages((prev) => [...prev, { id, file, preview }])
   }
 
   // 删除图片
   const removeImage = (id: string) => {
-    setImages((prev) => {
-      const img = prev.find((i) => i.id === id)
-      if (img) URL.revokeObjectURL(img.preview)
-      return prev.filter((i) => i.id !== id)
-    })
+    const image = images.find((item) => item.id === id)
+    if (image) releaseImagePreview(image.preview)
+    setImages((prev) => prev.filter((item) => item.id !== id))
   }
 
   // 处理拖拽
@@ -434,24 +454,7 @@ export function TradeComposer() {
 
   const requestClose = () => {
     if (submittingRef.current) return
-    const current = composerSnapshot({
-      symbol,
-      side,
-      timeframe,
-      session,
-      openedAt,
-      strategyId,
-      kind,
-      status,
-      entry,
-      size,
-      stopLoss,
-      backtestR,
-      quickText,
-      caseType,
-      imageIds: images.map((image) => image.id),
-    })
-    if (current === baselineRef.current) close()
+    if (currentSnapshotRef.current === baselineRef.current) close()
     else setDiscardConfirmOpen(true)
   }
 

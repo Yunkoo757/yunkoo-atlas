@@ -25,5 +25,9 @@ Windows 默认 `%APPDATA%/Execution Trainer/records`，macOS 默认 `~/Library/A
 
 ## 验证
 
-`npm test` 检查日期结算、时区、持久化、写入失败、损坏、目标上限和时钟回退。
+`npm test` 检查日期结算、时区、持久化、写入失败、损坏、目标上限、时钟回退，以及缓存跨日失效。
 `npm run test:desktop` 在独立临时数据目录运行实际 Electron 交互，截图和几何记录输出至 `test-results/`。
+
+`node test/disclosure.mjs` 验证小样本记录展开的稳定性；`npm run test:history` 用独立临时资料验证长期记录分页、展开状态保留和实际 IPC 未变化响应。
+
+`npm run test:render` 验证历史按需加载、分页完整性和未变化刷新时的控件稳定性。此项使用 Playwright Chromium；首次在独立目录运行前先执行 `npx playwright install chromium`。

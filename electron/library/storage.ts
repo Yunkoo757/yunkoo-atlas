@@ -1,3 +1,5 @@
+import { stripRetiredSnapshotDomains } from '../../src/storage/retiredSnapshotDomains'
+import { retiredSnapshotDatabaseBytes, stripRetiredSnapshotDomainsInDatabase } from './retiredSnapshotDatabase'
 import { resolveSnapshotVersion } from './snapshotVersion'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -18,7 +20,6 @@ import { isImageMime, processImageBuffer } from './images'
 import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
 import { assertSafeAssetId, isSafeAssetId } from '../../src/storage/assetId'
 import { buildAssetInventory } from '../../src/storage/assetInventory'
-import { tradeRichTextEntries } from '../../src/storage/tradeRichText'
 import { OperationalError } from '../../src/lib/operationalError'
 import {
   assertOpenedPairVersion,
@@ -593,6 +594,25 @@ export class LibraryStorage {
     }
   }
 
+  /** Read-only backup/export candidate; the active database and its revision are never committed. */
+  exportSnapshotDatabaseBytes(): Buffer {
+    let changed = false
+    const prepared = this.prepareDatabaseCandidate(candidate => { changed = stripRetiredSnapshotDomainsInDatabase(candidate) })
+    try {
+      return changed ? prepared.candidateBytes : prepared.previousDiskBytes
+    } finally {
+      this.closeDetachedDatabaseBestEffort(prepared.candidateDb)
+    }
+  }
+
+  /** Capture the initialized SQL constructor before a restore closes this storage lifecycle. */
+  createSnapshotDatabaseCleaner(): (bytes: Buffer) => Buffer {
+    this.requireDb()
+    const DatabaseClass = this.DatabaseClass
+    if (!DatabaseClass) throw new Error('资料库 SQL 构造器尚未初始化')
+    return bytes => retiredSnapshotDatabaseBytes(bytes, DatabaseClass)
+  }
+
   private durableDatabaseReferencesFile(databaseBytes: Buffer, fileName: string): boolean {
     const DatabaseClass = this.DatabaseClass
     if (!DatabaseClass) throw new Error('资料库 SQL 构造器尚未初始化')
@@ -645,8 +665,14 @@ export class LibraryStorage {
       .sort((left, right) => left.localeCompare(right, 'en'))
   }
 
-  private inspectPortableAttachment(id: string, expectedFileName: string): string | null {
-    const matches = this.listPortableAttachmentMatches(id)
+  private inspectPortableAttachment(
+    id: string,
+    expectedFileName: string,
+    directoryIndex?: ReadonlyMap<string, readonly string[]>,
+  ): string | null {
+    const matches = directoryIndex
+      ? directoryIndex.get(id.toLowerCase()) ?? []
+      : this.listPortableAttachmentMatches(id)
     if (matches.length > 1) {
       throw new Error(`附件 ID 对应多个物理文件：${id}`)
     }
@@ -893,6 +919,7 @@ export class LibraryStorage {
   }
 
   saveSnapshot(snapshot: PersistedSnapshot, expectedRevision?: number): SnapshotSaveResult {
+    snapshot = stripRetiredSnapshotDomains(snapshot)
     assertValidPersistedSnapshot(snapshot, 'Library snapshot')
     const nextRevision = this.assertSnapshotRevision(expectedRevision) + 1
     const prepared = this.prepareDatabaseCandidate((candidateDb) => {
@@ -1008,15 +1035,34 @@ export class LibraryStorage {
     const db = this.requireDb()
     this.assertAttachmentsDirectorySafe()
     assertPortableAssetDatabaseIntegrity(db)
+    // 本次同步盘点共享一个目录索引；不缓存跨操作的文件系统事实。
+    const directoryNames = fs.readdirSync(this.paths.attachments)
+    const directoryIndex = new Map<string, string[]>()
+    for (const name of directoryNames) {
+      const separator = name.indexOf('.')
+      if (separator < 1) continue
+      const key = name.slice(0, separator).toLowerCase()
+      const matches = directoryIndex.get(key) ?? []
+      matches.push(name)
+      directoryIndex.set(key, matches)
+    }
     const result = db.exec('SELECT id, file_name, byte_size FROM assets ORDER BY file_name')
-    return (result[0]?.values ?? []).map((row) => {
+    const rows = (result[0]?.values ?? []).map((row) => {
       const id = String(row[0])
       const fileName = String(row[1])
-      if (!this.inspectPortableAttachment(id, fileName)) {
+      if (!this.inspectPortableAttachment(id, fileName, directoryIndex)) {
         throw new Error(`数据库声明的附件缺失：${fileName}`)
       }
       return { fileName, byteSize: Number(row[2]) }
     })
+    // 外部复制、重命名或目录替换不能在批次内绕过碰撞/路径检查。
+    this.assertAttachmentsDirectorySafe()
+    const observedNames = fs.readdirSync(this.paths.attachments)
+    const expectedNames = new Set(directoryNames)
+    if (observedNames.length !== directoryNames.length || observedNames.some(name => !expectedNames.has(name))) {
+      throw new Error('附件目录在盘点期间发生变化，请重试')
+    }
+    return rows
   }
 
   listCommittedAttachmentFileNames(): string[] {
@@ -1525,25 +1571,11 @@ export class LibraryStorage {
     assets: Array<{ id: string; mime: string; buffer: Buffer }>,
     options?: { pruneUnreferenced?: boolean; expectedSnapshotRevision?: number },
   ): Promise<void> {
+    snapshot = stripRetiredSnapshotDomains(snapshot)
     assertValidPersistedSnapshot(snapshot, 'Imported library snapshot')
-    const referencedAssetIds = new Set<string>()
-    for (const trade of snapshot.trades) {
-      for (const html of tradeRichTextEntries(trade)) {
-        const re = /journal-asset:\/\/([^"'\s>]+)/g
-        let match: RegExpExecArray | null
-        while ((match = re.exec(html)) !== null) referencedAssetIds.add(match[1].toLowerCase())
-      }
-    }
-    for (const review of snapshot.weeklyReviews ?? []) {
-      const re = /journal-asset:\/\/([^"'\s>]+)/g
-      let match: RegExpExecArray | null
-      while ((match = re.exec(review.contentHtml)) !== null) referencedAssetIds.add(match[1].toLowerCase())
-    }
-    for (const note of snapshot.quickNotes ?? []) {
-      const re = /journal-asset:\/\/([^"'\s>]+)/g
-      let match: RegExpExecArray | null
-      while ((match = re.exec(note.contentHtml)) !== null) referencedAssetIds.add(match[1].toLowerCase())
-    }
+    const referencedAssetIds = new Set(
+      buildAssetInventory(snapshot, []).referenced.map(({ id }) => id.toLowerCase()),
+    )
 
     // sql.js 初始化是本方法唯一的 await。之后重新从 journal.db 权威字节
     // 建 candidate，绝不持有 await 前的 active DB，也不 export 内存分叉状态。

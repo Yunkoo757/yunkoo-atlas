@@ -1,7 +1,7 @@
 import { DEFAULT_TIMEFRAME, type Trade, type TradeKind } from '@/data/trades'
 import type { QuickNote } from '@/data/quickNotes'
-import { DEFAULT_TRADING_DAY_START_HOUR } from '@/lib/periods'
-import { buildComposerReviewCase } from '@/lib/reviewComposer/caseDraft'
+import { addDaysToCurrentTradingDay, DEFAULT_TRADING_DAY_START_HOUR } from '@/lib/periods'
+import { applyCaseClassificationMutation } from '@/lib/reviewCaseClassification'
 
 export function getNextTradeRef(
   trades: readonly { ref: string }[],
@@ -30,28 +30,14 @@ export function buildQuickNoteRecord(input: {
   const tradingDayStartHour = input.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
   const openedAt = now.toISOString().slice(0, 10)
   const symbol = input.symbol.trim().toUpperCase() || 'NOTE'
-  if (input.kind === 'case') {
-    return buildComposerReviewCase({
-      id: input.id,
-      ref: input.ref,
-      symbol,
-      side: 'long',
-      strategyId: input.strategyId,
-      openedAt,
-      noteHtml: input.note.contentHtml,
-      liveStageId: input.liveStageId,
-      now,
-      tradingDayStartHour,
-    })
-  }
-  return {
+  const candidate: Trade = {
     id: input.id,
     ref: input.ref,
     symbol,
     side: 'long',
     status: 'planned',
     conviction: 'medium',
-    tradeKind: 'live',
+    tradeKind: input.kind,
     liveStageId: input.liveStageId,
     strategyId: input.strategyId,
     timeframe: DEFAULT_TIMEFRAME,
@@ -59,6 +45,7 @@ export function buildQuickNoteRecord(input: {
     mistakeTags: [],
     reviewStatus: 'unreviewed',
     reviewCategory: 'normal',
+    ...(input.kind === 'case' ? { masteryState: 'new' as const, nextReviewAt: addDaysToCurrentTradingDay(now, tradingDayStartHour, 3) } : {}),
     entry: 0,
     exit: null,
     size: 0,
@@ -69,4 +56,8 @@ export function buildQuickNoteRecord(input: {
     closedAt: null,
     note: input.note.contentHtml,
   }
+  if (candidate.tradeKind !== 'case') return candidate
+  const classified = applyCaseClassificationMutation(candidate, { caseType: 'exemplar' })
+  if (!classified.ok) throw new Error('无法创建案例草稿')
+  return classified.trade
 }

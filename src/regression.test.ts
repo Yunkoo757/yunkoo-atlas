@@ -239,7 +239,7 @@ export async function testElectronJournalImportRequiresExplicitReplacementConfir
 
 export function testPrimarySidebarNavigationMatchesApprovedArchitecture(): void {
   const routes = PRIMARY_NAV.map((item) => item.to)
-  const expected = ['/list', '/dashboard', '/weekly-review', '/review-cases', '/review-composer', '/judgment-desk', '/review-session']
+  const expected = ['/list', '/dashboard', '/weekly-review', '/review-cases', '/review-session']
   assert(
     JSON.stringify(routes) === JSON.stringify(expected),
     `一级导航应为 ${expected.join(', ')}，实际为 ${routes.join(', ')}`,
@@ -449,8 +449,8 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   )
   assert(
     PRIMARY_NAV.map((item) => item.id).join(',')
-      === 'trades,dashboard,weeklyReview,reviewCases,reviewComposer,judgmentDesk,reviewSession',
-    '核心模块必须收敛为交易日志、统计分析、周期复盘、案例库、复盘组合器、判断台和随机复盘',
+      === 'trades,dashboard,weeklyReview,reviewCases,reviewSession',
+    '核心模块必须收敛为交易日志、统计分析、周期复盘、案例库和随机复盘',
   )
 
   const savedView = {
@@ -576,7 +576,6 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'nav.reviewCases': 'd',
     'nav.weeklyReview': 'w',
     'nav.reviewSession': 'g',
-    'nav.reviewComposer': 'r',
     'nav.dashboard': 'e',
     'nav.strategies': 'o',
     'nav.strategySlot1': '1',
@@ -607,15 +606,6 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'reviewSession.skip': 'n',
     'reviewSession.back': 'p',
     'reviewSession.exit': 'escape',
-    'nav.judgmentDesk': 'z',
-    'judgment.yes': '1',
-    'judgment.no': '2',
-    'judgment.uncertain': '3',
-    'judgment.prev': 'q',
-    'judgment.next': 'e',
-    'judgment.prevImage': 'w',
-    'judgment.nextImage': 's',
-    'judgment.exit': 'escape',
     'image.prev': 'w',
     'image.next': 's',
     'image.close': 'escape',
@@ -641,42 +631,52 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
 }
 
 export async function testFirstInstallSnapshotPersistsApprovedDefaultProfile(): Promise<void> {
-  let saved: PersistedSnapshot | null = null
-  const adapter: StorageAdapter = {
-    open: async () => undefined,
-    getManifest: async () => { throw new Error('本测试不读取 manifest') },
-    loadSnapshot: async () => null,
-    saveSnapshot: async (snapshot) => { saved = snapshot },
-    saveAsset: async () => { throw new Error('空库不应写入附件') },
-    getAssetObjectUrl: async () => null,
-    getAssetForExport: async () => null,
-    getAssetStats: async () => ({ count: 0, totalBytes: 0, missingCount: 0 }),
-    importAssets: async () => undefined,
-    commitImport: async () => undefined,
-  }
+  const previousLocalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: { getItem: () => null, removeItem: () => {} },
+  })
+  try {
+    let saved: PersistedSnapshot | null = null
+    const adapter: StorageAdapter = {
+      open: async () => undefined,
+      getManifest: async () => { throw new Error('本测试不读取 manifest') },
+      loadSnapshot: async () => null,
+      saveSnapshot: async (snapshot) => { saved = snapshot },
+      saveAsset: async () => { throw new Error('空库不应写入附件') },
+      getAssetObjectUrl: async () => null,
+      getAssetForExport: async () => null,
+      getAssetStats: async () => ({ count: 0, totalBytes: 0, missingCount: 0 }),
+      importAssets: async () => undefined,
+      commitImport: async () => undefined,
+    }
 
-  const migrated = await migrateFromLocalStorageIfNeeded(adapter)
-  assert(migrated, '首次安装应生成并保存初始快照')
-  if (saved === null) throw new Error('首次安装应写入可读取的初始快照')
-  const snapshot: PersistedSnapshot = saved
-  assert(snapshot.trades.length === 0, '首次安装必须从真实空库开始，不得注入演示成交')
-  assert(
-    snapshot.strategies.map((strategy) => `${strategy.id}:${strategy.name}`).join(',') ===
-      'uncategorized:未分类',
-    '首次安装快照应固化中性未分类策略',
-  )
-  assert(
-    snapshot.tagPresets?.length === 0,
-    '首次安装快照不应固化个人化普通标签',
-  )
-  assert(
-    snapshot.mistakeTagPresets?.join(',') === '缺乏耐心,仓位大小错误,修改止损,情绪化交易',
-    '首次安装快照应固化少量通用错误标签',
-  )
-  assert(
-    snapshot.profile?.displayName === '交易者',
-    '首次安装快照应固化中性显示名称',
-  )
+    const migrated = await migrateFromLocalStorageIfNeeded(adapter)
+    assert(migrated, '首次安装应生成并保存初始快照')
+    if (saved === null) throw new Error('首次安装应写入可读取的初始快照')
+    const snapshot: PersistedSnapshot = saved
+    assert(snapshot.trades.length === 0, '首次安装必须从真实空库开始，不得注入演示成交')
+    assert(
+      snapshot.strategies.map((strategy) => `${strategy.id}:${strategy.name}`).join(',') ===
+        'uncategorized:未分类',
+      '首次安装快照应固化中性未分类策略',
+    )
+    assert(
+      snapshot.tagPresets?.length === 0,
+      '首次安装快照不应固化个人化普通标签',
+    )
+    assert(
+      snapshot.mistakeTagPresets?.join(',') === '缺乏耐心,仓位大小错误,修改止损,情绪化交易',
+      '首次安装快照应固化少量通用错误标签',
+    )
+    assert(
+      snapshot.profile?.displayName === '交易者',
+      '首次安装快照应固化中性显示名称',
+    )
+  } finally {
+    if (previousLocalStorage) Object.defineProperty(globalThis, 'localStorage', previousLocalStorage)
+    else Reflect.deleteProperty(globalThis, 'localStorage')
+  }
 }
 
 export async function testAppOptsIntoStableReactRouterFutureBehavior(): Promise<void> {
@@ -764,37 +764,37 @@ export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Pro
 export function testPrimarySidebarKeepsLegacyOrderCompatibleButRendersCanonicalOrder(): void {
   assert(
     normalizePrimarySidebarOrder(['dashboard', 'trades', 'dashboard', 'unknown'])
-      .join(',') === 'dashboard,trades,weeklyReview,reviewCases,reviewComposer,judgmentDesk,reviewSession',
+      .join(',') === 'dashboard,trades,weeklyReview,reviewCases,reviewSession',
     '旧快照中的合法入口顺序应被兼容读取，并补齐新的一级入口',
   )
   assert(
     resolvePrimarySidebarNav().map((item) => item.id).join(',')
-      === 'trades,dashboard,weeklyReview,reviewCases,reviewComposer,judgmentDesk,reviewSession',
+      === 'trades,dashboard,weeklyReview,reviewCases,reviewSession',
     '未自定义时工作区导航必须使用标准顺序',
   )
   assert(
     reorderPrimarySidebarItem(undefined, 'reviewCases', 'dashboard').join(',')
-      === 'trades,reviewCases,dashboard,weeklyReview,reviewComposer,judgmentDesk,reviewSession',
+      === 'trades,reviewCases,dashboard,weeklyReview,reviewSession',
     '拖动工作区入口必须生成可持久化的新顺序',
   )
   assert(
     reorderPrimarySidebarItem(undefined, 'trades', 'dashboard').join(',')
-      === 'dashboard,trades,weeklyReview,reviewCases,reviewComposer,judgmentDesk,reviewSession',
+      === 'dashboard,trades,weeklyReview,reviewCases,reviewSession',
     '相邻工作区入口向下移动时不得原地不动',
   )
   assert(
     reorderPrimarySidebarItem(undefined, 'dashboard', 'trades').join(',')
-      === 'dashboard,trades,weeklyReview,reviewCases,reviewComposer,judgmentDesk,reviewSession',
+      === 'dashboard,trades,weeklyReview,reviewCases,reviewSession',
     '相邻工作区入口向上移动时必须保持对称语义',
   )
   assert(
     reorderPrimarySidebarItem(undefined, 'trades', 'trades').join(',')
-      === 'trades,dashboard,weeklyReview,reviewCases,reviewComposer,judgmentDesk,reviewSession',
+      === 'trades,dashboard,weeklyReview,reviewCases,reviewSession',
     '拖到自身时不得改变工作区入口顺序',
   )
   assert(
     resolvePrimarySidebarNav(['reviewSession', 'trades']).map((item) => item.id).join(',')
-      === 'reviewSession,trades,dashboard,weeklyReview,reviewCases,reviewComposer,judgmentDesk',
+      === 'reviewSession,trades,dashboard,weeklyReview,reviewCases',
     '侧栏必须按已保存顺序渲染并补齐新增入口',
   )
 }

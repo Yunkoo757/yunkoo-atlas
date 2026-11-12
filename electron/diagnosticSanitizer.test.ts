@@ -57,3 +57,36 @@ export function testConsoleDiagnosticsUseTheSamePrivacyBoundary(): void {
   assert(!writes[0].includes(secret), '控制台日志不得旁路输出原始路径或 Error')
   assert(writes[0].includes('detailHash'), '控制台仅允许保留私密详情散列')
 }
+
+export function testDiagnosticSanitizerHandlesNonJsonRejectionReasons(): void {
+  const values: unknown[] = [undefined, Symbol('private reason'), () => 'private reason', { toJSON: () => undefined }]
+  const customStack = new Error('private reason')
+  Object.defineProperty(customStack, 'stack', { value: 17 })
+  values.push(customStack)
+  const circular = Object.create(null) as Record<string, unknown>
+  circular.self = circular
+  values.push(circular)
+  for (const value of values) {
+    const sanitized = sanitizeDiagnosticDetail(value)
+    assert(sanitized.code === 'UNEXPECTED', '未分类的拒绝原因必须保留稳定类别')
+    assert(typeof sanitized.detailHash === 'string' && sanitized.detailHash.length === 64, '非 JSON 异常详情也必须产生散列，不能二次抛错')
+  }
+}
+
+export function testDiagnosticSanitizerHandlesThrowingDiagnosticGetters(): void {
+  const detail = {
+    code: 'EIO',
+    get privateDetail() { throw new Error('private getter must not escape') },
+  }
+  const sanitized = sanitizeDiagnosticDetail(detail)
+  assert(sanitized.code === 'EIO', '私有 getter 不可阻止记录已知错误类别')
+  assert(typeof sanitized.detailHash === 'string' && sanitized.detailHash.length === 64, '无法序列化的对象必须安全降级')
+}
+
+export function testDiagnosticSanitizerRejectsPrivatePayloadInErrorCode(): void {
+  const secret = 'C:\\Users\\Trader\\private-journal.db'
+  const sanitized = sanitizeDiagnosticDetail({ code: secret })
+  assert(sanitized.code === 'UNEXPECTED', '错误类别也必须验证，不能旁路写入路径或正文')
+  assert(!JSON.stringify(sanitized).includes(secret), '无效类别只能进入散列')
+  assert(sanitizeDiagnosticDetail({ code: -105 }).code === -105, 'Electron 的数字错误码必须继续保留')
+}

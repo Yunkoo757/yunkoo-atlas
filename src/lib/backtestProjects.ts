@@ -1,6 +1,6 @@
 import { formatYmd, parseLocalDate } from '@/lib/periods'
 import type { Trade } from '@/data/trades'
-import { summarizeTradeResults, resolveTradeTruth } from '@/lib/tradeTruth'
+import { TradeResultAccumulator, resolveTradeTruth } from '@/lib/tradeTruth'
 
 export interface BacktestProject {
   id: string
@@ -29,24 +29,60 @@ export function backtestProjectIdForPath(pathname: string, trades: readonly Trad
   return record?.tradeKind === 'backtest' ? record.backtestProjectId ?? null : null
 }
 
+const refOrder = new Intl.Collator(undefined, { numeric: true })
+
+function compareProjectTrades(a: Trade, b: Trade): number {
+  return a.openedAt.localeCompare(b.openedAt) || refOrder.compare(a.ref, b.ref)
+}
+
 export function getProjectTrades(trades: readonly Trade[], projectId: string): Trade[] {
   return trades.filter(trade => trade.tradeKind === 'backtest' && trade.backtestProjectId === projectId && !trade.deletedAt)
-    .sort((a, b) => a.openedAt.localeCompare(b.openedAt) || a.ref.localeCompare(b.ref, undefined, { numeric: true }))
+    .sort(compareProjectTrades)
 }
 
 export function summarizeBacktest(trades: readonly Trade[]) {
-  const summary = summarizeTradeResults([...trades])
-  const completed = trades.filter(trade => resolveTradeTruth(trade).isResultComplete)
-  const validR = completed.filter(trade => typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple))
+  const results = new TradeResultAccumulator()
+  let pendingCount = 0
+  let observationCount = 0
+  let totalR = 0
+  for (const trade of trades) {
+    const truth = resolveTradeTruth(trade)
+    results.add(trade, truth)
+    if (truth.executionState !== 'missed' && !truth.isResultComplete) pendingCount += 1
+    if (trade.status === 'missed') observationCount += 1
+    if (truth.isResultComplete && typeof trade.rMultiple === 'number' && Number.isFinite(trade.rMultiple)) {
+      totalR += trade.rMultiple
+    }
+  }
   return {
-    ...summary,
+    ...results.summarize(),
     recordedCount: trades.length,
-    pendingCount: trades.filter(trade => resolveTradeTruth(trade).executionState !== 'missed' && !resolveTradeTruth(trade).isResultComplete).length,
-    observationCount: trades.filter(trade => trade.status === 'missed').length,
-    totalR: validR.reduce((sum, trade) => sum + trade.rMultiple!, 0),
+    pendingCount,
+    observationCount,
+    totalR,
     firstDate: trades[0]?.openedAt.slice(0, 10) ?? null,
     lastDate: trades.at(-1)?.openedAt.slice(0, 10) ?? null,
   }
+}
+
+/** 总览按项目一次分组；项目内沿用历史顺序，保证浮点汇总和详情统计相同。 */
+export function summarizeBacktestProjects(trades: readonly Trade[], projectIds?: readonly string[]): Map<string, ReturnType<typeof summarizeBacktest>> {
+  if (projectIds?.length === 0) return new Map()
+  const allowedProjects = projectIds ? new Set(projectIds) : null
+  const grouped = new Map<string, Trade[]>()
+  for (const trade of trades) {
+    if (trade.tradeKind !== 'backtest' || !trade.backtestProjectId || trade.deletedAt) continue
+    if (allowedProjects && !allowedProjects.has(trade.backtestProjectId)) continue
+    const records = grouped.get(trade.backtestProjectId)
+    if (records) records.push(trade)
+    else grouped.set(trade.backtestProjectId, [trade])
+  }
+  const summaries = new Map<string, ReturnType<typeof summarizeBacktest>>()
+  for (const [projectId, records] of grouped) {
+    records.sort(compareProjectTrades)
+    summaries.set(projectId, summarizeBacktest(records))
+  }
+  return summaries
 }
 
 export function isBacktestProject(value: unknown): value is BacktestProject {

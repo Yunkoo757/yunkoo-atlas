@@ -42,8 +42,6 @@ export interface ExportPayload {
   reviewTemplates?: ReviewTemplate[]
   backtestProjects?: PersistedSnapshot['backtestProjects']
   reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
-  judgmentDesk?: PersistedSnapshot['judgmentDesk']
-  reviewComposer?: PersistedSnapshot['reviewComposer']
   reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
   assets?: ExportAssetRecord[]
 }
@@ -77,7 +75,5 @@ export interface PersistedSlice {
   reviewTemplates?: ReviewTemplate[]
   backtestProjects?: PersistedSnapshot['backtestProjects']
   reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
-  judgmentDesk?: PersistedSnapshot['judgmentDesk']
-  reviewComposer?: PersistedSnapshot['reviewComposer']
   reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
 }

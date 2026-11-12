@@ -1,23 +1,49 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import os from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { build } from 'vite'
 import initSqlJs from 'sql.js'
 import { chromium } from 'playwright'
-const out=path.resolve('test-results/atlas-data-editor')
-await fs.mkdir(out,{recursive:true})
+import { buildDataEditor } from './build.mjs'
+await fs.mkdir(path.resolve('test-results/atlas-data-editor'),{recursive:true})
+const out=await fs.mkdtemp(path.resolve('test-results/atlas-data-editor/run-'))
+const editorOutput=await buildDataEditor(path.join(out,'editor'))
 await build({configFile:false,resolve:{alias:{'@':path.resolve('src')}},build:{outDir:out,emptyOutDir:false,lib:{entry:path.resolve('tools/atlas-data-editor/core.ts'),formats:['es'],fileName:()=> 'core.mjs'}}})
 const {decode,validate,migrateToPaper,resetLive,SCHEMA_VERSION}=await import(pathToFileURL(path.join(out,'core.mjs')))
 const SQL=await initSqlJs()
-// Explicit read-only input. Tests never write under this directory.
-const sourcePath=process.env.ATLAS_EDITOR_TEST_LIBRARY??'D:/YunkooTradelog'
+// Default input is generated from the canonical contract fixture; external input is explicit and read-only.
+const explicitSource=process.env.ATLAS_EDITOR_TEST_LIBRARY?.trim() || null
+const syntheticSource=explicitSource?null:await fs.mkdtemp(path.join(os.tmpdir(),'atlas-editor-contract-'))
+const sourcePath=explicitSource??syntheticSource
+try {
+if(syntheticSource){
+ const entry=path.join(out,'source-fixture.ts')
+ await fs.writeFile(entry,`export {createFullPersistedSnapshotFixture} from ${JSON.stringify(path.resolve('src/storage/fixtures/fullPersistedSnapshot.ts'))};`, 'utf8')
+ await build({configFile:false,resolve:{alias:{'@':path.resolve('src')}},build:{ssr:entry,outDir:path.join(out,'source-module'),rolldownOptions:{output:{entryFileNames:'fixture.mjs'}}}})
+ const {createFullPersistedSnapshotFixture}=await import(pathToFileURL(path.join(out,'source-module/fixture.mjs')))
+ const seed=createFullPersistedSnapshotFixture(),base=seed.trades[0]
+ const paper={...base,id:'editor-paper',ref:'PAPER-EDITOR',tradeKind:'paper'};delete paper.liveStageId
+ seed.trades.push(paper,{...base,id:'editor-case',ref:'CASE-EDITOR',tradeKind:'case',caseType:'exemplar',masteryState:'new',liveStageId:null})
+ validate(seed)
+ const database=new SQL.Database()
+ try{
+  database.run('CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT)')
+  for(const [key,value]of Object.entries({snapshot:JSON.stringify(seed),schemaVersion:String(SCHEMA_VERSION)}))database.run('INSERT INTO meta VALUES (?,?)',[key,value])
+  await fs.writeFile(path.join(sourcePath,'journal.db'),database.export())
+ }finally{database.close()}
+}
 const original=await fs.readFile(path.join(sourcePath,'journal.db'))
 const db=new SQL.Database(original)
 const meta=Object.fromEntries(db.exec('SELECT key,value FROM meta')[0].values)
 const snapshot=decode(JSON.parse(meta.snapshot),Number(meta.schemaVersion))
 validate(snapshot)
 assert.throws(()=>decode(snapshot,SCHEMA_VERSION+1))
+const withRetired=decode({...snapshot,judgmentDesk:{invalid:true},reviewComposer:'old',retainedExtension:{keep:true}},SCHEMA_VERSION)
+assert(!('judgmentDesk' in withRetired) && !('reviewComposer' in withRetired))
+assert.deepEqual(withRetired.trades,snapshot.trades)
+assert.deepEqual(withRetired.retainedExtension,{keep:true})
 const selected=new Set(snapshot.trades.filter(t=>t.tradeKind!=='paper').map(t=>t.id))
 const migrated=migrateToPaper(snapshot,selected)
 assert.equal(migrated.trades.filter(t=>t.tradeKind!=='paper').length,0)
@@ -52,7 +78,7 @@ try{
   function handle(map,prefix='',readOnly=false){return {name:readOnly?'测试源资料库':'测试输出',kind:'directory',async isSameEntry(other){return other._map===map&&other._prefix===prefix},_map:map,_prefix:prefix,async resolve(other){return other._map===map?[]:null},async *values(){for(const key of map.keys())yield {name:key}},async getDirectoryHandle(name){return handle(map,prefix+name+'/',readOnly)},async getFileHandle(name,{create=false}={}){const key=prefix+name;if(create&&readOnly)throw Error('Forbidden source write');if(!map.has(key)&&!create)throw Error('Missing '+key);return {async getFile(){return new File([map.get(key)],name)},async createWritable(){if(readOnly)throw Error('Forbidden source write');let bytes;return {async write(value){if(window.testFailCopy && key.startsWith('attachments/'))throw Error('模拟附件写入失败');bytes=value instanceof Blob?new Uint8Array(await value.arrayBuffer()):typeof value==='string'?new TextEncoder().encode(value):new Uint8Array(value)},async close(){map.set(key,bytes)},async abort(){}}}}}}}
   let calls=0;window.showDirectoryPicker=async()=>++calls===1?handle(sourceFiles,'',true):handle(output)
  },{files})
- await page.goto(pathToFileURL(path.resolve('release/atlas-data-editor/index.html')).href)
+ await page.goto(pathToFileURL(path.join(editorOutput,'index.html')).href)
  await page.locator('#open').click();await page.waitForFunction(()=>document.querySelector('#source').textContent.includes('测试源'))
  await page.locator('#check').click();await page.waitForFunction(()=>document.querySelector('#message').textContent.includes('校验通过'))
  await page.evaluate(()=>{window.testAsset=window.testSource.get('attachments/fixture.png');window.testSource.delete('attachments/fixture.png')})
@@ -119,3 +145,5 @@ try{
  assert.deepEqual(await fs.readFile(path.join(sourcePath,'journal.db')),original,'Source remains untouched')
  console.log('PASS: actual schema, paper migration, reset, invalid references, file:// UI, undo, invalid JSON, offline SQLite, export roundtrip, Atlas desktop LibraryStorage.open/loadSnapshot, attachment bytes, source unchanged')
 }finally{await browser.close()}
+
+} finally { if(syntheticSource) await fs.rm(syntheticSource,{recursive:true,force:true}) }

@@ -36,6 +36,42 @@ export function matchesPreparedImportSource<TStorage extends StorageLifecycle>(
     path.resolve(current.getLibraryPath()) === source.libraryPath
 }
 
+/** A failed installation consumes its preview. Unconfirmed recovery must keep renderer writes locked. */
+export async function recoverPreparedImportCommitFailure<TStorage extends StorageLifecycle>(input: {
+  error: unknown
+  replacementCommitted: boolean
+  currentStorage: () => TStorage | null
+  reopen: () => Promise<TStorage>
+  adoptWriter: (storage: TStorage) => void
+  invalidatePreview: () => void
+  reportFailure?: (error: unknown) => void
+}): Promise<{ ok: false; committed: boolean; code: 'TOKEN_EXPIRED'; error: string }> {
+  let recovered: TStorage | null = null
+  const reportFailure = (error: unknown) => {
+    try { input.reportFailure?.(error) } catch { /* Diagnostics must not change recovery safety. */ }
+  }
+  reportFailure(input.error)
+  try {
+    recovered = input.currentStorage() ?? await input.reopen()
+    input.adoptWriter(recovered)
+  } catch (error) {
+    recovered = null
+    reportFailure(error)
+  } finally {
+    input.invalidatePreview()
+  }
+  const committed = input.replacementCommitted || recovered === null
+  return {
+    ok: false,
+    // This flag also covers an unknown cutover outcome, so renderer must not flush its old snapshot.
+    committed,
+    code: 'TOKEN_EXPIRED',
+    error: committed
+      ? '恢复结果尚未确认，自动保存已暂停；请重新打开资料库核对后再操作。'
+      : '恢复未完成，原资料库已恢复；请重新选择归档后重试。',
+  }
+}
+
 export interface PreparedJournalArchiveStaging {
   stagedArchivePath: string
   stagedArchiveSha256: string

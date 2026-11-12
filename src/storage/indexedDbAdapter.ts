@@ -1,3 +1,5 @@
+import { stripRetiredSnapshotDomains } from './retiredSnapshotDomains'
+import { AssetObjectUrlCache } from './assetObjectUrls'
 import {
   StorageRevisionConflictError,
   type AssetStorageStats,
@@ -39,7 +41,6 @@ const STORE_SNAPSHOT = 'snapshot'
 const STORE_ASSETS = 'assets'
 const STORE_META = 'meta'
 const SNAPSHOT_REVISION_KEY = 'snapshotRevision'
-const MAX_OBJECT_URL_CACHE = 128
 const SNAPSHOT_VALIDATION_BATCH_SIZE = 1_000
 const REQUIRED_STORES = [STORE_SNAPSHOT, STORE_ASSETS, STORE_META] as const
 
@@ -118,7 +119,7 @@ async function collectAssetIdsFromSnapshotCooperatively(
 async function serializeSnapshotToBlobCooperatively(
   snapshot: PersistedSnapshot,
 ): Promise<Blob> {
-  const { trades, ...snapshotWithoutTrades } = snapshot
+  const { trades, ...snapshotWithoutTrades } = stripRetiredSnapshotDomains(snapshot)
   const parts: Blob[] = [new Blob(['{"trades":['])]
   for (let start = 0; start < trades.length; start += SNAPSHOT_VALIDATION_BATCH_SIZE) {
     await yieldMainThread()
@@ -148,6 +149,7 @@ async function decodeStoredSnapshot(
 async function prepareIndexedDbMutation(
   input: RevisionedLibraryMutation,
 ): Promise<PreparedIndexedDbMutation> {
+  input = { ...input, snapshot: stripRetiredSnapshotDomains(input.snapshot) }
   await yieldMainThread()
   await assertValidPersistedSnapshotCooperatively(input.snapshot, 'Revisioned browser snapshot')
   if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0) {
@@ -274,7 +276,7 @@ function base64ToBlob(base64: string, mime: string): Blob {
 
 export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   private db: IDBDatabase | null = null
-  private objectUrlCache = new Map<string, string>()
+  private objectUrls = new AssetObjectUrlCache()
   private preparedAssets = new Map<string, AssetRecord>()
   private mutationTail: Promise<void> = Promise.resolve()
   private currentRevision: number | null = null
@@ -298,14 +300,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   clearObjectUrlCache(): void {
-    for (const url of this.objectUrlCache.values()) {
-      try {
-        URL.revokeObjectURL(url)
-      } catch {
-        /* 测试环境可能没有完整的 URL API。 */
-      }
-    }
-    this.objectUrlCache.clear()
+    this.objectUrls.clear()
   }
 
   async open(): Promise<void> {
@@ -584,9 +579,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
           if (this.preparedAssets.get(put.id)?.blob === put.blob) this.preparedAssets.delete(put.id)
         }
         for (const id of input.assetDeletes ?? []) {
-          const cached = this.objectUrlCache.get(id)
-          if (cached) URL.revokeObjectURL(cached)
-          this.objectUrlCache.delete(id)
+          this.objectUrls.invalidate(id)
         }
         if (input.assetMode === 'replace') this.clearObjectUrlCache()
         notifyWebRevisionCommitted(nextRevision)
@@ -602,6 +595,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {
+    snapshot = stripRetiredSnapshotDomains(snapshot)
     let assetPuts: AssetRecord[] = []
     if (this.preparedAssets.size > 0) {
       const referencedIds = await collectAssetIdsFromSnapshotCooperatively(snapshot)
@@ -628,28 +622,18 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     return id
   }
 
-  async getAssetObjectUrl(id: string): Promise<string | null> {
-    const cached = this.objectUrlCache.get(id)
-    if (cached) {
-      this.objectUrlCache.delete(id)
-      this.objectUrlCache.set(id, cached)
-      return cached
-    }
-
+  private async loadAssetBlob(id: string): Promise<Blob | null> {
     const db = this.requireDb()
     const record = this.preparedAssets.get(id) ?? await idbGet<AssetRecord>(db, STORE_ASSETS, id)
-    if (!record?.blob) return null
+    return record?.blob ?? null
+  }
 
-    const url = URL.createObjectURL(record.blob)
-    if (this.objectUrlCache.size >= MAX_OBJECT_URL_CACHE) {
-      const oldest = this.objectUrlCache.entries().next().value as [string, string] | undefined
-      if (oldest) {
-        URL.revokeObjectURL(oldest[1])
-        this.objectUrlCache.delete(oldest[0])
-      }
-    }
-    this.objectUrlCache.set(id, url)
-    return url
+  getAssetObjectUrl(id: string): Promise<string | null> {
+    return this.objectUrls.get(id, () => this.loadAssetBlob(id))
+  }
+
+  acquireAssetObjectUrl(id: string) {
+    return this.objectUrls.acquire(id, () => this.loadAssetBlob(id))
   }
 
   async getAssetForExport(id: string): Promise<ExportAssetRecord | null> {
@@ -869,9 +853,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       } satisfies AssetRecord
     })
     for (const record of records) {
-      const cached = this.objectUrlCache.get(record.id)
-      if (cached) URL.revokeObjectURL(cached)
-      this.objectUrlCache.delete(record.id)
+      this.objectUrls.invalidate(record.id)
       this.preparedAssets.set(record.id, record)
     }
   }
@@ -881,6 +863,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     assets: ExportAssetRecord[],
     options?: { pruneUnreferenced?: boolean },
   ): Promise<void> {
+    snapshot = stripRetiredSnapshotDomains(snapshot)
     const revisionBefore = await this.getSnapshotRevision()
     const operation = beginWebOperation('import', {
       stage: 'validate',
@@ -926,6 +909,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     assets: ExportAssetRecord[],
     recoveryOrphanAssetIds: readonly string[] = [],
   ): Promise<void> {
+    snapshot = stripRetiredSnapshotDomains(snapshot)
     const revisionBefore = await this.getSnapshotRevision()
     const operation = beginWebOperation('archive', {
       stage: 'validate-restore',

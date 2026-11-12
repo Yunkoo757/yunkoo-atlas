@@ -1,4 +1,4 @@
-import { judgmentAssetEntries, type JudgmentDeskData } from '../lib/judgment/model'
+import type { AssetObjectUrlScope } from './assetObjectUrls'
 import type { StorageAdapter } from '@/storage/adapter'
 import { isSafeAssetId } from '@/storage/assetId'
 import {
@@ -7,9 +7,6 @@ import {
 } from '@/storage/tradeRichText'
 
 export const ASSET_URL_PREFIX = 'journal-asset://'
-
-const ASSET_IMG_RE =
-  /<img([^>]*)\ssrc=["']journal-asset:\/\/([^"']+)["']([^>]*)>/gi
 
 export function assetUrl(id: string): string {
   return `${ASSET_URL_PREFIX}${id}`
@@ -72,6 +69,7 @@ export type NoteDisplayResult = {
 export async function resolveNoteForDisplayResult(
   html: string,
   adapter: StorageAdapter,
+  scope?: AssetObjectUrlScope,
 ): Promise<NoteDisplayResult> {
   if (!html.includes(ASSET_URL_PREFIX) && !html.includes('data-asset-id')) {
     return { html, editable: true }
@@ -85,7 +83,7 @@ export async function resolveNoteForDisplayResult(
     const src = img.getAttribute('src') ?? ''
     const id = parseAssetId(src)
     if (!id) continue
-    const url = await adapter.getAssetObjectUrl(id)
+    const url = await (scope ? scope.get(adapter, id) : adapter.getAssetObjectUrl(id))
     if (url) {
       img.setAttribute('src', url)
       img.setAttribute('data-asset-id', id)
@@ -105,7 +103,7 @@ export async function resolveNoteForDisplayResult(
   for (const img of blobImages) {
     const id = img.getAttribute('data-asset-id')
     if (!id) continue
-    const url = await adapter.getAssetObjectUrl(id)
+    const url = await (scope ? scope.get(adapter, id) : adapter.getAssetObjectUrl(id))
     if (url) {
       img.setAttribute('src', url)
       // data-asset-id 已经设置，保持不变
@@ -219,13 +217,11 @@ export function collectAssetIdsFromNotes(trades: TradeRichTextCarrier[]): string
 }
 
 export function collectAssetIdsFromSnapshot(snapshot: {
-  judgmentDesk?: JudgmentDeskData
   trades: TradeRichTextCarrier[]
   weeklyReviews?: { contentHtml: string }[]
   quickNotes?: { contentHtml: string }[]
 }): string[] {
   return collectAssetIdsFromHtml([
-    ...judgmentAssetEntries(snapshot.judgmentDesk),
     ...snapshot.trades.flatMap(tradeRichTextEntries),
     ...(snapshot.weeklyReviews ?? []).map((review) => review.contentHtml),
     ...(snapshot.quickNotes ?? []).map((note) => note.contentHtml),

@@ -1,3 +1,4 @@
+import { AssetObjectUrlCache } from './assetObjectUrls'
 import type {
   AssetPurgePreview,
   AssetPurgeResult,
@@ -8,10 +9,8 @@ import type {
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 import { getJournalBridge } from '@/storage/runtime'
 
-const MAX_OBJECT_URL_CACHE = 128
-
 export class ElectronStorageAdapter implements StorageAdapter {
-  private objectUrlCache = new Map<string, string>()
+  private objectUrls = new AssetObjectUrlCache()
 
   async open(): Promise<void> {
     const bridge = getJournalBridge()
@@ -36,29 +35,21 @@ export class ElectronStorageAdapter implements StorageAdapter {
     return getJournalBridge()!.saveAsset(buffer, mime)
   }
 
-  async getAssetObjectUrl(id: string): Promise<string | null> {
-    const cached = this.objectUrlCache.get(id)
-    if (cached) {
-      this.objectUrlCache.delete(id)
-      this.objectUrlCache.set(id, cached)
-      return cached
-    }
-
+  private async loadAssetBlob(id: string): Promise<Blob | null> {
     const record = await getJournalBridge()!.getAssetBytes(id)
-    if (!record) return null
+    return record ? new Blob([Uint8Array.from(record.bytes)], { type: record.mime }) : null
+  }
 
-    const bytes = Uint8Array.from(record.bytes)
-    const blob = new Blob([bytes], { type: record.mime })
-    const url = URL.createObjectURL(blob)
-    if (this.objectUrlCache.size >= MAX_OBJECT_URL_CACHE) {
-      const oldest = this.objectUrlCache.entries().next().value as [string, string] | undefined
-      if (oldest) {
-        URL.revokeObjectURL(oldest[1])
-        this.objectUrlCache.delete(oldest[0])
-      }
-    }
-    this.objectUrlCache.set(id, url)
-    return url
+  getAssetObjectUrl(id: string): Promise<string | null> {
+    return this.objectUrls.get(id, () => this.loadAssetBlob(id))
+  }
+
+  acquireAssetObjectUrl(id: string) {
+    return this.objectUrls.acquire(id, () => this.loadAssetBlob(id))
+  }
+
+  private invalidateAssetObjectUrl(id: string): void {
+    this.objectUrls.invalidate(id)
   }
 
   async getAssetForExport(id: string): Promise<ExportAssetRecord | null> {
@@ -95,21 +86,13 @@ export class ElectronStorageAdapter implements StorageAdapter {
   async commitAssetPurge(preview: AssetPurgePreview, authorization?: string): Promise<AssetPurgeResult> {
     if (!authorization) throw new Error('永久清理前必须先导出恢复归档')
     const result = await getJournalBridge()!.commitAssetPurge(preview, authorization)
-    for (const id of result.deletedIds) {
-      const cached = this.objectUrlCache.get(id)
-      if (cached) URL.revokeObjectURL(cached)
-      this.objectUrlCache.delete(id)
-    }
+    for (const id of result.deletedIds) this.invalidateAssetObjectUrl(id)
     return result
   }
 
   async importAssets(assets: ExportAssetRecord[]): Promise<void> {
-    for (const asset of assets) {
-      const cached = this.objectUrlCache.get(asset.id)
-      if (cached) URL.revokeObjectURL(cached)
-      this.objectUrlCache.delete(asset.id)
-    }
     await getJournalBridge()!.importAssets(assets)
+    for (const asset of assets) this.invalidateAssetObjectUrl(asset.id)
   }
 
   async commitImport(
@@ -123,14 +106,7 @@ export class ElectronStorageAdapter implements StorageAdapter {
 
   /** 切换库目录后释放旧附件 Object URL，避免串库缓存。 */
   clearObjectUrlCache(): void {
-    for (const url of this.objectUrlCache.values()) {
-      try {
-        URL.revokeObjectURL(url)
-      } catch {
-        /* ignore */
-      }
-    }
-    this.objectUrlCache.clear()
+    this.objectUrls.clear()
   }
 }
 

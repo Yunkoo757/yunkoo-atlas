@@ -425,6 +425,8 @@ export function reconcileReviewSession(
     ids,
     cursor: Math.min(cursor, ids.length),
     filters: { ...snapshot.filters, stageSource },
+    ...(snapshot.systemPoolId ? { systemPoolId: snapshot.systemPoolId } : {}),
+    ...(snapshot.customPoolId ? { customPoolId: snapshot.customPoolId } : {}),
     assessments: Object.fromEntries(
       Object.entries(snapshot.assessments).filter(([id]) => eligibleIds.has(id)),
     ),

@@ -1,3 +1,4 @@
+import { retainAssetObjectUrls } from '@/storage/assetObjectUrls'
 import { create } from 'zustand'
 import type { KeyChord, ListNavigationContext, ShortcutBinding } from '@/shortcuts/types'
 import { getActionMeta, SHORTCUT_ACTIONS } from '@/shortcuts/actions'
@@ -215,3 +216,12 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
     return result.clearedLabels
   },
 }))
+
+// 灯箱状态本身持有组图租约，覆盖来源页面卸载到灯箱渲染之间的交接。
+let releaseLightboxImages = () => {}
+useShortcutStore.subscribe((state, previous) => {
+  if (state.lightbox?.images === previous.lightbox?.images) return
+  const release = retainAssetObjectUrls(state.lightbox?.images ?? [])
+  releaseLightboxImages()
+  releaseLightboxImages = release
+})

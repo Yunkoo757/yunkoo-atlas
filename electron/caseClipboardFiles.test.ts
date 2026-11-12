@@ -59,3 +59,37 @@ export async function testCleanupKeepsActiveClipboardAndUnrelatedDirectories() {
     for (const keep of [active, recent, unrelated, otherKind]) await fs.access(path.join(keep, 'original.png'))
   } finally { await fs.rm(root, { recursive: true, force: true }) }
 }
+
+export async function testClipboardQuotaEvictsOldestRecentCopiesAndKeepsActiveAndUnowned() {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'atlas-clipboard-quota-'))
+  const now = Date.now()
+  const make = async (age: number, marked = true) => {
+    const directory = path.join(root, `copy-${randomUUID()}`)
+    await fs.mkdir(directory)
+    await fs.writeFile(path.join(directory, 'original.png'), Buffer.alloc(100))
+    if (marked) await fs.writeFile(path.join(directory, '.atlas-clipboard-export.json'), JSON.stringify({ kind: 'atlas-clipboard-export', createdAt: now - age }))
+    return directory
+  }
+  try {
+    const active = await make(3 * 86400000)
+    const oldest = await make(3000), middle = await make(2000), newest = await make(1000)
+    const unrelated = await make(4000, false)
+    await cleanupCaseClipboardFiles(root, active, now, { maxEntries: 2, maxBytes: 10_000 })
+    for (const removed of [oldest, middle]) await assert.rejects(() => fs.access(removed))
+    for (const kept of [active, newest, unrelated]) await fs.access(path.join(kept, 'original.png'))
+  } finally { await fs.rm(root, { recursive: true, force: true }) }
+}
+
+export async function testClipboardByteQuotaDoesNotWaitForOneDayAndNeverRevokesTheActiveCopy() {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'atlas-clipboard-byte-quota-'))
+  try {
+    const copies = []
+    for (let i = 0; i < 3; i++) copies.push(await prepareCaseClipboardFiles(fixture(), root))
+    const active = copies[2]!
+    const size = (await Promise.all((await fs.readdir(active.directory)).map(async name => (await fs.stat(path.join(active.directory, name))).size))).reduce((a, b) => a + b, 0)
+    await cleanupCaseClipboardFiles(root, active.directory, Date.now(), { maxEntries: 32, maxBytes: size + 1 })
+    for (const copy of copies.slice(0, 2)) await assert.rejects(() => fs.access(copy.directory))
+    for (const file of active.files) await fs.access(file)
+    assert.equal(await fs.readFile(active.files[0]!, 'utf8'), fixture().text)
+  } finally { await fs.rm(root, { recursive: true, force: true }) }
+}

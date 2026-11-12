@@ -83,9 +83,7 @@
     "@tiptap/react": "^2.8.0",
     "@tiptap/starter-kit": "^2.8.0",
     "archiver": "^8.0.0",
-    "clsx": "^2.1.1",
     "electron-updater": "^6.8.9",
-    "framer-motion": "^13.4.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.451.0",
     "react": "^18.3.1",
@@ -94,7 +92,6 @@
     "recharts": "^2.12.7",
     "sharp": "^0.35.1",
     "sql.js": "^1.14.1",
-    "tailwind-merge": "^3.7.0",
     "yauzl": "^2.10.0",
     "zustand": "^4.5.5"
   },
@@ -200,14 +197,6 @@
       "installerHeader": "build/installerHeader.bmp",
       "installerSidebar": "build/installerSidebar.bmp",
       "uninstallerSidebar": "build/installerSidebar.bmp"
-    }
-  },
-  "pnpm": {
-    "overrides": {
-      "brace-expansion@>=3.0.0 <5.0.8": "5.0.8",
-      "js-yaml@>=4.0.0 <4.3.0": "4.3.0",
-      "linkify-it@<=5.0.1": "5.0.2",
-      "undici@>=7.0.0 <7.28.0": "7.28.0"
     }
   }
 }

@@ -46,8 +46,6 @@ export function pickPersisted(
     symbolCatalog: state.symbolCatalog,
     reviewTemplates: state.reviewTemplates,
     reviewPoolPresets: state.reviewPoolPresets,
-    judgmentDesk: state.judgmentDesk,
-    reviewComposer: state.reviewComposer,
     reviewPoolLayout: state.reviewPoolLayout,
   }
 }

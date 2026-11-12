@@ -174,8 +174,6 @@ export function useShortcutHost({
       'nav.weeklyReview': () => {
         navigate(`/weekly-review${sharedTradeSearch}`)
       },
-      'nav.judgmentDesk': () => navigate('/judgment-desk'),
-      'nav.reviewComposer': () => navigate('/review-composer'),
       'nav.reviewSession': () => navigate('/review-session'),
       'nav.dashboard': () => {
         navigate(`/dashboard${sharedTradeSearch}`)

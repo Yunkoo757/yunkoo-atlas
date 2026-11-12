@@ -19,8 +19,9 @@ else {
         let selected;
         if (action === 'create') selected = current.create(input);
         else if (action === 'complete') current.complete(input);
-        else if (action !== 'list') throw new Error('不支持这个操作。');
-        return { trainings: current.list(), selected };
+        else if (action === 'list') return current.snapshot(input);
+        else throw new Error('不支持这个操作。');
+        return { ...current.snapshot(), selected };
       } catch (error) {
         console.error(error);
         return { error: error.code ? '记录未能保存，请检查磁盘空间和数据目录权限，然后重试。' : error.message };

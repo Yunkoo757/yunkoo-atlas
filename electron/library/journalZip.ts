@@ -1,4 +1,5 @@
 import { resolveSnapshotVersion } from './snapshotVersion'
+import { retiredSnapshotDatabaseBytes } from './retiredSnapshotDatabase'
 import fs from 'node:fs'
 import path from 'node:path'
 import { clearManagedFlatDirectory } from './managedPaths'
@@ -17,6 +18,7 @@ import {
   type PersistedSnapshot,
 } from '../../src/storage/types'
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
+import { collectRetiredSnapshotAssetIds } from '../../src/storage/retiredSnapshotDomains'
 import { isSafeAssetId } from '../../src/storage/assetId'
 import { tradeRichTextEntries } from '../../src/storage/tradeRichText'
 import {
@@ -65,7 +67,7 @@ export async function exportJournalZip(
     const completed = pipeline(archive, output)
 
     archive.file(paths.manifestFile, { name: 'manifest.json' })
-    archive.file(paths.dbFile, { name: 'journal.db' })
+    archive.append(storage.exportSnapshotDatabaseBytes(), { name: 'journal.db' })
 
     for (const { fileName, attachmentFile } of archiveAttachments) {
       archive.file(attachmentFile, {
@@ -463,6 +465,7 @@ function validateWebAssets(
   value: unknown,
   snapshot: PersistedSnapshot,
   assetsDir: string,
+  retiredIds: ReadonlySet<string> = new Set(),
 ): WebAssetImport[] {
   if (value !== undefined && !Array.isArray(value)) {
     throw new Error('Invalid .journal.zip: data.json assets must be an array')
@@ -527,7 +530,7 @@ function validateWebAssets(
     }
   }
   for (const id of declarations.keys()) {
-    if (!referencedIds.has(id)) {
+    if (!referencedIds.has(id) && !retiredIds.has(id)) {
       throw new Error(`Invalid .journal.zip: asset ${id} 未被任何交易正文引用`)
     }
   }
@@ -572,7 +575,9 @@ function validateWebAssets(
       throw new Error(`Invalid .journal.zip: declared asset is missing (${id})`)
     }
   }
-  return [...declarations.keys()].map((id) => files.get(id)!)
+  return [...declarations.keys()]
+    .filter(id => referencedIds.has(id) || !retiredIds.has(id))
+    .map((id) => files.get(id)!)
 }
 
 function readWebSnapshot(dataFile: string, assetsDir: string): {
@@ -589,7 +594,7 @@ function readWebSnapshot(dataFile: string, assetsDir: string): {
     version: Number(raw.schemaVersion ?? raw.version),
     label: 'Invalid .journal.zip: data.json snapshot',
   })
-  return { snapshot, assets: validateWebAssets(raw.assets, snapshot, assetsDir) }
+  return { snapshot, assets: validateWebAssets(raw.assets, snapshot, assetsDir, collectRetiredSnapshotAssetIds(raw)) }
 }
 
 function validateManifest(manifestFile: string): LibraryManifest {
@@ -778,6 +783,14 @@ export async function validateDesktopLibrary(
     throw new Error(`Invalid .journal.zip: attachment is missing or incomplete (${missingFileName})`)
   }
   return inspection
+}
+
+/** The path belongs to this operation's private prepared library, never to the source archive. */
+async function retirePreparedSnapshotDatabase(dbFile: string): Promise<void> {
+  const SQL = await initSqlJs({ locateFile: locateSqlWasm })
+  const original = fs.readFileSync(dbFile)
+  const retired = retiredSnapshotDatabaseBytes(original, SQL.Database)
+  if (retired !== original) writeFileAtomicallySync(dbFile, retired)
 }
 
 function writeImportProgress(message: string): void {
@@ -1076,6 +1089,7 @@ export async function importJournalZipToPath(
 
     writeImportProgress('importZip: validate prepared library start')
     await validateDesktopLibrary(preparedPaths)
+    await retirePreparedSnapshotDatabase(preparedPaths.dbFile)
     writeImportProgress('importZip: validate prepared library done')
 
     fs.mkdirSync(preImportBackup, { recursive: true })
@@ -1143,6 +1157,7 @@ export async function installPreparedLibraryAtPath(
     throw new Error('恢复候选不是普通目录')
   }
   await validateDesktopLibrary(preparedPaths)
+  await retirePreparedSnapshotDatabase(preparedPaths.dbFile)
 
   try {
     fs.mkdirSync(preImportBackup)

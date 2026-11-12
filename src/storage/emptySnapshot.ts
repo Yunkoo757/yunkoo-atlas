@@ -1,5 +1,3 @@
-import { emptyJudgmentDesk } from '@/lib/judgment/model'
-import { emptyComposerData } from '@/lib/reviewComposer/model'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { createInitialLiveStage } from '@/lib/liveStages'
 import { getTradingDayKey } from '@/lib/periods'
@@ -27,8 +25,6 @@ export function createEmptyPersistedSnapshot(): PersistedSnapshot {
     starredIds: [],
     subscribedIds: [],
     reviewPoolPresets: [],
-    judgmentDesk: emptyJudgmentDesk(),
-    reviewComposer: emptyComposerData(),
     reviewPoolLayout: undefined,
     pinnedStrategyIds: [],
     display: {

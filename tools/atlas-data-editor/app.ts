@@ -7,6 +7,8 @@ const el = (tag: string, text = '', cls = '') => { const n = document.createElem
 const SQL = initSqlJs({ wasmBinary: Uint8Array.from(atob(window.ATLAS_SQLITE_BYTES), c => c.charCodeAt(0)) })
 let source: any, snapshot: any, assets: any[] = [], group = 'live', selected = new Set<string>(), history: any[] = [], draftDirty = false, busy = false
 let urls: string[] = []
+let inspectionGeneration = 0
+function clearPreviewUrls() { urls.forEach(URL.revokeObjectURL); urls = [] }
 const labels: Record<string,string> = { live:'实盘日志', case:'案例', paper:'模拟盘', weeklyReviews:'周复盘', quickNotes:'随记', strategies:'策略', liveStages:'实盘阶段', weeklyRiskPreparations:'每周风险准备', riskPolicyVersions:'风险规则版本', monthlyRiskLimits:'月度风险限额', riskOverrideEvents:'风险例外记录', tagPresets:'标签预置', mistakeTagPresets:'错误标签预置', assets:'附件', config:'全部数据 / 配置' }
 function message(text: string) { $('message').textContent = text }
 function strategySelect(label: string, placeholder: string) {
@@ -22,7 +24,7 @@ async function canLeave(){return !draftDirty || await ask('舍弃未应用的编
 function dataRows(){ if(['live','case','paper'].includes(group))return snapshot.trades.filter((t:any)=>t.tradeKind===group);if(group==='assets')return assets; if(group==='config')return Object.keys(snapshot).map(key=>({id:key,title:key,value:snapshot[key]}));return snapshot[group] ?? [] }
 function commit(next:any,label:string){validate(next);history.push(snapshot);snapshot=next;draftDirty=false;selected.clear();render();message(`${label} · 待另存，可撤销（${history.length} 次修改）`)}
 function render(){
-  urls.forEach(URL.revokeObjectURL);urls=[];controls();$('nav').replaceChildren()
+  inspectionGeneration++;clearPreviewUrls();controls();$('nav').replaceChildren()
   for(const [key,label] of Object.entries(labels)){const b=el('button',label,key===group?'active':'');const n= key==='config'?Object.keys(snapshot).length:key==='assets'?assets.length:['live','paper','case'].includes(key)?snapshot.trades.filter((t:any)=>t.tradeKind===key).length:(snapshot[key]?.length??0);b.append(el('span',String(n)));b.onclick=async()=>{if(await canLeave()){group=key;draftDirty=false;selected.clear();render();message(history.length ? '当前修改尚未另存，可继续整理。' : '已打开。源资料库只读。')}};$('nav').append(b)}
   $('title').textContent=labels[group];const rows=dataRows();$('count').textContent=`${rows.length} 项 · ${history.length ? '有未导出修改' : '尚未修改'}`
   const list=el('div','','list'),toolbar=el('div','','toolbar'),search=el('input') as HTMLInputElement;search.placeholder='搜索当前分类';toolbar.append(search)
@@ -80,8 +82,11 @@ function render(){
 
 }
 async function inspect(row:any,index:number,panel:HTMLElement){
+  const generation=++inspectionGeneration
+  const current=()=>generation===inspectionGeneration&&panel.isConnected
+  clearPreviewUrls()
   panel.replaceChildren();panel.append(el('h2',group==='config'?row.id:(row?.symbol ? `${row.ref || '未设置代号'} · ${row.symbol}` : row?.title??row?.name??'完整数据')))
-  if(group==='assets'){panel.append(el('p',`${row.file_name} · ${row.byte_size} 字节`));try{const file=await assetFile(row);if(row.mime.startsWith('image/')&&!row.mime.includes('svg')){const img=document.createElement('img');img.src=URL.createObjectURL(file);urls.push(img.src);img.style.width='100%';panel.append(img)}}catch(e){panel.append(el('p',String(e)))}return}
+  if(group==='assets'){panel.append(el('p',`${row.file_name} · ${row.byte_size} 字节`));try{const file=await assetFile(row);if(!current())return;if(row.mime.startsWith('image/')&&!row.mime.includes('svg')){const img=document.createElement('img');img.src=URL.createObjectURL(file);urls.push(img.src);img.style.width='100%';panel.append(img)}}catch(e){if(current())panel.append(el('p',String(e)))}return}
   const value=group==='config'?row.value:row;const ta=document.createElement('textarea');ta.spellcheck=false;ta.value=JSON.stringify(value,null,2);ta.oninput=()=>{draftDirty=true};
   const fields:Record<string,string>={symbol:'交易品种',title:'标题',name:'名称',tags:'标签（逗号分隔）',mistakeTags:'错误标签（逗号分隔）'}
   if(group!=='config' && value && typeof value==='object'){
@@ -102,7 +107,7 @@ async function inspect(row:any,index:number,panel:HTMLElement){
   panel.append(el('p','完整字段编辑 · 应用时校验，另存后生效'),ta)
   const b=el('button','应用编辑');b.onclick=()=>run(async()=>{const edited=JSON.parse(ta.value),next=structuredClone(snapshot);if(group==='config')next[row.id]=edited;else if(['live','case','paper'].includes(group)){const idx=next.trades.findIndex((x:any)=>x.id===row.id);next.trades[idx]=edited}else next[group][index]=edited;commit(next,'已应用编辑')});panel.append(b)
   const html= typeof value==='object' ? value.note??value.contentHtml : null
-  if(typeof html==='string'&&html){const details=document.createElement('details');details.append(el('summary','正文与截图预览'));const preview=el('div','','preview');const doc=new DOMParser().parseFromString(html,'text/html');doc.querySelectorAll('script,style,iframe,object').forEach(n=>n.remove());preview.append(el('div',doc.body.textContent??''));for(const img of doc.querySelectorAll('img')){const src=img.getAttribute('src')??'';const a=assets.find(x=>src===`journal-asset://${x.id}`);if(a)try{const file=await assetFile(a);if(a.mime.includes('svg'))continue;const image=document.createElement('img');image.src=URL.createObjectURL(file);urls.push(image.src);preview.append(image)}catch{preview.append(el('p','附件无法读取'))}}details.append(preview);panel.append(details)}
+  if(typeof html==='string'&&html){const details=document.createElement('details');details.append(el('summary','正文与截图预览'));const preview=el('div','','preview');const doc=new DOMParser().parseFromString(html,'text/html');doc.querySelectorAll('script,style,iframe,object').forEach(n=>n.remove());preview.append(el('div',doc.body.textContent??''));for(const img of doc.querySelectorAll('img')){const src=img.getAttribute('src')??'';const a=assets.find(x=>src===`journal-asset://${x.id}`);if(a)try{const file=await assetFile(a);if(!current())return;if(a.mime.includes('svg'))continue;const image=document.createElement('img');image.src=URL.createObjectURL(file);urls.push(image.src);preview.append(image)}catch{preview.append(el('p','附件无法读取'))}}details.append(preview);if(current())panel.append(details)}
 }
 function rowsOf(db:any,sql:string){const r=db.exec(sql)[0];return r?r.values.map((v:any[])=>Object.fromEntries(r.columns.map((k:string,i:number)=>[k,v[i]]))):[]}
 async function readBytes(dir:any,name:string){return new Uint8Array(await (await (await dir.getFileHandle(name)).getFile()).arrayBuffer())}

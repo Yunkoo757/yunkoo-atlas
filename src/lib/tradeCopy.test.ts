@@ -1,5 +1,5 @@
 import type { Trade } from '@/data/trades'
-import { formatYmd } from '@/lib/periods'
+import { getTradingDayKey } from '@/lib/periods'
 import { computeStrategyStats } from '@/lib/strategies'
 import { buildSafeTradeCopies } from '@/lib/tradeCopy'
 import { useStore } from '@/store/useStore'
@@ -39,6 +39,7 @@ const liveSource: Trade = {
   openedAt: '2026-07-01',
   recordedAt: '2026-07-01T08:00:00.000Z',
   closedAt: '2026-07-02',
+  closedTradingDayKey: '2026-07-02',
   missReason: 'hesitation',
   note: '<p>等待回踩后入场</p>',
   comments: [{ id: 'comment-1', text: '旧评论', createdAt: '2026-07-02' }],
@@ -90,9 +91,10 @@ export function testAccountCopyKeepsPlanInputsAndClearsHistoricalState(): void {
 
   assert(copy?.id === 'copy-1' && copy.ref === 'TRD-10', '账户副本必须使用新 ID 和连续 TRD 编号')
   assert(copy.status === 'planned' && copy.tradeKind === 'live', '实盘副本必须成为同类型新计划')
-  assert(copy.openedAt === formatYmd(now), '计划日期必须来自注入的 now')
+  assert(copy.openedAt === getTradingDayKey(now), '计划日期必须来自注入的 now 与默认交易日设置')
   assert(copy.recordedAt === now.toISOString(), '收录时间必须来自注入的 now')
   assert(copy.exit === null && copy.closedAt === null, '新计划不得保留平仓信息')
+  assert(copy.closedTradingDayKey === undefined, '新计划不得继承历史平仓交易日')
   assert(copy.pnl === null && copy.rMultiple === null, '新计划不得保留历史结果')
   assert(copy.resultSource === undefined && copy.initialStopLoss === null, '新计划不得保留结果依据和冻结风险')
   assert(copy.reviewStatus === 'unreviewed' && copy.reviewCategory === 'normal', '新计划必须重新进入普通待复盘状态')
@@ -259,4 +261,24 @@ export function testDuplicateGeneratedIdRejectsWholeBatchBeforeCommit(): void {
     failed = error instanceof Error && error.message.includes('ID')
   }
   assert(failed, 'ID 冲突必须在生成整批副本时直接拒绝')
+}
+
+
+export function testNewPlansUseConfiguredTradingDayAcrossTheMidnightBoundary(): void {
+  const early = new Date(2026, 0, 1, 2, 30)
+  for (const tradingDayStartHour of [0, 6, 12]) {
+    const expectedDate = tradingDayStartHour === 0 ? '2026-01-01' : '2025-12-31'
+    const [live, paper, backtest, reviewCase] = buildSafeTradeCopies(
+      [liveSource, paperSource, { ...paperSource, id: 'historical', tradeKind: 'backtest', backtestProjectId: 'history', openedAt: '2025-02-26' }, caseSource],
+      [liveSource, paperSource, caseSource],
+      { now: early, tradingDayStartHour, createId: idFactory(`boundary-${tradingDayStartHour}`) },
+    )
+    assert(live?.openedAt === expectedDate && paper?.openedAt === expectedDate, '实盘和模拟新计划必须与设置的交易日一致，跨年凌晨也不能跳到新日历日')
+    assert(backtest?.openedAt === '2025-02-26', '回测副本必须保留历史日期')
+    assert(reviewCase?.openedAt === caseSource.openedAt, '案例副本必须保留来源发生日期')
+    assert(live.recordedAt === early.toISOString(), '收录时间仍记录复制操作的真实时刻')
+  }
+  const atBoundary = new Date(2026, 0, 1, 6, 0)
+  const [copy] = buildSafeTradeCopies([liveSource], [liveSource], { now: atBoundary, tradingDayStartHour: 6, createId: idFactory('at-boundary') })
+  assert(copy?.openedAt === '2026-01-01', '到达换日时刻后必须进入新交易日')
 }

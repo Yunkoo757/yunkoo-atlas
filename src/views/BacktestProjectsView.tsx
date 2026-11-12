@@ -17,7 +17,7 @@ import { DatePicker } from '@/components/ui/DatePicker'
 import { OverflowTooltip, Tooltip } from '@/components/ui/Tooltip'
 import { TradeList } from '@/components/trades/TradeList'
 import { TradeRow } from '@/components/trades/TradeRow'
-import { getProjectTrades, isBacktestProject, projectPath, summarizeBacktest, type BacktestProject } from '@/lib/backtestProjects'
+import { getProjectTrades, isBacktestProject, projectPath, summarizeBacktest, summarizeBacktestProjects, type BacktestProject } from '@/lib/backtestProjects'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
@@ -63,6 +63,7 @@ export function BacktestProjectsView() {
   const scopedProjects = useMemo(() => projects.filter(item => Boolean(item.archivedAt) === (scope === 'archived')), [projects, scope])
   const records = useMemo(() => id ? getProjectTrades(trades, id) : [], [trades, id])
   const stats = useMemo(() => summarizeBacktest(records), [records])
+  const projectSummaries = useMemo(() => id ? null : summarizeBacktestProjects(trades, scopedProjects.map(item => item.id)), [trades, id, scopedProjects])
   const visible = useMemo(() => records.filter(trade => recordScope === 'all' || (recordScope === 'missed' ? trade.status === 'missed' : trade.status !== 'missed' && !resolveTradeTruth(trade).isResultComplete)), [records, recordScope])
   const groups = useMemo(() => [{ key: id ?? 'backtest', items: visible }], [id, visible])
   const openRecord = useCallback((trade: Trade) => {
@@ -234,7 +235,7 @@ export function BacktestProjectsView() {
       </div>
       <div className="list-scroll backtest-projects">
       {scopedProjects.map(item => {
-        const summary = summarizeBacktest(getProjectTrades(trades, item.id))
+        const summary = projectSummaries?.get(item.id) ?? stats
         const totalR = summary.rCount ? summary.totalR : null
         const rText = number(totalR, ' R')
         return <Link className="backtest-project-row" key={item.id} to={projectPath(item.id)}>

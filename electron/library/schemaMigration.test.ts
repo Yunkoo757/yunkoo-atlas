@@ -268,36 +268,50 @@ export async function testNormalV11OpenMigratesCanonicalStageOwnership(): Promis
   } finally { fs.rmSync(library.path, { recursive: true, force: true }) }
 }
 
-export async function testV13OpenAddsJudgmentDeskAndCommitsBothVersionMarkers(): Promise<void> {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-schema-v13-judgment-'))
-  let storage: LibraryStorage | undefined
-  try {
-    storage = new LibraryStorage(root)
-    await storage.open()
-    storage.release()
-    const snapshot = createFullPersistedSnapshotFixture()
-    delete snapshot.judgmentDesk
-    const SQL = await sqlRuntime()
-    const db = new SQL.Database(fs.readFileSync(path.join(root, 'journal.db')))
-    db.run("INSERT INTO meta (key, value) VALUES ('snapshot', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(snapshot)])
-    db.run("INSERT INTO meta (key, value) VALUES ('schemaVersion', '13') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
-    fs.writeFileSync(path.join(root, 'journal.db'), Buffer.from(db.export()))
-    db.close()
-    const manifestPath = path.join(root, 'manifest.json')
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
-    fs.writeFileSync(manifestPath, JSON.stringify({ ...manifest, schemaVersion: 13 }), 'utf8')
-    storage = new LibraryStorage(root, { allowCreate: false })
-    await storage.open()
-    assert(storage.readManifest().schemaVersion === SCHEMA_VERSION, 'v13 manifest 必须同步升级')
-    assert(storage.loadSnapshot()?.judgmentDesk?.samples.length === 0, '历史库必须补齐空判断台')
-    assert(storage.loadSnapshot()?.trades.length === snapshot.trades.length, '不得改变历史交易')
-    storage.release()
-    storage = new LibraryStorage(root, { allowCreate: false })
-    await storage.open()
-    assert(storage.loadSnapshot()?.judgmentDesk?.themes.length === 0, '重开后判断台迁移必须耐久')
-  } finally {
-    storage?.release()
-    fs.rmSync(root, { recursive: true, force: true })
+export async function testLegacyV13ThroughV15IgnoreRetiredStateAndPreservePhysicalImages(): Promise<void> {
+  for (const version of [13, 14, 15]) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), `atlas-retired-domains-v${version}-`))
+    let storage: LibraryStorage | undefined
+    try {
+      storage = new LibraryStorage(root)
+      await storage.open()
+      storage.importAsset('retired-only-image', 'image/png', Buffer.from('retired-image-bytes'))
+      storage.importAsset('shared-retired-image', 'image/png', Buffer.from('shared-image-bytes'))
+      storage.release()
+      const snapshot = createFullPersistedSnapshotFixture()
+      snapshot.trades[0]!.note += '<img src="journal-asset://shared-retired-image">'
+      const legacy = { ...snapshot, judgmentDesk: { samples: [{ images: [{ assetId: 'retired-only-image' }, { assetId: 'shared-retired-image' }] }] }, reviewComposer: { obsolete: 'discard' } }
+      const SQL = await sqlRuntime()
+      const db = new SQL.Database(fs.readFileSync(path.join(root, 'journal.db')))
+      db.run("INSERT INTO meta (key, value) VALUES ('snapshot', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(legacy)])
+      db.run("INSERT INTO meta (key, value) VALUES ('schemaVersion', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [String(version)])
+      fs.writeFileSync(path.join(root, 'journal.db'), Buffer.from(db.export()))
+      db.close()
+      const manifestPath = path.join(root, 'manifest.json')
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+      fs.writeFileSync(manifestPath, JSON.stringify({ ...manifest, schemaVersion: version }), 'utf8')
+      storage = new LibraryStorage(root, { allowCreate: false })
+      await storage.open()
+      const loaded = storage.loadSnapshot()!
+      assert(storage.readManifest().schemaVersion === SCHEMA_VERSION, '旧版本必须仍能正常打开')
+      assert(!('judgmentDesk' in loaded) && !('reviewComposer' in loaded), '旧专属状态必须在读取时丢弃')
+      assert(JSON.stringify(loaded.trades) === JSON.stringify(snapshot.trades), '不得改变历史交易和案例')
+      assert(storage.getAssetBytes('retired-only-image') !== null, '启动读取不得主动删除退役专属物理图片')
+      assert(storage.getAssetBytes('shared-retired-image') !== null, '启动读取必须保留业务共享图片')
+      storage.saveSnapshot({ ...loaded, judgmentDesk: legacy.judgmentDesk, reviewComposer: legacy.reviewComposer } as typeof loaded)
+      storage.release()
+      storage = new LibraryStorage(root, { allowCreate: false })
+      await storage.open()
+      const reopened = storage.loadSnapshot()!
+      assert(!('judgmentDesk' in reopened) && !('reviewComposer' in reopened), '正常保存后旧状态不得复活')
+      const persistedDb = new SQL.Database(fs.readFileSync(path.join(root, 'journal.db')))
+      const storedJson = String(persistedDb.exec("SELECT value FROM meta WHERE key = 'snapshot'")[0]!.values[0]![0])
+      persistedDb.close()
+      assert(!storedJson.includes('judgmentDesk') && !storedJson.includes('reviewComposer'), '中心writer必须从落盘快照剥离退役字段')
+    } finally {
+      storage?.release()
+      fs.rmSync(root, { recursive: true, force: true })
+    }
   }
 }
 

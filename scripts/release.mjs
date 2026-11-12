@@ -156,7 +156,7 @@ if (taggedCommit && taggedCommit !== candidateCommit) {
   console.error(`本地标签 ${tag} 指向其他提交，已停止发布。`)
   process.exit(1)
 }
-if (!taggedCommit) run('git', ['tag', tag])
+if (!taggedCommit) run('git', ['tag', tag, candidateCommit])
 run('git', ['push', 'origin', tag])
 
 console.log(`已推送 ${tag}，正式发布尚未完成。请等待 Release 工作流成功并核对 Windows、macOS 全部资产。`)

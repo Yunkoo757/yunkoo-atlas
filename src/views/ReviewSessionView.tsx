@@ -1,3 +1,4 @@
+import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { ICON_2XL, ICON_LG, ICON_MD, ICON_XL } from '@/icons/iconSize'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -407,13 +408,14 @@ export function ReviewSessionView() {
     }
 
     let cancelled = false
+    const imageScope = new AssetObjectUrlScope()
     setResolvedNote({ tradeId: current.id, status: 'loading', html: '' })
-    void resolveNoteForDisplayResult(content, getStorage()).then((result) => {
+    void resolveNoteForDisplayResult(content, getStorage(), imageScope).then((result) => {
       if (!cancelled) setResolvedNote({ tradeId: current.id, status: 'ready', html: result.html })
     }).catch(() => {
       if (!cancelled) setResolvedNote({ tradeId: current.id, status: 'error', html: '' })
     })
-    return () => { cancelled = true }
+    return () => { cancelled = true; imageScope.release() }
   }, [current?.id, current?.note, current?.sourceNoteHtml, current?.tradeKind])
 
   const advance = useCallback(() => {

@@ -1,6 +1,4 @@
 import { toast } from '@/lib/toast'
-import { emptyJudgmentDesk, assertJudgmentDesk } from '@/lib/judgment/model'
-import { emptyComposerData } from '@/lib/reviewComposer/model'
 import { previewHistoricalRiskBackfill, historicalRiskFingerprint, type HistoricalRiskInput, type HistoricalRiskPreview } from '@/lib/historicalRiskBackfill'
 import type { BacktestProject } from '@/lib/backtestProjects'
 import { isBacktestProject } from '@/lib/backtestProjects'
@@ -516,9 +514,6 @@ interface State {
   symbolCatalog: string[]
   reviewTemplates: ReviewTemplate[]
   reviewPoolPresets: ReviewPoolPreset[]
-  judgmentDesk: import('@/lib/judgment/model').JudgmentDeskData
-  updateJudgmentDesk: (update: (data: import('@/lib/judgment/model').JudgmentDeskData) => import('@/lib/judgment/model').JudgmentDeskData) => void
-  reviewComposer: import('@/lib/reviewComposer/model').ComposerData
   reviewPoolLayout: ReviewPoolLayout
   saveReviewPoolPreset: (preset: ReviewPoolPreset) => void
   removeReviewPoolPreset: (id: string) => void
@@ -1017,9 +1012,6 @@ export const useStore = create<State>()((set, get) => ({
       symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
       reviewTemplates: createDefaultReviewTemplates(),
       reviewPoolPresets: [],
-      judgmentDesk: emptyJudgmentDesk(),
-      updateJudgmentDesk: (update) => set(state => { const judgmentDesk = update(state.judgmentDesk); assertJudgmentDesk(judgmentDesk); return { judgmentDesk } }),
-      reviewComposer: emptyComposerData(),
       reviewPoolLayout: normalizeReviewPoolLayout(DEFAULT_REVIEW_POOL_LAYOUT, []),
       saveReviewPoolPreset: (preset) => set((state) => {
         const reviewPoolPresets = [
