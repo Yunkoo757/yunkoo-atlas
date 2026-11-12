@@ -272,7 +272,18 @@ async function materializeFinalArtifact(options, temporaryRoot, state, trackedPr
   })
 }
 
-async function runPackagedQaMode(executablePath, mode, libraryRoot, trackedProcesses, onSpawn) {
+export async function runPackagedQaMode(executablePath, mode, libraryRoot, trackedProcesses, onSpawn, spawnProcess = spawn) {
+  const temporaryRoot = fs.realpathSync.native(path.dirname(path.resolve(libraryRoot)))
+  if (canonicalPath(path.dirname(temporaryRoot)) !== canonicalPath(os.tmpdir()) ||
+      !path.basename(temporaryRoot).startsWith('trader-atlas-final-artifact-')) {
+    throw new Error('Packaged QA helper must use this artifact task temporary root')
+  }
+  const userDataPath = path.join(temporaryRoot, `${path.basename(libraryRoot)}-qa-user-data`)
+  if ((fs.existsSync(libraryRoot) && fs.lstatSync(libraryRoot).isSymbolicLink()) ||
+      (fs.existsSync(userDataPath) && fs.lstatSync(userDataPath).isSymbolicLink())) {
+    throw new Error('Packaged QA helper isolation paths must not be symbolic links')
+  }
+  fs.mkdirSync(userDataPath, { recursive: true })
   const messages = []
   const environment = {
     ...process.env,
@@ -281,7 +292,7 @@ async function runPackagedQaMode(executablePath, mode, libraryRoot, trackedProce
     VITE_DEV_SERVER_URL: '',
   }
   delete environment.ELECTRON_RUN_AS_NODE
-  const child = spawn(executablePath, [], {
+  const child = spawnProcess(executablePath, [`--user-data-dir=${userDataPath}`], {
     cwd: path.dirname(executablePath),
     env: environment,
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
@@ -297,7 +308,7 @@ async function runPackagedQaMode(executablePath, mode, libraryRoot, trackedProce
     killGraceMs: 10_000,
     label: `Packaged QA mode ${mode}`,
   })
-  return { ...result, messages, stderr }
+  return { ...result, messages, stderr, userDataPath }
 }
 
 async function rewriteLibraryAsV11(libraryRoot) {

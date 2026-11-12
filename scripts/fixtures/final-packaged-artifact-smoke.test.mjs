@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
-import { readFileSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import test from 'node:test'
 
 import {
@@ -9,6 +12,7 @@ import {
   validateFinalPackagedArtifactReport,
 } from '../final-packaged-artifact-contract.mjs'
 import {
+  runPackagedQaMode,
   runWithCleanupPreservingErrors,
   waitForSpawnedChildExitBounded,
 } from '../run-final-packaged-artifact-smoke.mjs'
@@ -193,6 +197,69 @@ test('final artifact waits for renderer hydration before direct storage bridge s
     firstStorageRead > persistenceQuiescence,
     'direct storage bridge scenarios must not start before renderer persistence becomes quiescent',
   )
+})
+
+test('every final artifact helper mode passes task-local userData to the spawned process', async () => {
+  const temporaryRoot = mkdtempSync(path.join(os.tmpdir(), 'trader-atlas-final-artifact-helper-test-'))
+  const tracked = new Set()
+  const launches = []
+  const previousRunAsNode = process.env.ELECTRON_RUN_AS_NODE
+  process.env.ELECTRON_RUN_AS_NODE = '1'
+  try {
+    for (const [mode, libraryName] of [
+      ['identity', 'identity-probe'],
+      ['seed', 'migration-library'],
+      ['verify', 'migration-library'],
+      ['crash-save', 'forced-kill-library'],
+    ]) {
+      const libraryRoot = path.join(temporaryRoot, libraryName)
+      let spawnHookCalled = false
+      const result = await runPackagedQaMode(process.execPath, mode, libraryRoot, tracked, () => {
+        spawnHookCalled = true
+      }, (executable, args, options) => {
+        launches.push({ executable, args, options })
+        return spawn(executable, ['--eval', `
+          process.stderr.write('isolated diagnostic')
+          process.send({ type: process.env.TRADER_ATLAS_FORCED_KILL_MODE, argv: process.argv.slice(1) }, () => process.disconnect())
+        `, '--', ...args], options)
+      })
+      const invocation = launches.at(-1)
+      assert.equal(invocation.executable, process.execPath)
+      assert.deepEqual(invocation.args, [`--user-data-dir=${result.userDataPath}`])
+      assert.equal(path.dirname(result.userDataPath), realpathSync.native(temporaryRoot))
+      assert.equal(path.basename(result.userDataPath), `${libraryName}-qa-user-data`)
+      assert.equal(path.relative(path.dirname(result.userDataPath), result.userDataPath), `${libraryName}-qa-user-data`)
+      assert.ok(existsSync(result.userDataPath))
+      assert.equal(invocation.options.env.TRADER_ATLAS_LIBRARY, libraryRoot)
+      assert.equal(invocation.options.env.TRADER_ATLAS_FORCED_KILL_MODE, mode)
+      assert.equal(invocation.options.env.VITE_DEV_SERVER_URL, '')
+      assert.equal(Object.hasOwn(invocation.options.env, 'ELECTRON_RUN_AS_NODE'), false)
+      assert.deepEqual(invocation.options.stdio, ['ignore', 'pipe', 'pipe', 'ipc'])
+      assert.ok(spawnHookCalled)
+      assert.equal(result.code, 0)
+      assert.deepEqual(result.messages, [{ type: mode, argv: invocation.args }])
+      assert.equal(result.stderr, 'isolated diagnostic')
+      assert.ok(tracked.has(result.processId))
+    }
+    assert.notEqual(launches[0].args[0], launches[1].args[0], 'identity and migration helpers must not share userData')
+    assert.notEqual(launches[1].args[0], launches[3].args[0], 'migration and atomic-save helpers must not share userData')
+  } finally {
+    if (previousRunAsNode === undefined) delete process.env.ELECTRON_RUN_AS_NODE
+    else process.env.ELECTRON_RUN_AS_NODE = previousRunAsNode
+    rmSync(temporaryRoot, { recursive: true, force: true })
+  }
+})
+
+test('final artifact helper refuses a library outside its artifact temporary task root before spawn', async () => {
+  const unrelatedRoot = mkdtempSync(path.join(os.tmpdir(), 'atlas-unrelated-helper-test-'))
+  let spawned = false
+  try {
+    await assert.rejects(() => runPackagedQaMode('isolated-payload', 'identity', path.join(unrelatedRoot, 'library'), new Set(), undefined, () => {
+      spawned = true
+    }), /artifact task temporary root/)
+    assert.equal(spawned, false)
+    assert.equal(existsSync(path.join(unrelatedRoot, 'library-qa-user-data')), false)
+  } finally { rmSync(unrelatedRoot, { recursive: true, force: true }) }
 })
 
 test('final artifact subprocess timeout remains bounded when hard kill is refused and no exit arrives', async () => {
