@@ -1119,7 +1119,7 @@ export function DetailView() {
                   onToggle={(event) => setSourceDisclosure({ tradeId: trade.id, open: event.currentTarget.open })}>
                 <summary className="dv-case-note-heading">
                   <h2 id="case-source-note-title">来源复盘</h2>
-                  <span>{activeSourceNoteLoad.status === 'error' ? '附件未完整载入 · 只读' : '创建案例时冻结 · 只读'}</span>
+                  <span>{activeSourceNoteLoad.status === 'error' ? '附件未完整载入 · 只读' : sourceTrade ? '随原交易更新 · 只读' : '来源已删除 · 保留快照'}</span>
                 </summary>
                 {activeSourceNoteLoad.status === 'loading' && (
                   <div className="dv-case-source-note-status" role="status" aria-live="polite">

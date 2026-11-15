@@ -21,6 +21,7 @@ import { mergeTagPresets } from '@/lib/tags'
 import { DEFAULT_DISPLAY, normalizeDisplay } from '@/lib/tradeFilters'
 import { assertValidLiveStageState } from '@/lib/liveStages'
 import { normalizeTrades } from '@/lib/tradeKind'
+import { syncReviewCaseSourceNotes } from '@/lib/reviewCaseSources'
 import { normalizeReviewPoolLayout } from '@/lib/reviewPools'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useShortcutStore } from '@/store/shortcutStore'
@@ -31,7 +32,7 @@ import type { PersistedSnapshot } from '@/storage/types'
 export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
   assertValidLiveStageState(snapshot)
   const normalized = normalizeTradeStrategyReferences(snapshot.trades, snapshot.strategies)
-  const trades = normalizeTrades(normalized.trades)
+  const trades = syncReviewCaseSourceNotes(normalizeTrades(normalized.trades))
   useStore.setState({
     trades,
     backtestProjects: snapshot.backtestProjects ?? [],

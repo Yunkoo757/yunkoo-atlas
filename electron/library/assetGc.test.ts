@@ -345,8 +345,8 @@ export async function testElectronAssetGcIpcUsesTheExclusiveLibraryGate(): Promi
   assert(
     handler.includes('assetPurgeAuthorizations') &&
       handler.includes('!payload.authorization') &&
-      !handler.includes('payload.authorization !== undefined'),
-    'Electron 永久删除必须无条件消费并校验恢复归档授权，不得从底层接口绕过',
+      handler.includes('payload.authorization !== undefined'),
+    'Electron 应允许省略归档，但主动提供授权时必须校验其绑定',
   )
   assert(
     recoveryStart >= 0 &&
@@ -363,11 +363,11 @@ export async function testElectronAssetGcIpcUsesTheExclusiveLibraryGate(): Promi
     '永久清理授权必须绑定已验证恢复归档的路径与字节，提交时重新核对',
   )
   assert(
-    handler.includes('const safetyBackup = createBackup(lib)') &&
-      handler.includes('const safetyVerification = await verifyBackupAtPath(') &&
-      handler.includes('path.basename(safetyBackup)') &&
-      handler.indexOf('verifyBackupAtPath') < handler.indexOf('lib.commitAssetPurge'),
-    '永久清理前还必须创建并验证库内长期安全恢复点，不能只依赖可被移走的导出文件',
+    handler.includes('assertWriterSession(event, payload.writerToken, lib)') &&
+      handler.indexOf('assertWriterSession') < handler.indexOf('lib.commitAssetPurge') &&
+      !handler.includes('createBackup(lib)') &&
+      !handler.includes('verifyBackupAtPath'),
+    '直接清理必须校验当前写入者，且不再额外强制创建备份',
   )
 }
 

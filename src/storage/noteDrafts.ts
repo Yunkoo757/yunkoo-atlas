@@ -1,4 +1,5 @@
 import { getStorage } from '@/storage/bootstrap'
+import { syncReviewCaseSourceNotes } from '@/lib/reviewCaseSources'
 import {
   assetUrl,
   normalizeNoteForStorage,
@@ -116,12 +117,12 @@ export function applyNoteDraftsToSnapshot(snapshot: PersistedSnapshot): Persiste
   if (drafts.size === 0) return snapshot
   return {
     ...snapshot,
-    trades: snapshot.trades.map((trade) => {
+    trades: syncReviewCaseSourceNotes(snapshot.trades.map((trade) => {
       const note = drafts.get(trade.id)
       return note === undefined
         ? trade
         : { ...trade, note: normalizePreparedAssetReferencesForRecovery(note) }
-    }),
+    })),
     weeklyReviews: snapshot.weeklyReviews?.map((review) => {
       const contentHtml = drafts.get(`${WEEKLY_REVIEW_DRAFT_PREFIX}${review.id}`)
       return contentHtml === undefined

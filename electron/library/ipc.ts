@@ -972,40 +972,34 @@ export function registerLibraryIpc(): void {
         if (process.env.ATLAS_ENABLE_ASSET_PURGE_COMMIT === 'false') {
           throw new Error('附件永久清理已在主进程边界关闭')
         }
-        const prepared = assetPurgeAuthorizations.get(payload.preview.operationId)
-        assetPurgeAuthorizations.delete(payload.preview.operationId)
-        if (
-          !payload.authorization ||
-          !prepared ||
-          prepared.token !== payload.authorization ||
-          prepared.signature !== JSON.stringify(payload.preview) ||
-          Date.now() - prepared.createdAt > 15 * 60_000
-        ) {
-          throw new Error('附件清理缺少与本次预览绑定的恢复归档授权')
-        }
         const lib = await ensureStorage()
         assertWriterSession(event, payload.writerToken, lib)
-        let recoveryArchiveStat: fs.Stats
-        try {
-          recoveryArchiveStat = fs.lstatSync(prepared.archivePath)
-        } catch {
-          throw new Error('附件清理恢复归档已移动或删除，请重新导出')
-        }
-        if (
-          !recoveryArchiveStat.isFile() ||
-          recoveryArchiveStat.isSymbolicLink() ||
-          sha256File(prepared.archivePath) !== prepared.archiveSha256
-        ) {
-          throw new Error('附件清理恢复归档在导出后发生变化，请重新导出')
-        }
-        const safetyBackup = createBackup(lib)
-        if (!safetyBackup) throw new Error('无法创建附件清理前安全恢复点')
-        const safetyVerification = await verifyBackupAtPath(
-          lib.getLibraryPath(),
-          path.basename(safetyBackup),
-        )
-        if (safetyVerification.status !== 'verified') {
-          throw new Error(safetyVerification.error ?? '附件清理前安全恢复点验证失败')
+        const prepared = assetPurgeAuthorizations.get(payload.preview.operationId)
+        assetPurgeAuthorizations.delete(payload.preview.operationId)
+        // 归档可选；主动提供授权时，仍校验它与预览、文件的绑定。
+        if (payload.authorization !== undefined) {
+          if (
+            !payload.authorization ||
+            !prepared ||
+            prepared.token !== payload.authorization ||
+            prepared.signature !== JSON.stringify(payload.preview) ||
+            Date.now() - prepared.createdAt > 15 * 60_000
+          ) {
+            throw new Error('附件清理缺少与本次预览绑定的恢复归档授权')
+          }
+          let recoveryArchiveStat: fs.Stats
+          try {
+            recoveryArchiveStat = fs.lstatSync(prepared.archivePath)
+          } catch {
+            throw new Error('附件清理恢复归档已移动或删除，请重新导出')
+          }
+          if (
+            !recoveryArchiveStat.isFile() ||
+            recoveryArchiveStat.isSymbolicLink() ||
+            sha256File(prepared.archivePath) !== prepared.archiveSha256
+          ) {
+            throw new Error('附件清理恢复归档在导出后发生变化，请重新导出')
+          }
         }
         return lib.commitAssetPurge(payload.preview)
       })

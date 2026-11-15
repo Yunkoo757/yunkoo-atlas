@@ -11,6 +11,7 @@ import { useStore } from '@/store/useStore'
 import { useSaveStatus } from '@/store/saveStatus'
 import { normalizeDisplay } from '@/lib/tradeFilters'
 import { normalizeTrades } from '@/lib/tradeKind'
+import { syncReviewCaseSourceNotes } from '@/lib/reviewCaseSources'
 import { normalizeSavedTradeViews } from '@/lib/savedTradeViews'
 import { normalizeSelectableSymbolCatalog, normalizeSymbolIcons } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
@@ -96,7 +97,7 @@ async function runBootstrapStorage(): Promise<void> {
     // 阶段图是全部运行时写入的归属根；无效快照必须在开启持久化前终止启动。
     assertValidLiveStageState(snapshot)
     const normalized = normalizeTradeStrategyReferences(snapshot.trades, snapshot.strategies)
-    const trades = normalizeTrades(normalized.trades)
+    const trades = syncReviewCaseSourceNotes(normalizeTrades(normalized.trades))
     useStore.setState({
       trades,
       backtestProjects: snapshot.backtestProjects ?? [],

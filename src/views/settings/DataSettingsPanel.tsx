@@ -140,7 +140,6 @@ export function DataSettingsPanel({
   const [purgeArchiveReady, setPurgeArchiveReady] = useState(false)
   const [purgeRecoveryError, setPurgeRecoveryError] = useState<string | null>(null)
   const [purgeAuthorization, setPurgeAuthorization] = useState<string | null>(null)
-  const [purgeConfirmed, setPurgeConfirmed] = useState(false)
   const [stageManagerOpen, setStageManagerOpen] = useState(false)
   const automaticVerificationAttempts = useRef(new Set<string>())
   const trades = useStore((s) => s.trades)
@@ -340,7 +339,6 @@ export function DataSettingsPanel({
     setPurgePreview(null)
     setPurgeArchiveReady(false)
     setPurgeAuthorization(null)
-    setPurgeConfirmed(false)
   }
 
   const handlePreviewAssetPurge = async () => {
@@ -358,7 +356,6 @@ export function DataSettingsPanel({
       }
       setPurgeArchiveReady(false)
       setPurgeAuthorization(null)
-      setPurgeConfirmed(false)
       setPurgePreview(preview)
     } catch (error) {
       reportDataSettingsFailure('预览附件清理失败', error)
@@ -403,7 +400,6 @@ export function DataSettingsPanel({
       setPurgePreview(refreshedPreview)
       setPurgeAuthorization(recovery.authorization)
       setPurgeArchiveReady(true)
-      setPurgeConfirmed(false)
       toast('当前资料库恢复归档已导出')
     } catch (error) {
       const canceled = error instanceof Error && error.message === '恢复归档导出已取消'
@@ -413,7 +409,6 @@ export function DataSettingsPanel({
       }
       setPurgeArchiveReady(false)
       setPurgeAuthorization(null)
-      setPurgeConfirmed(false)
       if (!canceled) setPurgeRecoveryError(userFacingErrorMessage(error, '恢复归档导出失败'))
     } finally {
       setPurgeBusy(false)
@@ -421,7 +416,7 @@ export function DataSettingsPanel({
   }
 
   const handleCommitAssetPurge = async () => {
-    if (!purgePreview || !purgeConfirmed || !assetPurgeCommitEnabled) return
+    if (!purgePreview || !assetPurgeCommitEnabled) return
     setPurgeBusy(true)
     try {
       const commit = getStorage().commitAssetPurge
@@ -430,7 +425,6 @@ export function DataSettingsPanel({
       setPurgePreview(null)
       setPurgeArchiveReady(false)
       setPurgeAuthorization(null)
-      setPurgeConfirmed(false)
       await refreshHealth()
       toast(`已从当前库永久清理 ${result.deletedIds.length} 个孤立附件；历史备份未改变`)
     } catch (error) {
@@ -727,14 +721,14 @@ export function DataSettingsPanel({
             <>
               <button
                 type="button"
-                className={!purgeArchiveReady ? 'ui-btn ui-btn-primary' : 'ui-btn ui-btn-bordered'}
+                className={!assetPurgeCommitEnabled && !purgeArchiveReady ? 'ui-btn ui-btn-primary' : 'ui-btn ui-btn-bordered'}
                 disabled={purgeBusy || purgeArchiveReady}
                 onClick={() => void handleCreatePurgeRecoveryArchive()}
               >
                 {purgeArchiveReady
                   ? '恢复归档已导出'
                   : assetPurgeCommitEnabled
-                    ? '导出恢复归档（必需）'
+                    ? '导出恢复归档（可选）'
                     : '导出恢复归档'}
               </button>
               <button
@@ -750,7 +744,7 @@ export function DataSettingsPanel({
                 <button
                   type="button"
                   className="ui-btn ui-btn-danger-solid"
-                  disabled={purgeBusy || !purgeConfirmed || !purgeArchiveReady || !purgeAuthorization}
+                  disabled={purgeBusy}
                   onClick={() => void handleCommitAssetPurge()}
                 >
                   确认永久清理
@@ -759,17 +753,14 @@ export function DataSettingsPanel({
             </>
           )}
         >
-          <p className="settings-section-desc" role="status">
-            {purgeArchiveReady ? '步骤 2 / 2：恢复归档已验证，确认后可永久清理。' : '步骤 1 / 2：先导出恢复归档。已推荐文件名与文档文件夹，导出后即可确认清理。'}
-          </p>
           {purgeRecoveryError ? <div role="alert">
-            <p>恢复归档未完成，尚未清理任何附件。请重试导出；磁盘空间或保存权限不足时，选择其他保存位置。</p>
+            <p>{assetPurgeCommitEnabled ? '恢复归档导出失败，您仍可直接清理，或选择其他保存位置重试。' : '恢复归档导出失败，请选择其他保存位置重试。'}</p>
             <details><summary>查看失败详情</summary><p>{purgeRecoveryError}</p></details>
           </div> : null}
           <div className="data-purge-summary">
             <span>{assetPurgeCommitEnabled ? '待清理' : '扫描结果'}</span>
             <strong>{purgePreview.candidateIds.length} 个 · {fmtBackupSize(purgePreview.totalBytes)}</strong>
-            <small>{assetPurgeCommitEnabled ? '永久清理不可撤销；必须先导出恢复归档。' : '当前永久清理已关闭。'}</small>
+            <small>{assetPurgeCommitEnabled ? '永久清理后无法从当前资料库恢复。' : '当前永久清理已关闭。'}</small>
           </div>
           <details className="data-purge-details">
             <summary>安全校验信息</summary>
@@ -780,17 +771,6 @@ export function DataSettingsPanel({
                 : '重新扫描可刷新候选列表。'}
             </p>
           </details>
-          {assetPurgeCommitEnabled ? (
-            <label className="data-purge-confirm">
-              <input
-                type="checkbox"
-                checked={purgeConfirmed}
-                disabled={purgeBusy}
-                onChange={(event) => setPurgeConfirmed(event.target.checked)}
-              />
-              <span>我确认清理本次列出的未引用附件，并理解删除后无法从当前资料库恢复。</span>
-            </label>
-          ) : null}
         </ModalShell>
       ) : null}
     </div>

@@ -382,31 +382,6 @@
   font: inherit;
 }
 
-.data-purge-confirm {
-  display: flex;
-  gap: var(--sp-2);
-  align-items: flex-start;
-  margin-top: var(--sp-3);
-  color: var(--text-secondary);
-  font-size: var(--type-row-size);
-  line-height: var(--type-row-line-height);
-  cursor: pointer;
-}
-
-.data-purge-confirm input {
-  flex: 0 0 auto;
-  width: 16px;
-  height: 16px;
-  margin: 2px 0 0;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
-.data-purge-confirm input:disabled {
-  color: var(--text-disabled);
-  cursor: wait;
-}
-
 .data-purge-summary {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -456,7 +431,7 @@
 .dio-backup-facts dd { margin: 0; color: var(--text-primary); font-size: var(--type-body-size); line-height: var(--type-body-line-height); overflow-wrap: anywhere; }
 
 .data-purge-body { display: grid; gap: var(--sp-4); }
-.data-purge-body .data-purge-details, .data-purge-body .data-purge-confirm { margin-top: 0; }
+.data-purge-body .data-purge-details { margin-top: 0; }
 .data-purge-body [role="alert"] { display: grid; gap: var(--sp-2); color: var(--neg); font-size: var(--type-metadata-size); overflow-wrap: anywhere; }
 
 .dio-disclosure > summary { cursor: pointer; }

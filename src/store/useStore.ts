@@ -1,4 +1,5 @@
 import { toast } from '@/lib/toast'
+import { syncReviewCaseSourceNotes } from '@/lib/reviewCaseSources'
 import { previewHistoricalRiskBackfill, historicalRiskFingerprint, type HistoricalRiskInput, type HistoricalRiskPreview } from '@/lib/historicalRiskBackfill'
 import type { BacktestProject } from '@/lib/backtestProjects'
 import { isBacktestProject } from '@/lib/backtestProjects'
@@ -361,9 +362,9 @@ function upsertTradeIntoSlice(
   const prepared = prepareTradeUpsert(s, trade, previousTrade, tradingDayStartHour)
   if (!prepared) return s
   return {
-    trades: previousTrade
+    trades: syncReviewCaseSourceNotes(previousTrade
       ? s.trades.map((candidate) => candidate.id === trade.id ? prepared.trade : candidate)
-      : [prepared.trade, ...s.trades],
+      : [prepared.trade, ...s.trades]),
     strategies: prepared.strategies,
     symbolCatalog: prepared.symbolCatalog,
     tagPresets: s.tagPresets,
@@ -417,9 +418,9 @@ export function applyTradeUpsertsToSlice(
     ? initial.trades
     : initial.trades.map((trade) => replacements.get(trade.id) ?? trade)
   return {
-    trades: addedIds.length === 0
+    trades: syncReviewCaseSourceNotes(addedIds.length === 0
       ? existingTrades
-      : [...addedIds.reverse().map((id) => byId.get(id)!), ...existingTrades],
+      : [...addedIds.reverse().map((id) => byId.get(id)!), ...existingTrades]),
     strategies,
     symbolCatalog,
     tagPresets: initial.tagPresets,
@@ -829,7 +830,7 @@ export const useStore = create<State>()((set, get) => ({
           if (!applied.ok) return s
           succeeded = true
           return {
-            trades: applied.trades,
+            trades: syncReviewCaseSourceNotes(applied.trades),
             undoStack: s.undoStack.filter((_item, itemIndex) => itemIndex !== index),
             redoStack: appendBoundedHistory(s.redoStack, action),
           }
@@ -848,7 +849,7 @@ export const useStore = create<State>()((set, get) => ({
           if (!applied.ok) return s
           succeeded = true
           return {
-            trades: applied.trades,
+            trades: syncReviewCaseSourceNotes(applied.trades),
             redoStack: s.redoStack.filter((_item, itemIndex) => itemIndex !== index),
             undoStack: appendBoundedHistory(s.undoStack, action),
           }
@@ -1756,7 +1757,8 @@ export const useStore = create<State>()((set, get) => ({
           const withUpdatedSource = updatedSource === source
             ? s.trades
             : s.trades.map((trade) => trade.id === id ? updatedSource : trade)
-          return withUpdatedSource === s.trades ? s : { trades: withUpdatedSource }
+          const trades = syncReviewCaseSourceNotes(withUpdatedSource)
+          return trades === s.trades ? s : { trades }
         }),
       updateTradeData: (id, patch) =>
         set((s) => {

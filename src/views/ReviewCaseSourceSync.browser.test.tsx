@@ -165,8 +165,8 @@ async function run(): Promise<void> {
 
     useStore.getState().updateNote(reviewCase.id, '<p>案例自己的结论</p>')
     useStore.getState().updateNote(source.id, '<p>创建后的最新来源</p>')
-    await waitFor(() => document.body.textContent?.includes('刚补充、尚未 idle 保存的复盘') ?? false, '冻结来源快照未保留')
-    assert(!document.body.textContent?.includes('创建后的最新来源'), '来源后续更新不得覆盖冻结快照')
+    await waitFor(() => document.querySelector('[aria-label="来源复盘正文"]')?.textContent?.includes('创建后的最新来源') ?? false, '来源后续更新未同步到案例')
+    assert(!document.querySelector('[aria-label="来源复盘正文"]')?.textContent?.includes('刚补充、尚未 idle 保存的复盘'), '案例不得继续显示过期来源正文')
     const syncedCase = useStore.getState().trades.find((trade) => trade.id === reviewCase.id)!
     assert(syncedCase.note === '<p>案例自己的结论</p>', '来源同步覆盖了案例沉淀')
 
@@ -196,9 +196,9 @@ async function run(): Promise<void> {
     const caseImage = findEditorImage('案例沉淀正文', CASE_IMAGE_MARKER)
     assert(sourceEditor && caseEditor && sourceImage && caseImage, '案例双正文附件挂载不完整')
     const sourceDisclosure = document.querySelector<HTMLDetailsElement>('.dv-case-source-note details')
-    assert(sourceDisclosure && !sourceDisclosure.open, '已有独立沉淀时，冻结来源应默认收起')
+    assert(sourceDisclosure && !sourceDisclosure.open, '已有独立沉淀时，来源复盘应默认收起')
     sourceDisclosure.querySelector<HTMLElement>('summary')!.click()
-    await waitFor(() => sourceDisclosure.open && sourceEditor.getBoundingClientRect().height > 0, '冻结来源必须可以展开阅读全文和图片')
+    await waitFor(() => sourceDisclosure.open && sourceEditor.getBoundingClientRect().height > 0, '来源复盘必须可以展开阅读全文和图片')
 
     const navigationButton = findButton('切换到第二来源')
     assert(navigationButton, '缺少测试焦点锚点')
@@ -246,8 +246,8 @@ async function run(): Promise<void> {
       '来源删除后必须使用共享的来源不可用状态',
     )
     assert(
-      document.body.textContent?.includes('刚补充、尚未 idle 保存的复盘'),
-      '来源清理后冻结快照必须可读',
+      document.querySelector('[aria-label="来源复盘正文"]')?.textContent?.includes('创建后的最新来源'),
+      '来源清理后最后保存的来源快照必须可读',
     )
 
     root.unmount()

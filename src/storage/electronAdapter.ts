@@ -84,7 +84,6 @@ export class ElectronStorageAdapter implements StorageAdapter {
   }
 
   async commitAssetPurge(preview: AssetPurgePreview, authorization?: string): Promise<AssetPurgeResult> {
-    if (!authorization) throw new Error('永久清理前必须先导出恢复归档')
     const result = await getJournalBridge()!.commitAssetPurge(preview, authorization)
     for (const id of result.deletedIds) this.invalidateAssetObjectUrl(id)
     return result

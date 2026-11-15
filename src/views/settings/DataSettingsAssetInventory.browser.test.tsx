@@ -37,6 +37,7 @@ async function run(): Promise<void> {
   const originalCancelAssetPurge = storage.cancelAssetPurge
   let previewCalls = 0
   let commitCalls = 0
+  const commitAuthorizations: Array<string | undefined> = []
   let prepareCalls = 0
   let cancelCalls = 0
   const quickAssetId = await storage.saveAsset(new Blob(['abc'], { type: 'image/png' }), 'image/png')
@@ -75,7 +76,8 @@ async function run(): Promise<void> {
     }
   }
   storage.cancelAssetPurge = async () => { cancelCalls += 1 }
-  storage.commitAssetPurge = async () => {
+  storage.commitAssetPurge = async (_preview, authorization) => {
+    commitAuthorizations.push(authorization)
     commitCalls += 1
     if (commitCalls === 1) throw new StorageRevisionConflictError(7, 8)
     return { revision: 8, deletedIds: ['orphan-only'] }
@@ -110,83 +112,53 @@ async function run(): Promise<void> {
     assert(Number(previewCalls) === 1, '打开清理确认前必须只执行一次真实 preview')
     assert(document.body.textContent?.includes('历史备份不会被扫描或修改'), 'UI 必须明确历史备份不在清理范围')
     assert(document.body.textContent?.includes('数据版本：7'), 'UI 必须展示绑定提交的数据版本')
-    assert(document.body.textContent?.includes('导出恢复归档（必需）'), '永久清理必须先提供恢复归档入口')
-    const deleteButton = [...document.body.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('确认永久清理')) as HTMLButtonElement | undefined
-    const checkbox = document.body.querySelector<HTMLInputElement>('input[type="checkbox"]')
-    assert(checkbox && !checkbox.disabled, '预览完成后必须允许用户确认候选范围')
-    assert(deleteButton?.disabled, '未人工确认时永久删除必须禁用')
-    checkbox.click()
-    assert(deleteButton.disabled, '仅人工确认但尚未导出恢复归档时不得解锁永久删除')
-    const firstArchiveButton = [...document.body.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent?.includes('导出恢复归档（必需）'))
-    assert(firstArchiveButton, '永久清理缺少必需的恢复归档动作')
-    firstArchiveButton.click()
-    await waitFor(() => document.body.textContent?.includes('恢复归档已导出') === true, '必需恢复归档未成功导出')
-    const refreshedCheckbox = document.body.querySelector<HTMLInputElement>('input[type="checkbox"]')
-    refreshedCheckbox?.click()
-    const refreshedDeleteButton = [...document.body.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('确认永久清理')) as HTMLButtonElement | undefined
-    await waitFor(() => refreshedDeleteButton?.disabled === false, '恢复归档导出并人工确认后提交按钮未解锁')
-    refreshedDeleteButton!.click()
-    await waitFor(() => !document.body.textContent?.includes('数据版本：7'), 'stale commit 后必须丢弃 modal/preview')
-    assert(Number(commitCalls) === 1 && Number(prepareCalls) === 1 && cancelCalls >= 1, 'stale 时必须消费恢复归档授权并取消旧 preview')
+    const findAction = (text: string) => [...document.body.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.trim() === text)
+    assert(findAction('导出恢复归档（可选）'), '恢复归档必须明确为可选操作')
+    assert(!document.querySelector('.data-purge-body input[type="checkbox"]'), '单次确认弹窗不再额外要求勾选')
+    const deleteButton = findAction('确认永久清理')
+    assert(deleteButton && !deleteButton.disabled, '完成预览后必须能直接确认，无需导出归档')
+    deleteButton.click()
+    await waitFor(() => !document.body.textContent?.includes('数据版本：7'), 'stale commit 后必须丢弃旧预览')
+    assert(Number(commitCalls) === 1 && Number(prepareCalls) === 0 && cancelCalls >= 1, '直接确认不应导出归档，stale 后仍要重新预览')
+    assert(commitAuthorizations[0] === undefined, '直接清理必须向后端省略可选授权')
 
-    const reopenPreview = [...container.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('清理孤立附件'))
-    assert(reopenPreview, 'stale 后必须能从完整预览流程重试')
+    const reopenPreview = [...container.querySelectorAll<HTMLButtonElement>('button')].find(button => button.textContent?.includes('清理孤立附件'))!
     reopenPreview.click()
-    await waitFor(() => document.body.textContent?.includes('数据版本：7') === true, '清理确认重试未打开')
-    const retryArchive = [...document.body.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent?.includes('导出恢复归档（必需）'))
-    retryArchive?.click()
-    await waitFor(() => document.body.textContent?.includes('恢复归档已导出') === true, '重试恢复归档未成功导出')
-    const retryCheckbox = document.body.querySelector<HTMLInputElement>('input[type="checkbox"]')
-    retryCheckbox?.click()
-    const retryDelete = [...document.body.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('确认永久清理')) as HTMLButtonElement | undefined
-    await waitFor(() => retryDelete?.disabled === false, '重试确认未解锁')
-    retryDelete!.click()
-    await waitFor(() => !document.body.textContent?.includes('数据版本：7'), '成功提交后 modal 未关闭')
-    assert(Number(commitCalls) === 2 && Number(prepareCalls) === 2, 'stale 后必须重新导出恢复归档并确认才能成功提交')
+    await waitFor(() => Boolean(findAction('确认永久清理')), '清理重试未打开')
+    findAction('确认永久清理')!.click()
+    await waitFor(() => !document.body.textContent?.includes('数据版本：7'), '成功清理后弹窗未关闭')
+    assert(Number(commitCalls) === 2 && Number(prepareCalls) === 0, '重新预览后可直接确认成功，不强制生成恢复归档')
 
     const cancelCallsBefore = cancelCalls
     reopenPreview.click()
-    await waitFor(() => document.body.textContent?.includes('数据版本：7') === true, '取消场景未打开')
-    const archiveButton = [...document.body.querySelectorAll('button')]
-      .find((button) => button.textContent?.includes('导出恢复归档（必需）'))
-    assert(archiveButton, '缺少必需恢复归档动作')
+    await waitFor(() => Boolean(findAction('导出恢复归档（可选）')), '手动导出场景未打开')
+    const archiveButton = findAction('导出恢复归档（可选）')!
+    assert(!archiveButton.classList.contains('ui-btn-primary'), '清理可用时，可选导出不应抢占主操作')
     archiveButton.click()
-    await waitFor(() => document.body.textContent?.includes('恢复归档已导出') === true, '用户主动导出恢复归档未成功')
-    assert(Number(prepareCalls) === 3, '每次永久清理预览都必须生成独立恢复归档授权')
-    const cancelButton = [...document.body.querySelectorAll('button')]
-      .find((button) => button.textContent?.trim() === '取消')
-    assert(cancelButton, '开闸模式必须可取消')
-    cancelButton.click()
+    await waitFor(() => Boolean(findAction('恢复归档已导出')), '可选恢复归档未成功导出')
+    assert(Number(prepareCalls) === 1 && !findAction('确认永久清理')?.disabled, '导出成功后不应额外要求勾选确认')
+    findAction('取消')!.click()
     await waitFor(() => !document.body.textContent?.includes('数据版本：7'), '取消后必须关闭弹窗')
-    assert(Number(commitCalls) === 2 && cancelCalls >= cancelCallsBefore + 2, '取消预览必须零写入并撤销归档前后的 adapter preview')
+    assert(Number(commitCalls) === 2 && cancelCalls >= cancelCallsBefore + 2, '取消只消费预览，不执行清理')
 
     const successfulPrepare = storage.prepareAssetPurgeRecovery
-    storage.prepareAssetPurgeRecovery = async () => { throw new Error('恢复归档导出已取消') }
+    let canceledExportStarted = false
+    storage.prepareAssetPurgeRecovery = async () => { canceledExportStarted = true; throw new Error('恢复归档导出已取消') }
     reopenPreview.click()
-    await waitFor(() => document.body.textContent?.includes('数据版本：7') === true, '取消保存场景未打开')
-    const recoveryAction = [...document.body.querySelectorAll<HTMLButtonElement>('button')]
-      .find((button) => button.textContent?.includes('导出恢复归档（必需）'))!
-    assert(recoveryAction.classList.contains('ui-btn-primary'), '未归档时推荐的归档操作必须是主按钮')
+    await waitFor(() => Boolean(findAction('导出恢复归档（可选）')), '取消导出场景未打开')
+    const recoveryAction = findAction('导出恢复归档（可选）')!
     recoveryAction.click()
-    await waitFor(() => !recoveryAction.disabled, '取消保存后必须可重试')
-    assert(document.body.textContent?.includes('数据版本：7'), '取消保存不得关闭清理预览')
-    assert(!document.body.textContent?.includes('恢复归档未完成'), '取消保存不应报错')
+    await waitFor(() => canceledExportStarted && !findAction('确认永久清理')?.disabled && !recoveryAction.disabled, '取消导出后必须可重试并允许直接清理')
+    assert(!findAction('确认永久清理')?.disabled, '取消可选导出不能阻止直接清理')
+    assert(!document.body.textContent?.includes('恢复归档导出失败'), '取消保存不应报错')
     storage.prepareAssetPurgeRecovery = async () => { throw new Error('测试：磁盘空间不足') }
     recoveryAction.click()
-    await waitFor(() => document.body.textContent?.includes('恢复归档未完成') === true, '归档失败必须持续显示解决办法')
-    assert(document.body.textContent?.includes('选择其他保存位置'), '失败必须说明更换位置的路径')
-    assert(Number(commitCalls) === 2, '归档失败不得执行清理')
+    await waitFor(() => document.body.textContent?.includes('恢复归档导出失败') === true, '导出失败应保留可见提示')
+    assert(!findAction('确认永久清理')?.disabled, '导出失败也不应成为清理的前置门槛')
+    findAction('确认永久清理')!.click()
+    await waitFor(() => !document.body.textContent?.includes('数据版本：7'), '可选导出失败后仍应能直接完成清理')
+    assert(Number(commitCalls) === 3 && commitAuthorizations[2] === undefined, '可选导出失败后必须省略授权直接提交')
     storage.prepareAssetPurgeRecovery = successfulPrepare
-    recoveryAction.click()
-    await waitFor(() => document.body.textContent?.includes('步骤 2 / 2') === true, '原地重试归档必须进入第二步')
-    ;[...document.body.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '取消')!.click()
-    await waitFor(() => !document.body.textContent?.includes('数据版本：7'), '重试后取消必须关闭')
 
     // 默认未开闸：只展示预览与导出，不出现永久删除主 CTA
     root.render(<MemoryRouter><DataSettingsPanel assetPurgeCommitEnabled={false} /></MemoryRouter>)

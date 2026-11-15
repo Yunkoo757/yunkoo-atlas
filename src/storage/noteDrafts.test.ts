@@ -233,3 +233,18 @@ export async function testQuickNoteDraftFlushesToIndependentNoteStore(): Promise
     useStore.setState({ quickNotes: originalNotes })
   }
 }
+
+export function testRecoveryDraftSnapshotSynchronizesLinkedCaseSource(): void {
+  resetNoteDraftsForTests()
+  const snapshot = createFullPersistedSnapshotFixture()
+  const source = snapshot.trades[0]!
+  const own = { ...source, id: 'recovery-case', ref: 'CAS-RECOVERY', tradeKind: 'case' as const, sourceTradeId: source.id, sourceNoteHtml: source.note, note: '<p>独立案例结论</p>' }
+  snapshot.trades = [source, own]
+  try {
+    setNoteDraft(source.id, '<p>尚未冲洗的最新来源</p>')
+    const recovery = applyNoteDraftsToSnapshot(snapshot)
+    assert(recovery.trades[1]!.sourceNoteHtml === recovery.trades[0]!.note, '冲突恢复副本必须保持来源与关联案例一致')
+    assert(recovery.trades[1]!.note === own.note, '恢复草稿不得覆盖独立案例正文')
+    assert(snapshot.trades[0] === source && snapshot.trades[1] === own, '恢复投影不得改写原快照')
+  } finally { resetNoteDraftsForTests() }
+}

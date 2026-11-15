@@ -308,7 +308,7 @@ export async function testComposerCommitsNewAssetsAndTradeAsOneMergeBatch(): Pro
   }
 }
 
-export async function testComposerSourceCommitKeepsCaseSnapshotFrozen(): Promise<void> {
+export async function testComposerSourceCommitSynchronizesCaseSnapshot(): Promise<void> {
   const previous = useStore.getState()
   const stagedSource = { ...sourceTrade, liveStageId: previous.currentLiveStageId }
   const stagedCase = { ...sourceCase, liveStageId: previous.currentLiveStageId }
@@ -332,8 +332,8 @@ export async function testComposerSourceCommitKeepsCaseSnapshotFrozen(): Promise
     const committedCase = committedSnapshot?.trades.find((trade) => trade.id === sourceCase.id)
     const publishedCase = useStore.getState().trades.find((trade) => trade.id === sourceCase.id)
     assert(result.trade?.note.includes('composer-source-latest-asset'), 'Composer 成功结果必须包含最新来源截图')
-    assert(committedCase?.sourceNoteHtml === stagedCase.sourceNoteHtml, '来源更新不得覆盖案例冻结快照')
-    assert(publishedCase?.sourceNoteHtml === stagedCase.sourceNoteHtml, '发布后案例冻结快照必须保持不变')
+    assert(committedCase?.sourceNoteHtml === committedSource?.note, '来源正文与截图必须在同一提交中同步关联案例')
+    assert(publishedCase?.sourceNoteHtml === committedSource?.note, '发布后案例必须显示同一份已提交的来源正文和截图')
     assert(committedCase?.note === stagedCase.note && publishedCase?.note === stagedCase.note, '来源同步不得覆盖案例正文')
     assert(committedCase?.activities === stagedCase.activities, '来源同步不得创建或替换案例活动')
     assert(publishedCase?.activities === stagedCase.activities, '发布 patch 必须保留案例活动引用')
@@ -342,8 +342,8 @@ export async function testComposerSourceCommitKeepsCaseSnapshotFrozen(): Promise
     useStore.getState().removeTrade(sourceTrade.id)
     useStore.getState().purgeTrade(sourceTrade.id)
     assert(
-      !collectAssetIdsFromNotes(useStore.getState().trades).includes('composer-source-latest-asset'),
-      '来源 purge 后未被案例冻结快照引用的新截图可以回收',
+      collectAssetIdsFromNotes(useStore.getState().trades).includes('composer-source-latest-asset'),
+      '来源 purge 后案例仍引用最后同步的截图，不得被附件清理误删',
     )
   } finally {
     useStore.setState({ trades: previous.trades })

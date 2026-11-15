@@ -104,3 +104,19 @@ export async function testFailedNativeAssetReadCanBeRetried() {
     assert.equal(created.length, 1)
   })
 }
+
+export async function testAssetPurgeWithoutRecoveryArchiveReachesNativeBridge(): Promise<void> {
+  const preview = { operationId: 'direct-cleanup', revision: 0, candidateIds: ['deleted-asset'], totalBytes: 3 }
+  let received: unknown = 'not-called'
+  await isolated(async id => image(id), async (adapter, _created, revoked) => {
+    const url = await adapter.getAssetObjectUrl('deleted-asset')
+    const result = await adapter.commitAssetPurge(preview)
+    assert.deepEqual(result.deletedIds, ['deleted-asset'])
+    assert.equal(received, undefined, '直接清理不要求恢复归档授权')
+    assert(revoked.includes(url!), '只有后端成功删除后才失效该附件缓存')
+  }, { commitAssetPurge: async (value, authorization) => {
+    assert.equal(value, preview)
+    received = authorization
+    return { revision: 1, deletedIds: ['deleted-asset'] }
+  } })
+}
