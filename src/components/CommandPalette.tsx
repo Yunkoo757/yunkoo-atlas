@@ -1,4 +1,4 @@
-import { backtestProjectIdForPath } from '@/lib/backtestProjects'
+import { createRecordForContext, resolveCreateRecordAction } from '@/lib/createRecordAction'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -28,7 +28,6 @@ import {
   FileText,
 } from '@/icons/appIcons'
 import { findTradeByRouteParam, tradeDetailPath } from '@/lib/tradeRoute'
-import { newTradeKindForPath } from '@/lib/tradeKind'
 import { sortStrategies } from '@/lib/strategies'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { matchesSearchQuery } from '@/lib/tradeFilters'
@@ -268,8 +267,8 @@ function CommandPaletteDialog({
       },
     ]
     const actions: Cmd[] = [
-      { id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: '记录交易', hint: shortcutHint('global.newTrade'), run: () => { requestClose(); openComposer(null, newTradeKindForPath(pathname, search), backtestProjectIdForPath(pathname, useStore.getState().trades)) } },
-      { id: 'a-new-case', group: '操作', icon: <BookOpen size={ICON_MD} />, label: '新建案例', hint: shortcutHint('global.newCase'), run: () => { requestClose(); openComposer(null, 'case') } },
+      { id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: resolveCreateRecordAction(pathname, search).label, hint: shortcutHint(resolveCreateRecordAction(pathname, search).actionId), run: () => { requestClose(); createRecordForContext(pathname, search, navigate) } },
+      ...(resolveCreateRecordAction(pathname, search).kind === 'case' ? [] : [{ id: 'a-new-case', group: '操作', icon: <BookOpen size={ICON_MD} />, label: '新建案例', hint: shortcutHint('global.newCase'), run: () => { requestClose(); openComposer(null, 'case') } }]),
       { id: 'a-fullscreen', group: '操作', icon: <Maximize2 size={ICON_MD} />, label: '切换应用全屏', hint: shortcutHint('global.toggleFullscreen'), run: () => {
         requestClose()
         const bridge = window.journalBridge

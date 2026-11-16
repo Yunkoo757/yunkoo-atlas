@@ -299,13 +299,13 @@ export function testShortcutHintsReflectCustomAndDisabledBindings(): void {
     'global.newTrade': { alt: true, key: 'x' },
   })
   assert(custom.hint === (macHints ? '⌥X' : 'Alt+X'), '悬停提示应显示用户当前的自定义绑定')
-  assert(custom.ariaLabel === (macHints ? '新建交易（⌥X）' : '新建交易（Alt+X）'), '无障碍名称应包含当前绑定')
+  assert(custom.ariaLabel === '新建交易', '无障碍动作名称不随绑定变化')
 
   const disabled = getShortcutHintModel('global.newTrade', {
     'global.newTrade': null,
   })
   assert(disabled.hint === null, '禁用快捷键后不应回退显示旧默认键')
-  assert(disabled.ariaLabel === '新建交易（未设置快捷键）', '禁用状态应明确说明未设置')
+  assert(disabled.ariaLabel === '新建交易', '禁用快捷键仍保留动作名称')
 }
 
 export function testLegacyModuleShortcutMigratesToTradeWorkspace(): void {
@@ -342,7 +342,7 @@ export function testWindowHotkeyDisablesConflictingOrdinaryShortcut(): void {
     const bindings = useShortcutStore.getState().bindings
 
     assert(bindings['global.commandPaletteMod'] === null, '系统键应禁用冲突的普通快捷键')
-    assert(clearedLabels.includes('命令面板（Ctrl+K）'), '应返回被禁用动作的名称')
+    assert(clearedLabels.includes('备用命令面板'), '应返回被禁用动作的名称')
     assert(
       !('app.toggleWindow' in bindingsForPersist(bindings)),
       '系统窗口热键不得写入普通快捷键资料库',
@@ -371,7 +371,7 @@ export function testHydrationDisablesActiveSystemHotkeyConflict(): void {
   try {
     useShortcutStore.getState().setWindowHotkeyState({ binding: { key: 't' }, registered: true })
     const cleared = useShortcutStore.getState().hydrateBindings({})
-    assert(cleared.includes('命令面板（Ctrl+K）'), '水合必须协调全部 scope 的系统热键冲突')
+    assert(cleared.includes('备用命令面板'), '水合必须协调全部 scope 的系统热键冲突')
     assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] === null, '系统热键必须优先并产生 null 覆盖')
     useShortcutStore.getState().hydrateBindings({ 'global.commandPaletteMod': { key: 't' } })
     assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] === null, '切库后的再次水合必须重新协调冲突')

@@ -294,3 +294,7 @@
   .review-template-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-1); border-right: 0; border-bottom: 1px solid var(--border-subtle); }
   .review-pin-setting { align-items: start; flex-direction: column; gap: var(--sp-3); }
 }
+
+.review-template-preview { margin-top: var(--space-section-gap); color: var(--text-secondary); font-size: var(--type-row-size); line-height: var(--type-row-line-height); }
+.review-template-preview summary { cursor: pointer; }
+.review-template-preview p { margin: var(--sp-2) 0; }

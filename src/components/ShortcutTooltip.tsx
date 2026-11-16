@@ -28,7 +28,7 @@ export function ShortcutTooltip({
   if (!model.hint) return trigger
 
   const shortcutOnly = mode === 'shortcut'
-  const tipLabel = shortcutOnly ? model.hint : model.ariaLabel
+  const tipLabel = shortcutOnly ? model.hint : `${model.label}（${model.hint}）`
 
   return (
     <Tooltip

@@ -281,7 +281,7 @@ export async function testUserDataStorageHasNoCloudSyncSurfaceOrRuntime(): Promi
   }
   assert(!storage.includes('findIcloudConflictDbCandidate'), '本地存储不得保留云盘冲突副本恢复实现')
   assert(!app.includes('/settings/sync'), '设置中不得保留云同步入口')
-  assert(dataSettings.includes('本机磁盘'), '数据设置必须明确资料库保存在本机磁盘')
+  assert(dataSettings.includes('本地资料库') && dataSettings.includes('libraryPath'), '数据设置必须标明本地资料库，并保留实际库路径供复核')
   assert(welcome.includes('定期创建完整备份'), '首次建库必须给出本地备份建议')
 }
 

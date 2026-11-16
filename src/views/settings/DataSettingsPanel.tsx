@@ -441,101 +441,6 @@ export function DataSettingsPanel({
       <div className="settings-page-head">
         <h1 className="settings-page-title">数据</h1>
       </div>
-      <DataIOContent
-        onLibraryChanged={() => {
-          void refreshBackups()
-          void refreshHealth()
-        }}
-      />
-      <DataOrganizationPanel day={currentTradingDayKey} onCompleted={() => { void refreshBackups(); void refreshHealth() }} />
-      <section className="settings-page-section">
-        <div className="settings-page-head">
-          <h2 className="settings-section-title">实盘阶段</h2>
-        </div>
-        <LivePerformanceCycleControl onManage={() => setStageManagerOpen(true)} />
-      </section>
-      {stageManagerOpen ? (
-        <LiveStageManager
-          currentTradingDayKey={currentTradingDayKey}
-          onClose={() => setStageManagerOpen(false)}
-        />
-      ) : null}
-
-      {/* 存储健康面板 */}
-      <section className="settings-page-section">
-        <div className="settings-page-head">
-          <h2 className="settings-section-title">资料概况</h2>
-        </div>
-
-        <StageOwnershipHealthEntry />
-        <StageOwnershipAutoRepair />
-
-        {healthError && (
-          <div className="data-attention-row is-danger" role="alert">
-            <AlertCircle size={ICON_SM} />
-            <span>
-              <strong>无法读取资料概况</strong>
-              <small>{healthError}</small>
-            </span>
-          </div>
-        )}
-
-        {health && (
-          <div className="storage-summary" aria-label="资料库概况">
-            <span><Database size={ICON_SM} /><strong>{health.storage.tradeCount}</strong> 笔交易</span>
-            <span><Image size={ICON_SM} /><strong>{health.storage.attachmentStats.count}</strong> 张图片 · {health.storage.attachmentStats.formattedSize}</span>
-            {electron ? <span><HardDrive size={ICON_SM} /><strong>{health.backupCount}</strong> 份备份 · {fmtBackupSize(health.backupTotalSize)}</span> : null}
-          </div>
-        )}
-
-        {health && (
-          health.storage.attachmentStats.missingCount > 0 ||
-          health.storage.inventory.orphan.length > 0 ||
-          health.storage.inventory.foreign.length > 0 ||
-          health.storage.inventory.temp.length > 0
-        ) ? (
-          <div className="data-attention-row">
-            <AlertCircle size={ICON_SM} />
-            <span>
-              <strong>附件需要整理</strong>
-              <small>
-                {[
-                  health.storage.attachmentStats.missingCount > 0 ? `${health.storage.attachmentStats.missingCount} 张缺失或损坏` : '',
-                  health.storage.inventory.orphan.length > 0 ? `${health.storage.inventory.orphan.length} 张未被引用` : '',
-                  health.storage.inventory.foreign.length > 0 ? `${health.storage.inventory.foreign.length} 个未知项` : '',
-                  health.storage.inventory.temp.length > 0 ? `${health.storage.inventory.temp.length} 个临时项` : '',
-                ].filter(Boolean).join(' · ')}
-              </small>
-            </span>
-          </div>
-        ) : null}
-
-        <button
-          className="dio-btn data-refresh-action"
-          onClick={refreshHealth}
-        >
-          刷新
-        </button>
-        {health && health.storage.inventory.orphan.length > 0 ? (
-          <div className="data-actions-row is-top">
-            <button
-              type="button"
-              className="dio-btn dio-btn-warn"
-              disabled={purgeBusy}
-              onClick={() => void handlePreviewAssetPurge()}
-            >
-              <Trash2 size={ICON_SM} />
-              <span>{purgeBusy ? '扫描中…' : '清理孤立附件'}</span>
-            </button>
-            <p className="data-support-note">
-              {assetPurgeCommitEnabled
-                ? '只处理当前资料库中未被任何内容引用的附件；恢复归档可按需导出。'
-                : '当前已关闭永久清理，只提供候选预览和恢复归档导出。'}
-            </p>
-          </div>
-        ) : null}
-      </section>
-
       {electron && (
         <section className="settings-page-section">
           <div className="settings-page-head">
@@ -649,6 +554,101 @@ export function DataSettingsPanel({
           )}
         </section>
       )}
+      <DataIOContent
+        onLibraryChanged={() => {
+          void refreshBackups()
+          void refreshHealth()
+        }}
+      />
+      <DataOrganizationPanel day={currentTradingDayKey} onCompleted={() => { void refreshBackups(); void refreshHealth() }} />
+      <section className="settings-page-section">
+        <div className="settings-page-head">
+          <h2 className="settings-section-title">实盘阶段</h2>
+        </div>
+        <LivePerformanceCycleControl onManage={() => setStageManagerOpen(true)} />
+      </section>
+      {stageManagerOpen ? (
+        <LiveStageManager
+          currentTradingDayKey={currentTradingDayKey}
+          onClose={() => setStageManagerOpen(false)}
+        />
+      ) : null}
+
+      {/* 存储健康面板 */}
+      <section className="settings-page-section">
+        <div className="settings-page-head">
+          <h2 className="settings-section-title">资料概况</h2>
+        </div>
+
+        <StageOwnershipHealthEntry />
+        <StageOwnershipAutoRepair />
+
+        {healthError && (
+          <div className="data-attention-row is-danger" role="alert">
+            <AlertCircle size={ICON_SM} />
+            <span>
+              <strong>无法读取资料概况</strong>
+              <small>{healthError}</small>
+            </span>
+          </div>
+        )}
+
+        {health && (
+          <div className="storage-summary" aria-label="资料库概况">
+            <span><Database size={ICON_SM} /><strong>{health.storage.tradeCount}</strong> 笔交易</span>
+            <span><Image size={ICON_SM} /><strong>{health.storage.attachmentStats.count}</strong> 张图片 · {health.storage.attachmentStats.formattedSize}</span>
+            {electron ? <span><HardDrive size={ICON_SM} /><strong>{health.backupCount}</strong> 份备份 · {fmtBackupSize(health.backupTotalSize)}</span> : null}
+          </div>
+        )}
+
+        {health && (
+          health.storage.attachmentStats.missingCount > 0 ||
+          health.storage.inventory.orphan.length > 0 ||
+          health.storage.inventory.foreign.length > 0 ||
+          health.storage.inventory.temp.length > 0
+        ) ? (
+          <div className="data-attention-row">
+            <AlertCircle size={ICON_SM} />
+            <span>
+              <strong>附件需要整理</strong>
+              <small>
+                {[
+                  health.storage.attachmentStats.missingCount > 0 ? `${health.storage.attachmentStats.missingCount} 张缺失或损坏` : '',
+                  health.storage.inventory.orphan.length > 0 ? `${health.storage.inventory.orphan.length} 张未被引用` : '',
+                  health.storage.inventory.foreign.length > 0 ? `${health.storage.inventory.foreign.length} 个未知项` : '',
+                  health.storage.inventory.temp.length > 0 ? `${health.storage.inventory.temp.length} 个临时项` : '',
+                ].filter(Boolean).join(' · ')}
+              </small>
+            </span>
+          </div>
+        ) : null}
+
+        <button
+          className="dio-btn data-refresh-action"
+          onClick={refreshHealth}
+        >
+          刷新
+        </button>
+        {health && health.storage.inventory.orphan.length > 0 ? (
+          <div className="data-actions-row is-top">
+            <button
+              type="button"
+              className="dio-btn dio-btn-warn"
+              disabled={purgeBusy}
+              onClick={() => void handlePreviewAssetPurge()}
+            >
+              <Trash2 size={ICON_SM} />
+              <span>{purgeBusy ? '扫描中…' : '清理孤立附件'}</span>
+            </button>
+            <p className="data-support-note">
+              {assetPurgeCommitEnabled
+                ? '只处理当前资料库中未被任何内容引用的附件；恢复归档可按需导出。'
+                : '当前已关闭永久清理，只提供候选预览和恢复归档导出。'}
+            </p>
+          </div>
+        ) : null}
+      </section>
+
       {confirmRequest ? (
         <ModalShell
           title={confirmRequest.kind === 'restore' ? '恢复这个备份？' : '删除这个备份？'}

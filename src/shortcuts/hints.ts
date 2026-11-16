@@ -21,6 +21,6 @@ export function getShortcutHintModel(
   return {
     label,
     hint,
-    ariaLabel: hint ? `${label}（${hint}）` : `${label}（未设置快捷键）`,
+    ariaLabel: label,
   }
 }

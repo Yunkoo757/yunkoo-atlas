@@ -229,3 +229,6 @@
 .quick-notes-empty {
   min-height: 0;
 }
+
+.quick-notes-actions-disclosure summary { cursor: pointer; list-style: none; }
+.quick-notes-actions-disclosure summary::-webkit-details-marker { display: none; }

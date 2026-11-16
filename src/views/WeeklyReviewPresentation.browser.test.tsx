@@ -101,7 +101,7 @@ async function run(): Promise<void> {
     )
 
     await waitFor(() => document.body.textContent?.includes('本周交易标签') ?? false, '自定义交易标签证据区未显示')
-    const pageHead = document.querySelector<HTMLElement>('.wr-page-head-inner')
+    const pageHead = document.querySelector<HTMLElement>('.wr-page-head')
     const content = document.querySelector<HTMLElement>('.wr-content')
     assert(pageHead && content, '周复盘缺少页头或正文轨道')
     const pageHeadRect = pageHead.getBoundingClientRect()
@@ -114,8 +114,8 @@ async function run(): Promise<void> {
     })
     assert(elevatedSections.length <= 3, '周复盘保留了超过三块抬升章节')
     assert(!document.querySelector('.wr-progress-summary'), '完成态不应重复呈现进度摘要')
-    assert(document.querySelector('.wr-complete-banner'), '完成状态与日期必须保留')
-    assert(getComputedStyle(document.querySelector<HTMLElement>('.wr-footer-action')!).position === 'sticky', '周复盘主操作栏没有保持 sticky')
+    assert(document.querySelector('.wr-document-status:has(svg)'), '完成状态与日期必须保留')
+    assert(document.querySelector('.wr-toolbar button.ui-btn-ghost') && !document.querySelector('.wr-footer-action'), '操作必须集中在顶部，正文不得再有厚重吸底操作栏')
     assert(![...document.querySelectorAll<HTMLButtonElement>('.wr-tag-group button')].some((button) => button.textContent?.startsWith('FOMO')), '自定义交易标签不应成为统计选项')
     assert(document.querySelector('.wr-evidence-tags')?.textContent?.includes('FOMO×1'), '自定义标签及次数没有作为证据显示')
     const frozenPnl = [...document.querySelectorAll<HTMLElement>('.wr-metric')]
@@ -220,17 +220,19 @@ async function run(): Promise<void> {
     const reviewTab = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === '本周复盘')
     assert(reviewTab, '本周复盘入口不存在')
     reviewTab.click()
-    await waitFor(() => Boolean(document.querySelector('.wr-complete-banner')), '本周复盘页缺少完成状态')
+    await waitFor(() => Boolean(document.querySelector('.wr-document-status:has(svg)')), '本周复盘页缺少完成状态')
     await waitFor(() => Boolean(document.querySelector('.wr-history')), '有两条以上记录时必须显示左栏')
+    document.querySelector<HTMLDetailsElement>('.wr-record-picker')!.open = true
+    await waitForFrame()
     const rail = document.querySelector<HTMLElement>('.wr-history')
     const week = document.querySelector<HTMLElement>('.wr-history-week')
     const stage = document.querySelector<HTMLElement>('.wr-history-stage')
     assert(rail && week && stage, '左栏缺少周标识或阶段名结构')
     assert(rail.getBoundingClientRect().width >= 168, '左栏在常用桌面宽度下必须可读')
     assert(getComputedStyle(week).whiteSpace === 'nowrap', '周标识不得逐字换行')
-    const progress = document.querySelector<HTMLElement>('.wr-complete-banner')
+    const progress = document.querySelector<HTMLElement>('.wr-document-status:has(svg)')
     const sectionHead = document.querySelector<HTMLElement>('.wr-section-head')
-    const alignedPageHead = document.querySelector<HTMLElement>('.wr-page-head-inner')
+    const alignedPageHead = document.querySelector<HTMLElement>('.wr-page-head')
     assert(alignedPageHead && progress && sectionHead, '页头、进度或章节标题缺失')
     assert(
       Math.abs(alignedPageHead.getBoundingClientRect().left - sectionHead.getBoundingClientRect().left) < 1,

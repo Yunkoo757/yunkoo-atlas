@@ -6,7 +6,7 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 const SURFACES = [
-  { file: 'src/views/WeeklyReviewView.css', selectors: ['.wr-history-title', '.wr-history-week', '.wr-history-stage', '.wr-page-head h1', '.wr-section-head h2', '.wr-progress-summary'] },
+  { file: 'src/views/WeeklyReviewView.css', selectors: ['.wr-history-title', '.wr-history-week', '.wr-history-stage', '.wr-page-head h1', '.wr-section-head h2', '.wr-document-status'] },
   { file: 'src/views/ReviewSessionView.css', selectors: ['.review-session-settings-sources strong', '.review-session-settings-sources small', '.review-session-settings-count', '.review-session-intro h1'] },
   { file: 'src/views/settings/SettingsLayout.css', selectors: ['.settings-page-title', '.settings-section-title', '.settings-page-desc', '.settings-nav-item'] },
 ] as const

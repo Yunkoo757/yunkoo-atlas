@@ -260,7 +260,7 @@ async function run(): Promise<void> {
     nextSet = pendingSuccess
     await recordSystemChord({ ctrlKey: true, key: 'k' })
     await eventually(
-      () => document.querySelector('[role="dialog"]')?.textContent?.includes('命令面板（Ctrl+K）') === true,
+      () => document.querySelector('[role="dialog"]')?.textContent?.includes('备用命令面板') === true,
       '确认弹层应列出冲突动作',
     )
     assert(calls.length === 0, '确认冲突前不得调用 IPC')
@@ -277,7 +277,7 @@ async function run(): Promise<void> {
 
     useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': null } })
     useToast.getState().dismiss()
-    await recordOrdinaryChord('命令面板（Ctrl+K）', { ctrlKey: true, key: 'k' })
+    await recordOrdinaryChord('备用命令面板', { ctrlKey: true, key: 'k' })
     await eventually(
       () => useToast.getState().message === '该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键',
       '普通录制撞系统键时必须给出拒绝原因',
@@ -316,7 +316,7 @@ async function run(): Promise<void> {
     nextSet = 'failure'
     await recordSystemChord({ ctrlKey: true, key: 'k' })
     await eventually(
-      () => document.querySelector('[role="dialog"]')?.textContent?.includes('命令面板（Ctrl+K）') === true,
+      () => document.querySelector('[role="dialog"]')?.textContent?.includes('备用命令面板') === true,
       '失败场景未识别普通快捷键冲突',
     )
     clickButton('确认覆盖')
@@ -396,11 +396,11 @@ async function run(): Promise<void> {
     useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': null } })
     useToast.getState().dismiss()
     await eventually(
-      () => Boolean(document.querySelector('button[aria-label="恢复命令面板（Ctrl+K）的默认快捷键"]')),
+      () => Boolean(document.querySelector('button[aria-label="恢复备用命令面板的默认快捷键"]')),
       '缺少命令面板的单项恢复按钮',
     )
     const restoreCommandPalette = document.querySelector<HTMLButtonElement>(
-      'button[aria-label="恢复命令面板（Ctrl+K）的默认快捷键"]',
+      'button[aria-label="恢复备用命令面板的默认快捷键"]',
     )
     assert(restoreCommandPalette, '缺少命令面板的单项恢复按钮')
     restoreCommandPalette.click()

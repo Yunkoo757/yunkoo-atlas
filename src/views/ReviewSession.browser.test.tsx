@@ -291,8 +291,8 @@ async function run(): Promise<void> {
     assert(unfamiliarButton, '随机复盘缺少还没掌握动作')
     assert(skipButton, '随机复盘缺少跳过动作')
     assert(
-      unfamiliarButton.getAttribute('aria-label') === '还没掌握，3 天后再看（1）',
-      '默认掌握度 accessible name 必须同时保留评估标签、后果说明和真实快捷键',
+      unfamiliarButton.getAttribute('aria-label') === '还没掌握，3 天后再看',
+      '默认掌握度 accessible name 必须保留评估标签、后果说明；快捷键由 aria-keyshortcuts 表达',
     )
 
     useShortcutStore.getState().openLightbox([
@@ -335,15 +335,15 @@ async function run(): Promise<void> {
     assert(!unfamiliarButton.textContent?.includes('1'), '自定义绑定后不得继续显示旧默认键')
     assert(unfamiliarButton.getAttribute('aria-keyshortcuts') === 'X', '自定义绑定没有更新 aria-keyshortcuts')
     assert(
-      unfamiliarButton.getAttribute('aria-label') === '还没掌握，3 天后再看（X）',
-      '自定义绑定的 accessible name 必须保留评估标签、后果说明和真实快捷键',
+      unfamiliarButton.getAttribute('aria-label') === '还没掌握，3 天后再看',
+      '自定义绑定的 accessible name 必须稳定保留评估标签和后果说明',
     )
     await waitFor(
       () => !skipButton.querySelector('kbd'),
       '禁用跳过快捷键后仍显示旧默认键',
     )
     assert(!skipButton.hasAttribute('aria-keyshortcuts'), '禁用绑定后不得保留 aria-keyshortcuts')
-    assert(skipButton.getAttribute('aria-label') === '跳过（未设置快捷键）', '禁用绑定应明确说明未设置快捷键')
+    assert(skipButton.getAttribute('aria-label') === '跳过', '禁用绑定仍须保留动作名称')
     useShortcutStore.setState({
       bindings: {
         'reviewSession.unfamiliar': null,
@@ -356,7 +356,7 @@ async function run(): Promise<void> {
     )
     assert(!unfamiliarButton.hasAttribute('aria-keyshortcuts'), '禁用掌握度绑定后不得保留 aria-keyshortcuts')
     assert(
-      unfamiliarButton.getAttribute('aria-label') === '还没掌握，3 天后再看（未设置快捷键）',
+      unfamiliarButton.getAttribute('aria-label') === '还没掌握，3 天后再看',
       '禁用绑定的 accessible name 必须保留评估标签与后果说明且不得伪造快捷键',
     )
     useShortcutStore.setState({ bindings: {} })
@@ -505,7 +505,7 @@ async function run(): Promise<void> {
     useShortcutStore.setState({ bindings: { 'reviewSession.skip': null } })
     await waitFor(() => !accountNextButton.querySelector('kbd'), '账户下一条禁用绑定后仍显示伪造快捷键')
     assert(!accountNextButton.hasAttribute('aria-keyshortcuts'), '账户下一条禁用绑定后不得保留 aria-keyshortcuts')
-    assert(accountNextButton.getAttribute('aria-label') === '下一条（未设置快捷键）', '账户下一条禁用绑定必须明确说明未设置快捷键')
+    assert(accountNextButton.getAttribute('aria-label') === '下一条', '账户下一条禁用绑定不应改变动作名称')
     useShortcutStore.setState({ bindings: {} })
     await waitFor(() => accountNextButton.querySelector('kbd')?.textContent === 'N', '账户下一条恢复默认绑定后提示没有更新')
     const caseCountBeforeExtraction = useStore.getState().trades.filter((item) => item.tradeKind === 'case').length

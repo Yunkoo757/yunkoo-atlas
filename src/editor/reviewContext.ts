@@ -1,3 +1,4 @@
+import { reviewTemplateParagraphs } from '@/lib/reviewTemplateDocument'
 import { Node, mergeAttributes, type JSONContent } from '@tiptap/core'
 
 export const REVIEW_STARTER_LABELS = ['HTF 背景', 'MTF 触发', 'LTF 执行', '复盘结论'] as const
@@ -25,39 +26,6 @@ export const ReviewContext = Node.create({
 function nodeText(node: JSONContent): string {
   if (node.type === 'text') return node.text ?? ''
   return (node.content ?? []).map(nodeText).join('')
-}
-
-function reviewStarterParagraph(label: string): JSONContent {
-  return {
-    type: 'paragraph',
-    content: [{
-      type: 'text',
-      text: `${label}：`,
-      marks: [{ type: 'bold' }],
-    }],
-  }
-}
-
-function reviewTemplateParagraph(line: string): JSONContent {
-  const match = /^([^：:]{1,32}[：:])(.*)$/.exec(line)
-  if (!match) {
-    return line
-      ? { type: 'paragraph', content: [{ type: 'text', text: line }] }
-      : { type: 'paragraph' }
-  }
-  const content: JSONContent[] = [{
-    type: 'text',
-    text: match[1],
-    marks: [{ type: 'bold' }],
-  }]
-  if (match[2]) content.push({ type: 'text', text: match[2] })
-  return { type: 'paragraph', content }
-}
-
-function reviewTemplateParagraphs(templateContent?: string): JSONContent[] {
-  if (templateContent === undefined) return REVIEW_STARTER_LABELS.map(reviewStarterParagraph)
-  const lines = templateContent.replace(/\r\n?/g, '\n').split('\n')
-  return lines.length > 0 ? lines.map(reviewTemplateParagraph) : [{ type: 'paragraph' }]
 }
 
 export function hasReviewContextDocument(doc: JSONContent): boolean {

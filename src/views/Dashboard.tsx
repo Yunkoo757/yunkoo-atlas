@@ -336,9 +336,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
           <div className="db-data-health has-conflict" data-result-health-alert>
             <div>
               <span className="db-data-health-title">结果数据待处理</span>
-              <span className="db-data-health-copy">
-                盈亏 {stats.pnlCount}/{scopedClosedCount} · R {stats.rCount}/{scopedClosedCount}
-              </span>
+
             </div>
             <div className="db-data-health-state">
               {describeDashboardResultHealth(resultHealth)}

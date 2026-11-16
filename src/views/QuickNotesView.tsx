@@ -359,6 +359,7 @@ export function QuickNotesView() {
                     year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
                   }).format(new Date(selectedNote.updatedAt))}
                 </span>
+                <details className="quick-notes-actions-disclosure"><summary className="ui-btn ui-btn-ghost ui-btn-sm">随记操作</summary>
                 <div className="quick-notes-editor-organize">
                   <Button
                     size="sm"
@@ -379,6 +380,7 @@ export function QuickNotesView() {
                     转为案例
                   </Button>
                 </div>
+                </details>
               </div>
               <div className="quick-notes-editor-body">
                 {loadState === 'loading' ? (

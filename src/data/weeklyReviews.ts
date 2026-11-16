@@ -9,7 +9,7 @@ import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { isExecutedClosed, isMissed } from '@/lib/tradeStatus'
 import { summarizeTradeResults } from '@/lib/tradeTruth'
 import { closedTradingDayKey, resolveRiskOutcomes } from '@/lib/riskBudget'
-import { activeRiskPolicy } from '@/lib/riskPolicy'
+import { activeRiskPolicy } from '@/lib/activeRiskPolicy'
 import type { LiveStage } from '@/lib/liveStages'
 import type { LegacyCashCurrencyAssumption, UserProfile } from '@/storage/types'
 import {
@@ -294,6 +294,7 @@ export function deriveWeeklyReviewWeeks(
   tradingDayStartHour = 0,
   activityLimit = 12,
   currentTradingDayKey = weekEndFor(currentWeek),
+  options: { includeCurrentWeek?: boolean } = {},
 ): string[] {
   const limit = Math.max(0, Math.trunc(activityLimit))
   const selection = buildPerformanceSelection(trades, {
@@ -319,7 +320,7 @@ export function deriveWeeklyReviewWeeks(
     .sort((left, right) => right.localeCompare(left))
     .slice(0, limit)
   return [...new Set([
-    currentWeek,
+    ...(options.includeCurrentWeek === false ? [] : [currentWeek]),
     ...reviews.map((review) => review.weekStart),
     ...activityWeeks,
   ])].sort((left, right) => right.localeCompare(left))

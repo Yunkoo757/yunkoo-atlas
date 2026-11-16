@@ -747,3 +747,5 @@ button.trade-row-symbol-main {
 }
 
 .trade-row-date-detail { pointer-events:auto; padding:0; border:0; background:transparent; color:inherit; font:inherit; cursor:pointer; }
+
+.trade-row-case-summary { min-width: 0; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); font-size: var(--type-row-size); line-height: var(--type-row-line-height); }

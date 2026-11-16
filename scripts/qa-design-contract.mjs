@@ -126,7 +126,7 @@ const checks = [
       /\.review-session-stage-option\s*\{[^}]*background:\s*var\(--surface-elevated\);/s.test(reviewSessionStyles) &&
       /\.review-session-assessment\s*\{[^}]*background:\s*var\(--surface-elevated\);/s.test(reviewSessionStyles) &&
       /\.trash-item\s*\{[^}]*border-bottom:\s*1px solid var\(--border-subtle\);/s.test(trashStyles) &&
-      /\.wr-history\s*\{[^}]*background:\s*var\(--surface-pane\);/s.test(weeklyReviewStyles),
+      /\.wr-shell\s*\{[^}]*background:\s*var\(--surface-pane\);/s.test(weeklyReviewStyles),
   ],
   [
     'cards and floating controls keep carrier-specific interaction states',

@@ -16,7 +16,7 @@ export function testCompactDesktopLayoutsRemainReadable(): void {
   const weekly = compactDesktopBlock(read('src/views/WeeklyReviewView.css'), 'WeeklyReviewView.css')
   const settings = compactDesktopBlock(read('src/views/settings/SettingsLayout.css'), 'SettingsLayout.css')
 
-  if (!weekly.includes('.wr-page-head-inner')) {
+  if (!weekly.includes('.wr-record-picker > summary')) {
     throw new Error('周复盘页头必须提供紧凑桌面布局')
   }
   if (!settings.includes('width: 164px')) {
@@ -24,10 +24,10 @@ export function testCompactDesktopLayoutsRemainReadable(): void {
   }
 }
 
-export function testWeeklyTabsDoNotWrapOnCompactDesktop(): void {
+export function testWeeklyViewSwitchUsesACompactSharedAction(): void {
   const source = read('src/views/WeeklyReviewView.tsx')
-  const css = read('src/components/ui/SegmentedControl.css')
-  if (!source.includes('<SegmentedControl<WeeklyReviewTab>') || !/\.ui-segmented-option\s*\{[^}]*white-space:\s*nowrap/s.test(css)) {
-    throw new Error('周复盘切换标签不得换行')
+  const css = read('src/components/ui/Button.css')
+  if (!source.includes('className="wr-view-switch"') || !source.includes('<Button id="weekly-review-tab-year" variant="ghost" size="sm"') || !css.includes('white-space: nowrap')) {
+    throw new Error('周复盘视图入口必须复用紧凑公共按钮并避免换行')
   }
 }

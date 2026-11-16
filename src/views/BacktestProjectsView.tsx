@@ -201,7 +201,7 @@ export function BacktestProjectsView() {
   ] : []
   return <div className={`backtest-page${id ? ' is-project' : ''}`}>
     <Toolbar title={project?.name ?? '回测项目'} titleTooltip={Boolean(project)} context={project ? <span className="backtest-progress">已确认 {stats.evaluatedCount} / {project.targetCount}{project.archivedAt ? <span className="backtest-lifecycle">已归档</span> : project.completedAt ? <span className="backtest-lifecycle">已完成</span> : null}</span> : undefined}
-      actions={<><SaveStatusIndicator />{!id && <Button variant="primary" onClick={() => setEditing('new')}>新建项目</Button>}{project && <><Menu align="right" maxWidth={360} trigger={<Button variant="ghost" size="sm" aria-label="切换项目">切换项目</Button>} value={`project:${project.id}`} options={[
+      actions={<><SaveStatusIndicator />{!id && <Button variant="primary" onClick={() => setEditing('new')}>新建项目</Button>}{project && <><Button variant="primary" disabled={Boolean(project.archivedAt)} onClick={createRecord}>新建回测记录</Button><Menu align="right" maxWidth={360} trigger={<Button variant="ghost" size="sm" aria-label="切换项目">切换项目</Button>} value={`project:${project.id}`} options={[
         { value: 'all', label: '全部项目' }, { type: 'separator' },
         ...projects.map(item => ({ value: `project:${item.id}`, label: `${item.name}${item.archivedAt ? '（已归档）' : ''}` })),
       ]} onSelect={value => { setRecordScope('all'); navigate(value === 'all' ? '/backtests' : projectPath(value.slice('project:'.length))) }} />

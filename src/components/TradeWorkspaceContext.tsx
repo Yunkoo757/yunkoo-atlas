@@ -83,7 +83,8 @@ export function TradeWorkspaceContext({
   const linkedReviewStageId = page === 'review' && !params.has('liveStage')
     ? weeklyReviews.find((review) => review.id === params.get('review'))?.liveStageId
     : undefined
-  const contextStage = linkedReviewStageId ?? query.stage
+  const linkedStage = linkedReviewStageId === currentLiveStageId ? 'current' : linkedReviewStageId
+  const contextStage = linkedStage ?? query.stage
   const archived = [...liveStages]
     .filter((stage) => stage.status === 'archived')
     .sort((left, right) => right.sequence - left.sequence)
@@ -96,6 +97,10 @@ export function TradeWorkspaceContext({
 
   const update = (patch: Parameters<typeof writeTradeWorkspaceContext>[1]) => {
     const next = writeTradeWorkspaceContext(location.search, patch)
+    if (page === 'review' && patch.stage !== undefined) {
+      next.delete('review')
+      next.delete('week')
+    }
     const state = useStore.getState()
     const memory = state.display.workspaceMemory?.trade ?? { pathname: '/list', search: '' }
     state.setDisplay({

@@ -79,6 +79,15 @@ function clickButton(label: string, scope: ParentNode = document): HTMLButtonEle
   return button
 }
 
+async function chooseScore(fieldId: string, value: number): Promise<void> {
+  const trigger = document.querySelector<HTMLButtonElement>(`[data-weekly-field="${fieldId}"] [role="combobox"]`)
+  assert(trigger, `评分入口缺失：${fieldId}`)
+  trigger.click()
+  await waitFor(() => Boolean(document.querySelector(`[role="option"][data-value="${value}"]`)), '评分选项未展开')
+  document.querySelector<HTMLButtonElement>(`[role="option"][data-value="${value}"]`)!.click()
+  await waitForFrame()
+}
+
 function setInputValue(input: HTMLInputElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
   assert(setter, '浏览器缺少 input value setter')
@@ -261,6 +270,11 @@ function resolvedRiskEvent(): RiskOverrideEvent {
 function StoreRenderSentinel() {
   const trades = useStore((state) => state.trades)
   return <output data-testid="store-render-sentinel">{trades.length}:{trades.filter((trade) => trade.deletedAt).length}</output>
+}
+
+function currentWeekHeadingText(): string {
+  const week = weekStartFor(parseLocalDate(getTradingDayKey(new Date(), useStore.getState().display.tradingDayStartHour)))
+  return `${week.slice(0, 4)}年 · ${weekRangeText(week)}`
 }
 
 function weekRangeText(start: string): string {
@@ -506,8 +520,8 @@ async function run(): Promise<void> {
       .find((row) => row.textContent?.includes('错过 · 犹豫未进'))
     assert(missedRow && !missedRow.textContent?.includes('$'), '错过机会不得展示为真实盈亏')
     assert(missedRow.querySelectorAll('button').length === 0, '错过机会不应显示不可用的交易角色按钮')
-    assert(document.querySelectorAll('.wr-history button').length === 0, '首次复盘不应显示没有历史价值的周次栏')
-    assert(document.body.textContent?.includes('首次周复盘'), '首次复盘缺少明确的首次使用提示')
+    assert(document.querySelectorAll('.wr-history button').length === 1, '首次复盘也须保留当前周入口与稳定历史栏')
+    assert(document.querySelector('.wr-document-status') && [...document.querySelectorAll('button')].some(button => button.textContent?.includes('完成本周复盘')), '首次复盘必须直接提供进度与完成操作')
     const otherStageTrade = {
       ...makeTrade('other-stage', 'win', 9_000),
       liveStageId: 'stage-other',
@@ -525,7 +539,7 @@ async function run(): Promise<void> {
     useStore.setState({ weeklyReviews: [pendingReview] })
     await waitForFrames(2)
     assert(document.querySelector('[data-review-id="pending-review"]') === null, 'pending 复盘泄漏到正常历史列表')
-    assert(document.querySelector('.wr-history') === null, 'pending 复盘不得制造当前阶段历史入口')
+    assert(document.querySelectorAll('.wr-history button').length === 1, '未归属复盘不得增加当前阶段历史入口')
     assert(!document.body.textContent?.includes('PENDING-REVIEW-MUST-STAY-HIDDEN'), 'pending 复盘正文泄漏到当前页')
     useStore.setState({ weeklyReviews: [] })
     await waitForFrames(2)
@@ -582,7 +596,7 @@ async function run(): Promise<void> {
     pendingWeek.click()
     await waitFor(() => pendingWeek.classList.contains('is-active'), '待补做周无法切换')
     assert(useStore.getState().weeklyReviews.length === 0, '只查看待补做周不得创建空复盘')
-    clickButton('3')
+    await chooseScore('score-execution', 3)
     await waitFor(
       () => useStore.getState().weeklyReviews.some((review) => review.weekStart === priorActivityWeek),
       '首次编辑后没有创建待补做周复盘',
@@ -596,7 +610,7 @@ async function run(): Promise<void> {
       trades: state.trades.filter((trade) => trade.id !== priorActivityTrade.id),
       weeklyReviews: [],
     }))
-    await waitFor(() => document.querySelectorAll('.wr-history button').length === 0, '清除活动历史后首次复盘状态没有恢复')
+    await waitFor(() => document.querySelectorAll('.wr-history button').length === 1, '清除活动历史后应仅保留当前周入口')
 
     clickButton('完成本周复盘')
     await waitFor(() => Boolean(document.querySelector('.wr-issue-summary')), '缺少必填项时没有显示持久错误摘要')
@@ -606,10 +620,7 @@ async function run(): Promise<void> {
     assert(useStore.getState().weeklyReviews.every((item) => item.status !== 'completed'), '缺少必填项时不得完成复盘')
     assert(!document.querySelector('.toast'), '完成失败不得使用瞬时 Toast 代替持久错误摘要')
 
-    for (const group of document.querySelectorAll<HTMLElement>('.wr-score-row [role="radiogroup"]')) {
-      const score = [...group.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === '4')
-      score?.click()
-    }
+    for (const field of ['score-execution', 'score-risk', 'score-emotion']) await chooseScore(field, 4)
     clickButton('追价')
     const firstTrade = document.querySelector('.wr-trade-row')
     assert(firstTrade, '关键交易证据未渲染')
@@ -624,10 +635,10 @@ async function run(): Promise<void> {
     inputs[1]?.scrollIntoView({ block: 'center' })
     await waitForFrame()
     if (window.innerWidth === 960) {
-      const actionRail = document.querySelector<HTMLElement>('.wr-footer-action')
-      assert(actionRail, '周复盘缺少底部操作栏')
+      const actionRail = document.querySelector<HTMLElement>('.wr-toolbar')
+      assert(actionRail, '周复盘缺少顶部操作栏')
       const actionRect = actionRail.getBoundingClientRect()
-      assert(actionRect.top >= 0 && actionRect.bottom <= window.innerHeight, '960×640 下底部操作栏没有保持可见')
+      assert(actionRect.top >= 0 && actionRect.bottom <= window.innerHeight, '960×640 下填写行动后顶部完成操作必须保持可见')
     }
 
     clickButton('完成本周复盘')
@@ -649,13 +660,13 @@ async function run(): Promise<void> {
     const completedEditor = document.querySelector<HTMLElement>('[aria-label="周复盘正文"]')
     assert(completedEditor?.getAttribute('contenteditable') === 'true', '完成复盘正文必须保持可编辑')
     const completedScoreButton = document.querySelector<HTMLButtonElement>(
-      '[data-weekly-field="score-execution"] [aria-label^="5 分"]',
+      '[data-weekly-field="score-execution"] [role="combobox"]',
     )
     assert(completedScoreButton && getComputedStyle(completedScoreButton).pointerEvents !== 'none', '完成复盘评分必须可由鼠标编辑')
     const completedCommitment = document.querySelector<HTMLInputElement>('.wr-commitment input')
     assert(completedCommitment && !completedCommitment.readOnly, '完成复盘承诺必须保持可编辑')
     setInputValue(completedCommitment, '完成后调整的行动承诺')
-    completedScoreButton.click()
+    await chooseScore('score-execution', 5)
     clickButton('逆势')
     await waitFor(
       () => useStore.getState().weeklyReviews[0]?.commitmentText === '完成后调整的行动承诺',
@@ -698,6 +709,7 @@ async function run(): Promise<void> {
       completedAt: upsertedCompleted?.completedAt,
     }) === frozenFields, '完成复盘 upsert 不得改写状态、三类快照或完成时间')
     assert(document.body.textContent?.includes('浏览器冻结规则'), '已完成复盘没有展示冻结规则')
+    document.querySelector<HTMLDetailsElement>('.wr-disclosure:has(.wr-risk-evidence)')!.open = true
     const risk = document.querySelector<HTMLElement>('.wr-risk-evidence')
     assert(risk, '已完成复盘没有展示冻结风控证据')
     const text = risk.textContent ?? ''
@@ -819,6 +831,7 @@ async function run(): Promise<void> {
       '风险事件返回后没有先展开继续交易确认审计区',
     )
 
+    document.querySelector<HTMLDetailsElement>('.wr-disclosure:has(.wr-risk-evidence)')!.open = true
     const frozen = completed.riskSnapshot!
     const dailyFixture = [
       { date: activeWeekStart, coverage: 'complete' as const, triggered: false, label: '未触线', netBudgetR: 1.25, remainingR: 8.75, unknownReasons: [], expectedNet: '+1.25R' },
@@ -845,6 +858,7 @@ async function run(): Promise<void> {
       () => document.querySelectorAll('.wr-risk-day').length === dailyFixture.length,
       '每日状态 fixture 未完整渲染',
     )
+    document.querySelector<HTMLDetailsElement>('.wr-disclosure:has(.wr-risk-evidence)')!.open = true
     const dailyRows = [...document.querySelectorAll<HTMLElement>('.wr-risk-day')]
     for (const expected of dailyFixture) {
       const row = dailyRows.find((item) => item.querySelector('.wr-risk-day-date')?.textContent === expected.date)
@@ -1088,7 +1102,7 @@ async function run(): Promise<void> {
 
     useStore.setState({ trades: liveRecomputedTrades, weeklyReviews: [completed] })
     await waitFor(
-      () => document.body.textContent?.includes('已完成 ·') ?? false,
+      () => Boolean(document.querySelector('[aria-label="周复盘已完成"]')),
       '三类快照齐全的 completed 复盘未进入完成时数据展示态',
     )
     assert(document.querySelector('.wr-metrics')?.textContent?.includes('+$100'), '完整快照时指标必须来自完成时快照')
@@ -1318,11 +1332,11 @@ async function run(): Promise<void> {
       '业务周推进后没有恢复原周锚点与焦点',
     )
     assert(
-      document.querySelector('.wr-page-head h1')?.textContent === weekRangeText(activeWeekStart),
+      document.querySelector('.wr-record-picker > summary > span')?.textContent === `${activeWeekStart.slice(0, 4)}年 · ${weekRangeText(activeWeekStart)}`,
       '业务周推进后页面内容没有保持原来源周',
     )
     assert(
-      !document.querySelector('.wr-page-head p')?.textContent?.includes('本周进行中'),
+      document.querySelector('.wr-record-picker > summary > span')?.textContent !== currentWeekHeadingText(),
       '原来源周在业务周推进后必须显示为历史周',
     )
     currentDateControl?.restore()
@@ -1406,7 +1420,7 @@ async function run(): Promise<void> {
       '已验证返回请求没有临时保留消失的活动历史周',
     )
     assert(
-      document.querySelector('.wr-page-head h1')?.textContent === weekRangeText(disappearingWeek),
+      document.querySelector('.wr-record-picker > summary > span')?.textContent === `${disappearingWeek.slice(0, 4)}年 · ${weekRangeText(disappearingWeek)}`,
       '缺失锚点回退没有停留在原活动历史周',
     )
     assert(document.activeElement?.classList.contains('wr-main'), '缺失锚点回退必须聚焦周复盘内容起点')
@@ -1428,7 +1442,7 @@ async function run(): Promise<void> {
       '没有返回上下文的不可用周深链仍被错误放行',
     )
     assert(
-      document.querySelector('.wr-page-head p')?.textContent?.includes('本周进行中'),
+      document.querySelector('.wr-record-picker > summary > span')?.textContent === currentWeekHeadingText(),
       '普通不可用周深链必须恢复当前周内容',
     )
 

@@ -1,3 +1,4 @@
+import { snapshotToRuntimeState } from '@/storage/snapshotToRuntimeState'
 import { getStorage } from '@/storage/provider'
 export { getStorage } from '@/storage/provider'
 import {
@@ -9,20 +10,9 @@ import { useShortcutStore } from '@/store/shortcutStore'
 import { isElectron } from '@/storage/runtime'
 import { useStore } from '@/store/useStore'
 import { useSaveStatus } from '@/store/saveStatus'
-import { normalizeDisplay } from '@/lib/tradeFilters'
-import { normalizeTrades } from '@/lib/tradeKind'
-import { syncReviewCaseSourceNotes } from '@/lib/reviewCaseSources'
-import { normalizeSavedTradeViews } from '@/lib/savedTradeViews'
-import { normalizeSelectableSymbolCatalog, normalizeSymbolIcons } from '@/lib/symbolIcons'
-import { mergeTagPresets } from '@/lib/tags'
-import { normalizeTradeStrategyReferences } from '@/lib/strategies'
+
 import type { PersistedSnapshot } from '@/storage/types'
 import type { StorageAdapter } from '@/storage/adapter'
-import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
-import { normalizeReviewTemplates } from '@/data/reviewTemplates'
-import { normalizeReviewPoolLayout } from '@/lib/reviewPools'
-import { normalizeQuickNotes } from '@/data/quickNotes'
-import { assertValidLiveStageState } from '@/lib/liveStages'
 import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
 import {
   createPersistedSnapshotCoordinator,
@@ -95,45 +85,7 @@ async function runBootstrapStorage(): Promise<void> {
   let reconciledWindowHotkeyConflict = false
   if (snapshot) {
     // 阶段图是全部运行时写入的归属根；无效快照必须在开启持久化前终止启动。
-    assertValidLiveStageState(snapshot)
-    const normalized = normalizeTradeStrategyReferences(snapshot.trades, snapshot.strategies)
-    const trades = syncReviewCaseSourceNotes(normalizeTrades(normalized.trades))
-    useStore.setState({
-      trades,
-      backtestProjects: snapshot.backtestProjects ?? [],
-      liveStages: snapshot.liveStages.map((stage) => ({ ...stage })),
-      currentLiveStageId: snapshot.currentLiveStageId,
-      scheduledStageRollover: snapshot.scheduledStageRollover
-        ? { ...snapshot.scheduledStageRollover }
-        : null,
-      weeklyRiskPreparations: snapshot.weeklyRiskPreparations,
-      riskPolicyVersions: snapshot.riskPolicyVersions,
-      monthlyRiskLimits: snapshot.monthlyRiskLimits,
-      riskOverrideEvents: snapshot.riskOverrideEvents,
-      weeklyReviews: normalizeWeeklyReviews(snapshot.weeklyReviews),
-      quickNotes: normalizeQuickNotes(snapshot.quickNotes),
-      strategies: normalized.strategies,
-      starredIds: snapshot.starredIds,
-      subscribedIds: snapshot.subscribedIds,
-      pinnedStrategyIds: snapshot.pinnedStrategyIds,
-      display: normalizeDisplay(snapshot.display),
-      tagPresets: mergeTagPresets(snapshot.tagPresets ?? []),
-      mistakeTagPresets: mergeTagPresets(snapshot.mistakeTagPresets ?? []),
-      savedTradeViews: normalizeSavedTradeViews(snapshot.savedTradeViews),
-      symbolIcons: normalizeSymbolIcons(snapshot.symbolIcons),
-      symbolCatalog: normalizeSelectableSymbolCatalog(
-        snapshot.symbolCatalog ?? [
-          ...Object.keys(normalizeSymbolIcons(snapshot.symbolIcons)),
-          ...trades.map((trade) => trade.symbol),
-        ],
-      ),
-      reviewTemplates: normalizeReviewTemplates(snapshot.reviewTemplates),
-    reviewPoolPresets: snapshot.reviewPoolPresets ?? [],
-      reviewPoolLayout: normalizeReviewPoolLayout(
-        snapshot.reviewPoolLayout,
-        (snapshot.reviewPoolPresets ?? []).map((preset) => preset.id),
-      ),
-    })
+    useStore.setState(snapshotToRuntimeState(snapshot))
     useStore.getState().hydrateProfile(snapshot.profile)
     reconciledWindowHotkeyConflict =
       useShortcutStore.getState().hydrateBindings(snapshot.shortcuts).length > 0

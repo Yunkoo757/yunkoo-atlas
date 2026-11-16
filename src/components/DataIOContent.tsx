@@ -369,11 +369,10 @@ export function DataIOContent({
         <section className="dio-section dio-section-muted">
           <h2 className="dio-section-title">本地资料库</h2>
           {libraryPath ? (
-            <p className="dio-desc dio-mono">{libraryPath}</p>
+            <details className="dio-disclosure"><summary>{libraryPath.split(/[\\/]/).filter(Boolean).at(-1) || '当前资料库'}</summary><p className="dio-desc dio-mono">{libraryPath}</p></details>
           ) : (
             <p className="dio-desc">正在读取资料库路径…</p>
           )}
-          <p className="dio-desc">资料库保存在本机磁盘；更换电脑前请先导出完整备份。</p>
           <div className="dio-lib-actions">
             <button
               type="button"

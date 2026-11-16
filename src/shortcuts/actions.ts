@@ -14,7 +14,7 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   },
   {
     id: 'global.commandPaletteMod',
-    label: '命令面板（Ctrl+K）',
+    label: '备用命令面板',
     category: '通用',
     scope: 'global',
     defaultBinding: getDefaultShortcutBinding('global.commandPaletteMod'),

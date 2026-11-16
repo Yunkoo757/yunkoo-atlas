@@ -1,4 +1,4 @@
-import { backtestProjectIdForPath } from '@/lib/backtestProjects'
+import { createRecordForContext, resolveCreateRecordAction } from '@/lib/createRecordAction'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { AppIcon } from '@/icons/appIcons'
@@ -51,7 +51,6 @@ import {
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { strategyNavigationSearch } from '@/lib/strategyNavigation'
 import { sharedTradeWorkspaceSearch, tradeHomeSearch } from '@/lib/tradeWorkspaceQuery'
-import { newTradeKindForPath } from '@/lib/tradeKind'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
@@ -488,12 +487,12 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               <Search size={ICON_MD} />
             </button>
           </ShortcutTooltip>
-          <ShortcutTooltip actionId="global.newTrade" label="记录交易">
+          <ShortcutTooltip actionId={resolveCreateRecordAction(path, search).actionId} label={resolveCreateRecordAction(path, search).label}>
             <button
               type="button"
               className="sb-hbtn sb-hbtn-create"
-              aria-label="记录交易"
-              onClick={() => openComposer(null, newTradeKindForPath(path, search), backtestProjectIdForPath(path, useStore.getState().trades))}
+              aria-label={resolveCreateRecordAction(path, search).label}
+              onClick={() => createRecordForContext(path, search, navigate)}
             >
               <Compose size={ICON_MD} />
             </button>

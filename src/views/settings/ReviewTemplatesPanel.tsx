@@ -1,3 +1,4 @@
+import { reviewTemplateParagraphs } from '@/lib/reviewTemplateDocument'
 import { ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useEffect, useState } from 'react'
 import { FileText, GripVertical, Plus, Trash2 } from '@/icons/appIcons'
@@ -177,7 +178,6 @@ export function ReviewTemplatesPanel() {
 
             <label className="review-template-content-label" htmlFor="review-template-content">
               起稿内容
-              <span>每行一个段落，冒号前的文字自动加粗</span>
             </label>
             <textarea
               id="review-template-content"
@@ -188,6 +188,9 @@ export function ReviewTemplatesPanel() {
               onChange={(event) => updateTemplate(selected.id, { content: event.target.value })}
               placeholder={'HTF 背景：\nMTF 触发：\nLTF 执行：\nTP 管理：'}
             />
+            <details className="review-template-preview"><summary>预览起稿</summary>
+              <div>{reviewTemplateParagraphs(selected.content).map((paragraph, index) => <p key={index}>{paragraph.content?.map((part, i) => part.marks?.some(mark => mark.type === 'bold') ? <strong key={i}>{part.text}</strong> : part.text) || <br />}</p>)}</div>
+            </details>
           </section>
         </div>
       ) : (

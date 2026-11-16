@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { createWeeklyReview } from '@/data/weeklyReviews'
 import { Sidebar } from '@/components/Sidebar'
 import { TradeWorkspaceContext } from '@/components/TradeWorkspaceContext'
 import type { TradeWorkspacePage } from '@/lib/tradeWorkspaceQuery'
@@ -46,6 +47,9 @@ function Fixture() {
       <Sidebar />
       <main>
         <TradeWorkspaceContext page={page} compact={page === 'log'} />
+        <Link to="/weekly-review?review=linked-current" data-linked-review="current">当前阶段复盘</Link>
+        <Link to="/weekly-review?review=linked-archived" data-linked-review="archived">历史阶段复盘</Link>
+        <Link to="/weekly-review?review=linked-current&liveStage=stage-old" data-linked-review="override">显式阶段范围</Link>
         <output data-testid="location">{location.pathname}{location.search}</output>
       </main>
     </div>
@@ -66,6 +70,10 @@ async function run(): Promise<void> {
         { id: 'stage-current', sequence: 2, name: '当前阶段', status: 'current', startsOn: '2026-07-01', endsOn: null, createdAt: '2026-07-01T00:00:00.000Z', archivedAt: null },
       ],
       currentLiveStageId: 'stage-current',
+      weeklyReviews: [
+        { ...createWeeklyReview('2026-08-10', 'stage-current'), id: 'linked-current' },
+        { ...createWeeklyReview('2026-06-01', 'stage-old'), id: 'linked-archived' },
+      ],
       scheduledStageRollover: {
         id: 'quiet-schedule',
         requestedAt: '2026-08-28T00:00:00.000Z',
@@ -240,6 +248,20 @@ async function run(): Promise<void> {
         '/list?liveStage=all',
       '重复使用 A / E 后仍必须恢复阶段范围且不恢复临时筛选',
     )
+    for (const [link, label, value] of [
+      ['current', '当前阶段', 'current'],
+      ['archived', '第二阶段', 'stage-old'],
+      ['override', '第二阶段', 'stage-old'],
+    ]) {
+      document.querySelector<HTMLAnchorElement>(`[data-linked-review="${link}"]`)?.click()
+      await waitFor(() => document.querySelector('[data-testid="location"]')?.textContent?.startsWith('/weekly-review?review=') === true, '复盘链接未打开')
+      await frame()
+      await waitFor(() => document.querySelector('[aria-label^="选择交易阶段"]')?.textContent?.includes(label) === true, `${link} 复盘链接必须显示实际阶段，不能退回占位文字`)
+      document.querySelector<HTMLButtonElement>('[aria-label^="选择交易阶段"]')?.click()
+      await waitFor(() => document.querySelector(`[role="option"][data-value="${value}"]`)?.getAttribute('aria-selected') === 'true', '阶段菜单必须选中显示的实际范围')
+      document.querySelector<HTMLButtonElement>('[aria-label^="选择交易阶段"]')?.click()
+      await waitFor(() => document.querySelector('[role="option"]') === null, '复盘阶段菜单未关闭')
+    }
   } finally {
     root.unmount()
     useStore.setState(previous, true)

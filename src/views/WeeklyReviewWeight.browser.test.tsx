@@ -37,14 +37,14 @@ async function run() {
     root.render(<MemoryRouter initialEntries={[`/weekly-review?week=${week}`]}><WeeklyReviewView /></MemoryRouter>)
     await waitFor(() => Boolean(document.querySelector('.wr-evidence-toggle')), '大量证据缺少展开入口')
     assert(document.querySelectorAll('.wr-trade-row').length === 1, '默认应突出已标记证据')
-    const jump = [...document.querySelectorAll<HTMLButtonElement>('.wr-section-nav button')].find((button) => button.textContent === '交易证据')!
-    jump.click()
-    await waitFor(() => {
-      const heading = document.querySelector<HTMLElement>('[data-weekly-section="evidence"] h2')!
-      const rect = heading.getBoundingClientRect()
-      const nav = document.querySelector('.wr-section-nav')!.getBoundingClientRect()
-      return rect.top >= nav.bottom && rect.bottom < innerHeight && document.elementFromPoint(rect.left + 4, rect.top + 4) === heading
-    }, '章节定位后证据标题必须完整可见，不得被吸顶内容遮盖')
+    const documentBefore = document.querySelector('.wr-editor-wrap')!.getBoundingClientRect()
+    assert(!document.querySelector('.wr-section-nav'), '默认页面不得保留多层章节导航')
+    const evidence = document.querySelector<HTMLDetailsElement>('.wr-disclosure:has([data-weekly-section="evidence"])')!
+    assert(!evidence.open, '交易明细默认按需展开')
+    const open = [...document.querySelectorAll<HTMLButtonElement>('.wr-document-links button')].find(button => button.textContent?.includes('14 笔交易'))!
+    open.click()
+    await waitFor(() => evidence.open && document.activeElement === evidence.querySelector('summary'), '证据入口必须展开明细并定位焦点')
+    assert(documentBefore.height > 0, '正文必须优先显示')
     document.querySelector<HTMLButtonElement>('.wr-evidence-toggle')!.click()
     await waitFor(() => document.querySelectorAll('.wr-trade-row').length === 14, '展开必须保留全部交易')
     const row = document.querySelectorAll<HTMLElement>('.wr-trade-row')[3]

@@ -317,7 +317,7 @@ export function testWeeklyReviewNarrativeLimitsElevatedSectionRoles(): void {
   if (!sectionRule.includes('border: 0') || !sectionRule.includes('background: transparent')) {
     throw new Error('周复盘普通章节必须使用连续分隔叙事，而不是等权卡片')
   }
-  if (!pairedExceptionRule.includes('background: var(--bg-elevated)') || !riskExceptionRule.includes('background: var(--bg-elevated)')) {
-    throw new Error('只有风控、上次承诺和下周承诺可以保留抬升容器')
+  if (pairedExceptionRule || !riskExceptionRule.includes('background: var(--bg-elevated)')) {
+    throw new Error('文档正文与行动不得恢复卡片；按需展开的风控证据保留独立层次')
   }
 }

@@ -1,3 +1,4 @@
+import { useStore } from '@/store/useStore'
 import { createRoot } from 'react-dom/client'
 import { AppFrame } from '@/components/ui/AppFrame'
 import { DisplaySettingsPanel } from './DisplaySettingsPanel'
@@ -10,6 +11,7 @@ const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => r
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
 async function run() {
   const root = createRoot(document.getElementById('root')!)
+  const previousDisplay = useStore.getState().display
   try {
     root.render(<AppFrame sidebar={<div className="sb-sortable-row"><button className="sb-item">导航</button></div>}><DisplaySettingsPanel /></AppFrame>)
     await frame(); await frame()
@@ -25,6 +27,14 @@ async function run() {
     }
     assert(!document.documentElement.hasAttribute('data-keyboard-navigation'), '不得继续监听并创建键盘导航状态')
     assert(!document.querySelector('[data-keyboard-focus-rings]'), '不得继续同步已移除偏好')
-  } finally { root.unmount() }
+    const option = (group: string, text: string) => [...document.querySelectorAll<HTMLButtonElement>(`[aria-label="${group}"] button`)].find(button => button.textContent === text)!
+    option('默认排序', '盈亏表现').click(); await frame()
+    option('排序方向', '升序').click(); await frame()
+    assert(useStore.getState().display.sortBy === 'pnl' && useStore.getState().display.sortDirection === 'asc', '字段和方向必须独立设置')
+    option('默认排序', '盈亏表现').click(); await frame()
+    assert(useStore.getState().display.sortDirection === 'asc', '重复选择同一字段不得暗中反转方向')
+    option('排序方向', '降序').click(); await frame()
+    assert(useStore.getState().display.sortDirection === 'desc', '降序动作必须显式生效')
+  } finally { root.unmount(); useStore.setState({ display: previousDisplay }) }
 }
 window.__displayFocusPreferenceTest = run()

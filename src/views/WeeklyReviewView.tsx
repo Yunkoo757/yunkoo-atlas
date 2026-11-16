@@ -1,5 +1,8 @@
+import { buildWeeklyReviewHistory } from '@/lib/weeklyReviewHistory'
+import { Button } from '@/components/ui/Button'
+import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
+import { PopoverSurface } from '@/components/ui/PopoverSurface'
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
-import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { ICON_LG, ICON_MD, ICON_XL } from '@/icons/iconSize'
 import { lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
@@ -9,10 +12,10 @@ import {
   useLocation,
   useNavigate,
 } from 'react-router-dom'
-import { Topbar } from '@/components/Topbar'
 import { Editor } from '@/editor/Editor'
 import {
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   RotateCcw,
@@ -25,7 +28,6 @@ import {
   buildWeeklyReviewTrend,
   aggregateWeeklyReviewScoresForWeek,
   createWeeklyReview,
-  deriveWeeklyReviewWeeks,
   missingWeeklyReviewSnapshotCategories,
   missedTradesInWeek,
   resolveWeeklyReviewDataSource,
@@ -60,6 +62,7 @@ import {
   tradeDetailPath,
   type TradeDetailFrom,
 } from '@/lib/tradeRoute'
+import { getWeeklyRiskStatus } from '@/lib/weeklyRiskPresentation'
 import { WeeklyRiskEvidence } from '@/views/WeeklyRiskEvidence'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
 import { getStorage } from '@/storage/bootstrap'
@@ -277,10 +280,6 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
       ? [...liveStages].filter((stage) => stage.status === 'archived').sort((left, right) => right.sequence - left.sequence)[0]
       : liveStages.find((stage) => stage.id === workspaceQuery.stage)
   const selectedReviewStageId = selectedReviewStage?.id ?? currentLiveStageId
-  const stageReviews = useMemo(
-    () => assignedReviews.filter((review) => review.liveStageId === selectedReviewStageId),
-    [assignedReviews, selectedReviewStageId],
-  )
   const returnRequest = peekTradeReturnRequest(
     { pathname: location.pathname, search: location.search },
     location.state,
@@ -296,30 +295,23 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
   if (requestedReturnWeek) verifiedReturnWeekRef.current = requestedReturnWeek
   if (requestedReturnReviewId) verifiedReturnReviewIdRef.current = requestedReturnReviewId
   const [returnRestoreActive, setReturnRestoreActive] = useState(Boolean(returnRequest))
-  const currentStageTrades = useMemo(
-    () => trades.filter((trade) =>
-      trade.tradeKind === 'live' && trade.liveStageId === selectedReviewStageId,
-    ),
-    [selectedReviewStageId, trades],
-  )
-  const availableWeeks = useMemo(
-    () => deriveWeeklyReviewWeeks(
-      currentStageTrades,
-      assignedReviews,
-      currentWeek,
-      tradingDayStartHour,
-      12,
-      businessDateAnchor.currentTradingDayKey,
-    ),
-    [assignedReviews, currentStageTrades, currentWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey],
-  )
+  const allStages = workspaceQuery.stage === 'all'
+  const historyItems = useMemo(() => buildWeeklyReviewHistory({
+    trades, reviews: assignedReviews, stageIds: liveStages.map((stage) => stage.id),
+    selectedStageId: selectedReviewStageId, currentWeek, tradingDayStartHour,
+    currentTradingDayKey: businessDateAnchor.currentTradingDayKey, allStages,
+  }), [trades, assignedReviews, liveStages, selectedReviewStageId, currentWeek, tradingDayStartHour, businessDateAnchor.currentTradingDayKey, allStages])
+  const availableWeeks = useMemo(() => [...new Set(historyItems.map((item) => item.week))], [historyItems])
+  const routeReviews = useMemo(() => allStages
+    ? historyItems.map((item) => ({ id: item.routeId, weekStart: item.week, liveStageId: item.liveStageId }))
+    : assignedReviews, [allStages, historyItems, assignedReviews])
   const routeResolution = useMemo(
     () => resolveWeeklyReviewRouteState(
       returnRequest?.restoreSearch ?? location.search,
       {
         currentWeek,
         availableWeeks,
-        availableReviews: assignedReviews.map((review) => ({
+        availableReviews: routeReviews.map((review) => ({
           id: review.id,
           weekStart: review.weekStart,
           liveStageId: review.liveStageId,
@@ -329,26 +321,45 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
         verifiedReturnReviewId: verifiedReturnReviewIdRef.current,
       },
     ),
-    [assignedReviews, availableWeeks, currentWeek, location.search, returnRequest?.restoreSearch, selectedReviewStageId],
+    [routeReviews, availableWeeks, currentWeek, location.search, returnRequest?.restoreSearch, selectedReviewStageId],
   )
   const { selectedWeek, selectedReviewId, tab } = routeResolution.state
   const [editorHtml, setEditorHtml] = useState('')
   const [showAllEvidence, setShowAllEvidence] = useState(Boolean(returnRequest))
   const mainContentRef = useRef<HTMLElement>(null)
-  const sectionNavRef = useRef<HTMLElement>(null)
+  const historyPickerRef = useRef<HTMLDetailsElement>(null)
+  const evidenceRef = useRef<HTMLDetailsElement>(null)
+  const riskRef = useRef<HTMLDetailsElement>(null)
+  const openEvidence = useCallback((kind: 'evidence' | 'risk') => {
+    const target = kind === 'evidence' ? evidenceRef.current : riskRef.current
+    if (!target) return
+    target.open = true
+    target.querySelector('summary')?.focus({ preventScroll: true })
+    target.scrollIntoView({ block: 'start', behavior: 'instant' })
+  }, [])
   useEffect(() => {
-    const main = mainContentRef.current
-    const nav = sectionNavRef.current
-    if (!main || !nav) return
-    const measure = () => main.style.setProperty('--wr-nav-height', `${nav.getBoundingClientRect().height}px`)
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(nav)
-    return () => { observer.disconnect(); main.style.removeProperty('--wr-nav-height') }
-  }, [tab])
+    const closePicker = (event: PointerEvent | KeyboardEvent) => {
+      const picker = historyPickerRef.current
+      if (!picker?.open || event.defaultPrevented) return
+      if (event instanceof KeyboardEvent) {
+        if (event.key !== 'Escape' || document.querySelector('.ui-select-menu')) return
+        picker.open = false
+        picker.querySelector('summary')?.focus()
+        event.preventDefault()
+      } else if (event.target instanceof Element && !picker.contains(event.target) && !event.target.closest('[role="listbox"], [role="option"], [role="dialog"]')) {
+        picker.open = false
+      }
+    }
+    document.addEventListener('pointerdown', closePicker)
+    document.addEventListener('keydown', closePicker)
+    return () => {
+      document.removeEventListener('pointerdown', closePicker)
+      document.removeEventListener('keydown', closePicker)
+    }
+  }, [])
   const [overrideEventsOpen, setOverrideEventsOpen] = useState(false)
-  const [trendLiveStageId, setTrendLiveStageId] = useState<string | undefined>(selectedReviewStageId)
-  useEffect(() => setTrendLiveStageId(selectedReviewStageId), [selectedReviewStageId])
+  const [trendLiveStageId, setTrendLiveStageId] = useState<string | undefined>(allStages ? undefined : selectedReviewStageId)
+  useEffect(() => setTrendLiveStageId(allStages ? undefined : selectedReviewStageId), [allStages, selectedReviewStageId])
   const [visualIssues, setVisualIssues] = useState<WeeklyVisualIssue[]>([])
   const pendingIssueFocusRef = useRef<WeeklyVisualIssue | null>(null)
   const editorReadyRef = useRef(false)
@@ -400,7 +411,10 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
 
   const handleReturnRestoreStart = useCallback((anchorId: string) => {
     setReturnRestoreActive(true)
-    if (anchorId.startsWith('weekly-risk:')) setOverrideEventsOpen(true)
+    if (anchorId.startsWith('weekly-risk:')) {
+      if (riskRef.current) riskRef.current.open = true
+      setOverrideEventsOpen(true)
+    } else if (evidenceRef.current) evidenceRef.current.open = true
   }, [])
   const handleReturnRestoreFinish = useCallback(() => {
     setReturnRestoreActive(false)
@@ -433,12 +447,14 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     routeResolution.needsReplace,
   ])
 
+  const selectedHistoryItem = selectedReviewId
+    ? historyItems.find((item) => item.routeId === selectedReviewId)
+    : historyItems.find((item) => item.week === selectedWeek && item.liveStageId === selectedReviewStageId)
   const storedReview = selectedReviewId
     ? assignedReviews.find((item) => item.id === selectedReviewId)
-    : stageReviews.find((item) =>
-        item.weekStart === selectedWeek && item.liveStageId === selectedReviewStageId,
-      )
-  const reviewLiveStageId = storedReview?.liveStageId ?? selectedReviewStageId
+    : selectedHistoryItem?.review
+  const reviewLiveStageId = storedReview?.liveStageId ?? selectedHistoryItem?.liveStageId ?? selectedReviewStageId
+  const reviewStageName = liveStages.find((stage) => stage.id === reviewLiveStageId)?.name ?? '未知阶段'
   const review = storedReview ?? createWeeklyReview(selectedWeek, reviewLiveStageId)
   const reviewTrades = useMemo(
     () => trades.filter((trade) =>
@@ -515,48 +531,11 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     )
     .sort((left, right) => right.weekStart.localeCompare(left.weekStart))[0]
 
-  const currentStageWeeks = useMemo(
-    () => deriveWeeklyReviewWeeks(
-      currentStageTrades,
-      [],
-      currentWeek,
-      tradingDayStartHour,
-      12,
-      businessDateAnchor.currentTradingDayKey,
-    ),
-    [businessDateAnchor.currentTradingDayKey, currentStageTrades, currentWeek, tradingDayStartHour],
-  )
-  const historyItems = useMemo(() => availableWeeks.flatMap((week) => {
-    const weekReviews = assignedReviews
-      .filter((candidate) => candidate.weekStart === week)
-      .sort((left, right) => {
-        const leftCurrent = left.liveStageId === selectedReviewStageId ? 0 : 1
-        const rightCurrent = right.liveStageId === selectedReviewStageId ? 0 : 1
-        return leftCurrent - rightCurrent || left.id.localeCompare(right.id)
-      })
-    const needsCurrentStagePlaceholder = currentStageWeeks.includes(week) &&
-      !weekReviews.some((candidate) => candidate.liveStageId === selectedReviewStageId)
-    return [
-      ...(needsCurrentStagePlaceholder ? [{
-        key: `pending:${selectedReviewStageId}:${week}`,
-        week,
-        liveStageId: selectedReviewStageId,
-        review: undefined,
-      }] : []),
-      ...weekReviews.map((item) => ({
-        key: item.id,
-        week,
-        liveStageId: item.liveStageId ?? selectedReviewStageId,
-        review: item,
-      })),
-    ]
-  }), [assignedReviews, availableWeeks, currentStageWeeks, selectedReviewStageId])
   const selectedHistoryIndex = historyItems.findIndex((item) => selectedReviewId
-    ? item.review?.id === selectedReviewId
-    : item.week === selectedWeek && item.liveStageId === selectedReviewStageId)
+    ? item.routeId === selectedReviewId
+    : item.week === selectedWeek && item.liveStageId === reviewLiveStageId)
   const olderHistoryItem = selectedHistoryIndex >= 0 ? historyItems[selectedHistoryIndex + 1] : undefined
   const newerHistoryItem = selectedHistoryIndex > 0 ? historyItems[selectedHistoryIndex - 1] : undefined
-  const hasReviewHistory = historyItems.length > 1
   const weeklyFieldIssues = useMemo(
     () => getWeeklyVisualIssues(review),
     [
@@ -664,12 +643,19 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     anchorTradeId,
   }), [location.pathname, location.search, routeResolution.canonicalSearch, selectedReviewId, selectedWeek, tab])
 
+  const closeHistoryPicker = () => {
+    const picker = historyPickerRef.current
+    if (!picker?.open) return
+    picker.open = false
+    picker.querySelector('summary')?.focus({ preventScroll: true })
+  }
+
   const changeReview = async (item: typeof historyItems[number]) => {
     const intentGeneration = ++routeIntentGenerationRef.current
     if (
       item.week === selectedWeek &&
-      (item.review?.id ?? undefined) === selectedReviewId
-    ) return
+      item.liveStageId === reviewLiveStageId
+    ) { closeHistoryPicker(); return }
     const draftSaved = await flushNoteDraftToStore(draftId)
     if (intentGeneration !== routeIntentGenerationRef.current) return
     if (!draftSaved) {
@@ -678,7 +664,10 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     }
     const nextReviewId = item.week === currentWeek && item.liveStageId === currentLiveStageId
       ? undefined
-      : item.review?.id
+      : allStages ? item.routeId : item.review?.id
+    closeHistoryPicker()
+    if (evidenceRef.current) evidenceRef.current.open = false
+    if (riskRef.current) riskRef.current.open = false
     replaceRouteState(item.week, tab, nextReviewId)
   }
 
@@ -723,17 +712,22 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
 
   return (
     <>
-      <Topbar title="周期复盘" showDisplay={false} titleAsHeading={false} />
-      {header}
-      <div className={`wr-shell${hasReviewHistory ? '' : ' is-first-review'}`}>
-        {hasReviewHistory ? (
-          <aside className="wr-history" aria-label="周复盘历史">
+      <header className="wr-toolbar"><span className="wr-toolbar-label">周期复盘</span>
+        <details className="wr-record-picker" ref={historyPickerRef}>
+          <summary aria-label={`选择复盘记录：${selectedWeek.slice(0, 4)}年 · ${formatWeekRange(selectedWeek)}，${reviewStageName}`}>
+            <span>{selectedWeek.slice(0, 4)}年 · {formatWeekRange(selectedWeek)}</span>
+            <small>{reviewStageName}</small>
+            <ChevronDown size={ICON_MD} aria-hidden />
+          </summary>
+          <PopoverSurface kind="menu" className="wr-record-popup">
+            {header}
+        <div className="wr-history" aria-label="周复盘历史">
             <div className="wr-history-title">复盘记录</div>
             {historyItems.map((item) => {
               const stageName = liveStages.find((stage) => stage.id === item.liveStageId)?.name ?? '未知阶段'
               const isActive = selectedReviewId
-                ? item.review?.id === selectedReviewId
-                : item.week === selectedWeek && item.liveStageId === selectedReviewStageId
+                ? item.routeId === selectedReviewId
+                : item.week === selectedWeek && item.liveStageId === reviewLiveStageId
               return (
                 <button
                   key={item.key}
@@ -741,6 +735,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                   className={isActive ? 'is-active' : ''}
                   data-review-week={item.week}
                   data-review-id={item.review?.id ?? ''}
+                  aria-current={isActive ? 'page' : undefined}
                   data-review-stage-id={item.liveStageId}
                   data-review-week-state={item.review?.status ?? 'pending'}
                   aria-label={`${weekLabel(item.week, currentWeek, item.liveStageId === currentLiveStageId)} ${stageName} ${item.review?.status === 'completed' ? '已完成' : item.review ? '草稿' : '待补做'}`}
@@ -755,77 +750,32 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 </button>
               )
             })}
-          </aside>
-        ) : null}
+        </div>
 
-        <section
-          ref={mainContentRef}
-          className="wr-main"
-          aria-label="周复盘内容"
-          tabIndex={-1}
-        >
-          <header className="wr-page-head">
-            <div className="wr-page-head-inner">
-              <div>
-                <div className="wr-kicker">
-                  {tab === 'year'
-                    ? `${year} · 年度复盘`
-                    : `${hasReviewHistory ? '' : '首次周复盘 · '}${selectedWeek.slice(0, 4)} · 第 ${getIsoWeek(selectedWeek)} 周 · ${liveStages.find((stage) => stage.id === reviewLiveStageId)?.name ?? '未知阶段'}`}
-                </div>
-                <h1>{tab === 'year' ? '年度趋势' : formatWeekRange(selectedWeek)}</h1>
-                <p>
-                  {tab === 'year'
-                    ? '按已完成周复盘汇总做法评分、常见错误与复盘节奏'
-                    : `${selectedWeek === currentWeek && reviewLiveStageId === currentLiveStageId ? '本周进行中 · ' : ''}实盘结果按平仓日 · 错过机会按标记日单列`}
-                </p>
-              </div>
-              <div className="wr-head-actions">
-                <SegmentedControl<WeeklyReviewTab>
-                  className="wr-tab-switch" role="tablist" label="周复盘视图"
-                  value={tab} onChange={changeTab}
-                  options={[
-                    { value: 'review', label: '本周复盘', id: 'weekly-review-tab-review', controls: 'weekly-review-panel-review' },
-                    { value: 'year', label: '年度趋势', id: 'weekly-review-tab-year', controls: 'weekly-review-panel-year' },
-                  ]}
-                />
-                {hasReviewHistory && tab === 'review' ? (
-                  <>
-                    <IconButton label="上一条复盘" size="md" disabled={!olderHistoryItem} onClick={() => olderHistoryItem && void changeReview(olderHistoryItem)}><ChevronLeft size={ICON_MD} /></IconButton>
-                    <IconButton label="下一条复盘" size="md" disabled={!newerHistoryItem} onClick={() => newerHistoryItem && void changeReview(newerHistoryItem)}><ChevronRight size={ICON_MD} /></IconButton>
-                  </>
-                ) : null}
-              </div>
-            </div>
-          </header>
-            {tab === 'review' ? (
-              <nav ref={sectionNavRef} className="wr-section-nav" aria-label="周复盘章节">
-                <span className="wr-nav-context">{selectedReviewStage?.name ?? '未知阶段'} · {formatWeekRange(selectedWeek)}</span>
-                {[
-                  ['facts', '本周事实'],
-                  ['risk', '风控执行'],
-                  ['scores', '做法评分'],
-                  ['patterns', '模式归因'],
-                  ['evidence', '交易证据'],
-                  ['judgment', '复盘正文'],
-                  ['commitment', '下周承诺'],
-                ].map(([sectionId, label]) => (
-                  <button
-                    key={sectionId}
-                    type="button"
-                    onClick={() => {
-                      const section = document.querySelector<HTMLElement>(`[data-weekly-section="${sectionId}"]`)
-                      section?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
-                      section?.setAttribute('tabindex', '-1')
-                      section?.focus({ preventScroll: true })
-                    }}
-                  >{label}</button>
-                ))}
-              </nav>
-            ) : null}
+          </PopoverSurface>
+        </details>
 
+        <div className="wr-document-actions">
+          <SaveStatusIndicator />
+          <nav className="wr-view-switch" aria-label="周期复盘视图">
+            {tab === 'year' ? <Button id="weekly-review-tab-review" variant="ghost" size="sm" onClick={() => changeTab('review')}><ChevronLeft size={ICON_MD} />本周复盘</Button> : null}
+            {tab === 'review' ? <Button id="weekly-review-tab-year" variant="ghost" size="sm" onClick={() => changeTab('year')}>年度趋势</Button> : null}
+          </nav>
+          {tab === 'review' ? <>
+            <span className="wr-document-status" aria-label={locked ? '周复盘已完成' : `周复盘必填项已完成 ${completedRequiredFields} / 5`}>
+              {locked ? <><Check size={ICON_MD} />已完成</> : `${completedRequiredFields}/5`}
+            </span>
+            {locked
+              ? <button type="button" className="ui-btn ui-btn-ghost" onClick={reopenReview}><RotateCcw size={ICON_MD} />重新打开</button>
+              : <button type="button" className="ui-btn ui-btn-primary" onClick={() => void completeReview()}><Check size={ICON_MD} />完成本周复盘</button>}
+          </> : null}
+        </div>
+      </header>
+      <div className="wr-shell">
+        <section ref={mainContentRef} className="wr-main" aria-label="周复盘内容" data-review-stage-id={reviewLiveStageId} tabIndex={-1}>
           {tab === 'year' ? (
-            <div id="weekly-review-panel-year" role="tabpanel" aria-labelledby="weekly-review-tab-year">
-              <div className="wr-year">
+            <div id="weekly-review-panel-year" role="region" aria-label="年度趋势">
+              <div className="wr-year"><header className="wr-page-head"><h1>年度趋势</h1></header>
                 <div className="wr-trend-scope">
                   <span>阶段范围</span>
                   <Select
@@ -843,23 +793,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
               </div>
             </div>
           ) : (
-            <div id="weekly-review-panel-review" role="tabpanel" aria-labelledby="weekly-review-tab-review" className="wr-content">
-              {!locked ? <div className="wr-progress-summary" aria-label={`周复盘必填项已完成 ${completedRequiredFields} / 5`}>
-                <span>{locked ? '完成快照' : '复盘进度'}</span>
-                <strong>{locked ? '已形成闭环' : `${completedRequiredFields} / 5 项必填`}</strong>
-                {!locked ? (
-                  <span
-                    className="wr-progress-track"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={5}
-                    aria-valuenow={completedRequiredFields}
-                  >
-                    <i style={{ width: `${completedRequiredFields / 5 * 100}%` }} />
-                  </span>
-                ) : null}
-              </div> : null}
-
+            <div id="weekly-review-panel-review" role="region" aria-label="本周复盘" className="wr-content">
               {visualIssues.length > 0 ? (
                 <InlineStatus
                   tone="error"
@@ -877,11 +811,6 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 />
               ) : null}
 
-              {review.status === 'completed' ? (
-                <div className="wr-complete-banner">
-                  <span><Check size={ICON_MD} /> 已完成 · {new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')} · {usesCompleteSnapshot ? '数据已冻结' : '历史快照不完整'}</span>
-                </div>
-              ) : null}
               {review.status === 'completed' && !usesCompleteSnapshot ? (
                 <InlineStatus
                   tone="warning"
@@ -901,14 +830,20 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 />
               ) : null}
 
+
+              <header className="wr-page-head"><h1>本周判断</h1></header>
               <section className="wr-section wr-metrics" data-weekly-section="facts" data-invalid="false">
-                <div className="wr-section-head"><div><span>01</span><h2>本周事实</h2></div><small>{usesCompleteSnapshot ? '完成周复盘时的数据' : review.status === 'completed' ? '指标与交易证据为实时重算' : '随交易记录实时更新'}</small></div>
+
                 <div className="wr-metric-grid">
                   <Metric label="平仓交易" value={`${metrics.tradeCount}`} hint={`${metrics.reviewedCount} 笔已复盘`} />
                   <Metric label="胜率" value={metrics.winRate === null ? '—' : `${metrics.winRate.toFixed(0)}%`} hint={`${metrics.winCount} 赢 · ${metrics.lossCount} 亏 · ${metrics.breakevenCount} 平`} />
                   <Metric label="净盈亏" value={metrics.pnlCount ? fmtMoney(metrics.totalPnl, 'USD', privacyMode) : '—'} tone={privacyMode ? undefined : metrics.totalPnl > 0 ? 'positive' : metrics.totalPnl < 0 ? 'negative' : undefined} hint={metrics.pnlCount < metrics.tradeCount ? `${metrics.pnlCount}/${metrics.tradeCount} 笔含盈亏` : undefined} />
                   <Metric label="平均 R" value={fmtR(metrics.averageR)} tone={(metrics.averageR ?? 0) > 0 ? 'positive' : (metrics.averageR ?? 0) < 0 ? 'negative' : undefined} hint={metrics.rCount < metrics.tradeCount ? `${metrics.rCount}/${metrics.tradeCount} 笔含 R` : undefined} />
                 </div>
+              <div className="wr-facts-context">
+                <button type="button" className="ui-btn ui-btn-ghost" onClick={() => openEvidence('risk')}>风控明细{usesCompleteSnapshot && review.riskSnapshot ? ` · ${getWeeklyRiskStatus(review.riskSnapshot.weeklyOutcome).label}` : ''}<ChevronDown size={ICON_MD} /></button>
+                {locked ? <small>{new Date(review.completedAt ?? '').toLocaleDateString('zh-CN')} · {usesCompleteSnapshot ? '完成周复盘时的数据' : '历史快照不完整'}</small> : null}
+              </div>
                 {metrics.missedCount > 0 ? (
                   <div className="wr-missed-summary">
                     <div>
@@ -953,24 +888,46 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 ) : null}
               </section>
 
-              <WeeklyRiskEvidence
-                snapshot={usesCompleteSnapshot ? review.riskSnapshot : undefined}
-                availability={riskEvidenceAvailability}
-                detailSource={{
-                  pathname: location.pathname,
-                  search: routeResolution.canonicalSearch,
-                  restoreSearch: buildWeeklyReviewReturnSearch(
-                    location.search,
-                    { selectedWeek, ...(selectedReviewId ? { selectedReviewId } : {}), tab },
-                  ),
-                }}
-                overrideEventsOpen={overrideEventsOpen}
-                onOverrideEventsOpenChange={setOverrideEventsOpen}
-              />
+              <section className="wr-section" data-weekly-section="judgment" data-invalid={sectionHasIssue('judgment')}>
 
+                <div className="wr-editor-wrap" data-weekly-field="review-content" data-invalid={sectionHasIssue('judgment')}>
+                  <Editor
+                    content={editorHtml}
+                    onChange={onEditorChange}
+                    noteDraftId={storedReview ? draftId : undefined}
+                    readOnly={!editorReadyRef.current && Boolean(review.contentHtml)}
+                    ariaLabel="周复盘正文"
+                    placeholder="写下本周判断，粘贴截图…"
+                  />
+                </div>
+              </section>
+
+              <div className="wr-document-links">
+                <button type="button" className="ui-btn ui-btn-ghost" onClick={() => openEvidence('evidence')}>查看 {evidenceCount} 笔交易</button>
+              </div>
+              <section className="wr-section wr-scores" data-weekly-section="scores" data-invalid={sectionHasIssue('scores')} aria-label="做法评分">
+                <div className="wr-score-grid">
+                  {SCORE_FIELDS.map(({ key, fieldId, label }) => (
+                    <div className="wr-score-row" key={key} data-weekly-field={fieldId} data-invalid={visualIssues.some((issue) => issue.fieldId === fieldId)}>
+                      <span>{label}</span>
+                      <Select ariaLabel={label} value={review[key] === null ? '' : String(review[key])}
+                        placeholder="未评分" onValueChange={(value) => commitPatch({ [key]: Number(value) })}
+                        options={SCORE_LEVELS.map((level) => ({ value: String(level.value), label: `${level.value} · ${level.label}` }))} />
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section className="wr-section wr-commitment" data-weekly-section="commitment" data-invalid={sectionHasIssue('commitment')}>
+                <div className="wr-section-head"><h2>下周行动</h2></div>
+                <label className="wr-action-input"><input aria-label="行动承诺" data-weekly-field="commitment-text" aria-invalid={visualIssues.some((issue) => issue.fieldId === 'commitment-text')} value={review.commitmentText} onChange={(event) => commitPatch({ commitmentText: event.target.value })} placeholder="例如：没有触发确认前不提前入场" /></label>
+                <label>验收标准<input data-weekly-field="commitment-criteria" aria-invalid={visualIssues.some((issue) => issue.fieldId === 'commitment-criteria')} value={review.commitmentCriteria} onChange={(event) => commitPatch({ commitmentCriteria: event.target.value })} placeholder="例如：所有入场截图中都能看到确认信号" /></label>
+              </section>
+
+              <div className="wr-supplements">
+                {previousReview ? <details className="wr-disclosure"><summary>上次行动</summary>
               {previousReview ? (
                 <section className="wr-section wr-previous" data-weekly-section="previous-commitment" data-invalid="false">
-                  <div className="wr-section-head"><div><span>02</span><h2>上次承诺验证</h2></div><small>{formatWeekRange(previousReview.weekStart)}</small></div>
+                  <div className="wr-section-head"><div><h2>上次行动</h2></div><small>{formatWeekRange(previousReview.weekStart)}</small></div>
                   <div className="wr-previous-body">
                     <Target size={ICON_XL} />
                     <div><strong>{previousReview.commitmentText}</strong><p>{previousReview.commitmentCriteria}</p></div>
@@ -983,46 +940,10 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 </section>
               ) : null}
 
-              <section className="wr-section" data-weekly-section="scores" data-invalid={sectionHasIssue('scores')}>
-                <div className="wr-section-head"><div><span>{previousReview ? '03' : '02'}</span><h2>给做法打分</h2></div><small>评价执行，不评价盈亏</small></div>
-                <div className="wr-score-grid">
-                  {SCORE_FIELDS.map(({ key, fieldId, label }) => {
-                    const selectedScore = review[key]
-                    const selectedLevel = SCORE_LEVELS.find((level) => level.value === selectedScore)
-                    const tone = selectedScore === null ? 'is-unset' : selectedScore <= 2 ? 'is-low' : selectedScore >= 4 ? 'is-high' : 'is-mid'
-                    return (
-                      <div
-                        className="wr-score-row"
-                        key={key}
-                        data-weekly-field={fieldId}
-                        data-invalid={visualIssues.some((issue) => issue.fieldId === fieldId)}
-                      >
-                        <label>{label}</label>
-                        <div className="wr-score-control">
-                          <div className="wr-score-options" role="radiogroup" aria-label={label}>
-                            {SCORE_LEVELS.map(({ value, label: levelLabel }) => (
-                              <button
-                                key={value}
-                                type="button"
-                                role="radio"
-                                aria-checked={selectedScore === value}
-                                aria-label={`${value} 分，${levelLabel}`}
-                                onClick={() => commitPatch({ [key]: value })}
-                              >
-                                {value}
-                              </button>
-                            ))}
-                          </div>
-                          <span className={`wr-score-status ${tone}`}>{selectedLevel?.label ?? '尚未评分'}</span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </section>
-
+                </details> : null}
+                <details className="wr-disclosure"><summary>模式归因{review.strengthTags.length + review.mistakeTags.length > 0 ? ` · ${review.strengthTags.length + review.mistakeTags.length}` : ''}</summary>
               <section className="wr-section" data-weekly-section="patterns" data-invalid="false">
-                <div className="wr-section-head"><div><span>{previousReview ? '04' : '03'}</span><h2>模式识别</h2></div><small>用于跨周统计，而不是替代你的判断</small></div>
+                <div className="wr-section-head"><div><h2>模式归因</h2></div></div>
                 <TagGroup tone="strength" title="做得好的" options={STRENGTH_TAGS} selected={review.strengthTags} onChange={(strengthTags) => commitPatch({ strengthTags })} />
                 <TagGroup
                   tone="correction"
@@ -1042,8 +963,11 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 ) : null}
               </section>
 
+                </details>
+                <details className="wr-disclosure wr-detail-evidence" ref={evidenceRef}>
+                  <summary>交易证据 · {evidenceCount} 笔</summary>
               <section className="wr-section" data-weekly-section="evidence" data-invalid="false">
-                <div className="wr-section-head"><div><span>{previousReview ? '05' : '04'}</span><h2>关键交易证据</h2></div><small>标记角色后，可在年度复盘中回看</small></div>
+
                 {evidenceCount > 6 ? <button type="button" className="ui-btn ui-btn-ghost wr-evidence-toggle" aria-expanded={showAllEvidence} onClick={() => setShowAllEvidence((value) => !value)}>{showAllEvidence ? '只看已标记证据' : `查看和标记全部 ${evidenceCount} 笔交易`}</button> : null}
                 {compactEvidence && displayedEvidenceTrades.length + displayedMissedTrades.length === 0 ? <p className="wr-empty">尚未标记关键证据。</p> : null}
                 {evidenceTrades.length || evidenceMissedTrades.length ? (
@@ -1086,31 +1010,29 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 ) : <div className="wr-empty">本周没有实盘已平仓交易或错过机会。仍可记录无交易决策、观察与下周行动。</div>}
               </section>
 
-              <section className="wr-section" data-weekly-section="judgment" data-invalid={sectionHasIssue('judgment')}>
-                <div className="wr-section-head"><div><span>{previousReview ? '06' : '05'}</span><h2>判断与截图</h2></div></div>
-                <div className="wr-editor-wrap" data-weekly-field="review-content" data-invalid={sectionHasIssue('judgment')}>
-                  <Editor
-                    content={editorHtml}
-                    onChange={onEditorChange}
-                    noteDraftId={storedReview ? draftId : undefined}
-                    readOnly={!editorReadyRef.current && Boolean(review.contentHtml)}
-                    ariaLabel="周复盘正文"
-                    placeholder="哪些做法值得保留？错误在什么条件下重复出现？直接粘贴截图作为证据…"
-                  />
-                </div>
-              </section>
+                </details>
+                <details className="wr-disclosure wr-detail-risk" ref={riskRef}>
+                  <summary>风控明细</summary>
+              <WeeklyRiskEvidence
+                snapshot={usesCompleteSnapshot ? review.riskSnapshot : undefined}
+                availability={riskEvidenceAvailability}
+                detailSource={{
+                  pathname: location.pathname,
+                  search: routeResolution.canonicalSearch,
+                  restoreSearch: buildWeeklyReviewReturnSearch(
+                    location.search,
+                    { selectedWeek, ...(selectedReviewId ? { selectedReviewId } : {}), tab },
+                  ),
+                }}
+                overrideEventsOpen={overrideEventsOpen}
+                onOverrideEventsOpenChange={setOverrideEventsOpen}
+              />
 
-              <section className="wr-section wr-commitment" data-weekly-section="commitment" data-invalid={sectionHasIssue('commitment')}>
-                <div className="wr-section-head"><div><span>{previousReview ? '07' : '06'}</span><h2>下周只改变一件事</h2></div><small>下次复盘时验证</small></div>
-                <label>行动承诺<input data-weekly-field="commitment-text" aria-invalid={visualIssues.some((issue) => issue.fieldId === 'commitment-text')} value={review.commitmentText} onChange={(event) => commitPatch({ commitmentText: event.target.value })} placeholder="例如：没有触发确认前不提前入场" /></label>
-                <label>验收标准<input data-weekly-field="commitment-criteria" aria-invalid={visualIssues.some((issue) => issue.fieldId === 'commitment-criteria')} value={review.commitmentCriteria} onChange={(event) => commitPatch({ commitmentCriteria: event.target.value })} placeholder="例如：所有入场截图中都能看到确认信号" /></label>
-              </section>
-
-              <div className="wr-footer-action">
-                {review.status !== 'completed' ? <div><strong>完成后会冻结本周事实，并带入下周验证</strong></div> : null}
-                {review.status === 'completed'
-                  ? <button type="button" className="ui-btn ui-btn-bordered" onClick={reopenReview}><RotateCcw size={ICON_MD} /> 重新打开</button>
-                  : <button type="button" className="ui-btn ui-btn-primary" onClick={() => void completeReview()}><Check size={ICON_MD} /> 完成本周复盘</button>}
+                </details>
+              </div>
+              <div className="wr-document-paging">
+                <IconButton label="上一条复盘" size="md" disabled={!olderHistoryItem} onClick={() => olderHistoryItem && void changeReview(olderHistoryItem)}><ChevronLeft size={ICON_MD} /></IconButton>
+                <IconButton label="下一条复盘" size="md" disabled={!newerHistoryItem} onClick={() => newerHistoryItem && void changeReview(newerHistoryItem)}><ChevronRight size={ICON_MD} /></IconButton>
               </div>
             </div>
           )}
@@ -1121,7 +1043,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
 }
 
 function Metric({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: 'positive' | 'negative' }) {
-  return <div className="wr-metric"><span>{label}</span><strong className={tone ? `is-${tone}` : ''}>{value}</strong>{hint ? <small>{hint}</small> : null}</div>
+  return <Tooltip content={hint ?? label} label={label} focusable><div className="wr-metric"><span>{label}</span><strong className={tone ? `is-${tone}` : ''}>{value}</strong></div></Tooltip>
 }
 
 function TagGroup({ tone, title, options, selected, onChange, counts }: { tone: 'strength' | 'correction'; title: string; options: string[]; selected: string[]; onChange: (values: string[]) => void; counts?: Record<string, number> }) {

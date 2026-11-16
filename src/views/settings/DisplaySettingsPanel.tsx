@@ -276,19 +276,22 @@ export function DisplaySettingsPanel() {
 
         <ChoiceSection
           title="默认排序"
-          hint="再次点击当前排序可切换升序 / 降序。"
           options={getSortOptions(display.sortBy, display.sortDirection)}
           value={display.sortBy}
           onChange={(value) => {
-            const selected = value === display.sortBy
             setDisplay({
               sortBy: value,
-              sortDirection: selected
-                ? display.sortDirection === 'asc' ? 'desc' : 'asc'
-                : 'desc',
+              sortDirection: value === display.sortBy ? display.sortDirection : 'desc',
               ...(value === 'date' ? {} : { groupByDate: false, groupByStrategy: false }),
             })
           }}
+        />
+
+        <ChoiceSection
+          title="排序方向"
+          options={[{ value: 'asc', label: '升序', description: '从低到高' }, { value: 'desc', label: '降序', description: '从高到低' }]}
+          value={display.sortDirection}
+          onChange={(sortDirection) => setDisplay({ sortDirection })}
         />
 
         {electron ? (

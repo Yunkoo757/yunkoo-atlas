@@ -17,13 +17,11 @@ function ruleBlock(css: string, selector: string): string {
   return css.slice(start, close + 1)
 }
 
-export function testWeeklyHistoryRailUsesReadableDesktopWidth(): void {
+export function testWeeklyHistoryPickerDoesNotOccupyTheDocumentRail(): void {
   const shell = ruleBlock(weeklyCss(), '.wr-shell {')
-  assert(
-    /grid-template-columns:\s*minmax\(200px,\s*220px\)\s+minmax\(0,\s*1fr\)/.test(shell),
-    '周复盘左栏桌面宽度必须约 220px，并保留可用最小宽度',
-  )
-  assert(!/grid-template-columns:\s*148px/.test(weeklyCss()), '左栏不得再使用 148px 固定列')
+  assert(!shell.includes('grid-template-columns'), '文档不得再为常驻历史栏保留列宽')
+  const popup = ruleBlock(weeklyCss(), '.wr-record-popup')
+  assert(popup.includes('position: absolute') && popup.includes('overflow-y: auto'), '记录选择器必须独立浮层并支持长列表滚动')
 }
 
 export function testWeeklyHistoryItemsDoNotWrapDateOrStatus(): void {

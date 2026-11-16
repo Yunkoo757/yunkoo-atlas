@@ -24,8 +24,8 @@ export function testLowRiskDesktopActionsReuseSharedControls(): void {
       throw new Error(`周复盘缺少共享图标按钮：${label}`)
     }
   }
-  if (!weekly.includes('<SegmentedControl<WeeklyReviewTab>') || weeklyCss.includes('.wr-tab-switch button')) {
-    throw new Error('周复盘页签必须复用公共分段控件并保留 tablist 语义')
+  if (!weekly.includes("import { Button } from '@/components/ui/Button'") || !weekly.includes('<Button id="weekly-review-tab-year" variant="ghost" size="sm"') || weeklyCss.includes('.wr-view-switch button')) {
+    throw new Error('周复盘视图入口必须复用公共轻量按钮，不得私改其控件样式')
   }
 
 }

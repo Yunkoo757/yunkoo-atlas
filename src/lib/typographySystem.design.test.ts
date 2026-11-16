@@ -714,7 +714,7 @@ export async function testSharedTypeRolesStayAlignedAcrossPages(): Promise<void>
 
   for (const [path, selector] of [
     ['src/components/DataIOContent.css', '.storage-summary strong'],
-    ['src/views/WeeklyReviewView.css', '.wr-page-head p'],
+    ['src/views/WeeklyReviewView.css', '.wr-editor-wrap .editor .ProseMirror'],
   ] as const) {
     assertRoleDeclarations(cssRule(sources[path], selector), selector, [
       ['font-size', 'var(--type-body-size)'],
