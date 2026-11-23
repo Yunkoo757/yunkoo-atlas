@@ -1,4 +1,3 @@
-import { casePreviewSummary, resolveCasePreview } from '@/lib/caseExcerpt'
 import { ICON_LG, ICON_SM } from '@/icons/iconSize'
 import { memo } from 'react'
 import { Bookmark, Star } from '@/icons/appIcons'
@@ -74,7 +73,6 @@ export const TradeRow = memo(function TradeRow({
   const strategyLabel = strategies.find((strategy) => strategy.id === trade.strategyId)?.name ?? '未设置'
   const date = fmtDate(trade.openedAt)
   const isCase = trade.tradeKind === 'case'
-  const caseSummary = isCase ? casePreviewSummary(resolveCasePreview(trade)) : ''
   const emphasisLabel = isCase
     ? (starred ? '取消重点' : '设为重点案例')
     : (starred ? '取消星标' : '星标交易')
@@ -140,7 +138,6 @@ export const TradeRow = memo(function TradeRow({
       }
       tags={
         <>
-          {caseSummary ? <span className="trade-row-case-summary">{caseSummary}</span> : null}
           <TradeRowStrategy
             strategyId={trade.strategyId}
             strategies={strategies}

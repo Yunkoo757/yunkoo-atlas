@@ -231,6 +231,21 @@ async function run(): Promise<void> {
           onSelect={() => {}}
           onToggleStar={() => {}}
         />
+        <TradeRow
+          trade={{
+            ...trade('case-screenshots'),
+            tradeKind: 'case',
+            note: '',
+            sourceNoteHtml: '<img src="journal-asset://1"><img src="journal-asset://2">',
+          }}
+          strategies={[strategy]}
+          selected={false}
+          focused={false}
+          starred={false}
+          onOpen={() => {}}
+          onSelect={() => {}}
+          onToggleStar={() => {}}
+        />
       </div>,
     )
     await frame()
@@ -238,6 +253,9 @@ async function run(): Promise<void> {
     const caseRow = document.querySelector<HTMLElement>('[data-trade-id="case"]')!
     const caseButton = caseRow?.querySelector<HTMLButtonElement>('button.trade-row-symbol-main')
     assert(caseButton, '案例名称必须提供可聚焦的预览入口')
+    assert(!caseRow.textContent?.includes('回踩确认后入场'), '案例列表只在预览中展示正文摘要')
+    const screenshotCase = document.querySelector('[data-trade-id="case-screenshots"]')
+    assert(screenshotCase && !/来源复盘|张截图/.test(screenshotCase.textContent ?? ''), '仅有截图的案例不在列表显示来源提示和截图数量')
     assert(caseRow.getBoundingClientRect().height === existingRowHeight, '案例预览不得增加列表行高')
     caseButton.focus()
     for (let attempt = 0; attempt < 60 && !document.querySelector('.case-content-preview'); attempt += 1) await frame()

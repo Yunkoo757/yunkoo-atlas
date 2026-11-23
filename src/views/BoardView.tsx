@@ -35,7 +35,7 @@ import { ResultConflictRepair } from '@/components/ResultConflictRepair'
 import { collectWorkbenchResultRepairIds } from '@/lib/workbenchResultHealth'
 import { useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
-import { OverflowTooltip, Tooltip } from '@/components/ui/Tooltip'
+import { Tooltip } from '@/components/ui/Tooltip'
 import type { Strategy } from '@/data/strategies'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import {
@@ -45,7 +45,6 @@ import {
 } from '@/lib/workbenchEmptyState'
 import './BoardView.css'
 import './ListView.css'
-import { casePreviewSummary, resolveCasePreview } from '@/lib/caseExcerpt'
 
 const CARD_ESTIMATE = 118
 const CARD_GAP = 6
@@ -342,7 +341,6 @@ function BoardColumnBody({
         {virtualItems.map((virtualRow) => {
           const t = items[virtualRow.index]!
           const i = virtualRow.index
-          const excerpt = isReviewCaseView ? casePreviewSummary(resolveCasePreview(t)) : ''
           const result = resolveTradeRowResultPresentation(
             t,
             legacyCashCurrencyAssumption,
@@ -436,11 +434,6 @@ function BoardColumnBody({
                   </span>
                   {isReviewCaseView && <BoardCardTags errors={t.mistakeTags} tags={t.tags} />}
                 </div>
-                {excerpt ? (
-                  <OverflowTooltip text={excerpt}>
-                    <p className="bd-card-excerpt">{excerpt}</p>
-                  </OverflowTooltip>
-                ) : null}
               </article>
             </div>
           )
