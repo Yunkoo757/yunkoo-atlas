@@ -63,7 +63,7 @@ export function resolveTradeDetailReturn(options: {
 }): { pathname: string; search: string } {
   const fallback = options.tradeKind === 'backtest' ? (options.backtestProjectId ? `/backtests/${encodeURIComponent(options.backtestProjectId)}` : '/backtests') : options.tradeKind === 'case' ? '/review-cases' : '/list'
 
-  if (options.from?.pathname && isValidDetailSource(options.from.pathname, options.tradeKind)) {
+  if (options.from?.pathname && isValidDetailSource(options.from.pathname, options.tradeKind, options.from.anchorTradeId)) {
     return routeWithSearch(
       options.from.pathname,
       options.from.restoreSearch ?? options.from.search ?? '',
@@ -75,7 +75,7 @@ export function resolveTradeDetailReturn(options: {
   return routeWithSearch(fallback, '')
 }
 
-function isValidDetailSource(pathname: string, tradeKind: Trade['tradeKind'] | undefined): boolean {
+function isValidDetailSource(pathname: string, tradeKind: Trade['tradeKind'] | undefined, anchorTradeId?: string): boolean {
   if (/^\/backtests\/[^/]+$/.test(pathname)) return tradeKind === 'backtest' || tradeKind === 'case'
   if (tradeKind === 'backtest') return false
   if (pathname === '/dashboard') return tradeKind !== 'case'
@@ -87,7 +87,10 @@ function isValidDetailSource(pathname: string, tradeKind: Trade['tradeKind'] | u
   if (pathname === '/settings/risk/data-repair') {
     return tradeKind === 'live' || tradeKind === undefined
   }
-  if (pathname === '/weekly-review') return tradeKind === 'live' || tradeKind === undefined
+  if (pathname === '/weekly-review') {
+    return tradeKind === 'live' || tradeKind === undefined ||
+      (tradeKind === 'case' && anchorTradeId?.startsWith('weekly-commitment:') === true)
+  }
   if (tradeKind === 'case') return isCaseWorkspaceEntryPath(pathname)
   if (isCaseWorkspaceEntryPath(pathname)) return false
   return (

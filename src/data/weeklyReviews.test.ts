@@ -1,6 +1,7 @@
 import type { Trade } from '@/data/trades'
 import type { PerformanceDateBounds } from '@/lib/performanceSelection'
 import {
+  buildWeeklyCommitmentEvidence,
   buildWeeklyReviewMetrics,
   buildWeeklyReviewTradeSelection,
   createWeeklyReview,
@@ -67,6 +68,20 @@ export function testWeeklyReviewFactsOnlyIncludeLiveTradesClosedInsideTheWeek():
   ]
   const result = tradesClosedInWeek(trades, '2026-07-13')
   assert(result.map((item) => item.id).join(',') === 'inside', '周事实不得混入模拟、未平仓、错过、已删除或其他周记录')
+}
+
+export function testWeeklyCommitmentEvidenceOnlyIncludesRecordsTiedToTheReviewWeekAndStage(): void {
+  const records = [
+    trade({ id: 'this-week', liveStageId: 'stage' }),
+    trade({ id: 'previous-week', liveStageId: 'stage' }),
+    trade({ id: 'linked-case', liveStageId: 'stage', tradeKind: 'case', sourceTradeId: 'this-week' }),
+    trade({ id: 'unrelated-case', liveStageId: 'stage', tradeKind: 'case', sourceTradeId: 'previous-week' }),
+    trade({ id: 'other-stage', liveStageId: 'older', tradeKind: 'case', sourceTradeId: 'this-week' }),
+    trade({ id: 'trashed', liveStageId: 'stage', tradeKind: 'case', sourceTradeId: 'this-week', deletedAt: '2026-07-17' }),
+    trade({ id: 'paper', tradeKind: 'paper' }),
+  ]
+  const evidence = buildWeeklyCommitmentEvidence(records, new Set(['this-week', 'paper']), 'stage')
+  assert(evidence.map((item) => item.id).join(',') === 'this-week,linked-case', '验收证据必须来自当前周及同阶段的源交易')
 }
 
 export function testWeeklyReviewFactsIgnoreRiskAccountingStart(): void {

@@ -186,7 +186,12 @@ async function run(): Promise<void> {
     await waitFor(() => document.querySelector('.wr-trade-row') !== null, 'WeeklyReviewView 证据未渲染')
     const weeklyText = document.body.textContent ?? ''
     assert(weeklyText.includes('+$100') && !weeklyText.includes('TRD-WEEKLY-FUTURE'), 'Weekly renderer 必须冻结在当前业务日')
-    assert(weeklyText.includes('1 笔结果口径冲突') && weeklyText.includes('1 笔待补结果'), 'Weekly renderer 必须显示 conflict/pending 告警')
+    const notice = document.querySelector<HTMLDetailsElement>('.wr-metrics .performance-data-notice')
+    assert(notice && !notice.open && notice.querySelector('summary')?.textContent?.includes('2 笔结果未计入'), '统计排除项必须合并为一条收起的说明')
+    notice.querySelector('summary')?.click()
+    assert(notice.open && notice.textContent?.includes('1 笔结果冲突') && notice.textContent?.includes('1 笔待补结果'), '展开后必须分别解释冲突与待补记录')
+    assert(notice.querySelector('[data-weekly-result-link="conflict"]')?.getAttribute('href') === '/trade/TRD-WEEKLY-CONFLICT', '冲突必须可进入原交易')
+    assert(notice.querySelector('[data-weekly-result-link="pending"]')?.getAttribute('href') === '/trade/TRD-WEEKLY-PENDING', '待补结果必须可进入原交易')
     assert(weeklyText.includes('TRD-WEEKLY-CONFLICT') && weeklyText.includes('TRD-WEEKLY-PENDING'), 'Weekly renderer 必须保留 conflict/pending 事实证据')
     assert(document.querySelectorAll('.wr-trade-row').length === 4, 'Weekly evidence 应保留完整、冲突、待补与独立 missed evidence')
   } finally {

@@ -1,0 +1,25 @@
+.case-decision-image-body {
+  display: grid;
+  gap: var(--space-row-gap);
+}
+
+.case-decision-image-body p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
+}
+
+.case-decision-image-preview {
+  display: grid;
+  min-height: var(--field-height-md);
+  place-items: center;
+}
+
+.case-decision-image-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 42vh;
+  object-fit: contain;
+  border-radius: var(--radius-6);
+}

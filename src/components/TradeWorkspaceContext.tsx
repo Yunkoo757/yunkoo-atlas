@@ -120,6 +120,7 @@ export function TradeWorkspaceContext({
       <>
         <div className="trade-workspace-scope-cluster">
           <TradeWorkspaceScopeMenu
+            key={page}
             page={page}
             stage={contextStage}
             kind={query.kind}
@@ -194,9 +195,10 @@ function TradeWorkspaceScopeMenu({
     if (!rect) return
     const width = 272
     const edge = 8
+    const preferredLeft = page === 'stats' ? rect.left : rect.right - width
     setPosition({
       top: rect.bottom + 6,
-      left: Math.min(Math.max(edge, rect.right - width), window.innerWidth - width - edge),
+      left: Math.min(Math.max(edge, preferredLeft), window.innerWidth - width - edge),
     })
   }
 

@@ -12,6 +12,7 @@ import {
   Star,
   Bookmark,
   Copy,
+  Image,
   Pencil,
   Trash2,
   RotateCcw,
@@ -30,6 +31,8 @@ import { Button } from '@/components/ui/Button'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import { ModalShell } from '@/components/ui/ModalShell'
+import { CaseDecisionImageModal } from '@/components/CaseDecisionImageModal'
+import { matchesReviewCaseScope } from '@/lib/reviewCaseScope'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { TagEditor } from '@/components/TagEditor'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
@@ -229,6 +232,7 @@ export function DetailView() {
   const [noteRetrying, setNoteRetrying] = useState(false)
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [caseCreating, setCaseCreating] = useState(false)
+  const [decisionImageCaseId, setDecisionImageCaseId] = useState<string | null>(null)
   const [contentCopying, setContentCopying] = useState(false)
   const [contentCopyIssue, setContentCopyIssue] = useState<{ tradeId: string; message: string } | null>(null)
   const contentCopyOwnerRef = useRef(false)
@@ -913,6 +917,14 @@ export function DetailView() {
   }
   const detailRecordActions = buildRecordActionDescriptors(trade, { starred })
   const deleteAction = detailRecordActions.find((action) => action.id === 'delete')
+  const openDecisionImage = async () => {
+    if (!(await flushNoteDraftToStore(trade.id))) {
+      toast('正文尚未保存，请稍后重试')
+      return
+    }
+    if (detailMountedRef.current && activeTradeIdRef.current === trade.id) setDecisionImageCaseId(trade.id)
+  }
+
   const moreMenuOptions: MenuOption[] = [
     ...detailRecordActions
       .filter((action) => action.id !== 'delete')
@@ -924,6 +936,9 @@ export function DetailView() {
     { type: 'separator' },
     ...(reviewComplete
       ? [{ value: 'reopen-review', label: '重新复盘', icon: <RotateCcw size={ICON_MD} /> }]
+      : []),
+    ...(trade.decisionImageId || matchesReviewCaseScope(trade, 'mistakes', new Set())
+      ? [{ value: 'decision-image', label: '设置先判断图', icon: <Image size={ICON_MD} /> }]
       : []),
     { value: 'copy-link', label: '复制链接', icon: <Link2 size={ICON_MD} /> },
     { value: 'copy-ref', label: '复制编号', icon: <Copy size={ICON_MD} /> },
@@ -949,6 +964,7 @@ export function DetailView() {
           toast(starred ? '已取消重点' : '已设为重点案例')
         }
         else if (v === 'reopen-review') updateTradeData(trade.id, { reviewStatus: 'unreviewed' })
+        else if (v === 'decision-image') void openDecisionImage()
         else if (v === 'copy-link') copyLink()
         else if (v === 'copy-ref') copyRef()
         else if (v === 'delete') onDelete()
@@ -1676,6 +1692,18 @@ export function DetailView() {
         </>
       )}
       />
+      {decisionImageCaseId === trade.id && (
+        <CaseDecisionImageModal
+          key={trade.id}
+          trade={trade}
+          onClose={() => setDecisionImageCaseId(null)}
+          onSave={(decisionImageId) => {
+            updateTradeData(trade.id, { decisionImageId })
+            setDecisionImageCaseId(null)
+            toast(decisionImageId ? '已设置先判断图' : '已取消截图标记')
+          }}
+        />
+      )}
     </>
   )
 }

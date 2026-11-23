@@ -54,6 +54,8 @@ async function run() {
     role.click()
     await waitFor(() => useStore.getState().weeklyReviews[0].highlightTradeIds.length === 2, '角色标记未保存')
     assert(document.querySelectorAll('.wr-trade-row').length === 14, '标记过程中不得移动或收起其他证据')
+    evidence.querySelector('summary')!.click()
+    await waitFor(() => !evidence.open && document.activeElement === open, '收起证据必须回到原入口')
     assert(document.documentElement.scrollWidth <= innerWidth, '不得产生横向溢出')
   } finally {
     root.unmount()

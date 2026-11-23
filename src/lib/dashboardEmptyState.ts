@@ -29,7 +29,7 @@ export function resolveDashboardEmptyState(input: {
     return {
       kind: 'scope',
       title: '当前分析范围暂无交易',
-      hint: '其他阶段、类型或周期已有记录，可以调整当前分析范围。',
+      hint: '切换阶段、盘型或周期查看已有交易。',
       primary: 'adjust-scope',
       primaryLabel: '调整分析范围',
       secondary: 'create',

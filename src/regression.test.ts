@@ -2029,6 +2029,13 @@ export function testTradeDetailReturnRemembersListView(): void {
   })
   assert(invalidCaseRiskSource.pathname === '/review-cases', '案例详情不得接受风险设置作为来源')
 
+  const commitmentCaseReturn = resolveTradeDetailReturn({
+    from: { pathname: '/weekly-review', restoreSearch: '?week=2026-07-13', anchorTradeId: 'weekly-commitment:case-1' },
+    tradeKind: 'case',
+  })
+  assert(commitmentCaseReturn.pathname === '/weekly-review' && commitmentCaseReturn.search === '?week=2026-07-13',
+    '从验收证据打开的案例须返回原周复盘')
+
   const riskRepairReturn = resolveTradeDetailReturn({
     from: {
       pathname: '/settings/risk/data-repair',

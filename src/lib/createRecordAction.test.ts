@@ -6,6 +6,9 @@ export function testCreateActionNamesAndKindsFollowWorkspaceWithoutChangingSaved
     ['/review-cases', '', 'case', 'global.newCase'],
     ['/backtests/project', '', 'backtest', 'global.newTrade'],
     ['/list', '?kind=paper', 'paper', 'global.newTrade'],
+    ['/board', '?kind=paper', 'paper', 'global.newTrade'],
+    ['/dashboard', '?kind=paper', 'paper', 'global.newTrade'],
+    ['/review-cases/mistakes/board', '', 'case', 'global.newCase'],
     ['/list', '', 'live', 'global.newTrade'],
   ] as const
   for (const [path, search, kind, id] of cases) {

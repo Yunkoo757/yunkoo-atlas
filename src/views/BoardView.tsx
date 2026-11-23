@@ -3,6 +3,7 @@ import { ICON_MD } from '@/icons/iconSize'
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { createRecordForContext, resolveCreateRecordAction } from '@/lib/createRecordAction'
 import { Plus } from '@/icons/appIcons'
 import { Topbar } from '@/components/Topbar'
 import type { WorkbenchView } from '@/components/Topbar'
@@ -87,6 +88,7 @@ export function BoardView({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const navigate = useNavigate()
   const location = useLocation()
+  const createRecord = () => createRecordForContext(location.pathname, location.search, navigate)
   useListContextSync(filter)
   useTradeReturnAnchor()
   const { trades, visible, totalCount, workspaceCount, businessDateAnchor } = useWorkbenchVisibleTrades(filter)
@@ -128,7 +130,7 @@ export function BoardView({
   useEffect(() => setFocusIndex(-1), [orderedIdsKey])
 
   const isReviewCaseView = filter.tradeKind === 'case'
-  const recordLabel = isReviewCaseView ? '案例' : '交易'
+  const createLabel = resolveCreateRecordAction(location.pathname, location.search).label
   const emptyState = resolveWorkbenchEmptyState({
     totalCount,
     workspaceCount,
@@ -195,7 +197,7 @@ export function BoardView({
         {emptyState ? (
           <WorkbenchEmptyState
             state={emptyState}
-            onCreate={() => openComposer()}
+            onCreate={createRecord}
             onReset={resetEmptyConditions}
           />
         ) : (
@@ -215,11 +217,11 @@ export function BoardView({
                 <span className="bd-col-title">{STATUS_META[c.status].label}</span>
                 <span className="bd-col-count">{c.items.length}</span>
                 <span className="bd-col-add-wrap">
-                  <Tooltip content={`新建${recordLabel}`} label={`新建${recordLabel}`}>
+                  <Tooltip content={createLabel} label={createLabel}>
                     <button
                       className="bd-col-add"
-                      aria-label={`新建${recordLabel}`}
-                      onClick={() => openComposer()}
+                      aria-label={createLabel}
+                      onClick={createRecord}
                     >
                       <Plus size={ICON_MD} />
                     </button>

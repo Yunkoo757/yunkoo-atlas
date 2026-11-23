@@ -7,6 +7,7 @@ import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { hasCanonicalRiskAmount } from '@/lib/riskPolicyValidity'
 import { assertValidLiveStageState } from '@/lib/liveStages'
 import { isCanonicalWeeklyReviewPeriod, stageContainsWeeklyReviewPeriod } from '@/lib/weeklyReviewPeriod'
+import { isSafeAssetId } from '@/storage/assetId'
 
 const TRADE_SIDES = new Set(['long', 'short'])
 const TRADE_STATUSES = new Set(['planned', 'open', 'missed', 'win', 'loss', 'breakeven'])
@@ -270,6 +271,7 @@ export function isValidPersistedTrade(
   if (value.reviewCategory !== undefined && !REVIEW_CATEGORIES.has(String(value.reviewCategory))) return false
   if (value.isFocusCase !== undefined && typeof value.isFocusCase !== 'boolean') return false
   if (value.caseType !== undefined && !CASE_TYPES.has(String(value.caseType))) return false
+  if (value.decisionImageId != null && (value.tradeKind !== 'case' || !isSafeAssetId(value.decisionImageId))) return false
   if (value.masteryState !== undefined && !MASTERY_STATES.has(String(value.masteryState))) return false
   if (value.missReason !== undefined && !MISS_REASONS.has(String(value.missReason))) return false
   for (const field of [
@@ -482,6 +484,19 @@ function isWeeklyReviewEvidenceSnapshot(value: unknown): boolean {
     )
 }
 
+function isWeeklyPreviousCommitment(value: unknown): boolean {
+  return isRecord(value) &&
+    isCanonicalDate(value.weekStart) &&
+    typeof value.text === 'string' && !!value.text.trim() &&
+    typeof value.criteria === 'string' &&
+    Array.isArray(value.evidence) && !hasDuplicateStringId(value.evidence) &&
+    value.evidence.every((item) => isRecord(item) &&
+      typeof item.id === 'string' && !!item.id.trim() &&
+      typeof item.ref === 'string' && typeof item.symbol === 'string' &&
+      (item.tradeKind === 'live' || item.tradeKind === 'case'),
+    )
+}
+
 function isWeeklyReview(value: unknown): boolean {
   if (!isRecord(value)) return false
   const quarantinedPeriod = value.legacyPeriodQuarantine === true
@@ -517,6 +532,7 @@ function isWeeklyReview(value: unknown): boolean {
     value.previousCommitmentResult !== null &&
     !WEEKLY_COMMITMENT_RESULTS.has(String(value.previousCommitmentResult))
   ) return false
+  if (value.previousCommitment !== undefined && !isWeeklyPreviousCommitment(value.previousCommitment)) return false
   if (value.completedAt !== null && typeof value.completedAt !== 'string') return false
   if (value.metricsSnapshot !== null && !isWeeklyReviewMetrics(value.metricsSnapshot)) return false
   if (value.evidenceSnapshot !== undefined && !isWeeklyReviewEvidenceSnapshot(value.evidenceSnapshot)) return false

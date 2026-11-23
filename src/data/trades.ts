@@ -101,6 +101,8 @@ interface TradeBase {
   sourceTradeId?: string
   /** 关联来源交易最近一次成功保存的正文快照；仅案例使用。 */
   sourceNoteHtml?: string
+  /** 用户指定的决策时点截图，引用案例正文或来源快照中的现有附件。 */
+  decisionImageId?: string | null
   /** 学习优先级；仅案例使用，不得与交易星标混用。 */
   isFocusCase?: boolean
   caseType?: CaseType

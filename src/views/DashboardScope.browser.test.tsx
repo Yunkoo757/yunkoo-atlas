@@ -166,6 +166,10 @@ async function run(): Promise<void> {
       </MemoryRouter>,
     )
     await waitFor(() => Boolean(document.querySelector('[data-currency-merge-status="usd-with-exclusions"]')), '混合/未知币种必须显示独立覆盖状态')
+    const notice = document.querySelector<HTMLDetailsElement>('.db-report-context .performance-data-notice')
+    assert(notice && !notice.open, '现金口径默认收起，打开后应保留准确统计范围')
+    notice.querySelector('summary')?.click()
+    assert(notice.open, '现金口径披露应能用鼠标或键盘展开')
     const currencyHealth = document.querySelector('[data-currency-merge-status]')?.textContent ?? ''
     assert(currencyHealth.includes('现金盈亏口径') && currencyHealth.includes('已计入 1/3 笔'), 'Dashboard 必须自然说明现金盈亏统计范围')
     assert(

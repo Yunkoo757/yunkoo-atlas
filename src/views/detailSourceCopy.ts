@@ -12,6 +12,7 @@ export function resolveTradeDetailSourceCopy(options: {
   tradeKind?: Trade['tradeKind']
 }): TradeDetailSourceCopy {
   if (options.returnPathname.startsWith('/backtests')) return { breadcrumb: '回测项目', backAriaLabel: '返回回测项目', returnDestinationLabel: '回测项目' }
+  if (options.returnPathname === '/dashboard') return { breadcrumb: '统计分析', backAriaLabel: '返回统计分析', returnDestinationLabel: '统计分析' }
   if (options.fromPathname === '/settings/risk/data-repair') {
     return {
       breadcrumb: '风险数据修复中心',

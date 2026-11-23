@@ -62,6 +62,17 @@ export interface WeeklyReviewEvidenceSnapshot {
   legacyCashCurrencyAssumption?: LegacyCashCurrencyAssumption | null
 }
 
+export type WeeklyCommitmentEvidence = Pick<Trade, 'id' | 'ref' | 'symbol'> & {
+  tradeKind: 'live' | 'case'
+}
+
+export interface WeeklyPreviousCommitment {
+  weekStart: string
+  text: string
+  criteria: string
+  evidence: WeeklyCommitmentEvidence[]
+}
+
 export interface WeeklyReview {
   id: string
   /** v12 stage ownership; undefined is accepted only while decoding v1-v11. */
@@ -85,6 +96,7 @@ export interface WeeklyReview {
   commitmentText: string
   commitmentCriteria: string
   previousCommitmentResult: WeeklyCommitmentResult | null
+  previousCommitment?: WeeklyPreviousCommitment
   metricsSnapshot: WeeklyReviewMetrics | null
   evidenceSnapshot?: WeeklyReviewEvidenceSnapshot
   riskSnapshot?: WeeklyRiskReviewSnapshot
@@ -249,6 +261,22 @@ export function buildWeeklyReviewTradeSelection(
     conflictResultIds: withinWeek(selection.conflictResultIds),
     missingResultIds: withinWeek(selection.missingResultIds),
   }
+}
+
+export function buildWeeklyCommitmentEvidence(
+  trades: readonly Trade[],
+  weekTradeIds: ReadonlySet<string>,
+  liveStageId: string,
+): WeeklyCommitmentEvidence[] {
+  return trades.flatMap((trade) => {
+    if (trade.tradeKind !== 'live' && trade.tradeKind !== 'case') return []
+    if (trade.deletedAt || trade.liveStageId !== liveStageId) return []
+    const { id, ref, symbol, tradeKind, sourceTradeId } = trade
+    if (tradeKind === 'live' ? weekTradeIds.has(id) : sourceTradeId && weekTradeIds.has(sourceTradeId)) {
+      return [{ id, ref, symbol, tradeKind }]
+    }
+    return []
+  })
 }
 
 export function missedTradesInWeek(

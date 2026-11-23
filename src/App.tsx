@@ -351,7 +351,7 @@ export function TradeLogPage() {
 }
 
 function StatisticsPage() {
-  return <Dashboard header={<TradeWorkspaceContext page="stats" />} />
+  return <Dashboard header={<TradeWorkspaceContext page="stats" compact />} />
 }
 
 function WeeklyReviewPage() {

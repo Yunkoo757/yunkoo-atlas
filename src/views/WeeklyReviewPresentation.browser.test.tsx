@@ -135,7 +135,7 @@ async function run(): Promise<void> {
     const yearSummary = document.querySelector<HTMLElement>('.wr-year-summary')
     assert(yearRail && trendScopeRow && yearSummary, '年度页缺少统一内容轨道')
     const yearRailRect = yearRail.getBoundingClientRect()
-    assert(Math.abs(trendScopeRow.getBoundingClientRect().left - yearRailRect.left) < 1, '阶段范围没有对齐年度内容轨道')
+    assert(Math.abs(trendScopeRow.getBoundingClientRect().right - yearRailRect.right) < 1, '阶段范围没有对齐年度内容轨道右缘')
     assert(Math.abs(yearSummary.getBoundingClientRect().left - yearRailRect.left) < 1, '年度摘要没有对齐年度内容轨道')
     assert(document.body.textContent?.includes('2.7'), '趋势起点评分没有保留一位小数')
     assert(!document.querySelector('.wr-chart'), '只有一周数据时不应绘制折线图')
@@ -231,7 +231,7 @@ async function run(): Promise<void> {
     assert(rail.getBoundingClientRect().width >= 168, '左栏在常用桌面宽度下必须可读')
     assert(getComputedStyle(week).whiteSpace === 'nowrap', '周标识不得逐字换行')
     const progress = document.querySelector<HTMLElement>('.wr-document-status:has(svg)')
-    const sectionHead = document.querySelector<HTMLElement>('.wr-section-head')
+    const sectionHead = document.querySelector<HTMLElement>('#weekly-action-title')
     const alignedPageHead = document.querySelector<HTMLElement>('.wr-page-head')
     assert(alignedPageHead && progress && sectionHead, '页头、进度或章节标题缺失')
     assert(

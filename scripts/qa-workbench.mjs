@@ -686,10 +686,10 @@ try {
     0,
     '仪表盘不得再提供实盘+模拟盘切换',
   )
-  const dashboardClosedCount = await page.locator('.db-card').filter({ hasText: '胜率' }).locator('.db-card-sub').innerText()
+  const dashboardClosedCount = await page.locator('.db-report-context > p').innerText()
   record(
     '案例记录不计入仪表盘统计',
-    dashboardClosedCount.endsWith('1/1 笔'),
+    dashboardClosedCount.startsWith('1 笔已平仓'),
     dashboardClosedCount,
   )
 
@@ -927,21 +927,19 @@ try {
   await waitForApp()
   await page.locator('.db-scroll').waitFor({ state: 'visible', timeout: 15000 })
   const dashboardSurface = await page.evaluate(() => {
-    const strip = document.querySelector('.db-cards')
     const metric = document.querySelector('.db-card')
-    const panel = document.querySelector('.db-panel')
+    const performance = document.querySelector('.db-performance')
     return {
-      stripGap: strip ? getComputedStyle(strip).gap : '',
       metricRadius: metric ? getComputedStyle(metric).borderRadius : '',
-      panelRadius: panel ? getComputedStyle(panel).borderRadius : '',
-      hasEmptyState: Boolean(document.querySelector('.empty')),
+      hasEquityWithMetrics: Boolean(performance?.querySelector('.db-cards') && performance?.querySelector('.db-equity-chart')),
+      hasStrategyTable: Boolean(document.querySelector('.db-strats thead')),
+      hasEmptyState: Boolean(document.querySelector('.db-empty')),
     }
   })
   record(
-    '仪表盘使用连续指标带与扁平内容区',
-    dashboardSurface.stripGap === '0px' &&
-      dashboardSurface.metricRadius === '0px' &&
-      (dashboardSurface.panelRadius === '0px' || dashboardSurface.hasEmptyState),
+    '仪表盘使用统一盈亏区和对齐的策略数据列',
+    dashboardSurface.hasEmptyState ||
+      (dashboardSurface.metricRadius === '0px' && dashboardSurface.hasEquityWithMetrics && dashboardSurface.hasStrategyTable),
     JSON.stringify(dashboardSurface),
   )
 

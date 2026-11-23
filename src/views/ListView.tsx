@@ -10,6 +10,7 @@ import { WorkbenchEmptyState } from '@/components/trades/WorkbenchEmptyState'
 import type { Trade } from '@/data/trades'
 import type { ListFilter } from '@/lib/tradeFilters'
 import { getStrategyName } from '@/lib/strategies'
+import { createRecordForContext } from '@/lib/createRecordAction'
 import { getBatchCopyActionLabel } from '@/lib/tradeActionContract'
 import { buildSafeTradeCopies } from '@/lib/tradeCopy'
 import { toast } from '@/lib/toast'
@@ -75,6 +76,7 @@ export function ListView({
   const listScrollRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const location = useLocation()
+  const createRecord = () => createRecordForContext(location.pathname, location.search, navigate)
   const pendingCount = useMemo(() => {
     if (filter.tradeKind !== 'live') return 0
     return filterStageTrades(storedTrades, { kind: 'pending' }).length
@@ -375,7 +377,7 @@ export function ListView({
         {emptyState ? (
           <WorkbenchEmptyState
             state={emptyState}
-            onCreate={() => openComposer()}
+            onCreate={createRecord}
             onReset={resetEmptyConditions}
           />
         ) : (
@@ -393,8 +395,8 @@ export function ListView({
             onClearSelection={() => setSelectedIds(new Set())}
             onToggleStar={toggleRowStar}
             onContextMenu={openContextMenu}
-            onCreate={openComposer}
-            recordLabel={filter.tradeKind === 'case' ? '案例' : '交易'}
+            onCreate={createRecord}
+            recordLabel={filter.tradeKind === 'case' ? '案例' : filter.tradeKind === 'paper' ? '模拟交易' : '交易'}
             strategyStageScope={stageScope}
           />
         )}

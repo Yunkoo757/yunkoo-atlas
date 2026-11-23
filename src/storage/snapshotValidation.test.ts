@@ -279,6 +279,18 @@ export function testSnapshotValidationAcceptsLegacyWeeklyMetricsAndRejectsMalfor
   }
 }
 
+export function testSnapshotValidationAcceptsOptionalWeeklyCommitmentEvidence(): void {
+  const snapshot = createFullPersistedSnapshotFixture()
+  assertValidPersistedSnapshot(snapshot)
+  const review = snapshot.weeklyReviews![0]
+  review.previousCommitment = {
+    weekStart: '2026-07-06', text: '等待确认', criteria: '入场截图含确认信号',
+    evidence: [{ id: 'removed-case', ref: 'CAS-1', symbol: 'XAUUSD', tradeKind: 'case' }],
+  }
+  // 原记录可以移入回收站或清除；验收记录仍保留当时引用。
+  assertValidPersistedSnapshot(snapshot)
+}
+
 export function testSnapshotValidationRejectsMalformedWeeklyEvidenceSnapshots(): void {
   const review = {
     ...createWeeklyReview('2026-07-13', 'stage-current'),
@@ -508,6 +520,9 @@ export function testSnapshotValidationExportsReusableTradeValidation(): void {
     '字符串快照必须有效',
   )
   assert(!isValidPersistedTrade({ ...legacyCase, sourceNoteHtml: 42 }), '非字符串快照必须拒绝')
+  assert(isValidPersistedTrade({ ...legacyCase, decisionImageId: 'original-chart' }), '案例应允许引用现有题图')
+  assert(!isValidPersistedTrade({ ...legacyCase, decisionImageId: '../chart' }), '先判断图必须是有效附件 ID')
+  assert(!isValidPersistedTrade({ ...valid.trades[0], decisionImageId: 'chart' }), '账户交易不能标记题图')
 }
 
 export function testSnapshotValidationRejectsDuplicateEntityIds(): void {

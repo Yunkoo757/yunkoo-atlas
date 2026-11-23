@@ -30,6 +30,7 @@ import { Select } from '@/components/ui/Select'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
+import { useDecisionImage } from '@/hooks/useDecisionImage'
 import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { getStrategyName } from '@/lib/strategies'
 import type { LiveStage } from '@/lib/liveStages'
@@ -39,10 +40,12 @@ import {
   type ReviewImageSlot,
 } from '@/lib/reviewImageReadiness'
 import {
+  DECISION_PRACTICE_FILTERS,
   DEFAULT_REVIEW_SESSION_FILTERS,
   buildReviewAssessmentPatch,
   buildReviewSessionPool,
   clearReviewSessionStorage,
+  getDecisionImageId,
   getReviewSessionContent,
   hasEffectiveReviewContent,
   loadReviewSession,
@@ -259,6 +262,7 @@ export function ReviewSessionView() {
   const [filters, setFilters] = useState<ReviewSessionFilters>(DEFAULT_REVIEW_SESSION_FILTERS)
   const [settingsDraft, setSettingsDraft] = useState<ReviewSessionFilters | null>(null)
   const [poolManagerOpen, setPoolManagerOpen] = useState(false)
+  const [decisionHelpOpen, setDecisionHelpOpen] = useState(false)
   const [pendingFilters, setPendingFilters] = useState<ReviewSessionFilters | null>(null)
   const [pendingFiltersBusy, setPendingFiltersBusy] = useState(false)
   const [session, setSession] = useState<ReviewSessionSnapshot | null>(null)
@@ -291,6 +295,17 @@ export function ReviewSessionView() {
       { liveStages, currentLiveStageId },
     ),
     [businessDateAnchor.currentTradingDayKey, currentLiveStageId, filters, liveStages, starred, trades, tradingDayStartHour],
+  )
+  const decisionPool = useMemo(
+    () => buildReviewSessionPool(
+      trades.filter((trade) => trade.decisionImageId),
+      DECISION_PRACTICE_FILTERS,
+      starred,
+      businessDateAnchor.currentTradingDayKey,
+      tradingDayStartHour,
+      { liveStages, currentLiveStageId },
+    ).filter((trade) => getDecisionImageId(trade)),
+    [businessDateAnchor.currentTradingDayKey, currentLiveStageId, liveStages, starred, trades, tradingDayStartHour],
   )
   const poolIndex = useMemo(() => buildReviewPoolCandidateIndex(
     trades,
@@ -339,6 +354,8 @@ export function ReviewSessionView() {
   const current = session && session.cursor < session.ids.length
     ? tradeById.get(session.ids[session.cursor] ?? '')
     : undefined
+  const decisionPending = Boolean(current && session?.decisionPractice && session.revealedDecisionId !== current.id)
+  const backLabel = session?.assessments[session.ids[session.cursor - 1]] ? '撤销评估并返回' : '返回上一条'
   const hasExplicitEmptySelection = Boolean(
     session &&
     session.ids.length === 0 &&
@@ -366,14 +383,13 @@ export function ReviewSessionView() {
         )
         : null
       setLibraryId(manifest.libraryId)
-      if (restored) {
-        setFilters(restored.filters)
-        setSession(restored)
-      } else {
-        if (stored) clearReviewSessionStorage(manifest.libraryId)
+      if (restored && !restored.decisionPractice) setFilters(restored.filters)
+      else {
         const remembered = loadReviewSessionFilters(manifest.libraryId)
         if (remembered) setFilters(remembered)
       }
+      if (restored) setSession(restored)
+      else if (stored) clearReviewSessionStorage(manifest.libraryId)
       setRestoreStatus('ready')
     }).catch(() => {
       if (cancelled) return
@@ -393,11 +409,12 @@ export function ReviewSessionView() {
     setSession((value) => value ? {
       ...value,
       cursor: Math.min(value.cursor + 1, value.ids.length),
+      revealedDecisionId: undefined,
     } : value)
   }, [current, session])
 
   useEffect(() => {
-    if (!current) {
+    if (!current || decisionPending) {
       setResolvedNote(EMPTY_NOTE_STATE)
       return
     }
@@ -416,13 +433,14 @@ export function ReviewSessionView() {
       if (!cancelled) setResolvedNote({ tradeId: current.id, status: 'error', html: '' })
     })
     return () => { cancelled = true; imageScope.release() }
-  }, [current?.id, current?.note, current?.sourceNoteHtml, current?.tradeKind])
+  }, [current?.id, current?.note, current?.sourceNoteHtml, current?.tradeKind, decisionPending])
 
   const advance = useCallback(() => {
     focusAfterTransitionRef.current = true
     setSession((value) => value ? {
       ...value,
       cursor: Math.min(value.cursor + 1, value.ids.length),
+      revealedDecisionId: undefined,
     } : value)
   }, [])
 
@@ -453,13 +471,14 @@ export function ReviewSessionView() {
     setSession({
       ...value,
       cursor: prevCursor,
+      revealedDecisionId: undefined,
       assessments,
       assessmentActionIds,
     })
   }, [])
 
   const assess = useCallback((assessment: ReviewSessionAssessment) => {
-    if (!current || current.tradeKind !== 'case') return
+    if (!current || current.tradeKind !== 'case' || decisionPending) return
     const previousActionId = useStore.getState().undoStack.at(-1)?.actionId
     updateTradeData(current.id, buildReviewAssessmentPatch(
       current,
@@ -473,6 +492,7 @@ export function ReviewSessionView() {
     setSession((value) => value ? {
       ...value,
       cursor: Math.min(value.cursor + 1, value.ids.length),
+      revealedDecisionId: undefined,
       assessments: { ...value.assessments, [current.id]: assessment },
       assessmentActionIds: { ...(value.assessmentActionIds ?? {}), [current.id]: actionId },
     } : value)
@@ -497,7 +517,7 @@ export function ReviewSessionView() {
     } else {
       toast('已记录评估')
     }
-  }, [businessDateAnchor.now, current, tradingDayStartHour, updateTradeData])
+  }, [businessDateAnchor.now, current, decisionPending, tradingDayStartHour, updateTradeData])
 
   const extractCurrentAsCase = useCallback(() => {
     if (!current || current.tradeKind === 'case') return
@@ -522,7 +542,7 @@ export function ReviewSessionView() {
       document.querySelector<HTMLElement>(selector)?.focus()
     })
     return () => cancelAnimationFrame(frame)
-  }, [current, roundEnded, session?.cursor, settingsDraft])
+  }, [current, decisionPending, roundEnded, session?.cursor, settingsDraft])
 
   useEffect(() => {
     if (!focusSettingsApplyAfterCancelRef.current || pendingFilters || !settingsDraft) return
@@ -546,12 +566,12 @@ export function ReviewSessionView() {
   useEffect(() => {
     if (!session || roundEnded || !current) return
     return registerShortcutHandlers(createReviewSessionShortcutHandlers({
-      current,
+      current: decisionPending ? undefined : current,
       onAssess: assess,
       onSkip: advance,
       onBack: rewind,
     }))
-  }, [advance, assess, current, rewind, roundEnded, session])
+  }, [advance, assess, current, decisionPending, rewind, roundEnded, session])
 
   const rememberFilters = (nextFilters: ReviewSessionFilters) => {
     setFilters(nextFilters)
@@ -564,6 +584,21 @@ export function ReviewSessionView() {
     focusAfterTransitionRef.current = true
     rememberFilters(filters)
     setSession({ ids, cursor: 0, filters, assessments: {} })
+  }
+
+  const startDecisionPractice = () => {
+    if (decisionPool.length === 0) {
+      setDecisionHelpOpen(true)
+      return
+    }
+    focusAfterTransitionRef.current = true
+    setSession({
+      ids: shuffleReviewSessionIds(decisionPool.map((trade) => trade.id)),
+      cursor: 0,
+      filters: DECISION_PRACTICE_FILTERS,
+      decisionPractice: true,
+      assessments: {},
+    })
   }
 
   const startSystemPool = (poolId: SystemReviewPoolId) => {
@@ -672,6 +707,10 @@ export function ReviewSessionView() {
 
   const reshuffle = () => {
     if (!session) return
+    if (session.decisionPractice) {
+      startDecisionPractice()
+      return
+    }
     const nextFilters = reviewFiltersForNextRound(session)
     const nextPool = session.systemPoolId
       ? buildSystemReviewPool(trades, session.systemPoolId, subscribed)
@@ -709,7 +748,7 @@ export function ReviewSessionView() {
   }
 
   const openDetail = () => {
-    if (!current) return
+    if (!current || decisionPending) return
     if (libraryId && session) saveReviewSession(libraryId, session)
     navigate(tradeDetailPath(current), {
       state: tradeDetailNavState({
@@ -738,7 +777,7 @@ export function ReviewSessionView() {
         </Button>
         <div className="review-session-heading">
           <RotateCcw size={ICON_MD} aria-hidden />
-          <strong>随机复盘</strong>
+          <strong>{session?.decisionPractice ? '先判断' : '随机复盘'}</strong>
         </div>
         {session && session.ids.length > 0 && !roundEnded ? (
           <div className="review-session-topbar-end">
@@ -746,8 +785,8 @@ export function ReviewSessionView() {
             <span className="review-session-progress" aria-live="polite">
               {session.cursor + 1} / {session.ids.length}
             </span>
-            <Button type="button" variant="bordered" onClick={() => openSettings(session.filters)}>调整范围</Button>
-            <Button type="button" variant="bordered" onClick={() => clearActiveSession(reviewFiltersForNextRound(session))}>结束本轮</Button>
+            {!session.decisionPractice && <Button type="button" variant="bordered" onClick={() => openSettings(session.filters)}>调整范围</Button>}
+            <Button type="button" variant="bordered" onClick={() => clearActiveSession(session.decisionPractice ? filters : reviewFiltersForNextRound(session))}>结束本轮</Button>
           </div>
         ) : <span />}
       </header>
@@ -768,6 +807,8 @@ export function ReviewSessionView() {
           onOpenManager={() => setPoolManagerOpen(true)}
           onStartPool={startHomePool}
           onStart={start}
+          decisionPoolSize={decisionPool.length}
+          onStartDecision={startDecisionPractice}
         />
       ) : hasExplicitEmptySelection ? (
         <ReviewSessionEmptySelection onAdjust={() => openSettings(session.filters)} />
@@ -775,11 +816,23 @@ export function ReviewSessionView() {
         <ReviewSessionFinished
           session={session}
           onBack={rewind}
-          onReshuffle={reshuffle}
-          onAdjust={adjustFinishedSession}
+          onReshuffle={!session.decisionPractice || decisionPool.length > 0 ? reshuffle : undefined}
+          onAdjust={session.decisionPractice ? () => clearActiveSession() : adjustFinishedSession}
         />
       ) : !current ? (
         <div className="review-session-loading" role="status">正在跳过已删除的记录…</div>
+      ) : decisionPending ? (
+        <DecisionPracticeCard
+          key={current.id}
+          trade={current}
+          onReveal={() => {
+            focusAfterTransitionRef.current = true
+            setSession({ ...session, revealedDecisionId: current.id })
+          }}
+          onSkip={advance}
+          onBack={session.cursor > 0 ? rewind : undefined}
+          backLabel={backLabel}
+        />
       ) : (
         <ReviewSessionItem
           trade={current}
@@ -789,11 +842,23 @@ export function ReviewSessionView() {
           onExtractCase={extractCurrentAsCase}
           onSkip={advance}
           onBack={session.cursor > 0 ? rewind : undefined}
-          backLabel={session.assessments[session.ids[session.cursor - 1]] ? '撤销评估并返回' : '返回上一条'}
+          backLabel={backLabel}
           onOpenDetail={openDetail}
           privacyMode={privacyMode}
           legacyCashCurrencyAssumption={legacyCashCurrencyAssumption}
           originLabel={reviewStageOriginLabel(current, liveStages, currentLiveStageId)}
+        />
+      )}
+      {decisionHelpOpen && (
+        <ModalShell
+          title="先判断"
+          description="到期错题中暂无先判断图。打开错题详情，在「更多」中设置一张决策时点截图。"
+          size="compact"
+          onClose={() => setDecisionHelpOpen(false)}
+          footer={<>
+            <Button variant="bordered" onClick={() => setDecisionHelpOpen(false)}>取消</Button>
+            <Button variant="primary" onClick={() => navigate('/review-cases/mistakes')}>查看错题</Button>
+          </>}
         />
       )}
       {settingsDraft && pendingFilters ? (
@@ -839,6 +904,8 @@ function ReviewSessionStart({
   onOpenManager,
   onStartPool,
   onStart,
+  decisionPoolSize,
+  onStartDecision,
 }: {
   filters: ReviewSessionFilters
   poolSize: number
@@ -848,6 +915,8 @@ function ReviewSessionStart({
   onOpenManager: () => void
   onStartPool: (poolRef: ReviewPoolRef) => void
   onStart: () => void
+  decisionPoolSize: number
+  onStartDecision: () => void
 }) {
   const hasEmptyStageSelection = typeof filters.stageSource === 'object' && filters.stageSource.stageIds.length === 0
   const emptyMessage = hasEmptyStageSelection
@@ -897,6 +966,9 @@ function ReviewSessionStart({
           ) : globalCandidateCount > 0 ? (
             <Button type="button" variant="primary" size="lg" onClick={onOpenSettings}>调整复盘设置</Button>
           ) : null}
+          <Button variant="bordered" size="lg" onClick={onStartDecision}>
+            先判断{decisionPoolSize > 0 ? ` · ${decisionPoolSize}` : ''}
+          </Button>
           <Menu
             align="right"
             trigger={<Button type="button" variant="ghost"><MoreHorizontal size={ICON_MD} aria-hidden />更多</Button>}
@@ -1183,6 +1255,53 @@ function ReviewSessionAssessmentButton({
   )
 }
 
+function DecisionPracticeCard({ trade, onReveal, onSkip, onBack, backLabel }: {
+  trade: Trade
+  onReveal: () => void
+  onSkip: () => void
+  onBack?: () => void
+  backLabel: string
+}) {
+  const assetId = getDecisionImageId(trade)
+  const image = useDecisionImage(assetId)
+  const src = image?.src
+  const skipShortcut = useShortcutHint('reviewSession.skip', '跳过')
+  const backShortcut = useShortcutHint('reviewSession.back', backLabel)
+
+  return (
+    <section className="review-session-stage" data-review-session-focus tabIndex={-1}>
+      <article className="review-session-workspace" aria-label="决策时点盘面">
+        <header className="review-session-item-header">
+          <h1>{trade.symbol}</h1>
+          <p className="review-session-decision-prompt">当下会怎么做？依据是什么？</p>
+        </header>
+        <div className="review-session-decision-board">
+          {src ? (
+            <button type="button" aria-label="放大决策图" onClick={() => useShortcutStore.getState().openLightbox([src], 0)}>
+              <img src={src} alt="决策时点截图" />
+            </button>
+          ) : (
+            <div className="review-session-note-state" role="status">
+              {assetId && !image ? '正在载入决策图…' : '决策图无法打开，可以跳过这条。'}
+            </div>
+          )}
+        </div>
+        <footer className="review-session-decision-actions">
+          {onBack && (
+            <Button onClick={onBack} aria-keyshortcuts={backShortcut.hint ?? undefined}>
+              {backLabel} {backShortcut.hint && <Kbd>{backShortcut.hint}</Kbd>}
+            </Button>
+          )}
+          <Button onClick={onSkip} aria-keyshortcuts={skipShortcut.hint ?? undefined}>
+            跳过 {skipShortcut.hint && <Kbd>{skipShortcut.hint}</Kbd>}
+          </Button>
+          <Button variant="primary" onClick={onReveal} disabled={!src}>揭示原记录</Button>
+        </footer>
+      </article>
+    </section>
+  )
+}
+
 function ReviewSessionItem({
   trade,
   strategyName,
@@ -1450,7 +1569,7 @@ function ReviewSessionFinished({
 }: {
   session: ReviewSessionSnapshot
   onBack: () => void
-  onReshuffle: () => void
+  onReshuffle?: () => void
   onAdjust: () => void
 }) {
   const results = Object.values(session.assessments)
@@ -1467,7 +1586,7 @@ function ReviewSessionFinished({
     <section className="review-session-finished" data-review-session-finished-focus tabIndex={-1} role="status" aria-live="polite" aria-atomic="true">
       <span className="review-session-finished-icon"><CheckCircle size={ICON_2XL} aria-hidden /></span>
       <span className="review-session-eyebrow">本轮完成</span>
-      <h1>已复盘 {session.ids.length} 条交易</h1>
+      <h1>已复盘 {session.ids.length} 条{session.decisionPractice ? '错题' : '交易'}</h1>
       <p>{completionMessage}</p>
       <div className="review-session-result-grid">
         <span><strong>{counts.unfamiliar}</strong><small>还没掌握</small></span>
@@ -1476,9 +1595,14 @@ function ReviewSessionFinished({
         <span><strong>{counts.skipped}</strong><small>跳过</small></span>
       </div>
       <div className="review-session-finished-actions">
-        <Button type="button" variant="bordered" onClick={onBack}><ChevronLeft size={ICON_MD} aria-hidden />撤销上次评估并返回</Button>
-        <Button type="button" variant="primary" size="lg" onClick={onReshuffle}><RotateCcw size={ICON_MD} aria-hidden />再随机一轮</Button>
-        <Button type="button" variant="bordered" onClick={onAdjust}><SlidersHorizontal size={ICON_MD} aria-hidden />重新设置</Button>
+        <Button type="button" variant="bordered" onClick={onBack}>
+          <ChevronLeft size={ICON_MD} aria-hidden />
+          {session.assessments[session.ids.at(-1) ?? ''] ? '撤销上次评估并返回' : '返回上一条'}
+        </Button>
+        {onReshuffle && <Button type="button" variant="primary" size="lg" onClick={onReshuffle}><RotateCcw size={ICON_MD} aria-hidden />再随机一轮</Button>}
+        <Button type="button" variant={onReshuffle ? 'bordered' : 'primary'} onClick={onAdjust}>
+          {session.decisionPractice ? '返回复盘首页' : <><SlidersHorizontal size={ICON_MD} aria-hidden />重新设置</>}
+        </Button>
       </div>
     </section>
   )

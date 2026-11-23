@@ -1,26 +1,19 @@
 import { ResultConflictRepair } from '@/components/ResultConflictRepair'
-import { ICON_MD } from '@/icons/iconSize'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import {
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from 'recharts'
+import { createRecordForContext, resolveCreateRecordAction } from '@/lib/createRecordAction'
 import { Topbar } from '@/components/Topbar'
 import { EmptyState } from '@/components/EmptyState'
 import { LiveStageManager } from '@/components/LiveStageManager'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Menu } from '@/components/Menu'
+import { PerformanceDataNotice } from '@/components/PerformanceDataNotice'
+import { Button } from '@/components/ui/Button'
+import { Tooltip } from '@/components/ui/Tooltip'
 import { IconButton } from '@/components/ui/IconButton'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
-import { MoreHorizontal, Plus } from '@/icons/appIcons'
+import { ChevronRight, MoreHorizontal, Plus } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { fmtMoney } from '@/lib/format'
@@ -38,7 +31,6 @@ import {
 import {
   buildDashboardStats,
   describeDashboardResultHealth,
-  type DashboardCurvePoint,
 } from '@/lib/dashboardStats'
 import {
   buildWeeklyReviewMetrics,
@@ -55,8 +47,9 @@ import {
 } from '@/lib/performanceSelection'
 import { filterStageOwnedRecords, resolveStageScope } from '@/lib/stageArchive'
 import { parseTradeWorkspaceQuery, sharedTradeWorkspaceSearch } from '@/lib/tradeWorkspaceQuery'
-import './Dashboard.css'
 import { resolveDashboardEmptyState } from '@/lib/dashboardEmptyState'
+import { EquityChart, RDistributionChart } from './DashboardCharts'
+import './Dashboard.css'
 
 const RANGE_OPTS: { value: AnalysisRange; label: string }[] = [
   { value: 'all', label: '全部' },
@@ -86,7 +79,6 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
   const currentLiveStageId = useStore((s) => s.currentLiveStageId)
   const privacyMode = useStore((s) => s.display.privacyMode)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
-  const openComposer = useStore((s) => s.openComposer)
   const [stageManagerOpen, setStageManagerOpen] = useState(false)
   const businessDateAnchor = useBusinessDateAnchor()
   const localDateKey = businessDateAnchor.currentTradingDayKey
@@ -107,9 +99,6 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
     () => filterStageOwnedRecords(allTrades, stageScope),
     [allTrades, stageScope],
   )
-  const performanceBounds = null
-  const hasPerformanceBounds = false
-
   useEffect(() => {
     const next = writeAnalysisScope(searchParams, scope)
     next.delete('statsCycle')
@@ -159,17 +148,15 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
     ),
     [scopedTrades, performanceSelection.eligibleMetricIds, performanceSelection.pnlIds, strategyDefs, tradingDayStartHour],
   )
-  const [curveChartRef, curveAxisWidth] = useChartYAxisWidth(stats.curve, privacyMode)
-  const [distributionChartRef, distributionAxisWidth] = useChartYAxisWidth(stats.rDist)
   const closeDayRepairIds = useMemo(
-    () => collectPerformanceCloseDayRepairIds(
+    () => scope.kind === 'paper' ? [] : collectPerformanceCloseDayRepairIds(
       [
         ...performanceSelection.missingCloseDayIds,
         ...performanceSelection.invalidCloseDayIds,
       ],
       scopedTrades,
     ),
-    [scopedTrades, performanceSelection.invalidCloseDayIds, performanceSelection.missingCloseDayIds],
+    [scope.kind, scopedTrades, performanceSelection.invalidCloseDayIds, performanceSelection.missingCloseDayIds],
   )
   const missingPerformanceCloseDayCount = closeDayRepairIds.length
   const weekStart = useMemo(() => weekStartFor(new Date(`${localDateKey}T12:00:00`)), [localDateKey])
@@ -185,14 +172,9 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
   const weekMetrics = useMemo(() => {
     const weekEligibleIds = new Set(weekPerformanceSelection.eligibleMetricIds)
     const weekTrades = scopedTrades.filter((trade) => weekEligibleIds.has(trade.id))
-    const missed = missedTradesInWeek(
-      scopedTrades,
-      weekStart,
-      tradingDayStartHour,
-      performanceBounds,
-    )
+    const missed = scope.kind === 'paper' ? [] : missedTradesInWeek(scopedTrades, weekStart, tradingDayStartHour)
     return buildWeeklyReviewMetrics(weekTrades, missed, weekPerformanceSelection.pnlIds)
-  }, [scopedTrades, tradingDayStartHour, weekPerformanceSelection, weekStart])
+  }, [scope.kind, scopedTrades, tradingDayStartHour, weekPerformanceSelection, weekStart])
   const rangeLabel = RANGE_LABELS[scope.range] ?? '全部'
   const scopedClosedCount = performanceSelection.eligibleMetricIds.length
     + performanceSelection.conflictResultIds.length
@@ -210,7 +192,16 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
     conflictCount: performanceSelection.conflictResultIds.length,
     missingResultCount: performanceSelection.missingResultIds.length,
   }
-  const hasResultHealthIssue = resultHealth.conflictCount > 0 || resultHealth.missingResultCount > 0
+  const unresolvedCount = resultHealth.conflictCount + resultHealth.missingResultCount
+  const hasResultHealthIssue = unresolvedCount > 0
+  const hasCurrencyExclusions = currencyCashFactCount > 0 && performanceSelection.currencyMergeStatus !== 'usd-only'
+  const hasPartialSamples = scopedClosedCount > 0 && [stats.pnlCount, stats.evaluatedCount, stats.rCount]
+    .some((count) => count !== scopedClosedCount)
+  const reportNotice = hasResultHealthIssue
+    ? `${unresolvedCount} 笔结果未计入`
+    : missingPerformanceCloseDayCount > 0
+      ? `${missingPerformanceCloseDayCount} 笔平仓日期待补`
+      : hasCurrencyExclusions ? '盈亏币种口径' : hasPartialSamples ? '统计样本' : null
   const hasClosedTrades = scopedClosedCount > 0
   const dashboardEmptyState = resolveDashboardEmptyState({
     totalRecordCount: allTrades.filter((trade) => !trade.deletedAt && isAccountTrade(trade)).length,
@@ -241,13 +232,15 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
   const selectedStage = workspaceQuery.stage === 'current'
     ? liveStages.find((stage) => stage.id === currentLiveStageId)
     : liveStages.find((stage) => stage.id === workspaceQuery.stage)
-  const stageLabel = workspaceQuery.stage === 'all-history'
+  const stageLabel = workspaceQuery.stage === 'all'
     ? '全部阶段'
     : workspaceQuery.stage === 'current'
       ? '当前阶段'
       : selectedStage?.name ?? '当前阶段'
   const kindLabel = scope.kind === 'all' ? '全部记录' : scope.kind === 'paper' ? '模拟盘' : '实盘'
-  const sampleLabel = (count: number) => scopedClosedCount > 0 ? `${count}/${scopedClosedCount} 笔` : undefined
+  const rangeOptions = scope.range === '30d' || scope.range === '90d'
+    ? [...RANGE_OPTS, { value: scope.range, label: rangeLabel }]
+    : RANGE_OPTS
 
   const openTrade = (tradeId: string, extras?: { focusField?: 'closedAt' }) => {
     const t = tradeById.get(tradeId)
@@ -259,487 +252,233 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
     })
   }
 
+  const notice = reportNotice && (
+    <PerformanceDataNotice label={reportNotice} attention={hasResultHealthIssue || missingPerformanceCloseDayCount > 0}>
+      {hasPartialSamples && (
+        <p>计入样本 · 盈亏 {stats.pnlCount} 笔 · 胜率 {stats.evaluatedCount} 笔 · 平均 R {stats.rCount} 笔</p>
+      )}
+      {hasResultHealthIssue && (
+        <div className="db-data-health" data-result-health-alert>
+          <span>{describeDashboardResultHealth(resultHealth)}</span>
+          <ResultConflictRepair
+            ids={[...performanceSelection.conflictResultIds, ...performanceSelection.missingResultIds]}
+            onOpenTrade={openTrade}
+          />
+        </div>
+      )}
+      {hasCurrencyExclusions && (
+        <div className="db-data-health" data-currency-merge-status={performanceSelection.currencyMergeStatus}>
+          <span>现金盈亏口径 · 已计入 {performanceSelection.usdCoveredCount}/{currencyCashFactCount} 笔</span>
+          {currencyExclusionLabel && <span>未计入：{currencyExclusionLabel}</span>}
+        </div>
+      )}
+      {missingPerformanceCloseDayCount > 0 && (
+        <div className="db-data-health">
+          <span>{missingPerformanceCloseDayCount} 笔实盘平仓日期待补，暂未计入</span>
+          <Button size="sm" data-close-day-repair onClick={() => openTrade(closeDayRepairIds[0], { focusField: 'closedAt' })}>
+            补平仓日期
+          </Button>
+        </div>
+      )}
+    </PerformanceDataNotice>
+  )
+
   return (
     <>
       <Topbar title="统计分析" showDisplay={false} />
-      {header}
       <div className="db-scroll">
         <div className="db-analysis-rail">
-        <div
-          className="db-toolbar"
-          data-dashboard-current-range
-            aria-label={`当前分析范围：${stageLabel} · ${kindLabel} · ${rangeLabel} · 报告币种 USD`}
-        >
-          <div className="db-toolbar-group" aria-label="统计周期">
-            <SegmentedControl
-              className="db-range-control"
-              label="统计周期"
-              value={scope.range}
-              options={RANGE_OPTS}
-              onChange={(range) => updateScope({ range })}
-            />
-          </div>
-          <div className="db-toolbar-actions">
-            <Link
-              to={performanceDrilldownHref}
-              className="db-toolbar-link"
-              data-current-live-trade-link
-            >
-              查看交易
-            </Link>
-            <Menu
-              align="right"
-              trigger={(
-                <IconButton label="更多统计操作" size="sm">
-                  <MoreHorizontal size={ICON_MD} aria-hidden />
-                </IconButton>
-              )}
-              options={[{ value: 'manage-stage', label: '开启新实盘阶段' }]}
-              onSelect={() => setStageManagerOpen(true)}
-            />
-          </div>
-        </div>
-
-        {stageManagerOpen ? (
-          <LiveStageManager
-            currentTradingDayKey={localDateKey}
-            onClose={() => setStageManagerOpen(false)}
-          />
-        ) : null}
-
-        <div className="db-cards" aria-label={`当前范围指标 · ${rangeLabel}`}>
-          <Card
-            label="净盈亏"
-            value={stats.pnlCount === 0
-              ? '—'
-              : fmtMoney(stats.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}
-            sub={sampleLabel(stats.pnlCount)}
-            accent={privacyMode || stats.pnlCount === 0 || stats.totalPnl === 0 ? undefined : stats.totalPnl > 0}
-            to={performanceDrilldownHref}
-          />
-          <Card
-            label="胜率"
-            value={stats.winRate == null ? '—' : `${stats.winRate.toFixed(0)}%`}
-            sub={sampleLabel(stats.evaluatedCount)}
-            to={performanceDrilldownHref}
-          />
-          <Card
-            label="平均 R"
-            value={stats.averageR == null ? '—' : `${stats.averageR > 0 ? '+' : ''}${stats.averageR.toFixed(2)}`}
-            sub={sampleLabel(stats.rCount)}
-            accent={stats.averageR == null || stats.averageR === 0 ? undefined : stats.averageR > 0}
-            to={performanceDrilldownHref}
-          />
-        </div>
-
-        {hasResultHealthIssue ? (
-          <div className="db-data-health has-conflict" data-result-health-alert>
-            <div>
-              <span className="db-data-health-title">结果数据待处理</span>
-
-            </div>
-            <div className="db-data-health-state">
-              {describeDashboardResultHealth(resultHealth)}
-              <ResultConflictRepair ids={[...performanceSelection.conflictResultIds, ...performanceSelection.missingResultIds]} onOpenTrade={openTrade} />
-            </div>
-          </div>
-        ) : null}
-
-        {currencyCashFactCount > 0 && performanceSelection.currencyMergeStatus !== 'usd-only' ? (
           <div
-            className={'db-data-health' + (performanceSelection.currencyMergeStatus === 'usd-with-exclusions' ? ' has-conflict' : '')}
-            data-currency-merge-status={performanceSelection.currencyMergeStatus}
+            className="db-toolbar"
+            data-dashboard-current-range
+            aria-label={`当前分析范围：${stageLabel} · ${kindLabel} · ${rangeLabel} · 报告币种 USD`}
           >
-            <div>
-              <span className="db-data-health-title">现金盈亏口径</span>
-              <span className="db-data-health-copy">
-                已计入 {performanceSelection.usdCoveredCount}/{currencyCashFactCount} 笔
-              </span>
+            <div className="db-toolbar-group">
+              {header}
+              <SegmentedControl
+                label="统计周期"
+                value={scope.range}
+                options={rangeOptions}
+                onChange={(range) => updateScope({ range })}
+              />
             </div>
-            <span className="db-data-health-state">
-              {performanceSelection.currencyMergeStatus === 'no-usd-data'
-                ? `当前没有可合并的美元金额${currencyExclusionLabel ? ` · 未计入：${currencyExclusionLabel}` : ''}`
-                : `不同币种不直接相加 · 未计入：${currencyExclusionLabel}`}
-            </span>
-          </div>
-        ) : null}
-
-        {missingPerformanceCloseDayCount > 0 ? (
-          <div className="db-data-health has-conflict">
-            <span className="db-data-health-title">待补平仓日期</span>
-            <span className="db-data-health-state">
-              {missingPerformanceCloseDayCount} 笔实盘缺少有效平仓日期，暂未计入当前统计
-            </span>
-            <button
-              type="button"
-              className="db-live-link"
-              data-close-day-repair
-              onClick={() => {
-                const firstId = closeDayRepairIds[0]
-                if (firstId) openTrade(firstId, { focusField: 'closedAt' })
-              }}
-            >
-              补平仓日期 {missingPerformanceCloseDayCount}
-            </button>
-          </div>
-        ) : null}
-
-        {!hasClosedTrades ? (
-          <EmptyState
-            className="db-empty"
-            title={dashboardEmptyState?.title ?? '当前范围暂无可统计结果'}
-            hint={dashboardEmptyState?.hint ?? '调整范围或补全交易结果后再试。'}
-            action={
-              dashboardEmptyState?.primary === 'view-active' ? (
-                <button type="button" className="empty-btn" onClick={() => navigate(activeListHref)}>
-                  查看进行中交易
-                </button>
-              ) : dashboardEmptyState?.primary === 'adjust-scope' ? (
-                <button type="button" className="empty-btn" onClick={() => updateScope({ kind: 'all', range: 'all' })}>
-                  调整分析范围
-                </button>
-              ) : (
-                <button type="button" className="empty-btn" onClick={() => openComposer()}>
-                  <Plus size={ICON_MD} />
-                  新建交易
-                </button>
-              )
-            }
-          />
-        ) : (
-        <section className="db-panel">
-          <div className="db-panel-head">
-            <div>
-              <span className="db-panel-title">累计盈亏曲线</span>
-              <div className="db-panel-sub">
-                {scopedClosedCount} 笔已平仓 · {rangeLabel}
-              </div>
-            </div>
-          </div>
-          <div className="db-chart" ref={curveChartRef}>
-            {stats.curve.length === 0 ? (
-              <div className="db-chart-empty">已平仓交易尚未填写有效盈亏</div>
-            ) : (
-              <div aria-label={`累计盈亏曲线，共 ${stats.curve.length} 笔有效盈亏交易`}>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <AreaChart accessibilityLayer data={stats.curve} margin={{ left: 0, right: 8, top: 8 }}>
-                  <defs>
-                    <linearGradient id="eq" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} axisLine={false} tickLine={false} />
-                  <YAxis width={curveAxisWidth} hide={privacyMode} tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    content={<CurveTooltip onOpen={openTrade} privacyMode={privacyMode} />}
-                    cursor={{ stroke: 'var(--border-strong)', strokeWidth: 1 }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="equity"
-                    isAnimationActive={false}
-                    stroke="var(--accent)"
-                    strokeWidth={2}
-                    fill="url(#eq)"
-                    dot={stats.curve.length <= 120
-                      ? { r: 2.5, strokeWidth: 1, fill: 'var(--bg-elevated)' }
-                      : false}
-                    activeDot={{
-                      r: 5,
-                      cursor: 'pointer',
-                      onClick: (_e, dot) => {
-                        const p = (dot as { payload?: DashboardCurvePoint }).payload
-                        if (p?.tradeId) openTrade(p.tradeId)
-                      },
-                    }}
-                  />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-            )}
-          </div>
-        </section>
-
-        )}
-
-        {!weekCardEmpty ? (
-        <section className="db-week" aria-label="本周交易分析">
-          <div className="db-week-head">
-            <div>
-              <span className="db-week-title">本周交易分析</span>
-              <div className="db-week-sub">
-                {weekRangeLabel} · 按平仓日{weekMetrics.missedCount > 0 ? ` · 错过 ${weekMetrics.missedCount}` : ''}
-              </div>
-            </div>
-            <div className="db-week-actions">
-              <Link
-                to={`/weekly-review${sharedTradeWorkspaceSearch(location.search)}`}
-                className="db-week-link"
-              >打开周期复盘</Link>
-            </div>
-          </div>
-          {scope.range === 'this-week' ? <p className="db-week-sub">{weekMetrics.reviewedCount} 笔已复盘 · {weekMetrics.tradeCount - weekMetrics.reviewedCount} 笔待复盘</p> : <div className="db-week-metrics">
-              <div className="db-week-metric">
-                <span>平仓</span>
-                <strong>{weekMetrics.tradeCount}</strong>
-                <small>{weekMetrics.reviewedCount} 笔已复盘</small>
-              </div>
-              <div className="db-week-metric">
-                <span>胜率</span>
-                <strong>{weekMetrics.winRate == null ? '—' : `${weekMetrics.winRate.toFixed(0)}%`}</strong>
-                <small>{weekMetrics.winCount} 赢 · {weekMetrics.lossCount} 亏 · {weekMetrics.breakevenCount} 平</small>
-              </div>
-              <div className="db-week-metric">
-                <span>净盈亏</span>
-                <strong style={{ color: privacyMode || weekMetrics.pnlCount === 0 || weekMetrics.totalPnl === 0 ? undefined : weekMetrics.totalPnl > 0 ? 'var(--pos)' : 'var(--neg)' }}>
-                  {weekMetrics.pnlCount === 0 ? '—' : fmtMoney(weekMetrics.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}
-                </strong>
-                {weekMetrics.pnlCount < weekMetrics.tradeCount ? <small>{weekMetrics.pnlCount}/{weekMetrics.tradeCount} 笔含盈亏</small> : null}
-              </div>
-              <div className="db-week-metric">
-                <span>平均 R</span>
-                <strong style={{ color: weekMetrics.averageR == null || weekMetrics.averageR === 0 ? undefined : weekMetrics.averageR > 0 ? 'var(--pos)' : 'var(--neg)' }}>
-                  {weekMetrics.averageR == null ? '—' : `${weekMetrics.averageR > 0 ? '+' : ''}${weekMetrics.averageR.toFixed(2)}`}
-                </strong>
-                {weekMetrics.rCount < weekMetrics.tradeCount ? <small>{weekMetrics.rCount}/{weekMetrics.tradeCount} 笔含 R</small> : null}
-              </div>
-          </div>}
-          {weekMetrics.missedCount > 0 && missedReasonSummary ? (
-            <p className="db-week-missed">执行缺口：{missedReasonSummary}</p>
-          ) : null}
-        </section>
-        ) : null}
-
-        {hasClosedTrades ? (
-          <>
-
-        <section className="db-panel">
-          <div className="db-panel-head">
-            <span className="db-panel-title">策略表现</span>
-          </div>
-          <div className="db-strats">
-            {stats.strategies.length === 0 ? (
-              <div className="db-strats-empty">该时间范围内暂无策略数据</div>
-            ) : (
-              stats.strategies.map((s) => (
-                <Link to={strategyAnalysisHref(s.id, scope, strategyLiveStage)} className="db-strat" key={s.id}>
-                  <div className="db-strat-head">
-                    {s.meta && (
-                      <StrategyIcon icon={s.meta.icon} color={s.meta.color} size={ICON_MD} />
-                    )}
-                    <div className="db-strat-name">{s.name}</div>
-                  </div>
-                  <div className="db-strat-meta">
-                    {s.n === s.closedCount && s.pnlCount === s.closedCount ? `${s.closedCount} 笔` : `${s.n}/${s.closedCount} 笔结果有效 · 盈亏 ${s.pnlCount}/${s.closedCount}`} · 胜率 {s.winRate == null ? '—' : `${s.winRate.toFixed(0)}%`}
-                  </div>
-                  <div className="db-strat-bar">
-                    {s.pnlCount > 0 ? (
-                      <div
-                        className="db-strat-fill"
-                        style={{
-                          transform: `scaleX(${Math.abs(s.pnl) / stats.maxAbs})`,
-                          transformOrigin: 'left center',
-                          background: s.pnl >= 0 ? 'var(--pos)' : 'var(--neg)',
-                        }}
-                      />
-                    ) : null}
-                  </div>
-                  <div
-                    className="db-strat-pnl"
-                    style={{
-                      color: privacyMode || s.pnlCount === 0
-                        ? 'var(--text-tertiary)'
-                        : s.pnl >= 0
-                          ? 'var(--pos)'
-                          : 'var(--neg)',
-                    }}
-                  >
-                    {s.pnlCount === 0 ? '—' : fmtMoney(s.pnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}
-                  </div>
+            <div className="db-toolbar-actions">
+              {hasClosedTrades && (
+                <Link to={performanceDrilldownHref} className="ui-btn ui-btn-ghost ui-btn-sm" data-current-live-trade-link>
+                  查看交易<ChevronRight size={ICON_SM} aria-hidden />
                 </Link>
-              ))
-            )}
+              )}
+              <Menu
+                align="right"
+                trigger={<IconButton label="更多统计操作" size="sm"><MoreHorizontal size={ICON_MD} aria-hidden /></IconButton>}
+                options={[{ value: 'manage-stage', label: '开启新实盘阶段' }]}
+                onSelect={() => setStageManagerOpen(true)}
+              />
+            </div>
           </div>
-        </section>
 
-        <section className="db-panel">
-          <div className="db-panel-head">
-            <span className="db-panel-title">R 倍数分布</span>
-          </div>
-          <div className="db-chart" ref={distributionChartRef}>
-            {stats.rCount === 0 ? (
-              <div className="db-chart-empty">已平仓交易尚未填写有效 R</div>
-            ) : (
-              <>
-                <div aria-hidden="true">
-                  <ResponsiveContainer width="100%" height={160}>
-                    <BarChart data={stats.rDist} margin={{ left: 0, right: 8, top: 4 }}>
-                  <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} axisLine={false} tickLine={false} />
-                  <YAxis width={distributionAxisWidth} tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip
-                    cursor={{ fill: 'color-mix(in srgb, var(--bg-hover) 88%, transparent)' }}
-                    content={({ active, payload }) => {
-                      if (!active || !payload?.length) return null
-                      const d = payload[0].payload as { label: string; n: number }
-                      return (
-                        <div className="db-chart-tip is-compact">
-                          <div className="db-chart-tip-ref">R 倍数区间</div>
-                          <div className="db-chart-tip-symbol">{d.label}</div>
-                          <div className="db-chart-tip-row">
-                            <span>笔数</span>
-                            <strong>{d.n}</strong>
-                          </div>
-                        </div>
-                      )
-                    }}
-                  />
-                  <Bar
-                    dataKey="n"
-                    fill="var(--accent)"
-                    radius={[3, 3, 0, 0]}
-                    maxBarSize={32}
-                    isAnimationActive={false}
-                    activeBar={{
-                      fill: 'color-mix(in srgb, var(--accent) 82%, white 18%)',
-                    }}
-                  />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-                <details className="db-chart-data is-compact">
-                  <summary>查看 R 倍数分布数据</summary>
-                  <div className="db-chart-data-scroll">
-                    <table>
-                      <thead><tr><th>R 区间</th><th>笔数</th></tr></thead>
-                      <tbody>
-                        {stats.rDist.map((bucket) => (
-                          <tr key={bucket.label}><th scope="row">{bucket.label}</th><td>{bucket.n}</td></tr>
-                        ))}
-                      </tbody>
-                    </table>
+          {stageManagerOpen && (
+            <LiveStageManager currentTradingDayKey={localDateKey} onClose={() => setStageManagerOpen(false)} />
+          )}
+
+          {hasClosedTrades ? (
+            <section className="db-panel db-performance" aria-label="盈亏概况">
+              {stats.evaluatedCount > 0 ? (
+                <>
+                  <div className="db-cards" role="group" aria-label="当前范围指标">
+                    <Metric
+                      label="净盈亏"
+                      value={stats.pnlCount ? fmtMoney(stats.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode) : '—'}
+                      to={performanceDrilldownHref}
+                      primary
+                    />
+                    <Metric label="胜率" value={rateLabel(stats.winRate)} to={performanceDrilldownHref} />
+                    <Metric label="平均 R" value={averageRLabel(stats.averageR)} to={performanceDrilldownHref} />
                   </div>
-                </details>
-              </>
-            )}
-          </div>
-        </section>
-          </>
-        ) : null}
+                  <EquityChart curve={stats.curve} privacyMode={privacyMode} onOpenTrade={openTrade} />
+                </>
+              ) : (
+                <div className="db-no-results">
+                  <h2 className="db-panel-title">当前范围暂无可用结果</h2>
+                  <p>补齐交易结果后即可查看盈亏和策略表现。</p>
+                </div>
+              )}
+              <div className="db-report-context">
+                <p>{scopedClosedCount} 笔已平仓<span aria-hidden="true"> · </span>逐笔累计</p>
+                {notice}
+              </div>
+            </section>
+          ) : (
+            <>
+              <EmptyState
+                className="db-empty"
+                variant={dashboardEmptyState?.kind === 'library' ? 'first-use' : 'filtered'}
+                title={dashboardEmptyState?.title ?? '当前范围暂无可统计结果'}
+                hint={dashboardEmptyState?.hint}
+                action={dashboardEmptyState?.primary === 'view-active' ? (
+                  <Button variant="bordered" onClick={() => navigate(activeListHref)}>查看进行中交易</Button>
+                ) : dashboardEmptyState?.primary === 'adjust-scope' ? (
+                  <Button variant="bordered" onClick={() => updateScope({ kind: 'all', range: 'all' })}>调整分析范围</Button>
+                ) : (
+                  <Button variant="primary" onClick={() => createRecordForContext(location.pathname, location.search, navigate)}>
+                    <Plus size={ICON_MD} aria-hidden />
+                    {resolveCreateRecordAction(location.pathname, location.search).label}
+                  </Button>
+                )}
+              />
+              {notice}
+            </>
+          )}
+
+          {stats.evaluatedCount > 0 && (
+            <div className="db-breakdown">
+              <section className="db-panel db-strategy-panel" aria-labelledby="db-strategy-title">
+                <h2 id="db-strategy-title" className="db-panel-title">策略表现</h2>
+                <table className="db-strats">
+                  <thead><tr><th scope="col">策略</th><th scope="col">笔数</th><th scope="col">胜率</th><th scope="col">净盈亏</th></tr></thead>
+                  <tbody>
+                    {stats.strategies.map((strategy) => {
+                      const link = (
+                        <Link to={strategyAnalysisHref(strategy.id, scope, strategyLiveStage)} className="db-strat">
+                          {strategy.meta && <StrategyIcon icon={strategy.meta.icon} color={strategy.meta.color} size={ICON_SM} variant="nav" />}
+                          <span>{strategy.name}</span>
+                        </Link>
+                      )
+                      const partial = strategy.pnlCount !== strategy.closedCount || strategy.n !== strategy.closedCount
+                      const samples = `有效结果 ${strategy.n}/${strategy.closedCount} 笔，计入盈亏 ${strategy.pnlCount}/${strategy.closedCount} 笔`
+                      const tone = privacyMode || strategy.pnlCount === 0 || strategy.pnl === 0
+                        ? undefined : strategy.pnl > 0 ? 'positive' : 'negative'
+                      return (
+                        <tr key={strategy.id}>
+                          <th scope="row">{partial ? <Tooltip content={samples} label={samples} asChild>{link}</Tooltip> : link}</th>
+                          <td>{strategy.closedCount}</td>
+                          <td>{rateLabel(strategy.winRate)}</td>
+                          <td data-pnl-tone={tone}>
+                            {strategy.pnlCount ? fmtMoney(strategy.pnl, PERFORMANCE_REPORT_CURRENCY, privacyMode) : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </section>
+
+              <section className="db-panel db-distribution" aria-labelledby="db-distribution-title">
+                <div className="db-section-head">
+                  <h2 id="db-distribution-title" className="db-panel-title">R 倍数分布</h2>
+                  {stats.rCount > 0 && <span>{stats.rCount} 笔</span>}
+                </div>
+                {stats.rCount === 0 ? (
+                  <p className="db-panel-empty">当前范围暂无有效 R 倍数</p>
+                ) : (
+                  <>
+                    <RDistributionChart buckets={stats.rDist} />
+                    <details className="db-chart-data">
+                      <summary>查看分布数据<ChevronRight size={ICON_SM} aria-hidden /></summary>
+                      <table aria-label="R 倍数分布数据">
+                        <thead><tr><th scope="col">R 区间</th><th scope="col">笔数</th></tr></thead>
+                        <tbody>
+                          {stats.rDist.map((bucket) => (
+                            <tr key={bucket.label}><th scope="row">{bucket.label}</th><td>{bucket.n}</td></tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </details>
+                  </>
+                )}
+              </section>
+            </div>
+          )}
+
+          {!weekCardEmpty && (
+            <section className="db-week" aria-label="本周交易分析">
+              <div className="db-week-head">
+                <div><h2 className="db-week-title">本周交易分析</h2><span>{weekRangeLabel}</span></div>
+                <Link to={`/weekly-review${sharedTradeWorkspaceSearch(location.search)}`} className="ui-btn ui-btn-ghost ui-btn-sm">
+                  周期复盘<ChevronRight size={ICON_SM} aria-hidden />
+                </Link>
+              </div>
+              <details className="db-week-detail">
+                <summary>本周概况<ChevronRight size={ICON_SM} aria-hidden /></summary>
+                {scope.range !== 'this-week' && (
+                  <dl className="db-week-metrics">
+                    <div className="db-week-metric"><dt>平仓交易</dt><dd><strong>{weekMetrics.tradeCount}</strong></dd></div>
+                    <div className="db-week-metric"><dt>胜率</dt><dd><strong>{rateLabel(weekMetrics.winRate)}</strong></dd></div>
+                    <div className="db-week-metric">
+                      <dt>净盈亏</dt>
+                      <dd><strong>{weekMetrics.pnlCount ? fmtMoney(weekMetrics.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode) : '—'}</strong></dd>
+                    </div>
+                    <div className="db-week-metric"><dt>平均 R</dt><dd><strong>{averageRLabel(weekMetrics.averageR)}</strong></dd></div>
+                  </dl>
+                )}
+                <p>{weekMetrics.reviewedCount} 笔已复盘 · {weekMetrics.tradeCount - weekMetrics.reviewedCount} 笔待复盘</p>
+                {missedReasonSummary && <p>错过机会 {weekMetrics.missedCount} 笔 · {missedReasonSummary}</p>}
+              </details>
+            </section>
+          )}
         </div>
       </div>
     </>
   )
 }
 
-/** Recharts 2 needs a numeric axis width; measure its actual tick labels after layout. */
-function useChartYAxisWidth(data: unknown, hidden = false) {
-  const chartRef = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(44)
-
-  useLayoutEffect(() => {
-    const chart = chartRef.current
-    if (!chart || hidden) return
-    let frame = 0
-    let disposed = false
-    const measure = () => {
-      frame = 0
-      const labels = chart.querySelectorAll<SVGTextElement>('.recharts-yAxis .recharts-cartesian-axis-tick-value')
-      if (!labels.length) return
-      // Retain the existing compact plot gutter, growing it for signs and long amounts.
-      const tickWidth = Math.max(...Array.from(labels, (label) => label.getBBox().width))
-      setWidth(Math.max(44, Math.ceil(tickWidth + 16)))
-    }
-    const schedule = () => {
-      if (!disposed && !frame) frame = requestAnimationFrame(measure)
-    }
-    const observer = new ResizeObserver(schedule)
-    observer.observe(chart)
-    schedule()
-    void document.fonts.ready.then(schedule)
-    return () => {
-      disposed = true
-      observer.disconnect()
-      cancelAnimationFrame(frame)
-    }
-  }, [data, hidden])
-
-  return [chartRef, width] as const
-}
-
-function CurveTooltip({
-  active,
-  payload,
-  onOpen,
-  privacyMode,
-}: {
-  active?: boolean
-  payload?: Array<{ payload: DashboardCurvePoint }>
-  onOpen: (tradeId: string) => void
-  privacyMode: boolean
-}) {
-  if (!active || !payload?.[0]) return null
-  const p = payload[0].payload
+function Metric({ label, value, to, primary = false }: { label: string; value: string; to: string; primary?: boolean }) {
   return (
-    <div
-      className="db-chart-tip"
-      onClick={() => onOpen(p.tradeId)}
-      onKeyDown={(e) => e.key === 'Enter' && onOpen(p.tradeId)}
-      role="button"
-      tabIndex={0}
-    >
-      <div className="db-chart-tip-ref">{p.ref}</div>
-      <div className="db-chart-tip-symbol">{p.label}</div>
-      <div className="db-chart-tip-row">
-        <span>单笔</span>
-        <span style={{ color: privacyMode ? 'var(--text-tertiary)' : p.pnl >= 0 ? 'var(--pos)' : 'var(--neg)' }}>{fmtMoney(p.pnl, PERFORMANCE_REPORT_CURRENCY, privacyMode)}</span>
-      </div>
-      <div className="db-chart-tip-row">
-        <span>累计</span>
-        <span>{fmtMoney(p.equity, PERFORMANCE_REPORT_CURRENCY, privacyMode)}</span>
-      </div>
-      <div className="db-chart-tip-hint">点击查看交易</div>
-    </div>
+    <Link className={primary ? 'db-card is-primary' : 'db-card'} to={to} data-kpi-drilldown>
+      <span className="db-card-label">{label}{primary && <small>{PERFORMANCE_REPORT_CURRENCY}</small>}</span>
+      <strong className="db-card-value">{value}</strong>
+    </Link>
   )
 }
 
-function Card({
-  label,
-  value,
-  sub,
-  accent,
-  muted,
-  to,
-}: {
-  label: string
-  value: string
-  sub?: string
-  accent?: boolean
-  muted?: boolean
-  to?: string
-}) {
-  const color = muted
-    ? 'var(--text-primary)'
-    : accent === undefined
-      ? 'var(--text-primary)'
-      : accent
-        ? 'var(--pos)'
-        : 'var(--neg)'
-  const content = (
-    <>
-      <span className="db-card-label">{label}</span>
-      <span className="db-card-value" style={{ color }}>
-        {value}
-      </span>
-      {sub && <span className="db-card-sub">{sub}</span>}
-    </>
-  )
-  return to ? (
-    <Link className="db-card" to={to} data-kpi-drilldown style={{ textDecoration: 'none' }}>{content}</Link>
-  ) : <div className="db-card">{content}</div>
+function rateLabel(value: number | null): string {
+  return value === null ? '—' : `${value.toFixed(0)}%`
 }
+
+function averageRLabel(value: number | null): string {
+  return value === null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(2)}`
+}
+
 
 function formatDashboardWeekRange(weekStart: string): string {
   const end = weekEndFor(weekStart)

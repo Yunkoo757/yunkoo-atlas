@@ -1,6 +1,7 @@
 import type { Trade } from '@/data/trades'
 import { resolveTradeDetailReturn } from '@/lib/tradeRoute'
 import {
+  DECISION_PRACTICE_FILTERS,
   DEFAULT_REVIEW_SESSION_FILTERS,
   REVIEW_SESSION_PRESETS,
   applyReviewSessionPreset,
@@ -19,6 +20,7 @@ import {
   saveReviewSession,
   saveReviewSessionFilters,
   shuffleReviewSessionIds,
+  getDecisionImageId,
   getReviewSessionContent,
   type ReviewSessionSnapshot,
 } from '@/lib/reviewSession'
@@ -568,6 +570,36 @@ export function testReviewAssessmentBuildsMasteryAndRecheckPlans(): void {
   const caseMastered = buildReviewAssessmentPatch(reviewCase, 'mastered', now)
   assert(caseMastered.reviewStatus === 'reviewed' && caseMastered.reviewCategory === 'mastered',
     '案例的已经掌握仍应同步案例完成状态')
+}
+
+export function testDecisionPracticeKeepsTheMarkedPhotoAndRevealStateAcrossResume(): void {
+  const source = '<p>原始结论</p><img src="journal-asset://before-decision">'
+  const decisionCase: Trade = {
+    ...baseTrade, id: 'decision-case', tradeKind: 'case', caseType: 'mistake',
+    note: '', sourceNoteHtml: source, decisionImageId: 'before-decision',
+  }
+  const completed: Trade = { ...decisionCase, id: 'assessed', nextReviewAt: '2099-01-01' }
+  const imageRemoved: Trade = { ...decisionCase, id: 'image-removed', sourceNoteHtml: '<p>图片已删</p>' }
+  const unmarked: Trade = { ...decisionCase, id: 'unmarked', decisionImageId: null }
+  const trades = [completed, decisionCase, imageRemoved, unmarked, baseTrade]
+  const pool = buildPool(trades, DECISION_PRACTICE_FILTERS).filter((trade) => getDecisionImageId(trade))
+  assert(pool.map((trade) => trade.id).join(',') === decisionCase.id, '先判断只抽取有原始题图且已到期的错题')
+
+  const storage = new MemoryStorage()
+  const session: ReviewSessionSnapshot = {
+    ids: [completed.id, imageRemoved.id, decisionCase.id],
+    cursor: 2,
+    filters: DECISION_PRACTICE_FILTERS,
+    decisionPractice: true,
+    revealedDecisionId: decisionCase.id,
+    assessments: { [completed.id]: 'recheck' },
+  }
+  assert(saveReviewSession('decision-library', session, storage), '先判断会话保存失败')
+  const saved = loadReviewSession('decision-library', storage)!
+  const resumed = reconcileReviewSession(saved, trades, new Set(), FIXED_TRADING_DAY_KEY, FIXED_TRADING_DAY_START_HOUR, REVIEW_STAGE_CONTEXT)
+  assert(resumed?.decisionPractice === true && resumed.revealedDecisionId === decisionCase.id, '恢复必须保留当前题的揭示状态')
+  assert(resumed?.cursor === 1 && resumed.ids.join(',') === `${completed.id},${decisionCase.id}`, '移除题图后应跳过失效题并保持当前位置')
+  assert(resumed?.assessments[completed.id] === 'recheck', '恢复时不得丢失本轮已完成的评估')
 }
 
 export function testReviewSessionStorageIsVersionedAndIsolatedByLibrary(): void {

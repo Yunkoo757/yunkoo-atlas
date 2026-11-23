@@ -537,6 +537,35 @@ async function run(): Promise<void> {
       () => document.body.textContent?.includes('可随机复盘 1 条') === true,
       '切走再回来没有记住上次复盘设置',
     )
+    const chart = new Blob(['<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><path d="M0 200 400 0" stroke="black"/></svg>'], { type: 'image/svg+xml' })
+    const decisionImageId = await getStorage().saveAsset(chart, chart.type)
+    const decisionCase: Trade = {
+      ...reviewCase,
+      id: 'decision-practice-case',
+      ref: 'CAS-DECISION',
+      caseType: 'mistake',
+      decisionImageId,
+      note: `<p>先判断专用原始结论</p><img src="journal-asset://${decisionImageId}">`,
+    }
+    useStore.setState((state) => ({ trades: [...state.trades, decisionCase] }))
+    await waitFor(() => Boolean(findButton('先判断 · 1')), '没有抽到已设置先判断图的到期错题')
+    findButton('先判断 · 1')?.click()
+    await waitFor(() => findButton('揭示原记录')?.disabled === false, '决策图没有正常解码')
+    assert(!document.body.textContent?.includes(decisionCase.ref) && !document.body.textContent?.includes('先判断专用原始结论'), '揭示前不得展示编号或原始结论')
+    assert(!document.querySelector('.review-session-assessment') && !findButton('打开详情'), '揭示前不得出现结果或评估入口')
+    for (const key of ['1', '2', '3']) {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+    }
+    await waitForFrame()
+    assert(loadReviewSession(manifest.libraryId)?.cursor === 0, '揭示前快捷键不得评估或推进轮次')
+    findButton('揭示原记录')?.click()
+    await waitFor(() => document.body.textContent?.includes('先判断专用原始结论') === true, '揭示后缺少原始图文')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '2', bubbles: true, cancelable: true }))
+    await waitFor(() => loadReviewSession(manifest.libraryId)?.assessments[decisionCase.id] === 'recheck', '揭示后未写入已有掌握度流程')
+    findButton('返回复盘首页')?.click()
+    await waitFor(() => Boolean(findButton('开始复盘')), '完成先判断后没有返回常规复盘入口')
+    assert(document.body.textContent?.includes('可随机复盘 1 条'), '先判断覆盖了原来的常规复盘设置')
+
     findButton('更多')?.click()
     await waitFor(() => Boolean(findButton('复盘设置')), '记住设置后缺少复盘设置入口')
     findButton('复盘设置')?.click()

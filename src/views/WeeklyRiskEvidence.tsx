@@ -65,7 +65,7 @@ export function WeeklyRiskEvidence({
     return (
       <section className="wr-section wr-risk-evidence" data-weekly-section="risk" data-risk-availability={availability}>
         <div className="wr-section-head">
-          <div><span>R</span><h2>风控执行</h2></div>
+          <h2>风控执行</h2>
           {draft ? null : <small>{incompleteSnapshot ? '快照集合不完整' : '历史记录'}</small>}
         </div>
         <div className="wr-risk-unavailable">
@@ -83,8 +83,8 @@ export function WeeklyRiskEvidence({
   }
   const policySummary = summarizeRiskPolicies(snapshot.policyVersions)
   const confirmationSummary = snapshot.overrideEvents.length
-    ? `${snapshot.overrideEvents.length} 条继续交易确认`
-    : '本周无继续交易确认'
+    ? `${snapshot.overrideEvents.length} 条`
+    : '本周无记录'
   const triggeredDayCount = snapshot.dailyOutcomes.filter((outcome) => outcome.triggered).length
   const incompleteDayCount = snapshot.dailyOutcomes.filter((outcome) => outcome.coverage !== 'complete').length
   const dailySummary = [
@@ -95,7 +95,10 @@ export function WeeklyRiskEvidence({
 
   return (
     <section className="wr-section wr-risk-evidence" data-weekly-section="risk">
-      <div className="wr-section-head"><div><span>R</span><h2>风控执行</h2></div><small>完成时冻结证据</small></div>
+      <div className="wr-section-head">
+        <h2>风控执行</h2>
+        <small>完成时冻结证据</small>
+      </div>
       <div className="wr-risk-decisions">
         <PeriodDecision label="本周风险状态" outcome={snapshot.weeklyOutcome} primary />
         <PeriodDecision label="完成时月度状态" outcome={snapshot.monthlyOutcomeAtCompletion} />
@@ -160,7 +163,7 @@ export function WeeklyRiskEvidence({
                   </small>
                 </article>
               )
-            }) : <p>展开后无继续交易确认。</p>}
+            }) : <p>本周没有继续交易确认。</p>}
           </details>
         </div>
       </div>

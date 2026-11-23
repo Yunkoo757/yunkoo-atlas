@@ -46,7 +46,7 @@ function Fixture() {
     <div style={{ display: 'grid', gridTemplateColumns: '244px 1fr' }}>
       <Sidebar />
       <main>
-        <TradeWorkspaceContext page={page} compact={page === 'log'} />
+        <TradeWorkspaceContext page={page} compact={page !== 'review'} />
         <Link to="/weekly-review?review=linked-current" data-linked-review="current">当前阶段复盘</Link>
         <Link to="/weekly-review?review=linked-archived" data-linked-review="archived">历史阶段复盘</Link>
         <Link to="/weekly-review?review=linked-current&liveStage=stage-old" data-linked-review="override">显式阶段范围</Link>
@@ -167,10 +167,11 @@ async function run(): Promise<void> {
     )
     assert(stats.getAttribute('aria-current') === 'page', '统计分析必须成为唯一一级选中项')
 
-    const stageSelect = document.querySelector<HTMLButtonElement>('[aria-label^="选择交易阶段"]')
-    stageSelect?.click()
-    await waitFor(() => Boolean(document.querySelector('[role="option"][data-value="all"]')), '阶段菜单没有打开')
-    document.querySelector<HTMLButtonElement>('[role="option"][data-value="all"]')?.click()
+    const statsScopeTrigger = document.querySelector<HTMLButtonElement>('[data-workspace-page="stats"][data-workspace-compact] > button')
+    assert(statsScopeTrigger, '统计分析需提供紧凑的阶段与盘型入口')
+    statsScopeTrigger.click()
+    await waitFor(() => Boolean(document.querySelector('[data-workspace-stage="all"]')), '阶段菜单没有打开')
+    document.querySelector<HTMLButtonElement>('[data-workspace-stage="all"]')?.click()
     await waitFor(
       () => document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?liveStage=all',
       '统计分析选择全部阶段后必须更新公共范围',
@@ -179,7 +180,9 @@ async function run(): Promise<void> {
       useStore.getState().display.workspaceMemory?.trade?.search === '?status=loss&liveStage=all',
       '统计分析修改阶段后必须写回交易工作区记忆',
     )
-    await waitFor(() => document.querySelector('[role="option"]') === null, '阶段菜单关闭状态没有稳定')
+    statsScopeTrigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await waitFor(() => !document.querySelector('.trade-workspace-scope-panel'), 'Escape 必须先关闭数据范围菜单')
+    assert(document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?liveStage=all', '关闭范围菜单时不得离开统计分析')
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
     await waitFor(
       () => document.querySelector('[data-testid="location"]')?.textContent?.startsWith('/list') === true,

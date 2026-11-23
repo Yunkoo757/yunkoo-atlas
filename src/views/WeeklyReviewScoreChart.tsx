@@ -1,4 +1,4 @@
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { WeeklyReviewTrendPoint } from '@/data/weeklyReviews'
 
 export function WeeklyReviewScoreChart({ data }: { data: WeeklyReviewTrendPoint[] }) {
@@ -6,6 +6,7 @@ export function WeeklyReviewScoreChart({ data }: { data: WeeklyReviewTrendPoint[
     <div className="wr-chart">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
+          <CartesianGrid vertical={false} stroke="var(--border-subtle)" />
           <XAxis dataKey="week" stroke="var(--border-subtle)" tick={{ fill: 'var(--text-tertiary)', fontSize: 'var(--type-caption-size)' }} />
           <YAxis
             domain={[1, 5]}

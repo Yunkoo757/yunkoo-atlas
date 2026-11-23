@@ -88,9 +88,9 @@ async function chooseScore(fieldId: string, value: number): Promise<void> {
   await waitForFrame()
 }
 
-function setInputValue(input: HTMLInputElement, value: string): void {
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
-  assert(setter, '浏览器缺少 input value setter')
+function setTextareaValue(input: HTMLTextAreaElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
+  assert(setter, '浏览器缺少 textarea value setter')
   setter.call(input, value)
   input.dispatchEvent(new Event('input', { bubbles: true }))
 }
@@ -617,6 +617,9 @@ async function run(): Promise<void> {
     assert(document.querySelector('[data-weekly-section="scores"]')?.getAttribute('data-invalid') === 'true', '评分区没有标记错误状态')
     assert(document.querySelector('[data-weekly-section="commitment"]')?.getAttribute('data-invalid') === 'true', '承诺区没有标记错误状态')
     assert(document.activeElement?.closest('[data-weekly-field="score-execution"]'), '完成失败后焦点没有落到第一项评分')
+    const summary = document.querySelector<HTMLElement>('.wr-issue-summary')!
+    const scrollport = summary.closest('.wr-main')!.getBoundingClientRect()
+    assert(summary.getBoundingClientRect().top >= scrollport.top, '首个错误字段已可见时，错误摘要不得滚出视口')
     assert(useStore.getState().weeklyReviews.every((item) => item.status !== 'completed'), '缺少必填项时不得完成复盘')
     assert(!document.querySelector('.toast'), '完成失败不得使用瞬时 Toast 代替持久错误摘要')
 
@@ -626,12 +629,13 @@ async function run(): Promise<void> {
     assert(firstTrade, '关键交易证据未渲染')
     clickButton('做得好', firstTrade)
 
-    const inputs = document.querySelectorAll<HTMLInputElement>('.wr-commitment input')
+    const inputs = document.querySelectorAll<HTMLTextAreaElement>('.wr-commitment textarea')
     assert(inputs.length === 2, '行动承诺与验收标准输入框不完整')
-    setInputValue(inputs[0], '等待确认后再入场')
-    setInputValue(inputs[1], '每笔入场截图都有确认信号')
+    setTextareaValue(inputs[0], '等待确认后再入场')
+    setTextareaValue(inputs[1], '每笔入场截图都有确认信号。\n对照原图标出执行时点和撤退条件。')
     await waitFor(() => useStore.getState().weeklyReviews[0]?.commitmentText === '等待确认后再入场', '行动承诺未写入独立周复盘实体')
     await waitFor(() => !document.querySelector('.wr-issue-summary'), '字段有效后错误摘要没有自动清除')
+    assert(inputs[1].scrollHeight <= inputs[1].clientHeight + 1, '多行验收标准必须完整显示')
     inputs[1]?.scrollIntoView({ block: 'center' })
     await waitForFrame()
     if (window.innerWidth === 960) {
@@ -663,9 +667,9 @@ async function run(): Promise<void> {
       '[data-weekly-field="score-execution"] [role="combobox"]',
     )
     assert(completedScoreButton && getComputedStyle(completedScoreButton).pointerEvents !== 'none', '完成复盘评分必须可由鼠标编辑')
-    const completedCommitment = document.querySelector<HTMLInputElement>('.wr-commitment input')
+    const completedCommitment = document.querySelector<HTMLTextAreaElement>('.wr-commitment textarea')
     assert(completedCommitment && !completedCommitment.readOnly, '完成复盘承诺必须保持可编辑')
-    setInputValue(completedCommitment, '完成后调整的行动承诺')
+    setTextareaValue(completedCommitment, '完成后调整的行动承诺')
     await chooseScore('score-execution', 5)
     clickButton('逆势')
     await waitFor(

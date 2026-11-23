@@ -15,7 +15,7 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function curvePoint(index: number, equity = index): DashboardCurvePoint {
   return {
-    date: `07-${String((index % 28) + 1).padStart(2, '0')}`,
+    date: `2026-07-${String((index % 28) + 1).padStart(2, '0')}`,
     equity,
     label: `SYM-${index}`,
     tradeId: `trade-${index}`,
@@ -154,7 +154,7 @@ export function testDashboardStatsUseOnlyEligibleMetricIdsForEveryAggregation():
 
   assert(stats.totalPnl === 20, '总计必须只消费 eligibleMetricIds')
   assert(stats.curve.map((point) => point.tradeId).join() === 'eligible-a,eligible-b', '曲线成员必须与 eligibleMetricIds 一致')
-  assert(stats.curve.map((point) => point.date).join() === '08-08,08-09', '曲线日期必须按 06:00 平仓业务日计算')
+  assert(stats.curve.map((point) => point.date).join() === '2026-08-08,2026-08-09', '曲线日期必须按 06:00 平仓业务日计算')
   assert(stats.strategies[0]?.tradeIds.join() === 'eligible-a,eligible-b', '策略分组成员必须与 eligibleMetricIds 一致')
 }
 
@@ -204,7 +204,7 @@ export function testDashboardGroupedCurveMatchesStableOrderingAndSampling(): voi
   const expected = sorted.map((trade) => {
     equity += trade.pnl!
     return {
-      date: trade.closedTradingDayKey!.slice(5),
+      date: trade.closedTradingDayKey!,
       equity,
       label: trade.symbol,
       tradeId: trade.id,

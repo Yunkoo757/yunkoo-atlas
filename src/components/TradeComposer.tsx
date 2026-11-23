@@ -1,7 +1,7 @@
 import { DurableStorePublishError } from '@/lib/committedPublish'
 import { getProjectTrades, projectPath } from '@/lib/backtestProjects'
 import { ICON_2XL, ICON_SM, ICON_XL, ICON_MD } from '@/icons/iconSize'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, X } from '@/icons/appIcons'
 import { Select } from '@/components/ui/Select'
@@ -144,7 +144,7 @@ export function TradeComposer() {
   const submittingRef = useRef(false)
   const caseTypeDirtyRef = useRef(false)
   const baselineRef = useRef('')
-  const defaultKind = defaultTradeKindForPath(location.pathname)
+  const defaultKind = defaultTradeKindForPath(location.pathname, location.search)
   const activeKind = editing?.tradeKind ?? kind
   const recordLabel = activeKind === 'backtest' ? '回测记录' : activeKind === 'case' ? '案例' : '交易'
   const isNew = !editing
@@ -161,7 +161,7 @@ export function TradeComposer() {
     caseTypeDirtyRef.current = false
   }, [open])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return
     const nextSymbol = editing?.symbol ?? project?.symbol ?? defaultSymbol
     const nextSide = editing?.side ?? 'long'
@@ -552,20 +552,6 @@ export function TradeComposer() {
           ) : null}
 
           {showMore ? <div className="composer-parameter-grid">
-            {isTradeQuickNew && activeKind !== 'backtest' ? (
-              <div className="composer-essential-field">
-                <span className="composer-essential-label">记录类型</span>
-                <Select
-                  value={activeKind}
-                  onValueChange={(value) => setKind(value as Extract<TradeKind, 'live' | 'paper'>)}
-                  ariaLabel="记录类型"
-                  options={[
-                    { value: 'live', label: '实盘' },
-                    { value: 'paper', label: '模拟盘' },
-                  ]}
-                />
-              </div>
-            ) : null}
             {isTradeQuickNew ? (
               <div className="composer-essential-field">
                 <span className="composer-essential-label">状态</span>
@@ -652,7 +638,25 @@ export function TradeComposer() {
             ) : null}
           </div> : null}
 
-          {activeKind !== 'backtest' && <div className="composer-archive-row">{strategyField}</div>}
+          {activeKind !== 'backtest' && (
+            <div className={isTradeQuickNew ? 'composer-archive-row composer-archive-row-paired' : 'composer-archive-row'}>
+              {isTradeQuickNew && (
+                <div className="composer-essential-field">
+                  <span className="composer-essential-label">记录类型</span>
+                  <Select
+                    value={activeKind}
+                    onValueChange={(value) => setKind(value as Extract<TradeKind, 'live' | 'paper'>)}
+                    ariaLabel="记录类型"
+                    options={[
+                      { value: 'live', label: '实盘' },
+                      { value: 'paper', label: '模拟盘' },
+                    ]}
+                  />
+                </div>
+              )}
+              {strategyField}
+            </div>
+          )}
 
           <div className="composer-media">
             <input

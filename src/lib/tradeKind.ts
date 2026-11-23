@@ -13,7 +13,7 @@ export function normalizeTradeKind(kind: string | undefined): TradeKind {
   return 'paper'
 }
 
-export function defaultTradeKindForPath(pathname: string): TradeKind {
+export function defaultTradeKindForPath(pathname: string, search = ''): TradeKind {
   if (pathname.startsWith('/backtests/')) return 'backtest'
   if (pathname.startsWith('/review-cases')) return 'case'
   if (
@@ -23,6 +23,11 @@ export function defaultTradeKindForPath(pathname: string): TradeKind {
   ) {
     return 'paper'
   }
+  if (pathname === '/list' || pathname === '/board' || pathname === '/dashboard' ||
+      pathname === '/weekly-review' || pathname.startsWith('/strategy/')) {
+    const params = new URLSearchParams(search)
+    if (params.get('kind') === 'paper' || params.get('source') === 'paper') return 'paper'
+  }
   return 'live'
 }
 
@@ -31,12 +36,8 @@ export function newTradeKindForPath(
   pathname: string,
   search = '',
 ): Extract<TradeKind, 'live' | 'paper' | 'backtest'> {
-  if (pathname.startsWith('/backtests/')) return 'backtest'
-  if (pathname === '/list') {
-    const params = new URLSearchParams(search)
-    if (params.get('kind') === 'paper' || params.get('source') === 'paper') return 'paper'
-  }
-  return defaultTradeKindForPath(pathname) === 'paper' ? 'paper' : 'live'
+  const kind = defaultTradeKindForPath(pathname, search)
+  return kind === 'case' ? 'live' : kind
 }
 
 export function isReviewCaseTrade(trade: Trade): boolean {

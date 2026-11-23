@@ -598,6 +598,7 @@ interface State {
         | 'psychology'
         | 'narrative'
         | 'caseType'
+        | 'decisionImageId'
         | 'masteryState'
         | 'nextReviewAt'
         | 'isFocusCase'
@@ -1766,6 +1767,7 @@ export const useStore = create<State>()((set, get) => ({
           const tradeIndex = s.trades.findIndex((trade) => trade.id === id)
           const previous = s.trades[tradeIndex]
           if (!previous) return s
+          if ('decisionImageId' in patch && (previous.tradeKind !== 'case' || previous.deletedAt)) return s
           const reviewPatch = patch.reviewStatus === undefined
             ? {}
             : isReviewCompleted(patch.reviewStatus)

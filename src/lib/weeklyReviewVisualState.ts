@@ -47,9 +47,10 @@ export function getWeeklyVisualIssues(review: WeeklyVisualFields): WeeklyVisualI
 export function focusWeeklyIssue(issue: WeeklyVisualIssue, root: ParentNode = document): void {
   const section = root.querySelector<HTMLElement>(`[data-weekly-section="${issue.sectionId}"]`)
   const field = root.querySelector<HTMLElement>(`[data-weekly-field="${issue.fieldId}"]`)
-  section?.scrollIntoView({ block: 'center' })
   const focusTarget = field?.matches('button, input, textarea, select, [tabindex]')
     ? field
     : field?.querySelector<HTMLElement>('input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [contenteditable="true"], button:not(:disabled), [tabindex]:not([tabindex="-1"])')
-  focusTarget?.focus()
+  focusTarget?.focus({ preventScroll: true })
+  const scrollTarget = focusTarget ?? section
+  scrollTarget?.scrollIntoView({ block: 'nearest' })
 }

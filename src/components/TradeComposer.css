@@ -90,6 +90,10 @@ input.composer-input-quick {
   gap: var(--sp-3);
 }
 
+.composer-archive-row-paired {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .composer-side-control {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

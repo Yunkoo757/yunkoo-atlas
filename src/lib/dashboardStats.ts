@@ -189,11 +189,10 @@ export function buildDashboardStats(
   let cumulative = 0
   const fullCurve: DashboardCurvePoint[] = []
   for (const day of [...pnlTradesByDay.keys()].sort()) {
-    const date = day.slice(5)
     for (const trade of pnlTradesByDay.get(day)!) {
       cumulative += trade.pnl!
       fullCurve.push({
-        date,
+        date: day,
         equity: cumulative,
         label: trade.symbol,
         tradeId: trade.id,

@@ -13,6 +13,8 @@ import {
 import { resolveTradeTruth } from '@/lib/tradeTruth'
 import type { LiveStage } from '@/lib/liveStages'
 import type { SystemReviewPoolId } from '@/lib/reviewPools'
+import { collectAssetIdsFromHtml } from '@/storage/assets'
+import { isSafeAssetId } from '@/storage/assetId'
 
 export type ReviewStageSource =
   | 'current-and-history'
@@ -69,6 +71,8 @@ export type ReviewSessionSnapshot = {
   systemPoolId?: SystemReviewPoolId
   /** 自定义复盘池来源；轮次仍冻结 ID，此字段只用于重新洗牌。 */
   customPoolId?: string
+  decisionPractice?: true
+  revealedDecisionId?: string
   assessments: Partial<Record<string, ReviewSessionAssessment>>
   /** 当前应用会话内精确定位评估动作；重启后历史栈清空，ID 只用于安全拒绝。 */
   /** string 表示可精确撤销的动作；null 表示本次评估成功但最终字段无变化。 */
@@ -232,6 +236,13 @@ export const DEFAULT_REVIEW_SESSION_FILTERS: ReviewSessionFilters = {
   stageSource: 'current-and-history',
 }
 
+export const DECISION_PRACTICE_FILTERS: ReviewSessionFilters = {
+  ...DEFAULT_REVIEW_SESSION_FILTERS,
+  includeLiveTrades: false,
+  caseScope: 'mistakes',
+  requireContent: true,
+}
+
 export function normalizeReviewStageSource(
   stageSource: ReviewStageSource,
   liveStages: readonly LiveStage[],
@@ -254,6 +265,22 @@ export function reviewFiltersForNextRound(
     ...snapshot.filters,
     reviewTiming: DEFAULT_REVIEW_SESSION_FILTERS.reviewTiming,
   }
+}
+
+export function getDecisionImageOptions(trade: Pick<Trade, 'note' | 'sourceNoteHtml'>) {
+  const caseImages = collectAssetIdsFromHtml([trade.note]).filter(isSafeAssetId)
+  const sourceImages = collectAssetIdsFromHtml([trade.sourceNoteHtml ?? '']).filter(isSafeAssetId)
+  return [
+    ...caseImages.map((value, index) => ({ value, label: `案例截图 ${index + 1}` })),
+    ...sourceImages.flatMap((value, index) => caseImages.includes(value) ? [] : [{ value, label: `来源截图 ${index + 1}` }]),
+  ]
+}
+
+export function getDecisionImageId(trade: Trade): string | null {
+  if (!isSafeAssetId(trade.decisionImageId) || !matchesReviewCaseScope(trade, 'mistakes', new Set())) return null
+  return getDecisionImageOptions(trade).some((option) => option.value === trade.decisionImageId)
+    ? trade.decisionImageId
+    : null
 }
 
 export function hasEffectiveReviewContent(note: string | null | undefined): boolean {
@@ -405,12 +432,17 @@ export function reconcileReviewSession(
   const eligibleIds = new Set(
     buildReviewSessionPool(
       trades,
-      { ...snapshot.filters, stageSource: 'current-and-history' },
+      {
+        ...snapshot.filters,
+        stageSource: 'current-and-history',
+        // 保留本轮中已经评估的题，下一轮才重选到期题。
+        reviewTiming: snapshot.decisionPractice ? 'all' : snapshot.filters.reviewTiming,
+      },
       starredIds,
       currentTradingDayKey,
       tradingDayStartHour,
       stageContext,
-    ).map((trade) => trade.id),
+    ).filter((trade) => !snapshot.decisionPractice || getDecisionImageId(trade)).map((trade) => trade.id),
   )
   const ids = snapshot.ids.filter((id) => eligibleIds.has(id))
   if (ids.length === 0 && !(typeof stageSource === 'object' && stageSource.stageIds.length === 0)) {
@@ -427,6 +459,10 @@ export function reconcileReviewSession(
     filters: { ...snapshot.filters, stageSource },
     ...(snapshot.systemPoolId ? { systemPoolId: snapshot.systemPoolId } : {}),
     ...(snapshot.customPoolId ? { customPoolId: snapshot.customPoolId } : {}),
+    ...(snapshot.decisionPractice ? { decisionPractice: true } : {}),
+    ...(snapshot.revealedDecisionId && snapshot.revealedDecisionId === ids[cursor]
+      ? { revealedDecisionId: snapshot.revealedDecisionId }
+      : {}),
     assessments: Object.fromEntries(
       Object.entries(snapshot.assessments).filter(([id]) => eligibleIds.has(id)),
     ),
@@ -509,6 +545,8 @@ export function saveReviewSession(
       }),
       ...(snapshot.systemPoolId ? { systemPoolId: snapshot.systemPoolId } : {}),
       ...(snapshot.customPoolId ? { customPoolId: snapshot.customPoolId } : {}),
+      ...(snapshot.decisionPractice ? { decisionPractice: true } : {}),
+      ...(snapshot.revealedDecisionId ? { revealedDecisionId: snapshot.revealedDecisionId } : {}),
       assessments: snapshot.assessments,
     }))
     return true
@@ -655,6 +693,13 @@ function isReviewSessionSnapshot(value: unknown): value is StoredReviewSessionSn
     typeof snapshot.customPoolId !== 'string' || !snapshot.customPoolId.trim()
   )) return false
   if (snapshot.systemPoolId !== undefined && snapshot.customPoolId !== undefined) return false
+  if (snapshot.decisionPractice !== undefined && (
+    snapshot.decisionPractice !== true || snapshot.systemPoolId !== undefined || snapshot.customPoolId !== undefined
+  )) return false
+  if (snapshot.revealedDecisionId !== undefined && (
+    snapshot.decisionPractice !== true || typeof snapshot.revealedDecisionId !== 'string' ||
+    snapshot.revealedDecisionId !== snapshot.ids[snapshot.cursor!]
+  )) return false
   return new Set(snapshot.ids).size === snapshot.ids.length
 }
 

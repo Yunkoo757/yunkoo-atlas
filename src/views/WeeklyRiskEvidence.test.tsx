@@ -66,7 +66,7 @@ export function testWeeklyRiskEvidenceExplainsEmptyConfirmationAudit(): void {
   const html = renderToStaticMarkup(
     <MemoryRouter><WeeklyRiskEvidence snapshot={{ ...snapshot, overrideEvents: [] }} /></MemoryRouter>,
   )
-  assert(html.includes('展开后无继续交易确认'), '零确认的审计展开区必须说明为空')
+  assert(html.includes('本周没有继续交易确认'), '零确认的审计展开区必须说明为空')
 }
 
 export function testWeeklyRiskDailyUsesNetBudgetAndExplainsIncompleteCoverage(): void {
