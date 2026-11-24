@@ -17,6 +17,7 @@
   z-index: calc(0 - var(--z-content));
   top: 0;
   left: 0;
+  transform-origin: left center;
   visibility: hidden;
   pointer-events: none;
   border-radius: var(--radius-4);
@@ -26,11 +27,6 @@
 
 .ui-segmented[data-indicator-ready='true'] .ui-segmented-indicator {
   visibility: visible;
-}
-
-.ui-segmented[data-indicator-moving='true'] .ui-segmented-indicator {
-  transition: transform var(--motion-dialog-in) var(--ease-out),
-    width var(--motion-dialog-in) var(--ease-out);
 }
 
 .ui-segmented-option {

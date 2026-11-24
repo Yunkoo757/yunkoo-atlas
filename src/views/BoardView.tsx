@@ -10,6 +10,7 @@ import type { WorkbenchView } from '@/components/Topbar'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { TradeFilters } from '@/components/trades/TradeFilters'
 import { WorkbenchEmptyState } from '@/components/trades/WorkbenchEmptyState'
+import { moveRecordsToTrash } from '@/lib/tradeTrashAction'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
@@ -34,7 +35,7 @@ import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import { ResultConflictRepair } from '@/components/ResultConflictRepair'
 import { collectWorkbenchResultRepairIds } from '@/lib/workbenchResultHealth'
-import { useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
+import { useResultRepairReturn } from '@/hooks/useResultRepairReturn'
 import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
 import { Tooltip } from '@/components/ui/Tooltip'
 import type { Strategy } from '@/data/strategies'
@@ -62,7 +63,7 @@ export function BoardView({
   title?: string
   view: WorkbenchView
   onView: (v: WorkbenchView) => void
-  onOpen: (id: string) => void
+  onOpen: (id: string, focusField?: 'result') => void
   filter?: ListFilter
   header?: ReactNode
   filterActions?: ReactNode
@@ -75,7 +76,6 @@ export function BoardView({
   const requestTradeOpen = useStore((s) => s.requestTradeOpen)
   const setStatus = useStore((s) => s.setStatus)
   const openComposer = useStore((s) => s.openComposer)
-  const removeTrade = useStore((s) => s.removeTrade)
   const toggleStar = useStore((s) => s.toggleStar)
   const isStarred = useStore((s) => s.isStarred)
   const toggleCaseFocus = useStore((s) => s.toggleCaseFocus)
@@ -90,7 +90,7 @@ export function BoardView({
   const location = useLocation()
   const createRecord = () => createRecordForContext(location.pathname, location.search, navigate)
   useListContextSync(filter)
-  useTradeReturnAnchor()
+  const repairEntry = useResultRepairReturn()
   const { trades, visible, totalCount, workspaceCount, businessDateAnchor } = useWorkbenchVisibleTrades(filter)
   const resultRepairIds = useMemo(
     () => collectWorkbenchResultRepairIds(trades),
@@ -174,18 +174,11 @@ export function BoardView({
 
   return (
     <>
-      <Topbar title={title} view={view} onView={onView} />
-      {resultRepairIds.length > 0 ? (
-        <div className="list-pending-entry">
-          <div className="list-result-repair" data-workbench-result-repair>
-            <span>结果待核对 {resultRepairIds.length}</span>
-            <ResultConflictRepair
-              ids={resultRepairIds}
-              onOpenTrade={(id) => onOpen(id)}
-            />
-          </div>
-        </div>
-      ) : null}
+      <Topbar title={title} view={view} onView={onView}>
+        {resultRepairIds.length > 0 && (
+          <ResultConflictRepair ref={repairEntry} showCount ids={resultRepairIds} onOpenTrade={id => onOpen(id, 'result')} />
+        )}
+      </Topbar>
       {header}
       <TradeFilters
         filter={filter}
@@ -209,24 +202,27 @@ export function BoardView({
                 e.preventDefault()
                 setOverCol(c.status)
               }}
-              onDragLeave={() => setOverCol((p) => (p === c.status ? null : p))}
+              onDragLeave={event => {
+                if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return
+                setOverCol(current => current === c.status ? null : current)
+              }}
               onDrop={() => onDropToColumn(c.status)}
             >
               <div className="bd-col-header">
                 <StatusIcon status={c.status} size={ICON_MD} />
                 <span className="bd-col-title">{STATUS_META[c.status].label}</span>
                 <span className="bd-col-count">{c.items.length}</span>
-                <span className="bd-col-add-wrap">
+                {(c.status === 'planned' || c.status === 'missed') && <span className="bd-col-add-wrap">
                   <Tooltip content={createLabel} label={createLabel}>
                     <button
                       className="bd-col-add"
                       aria-label={createLabel}
-                      onClick={createRecord}
+                      onClick={() => createRecordForContext(location.pathname, location.search, navigate, { status: c.status === 'missed' ? 'missed' : 'planned' })}
                     >
                       <Plus size={ICON_MD} />
                     </button>
                   </Tooltip>
-                </span>
+                </span>}
               </div>
               <BoardColumnBody
                 status={c.status}
@@ -254,7 +250,7 @@ export function BoardView({
                       requestTradeOpen,
                       changeStatus: (s) => transitionTradeStatus(trade, s, transition),
                       openComposer,
-                      removeTrade,
+                      removeTrade: moveRecordsToTrash,
                       createReviewCase: (source) => {
                         const result = useStore.getState().createReviewCaseFromTrade(source.id)
                         if (result.status !== 'created') {
@@ -342,7 +338,6 @@ function BoardColumnBody({
       >
         {virtualItems.map((virtualRow) => {
           const t = items[virtualRow.index]!
-          const i = virtualRow.index
           const result = resolveTradeRowResultPresentation(
             t,
             legacyCashCurrencyAssumption,
@@ -370,7 +365,6 @@ function BoardColumnBody({
                   + (focusedId === t.id ? ' is-focused' : '')
                   + (selectedIds.has(t.id) ? ' is-selected' : '')
                 }
-                style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
                 draggable
                 onDragStart={(e) => {
                   setDragId(t.id)

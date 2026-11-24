@@ -1,9 +1,12 @@
+import { isComposingKey } from '@/lib/keyboardComposition'
 import { ICON_SM } from '@/icons/iconSize'
 import { useState } from 'react'
 import { useStore } from '@/store/useStore'
 import { X, Plus } from '@/icons/appIcons'
 import { toast } from '@/lib/toast'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { SearchField } from '@/components/ui/SearchField'
+import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import { Button } from '@/components/ui/Button'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import './TagPresetsPanel.css'
@@ -16,6 +19,12 @@ export function TagPresetsPanel() {
   const addMistakeTagPreset = useStore((s) => s.addMistakeTagPreset)
   const removeMistakeTagPreset = useStore((s) => s.removeMistakeTagPreset)
 
+  const removePreset = (tag: string, mistake: boolean) => {
+    const remove = mistake ? removeMistakeTagPreset : removeTagPreset
+    const add = mistake ? addMistakeTagPreset : addTagPreset
+    remove(tag)
+    toast(`已移除${mistake ? '错误' : '普通'}标签「${tag}」`, { actionLabel: '撤销', onAction: () => add(tag) })
+  }
   const [category, setCategory] = useState<'normal' | 'mistake'>('normal')
   return (
     <div className="settings-page settings-page--form tag-presets-panel">
@@ -29,11 +38,11 @@ export function TagPresetsPanel() {
         ]} />
       <div hidden={category !== 'normal'}>
         <TagSection title="普通标签" presets={tagPresets} onAdd={addTagPreset}
-          onRemove={(tag) => { removeTagPreset(tag); toast(`已删除预置「${tag}」`) }} />
+          onRemove={tag => removePreset(tag, false)} />
       </div>
       <div hidden={category !== 'mistake'}>
         <TagSection title="错误 / 违规标签" presets={mistakeTagPresets} onAdd={addMistakeTagPreset}
-          onRemove={(tag) => { removeMistakeTagPreset(tag); toast(`已删除预置「${tag}」`) }} />
+          onRemove={tag => removePreset(tag, true)} />
       </div>
     </div>
   )
@@ -95,7 +104,7 @@ function TagSection({
           className="tag-preset-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !isComposingKey(e.nativeEvent)) handleAdd() }}
           aria-label={`新增${title}`}
           placeholder="输入标签名…"
           maxLength={24}
@@ -113,7 +122,7 @@ function TagSection({
 
       {/* 批量添加 */}
       <details className="tag-batch">
-        <summary className="tag-batch-summary">批量导入</summary>
+        <DisclosureSummary>批量导入</DisclosureSummary>
         <textarea
           className="tag-batch-input"
           value={batch}
@@ -133,8 +142,7 @@ function TagSection({
       </details>
 
       {presets.length >= 12 || query ? (
-        <input className="tag-preset-input tag-search" type="search" aria-label={`搜索${title}`}
-          placeholder="搜索标签" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <SearchField label={`搜索${title}`} placeholder="搜索标签" value={query} onChange={setQuery} size="sm" className="tag-search" />
       ) : null}
       {/* 列表 */}
       {presets.length === 0 ? (

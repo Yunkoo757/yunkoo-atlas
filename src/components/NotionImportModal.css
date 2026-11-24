@@ -75,6 +75,8 @@
 }
 
 .nim-file-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-weight: var(--font-weight-medium);
   font-family: var(--font-mono);
   font-size: var(--type-metadata-size);
@@ -148,66 +150,17 @@
   white-space: nowrap;
 }
 
-.nim-preview-stats {
+.nim-preview-counts { display: grid; gap: var(--sp-1); }
+.nim-preview-counts p {
   margin: 0;
-  font-size: var(--type-body-size);
-  color: var(--text-secondary);
-  line-height: var(--type-body-line-height);
-}
-
-.nim-preview-table-wrap {
-  overflow: auto;
-  max-height: 50vh;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
-}
-
-.nim-preview-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-mono);
-  font-size: var(--type-row-size);
-}
-
-.nim-preview-table th,
-.nim-preview-table td {
-  padding: 6px 10px;
-  text-align: left;
-  border-bottom: 1px solid var(--border-subtle);
-  white-space: nowrap;
-}
-
-.nim-preview-table th {
+  color: var(--text-muted);
   font-size: var(--type-metadata-size);
-  font-weight: var(--type-metadata-weight);
   line-height: var(--type-metadata-line-height);
-  color: var(--text-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0;
-  background: var(--bg-elevated);
-  position: sticky;
-  top: 0;
+  overflow-wrap: anywhere;
 }
-
-.nim-row-err {
-  background: var(--error-action-bg);
-}
-
-.nim-row-warn {
-  background: var(--warn-action-bg);
-}
-
-.nim-row-dup {
-  background: color-mix(in srgb, var(--warn-action-bg) 70%, transparent);
-}
-
-.nim-dup {
-  color: var(--warn);
-}
-
-.nim-dup-count {
-  color: var(--warn);
-}
+.nim-preview-counts .nim-preview-stats { color: var(--text-secondary); font-size: var(--type-row-size); }
+.nim-preview-stats strong { color: var(--text-strong); }
+.nim-preview-counts details > p { margin-left: var(--sp-5); }
 
 .nim-dup-scan,
 .nim-dup-toggle {
@@ -222,85 +175,6 @@
   gap: var(--sp-2);
 }
 
-.nim-dup-msg {
-  color: var(--warn);
-}
-
-.nim-dup-force {
-  color: var(--accent);
-  text-decoration: underline;
-  font-size: inherit;
-}
-
-.nim-cell-symbol {
-  font-weight: var(--font-weight-medium);
-  color: var(--text-primary);
-}
-
-.nim-cell-tags {
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: flex;
-  gap: var(--sp-1);
-  flex-wrap: wrap;
-}
-
-.nim-tag {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: var(--radius-4);
-  background: var(--bg-hover);
-  font-family: var(--font-ui);
-  font-size: var(--type-chip-size);
-  font-weight: var(--type-chip-weight);
-  line-height: var(--type-chip-line-height);
-  color: var(--text-tertiary);
-}
-
-.nim-tag-more {
-  font-size: var(--type-metadata-size);
-  color: var(--text-tertiary);
-}
-
-.nim-pnl-pos {
-  color: var(--pos);
-  font-weight: var(--font-weight-medium);
-}
-
-.nim-pnl-neg {
-  color: var(--neg);
-  font-weight: var(--font-weight-medium);
-}
-
-.nim-new-badge {
-  font-size: var(--type-caption-size);
-  color: var(--accent);
-}
-
-.nim-new-strat {
-  color: var(--accent);
-}
-
-.nim-img-count {
-  color: var(--text-secondary);
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.nim-img-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 1px 6px;
-  border-radius: var(--radius-4);
-  background: var(--accent-bg);
-  color: var(--accent);
-  font-size: var(--type-caption-size);
-  font-weight: var(--font-weight-medium);
-}
-
 .nim-done-area .nim-done-images {
   margin: 0;
   font-size: var(--type-row-size);
@@ -309,15 +183,6 @@
   display: flex;
   align-items: center;
   gap: var(--space-control-gap);
-}
-
-.nim-err-cell {
-  color: var(--neg);
-  font-size: var(--type-metadata-size);
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: normal;
 }
 
 /* ---- Done / Importing step ---- */
@@ -345,10 +210,6 @@
 /* ---- Shared ---- */
 .nim-ok {
   color: var(--pos);
-}
-
-.nim-bad {
-  color: var(--neg);
 }
 
 .nim-error {

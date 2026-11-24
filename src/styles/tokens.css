@@ -162,7 +162,11 @@
 
   /* —— 按意图命名的动效时长 —— */
   --motion-state: 100ms;
+  --motion-spin: 800ms;
+  --motion-pulse: 1400ms;
   --motion-menu: 100ms;
+  --motion-enter-opacity: 0;
+  --motion-enter-scale: .985;
   --motion-dialog-in: 150ms;
   --motion-dialog-out: 120ms;
   --motion-panel: 220ms;
@@ -274,7 +278,7 @@
   --field-border: color-mix(in srgb, var(--border-default) 78%, transparent);
   --field-border-hover: var(--border-strong);
   --field-border-focus: color-mix(in srgb, var(--accent) 72%, var(--border-strong));
-  --field-placeholder: var(--text-quaternary);
+  --field-placeholder: var(--text-muted);
   --field-focus-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
 
   /* 边框 */
@@ -365,7 +369,7 @@
   --diagnostic: lch(66% 27 35);
   --diagnostic-text: color-mix(in srgb, var(--diagnostic) 72%, var(--text-secondary));
   --diagnostic-bg: color-mix(in srgb, var(--diagnostic) 10%, transparent);
-  --diagnostic-border: color-mix(in srgb, var(--diagnostic) 40%, transparent);
+  --diagnostic-border: color-mix(in srgb, var(--diagnostic) 24%, transparent);
   --tag-error-text: var(--diagnostic-text);
   --tag-error-bg: var(--diagnostic-bg);
   --tag-error-border: var(--diagnostic-border);
@@ -373,6 +377,8 @@
   /* 业务语义色背景（12%透明度，用于标签/徽章背景） */
   --pos-bg: color-mix(in srgb, var(--pos) 12%, transparent);
   --neg-bg: color-mix(in srgb, var(--neg) 12%, transparent);
+  --image-nav-bg: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+  --image-nav-hover: color-mix(in srgb, var(--bg-hover) 88%, transparent);
   --faint-bg: color-mix(in srgb, #fff 4%, transparent); /* 极淡背景，用于模糊标签 */
 
   /* 警告状态色（用于危险操作、错误提示等） */

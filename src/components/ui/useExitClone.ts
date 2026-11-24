@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, type MutableRefObject } from 'react'
 
 type ExitSnapshot = {
   generation: number
-  scroll: Array<{ top: number; left: number }>
+  bounds?: DOMRect
+  scroll: Array<{ index: number; top: number; left: number }>
   opacity: string
   transform: string
   scale: string
@@ -20,9 +21,11 @@ function captureExitSnapshot(source: HTMLElement): ExitSnapshot {
   const nodes = [source, ...source.querySelectorAll<HTMLElement>('*')]
   return {
     generation: mountGeneration,
-    scroll: nodes.map((node) => ({
-      top: node.scrollTop, left: node.scrollLeft,
-    })),
+    bounds: style.position === 'fixed' ? undefined : source.getBoundingClientRect(),
+    scroll: nodes.flatMap((node, index) => {
+      const top = node.scrollTop, left = node.scrollLeft
+      return top || left ? [{ index, top, left }] : []
+    }),
     opacity: style.opacity,
     transform: style.transform,
     scale: style.scale,
@@ -54,11 +57,13 @@ function appendExitClone(source: HTMLElement | null, snapshot: ExitSnapshot | nu
   clone.setAttribute('inert', '')
   // 快照不再参与弹层栈、焦点、ARIA 引用或 DOM 身份查询。
   const nodes = [clone, ...clone.querySelectorAll<HTMLElement>('*')]
-  for (const element of nodes) {
+  const identityAttributes = ['id', 'aria-modal', 'aria-labelledby', 'aria-describedby', 'aria-controls', 'aria-activedescendant', 'aria-owns', 'data-modal-shell-id']
+  const identitySelector = ['[role]', ...identityAttributes.map(attribute => '[' + attribute + ']')].join(',')
+  for (const element of [clone, ...clone.querySelectorAll<HTMLElement>(identitySelector)]) {
     // alert / status 也是现有反馈样式的选择器；保留外观，整个快照仍由 aria-hidden + inert 隔离。
     const role = element.getAttribute('role')
     if (role !== 'alert' && role !== 'status') element.removeAttribute('role')
-    for (const attribute of ['id', 'aria-modal', 'aria-labelledby', 'aria-describedby', 'aria-controls', 'aria-activedescendant', 'aria-owns', 'data-modal-shell-id']) {
+    for (const attribute of identityAttributes) {
       element.removeAttribute(attribute)
     }
   }
@@ -74,8 +79,15 @@ function appendExitClone(source: HTMLElement | null, snapshot: ExitSnapshot | nu
     clone.style.transform = snapshot.transform
     clone.style.scale = snapshot.scale
   }
+  if (snapshot?.bounds) {
+    const { x, y, width, height } = snapshot.bounds
+    Object.assign(clone.style, {
+      position: 'fixed', inset: 'auto', left: x + 'px', top: y + 'px',
+      margin: '0', width: width + 'px', height: height + 'px', transform: 'none', scale: 'none',
+    })
+  }
   document.body.append(clone)
-  snapshot?.scroll.forEach(({ top, left }, index) => {
+  snapshot?.scroll.forEach(({ index, top, left }) => {
     nodes[index].scrollTop = top
     nodes[index].scrollLeft = left
   })
@@ -94,13 +106,14 @@ function appendExitClone(source: HTMLElement | null, snapshot: ExitSnapshot | nu
  * React 条件卸载没有离场阶段；保留一份无交互快照完成短促淡出。
  * callback ref 会在卸载前保存最后一个节点，因此父级直接关闭也能衔接动画。
  */
-export function useExitClone<T extends HTMLElement>(visible = true) {
+export function useExitClone<T extends HTMLElement>(visible = true, mounted?: MutableRefObject<T | null>) {
   const nodeRef = useRef<T | null>(null)
   const visibleRef = useRef(visible)
   const clonedRef = useRef(false)
   const snapshotRef = useRef<ExitSnapshot | null>(null)
 
   const ref = useCallback((node: T | null) => {
+    if (mounted) mounted.current = node
     if (!node) {
       if (nodeRef.current?.isConnected && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         snapshotRef.current = captureExitSnapshot(nodeRef.current)
@@ -112,9 +125,13 @@ export function useExitClone<T extends HTMLElement>(visible = true) {
     snapshotRef.current = null
     const sourceClasses = Array.from(node.classList)
     document.querySelectorAll<HTMLElement>('.ui-exit-clone').forEach((clone) => {
-      if (sourceClasses.some((className) => clone.classList.contains(className))) clone.remove()
+      if (!sourceClasses.length || !sourceClasses.every(name => clone.classList.contains(name))) return
+      const fading = getComputedStyle(clone)
+      node.style.setProperty('--motion-enter-opacity', fading.opacity)
+      if (fading.scale !== 'none') node.style.setProperty('--motion-enter-scale', fading.scale)
+      clone.remove()
     })
-  }, [])
+  }, [mounted])
 
   useEffect(() => {
     if (visible) clonedRef.current = false

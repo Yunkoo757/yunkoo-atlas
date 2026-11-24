@@ -194,12 +194,12 @@
   fill: none;
 }
 .sb-hbtn:hover {
-  color: var(--accent-text);
+  color: var(--text-strong);
   background: var(--surface-control-hover);
 }
 
 .sb-hbtn:active {
-  color: var(--accent-text);
+  color: var(--text-strong);
   background: var(--surface-control-active);
 }
 
@@ -454,220 +454,179 @@ html[data-ui-settled='1'] .sb-item {
 }
 
 .sb-footer {
-  display: flex;
+  position: relative;
   flex: 0 0 auto;
-  /* 与导航项 10px 内边距 + 16px 图标的中心线精确重合。 */
-  padding: var(--sp-2) 0 var(--sp-1) var(--sp-1);
-  border-top: 0;
+  padding: var(--sp-2) 0 var(--sp-1);
 }
 
 .sb-risk-summary {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  min-width: 28px;
-  height: 28px;
-  align-items: center;
-  padding: 0;
-  border-radius: var(--radius-full);
-  color: var(--text-secondary);
-  transition:
-    color var(--dur-fast) var(--ease-out),
-    background var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out);
+  min-height: var(--control-height-md);
+  height: auto;
+  padding-block: var(--sp-1);
+  font-size: var(--type-row-size);
+  white-space: nowrap;
+  text-decoration: none;
 }
 
-.sb-risk-gauge {
-  width: 15px;
-  height: 15px;
-  overflow: visible;
-  transform: rotate(-90deg);
-}
-
-.sb-risk-gauge circle {
-  transform-origin: 10px 10px;
-}
-
-.sb-risk-gauge-core {
-  fill: var(--surface-nav-hover);
-  stroke: none;
-}
-
-.sb-risk-gauge-track {
-  fill: none;
-  stroke: var(--border-default);
-  stroke-width: 1.7;
-}
-
-.sb-risk-gauge-progress {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  transition:
-    stroke-dashoffset var(--dur-slow) var(--ease-out),
-    stroke var(--dur-fast) var(--ease-out);
-}
-
-.sb-risk-summary:hover {
-  color: var(--text-primary);
-  background: var(--surface-nav-hover);
-  transform: translateY(-1px);
-}
-
+.sb-risk-summary:hover,
+.sb-risk-summary:focus-visible,
 .sb-risk-summary[aria-expanded='true'] {
-  color: var(--text-primary);
+  color: var(--text-nav-hover);
+  background: var(--surface-nav-hover);
+}
+
+.sb-risk-summary:active {
   background: var(--surface-nav-active);
-  transform: none;
+}
+
+.sb-risk-value {
+  margin-inline-start: auto;
+  min-width: 0;
+  white-space: normal;
+  text-align: end;
+  overflow-wrap: anywhere;
+  color: var(--sb-risk-ink, var(--text-content-metadata));
+  font-size: var(--type-metadata-size);
+  font-variant-numeric: var(--numeric-tabular);
+}
+
+.sb-item .sb-risk-chevron {
+  margin-inline-start: calc(-1 * var(--sp-1));
+  color: var(--text-content-context);
+  transition: transform var(--motion-menu) var(--ease-out);
+}
+
+.sb-risk-summary[aria-expanded='true'] .sb-risk-chevron {
+  transform: rotate(180deg);
 }
 
 .sb-risk-summary.is-near,
-.sb-risk-summary.is-partial,
-.sb-risk-summary.is-unknown {
-  color: var(--warn-action);
+.sb-risk-period.is-near {
+  --sb-risk-ink: var(--diagnostic-text);
 }
 
-.sb-risk-summary.is-triggered {
-  color: var(--neg);
+.sb-risk-summary.is-triggered,
+.sb-risk-period.is-triggered {
+  --sb-risk-ink: var(--neg);
 }
 
-.sb-risk-summary.is-unconfigured {
-  color: var(--text-tertiary);
+.sb-risk-summary.is-triggered > svg:first-child {
+  color: var(--sb-risk-ink);
 }
 
 .sb-risk-popover {
-  position: fixed;
+  position: absolute;
+  inset-inline: 0;
+  bottom: 100%;
   z-index: var(--z-popover);
-  width: 276px;
-  overflow: hidden;
-  color: var(--text-secondary);
-  background: var(--popover-bg);
-  border: 0.8px solid var(--popover-border);
-  border-radius: var(--popover-radius);
-  box-shadow: var(--popover-shadow);
+  max-height: calc(100dvh - var(--control-height-md) - var(--sp-8));
+  overflow-y: auto;
+  padding: var(--sp-1);
   outline: none;
-  animation: sb-risk-popover-in var(--motion-menu) var(--ease-out);
+  transform-origin: left bottom;
+  animation: uiPopIn var(--motion-menu) var(--ease-out);
 }
 
-@keyframes sb-risk-popover-in {
-  from { opacity: 0; transform: translateX(-4px) scale(0.985); }
-  to { opacity: 1; transform: translateX(0) scale(1); }
+.sb-risk-popover-head,
+.sb-risk-period {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
 }
 
 .sb-risk-popover-head {
-  display: flex;
-  min-height: 48px;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  padding: 0 var(--sp-4);
+  padding: var(--sp-2) var(--sp-2) var(--sp-1);
 }
 
-.sb-risk-popover-head strong {
+.sb-risk-popover-head h2 {
+  margin: 0;
   color: var(--text-primary);
   font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
   font-weight: var(--font-weight-semibold);
 }
 
-.sb-risk-popover-head span {
-  color: var(--pos);
+.sb-risk-popover-head span,
+.sb-risk-period small,
+.sb-risk-period dd span {
+  color: var(--text-content-metadata);
   font-size: var(--type-metadata-size);
-  white-space: nowrap;
-}
-
-.sb-risk-popover.is-near .sb-risk-popover-head span,
-.sb-risk-popover.is-partial .sb-risk-popover-head span,
-.sb-risk-popover.is-unknown .sb-risk-popover-head span {
-  color: var(--warn-action);
-}
-
-.sb-risk-popover.is-triggered .sb-risk-popover-head span {
-  color: var(--neg);
-}
-
-.sb-risk-popover.is-unconfigured .sb-risk-popover-head span {
-  color: var(--text-tertiary);
+  line-height: var(--type-metadata-line-height);
 }
 
 .sb-risk-periods {
-  display: grid;
-  gap: var(--sp-3);
-  padding: 0 var(--sp-4) var(--sp-4);
+  margin: 0;
+  padding: var(--sp-1) var(--sp-2) var(--sp-2);
 }
 
 .sb-risk-period {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  min-height: var(--control-height-sm);
-  align-items: center;
-  gap: var(--sp-3);
-  padding: 0;
-  color: var(--text-secondary);
-  font-size: var(--type-metadata-size);
+  padding: var(--sp-1) 0;
+  color: var(--text-content-supporting);
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
 }
 
-.sb-risk-period-head {
-  display: contents;
+.sb-risk-period dt {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-control-gap);
+  min-width: 0;
+  white-space: nowrap;
 }
 
-.sb-risk-period-label {
-  color: var(--text-primary);
+.sb-risk-period small {
+  color: var(--sb-risk-ink, var(--text-content-metadata));
+}
+
+.sb-risk-period dd {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 0 var(--sp-1);
+  min-width: 0;
+  max-width: 65%;
+  margin: 0;
+  text-align: end;
+  font-variant-numeric: var(--numeric-tabular);
+  overflow-wrap: anywhere;
+}
+
+.sb-risk-period dd strong {
   font-weight: var(--font-weight-medium);
 }
 
-.sb-risk-period-head > small {
-  display: none;
+.sb-risk-actions {
+  padding-top: var(--sp-1);
+  border-top: 1px solid var(--border-divider);
 }
 
-.sb-risk-period-track {
-  display: block;
-  height: var(--sp-1);
-  overflow: hidden;
-  border-radius: var(--radius-full);
-  background: var(--surface-control-active);
-}
-
-.sb-risk-period-track > i {
-  display: block;
-  width: 0;
-  height: 100%;
-  border-radius: inherit;
-  background: currentColor;
-  transition: width var(--dur-slow) var(--ease-out);
-}
-
-.sb-risk-period.is-near,
-.sb-risk-period.is-partial,
-.sb-risk-period.is-unknown,
-.sb-risk-period.is-near .sb-risk-period-head > small,
-.sb-risk-period.is-partial .sb-risk-period-head > small,
-.sb-risk-period.is-unknown .sb-risk-period-head > small {
-  color: var(--warn-action);
-}
-
-.sb-risk-period.is-triggered,
-.sb-risk-period.is-triggered .sb-risk-period-head > small {
-  color: var(--neg);
-}
-
-.sb-risk-manage {
+.sb-risk-actions a {
   display: flex;
-  min-height: 34px;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--sp-3);
-  color: var(--text-secondary);
-  border-top: 1px solid var(--border-divider);
+  min-height: var(--control-height-sm);
+  padding: 0 var(--sp-2);
+  border-radius: var(--radius-6);
+  color: var(--text-content-metadata);
   font-size: var(--type-metadata-size);
   text-decoration: none;
 }
 
-.sb-risk-manage:hover {
+.sb-risk-actions a:hover,
+.sb-risk-actions a:focus-visible {
+  background: var(--surface-nav-hover);
   color: var(--text-primary);
-  background: var(--bg-hover);
+}
+
+.sidebar[data-density='compact'] button.sb-risk-summary .sb-risk-chevron {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .sb-risk-popover { animation: none; }
+  .sb-item .sb-risk-chevron { transition: none; }
 }

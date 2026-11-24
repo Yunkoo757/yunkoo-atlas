@@ -6,7 +6,7 @@
   place-items: center;
   padding: var(--modal-overlay-padding);
   background: var(--overlay-bg);
-  animation: modalShellFadeIn var(--motion-dialog-in) var(--ease-out);
+  animation: fadeIn var(--motion-dialog-in) var(--ease-out);
 }
 
 .modal-shell {
@@ -21,7 +21,7 @@
   border-radius: var(--modal-border-radius);
   box-shadow: var(--popover-shadow-deep);
   outline: none;
-  animation: modalShellSlideIn var(--motion-dialog-in) var(--ease-out);
+  animation: uiDialogIn var(--motion-dialog-in) var(--ease-out);
 }
 
 .modal-shell.is-compact {
@@ -48,8 +48,14 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
+.modal-shell-header, .modal-shell-footer { flex: none; }
+.modal-shell-header:not(:has(.modal-shell-heading p)) {
+  align-items: center;
+  padding-block: var(--sp-3);
+}
 .modal-shell-heading {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .modal-shell-heading h2 {
@@ -61,7 +67,7 @@
 }
 
 .modal-shell-heading p {
-  margin: 5px 0 0;
+  margin: var(--sp-1) 0 0;
   color: var(--text-secondary);
   font-size: var(--type-row-size);
   line-height: var(--type-row-line-height);
@@ -101,27 +107,24 @@
 
 .modal-shell-body {
   min-height: 0;
-  max-height: calc(100vh - 190px);
+  min-width: 0;
+  overscroll-behavior: contain;
   padding: var(--modal-body-padding);
   overflow: auto;
 }
 
+.modal-shell-body > :first-child { margin-block-start: 0; }
+.modal-shell-body > :last-child { margin-block-end: 0; }
+
 .modal-shell-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--sp-2);
   min-height: 58px;
   padding: var(--modal-footer-padding);
   border-top: 1px solid var(--border-subtle);
-}
-
-@keyframes modalShellFadeIn {
-  from { opacity: 0; }
-}
-
-@keyframes modalShellSlideIn {
-  from { transform: translateY(5px) scale(0.99); opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

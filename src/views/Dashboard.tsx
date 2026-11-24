@@ -1,3 +1,6 @@
+import { useValueMotion } from '@/hooks/useValueMotion'
+import { rememberTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
+import { resultRepairAnchor, useResultRepairReturn } from '@/hooks/useResultRepairReturn'
 import { ResultConflictRepair } from '@/components/ResultConflictRepair'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -242,14 +245,14 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
     ? [...RANGE_OPTS, { value: scope.range, label: rangeLabel }]
     : RANGE_OPTS
 
-  const openTrade = (tradeId: string, extras?: { focusField?: 'closedAt' }) => {
+  const repairEntry = useResultRepairReturn()
+  const openTrade = (tradeId: string, extras?: { focusField?: 'closedAt' | 'result' }) => {
     const t = tradeById.get(tradeId)
-    navigate(t ? tradeDetailPath(t) : `/trade/${tradeId}`, {
-      state: tradeDetailNavState(
-        { pathname: location.pathname, search: location.search },
-        extras,
-      ),
-    })
+    const from = { pathname: location.pathname, search: location.search,
+      anchorTradeId: extras?.focusField === 'result' ? resultRepairAnchor(tradeId) : undefined,
+    }
+    rememberTradeReturnAnchor(from)
+    navigate(t ? tradeDetailPath(t) : `/trade/${tradeId}`, { state: tradeDetailNavState(from, extras) })
   }
 
   const notice = reportNotice && (
@@ -261,8 +264,9 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
         <div className="db-data-health" data-result-health-alert>
           <span>{describeDashboardResultHealth(resultHealth)}</span>
           <ResultConflictRepair
+            ref={repairEntry}
             ids={[...performanceSelection.conflictResultIds, ...performanceSelection.missingResultIds]}
-            onOpenTrade={openTrade}
+            onOpenTrade={id => openTrade(id, { focusField: 'result' })}
           />
         </div>
       )}
@@ -463,10 +467,11 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
 }
 
 function Metric({ label, value, to, primary = false }: { label: string; value: string; to: string; primary?: boolean }) {
+  const numberRef = useValueMotion<HTMLElement>(value)
   return (
     <Link className={primary ? 'db-card is-primary' : 'db-card'} to={to} data-kpi-drilldown>
       <span className="db-card-label">{label}{primary && <small>{PERFORMANCE_REPORT_CURRENCY}</small>}</span>
-      <strong className="db-card-value">{value}</strong>
+      <strong ref={numberRef} className="db-card-value">{value}</strong>
     </Link>
   )
 }

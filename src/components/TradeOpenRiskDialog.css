@@ -7,22 +7,13 @@
 .trade-open-risk-callout {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 11px var(--sp-3);
-  color: var(--text-secondary);
-  background: color-mix(in srgb, var(--warn-action) 4%, var(--bg-elevated));
-  border: 1px solid color-mix(in srgb, var(--warn-action) 24%, var(--border-default));
-  border-radius: var(--radius-6);
+  gap: var(--space-row-gap);
+  color: var(--text-body);
 }
-
 .trade-open-risk-callout > svg {
-  flex: 0 0 auto;
-  margin-top: 1px;
-  color: color-mix(in srgb, var(--warn-action) 62%, var(--text-tertiary));
-}
-.trade-open-risk-callout.is-triggered {
-  background: var(--neg-bg);
-  border-color: color-mix(in srgb, var(--neg) 30%, transparent);
+  flex: none;
+  margin-top: var(--sp-1);
+  color: var(--diagnostic-text);
 }
 .trade-open-risk-callout.is-triggered > svg { color: var(--neg); }
 .trade-open-risk-callout strong { color: var(--text-primary); font-size: var(--type-row-size); }
@@ -52,8 +43,8 @@
 .trade-open-risk-periods > div + div { border-top: 1px solid var(--border-subtle); }
 .trade-open-risk-periods small { font-family: var(--font-ui); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
 .trade-open-risk-periods em { text-align: right; }
-.trade-open-risk-periods .is-triggered em { color: var(--neg); }
-.trade-open-risk-periods .is-unknown em { color: var(--warn-action); }
+.trade-open-risk-periods .is-triggered strong { color: var(--neg); }
+.trade-open-risk-periods .is-unknown em { color: var(--diagnostic-text); }
 
 .trade-open-risk-policy {
   display: grid;

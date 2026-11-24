@@ -144,12 +144,16 @@ async function run(): Promise<void> {
       const dividerWidth = getComputedStyle(detailProperties).borderLeftWidth
       assert(Math.abs(Number.parseFloat(dividerWidth) - 1) < 0.1, `正文与属性栏缺少 1px 分隔线：${dividerWidth}`)
       const beforeWidth = detailMain.getBoundingClientRect().width
-      document.querySelector<HTMLButtonElement>('.trade-detail-properties-toggle[aria-expanded="true"]')?.click()
-      await waitFor(() => getComputedStyle(detailProperties).display === 'none', '宽桌面属性栏无法收起')
+      const propertiesToggle = document.querySelector<HTMLButtonElement>('.trade-detail-properties-toggle')
+      assert(propertiesToggle?.getAttribute('aria-expanded') === 'true', '属性栏应显示当前状态')
+      propertiesToggle.click()
+      await waitFor(() => detailProperties.inert && detailProperties.getAttribute('aria-hidden') === 'true', '宽桌面收起属性栏时应立即退出交互')
+      await waitFor(() => getComputedStyle(detailProperties).visibility === 'hidden', '宽桌面属性栏未完成离场')
       assert(detailMain.getBoundingClientRect().width > beforeWidth + 300, '收起属性后没有把空间让给正文')
       assert(useStore.getState().display.detailPropertiesVisible === false, '属性偏好没有保存到显示设置')
-      document.querySelector<HTMLButtonElement>('.trade-detail-properties-toggle[aria-expanded="false"]')?.click()
-      await waitFor(() => getComputedStyle(detailProperties).display !== 'none', '属性栏无法重新展开')
+      propertiesToggle.click()
+      await waitFor(() => !detailProperties.inert && getComputedStyle(detailProperties).visibility === 'visible'
+        && propertiesToggle.getAttribute('aria-expanded') === 'true', '属性栏无法重新展开')
     }
     findButton('完成复盘')?.click()
     await waitForFrame()

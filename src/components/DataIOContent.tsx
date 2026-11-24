@@ -1,3 +1,5 @@
+import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
+import { Button } from '@/components/ui/Button'
 import { ICON_LG, ICON_MD } from '@/icons/iconSize'
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -638,7 +640,6 @@ export function DataIOContent({
       {webArchive && (
         <ModalShell
           title="恢复完整资料库"
-          description="归档已通过格式与附件校验。确认后将精确替换当前浏览器资料库。"
           busy={archiveRestoring}
           onClose={() => setWebArchive(null)}
           footer={(
@@ -673,16 +674,18 @@ export function DataIOContent({
         >
           <div className="dio-restore-warning" role="alert">
             <AlertTriangle size={ICON_LG} />
-            <span>当前记录、设置、快捷键和附件都会被归档内容替换；此操作不是合并。</span>
+            <span>归档将替换当前资料库的记录、设置、快捷键和附件。需要保留现状时，请先下载备份。</span>
           </div>
           <dl className="dio-restore-grid">
             <div><dt>交易与案例</dt><dd>{webArchive.preview.tradeCount}</dd></div>
+            <div><dt>原始附件</dt><dd>{webArchive.preview.assetCount} 个 · {formatArchiveBytes(webArchive.preview.assetBytes)}</dd></div>
+          </dl>
+          <details className="dio-restore-details"><DisclosureSummary>查看归档明细</DisclosureSummary>
+          <dl className="dio-restore-grid">
             <div><dt>周复盘</dt><dd>{webArchive.preview.weeklyReviewCount}</dd></div>
             <div><dt>随记</dt><dd>{webArchive.preview.quickNoteCount}</dd></div>
             <div><dt>复盘模板</dt><dd>{webArchive.preview.reviewTemplateCount}</dd></div>
             <div><dt>策略</dt><dd>{webArchive.preview.strategyCount}</dd></div>
-            <div><dt>原始附件</dt><dd>{webArchive.preview.assetCount}</dd></div>
-            <div><dt>附件大小</dt><dd>{formatArchiveBytes(webArchive.preview.assetBytes)}</dd></div>
             <div><dt>快捷键</dt><dd>{webArchive.preview.shortcutCount}</dd></div>
             <div><dt>保存视图</dt><dd>{webArchive.preview.savedViewCount}</dd></div>
             <div>
@@ -701,46 +704,46 @@ export function DataIOContent({
               <span>资料：{webArchive.preview.profileDisplayName}</span>
             ) : null}
           </div>
+          </details>
         </ModalShell>
       )}
       {preparedDesktopArchive ? (
         <ModalShell
           title="确认恢复完整资料库"
-          description="归档已在隔离目录完成格式、数据库与附件校验。确认后才会锁定写入并替换当前资料库。"
           busy={archiveRestoring}
           onClose={() => { if (!archiveRestoring) void cancelPreparedDesktopArchive() }}
           footer={(
             <>
-              <button type="button" className="dio-btn" data-autofocus disabled={archiveRestoring} onClick={() => void cancelPreparedDesktopArchive()}>取消</button>
+              <Button variant="bordered" data-autofocus disabled={archiveRestoring} onClick={() => void cancelPreparedDesktopArchive()}>取消</Button>
               <button type="button" className="ui-btn ui-btn-danger-solid" disabled={archiveRestoring} onClick={() => void commitDesktopArchive()}>{archiveRestoring ? '正在安全恢复…' : '替换当前资料库'}</button>
             </>
           )}
         >
-          <div className="dio-restore-warning" role="alert">
-            <AlertTriangle size={ICON_LG} />
-            <span>当前交易、设置与附件会被替换。提交前软件会创建并验证长期安全恢复点。</span>
-          </div>
+          <p className="dio-restore-file">{preparedDesktopArchive.fileName}</p>
           <dl className="dio-restore-grid">
-            <div><dt>归档文件</dt><dd>{preparedDesktopArchive.fileName}</dd></div>
-            <div><dt>文件修改时间</dt><dd>{new Date(preparedDesktopArchive.modifiedAt).toLocaleString('zh-CN')}</dd></div>
             <div><dt>交易与案例</dt><dd>{preparedDesktopArchive.tradeCount}</dd></div>
             <div><dt>策略</dt><dd>{preparedDesktopArchive.strategyCount}</dd></div>
             <div><dt>原始附件</dt><dd>{preparedDesktopArchive.attachmentCount}</dd></div>
             <div><dt>附件大小</dt><dd>{formatArchiveBytes(preparedDesktopArchive.attachmentBytes)}</dd></div>
-            <div><dt>校验结果</dt><dd>已通过完整校验</dd></div>
           </dl>
+          <p className="dio-restore-warning" role="alert">
+            <AlertTriangle size={ICON_LG} aria-hidden />
+            <span>归档将替换当前交易、设置与附件。替换前会创建并验证整库恢复点。</span>
+          </p>
+          <details className="dio-restore-details"><DisclosureSummary>查看校验信息</DisclosureSummary>
+            <p>格式、数据库与附件均已通过校验。文件修改于 {new Date(preparedDesktopArchive.modifiedAt).toLocaleString('zh-CN')}。</p>
+          </details>
         </ModalShell>
       ) : null}
       {archivePreparing ? (
         <ModalShell
           title="正在检查归档"
-          description="正在隔离目录中校验格式、数据库与所有附件；当前资料库仍可安全使用。"
+          description="正在校验数据库与附件，完成后可预览恢复范围。"
+          size="compact"
           busy
           onClose={() => void cancelDesktopArchivePreparation()}
-          footer={<button type="button" className="dio-btn" onClick={() => void cancelDesktopArchivePreparation()}>取消检查</button>}
-        >
-          <p className="dio-section-muted" role="status">检查完成后会先展示替换影响，不会自动恢复。</p>
-        </ModalShell>
+          footer={<Button variant="bordered" onClick={() => void cancelDesktopArchivePreparation()}>取消检查</Button>}
+        />
       ) : null}
     </div>
   )

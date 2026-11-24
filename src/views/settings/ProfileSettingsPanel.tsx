@@ -1,3 +1,4 @@
+import { isComposingKey } from '@/lib/keyboardComposition'
 import { ICON_SM } from '@/icons/iconSize'
 import { useState, useRef } from 'react'
 import { useStore } from '@/store/useStore'
@@ -5,6 +6,7 @@ import { AVATAR_PRESETS, getAvatarPreset, resizeAvatarImage } from '@/lib/avatar
 import { PresetAvatarGraphic, UserAvatar } from '@/components/UserAvatar'
 import { Check, Upload, X } from '@/icons/appIcons'
 import { flushPersistNow } from '@/storage/persist'
+import { InlineStatus } from '@/components/ui/InlineStatus'
 import { toast } from '@/lib/toast'
 import './ProfileSettingsPanel.css'
 
@@ -17,6 +19,7 @@ export function ProfileSettingsPanel() {
   const [saved, setSaved] = useState(false)
   const [savingName, setSavingName] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [avatarError, setAvatarError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   const handleNameSave = async () => {
@@ -50,13 +53,17 @@ export function ProfileSettingsPanel() {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    if (!file.type.startsWith('image/')) return
+    setAvatarError('')
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('请选择图片文件。')
+      return
+    }
     setUploading(true)
     try {
       const dataUrl = await resizeAvatarImage(file)
       setCustomAvatar(dataUrl)
     } catch {
-      // 忽略
+      setAvatarError('无法读取这张图片，请重新选择。')
     } finally {
       setUploading(false)
     }
@@ -84,12 +91,13 @@ export function ProfileSettingsPanel() {
           <input
             type="text"
             className="profile-name-input"
+            aria-label="显示名称"
             value={nameDraft}
             onChange={(e) => {
               setSaved(false)
               setNameDraft(e.target.value)
             }}
-            onKeyDown={(e) => { if (e.key === 'Enter') void handleNameSave() }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !isComposingKey(e.nativeEvent)) void handleNameSave() }}
             placeholder="输入名称…"
             maxLength={24}
           />
@@ -139,6 +147,7 @@ export function ProfileSettingsPanel() {
             </button>
           )}
         </div>
+        {avatarError && <InlineStatus compact tone="error" title={avatarError} />}
         {hasCustom && (
           <p className="profile-custom-hint">
             当前使用自定义图片。选择下方预置头像将替换自定义图片。

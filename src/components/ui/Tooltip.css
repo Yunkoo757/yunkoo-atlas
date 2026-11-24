@@ -32,7 +32,7 @@
   border-radius: var(--radius-6);
   box-shadow: var(--popover-shadow);
   pointer-events: none;
-  animation: uiTooltipIn var(--motion-menu) var(--ease-out) both;
+  animation: uiPopIn var(--motion-menu) var(--ease-out) both;
 }
 
 .ui-tooltip-top {
@@ -48,17 +48,6 @@
 .ui-tooltip-right {
   transform: translateY(-50%);
   transform-origin: left center;
-}
-
-@keyframes uiTooltipIn {
-  from {
-    opacity: 0;
-    scale: 0.98;
-  }
-  to {
-    opacity: 1;
-    scale: 1;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

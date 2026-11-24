@@ -14,6 +14,7 @@ import { createRecordForContext } from '@/lib/createRecordAction'
 import { getBatchCopyActionLabel } from '@/lib/tradeActionContract'
 import { buildSafeTradeCopies } from '@/lib/tradeCopy'
 import { toast } from '@/lib/toast'
+import { moveRecordsToTrash } from '@/lib/tradeTrashAction'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { tradeDetailPath, tradeDetailNavState, type TradeDetailLocationState } from '@/lib/tradeRoute'
 import {
@@ -28,7 +29,8 @@ import {
 } from '@/lib/workbenchEmptyState'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
-import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
+import { rememberTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
+import { resultRepairAnchor, useResultRepairReturn } from '@/hooks/useResultRepairReturn'
 import { BatchActionBar } from '@/components/ui/BatchActionBar'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
@@ -62,8 +64,6 @@ export function ListView({
   const setStatus = useStore((state) => state.setStatus)
   const requestTradeClose = useStore((state) => state.requestTradeClose)
   const requestTradeOpen = useStore((state) => state.requestTradeOpen)
-  const removeTrade = useStore((state) => state.removeTrade)
-  const removeTrades = useStore((state) => state.removeTrades)
   const upsertTrades = useStore((state) => state.upsertTrades)
   const toggleStar = useStore((state) => state.toggleStar)
   const isStarred = useStore((state) => state.isStarred)
@@ -84,7 +84,7 @@ export function ListView({
   const showPendingLink = filter.tradeKind === 'live'
     && pendingCount > 0
   useListContextSync(filter)
-  useTradeReturnAnchor()
+  const repairEntry = useResultRepairReturn()
   const { trades, visible, totalCount, workspaceCount, businessDateAnchor, stageScope } = useWorkbenchVisibleTrades(filter)
   const resultRepairIds = useMemo(
     () => collectWorkbenchResultRepairIds(trades),
@@ -92,7 +92,7 @@ export function ListView({
   )
   const showResultRepair = resultRepairIds.length > 0
 
-  const openTrade = useCallback((trade: Trade) => {
+  const openTrade = useCallback((trade: Trade, focusField?: 'result') => {
     const inheritedFrom = (location.state as TradeDetailLocationState | null)?.from
     const inheritedArchive = inheritedFrom?.pathname === '/live-history'
       || inheritedFrom?.pathname === '/live-archive'
@@ -100,11 +100,11 @@ export function ListView({
     const from = {
       pathname: inheritedArchive ? inheritedFrom!.pathname : location.pathname,
       search: inheritedArchive ? inheritedFrom!.search ?? '' : location.search,
-      anchorTradeId: trade.id,
+      anchorTradeId: focusField ? resultRepairAnchor(trade.id) : trade.id,
     }
     rememberTradeReturnAnchor(from)
     navigate(tradeDetailPath(trade), {
-      state: tradeDetailNavState(from),
+      state: tradeDetailNavState(from, { focusField }),
     })
   }, [location.pathname, location.search, navigate])
 
@@ -189,18 +189,7 @@ export function ListView({
 
   const batchDelete = () => {
     const actionableIds = intersectSelectedTradeIds(selectedIds, visible)
-    const count = actionableIds.size
-    const previousActionId = useStore.getState().undoStack.at(-1)?.actionId
-    removeTrades([...actionableIds])
-    const latestActionId = useStore.getState().undoStack.at(-1)?.actionId
-    const actionId = latestActionId !== previousActionId ? latestActionId : undefined
-    toast(`已将 ${count} 笔交易移至回收站，30 天后自动清空`, {
-      label: '撤销',
-      onClick: () => {
-        if (actionId && useStore.getState().undo(actionId)) toast('已恢复删除的交易')
-        else toast('目标交易之后已变化，无法安全撤销')
-      },
-    })
+    moveRecordsToTrash([...actionableIds])
     setSelectedIds(new Set())
   }
 
@@ -274,7 +263,7 @@ export function ListView({
         changeStatus: (status) =>
           transitionTradeStatus(trade, status, { requestTradeClose, requestTradeOpen, setStatus, toast }),
         openComposer,
-        removeTrade,
+        removeTrade: moveRecordsToTrash,
         createReviewCase: (source) => {
           const result = useStore.getState().createReviewCaseFromTrade(source.id)
           if (result.status !== 'created') {
@@ -295,7 +284,6 @@ export function ListView({
     isCaseFocused,
     openComposer,
     openTrade,
-    removeTrade,
     requestTradeClose,
     requestTradeOpen,
     setStatus,
@@ -337,33 +325,33 @@ export function ListView({
 
   return (
     <>
-      <Topbar title={title} view={view} onView={onView} />
-      {showPendingLink || showResultRepair ? (
-        <div className="list-pending-entry">
-          {showPendingLink ? (
-            <Link
-              data-pending-log-link
-              className="list-pending-link"
-              to="/settings/data/stage-ownership-repair"
-              aria-label={`修复待归属记录，共 ${pendingCount} 条`}
-            >
-              待归属 {pendingCount}
-            </Link>
-          ) : null}
-          {showResultRepair ? (
-            <div className="list-result-repair" data-workbench-result-repair>
-              <span>结果待核对 {resultRepairIds.length}</span>
+      <Topbar title={title} view={view} onView={onView}>
+        {showPendingLink || showResultRepair ? (
+          <div className="list-pending-entry">
+            {showPendingLink && (
+              <Link
+                data-pending-log-link
+                className="list-pending-link"
+                to="/settings/data/stage-ownership-repair"
+                aria-label={`修复待归属记录，共 ${pendingCount} 条`}
+              >
+                {pendingCount} 条待归属
+              </Link>
+            )}
+            {showResultRepair && (
               <ResultConflictRepair
+                ref={repairEntry}
+                showCount
                 ids={resultRepairIds}
                 onOpenTrade={(id) => {
                   const trade = storedTrades.find((item) => item.id === id && !item.deletedAt)
-                  if (trade) openTrade(trade)
+                  if (trade) openTrade(trade, 'result')
                 }}
               />
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+            )}
+          </div>
+        ) : null}
+      </Topbar>
       {header}
       {emptyState?.kind !== 'library' ? (
         <TradeFilters
@@ -395,8 +383,9 @@ export function ListView({
             onClearSelection={() => setSelectedIds(new Set())}
             onToggleStar={toggleRowStar}
             onContextMenu={openContextMenu}
-            onCreate={createRecord}
+            onCreate={group => createRecordForContext(location.pathname, location.search, navigate, group)}
             recordLabel={filter.tradeKind === 'case' ? '案例' : filter.tradeKind === 'paper' ? '模拟交易' : '交易'}
+            mistakesFirst={filter.reviewCaseScope === 'mistakes'}
             strategyStageScope={stageScope}
           />
         )}
@@ -415,7 +404,6 @@ export function ListView({
       {copyCandidateIds ? (
         <ModalShell
           title="确认复制所选记录"
-          description={`将为已选 ${copyCandidates.length} 条记录创建独立副本；源记录不会改变。`}
           size="compact"
           panelClassName="copy-confirm-modal"
           onClose={() => setCopyCandidateIds(null)}
@@ -445,7 +433,7 @@ export function ListView({
               <section className="copy-preview-section">
                 <div className="copy-preview-heading">
                   <strong>{copyAccountCount} 笔实盘/模拟记录</strong>
-                  <span>目标：新的计划</span>
+                  <span>复制为新计划</span>
                 </div>
                 <dl className="copy-preview-list">
                   <div>
@@ -463,7 +451,7 @@ export function ListView({
               <section className="copy-preview-section">
                 <div className="copy-preview-heading">
                   <strong>{copyCaseCount} 个案例</strong>
-                  <span>目标：新的知识案例</span>
+                  <span>复制为新案例</span>
                 </div>
                 <dl className="copy-preview-list">
                   <div>

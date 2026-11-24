@@ -156,34 +156,15 @@ async function run(): Promise<void> {
     assert(document.body.textContent?.includes('工作区'), '主导航分组必须使用工作区表述')
     assert(!document.body.textContent?.includes('核心'), '侧栏不得继续使用模糊的核心表述')
 
-    const riskTrigger = document.querySelector<HTMLButtonElement>('.sb-risk-summary')
-    assert(riskTrigger, '侧栏底部缺少风险状态入口')
-    assert(riskTrigger.textContent?.trim() === '', '风险入口静止态不得显示任何文字或数字')
-    assert(riskTrigger.querySelector('.sb-risk-gauge'), '风险入口必须以额度圆环呈现')
-    assert(riskTrigger.dataset.riskScope === 'day', '风险圆环默认必须显示每日额度')
-    assert(!document.querySelector('.sb-footer a[href="/settings"]'), '侧栏底部不得重复保留设置入口')
-    assert(riskTrigger.getAttribute('aria-expanded') === 'false', '风险弹层默认必须关闭')
-    assert(!document.querySelector('.sb-risk-popover'), '风险详情不得在侧栏常驻堆叠')
-    riskTrigger.click()
-    await waitFor(() => document.querySelector('.sb-risk-popover') !== null, '点击风险入口没有打开详情弹层')
-    assert(riskTrigger.getAttribute('aria-expanded') === 'true', '打开后风险入口没有同步 aria-expanded')
-    assert(document.querySelectorAll('.sb-risk-period').length === 3, '风险弹层必须同时展示日、周、月')
-    assert(!document.querySelector('.sb-risk-track'), '紧凑风险弹层不得重复堆叠三条进度条')
-    assert(
-      document.querySelector('.sb-risk-popover-head')?.textContent?.includes('风险额度'),
-      '风险弹层标题必须保持紧凑',
-    )
-    assert(
-      document.querySelector<HTMLAnchorElement>('.sb-risk-manage')?.getAttribute('href') === '/settings/risk',
-      '风险弹层缺少完整风险管理入口',
-    )
-    assert(
-      document.querySelector<HTMLAnchorElement>('.sb-risk-manage')?.textContent?.trim() === '风险规则',
-      '风险规则入口应使用紧凑文案',
-    )
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
-    await waitFor(() => document.querySelector('.sb-risk-popover') === null, 'Escape 没有关闭风险详情弹层')
-    assert(document.activeElement === riskTrigger, 'Escape 关闭风险弹层后没有把焦点还给入口')
+    const setupRisk = document.querySelector<HTMLAnchorElement>('a.sb-risk-summary')
+    assert(setupRisk && setupRisk.textContent?.includes('风险额度') && setupRisk.getAttribute('href') === '/settings/risk', '无额度时应该提供有名称的设置入口')
+    assert(!setupRisk.hasAttribute('aria-haspopup') && !!setupRisk.querySelector('svg.lucide-shield'), '初次设置入口应使用风险管理的盾牌图标并直接导航')
+    assert(!document.querySelector('.sb-footer a[href="/settings"]'), '侧栏底部不得重复保留通用设置入口')
+    setupRisk.click()
+    await waitFor(() => document.querySelector('[data-test-location]')?.textContent === '/settings/risk', '未设额度应直接进入风险规则')
+    assert(!document.querySelector('.sb-risk-periods'), '未设置时不能显示空明细')
+    document.querySelector<HTMLAnchorElement>('a[data-primary-id="trades"]')?.click()
+    await waitFor(() => !!document.querySelector('[data-test-location]')?.textContent?.startsWith('/list'), '返回交易日志失败')
 
     const now = new Date()
     const today = [
@@ -218,9 +199,30 @@ async function run(): Promise<void> {
       weeklyRiskPreparations: [],
     })
     await waitFor(
-      () => riskTrigger.dataset.sidebarRiskState === 'normal',
-      '额度均正常时，周前准备状态不得把侧栏风险入口改成待复核告警',
+      () => document.querySelector('.sb-risk-summary')?.getAttribute('data-sidebar-risk-state') === 'normal',
+      '配置生效后风险入口应自动切换为额度摘要',
     )
+    const riskTrigger = document.querySelector<HTMLButtonElement>('button.sb-risk-summary')
+    assert(riskTrigger && riskTrigger.textContent?.includes('今日余 2R') && riskTrigger.querySelector('svg.lucide-shield'), '未使用的额度应显示当前周期余额')
+    assert(riskTrigger.getAttribute('aria-expanded') === 'false', '明细应默认关闭')
+    riskTrigger.click()
+    await waitFor(() => !!document.querySelector('.sb-risk-popover[role="dialog"]'), '点击额度没有打开明细')
+    const panel = document.querySelector<HTMLElement>('.sb-risk-popover[role="dialog"]')!
+    await Promise.all(panel.getAnimations().map(animation => animation.finished))
+    assert(document.activeElement === panel, '打开风险明细时焦点应进入面板')
+    assert(panel.querySelectorAll('dt').length === 3 && panel.querySelector('[data-risk-period="week"] dd')?.textContent === '0/ 5R', '应可直接阅读三周期已用额度和上限')
+    assert(!panel.querySelector('[href="/settings/risk/data-repair"]'), '额度已知时不应提供多余的数据修复入口')
+    const anchor = riskTrigger.getBoundingClientRect(), box = panel.getBoundingClientRect()
+    assert(Math.abs(anchor.left - box.left) < 1 && Math.abs(anchor.right - box.right) < 1 && box.bottom < anchor.top, '额度面板必须与入口同宽并向上展开')
+    const rules = panel.querySelector<HTMLAnchorElement>('.sb-risk-manage')
+    assert(rules?.getAttribute('href') === '/settings/risk', '已配置时仍需保留风险规则入口')
+    rules.focus()
+    window.dispatchEvent(new Event('resize'))
+    await frame()
+    assert(document.activeElement === rules, '调整窗口大小时面板不能抢走链接焦点')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await waitFor(() => !document.querySelector('.sb-risk-popover[role="dialog"]'), 'Escape 没有收起风险明细')
+    assert(document.activeElement === riskTrigger, 'Escape 关闭后应把焦点还给风险入口')
 
     const primary = document.querySelector<HTMLAnchorElement>('a[data-primary-id="trades"]')
     assert(primary, '缺少交易日志主导航')

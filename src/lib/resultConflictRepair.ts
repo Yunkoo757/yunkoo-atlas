@@ -15,6 +15,31 @@ export function resultRepairCandidate(trade: Trade): Trade | null {
   return isTradeResultAuthorityConsistent(next) && resolveTradeTruth(next).isResultComplete ? next : null
 }
 
+export type ResultRepairGroup = 'metrics' | 'status' | 'pending' | 'byR'
+
+export interface ResultRepairRow {
+  trade: Trade
+  proposedStatus?: Trade['status']
+}
+
+/** 只展示当前范围内仍待处理的记录。批量预览和执行使用同一资格判定。 */
+export function groupResultRepairs(trades: readonly Trade[], ids: readonly string[]) {
+  const scope = new Set(ids)
+  const groups: Record<ResultRepairGroup, ResultRepairRow[]> = { metrics: [], status: [], pending: [], byR: [] }
+  for (const trade of trades) {
+    if (!scope.has(trade.id) || trade.deletedAt || trade.tradeKind === 'case') continue
+    const truth = resolveTradeTruth(trade)
+    if (truth.conflictReason) {
+      const candidate = resultRepairCandidate(trade)
+      if (candidate) groups.byR.push({ trade, proposedStatus: candidate.status })
+      else groups[truth.conflictReason].push({ trade })
+    } else if (truth.executionState === 'closed' && !truth.isResultComplete) {
+      groups.pending.push({ trade })
+    }
+  }
+  return groups
+}
+
 export function prepareResultConflictRepair(before: PersistedSnapshot, ids: readonly string[]): PersistedSnapshot {
   assertValidPersistedSnapshot(before)
   const selected = new Set(ids)

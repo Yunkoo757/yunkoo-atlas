@@ -1,5 +1,4 @@
 .data-organization-section > .data-organization-muted { margin: var(--sp-2) 0 var(--sp-3); }
-.data-organization-modal { font-family: var(--font-ui-base); }
 .data-organization-options { display: flex; flex-direction: column; gap: var(--sp-4); }
 .data-organization-options p { margin: 0; }
 .data-organization-shortcut { align-self: flex-start; }
@@ -8,12 +7,12 @@
 .data-organization-options input { accent-color: var(--accent); flex-shrink: 0; margin: var(--sp-1) 0 0; }
 .data-organization-muted { color: var(--text-secondary); font-size: var(--type-metadata-size); font-weight: var(--type-metadata-weight); line-height: var(--type-metadata-line-height); }
 .data-organization-group > .data-organization-muted { padding-left: var(--sp-5); }
-.data-organization-weekly-head { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
-.data-organization-weekly-head h3 { margin: 0; font-size: var(--type-row-size); font-weight: var(--font-weight-medium); line-height: var(--type-row-line-height); }
+.data-organization-weekly-head { display: flex; justify-content: flex-end; align-items: center; }
+.data-organization-duplicates { display: grid; justify-items: start; gap: var(--sp-2); padding-left: var(--sp-5); font-size: var(--type-metadata-size); color: var(--text-muted); }
 .data-organization-weeks { display: flex; flex-direction: column; gap: var(--sp-1); }
 .data-organization-weeks label { padding: var(--sp-1) 0; font-variant-numeric: var(--numeric-tabular); }
 .data-organization-preview { color: var(--text-secondary); font-size: var(--type-row-size); line-height: var(--type-row-line-height); }
-.data-organization-preview dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-4); }
+.data-organization-preview dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-3) var(--sp-4); margin: 0; }
 .data-organization-preview dt { color: var(--text-primary); font-weight: var(--font-weight-medium); }
 .data-organization-preview dd { margin: 0; }
 .data-organization-preview > p { margin-top: var(--space-section-gap); padding-top: var(--sp-4); border-top: 1px solid var(--border-subtle); }

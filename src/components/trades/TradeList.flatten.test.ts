@@ -41,25 +41,26 @@ export function testFlattenGroupsOmitsRowsWhenCollapsed(): void {
     (item): item is Extract<typeof item, { kind: 'header' }> =>
       item.kind === 'header' && item.groupKey === '2026-07',
   )
-  assert.equal(julyHeader?.openProgress, 1)
+  assert.equal(julyHeader?.expanded, true)
   assert.equal(julyHeader?.recency, 'current')
 
-  const collapsed = flattenGroups(groups, new Map([['2026-07', 0]]))
+  const collapsed = flattenGroups(groups, new Set(['2026-07']))
   assert.equal(collapsed.length, 3)
   const collapsedJuly = collapsed.find(
     (item): item is Extract<typeof item, { kind: 'header' }> =>
       item.kind === 'header' && item.groupKey === '2026-07',
   )
-  assert.equal(collapsedJuly?.openProgress, 0)
+  assert.equal(collapsedJuly?.expanded, false)
   assert.ok(collapsed.some((item) => item.kind === 'row' && item.trade.id === 'c'))
   assert.ok(!collapsed.some((item) => item.kind === 'row' && item.trade.id === 'a'))
 }
 
-export function testFlattenGroupsKeepsRowsWhileCollapsing(): void {
+export function testFlattenGroupsRetainsRowIdentityOnReopen(): void {
   const groups: TradeListGroup[] = [
     { key: '2026-07', label: '2026年7月', items: [trade('a'), trade('b')] },
   ]
-  const mid = flattenGroups(groups, new Map([['2026-07', 0.4]]))
-  assert.equal(mid.filter((item) => item.kind === 'row').length, 2)
-  assert.ok(mid.every((item) => item.openProgress === 0.4))
+  const before = flattenGroups(groups)
+  const closed = flattenGroups(groups, new Set(['2026-07']))
+  assert.equal(closed.length, 1)
+  assert.deepEqual(flattenGroups(groups).map(item => item.key), before.map(item => item.key))
 }

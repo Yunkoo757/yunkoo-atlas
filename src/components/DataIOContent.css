@@ -48,6 +48,7 @@
 .backup-list {
   display: flex;
   flex-direction: column;
+  container: backup-list / inline-size;
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -118,6 +119,21 @@
 }
 
 
+
+@container backup-list (max-width: 560px) {
+  .backup-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "time status actions" "meta size actions";
+    gap: var(--sp-1) var(--sp-3);
+  }
+  .backup-icon { display: none; }
+  .backup-time { grid-area: time; }
+  .backup-meta { grid-area: meta; }
+  .backup-size { grid-area: size; text-align: end; }
+  .backup-verification { grid-area: status; justify-self: end; }
+  .backup-actions { grid-area: actions; opacity: 1; }
+}
 
 /* ---- 资料概况与按需维护 ---- */
 .storage-summary {
@@ -292,63 +308,51 @@
   gap: var(--sp-2);
 }
 
+.dio-restore-file {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--type-list-primary-size);
+  font-weight: var(--type-list-primary-weight);
+  overflow-wrap: anywhere;
+}
 .dio-restore-warning {
   display: flex;
   align-items: flex-start;
-  gap: 9px;
-  padding: 10px var(--sp-3);
-  color: var(--text-secondary);
+  gap: var(--space-row-gap);
+  margin: var(--sp-4) 0;
+  color: var(--text-body);
   font-size: var(--type-body-size);
   line-height: var(--type-body-line-height);
-  background: var(--warn-action-bg);
-  border: 1px solid var(--warn-action-border);
-  border-radius: var(--radius-8);
 }
-
-.dio-restore-warning > svg {
-  flex: 0 0 auto;
-  margin-top: 2px;
-  color: var(--warn-action);
-}
-
+.dio-restore-warning > svg { flex: none; margin-top: var(--sp-1); color: var(--diagnostic-text); }
 .dio-restore-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  margin: 14px 0 0;
-  overflow: hidden;
-  background: var(--border-subtle);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0;
 }
-
 .dio-restore-grid > div {
-  min-width: 0;
-  padding: 11px var(--sp-3);
-  background: var(--bg-surface);
+  display: grid;
+  grid-template-columns: minmax(7em, auto) minmax(0, 1fr);
+  gap: var(--sp-4);
+  align-items: baseline;
 }
-
-.dio-restore-grid dt {
+.dio-restore-grid dt, .dio-restore-meta, .dio-restore-details > p {
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
 }
-
 .dio-restore-grid dd {
-  margin: 3px 0 0;
-  color: var(--text-primary);
+  margin: 0;
+  color: var(--text-body);
   font-size: var(--type-row-size);
-  font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
+  line-height: var(--type-row-line-height);
+  font-variant-numeric: var(--numeric-tabular);
+  overflow-wrap: anywhere;
 }
-
-.dio-restore-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  margin-top: var(--sp-3);
-  color: var(--text-muted);
-  font-size: var(--type-metadata-size);
-}
+.dio-restore-meta { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); }
+.dio-restore-details { margin-top: var(--sp-3); }
+.dio-restore-details > p { margin: var(--sp-2) 0 0; }
+.dio-desc code { overflow-wrap: anywhere; }
 
 /* ---- Data settings section helpers ---- */
 .data-actions-row {
@@ -387,10 +391,6 @@
   grid-template-columns: auto minmax(0, 1fr);
   gap: var(--sp-1) var(--sp-3);
   align-items: baseline;
-  padding: var(--sp-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
-  background: var(--bg-inset);
 }
 
 .data-purge-summary > span,

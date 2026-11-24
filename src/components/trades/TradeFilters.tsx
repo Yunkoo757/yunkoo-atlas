@@ -1,3 +1,4 @@
+import { isComposingKey } from '@/lib/keyboardComposition'
 import { ICON_SM } from '@/icons/iconSize'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
@@ -328,7 +329,7 @@ export function TradeFilters({
       setOpen(false)
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
+      if (event.key !== 'Escape' || isComposingKey(event)) return
       event.preventDefault()
       closeFilters()
     }

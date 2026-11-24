@@ -2,7 +2,7 @@ import { ICON_SM } from '@/icons/iconSize'
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Ban, LockKeyhole, RotateCcw } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
-import { Button } from '@/components/ui/Button'
+import { SearchField } from '@/components/ui/SearchField'
 import type { WindowHotkeyState } from '@/lib/windowHotkeyBinding'
 import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import { formatBinding } from '@/shortcuts/format'
@@ -138,10 +138,16 @@ export function ShortcutsPanel() {
           恢复全部默认
         </button> : null}
       </div>
-      <div className="shortcuts-search">
-        <input type="search" aria-label="查找快捷键" placeholder="查找动作或按键…" value={query} onChange={event => { setQuery(event.target.value); setRecordingId(null) }} />
-        {query && <Button size="sm" onClick={() => setQuery('')}>清除</Button>}
-      </div>
+      <SearchField
+        className="shortcuts-search"
+        label="查找快捷键"
+        placeholder="查找动作或按键…"
+        value={query}
+        onChange={(value) => {
+          setQuery(value)
+          setRecordingId(null)
+        }}
+      />
       <div hidden={!!query}>{isElectron ? <WindowHotkeySetting onStateChange={setWindowHotkeyState} /> : null}</div>
       {!categories.length && <p role="status">没有匹配的快捷键</p>}
       {categories.map(([category, actions]) => (

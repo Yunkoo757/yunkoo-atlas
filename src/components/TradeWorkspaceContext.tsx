@@ -1,3 +1,4 @@
+import { useExitClone } from '@/components/ui/useExitClone'
 import {
   lazy,
   Suspense,
@@ -185,6 +186,7 @@ function TradeWorkspaceScopeMenu({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
+  const exitRef = useExitClone<HTMLDivElement>(open, panelRef)
   const [position, setPosition] = useState({ top: 0, left: 0 })
   const stageLabel = stageOptions.find((option) => option.value === stage)?.label ?? '当前阶段'
   const kindLabel = KIND_OPTIONS.find((option) => option.value === kind)?.label ?? '全部'
@@ -261,7 +263,7 @@ function TradeWorkspaceScopeMenu({
       </button>
       {open && createPortal(
         <PopoverSurface
-          ref={panelRef}
+          ref={exitRef}
           kind="menu"
           id={id}
           role="dialog"

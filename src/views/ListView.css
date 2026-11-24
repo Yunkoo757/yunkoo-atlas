@@ -1,34 +1,29 @@
 .list-pending-entry {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--sp-3) var(--sp-5);
-  min-height: 36px;
-  padding: 6px 18px;
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--surface-pane);
-}
-
-.list-result-repair {
   display: inline-flex;
   align-items: center;
-  gap: var(--sp-2);
-  color: var(--text-secondary);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
+  gap: var(--space-control-gap);
 }
 
 .list-pending-link {
-  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height-sm);
+  padding-inline: var(--sp-2);
+  border-radius: var(--radius-6);
+  color: var(--text-muted);
   font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
-  text-decoration: none;
+  line-height: var(--type-metadata-line-height);
+  white-space: nowrap;
 }
 
 .list-pending-link:hover,
 .list-pending-link:focus-visible {
-  color: var(--text-primary);
-  text-decoration: underline;
+  color: var(--text-body);
+  background: var(--surface-control-hover);
+}
+
+.list-pending-link:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--text-tertiary);
 }
 
 .list-scroll {

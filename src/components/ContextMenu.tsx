@@ -1,3 +1,4 @@
+import { restoreFocusIfUnclaimed } from '@/lib/restoreFocus'
 import { ICON_SM } from '@/icons/iconSize'
 import {
   useEffect,
@@ -67,7 +68,7 @@ export function ContextMenu({
     onClose()
     requestAnimationFrame(() => {
       const target = state?.originElement ?? restoreFocusRef?.current ?? null
-      if (target?.isConnected) target.focus()
+      restoreFocusIfUnclaimed(target)
     })
   }
 
@@ -98,13 +99,33 @@ export function ContextMenu({
 
   useLayoutEffect(() => {
     if (!open) return
-    focusableItems()[0]?.focus()
+    focusableItems()[0]?.focus({ preventScroll: true })
   }, [open])
+
+  const anchorX = resolvedAnchor?.x
+  const anchorY = resolvedAnchor?.y
+  useLayoutEffect(() => {
+    const panel = menuRef.current
+    if (!panel || anchorX === undefined || anchorY === undefined) return
+    const position = () => {
+      const edge = 8
+      panel.style.left = Math.max(edge, Math.min(anchorX, innerWidth - panel.offsetWidth - edge)) + 'px'
+      panel.style.top = Math.max(edge, Math.min(anchorY, innerHeight - panel.offsetHeight - edge)) + 'px'
+    }
+    position()
+    const observer = new ResizeObserver(position)
+    observer.observe(panel)
+    window.addEventListener('resize', position)
+    return () => { observer.disconnect(); window.removeEventListener('resize', position) }
+  }, [anchorX, anchorY])
 
   useEffect(() => {
     if (!open) return
     const closeForPointer = () => onClose()
-    const closeAndRestoreForScroll = () => closeAndRestore()
+    const closeAndRestoreForScroll = (event: Event) => {
+      if (event.target instanceof Node && menuRef.current?.contains(event.target)) return
+      closeAndRestore()
+    }
     // 延后一帧再挂，避免“打开菜单的那次事件”被立即捕获而关闭
     const id = window.setTimeout(() => {
       window.addEventListener('click', closeForPointer)
@@ -121,17 +142,12 @@ export function ContextMenu({
 
   if (!resolvedAnchor) return null
 
-  // 防溢出：靠近右/下边界时回收
-  const x = Math.min(resolvedAnchor.x, window.innerWidth - 230)
-  const y = Math.min(resolvedAnchor.y, window.innerHeight - resolvedItems.length * 30 - 16)
-
   return createPortal(
     <PopoverSurface
       ref={assignMenuRef}
       kind="menu"
       role="menu"
       className={['ctx', className].filter(Boolean).join(' ')}
-      style={{ left: x, top: y }}
       onKeyDown={handleMenuKeyDown}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}

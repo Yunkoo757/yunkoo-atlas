@@ -12,6 +12,7 @@ export interface TradeTruth {
   hasR: boolean
   isResultComplete: boolean
   hasConflict: boolean
+  conflictReason: 'metrics' | 'status' | null
 }
 
 export interface TradeResultSummary {
@@ -62,7 +63,8 @@ export function resolveTradeTruth(trade: Trade): TradeTruth {
         ? pnlOutcome
         : null
   const declaredConflict = Boolean(declared && declared !== 'breakeven' && resolvedMetric && declared !== resolvedMetric)
-  const hasConflict = metricConflict || declaredConflict
+  const conflictReason = metricConflict ? 'metrics' : declaredConflict ? 'status' : null
+  const hasConflict = conflictReason !== null
   const outcome: TradeOutcome =
     executionState !== 'closed'
       ? 'unknown'
@@ -79,6 +81,7 @@ export function resolveTradeTruth(trade: Trade): TradeTruth {
     hasR: rOutcome !== null,
     isResultComplete: outcome === 'win' || outcome === 'loss' || outcome === 'breakeven',
     hasConflict,
+    conflictReason,
   }
 }
 

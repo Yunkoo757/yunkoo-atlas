@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { ICON_MD } from '@/icons/iconSize'
 import { LayoutGrid, List } from '@/icons/appIcons'
 import { DisplayMenu } from '@/components/DisplayMenu'
@@ -11,6 +12,7 @@ export type WorkbenchView = 'list' | 'board'
 
 export function Topbar({
   title,
+  children,
   subtitle,
   view,
   onView,
@@ -19,6 +21,7 @@ export function Topbar({
   titleAsHeading = true,
 }: {
   title: string
+  children?: ReactNode
   subtitle?: string
   view?: WorkbenchView
   onView?: (v: WorkbenchView) => void
@@ -66,6 +69,8 @@ export function Topbar({
           {showDisplay && <DisplayMenu view={view ?? 'list'} />}
         </div>
       )}
-    />
+    >
+      {children}
+    </Toolbar>
   )
 }

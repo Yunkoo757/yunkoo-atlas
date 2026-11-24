@@ -1,3 +1,4 @@
+import { useExitClone } from '@/components/ui/useExitClone'
 import { Button } from '@/components/ui/Button'
 import { ICON_SM } from '@/icons/iconSize'
 import { useState, useRef, useEffect, useMemo, useId, useLayoutEffect, type KeyboardEvent } from 'react'
@@ -125,6 +126,8 @@ export function TagEditor({
     commit(undefined, false)
   }
 
+  const exitSuggestions = useExitClone<HTMLUListElement>(showDropdown)
+
   return (
     <div className="tag-editor" data-tone={tone} ref={rootRef}>
       <div className="tag-selected-row">
@@ -163,7 +166,7 @@ export function TagEditor({
               aria-autocomplete="list"
             />
             {showDropdown && (
-              <ul className="tag-suggest" role="listbox" id={listId} aria-label="标签候选">
+              <ul ref={exitSuggestions} className="tag-suggest" role="listbox" id={listId} aria-label="标签候选">
                 {matches.map((s, i) => (
                   <li key={s}>
                     <button

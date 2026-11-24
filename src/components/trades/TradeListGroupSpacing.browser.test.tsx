@@ -107,7 +107,7 @@ const groups: TradeListGroup[] = [
 
 let createCount = 0
 
-function Fixture() {
+function Fixture({ rows = groups }: { rows?: TradeListGroup[] }) {
   const scrollParentRef = useRef<HTMLDivElement>(null)
 
   return (
@@ -118,7 +118,7 @@ function Fixture() {
       style={{ width: 'calc(100vw - 48px)', height: 240, flex: 'none' }}
     >
       <TradeList
-        groups={groups}
+        groups={rows}
         strategies={[strategy]}
         focusedId={null}
         selectedIds={new Set()}
@@ -317,6 +317,21 @@ async function run(): Promise<void> {
       '吸顶月份条不得遮挡列标题',
     )
     assert(Math.abs(stickyGap - 4) <= 1, `吸顶月份条应保留 4px 上间距，实际 ${stickyGap}px`)
+
+    scrollHost.scrollTop = 0
+    const largeGroup = {
+      ...groups[0]!,
+      items: Array.from({ length: 2000 }, (_, index) => ({ ...fixtureTrades[0]!, id: 'large-' + index })),
+    }
+    root.render(<Fixture rows={[largeGroup, groups[1]!]} />)
+    const largeToggle = () => host.querySelector<HTMLButtonElement>('.trade-list-group-toggle')!
+    await waitFor(() => largeToggle()?.getAttribute('aria-label')?.includes('2000') === true, '大分组未就绪')
+    for (const expected of ['false', 'true', 'false', 'true']) {
+      largeToggle().click()
+      await frame()
+      assert(largeToggle().getAttribute('aria-expanded') === expected, '连续按键必须在下一帧反映最后一次意图')
+      assert(host.querySelectorAll('[data-trade-id]').length < 80, '折叠或展开期间只应挂载视口与预加载区')
+    }
   } finally {
     root.unmount()
     useStore.setState({

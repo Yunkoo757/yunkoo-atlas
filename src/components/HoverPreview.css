@@ -20,8 +20,8 @@
   pointer-events: none;
   opacity: 0;
   transition:
-    opacity 80ms var(--ease-in-out),
-    transform 80ms var(--ease-in-out);
+    opacity var(--motion-menu) var(--ease-out),
+    transform var(--motion-menu) var(--ease-out);
 }
 
 .hover-preview-top {

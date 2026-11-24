@@ -1,3 +1,4 @@
+import { motionDuration, reducesMotion } from '@/lib/motion'
 import {
   useEffect,
   useRef,
@@ -45,7 +46,7 @@ export function HoverPreview({
     closeTimerRef.current = setTimeout(() => {
       setRendered(false)
       closeTimerRef.current = null
-    }, 80)
+    }, reducesMotion() ? 0 : motionDuration(document.documentElement, '--motion-menu'))
   }
 
   const scheduleOpen = (wait: number) => {

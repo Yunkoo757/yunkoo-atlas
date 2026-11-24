@@ -107,6 +107,9 @@ async function run(): Promise<void> {
     } else {
       const animations = indicator.getAnimations()
       assert(animations.length > 0, '正常模式切换应启动底板过渡')
+      assert(animations.every(animation => animation.effect instanceof KeyframeEffect
+        && animation.effect.getKeyframes().every(frame => 'transform' in frame && !('width' in frame))),
+      '不同宽度的选项应由合成器衔接，不能逐帧改变布局宽度')
       const duration = parseFloat(getComputedStyle(group).getPropertyValue('--motion-dialog-in'))
       assert(animations.every((animation) => animation.effect?.getTiming().duration === duration), '底板应消费既有短动效时长')
       animations.forEach((animation) => { animation.pause(); animation.currentTime = duration / 3 })

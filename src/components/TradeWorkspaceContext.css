@@ -150,6 +150,8 @@
 }
 
 .trade-workspace-scope-panel {
+  transform-origin: top left;
+  animation: uiPopIn var(--motion-menu) var(--ease-out);
   position: fixed;
   z-index: var(--z-popover);
   padding: var(--sp-2);

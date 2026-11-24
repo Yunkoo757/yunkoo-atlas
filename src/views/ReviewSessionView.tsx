@@ -1,5 +1,5 @@
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
-import { ICON_2XL, ICON_LG, ICON_MD, ICON_XL } from '@/icons/iconSize'
+import { ICON_2XL, ICON_LG, ICON_MD, ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -931,7 +931,7 @@ function ReviewSessionStart({
   return (
     <section className="review-session-start" data-review-session-start-focus tabIndex={-1}>
       <div className="review-session-intro">
-        <h1>随机复盘</h1>
+        <h1>从复盘池开始</h1>
       </div>
 
       <fieldset className="review-session-presets" aria-label="复盘池">
@@ -940,13 +940,13 @@ function ReviewSessionStart({
             <button
               key={`${preset.ref.kind}:${preset.ref.id}`}
               type="button"
+              aria-label={`开始复盘，${preset.label}，${preset.count} 条`}
               disabled={preset.count === 0}
               onClick={() => onStartPool(preset.ref)}
             >
-              <strong>
-                <span>{preset.label}</span>
-                <span className="review-session-preset-count">· {preset.count}</span>
-              </strong>
+              <strong>{preset.label}</strong>
+              <span className="review-session-preset-count">{preset.count}</span>
+              <ChevronRight size={ICON_SM} aria-hidden />
             </button>
           ))}
         </div>

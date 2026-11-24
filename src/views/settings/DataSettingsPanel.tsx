@@ -1,6 +1,7 @@
 import { ICON_LG, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import { DataIOContent } from '@/components/DataIOContent'
 import { LivePerformanceCycleControl } from '@/components/LivePerformanceCycleControl'
 import { LiveStageManager } from '@/components/LiveStageManager'
@@ -708,8 +709,8 @@ export function DataSettingsPanel({
           bodyClassName="data-purge-body"
           description={
             assetPurgeCommitEnabled
-              ? '只处理当前资料库中未被任何内容引用的附件；历史备份不会被扫描或修改。'
-              : '当前已关闭永久清理；历史备份不会被扫描或修改。'
+              ? '只清理当前资料库中已无引用的附件。历史备份不会被扫描或修改。'
+              : '此预览仅统计当前资料库中已无引用的附件。'
           }
           size="compact"
           busy={purgeBusy}
@@ -763,7 +764,7 @@ export function DataSettingsPanel({
             <small>{assetPurgeCommitEnabled ? '永久清理后无法从当前资料库恢复。' : '当前永久清理已关闭。'}</small>
           </div>
           <details className="data-purge-details">
-            <summary>安全校验信息</summary>
+            <DisclosureSummary>安全校验信息</DisclosureSummary>
             <p>
               数据版本：{purgePreview.revision}。
               {assetPurgeCommitEnabled

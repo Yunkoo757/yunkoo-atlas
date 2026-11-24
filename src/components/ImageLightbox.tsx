@@ -1,3 +1,4 @@
+import { reducesMotion } from '@/lib/motion'
 import { ICON_2XL, ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type SetStateAction } from 'react'
 import { ChevronLeft, ChevronRight, Maximize2, MoreHorizontal, X } from '@/icons/appIcons'
@@ -21,9 +22,7 @@ import {
 } from '@/lib/lightboxView'
 import './ImageLightbox.css'
 
-const LIGHTBOX_TRANSITION_MS = 210
-
-type LightboxPhase = 'pending' | 'open' | 'closing'
+type LightboxPhase = 'pending' | 'switching' | 'open' | 'closing'
 
 export function ImageLightbox() {
   const lightbox = useShortcutStore((s) => s.lightbox)
@@ -43,7 +42,9 @@ export function ImageLightbox() {
   const fitModesRef = useRef(new Map<string, boolean>())
   const [failed, setFailed] = useState(false)
   const [retry, setRetry] = useState(0)
-  const closeTimerRef = useRef<number | null>(null)
+  const openFrame = useRef(0)
+  const closing = useRef(false)
+  const alreadyVisible = useRef(false)
   const [view, setView] = useState<LightboxView>(LIGHTBOX_VIEW_RESET)
   const viewsRef = useRef(new Map<string, LightboxView>())
   const imageSrc = lightbox?.images[lightbox.index]
@@ -62,11 +63,25 @@ export function ImageLightbox() {
   const [dragging, setDragging] = useState(false)
 
   const requestClose = useCallback(() => {
-    if (!lightbox || phase === 'closing') return
+    if (!lightbox || closing.current) return
+    closing.current = true
+    cancelAnimationFrame(openFrame.current)
+    if (reducesMotion()) { closeLightbox(); return }
     if (imageLayout) setView({ scale: imageLayout.fitScale, tx: 0, ty: 0 })
     setPhase('closing')
-    closeTimerRef.current = window.setTimeout(closeLightbox, LIGHTBOX_TRANSITION_MS)
-  }, [closeLightbox, imageLayout, lightbox, phase])
+  }, [closeLightbox, imageLayout, lightbox])
+
+  useLayoutEffect(() => {
+    if (phase !== 'closing') return
+    let current = true
+    const overlay = viewportRef.current?.parentElement
+    const transitions = overlay?.getAnimations({ subtree: true })
+      .filter(animation => animation instanceof CSSTransition) ?? []
+    void Promise.allSettled(transitions.map(animation => animation.finished)).then(() => {
+      if (current && closing.current && useShortcutStore.getState().lightbox === lightbox) closeLightbox()
+    })
+    return () => { current = false }
+  }, [phase, lightbox, closeLightbox])
 
   useEffect(() => {
     if (!lightbox) return
@@ -77,7 +92,7 @@ export function ImageLightbox() {
     const id = requestAnimationFrame(() => closeRef.current?.focus())
     return () => {
       cancelAnimationFrame(id)
-      if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
+      cancelAnimationFrame(openFrame.current)
       document.body.classList.remove('img-lightbox-open')
       previousFocusRef.current?.focus()
     }
@@ -98,14 +113,17 @@ export function ImageLightbox() {
     setView(LIGHTBOX_VIEW_RESET)
     setImageLayout(null)
     setTransition(null)
-    setPhase('pending')
+    closing.current = false
+    cancelAnimationFrame(openFrame.current)
+    setPhase(alreadyVisible.current && isVisible ? 'switching' : 'pending')
+    alreadyVisible.current = isVisible
     setFailed(false)
     layoutRef.current = null
     fittingRef.current = fitModesRef.current.get(imageSrc ?? '') ?? true
     dragRef.current = null
     suppressClickRef.current = false
     setDragging(false)
-  }, [lightbox?.index, lightbox?.images])
+  }, [lightbox?.index, lightbox?.images, isVisible])
 
   const rememberView = useCallback((update: SetStateAction<LightboxView>) => {
     setView((current) => {
@@ -159,6 +177,7 @@ export function ImageLightbox() {
     const viewport = viewportRef.current
     if (!viewport) return
     const image = event.currentTarget
+    if (closing.current || image !== imageRef.current) return
     const rect = viewport.getBoundingClientRect()
     const layout = calculateLightboxImageLayout({
       naturalWidth: image.naturalWidth,
@@ -182,7 +201,11 @@ export function ImageLightbox() {
     setTransition(lightbox?.origin
       ? calculateLightboxTransition(lightbox.origin, target, layout.fitScale)
       : null)
-    requestAnimationFrame(() => requestAnimationFrame(() => setPhase('open')))
+    cancelAnimationFrame(openFrame.current)
+    if (reducesMotion()) setPhase('open')
+    else openFrame.current = requestAnimationFrame(() => {
+      openFrame.current = requestAnimationFrame(() => { if (!closing.current) setPhase('open') })
+    })
   }, [lightbox?.origin, imageSrc])
 
   useEffect(() => {
@@ -309,6 +332,9 @@ export function ImageLightbox() {
         onClick={onViewportClick}
         onDoubleClick={onViewportDoubleClick}
       >
+        {phase === 'switching' && !imageLayout && !failed && !lightbox.loading && (
+          <div className="img-lightbox-loading" role="status">正在载入图片…</div>
+        )}
         {lightbox.loading ? (
           <div className="img-lightbox-loading" role="status" aria-live="polite">
             <span className="img-lightbox-loading-indicator" aria-hidden />
@@ -327,7 +353,7 @@ export function ImageLightbox() {
                 className={'img-lightbox-img' + (imageLayout ? ' is-ready' : '')}
                 draggable={false}
                 onLoad={onImageLoad}
-                onError={() => { setFailed(true); setImageLayout(null); layoutRef.current = null; setPhase('open') }}
+                onError={() => { if (closing.current) return; setFailed(true); setImageLayout(null); layoutRef.current = null; setPhase('open') }}
                 style={imageLayout ? { width: imageLayout.width, height: imageLayout.height } : undefined}
               />
             </div>

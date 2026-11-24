@@ -1,3 +1,5 @@
+import { useExitClone } from '@/components/ui/useExitClone'
+import { isComposingKey } from '@/lib/keyboardComposition'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { BookmarkPlus, Check, MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from '@/icons/appIcons'
@@ -127,6 +129,8 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
   const removeTradeView = useStore((state) => state.removeTradeView)
   const togglePinTradeView = useStore((state) => state.togglePinTradeView)
   const [panel, setPanel] = useState<'more' | 'save' | null>(null)
+  const menuExit = useExitClone<HTMLDivElement>(panel === 'more')
+  const formExit = useExitClone<HTMLFormElement>(panel === 'save')
   const [name, setName] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -134,6 +138,8 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const overflowAnchorRef = useRef<HTMLDivElement>(null)
   const overflowButtonRef = useRef<HTMLButtonElement>(null)
+  const renameButtonRef = useRef<HTMLButtonElement | null>(null)
+  const cancelRenameRef = useRef(false)
   const primaryViews = getWorkspacePrimaryViews(kind, sidebarWorkspaceItems).filter((view) => (
     view.id !== 'historical-cases' && view.id !== 'historical-trades'
   ))
@@ -176,11 +182,16 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
 
   useEffect(() => {
     if (!panel) return
+    const focusFrame = requestAnimationFrame(() => {
+      if (panel === 'more') rootRef.current?.querySelector<HTMLButtonElement>('.quick-view-save-entry')?.focus({ preventScroll: true })
+    })
     const onPointerDown = (event: PointerEvent) => {
       if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setPanel(null)
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !event.defaultPrevented && !isComposingKey(event)) {
+        event.preventDefault()
+        event.stopPropagation()
         setPanel(null)
         requestAnimationFrame(() => overflowButtonRef.current?.focus())
       }
@@ -188,6 +199,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
     document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
     return () => {
+      cancelAnimationFrame(focusFrame)
       document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
@@ -248,6 +260,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
     }
     saveTradeView(view)
     setPanel(null)
+    requestAnimationFrame(() => overflowButtonRef.current?.focus())
     toast(view.pinned ? '视图已固定到顶部' : '视图已保存')
   }
 
@@ -261,7 +274,9 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
     toast(`已删除视图「${view.name}」`, {
       label: '撤销',
       onClick: () => {
-        useStore.getState().saveTradeView(view)
+        const state = useStore.getState()
+        if (state.savedTradeViews.some(item => item.id === view.id)) return
+        state.saveTradeView(view)
         toast('视图已恢复')
       },
     })
@@ -330,7 +345,8 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
             className={'quick-view-overflow' + (panel ? ' is-active' : '')}
             onClick={() => setPanel((value) => (value === 'more' ? null : 'more'))}
             aria-label="视图选项"
-            aria-expanded={panel === 'more'}
+            aria-haspopup="dialog"
+            aria-expanded={panel !== null}
           >
             <MoreHorizontal size={ICON_MD} />
           </button>
@@ -338,6 +354,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
 
         {panel === 'more' && (
           <div
+            ref={menuExit}
             className="quick-view-popover quick-view-menu"
             role="dialog"
             aria-label="视图选项"
@@ -372,10 +389,17 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
                         value={editingName}
                         onChange={(event) => setEditingName(event.target.value)}
                         onKeyDown={(event) => {
-                          if (event.key === 'Enter') commitRename(view.id)
-                          if (event.key === 'Escape') setEditingId(null)
+                          if (isComposingKey(event.nativeEvent) || (event.key !== 'Enter' && event.key !== 'Escape')) return
+                          event.preventDefault()
+                          event.stopPropagation()
+                          cancelRenameRef.current = event.key === 'Escape'
+                          event.currentTarget.blur()
+                          renameButtonRef.current?.focus()
                         }}
-                        onBlur={() => commitRename(view.id)}
+                        onBlur={() => {
+                          if (cancelRenameRef.current) setEditingId(null)
+                          else commitRename(view.id)
+                        }}
                         autoFocus
                         maxLength={24}
                         aria-label="视图名称"
@@ -390,7 +414,9 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
                       <button
                         type="button"
                         className="quick-view-icon"
-                        onClick={() => {
+                        onClick={(event) => {
+                          cancelRenameRef.current = false
+                          renameButtonRef.current = event.currentTarget
                           setEditingId(view.id)
                           setEditingName(view.name)
                         }}
@@ -429,14 +455,17 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
 
         {panel === 'save' && (
           <form
+            ref={formExit}
             className="quick-view-popover quick-view-save"
+            role="dialog"
+            aria-labelledby="saved-view-name-label"
             style={{ left: popoverLeft }}
             onSubmit={(event) => {
               event.preventDefault()
               createSavedView()
             }}
           >
-            <label htmlFor="saved-view-name">保存当前视图</label>
+            <label id="saved-view-name-label" htmlFor="saved-view-name">保存当前视图</label>
             <input id="saved-view-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={24} autoFocus />
             <div className="quick-view-save-actions">
               <span>{pinned.length < 4 ? '保存后固定到顶部' : '保存到视图选项'}</span>

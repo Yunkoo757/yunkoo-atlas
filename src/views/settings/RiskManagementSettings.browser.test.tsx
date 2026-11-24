@@ -106,19 +106,19 @@ async function run(): Promise<void> {
     )
     let panel = document.querySelector<HTMLElement>('[data-risk-management-settings]')
     if (!panel) throw new Error('风险管理设置页没有渲染')
-    const scopeGroup = panel.querySelector<HTMLElement>('[aria-label="侧栏风险圆环周期"]')
-    if (!scopeGroup) throw new Error('风险管理设置页缺少侧栏风险圆环周期')
+    const scopeGroup = panel.querySelector<HTMLElement>('[aria-label="侧栏默认周期"]')
+    if (!scopeGroup) throw new Error('风险管理设置页缺少侧栏默认周期')
     const scopeButtons = [...scopeGroup.querySelectorAll<HTMLButtonElement>('[role="radio"]')]
     if (scopeButtons.map((button) => button.textContent?.trim()).join(',') !== '每日,每周,每月') {
-      throw new Error('侧栏风险圆环周期必须提供每日、每周、每月')
+      throw new Error('侧栏默认周期必须提供每日、每周、每月')
     }
-    if (scopeButtons[0]?.getAttribute('aria-checked') !== 'true') throw new Error('侧栏风险圆环默认必须显示每日额度')
+    if (scopeButtons[0]?.getAttribute('aria-checked') !== 'true') throw new Error('侧栏默认必须显示每日额度')
     scopeButtons[1]?.click()
-    await waitFor(() => useStore.getState().display.sidebarRiskScope === 'week', '每周圆环偏好没有写入资料库状态')
+    await waitFor(() => useStore.getState().display.sidebarRiskScope === 'week', '侧栏周期偏好没有写入资料库状态')
     document.querySelector<HTMLButtonElement>('[data-remount-settings]')?.click()
     await waitFor(
-      () => document.querySelector('[aria-label="侧栏风险圆环周期"] [role="radio"][aria-checked="true"]')?.textContent?.trim() === '每周',
-      '风险设置重挂后没有保留圆环周期',
+      () => document.querySelector('[aria-label="侧栏默认周期"] [role="radio"][aria-checked="true"]')?.textContent?.trim() === '每周',
+      '风险设置重挂后没有保留侧栏周期',
     )
     panel = document.querySelector<HTMLElement>('[data-risk-management-settings]')
     if (!panel) throw new Error('风险管理设置页重挂失败')

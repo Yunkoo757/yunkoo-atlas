@@ -211,8 +211,8 @@ export async function testPrimaryIconActionsUseTheSharedTooltipLanguage(): Promi
     !quickNotes.includes('Tooltip') &&
       !quickNotes.includes("title={selectedNote.pinned") &&
       !quickNotes.includes('title="删除随记"') &&
-      quickNotes.includes('aria-label={selectedNote.pinned') &&
-      quickNotes.includes('aria-label="删除随记"') &&
+      quickNotes.includes('<IconButton label={selectedNote.pinned') &&
+      quickNotes.includes('<IconButton label="删除随记"') &&
       !displayMenu.includes('Tooltip') &&
       !displayMenu.includes('title=') &&
       displayMenu.includes('aria-label="显示选项"') &&

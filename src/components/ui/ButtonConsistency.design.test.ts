@@ -76,14 +76,10 @@ export async function testButtonVisualRulesDoNotUseRawColorsOrTransitionAll(): P
   )
 }
 
-export async function testRiskPopoverKeepsTheCompactThreeTrackContract(): Promise<void> {
+export async function testSidebarRiskDetailsUseTheSharedSurfaceAndNumericRoles(): Promise<void> {
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/components/SidebarRiskStatus.tsx', 'utf8')
   const css = await fs.readFile('src/components/Sidebar.css', 'utf8')
-
-  assert(source.includes('className="sb-risk-period-track"'), '风险浮层必须使用进度轨道而不是数值墙')
-  assert(!source.includes('sb-risk-period-usage'), '风险浮层不得恢复已用 / 总额数字')
-  assert(/\.sb-risk-period\s*\{[^}]*grid-template-columns:\s*44px minmax\(0, 1fr\);/s.test(css), '三条风险进度必须共享紧凑对齐网格')
-  assert(/\.sb-risk-period-track\s*\{[^}]*height:\s*var\(--sp-1\);/s.test(css), '风险进度条必须使用 4px 间距 token')
-  assert(!/\.sb-risk-period-track\s*>\s*i\s*\{[^}]*box-shadow:/s.test(css), '风险进度条不得使用装饰性发光')
+  assert(/<PopoverSurface[^>]*kind="menu"/s.test(source), '额度明细必须沿用公共弹层材质')
+  assert(/\.sb-risk-period dd\s*\{[^}]*font-variant-numeric:\s*var\(--numeric-tabular\);/s.test(css), '已用与上限必须使用等宽数字对齐')
 }

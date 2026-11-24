@@ -1,3 +1,4 @@
+import { isComposingKey } from '@/lib/keyboardComposition'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, GripVertical, Trash2 } from '@/icons/appIcons'
@@ -94,7 +95,7 @@ export function SidebarWorkspaceEditor({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
+      if (event.key !== 'Escape' || isComposingKey(event)) return
       event.preventDefault()
       if (pickerOpen) {
         setPickerOpen(false)

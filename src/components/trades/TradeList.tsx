@@ -1,8 +1,10 @@
+import { playMotion, reducesMotion } from '@/lib/motion'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import {
   useCallback,
   useEffect,
   useMemo,
+  useLayoutEffect,
   useRef,
   useState,
   useId,
@@ -61,10 +63,9 @@ type FlatItem =
       tone: NonNullable<TradeListGroup['tone']>
       recency?: TradeListGroup['recency']
       strategyId?: string
-      /** 1=展开，0=折叠 */
-      openProgress: number
+      expanded: boolean
     }
-  | { kind: 'row'; key: string; trade: Trade; groupKey: string; openProgress: number }
+  | { kind: 'row'; key: string; trade: Trade; groupKey: string }
 
 const ROW_HEIGHTS = {
   compact: 44,
@@ -73,23 +74,14 @@ const ROW_HEIGHTS = {
 const HEADER_CONTENT_HEIGHT = 36
 const HEADER_VERTICAL_GAP = 8
 const HEADER_HEIGHT = HEADER_CONTENT_HEIGHT + HEADER_VERTICAL_GAP
-/** 分组尺寸变化：~ease-out-quart */
-const COLLAPSE_MS = 260
-const EASE_OUT_QUART = (t: number) => 1 - (1 - t) ** 4
-
-function prefersReducedMotion(): boolean {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
-
-/** 将分组展平为虚拟列表项；openProgress≤0 的分组只保留表头 */
+/** 只在数据或折叠意图改变时构建虚拟索引。 */
 export function flattenGroups(
   groups: TradeListGroup[],
-  openProgressByGroup: ReadonlyMap<string, number> = new Map(),
+  collapsed: ReadonlySet<string> = new Set(),
 ): FlatItem[] {
   const items: FlatItem[] = []
   for (const group of groups) {
-    const openProgress = openProgressByGroup.get(group.key) ?? 1
+    const expanded = !collapsed.has(group.key)
     if (group.label) {
       items.push({
         kind: 'header',
@@ -100,17 +92,16 @@ export function flattenGroups(
         tone: group.tone ?? 'neutral',
         recency: group.recency,
         strategyId: group.strategyId,
-        openProgress,
+        expanded,
       })
     }
-    if (openProgress <= 0.001) continue
+    if (!expanded) continue
     for (const trade of group.items) {
       items.push({
         kind: 'row',
         key: trade.id,
         trade,
         groupKey: group.key,
-        openProgress,
       })
     }
   }
@@ -177,6 +168,7 @@ export function TradeList({
   onContextMenu,
   onCreate,
   recordLabel = '交易',
+  mistakesFirst = false,
   renderRow,
   selectionEnabled = true,
   overscan = 14,
@@ -194,9 +186,10 @@ export function TradeList({
   onClearSelection: () => void
   onToggleStar: (trade: Trade) => void
   onContextMenu: (event: React.MouseEvent, trade: Trade) => void
-  onCreate: () => void
+  onCreate: (group: { strategyId?: string; month?: string }) => void
   /** 分组新建按钮文案：交易 / 案例 */
   recordLabel?: string
+  mistakesFirst?: boolean
   renderRow?: (trade: Trade, context: TradeListRowRenderContext) => ReactNode
   selectionEnabled?: boolean
   /** 预渲染行数；聚合视图可提高该值，保证快速滚动与返回定位稳定。 */
@@ -216,97 +209,28 @@ export function TradeList({
   const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
   const businessDateAnchor = useBusinessDateAnchor()
   const rowHeight = ROW_HEIGHTS[density]
-  /** 分组展开进度 0..1；缺省视为 1 */
-  const [openProgressByGroup, setOpenProgressByGroup] = useState<Map<string, number>>(
-    () => new Map(),
-  )
-  const openProgressRef = useRef(openProgressByGroup)
-  openProgressRef.current = openProgressByGroup
-  const animFrameRef = useRef<number | null>(null)
-  const animatingRef = useRef<
-    Map<string, { from: number; to: number; startedAt: number }>
-  >(new Map())
-
-  const getOpenProgress = useCallback(
-    (groupKey: string) => openProgressByGroup.get(groupKey) ?? 1,
-    [openProgressByGroup],
-  )
-
-  const tickAnimations = useCallback(() => {
-    const now = performance.now()
-    const next = new Map(openProgressRef.current)
-    let active = false
-    for (const [groupKey, anim] of animatingRef.current) {
-      const raw = Math.min(1, Math.max(0, (now - anim.startedAt) / COLLAPSE_MS))
-      const t = EASE_OUT_QUART(raw)
-      const value = anim.from + (anim.to - anim.from) * t
-      if (raw >= 1) {
-        next.set(groupKey, anim.to)
-        animatingRef.current.delete(groupKey)
-      } else {
-        next.set(groupKey, value)
-        active = true
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
+  const previousPositions = useRef<Map<string, number> | null>(null)
+  const toggleGroup = (key: string, count: number) => {
+    const list = listRef.current
+    previousPositions.current = null
+    if (count <= 3 && list && !reducesMotion()) {
+      const positions = new Map<string, number>()
+      for (const row of list.querySelectorAll<HTMLElement>('[data-motion-row]')) {
+        const rect = row.getBoundingClientRect()
+        if (rect.bottom >= 0 && rect.top <= window.innerHeight) positions.set(row.dataset.motionRow!, rect.top)
       }
+      previousPositions.current = positions
     }
-    setOpenProgressByGroup(next)
-    if (active) {
-      animFrameRef.current = requestAnimationFrame(tickAnimations)
-    } else {
-      animFrameRef.current = null
-    }
-  }, [])
+    setCollapsedGroups(current => {
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
 
-  const animateGroupTo = useCallback(
-    (groupKey: string, to: number) => {
-      if (prefersReducedMotion()) {
-        animatingRef.current.delete(groupKey)
-        setOpenProgressByGroup((current) => {
-          const next = new Map(current)
-          next.set(groupKey, to)
-          return next
-        })
-        return
-      }
-      const from = openProgressRef.current.get(groupKey) ?? 1
-      if (Math.abs(from - to) < 0.001) {
-        setOpenProgressByGroup((current) => {
-          const next = new Map(current)
-          next.set(groupKey, to)
-          return next
-        })
-        return
-      }
-      animatingRef.current.set(groupKey, {
-        from,
-        to,
-        startedAt: performance.now(),
-      })
-      if (animFrameRef.current == null) {
-        animFrameRef.current = requestAnimationFrame(tickAnimations)
-      }
-    },
-    [tickAnimations],
-  )
-
-  useEffect(() => {
-    return () => {
-      if (animFrameRef.current != null) cancelAnimationFrame(animFrameRef.current)
-    }
-  }, [])
-
-  const toggleGroup = useCallback(
-    (groupKey: string) => {
-      const current = openProgressRef.current.get(groupKey) ?? 1
-      const closing = current > 0.5
-      animateGroupTo(groupKey, closing ? 0 : 1)
-    },
-    [animateGroupTo],
-  )
-
-  const flatItems = useMemo(
-    () => flattenGroups(groups, openProgressByGroup),
-    [groups, openProgressByGroup],
-  )
+  const flatItems = useMemo(() => flattenGroups(groups, collapsedGroups), [groups, collapsedGroups])
   const strategyPerformanceProjection = useMemo(
     () => buildStagePerformanceProjection({
       trades: allTrades,
@@ -346,7 +270,7 @@ export function TradeList({
     const item = flatItems[index]
     if (!item) return rowHeight
     if (item.kind === 'header') return HEADER_HEIGHT
-    return Math.max(0, rowHeight * item.openProgress)
+    return rowHeight
   }, [flatItems, rowHeight])
   const rangeExtractor = useCallback((range: Range) => {
     // Headers are already ordered. Avoid copying and reversing all groups on
@@ -367,28 +291,53 @@ export function TradeList({
 
   const virtualizer = useVirtualizer({
     count: flatItems.length,
+    getItemKey: useCallback((index: number) => flatItems[index].key, [flatItems]),
     getScrollElement,
     estimateSize,
     overscan,
     rangeExtractor,
   })
 
-  useEffect(() => {
-    virtualizer.measure()
-  }, [openProgressByGroup, flatItems.length, rowHeight, virtualizer])
+  useLayoutEffect(() => { virtualizer.measure() }, [rowHeight, virtualizer])
 
-  const ensureGroupExpandedForTrade = useCallback(
-    (tradeId: string) => {
-      const owningGroup = groups.find((group) =>
-        group.items.some((item) => item.id === tradeId),
-      )
-      if (!owningGroup) return false
-      if (getOpenProgress(owningGroup.key) > 0.99) return false
-      animateGroupTo(owningGroup.key, 1)
-      return true
-    },
-    [groups, getOpenProgress, animateGroupTo],
-  )
+  // 仅连接两次布局中都在屏幕内的对象。先批量读，再交给合成器，不逐帧改行高。
+  useLayoutEffect(() => {
+    const before = previousPositions.current
+    previousPositions.current = null
+    const list = listRef.current
+    if (!before || !list || reducesMotion()) return
+    const moves: Array<[HTMLElement, number]> = []
+    const nodes = list.querySelectorAll<HTMLElement>('[data-motion-row]')
+    for (const node of nodes) {
+      for (const previous of node.getAnimations()) {
+        if (previous.id === 'atlas-group-move') previous.cancel()
+      }
+    }
+    for (const node of nodes) {
+      const start = before.get(node.dataset.motionRow!)
+      if (start === undefined) continue
+      const rect = node.getBoundingClientRect()
+      const distance = start - rect.top
+      if (Math.abs(distance) > 1 && Math.abs(distance) <= rowHeight * 3 && rect.bottom > 0 && rect.top < window.innerHeight) {
+        moves.push([node, distance])
+      }
+    }
+    for (const [node, distance] of moves) {
+      playMotion(node, [{ transform: 'translateY(' + distance + 'px)' }, { transform: 'none' }], '--motion-dialog-in', 'atlas-group-move')
+    }
+  }, [flatItems, rowHeight])
+
+  const ensureGroupExpandedForTrade = useCallback((tradeId: string) => {
+    if (!collapsedGroups.size) return false
+    const group = groups.find(item => collapsedGroups.has(item.key) && item.items.some(trade => trade.id === tradeId))
+    if (!group) return false
+    setCollapsedGroups(current => {
+      const next = new Set(current)
+      next.delete(group.key)
+      return next
+    })
+    return true
+  }, [groups, collapsedGroups])
 
   useEffect(() => {
     return registerTradeScrollTarget((tradeId) => {
@@ -418,9 +367,12 @@ export function TradeList({
     virtualizer.scrollToIndex(index, { align: 'center' })
   }, [flatItems, virtualizer])
 
+  const previousFocus = useRef<string | null>(null)
   useEffect(() => {
+    const changed = previousFocus.current !== focusedId
+    previousFocus.current = focusedId
     if (!focusedId) return
-    if (ensureGroupExpandedForTrade(focusedId)) {
+    if (changed && ensureGroupExpandedForTrade(focusedId)) {
       pendingScrollTradeIdRef.current = focusedId
       return
     }
@@ -476,20 +428,17 @@ export function TradeList({
         const item = flatItems[virtualRow.index]
         if (!item) return null
         const isSticky = item.kind === 'header' && virtualRow.index === activeStickyIndexRef.current
-        const collapsed = item.kind === 'header' && item.openProgress < 0.5
+        const collapsed = item.kind === 'header' && !item.expanded
         const groupLabelId = `${listInstanceId}-group-${item.groupKey.replace(/[^a-zA-Z0-9_-]/g, '-')}`
-        const rowOpacity =
-          item.kind === 'row' ? Math.min(1, item.openProgress * 1.35) : 1
         return (
           <div
             key={item.key}
-            ref={virtualizer.measureElement}
             data-index={virtualRow.index}
+            data-motion-row={item.key}
             className={
               'trade-list-virtual-item' +
               (item.kind === 'header' ? ' is-header' : ' is-row') +
-              (isSticky ? ' is-sticky' : '') +
-              (item.kind === 'row' && item.openProgress < 0.999 ? ' is-collapsing' : '')
+              (isSticky ? ' is-sticky' : '')
             }
             role={item.kind === 'header' ? 'listitem' : 'presentation'}
             aria-posinset={item.kind === 'header' ? virtualRow.index + 1 : undefined}
@@ -499,18 +448,9 @@ export function TradeList({
               top: isSticky ? 0 : virtualRow.start,
               left: 0,
               width: '100%',
-              height:
-                item.kind === 'header' || item.openProgress < 0.999
-                  ? virtualRow.size
-                  : undefined,
-              minHeight:
-                item.kind === 'row' && item.openProgress >= 0.999
-                  ? rowHeight
-                  : undefined,
+              height: item.kind === 'header' ? HEADER_HEIGHT : rowHeight,
               zIndex: isSticky ? 3 : item.kind === 'header' ? 2 : 1,
-              opacity: rowOpacity,
-              overflow:
-                item.kind === 'header' || item.openProgress < 0.999 ? 'hidden' : undefined,
+              overflow: item.kind === 'header' ? 'hidden' : undefined,
             }}
           >
             {item.kind === 'header' ? (
@@ -526,20 +466,16 @@ export function TradeList({
                 <button
                   type="button"
                   className="trade-list-group-toggle"
-                  aria-expanded={item.openProgress > 0.5}
+                  aria-expanded={item.expanded}
                   aria-label={
                     collapsed
                       ? `展开 ${item.label}（${item.count}）`
                       : `折叠 ${item.label}（${item.count}）`
                   }
-                  onClick={() => toggleGroup(item.groupKey)}
+                  onClick={() => toggleGroup(item.groupKey, item.count)}
                 >
                   <span className="trade-list-group-chevron" aria-hidden="true">
-                    <DisclosureChevron
-                      style={{
-                        transform: `rotate(${90 * item.openProgress}deg)`,
-                      }}
-                    />
+                    <DisclosureChevron />
                   </span>
                   <span className="trade-list-group-status" aria-hidden="true">
                     <GroupLeadingIcon
@@ -555,7 +491,7 @@ export function TradeList({
                   <button
                     type="button"
                     className="trade-list-group-add"
-                    onClick={() => onCreate()}
+                    onClick={() => onCreate({ strategyId: item.strategyId, month: /^\d{4}-\d{2}$/.test(item.groupKey) ? item.groupKey : undefined })}
                     aria-label={`在本组新建${recordLabel}`}
                   >
                     <Plus size={ICON_MD} />
@@ -574,6 +510,7 @@ export function TradeList({
             ) : (
               <TradeRow
                 trade={item.trade}
+                mistakesFirst={mistakesFirst}
                 strategies={strategies}
                 strategyStats={strategyStatsById.get(item.trade.strategyId) ?? null}
                 symbolIcons={symbolIcons}

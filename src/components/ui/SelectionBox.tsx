@@ -36,7 +36,7 @@ export function SelectionBox({
         onToggle()
       }}
     >
-      {checked ? <Check size={ICON_SM} /> : null}
+      <Check aria-hidden size={ICON_SM} />
     </button>
   )
 }

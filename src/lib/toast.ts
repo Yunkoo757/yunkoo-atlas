@@ -36,6 +36,7 @@ export type ToastState = {
 }
 
 export type ToastStore = {
+  hold: (id: number, reason: 'pointer' | 'focus', active: boolean) => void
   push: (message: string, options?: ToastOptions) => number | null
   dismiss: (id?: number) => void
   getState: () => ToastState
@@ -53,6 +54,7 @@ function releaseTimer(timer: ReturnType<typeof setTimeout>): void {
 export function createToastStore(options: { canPush?: () => boolean } = {}): ToastStore {
   const listeners = new Set<() => void>()
   const timers = new Map<number, ReturnType<typeof setTimeout>>()
+  const holds = new Map<number, Set<'pointer' | 'focus'>>()
   let nextId = 1
   let state: ToastState
 
@@ -83,7 +85,7 @@ export function createToastStore(options: { canPush?: () => boolean } = {}): Toa
 
   const scheduleDismiss = (item: ToastItem) => {
     cancelTimer(item.id)
-    if (item.persistent) return
+    if (item.persistent || holds.has(item.id)) return
     const duration = item.actionLabel ? 5_000 : 2_200
     const timer = setTimeout(() => store.dismiss(item.id), duration)
     releaseTimer(timer)
@@ -91,6 +93,19 @@ export function createToastStore(options: { canPush?: () => boolean } = {}): Toa
   }
 
   const store: ToastStore = {
+    hold(id, reason, active) {
+      const item = state.items.find(candidate => candidate.id === id)
+      if (!item || item.persistent || !item.onAction) return
+      const reasons = holds.get(id) ?? new Set<'pointer' | 'focus'>()
+      if (active) {
+        reasons.add(reason)
+        holds.set(id, reasons)
+        cancelTimer(id)
+      } else if (reasons.delete(reason) && !reasons.size) {
+        holds.delete(id)
+        scheduleDismiss(item)
+      }
+    },
     push(message, toastOptions = {}) {
       if (options.canPush && !options.canPush()) return null
       const tone = toastOptions.tone ?? 'info'
@@ -101,6 +116,7 @@ export function createToastStore(options: { canPush?: () => boolean } = {}): Toa
       const existingIndex = dedupeKey
         ? state.items.findIndex((item) => item.dedupeKey === dedupeKey)
         : state.items.findIndex((item) =>
+            item.onAction === onAction &&
             item.message === message &&
             item.actionLabel === actionLabel &&
             item.tone === tone,
@@ -121,7 +137,7 @@ export function createToastStore(options: { canPush?: () => boolean } = {}): Toa
       while (nextItems.length > MAX_TOASTS) {
         const removableIndex = nextItems.findIndex((candidate) => !candidate.persistent)
         const [removed] = nextItems.splice(removableIndex >= 0 ? removableIndex : 0, 1)
-        if (removed) cancelTimer(removed.id)
+        if (removed) { cancelTimer(removed.id); holds.delete(removed.id) }
       }
       state = makeState(nextItems)
       scheduleDismiss(item)
@@ -130,7 +146,7 @@ export function createToastStore(options: { canPush?: () => boolean } = {}): Toa
     },
     dismiss(id) {
       const removed = id === undefined ? state.items : state.items.filter((item) => item.id === id)
-      for (const item of removed) cancelTimer(item.id)
+      for (const item of removed) { cancelTimer(item.id); holds.delete(item.id) }
       const nextItems = id === undefined
         ? []
         : state.items.filter((item) => item.id !== id)
@@ -147,6 +163,7 @@ export function createToastStore(options: { canPush?: () => boolean } = {}): Toa
       const explicitItems = 'items' in next ? next.items : undefined
       if (explicitItems) {
         for (const item of state.items) cancelTimer(item.id)
+        holds.clear()
         state = makeState([...explicitItems])
         nextId = Math.max(1, ...explicitItems.map((item) => item.id + 1))
         for (const item of explicitItems) scheduleDismiss(item)
@@ -173,6 +190,7 @@ type ToastHook = {
   getState: ToastStore['getState']
   subscribe: ToastStore['subscribe']
   setState: ToastStore['setState']
+  hold: ToastStore['hold']
 }
 
 export const useToast: ToastHook = Object.assign(
@@ -187,6 +205,7 @@ export const useToast: ToastHook = Object.assign(
     getState: toastStore.getState,
     subscribe: toastStore.subscribe,
     setState: toastStore.setState,
+    hold: toastStore.hold,
   },
 )
 

@@ -1,3 +1,4 @@
+import { MAX_REVIEW_TEMPLATES } from '@/data/reviewTemplates'
 import { reviewTemplateParagraphs } from '@/lib/reviewTemplateDocument'
 import { ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useEffect, useState } from 'react'
@@ -6,6 +7,7 @@ import { useStore } from '@/store/useStore'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { toast } from '@/lib/toast'
 import { hideNativeDragPreview } from '@/lib/dragPreview'
+import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import './ReviewTemplatesPanel.css'
 
 export function ReviewTemplatesPanel() {
@@ -17,6 +19,7 @@ export function ReviewTemplatesPanel() {
   const reviewContextPinned = useStore((state) => state.display.reviewContextPinned ?? true)
   const setDisplay = useStore((state) => state.setDisplay)
   const [selectedId, setSelectedId] = useState<string | null>(templates[0]?.id ?? null)
+  const [nameDraft, setNameDraft] = useState<{ id: string; value: string } | null>(null)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
 
@@ -28,16 +31,23 @@ export function ReviewTemplatesPanel() {
 
   const handleAdd = () => {
     const id = addTemplate()
-    setSelectedId(id)
+    if (id) setSelectedId(id)
   }
 
   const handleRemove = () => {
     if (!selected) return
     const index = templates.findIndex((template) => template.id === selected.id)
     const next = templates[index + 1] ?? templates[index - 1] ?? null
-    removeTemplate(selected.id)
+    const undo = removeTemplate(selected.id)
+    if (!undo) return
     setSelectedId(next?.id ?? null)
-    toast(`已删除起稿模板「${selected.name}」`)
+    toast(`已删除起稿模板「${selected.name}」`, {
+      actionLabel: '撤销',
+      onAction: () => {
+        if (undo()) toast(`已恢复「${selected.name}」`)
+        else toast('模板列表已变化，未能恢复', { tone: 'warning' })
+      },
+    })
   }
 
   const moveTemplateByKeyboard = (id: string, direction: -1 | 1) => {
@@ -53,10 +63,10 @@ export function ReviewTemplatesPanel() {
         <div>
           <h1 className="settings-page-title">复盘起稿</h1>
         </div>
-        <button type="button" className="dio-btn" onClick={handleAdd}>
+        {selected && (templates.length < MAX_REVIEW_TEMPLATES ? <button type="button" className="dio-btn" onClick={handleAdd}>
           <Plus size={ICON_SM} aria-hidden />
           新建模板
-        </button>
+        </button> : <span className="settings-page-desc">已达 {MAX_REVIEW_TEMPLATES} 个模板上限</span>)}
       </div>
 
       <section className="review-pin-setting" aria-labelledby="review-pin-setting-title">
@@ -168,12 +178,14 @@ export function ReviewTemplatesPanel() {
             <input
               id="review-template-name"
               className="review-template-name"
-              value={selected.name}
+              value={nameDraft?.id === selected.id ? nameDraft.value : selected.name}
               maxLength={40}
-              onChange={(event) => updateTemplate(selected.id, { name: event.target.value })}
-              onBlur={(event) => {
-                if (!event.target.value.trim()) updateTemplate(selected.id, { name: '未命名模板' })
+              onChange={(event) => {
+                const name = event.target.value
+                setNameDraft({ id: selected.id, value: name })
+                if (name.trim()) updateTemplate(selected.id, { name })
               }}
+              onBlur={() => setNameDraft(null)}
             />
 
             <label className="review-template-content-label" htmlFor="review-template-content">
@@ -188,7 +200,7 @@ export function ReviewTemplatesPanel() {
               onChange={(event) => updateTemplate(selected.id, { content: event.target.value })}
               placeholder={'HTF 背景：\nMTF 触发：\nLTF 执行：\nTP 管理：'}
             />
-            <details className="review-template-preview"><summary>预览起稿</summary>
+            <details className="review-template-preview"><DisclosureSummary>预览起稿</DisclosureSummary>
               <div>{reviewTemplateParagraphs(selected.content).map((paragraph, index) => <p key={index}>{paragraph.content?.map((part, i) => part.marks?.some(mark => mark.type === 'bold') ? <strong key={i}>{part.text}</strong> : part.text) || <br />}</p>)}</div>
             </details>
           </section>
@@ -196,8 +208,7 @@ export function ReviewTemplatesPanel() {
       ) : (
         <button type="button" className="review-template-empty" onClick={handleAdd}>
           <FileText size={ICON_XL} aria-hidden />
-          <strong>还没有复盘起稿模板</strong>
-          <span>新建一个模板，把重复的盘面叙述结构保存下来。</span>
+          <strong>新建起稿模板</strong>
         </button>
       )}
     </div>

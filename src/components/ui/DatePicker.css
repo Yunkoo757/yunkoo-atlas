@@ -33,7 +33,7 @@
   max-height: calc(100vh - var(--sp-2) * 2);
   overflow-y: auto;
   padding: var(--sp-2);
-  animation: uiDateIn var(--motion-menu) var(--ease-out) both;
+  animation: uiPopIn var(--motion-menu) var(--ease-out) both;
 }
 
 .ui-date-popover-top {
@@ -232,11 +232,6 @@
 .ui-date-period-grid button[aria-pressed='true'] { background: var(--surface-control-active); color: var(--text-primary); }
 .ui-date-popover button:focus-visible { outline: 1px solid var(--accent-readable); outline-offset: -1px; }
 .ui-date-popover button:disabled { color: var(--text-disabled); background: transparent; cursor: default; }
-
-@keyframes uiDateIn {
-  from { opacity: 0; scale: 0.985; }
-  to { opacity: 1; scale: 1; }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .ui-date-popover { animation: none; }

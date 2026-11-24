@@ -131,13 +131,14 @@
   height: 16px;
   flex-shrink: 0;
   transform-origin: 50% 50%;
-  will-change: transform;
+  transform: rotate(90deg);
+  transition: transform var(--motion-dialog-in) var(--ease-out);
 }
 
 /* button:hover CollapseArrow → fill lch(100 0 272)，高亮瞬间到位 */
 .trade-list-group-toggle:hover .trade-list-group-chevron,
 .trade-list-group-toggle:focus-visible .trade-list-group-chevron {
-  color: var(--accent-text);
+  color: var(--text-strong);
   transition-duration: 0s;
 }
 
@@ -148,23 +149,13 @@
 
 .trade-list-group-header.is-collapsed .trade-list-group-toggle:hover .trade-list-group-chevron,
 .trade-list-group-header.is-collapsed .trade-list-group-toggle:focus-visible .trade-list-group-chevron {
-  color: var(--accent-text);
+  color: var(--text-strong);
   opacity: 1;
   transition-duration: 0s;
 }
 
-.trade-list-virtual-item.is-row.is-collapsing {
-  pointer-events: none;
-}
-
-.trade-list-virtual-item.is-row {
-  transform-origin: 50% 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .trade-list-group-chevron svg {
-    will-change: auto;
-  }
+.trade-list-group-toggle[aria-expanded='false'] .trade-list-group-chevron svg {
+  transform: rotate(0deg);
 }
 
 .trade-list-group-status {
@@ -215,21 +206,21 @@
   opacity: 1;
   cursor: pointer;
   transition:
-    border 0.15s ease,
-    background-color 0.15s ease,
-    color 0.15s ease,
-    opacity 0.15s ease;
+    border var(--motion-state) var(--ease-out),
+    background-color var(--motion-state) var(--ease-out),
+    color var(--motion-state) var(--ease-out),
+    opacity var(--motion-state) var(--ease-out);
 }
 
 /* 圆底 lch(13.456% 0.943 272) 压在未抬亮的 surface-group 上才显得「亮起」 */
 .trade-list-group-add:hover,
 .trade-list-group-add:focus-visible {
-  color: var(--accent-text);
+  color: var(--text-strong);
   background-color: var(--group-add-hover-bg);
 }
 
 .trade-list-group-add:active {
-  color: var(--accent-text);
+  color: var(--text-strong);
   background-color: var(--group-add-active-bg);
 }
 
@@ -517,9 +508,8 @@
 
 .trade-row-tags {
   gap: var(--sp-1);
-  overflow: hidden;
+  overflow: clip;
   line-height: var(--type-chip-line-height);
-
 }
 
 .trade-row-context {
@@ -529,7 +519,7 @@
   align-items: center;
   gap: var(--space-control-gap);
   min-width: 0;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .trade-row-context .trade-row-context-item {
@@ -546,8 +536,15 @@
   color: var(--text-content-metadata);
 }
 
+.trade-row-context > .trade-row-more:focus-visible {
+  color: var(--text-body);
+  background: var(--surface-control-hover);
+  box-shadow: inset 0 0 0 1px var(--text-tertiary);
+}
+
 .trade-row-context-measure {
   position: absolute;
+  inset: 0 auto auto 0;
   display: flex;
   width: max-content;
   visibility: hidden;
@@ -747,3 +744,5 @@ button.trade-row-symbol-main {
 }
 
 .trade-row-date-detail { pointer-events:auto; padding:0; border:0; background:transparent; color:inherit; font:inherit; cursor:pointer; }
+
+.trade-row-star > svg { transition: fill-opacity var(--motion-state) var(--ease-out); }

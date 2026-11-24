@@ -1,5 +1,7 @@
+import { isComposingKey } from '@/lib/keyboardComposition'
+import { ModalPortalContext, useModalPortalRegistry } from '@/components/ui/ModalShell'
 import { ICON_MD } from '@/icons/iconSize'
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { PanelRight, X } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
@@ -11,16 +13,21 @@ export function TradeDetailLayout({
   header,
   content,
   properties,
+  revealProperties = false,
 }: {
   header: (propertiesToggle: ReactNode) => ReactNode
   content: ReactNode
   properties: ReactNode
+  revealProperties?: boolean
 }) {
-  const [propertiesOpen, setPropertiesOpen] = useState(false)
+  const [drawerOpen, setPropertiesOpen] = useState(false)
+  const [temporaryReveal, setTemporaryReveal] = useState(revealProperties)
+  const { portalRegistry, portalRootsRef } = useModalPortalRegistry()
   const [compact, setCompact] = useState(() => window.matchMedia('(max-width: 1200px)').matches)
   const propertiesVisible = useStore((state) => state.display.detailPropertiesVisible !== false)
   const setDisplay = useStore((state) => state.setDisplay)
-  const expanded = compact ? propertiesOpen : propertiesVisible
+  const propertiesOpen = compact && (drawerOpen || temporaryReveal)
+  const expanded = compact ? propertiesOpen : propertiesVisible || temporaryReveal
   const propertiesHint = useShortcutHint(
     'trade.toggleProperties',
     expanded ? '关闭交易属性' : '打开交易属性',
@@ -32,10 +39,17 @@ export function TradeDetailLayout({
   const closeRef = useRef<HTMLButtonElement>(null)
   const restoreFocusRef = useRef(false)
 
+  useLayoutEffect(() => {
+    if (propertiesRef.current) propertiesRef.current.inert = !expanded
+  }, [expanded])
+
   const toggleProperties = useCallback(() => {
-    if (compact) setPropertiesOpen((value) => !value)
-    else setDisplay({ detailPropertiesVisible: !propertiesVisible })
-  }, [compact, propertiesVisible, setDisplay])
+    setTemporaryReveal(false)
+    if (compact) setPropertiesOpen(!expanded)
+    else setDisplay({ detailPropertiesVisible: !expanded })
+  }, [compact, expanded, setDisplay])
+
+  useEffect(() => { setTemporaryReveal(revealProperties) }, [revealProperties])
 
   useEffect(() => registerShortcutHandlers({
     'trade.toggleProperties': toggleProperties,
@@ -51,12 +65,11 @@ export function TradeDetailLayout({
     return () => media.removeEventListener('change', update)
   }, [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!propertiesOpen) {
-      if (!restoreFocusRef.current) return
+      if (restoreFocusRef.current) toggleRef.current?.focus({ preventScroll: true })
       restoreFocusRef.current = false
-      const frame = requestAnimationFrame(() => toggleRef.current?.focus())
-      return () => cancelAnimationFrame(frame)
+      return
     }
     const drawer = propertiesRef.current
     const layout = layoutRef.current
@@ -75,9 +88,11 @@ export function TradeDetailLayout({
       element.setAttribute('aria-hidden', 'true')
     }
 
-    closeRef.current?.focus()
+    if (!portalRootsRef.current.size) closeRef.current?.focus()
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isComposingKey(event) || document.querySelector('[data-modal-shell-id]')) return
       if (event.key === 'Escape') {
+        if (portalRootsRef.current.size) return
         const target = event.target
         if (
           target instanceof HTMLInputElement ||
@@ -89,16 +104,16 @@ export function TradeDetailLayout({
         event.preventDefault()
         event.stopPropagation()
         restoreFocusRef.current = true
+        setTemporaryReveal(false)
         setPropertiesOpen(false)
         return
       }
       if (event.key !== 'Tab') return
 
-      const focusable = [
-        ...drawer.querySelectorAll<HTMLElement>(
-          'button:not([disabled]):not([tabindex="-1"]), a[href]:not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])',
-        ),
-      ].filter((element) => element.getClientRects().length > 0)
+      const roots = [drawer, ...portalRootsRef.current]
+      const focusable = roots.flatMap(root => Array.from(root.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]',
+      ))).filter(element => element.tabIndex >= 0 && element.getClientRects().length > 0)
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
       if (!first || !last) {
@@ -107,7 +122,7 @@ export function TradeDetailLayout({
         return
       }
       const active = document.activeElement
-      if (!drawer.contains(active) || (event.shiftKey && active === first)) {
+      if (!roots.some(root => root.contains(active)) || (event.shiftKey && active === first)) {
         event.preventDefault()
         last.focus()
       } else if (!event.shiftKey && active === last) {
@@ -124,10 +139,11 @@ export function TradeDetailLayout({
         else element.setAttribute('aria-hidden', ariaHidden)
       }
     }
-  }, [propertiesOpen])
+  }, [propertiesOpen, portalRootsRef])
 
   const closeProperties = () => {
     restoreFocusRef.current = true
+    setTemporaryReveal(false)
     setPropertiesOpen(false)
   }
 
@@ -148,14 +164,16 @@ export function TradeDetailLayout({
   )
 
   return (
-    <div className={'trade-detail-layout' + (!compact && !propertiesVisible ? ' is-properties-hidden' : '')} ref={layoutRef}>
+    <div className={'trade-detail-layout' + (!compact && !expanded ? ' is-properties-hidden' : '')} ref={layoutRef}>
       {header(propertiesToggle)}
       <div className="dv-body">
         <section className="dv-main" aria-label="交易详情">{content}</section>
-        {propertiesOpen && (
+        {compact && (
           <button
             type="button"
             className="trade-detail-properties-backdrop"
+            data-open={propertiesOpen}
+            aria-hidden={!propertiesOpen}
             aria-label="关闭交易属性"
             tabIndex={-1}
             onClick={closeProperties}
@@ -165,6 +183,7 @@ export function TradeDetailLayout({
           className={'dv-props' + (propertiesOpen ? ' is-properties-open' : '')}
           id={propertiesId}
           ref={propertiesRef}
+          aria-hidden={!expanded}
           aria-label="交易属性"
           role={propertiesOpen ? 'dialog' : undefined}
           aria-modal={propertiesOpen ? 'true' : undefined}
@@ -181,7 +200,7 @@ export function TradeDetailLayout({
               <X size={ICON_MD} />
             </button>
           </Tooltip>
-          {properties}
+          <ModalPortalContext.Provider value={portalRegistry}>{properties}</ModalPortalContext.Provider>
         </aside>
       </div>
     </div>

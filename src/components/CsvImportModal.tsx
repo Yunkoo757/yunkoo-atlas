@@ -1,6 +1,6 @@
 import { ICON_HERO, ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useState, useMemo, useRef, type DragEvent } from 'react'
-import { Upload, ArrowRight, AlertCircle, CheckCircle } from '@/icons/appIcons'
+import { Upload, ArrowRight, CheckCircle } from '@/icons/appIcons'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Button } from '@/components/ui/Button'
 import { useStore } from '@/store/useStore'
@@ -20,7 +20,6 @@ import {
   buildContentSignature,
   buildLibraryContentIndex,
   createDuplicateLookupIndex,
-  duplicateReasonLabel,
   findObviousDuplicateIndexed,
   type DuplicateMatch,
 } from '@/lib/tradeDuplicates'
@@ -30,7 +29,7 @@ import { flushPersistNow, withPersistSuspended } from '@/storage/persist'
 import { Select } from '@/components/ui/Select'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { normalizeSymbol } from '@/lib/symbolIcons'
-import { fmtMoney } from '@/lib/format'
+import { ImportPreviewList, ImportPreviewRecord } from './ImportPreviewList'
 import './CsvImportModal.css'
 
 interface Props {
@@ -397,7 +396,6 @@ export function CsvImportModal({ open, onClose }: Props) {
               <p className="csv-drop-title">拖放或选择文件</p>
               <p className="csv-drop-hint">.csv · .tsv · .txt</p>
             </div>
-            <p className="csv-upload-tip">如 symbol / side / entry</p>
             <input
               ref={fileRef}
               type="file"
@@ -405,7 +403,7 @@ export function CsvImportModal({ open, onClose }: Props) {
               onChange={handleFile}
               className="csv-file-input-hidden"
             />
-            {error && <p className="csv-error">{error}</p>}
+            {error && <p className="csv-error" role="alert">{error}</p>}
           </div>
         )}
 
@@ -413,7 +411,7 @@ export function CsvImportModal({ open, onClose }: Props) {
         {step === 'map' && csvResult && (
           <div className="csv-map-area">
             <p className="csv-map-hint">
-              已自动识别 {Object.keys(mapping).length} 个字段映射，可手动调整：
+              已匹配 {Object.keys(mapping).length} 列
             </p>
             <div className="csv-map-table-wrap">
               <table className="csv-map-table">
@@ -452,7 +450,7 @@ export function CsvImportModal({ open, onClose }: Props) {
                 </tbody>
               </table>
             </div>
-            {error && <p className="csv-error">{error}</p>}
+            {error && <p className="csv-error" role="alert">{error}</p>}
           </div>
         )}
 
@@ -460,16 +458,9 @@ export function CsvImportModal({ open, onClose }: Props) {
         {step === 'preview' && (
           <div className="csv-preview-area">
             <p className="csv-preview-summary">
-              共 {previews.length} 行：
-              <span className="csv-ok">{previews.filter((p) => p.errors.length === 0).length} 行有效</span>
-              {' · '}
-              <span className="csv-bad">{previews.filter((p) => p.errors.length > 0).length} 行有误</span>
-              {duplicateCount > 0 && (
-                <>
-                  {' · '}
-                  <span className="csv-dup-count">{duplicateCount} 行疑似重复</span>
-                </>
-              )}
+              可导入 <strong>{previews.filter(shouldImportPreview).length}</strong> / {previews.length} 行
+              {previews.some(row => row.errors.length > 0) && <> · {previews.filter(row => row.errors.length > 0).length} 行有误</>}
+              {duplicateCount > 0 && <> · {duplicateCount} 行疑似重复</>}
             </p>
             {duplicateCount > 0 && (
               <label className="csv-dup-toggle">
@@ -482,82 +473,20 @@ export function CsvImportModal({ open, onClose }: Props) {
                 <span>跳过库内已有的明显重复正文</span>
               </label>
             )}
-            <div className="csv-preview-table-wrap">
-              <table className="csv-preview-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>状态</th>
-                    <th>品种</th>
-                    <th>方向</th>
-                    <th>入场</th>
-                    <th>出场</th>
-                    <th>盈亏</th>
-                    <th>日期</th>
-                    <th>问题</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {previews.slice(0, 20).map((p) => {
-                    const dup = duplicateByRow[p.rowIndex]
-                    return (
-                      <tr
-                        key={p.rowIndex}
-                        className={
-                          p.errors.length > 0 ? 'csv-row-err' : dup ? 'csv-row-dup' : ''
-                        }
-                      >
-                        <td>{p.rowIndex + 1}</td>
-                        <td>
-                          {p.errors.length === 0 ? (
-                            dup ? (
-                              <AlertCircle size={ICON_SM} className="csv-dup" />
-                            ) : (
-                              <CheckCircle size={ICON_SM} className="csv-ok" />
-                            )
-                          ) : (
-                            <AlertCircle size={ICON_SM} className="csv-bad" />
-                          )}
-                        </td>
-                        <td>{p.trade.symbol ?? ''}</td>
-                        <td>{p.trade.side ?? ''}</td>
-                        <td>{p.trade.entry ?? ''}</td>
-                        <td>{p.trade.exit ?? ''}</td>
-                        <td>{p.trade.pnl == null ? '' : formatTradeCashPnl(p.trade, null, privacyMode)}</td>
-                        <td>{p.trade.openedAt ?? ''}</td>
-                        <td className="csv-err-cell">
-                          {p.errors.join('; ')}
-                          {dup && (
-                            <span className="csv-dup-msg">
-                              {p.errors.length ? ' · ' : ''}
-                              与 {dup.tradeRef} {duplicateReasonLabel(dup.reason)}
-                              {skipDuplicates && (
-                                <>
-                                  {' · '}
-                                  <button
-                                    type="button"
-                                    className="csv-dup-force"
-                                    onClick={() =>
-                                      setForceImportRows((prev) => ({
-                                        ...prev,
-                                        [p.rowIndex]: !prev[p.rowIndex],
-                                      }))
-                                    }
-                                  >
-                                    {forceImportRows[p.rowIndex] ? '取消仍导入' : '仍导入'}
-                                  </button>
-                                </>
-                              )}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {error && <p className="csv-error">{error}</p>}
+            <ImportPreviewList rows={previews}>{preview => (
+              <ImportPreviewRecord
+                trade={preview.trade} rowIndex={preview.rowIndex} privacyMode={privacyMode} errors={preview.errors}
+                duplicate={duplicateByRow[preview.rowIndex]} forceImport={Boolean(forceImportRows[preview.rowIndex])}
+                onToggleForce={skipDuplicates && !importing ? () => setForceImportRows(current => ({
+                  ...current, [preview.rowIndex]: !current[preview.rowIndex],
+                })) : undefined}
+              >
+                <dt>入场</dt><dd>{preview.trade.entry ?? '—'}</dd>
+                <dt>出场</dt><dd>{preview.trade.exit ?? '—'}</dd>
+                <dt>现金盈亏</dt><dd>{formatTradeCashPnl(preview.trade, null, privacyMode)}</dd>
+              </ImportPreviewRecord>
+            )}</ImportPreviewList>
+            {error && <p className="csv-error" role="alert">{error}</p>}
             {duplicateScanState === 'scanning' && (
               <p className="csv-preview-summary" role="status">正在检测重复记录…</p>
             )}

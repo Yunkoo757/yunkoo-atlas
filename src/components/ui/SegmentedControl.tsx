@@ -1,3 +1,4 @@
+import { playMotion } from '@/lib/motion'
 import { useLayoutEffect, useRef, type KeyboardEvent, type ReactElement, type ReactNode } from 'react'
 import './SegmentedControl.css'
 
@@ -34,6 +35,7 @@ export function SegmentedControl<T extends string>({
 }: SegmentedControlProps<T>) {
   const rootRef = useRef<HTMLDivElement>(null)
   const indicatorRef = useRef<HTMLSpanElement>(null)
+  const glide = useRef<Animation>()
   const previousValue = useRef(value)
   const geometryRef = useRef<string | null>(null)
 
@@ -47,6 +49,7 @@ export function SegmentedControl<T extends string>({
       const rootRect = root.getBoundingClientRect()
       const selectedRect = selected?.getBoundingClientRect()
       if (!selectedRect?.width || !selectedRect.height || !rootRect.width || !rootRect.height) {
+        glide.current?.cancel()
         delete root.dataset.indicatorReady
         geometryRef.current = null
         return
@@ -61,10 +64,19 @@ export function SegmentedControl<T extends string>({
       const height = selectedRect.height / scaleY
       const geometry = [x, y, width, height].map((part) => part.toFixed(3)).join(',')
       if (geometry === geometryRef.current) return
-      root.dataset.indicatorMoving = String(animate && geometryRef.current !== null)
+      const visible = animate && geometryRef.current !== null ? indicator.getBoundingClientRect() : null
+      glide.current?.cancel()
       indicator.style.transform = `translate(${x}px, ${y}px)`
       indicator.style.width = `${width}px`
       indicator.style.height = `${height}px`
+      if (visible?.width) {
+        const oldX = (visible.left - rootRect.left) / scaleX - parseFloat(style.borderLeftWidth)
+        const oldY = (visible.top - rootRect.top) / scaleY - parseFloat(style.borderTopWidth)
+        glide.current = playMotion(indicator, [
+          { transform: `translate(${oldX}px, ${oldY}px) scaleX(${visible.width / selectedRect.width})` },
+          { transform: indicator.style.transform },
+        ], '--motion-dialog-in', 'atlas-selection')
+      }
       root.dataset.indicatorReady = 'true'
       geometryRef.current = geometry
     }

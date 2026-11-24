@@ -1,16 +1,7 @@
-.modal-shell.trade-close-dialog {
-  width: min(520px, calc(100vw - 32px));
-}
-
-.modal-shell-body.trade-close-body,
 .trade-close-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-}
-
-.modal-shell-body.trade-close-body {
-  padding: 18px var(--sp-5) var(--sp-5);
+  gap: var(--sp-4);
 }
 
 .trade-close-section {

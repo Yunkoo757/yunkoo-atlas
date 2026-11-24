@@ -16,7 +16,8 @@
   border-radius: var(--popover-radius);
   box-shadow: var(--popover-shadow);
   z-index: var(--z-floating);
-  animation: fadeIn var(--motion-ui) var(--ease-out) both;
+  transform-origin: top right;
+  animation: uiPopIn var(--motion-menu) var(--ease-out) both;
 }
 
 .display-toggle {

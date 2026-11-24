@@ -1,327 +1,195 @@
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-} from 'react'
-import { createPortal } from 'react-dom'
-import { Link } from 'react-router-dom'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { PopoverSurface } from '@/components/ui/PopoverSurface'
+import { useExitClone } from '@/components/ui/useExitClone'
 import type { RiskPeriodOutcomeSnapshot, RiskPeriodScope } from '@/data/riskManagement'
-import { ChevronRight } from '@/icons/appIcons'
-import { ICON_MD } from '@/icons/iconSize'
+import { ChevronRight, ChevronUp, Shield } from '@/icons/appIcons'
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { fmtR } from '@/lib/format'
 import { getCurrentLiveStage } from '@/lib/liveStages'
 import { resolveRiskOutcomes } from '@/lib/riskBudget'
 import { presentRiskOutcome, type RiskStatusKind, type RiskStatusPresentation } from '@/lib/riskStatus'
 import { useStore } from '@/store/useStore'
-import type { SidebarRiskScope } from '@/lib/tradeFilters'
 
-const PERIODS: ReadonlyArray<{ scope: RiskPeriodScope; shortLabel: string; label: string }> = [
-  { scope: 'day', shortLabel: '日', label: '今日' },
-  { scope: 'week', shortLabel: '周', label: '本周' },
-  { scope: 'month', shortLabel: '月', label: '本月' },
-]
+const PERIODS = [
+  { scope: 'day', label: '今日' },
+  { scope: 'week', label: '本周' },
+  { scope: 'month', label: '本月' },
+] as const
 
 export type SidebarRiskRow = {
   scope: RiskPeriodScope
-  shortLabel: string
   label: string
   outcome: RiskPeriodOutcomeSnapshot
   presentation: RiskStatusPresentation
 }
 
-export type SidebarRiskSummary = {
-  kind: RiskStatusKind
-  label: string
-  value: string
-  ariaLabel: string
+function formatR(value: number) {
+  return fmtR(value).replace(/^\+/, '').replace(/\.0R$/, 'R')
 }
 
-export type SidebarRiskGauge = {
-  scope: SidebarRiskScope
-  kind: RiskStatusKind
-  remainingRatio: number
-  ariaLabel: string
+function periodStatus(row: SidebarRiskRow) {
+  if (row.presentation.kind === 'triggered' && row.outcome.consumedR === row.outcome.limitR) return '已达限额'
+  if (row.presentation.kind === 'unconfigured') return '未设置'
+  return row.presentation.label
 }
 
-function formatR(value: number): string {
-  return fmtR(Math.abs(value)).replace(/^\+/, '')
+// 同等状态保留用户选的周期。其他周期先触线时，入口点明对应的周期。
+const PRIORITY: Record<RiskStatusKind, number> = {
+  normal: 0, unconfigured: 0, partial: 1, near: 2, unknown: 3, triggered: 4,
 }
 
-function periodValue(row: SidebarRiskRow): string {
-  const { outcome } = row
-  return `${formatR(outcome.consumedR)} / ${outcome.limitR > 0 ? formatR(outcome.limitR) : '—'}`
-}
-
-function rowPriority(kind: RiskStatusKind): number {
-  if (kind === 'triggered') return 5
-  if (kind === 'unknown') return 4
-  if (kind === 'unconfigured') return 3
-  if (kind === 'near') return 2
-  if (kind === 'partial') return 1
-  return 0
-}
-
-export function buildSidebarRiskSummary(rows: readonly SidebarRiskRow[]): SidebarRiskSummary {
-  const lead = [...rows].sort((left, right) => (
-    rowPriority(right.presentation.kind) - rowPriority(left.presentation.kind)
-  ))[0]
-  const day = rows.find((row) => row.scope === 'day')
-  if (!lead || !day) {
-    return { kind: 'unknown', label: '风险待确认', value: '查看', ariaLabel: '风险状态待确认' }
-  }
-
-  const fullStatus = rows.map((row) => (
-    `${row.label}${row.presentation.label}，已用 ${periodValue(row)}`
-  )).join('；')
-
-  if (lead.presentation.kind === 'triggered') {
-    const excess = Math.max(0, lead.outcome.consumedR - lead.outcome.limitR)
-    const value = excess > 0 ? `${lead.shortLabel}超 ${formatR(excess)}` : `${lead.shortLabel}已满`
-    return { kind: 'triggered', label: '已暂停交易', value, ariaLabel: `${fullStatus}。当前暂停开仓` }
-  }
-  if (lead.presentation.kind === 'unknown') {
-    return { kind: 'unknown', label: '风险待补齐', value: '查看', ariaLabel: fullStatus }
-  }
-  if (lead.presentation.kind === 'unconfigured') {
-    return { kind: 'unconfigured', label: '风险未设置', value: '设置', ariaLabel: fullStatus }
-  }
-  if (lead.presentation.kind === 'near') {
-    return {
-      kind: 'near',
-      label: `${lead.label}临界`,
-      value: `余 ${formatR(lead.outcome.remainingR)}`,
-      ariaLabel: fullStatus,
-    }
-  }
-  if (lead.presentation.kind === 'partial') {
-    return { kind: 'partial', label: '数据待确认', value: '查看', ariaLabel: fullStatus }
-  }
-  return {
-    kind: 'normal',
-    label: '风控中心',
-    value: `余 ${formatR(day.outcome.remainingR)}`,
-    ariaLabel: fullStatus,
-  }
-}
-
-export function buildSidebarRiskGauge(
-  rows: readonly SidebarRiskRow[],
-  scope: SidebarRiskScope,
-): SidebarRiskGauge {
-  const row = rows.find((item) => item.scope === scope)
-  const label = row?.label ?? ({ day: '今日', week: '本周', month: '本月' } as const)[scope]
-  if (!row) {
-    return {
-      scope,
-      kind: 'unknown',
-      remainingRatio: 0,
-      ariaLabel: `${label}风险额度待确认，点击查看日周月风险额度`,
-    }
-  }
-  const ratio = row.outcome.limitR > 0
-    ? Math.max(0, Math.min(1, row.outcome.remainingR / row.outcome.limitR))
-    : 0
-  return {
-    scope,
-    kind: row.presentation.kind,
-    remainingRatio: ratio,
-    ariaLabel: `${label}风险额度，剩余 ${formatR(row.outcome.remainingR)}，共 ${row.outcome.limitR > 0 ? formatR(row.outcome.limitR) : '未设置'}，${row.presentation.label}。点击查看日周月风险额度`,
-  }
+export function buildSidebarRiskSummary(rows: readonly SidebarRiskRow[], preferred: RiskPeriodScope) {
+  const selected = rows.find(row => row.scope === preferred) ?? rows[0]
+  if (!selected) return null
+  const row = rows.reduce((lead, next) => (
+    PRIORITY[next.presentation.kind] > PRIORITY[lead.presentation.kind] ? next : lead
+  ), selected)
+  const { kind } = row.presentation
+  const value = kind === 'normal' || kind === 'near'
+    ? `${row.label}余 ${formatR(row.outcome.remainingR)}`
+    : row.label + periodStatus(row)
+  return { row, value }
 }
 
 function SidebarRiskPeriod({ row }: { row: SidebarRiskRow }) {
-  const showStatus = row.presentation.kind !== 'normal'
-  const progress = Math.max(0, Math.min(1, row.outcome.progress))
+  const { kind } = row.presentation
+  const { coverage, consumedR, limitR } = row.outcome
+  const knownUsage = coverage === 'complete' || (coverage === 'partial' && kind === 'triggered')
   return (
-    <div
-      className={`sb-risk-period is-${row.presentation.kind}`}
-      data-risk-period={row.scope}
-      aria-label={`${row.label}${row.presentation.label}，已用 ${periodValue(row)}`}
-    >
-      <div className="sb-risk-period-head">
-        <span className="sb-risk-period-label">{row.label}</span>
-        {showStatus ? <small>{row.presentation.label}</small> : null}
-      </div>
-      <span
-        className="sb-risk-period-track"
-        role="progressbar"
-        aria-label={`${row.label}风险额度使用进度`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(progress * 100)}
-      >
-        <i style={{ width: `${progress * 100}%` }} />
-      </span>
+    <div className={`sb-risk-period is-${kind}`} data-risk-period={row.scope}>
+      <dt>
+        <span>{row.label}</span>
+        {kind !== 'normal' && kind !== 'unconfigured' && <small>{periodStatus(row)}</small>}
+      </dt>
+      <dd>
+        {limitR > 0 ? <>
+          <strong>
+            {knownUsage && coverage === 'partial' && '已计 '}
+            {knownUsage ? formatR(consumedR).slice(0, -1) : '—'}
+          </strong>
+          <span>/ {formatR(limitR)}</span>
+        </> : <span>{kind === 'unconfigured' ? '未设置' : '—'}</span>}
+      </dd>
     </div>
   )
 }
 
-export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayKey: string }) {
-  const popoverId = useId()
-  const [open, setOpen] = useState(false)
-  const [position, setPosition] = useState<CSSProperties | null>(null)
+function SidebarRiskDisclosure({ rows, scope }: { rows: SidebarRiskRow[]; scope: RiskPeriodScope }) {
+  const panelId = useId()
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const popoverRef = useRef<HTMLDivElement>(null)
-  const trades = useStore((state) => state.trades)
-  const policies = useStore((state) => state.riskPolicyVersions)
-  const monthlyLimits = useStore((state) => state.monthlyRiskLimits)
-  const liveStages = useStore((state) => state.liveStages)
-  const currentLiveStageId = useStore((state) => state.currentLiveStageId)
-  const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
-  const sidebarRiskScope = useStore((state) => state.display.sidebarRiskScope ?? 'day')
-  const currentStage = getCurrentLiveStage(liveStages, currentLiveStageId)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState(false)
+  const exitRef = useExitClone(open, panelRef)
+  const location = useLocation()
 
-  const rows = useMemo<SidebarRiskRow[]>(() => {
-    const outcomes = resolveRiskOutcomes({
-      trades,
-      policies,
-      monthlyLimits,
-      liveStageId: currentStage.id,
-      liveStageStartsOn: currentStage.startsOn,
-      currentTradingDayKey,
-      tradingDayStartHour,
-    })
-    return PERIODS.map((period) => {
-      const outcome = outcomes[period.scope]
-      return { ...period, outcome, presentation: presentRiskOutcome(outcome) }
-    })
-  }, [
-    currentStage.id,
-    currentStage.startsOn,
-    currentTradingDayKey,
-    monthlyLimits,
-    policies,
-    trades,
-    tradingDayStartHour,
-  ])
-  const summary = useMemo(() => buildSidebarRiskSummary(rows), [rows])
-  const gauge = useMemo(
-    () => buildSidebarRiskGauge(rows, sidebarRiskScope),
-    [rows, sidebarRiskScope],
-  )
-  const popoverStatus = summary.kind === 'normal' ? '充足' : summary.label
-
-  const close = useCallback((restoreFocus = false) => {
-    setOpen(false)
-    setPosition(null)
-    if (restoreFocus) requestAnimationFrame(() => triggerRef.current?.focus())
-  }, [])
-
-  const updatePosition = useCallback(() => {
-    const trigger = triggerRef.current?.getBoundingClientRect()
-    const popover = popoverRef.current?.getBoundingClientRect()
-    if (!trigger || !popover) return
-    const edge = 8
-    const left = Math.min(trigger.right + edge, window.innerWidth - popover.width - edge)
-    const top = Math.min(
-      Math.max(edge, trigger.bottom - popover.height),
-      window.innerHeight - popover.height - edge,
-    )
-    setPosition({ left: Math.max(edge, left), top })
-  }, [])
+  useEffect(() => setOpen(false), [location.key])
 
   useLayoutEffect(() => {
     if (!open) return
-    updatePosition()
-    const frame = requestAnimationFrame(updatePosition)
-    return () => cancelAnimationFrame(frame)
-  }, [open, updatePosition])
-
-  useEffect(() => {
-    if (!open || !position) return
-    popoverRef.current?.focus({ preventScroll: true })
-  }, [open, position])
-
-  useLayoutEffect(() => {
-    if (!open) return
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target as Node
-      if (triggerRef.current?.contains(target) || popoverRef.current?.contains(target)) return
-      close()
+    panelRef.current?.focus({ preventScroll: true })
+    const dismissOutside = (event: Event) => {
+      const target = event.target
+      if (target instanceof Node && !triggerRef.current?.contains(target) && !panelRef.current?.contains(target)) {
+        setOpen(false)
+      }
     }
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
       event.preventDefault()
       event.stopPropagation()
-      close(true)
+      setOpen(false)
+      triggerRef.current?.focus({ preventScroll: true })
     }
-    window.addEventListener('resize', updatePosition)
-    window.addEventListener('scroll', updatePosition, true)
-    document.addEventListener('mousedown', handlePointerDown)
-    window.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('pointerdown', dismissOutside, true)
+    document.addEventListener('focusin', dismissOutside)
+    window.addEventListener('keydown', handleEscape, true)
     return () => {
-      window.removeEventListener('resize', updatePosition)
-      window.removeEventListener('scroll', updatePosition, true)
-      document.removeEventListener('mousedown', handlePointerDown)
-      window.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('pointerdown', dismissOutside, true)
+      document.removeEventListener('focusin', dismissOutside)
+      window.removeEventListener('keydown', handleEscape, true)
     }
-  }, [close, open, updatePosition])
+  }, [open])
 
+  const summary = buildSidebarRiskSummary(rows, scope)
+  if (!summary) return null
+  const { row, value } = summary
+  const needsReview = rows.some(item => item.outcome.coverage !== 'complete')
   return (
     <>
       <button
         ref={triggerRef}
         type="button"
-        className={`sb-risk-summary is-${gauge.kind}`}
-        data-sidebar-risk-state={gauge.kind}
-        data-risk-scope={gauge.scope}
-        data-risk-progress={gauge.remainingRatio.toFixed(3)}
-        aria-label={gauge.ariaLabel}
+        className={`sb-item sb-risk-summary is-${row.presentation.kind}`}
+        data-sidebar-risk-state={row.presentation.kind}
+        data-risk-scope={row.scope}
+        aria-label={row.presentation.kind === 'near' ? `风险额度，${value}，接近限额` : undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-controls={popoverId}
-        onClick={() => {
-          if (open) {
-            close()
-            return
-          }
-          setPosition(null)
-          setOpen(true)
-        }}
+        aria-controls={open ? panelId : undefined}
+        onClick={() => setOpen(wasOpen => !wasOpen)}
       >
-        <svg className="sb-risk-gauge" viewBox="0 0 20 20" aria-hidden="true">
-          <circle className="sb-risk-gauge-core" cx="10" cy="10" r="5.25" />
-          <circle className="sb-risk-gauge-track" cx="10" cy="10" r="7.5" pathLength="100" />
-          <circle
-            className="sb-risk-gauge-progress"
-            cx="10"
-            cy="10"
-            r="7.5"
-            pathLength="100"
-            strokeDasharray="100"
-            strokeDashoffset={100 - (gauge.remainingRatio * 100)}
-          />
-        </svg>
+        <Shield size={ICON_MD} aria-hidden="true" />
+        <span>风险额度</span>
+        <span className="sb-risk-value">{value}</span>
+        <ChevronUp className="sb-risk-chevron" size={ICON_SM} aria-hidden="true" />
       </button>
-      {open ? createPortal(
-        <div
-          ref={popoverRef}
-          id={popoverId}
-          className={`sb-risk-popover is-${summary.kind}`}
-          role="dialog"
-          tabIndex={-1}
-          aria-label="风险使用情况"
-          style={position ?? { visibility: 'hidden' }}
-        >
+      {open && (
+        <PopoverSurface ref={exitRef} kind="menu" id={panelId} labelledBy={panelId + '-title'}
+          className="sb-risk-popover" role="dialog" tabIndex={-1}>
           <header className="sb-risk-popover-head">
-            <strong>风险额度</strong>
-            <span>{popoverStatus}</span>
+            <h2 id={panelId + '-title'}>额度明细</h2>
+            <span>已用 / 上限</span>
           </header>
-          <div className="sb-risk-periods">
-            {rows.map((row) => <SidebarRiskPeriod key={row.scope} row={row} />)}
+          <dl className="sb-risk-periods">
+            {rows.map(item => <SidebarRiskPeriod key={item.scope} row={item} />)}
+          </dl>
+          <div className="sb-risk-actions">
+            {needsReview && <Link to="/settings/risk/data-repair" onClick={() => setOpen(false)}>
+              核对风险数据<ChevronRight size={ICON_SM} aria-hidden="true" />
+            </Link>}
+            <Link className="sb-risk-manage" to="/settings/risk" onClick={() => setOpen(false)}>
+              风险规则<ChevronRight size={ICON_SM} aria-hidden="true" />
+            </Link>
           </div>
-          <Link className="sb-risk-manage" to="/settings/risk" onClick={() => close()}>
-            <span>风险规则</span>
-            <ChevronRight size={ICON_MD} aria-hidden="true" />
-          </Link>
-        </div>,
-        document.body,
-      ) : null}
+        </PopoverSurface>
+      )}
     </>
   )
+}
+
+export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayKey: string }) {
+  const trades = useStore(state => state.trades)
+  const policies = useStore(state => state.riskPolicyVersions)
+  const monthlyLimits = useStore(state => state.monthlyRiskLimits)
+  const liveStages = useStore(state => state.liveStages)
+  const currentLiveStageId = useStore(state => state.currentLiveStageId)
+  const tradingDayStartHour = useStore(state => state.display.tradingDayStartHour)
+  const sidebarRiskScope = useStore(state => state.display.sidebarRiskScope ?? 'day')
+  const currentStage = getCurrentLiveStage(liveStages, currentLiveStageId)
+
+  const rows = useMemo(() => {
+    const outcomes = resolveRiskOutcomes({
+      trades, policies, monthlyLimits,
+      liveStageId: currentStage.id,
+      liveStageStartsOn: currentStage.startsOn,
+      currentTradingDayKey, tradingDayStartHour,
+    })
+    return PERIODS.map(period => {
+      const outcome = outcomes[period.scope]
+      return { ...period, outcome, presentation: presentRiskOutcome(outcome) }
+    })
+  }, [currentStage.id, currentStage.startsOn, currentTradingDayKey, monthlyLimits, policies, trades, tradingDayStartHour])
+
+  if (rows.every(row => row.presentation.kind === 'unconfigured')) {
+    return (
+      <Link to="/settings/risk" className="sb-item sb-risk-summary" data-sidebar-risk-state="unconfigured" aria-label="设置风险额度">
+        <Shield size={ICON_MD} aria-hidden="true" />
+        <span>风险额度</span>
+        <span className="sb-risk-value">设置</span>
+        <ChevronRight className="sb-risk-chevron" size={ICON_SM} aria-hidden="true" />
+      </Link>
+    )
+  }
+  return <SidebarRiskDisclosure rows={rows} scope={sidebarRiskScope} />
 }

@@ -1,9 +1,30 @@
-import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
+import { Component, useEffect, useLayoutEffect, useRef, useState, type ErrorInfo, type ReactNode } from 'react'
+import { playMotion } from '@/lib/motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertCircle, Home, RotateCcw } from '@/icons/appIcons'
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { ICON_LG, ICON_XL } from '@/icons/iconSize'
 import './RouteState.css'
+
+/** Inside Suspense so the arriving view is already committed; the shell and the editor keep their identities. */
+export function RouteContentMotion({ pathname }: { pathname: string }) {
+  const previous = useRef(pathname)
+  useLayoutEffect(() => {
+    const last = previous.current
+    previous.current = pathname
+    if (last === pathname) return
+    const main = document.getElementById('main-content')
+    if (!main) return
+    const local = pathname.startsWith('/settings/') && last.startsWith('/settings/')
+      ? '.settings-panel'
+      : pathname.startsWith('/notes') && last.startsWith('/notes') ? '.quick-notes-editor-pane' : null
+    const surface = local ? main.querySelector(local) : main.lastElementChild
+    if (!surface) return
+    const animation = playMotion(surface, [{ opacity: 0.88 }, { opacity: 1 }], '--motion-dialog-in', 'atlas-route')
+    return () => animation?.cancel()
+  }, [pathname])
+  return null
+}
 
 type RouteErrorBoundaryProps = {
   children: ReactNode

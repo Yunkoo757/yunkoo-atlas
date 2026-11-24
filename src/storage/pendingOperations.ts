@@ -24,6 +24,10 @@ export async function waitForPendingStorageOperations(): Promise<void> {
   }
 }
 
+export function hasPendingStorageOperations(): boolean {
+  return pendingOperations.size > 0
+}
+
 export function pendingStorageOperationCountForTests(): number {
   return pendingOperations.size
 }

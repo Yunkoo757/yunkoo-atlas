@@ -14,31 +14,12 @@
   border-radius: var(--popover-radius);
   box-shadow: var(--popover-shadow);
   padding: 5px;
-  animation: menu-in var(--motion-menu) var(--ease-out);
+  transform-origin: center top;
+  animation: uiPopIn var(--motion-menu) var(--ease-out);
 }
 .menu-placement-top {
   transform: translateY(-100%);
-  animation-name: menu-in-up;
-}
-@keyframes menu-in {
-  from {
-    opacity: 0;
-    transform: translateY(-3px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@keyframes menu-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(calc(-100% + 3px));
-  }
-  to {
-    opacity: 1;
-    transform: translateY(-100%);
-  }
+  transform-origin: center bottom;
 }
 .menu-item {
   display: flex;

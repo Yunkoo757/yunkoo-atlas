@@ -1,5 +1,5 @@
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore, type TradePurgeTarget } from '@/store/useStore'
 import {
@@ -15,10 +15,12 @@ import {
   Trash2,
   RotateCcw,
   AlertTriangle,
-  Search,
   X,
 } from '@/icons/appIcons'
 import { toast } from '@/lib/toast'
+import { intersectSelectedTradeIds } from '@/lib/tradeView'
+import { SearchField } from '@/components/ui/SearchField'
+import { InlineStatus } from '@/components/ui/InlineStatus'
 import { EmptyState } from '@/components/EmptyState'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
 import { StrategyLabel } from '@/components/StrategyIcon'
@@ -95,7 +97,7 @@ export function TradeTrashView() {
   const restoreTrade = useStore((s) => s.restoreTrade)
   const restoreTrades = useStore((s) => s.restoreTrades)
   const purgeTrades = useStore((s) => s.purgeTrades)
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selection, setSelected] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
   const [purgeRequest, setPurgeRequest] = useState<PurgeRequest | null>(null)
   const [purgeError, setPurgeError] = useState<string | null>(null)
@@ -109,7 +111,7 @@ export function TradeTrashView() {
   const filteredTrades = useMemo(() => {
     if (!searchQuery.trim()) return trashTrades
 
-    const query = searchQuery.toLowerCase()
+    const query = searchQuery.trim().toLowerCase()
     return trashTrades.filter((t) => {
       const ref = t.ref.toLowerCase()
       const symbol = t.symbol.toLowerCase()
@@ -124,6 +126,10 @@ export function TradeTrashView() {
   }, [trashTrades, searchQuery, strategies])
 
   const groups = useMemo(() => groupTrash(filteredTrades), [filteredTrades])
+  const selected = useMemo(() => intersectSelectedTradeIds(selection, filteredTrades), [selection, filteredTrades])
+  useEffect(() => {
+    if (selection.size !== selected.size) setSelected(selected)
+  }, [selection, selected])
 
   const handleRestore = (id: string) => {
     restoreTrade(id)
@@ -138,6 +144,7 @@ export function TradeTrashView() {
   const requestPurge = (trade: Trade) => {
     const target = capturePurgeTarget(trade)
     if (!target) return
+    setPurgeError(null)
     setPurgeRequest({ kind: 'single', targets: [target], ref: trade.ref })
   }
 
@@ -205,6 +212,7 @@ export function TradeTrashView() {
       .map(capturePurgeTarget)
       .filter((target): target is TradePurgeTarget => target !== null)
     if (targets.length === 0) return
+    setPurgeError(null)
     setPurgeRequest({ kind: 'batch', targets })
   }
 
@@ -280,28 +288,14 @@ export function TradeTrashView() {
         {trashTrades.length === 0 ? (
           <EmptyState
             title="回收站为空"
-            hint="已删除的交易会保留，直到你明确选择彻底删除"
+            variant="filtered"
+            hint="记录可在 30 天内恢复，期满后将在启动时自动清理。"
           />
         ) : (
           <div className="trash-groups">
             <div className="trash-selection-bar">
-              <label className="trash-search">
-                <Search size={ICON_SM} />
-                <input
-                  type="search"
-                  aria-label="搜索回收站"
-                  placeholder="搜索回收站"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="trash-search-input"
-                />
-                {searchQuery && (
-                  <button type="button" className="trash-search-clear" aria-label="清除搜索" onClick={() => setSearchQuery('')}>
-                    <X size={ICON_SM} />
-                  </button>
-                )}
-              </label>
-              <div className="trash-select-all-btn">
+              <SearchField label="搜索回收站" value={searchQuery} onChange={setSearchQuery} size="sm" className="trash-search" />
+              {filteredTrades.length > 0 && <div className="trash-select-all-btn">
                 <SelectionBox
                   checked={selected.size === filteredTrades.length && filteredTrades.length > 0}
                   alwaysVisible
@@ -317,8 +311,8 @@ export function TradeTrashView() {
                     ? '取消全选'
                     : '全选'}
                 </button>
-              </div>
-              {selected.size === 0 && searchQuery && (
+              </div>}
+              {selected.size === 0 && searchQuery && filteredTrades.length > 0 && (
                 <span className="trash-search-count">
                   找到 {filteredTrades.length} 笔交易
                 </span>
@@ -345,8 +339,9 @@ export function TradeTrashView() {
 
             {filteredTrades.length === 0 ? (
               <EmptyState
+                variant="filtered"
                 title="未找到匹配交易"
-                hint="尝试其他搜索关键词"
+                hint="可按品种、编号、策略或状态搜索。"
               />
             ) : groups.map((group) => (
               <div key={group.label} className="trash-group">
@@ -444,7 +439,7 @@ export function TradeTrashView() {
           title={purgeRequest.kind === 'single'
             ? `彻底删除 ${purgeRequest.ref}？`
             : `彻底删除 ${purgeRequest.targets.length} 笔交易？`}
-          description="删除后无法恢复，交易及其复盘内容会被永久移除。"
+          description={isElectron() ? '交易和复盘内容将从当前资料库移除。删除前会创建并验证备份。' : '交易和复盘内容将从当前资料库永久移除。'}
           busy={purgeBusy}
           onClose={() => { if (!purgeBusy) { setPurgeRequest(null); setPurgeError(null) } }}
           footer={(
@@ -469,11 +464,7 @@ export function TradeTrashView() {
             </>
           )}
         >
-          <p>推荐设置：删除前自动创建并验证恢复点。验证通过后才执行本次删除。</p>
-          {purgeError ? <div role="alert">
-            <p>删除未完成，本次记录尚未删除。推荐先重试验证；若仍失败，请到设置 → 数据检查备份状态与保存位置，再返回回收站重试。</p>
-            <details><summary>查看失败详情</summary><p>{purgeError}</p></details>
-          </div> : null}
+          {purgeError && <InlineStatus compact tone="error" title="删除未完成" detail={purgeError} />}
         </ModalShell>
       ) : null}
     </div>

@@ -15,6 +15,7 @@
 }
 
 .trade-detail-layout .dv-body {
+  position: relative;
   display: grid;
   flex: 1;
   grid-template-columns: minmax(0, 1fr) 336px;
@@ -29,6 +30,12 @@
 }
 
 .trade-detail-layout .dv-props {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 336px;
+  z-index: var(--z-content);
+  transition: transform var(--motion-panel) var(--ease-out),
+    visibility 0s linear;
   min-width: 0;
   overflow-y: auto;
   background: var(--surface-pane);
@@ -41,7 +48,10 @@
 }
 
 .trade-detail-layout.is-properties-hidden .dv-props {
-  display: none;
+  transform: translateX(100%);
+  visibility: hidden;
+  pointer-events: none;
+  transition-delay: 0s, var(--motion-panel);
 }
 
 .trade-detail-properties-toggle {
@@ -149,5 +159,17 @@
     height: auto;
     background: var(--overlay-bg);
     border-radius: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity var(--motion-dialog-out) var(--ease-out),
+      visibility 0s linear var(--motion-dialog-out);
+  }
+
+  .trade-detail-properties-backdrop[data-open='true'] {
+    visibility: visible;
+    pointer-events: auto;
+    opacity: 1;
+    transition-delay: 0s;
   }
 }

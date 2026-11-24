@@ -1,3 +1,4 @@
+import { useValueMotion } from '@/hooks/useValueMotion'
 import type { ReactNode } from 'react'
 import { AlertCircle, AlertTriangle, CheckCircle, CircleDot } from '@/icons/appIcons'
 import { ICON_MD } from '@/icons/iconSize'
@@ -30,6 +31,7 @@ export function InlineStatus({
         : tone === 'error'
           ? <AlertCircle size={ICON_MD} aria-hidden />
           : <CircleDot size={ICON_MD} aria-hidden />
+  const iconRef = useValueMotion<HTMLSpanElement>(tone)
   const assertive = tone === 'error'
 
   return (
@@ -43,7 +45,7 @@ export function InlineStatus({
       role={assertive ? 'alert' : 'status'}
       aria-live={assertive ? 'assertive' : 'polite'}
     >
-      <span className="ui-inline-status-icon">{icon}</span>
+      <span className="ui-inline-status-icon" ref={iconRef}>{icon}</span>
       <div className="ui-inline-status-copy">
         <div className="ui-inline-status-title">{title}</div>
         {detail ? <div className="ui-inline-status-detail">{detail}</div> : null}

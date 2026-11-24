@@ -140,7 +140,11 @@ async function run(): Promise<void> {
     () => image.classList.contains('ProseMirror-selectednode'),
     '截图节点必须进入图片选中状态',
   )
+  assert(getComputedStyle(image).outlineStyle === 'none', '只浏览正文时，程序选中的首图不应出现高亮')
+  activeEditor?.view.focus()
+  await waitFor(() => Boolean(activeEditable?.matches(':focus-within')), '编辑图片时焦点应在正文内')
   const selectedImageStyle = getComputedStyle(image)
+  assert(selectedImageStyle.outlineStyle === 'solid' && selectedImageStyle.outlineWidth === '2px', '编辑状态应保留图片选择提示')
   const externalHighlightWidth = Math.max(
     0,
     Number.parseFloat(selectedImageStyle.outlineWidth) + Number.parseFloat(selectedImageStyle.outlineOffset),
@@ -165,6 +169,9 @@ async function run(): Promise<void> {
   )
   const readonlyContext = host.querySelector<HTMLElement>('section[data-review-context]')
   assert(readonlyContext, '只读编辑器必须渲染盘面摘要')
+  await waitFor(() => Boolean(host.querySelector('.ProseMirror[contenteditable="false"]')), '只读编辑器应退出可编辑状态')
+  const readonlyImage = host.querySelector('img')
+  assert(readonlyImage && getComputedStyle(readonlyImage).outlineStyle === 'none', '只读截图应保持普通浏览外观')
   assertReviewContextTypography(readonlyContext)
   assertFontInheritance(readonlyContext)
   const readonlyEditable = host.querySelector<HTMLElement>('.ProseMirror')

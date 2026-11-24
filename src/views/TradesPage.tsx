@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { WorkbenchView } from '@/components/Topbar'
+import { resultRepairAnchor } from '@/hooks/useResultRepairReturn'
 import { rememberTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { workbenchModeFromPathname } from '@/lib/routeContext'
 import { syncPrimaryWorkspaceMode } from '@/lib/workspaceViews'
@@ -55,12 +56,12 @@ export function TradesPage({
       filter={filter}
       header={header}
       filterActions={filterActions}
-      onOpen={(id) => {
+      onOpen={(id, focusField) => {
         const trade = useStore.getState().trades.find((item) => item.id === id)
-        const from = { pathname, search, anchorTradeId: trade?.id ?? id }
+        const from = { pathname, search, anchorTradeId: focusField ? resultRepairAnchor(id) : id }
         rememberTradeReturnAnchor(from)
         navigate(trade ? tradeDetailPath(trade) : `/trade/${id}`, {
-          state: tradeDetailNavState(from),
+          state: tradeDetailNavState(from, { focusField }),
         })
       }}
     />

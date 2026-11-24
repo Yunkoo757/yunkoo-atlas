@@ -20,54 +20,7 @@
     border-color var(--dur-fast) var(--ease-out);
 }
 
-.trash-search {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 220px;
-  height: 30px;
-  padding-left: var(--sp-2);
-  border: 1px solid var(--field-border);
-  border-radius: var(--radius-6);
-  background: var(--field-bg);
-  color: var(--text-quaternary);
-}
-.trash-search:focus-within {
-  border-color: var(--field-border-focus);
-  box-shadow: var(--field-focus-shadow);
-}
-.trash-search-input {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  padding: 0 30px 0 7px;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--text-primary);
-  font: inherit;
-  font-size: var(--type-row-size);
-}
-.trash-search-input::placeholder {
-  color: var(--text-quaternary);
-}
-.trash-search-input::-webkit-search-cancel-button {
-  display: none;
-}
-.trash-search-clear {
-  position: absolute;
-  right: 6px;
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-4);
-  color: var(--text-tertiary);
-}
-.trash-search-clear:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
+.trash-search { flex: 0 1 220px; min-width: 0; }
 
 .trash-content {
   flex: 1;
@@ -287,10 +240,8 @@
   background: transparent;
 }
 .trash-item-days.is-urgent {
-  color: var(--warn-action);
-  font-weight: var(--font-weight-semibold);
-  border-color: color-mix(in srgb, var(--warn-action) 35%, var(--border-default));
-  background: color-mix(in srgb, var(--warn-action) 10%, transparent);
+  color: var(--diagnostic-text);
+  border-color: var(--border-default);
 }
 
 .trash-item-actions {

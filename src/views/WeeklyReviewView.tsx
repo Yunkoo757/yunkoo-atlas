@@ -1,3 +1,4 @@
+import { useValueMotion } from '@/hooks/useValueMotion'
 import { buildWeeklyReviewHistory } from '@/lib/weeklyReviewHistory'
 import { Button } from '@/components/ui/Button'
 import { PerformanceDataNotice } from '@/components/PerformanceDataNotice'
@@ -190,7 +191,7 @@ function WeeklyResultIssue({
         data-weekly-result-link={kind}
         data-trade-primary-action
         to={tradeDetailPath(trade)}
-        state={tradeDetailNavState(from)}
+        state={tradeDetailNavState(from, { focusField: 'result' })}
         onClick={() => rememberTradeReturnAnchor(from)}
       >
         {kind === 'conflict' ? '核对结果' : '补结果'}
@@ -1061,7 +1062,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                             })}
                           </ul>
                         )}
-                        {commitmentOptions.length > 0 ? (
+                        {commitmentOptions.length > 0 && (
                           <Select
                             value=""
                             ariaLabel="关联验收证据"
@@ -1075,8 +1076,6 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                               if (item) commitPatch({ previousCommitment: { ...previousCommitment, evidence: [...previousCommitment.evidence, item] } })
                             }}
                           />
-                        ) : previousCommitment.evidence.length === 0 && (
-                          <p className="wr-previous-criteria">本周暂无可关联的交易或案例。</p>
                         )}
                       </section>
                     </details>
@@ -1111,15 +1110,14 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                     ) : null}
                   </section>
                 </details>
-                <details id="weekly-trade-evidence" className="wr-disclosure wr-detail-evidence" ref={evidenceRef}>
+                {evidenceCount > 0 && <details id="weekly-trade-evidence" className="wr-disclosure wr-detail-evidence" ref={evidenceRef}>
                   <summary onClick={(event) => { event.preventDefault(); closeEvidence('evidence') }}>
                     <span>交易证据</span><small>{evidenceCount} 笔</small><ChevronRight size={ICON_SM} aria-hidden />
                   </summary>
                   <section className="wr-section" data-weekly-section="evidence" data-invalid="false">
                     {evidenceCount > 6 ? <button type="button" className="ui-btn ui-btn-ghost wr-evidence-toggle" aria-expanded={showAllEvidence} onClick={() => setShowAllEvidence((value) => !value)}>{showAllEvidence ? '只看已标记证据' : `查看和标记全部 ${evidenceCount} 笔交易`}</button> : null}
                     {compactEvidence && displayedEvidenceTrades.length + displayedMissedTrades.length === 0 ? <p className="wr-empty">尚未标记关键证据。</p> : null}
-                    {evidenceTrades.length || evidenceMissedTrades.length ? (
-                      <div className="wr-evidence-groups">
+                    <div className="wr-evidence-groups">
                         {displayedEvidenceTrades.length ? (
                           <div className="wr-evidence-group">
                             {displayedMissedTrades.length ? <div className="wr-evidence-group-title">已执行并平仓</div> : null}
@@ -1154,10 +1152,9 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                             </div>
                           </div>
                         ) : null}
-                      </div>
-                    ) : <div className="wr-empty">本周没有实盘已平仓交易或错过机会。仍可记录无交易决策、观察与下周行动。</div>}
+                    </div>
                   </section>
-                </details>
+                </details>}
                 <details id="weekly-risk-evidence" className="wr-disclosure wr-detail-risk" ref={riskRef}>
                   <summary onClick={(event) => { event.preventDefault(); closeEvidence('risk') }}>
                     <span>风控明细</span><ChevronRight size={ICON_SM} aria-hidden />
@@ -1187,7 +1184,8 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
 }
 
 function Metric({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: 'positive' | 'negative' }) {
-  const body = <div className="wr-metric"><span>{label}</span><strong className={tone ? `is-${tone}` : ''}>{value}</strong></div>
+  const numberRef = useValueMotion<HTMLElement>(value)
+  const body = <div className="wr-metric"><span>{label}</span><strong ref={numberRef} className={tone ? `is-${tone}` : ''}>{value}</strong></div>
   return hint ? <Tooltip content={hint} label={`${label} ${value}，${hint}`} focusable>{body}</Tooltip> : body
 }
 

@@ -27,6 +27,8 @@ import {
   normalizeSession,
 } from '@/lib/tradeView'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
+import { composerDefaultsForWorkspace } from '@/lib/createRecordAction'
+import { getNextTradeRef } from '@/lib/quickNoteRecordDraft'
 import { defaultTradeKindForPath } from '@/lib/tradeKind'
 import { applyCaseClassificationMutation } from '@/lib/reviewCaseClassification'
 import { commitComposerTradeBatch } from '@/lib/tradeComposerCommit'
@@ -85,20 +87,12 @@ function optionalNumber(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function getNextRef(trades: Trade[], kind: TradeKind): string {
-  const prefix = kind === 'case' ? 'CAS' : 'TRD'
-  const maxNum = trades.reduce((max, t) => {
-    const match = t.ref.match(new RegExp(`^${prefix}-(\\d+)$`))
-    return match ? Math.max(max, parseInt(match[1], 10)) : max
-  }, 0)
-  return `${prefix}-${maxNum + 1}`
-}
-
 export function TradeComposer() {
   const navigate = useNavigate()
   const location = useLocation()
   const open = useStore((s) => s.composerOpen)
   const editing = useStore((s) => s.composerTrade)
+  const group = useStore(s => s.composerGroup)
   const projectId = useStore(s => s.composerProjectId)
   const projects = useStore(s => s.backtestProjects)
   const project = projects.find(item => item.id === projectId)
@@ -109,12 +103,13 @@ export function TradeComposer() {
   const close = useStore((s) => s.closeComposer)
   const tradingDayStartHour = useStore((s) => s.display.tradingDayStartHour)
 
+  const defaults = useMemo(() => composerDefaultsForWorkspace(location.pathname, location.search), [location.pathname, location.search])
   const symbolOptions = useMemo(
-    () => collectSymbolOptions(symbolCatalog, [], editing?.symbol ? [editing.symbol] : []),
-    [symbolCatalog, editing?.symbol],
+    () => collectSymbolOptions(symbolCatalog, [], [editing?.symbol ?? defaults.symbol ?? '']),
+    [symbolCatalog, editing?.symbol, defaults.symbol],
   )
   const defaultSymbol = symbolOptions[0] ?? ''
-  const defaultTradingDay = () => getTradingDayKey(new Date(), tradingDayStartHour)
+  const [requestedMonth, setRequestedMonth] = useState<string | undefined>()
 
   const [symbol, setSymbol] = useState(defaultSymbol)
   const [side, setSide] = useState<TradeSide>('long')
@@ -129,6 +124,7 @@ export function TradeComposer() {
   const [entry, setEntry] = useState('')
   const [size, setSize] = useState('')
   const [stopLoss, setStopLoss] = useState('')
+  const [invalidNumber, setInvalidNumber] = useState<string | null>(null)
   const [backtestError, setBacktestError] = useState<{ field: 'date' | 'r'; message: string } | null>(null)
   const [backtestR, setBacktestR] = useState('')
   const [quickText, setQuickText] = useState('')
@@ -161,20 +157,29 @@ export function TradeComposer() {
     caseTypeDirtyRef.current = false
   }, [open])
 
+  const initialized = useRef<{ tradeId?: string; projectId: string | null; kind: TradeKind | null; group: typeof group } | null>(null)
   useLayoutEffect(() => {
-    if (!open) return
-    const nextSymbol = editing?.symbol ?? project?.symbol ?? defaultSymbol
-    const nextSide = editing?.side ?? 'long'
+    if (!open) { initialized.current = null; return }
+    const owner = initialized.current
+    if (owner && owner.tradeId === editing?.id && owner.projectId === projectId && owner.kind === requestedKind && owner.group === group) return
+    initialized.current = { tradeId: editing?.id, projectId, kind: requestedKind, group }
+    const today = getTradingDayKey(new Date(), tradingDayStartHour)
+    const month = !editing && !project && group?.month && group.month !== today.slice(0, 7) ? group.month : undefined
+    setRequestedMonth(month)
+    const nextSymbol = editing?.symbol ?? project?.symbol ?? defaults.symbol?.trim().toUpperCase() ?? defaultSymbol
+    const nextSide = editing?.side ?? defaults.side ?? 'long'
     const nextTimeframe = resolveTimeframe(editing?.timeframe)
     const nextSession = editing ? getSessionSelectValue(editing) : ''
-    const nextOpenedAt = editing?.openedAt.slice(0, 10) ?? (project ? getProjectTrades(useStore.getState().trades, project.id).at(-1)?.openedAt.slice(0, 10) ?? project.startedAt : defaultTradingDay())
-    const nextStrategyId = editing?.strategyId ?? project?.defaultStrategyId ?? strategies[0]?.id ?? ''
+    const nextOpenedAt = editing?.openedAt.slice(0, 10) ?? (project ? getProjectTrades(useStore.getState().trades, project.id).at(-1)?.openedAt.slice(0, 10) ?? project.startedAt : month ? '' : today)
+    const scopedStrategy = group?.strategyId ?? defaults.strategyId
+    const matchingStrategy = strategies.find(item => item.id === scopedStrategy || encodeURIComponent(item.id) === scopedStrategy)
+    const nextStrategyId = editing?.strategyId ?? project?.defaultStrategyId ?? matchingStrategy?.id ?? strategies[0]?.id ?? ''
     const nextKind = editing?.tradeKind ?? requestedKind ?? defaultKind
-    const nextStatus = editing?.status === 'missed' ? 'missed' : 'planned'
+    const nextStatus = editing ? (editing.status === 'missed' ? 'missed' : 'planned') : group?.status ?? defaults.status
     const nextEntry = editing?.entry ? String(editing.entry) : ''
     const nextSize = editing?.size ? String(editing.size) : ''
-    const nextStopLoss = editing?.stopLoss ? String(editing.stopLoss) : ''
-    const nextCaseType = editing?.caseType ??
+    const nextStopLoss = editing?.stopLoss != null ? String(editing.stopLoss) : ''
+    const nextCaseType = editing?.caseType ?? (!editing && nextKind === 'case' ? (nextStatus === 'missed' ? 'missed' : defaults.caseType) : undefined) ??
       (editing?.status === 'missed'
         ? 'missed'
         : editing?.reviewCategory === 'mistake'
@@ -193,10 +198,11 @@ export function TradeComposer() {
     setEntry(nextEntry)
     setSize(nextSize)
     setStopLoss(nextStopLoss)
+    setInvalidNumber(null)
     setBacktestError(null)
     setBacktestR(editing?.rMultiple != null ? String(editing.rMultiple) : '')
     setQuickText('')
-    setShowMore(Boolean(editing))
+    setShowMore(Boolean(editing) || (nextKind !== 'backtest' && nextStatus === 'missed') || (nextKind === 'case' && nextCaseType !== 'exemplar'))
     setCaseType(nextCaseType)
     setDiscardConfirmOpen(false)
     baselineRef.current = composerSnapshot({
@@ -216,7 +222,7 @@ export function TradeComposer() {
       caseType: nextCaseType,
       imageIds: [],
     })
-  }, [open, editing, strategies, defaultSymbol, tradingDayStartHour, project, requestedKind, defaultKind])
+  }, [open, editing, strategies, defaultSymbol, tradingDayStartHour, projectId, project, requestedKind, defaultKind, defaults, group])
 
   useEffect(() => registerTradeComposerDraftGuard(() =>
     useStore.getState().composerOpen && currentSnapshotRef.current !== baselineRef.current,
@@ -238,7 +244,7 @@ export function TradeComposer() {
       setSide('long')
       setTimeframe(DEFAULT_TIMEFRAME)
       setSession('')
-      setOpenedAt(defaultTradingDay())
+      setOpenedAt(getTradingDayKey(new Date(), tradingDayStartHour))
       setStrategyId('')
       setKind('live')
       setStatus('planned')
@@ -322,15 +328,22 @@ export function TradeComposer() {
   }
 
   const handleQuickCreate = (continueRecording = false) => {
-    if (submittingRef.current) return
+    if (submittingRef.current || !openedAt) return
     if (!symbol.trim()) {
       toast('请先选择交易品种')
+      return
+    }
+    const invalid = Object.entries({ entry, size, stopLoss }).find(([, value]) => value.trim() && optionalNumber(value) === null)
+    if (isTradeQuickNew && invalid) {
+      setShowMore(true)
+      setInvalidNumber(invalid[0])
+      requestAnimationFrame(() => document.getElementById(`composer-number-${invalid[0]}`)?.focus())
       return
     }
     if (activeKind === 'backtest') {
       if (!project || (project.archivedAt && !editing)) { toast('请先打开一个未归档的回测项目'); return }
       if (openedAt < project.startedAt) { setBacktestError({ field: 'date', message: '历史日期不能早于项目开始日期' }); document.querySelector<HTMLButtonElement>('.composer-date-field button')?.focus(); return }
-      if ((backtestR.trim() && optionalNumber(backtestR) === null) || (document.getElementById('backtest-r') as HTMLInputElement | null)?.validity.badInput) { setBacktestError({ field: 'r', message: '请输入有效的 R 数值' }); document.getElementById('backtest-r')?.focus(); return }
+      if (status !== 'missed' && ((backtestR.trim() && optionalNumber(backtestR) === null) || (document.getElementById('backtest-r') as HTMLInputElement | null)?.validity.badInput)) { setBacktestError({ field: 'r', message: '请输入有效的 R 数值' }); document.getElementById('backtest-r')?.focus(); return }
     }
     submittingRef.current = true
     setSubmitting(true)
@@ -379,7 +392,7 @@ export function TradeComposer() {
           }
           const candidate: Trade = {
             id: newTradeId,
-            ref: getNextRef(state.trades, kind),
+            ref: getNextTradeRef(state.trades, kind),
             status,
             conviction: 'medium',
             tradeKind: kind,
@@ -417,13 +430,21 @@ export function TradeComposer() {
         return
       }
 
-      close()
       if (continueRecording && project && !editing) {
-        navigate(projectPath(project.id))
-        setTimeout(() => useStore.getState().openComposer(null, 'backtest', project.id), 0)
+        const path = projectPath(project.id)
+        if (location.pathname !== path) navigate(path)
+        previewUrlsRef.current.forEach(releaseImagePreview)
+        setImages([])
+        setIsDragging(false)
+        useStore.getState().openComposer(null, 'backtest', project.id, { status })
+        requestAnimationFrame(() => {
+          const firstField = status === 'missed' ? '[aria-label="回测历史日期"]' : '#backtest-r'
+          document.querySelector<HTMLElement>(firstField)?.focus({ preventScroll: true })
+        })
         toast('已保存，可继续下一笔')
         return
       }
+      close()
       if (!editing) {
         navigate(tradeDetailPath(trade), {
           state: tradeDetailNavState({
@@ -467,6 +488,21 @@ export function TradeComposer() {
       <button type="button" className={`is-short${side === 'short' ? ' is-on' : ''}`} aria-pressed={side === 'short'} onClick={() => setSide('short')}>做空</button>
     </div>
   </div>
+  const numberField = (key: string, label: string, value: string, change: (value: string) => void) => {
+    const invalid = invalidNumber === key
+    const id = `composer-number-${key}`
+    return <div className="composer-essential-field">
+      <label className="composer-essential-label" htmlFor={id}>{label}</label>
+      <input id={id} inputMode="decimal" value={value} placeholder="可选" aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? id + '-error' : undefined} onChange={event => { change(event.target.value); if (invalid) setInvalidNumber(null) }} />
+      {invalid && <span id={id + '-error'} className="composer-validation" role="alert">请输入有效数字</span>}
+    </div>
+  }
+  const backtestParticipation = <div className="composer-essential-field">
+    <span className="composer-essential-label">参与情况</span>
+    <Select value={status} onValueChange={value => setStatus(value === 'missed' ? 'missed' : 'planned')} ariaLabel="参与情况"
+      options={[{ value: 'planned', label: '模拟参与' }, { value: 'missed', label: '未参与' }]} />
+  </div>
   const strategyField = <div className="composer-essential-field">
     <span className="composer-essential-label">策略</span>
     <Select value={strategyId} onValueChange={setStrategyId} ariaLabel="交易策略" options={strategies.length === 0 ? [{ value: '', label: '未设置' }] : strategies.map(strategy => ({ value: strategy.id, label: strategy.name }))} />
@@ -481,7 +517,7 @@ export function TradeComposer() {
       panelClassName={`composer-modal${activeKind === 'backtest' ? ' composer-backtest' : ''}`}
       bodyClassName="composer-body-quick"
       footerClassName="composer-footer-quick"
-      initialFocusSelector={activeKind === 'backtest' ? '#backtest-r' : '.composer-input-symbol .ui-select-trigger'}
+      initialFocusSelector={requestedMonth || (activeKind === 'backtest' && status === 'missed') ? '.composer-date-field button' : activeKind === 'backtest' ? '#backtest-r' : '.composer-input-symbol .ui-select-trigger'}
       onClose={requestClose}
       footer={(
         <>
@@ -495,7 +531,7 @@ export function TradeComposer() {
               size="lg"
               className={activeKind === 'backtest' ? undefined : 'composer-btn-primary'}
               onClick={() => handleQuickCreate()}
-              disabled={!symbol.trim() || submitting}
+              disabled={!symbol.trim() || !openedAt || submitting}
             >
               {submitting ? '保存中…' : editing ? '保存' : isTradeQuickNew ? '保存记录' : `创建${recordLabel}`}
             </Button>
@@ -507,10 +543,10 @@ export function TradeComposer() {
             <div className="composer-backtest-context"><SymbolIcon symbol={symbol} overrides={symbolIcons} size={ICON_MD} quiet /><span className="composer-backtest-symbol">{symbol}</span>{project && <OverflowTooltip text={project.name}><span className="composer-backtest-project">{project.name}</span></OverflowTooltip>}</div>
             <div className="composer-backtest-result">
               <div className="composer-backtest-pair">
-                <div className="composer-field-quick"><label htmlFor="backtest-r">R 结果</label><input id="backtest-r" aria-label="回测 R 结果" type="number" step="any" className="composer-input-quick" value={backtestR} aria-describedby={backtestError?.field === 'r' ? 'backtest-error backtest-r-help' : 'backtest-r-help'} aria-invalid={backtestError?.field === 'r'} onChange={event => { if (backtestError?.field === 'r') setBacktestError(null); setBacktestR(event.target.value) }} /></div>
+                {status === 'missed' ? backtestParticipation : <div className="composer-field-quick"><label htmlFor="backtest-r">R 结果</label><input id="backtest-r" aria-label="回测 R 结果" type="number" step="any" className="composer-input-quick" value={backtestR} aria-describedby={backtestError?.field === 'r' ? 'backtest-error backtest-r-help' : 'backtest-r-help'} aria-invalid={backtestError?.field === 'r'} onChange={event => { if (backtestError?.field === 'r') setBacktestError(null); setBacktestR(event.target.value) }} /></div>}
                 <div className="composer-essential-field composer-date-field"><span className="composer-essential-label">历史日期</span><DatePicker value={openedAt} onValueChange={value => { if (backtestError?.field === 'date') setBacktestError(null); setOpenedAt(value) }} ariaLabel="回测历史日期" ariaInvalid={backtestError?.field === 'date'} ariaDescribedBy={backtestError?.field === 'date' ? 'backtest-error' : undefined} required /></div>
               </div>
-              <p id="backtest-r-help" className="composer-backtest-hint">正数盈利，负数亏损，0 保本；留空待确认。</p>
+              {status !== 'missed' && <p id="backtest-r-help" className="composer-backtest-hint">留空可稍后补录。</p>}
               {backtestError && <p id="backtest-error" className="composer-validation" role="alert">{backtestError.message}</p>}
             </div>
             <div className="composer-backtest-pair">{directionField}{strategyField}</div>
@@ -538,6 +574,10 @@ export function TradeComposer() {
             {directionField}
           </section>}
 
+          {requestedMonth && <div className="composer-essential-field composer-date-field">
+            <span className="composer-essential-label">交易日期 · {requestedMonth}</span>
+            <DatePicker value={openedAt} initialMonth={requestedMonth} onValueChange={setOpenedAt} ariaLabel="交易日期" required />
+          </div>}
           {isNew ? (
             <div className="composer-quick-context">
               <label htmlFor="composer-quick-text">一句话（可选）</label>
@@ -552,7 +592,8 @@ export function TradeComposer() {
           ) : null}
 
           {showMore ? <div className="composer-parameter-grid">
-            {isTradeQuickNew ? (
+            {activeKind === 'backtest' && status !== 'missed' && backtestParticipation}
+            {isTradeQuickNew && activeKind !== 'backtest' ? (
               <div className="composer-essential-field">
                 <span className="composer-essential-label">状态</span>
                 <Select
@@ -594,7 +635,7 @@ export function TradeComposer() {
                 ]}
               />
             </div>
-            {activeKind !== 'backtest' && <div className="composer-essential-field composer-date-field">
+            {activeKind !== 'backtest' && !requestedMonth && <div className="composer-essential-field composer-date-field">
               <span className="composer-essential-label">交易日期</span>
               <DatePicker
                 value={openedAt}
@@ -604,18 +645,9 @@ export function TradeComposer() {
               />
             </div>}
             {isTradeQuickNew ? <>
-              <label className="composer-essential-field">
-                <span className="composer-essential-label">入场价</span>
-                <input inputMode="decimal" value={entry} placeholder="可选" onChange={(event) => setEntry(event.target.value)} />
-              </label>
-              <label className="composer-essential-field">
-                <span className="composer-essential-label">仓位</span>
-                <input inputMode="decimal" value={size} placeholder="可选" onChange={(event) => setSize(event.target.value)} />
-              </label>
-              <label className="composer-essential-field">
-                <span className="composer-essential-label">止损价</span>
-                <input inputMode="decimal" value={stopLoss} placeholder="可选" onChange={(event) => setStopLoss(event.target.value)} />
-              </label>
+              {numberField('entry', '入场价', entry, setEntry)}
+              {numberField('size', '仓位', size, setSize)}
+              {numberField('stopLoss', '止损价', stopLoss, setStopLoss)}
             </> : null}
             {activeKind === 'case' ? (
               <div className="composer-essential-field">

@@ -59,6 +59,15 @@ export function testCaseClassificationPrecedesFoldableContext(): void {
   assert.equal(buildTradeRowContext(fixture({ tradeKind: 'case', caseType: 'missed', status: 'missed' }))[0]?.label, '错过机会')
 }
 
+export function testMistakeViewShowsReasonsBeforeOtherContext(): void {
+  const trade = fixture({ tradeKind: 'case', caseType: 'mistake' })
+  const regular = buildTradeRowContext(trade)
+  const prioritized = buildTradeRowContext(trade, true)
+  assert.deepEqual(prioritized.slice(0, 2).map(item => item.label), ['追单', '过早入场'])
+  assert.deepEqual(prioritized.filter(item => item.kind !== 'mistake'), regular.filter(item => item.kind !== 'mistake'))
+  assert.equal(prioritized.length, regular.length)
+}
+
 export async function testTradeRowResultsDistinguishMissingZeroAndUncollected(): Promise<void> {
   const pnlOnly = resolveTradeRowResultPresentation(fixture({ pnl: 0, status: 'breakeven' }), null, false)
   assert.deepEqual(pnlOnly.cash, { text: '$0', state: 'zero' })

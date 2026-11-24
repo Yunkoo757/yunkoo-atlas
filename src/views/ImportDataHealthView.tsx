@@ -92,7 +92,7 @@ export function ImportDataHealthView() {
         showDisplay={false}
       />
       <main className="idh-view">
-        <div className="list-pending-entry idh-toolbar">
+        <div className="idh-toolbar">
           <Link className="list-pending-link" to="/live-history">
             <ArrowLeft size={ICON_SM} aria-hidden />
             返回历史实盘
@@ -189,7 +189,8 @@ export function ImportDataHealthView() {
       {confirming ? (
         <ModalShell
           title="确认清空平仓日？"
-          description={`将清空 ${selectedCount} 条历史实盘记录的平仓日。`}
+          size="compact"
+          description={`将清空 ${selectedCount} 条历史实盘记录的平仓日。完成后可撤销。`}
           busy={busy}
           dismissible={!busy}
           onClose={() => setConfirming(false)}
@@ -203,9 +204,7 @@ export function ImportDataHealthView() {
               </Button>
             </>
           )}
-        >
-          <p>完成后可撤销本次操作。</p>
-        </ModalShell>
+        />
       ) : null}
     </>
   )

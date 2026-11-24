@@ -9,6 +9,7 @@ import { createDefaultReviewTemplates } from '@/data/reviewTemplates'
 import { DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { normalizeReviewPoolLayout } from '@/lib/reviewPools'
+import { useToast } from '@/lib/toast'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
@@ -26,6 +27,7 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
 }
 
 export function resetEmptyLibraryIntoStore(): void {
+  useToast.getState().dismiss()
   const empty = createEmptyPersistedSnapshot()
   useStore.setState({
     trades: [],
@@ -45,6 +47,7 @@ export function resetEmptyLibraryIntoStore(): void {
     composerTrade: null,
     composerKind: null,
     composerProjectId: null,
+    composerGroup: null,
     closeTradeRequest: null,
     undoStack: [],
     redoStack: [],
@@ -66,12 +69,14 @@ export function resetEmptyLibraryIntoStore(): void {
 }
 
 export function clearSessionUiAfterLibrarySwitch(): void {
+  useToast.getState().dismiss()
   useStore.setState({
     selectedId: null,
     composerOpen: false,
     composerTrade: null,
     composerKind: null,
     composerProjectId: null,
+    composerGroup: null,
     closeTradeRequest: null,
     undoStack: [],
     redoStack: [],

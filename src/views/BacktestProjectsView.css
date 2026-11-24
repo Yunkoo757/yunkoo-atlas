@@ -118,7 +118,8 @@
 .backtest-info dl > div { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-4); }
 .backtest-info dt { color: var(--text-content-metadata); font-size: var(--type-metadata-size); font-weight: var(--type-metadata-weight); line-height: var(--type-metadata-line-height); }
 .backtest-info dd { margin: 0; text-align: right; color: var(--text-content-supporting); font-size: var(--type-row-size); font-weight: var(--type-row-weight); line-height: var(--type-row-line-height); }
-.backtest-info h3 { margin: 0 0 var(--sp-2); color: var(--text-content-supporting); font-size: var(--type-section-title-size); font-weight: var(--type-section-title-weight); line-height: var(--type-section-title-line-height); }
+.backtest-info-rule-section { border-top: 1px solid var(--border-divider); padding-top: var(--sp-2); }
+.backtest-info-rule-section[open] > summary { margin-bottom: var(--sp-2); }
 .backtest-info-rules { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-body); font-size: var(--type-body-size); font-weight: var(--font-weight-normal); line-height: var(--type-body-line-height); }
 
 .backtest-project-row {
@@ -183,19 +184,6 @@
 .backtest-project-r.is-positive { color: var(--pos); }
 .backtest-project-r.is-negative { color: var(--neg); }
 
-.backtest-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--sp-3);
-  padding: var(--sp-8);
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: var(--type-row-size);
-  font-weight: var(--type-row-weight);
-  line-height: var(--type-row-line-height);
-}
-
 .backtest-form {
   display: flex;
   flex-direction: column;
@@ -220,17 +208,6 @@
 .backtest-form input[readonly] { color: var(--text-content-supporting); }
 .backtest-form textarea { margin-top: var(--sp-3); padding: var(--sp-2) var(--field-padding-inline); resize: vertical; }
 .backtest-form input[aria-invalid='true'] { border-color: var(--neg); }
-
-.backtest-form summary {
-  width: fit-content;
-  border-radius: var(--radius-4);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.backtest-form summary:hover,
-.backtest-form summary:focus-visible { color: var(--text-primary); }
-.backtest-form summary:focus-visible { box-shadow: 0 0 0 1px var(--text-tertiary); }
 
 .backtest-form-help {
   margin: 0;

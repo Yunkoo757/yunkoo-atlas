@@ -1,11 +1,3 @@
-.live-stage-manager-shell {
-  max-height: min(820px, calc(100vh - var(--sp-8)));
-}
-
-.live-stage-manager-body {
-  overflow-y: auto;
-}
-
 .live-stage-manager {
   display: grid;
   gap: var(--sp-4);

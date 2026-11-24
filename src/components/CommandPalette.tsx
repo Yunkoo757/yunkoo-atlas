@@ -1,6 +1,8 @@
-import { createRecordForContext, resolveCreateRecordAction } from '@/lib/createRecordAction'
+import { useExitClone } from '@/components/ui/useExitClone'
+import { isComposingKey } from '@/lib/keyboardComposition'
+import { createRecordForContext, isRecordCreationArchived, resolveCreateRecordAction } from '@/lib/createRecordAction'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
-import { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -133,20 +135,8 @@ function CommandPaletteDialog({
 }) {
   const [q, setQ] = useState(initialSession?.query ?? '')
   const [limit, setLimit] = useState(initialSession?.limit ?? MAX_SEARCH_RESULTS)
-  const [closing, setClosing] = useState(false)
-  const closeTimerRef = useRef<number | null>(null)
-  const requestClose = useCallback(() => {
-    if (closeTimerRef.current !== null) return
-    setClosing(true)
-    closeTimerRef.current = window.setTimeout(onClose, 110)
-  }, [onClose])
-  const closeImmediately = useCallback(() => {
-    if (closeTimerRef.current !== null) {
-      window.clearTimeout(closeTimerRef.current)
-      closeTimerRef.current = null
-    }
-    onClose()
-  }, [onClose])
+  const exitRef = useExitClone<HTMLDivElement>()
+  const requestClose = onClose
   const deferredQuery = useDeferredValue(q)
   const [active, setActive] = useState(0)
   const navigate = useNavigate()
@@ -154,6 +144,7 @@ function CommandPaletteDialog({
   const { pathname, search } = location
   const origin = useRef({ pathname, search, key: location.key })
   const trades = useStore((s) => s.trades)
+  const creationArchived = useStore(state => isRecordCreationArchived(pathname, state.trades, state.backtestProjects))
   const strategies = useStore((s) => s.strategies)
   const quickNotes = useStore((s) => s.quickNotes)
   const savedTradeViews = useStore((s) => s.savedTradeViews)
@@ -210,10 +201,6 @@ function CommandPaletteDialog({
     return { strategyCounts, tagCandidates }
   }, [searchableTrades, textSearchEnabled])
 
-  useEffect(() => () => {
-    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
-  }, [])
-
   const searchResult = useMemo(() => {
     const go = (to: string) => () => {
       navigate(to)
@@ -266,9 +253,10 @@ function CommandPaletteDialog({
         run: () => { requestClose(); navigate('/settings/data') },
       },
     ]
+    const createAction = resolveCreateRecordAction(pathname, search, trades)
     const actions: Cmd[] = [
-      { id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: resolveCreateRecordAction(pathname, search).label, hint: shortcutHint(resolveCreateRecordAction(pathname, search).actionId), run: () => { requestClose(); createRecordForContext(pathname, search, navigate) } },
-      ...(resolveCreateRecordAction(pathname, search).kind === 'case' ? [] : [{ id: 'a-new-case', group: '操作', icon: <BookOpen size={ICON_MD} />, label: '新建案例', hint: shortcutHint('global.newCase'), run: () => { requestClose(); openComposer(null, 'case') } }]),
+      ...(!creationArchived ? [{ id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: createAction.label, hint: shortcutHint(createAction.actionId), run: () => { requestClose(); createRecordForContext(pathname, search, navigate) } }] : []),
+      ...(createAction.kind === 'case' ? [] : [{ id: 'a-new-case', group: '操作', icon: <BookOpen size={ICON_MD} />, label: '新建案例', hint: shortcutHint('global.newCase'), run: () => { requestClose(); openComposer(null, 'case') } }]),
       { id: 'a-fullscreen', group: '操作', icon: <Maximize2 size={ICON_MD} />, label: '切换应用全屏', hint: shortcutHint('global.toggleFullscreen'), run: () => {
         requestClose()
         const bridge = window.journalBridge
@@ -311,7 +299,7 @@ function CommandPaletteDialog({
           run: () => {
             if (status === 'open') {
               const transientOpener = inputRef.current
-              closeImmediately()
+              requestClose()
               requestAnimationFrame(() => requestTradeOpen(activeTrade.id, transientOpener))
               return
             }
@@ -449,7 +437,7 @@ function CommandPaletteDialog({
     return { commands, total }
   }, [
     activeTrade,
-    closeImmediately,
+    creationArchived,
     deferredQuery,
     display,
     isStarred,
@@ -487,7 +475,7 @@ function CommandPaletteDialog({
     ? `${listboxId}-option-${active}`
     : undefined
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (returnFocusFrameRef.current !== null) {
       cancelAnimationFrame(returnFocusFrameRef.current)
       returnFocusFrameRef.current = null
@@ -495,17 +483,16 @@ function CommandPaletteDialog({
     returnFocusRef.current = returnFocusTo ?? (
       document.activeElement instanceof HTMLElement ? document.activeElement : null
     )
+    inputRef.current?.focus({ preventScroll: true })
     return () => {
       const target = returnFocusRef.current
       returnFocusFrameRef.current = requestAnimationFrame(() => {
         returnFocusFrameRef.current = null
-        if (target?.isConnected) target.focus()
+        if (target?.isConnected && (!document.activeElement || document.activeElement === document.body || !document.activeElement.isConnected)) {
+          target.focus({ preventScroll: true })
+        }
       })
     }
-  }, [])
-
-  useEffect(() => {
-    requestAnimationFrame(() => inputRef.current?.focus())
   }, [])
 
   const updateQuery = (value: string) => {
@@ -526,10 +513,10 @@ function CommandPaletteDialog({
   }, [])
 
   useEffect(() => {
-    if (queryPending || closing) return
+    if (queryPending) return
     sessionRef.current = { query: q, limit, activeId: visibleCommands[active]?.id, scrollTop: listRef.current?.scrollTop ?? 0, origin: origin.current }
     onRemember(sessionRef.current)
-  }, [q, limit, active, visibleCommands, queryPending, closing, onRemember])
+  }, [q, limit, active, visibleCommands, queryPending, onRemember])
 
   useEffect(() => {
     setActive((current) => Math.min(current, Math.max(0, visibleCommands.length - 1)))
@@ -542,7 +529,7 @@ function CommandPaletteDialog({
   }, [active])
 
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) return
+    if (isComposingKey(e.nativeEvent)) return
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       if (!queryPending && hasMore && active === visibleCommands.length - 1) {
@@ -566,7 +553,7 @@ function CommandPaletteDialog({
   let flatIndex = -1
 
   return createPortal(
-    <div className={`cmdk-overlay${closing ? ' is-closing' : ''}`} role="presentation" onMouseDown={requestClose}>
+    <div ref={exitRef} className="cmdk-overlay" role="presentation" onMouseDown={requestClose}>
       <div
         className="cmdk"
         role="dialog"
@@ -574,6 +561,7 @@ function CommandPaletteDialog({
         aria-label="搜索与命令"
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(event) => {
+          if (isComposingKey(event.nativeEvent)) return
           if (event.key === 'Escape' && !event.defaultPrevented) {
             event.stopPropagation()
             requestClose()

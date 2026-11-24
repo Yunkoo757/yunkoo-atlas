@@ -16,6 +16,7 @@ import '@/views/StrategiesView.css'
 export function StrategiesPanel() {
   const strategies = useStore((s) => s.strategies)
   const trades = useStore((s) => s.trades)
+  const projects = useStore((s) => s.backtestProjects)
   const addStrategy = useStore((s) => s.addStrategy)
   const updateStrategy = useStore((s) => s.updateStrategy)
   const removeStrategy = useStore((s) => s.removeStrategy)
@@ -23,7 +24,6 @@ export function StrategiesPanel() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Strategy | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Strategy | null>(null)
-  const [deleteCount, setDeleteCount] = useState(0)
   const [reassignId, setReassignId] = useState('')
 
   const rows = useMemo(
@@ -38,6 +38,10 @@ export function StrategiesPanel() {
   )
 
   const existingNames = strategies.map((s) => s.name)
+  const deleteCount = deleteTarget ? countStrategyReferences(trades, deleteTarget.id) : 0
+  const projectCount = deleteTarget ? projects.filter(project => project.defaultStrategyId === deleteTarget.id).length : 0
+  const destinations = deleteTarget ? strategies.filter(strategy => strategy.id !== deleteTarget.id) : []
+  const destination = destinations.length === 1 ? destinations[0] : destinations.find(strategy => strategy.id === reassignId)
 
   const openCreate = () => {
     setEditing(null)
@@ -62,17 +66,11 @@ export function StrategiesPanel() {
 
   const confirmDelete = () => {
     if (!deleteTarget) return
-    const others = strategies.filter((s) => s.id !== deleteTarget.id)
-    if (deleteCount > 0 && others.length === 0) {
-      toast('至少保留一个策略')
+    if (deleteCount > 0 && !destination) return
+    if (!removeStrategy(deleteTarget.id, deleteCount > 0 ? destination?.id : undefined)) {
+      toast('策略或关联记录已变化，请重新核对', { tone: 'warning' })
       return
     }
-    const targetId = deleteCount > 0 ? reassignId || others[0]?.id : undefined
-    if (deleteCount > 0 && !targetId) {
-      toast('请选择迁移目标策略')
-      return
-    }
-    removeStrategy(deleteTarget.id, targetId)
     toast('策略已删除')
     setDeleteTarget(null)
     setReassignId('')
@@ -114,8 +112,7 @@ export function StrategiesPanel() {
                     aria-label={`删除 ${s.name}`}
                     onClick={() => {
                       setDeleteTarget(s)
-                      setDeleteCount(s.linkedCount)
-                      setReassignId(strategies.find((x) => x.id !== s.id)?.id ?? '')
+                      setReassignId('')
                     }}
                     disabled={strategies.length <= 1}
                   >
@@ -165,9 +162,10 @@ export function StrategiesPanel() {
               <button
                 type="button"
                 className="ui-btn ui-btn-danger-solid"
+                disabled={destinations.length === 0 || (deleteCount > 0 && !destination)}
                 onClick={confirmDelete}
               >
-                删除
+                {deleteCount > 0 ? '迁移并删除' : '删除'}
               </button>
             </>
           )}
@@ -175,20 +173,20 @@ export function StrategiesPanel() {
           {deleteCount > 0 ? (
             <>
               <p>
-                该策略下有 <b>{deleteCount}</b> 笔交易，删除前需迁移到其他策略。
+                {deleteCount} 条关联记录{projectCount > 0 && `及 ${projectCount} 个回测项目的默认策略`}
+                {destinations.length === 1 ? `将迁移到「${destination?.name}」。` : '需要迁移，选择接收它们的策略。'}
               </p>
-              <Select
+              {destinations.length > 1 && <Select
                 className="st-del-select"
+                placeholder="选择迁移目标"
                 value={reassignId}
                 onValueChange={setReassignId}
                 ariaLabel="迁移到策略"
-                options={strategies
-                  .filter((s) => s.id !== deleteTarget.id)
-                  .map((strategy) => ({ value: strategy.id, label: strategy.name }))}
-              />
+                options={destinations.map((strategy) => ({ value: strategy.id, label: strategy.name }))}
+              />}
             </>
           ) : (
-            <p>此策略下没有交易，可直接删除。</p>
+            <p>{projectCount > 0 ? `将清除 ${projectCount} 个回测项目的默认策略。` : '此策略没有关联记录。'}</p>
           )}
         </ModalShell>
       ) : null}

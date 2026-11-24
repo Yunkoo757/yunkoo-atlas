@@ -79,6 +79,18 @@ async function run() {
     useShortcutStore.getState().lightboxNext()
     await ready(1)
     assert(transform() === fit, '适合窗口的状态没有被记住')
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.querySelector<HTMLButtonElement>('.img-lightbox-close')!.click()
+      await waitFor(() => Boolean(document.querySelector('.img-lightbox-overlay.is-closing')), '关闭应进入离场')
+      useShortcutStore.getState().openLightbox(images, 0, 'reopened-case')
+      await ready(0)
+      const overlay = document.querySelector<HTMLElement>('.img-lightbox-overlay')!
+      await Promise.allSettled(overlay.getAnimations({ subtree: true }).map(animation => animation.finished))
+      assert(overlay.isConnected && useShortcutStore.getState().lightbox?.ownerId === 'reopened-case', '关闭中的预览被重新打开后应保留最新图片')
+      useShortcutStore.getState().lightboxNext()
+      await ready(1)
+      assert(getComputedStyle(overlay, '::before').opacity === '1', '连续换图时背景应保持稳定')
+    }
     useShortcutStore.getState().closeLightbox()
     await waitFor(() => !document.querySelector('.img-lightbox-overlay'), '预览未关闭')
     useShortcutStore.getState().openLightbox(images, 0, 'first-case')

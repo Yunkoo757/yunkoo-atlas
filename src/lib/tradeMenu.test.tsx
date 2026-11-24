@@ -1,5 +1,7 @@
 import type { Trade } from '@/data/trades'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
+import { moveRecordsToTrash } from '@/lib/tradeTrashAction'
+import { useToast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 
 const source: Trade = {
@@ -64,6 +66,26 @@ export function testContextMenuCopiesOneTradeIntoANewPlan(): void {
     assert(useStore.getState().trades.find((trade) => trade.id === source.id)?.status === 'loss', '复制不得修改源交易')
   } finally {
     useStore.setState(previous, true)
+  }
+}
+
+export function testTrashNotificationsTargetTheOriginalDeletion() {
+  const previous = useStore.getState()
+  const notices = useToast.getState()
+  try {
+    useStore.setState({ trades: [source], undoStack: [], redoStack: [] })
+    moveRecordsToTrash(source.id)
+    const oldUndo = useToast.getState().onAction!
+    useStore.getState().restoreTrade(source.id)
+    moveRecordsToTrash(source.id)
+    const latestUndo = useToast.getState().onAction!
+    oldUndo()
+    assert(useStore.getState().trades[0]?.deletedAt, '旧提示不能撤销后来发生的另一次删除')
+    latestUndo()
+    assert(!useStore.getState().trades[0]?.deletedAt, '当前删除应能原样撤销')
+  } finally {
+    useStore.setState(previous, true)
+    useToast.setState(notices)
   }
 }
 

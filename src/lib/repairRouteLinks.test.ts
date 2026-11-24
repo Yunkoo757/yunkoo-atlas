@@ -14,5 +14,5 @@ export async function testWorkbenchRepairLinksPointToExistingRoutes(): Promise<v
   assert(!dashboard.includes('to="/import-data-health"'), '待补平仓日期不得再进入导入数据健康页')
   assert(!dashboard.includes('to="/settings/data-health"'), '统计页不得继续指向不存在的 data-health')
   assert(weekly.includes('data-weekly-result-link'), '周复盘待补/冲突结果必须提供跳转')
-  assert(board.includes('data-workbench-result-repair'), '看板必须挂上结果修复条')
+  assert.match(board, /<ResultConflictRepair\b[^>]*\bids=\{resultRepairIds\}/, '看板核对入口必须使用当前范围内待处理的记录')
 }

@@ -1,6 +1,6 @@
 import { DEFAULT_TIMEFRAME, type Trade, type TradeKind } from '@/data/trades'
 import type { QuickNote } from '@/data/quickNotes'
-import { addDaysToCurrentTradingDay, DEFAULT_TRADING_DAY_START_HOUR } from '@/lib/periods'
+import { addDaysToCurrentTradingDay, DEFAULT_TRADING_DAY_START_HOUR, getTradingDayKey } from '@/lib/periods'
 import { applyCaseClassificationMutation } from '@/lib/reviewCaseClassification'
 
 export function getNextTradeRef(
@@ -28,7 +28,7 @@ export function buildQuickNoteRecord(input: {
 }): Trade {
   const now = input.now ?? new Date()
   const tradingDayStartHour = input.tradingDayStartHour ?? DEFAULT_TRADING_DAY_START_HOUR
-  const openedAt = now.toISOString().slice(0, 10)
+  const openedAt = getTradingDayKey(now, tradingDayStartHour)
   const symbol = input.symbol.trim().toUpperCase() || 'NOTE'
   const candidate: Trade = {
     id: input.id,

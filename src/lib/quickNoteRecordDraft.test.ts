@@ -29,6 +29,11 @@ export function testQuickNoteBecomesPlannedLiveOrCase(): void {
   assert.equal(live.status, 'planned')
   assert.equal(live.symbol, 'XAUUSD')
   assert.equal(live.note, '<p>盘前观察</p>')
+  const beforeCutoff = buildQuickNoteRecord({
+    note, kind: 'live', id: 'late-trade', ref: 'TRD-9', strategyId: 's1', symbol: 'XAUUSD',
+    liveStageId: 'stage', now: new Date(2026, 8, 7, 9), tradingDayStartHour: 10,
+  })
+  assert.equal(beforeCutoff.openedAt, '2026-09-06')
 
   const reviewCase = buildQuickNoteRecord({
     note,

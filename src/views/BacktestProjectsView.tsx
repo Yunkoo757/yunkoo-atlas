@@ -1,10 +1,11 @@
+import { EmptyState } from '@/components/EmptyState'
 import { Menu } from '@/components/Menu'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { BatchActionBar } from '@/components/ui/BatchActionBar'
 import { Copy, MoreHorizontal, Trash2 } from '@/icons/appIcons'
 import { ICON_SM } from '@/icons/iconSize'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useStore } from '@/store/useStore'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { Button } from '@/components/ui/Button'
@@ -27,12 +28,14 @@ import { flushNoteDraftsToStore } from '@/storage/noteDrafts'
 import { getTradingDayKey } from '@/lib/periods'
 import { toast } from '@/lib/toast'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
+import { moveRecordsToTrash } from '@/lib/tradeTrashAction'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { intersectSelectedTradeIds } from '@/lib/tradeView'
 import { buildSafeTradeCopies } from '@/lib/tradeCopy'
 import { getBatchCopyActionLabel } from '@/lib/tradeActionContract'
 import type { Trade } from '@/data/trades'
+import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import './BacktestProjectsView.css'
 import '@/components/ui/FilterBar.css'
 import '@/components/trades/QuickViewBar.css'
@@ -49,8 +52,17 @@ export function BacktestProjectsView() {
   const starredIds = useStore(state => state.starredIds)
   const openComposer = useStore(state => state.openComposer)
   const saveProject = useStore(state => state.saveBacktestProject)
-  const [scope, setScope] = useState<'active' | 'archived'>('active')
-  const [recordScope, setRecordScope] = useState<'all' | 'pending' | 'missed'>('all')
+  const [params, setParams] = useSearchParams()
+  const scope = params.get('projects') === 'archived' ? 'archived' : 'active'
+  const overviewSearch = scope === 'archived' ? '?projects=archived' : ''
+  const recordsParam = params.get('records')
+  const recordScope = recordsParam === 'pending' || recordsParam === 'missed' ? recordsParam : 'all'
+  const changeScope = (key: 'projects' | 'records', value: string) => {
+    const next = new URLSearchParams(params)
+    if (value === 'active' || value === 'all') next.delete(key)
+    else next.set(key, value)
+    setParams(next, { replace: true })
+  }
   const [editing, setEditing] = useState<BacktestProject | 'new' | null>(null)
   const [panel, setPanel] = useState<'statistics' | 'info' | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -113,7 +125,7 @@ export function BacktestProjectsView() {
           toast,
         }),
         openComposer: state.openComposer,
-        removeTrade: state.removeTrade,
+        removeTrade: moveRecordsToTrash,
         canCopy: !project?.archivedAt,
         toggleStar: state.toggleStar,
         isStarred: state.isStarred,
@@ -129,18 +141,7 @@ export function BacktestProjectsView() {
   const batchDelete = () => {
     const actionableIds = intersectSelectedTradeIds(selectedIds, visible)
     if (!actionableIds.size) return
-    const state = useStore.getState()
-    const previousActionId = state.undoStack.at(-1)?.actionId
-    state.removeTrades([...actionableIds])
-    const latestActionId = useStore.getState().undoStack.at(-1)?.actionId
-    const actionId = latestActionId !== previousActionId ? latestActionId : undefined
-    toast(`已将 ${actionableIds.size} 条回测记录移至回收站，30 天后自动清空`, {
-      label: '撤销',
-      onClick: () => {
-        if (actionId && useStore.getState().undo(actionId)) toast('已恢复删除的回测记录')
-        else toast('目标记录之后已变化，无法安全撤销')
-      },
-    })
+    moveRecordsToTrash([...actionableIds])
     setSelectedIds(new Set())
   }
   const requestBatchCopy = () => {
@@ -201,22 +202,22 @@ export function BacktestProjectsView() {
   ] : []
   return <div className={`backtest-page${id ? ' is-project' : ''}`}>
     <Toolbar title={project?.name ?? '回测项目'} titleTooltip={Boolean(project)} context={project ? <span className="backtest-progress">已确认 {stats.evaluatedCount} / {project.targetCount}{project.archivedAt ? <span className="backtest-lifecycle">已归档</span> : project.completedAt ? <span className="backtest-lifecycle">已完成</span> : null}</span> : undefined}
-      actions={<><SaveStatusIndicator />{!id && <Button variant="primary" onClick={() => setEditing('new')}>新建项目</Button>}{project && <><Button variant="primary" disabled={Boolean(project.archivedAt)} onClick={createRecord}>新建回测记录</Button><Menu align="right" maxWidth={360} trigger={<Button variant="ghost" size="sm" aria-label="切换项目">切换项目</Button>} value={`project:${project.id}`} options={[
+      actions={<><SaveStatusIndicator />{!id && (scope === 'archived' || scopedProjects.length > 0) && <Button variant="primary" onClick={() => setEditing('new')}>新建项目</Button>}{project && <>{project.archivedAt ? <Button variant="bordered" onClick={() => updateLifecycle('archivedAt')}>重新打开项目</Button> : (records.length > 0 || recordScope !== 'all') && <Button variant="primary" onClick={createRecord}>新建回测记录</Button>}<Menu align="right" maxWidth={360} trigger={<Button variant="ghost" size="sm" aria-label="切换项目">切换项目</Button>} value={`project:${project.id}`} options={[
         { value: 'all', label: '全部项目' }, { type: 'separator' },
         ...projects.map(item => ({ value: `project:${item.id}`, label: `${item.name}${item.archivedAt ? '（已归档）' : ''}` })),
-      ]} onSelect={value => { setRecordScope('all'); navigate(value === 'all' ? '/backtests' : projectPath(value.slice('project:'.length))) }} />
+      ]} onSelect={value => navigate((value === 'all' ? '/backtests' : projectPath(value.slice('project:'.length))) + overviewSearch)} />
       <Menu align="right" trigger={<IconButton label="项目操作" tooltip="项目操作"><MoreHorizontal size={ICON_SM} /></IconButton>} options={[
         { value: 'info', label: '项目信息' },
         { value: 'edit', label: '项目设置' },
         { value: 'export', label: exporting ? '正在导出…' : '导出分析包' },
         { type: 'separator' },
         { value: 'complete', label: project.completedAt ? '继续回测' : '标记完成' },
-        { value: 'archive', label: project.archivedAt ? '重新打开项目' : '归档项目' },
+        ...(!project.archivedAt ? [{ value: 'archive', label: '归档项目' }] : []),
       ]} onSelect={value => { if (value === 'info') setPanel('info'); else if (value === 'edit') setEditing(project); else if (value === 'export') void exportProject(); else if (value === 'archive') updateLifecycle('archivedAt'); else if (value === 'complete') updateLifecycle('completedAt') }} /></>}</>} />
-    {id && !project ? <div className="backtest-empty">项目不存在。<Link to="/backtests">返回全部项目</Link></div> : project ? <>
+    {id && !project ? <EmptyState variant="missing" title="找不到这个回测项目" action={<Link className="empty-btn" to="/backtests">返回全部项目</Link>} /> : project ? <>
       <div className="ui-filter-bar backtest-filter-bar">
         <div className="quick-view-bar" role="group" aria-label="项目记录"><div className="quick-view-primary">
-          {([{ value: 'all', label: '全部记录' }, { value: 'pending', label: '待确认' }, { value: 'missed', label: '未参与' }] as const).map(item => <button key={item.value} type="button" className={`quick-view-chip${recordScope === item.value ? ' is-active' : ''}`} aria-pressed={recordScope === item.value} onClick={() => setRecordScope(item.value)}>{item.label}</button>)}
+          {([{ value: 'all', label: '全部记录' }, { value: 'pending', label: '待确认' }, { value: 'missed', label: '未参与' }] as const).map(item => <button key={item.value} type="button" className={`quick-view-chip${recordScope === item.value ? ' is-active' : ''}`} aria-pressed={recordScope === item.value} onClick={() => changeScope('records', item.value)}>{item.label}</button>)}
         </div><span className="backtest-visible-count" title="按历史日期顺序">{visible.length} 条</span></div>
         <div className="backtest-summary" aria-label="整个项目统计摘要">
           {statistics.filter(([label]) => label === '胜率' || label === '总 R').map(([label, value, , explanation]) => <Tooltip key={label} asChild content={explanation} label={`${label}统计口径`}><button type="button" className="backtest-summary-metric" aria-label={`${label}，查看统计口径`}><span>{label}</span><OverflowTooltip text={value}><strong>{value}</strong></OverflowTooltip></button></Tooltip>)}
@@ -225,12 +226,19 @@ export function BacktestProjectsView() {
       </div>
       <div className="list-scroll backtest-records" ref={scrollRef}>
         {visible.length ? <TradeList groups={groups} strategies={strategies} focusedId={visible[focusIndex]?.id ?? null} selectedIds={selectedIds} starredIds={starredIds} scrollParentRef={scrollRef} onOpen={openRecord} onSelect={toggleSelection} onClearSelection={() => setSelectedIds(new Set())} onToggleStar={trade => useStore.getState().toggleStar(trade.id)} onContextMenu={openContextMenu} onCreate={createRecord} recordLabel="回测记录"
-          renderRow={(trade, context) => <TradeRow trade={trade} strategies={strategies} {...context} strategyStats={null} selected={selectedIds.has(trade.id)} starred={starredIds.includes(trade.id)} onOpen={openRecord} onSelect={toggleSelection} onContextMenu={openContextMenu} onToggleStar={item => useStore.getState().toggleStar(item.id)} />} /> : <div className="backtest-empty">{recordScope === 'all' ? <>{project.archivedAt ? '项目已归档，可从项目操作重新打开。' : <>按固定规则，记录第一笔历史交易机会。<Button variant="primary" onClick={createRecord}>新建回测记录</Button></>}</> : '这个分类还没有记录。'}</div>}
+          renderRow={(trade, context) => <TradeRow trade={trade} strategies={strategies} {...context} strategyStats={null} selected={selectedIds.has(trade.id)} starred={starredIds.includes(trade.id)} onOpen={openRecord} onSelect={toggleSelection} onContextMenu={openContextMenu} onToggleStar={item => useStore.getState().toggleStar(item.id)} />} /> : <EmptyState
+            variant={recordScope === 'all' && !project.archivedAt ? 'first-use' : 'filtered'}
+            title={recordScope === 'pending' ? '没有待确认记录' : recordScope === 'missed' ? '没有未参与记录' : '还没有回测记录'}
+            hint={recordScope === 'all' ? (project.archivedAt ? '重新打开项目后可继续记录。' : '按项目规则记录第一笔历史机会。') : undefined}
+            action={recordScope !== 'all'
+              ? <Button variant="bordered" onClick={() => changeScope('records', 'all')}>查看全部记录</Button>
+              : !project.archivedAt && <Button variant="primary" onClick={createRecord}>新建回测记录</Button>}
+          />}
       </div>
     </> : <>
       <div className="ui-filter-bar backtest-filter-bar">
         <div className="quick-view-bar" role="group" aria-label="项目范围"><div className="quick-view-primary">
-          {([{ value: 'active', label: '未归档' }, { value: 'archived', label: '已归档' }] as const).map(item => <button key={item.value} type="button" className={`quick-view-chip${scope === item.value ? ' is-active' : ''}`} aria-pressed={scope === item.value} onClick={() => setScope(item.value)}>{item.label}</button>)}
+          {([{ value: 'active', label: '未归档' }, { value: 'archived', label: '已归档' }] as const).map(item => <button key={item.value} type="button" className={`quick-view-chip${scope === item.value ? ' is-active' : ''}`} aria-pressed={scope === item.value} onClick={() => changeScope('projects', item.value)}>{item.label}</button>)}
         </div></div><span className="backtest-visible-count">{scopedProjects.length} 个项目</span>
       </div>
       <div className="list-scroll backtest-projects">
@@ -238,7 +246,7 @@ export function BacktestProjectsView() {
         const summary = projectSummaries?.get(item.id) ?? stats
         const totalR = summary.rCount ? summary.totalR : null
         const rText = number(totalR, ' R')
-        return <Link className="backtest-project-row" key={item.id} to={projectPath(item.id)}>
+        return <Link className="backtest-project-row" key={item.id} to={projectPath(item.id) + overviewSearch}>
           <div className="backtest-project-identity">
             <div className="backtest-project-heading"><OverflowTooltip text={item.name}><strong>{item.name}</strong></OverflowTooltip><span className="backtest-project-status">{item.archivedAt ? '已归档' : item.completedAt ? '已完成' : '进行中'}</span></div>
             <div className="backtest-project-meta"><OverflowTooltip text={item.symbol}><span>{item.symbol}</span></OverflowTooltip><span aria-hidden="true">·</span><time dateTime={item.startedAt}>{item.startedAt} 开始</time></div>
@@ -250,18 +258,24 @@ export function BacktestProjectsView() {
           </dl>
         </Link>
       })}
-      {!scopedProjects.length && <div className="backtest-empty">{scope === 'archived' ? '尚无归档项目' : '新建项目，开始积累同一套规则下的交易机会。'}</div>}
+      {!scopedProjects.length && <EmptyState
+        variant={scope === 'archived' ? 'filtered' : 'first-use'}
+        title={scope === 'archived' ? '尚无归档项目' : '还没有进行中的项目'}
+        action={scope === 'archived'
+          ? <Button variant="bordered" onClick={() => changeScope('projects', 'active')}>查看未归档项目</Button>
+          : <Button variant="primary" onClick={() => setEditing('new')}>新建项目</Button>}
+      />}
       </div>
     </>}
     <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
     {project && <BatchActionBar count={selectedIds.size}>
-      <button type="button" className="batch-bar-action-btn" disabled={Boolean(project.archivedAt)} onClick={requestBatchCopy}><Copy size={ICON_SM} /><span>{getBatchCopyActionLabel(visible.filter(trade => selectedIds.has(trade.id)))}</span></button>
+      {!project.archivedAt && <button type="button" className="batch-bar-action-btn" onClick={requestBatchCopy}><Copy size={ICON_SM} /><span>{getBatchCopyActionLabel(visible.filter(trade => selectedIds.has(trade.id)))}</span></button>}
       <button type="button" className="batch-bar-action-btn batch-bar-action-btn-danger" onClick={batchDelete}><Trash2 size={ICON_SM} /><span>删除</span></button>
     </BatchActionBar>}
     {copyCandidateIds && <ModalShell title="确认复制所选记录" size="compact" onClose={() => setCopyCandidateIds(null)} footer={<><Button variant="bordered" onClick={() => setCopyCandidateIds(null)}>取消</Button><Button variant="primary" onClick={confirmBatchCopy}>创建 {copyCandidateIds.length} 条待确认记录</Button></>}>
       <p className="backtest-copy-description">将在当前项目生成独立副本，保留历史日期、品种、方向与分类，清空结果和复盘正文。</p>
     </ModalShell>}
-    {editing && <ProjectEditor project={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSave={next => { saveProject(next); setEditing(null); navigate(projectPath(next.id)) }} />}
+    {editing && <ProjectEditor project={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSave={next => { saveProject(next); setEditing(null); if (editing === 'new') navigate(projectPath(next.id)) }} />}
     {project && panel === 'statistics' && <ModalShell title="项目统计" size="compact" onClose={() => setPanel(null)}>
       <section className="backtest-stats" aria-label="全部项目记录统计">
         {statistics.map(([label, value, hint, explanation]) => <div className="backtest-stat" key={label}><Tooltip asChild content={explanation} label={`${label}统计口径`}><button className="backtest-stat-label" type="button" aria-label={`${label}，查看统计口径`}>{label}</button></Tooltip><OverflowTooltip text={value}><strong>{value}</strong></OverflowTooltip>{hint && <small>{hint}</small>}</div>)}
@@ -272,7 +286,10 @@ export function BacktestProjectsView() {
         <div><dt>固定品种</dt><dd>{project.symbol}</dd></div>
         <div><dt>历史范围</dt><dd>{project.startedAt}{stats.lastDate ? ` 至 ${stats.lastDate}` : ' 开始'}</dd></div>
         <div><dt>项目状态</dt><dd>{project.archivedAt ? '已归档' : project.completedAt ? '已完成，可继续补充' : '进行中'}</dd></div>
-      </dl><section><h3>固定参与规则</h3><p className="backtest-info-rules">{project.rules || '未填写参与规则。'}</p></section></div>
+      </dl>{project.rules && <details className="backtest-info-rule-section">
+        <DisclosureSummary>固定参与规则</DisclosureSummary>
+        <p className="backtest-info-rules">{project.rules}</p>
+      </details>}</div>
     </ModalShell>}
   </div>
 }
@@ -311,7 +328,7 @@ function ProjectEditor({ project, onClose, onSave }: { project: BacktestProject 
       <div className="backtest-form-pair"><div className="backtest-field"><label htmlFor={locked ? 'backtest-fixed-symbol' : undefined}>固定品种</label>{locked ? <input id="backtest-fixed-symbol" aria-label="项目品种" value={symbol} readOnly /> : <Select value={symbol} onValueChange={value => { clearError('symbol'); setSymbol(value) }} ariaLabel="项目品种" options={[...new Set([symbol, ...symbols])].filter(Boolean).map(value => ({ value, label: value }))} />}{errors.symbol && <span role="alert" className="backtest-form-error">{errors.symbol}</span>}</div><div className="backtest-field"><label htmlFor={locked ? 'backtest-fixed-start' : undefined}>历史开始</label>{locked ? <input id="backtest-fixed-start" aria-label="项目历史开始日期" value={startedAt} readOnly /> : <DatePicker value={startedAt} onValueChange={value => { clearError('startedAt'); setStartedAt(value) }} ariaLabel="项目历史开始日期" />}{errors.startedAt && <span role="alert" className="backtest-form-error">{errors.startedAt}</span>}</div></div>
       <label htmlFor="backtest-target">目标笔数<input id="backtest-target" type="number" min={1} max={100000} step={1} value={target} aria-invalid={Boolean(errors.target)} aria-describedby={errors.target ? 'backtest-target-error' : 'backtest-target-help'} onChange={event => { clearError('target'); setTarget(event.target.value) }} />{errors.target ? <span id="backtest-target-error" role="alert" className="backtest-form-error">{errors.target}</span> : <span id="backtest-target-help" className="backtest-form-help">达标后仍可继续记录，不限制结束日期。</span>}</label>
       <label>默认策略分类<Select value={strategyId} onValueChange={setStrategyId} ariaLabel="项目默认策略" options={[{ value: '', label: '沿用新建默认策略' }, ...strategies.map(strategy => ({ value: strategy.id, label: strategy.name }))]} /></label>
-      <details><summary>固定参与规则{locked ? '（已固定）' : '（可选）'}</summary>{locked ? <p className="backtest-fixed-rules">{rules || '未填写参与规则。'}</p> : <textarea aria-label="固定参与规则" value={rules} maxLength={20000} rows={4} onChange={event => setRules(event.target.value)} placeholder="参与条件、进场、止损及出场；策略分类变动不会改写规则。" />}</details>
+      <details><DisclosureSummary>固定参与规则{locked ? '（已固定）' : '（可选）'}</DisclosureSummary>{locked ? <p className="backtest-fixed-rules">{rules || '未填写参与规则。'}</p> : <textarea aria-label="固定参与规则" value={rules} maxLength={20000} rows={4} onChange={event => setRules(event.target.value)} placeholder="参与条件、进场、止损及出场；策略分类变动不会改写规则。" />}</details>
       <p className="backtest-form-help">{locked ? '已有记录后，品种、历史开始和参与规则固定；测试新规则请新建项目。' : '首笔记录保存后，品种、历史开始和参与规则将固定。'}</p>
     </div>
   </ModalShell>

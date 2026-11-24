@@ -64,6 +64,17 @@ a {
   animation-duration: var(--motion-menu) !important;
 }
 
+/* Laid out at the final size before the first frame. Scale is independent of anchored placement. */
+@keyframes uiPopIn {
+  from { opacity: var(--motion-enter-opacity); scale: var(--motion-enter-scale); }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes uiDialogIn {
+  from { opacity: var(--motion-enter-opacity); transform: translateY(4px) scale(.992); }
+  to { opacity: 1; transform: none; }
+}
+
 @keyframes uiOverlayExit {
   to { opacity: 0; }
 }
@@ -208,6 +219,10 @@ button {
   opacity: 1;
 }
 
+:where(input, textarea):disabled::placeholder {
+  color: var(--text-disabled);
+}
+
 :where(input, textarea):disabled {
   cursor: not-allowed;
   color: var(--text-disabled);
@@ -272,6 +287,11 @@ a:focus:not(:focus-visible) {
   outline: none !important;
 }
 
+:where(details > summary):focus-visible {
+  border-radius: var(--radius-4);
+  box-shadow: inset 0 0 0 1px var(--text-tertiary);
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -284,7 +304,7 @@ a.lv-row:visited .lv-title {
 /* ===== 全局微动效关键帧 ===== */
 @keyframes fadeIn {
   from {
-    opacity: 0;
+    opacity: var(--motion-enter-opacity);
   }
   to {
     opacity: 1;

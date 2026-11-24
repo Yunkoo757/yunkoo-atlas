@@ -1,0 +1,36 @@
+.ui-disclosure-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-control-gap);
+  width: fit-content;
+  max-width: 100%;
+  min-height: var(--control-height-sm);
+  padding-inline: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius-6);
+  color: var(--text-muted);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
+  list-style: none;
+  cursor: pointer;
+}
+
+.ui-disclosure-summary::-webkit-details-marker { display: none; }
+.ui-disclosure-summary > svg {
+  flex: none;
+  transition: transform var(--motion-state) var(--ease-out);
+}
+details[open] > .ui-disclosure-summary > svg { transform: rotate(90deg); }
+
+.ui-disclosure-summary:hover,
+.ui-disclosure-summary:focus-visible {
+  color: var(--text-body);
+  background: var(--surface-control-hover);
+}
+
+/* 内文一次排版；标题始终可操作，较长内容不会在展开途中反复换行。 */
+@media (prefers-reduced-motion: no-preference) {
+  details[open]:has(> .ui-disclosure-summary)::details-content {
+    animation: atlasDisclosureIn var(--motion-menu) var(--ease-out);
+  }
+  @keyframes atlasDisclosureIn { from { opacity: .7; } to { opacity: 1; } }
+}

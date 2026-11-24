@@ -22,16 +22,16 @@ export function RiskManagementSettingsPanel() {
       <div className="settings-page-head">
         <h1 className="settings-page-title">风险管理</h1>
       </div>
+      <section className="settings-page-section">
+        <WeeklyRiskPreparationCard currentTradingDayKey={today} />
+      </section>
       <section className="risk-indicator-setting">
-        <strong>侧栏额度环</strong>
+        <strong>侧栏默认周期</strong>
         <SegmentedControl
-          className="risk-indicator-options" role="radiogroup" label="侧栏风险圆环周期"
+          className="risk-indicator-options" role="radiogroup" label="侧栏默认周期"
           value={riskScope} onChange={(value) => setDisplay({ sidebarRiskScope: value })}
           options={RISK_SCOPE_OPTIONS}
         />
-      </section>
-      <section className="settings-page-section">
-        <WeeklyRiskPreparationCard currentTradingDayKey={today} />
       </section>
       <RiskDataHealthSummary currentTradingDayKey={today} />
     </div>

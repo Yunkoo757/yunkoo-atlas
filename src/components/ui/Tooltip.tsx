@@ -1,3 +1,5 @@
+import { useExitClone } from '@/components/ui/useExitClone'
+import type { HTMLAttributes, RefObject } from 'react'
 import {
   cloneElement,
   isValidElement,
@@ -122,7 +124,7 @@ export function Tooltip({
     if (!tooltip || !trigger) return
     const reposition = () => {
       const triggerRect = trigger.getBoundingClientRect()
-      const tooltipRect = tooltip.getBoundingClientRect()
+      const tooltipRect = { width: tooltip.offsetWidth, height: tooltip.offsetHeight }
       if (position.placement === 'right') {
         const top = Math.min(
           Math.max(8 + tooltipRect.height / 2, triggerRect.top + triggerRect.height / 2),
@@ -217,19 +219,24 @@ export function Tooltip({
     <>
       {trigger}
       {open && createPortal(
-        <div
-          ref={tooltipRef}
+        <TooltipBubble
+          mounted={tooltipRef}
           id={id}
           role="tooltip"
           className={`ui-tooltip ui-tooltip-${position.placement}`}
           style={style}
         >
           {content}
-        </div>,
+        </TooltipBubble>,
         document.body,
       )}
     </>
   )
+}
+
+function TooltipBubble({ mounted, ...props }: HTMLAttributes<HTMLDivElement> & { mounted: RefObject<HTMLDivElement> }) {
+  const ref = useExitClone<HTMLDivElement>(true, mounted)
+  return <div {...props} ref={ref} />
 }
 
 /** 仅在文字被裁切时提示完整内容，避免重复可见原文。 */

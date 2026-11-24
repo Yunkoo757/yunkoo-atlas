@@ -108,10 +108,8 @@
   flex-direction: column;
   gap: var(--space-control-gap);
   box-shadow: none;
-  transition: border-color var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out),
-    opacity var(--dur-fast) var(--ease-out),
-    box-shadow var(--dur-fast) var(--ease-out);
+  transition: border-color var(--motion-state) var(--ease-out),
+    opacity var(--motion-state) var(--ease-out);
 }
 .bd-card:hover {
   border-color: var(--border-default);
@@ -120,7 +118,7 @@
 }
 .bd-card.is-dragging {
   opacity: 0.4;
-  transform: scale(0.96);
+  /* 原生拖影跟随指针，来源卡片保留原始尺寸。 */
   box-shadow: var(--shadow-med);
 }
 
@@ -255,7 +253,7 @@
   align-items: center;
   gap: var(--space-control-gap);
   min-width: 0;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .bd-case-tag {
@@ -318,6 +316,7 @@
 }
 .bd-tags-measure {
   position: absolute;
+  inset: 0 auto auto 0;
   display: flex;
   width: max-content;
   visibility: hidden;

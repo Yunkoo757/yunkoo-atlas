@@ -28,9 +28,8 @@
     var(--toast-shadow);
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
-  animation: toastIn var(--toast-motion-in) var(--ease-out-expo) both;
+  animation: toastIn var(--toast-motion-in) var(--ease-out) both;
   transform-origin: 100% 100%;
-  will-change: transform, opacity;
   pointer-events: auto;
 }
 
@@ -121,7 +120,6 @@
 @media (prefers-reduced-motion: reduce) {
   .toast-panel {
     animation: none;
-    will-change: auto;
   }
 
   .toast-panel.is-exiting {

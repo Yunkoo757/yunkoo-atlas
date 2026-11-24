@@ -84,7 +84,7 @@ export interface DisplayPrefs {
    * 未到该时刻仍算前一交易日；影响今日工作台、今日筛选与新建默认日期。
    */
   tradingDayStartHour: number
-  /** 侧栏风险额度圆环默认观察的周期。 */
+  /** 侧栏风险额度默认显示的周期。 */
   sidebarRiskScope?: SidebarRiskScope
   /** 交易详情中是否默认固定开头的盘面叙述。 */
   reviewContextPinned?: boolean

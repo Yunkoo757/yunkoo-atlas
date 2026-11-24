@@ -64,3 +64,5 @@
   align-items: center;
   gap: var(--sp-1);
 }
+
+.ui-inline-status-icon { transition: color var(--motion-state) var(--ease-out); }

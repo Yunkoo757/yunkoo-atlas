@@ -1,3 +1,4 @@
+import type { ComposerGroup } from '@/lib/createRecordAction'
 import { toast } from '@/lib/toast'
 import { syncReviewCaseSourceNotes } from '@/lib/reviewCaseSources'
 import { previewHistoricalRiskBackfill, historicalRiskFingerprint, type HistoricalRiskInput, type HistoricalRiskPreview } from '@/lib/historicalRiskBackfill'
@@ -30,6 +31,7 @@ import type { ExportPayload } from '@/lib/importTypes'
 import {
   createDefaultReviewTemplates,
   createReviewTemplate,
+  MAX_REVIEW_TEMPLATES,
   normalizeReviewTemplates,
   type ReviewTemplate,
 } from '@/data/reviewTemplates'
@@ -478,6 +480,7 @@ interface State {
   /** 仅用于显式“新建交易/案例”动作；null 时仍按当前页面推断。 */
   composerKind: TradeKind | null
   composerProjectId: string | null
+  composerGroup: ComposerGroup | null
   backtestProjects: BacktestProject[]
   saveBacktestProject: (project: BacktestProject) => void
   closeTradeRequest: {
@@ -529,9 +532,9 @@ interface State {
   addSymbolToCatalog: (symbol: string) => void
   removeSymbolFromCatalog: (symbol: string) => void
   setSymbolCatalogOrder: (symbols: string[]) => void
-  addReviewTemplate: () => string
+  addReviewTemplate: () => string | null
   updateReviewTemplate: (id: string, patch: Partial<Pick<ReviewTemplate, 'name' | 'content'>>) => void
-  removeReviewTemplate: (id: string) => void
+  removeReviewTemplate: (id: string) => (() => boolean) | undefined
   reorderReviewTemplates: (sourceId: string, targetId: string) => void
   setAvatar: (avatarId: string | null) => void
   setCustomAvatar: (dataUrl: string | null) => void
@@ -620,21 +623,21 @@ interface State {
   replaceSidebarWorkspaceItems: (items: SidebarWorkspaceItem[]) => void
   addStrategy: (strategy: Strategy) => void
   updateStrategy: (id: string, patch: Partial<Omit<Strategy, 'id'>>) => void
-  removeStrategy: (id: string, reassignToId?: string) => void
+  removeStrategy: (id: string, reassignToId?: string) => boolean
   upsertTrade: (trade: Trade) => SetTradeStatusResult
   /** 单次 setState 批量 upsert，避免 N 次订阅/persist 风暴 */
   upsertTrades: (trades: Trade[]) => SetTradeStatusResult
   /** CSV／历史资料导入专用；调用方必须是明确的非交互恢复流程。 */
   upsertTradesFromNonInteractiveImport: (trades: Trade[]) => void
   removeTrade: (id: string) => void
-  removeTrades: (ids: string[]) => void
+  removeTrades: (ids: string[]) => UndoAction | null
   restoreTrade: (id: string) => void
   restoreTrades: (ids: string[]) => void
   purgeTrade: (id: string) => TradePurgeResult
   purgeTrades: (targets: Array<string | TradePurgeTarget>) => TradePurgeResult
   rollbackFailedImportedTrades: (trades: Trade[]) => string[]
   createReviewCaseFromTrade: (sourceId: string) => CreateReviewCaseResult
-  openComposer: (trade?: Trade | null, kind?: TradeKind | null, projectId?: string | null) => void
+  openComposer: (trade?: Trade | null, kind?: TradeKind | null, projectId?: string | null, group?: ComposerGroup) => void
   closeComposer: () => void
   requestTradeClose: (
     tradeId: string,
@@ -805,6 +808,7 @@ export const useStore = create<State>()((set, get) => ({
       composerTrade: null,
       composerKind: null,
       composerProjectId: null,
+      composerGroup: null,
       backtestProjects: [],
       saveBacktestProject: (project) => {
         if (!isBacktestProject(project)) return
@@ -1337,6 +1341,7 @@ export const useStore = create<State>()((set, get) => ({
       setSymbolCatalogOrder: (symbols) =>
         set({ symbolCatalog: normalizeSelectableSymbolCatalog(symbols) }),
       addReviewTemplate: () => {
+        if (get().reviewTemplates.length >= MAX_REVIEW_TEMPLATES) return null
         const template = createReviewTemplate()
         set((s) => ({ reviewTemplates: [...s.reviewTemplates, template] }))
         return template.id
@@ -1374,8 +1379,22 @@ export const useStore = create<State>()((set, get) => ({
         })),
       removeQuickNote: (id) =>
         set((state) => ({ quickNotes: state.quickNotes.filter((note) => note.id !== id) })),
-      removeReviewTemplate: (id) =>
-        set((s) => ({ reviewTemplates: s.reviewTemplates.filter((template) => template.id !== id) })),
+      removeReviewTemplate: (id) => {
+        const originals = get().reviewTemplates
+        const index = originals.findIndex(template => template.id === id)
+        const removed = originals[index]
+        if (!removed) return
+        const nextId = originals[index + 1]?.id
+        set({ reviewTemplates: originals.filter(template => template.id !== id) })
+        return () => {
+          const latest = get().reviewTemplates
+          if (latest.length >= MAX_REVIEW_TEMPLATES || latest.some(template => template.id === id)) return false
+          const nextIndex = latest.findIndex(template => template.id === nextId)
+          const position = nextIndex < 0 ? Math.min(index, latest.length) : nextIndex
+          set({ reviewTemplates: [...latest.slice(0, position), removed, ...latest.slice(position)] })
+          return true
+        }
+      },
       reorderReviewTemplates: (sourceId, targetId) =>
         set((s) => ({
           reviewTemplates: reorderByKey(
@@ -1945,11 +1964,12 @@ export const useStore = create<State>()((set, get) => ({
         set((s) => ({
           strategies: s.strategies.map((x) => (x.id === id ? { ...x, ...patch } : x)),
         })),
-      removeStrategy: (id, reassignToId) =>
+      removeStrategy: (id, reassignToId) => {
+        const state = get()
+        if (!state.strategies.some(strategy => strategy.id === id) || state.strategies.length <= 1) return false
+        if (reassignToId && (reassignToId === id || !state.strategies.some(strategy => strategy.id === reassignToId))) return false
+        if (!reassignToId && state.trades.some(trade => trade.strategyId === id)) return false
         set((s) => {
-          if (s.strategies.length <= 1) return s
-          const count = s.trades.filter((t) => t.strategyId === id).length
-          if (count > 0 && !reassignToId) return s
           return {
             strategies: s.strategies.filter((x) => x.id !== id),
             backtestProjects: s.backtestProjects.map(project => project.defaultStrategyId === id ? { ...project, defaultStrategyId: reassignToId ?? null } : project),
@@ -1963,13 +1983,15 @@ export const useStore = create<State>()((set, get) => ({
               ),
             },
             trades:
-              count > 0 && reassignToId
+              reassignToId
                 ? s.trades.map((t) =>
                     t.strategyId === id ? { ...t, strategyId: reassignToId } : t,
                   )
                 : s.trades,
           }
-        }),
+        })
+        return true
+      },
       upsertTrade: (trade) => {
         const existing = get().trades.find((item) => item.id === trade.id)
         if (openTargetsAnotherLiveStage(existing, trade, get().currentLiveStageId)) return 'not-current-stage'
@@ -2053,7 +2075,8 @@ export const useStore = create<State>()((set, get) => ({
         )
         }),
       removeTrade: (id) => get().removeTrades([id]),
-      removeTrades: (ids) =>
+      removeTrades: (ids) => {
+        let removed: UndoAction | null = null
         set((s) => {
           if (ids.length === 0) return s
           const idSet = new Set(ids)
@@ -2069,12 +2092,15 @@ export const useStore = create<State>()((set, get) => ({
           })
           const action = createStoreUndoAction('批量移入回收站', before, after)
           if (!action) return s
+          removed = action
           return {
             undoStack: appendBoundedHistory(s.undoStack, action),
             redoStack: [],
             trades,
           }
-        }),
+        })
+        return removed
+      },
       restoreTrade: (id) => get().restoreTrades([id]),
       restoreTrades: (ids) =>
         set((s) => {
@@ -2143,7 +2169,7 @@ export const useStore = create<State>()((set, get) => ({
         }))
         return removed
       },
-      openComposer: (trade = null, kind = null, projectId = null) => {
+      openComposer: (trade = null, kind = null, projectId = null, group) => {
         // 防御：若被直接绑到 onClick，会收到 MouseEvent，不能当 Trade 用
         const safe =
           trade &&
@@ -2153,15 +2179,16 @@ export const useStore = create<State>()((set, get) => ({
             ? (trade as Trade)
             : null
         const targetProjectId = safe?.tradeKind === 'backtest' ? safe.backtestProjectId : projectId
-        if (!safe && targetProjectId && get().backtestProjects.find(project => project.id === targetProjectId)?.archivedAt) { toast('项目已归档，请从项目操作重新打开'); return }
+        if (!safe && targetProjectId && get().backtestProjects.find(project => project.id === targetProjectId)?.archivedAt) { toast('项目已归档，请先重新打开项目'); return }
         set({
           composerOpen: true,
+          composerGroup: safe ? null : group ?? null,
           composerTrade: safe,
           composerKind: safe?.tradeKind ?? (projectId ? 'backtest' : kind),
           composerProjectId: safe?.tradeKind === 'backtest' ? safe.backtestProjectId ?? null : projectId,
         })
       },
-      closeComposer: () => set({ composerOpen: false, composerTrade: null, composerKind: null, composerProjectId: null }),
+      closeComposer: () => set({ composerOpen: false, composerTrade: null, composerKind: null, composerProjectId: null, composerGroup: null }),
       requestTradeClose: (tradeId, targetStatus) => {
         const active =
           typeof document !== 'undefined' && document.activeElement instanceof HTMLElement

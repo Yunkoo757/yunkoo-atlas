@@ -28,6 +28,7 @@ export type TradeRowProps = {
   selected: boolean
   focused: boolean
   starred: boolean
+  mistakesFirst?: boolean
   selectable?: boolean
   ariaPosInSet?: number
   ariaSetSize?: number
@@ -47,6 +48,7 @@ export const TradeRow = memo(function TradeRow({
   selected,
   focused,
   starred,
+  mistakesFirst = false,
   selectable = true,
   ariaPosInSet,
   ariaSetSize,
@@ -64,7 +66,7 @@ export const TradeRow = memo(function TradeRow({
     symbolIconsProp === undefined ? state.symbolIcons : null,
   )
   const symbolIcons = symbolIconsProp ?? symbolIconsFromStore ?? {}
-  const context = buildTradeRowContext(trade)
+  const context = buildTradeRowContext(trade, mistakesFirst)
   const result = resolveTradeRowResultPresentation(
     trade,
     legacyCashCurrencyAssumption,
@@ -182,8 +184,8 @@ export const TradeRow = memo(function TradeRow({
             }}
           >
             {isCase
-              ? <Bookmark size={ICON_SM} fill={starred ? 'currentColor' : 'none'} />
-              : <Star size={ICON_SM} fill={starred ? 'currentColor' : 'none'} />}
+              ? <Bookmark size={ICON_SM} fill="currentColor" fillOpacity={starred ? 1 : 0} />
+              : <Star size={ICON_SM} fill="currentColor" fillOpacity={starred ? 1 : 0} />}
           </button>
         </Tooltip>
       }

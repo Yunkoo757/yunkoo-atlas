@@ -27,6 +27,10 @@ export function subscribeQuickNoteConversions(listener: () => void): () => void 
   return () => { listeners.delete(listener) }
 }
 
+export function isQuickNoteViewOpen(noteId: string): boolean {
+  return noteViews.has(noteId)
+}
+
 export function isQuickNoteConverting(noteId: string): boolean {
   return convertingNotes.has(noteId)
 }

@@ -1,3 +1,4 @@
+import { motionDuration, reducesMotion } from '@/lib/motion'
 import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState } from 'react'
 import { AlertCircle, AlertTriangle, CheckCircle, CircleDot, X } from '@/icons/appIcons'
@@ -15,7 +16,7 @@ const TONE_ICONS = {
 } satisfies Record<ToastTone, typeof AlertCircle>
 
 type PresentToast = ToastItem & { exiting: boolean }
-const TOAST_EXIT_MS = 140
+
 
 function usePresentToasts(items: ToastItem[]): PresentToast[] {
   const [present, setPresent] = useState<PresentToast[]>(() =>
@@ -51,7 +52,7 @@ function usePresentToasts(items: ToastItem[]): PresentToast[] {
       const timer = setTimeout(() => {
         removalTimers.current.delete(item.id)
         setPresent((current) => current.filter((candidate) => candidate.id !== item.id))
-      }, TOAST_EXIT_MS)
+      }, reducesMotion() ? 0 : motionDuration(document.documentElement, '--toast-motion-out'))
       removalTimers.current.set(item.id, timer)
     }
   }, [present])
@@ -78,12 +79,19 @@ export function ToastHost() {
         return (
           <div
             key={item.id}
+            ref={element => { if (element) element.inert = item.exiting }}
             className={`toast-panel is-${item.tone}${item.exiting ? ' is-exiting' : ''}`}
             data-state={item.exiting ? 'exiting' : 'active'}
             role={isError ? 'alert' : 'status'}
             aria-hidden={item.exiting || undefined}
             aria-live={isError ? 'assertive' : 'polite'}
             aria-atomic="true"
+            onPointerEnter={() => useToast.hold(item.id, 'pointer', true)}
+            onPointerLeave={() => useToast.hold(item.id, 'pointer', false)}
+            onFocus={() => useToast.hold(item.id, 'focus', true)}
+            onBlur={event => {
+              if (!event.currentTarget.contains(event.relatedTarget)) useToast.hold(item.id, 'focus', false)
+            }}
           >
             <Icon className="toast-icon" size={ICON_MD} aria-hidden />
             <span className="toast-message">{item.message}</span>
@@ -92,8 +100,10 @@ export function ToastHost() {
                 size="sm"
                 className="toast-action"
                 onClick={() => {
+                  const active = useToast.getState().items.find(candidate => candidate.id === item.id)
+                  if (!active?.onAction) return
                   dismiss(item.id)
-                  item.onAction?.()
+                  active.onAction()
                 }}
               >
                 {item.actionLabel}

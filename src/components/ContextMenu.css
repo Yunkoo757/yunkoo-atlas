@@ -1,13 +1,14 @@
 .ctx {
   position: fixed;
   z-index: var(--z-context);
+  width: max-content;
   min-width: 200px;
+  max-width: calc(100vw - var(--sp-4));
+  max-height: calc(100vh - var(--sp-4));
+  overflow: auto;
+  overscroll-behavior: contain;
   padding: var(--sp-1);
-  animation: context-menu-in var(--motion-menu) var(--ease-out);
-}
-@keyframes context-menu-in {
-  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  animation: uiPopIn var(--motion-menu) var(--ease-out);
 }
 .ctx-item {
   display: flex;
@@ -50,6 +51,9 @@
 }
 .ctx-item-label {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .ctx-item-hint {

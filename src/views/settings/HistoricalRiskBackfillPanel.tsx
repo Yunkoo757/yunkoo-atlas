@@ -5,6 +5,7 @@ import { useStore } from '@/store/useStore'
 import { activeRiskPolicy } from '@/lib/activeRiskPolicy'
 import { previewHistoricalRiskBackfill, type HistoricalRiskInput, type HistoricalRiskPreview } from '@/lib/historicalRiskBackfill'
 import { flushPersistNow } from '@/storage/persist'
+import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { fmtR } from '@/lib/format'
 import './HistoricalRiskBackfillPanel.css'
@@ -126,7 +127,7 @@ export function HistoricalRiskBackfillPanel({ today, issues }: { today: string; 
               <td>{preview.afterOutcomes[key].coverage === 'complete' ? fmtR(preview.afterOutcomes[key].remainingR) : '仍有其他缺口'}</td></tr>)}
           </tbody></table>
           <details className="historical-risk-trades">
-            <summary>查看 {preview.affected.length} 笔交易</summary>
+            <DisclosureSummary>查看 {preview.affected.length} 笔交易</DisclosureSummary>
             <ul>{preview.affected.map((issue) => <li key={issue.tradeId}><span>{issue.tradeRef} · {issue.tradingDayKey}</span><span>{preview.resolved.some((item) => item.tradeId === issue.tradeId) ? '可解除缺口' : '仍需补全数据'}</span></li>)}</ul>
           </details>
           <p className="settings-section-desc">交易盈亏、已有规则和复盘快照保持不变。{preview.newMonthlyLimits.length ? `将补齐 ${preview.newMonthlyLimits.map((item) => item.monthKey).join('、')} 的月上限。` : '已有月上限保持不变。'}</p>

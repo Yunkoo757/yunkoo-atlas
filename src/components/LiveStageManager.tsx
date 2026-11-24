@@ -223,8 +223,6 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
       title="开启新实盘阶段"
       description="预约下一交易周开启新阶段。"
       size="wide"
-      panelClassName="live-stage-manager-shell"
-      bodyClassName="live-stage-manager-body"
       busy={busy}
       onClose={onClose}
       footer={(

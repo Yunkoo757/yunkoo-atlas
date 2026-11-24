@@ -37,16 +37,8 @@
   order: 2;
   margin-top: var(--sp-3);
 }
-.tag-batch-summary {
-  font-size: var(--type-metadata-size);
-  color: var(--text-tertiary);
-  cursor: pointer;
-  user-select: none;
-  margin-bottom: var(--sp-2);
-}
-.tag-batch-summary:hover {
-  color: var(--text-secondary);
-}
+.tag-batch[open] > summary { margin-bottom: var(--sp-2); }
+
 .tag-batch-input {
   display: block;
   width: 100%;

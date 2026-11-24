@@ -807,7 +807,7 @@ try {
   record(
     '安全复制先预览目标语义与数据影响',
     (await page.locator('.trade-row').count()) === caseRowsBeforeCopy &&
-      copyPreviewText.includes('目标：新的知识案例') &&
+      copyPreviewText.includes('复制为新案例') &&
       copyPreviewText.includes('保留') &&
       copyPreviewText.includes('重置'),
     copyPreviewText.replace(/\s+/g, ' ').slice(0, 220),

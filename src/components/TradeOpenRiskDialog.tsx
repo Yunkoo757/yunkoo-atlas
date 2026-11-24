@@ -216,7 +216,7 @@ export function TradeOpenRiskDialog() {
       >
         <div data-risk-baseline-dialog>
           <WeeklyRiskPreparationCard currentTradingDayKey={request.currentTradingDayKey} />
-          {baselineSaving ? <p className="trade-open-risk-baseline-status" role="status">正在耐久保存风险基准并重新计算…</p> : null}
+          {baselineSaving ? <p className="trade-open-risk-baseline-status" role="status">正在保存风险基准并重新计算…</p> : null}
           {baselineError ? (
             <div className="trade-open-risk-baseline-retry" role="alert">
               <p className="trade-open-risk-error">{baselineError}</p>
@@ -235,9 +235,7 @@ export function TradeOpenRiskDialog() {
     return (
       <ModalShell
         title={isStageMismatch ? '无法打开非当前阶段交易' : '先完成当前阶段风险设置'}
-        description={isStageMismatch
-          ? `${trade.ref} · ${trade.symbol} · 交易归属与当前实盘阶段不一致`
-          : `${trade.ref} · ${trade.symbol} · 首次进入持仓前必须建立本阶段风险规则`}
+        description={`${trade.symbol} · ${trade.ref}`}
         onClose={close}
         size="compact"
         footer={(
@@ -255,9 +253,8 @@ export function TradeOpenRiskDialog() {
           <div className="trade-open-risk-callout is-unknown">
             <Shield size={ICON_LG} aria-hidden />
             <div>
-              <strong>{isStageMismatch ? '历史或未归属交易不能在当前阶段开仓' : '当前实盘阶段尚未建立风险规则'}</strong>
               <p>{isStageMismatch
-                ? '请保留该交易的原阶段归属；如需新交易，请在当前阶段另行创建计划交易。'
+                ? '历史或未归属交易不能在当前阶段开仓。请新建当前阶段的计划交易。'
                 : '请先设置资金基准、日周月止损线并确认本周规则；完成后再重新开仓。'}</p>
             </div>
           </div>
@@ -275,7 +272,7 @@ export function TradeOpenRiskDialog() {
   return (
     <ModalShell
       title={request.decisionType === 'unknown' ? '当前风险无法确认' : '止损预算已触线'}
-      description={`${trade.ref} · ${trade.symbol} · 继续进入持仓前需要逐笔确认`}
+      description={`${trade.symbol} · ${trade.ref}`}
       busy={commitState === 'committing'}
       dismissible={commitState !== 'committing' && !reloadRequired}
       describedById={error ? errorId : undefined}
@@ -339,7 +336,7 @@ export function TradeOpenRiskDialog() {
                 <span>{label}</span>
                 <strong>{!policy || outcome.coverage === 'unknown' ? '无法确认' : fmtR(outcome.netBudgetR)}</strong>
                 <small>{outcome.coverage === 'complete' ? '已用' : '已知已用'} {fmtBudgetR(outcome.consumedR)} / 限额 {policy ? fmtBudgetR(outcome.limitR) : '未设置'}</small>
-                <em>记录覆盖：{outcome.coverage === 'complete' ? '完整' : outcome.coverage === 'partial' ? '部分' : '未知'}</em>
+                <em>记录覆盖：{outcome.coverage === 'complete' ? '完整' : outcome.coverage === 'partial' ? '部分缺失' : '未知'}</em>
               </div>
             )
           })}

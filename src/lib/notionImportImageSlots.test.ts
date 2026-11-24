@@ -114,7 +114,7 @@ export function testNotionDuplicateOrInvalidSlotsFailBeforeAnyCommitPayload(): v
 export async function testNotionPreviewRendersEveryImageIssueInsteadOfOnlyAGroupCount(): Promise<void> {
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/components/NotionImportModal.tsx', 'utf8')
-  assert(source.includes('preview.imageIssues!.map((issue)'), '预览必须逐项渲染图片 issue')
+  assert(/preview\.imageIssues\s*\?\?\s*\[\]\)\.map\(/.test(source), '预览必须逐项渲染图片 issue')
   assert(source.includes('issue.slotId + 1'), '逐图错误必须展示原始槽位编号')
   assert(source.includes('issue.ref'), '逐图错误必须展示原图片引用')
   assert(source.includes('issue.error'), '逐图错误必须展示具体失败原因')

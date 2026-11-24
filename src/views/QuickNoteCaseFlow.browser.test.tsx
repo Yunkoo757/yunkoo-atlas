@@ -13,6 +13,7 @@ import { collectAssetIdsFromHtml } from '@/storage/assets'
 import { getNoteDraft, QUICK_NOTE_DRAFT_PREFIX } from '@/storage/noteDrafts'
 import { isQuickNoteConverting } from '@/lib/quickNoteConversion'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
+import { useToast } from '@/lib/toast'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
 
@@ -182,6 +183,24 @@ async function run() {
     document.querySelector<HTMLButtonElement>('[data-note-convert-case]')!.click()
     await until(() => document.querySelector('[data-converted-case-path]') && useStore.getState().trades.length === 5, '屏障排空后后续主动转换必须仍可正常写入')
     await waitForPendingStorageOperations()
+
+    openNote()
+    await until(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '再次转换前应能编辑随记')
+    const turningAway = (document.querySelector('[aria-label="随记正文"]') as HTMLElement & { editor: TiptapEditor }).editor
+    const release = delayAssetSave()
+    const savesBeforeLeaving = assetSaveCalls
+    turningAway.chain().focus('end').setImage({ src: image }).createParagraphNear().run()
+    document.querySelector<HTMLButtonElement>('[data-note-convert-case]')!.click()
+    await until(() => assetSaveCalls > savesBeforeLeaving, '转换应等待截图落盘')
+    navigate!('/elsewhere')
+    await until(() => document.querySelector('[data-conversion-away]'), '用户应可在保存期间继续浏览')
+    release()
+    await waitForPendingStorageOperations()
+    assert(useStore.getState().trades.length === 6 && document.querySelector('[data-conversion-away]'), '后台转换完成须保留用户当前页面')
+    const receipt = useToast.getState().items.at(-1)
+    assert(receipt?.actionLabel === '打开草稿' && receipt.onAction, '完成后应允许从回执打开草稿')
+    receipt.onAction()
+    await until(() => document.querySelector('[data-converted-case-path]'), '主动打开回执应进入新的草稿')
   } finally {
     releaseAssetGate()
     storage.saveAsset = originalSaveAsset

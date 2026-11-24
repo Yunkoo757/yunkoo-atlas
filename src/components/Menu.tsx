@@ -1,3 +1,4 @@
+import { restoreFocusIfUnclaimed } from '@/lib/restoreFocus'
 import { ICON_SM } from '@/icons/iconSize'
 import {
   useCallback,
@@ -99,7 +100,7 @@ export function Menu({
     setOpen(false)
     requestAnimationFrame(() => {
       const control = resolveTriggerControl() ?? triggerControlRef.current
-      control?.focus()
+      restoreFocusIfUnclaimed(control)
     })
   }, [resolveTriggerControl])
 
@@ -108,9 +109,9 @@ export function Menu({
     if (!triggerRect) return
 
     const edge = 8
-    const popRect = popRef.current?.getBoundingClientRect()
-    const popHeight = popRect?.height ?? options.length * 30 + 10
-    const popWidth = Math.max(popRect?.width ?? 180, 180)
+    const popup = popRef.current
+    const popHeight = popup?.offsetHeight ?? options.length * 30 + 10
+    const popWidth = Math.max(popup?.offsetWidth ?? 180, 180)
     const roomBelow = window.innerHeight - triggerRect.bottom - edge - 4
     const roomAbove = triggerRect.top - edge - 4
     const placement =

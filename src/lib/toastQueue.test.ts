@@ -25,4 +25,9 @@ export function testToastQueueCapsAtThreeAndKeepsActions(): void {
   assert.deepEqual(state.items.map((item) => item.message), ['二', '三', '四'])
   assert.equal(state.items[2]?.actionLabel, '重试')
   assert.equal(state.items[2]?.onAction, onAction)
+  const undoStore = createToastStore()
+  const restored: number[] = []
+  for (const id of [1, 2]) undoStore.push('已删除', { actionLabel: '撤销', onAction: () => restored.push(id) })
+  for (const item of undoStore.getState().items) item.onAction?.()
+  assert.deepEqual(restored, [1, 2], '相同文案的撤销也必须对应两次独立操作')
 }

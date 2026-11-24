@@ -296,5 +296,4 @@
 }
 
 .review-template-preview { margin-top: var(--space-section-gap); color: var(--text-secondary); font-size: var(--type-row-size); line-height: var(--type-row-line-height); }
-.review-template-preview summary { cursor: pointer; }
 .review-template-preview p { margin: var(--sp-2) 0; }

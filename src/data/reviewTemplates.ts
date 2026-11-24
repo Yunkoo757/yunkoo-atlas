@@ -4,6 +4,8 @@ export interface ReviewTemplate {
   content: string
 }
 
+export const MAX_REVIEW_TEMPLATES = 30
+
 const DEFAULT_REVIEW_TEMPLATE: ReviewTemplate = {
   id: 'review-template-multi-timeframe',
   name: '多周期盘面',
@@ -46,7 +48,7 @@ export function normalizeReviewTemplates(value: unknown): ReviewTemplate[] {
     if (!id || !name || seenIds.has(id)) continue
     seenIds.add(id)
     normalized.push({ id, name, content })
-    if (normalized.length >= 30) break
+    if (normalized.length >= MAX_REVIEW_TEMPLATES) break
   }
   return normalized
 }

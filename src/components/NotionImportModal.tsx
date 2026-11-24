@@ -1,9 +1,10 @@
 import { DurableStorePublishError } from '@/lib/committedPublish'
 import { useEffect, useState, useRef, useMemo, type DragEvent } from 'react'
-import { Upload, ArrowRight, CheckCircle, AlertCircle, FileText, Image } from '@/icons/appIcons'
+import { Upload, ArrowRight, CheckCircle, FileText, Image } from '@/icons/appIcons'
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { ICON_HERO, ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { ModalShell } from '@/components/ui/ModalShell'
+import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import { Button } from '@/components/ui/Button'
 import { useStore } from '@/store/useStore'
 import {
@@ -17,7 +18,6 @@ import {
   buildContentSignature,
   buildLibraryContentIndex,
   createDuplicateLookupIndex,
-  duplicateReasonLabel,
   findObviousDuplicateIndexed,
   hashImageFiles,
   type DuplicateMatch,
@@ -25,11 +25,11 @@ import {
 import { collectAssetIdsFromNotes, getStorage } from '@/storage'
 import { toast } from '@/lib/toast'
 import { formatTradeCashPnl } from '@/lib/cashCurrency'
-import { Tooltip } from '@/components/ui/Tooltip'
+import { ImportPreviewList, ImportPreviewRecord } from './ImportPreviewList'
 import { SelectionBox } from '@/components/ui/SelectionBox'
 import { MAX_NOTION_IMPORT_ROWS } from '@/lib/notionImportLimits'
 import type { TradeKind } from '@/data/trades'
-import { fmtMoney } from '@/lib/format'
+import { STATUS_META } from '@/data/trades'
 import './NotionImportModal.css'
 
 interface Props {
@@ -43,7 +43,6 @@ export const MAX_NOTION_CSV_FILE_BYTES = 32 * 1024 * 1024
 export const MAX_NOTION_ZIP_FILE_BYTES = 160 * 1024 * 1024
 const MAX_DUPLICATE_IMAGE_SCAN_COUNT = 300
 const MAX_DUPLICATE_IMAGE_SCAN_BYTES = 128 * 1024 * 1024
-const PREVIEW_ROW_LIMIT = 100
 const IMPORT_TARGETS: Array<{
   kind: TradeKind
   label: string
@@ -275,10 +274,6 @@ export function NotionImportModal({ open, onClose }: Props) {
     return Boolean(forceImportRows[preview.rowIndex])
   }
 
-  const visiblePreviews = useMemo(
-    () => result?.previews.slice(0, PREVIEW_ROW_LIMIT) ?? [],
-    [result],
-  )
   const selectedPreviewCount = useMemo(() => {
     if (!result) return 0
     return result.previews.reduce((count, preview) => {
@@ -482,7 +477,7 @@ export function NotionImportModal({ open, onClose }: Props) {
             disabled={parsing}
             className="nim-file-input-hidden"
           />
-          {error && <p className="nim-error">{error}</p>}
+          {error && <p className="nim-error" role="alert">{error}</p>}
         </div>
       )}
 
@@ -511,65 +506,25 @@ export function NotionImportModal({ open, onClose }: Props) {
               ))}
             </div>
           </div>
-          <p className="nim-preview-stats">
-            共 {result.totalRows} 笔记录：
-            <span className="nim-ok">{result.validRows} 笔可导入</span>
-            {result.errorRows > 0 && (
-              <>
-                {' · '}
-                <span className="nim-bad">{result.errorRows} 笔有误</span>
-              </>
-            )}
-            {duplicateCount > 0 && (
-              <>
-                {' · '}
-                <span className="nim-dup-count">{duplicateCount} 笔疑似重复</span>
-              </>
-            )}
-            {importFactCounts.missingCloseDate > 0 && (
-              <>
-                {' · '}
-                <span className="nim-bad">
-                  {importFactCounts.missingCloseDate} 笔缺少平仓日：将进入待整理且不计入绩效
-                </span>
-              </>
-            )}
-            {importFactCounts.unknownCurrency > 0 && (
-              <>
-                {' · '}
-                <span className="nim-bad">
-                  {importFactCounts.unknownCurrency} 笔币种未知：不进入 USD 总计
-                </span>
-              </>
-            )}
-            {result.totalImages > 0 && (
-              <>
-                {' · '}
-                <span className="nim-img-count">
-                  <Image size={ICON_SM} /> {result.totalImages} 张截图
-                </span>
-              </>
-            )}
-            {result.newStrategies.length > 0 && (
-              <>
-                {' · '}
-                <span className="nim-new-strat">
-                  {result.newStrategies.length} 个新策略：{result.newStrategies.join('、')}
-                </span>
-              </>
-            )}
-          </p>
+          <div className="nim-preview-counts">
+            <p className="nim-preview-stats">可导入 <strong>{selectedPreviewCount}</strong> / {result.totalRows} 笔
+              {result.errorRows > 0 && <> · {result.errorRows} 笔有误</>}
+              {duplicateCount > 0 && <> · {duplicateCount} 笔疑似重复</>}
+              {result.totalImages > 0 && <> · {result.totalImages} 张截图</>}
+            </p>
+            {importFactCounts.missingCloseDate > 0 && <p>{importFactCounts.missingCloseDate} 笔缺少平仓日：将进入待整理且不计入绩效</p>}
+            {importFactCounts.unknownCurrency > 0 && <p>{importFactCounts.unknownCurrency} 笔币种未知：不进入 USD 总计</p>}
+            {result.newStrategies.length > 0 && <details>
+              <DisclosureSummary>将新增 {result.newStrategies.length} 个策略</DisclosureSummary>
+              <p>{result.newStrategies.join('、')}</p>
+            </details>}
+          </div>
 
           {dupScanState === 'scanning' && (
             <p className="nim-dup-scan">正在对照库内正文与截图检测重复…</p>
           )}
           {duplicateScanNotice && (
             <p className="nim-dup-scan" role="status">{duplicateScanNotice}</p>
-          )}
-          {result.previews.length > PREVIEW_ROW_LIMIT && (
-            <p className="nim-dup-scan" role="status">
-              仅展示前 {PREVIEW_ROW_LIMIT} 笔，确认后仍会导入全部 {selectedPreviewCount} 笔可导入记录
-            </p>
           )}
           {dupScanState === 'done' && duplicateCount > 0 && (
             <label className="nim-dup-toggle">
@@ -583,43 +538,25 @@ export function NotionImportModal({ open, onClose }: Props) {
             </label>
           )}
 
-          <div className="nim-preview-table-wrap">
-            <table className="nim-preview-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>状态</th>
-                  <th>品种</th>
-                  <th>方向</th>
-                  <th>交易状态</th>
-                  <th>策略</th>
-                  <th>PnL</th>
-                  <th>R</th>
-                  <th>日期</th>
-                  <th>截图</th>
-                  <th>标签</th>
-                  <th>问题</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visiblePreviews.map((p) => (
-                  <PreviewRow
-                    key={p.rowIndex}
-                    preview={p}
-                    duplicate={duplicateByRow[p.rowIndex]}
-                    forceImport={Boolean(forceImportRows[p.rowIndex])}
-                    onToggleForce={(next) =>
-                      setForceImportRows((prev) => ({ ...prev, [p.rowIndex]: next }))
-                    }
-                    showForce={skipDuplicates}
-                    privacyMode={privacyMode}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ImportPreviewList rows={result.previews}>{preview => (
+            <ImportPreviewRecord
+              trade={preview.trade} rowIndex={preview.rowIndex} privacyMode={privacyMode} errors={preview.errors}
+              warnings={[...preview.warnings, ...(preview.imageIssues ?? []).map(issue => `图片 ${issue.slotId + 1}（${issue.ref}）· ${issue.error}`)]}
+              duplicate={duplicateByRow[preview.rowIndex]} forceImport={Boolean(forceImportRows[preview.rowIndex])}
+              onToggleForce={skipDuplicates ? () => setForceImportRows(current => ({
+                ...current, [preview.rowIndex]: !current[preview.rowIndex],
+              })) : undefined}
+            >
+              <dt>交易状态</dt><dd>{preview.trade.status ? STATUS_META[preview.trade.status].label : '—'}</dd>
+              <dt>策略</dt><dd>{preview.newStrategyName ? `新增 · ${preview.newStrategyName}` : strategies.find(item => item.id === preview.trade.strategyId)?.name ?? '—'}</dd>
+              <dt>现金盈亏</dt><dd>{formatTradeCashPnl(preview.trade, null, privacyMode)}</dd>
+              <dt>R 倍数</dt><dd>{preview.trade.rMultiple == null ? '—' : `${preview.trade.rMultiple}R`}</dd>
+              <dt>截图</dt><dd>{preview.imageCount} 张{preview.imageIssues?.length ? ` · 缺失 ${preview.imageIssues.length} 张` : ''}</dd>
+              <dt>标签</dt><dd>{preview.trade.tags?.join('、') || '—'}</dd>
+            </ImportPreviewRecord>
+          )}</ImportPreviewList>
 
-          {error && <p className="nim-error">{error}</p>}
+          {error && <p className="nim-error" role="alert">{error}</p>}
         </div>
       )}
 
@@ -653,124 +590,4 @@ export function NotionImportModal({ open, onClose }: Props) {
       )}
     </ModalShell>
   )
-}
-
-function PreviewRow({
-  preview,
-  duplicate,
-  forceImport,
-  onToggleForce,
-  showForce,
-  privacyMode,
-}: {
-  preview: NotionTradePreview
-  duplicate?: DuplicateMatch
-  forceImport: boolean
-  onToggleForce: (next: boolean) => void
-  showForce: boolean
-  privacyMode: boolean
-}) {
-  const t = preview.trade
-  const hasError = preview.errors.length > 0
-  const hasWarning = preview.warnings.length > 0 || (preview.imageIssues?.length ?? 0) > 0 || Boolean(duplicate)
-
-  return (
-    <tr
-      className={
-        hasError ? 'nim-row-err' : duplicate ? 'nim-row-dup' : hasWarning ? 'nim-row-warn' : ''
-      }
-    >
-      <td>{preview.rowIndex + 1}</td>
-      <td>
-        {hasError ? (
-          <AlertCircle size={ICON_SM} className="nim-bad" />
-        ) : duplicate ? (
-          <AlertCircle size={ICON_SM} className="nim-dup" />
-        ) : (
-          <CheckCircle size={ICON_SM} className="nim-ok" />
-        )}
-      </td>
-      <td className="nim-cell-symbol">{t.symbol}</td>
-      <td>{t.side === 'long' ? '做多' : t.side === 'short' ? '做空' : ''}</td>
-      <td>{statusLabel(t.status)}</td>
-      <td>
-        {preview.newStrategyName ? (
-          <span className="nim-new-badge">🆕 {preview.newStrategyName}</span>
-        ) : (
-          t.strategyId || '—'
-        )}
-      </td>
-      <td className={privacyMode ? '' : t.pnl != null && t.pnl > 0 ? 'nim-pnl-pos' : t.pnl != null && t.pnl < 0 ? 'nim-pnl-neg' : ''}>
-        {formatTradeCashPnl(t, null, privacyMode)}
-      </td>
-      <td>{t.rMultiple != null ? t.rMultiple.toFixed(2) : '—'}</td>
-      <td>{t.openedAt ?? '—'}</td>
-      <td>
-        {preview.imageCount > 0 || (preview.imageIssues?.length ?? 0) > 0 ? (
-          <span className="nim-img-badge">
-            <Image size={ICON_SM} /> {preview.imageCount}
-            {(preview.imageIssues?.length ?? 0) > 0 ? ` / 缺失 ${preview.imageIssues!.length}` : ''}
-          </span>
-        ) : (
-          '—'
-        )}
-      </td>
-      <td className="nim-cell-tags">
-        {(t.tags ?? []).slice(0, 3).map((tag) => (
-          <span className="nim-tag" key={tag}>{tag}</span>
-        ))}
-        {(t.tags ?? []).length > 3 && (
-          <Tooltip
-            content={(t.tags ?? []).slice(3).join(' · ')}
-            label={`其余标签：${(t.tags ?? []).slice(3).join('、')}`}
-            focusable
-          >
-            <span className="nim-tag-more">+{(t.tags ?? []).length - 3}</span>
-          </Tooltip>
-        )}
-      </td>
-      <td className="nim-err-cell">
-        {preview.errors.join('; ')}
-        {hasWarning && !hasError ? preview.warnings.join('; ') : ''}
-        {(preview.imageIssues?.length ?? 0) > 0 && (
-          <span>
-            {preview.errors.length > 0 || preview.warnings.length > 0 ? '; ' : ''}
-            {preview.imageIssues!.map((issue) =>
-              `图片 ${issue.slotId + 1}（${issue.ref}）：${issue.error}`,
-            ).join('; ')}
-          </span>
-        )}
-        {duplicate && (
-          <span className="nim-dup-msg">
-            {!hasError && (preview.warnings.length > 0 || (preview.imageIssues?.length ?? 0) > 0) ? '; ' : ''}
-            与 {duplicate.tradeRef} {duplicateReasonLabel(duplicate.reason)}
-            {showForce && (
-              <>
-                {' · '}
-                <button
-                  type="button"
-                  className="nim-dup-force"
-                  onClick={() => onToggleForce(!forceImport)}
-                >
-                  {forceImport ? '取消仍导入' : '仍导入'}
-                </button>
-              </>
-            )}
-          </span>
-        )}
-      </td>
-    </tr>
-  )
-}
-
-function statusLabel(s?: string): string {
-  switch (s) {
-    case 'win': return '盈利'
-    case 'loss': return '亏损'
-    case 'breakeven': return '保本'
-    case 'open': return '持仓中'
-    case 'planned': return '计划中'
-    case 'missed': return '错过'
-    default: return s ?? '—'
-  }
 }

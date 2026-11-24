@@ -187,6 +187,8 @@ async function run(): Promise<void> {
       '',
       '这是用于验证重复记录仍显示导入事实影响的足够长正文内容。',
       ...imageLines,
+      '![缺失图一](unavailable-a.png)',
+      '![缺失图二](unavailable-b.png)',
     ].join('\n'))
     const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' })
     const files = new DataTransfer()
@@ -199,7 +201,14 @@ async function run(): Promise<void> {
     await waitForBodyText('1 笔缺少平仓日：将进入待整理且不计入绩效')
     await waitForBodyText('1 笔币种未知：不进入 USD 总计')
     await waitForBodyText('与 TRD-1 正文相同')
-    const duplicateWarningCell = await waitForSelector('.nim-row-dup .nim-err-cell')
+    const duplicateRecord = await waitForSelector('.import-preview-record:has(button[aria-pressed])')
+    const summary = duplicateRecord.querySelector('summary')
+    assert(summary && summary.textContent?.includes('项提示'), '重复行应保留逐条提示的键盘入口')
+    summary.click()
+    const duplicateWarningCell = duplicateRecord.querySelector('.import-preview-notes')
+    assert(duplicateWarningCell?.getClientRects().length, '展开该行后，图片和结果提示应完整可见')
+    assert(duplicateWarningCell.textContent?.includes('图片 11（unavailable-a.png）'), '应展示第一条缺图的原始槽位和名称')
+    assert(duplicateWarningCell.textContent?.includes('图片 12（unavailable-b.png）'), '应展示第二条缺图的原始槽位和名称')
     assert(
       duplicateWarningCell.textContent?.includes('缺少平仓日，将进入待整理且不计入绩效'),
       '可继续导入的重复行仍必须显示缺少平仓日影响',

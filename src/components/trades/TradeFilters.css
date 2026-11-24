@@ -12,7 +12,8 @@
   box-shadow: var(--popover-shadow);
   overflow-x: hidden;
   overflow-y: auto;
-  animation: fadeIn var(--motion-menu) var(--ease-out);
+  transform-origin: top right;
+  animation: uiPopIn var(--motion-menu) var(--ease-out);
 }
 
 .trade-filter-head {

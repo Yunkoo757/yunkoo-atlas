@@ -22,6 +22,10 @@
   color: var(--field-placeholder);
 }
 
+.ui-select-trigger:disabled .ui-select-value.is-placeholder {
+  color: var(--text-disabled);
+}
+
 .ui-select-chevron {
   flex: 0 0 auto;
   color: var(--text-tertiary);
@@ -38,7 +42,7 @@
   padding: var(--sp-1);
   overflow-y: auto;
   font-feature-settings: "lnum" 1, "calt" 1, "rlig" 1, "kern" 1;
-  animation: uiSelectIn var(--motion-menu) var(--ease-out) both;
+  animation: uiPopIn var(--motion-menu) var(--ease-out) both;
 }
 
 .ui-select-menu-top {
@@ -118,18 +122,6 @@
   color: var(--text-disabled);
   background: transparent;
   opacity: 0.55;
-}
-
-@keyframes uiSelectIn {
-  from {
-    opacity: 0;
-    scale: 0.985;
-  }
-
-  to {
-    opacity: 1;
-    scale: 1;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

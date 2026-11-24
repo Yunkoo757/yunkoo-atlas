@@ -278,7 +278,8 @@ const checks = [
     'shared overlays consume semantic motion durations',
     modalShellStyles.includes('var(--motion-dialog-in)') &&
       commandPaletteStyles.includes('var(--motion-dialog-in)') &&
-      commandPaletteStyles.includes('var(--motion-dialog-out)') &&
+      globalStyles.includes('uiDialogExit var(--motion-dialog-out)') &&
+      read('src/components/CommandPalette.tsx').includes('useExitClone') &&
       menuStyles.includes('var(--motion-menu)') &&
       !/(?:animation|transition)[^;]*(?:\d+ms|\d*\.\d+s)/.test(`${modalShellStyles}\n${commandPaletteStyles}\n${menuStyles}`),
   ],
@@ -441,8 +442,8 @@ const checks = [
     !profileSettingsCss.includes('white 12%'),
   ],
   [
-    'DisplayMenu.css animation uses token duration (not bare 0.12s)',
-    !displayMenuCss.includes('0.12s') && /var\(--motion-ui\)/.test(displayMenuCss),
+    'Display menus use the shared popover timing and easing',
+    /uiPopIn\s+var\(--motion-menu\)\s+var\(--ease-out\)/.test(displayMenuCss),
   ],
   [
     'ShortcutsView.css animation uses var(--ease-in-out) token',

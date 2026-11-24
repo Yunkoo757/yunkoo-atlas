@@ -1,3 +1,7 @@
+.ui-toolbar-content:has(.list-pending-entry, [data-workbench-result-repair]) {
+  flex: 0 0 auto;
+}
+
 .tb-right {
   display: flex;
   align-items: center;

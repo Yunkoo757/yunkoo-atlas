@@ -208,7 +208,11 @@ async function run(): Promise<void> {
       .find((item) => getComputedStyle(item).display !== 'none')
     assert(visibleOverflow, '标签溢出计数必须按当前宽度显示')
     assert(getComputedStyle(visibleOverflow).pointerEvents === 'auto', '标签溢出计数必须接收悬浮与键盘事件')
+    const originalLeft = visibleOverflow.getBoundingClientRect().left
+    visibleOverflow.scrollIntoView({ block: 'nearest', inline: 'center' })
     visibleOverflow.focus()
+    assert(context.scrollLeft === 0, '聚焦溢出计数时，测量副本不能将可见标签挤出视口')
+    assert(Math.abs(visibleOverflow.getBoundingClientRect().left - originalLeft) < 1, '溢出提示的锚点应保持在原处')
     const overflowTooltip = await waitForOverflowTooltip()
     assert(overflowTooltip, '标签溢出提示必须列出被省略的错误标签与普通标签')
     context.style.flex = ''

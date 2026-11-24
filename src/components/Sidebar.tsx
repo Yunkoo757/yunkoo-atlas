@@ -1,4 +1,4 @@
-import { createRecordForContext, resolveCreateRecordAction } from '@/lib/createRecordAction'
+import { createRecordForContext, isRecordCreationArchived, resolveCreateRecordAction } from '@/lib/createRecordAction'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import type { AppIcon } from '@/icons/appIcons'
@@ -291,6 +291,8 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
   )
   const primaryNav = useMemo(() => resolvePrimarySidebarNav(primaryOrder), [primaryOrder])
 
+  const createAction = resolveCreateRecordAction(path, search, trades)
+  const creationArchived = useStore(state => isRecordCreationArchived(path, state.trades, state.backtestProjects))
   const trashCount = trades.filter((trade) => Boolean(trade.deletedAt)).length
   const expiringTrashCount = countExpiringTradeTrash(trades)
   const trashLabel = expiringTrashCount > 0
@@ -350,7 +352,15 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
         setCapabilityMenu(null)
         toast(`已从侧栏移除「${label}」`, {
           label: '撤销',
-          onClick: () => replaceSidebarWorkspaceItems(previous),
+          onClick: () => {
+            const current = useStore.getState().display.sidebarWorkspaceItems
+            const index = previous.findIndex(entry => entry.target.kind === 'system' && entry.target.id === id)
+            const removed = previous[index]
+            if (!removed || current.some(entry => entry.target.kind === 'system' && entry.target.id === id)) return
+            const following = current.findIndex(entry => entry.id === previous[index + 1]?.id)
+            const position = following < 0 ? Math.min(index, current.length) : following
+            replaceSidebarWorkspaceItems([...current.slice(0, position), removed, ...current.slice(position)])
+          },
         })
         return
       }
@@ -487,16 +497,16 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
               <Search size={ICON_MD} />
             </button>
           </ShortcutTooltip>
-          <ShortcutTooltip actionId={resolveCreateRecordAction(path, search).actionId} label={resolveCreateRecordAction(path, search).label}>
+          {!creationArchived && <ShortcutTooltip actionId={createAction.actionId} label={createAction.label}>
             <button
               type="button"
               className="sb-hbtn sb-hbtn-create"
-              aria-label={resolveCreateRecordAction(path, search).label}
+              aria-label={createAction.label}
               onClick={() => createRecordForContext(path, search, navigate)}
             >
               <Compose size={ICON_MD} />
             </button>
-          </ShortcutTooltip>
+          </ShortcutTooltip>}
         </div>
       </div>
       <SidebarBackupHealth />

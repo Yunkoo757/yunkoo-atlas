@@ -472,7 +472,7 @@
   border: 1.5px solid var(--border-strong);
   border-right-color: var(--text-secondary);
   border-radius: var(--radius-full);
-  animation: dv-note-spin 700ms linear infinite;
+  animation: dv-note-spin var(--motion-spin) linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
   .dv-note-load-indicator {
@@ -897,7 +897,7 @@
   background: var(--group-add-hover-bg);
 }
 .dv-prop-empty {
-  color: var(--text-quaternary);
+  color: var(--field-placeholder);
   font-weight: var(--font-weight-normal);
 }
 .dv-prop-chip {

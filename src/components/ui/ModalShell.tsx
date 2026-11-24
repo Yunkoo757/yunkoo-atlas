@@ -1,3 +1,5 @@
+import { restoreFocusIfUnclaimed } from '@/lib/restoreFocus'
+import { isComposingKey } from '@/lib/keyboardComposition'
 import { ICON_MD } from '@/icons/iconSize'
 import {
   createContext,
@@ -25,7 +27,7 @@ type ModalPortalRegistry = {
   registerPortalRoot: (root: HTMLElement) => () => void
 }
 
-const ModalPortalContext = createContext<ModalPortalRegistry | null>(null)
+export const ModalPortalContext = createContext<ModalPortalRegistry | null>(null)
 
 /**
  * 将挂到 document.body 的菜单、选择器或日期层登记为当前 Modal 的焦点域。
@@ -41,6 +43,21 @@ export function useModalPortalRoot(): (root: HTMLElement | null) => void {
     unregisterRef.current?.()
     unregisterRef.current = root && registry ? registry.registerPortalRoot(root) : null
   }, [registry])
+}
+
+export function useModalPortalRegistry(busy = false) {
+  const portalRootsRef = useRef(new Set<HTMLElement>())
+  const portalRegistry = useMemo(() => ({
+    registerPortalRoot(root: HTMLElement) {
+      portalRootsRef.current.add(root)
+      if (busy) root.setAttribute('inert', '')
+      return () => {
+        root.removeAttribute('inert')
+        portalRootsRef.current.delete(root)
+      }
+    },
+  }), [busy])
+  return { portalRootsRef, portalRegistry }
 }
 
 export function ModalShell({
@@ -78,18 +95,11 @@ export function ModalShell({
   const titleId = useId()
   const descriptionId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
+  const focusOptions = useRef({ initialFocusSelector, returnFocusTo })
+  focusOptions.current = { initialFocusSelector, returnFocusTo }
   const returnFocusRef = useRef<HTMLElement | null>(null)
-  const portalRootsRef = useRef(new Set<HTMLElement>())
   const exitRef = useExitClone<HTMLDivElement>()
-  const registerPortalRoot = useCallback((root: HTMLElement) => {
-    portalRootsRef.current.add(root)
-    if (busy) root.setAttribute('inert', '')
-    return () => {
-      root.removeAttribute('inert')
-      portalRootsRef.current.delete(root)
-    }
-  }, [busy])
-  const portalRegistry = useMemo(() => ({ registerPortalRoot }), [registerPortalRoot])
+  const { portalRootsRef, portalRegistry } = useModalPortalRegistry(busy)
 
   const isTopmostModal = useCallback(
     () => {
@@ -101,14 +111,15 @@ export function ModalShell({
 
   useEffect(() => {
     useShortcutStore.getState().acquireModalOverlay()
-    returnFocusRef.current = returnFocusTo ?? (
+    returnFocusRef.current = focusOptions.current.returnFocusTo ?? (
       document.activeElement instanceof HTMLElement ? document.activeElement : null
     )
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const frame = requestAnimationFrame(() => {
       const panel = panelRef.current
-      if (!panel) return
+      if (!panel || !isTopmostModal()) return
+      const { initialFocusSelector } = focusOptions.current
       const preferred = initialFocusSelector
         ? panel.querySelector<HTMLElement>(initialFocusSelector)
         : panel.querySelector<HTMLElement>('[data-autofocus]')
@@ -120,10 +131,10 @@ export function ModalShell({
       useShortcutStore.getState().releaseModalOverlay()
       const target = returnFocusRef.current
       requestAnimationFrame(() => {
-        if (target?.isConnected) target.focus()
+        restoreFocusIfUnclaimed(target)
       })
     }
-  }, [initialFocusSelector, modalId, returnFocusTo])
+  }, [isTopmostModal])
 
   useEffect(() => {
     for (const root of portalRootsRef.current) {
@@ -135,7 +146,7 @@ export function ModalShell({
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const panel = panelRef.current
-      if (!panel || !isTopmostModal()) return
+      if (!panel || !isTopmostModal() || isComposingKey(event)) return
       if (event.key === 'Escape') {
         if (event.defaultPrevented) return
         event.preventDefault()

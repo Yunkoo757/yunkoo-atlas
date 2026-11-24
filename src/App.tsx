@@ -42,7 +42,7 @@ import type { WindowsCloseChoice } from './types/journalBridge'
 import { toast } from './lib/toast'
 import { AsyncGeneration } from './lib/asyncGeneration'
 import { WebStorageGuard } from './components/WebStorageGuard'
-import { DelayedRouteFallback, RouteErrorBoundary, RouteNotFound } from './components/RouteState'
+import { DelayedRouteFallback, RouteContentMotion, RouteErrorBoundary, RouteNotFound } from './components/RouteState'
 import { LoadingIndicator } from './icons/LoadingIndicator'
 import { ICON_XL } from './icons/iconSize'
 import { TradesPage } from './views/TradesPage'
@@ -526,6 +526,7 @@ function Shell() {
         <StageRolloverBanner />
         <RouteErrorBoundary resetKey={`${location.pathname}${location.search}`}>
           <Suspense fallback={<DelayedRouteFallback />}>
+            <RouteContentMotion pathname={location.pathname} />
             <Routes>
           <Route path="/" element={<TradeHomeRedirect />} />
           <Route

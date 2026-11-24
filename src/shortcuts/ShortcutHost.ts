@@ -34,7 +34,7 @@ import {
 import { syncPrimaryWorkspaceMode } from '@/lib/workspaceViews'
 import { getActionMeta } from '@/shortcuts/actions'
 import { requestLightboxClose, requestLightboxReset } from '@/lib/lightboxView'
-import { createQuickNote } from '@/data/quickNotes'
+import { createAndOpenQuickNote, resolveCreateRecordAction } from '@/lib/createRecordAction'
 import { newTradeKindForPath } from '@/lib/tradeKind'
 import { resolveSharedTradeWorkspaceSearch, isSharedTradeWorkspacePath } from '@/lib/tradeWorkspaceQuery'
 
@@ -97,16 +97,14 @@ export function useShortcutHost({
       'global.commandPalette': onToggleCmdk,
       'global.commandPaletteMod': onToggleCmdk,
       'global.newTrade': () => {
-        openComposer(null, newTradeKindForPath(pathname, search), backtestProjectIdForPath(pathname, useStore.getState().trades))
+        const trades = useStore.getState().trades
+        const action = resolveCreateRecordAction(pathname, search, trades)
+        openComposer(null, action.kind === 'note' || action.kind === 'case' ? newTradeKindForPath(pathname, search) : action.kind, backtestProjectIdForPath(pathname, trades))
       },
       'global.newCase': () => {
         openComposer(null, 'case')
       },
-      'global.newQuickNote': () => {
-        const note = createQuickNote()
-        useStore.getState().upsertQuickNote(note)
-        navigate(`/notes/${encodeURIComponent(note.id)}`)
-      },
+      'global.newQuickNote': () => createAndOpenQuickNote(navigate, pathname),
       'global.undo': () => {
         const s = useStore.getState()
         if (s.undoStack.length > 0 && s.undo()) toast('已撤销')

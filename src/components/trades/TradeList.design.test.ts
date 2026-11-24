@@ -9,23 +9,20 @@ export async function testTradeListGroupTogglePreservesInteractionContract(): Pr
   const tokens = await fs.readFile('src/styles/tokens.css', 'utf8')
   const statusIcon = await fs.readFile('src/components/StatusIcon.tsx', 'utf8')
 
-  assert(source.includes('aria-expanded={item.openProgress > 0.5}'), '分组头必须暴露 aria-expanded')
-  assert(source.includes('animateGroupTo'), '分组开合必须走动画进度，而非瞬间删行')
-  assert(source.includes('EASE_OUT_QUART'), '折叠缓动必须使用统一 ease-out-quart')
-  assert(source.includes('COLLAPSE_MS'), '折叠时长必须使用统一布局动效')
-  assert(source.includes('rowHeight * item.openProgress'), '当前密度行高必须随 openProgress 平滑收展')
+  assert(source.includes('aria-expanded={item.expanded}'), '语义立即反映折叠意图')
+  assert(source.includes('getItemKey:') && source.includes('previousPositions'), '虚拟记录按稳定身份衔接相邻布局')
+  assert(!source.includes('tickAnimations') && !source.includes('rowHeight * item.openProgress'), '长列表不得逐帧重建虚拟索引或压缩每行')
   assert(source.includes('compact: 44'), '紧凑列表必须使用 44px 行高')
   assert(source.includes('comfortable: 48'), '舒展列表必须使用 48px 行高')
   assert(source.includes("'--trade-row-height': `${rowHeight}px`"), '虚拟估算与 CSS 行高必须共享同一密度值')
   assert(source.includes('DisclosureChevron'), '分组折叠必须使用语义化 DisclosureChevron')
   assert(source.includes('StatusIndicator'), '复盘分组头应使用语义化状态图标')
-  assert(source.includes('rotate(${90 * item.openProgress}deg)'), '展开时箭头应从朝右旋至朝下')
-  assert(css.includes('will-change: transform'), '三角旋转应开启合成层以保证流畅')
+  assert(css.includes('rotate(90deg)') && css.includes('rotate(0deg)'), '箭头跟随展开和折叠')
   assert(css.includes('--trade-group-chevron'), '分组三角应按状态/远近 tint，而非整条换底色')
   assert(
     css.includes('.trade-list-group-toggle:hover .trade-list-group-chevron') &&
-      css.includes('color: var(--accent-text)'),
-    '分组三角悬停应保持清晰的纯白高亮',
+      css.includes('color: var(--text-strong)'),
+    '分组三角悬停在当前主题下应有清晰的高亮',
   )
   assert(tokens.includes('--group-chevron-started:'), '当前状态三角色必须使用专用色值')
   assert(tokens.includes('--status-completed: var(--status-win);'), '盈利完成态应使用降噪后的状态绿')
@@ -124,7 +121,7 @@ export async function testTrashRetentionCopyAppearsOnlyOnceInEmptyState(): Promi
   const source = await fs.readFile('src/views/TradeTrashView.tsx', 'utf8')
 
   assert(source.includes("context={trashTrades.length > 0 ? `${trashTrades.length} 笔` : undefined}"), '空回收站顶部不得重复显示数量与保留期限')
-  assert(source.includes('hint="已删除的交易会保留，直到你明确选择彻底删除"'), '空态必须明确说明不会自动永久删除')
+  assert(source.includes('hint="记录可在 30 天内恢复，期满后将在启动时自动清理。"'), '空态须与启动时的过期清理规则一致')
 }
 
 export async function testTradeSelectionAppearsOnlyOnIntent(): Promise<void> {
@@ -209,11 +206,9 @@ export async function testTradeListVisualAlignmentContract(): Promise<void> {
   assert(css.includes('opacity: var(--list-status-opacity-rest)'), '静止状态图标必须消费统一透明度令牌')
   assert(css.includes('color: var(--list-text-context)'), '普通上下文必须使用专用低层级灰阶')
   assert(
-    /\.sb-footer\s*\{[\s\S]*?border-top:\s*0;/.test(sidebar)
-      && /\.sb-footer\s*\{[\s\S]*?padding:\s*var\(--sp-2\) 0 var\(--sp-1\) var\(--sp-1\);/.test(sidebar)
-      && /\.sb-risk-summary\s*\{[\s\S]*?width:\s*28px;[\s\S]*?padding:\s*0;/.test(sidebar)
-      && /\.sb-risk-gauge\s*\{[\s\S]*?width:\s*15px;[\s\S]*?height:\s*15px;/.test(sidebar),
-    '纯图形风险入口必须取消分割线、对齐导航图标轴线并保持克制尺寸',
+    /\.sb-footer\s*\{[^}]*position:\s*relative;/.test(sidebar)
+      && /\.sb-risk-summary\s*\{[^}]*min-height:\s*var\(--control-height-md\);/.test(sidebar),
+    '风险入口应与导航共用行轨道，为向上展开的明细提供锚点',
   )
 }
 

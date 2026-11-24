@@ -269,7 +269,7 @@ export function ReviewPoolManagerModal({
     {deleteTarget ? (
       <ModalShell
         title={`删除复盘池“${deleteTarget.name}”？`}
-        description="删除后不会影响已有交易或案例，但该复盘池的筛选配置无法恢复。"
+        description="此复盘池的筛选配置将被永久删除，池中的交易和案例仍可在原处查看。"
         size="compact"
         onClose={() => setDeleteTarget(null)}
         footer={(

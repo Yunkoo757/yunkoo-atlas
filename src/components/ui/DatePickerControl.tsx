@@ -53,6 +53,7 @@ export const DatePicker = forwardRef<
     value: string
     onValueChange: (value: string) => void
     ariaLabel: string
+    initialMonth?: string
     ariaInvalid?: boolean
     ariaDescribedBy?: string
     className?: string
@@ -68,6 +69,7 @@ export const DatePicker = forwardRef<
     value,
     onValueChange,
     ariaLabel,
+    initialMonth,
     ariaInvalid,
     ariaDescribedBy,
     className = '',
@@ -135,7 +137,7 @@ export const DatePicker = forwardRef<
 
   const openPicker = () => {
     if (disabled) return
-    const activeDate = parseYmd(value) ?? new Date()
+    const activeDate = parseYmd(value) ?? parseYmd(`${initialMonth}-01`) ?? new Date()
     setViewDate(activeDate)
     setActiveDayKey(toYmd(activeDate))
     setMode('days')

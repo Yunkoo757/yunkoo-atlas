@@ -1,3 +1,4 @@
+import { isComposingKey } from '@/lib/keyboardComposition'
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { ICON_2XL, ICON_MD, ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
@@ -85,6 +86,7 @@ import {
   normalizePsychology,
   normalizeNarrative,
 } from '@/lib/tradeView'
+import { moveRecordsToTrash } from '@/lib/tradeTrashAction'
 import { toast } from '@/lib/toast'
 import { buildRecordActionDescriptors, type RecordActionId } from '@/lib/tradeActionContract'
 import { copyTradeRecordWithFeedback } from '@/lib/tradeCopyAction'
@@ -194,8 +196,6 @@ export function DetailView() {
   const toggleStar = useStore((s) => s.toggleStar)
   const toggleCaseFocus = useStore((s) => s.toggleCaseFocus)
   const openComposer = useStore((s) => s.openComposer)
-  const removeTrade = useStore((s) => s.removeTrade)
-  const restoreTrade = useStore((s) => s.restoreTrade)
   const profile = useStore((s) => s.profile)
   const symbolIcons = useStore((s) => s.symbolIcons)
   const starredIds = useStore((s) => s.starredIds)
@@ -310,6 +310,15 @@ export function DetailView() {
   const from = (location.state as TradeDetailLocationState | null)?.from
   const commandSearch = (location.state as TradeDetailLocationState | null)?.commandSearch
   const focusField = (location.state as TradeDetailLocationState | null)?.focusField
+  const resultActionRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (focusField !== 'result') return
+    const frame = requestAnimationFrame(() => {
+      resultActionRef.current?.focus({ preventScroll: true })
+      resultActionRef.current?.scrollIntoView({ block: 'nearest' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [focusField, trade?.id])
   const detailReturnState = commandSearch
     ? { restoreCommandSearch: commandSearch }
     : tradeReturnLocationState(from)
@@ -490,7 +499,7 @@ export function DetailView() {
   const navigateDetail = useCallback((targetId: string | null) => {
     if (!targetId) return
     const target = trades.find((item) => item.id === targetId)
-    if (target) navigate(tradeDetailPath(target), { state: location.state })
+    if (target) navigate(tradeDetailPath(target), { state: { ...location.state, focusField: undefined } })
   }, [trades, navigate, location.state])
 
   useLayoutEffect(() => {
@@ -663,15 +672,7 @@ export function DetailView() {
   }
 
   const onDelete = () => {
-    const deletedId = trade.id
-    removeTrade(deletedId)
-    toast('已移至回收站，30 天后自动清空', {
-      label: '撤销',
-      onClick: () => {
-        restoreTrade(deletedId)
-        toast('已从回收站恢复')
-      },
-    })
+    moveRecordsToTrash(trade.id)
     navigate(detailReturn, { state: detailReturnState })
   }
 
@@ -998,6 +999,7 @@ export function DetailView() {
   return (
     <>
       <TradeDetailLayout
+      revealProperties={focusField === 'closedAt'}
       header={(propertiesToggle) => (
       <header className="dv-topbar">
         <div className="dv-tb-left">
@@ -1189,7 +1191,7 @@ export function DetailView() {
                   </span>
                 </div>
                 <div className="dv-review-stage-actions">
-                  <Button variant="bordered" size="sm"
+                  <Button ref={resultActionRef} variant="bordered" size="sm"
                     type="button"
                     onClick={() => requestTradeClose(
                       trade.id,
@@ -1807,6 +1809,7 @@ function EditableDataRow({
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => {
+            if (isComposingKey(e.nativeEvent)) return
             if (e.key === 'Enter') commit()
             if (e.key === 'Escape') {
               e.stopPropagation()

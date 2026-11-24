@@ -1,12 +1,10 @@
 import { ICON_MD } from '@/icons/iconSize'
 import type { ReactNode } from 'react'
-import { Pencil, Trash2, Star, Ban, BookOpen, Bookmark, Copy } from '@/icons/appIcons'
+import { Pencil, Trash2, Star, BookOpen, Bookmark, Copy } from '@/icons/appIcons'
 import { StatusIcon } from '@/components/StatusIcon'
 import { STATUS_META, type Trade, type TradeStatus } from '@/data/trades'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
 import type { CtxItem } from '@/components/ContextMenu'
-import { toast } from '@/lib/toast'
-import { useStore } from '@/store/useStore'
 import { buildRecordActionDescriptors, type RecordActionId } from '@/lib/tradeActionContract'
 import { copyTradeRecordWithFeedback } from '@/lib/tradeCopyAction'
 
@@ -36,7 +34,7 @@ export function buildTradeCtxItems(
   }
   const items: CtxItem[] = [
     { type: 'label', text: '改为状态' },
-    ...STATUS_ORDER.map(
+    ...STATUS_ORDER.filter(status => status !== trade.status).map(
       (s): CtxItem => ({
         type: 'item',
         icon: <StatusIcon status={s} size={ICON_MD} />,
@@ -45,18 +43,6 @@ export function buildTradeCtxItems(
       }),
     ),
   ]
-
-  if (trade.status === 'planned') {
-    items.push(
-      { type: 'divider' },
-      {
-        type: 'item',
-        icon: <Ban size={ICON_MD} />,
-        label: '标记为错过',
-        onClick: () => applyStatus('missed'),
-      },
-    )
-  }
 
   const actionIcons: Record<RecordActionId, ReactNode> = {
     edit: <Pencil size={ICON_MD} />,
@@ -72,17 +58,7 @@ export function buildTradeCtxItems(
     'extract-case': () => a.createReviewCase?.(trade),
     star: () => a.toggleStar?.(trade.id),
     'focus-case': () => a.toggleCaseFocus?.(trade.id),
-    delete: () => {
-      const deletedId = trade.id
-      a.removeTrade(deletedId)
-      toast('已移至回收站，30 天后自动清空', {
-        label: '撤销',
-        onClick: () => {
-          useStore.getState().restoreTrade(deletedId)
-          toast('已从回收站恢复')
-        },
-      })
-    },
+    delete: () => a.removeTrade(trade.id),
   }
   const businessActions = buildRecordActionDescriptors(trade, { starred: Boolean(starred) })
     .filter((action) => action.id !== 'extract-case' || Boolean(a.createReviewCase))

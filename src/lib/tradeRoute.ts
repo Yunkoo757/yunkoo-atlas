@@ -14,7 +14,7 @@ export type TradeDetailFrom = {
   anchorTradeId?: string
 }
 
-export type TradeDetailFocusField = 'closedAt'
+export type TradeDetailFocusField = 'closedAt' | 'result'
 
 export type TradeDetailLocationState = {
   from?: TradeDetailFrom
@@ -78,6 +78,7 @@ export function resolveTradeDetailReturn(options: {
 function isValidDetailSource(pathname: string, tradeKind: Trade['tradeKind'] | undefined, anchorTradeId?: string): boolean {
   if (/^\/backtests\/[^/]+$/.test(pathname)) return tradeKind === 'backtest' || tradeKind === 'case'
   if (tradeKind === 'backtest') return false
+  if (/^\/notes\/[^/]+$/.test(pathname)) return tradeKind === 'live' || tradeKind === 'case'
   if (pathname === '/dashboard') return tradeKind !== 'case'
   if (pathname === '/live-history' || pathname === '/live-history/board') return true
   if (pathname === '/live-archive' || pathname.startsWith('/live-archive/')) return true
