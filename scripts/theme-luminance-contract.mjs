@@ -119,10 +119,10 @@ export const THEME_COLOR_MIX_ALLOWLIST = Object.freeze([
   opticalMix('src/components/ImageLightbox.css:169', '图片内容上方的半透明控制面，必须保留底图上下文。', 'Lightbox 控制面改为不透明布局时'),
   opticalMix('src/components/ImageLightbox.css:178', '图片内容上的悬停控制面需要与底图合成。', 'Lightbox 控制面改为不透明布局时'),
   opticalMix('src/components/ShortcutTooltip.css:22', '快捷键提示的单像素内阴影用于键帽光学校准。', '快捷键提示统一迁移至 Kbd 组件时'),
-  opticalMix('src/components/sidebar/SidebarWorkspace.css:248', '工作区菜单边界叠加在侧栏浮层上。', '工作区菜单迁移至共享 Menu 时'),
-  opticalMix('src/components/sidebar/SidebarWorkspace.css:250', '工作区菜单控制面需要保留侧栏底色上下文。', '工作区菜单迁移至共享 Menu 时'),
-  opticalMix('src/components/sidebar/SidebarWorkspace.css:548', '工作区状态标签使用文字角色生成低强度底板。', '状态标签建立独立语义 Surface 时'),
-  opticalMix('src/components/sidebar/SidebarWorkspace.css:562', '工作区溢出状态使用文字角色生成低强度底板。', '状态标签建立独立语义 Surface 时'),
+  opticalMix('src/components/sidebar/SidebarWorkspace.css:247', '工作区菜单边界叠加在侧栏浮层上。', '工作区菜单迁移至共享 Menu 时'),
+  opticalMix('src/components/sidebar/SidebarWorkspace.css:249', '工作区菜单控制面需要保留侧栏底色上下文。', '工作区菜单迁移至共享 Menu 时'),
+  opticalMix('src/components/sidebar/SidebarWorkspace.css:536', '工作区状态标签使用文字角色生成低强度底板。', '状态标签建立独立语义 Surface 时'),
+  opticalMix('src/components/sidebar/SidebarWorkspace.css:550', '工作区溢出状态使用文字角色生成低强度底板。', '状态标签建立独立语义 Surface 时'),
   opticalMix('src/components/Sidebar.css:267', '侧栏拖拽占位只提供短暂位置反馈。', '侧栏拖拽反馈重构时'),
   opticalMix('src/components/Sidebar.css:332', '侧栏微型操作按钮保持低于导航 Hover 的强度。', '微型操作按钮迁移至共享 IconButton 时'),
   opticalMix('src/components/Sidebar.css:357', '关闭品牌焦点环后仍保留低强度键盘定位反馈。', '键盘焦点关闭态获得独立 Focus Token 时'),
@@ -149,7 +149,7 @@ export const THEME_COLOR_MIX_ALLOWLIST = Object.freeze([
   opticalMix('src/styles/global.css:274', '全局键盘焦点兜底使用文字色生成非品牌轮廓。', '所有交互元素均具备组件级 Focus Token 时'),
   opticalMix('src/styles/global.css:284', '原生 Placeholder 在两级文字角色之间做跨平台补偿。', 'Windows 与 macOS 原生 Placeholder 统一时'),
   opticalMix('src/views/ReviewSessionView.css:718', '空白图表区棋盘格用于表达可放置媒体区域。', '媒体占位区改为插图或纯色时'),
-  opticalMix('src/views/settings/SymbolsPanel.css:174', '品种预览继承 currentColor 的小尺寸内阴影。', '品种图标改为预渲染资产时'),
+  opticalMix('src/views/settings/SymbolsPanel.css:164', '品种预览继承 currentColor 的小尺寸内阴影。', '品种图标改为预渲染资产时'),
   opticalMix('src/views/ShortcutsView.css:269', '快捷键录制框内阴影用于键帽光学校准。', '快捷键录制框迁移至共享 Kbd 时'),
 ])
 
