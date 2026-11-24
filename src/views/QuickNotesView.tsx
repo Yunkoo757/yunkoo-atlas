@@ -133,10 +133,15 @@ export function QuickNotesView() {
     if (intent === navigationIntent.current) navigate(`/notes/${encodeURIComponent(noteId)}`)
   }, [flushDraft, navigate, selectedNote])
 
-  useEffect(() => {
+  // 只选进入列表时已有的随记，等路由完成订阅再跳转。
+  useLayoutEffect(() => {
     if (id) return
     const first = useStore.getState().quickNotes[0]
-    if (first) navigate(`/notes/${encodeURIComponent(first.id)}`, { replace: true })
+    if (!first) return
+    const intent = navigationIntent.current
+    queueMicrotask(() => {
+      if (intent === navigationIntent.current) navigate(`/notes/${encodeURIComponent(first.id)}`, { replace: true })
+    })
   }, [id, navigate])
 
   useLayoutEffect(() => {
