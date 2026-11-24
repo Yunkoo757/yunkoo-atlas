@@ -25,11 +25,6 @@
   color: var(--text-primary);
   font-size: var(--type-row-size);
 }
-.sfm-input:focus {
-  background: var(--field-bg-focus);
-  border-color: var(--field-border-focus);
-  box-shadow: var(--field-focus-shadow);
-}
 
 .sfm-error {
   font-size: var(--type-metadata-size);

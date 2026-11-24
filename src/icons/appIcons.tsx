@@ -67,6 +67,7 @@ export {
   MoreHorizontal,
   Newspaper,
   Package,
+  PanelLeft,
   PanelRight,
   Pencil,
   PenSquare,

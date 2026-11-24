@@ -89,7 +89,6 @@
   border-radius: var(--radius-6);
   outline: none;
 }
-.trade-open-risk-reason textarea:focus-visible { border-color: var(--field-border-focus); box-shadow: var(--field-focus-shadow); }
 .trade-open-risk-reason textarea:disabled { color: var(--text-disabled); opacity: 0.6; }
 
 .trade-open-risk-error {

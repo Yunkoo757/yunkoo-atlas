@@ -246,7 +246,7 @@ export function useSidebarNavigationModel() {
   }
 }
 
-export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
+export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: () => void; showSearch?: boolean }) {
   const density = useSidebarDensity()
   const navigate = useNavigate()
   const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
@@ -488,15 +488,16 @@ export function Sidebar({ onOpenSearch }: { onOpenSearch?: () => void }) {
           }}
         />
         <div className="sb-header-actions">
-          <ShortcutTooltip actionId="global.commandPalette" label="搜索">
+          {showSearch && <ShortcutTooltip actionId="global.commandPalette" label="搜索">
             <button
               type="button"
               className="sb-hbtn sb-hbtn-search"
+              data-command-palette-trigger
               onClick={onOpenSearch}
             >
               <Search size={ICON_MD} />
             </button>
-          </ShortcutTooltip>
+          </ShortcutTooltip>}
           {!creationArchived && <ShortcutTooltip actionId={createAction.actionId} label={createAction.label}>
             <button
               type="button"

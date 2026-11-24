@@ -132,10 +132,6 @@ input.composer-input-quick {
   font-weight: var(--font-weight-medium);
 }
 
-.composer-side-control button:focus-visible:not(:disabled) {
-  box-shadow: inset 0 0 0 1px var(--text-tertiary);
-}
-
 .composer-media {
   display: flex;
   flex-direction: column;
@@ -170,7 +166,6 @@ input.composer-input-quick {
   border-color: var(--accent);
 }
 
-.composer-drop-zone:focus-visible,
 .composer-drop-zone.is-dragging {
   color: var(--text-secondary);
   background: var(--accent-bg);
@@ -306,12 +301,6 @@ input.composer-input-quick {
   font: inherit;
 }
 
-.composer-quick-context input:focus,
-.composer-parameter-grid input:focus {
-  border-color: var(--accent);
-  outline: none;
-}
-
 .composer-more-toggle {
   align-self: flex-start;
 }
@@ -332,10 +321,6 @@ input.composer-input-quick {
 .composer-backtest .composer-essential-field .ui-date-trigger { border-color: var(--field-border); border-radius: var(--radius-6); }
 .composer-backtest .composer-essential-field .ui-select-trigger:hover,
 .composer-backtest .composer-essential-field .ui-date-trigger:hover { border-color: var(--field-border-hover); }
-.composer-backtest .composer-essential-field .ui-select-trigger:focus-visible,
-.composer-backtest .composer-essential-field .ui-date-trigger:focus-visible { border-color: var(--field-border-focus); background: var(--field-bg-focus); box-shadow: var(--field-focus-shadow); }
 .composer-backtest .composer-quick-context input,
 .composer-backtest .composer-parameter-grid input { min-height: var(--field-height-md); padding-inline: var(--field-padding-inline); border-color: var(--field-border); border-radius: var(--radius-6); }
-.composer-backtest .composer-quick-context input:focus-visible,
-.composer-backtest .composer-parameter-grid input:focus-visible { border-color: var(--field-border-focus); background: var(--field-bg-focus); box-shadow: var(--field-focus-shadow); }
 .composer-backtest .composer-footer-actions { gap: var(--space-row-gap); }

@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import postcss from 'postcss'
 
 const read = (file) => fs.readFileSync(file, 'utf8')
 const tokens = read('src/styles/tokens.css')
@@ -74,7 +75,21 @@ const collectFiles = (directory, matcher) => fs.readdirSync(directory, { withFil
 })
 const sourceFiles = collectFiles('src', /\.(?:css|ts|tsx)$/).filter((file) => !file.includes('.test.'))
 const completeSource = sourceFiles.map(read).join('\n')
-const completeCssSource = sourceFiles.filter((file) => file.endsWith('.css')).map(read).join('\n')
+const cssFiles = sourceFiles.filter((file) => file.endsWith('.css'))
+const completeCssSource = cssFiles.map(read).join('\n')
+const focusDecorations = []
+for (const file of cssFiles) {
+  postcss.parse(read(file), { from: file }).walkRules(rule => {
+    if (!rule.selector.includes(':focus')) return
+    // The image outline belongs to the selected document node while editing.
+    if (file === 'src/editor/Editor.css' && rule.selector.endsWith('img.ProseMirror-selectednode')) return
+    rule.walkDecls(decl => {
+      if (!/^(?:(?:background|border|outline|text-decoration)(?:-|$)|(?:color|box-shadow|filter|font-weight)$)/.test(decl.prop)) return
+      if (decl.prop === 'outline-offset' || (decl.prop === 'outline' && decl.value === 'none')) return
+      focusDecorations.push(`${file}:${decl.source.start.line} ${decl.prop}`)
+    })
+  })
+}
 const customPropertyDefinitions = new Set(
   [...completeSource.matchAll(/(--[a-z0-9_-]+)["']?\s*:/gi)].map((match) => match[1]),
 )
@@ -149,6 +164,7 @@ const checks = [
       !riskManagementStyles.includes('.risk-indicator-options'),
   ],
   ['sidebar width', tokens.includes('--sidebar-width: 244px')],
+  ['Tab preserves desktop control appearance' + (focusDecorations.length ? ' (' + focusDecorations.join(', ') + ')' : ''), focusDecorations.length === 0],
   [
     'sidebar navigation keeps the measured hierarchy',
     sidebarStyles.includes('--sb-text: var(--text-nav-rest)') &&

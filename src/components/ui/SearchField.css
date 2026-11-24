@@ -13,10 +13,6 @@
 
 .ui-search-field-sm { height: var(--control-height-sm); }
 .ui-search-field:hover { border-color: var(--field-border-hover); }
-.ui-search-field:focus-within {
-  background: var(--field-bg-focus);
-  border-color: var(--field-border-focus);
-}
 
 .ui-search-field label {
   display: flex;
@@ -57,10 +53,7 @@
   border-radius: var(--radius-4);
 }
 
-.ui-search-clear:hover,
-.ui-search-clear:focus-visible {
+.ui-search-clear:hover {
   color: var(--text-strong);
   background: var(--surface-control-hover);
 }
-
-.ui-search-clear:focus-visible { box-shadow: inset 0 0 0 1px var(--text-tertiary); }

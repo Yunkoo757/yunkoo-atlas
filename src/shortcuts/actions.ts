@@ -70,6 +70,13 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
     defaultBinding: getDefaultShortcutBinding('global.toggleFullscreen'),
     allowWhenTyping: true,
   },
+  {
+    id: 'global.toggleSidebar',
+    label: '折叠或展开左侧导航',
+    category: '导航',
+    scope: 'global',
+    defaultBinding: getDefaultShortcutBinding('global.toggleSidebar'),
+  },
 
   {
     id: 'nav.list',

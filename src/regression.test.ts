@@ -566,6 +566,7 @@ export function testApprovedShortcutDefaultsMatchProfile(): void {
     'global.redo': 'mod+shift+z',
     'global.closeOverlay': 'escape',
     'global.toggleFullscreen': 'f11',
+    'global.toggleSidebar': '[',
     'nav.quickNotes': 'q',
     'nav.backtests': null,
     'nav.active': 'alt+1',

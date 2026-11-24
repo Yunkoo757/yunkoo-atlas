@@ -21,8 +21,7 @@
   text-decoration: none;
 }
 
-.workbench-empty-secondary:hover,
-.workbench-empty-secondary:focus-visible {
+.workbench-empty-secondary:hover {
   color: var(--text-primary);
   border-color: var(--border-strong);
   background: var(--bg-hover);

@@ -522,7 +522,7 @@ try {
     )
     record('windows-close-to-tray', hidden, 'window hidden after explicit tray choice')
   } else {
-    await page.locator('.sb-hbtn-search').click()
+    await page.getByRole('button', { name: '搜索与命令', exact: true }).click()
     const commandDialog = page.getByRole('dialog', { name: '搜索与命令' })
     await commandDialog.waitFor({ state: 'visible', timeout: 10_000 })
     await page.keyboard.press('Escape')

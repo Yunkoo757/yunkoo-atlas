@@ -220,7 +220,7 @@ export function BacktestProjectsView() {
           {([{ value: 'all', label: '全部记录' }, { value: 'pending', label: '待确认' }, { value: 'missed', label: '未参与' }] as const).map(item => <button key={item.value} type="button" className={`quick-view-chip${recordScope === item.value ? ' is-active' : ''}`} aria-pressed={recordScope === item.value} onClick={() => changeScope('records', item.value)}>{item.label}</button>)}
         </div><span className="backtest-visible-count" title="按历史日期顺序">{visible.length} 条</span></div>
         <div className="backtest-summary" aria-label="整个项目统计摘要">
-          {statistics.filter(([label]) => label === '胜率' || label === '总 R').map(([label, value, , explanation]) => <Tooltip key={label} asChild content={explanation} label={`${label}统计口径`}><button type="button" className="backtest-summary-metric" aria-label={`${label}，查看统计口径`}><span>{label}</span><OverflowTooltip text={value}><strong>{value}</strong></OverflowTooltip></button></Tooltip>)}
+          {statistics.filter(([label]) => label === '胜率' || label === '总 R').map(([label, value, , explanation]) => <Tooltip key={label} asChild showOnFocus content={explanation} label={`${label}统计口径`}><button type="button" className="backtest-summary-metric" aria-label={`${label}，查看统计口径`}><span>{label}</span><OverflowTooltip text={value}><strong>{value}</strong></OverflowTooltip></button></Tooltip>)}
           <Button variant="ghost" size="sm" aria-label="项目统计" onClick={() => setPanel('statistics')}>统计</Button>
         </div>
       </div>
@@ -278,7 +278,7 @@ export function BacktestProjectsView() {
     {editing && <ProjectEditor project={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSave={next => { saveProject(next); setEditing(null); if (editing === 'new') navigate(projectPath(next.id)) }} />}
     {project && panel === 'statistics' && <ModalShell title="项目统计" size="compact" onClose={() => setPanel(null)}>
       <section className="backtest-stats" aria-label="全部项目记录统计">
-        {statistics.map(([label, value, hint, explanation]) => <div className="backtest-stat" key={label}><Tooltip asChild content={explanation} label={`${label}统计口径`}><button className="backtest-stat-label" type="button" aria-label={`${label}，查看统计口径`}>{label}</button></Tooltip><OverflowTooltip text={value}><strong>{value}</strong></OverflowTooltip>{hint && <small>{hint}</small>}</div>)}
+        {statistics.map(([label, value, hint, explanation]) => <div className="backtest-stat" key={label}><Tooltip asChild showOnFocus content={explanation} label={`${label}统计口径`}><button className="backtest-stat-label" type="button" aria-label={`${label}，查看统计口径`}>{label}</button></Tooltip><OverflowTooltip text={value}><strong>{value}</strong></OverflowTooltip>{hint && <small>{hint}</small>}</div>)}
       </section>
     </ModalShell>}
     {project && panel === 'info' && <ModalShell title="项目信息" size="compact" onClose={() => setPanel(null)}>

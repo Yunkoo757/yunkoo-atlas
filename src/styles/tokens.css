@@ -124,6 +124,8 @@
 
   /* —— 布局尺寸 —— */
   --sidebar-width: 244px;
+  /* Web previews have no native bar. The desktop entry sets the shared native height. */
+  --window-titlebar-height: 0px;
   --main-inset: 8px;
   --main-radius: 12px;
   --page-rail-wide: 1240px;

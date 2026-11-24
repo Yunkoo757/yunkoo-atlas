@@ -317,9 +317,12 @@ async function run(): Promise<void> {
     const search = document.querySelector<HTMLButtonElement>('.sb-hbtn-search')
     assert(search, '搜索按钮必须保留')
     search.focus()
+    await frame()
+    assert(document.activeElement === search && !document.querySelector('[role="tooltip"]'), 'Tab 到搜索按钮应安静接收焦点')
+    search.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
     await waitFor(
       () => document.querySelector('[role="tooltip"]') !== null,
-      '搜索纯图标按钮仍应显示 Tooltip',
+      '悬停搜索按钮应显示名称与快捷键',
     )
 
     assert(!document.querySelector('[data-sidebar-workspace-id="system:missed"]'), '旧版错过机会配置只保留来源范围，不得恢复重复侧栏入口')

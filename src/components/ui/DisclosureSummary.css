@@ -21,8 +21,7 @@
 }
 details[open] > .ui-disclosure-summary > svg { transform: rotate(90deg); }
 
-.ui-disclosure-summary:hover,
-.ui-disclosure-summary:focus-visible {
+.ui-disclosure-summary:hover {
   color: var(--text-body);
   background: var(--surface-control-hover);
 }

@@ -69,6 +69,7 @@ export function Tooltip({
   delay = DEFAULT_TOOLTIP_DELAY_MS,
   side = 'auto',
   focusable = false,
+  showOnFocus = focusable,
   asChild = false,
   disabled = false,
 }: {
@@ -78,6 +79,8 @@ export function Tooltip({
   delay?: number
   side?: TooltipSide
   focusable?: boolean
+  /** 仅在焦点本身是查看补充内容的入口时启用。 */
+  showOnFocus?: boolean
   asChild?: boolean
   disabled?: boolean
 }) {
@@ -158,7 +161,7 @@ export function Tooltip({
     if (!open) return
     const dismiss = () => close()
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close()
+      if (event.key === 'Escape' || event.key === 'Tab') close()
     }
     window.addEventListener('scroll', dismiss, true)
     window.addEventListener('resize', dismiss)
@@ -194,7 +197,7 @@ export function Tooltip({
         },
         onMouseEnter: compose(child.props.onMouseEnter, schedulePointerOpen),
         onMouseLeave: compose(child.props.onMouseLeave, close),
-        onFocus: compose(child.props.onFocus, openFromFocus),
+        onFocus: showOnFocus ? compose(child.props.onFocus, openFromFocus) : child.props.onFocus,
         onBlur: compose(child.props.onBlur, close),
         onMouseDown: compose(child.props.onMouseDown, close),
       } as Record<string, unknown>)
@@ -207,7 +210,7 @@ export function Tooltip({
           aria-describedby={focusable && open ? id : undefined}
           onMouseEnter={schedulePointerOpen}
           onMouseLeave={close}
-          onFocus={openFromFocus}
+          onFocus={showOnFocus ? openFromFocus : undefined}
           onBlur={close}
           onMouseDown={close}
         >
@@ -268,6 +271,7 @@ export function OverflowTooltip({
   if (!child) return children
 
   const trigger = cloneElement(child, {
+    'data-text-overflow': overflowed || undefined,
     ref: (node: HTMLElement | null) => {
       nodeRef.current = node
       assignElementRef((child as ReactElement & { ref?: unknown }).ref, node)
@@ -275,7 +279,7 @@ export function OverflowTooltip({
   } as Record<string, unknown>)
 
   return (
-    <Tooltip asChild content={text} label={text} disabled={!overflowed}>
+    <Tooltip asChild showOnFocus content={text} label={text} disabled={!overflowed}>
       {trigger}
     </Tooltip>
   )

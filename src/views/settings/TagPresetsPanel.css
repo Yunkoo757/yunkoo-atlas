@@ -27,11 +27,6 @@
   color: var(--text-primary);
   outline: none;
 }
-.tag-preset-input:focus-visible {
-  background: var(--field-bg-focus);
-  border-color: var(--field-border-focus);
-  box-shadow: var(--field-focus-shadow);
-}
 
 .tag-batch {
   order: 2;
@@ -53,11 +48,6 @@
   border-radius: var(--radius-6);
   resize: vertical;
   outline: none;
-}
-.tag-batch-input:focus-visible {
-  background: var(--field-bg-focus);
-  border-color: var(--field-border-focus);
-  box-shadow: var(--field-focus-shadow);
 }
 
 .tag-section-empty {
@@ -108,11 +98,7 @@
   color: var(--neg);
 }
 
-.settings-tag-chip-remove:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--text-tertiary);
-}
-
 .settings-tag-chip-remove { opacity: 0; }
 .settings-tag-chip:hover .settings-tag-chip-remove,
-.settings-tag-chip:focus-within .settings-tag-chip-remove { opacity: 1; }
+.settings-tag-chip-remove:focus-visible { opacity: 1; }
 .tag-search { flex: none; width: 100%; }

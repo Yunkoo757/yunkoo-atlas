@@ -275,13 +275,9 @@
   background: var(--tag-error-bg);
 }
 
-.bd-col-add:focus-visible,
-.bd-col-header:focus-within .bd-col-add {
+.bd-col-add:focus-visible {
   opacity: 1;
-  background: var(--bg-hover);
-  color: var(--text-primary);
 }
-.bd-card:focus-visible,
 .bd-card.is-focused,
 .bd-card.is-selected {
   border-color: var(--border-strong);
@@ -309,10 +305,6 @@
   font-size: var(--type-chip-size);
   line-height: var(--type-chip-line-height);
   border-radius: var(--radius-6);
-}
-.bd-tags-more:focus-visible {
-  color: var(--text-primary);
-  background: var(--bg-hover);
 }
 .bd-tags-measure {
   position: absolute;

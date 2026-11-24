@@ -146,9 +146,7 @@
 }
 
 .img-lightbox-action:hover,
-.img-lightbox-action:focus-visible,
-.img-lightbox-close:hover,
-.img-lightbox-close:focus-visible {
+.img-lightbox-close:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
 }
@@ -180,11 +178,6 @@
 .img-lightbox-nav:hover {
   color: var(--text-primary);
   background: var(--image-nav-hover);
-}
-.img-lightbox-action:focus-visible,
-.img-lightbox-close:focus-visible,
-.img-lightbox-nav:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--text-tertiary);
 }
 .img-lightbox-nav.is-prev { left: 12px; }
 .img-lightbox-nav.is-next { right: 12px; }

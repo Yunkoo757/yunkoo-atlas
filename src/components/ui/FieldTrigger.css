@@ -39,13 +39,6 @@
   box-shadow: var(--field-focus-shadow);
 }
 
-.ui-field-trigger:focus-visible:not(:disabled):not([aria-expanded='true']) {
-  color: var(--text-primary);
-  background: var(--field-bg-focus);
-  border-color: var(--field-border-focus);
-  box-shadow: none;
-}
-
 .ui-field-trigger:disabled {
   color: var(--text-disabled);
   background: var(--field-bg-disabled);

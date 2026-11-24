@@ -166,7 +166,7 @@ export const TradeRow = memo(function TradeRow({
           {result.r.text}
         </span>
       }
-      date={<Tooltip asChild content={<>{trade.ref}<br />{isCase && trade.sourceTradeId ? '来源日期' : '记录日期'}：{fmtFullDateTime(trade.openedAt)}{isCase && trade.recordedAt && <><br />收录日期：{fmtFullDateTime(trade.recordedAt)}</>}</>} label={`${trade.ref}，${fmtFullDateTime(trade.openedAt)}`}><button type="button" className="trade-row-date-detail" aria-label={`${trade.ref}，${fmtFullDateTime(trade.openedAt)}`} onClick={() => onOpen(trade)}>{date}</button></Tooltip>}
+      date={<Tooltip asChild showOnFocus content={<>{trade.ref}<br />{isCase && trade.sourceTradeId ? '来源日期' : '记录日期'}：{fmtFullDateTime(trade.openedAt)}{isCase && trade.recordedAt && <><br />收录日期：{fmtFullDateTime(trade.recordedAt)}</>}</>} label={`${trade.ref}，${fmtFullDateTime(trade.openedAt)}`}><button type="button" className="trade-row-date-detail" aria-label={`${trade.ref}，${fmtFullDateTime(trade.openedAt)}`} onClick={() => onOpen(trade)}>{date}</button></Tooltip>}
       end={
         <Tooltip
           asChild

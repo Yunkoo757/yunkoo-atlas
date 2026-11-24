@@ -1,6 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { App } from './App'
+import { getDesktopPlatform } from './storage/runtime'
+import { WINDOW_TITLEBAR_HEIGHT } from './lib/windowBounds'
 import '@fontsource-variable/inter'
 import '@fontsource/jetbrains-mono/latin-400.css'
 import '@fontsource/jetbrains-mono/latin-500.css'
@@ -16,6 +18,12 @@ Object.defineProperty(window, '__ATLAS_BUILD_IDENTITY__', {
   configurable: false,
   enumerable: false,
 })
+
+const desktopPlatform = getDesktopPlatform()
+if (desktopPlatform) {
+  document.documentElement.dataset.desktopPlatform = desktopPlatform
+  document.documentElement.style.setProperty('--window-titlebar-height', `${WINDOW_TITLEBAR_HEIGHT}px`)
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

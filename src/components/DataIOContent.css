@@ -114,7 +114,7 @@
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 .backup-row:hover .backup-actions,
-.backup-row:focus-within .backup-actions {
+.backup-actions:focus-within {
   opacity: 1;
 }
 

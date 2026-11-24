@@ -182,7 +182,6 @@
 }
 
 .shortcuts-row:hover,
-.shortcuts-row:focus-within,
 .shortcuts-row.is-recording {
   background: var(--surface-row-hover);
 }
@@ -223,16 +222,11 @@ button.shortcuts-capture:hover {
   background: var(--bg-elevated);
 }
 
-button.shortcuts-capture:focus-visible,
 button.shortcuts-capture[aria-pressed='true'] {
   outline: none;
   color: var(--text-primary);
   border-color: color-mix(in srgb, var(--accent) 62%, var(--border-default));
   background: color-mix(in srgb, var(--accent) 8%, var(--bg-elevated));
-}
-
-button.shortcuts-capture:focus-visible:not([aria-pressed='true']) {
-  box-shadow: none;
 }
 
 button.shortcuts-capture[aria-pressed='true'] {
@@ -322,7 +316,7 @@ button.shortcuts-capture[aria-pressed='true'] {
 }
 
 .shortcuts-row:hover .shortcuts-actions,
-.shortcuts-row:focus-within .shortcuts-actions,
+.shortcuts-actions:focus-within,
 .shortcuts-row.is-recording .shortcuts-actions {
   opacity: 1;
 }

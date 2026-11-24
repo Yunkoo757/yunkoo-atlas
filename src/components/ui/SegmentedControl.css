@@ -79,11 +79,6 @@
     box-shadow var(--motion-state) var(--ease-out);
 }
 
-.ui-segmented[data-indicator-ready='true'] .ui-segmented-option:focus-visible:not(:disabled),
-.ui-segmented-option:focus-visible:not(:disabled) {
-  box-shadow: inset 0 0 0 1px var(--text-tertiary);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .ui-segmented .ui-segmented-indicator,
   .ui-segmented .ui-segmented-option {

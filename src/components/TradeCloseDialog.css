@@ -147,11 +147,6 @@
 }
 
 .trade-close-fields input:hover { border-color: var(--field-border-hover); }
-.trade-close-fields input:focus {
-  background: var(--field-bg-focus);
-  border-color: var(--field-border-focus);
-  box-shadow: var(--field-focus-shadow);
-}
 
 .trade-close-fields input[aria-invalid='true'] {
   border-color: var(--neg);

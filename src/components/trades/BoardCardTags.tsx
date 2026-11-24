@@ -35,7 +35,7 @@ export function BoardCardTags({ errors, tags }: { errors: string[]; tags: string
   const className = (danger: boolean) => 'bd-case-tag' + (danger ? ' bd-case-tag-danger' : '')
   return <span className="bd-tags-rail" ref={root}>
     {items.slice(0, visible).map((item, index) => <span key={index} className={className(item.danger)}>{item.label}</span>)}
-    {hidden.length > 0 && <Tooltip asChild content={hidden.map(item => item.label).join(' · ')} label={`其余标签：${hidden.map(item => item.label).join('、')}`}>
+    {hidden.length > 0 && <Tooltip asChild showOnFocus content={hidden.map(item => item.label).join(' · ')} label={`其余标签：${hidden.map(item => item.label).join('、')}`}>
       <span className="bd-tags-more" tabIndex={0} aria-label={`其余标签：${hidden.map(item => item.label).join('、')}`} onClick={event => event.stopPropagation()}>+{hidden.length}</span>
     </Tooltip>}
     <span className="bd-tags-measure" ref={measure} aria-hidden="true">

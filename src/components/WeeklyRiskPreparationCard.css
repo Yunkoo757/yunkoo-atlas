@@ -129,11 +129,6 @@
   outline: none;
 }
 
-.risk-preparation-form input:focus-visible {
-  border-color: var(--field-border-focus);
-  box-shadow: var(--field-focus-shadow);
-}
-
 .risk-preparation-inline-input { position: relative; }
 .risk-preparation-inline-input input { padding-right: 27px; }
 .risk-preparation-inline-input small {

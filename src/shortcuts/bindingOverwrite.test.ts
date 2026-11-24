@@ -1,9 +1,19 @@
 import { buildBindingOverwritePatch, findBindingConflicts } from '@/shortcuts/engine'
 import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
-import { resolveBinding } from '@/store/shortcutStore'
+import { migrateShortcutBindings, resolveBinding } from '@/store/shortcutStore'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
+}
+
+export function testNewSidebarDefaultRespectsExistingBracketBinding(): void {
+  const old = { 'view.board': { key: '[' } }
+  const migrated = migrateShortcutBindings(old)
+  assert(migrated['view.board'] === old['view.board'], '应沿用旧资料库中占用方括号的动作')
+  assert(resolveBinding('global.toggleSidebar', migrated) === null, '新增动作不得抢占已有按键')
+  const custom = { key: ']', shift: true }
+  const rebound = migrateShortcutBindings({ ...old, 'global.toggleSidebar': custom })
+  assert(rebound['global.toggleSidebar'] === custom, '再次打开应保留自定义的侧栏快捷键')
 }
 
 export function testBindingOverwriteClearsConflictingAction(): void {

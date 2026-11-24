@@ -6,12 +6,6 @@
   cursor: default;
 }
 
-.ui-tooltip-trigger:focus-visible {
-  outline: none;
-  outline-offset: 2px;
-  border-radius: var(--radius-full);
-}
-
 .ui-tooltip {
   position: fixed;
   z-index: var(--z-tooltip);

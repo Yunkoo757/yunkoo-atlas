@@ -1,0 +1,79 @@
+.window-titlebar {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(max-content, var(--app-sidebar-width)) minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 0;
+  background: var(--surface-app);
+  user-select: none;
+  app-region: drag;
+}
+
+/* Windows reports the usable area in CSS pixels, and an empty rect in fullscreen. */
+[data-desktop-platform='win32'] .window-titlebar {
+  padding-right: clamp(0px, calc(100% - env(titlebar-area-width, 100%) - env(titlebar-area-x, 0px)), env(titlebar-area-width, 100%));
+}
+
+.window-navigation, .window-history {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.window-navigation {
+  justify-content: space-between;
+  padding-inline: max(var(--sp-2), env(titlebar-area-x, 0px)) var(--sp-4);
+}
+
+.window-titlebar .ui-btn {
+  app-region: no-drag;
+  width: var(--control-height-sm);
+  padding: 0;
+}
+
+.window-location {
+  display: flex;
+  align-items: center;
+  justify-self: start;
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: var(--sp-2);
+  gap: var(--sp-2);
+}
+
+.window-location-icon {
+  flex: none;
+  color: var(--nav-active-icon);
+}
+
+.window-location-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
+  font-weight: var(--type-list-primary-weight);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* A clipped title can be read on hover. Short titles belong to the native drag area. */
+.window-location-label[data-text-overflow] {
+  app-region: no-drag;
+}
+
+.window-search {
+  margin-inline-end: var(--sp-3);
+}
+
+:root[data-desktop-platform] :is(.app-loading, .app-storage-error, .welcome-overlay)::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto;
+  height: var(--window-titlebar-height);
+  app-region: drag;
+}
+
+body:has([aria-modal='true']) .window-titlebar {
+  app-region: no-drag;
+}

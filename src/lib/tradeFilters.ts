@@ -90,6 +90,8 @@ export interface DisplayPrefs {
   reviewContextPinned?: boolean
   /** 宽桌面详情属性栏的显示偏好；紧凑窗口仍按需打开抽屉。 */
   detailPropertiesVisible?: boolean
+  /** 桌面窗口是否收起左侧导航。 */
+  sidebarCollapsed?: boolean
   /** 工作台主导航的自定义顺序。 */
   sidebarPrimaryOrder?: PrimarySidebarNavId[]
   /** 旧版侧栏快捷入口偏好，保留用于兼容历史快照 */
@@ -116,6 +118,7 @@ export const DEFAULT_DISPLAY: DisplayPrefs = {
   sidebarRiskScope: 'day',
   reviewContextPinned: true,
   detailPropertiesVisible: true,
+  sidebarCollapsed: false,
   sidebarPrimaryOrder: [...DEFAULT_PRIMARY_SIDEBAR_ORDER],
   sidebarPins: [...DEFAULT_SIDEBAR_PINS],
   sidebarWorkspaceItems: migrateSidebarPins(DEFAULT_SIDEBAR_PINS),
@@ -210,6 +213,7 @@ export function normalizeDisplay(input?: Partial<DisplayPrefs> | null): DisplayP
       typeof d.detailPropertiesVisible === 'boolean'
         ? d.detailPropertiesVisible
         : DEFAULT_DISPLAY.detailPropertiesVisible,
+    sidebarCollapsed: d.sidebarCollapsed === true,
     sidebarPrimaryOrder: normalizePrimarySidebarOrder(d.sidebarPrimaryOrder),
     sidebarPins,
     sidebarWorkspaceItems,

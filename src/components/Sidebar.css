@@ -136,8 +136,7 @@
   font-weight: var(--font-weight-medium);
 }
 
-.sb-backup-health:hover,
-.sb-backup-health:focus-visible {
+.sb-backup-health:hover {
   color: var(--text-body);
   text-decoration: underline;
 }
@@ -284,7 +283,7 @@
   font-weight: var(--type-nav-weight);
 }
 
-.sb-sortable-row.is-context-active:not(:hover):not(:focus-within) {
+.sb-sortable-row.is-context-active:not(:hover) {
   background: transparent;
   box-shadow: none;
 }
@@ -350,7 +349,6 @@ html[data-ui-settled='1'] .sb-item {
     pointer-events: none;
   }
   .sb-sortable-row:hover .sb-workspace-capability-menu,
-  .sb-sortable-row:focus-within .sb-workspace-capability-menu,
   .sb-sortable-row.is-capability-menu-open .sb-workspace-capability-menu {
     opacity: 1;
     pointer-events: auto;
@@ -360,8 +358,7 @@ html[data-ui-settled='1'] .sb-item {
     pointer-events: auto;
   }
 }
-.sb-workspace-capability-menu:hover,
-.sb-workspace-capability-menu:focus-visible {
+.sb-workspace-capability-menu:hover {
   background: var(--sb-hover-bg);
   color: var(--text-secondary);
   outline: none;
@@ -469,7 +466,6 @@ html[data-ui-settled='1'] .sb-item {
 }
 
 .sb-risk-summary:hover,
-.sb-risk-summary:focus-visible,
 .sb-risk-summary[aria-expanded='true'] {
   color: var(--text-nav-hover);
   background: var(--surface-nav-hover);
@@ -616,8 +612,7 @@ html[data-ui-settled='1'] .sb-item {
   text-decoration: none;
 }
 
-.sb-risk-actions a:hover,
-.sb-risk-actions a:focus-visible {
+.sb-risk-actions a:hover {
   background: var(--surface-nav-hover);
   color: var(--text-primary);
 }

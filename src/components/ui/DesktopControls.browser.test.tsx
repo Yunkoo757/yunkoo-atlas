@@ -21,6 +21,22 @@ function waitForFrame(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }
 
+async function checkNeutralKeyboardFocus(control: HTMLElement) {
+  const appearance = () => {
+    const style = getComputedStyle(control)
+    return [style.borderColor, style.backgroundColor, style.color, style.boxShadow, style.outlineStyle].join('|')
+  }
+  // The selected segment hands its initial surface over to the shared indicator on mount.
+  await waitForFrame()
+  await Promise.all(control.getAnimations().map(animation => animation.finished))
+  const before = appearance()
+  control.focus()
+  await waitForFrame()
+  await Promise.all(control.getAnimations().map(animation => animation.finished))
+  assert(document.activeElement === control && control.matches(':focus-visible'), '控件应获得键盘焦点')
+  assert(appearance() === before, `${control.className} 聚焦前后外观不同：${before} → ${appearance()}`)
+}
+
 async function waitFor(condition: () => boolean, message: string): Promise<void> {
   const deadline = performance.now() + 5_000
   while (performance.now() < deadline) {
@@ -76,11 +92,9 @@ async function run(): Promise<void> {
     assert(iconButton.getAttribute('aria-pressed') === 'false', '图标按钮缺少 pressed 状态')
     assert(Math.round(iconButton.getBoundingClientRect().height) === 28, '默认图标按钮必须为 28px')
 
-    const iconBefore = getComputedStyle(iconButton).borderColor
     const iconBounds = iconButton.getBoundingClientRect()
-    iconButton.focus()
-    await waitFor(() => getComputedStyle(iconButton).borderColor !== iconBefore, '图标按钮必须有可见的焦点边界')
-    assert(iconButton.matches(':focus-visible'), '图标按钮应进入键盘焦点状态')
+    await checkNeutralKeyboardFocus(buttons[0]!)
+    await checkNeutralKeyboardFocus(iconButton)
     assert(iconButton.getBoundingClientRect().width === iconBounds.width && iconButton.getBoundingClientRect().height === iconBounds.height, '焦点不得改变图标按钮尺寸')
 
     const group = document.querySelector<HTMLElement>('[role="group"][aria-label="视图"]')
@@ -89,13 +103,8 @@ async function run(): Promise<void> {
     assert(segments.length === 2, '分段控件选项数量错误')
     assert(segments[0]?.getAttribute('aria-pressed') === 'true', 'group 应暴露当前筛选状态')
     assert(!segments[0]?.hasAttribute('aria-selected'), '普通筛选不得使用页签选中语义')
-    const selectedBefore = getComputedStyle(segments[0]!).boxShadow
-    const selectedBackground = getComputedStyle(segments[0]!).backgroundColor
-    segments[0]?.focus()
-    await waitFor(() => getComputedStyle(segments[0]!).boxShadow !== selectedBefore, '已选分段项必须能区分键盘焦点')
-    assert(getComputedStyle(segments[0]!).backgroundColor === selectedBackground, '聚焦应保留选中底色')
+    await checkNeutralKeyboardFocus(segments[0]!)
     assert(Math.round(segments[0]!.getBoundingClientRect().height) === 24, '聚焦不得改变分段项尺寸')
-    await waitFor(() => getComputedStyle(iconButton).borderColor === iconBefore, '离开焦点应还原图标按钮边界')
     segments[0]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
     assert(document.activeElement === segments[1], '右方向键没有移动到下一项')
     await waitFor(() => segments[1]?.getAttribute('aria-pressed') === 'true', '方向键没有更新筛选状态')

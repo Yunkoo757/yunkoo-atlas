@@ -54,7 +54,7 @@ export const THEME_TEXT_PROBES = Object.freeze([
 export const THEME_STATE_CONTRACTS = Object.freeze([
   Object.freeze({ id: 'trade-row-hover', path: '/list', ready: '.trade-list', kind: 'hover', target: '.trade-row', pseudo: '::after', afterBackgroundToken: '--surface-row-hover', contrastProbe: '.trade-row .trade-row-date-detail', minimumContrast: 5.5, restore: 'mouse-out' }),
   Object.freeze({ id: 'paper-quick-view-selected', path: '/list?kind=paper', ready: '.quick-view-bar', kind: 'observe', target: '.quick-view-chip.is-active', afterBackgroundToken: '--surface-control-active', restore: 'mouse-out' }),
-  Object.freeze({ id: 'quick-view-active-focus', path: '/list', ready: '.quick-view-bar', kind: 'keyboard-focus', target: '.quick-view-chip.is-active', afterBackgroundToken: '--surface-control-active', afterBorderToken: '--accent-readable', restore: 'blur' }),
+  Object.freeze({ id: 'quick-view-active-focus', path: '/list', ready: '.quick-view-bar', kind: 'keyboard-focus', target: '.quick-view-chip.is-active', afterBackgroundToken: '--surface-control-active', afterBorderToken: '--surface-control-border-active', restore: 'blur' }),
   Object.freeze({ id: 'month-collapsed-chevron', path: '/list', ready: '.trade-list', kind: 'click', trigger: '.trade-list-group-toggle', target: '.trade-list-group-header.is-collapsed .trade-list-group-chevron', afterOpacity: '1', contrastProbe: '.trade-list-group-header.is-collapsed .trade-list-group-chevron', minimumContrast: 3, restore: 'mouse-out' }),
   Object.freeze({ id: 'board-card-hover', path: '/board', ready: '.board-scroll', kind: 'hover', target: '.bd-card', beforeBackgroundToken: '--surface-elevated', afterBackgroundToken: '--surface-card-hover', restore: 'mouse-out' }),
   Object.freeze({
@@ -79,7 +79,7 @@ export const THEME_STATE_CONTRACTS = Object.freeze([
     referenceBeforeBackgroundToken: '--surface-control-active',
     restore: 'mouse-out',
   }),
-  Object.freeze({ id: 'profile-keyboard-focus', path: '/settings/profile', ready: '.profile-settings', kind: 'keyboard-focus', target: '.profile-name-input', afterBorderToken: '--field-border-focus', afterBoxShadowNotNone: true, restore: 'blur' }),
+  Object.freeze({ id: 'profile-keyboard-focus', path: '/settings/profile', ready: '.profile-settings', kind: 'keyboard-focus', target: '.profile-name-input', afterBorderToken: '--field-border', afterBoxShadow: 'none', restore: 'blur' }),
   Object.freeze({
     id: 'display-menu-hover',
     path: '/review-cases/board',

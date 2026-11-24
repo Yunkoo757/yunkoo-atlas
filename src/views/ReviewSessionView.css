@@ -122,14 +122,9 @@
   transition: background-color var(--motion-state) var(--ease-out), color var(--motion-state) var(--ease-out);
 }
 
-.review-session-preset-list button:hover:not(:disabled),
-.review-session-preset-list button:focus-visible {
+.review-session-preset-list button:hover:not(:disabled) {
   color: var(--text-strong);
   background: var(--surface-menu-hover);
-}
-
-.review-session-preset-list button:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--text-tertiary);
 }
 
 .review-session-preset-list strong {
@@ -287,11 +282,6 @@
   font: inherit;
 }
 
-.review-pool-field input:focus {
-  border-color: var(--accent);
-  outline: none;
-}
-
 .review-pool-choice-group > div {
   display: flex;
   flex-wrap: wrap;
@@ -319,11 +309,6 @@
 .review-pool-choice-group label > span {
   min-width: 0;
   overflow-wrap: anywhere;
-}
-
-.review-pool-choice-group label:has(input:focus-visible),
-.review-pool-content-toggle:has(input:focus-visible) {
-  border-color: var(--text-tertiary);
 }
 
 .review-pool-choice-group input,
@@ -661,11 +646,6 @@
   border-radius: var(--radius-8);
   background: transparent;
   cursor: zoom-in;
-}
-
-.review-session-decision-board button:focus-visible {
-  outline: 2px solid var(--field-border-focus);
-  outline-offset: var(--sp-1);
 }
 
 .review-session-decision-board img {

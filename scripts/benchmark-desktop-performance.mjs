@@ -94,7 +94,7 @@ try {
   if (verify) {
     for (const width of [960, 1440]) {
       await application.evaluate(({ BrowserWindow }, width) => BrowserWindow.getAllWindows()[0].setSize(width, width === 960 ? 640 : 960), width)
-      await page.locator('.sb-hbtn-search').click()
+      await page.getByRole('button', { name: '搜索与命令', exact: true }).click()
       await page.locator('.cmdk-input').fill('趋势')
       await page.locator('.cmdk-item').first().waitFor()
       interactions.push({ kind: 'search', width, resultCount: await page.locator('.cmdk-item').count(), ...(await capture(`search-${width}`, width, width === 960 ? 640 : 960)) })

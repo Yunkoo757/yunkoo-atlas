@@ -88,10 +88,6 @@
   background: var(--field-bg);
   font-size: var(--type-row-size);
   color: var(--text-primary);
-}.tag-input:focus {
-  background: var(--field-bg-focus);
-  border-color: var(--field-border-focus);
-  box-shadow: var(--field-focus-shadow);
 }.tag-input-wrap {
   position: relative;
   flex: 1 1 140px;
@@ -174,17 +170,6 @@
 }
 .tag-editor[data-tone='diagnostic'] .tag-chip-remove {
   color: inherit;
-}
-.tag-preset-chip:focus-within {
-  border-color: var(--border-default);
-  background: var(--bg-hover);
-}
-.tag-preset-chip:focus-within .tag-preset-label {
-  color: var(--text-secondary);
-}
-.tag-chip-remove:focus-visible {
-  background: var(--bg-hover);
-  color: var(--text-primary);
 }
 
 /* 详情中的名称需要完整可读；短标签保持单行，长名称按属性区宽度换行。 */

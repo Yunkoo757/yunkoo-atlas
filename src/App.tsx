@@ -26,9 +26,10 @@ import { waitForPendingStorageOperations } from './storage/pendingOperations'
 import { RendererCloseBarrier } from './storage/closeBarrier'
 import { assertTradeComposerDraftCanClose, UnsavedTradeComposerDraftError } from './lib/tradeComposerDraftGuard'
 import { shouldPreventAppUnload } from './storage/unloadGuard'
-import { isElectron } from './storage/runtime'
+import { getDesktopPlatform, isElectron } from './storage/runtime'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
+import { WindowTitlebar } from './components/WindowTitlebar'
 import { TradeWorkspaceContext } from './components/TradeWorkspaceContext'
 import { AppFrame } from './components/ui/AppFrame'
 import { StageRolloverBanner } from './components/StageRolloverBanner'
@@ -493,6 +494,8 @@ async function waitForUiFonts(): Promise<void> {
 }
 
 function Shell() {
+  const desktop = getDesktopPlatform()
+  const sidebarCollapsed = useStore(state => state.display.sidebarCollapsed === true) && Boolean(desktop)
   const [cmdkOpen, setCmdkOpen] = useState(false)
   const [cmdkReturnFocus, setCmdkReturnFocus] = useState<HTMLElement | null>(null)
   const location = useLocation()
@@ -521,7 +524,9 @@ function Shell() {
   return (
     <>
       <AppFrame
-        sidebar={<Sidebar onOpenSearch={() => openCmdk()} />}
+        titlebar={desktop && <WindowTitlebar onOpenSearch={openCmdk} searchOpen={cmdkOpen} sidebarCollapsed={sidebarCollapsed} />}
+        sidebarCollapsed={sidebarCollapsed}
+        sidebar={<Sidebar showSearch={!desktop} onOpenSearch={() => openCmdk()} />}
       >
         <StageRolloverBanner />
         <RouteErrorBoundary resetKey={`${location.pathname}${location.search}`}>

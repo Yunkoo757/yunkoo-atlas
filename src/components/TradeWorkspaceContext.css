@@ -88,8 +88,7 @@
   white-space: nowrap;
 }
 
-.trade-workspace-schedule-hint:hover,
-.trade-workspace-schedule-hint:focus-visible {
+.trade-workspace-schedule-hint:hover {
   color: var(--text-secondary);
   background: var(--bg-hover);
 }
@@ -137,8 +136,7 @@
 }
 
 .trade-workspace-scope-trigger:hover,
-.trade-workspace-scope-trigger.is-open,
-.trade-workspace-scope-trigger:focus-visible {
+.trade-workspace-scope-trigger.is-open {
   color: var(--list-text-strong);
   border-color: var(--surface-control-border-active);
   background: var(--surface-control-hover);

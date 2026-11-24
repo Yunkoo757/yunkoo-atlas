@@ -2,6 +2,7 @@ import { ICON_SM } from '@/icons/iconSize'
 import type { ReactNode, RefObject } from 'react'
 import { SlidersHorizontal, X } from '@/icons/appIcons'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
+import { OverflowTooltip } from './Tooltip'
 import './FilterBar.css'
 
 export type ActiveFilter = {
@@ -64,8 +65,13 @@ export function FilterBar({
           {activeFilters.length === 0 && !quickViews ? (
             <span className="ui-filter-empty">全部记录</span>
           ) : activeFilters.length > 0 ? (
-            activeFilters.map((filter) =>
-              filter.onRemove ? (
+            activeFilters.map((filter) => {
+              const label = (
+                <OverflowTooltip text={filter.label}>
+                  <span className="ui-filter-chip-label">{filter.label}</span>
+                </OverflowTooltip>
+              )
+              return filter.onRemove ? (
                 <button
                   type="button"
                   className="ui-filter-chip"
@@ -73,15 +79,15 @@ export function FilterBar({
                   onClick={filter.onRemove}
                   aria-label={`移除 ${filter.label}`}
                 >
-                  <span>{filter.label}</span>
+                  {label}
                   <X size={ICON_SM} />
                 </button>
               ) : (
                 <span className="ui-filter-chip ui-filter-chip-static" key={filter.key}>
-                  {filter.label}
+                  {label}
                 </span>
-              ),
-            )
+              )
+            })
           ) : null}
         </div>
         <div className="ui-filter-actions">

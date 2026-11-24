@@ -79,7 +79,7 @@ async function run() {
       element.focus(); await wait()
       assert(element.matches(':focus-visible'), `${selector} 需要键盘焦点`)
       assert(getComputedStyle(element).opacity !== '0', `${selector} 聚焦不能透明`)
-      assert(before !== getComputedStyle(element).backgroundColor + getComputedStyle(element).borderColor, `${selector} 必须提供焦点反馈`)
+      assert(before === getComputedStyle(element).backgroundColor + getComputedStyle(element).borderColor, `${selector} 聚焦不应改变底色或边框`)
     }
   } finally { root.unmount() }
 }

@@ -194,8 +194,6 @@
   font-size: var(--type-row-size);
   font-variant-numeric: var(--numeric-tabular);
 }
-
-.ui-date-year-input:focus { border-color: var(--field-border-focus); }
 .ui-date-year-input[aria-invalid='true'] { border-color: var(--neg); }
 .ui-date-year-error { grid-column: 1 / -1; color: var(--neg); }
 
@@ -230,7 +228,6 @@
 .ui-date-period-grid button:hover,
 .ui-date-jump:hover { background: var(--surface-menu-hover); color: var(--text-primary); }
 .ui-date-period-grid button[aria-pressed='true'] { background: var(--surface-control-active); color: var(--text-primary); }
-.ui-date-popover button:focus-visible { outline: 1px solid var(--accent-readable); outline-offset: -1px; }
 .ui-date-popover button:disabled { color: var(--text-disabled); background: transparent; cursor: default; }
 
 @media (prefers-reduced-motion: reduce) {

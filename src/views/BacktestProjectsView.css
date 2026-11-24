@@ -52,9 +52,7 @@
   cursor: help;
 }
 
-.backtest-stat-label:hover,
-.backtest-stat-label:focus-visible { color: var(--text-content-supporting); }
-.backtest-stat-label:focus-visible { box-shadow: 0 0 0 1px var(--text-tertiary); }
+.backtest-stat-label:hover { color: var(--text-content-supporting); }
 
 .backtest-stat strong {
   max-width: 100%;
@@ -108,9 +106,7 @@
   font-weight: var(--type-list-primary-weight);
   text-overflow: ellipsis;
 }
-.backtest-summary-metric:hover,
-.backtest-summary-metric:focus-visible { color: var(--text-content-supporting); }
-.backtest-summary-metric:focus-visible { box-shadow: 0 0 0 1px var(--text-tertiary); }
+.backtest-summary-metric:hover { color: var(--text-content-supporting); }
 
 .backtest-info { display: grid; gap: var(--space-section-gap); }
 .backtest-info-name { margin: 0; overflow-wrap: anywhere; color: var(--text-content-strong); font-size: var(--type-row-size); font-weight: var(--type-list-primary-weight); line-height: var(--type-row-line-height); }
@@ -178,9 +174,7 @@
   font-variant-numeric: var(--numeric-tabular);
 }
 
-.backtest-project-row:hover,
-.backtest-project-row:focus-visible { background: var(--surface-row-hover); }
-.backtest-project-row:focus-visible { box-shadow: inset 0 0 0 1px var(--text-tertiary); }
+.backtest-project-row:hover { background: var(--surface-row-hover); }
 .backtest-project-r.is-positive { color: var(--pos); }
 .backtest-project-r.is-negative { color: var(--neg); }
 

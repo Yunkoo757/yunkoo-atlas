@@ -40,8 +40,7 @@
   text-decoration: none;
 }
 
-.save-status-recovery-link:hover,
-.save-status-recovery-link:focus-visible {
+.save-status-recovery-link:hover {
   color: var(--text-primary);
   text-decoration: underline;
   text-underline-offset: 3px;

@@ -54,10 +54,6 @@
   color: var(--star-color);
 }
 
-.ui-icon-btn:focus-visible:not(:disabled) {
-  border-color: var(--text-tertiary);
-}
-
 .ui-icon-btn:disabled {
   color: var(--text-disabled);
   cursor: not-allowed;

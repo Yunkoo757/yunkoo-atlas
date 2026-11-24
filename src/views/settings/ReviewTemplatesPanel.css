@@ -143,8 +143,7 @@
   border-radius: var(--radius-6);
 }
 
-.review-template-drag-handle:hover,
-.review-template-drag-handle:focus-visible {
+.review-template-drag-handle:hover {
   color: var(--text-secondary);
 }
 
@@ -170,14 +169,6 @@
   font-size: inherit;
   text-align: left;
   border-radius: var(--radius-6);
-}
-
-.review-template-select:focus-visible,
-.review-template-drag-handle:focus-visible:not(:disabled),
-.review-template-delete:focus-visible,
-.review-pin-options button:focus-visible,
-.review-template-empty:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--text-tertiary);
 }
 
 .review-template-editor {
@@ -253,13 +244,6 @@
   font: inherit;
   font-size: var(--type-row-size);
   line-height: var(--type-row-line-height);
-}
-
-.review-template-name:focus,
-.review-template-content:focus {
-  background: var(--field-bg-focus);
-  border-color: var(--field-border-focus);
-  box-shadow: var(--field-focus-shadow);
 }
 
 .review-template-empty {

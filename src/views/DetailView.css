@@ -606,7 +606,7 @@
   position: relative;
 }
 .dv-feed-item-deletable:hover .dv-feed-delete,
-.dv-feed-item-deletable:focus-within .dv-feed-delete {
+.dv-feed-delete:focus-visible {
   opacity: 1;
 }
 .dv-feed-dot {
@@ -704,12 +704,6 @@
     box-shadow var(--dur-base) var(--ease-out);
   overflow: hidden;
 }
-.dv-comment-box:focus-within {
-  background: var(--field-bg);
-  border-color: var(--field-border-focus);
-  border-radius: var(--radius-8);
-  box-shadow: var(--field-focus-shadow);
-}
 .dv-comment-input {
   display: block;
   width: 100%;
@@ -726,13 +720,6 @@
   line-height: var(--type-body-line-height);
   padding: 9px 40px var(--sp-2) 10px;
   overflow-y: auto;
-}
-.dv-comment-input:focus,
-.dv-comment-input:focus-visible {
-  outline: none;
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
 }
 .dv-comment-input::placeholder {
   color: var(--text-muted);
@@ -1206,15 +1193,3 @@
 }
 
 /* 详情局部控件使用内边界标识键盘位置，属性只标记值而不高亮整行。 */
-.dv-back:focus-visible,
-.dv-section-head:focus-visible,
-.dv-activity-toggle:focus-visible {
-  background: var(--bg-hover);
-  box-shadow: inset 0 0 0 1px var(--text-tertiary);
-}
-
-.dv-prop-row:focus-visible .dv-prop-value,
-.dv-datarow-btn:focus-visible .dv-datarow-value {
-  background: var(--group-add-hover-bg);
-  box-shadow: inset 0 0 0 1px var(--text-tertiary);
-}

@@ -196,24 +196,6 @@ button {
   border-color: var(--field-border-hover);
 }
 
-:where(
-  input:not([type]),
-  input[type='text'],
-  input[type='search'],
-  input[type='number'],
-  input[type='date'],
-  input[type='datetime-local'],
-  input[type='email'],
-  input[type='password'],
-  input[type='url'],
-  textarea
-):focus-visible {
-  outline: none;
-  background: var(--field-bg-focus);
-  border-color: var(--field-border-focus);
-  box-shadow: var(--field-focus-shadow);
-}
-
 :where(input, textarea)::placeholder {
   color: var(--field-placeholder);
   opacity: 1;
@@ -231,8 +213,7 @@ button {
 }
 
 :where(input):-webkit-autofill,
-:where(input):-webkit-autofill:hover,
-:where(input):-webkit-autofill:focus {
+:where(input):-webkit-autofill:hover {
   -webkit-text-fill-color: var(--text-primary);
   box-shadow: 0 0 0 1000px var(--field-bg) inset;
 }
@@ -283,13 +264,9 @@ a:focus:not(:focus-visible) {
   outline: none;
 }
 
+/* Tab 只移动操作目标。选中、展开和校验状态由各自的控件表达。 */
 :focus-visible {
   outline: none !important;
-}
-
-:where(details > summary):focus-visible {
-  border-radius: var(--radius-4);
-  box-shadow: inset 0 0 0 1px var(--text-tertiary);
 }
 
 a {

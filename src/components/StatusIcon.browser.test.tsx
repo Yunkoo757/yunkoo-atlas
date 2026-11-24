@@ -28,7 +28,7 @@ window.__statusIconLuminanceTest = (async () => {
     check(opacity() === .72 && !document.querySelector('.status-icon.is-animate'), '状态切换结束必须归还列表亮度')
     document.querySelector<HTMLButtonElement>('#row-focus')!.focus()
     await wait()
-    check(opacity() === .92, '动画完成后行内聚焦应恢复交互亮度')
+    check(document.activeElement?.id === 'row-focus' && opacity() === .72, '键盘进入行内操作时状态图标应沿用静态亮度')
     document.querySelector<HTMLButtonElement>('#row-focus')!.blur()
     await wait()
     check(opacity() === .72, '离开行内聚焦应恢复静态亮度')

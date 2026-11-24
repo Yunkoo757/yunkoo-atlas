@@ -225,8 +225,7 @@
   cursor: pointer;
 }
 
-.sb-editor-back:hover,
-.sb-editor-back:focus-visible {
+.sb-editor-back:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
   outline: none;
@@ -254,8 +253,7 @@
   cursor: pointer;
 }
 
-.sb-editor-browse:hover,
-.sb-editor-browse:focus-visible {
+.sb-editor-browse:hover {
   border-color: var(--border-strong, var(--border-default));
   background: var(--bg-hover);
   color: var(--text-primary);
@@ -287,8 +285,7 @@
   font-size: var(--type-row-size);
 }
 
-.sb-editor-item:hover,
-.sb-editor-item:focus-visible {
+.sb-editor-item:hover {
   background: var(--bg-hover);
   outline: none;
 }
@@ -398,14 +395,6 @@
   outline: none;
 }
 
-.sb-target-picker-search input[type='search']:focus,
-.sb-target-picker-search input[type='search']:focus-visible {
-  background: var(--field-bg-focus);
-  border-color: var(--field-border-focus);
-  box-shadow: var(--field-focus-shadow);
-  outline: none;
-}
-
 .sb-target-groups {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -443,8 +432,7 @@
   cursor: pointer;
 }
 
-.sb-target-row:hover,
-.sb-target-row:focus-visible {
+.sb-target-row:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
   outline: none;

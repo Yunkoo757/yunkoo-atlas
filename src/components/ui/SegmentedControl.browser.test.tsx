@@ -97,8 +97,8 @@ async function run(): Promise<void> {
     buttons[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
     assert(String(value) === 'long' && document.activeElement === buttons[2], '方向键应跳过禁用项并聚焦下一项')
     assert(buttons[2]!.tabIndex === 0 && buttons[0]!.tabIndex === -1, '键盘切换应保留 roving tabindex')
-    assert(buttons[2]!.matches(':focus-visible'), '键盘切换应保留可见焦点')
-    assert(getComputedStyle(buttons[2]!).boxShadow !== 'none', '选中状态不能遮掉焦点内描边')
+    assert(buttons[2]!.matches(':focus-visible'), '键盘切换应保留原生焦点')
+    assert(getComputedStyle(buttons[2]!).boxShadow === 'none', '选中指示器之外不应再出现焦点内描边')
     assertLayout()
 
     if (reduced) {

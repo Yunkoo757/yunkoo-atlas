@@ -394,7 +394,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                         ? undefined : strategy.pnl > 0 ? 'positive' : 'negative'
                       return (
                         <tr key={strategy.id}>
-                          <th scope="row">{partial ? <Tooltip content={samples} label={samples} asChild>{link}</Tooltip> : link}</th>
+                          <th scope="row">{partial ? <Tooltip content={samples} label={samples} asChild showOnFocus>{link}</Tooltip> : link}</th>
                           <td>{strategy.closedCount}</td>
                           <td>{rateLabel(strategy.winRate)}</td>
                           <td data-pnl-tone={tone}>

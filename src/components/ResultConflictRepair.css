@@ -62,13 +62,10 @@
   cursor: pointer;
   transition: background-color var(--motion-state) var(--ease-out);
 }
-.result-repair-row:hover:not(:disabled),
-.result-repair-row:focus-visible,
-.result-repair-row[data-result-return]:focus { background: var(--surface-menu-hover); }
+.result-repair-row:hover:not(:disabled) { background: var(--surface-menu-hover); }
 .result-repair-row:active:not(:disabled) { background: var(--surface-menu-pressed); }
 .result-repair-row > svg { color: var(--text-muted); }
-.result-repair-row:hover:not(:disabled) > svg, .result-repair-row:focus-visible > svg { color: var(--text-strong); }
-.result-repair-row:focus-visible .result-repair-symbol { text-decoration: underline; text-underline-offset: var(--sp-1); }
+.result-repair-row:hover:not(:disabled) > svg { color: var(--text-strong); }
 .result-repair-row:disabled { cursor: wait; }
 
 .result-repair-identity { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
@@ -106,7 +103,6 @@
   cursor: pointer;
 }
 .result-repair-confirm input { margin: 0; accent-color: var(--accent); }
-.result-repair-confirm:has(input:focus-visible) { border-radius: var(--radius-4); box-shadow: inset 0 -1px var(--text-tertiary); }
 
 .result-repair-sr {
   position: absolute;

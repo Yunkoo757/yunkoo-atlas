@@ -65,13 +65,13 @@ export function TradeRowContext({ items, onOpen }: { items: TradeRowContextItem[
           </button>
         )
         return item.detail ? (
-          <Tooltip key={item.key} asChild content={item.detail} label={item.detail}>
+          <Tooltip key={item.key} asChild showOnFocus content={item.detail} label={item.detail}>
             {tag}
           </Tooltip>
         ) : tag
       })}
       {hidden.length > 0 && (
-        <Tooltip asChild content={labels.join(' · ')} label={`其余上下文：${labels.join('、')}`}>
+        <Tooltip asChild showOnFocus content={labels.join(' · ')} label={`其余上下文：${labels.join('、')}`}>
           <span className="trade-row-more" tabIndex={0} aria-label={`其余上下文：${labels.join('、')}`}>
             +{hidden.length}
           </span>

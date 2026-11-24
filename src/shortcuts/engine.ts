@@ -153,8 +153,8 @@ function findChordMatch(e: KeyboardEvent, pathname?: string): string | null {
     const binding = resolveBinding(action.id, bindings)
     if (!binding || isSequence(binding)) continue
     if (typing && !meta.allowWhenTyping) continue
-    // 属性抽屉、菜单、原生选择框内继续使用 Tab 导航控件。
-    if (meta.id === 'trade.toggleProperties' && (lightbox || (e.target as HTMLElement | null)?.closest?.(
+    // 面板开关须让位给正在操作的浮层、菜单和选择框。
+    if ((meta.id === 'trade.toggleProperties' || meta.id === 'global.toggleSidebar') && (lightbox || (e.target as HTMLElement | null)?.closest?.(
       '[role="dialog"], [role="menu"], [role="listbox"], [role="combobox"], select',
     ))) continue
     if (meta.id === 'trade.editNote' && (lightbox || shouldYieldEnterToControl(e.target))) continue

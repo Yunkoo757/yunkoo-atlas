@@ -58,11 +58,6 @@
   color: var(--text-primary);
 }
 
-.display-settings-card .display-toggle:focus-visible:not(:disabled),
-.display-choice:focus-visible:not(:disabled) {
-  box-shadow: inset 0 0 0 1px var(--text-tertiary);
-}
-
 .display-row-copy {
   display: flex;
   flex-direction: column;

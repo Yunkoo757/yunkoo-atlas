@@ -1,5 +1,7 @@
 export const DEFAULT_WINDOW_BOUNDS = { width: 1440, height: 900 } as const
 export const MIN_WINDOW_BOUNDS = { width: 960, height: 640 } as const
+/** Logical pixels shared by the native caption controls and the renderer. */
+export const WINDOW_TITLEBAR_HEIGHT = 40
 
 export type PersistedWindowState = {
   x?: number

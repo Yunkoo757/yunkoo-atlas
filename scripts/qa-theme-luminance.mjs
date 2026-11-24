@@ -577,6 +577,7 @@ function styleSnapshot(page, selector, pseudo = null) {
       backgroundColor: style.backgroundColor,
       borderColor: style.borderColor,
       outlineColor: style.outlineColor,
+      outlineStyle: style.outlineStyle,
       outlineWidth: style.outlineWidth,
       boxShadow: style.boxShadow,
       opacity: style.opacity,
@@ -623,8 +624,8 @@ async function stateSemanticFailures(page, state, evidence) {
     const actual = evidence.after?.[property] ?? null
     if (actual !== state[field]) failures.push(`${field}: expected ${state[field]}, received ${actual}`)
   }
-  if (state.afterBoxShadowNotNone && (!evidence.after || evidence.after.boxShadow === 'none')) {
-    failures.push('afterBoxShadowNotNone: expected a visible focus shadow')
+  if (state.kind === 'keyboard-focus' && JSON.stringify(evidence.before) !== JSON.stringify(evidence.after)) {
+    failures.push('Tab changed the appearance of the focused control')
   }
   return failures
 }
@@ -710,7 +711,7 @@ async function captureStates(root, outputRoot, build, runtime) {
         })
       }
       else await harness.page.mouse.move(1, 1)
-      const changeRequired = ['hover', 'paired-hover', 'menu-hover', 'keyboard-focus'].includes(state.kind)
+      const changeRequired = ['hover', 'paired-hover', 'menu-hover'].includes(state.kind)
       const stateChanged = JSON.stringify(before) !== JSON.stringify(after)
       const pass = interactionSucceeded && after !== null && (!changeRequired || stateChanged) &&
         (!state.reference || referenceAfter !== null) && semanticFailures.length === 0

@@ -231,12 +231,6 @@
   font: inherit;
 }
 
-.live-stage-manager-name-row input:focus-visible {
-  border-color: var(--accent);
-  outline: 2px solid color-mix(in srgb, var(--accent) 24%, transparent);
-  outline-offset: 1px;
-}
-
 @media (max-width: 1099px) {
   .live-stage-manager-counts {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -61,7 +61,7 @@ async function run(): Promise<void> {
 
     tooltipTrigger.focus()
     await wait(32)
-    assert(document.querySelector('.ui-tooltip'), '键盘聚焦应立即提供 Tooltip')
+    assert(document.activeElement === tooltipTrigger && !document.querySelector('.ui-tooltip'), 'Tab 到普通按钮时不应弹出名称提示')
   } finally {
     root.unmount()
   }

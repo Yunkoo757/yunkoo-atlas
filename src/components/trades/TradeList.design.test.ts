@@ -128,7 +128,7 @@ export async function testTradeSelectionAppearsOnlyOnIntent(): Promise<void> {
   const fs = await import('node:fs/promises')
   const css = await fs.readFile('src/components/trades/TradeList.css', 'utf8')
 
-  assert(css.includes('.trade-row:focus-within .trade-row-check'), '键盘焦点进入行时必须显示选择框')
+  assert(css.includes('.trade-row-check:focus-visible') && !css.includes('.trade-row:focus-within .trade-row-check'), '键盘应在抵达选择框本身时显示它')
   assert(css.includes('.trade-list.is-selection-mode .trade-row-check'), '选择模式必须持续显示选择框')
   assert(css.includes('.trade-row-star.is-starred'), '星标状态必须保持可见但不抢夺主信息')
 }

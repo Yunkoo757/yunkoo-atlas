@@ -498,7 +498,7 @@ test('macOS packaged evidence uses native display, shortcut settings, and menu q
   assert.equal(packageJson.productName, 'Trader Atlas')
   assert.match(source, /Math\.abs\(dpr - runtime\.displayScaleFactor\)/)
   assert.match(source, /#\/settings\/shortcuts/)
-  assert.match(source, /page\.locator\('\.sb-hbtn-search'\)\.click\(\)/)
+  assert.ok(source.includes("page.getByRole('button', { name: '搜索与命令', exact: true }).click()"))
   assert.match(source, /commandShortcutLabel\?\.includes\('当前快捷键'\)/)
   assert.match(source, /getDefaultRoleAccelerator/)
   assert.match(source, /metadata: pickStyle\(document\.querySelector\('\.trade-row-timeframe'\)\)/)

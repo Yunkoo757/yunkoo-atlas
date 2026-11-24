@@ -88,8 +88,7 @@
     transform var(--motion-state) var(--ease-out);
 }
 
-.modal-shell-close:hover:not(:disabled),
-.modal-shell-close:focus-visible:not(:disabled) {
+.modal-shell-close:hover:not(:disabled) {
   color: var(--text-primary);
   background: var(--bg-hover);
 }

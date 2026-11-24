@@ -108,8 +108,7 @@
   text-align: left;
 }
 
-.trade-list-group-toggle:hover,
-.trade-list-group-toggle:focus-visible {
+.trade-list-group-toggle:hover {
   background: transparent;
 }
 
@@ -136,8 +135,7 @@
 }
 
 /* button:hover CollapseArrow → fill lch(100 0 272)，高亮瞬间到位 */
-.trade-list-group-toggle:hover .trade-list-group-chevron,
-.trade-list-group-toggle:focus-visible .trade-list-group-chevron {
+.trade-list-group-toggle:hover .trade-list-group-chevron {
   color: var(--text-strong);
   transition-duration: 0s;
 }
@@ -147,8 +145,7 @@
   opacity: var(--list-group-chevron-collapsed-opacity);
 }
 
-.trade-list-group-header.is-collapsed .trade-list-group-toggle:hover .trade-list-group-chevron,
-.trade-list-group-header.is-collapsed .trade-list-group-toggle:focus-visible .trade-list-group-chevron {
+.trade-list-group-header.is-collapsed .trade-list-group-toggle:hover .trade-list-group-chevron {
   color: var(--text-strong);
   opacity: 1;
   transition-duration: 0s;
@@ -213,8 +210,7 @@
 }
 
 /* 圆底 lch(13.456% 0.943 272) 压在未抬亮的 surface-group 上才显得「亮起」 */
-.trade-list-group-add:hover,
-.trade-list-group-add:focus-visible {
+.trade-list-group-add:hover {
   color: var(--text-strong);
   background-color: var(--group-add-hover-bg);
 }
@@ -328,8 +324,6 @@
 
 .trade-row:hover .trade-row-check,
 .trade-row:hover .trade-row-star,
-.trade-row:focus-within .trade-row-check,
-.trade-row:focus-within .trade-row-star,
 .trade-list.is-selection-mode .trade-row-check,
 .trade-row-check:focus-visible,
 .trade-row-star:focus-visible,
@@ -340,8 +334,7 @@
 }
 
 .trade-row-star.is-starred { opacity: 0.68; }
-.trade-row:hover .trade-row-star.is-starred,
-.trade-row:focus-within .trade-row-star.is-starred { opacity: 1; }
+.trade-row:hover .trade-row-star.is-starred { opacity: 1; }
 
 .trade-row:hover .selection-box:not(.is-selected) {
   opacity: 1;
@@ -349,8 +342,7 @@
   border-color: var(--border-strong);
 }
 
-.trade-row:hover .selection-box:not(.is-selected):hover,
-.trade-row .selection-box:not(.is-selected):focus-visible {
+.trade-row:hover .selection-box:not(.is-selected):hover {
   opacity: 1;
   background: var(--bg-hover);
   border-color: color-mix(in srgb, var(--accent) 72%, var(--border-strong));
@@ -418,8 +410,7 @@
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 
-.trade-row:hover .status-icon,
-.trade-row:focus-within .status-icon {
+.trade-row:hover .status-icon {
   opacity: var(--list-status-opacity-active);
 }
 
@@ -466,13 +457,6 @@
   color: var(--list-text-primary);
   background: var(--bg-selected);
   border-color: var(--border-default);
-  box-shadow: none;
-}
-
-.trade-row-strategy:focus-visible {
-  color: var(--list-text-primary);
-  background: var(--bg-hover);
-  border-color: var(--list-interactive-border-hover);
   box-shadow: none;
 }
 
@@ -534,12 +518,6 @@
 .trade-row-context > .trade-row-more {
   flex: 0 0 auto;
   color: var(--text-content-metadata);
-}
-
-.trade-row-context > .trade-row-more:focus-visible {
-  color: var(--text-body);
-  background: var(--surface-control-hover);
-  box-shadow: inset 0 0 0 1px var(--text-tertiary);
 }
 
 .trade-row-context-measure {
@@ -735,8 +713,7 @@ button.trade-row-symbol-main {
   cursor: pointer;
   transition: background-color var(--motion-state) var(--ease-out);
 }
-.trade-row-context > button.trade-row-tag:hover,
-.trade-row-context > button.trade-row-tag:focus-visible {
+.trade-row-context > button.trade-row-tag:hover {
   background-color: var(--bg-hover);
 }
 .trade-row-context > button.trade-row-tag:active {

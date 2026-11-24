@@ -67,6 +67,7 @@ import {
   ResourceInitializationError,
 } from './lifecycleDisposal'
 import { ELECTRON_BUILD_IDENTITY } from './buildIdentity'
+import { WINDOW_TITLEBAR_HEIGHT } from '../src/lib/windowBounds'
 import { readAutoLaunchState, updateAutoLaunchState } from './autoLaunch'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -78,8 +79,8 @@ Object.defineProperty(globalThis, '__ATLAS_BUILD_IDENTITY__', {
   writable: false,
 })
 
-/** 与 tokens.css --bg-app (lch 1.82% 272) 对齐，避免窗口加载前露出白边 */
-const WINDOW_BG = '#050506'
+/** 与渲染端 --surface-app 的 sRGB 值对齐，窗口首帧和原生按钮共用同一底色。 */
+const WINDOW_BG = '#09090a'
 
 nativeTheme.themeSource = 'dark'
 
@@ -529,6 +530,15 @@ function createWindow(): BrowserWindow {
     resizable: windowState.resizable,
     title: 'Trader Atlas',
     backgroundColor: WINDOW_BG,
+    ...(process.platform === 'darwin' && {
+      titleBarStyle: 'hidden' as const,
+      titleBarOverlay: true,
+      trafficLightPosition: { x: 16, y: (WINDOW_TITLEBAR_HEIGHT - 14) / 2 },
+    }),
+    ...(process.platform === 'win32' && {
+      titleBarStyle: 'hidden' as const,
+      titleBarOverlay: { color: WINDOW_BG, symbolColor: '#b8b8bd', height: WINDOW_TITLEBAR_HEIGHT },
+    }),
     autoHideMenuBar: true,
     show: false,
     ...(icon ? { icon } : {}),
