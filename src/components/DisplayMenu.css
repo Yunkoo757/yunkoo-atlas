@@ -2,6 +2,13 @@
   position: relative;
 }
 
+.ui-filter-bar-journal .display-menu-root .tb-btn {
+  width: var(--toolbar-chip-height);
+  height: var(--toolbar-chip-height);
+  padding: 0;
+  justify-content: center;
+}
+
 .display-menu-root .tb-btn.is-open {
   background: var(--bg-hover);
   color: var(--text-primary);
@@ -102,6 +109,13 @@
 .display-item:hover {
   background: var(--surface-menu-hover);
   color: var(--text-primary);
+}
+
+.display-action-count {
+  color: var(--text-content-metadata);
+  font-size: var(--type-metadata-size);
+  font-variant-numeric: var(--numeric-tabular);
+  line-height: var(--type-metadata-line-height);
 }
 
 .display-item.is-on {

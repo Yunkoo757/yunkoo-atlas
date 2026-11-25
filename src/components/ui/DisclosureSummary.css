@@ -15,11 +15,7 @@
 }
 
 .ui-disclosure-summary::-webkit-details-marker { display: none; }
-.ui-disclosure-summary > svg {
-  flex: none;
-  transition: transform var(--motion-state) var(--ease-out);
-}
-details[open] > .ui-disclosure-summary > svg { transform: rotate(90deg); }
+.ui-disclosure-summary > svg { flex: none; }
 
 .ui-disclosure-summary:hover {
   color: var(--text-body);

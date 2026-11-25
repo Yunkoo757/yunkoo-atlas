@@ -101,3 +101,14 @@
 .trade-filter-field .ui-select-trigger {
   height: var(--field-height-md);
 }
+
+.trade-filter-applied {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-3);
+}
+
+.trade-filter-preference {
+  margin-top: var(--sp-2);
+}

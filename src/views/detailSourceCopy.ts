@@ -1,4 +1,6 @@
-import type { Trade } from '@/data/trades'
+import { isValidPeriodSlug, PERIOD_LABELS } from '@/lib/periods'
+import { isBoardPath } from '@/lib/routeContext'
+import { normalizeSavedViewPath } from '@/lib/savedTradeViews'
 
 export type TradeDetailSourceCopy = {
   breadcrumb: string
@@ -6,55 +8,39 @@ export type TradeDetailSourceCopy = {
   returnDestinationLabel: string
 }
 
-export function resolveTradeDetailSourceCopy(options: {
-  fromPathname?: string | null
-  returnPathname: string
-  tradeKind?: Trade['tradeKind']
-}): TradeDetailSourceCopy {
-  if (options.returnPathname.startsWith('/notes/')) return { breadcrumb: '随记', backAriaLabel: '返回来源随记', returnDestinationLabel: '来源随记' }
-  if (options.returnPathname.startsWith('/backtests')) return { breadcrumb: '回测项目', backAriaLabel: '返回回测项目', returnDestinationLabel: '回测项目' }
-  if (options.returnPathname === '/dashboard') return { breadcrumb: '统计分析', backAriaLabel: '返回统计分析', returnDestinationLabel: '统计分析' }
-  if (options.fromPathname === '/settings/risk/data-repair') {
-    return {
-      breadcrumb: '风险数据修复中心',
-      backAriaLabel: '返回修复中心',
-      returnDestinationLabel: '修复中心',
-    }
+function source(breadcrumb: string, destination = breadcrumb): TradeDetailSourceCopy {
+  return { breadcrumb, backAriaLabel: `返回${destination}`, returnDestinationLabel: destination }
+}
+
+const destinations: Record<string, string> = {
+  '/dashboard': '统计分析',
+  '/review-session': '随机复盘',
+  '/weekly-review': '周复盘',
+  '/settings/risk': '风险管理',
+  '/missed': '错过机会',
+  '/favorites': '星标交易',
+  '/active': '进行中',
+  '/today-record': '待补全',
+  '/live-history': '历史实盘',
+}
+
+export function resolveTradeDetailSourceCopy(returnPathname: string): TradeDetailSourceCopy {
+  const path = returnPathname.replace(/\/+$/, '')
+  if (path.startsWith('/notes/')) return source('随记', '来源随记')
+  if (path === '/backtests' || path.startsWith('/backtests/')) return source('回测项目')
+  if (path === '/settings/risk/data-repair') return source('风险数据修复中心', '修复中心')
+  if (path === '/live-archive' || path.startsWith('/live-archive/')) return source('历史实盘')
+
+  const listPath = normalizeSavedViewPath(path)
+  const destination = destinations[listPath]
+  if (destination) return source(destination)
+
+  const board = isBoardPath(path)
+  if (listPath === '/review-cases' || listPath.startsWith('/review-cases/')) return source(board ? '案例看板' : '案例库')
+  if (listPath === '/sim') return source(board ? '模拟看板' : '模拟交易')
+  if (listPath.startsWith('/period/')) {
+    const period = listPath.slice('/period/'.length)
+    if (isValidPeriodSlug(period)) return source(PERIOD_LABELS[period] + (board ? '看板' : '交易'))
   }
-
-  const fromMissedOpportunities = options.fromPathname === '/missed'
-  const fromLiveArchive = options.fromPathname === '/live-history'
-    || options.fromPathname === '/live-history/board'
-    || options.fromPathname === '/live-archive'
-    || options.fromPathname?.startsWith('/live-archive/')
-  const fromWeeklyReview = options.returnPathname === '/weekly-review'
-  const breadcrumb = fromMissedOpportunities
-    ? '错过机会'
-    : fromLiveArchive
-      ? '历史实盘'
-      : fromWeeklyReview
-        ? '周复盘'
-        : options.tradeKind === 'case'
-          ? '案例库'
-          : options.tradeKind === 'paper'
-            ? '模拟'
-            : '交易日志'
-  const backAriaLabel = fromMissedOpportunities
-    ? '返回错过机会'
-    : fromLiveArchive
-      ? '返回历史实盘'
-      : fromWeeklyReview
-        ? '返回周复盘'
-        : '返回列表'
-  const returnDestinationLabel = fromMissedOpportunities
-    ? '错过机会'
-    : fromLiveArchive
-      ? '历史实盘'
-      : fromWeeklyReview
-        ? '周复盘'
-        : options.tradeKind === 'case'
-          ? '案例库'
-          : '交易日志'
-
-  return { breadcrumb, backAriaLabel, returnDestinationLabel }
+  return source(board ? '交易看板' : '交易日志')
 }

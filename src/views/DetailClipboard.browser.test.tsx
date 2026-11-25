@@ -5,6 +5,7 @@ import type { Trade } from '@/data/trades'
 import { prepareCaseClipboard } from '@/lib/caseClipboard'
 import type { CaseClipboardContent, CaseClipboardResult } from '@/lib/caseClipboardContract'
 import { DetailView } from './DetailView'
+import { ToastHost } from '@/components/Toast'
 import { useStore } from '@/store/useStore'
 import { resetNoteDraftsForTests } from '@/storage/noteDrafts'
 import '@/styles/tokens.css'
@@ -56,32 +57,50 @@ async function run() {
   window.journalBridge = { isElectron: true, copyCaseContent: content => { calls.push(content); return new Promise(resolve => { finish = resolve }) } } as NonNullable<Window['journalBridge']>
   try {
     useStore.setState({ trades: [trade], display: { ...previous.display, reviewContextPinned: true } })
-    root.render(<MemoryRouter initialEntries={['/trade/CASE-CLIPBOARD']}><Routes><Route path="/trade/:id" element={<DetailView />} /></Routes></MemoryRouter>)
+    root.render(
+      <MemoryRouter initialEntries={['/trade/CASE-CLIPBOARD']}>
+        <Routes><Route path="/trade/:id" element={<DetailView />} /></Routes>
+        <ToastHost />
+      </MemoryRouter>,
+    )
     await waitFor(() => Boolean(document.querySelector('[aria-label="案例沉淀正文"][contenteditable="true"]')), '正文未载入')
     const editor = document.querySelector<HTMLElement>('[aria-label="案例沉淀正文"]') as HTMLElement & { editor: TiptapEditor }
     await waitFor(() => Boolean(editor.querySelector('section[data-review-context]')), '正文展示同步未完成')
     await new Promise(requestAnimationFrame)
     editor.editor.commands.insertContent('刚刚编辑')
     await waitFor(() => document.body.textContent?.includes('刚刚编辑') ?? false, '编辑未生效')
-    const button = [...document.querySelectorAll<HTMLButtonElement>('button')].find(node => node.textContent === '复制图文')!
+    const more = document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')!
+    const menuItem = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('[role="menu"] [role="menuitem"]')]
+      .find(item => item.textContent?.trim() === label)
     const main = document.querySelector<HTMLElement>('.dv-main')!
     main.scrollTop = main.scrollHeight
-    button.click(); button.click()
-    await waitFor(() => calls.length > 0, '未调用桌面剪贴板')
-    assert(calls.length === 1 && calls[0].text.includes('刚刚编辑') && calls[0].text.includes('冻结来源'), '一键复制应包含未落盘的新正文和冻结来源，重复点击只执行一次')
-    assert(button.disabled && button.getAttribute('aria-busy') === 'true', '复制期间应阻止重复提交')
+    assert(![...document.querySelectorAll('button')].some(item => item.textContent === '复制图文'), '复制图文应收纳在更多菜单')
+    more.click()
+    await waitFor(() => Boolean(menuItem('复制图文')), '更多菜单缺少复制图文')
+    menuItem('复制图文')!.click()
+    await waitFor(() => calls.length > 0 && !document.querySelector('[role="menu"]'), '选择复制后应关闭菜单并调用桌面剪贴板')
+    assert(calls[0].text.includes('刚刚编辑') && calls[0].text.includes('冻结来源'), '复制应包含未落盘的新正文和冻结来源')
+    more.click()
+    await waitFor(() => menuItem('正在复制图文…')?.disabled === true, '复制进行中再次展开菜单应看到禁用的复制项')
+    menuItem('正在复制图文…')!.click()
+    await new Promise(requestAnimationFrame)
+    assert(calls.length === 1 && Boolean(document.querySelector('[role="menu"]')), '点击禁用项不能重复提交或关闭菜单')
+    more.click()
     finish!({ ok: false, error: '测试复制失败，请重试' })
     await waitFor(() => Boolean(document.querySelector('[role="alert"]')?.textContent?.includes('测试复制失败')), '失败必须可见且保留重试入口')
     await waitFor(() => {
       const rect = document.querySelector('[role="alert"]')!.getBoundingClientRect()
       return rect.top >= 0 && rect.bottom <= innerHeight
     }, '阅读长文后复制失败，错误也必须进入可见范围')
-    await waitFor(() => !button.disabled, '失败后应可重试')
     assert(document.querySelector('[aria-label="案例沉淀正文"]')?.textContent?.includes('刚刚编辑'), '失败后应保留正文')
-    button.click()
+    more.click()
+    await waitFor(() => menuItem('复制图文')?.disabled === false, '失败后应能从同一菜单重试')
+    menuItem('复制图文')!.click()
     await waitFor(() => calls.length === 2, '重试未执行')
     finish!({ ok: true })
-    await waitFor(() => !button.disabled, '复制完成应恢复操作')
+    await waitFor(() => Boolean([...document.querySelectorAll('[role="status"]')].find(node => node.textContent?.includes('文字已复制'))), '复制成功应显示结果反馈')
+    more.click()
+    await waitFor(() => menuItem('复制图文')?.disabled === false, '复制完成后菜单应恢复可用')
     assert(!document.querySelector('[role="alert"]'), '成功重试后应清除旧错误')
   } finally {
     root.unmount(); resetNoteDraftsForTests(); useStore.setState(previous); window.journalBridge = previousBridge

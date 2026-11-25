@@ -717,6 +717,8 @@ export async function testMissedOpportunityUsesTheTradeLogShellContract(): Promi
   const app = await fs.readFile('src/App.tsx', 'utf8')
   const workspaceViews = await fs.readFile('src/lib/workspaceViews.ts', 'utf8')
   const tradeWorkspaceContext = await fs.readFile('src/components/TradeWorkspaceContext.tsx', 'utf8')
+  const windowTitlebar = await fs.readFile('src/components/WindowTitlebar.tsx', 'utf8')
+  const journalHeader = await fs.readFile('src/components/trades/TradeWorkbenchHeader.tsx', 'utf8')
   const filterBar = await fs.readFile('src/components/ui/FilterBar.tsx', 'utf8')
   const tradeFilters = await fs.readFile('src/components/trades/TradeFilters.tsx', 'utf8')
   const missedRouteStart = app.indexOf('path="/missed"')
@@ -739,14 +741,15 @@ export async function testMissedOpportunityUsesTheTradeLogShellContract(): Promi
   assert(tradeWorkspaceContext.includes('选择交易阶段'), '交易工作台必须提供统一阶段入口')
   assert(filterBar.includes('actions?: ReactNode'), 'FilterBar 必须继续提供标准右侧动作槽')
   assert(
-    app.includes('filterActions={<TradeWorkspaceContext page="log" compact />}'),
-    '交易日志的数据范围必须并入筛选行，避免与案例库切换时列表纵向跳动',
+    journalHeader.includes('<TradeWorkspaceContext page="log" compact />') &&
+      !windowTitlebar.includes('TradeWorkspaceContext') && !app.includes('<TradeWorkspaceContext page="log"'),
+    '列表与看板应在内容工具栏共用一个范围入口',
   )
   assert(
     !app.includes('header={<TradeWorkspaceContext page="log" />}'),
     '交易日志不得恢复独占的数据范围行',
   )
-  assert(tradeFilters.includes('actions={actions}'), '交易筛选栏必须透传统一的数据范围动作')
+  assert(tradeFilters.includes('actions={actions}'), '交易筛选栏必须透传数据范围入口')
 }
 
 export async function testDataSettingsMatchesDesktopBackupRetentionPolicy(): Promise<void> {
@@ -2107,31 +2110,38 @@ export function testTradeDetailReturnRemembersListView(): void {
   assert(missingWeeklyTradeReturn.search === '?week=2026-07-20', '缺失交易返回时不得丢失原周')
 }
 
+export function testTradeDetailReturnCopyUsesTheValidatedDestination(): void {
+  const routes = [
+    ['/review-session', '随机复盘'],
+    ['/board', '交易看板'],
+    ['/board/', '交易看板'],
+    ['/review-cases/mistakes/board', '案例看板'],
+    ['/sim/board', '模拟看板'],
+    ['/settings/risk', '风险管理'],
+    ['/period/this-week/board', '本周看板'],
+    ['/list', '交易日志'],
+  ] as const
+  for (const [pathname, label] of routes) {
+    const copy = resolveTradeDetailSourceCopy(pathname)
+    assert(copy.breadcrumb === label && copy.backAriaLabel === `返回${label}` && copy.returnDestinationLabel === label,
+      `详情返回文案必须与最终路径 ${pathname} 一致`)
+  }
+}
+
 export async function testTradeDetailSourceCopyNamesRiskRepairCenter(): Promise<void> {
-  const riskRepairCopy = resolveTradeDetailSourceCopy({
-    fromPathname: '/settings/risk/data-repair',
-    returnPathname: '/settings/risk/data-repair',
-    tradeKind: 'live',
-  })
+  const riskRepairCopy = resolveTradeDetailSourceCopy('/settings/risk/data-repair')
   assert(riskRepairCopy.breadcrumb === '风险数据修复中心', '风险修复来源必须使用完整面包屑名称')
   assert(riskRepairCopy.backAriaLabel === '返回修复中心', '风险修复来源返回图标必须使用修复中心标签')
   assert(riskRepairCopy.returnDestinationLabel === '修复中心', '风险修复来源空状态动作必须显示返回修复中心')
 
-  const missedCopy = resolveTradeDetailSourceCopy({
-    fromPathname: '/missed',
-    returnPathname: '/missed',
-    tradeKind: 'live',
-  })
+  const missedCopy = resolveTradeDetailSourceCopy('/missed')
   assert(missedCopy.breadcrumb === '错过机会', '其他详情来源的面包屑不得改变')
   assert(missedCopy.backAriaLabel === '返回错过机会', '其他详情来源的返回标签不得改变')
   assert(missedCopy.returnDestinationLabel === '错过机会', '其他详情来源的空状态动作不得改变')
 
   for (const tradeKind of ['live', 'case'] as const) {
-    const historyBoardCopy = resolveTradeDetailSourceCopy({
-      fromPathname: '/live-history/board',
-      returnPathname: '/live-history/board',
-      tradeKind,
-    })
+    const target = resolveTradeDetailReturn({ from: { pathname: '/live-history/board' }, tradeKind })
+    const historyBoardCopy = resolveTradeDetailSourceCopy(target.pathname)
     assert(historyBoardCopy.breadcrumb === '历史实盘', `${tradeKind} 历史 board 详情必须显示历史实盘来源`)
     assert(historyBoardCopy.backAriaLabel === '返回历史实盘', `${tradeKind} 历史 board 返回按钮必须使用历史实盘名称`)
     assert(historyBoardCopy.returnDestinationLabel === '历史实盘', `${tradeKind} 历史 board 缺失记录动作必须返回历史实盘`)
@@ -2140,25 +2150,18 @@ export async function testTradeDetailSourceCopyNamesRiskRepairCenter(): Promise<
   const fs = await import('node:fs/promises')
   const detailView = await fs.readFile('src/views/DetailView.tsx', 'utf8')
   const missingSurface = detailView.slice(detailView.indexOf('if (!trade) {'), detailView.indexOf('const activeNoteLoad'))
-  assert(missingSurface.includes('aria-label={backAriaLabel}'), '缺失或已删除详情的返回图标必须使用来源标签')
-  assert(missingSurface.includes('返回{returnDestinationLabel}'), '缺失或已删除详情的返回动作必须使用来源标签')
+  assert(missingSurface.includes('{sourceLink}') && detailView.includes('aria-label={backAriaLabel}'), '缺失或已删除详情的返回链接应指向来源')
+  assert(missingSurface.includes('returnDestinationLabel') && missingSurface.includes('返回搜索结果'), '缺失记录的返回操作应指向实际入口')
 }
 
 export async function testWeeklyReviewDetailSourceUsesDedicatedReturnCopy(): Promise<void> {
-  const weeklyCopy = resolveTradeDetailSourceCopy({
-    fromPathname: '/weekly-review',
-    returnPathname: '/weekly-review',
-    tradeKind: 'live',
-  })
+  const weeklyCopy = resolveTradeDetailSourceCopy('/weekly-review')
   assert(weeklyCopy.breadcrumb === '周复盘', '详情面包屑必须显示周复盘')
   assert(weeklyCopy.backAriaLabel === '返回周复盘', '详情返回按钮必须使用周复盘专属名称')
 
-  const rejectedWeeklyCopy = resolveTradeDetailSourceCopy({
-    fromPathname: '/weekly-review',
-    returnPathname: '/list',
-    tradeKind: 'paper',
-  })
-  assert(rejectedWeeklyCopy.breadcrumb === '模拟', '详情页周复盘文案资格必须使用已经过类型门禁的返回目标')
+  const fallback = resolveTradeDetailReturn({ from: { pathname: '/weekly-review' }, tradeKind: 'paper' })
+  const rejectedWeeklyCopy = resolveTradeDetailSourceCopy(fallback.pathname)
+  assert(rejectedWeeklyCopy.breadcrumb === '交易日志', '详情页周复盘文案资格必须使用已经过类型门禁的返回目标')
 }
 
 export async function testMissedDetailReturnKeepsCanonicalCopyAndFocusRecovery(): Promise<void> {
@@ -2169,14 +2172,10 @@ export async function testMissedDetailReturnKeepsCanonicalCopyAndFocusRecovery()
   ])
 
   assert(
-    detailView.includes('resolveTradeDetailSourceCopy({'),
+    detailView.includes('resolveTradeDetailSourceCopy(detailReturn.pathname)'),
     '聚合来源详情必须显示“错过机会”面包屑',
   )
-  const missedCopy = resolveTradeDetailSourceCopy({
-    fromPathname: '/missed',
-    returnPathname: '/missed',
-    tradeKind: 'live',
-  })
+  const missedCopy = resolveTradeDetailSourceCopy('/missed')
   assert(missedCopy.breadcrumb === '错过机会', '聚合来源详情必须显示“错过机会”面包屑')
   assert(missedCopy.backAriaLabel === '返回错过机会', '聚合来源详情返回按钮必须提供专属 aria-label')
   assert(
@@ -2965,7 +2964,8 @@ export function testMissedOpportunityBelongsToAccountTradeDomainsOnly(): void {
 export async function testQuickViewBarHonorsCapabilityVisibility(): Promise<void> {
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/components/trades/QuickViewBar.tsx', 'utf8')
-  assert(source.includes('filterViewsBySidebarCapabilities'), '快捷视图应按能力可见范围过滤')
+  const groups = await fs.readFile('src/lib/journalQuickViews.ts', 'utf8')
+  assert(source.includes('getMoreViewGroups(kind, sidebarWorkspaceItems)') && groups.includes('filterViewsBySidebarCapabilities'), '快捷视图应按能力可见范围过滤')
   assert(source.includes('sidebarWorkspaceItems'), '快捷视图应读取侧栏工作区配置')
   assert(source.includes('savedViewSearch(view)'), '恢复保存视图必须使用原生阶段查询边界')
   assert(source.includes('searchParamsToRecord(searchParams)'), '保存当前视图必须使用原生阶段查询边界')

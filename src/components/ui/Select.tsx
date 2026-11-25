@@ -1,4 +1,5 @@
 import { ICON_SM } from '@/icons/iconSize'
+import { DisclosureIcon } from '@/icons/StateIcons'
 import {
   forwardRef,
   useEffect,
@@ -12,7 +13,7 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, ChevronDown } from '@/icons/appIcons'
+import { Check } from '@/icons/appIcons'
 import { FieldTrigger } from '@/components/ui/FieldTrigger'
 import { PopoverSurface } from '@/components/ui/PopoverSurface'
 import { useModalPortalRoot } from '@/components/ui/ModalShell'
@@ -257,7 +258,7 @@ export const Select = forwardRef<
           {selected?.icon ? <span className="ui-select-option-icon">{selected.icon}</span> : null}
           <span className="ui-select-option-label">{selected?.label ?? placeholder}</span>
         </span>
-        <ChevronDown className="ui-select-chevron" size={ICON_SM} />
+        <DisclosureIcon kind="menu" className="ui-select-chevron" size={ICON_SM} />
       </FieldTrigger>
 
       {open && createPortal(

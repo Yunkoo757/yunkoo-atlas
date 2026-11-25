@@ -354,10 +354,8 @@ p.wr-previous-criteria { margin-block-start: var(--space-row-gap); }
 .wr-disclosure > summary > svg {
   flex-shrink: 0;
   color: var(--text-muted);
-  transition: transform var(--motion-state) var(--ease-out);
 }
 .wr-disclosure > summary:hover,.wr-disclosure[open] > summary { color: var(--text-strong); }
-.wr-disclosure[open] > summary > svg { transform: rotate(90deg); }
 .wr-disclosure .wr-section { padding-block-start: var(--sp-2); }
 
 .wr-year-body {

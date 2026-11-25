@@ -16,7 +16,7 @@ export function testRetiredWorkspacesCannotReturnThroughOldNavigationPreferences
   for (const pathname of ['/judgment-desk', '/review-composer', '/settings/composer-rules']) {
     const target = resolveTradeDetailReturn({ from: { pathname }, tradeKind: 'case' })
     assert.deepEqual(target, { pathname: '/review-cases', search: '' })
-    assert.equal(resolveTradeDetailSourceCopy({ returnPathname: target.pathname, tradeKind: 'case' }).breadcrumb, '案例库')
+    assert.equal(resolveTradeDetailSourceCopy(target.pathname).breadcrumb, '案例库')
   }
 }
 

@@ -22,7 +22,8 @@ import {
   QUICK_NOTE_DRAFT_PREFIX,
   setNoteDraft,
 } from '@/storage/noteDrafts'
-import { Pin, PinOff, Plus, Trash2 } from '@/icons/appIcons'
+import { Pin, Plus, Trash2 } from '@/icons/appIcons'
+import { PinActionIcon } from '@/icons/StateIcons'
 import { EmptyState } from '@/components/EmptyState'
 import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import { SearchField } from '@/components/ui/SearchField'
@@ -391,7 +392,7 @@ export function QuickNotesView() {
                 <div className="quick-notes-editor-actions">
                   <IconButton label={selectedNote.pinned ? '取消置顶' : '置顶随记'} tooltip={selectedNote.pinned ? '取消置顶' : '置顶随记'}
                     pressed={selectedNote.pinned} onClick={() => updateNote(selectedNote.id, { pinned: !selectedNote.pinned })}>
-                    {selectedNote.pinned ? <PinOff size={ICON_MD} /> : <Pin size={ICON_MD} />}
+                    <PinActionIcon key={selectedNote.id} pinned={selectedNote.pinned} size={ICON_MD} />
                   </IconButton>
                   <IconButton label="删除随记" tooltip="删除随记" className="is-danger"
                     onClick={() => setDeleteTarget({ id: selectedNote.id, title: selectedNote.title })}>

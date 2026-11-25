@@ -218,6 +218,7 @@ async function run(): Promise<void> {
   const blankEditable = host.querySelector<HTMLElement>('.ProseMirror')
   const blankEditor = (blankEditable as (HTMLElement & { editor?: TiptapEditor }) | null)?.editor
   await waitForFrame()
+  assert(!host.querySelector('[aria-label="选择复盘起稿"]'), '模板为空时不应提供没有选项的起稿菜单')
   blankEditor?.chain().focus('end').insertContent('Q').run()
   await waitForFrame()
   blankEditor?.commands.insertContent('A')

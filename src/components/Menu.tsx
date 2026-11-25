@@ -24,6 +24,7 @@ export interface MenuItemOption {
   label: string
   icon?: ReactNode
   danger?: boolean
+  disabled?: boolean
 }
 
 export interface MenuSeparatorOption {
@@ -257,6 +258,7 @@ export function Menu({
               <button
                 key={option.value}
                 className={`menu-item${option.danger ? ' menu-item-danger' : ''}`}
+                disabled={option.disabled}
                 role={isSelectionMenu ? 'menuitemradio' : 'menuitem'}
                 aria-checked={isSelectionMenu ? option.value === value : undefined}
                 onClick={() => {

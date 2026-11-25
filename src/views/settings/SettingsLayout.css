@@ -47,6 +47,11 @@
   stroke-width: var(--icon-stroke-width);
   shape-rendering: geometricPrecision;
 }
+@media (prefers-reduced-motion: no-preference) {
+  .settings-nav-item svg {
+    transition: color var(--motion-state) var(--ease-out);
+  }
+}
 .settings-nav-item:hover svg {
   color: var(--icon-color-hover);
 }

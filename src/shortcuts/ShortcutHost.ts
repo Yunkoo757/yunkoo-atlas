@@ -36,6 +36,7 @@ import { getActionMeta } from '@/shortcuts/actions'
 import { requestLightboxClose, requestLightboxReset } from '@/lib/lightboxView'
 import { createAndOpenQuickNote, resolveCreateRecordAction } from '@/lib/createRecordAction'
 import { newTradeKindForPath } from '@/lib/tradeKind'
+import { getJournalViewState } from '@/lib/journalQuickViews'
 import { resolveSharedTradeWorkspaceSearch, isSharedTradeWorkspacePath } from '@/lib/tradeWorkspaceQuery'
 
 export function useShortcutHost({
@@ -67,6 +68,7 @@ export function useShortcutHost({
       search,
       rememberedTradeSearch,
     )
+    const journalViewState = getJournalViewState(locationState) ?? getJournalViewState(locationState?.from)
     const preferredWorkbenchMode = workbenchModeFromPathname(
       useStore.getState().display.workspaceMemory?.trade?.pathname ?? pathname,
     )
@@ -186,7 +188,7 @@ export function useShortcutHost({
         })
         const listContext = useShortcutStore.getState().listContext
         const listPath = listPathFromPathname(pathname) ?? listContext?.listPath ?? '/list'
-        navigate(routeWithSearch(listPath, search || listContext?.listSearch || ''))
+        navigate(routeWithSearch(listPath, search || listContext?.listSearch || ''), { state: journalViewState })
       },
       'view.board': () => {
         const state = useStore.getState()
@@ -195,7 +197,7 @@ export function useShortcutHost({
         })
         const listContext = useShortcutStore.getState().listContext
         const listPath = listPathFromPathname(pathname) ?? listContext?.listPath ?? '/list'
-        navigate(routeWithSearch(boardPathFromListPath(listPath), search || listContext?.listSearch || ''))
+        navigate(routeWithSearch(boardPathFromListPath(listPath), search || listContext?.listSearch || ''), { state: journalViewState })
       },
       'list.toggleFilters': () => {
         if (listPathFromPathname(pathname)) {
@@ -233,10 +235,10 @@ export function useShortcutHost({
           tradeKind: trade?.tradeKind,
         })
         if (isBoardPath(pathname) && listContext?.listPath) {
-          navigate(routeWithSearch(boardPathFromListPath(listContext.listPath), listContext.listSearch))
+          navigate(routeWithSearch(boardPathFromListPath(listContext.listPath), listContext.listSearch), { state: journalViewState })
           return
         }
-        navigate(target)
+        navigate(target, { state: journalViewState })
       },
 
       'image.prev': lightboxPrev,

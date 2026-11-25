@@ -1,6 +1,5 @@
 import type { LucideIcon, LucideProps } from 'lucide-react'
 import {
-  ChevronRight,
   Circle,
   CircleCheck,
   CircleDashed,
@@ -37,8 +36,4 @@ const STATUS_ICONS: Record<StatusIndicatorState, LucideIcon> = {
 export function StatusIndicator({ state, progress: _progress, ...props }: StatusIndicatorProps) {
   const Icon = STATUS_ICONS[state]
   return <Icon {...props} />
-}
-
-export function DisclosureChevron(props: LucideProps) {
-  return <ChevronRight {...props} />
 }

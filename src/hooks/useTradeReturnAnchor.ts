@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { TradeDetailFrom } from '@/lib/tradeRoute'
+import { getJournalViewState, type JournalViewState } from '@/lib/journalQuickViews'
 import { requestScrollToTrade } from '@/lib/tradeScrollTargets'
 
 const STORAGE_PREFIX = 'trade-return-anchor:'
@@ -8,7 +9,7 @@ const STORAGE_VERSION = 1
 const MAX_AGE_MS = 30_000
 const MAX_RESTORE_FRAMES = 36
 
-export type TradeReturnLocationState = {
+export type TradeReturnLocationState = Partial<JournalViewState> & {
   restoreTradeId?: string
   restoreSearch?: string
   restoreSourceSearch?: string
@@ -153,13 +154,15 @@ export function tradeReturnLocationState(
   source?: string | TradeDetailFrom,
 ): TradeReturnLocationState {
   const anchorTradeId = typeof source === 'string' ? source : source?.anchorTradeId
-  if (!anchorTradeId) return {}
+  const view = getJournalViewState(source)
+  if (!anchorTradeId) return view ?? {}
   const restoreSearch = typeof source === 'string'
     ? undefined
     : source?.restoreSearch ?? source?.search ?? ''
   const sourceSearch = typeof source === 'string' ? undefined : source?.search ?? ''
   return {
     restoreTradeId: anchorTradeId,
+    ...view,
     restoreCreatedAt: Date.now(),
     ...(restoreSearch !== undefined ? { restoreSearch } : {}),
     ...(sourceSearch !== undefined ? { restoreSourceSearch: sourceSearch } : {}),

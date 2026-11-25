@@ -1,8 +1,10 @@
+import { createPortal } from 'react-dom'
 import { isComposingKey } from '@/lib/keyboardComposition'
 import { ModalPortalContext, useModalPortalRegistry } from '@/components/ui/ModalShell'
 import { ICON_MD } from '@/icons/iconSize'
+import { PanelToggleIcon } from '@/icons/StateIcons'
 import { useCallback, useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { PanelRight, X } from '@/icons/appIcons'
+import { X } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useStore } from '@/store/useStore'
 import { registerShortcutHandlers } from '@/shortcuts/engine'
@@ -11,11 +13,13 @@ import './TradeDetailLayout.css'
 
 export function TradeDetailLayout({
   header,
+  toolbarHost,
   content,
   properties,
   revealProperties = false,
 }: {
   header: (propertiesToggle: ReactNode) => ReactNode
+  toolbarHost?: HTMLElement | null
   content: ReactNode
   properties: ReactNode
   revealProperties?: boolean
@@ -76,6 +80,7 @@ export function TradeDetailLayout({
     if (!drawer || !layout) return
 
     const backgroundElements = [
+      ...(toolbarHost ? [toolbarHost] : []),
       ...layout.querySelectorAll<HTMLElement>(':scope > :not(.dv-body), .dv-main'),
     ]
     const previousBackgroundState = backgroundElements.map((element) => ({
@@ -139,7 +144,7 @@ export function TradeDetailLayout({
         else element.setAttribute('aria-hidden', ariaHidden)
       }
     }
-  }, [propertiesOpen, portalRootsRef])
+  }, [propertiesOpen, portalRootsRef, toolbarHost])
 
   const closeProperties = () => {
     restoreFocusRef.current = true
@@ -158,14 +163,14 @@ export function TradeDetailLayout({
           aria-label={propertiesHint.ariaLabel}
           {...(propertiesHint.hint ? { 'aria-keyshortcuts': propertiesHint.hint } : {})}
         >
-          <PanelRight size={ICON_MD} />
+          <PanelToggleIcon side="right" expanded={expanded} size={ICON_MD} />
           <span>属性</span>
         </button>
   )
 
   return (
     <div className={'trade-detail-layout' + (!compact && !expanded ? ' is-properties-hidden' : '')} ref={layoutRef}>
-      {header(propertiesToggle)}
+      {toolbarHost ? createPortal(header(propertiesToggle), toolbarHost) : header(propertiesToggle)}
       <div className="dv-body">
         <section className="dv-main" aria-label="交易详情">{content}</section>
         {compact && (

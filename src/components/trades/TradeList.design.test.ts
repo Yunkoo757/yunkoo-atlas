@@ -15,9 +15,8 @@ export async function testTradeListGroupTogglePreservesInteractionContract(): Pr
   assert(source.includes('compact: 44'), '紧凑列表必须使用 44px 行高')
   assert(source.includes('comfortable: 48'), '舒展列表必须使用 48px 行高')
   assert(source.includes("'--trade-row-height': `${rowHeight}px`"), '虚拟估算与 CSS 行高必须共享同一密度值')
-  assert(source.includes('DisclosureChevron'), '分组折叠必须使用语义化 DisclosureChevron')
+  assert(source.includes('<DisclosureIcon expanded={item.expanded}'), '月份箭头应使用分组自身的状态驱动公共动效')
   assert(source.includes('StatusIndicator'), '复盘分组头应使用语义化状态图标')
-  assert(css.includes('rotate(90deg)') && css.includes('rotate(0deg)'), '箭头跟随展开和折叠')
   assert(css.includes('--trade-group-chevron'), '分组三角应按状态/远近 tint，而非整条换底色')
   assert(
     css.includes('.trade-list-group-toggle:hover .trade-list-group-chevron') &&

@@ -310,7 +310,7 @@ export function Editor({
     editor.commands.focus('end')
   }
 
-  const showReviewStarter = reviewContextTools && !reviewContextActive && !leadingReviewText
+  const showReviewStarter = reviewContextTools && reviewTemplates.length > 0 && !reviewContextActive && !leadingReviewText
 
   const reviewButton = (
     <Button

@@ -1,17 +1,14 @@
+import { createPortal } from 'react-dom'
 import { isComposingKey } from '@/lib/keyboardComposition'
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { ICON_2XL, ICON_MD, ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import {
-  ChevronLeft,
-  ChevronRight,
   ChevronDown,
   ChevronUp,
   Link2,
   MoreHorizontal,
-  Star,
-  Bookmark,
   Copy,
   Image,
   Pencil,
@@ -19,11 +16,13 @@ import {
   RotateCcw,
   X,
   Send,
+  Plus,
   BookOpen,
   AlertCircle,
   CheckCircle,
   Check,
 } from '@/icons/appIcons'
+import { DisclosureIcon, MarkIcon } from '@/icons/StateIcons'
 import { useStore } from '@/store/useStore'
 import { Editor, type EditorChangeMeta } from '@/editor/Editor'
 import { Menu, type MenuOption } from '@/components/Menu'
@@ -65,7 +64,7 @@ import {
 } from '@/data/trades'
 import { fmtMoney, fmtR, fmtPrice, fmtDate, fmtDateTime } from '@/lib/format'
 import { getStrategyName } from '@/lib/strategies'
-import { resolveCasePreview } from '@/lib/caseExcerpt'
+import { CaseSourceReference } from '@/components/CaseSourceReference'
 import { prepareCaseClipboard } from '@/lib/caseClipboard'
 import { getTradeActivities, partitionDisplayActivities, type DisplayActivityEvent } from '@/lib/activities'
 import {
@@ -159,7 +158,7 @@ function findNextPendingReviewId(
   return null
 }
 
-export function DetailView() {
+export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null } = {}) {
   const { id: routeParam } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -224,7 +223,8 @@ export function DetailView() {
             : '日期有效，结果暂未计入'
     : null
   const [reviewToolsContainer, setReviewToolsContainer] = useState<HTMLDivElement | null>(null)
-  const [comment, setComment] = useState('')
+  const [commentOpen, setCommentOpen] = useState(false)
+  const [commentDrafts, setCommentDrafts] = useState(() => new Map<string, string>())
   const [editorHtml, setEditorHtml] = useState('')
   const [feedExpanded, setFeedExpanded] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
@@ -238,16 +238,10 @@ export function DetailView() {
   const contentCopyOwnerRef = useRef(false)
   const contentCopyIssueRef = useRef<HTMLDivElement>(null)
   const [reviewIssue, setReviewIssue] = useState<string | null>(null)
-  const [sourceDisclosure, setSourceDisclosure] = useState<{ tradeId: string; open: boolean } | null>(null)
   const [noteLoad, setNoteLoad] = useState<{
     tradeId: string | null
     state: DetailNoteLoadResult | { status: 'loading' }
   }>({ tradeId: null, state: { status: 'loading' } })
-  const [sourceNoteLoad, setSourceNoteLoad] = useState<{
-    tradeId: string | null
-    sourceHtml: string | undefined
-    state: DetailNoteLoadResult | { status: 'loading' }
-  }>({ tradeId: null, sourceHtml: undefined, state: { status: 'loading' } })
   const noteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingHtmlRef = useRef<string | null>(null)
   const pendingTradeIdRef = useRef<string | null>(null)
@@ -257,15 +251,12 @@ export function DetailView() {
   const activeTradeIdRef = useRef<string | null>(trade?.id ?? null)
   const detailMountedRef = useRef(true)
   const commentRef = useRef<HTMLTextAreaElement>(null)
+  const commentToggleRef = useRef<HTMLButtonElement>(null)
   const noteDocumentRef = useRef<HTMLDivElement>(null)
 
   const sourceTrade = trade?.sourceTradeId
     ? trades.find((item) => item.id === trade.sourceTradeId)
     : undefined
-  const sourceSnapshotHtml = trade?.tradeKind === 'case'
-    ? trade.sourceNoteHtml
-    : undefined
-
   /** 键入只更新本地草稿；idle 后再写入 trades，避免全量快照 thrash */
   const NOTE_IDLE_COMMIT_MS = 2000
 
@@ -277,6 +268,13 @@ export function DetailView() {
     const h = Math.min(el.scrollHeight, 160)
     el.style.height = prev === `${h}px` ? prev : `${h}px`
   }, [])
+
+  useLayoutEffect(() => {
+    if (commentOpen) {
+      commentRef.current?.focus()
+      adjustCommentHeight()
+    }
+  }, [commentOpen, adjustCommentHeight])
 
   useEffect(() => {
     if (!trade || !routeParam || routeParam === trade.ref) return
@@ -334,15 +332,9 @@ export function DetailView() {
     })
   }, [commandSearch, from, listContext?.listPath, listContext?.listSearch, detailKind, trade?.backtestProjectId])
   const {
-    breadcrumb: sourceCrumb,
     backAriaLabel: sourceBackLabel,
     returnDestinationLabel,
-  } = resolveTradeDetailSourceCopy({
-    fromPathname: from?.pathname,
-    returnPathname: detailReturn.pathname,
-    tradeKind: detailKind,
-  })
-  const detailCrumb = commandSearch ? '搜索结果' : sourceCrumb
+  } = resolveTradeDetailSourceCopy(detailReturn.pathname)
   const backAriaLabel = commandSearch ? '返回搜索结果' : sourceBackLabel
 
   const persistEditorNote = useCallback((html: string, tradeId: string) => {
@@ -392,33 +384,6 @@ export function DetailView() {
       void flushNoteDraftToStore(trade.id)
     }
   }, [trade?.id, noteLoadAttempt])
-
-  useEffect(() => {
-    if (!trade || sourceSnapshotHtml === undefined) {
-      setSourceNoteLoad({
-        tradeId: trade?.id ?? null,
-        sourceHtml: undefined,
-        state: { status: 'loading' },
-      })
-      return
-    }
-
-    const tradeId = trade.id
-    setSourceNoteLoad({ tradeId, sourceHtml: sourceSnapshotHtml, state: { status: 'loading' } })
-    let cancelled = false
-    const imageScope = new AssetObjectUrlScope()
-    void loadDetailNote(
-      sourceSnapshotHtml,
-      (html) => resolveNoteForDisplayResult(html, getStorage(), imageScope),
-    ).then((result) => {
-      if (cancelled) return
-      setSourceNoteLoad({ tradeId, sourceHtml: sourceSnapshotHtml, state: result })
-    })
-    return () => {
-      cancelled = true
-      imageScope.release()
-    }
-  }, [trade?.id, sourceSnapshotHtml])
 
   useLayoutEffect(() => {
     if (!trade || !lightbox) return
@@ -506,6 +471,7 @@ export function DetailView() {
     activeTradeIdRef.current = trade?.id ?? null
     caseCreationGenerationRef.current += 1
     caseCreationOwnerRef.current = null
+    setCommentOpen(false)
     setActivityOpen(false)
     setFeedExpanded(false)
     setReviewIssue(null)
@@ -540,27 +506,18 @@ export function DetailView() {
       ? 0
       : activities.system.length - FEED_VISIBLE
 
+  const sourceLink = (
+    <Link to={detailReturn} state={detailReturnState} className="dv-back" aria-label={backAriaLabel}>
+      {backAriaLabel}
+    </Link>
+  )
+
   if (!trade) {
-    const recordLabel = detailCrumb
+    const recordLabel = detailKind === 'case' ? '案例' : '记录'
+    const missingToolbar = <div className="dv-topbar">{sourceLink}</div>
     return (
       <>
-        <header className="dv-topbar">
-          <div className="dv-tb-left">
-            <Link
-              to={detailReturn}
-              state={detailReturnState}
-              className="dv-back"
-              aria-label={backAriaLabel}
-            >
-              <ChevronLeft size={ICON_MD} />
-            </Link>
-            <span className="dv-crumb">{recordLabel}</span>
-            <ChevronRight size={ICON_SM} className="dv-crumb-sep" />
-            <span className="dv-crumb dv-crumb-active">
-              {deletedTrade ? '已移至回收站' : '未找到'}
-            </span>
-          </div>
-        </header>
+        {toolbarHost ? createPortal(missingToolbar, toolbarHost) : missingToolbar}
         <div className="dv-empty">
           <div className="dv-empty-card">
             <AlertCircle size={ICON_XL} aria-hidden />
@@ -576,7 +533,7 @@ export function DetailView() {
                 state={detailReturnState}
                 className="ui-btn ui-btn-bordered"
               >
-                返回{returnDestinationLabel}
+                {commandSearch ? '返回搜索结果' : `返回${returnDestinationLabel}`}
               </Link>
               {deletedTrade && (
                 <Link to="/trade-trash" className="empty-btn">
@@ -596,15 +553,6 @@ export function DetailView() {
   const noteEditorContent = activeNoteLoad.status === 'error'
       ? activeNoteLoad.fallbackHtml
       : editorHtml
-  const activeSourceNoteLoad =
-    sourceNoteLoad.tradeId === trade.id && sourceNoteLoad.sourceHtml === sourceSnapshotHtml
-      ? sourceNoteLoad.state
-      : { status: 'loading' as const }
-  const sourceNoteEditorContent = activeSourceNoteLoad.status === 'ready'
-    ? activeSourceNoteLoad.html
-    : activeSourceNoteLoad.status === 'error'
-      ? activeSourceNoteLoad.fallbackHtml
-      : ''
   const reviewReadiness = evaluateReviewCompletion(editorHtml)
 
   const commitTradeResultEdit = (edit: TradeResultEdit) => {
@@ -660,14 +608,22 @@ export function DetailView() {
     }
   }
 
+  const comment = commentDrafts.get(trade.id) ?? ''
+  const setComment = (value: string) => setCommentDrafts(previous => {
+    const drafts = new Map(previous)
+    if (value) drafts.set(trade.id, value)
+    else drafts.delete(trade.id)
+    return drafts
+  })
+  const closeComment = () => {
+    setCommentOpen(false)
+    commentToggleRef.current?.focus({ preventScroll: true })
+  }
   const sendComment = () => {
     if (!comment.trim()) return
     addComment(trade.id, comment)
     setComment('')
-    requestAnimationFrame(() => {
-      const el = commentRef.current
-      if (el) el.style.height = 'auto'
-    })
+    closeComment()
     toast('复盘追记已保存')
   }
 
@@ -885,6 +841,7 @@ export function DetailView() {
 
   const favoriteButton = (
     <IconButton
+      className="dv-record-action"
       label={trade.tradeKind === 'case'
         ? (starred ? '取消重点' : '设为重点案例')
         : (starred ? '取消星标' : '星标')}
@@ -902,9 +859,7 @@ export function DetailView() {
         }
       }}
     >
-      {trade.tradeKind === 'case'
-        ? <Bookmark size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />
-        : <Star size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />}
+      <MarkIcon key={trade.id} kind={trade.tradeKind === 'case' ? 'bookmark' : 'star'} active={starred} size={ICON_MD} />
     </IconButton>
   )
 
@@ -912,8 +867,8 @@ export function DetailView() {
     if (actionId === 'edit') return <Pencil size={ICON_MD} />
     if (actionId === 'copy') return <Copy size={ICON_MD} />
     if (actionId === 'extract-case') return <BookOpen size={ICON_MD} />
-    if (actionId === 'star') return <Star size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />
-    if (actionId === 'focus-case') return <Bookmark size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />
+    if (actionId === 'star') return <MarkIcon kind="star" active={starred} size={ICON_MD} />
+    if (actionId === 'focus-case') return <MarkIcon kind="bookmark" active={starred} size={ICON_MD} />
     return <Trash2 size={ICON_MD} />
   }
   const detailRecordActions = buildRecordActionDescriptors(trade, { starred })
@@ -941,6 +896,8 @@ export function DetailView() {
     ...(trade.decisionImageId || matchesReviewCaseScope(trade, 'mistakes', new Set())
       ? [{ value: 'decision-image', label: '设置先判断图', icon: <Image size={ICON_MD} /> }]
       : []),
+    { value: 'copy-content', label: contentCopying ? '正在复制图文…' : '复制图文', icon: <Copy size={ICON_MD} />,
+      disabled: contentCopying || activeNoteLoad.status === 'loading' },
     { value: 'copy-link', label: '复制链接', icon: <Link2 size={ICON_MD} /> },
     { value: 'copy-ref', label: '复制编号', icon: <Copy size={ICON_MD} /> },
     { type: 'separator' },
@@ -951,6 +908,7 @@ export function DetailView() {
 
   const moreMenu = (
     <Menu
+      align="right"
       options={moreMenuOptions}
       onSelect={(v) => {
         if (v === 'edit') openComposer(trade)
@@ -966,149 +924,124 @@ export function DetailView() {
         }
         else if (v === 'reopen-review') updateTradeData(trade.id, { reviewStatus: 'unreviewed' })
         else if (v === 'decision-image') void openDecisionImage()
+        else if (v === 'copy-content') void copyContent()
         else if (v === 'copy-link') copyLink()
         else if (v === 'copy-ref') copyRef()
         else if (v === 'delete') onDelete()
       }}
       trigger={
-        <IconButton label="更多" tooltip="更多">
+        <IconButton className="dv-record-action" label="更多" tooltip="更多">
           <MoreHorizontal size={ICON_MD} />
         </IconButton>
       }
     />
   )
 
-  const completionHint = reviewSubmitting ? null : reviewIssue ?? (
-    reviewReadiness.ready ? null : '完成前请留下结论、勾选检查项或加入截图证据'
-  )
   const completionButton = (
-                <Button
-                  variant="bordered"
-                  size="sm"
-                  className="dv-review-complete-action"
-                  busy={reviewSubmitting}
-                  aria-label={reviewSubmitting ? '正在保存…' : '完成复盘'}
-                  disabled={activeNoteLoad.status !== 'ready' || !reviewReadiness.ready}
-                  onClick={() => void completeReview()}
-                >
-                  <Check size={ICON_SM} aria-hidden />
-                  {reviewSubmitting ? '正在保存…' : '完成复盘'}
-                </Button>
+    <Button
+      variant="bordered"
+      size="sm"
+      className="dv-review-complete-action"
+      busy={reviewSubmitting}
+      disabled={activeNoteLoad.status !== 'ready' || !reviewReadiness.ready}
+      onClick={() => void completeReview()}
+    >
+      <Check size={ICON_SM} aria-hidden />
+      {reviewSubmitting ? '正在保存…' : '完成复盘'}
+    </Button>
   )
 
   return (
     <>
       <TradeDetailLayout
+      toolbarHost={toolbarHost}
       revealProperties={focusField === 'closedAt'}
       header={(propertiesToggle) => (
-      <header className="dv-topbar">
-        <div className="dv-tb-left">
-          <Link
-            to={detailReturn}
-            state={detailReturnState}
-            className="dv-back"
-            aria-label={backAriaLabel}
-          >
-            <ChevronLeft size={ICON_MD} />
-          </Link>
-          <span className="dv-crumb">{detailCrumb}</span>
-          <ChevronRight size={ICON_SM} className="dv-crumb-sep" />
-          <span className="dv-crumb dv-crumb-active">{trade.ref}</span>
-          <div className="dv-detail-crumb-actions">
-            {favoriteButton}
+        <div className="dv-topbar" role="group" aria-label="记录工具栏">
+          {sourceLink}
+          <div className="dv-tb-right">
+            <div className="dv-review-actions" role="group" aria-label="复盘状态与推进">
+              {needsReview && !needsResult && activeNoteLoad.status === 'ready' && (reviewReadiness.ready || reviewSubmitting) ? (
+                <div className="dv-review-toolbar" aria-label="复盘状态与操作">
+                  {reviewIssue ? (
+                    <Tooltip asChild content={reviewIssue} label="无法完成复盘">
+                      {completionButton}
+                    </Tooltip>
+                  ) : completionButton}
+                </div>
+              ) : null}
+              {reviewComplete && (
+                <Tooltip
+                  asChild
+                  content={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
+                  label={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
+                >
+                  <span className="dv-review-complete-meta">
+                    <CheckCircle size={ICON_SM} aria-hidden />
+                    <span>已复盘</span>
+                  </span>
+                </Tooltip>
+              )}
+              {nextPendingReviewId && (
+                <Button variant="bordered" size="sm" onClick={() => navigateDetail(nextPendingReviewId)}>
+                  下一条待复盘
+                </Button>
+              )}
+            </div>
+            <SaveStatusIndicator quiet />
+            {detailNavigation && (
+              <nav className="dv-detail-navigation" aria-label={`${detailUnit}导航`}>
+                <span
+                  className="dv-detail-position"
+                  aria-label={`第 ${detailNavigation.index + 1} 个，共 ${detailNavigation.orderedIds.length} 个${detailUnit}`}
+                >
+                  {detailNavigation.index + 1}
+                  <span aria-hidden>/</span>
+                  {detailNavigation.orderedIds.length}
+                </span>
+                <ShortcutTooltip actionId="trade.prev" label={`上一个${detailUnit}`}>
+                  <IconButton
+                    label={`上一个${detailUnit}`}
+                    className="dv-detail-nav-button"
+                    disabled={!detailNavigation.prevId}
+                    onClick={() => navigateDetail(detailNavigation.prevId)}
+                  >
+                    <ChevronUp size={ICON_SM} />
+                  </IconButton>
+                </ShortcutTooltip>
+                <ShortcutTooltip actionId="trade.next" label={`下一个${detailUnit}`}>
+                  <IconButton
+                    label={`下一个${detailUnit}`}
+                    className="dv-detail-nav-button"
+                    disabled={!detailNavigation.nextId}
+                    onClick={() => navigateDetail(detailNavigation.nextId)}
+                  >
+                    <ChevronDown size={ICON_SM} />
+                  </IconButton>
+                </ShortcutTooltip>
+              </nav>
+            )}
+            {propertiesToggle}
             {moreMenu}
           </div>
         </div>
-        <div className="dv-tb-right">
-          <Button variant="ghost" size="sm" busy={contentCopying}
-            disabled={activeNoteLoad.status === 'loading'} onClick={() => void copyContent()}>
-            <Copy size={ICON_SM} aria-hidden />
-            {contentCopying ? '正在复制' : '复制图文'}
-          </Button>
-          <div className="dv-review-actions" role="group" aria-label="复盘状态与推进">
-          {needsReview && !needsResult ? (
-            <div className="dv-review-toolbar" aria-label="复盘状态与操作">
-              {completionHint ? (
-                <Tooltip asChild content={completionHint} label="无法完成复盘">
-                  {completionButton}
-                </Tooltip>
-              ) : completionButton}
-            </div>
-          ) : null}
-          {reviewComplete && (
-            <Tooltip
-              asChild
-              content={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
-              label={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
-            >
-              <span className="dv-review-complete-meta">
-                <CheckCircle size={ICON_SM} aria-hidden />
-                <span>已复盘</span>
-              </span>
-            </Tooltip>
-          )}
-          {nextPendingReviewId && (
-            <Button variant="bordered" size="sm" onClick={() => navigateDetail(nextPendingReviewId)}>
-              下一条待复盘
-            </Button>
-          )}
-          </div>
-          <SaveStatusIndicator quiet />
-          {detailNavigation && (
-            <nav className="dv-detail-navigation" aria-label={`${detailUnit}导航`}>
-              <span
-                className="dv-detail-position"
-                aria-label={`第 ${detailNavigation.index + 1} 个，共 ${detailNavigation.orderedIds.length} 个${detailUnit}`}
-              >
-                {detailNavigation.index + 1}
-                <span aria-hidden>/</span>
-                {detailNavigation.orderedIds.length}
-              </span>
-              <ShortcutTooltip actionId="trade.next" label={`下一个${detailUnit}`}>
-                <IconButton
-                  label={`下一个${detailUnit}`}
-                  className="dv-detail-nav-button"
-                  disabled={!detailNavigation.nextId}
-                  onClick={() => navigateDetail(detailNavigation.nextId)}
-                >
-                  <ChevronDown size={ICON_SM} />
-                </IconButton>
-              </ShortcutTooltip>
-              <ShortcutTooltip actionId="trade.prev" label={`上一个${detailUnit}`}>
-                <IconButton
-                  label={`上一个${detailUnit}`}
-                  className="dv-detail-nav-button"
-                  disabled={!detailNavigation.prevId}
-                  onClick={() => navigateDetail(detailNavigation.prevId)}
-                >
-                  <ChevronUp size={ICON_SM} />
-                </IconButton>
-              </ShortcutTooltip>
-            </nav>
-          )}
-          {propertiesToggle}
-        </div>
-      </header>
       )}
       content={(
           <div className="dv-main-inner">
             <div className="dv-title-row">
               <h1 className="dv-title">
                 <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_2XL} />
-                {trade.symbol}
-                <SideTag side={trade.side} />
+                <span className="dv-symbol-name">{trade.symbol}</span>
               </h1>
+              {favoriteButton}
             </div>
-            <div className="dv-reading-header">
             <div className="dv-reading-context" aria-label="交易背景">
               <span>{fmtDate(trade.openedAt)}</span>
+              <span>{trade.side === 'long' ? '做多' : '做空'}</span>
               <span>{resolveTimeframe(trade.timeframe)}</span>
               <span>{STATUS_META[trade.status].label}</span>
               <span>{TRADE_KIND_META[trade.tradeKind].label}</span>
-            </div>
-            <div className="dv-reading-tools">
-              <div ref={setReviewToolsContainer} />
-            </div>
+              {trade.ref && <span className="dv-record-ref">{trade.ref}</span>}
             </div>
             {contentCopyIssue?.tradeId === trade.id && (
               <div ref={contentCopyIssueRef} className="dv-note-load is-error" role="alert">
@@ -1116,58 +1049,6 @@ export function DetailView() {
                 <span>{contentCopyIssue.message}</span>
               </div>
             )}
-            {trade.tradeKind === 'case' && trade.sourceTradeId && (
-              <section className="dv-case-source" aria-label="案例来源">
-                <BookOpen size={ICON_MD} aria-hidden />
-                <div>
-                  <span>来源交易</span>
-                  <strong>{sourceTrade ? `${sourceTrade.ref} · ${sourceTrade.symbol}` : '来源已删除（来源不可用）'}</strong>
-                </div>
-                {sourceTrade && (
-                  <button type="button" onClick={() => navigate(tradeDetailPath(sourceTrade), { state: location.state })}>
-                    查看原交易
-                  </button>
-                )}
-              </section>
-            )}
-            {sourceSnapshotHtml !== undefined && (
-              <section className="dv-case-source-note" aria-labelledby="case-source-note-title">
-                <details key={trade.id}
-                  open={sourceDisclosure?.tradeId === trade.id ? sourceDisclosure.open : resolveCasePreview(trade).source !== 'note'}
-                  onToggle={(event) => setSourceDisclosure({ tradeId: trade.id, open: event.currentTarget.open })}>
-                <summary className="dv-case-note-heading">
-                  <h2 id="case-source-note-title">来源复盘</h2>
-                  <span>{activeSourceNoteLoad.status === 'error' ? '附件未完整载入 · 只读' : sourceTrade ? '随原交易更新 · 只读' : '来源已删除 · 保留快照'}</span>
-                </summary>
-                {activeSourceNoteLoad.status === 'loading' && (
-                  <div className="dv-case-source-note-status" role="status" aria-live="polite">
-                    来源复盘载入中…
-                  </div>
-                )}
-                {activeSourceNoteLoad.status === 'error' && (
-                  <div className="dv-note-load is-error" role="alert">
-                    <AlertCircle size={ICON_MD} aria-hidden />
-                    <div className="dv-note-load-copy">
-                      <strong>来源附件未完整载入</strong>
-                      <span>图片附件读取失败，最后保存的文字与可用附件仍以只读方式展示。</span>
-                    </div>
-                  </div>
-                )}
-                <Editor
-                  content={sourceNoteEditorContent}
-                  onChange={() => {}}
-                  ariaLabel="来源复盘正文"
-                  readOnly
-                  allowImages={false}
-                />
-                </details>
-              </section>
-            )}
-            {trade.tradeKind === 'case' && trade.sourceTradeId && sourceSnapshotHtml === undefined ? (
-              <div className="dv-case-source-note-status" role="status">
-                来源快照不可用；案例洞见仍可独立阅读和编辑。
-              </div>
-            ) : null}
             {needsResult && (
               <section
                 className={
@@ -1208,15 +1089,14 @@ export function DetailView() {
             <div
               ref={noteDocumentRef}
               className={'dv-document dv-editor'
+                + (trade.tradeKind === 'case' ? ' dv-case-writing' : ' dv-trade-writing')
                 + (activeNoteLoad.status === 'loading' ? ' is-note-loading' : '')
                 + (activeNoteLoad.status === 'error' ? ' is-note-readonly' : '')}
             >
-              {trade.tradeKind === 'case' && (
-                <div className="dv-case-note-heading">
-                  <h2 id="case-owned-note-title">案例沉淀</h2>
-                  <span>独立编辑 · 不影响来源复盘</span>
-                </div>
-              )}
+              <div className="dv-writing-header">
+                {trade.tradeKind !== 'case' && <h2>交易复盘</h2>}
+                <div className="dv-writing-tools" ref={setReviewToolsContainer} />
+              </div>
               <div className="dv-note-status">
                 {activeNoteLoad.status === 'loading' && (
                   <div className="dv-note-load is-loading" role="status" aria-live="polite">
@@ -1284,15 +1164,31 @@ export function DetailView() {
                 placeholder={
                   trade.tradeKind === 'case'
                     ? '写下案例复盘思路…'
-                    : '写下复盘思路…'
+                    : '记下交易判断，或粘贴截图…'
                 }
               />
             </div>
 
+            {trade.tradeKind === 'case' && (
+              <CaseSourceReference key={trade.id} trade={trade} sourceTrade={sourceTrade} />
+            )}
+
             <section className="dv-comments" aria-label="复盘追记">
-              <h2 className="dv-comments-title">
-                复盘追记{commentItems.length > 0 ? ` · ${commentItems.length}` : ''}
-              </h2>
+              <div className="dv-comments-header">
+                {commentItems.length > 0 && <h2 className="dv-comments-title">复盘追记 · {commentItems.length}</h2>}
+                <Button
+                  ref={commentToggleRef}
+                  variant="ghost"
+                  size="sm"
+                  className="dv-comment-toggle"
+                  aria-expanded={commentOpen}
+                  aria-controls={commentOpen ? 'detail-comment-composer' : undefined}
+                  onClick={() => setCommentOpen(open => !open)}
+                >
+                  {commentOpen ? <X size={ICON_SM} aria-hidden /> : <Plus size={ICON_SM} aria-hidden />}
+                  {commentOpen ? '收起输入框' : comment ? '继续写追记' : '添加追记'}
+                </Button>
+              </div>
               {commentItems.length > 0 && (
                 <ul className="dv-feed dv-comment-feed">
                   {commentItems.map(({ event, node }) => (
@@ -1310,21 +1206,26 @@ export function DetailView() {
                   ))}
                 </ul>
               )}
-              <div className="dv-comment">
+              {commentOpen && <div className="dv-comment" id="detail-comment-composer">
                 <UserAvatar className="dv-comment-avatar" />
                 <div className={`dv-comment-box${comment.trim() ? ' has-value' : ''}`}>
                   <textarea
                     ref={commentRef}
                     className="dv-comment-input"
                     aria-label="补充追记"
-                    placeholder="补充观察…"
+                    placeholder="补记后来观察到的变化…"
                     value={comment}
                     onChange={(event) => {
                       setComment(event.target.value)
                       adjustCommentHeight()
                     }}
                     onKeyDown={(event) => {
-                      if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
+                      if (isComposingKey(event.nativeEvent)) return
+                      if (event.key === 'Escape') {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        closeComment()
+                      }
                       if (event.key === 'Enter' && !event.shiftKey) {
                         event.preventDefault()
                         sendComment()
@@ -1346,7 +1247,7 @@ export function DetailView() {
                     </Tooltip>
                   </div>
                 </div>
-              </div>
+              </div>}
             </section>
 
             {activities.system.length > 0 && (
@@ -1358,7 +1259,7 @@ export function DetailView() {
                   onClick={() => setActivityOpen((open) => !open)}
                 >
                   <span>活动记录 · {activities.system.length}</span>
-                  <ChevronDown size={ICON_SM} className={activityOpen ? 'is-open' : ''} />
+                  <DisclosureIcon kind="menu" size={ICON_SM} />
                 </button>
                 {activityOpen && (
                   <div className="dv-activity-panel">
@@ -1398,7 +1299,7 @@ export function DetailView() {
               }))}
               trigger={
                 <PropTrigger label="状态">
-                  <StatusIcon status={trade.status} size={ICON_MD} />
+                  <StatusIcon key={trade.id} status={trade.status} size={ICON_MD} />
                   <span>{STATUS_META[trade.status].label}</span>
                 </PropTrigger>
               }
@@ -1724,10 +1625,7 @@ function Section({
     <div className={"dv-section" + (open ? " is-open" : "")}>
       <button className="dv-section-head" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <span>{title}</span>
-        <ChevronDown
-          size={ICON_SM}
-          className={'dv-section-chev' + (open ? '' : ' is-closed')}
-        />
+        <DisclosureIcon size={ICON_SM} className="dv-section-chev" />
       </button>
       {open && <div className="dv-section-body">{children}</div>}
     </div>

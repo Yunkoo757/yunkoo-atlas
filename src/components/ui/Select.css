@@ -29,11 +29,6 @@
 .ui-select-chevron {
   flex: 0 0 auto;
   color: var(--text-tertiary);
-  transition: transform var(--dur-fast) var(--ease-out);
-}
-
-.ui-select-trigger[aria-expanded='true'] .ui-select-chevron {
-  transform: rotate(180deg);
 }
 
 .ui-select-menu {

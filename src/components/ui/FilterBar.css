@@ -24,6 +24,15 @@
   grid-template-columns: minmax(0, max-content) minmax(7rem, 1fr) auto;
 }
 
+.ui-filter-bar.ui-filter-bar-journal:has(.quick-view-bar) {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-inline: var(--sp-2);
+}
+
+.ui-filter-bar-journal .ui-filter-trigger {
+  border-radius: var(--radius-6);
+}
+
 .ui-filter-trigger,
 .ui-filter-chip {
   display: inline-flex;

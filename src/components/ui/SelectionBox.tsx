@@ -1,5 +1,5 @@
 import { ICON_SM } from '@/icons/iconSize'
-import { Check } from '@/icons/appIcons'
+import { CheckMark } from '@/icons/StateIcons'
 import './SelectionBox.css'
 
 type SelectionBoxProps = {
@@ -11,7 +11,7 @@ type SelectionBoxProps = {
   className?: string
 }
 
-/** 统一勾选：18×18 描边方框 + Check 11（对齐 trade-row-check） */
+/** 统一勾选：列表与批量操作共用的 18×18 勾选框 */
 export function SelectionBox({
   checked,
   onToggle,
@@ -36,7 +36,7 @@ export function SelectionBox({
         onToggle()
       }}
     >
-      <Check aria-hidden size={ICON_SM} />
+      <CheckMark checked={checked} size={ICON_SM} />
     </button>
   )
 }

@@ -1,33 +1,25 @@
 import { useExitClone } from '@/components/ui/useExitClone'
 import { isComposingKey } from '@/lib/keyboardComposition'
 import { createRecordForContext, isRecordCreationArchived, resolveCreateRecordAction } from '@/lib/createRecordAction'
+import { BacktestNavIcon, NoteNavIcon } from '@/icons/NavigationIcons'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useCallback, useDeferredValue, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
-  ListTodo,
-  BarChart3,
   Plus,
   CornerDownLeft,
   Search,
   Star,
   Bookmark,
-  Settings2,
   Tag,
-  HardDriveDownload,
   Ban,
   Calendar,
-  CalendarDays,
   FlaskConical,
-  FolderClock,
   Clock,
   X,
-  Keyboard,
   BookOpen,
-  RotateCcw,
   Maximize2,
-  FileText,
 } from '@/icons/appIcons'
 import { findTradeByRouteParam, tradeDetailPath } from '@/lib/tradeRoute'
 import { sortStrategies } from '@/lib/strategies'
@@ -53,6 +45,8 @@ import { useStore } from '@/store/useStore'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { getShortcutHintModel } from '@/shortcuts/hints'
 import { resolveShortcutWorkspaceHref } from '@/shortcuts/workspaceActions'
+import { SETTINGS_SECTIONS } from '@/lib/settingsNav'
+import { PRIMARY_NAV_ICONS } from '@/lib/sidebarNav'
 import { PRIMARY_NAV_LABELS } from '@/lib/sidebarNavContract'
 import {
   resolveSharedTradeWorkspaceSearch,
@@ -221,13 +215,13 @@ function CommandPaletteDialog({
     const paperParams = new URLSearchParams(sharedTradeSearch)
     paperParams.set('kind', 'paper')
     const viewNav: Cmd[] = [
-      { id: 'n-backtests', group: '导航', icon: <FolderClock size={ICON_MD} />, label: '回测项目', keywords: 'backtest 历史 固定规则 项目', hint: shortcutHint('nav.backtests'), run: go('/backtests') },
-      { id: 'n-quick-notes', group: '导航', icon: <FileText size={ICON_MD} />, label: '随记', keywords: '笔记 灵感 杂谈 notebook', hint: shortcutHint('nav.quickNotes'), run: go('/notes') },
-      { id: 'n-list', group: '导航', icon: <ListTodo size={ICON_MD} />, label: PRIMARY_NAV_LABELS.trades, hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies, null, { pathname, search })) },
-      { id: 'n-review-cases', group: '导航', icon: <BookOpen size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewCases, hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
-      { id: 'n-weekly-review', group: '导航', icon: <CalendarDays size={ICON_MD} />, label: PRIMARY_NAV_LABELS.weeklyReview, keywords: '每周 周总结 复盘', hint: shortcutHint('nav.weeklyReview'), run: go(`/weekly-review${sharedTradeSearch}`) },
-      { id: 'n-review-session', group: '导航', icon: <RotateCcw size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewSession, keywords: '随机 抽卡 复盘', hint: shortcutHint('nav.reviewSession'), run: go('/review-session') },
-      { id: 'n-dash', group: '导航', icon: <BarChart3 size={ICON_MD} />, label: PRIMARY_NAV_LABELS.dashboard, hint: shortcutHint('nav.dashboard'), run: go(`/dashboard${sharedTradeSearch}`) },
+      { id: 'n-backtests', group: '导航', icon: <BacktestNavIcon size={ICON_MD} />, label: '回测项目', keywords: 'backtest 历史 固定规则 项目', hint: shortcutHint('nav.backtests'), run: go('/backtests') },
+      { id: 'n-quick-notes', group: '导航', icon: <NoteNavIcon size={ICON_MD} />, label: '随记', keywords: '笔记 灵感 杂谈 notebook', hint: shortcutHint('nav.quickNotes'), run: go('/notes') },
+      { id: 'n-list', group: '导航', icon: <PRIMARY_NAV_ICONS.trades size={ICON_MD} />, label: PRIMARY_NAV_LABELS.trades, hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies, null, { pathname, search })) },
+      { id: 'n-review-cases', group: '导航', icon: <PRIMARY_NAV_ICONS.reviewCases size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewCases, hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
+      { id: 'n-weekly-review', group: '导航', icon: <PRIMARY_NAV_ICONS.weeklyReview size={ICON_MD} />, label: PRIMARY_NAV_LABELS.weeklyReview, keywords: '每周 周总结 复盘', hint: shortcutHint('nav.weeklyReview'), run: go(`/weekly-review${sharedTradeSearch}`) },
+      { id: 'n-review-session', group: '导航', icon: <PRIMARY_NAV_ICONS.reviewSession size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewSession, keywords: '随机 抽卡 复盘', hint: shortcutHint('nav.reviewSession'), run: go('/review-session') },
+      { id: 'n-dash', group: '导航', icon: <PRIMARY_NAV_ICONS.dashboard size={ICON_MD} />, label: PRIMARY_NAV_LABELS.dashboard, hint: shortcutHint('nav.dashboard'), run: go(`/dashboard${sharedTradeSearch}`) },
       { id: 'n-active', group: '交易日志', icon: <Clock size={ICON_MD} />, label: '显示进行中交易', hint: shortcutHint('nav.active'), run: go(sharedViewHref('active')) },
       { id: 'n-fav', group: '交易日志', icon: <Star size={ICON_MD} />, label: '显示星标交易', hint: shortcutHint('nav.favorites'), run: go(sharedViewHref('starred')) },
       { id: 'n-missed', group: '交易日志', icon: <Ban size={ICON_MD} />, label: '显示错过机会', hint: shortcutHint('nav.missed'), run: go(sharedViewHref('missed')) },
@@ -242,15 +236,15 @@ function CommandPaletteDialog({
       run: go(`/period/${slug}${tradeHomeSearch(sharedTradeSearch)}`),
     }))
     const settingsNav: Cmd[] = [
-      { id: 'n-strat', group: '设置', icon: <Settings2 size={ICON_MD} />, label: '管理策略', run: go('/settings/strategies') },
-      { id: 'n-settings', group: '设置', icon: <Keyboard size={ICON_MD} />, label: '键盘快捷键', run: go('/settings/shortcuts') },
+      { id: 'n-strat', group: '设置', icon: <SETTINGS_SECTIONS.strategies.icon size={ICON_MD} aria-hidden />, label: '管理策略', run: go(SETTINGS_SECTIONS.strategies.to) },
+      { id: 'n-settings', group: '设置', icon: <SETTINGS_SECTIONS.shortcuts.icon size={ICON_MD} aria-hidden />, label: '键盘快捷键', run: go(SETTINGS_SECTIONS.shortcuts.to) },
       {
         id: 'a-io',
         group: '设置',
-        icon: <HardDriveDownload size={ICON_MD} />,
+        icon: <SETTINGS_SECTIONS.data.icon size={ICON_MD} aria-hidden />,
         label: '导入/导出数据',
         keywords: '备份 恢复 backup export import',
-        run: () => { requestClose(); navigate('/settings/data') },
+        run: () => { requestClose(); navigate(SETTINGS_SECTIONS.data.to) },
       },
     ]
     const createAction = resolveCreateRecordAction(pathname, search, trades)
@@ -393,7 +387,7 @@ function CommandPaletteDialog({
     commands.push(...matchingNotes.slice(0, Math.max(0, limit - commands.length)).map((note): Cmd => ({
         id: 'note-' + note.id,
         group: '随记',
-        icon: <FileText size={ICON_MD} />,
+        icon: <NoteNavIcon size={ICON_MD} />,
         label: note.title.trim() || '未命名随记',
         hint: textFromQuickNoteHtml(note.contentHtml).slice(0, 48) || undefined,
         keywords: '随记 笔记 灵感',

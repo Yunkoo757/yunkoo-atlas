@@ -1,10 +1,10 @@
 import { ICON_SM } from '@/icons/iconSize'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Copy, Trash2 } from '@/icons/appIcons'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
-import { Topbar, type WorkbenchView } from '@/components/Topbar'
-import { TradeFilters } from '@/components/trades/TradeFilters'
+import type { WorkbenchView } from '@/components/Topbar'
+import { TradeWorkbenchHeader } from '@/components/trades/TradeWorkbenchHeader'
 import { TradeList, type TradeListGroup } from '@/components/trades/TradeList'
 import { WorkbenchEmptyState } from '@/components/trades/WorkbenchEmptyState'
 import type { Trade } from '@/data/trades'
@@ -22,22 +22,16 @@ import {
   intersectSelectedTradeIds,
 } from '@/lib/tradeView'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
-import {
-  getWorkbenchResetPath,
-  resolveWorkbenchEmptyState,
-  shouldResetWorkbenchHideClosed,
-} from '@/lib/workbenchEmptyState'
+import { useWorkbenchEmptyState } from '@/hooks/useWorkbenchEmptyState'
+import { getJournalViewState } from '@/lib/journalQuickViews'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import { rememberTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
-import { resultRepairAnchor, useResultRepairReturn } from '@/hooks/useResultRepairReturn'
+import { resultRepairAnchor } from '@/hooks/useResultRepairReturn'
 import { BatchActionBar } from '@/components/ui/BatchActionBar'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import { useStore } from '@/store/useStore'
-import { filterStageTrades } from '@/lib/stageArchive'
-import { ResultConflictRepair } from '@/components/ResultConflictRepair'
-import { collectWorkbenchResultRepairIds } from '@/lib/workbenchResultHealth'
 import './ListView.css'
 
 export function ListView({
@@ -46,19 +40,17 @@ export function ListView({
   onView,
   filter = { type: 'all' },
   header,
-  filterActions,
+  journal = false,
 }: {
   title?: string
   view: WorkbenchView
   onView: (view: WorkbenchView) => void
   filter?: ListFilter
   header?: ReactNode
-  filterActions?: ReactNode
+  journal?: boolean
 }) {
   const strategies = useStore((state) => state.strategies)
-  const storedTrades = useStore((state) => state.trades)
   const display = useStore((state) => state.display)
-  const setDisplay = useStore((state) => state.setDisplay)
   const starredIds = useStore((state) => state.starredIds)
   const openComposer = useStore((state) => state.openComposer)
   const setStatus = useStore((state) => state.setStatus)
@@ -77,20 +69,9 @@ export function ListView({
   const navigate = useNavigate()
   const location = useLocation()
   const createRecord = () => createRecordForContext(location.pathname, location.search, navigate)
-  const pendingCount = useMemo(() => {
-    if (filter.tradeKind !== 'live') return 0
-    return filterStageTrades(storedTrades, { kind: 'pending' }).length
-  }, [filter.tradeKind, storedTrades])
-  const showPendingLink = filter.tradeKind === 'live'
-    && pendingCount > 0
   useListContextSync(filter)
-  const repairEntry = useResultRepairReturn()
-  const { trades, visible, totalCount, workspaceCount, businessDateAnchor, stageScope } = useWorkbenchVisibleTrades(filter)
-  const resultRepairIds = useMemo(
-    () => collectWorkbenchResultRepairIds(trades),
-    [trades],
-  )
-  const showResultRepair = resultRepairIds.length > 0
+  const workspace = useWorkbenchVisibleTrades(filter)
+  const { trades, visible, stageScope } = workspace
 
   const openTrade = useCallback((trade: Trade, focusField?: 'result') => {
     const inheritedFrom = (location.state as TradeDetailLocationState | null)?.from
@@ -100,6 +81,7 @@ export function ListView({
     const from = {
       pathname: inheritedArchive ? inheritedFrom!.pathname : location.pathname,
       search: inheritedArchive ? inheritedFrom!.search ?? '' : location.search,
+      ...getJournalViewState(location.state),
       anchorTradeId: focusField ? resultRepairAnchor(trade.id) : trade.id,
     }
     rememberTradeReturnAnchor(from)
@@ -292,75 +274,25 @@ export function ListView({
     trades,
   ])
 
-  const emptyState = resolveWorkbenchEmptyState({
-    totalCount,
-    workspaceCount,
-    visibleCount: visible.length,
-    recordKind: filter.tradeKind,
-  })
-  const resetEmptyConditions = () => {
-    if (shouldResetWorkbenchHideClosed({
-      hideClosed: display.hideClosed,
-      trades,
-      filter,
-      starredIds,
-      search: location.search,
-      businessDateAnchor,
-    })) {
-      setDisplay({ hideClosed: false })
-    }
-    if (filter.historicalLiveScope) {
-      const params = new URLSearchParams(location.search)
-      for (const key of [...params.keys()]) {
-        if (key !== 'liveStage' && key !== 'tab') params.delete(key)
-      }
-      navigate({
-        pathname: '/live-history',
-        search: params.toString(),
-      }, { replace: true })
-      return
-    }
-    navigate(getWorkbenchResetPath(location.pathname, filter.tradeKind), { replace: true })
-  }
+  const { emptyState, resetEmptyConditions } = useWorkbenchEmptyState(filter, workspace, journal)
 
   return (
     <>
-      <Topbar title={title} view={view} onView={onView}>
-        {showPendingLink || showResultRepair ? (
-          <div className="list-pending-entry">
-            {showPendingLink && (
-              <Link
-                data-pending-log-link
-                className="list-pending-link"
-                to="/settings/data/stage-ownership-repair"
-                aria-label={`修复待归属记录，共 ${pendingCount} 条`}
-              >
-                {pendingCount} 条待归属
-              </Link>
-            )}
-            {showResultRepair && (
-              <ResultConflictRepair
-                ref={repairEntry}
-                showCount
-                ids={resultRepairIds}
-                onOpenTrade={(id) => {
-                  const trade = storedTrades.find((item) => item.id === id && !item.deletedAt)
-                  if (trade) openTrade(trade, 'result')
-                }}
-              />
-            )}
-          </div>
-        ) : null}
-      </Topbar>
-      {header}
-      {emptyState?.kind !== 'library' ? (
-        <TradeFilters
-          filter={filter}
-          trades={trades}
-          strategies={strategies}
-          actions={filterActions}
-        />
-      ) : null}
+      <TradeWorkbenchHeader
+        journal={journal}
+        title={title}
+        view={view}
+        onView={onView}
+        header={header}
+        filter={filter}
+        trades={trades}
+        strategies={strategies}
+        showFilters={emptyState?.kind !== 'library'}
+        onOpenResult={(id) => {
+          const trade = trades.find(item => item.id === id)
+          if (trade) openTrade(trade, 'result')
+        }}
+      />
       <div className="list-scroll" ref={listScrollRef}>
         {emptyState ? (
           <WorkbenchEmptyState

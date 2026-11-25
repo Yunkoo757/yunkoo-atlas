@@ -198,23 +198,31 @@ export function searchForWorkspaceViewTarget(
   return text ? `?${text}` : ''
 }
 
-export function isSavedViewInWorkspace(
-  view: { pathname: string },
-  kind: WorkspaceKind,
+export const MAX_PINNED_WORKSPACE_VIEWS = 4
+
+type SavedViewLocation = { pathname: string; search?: Record<string, string> }
+
+function savedViewWorkspace(view: SavedViewLocation): WorkspaceKind | undefined {
+  const path = normalizeSavedViewPath(view.pathname)
+  if (path === '/live-history') return 'historical-trade'
+  if (path === '/today-record') return 'today'
+  if (path.startsWith('/review-cases')) return 'case'
+  if (path === '/sim' || (path === '/list' && view.search?.kind === 'paper')) return 'paper'
+  if (path === '/list' || path.startsWith('/period/') || path.startsWith('/strategy/') ||
+    path === '/active' || path === '/favorites' || path === '/missed') return 'trade'
+}
+
+export function isSavedViewInWorkspace(view: SavedViewLocation, kind: WorkspaceKind): boolean {
+  return savedViewWorkspace(view) === (kind === 'historical-case' ? 'historical-trade' : kind)
+}
+
+export function canPinWorkspaceView(
+  views: readonly (SavedViewLocation & { id: string; pinned: boolean })[],
+  target: SavedViewLocation & { id: string },
 ): boolean {
-  const pathname = normalizeSavedViewPath(view.pathname)
-  if (kind === 'historical-trade' || kind === 'historical-case') return pathname === '/live-history'
-  if (kind === 'today') return pathname === '/today-record'
-  if (kind === 'case') return pathname.startsWith('/review-cases')
-  if (kind === 'paper') return pathname === '/sim'
-  return (
-    pathname === '/list' ||
-    pathname.startsWith('/period/') ||
-    pathname.startsWith('/strategy/') ||
-    pathname === '/active' ||
-    pathname === '/favorites' ||
-    pathname === '/missed'
-  )
+  const workspace = savedViewWorkspace(target)
+  const pins = views.filter(view => view.pinned && savedViewWorkspace(view) === workspace)
+  return pins.some(view => view.id === target.id) || pins.length < MAX_PINNED_WORKSPACE_VIEWS
 }
 
 export function isTodayWorkspaceEntryPath(pathname: string): boolean {

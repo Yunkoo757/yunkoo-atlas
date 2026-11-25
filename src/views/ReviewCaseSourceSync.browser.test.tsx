@@ -183,6 +183,15 @@ async function run(): Promise<void> {
     resetNoteDraftsForTests()
     root = createRoot(rootElement)
     renderDetail(root, `/trade/${reviewCase.ref}`)
+    await waitFor(() => Boolean(findEditorImage('案例沉淀正文', CASE_IMAGE_MARKER)), '案例附件未就绪')
+    const sourceToggle = findButton('来源复盘')
+    assert(sourceToggle?.getAttribute('aria-expanded') === 'false', '有独立案例笔记时应默认收起来源')
+    assert(!findEditorImage('来源复盘正文', SOURCE_IMAGE_MARKER), '来源收起时不应加载原图')
+    const sourceLink = document.querySelector<HTMLAnchorElement>('[aria-label="案例来源"] a')
+    assert(sourceLink?.getAttribute('href') === '/trade/TRD-SOURCE', '来源链接应可直接打开原交易')
+    const owned = document.querySelector('[aria-label="案例沉淀正文"]')!
+    assert(owned.compareDocumentPosition(sourceLink) & Node.DOCUMENT_POSITION_FOLLOWING, '案例正文须优先于来源参考区')
+    sourceToggle.click()
     await waitFor(
       () => Boolean(
         findEditorImage('来源复盘正文', SOURCE_IMAGE_MARKER) &&
@@ -195,10 +204,7 @@ async function run(): Promise<void> {
     const sourceImage = findEditorImage('来源复盘正文', SOURCE_IMAGE_MARKER)
     const caseImage = findEditorImage('案例沉淀正文', CASE_IMAGE_MARKER)
     assert(sourceEditor && caseEditor && sourceImage && caseImage, '案例双正文附件挂载不完整')
-    const sourceDisclosure = document.querySelector<HTMLDetailsElement>('.dv-case-source-note details')
-    assert(sourceDisclosure && !sourceDisclosure.open, '已有独立沉淀时，来源复盘应默认收起')
-    sourceDisclosure.querySelector<HTMLElement>('summary')!.click()
-    await waitFor(() => sourceDisclosure.open && sourceEditor.getBoundingClientRect().height > 0, '来源复盘必须可以展开阅读全文和图片')
+    assert(sourceToggle.getAttribute('aria-expanded') === 'true' && sourceEditor.getBoundingClientRect().height > 0, '展开后来源全文和原图应可见')
 
     const navigationButton = findButton('切换到第二来源')
     assert(navigationButton, '缺少测试焦点锚点')
@@ -242,7 +248,7 @@ async function run(): Promise<void> {
     useStore.getState().removeTrade(source.id)
     useStore.getState().purgeTrade(source.id)
     await waitFor(
-      () => document.body.textContent?.includes('来源已删除（来源不可用）') ?? false,
+      () => document.body.textContent?.includes('原交易不可用') ?? false,
       '来源删除后必须使用共享的来源不可用状态',
     )
     assert(
@@ -408,6 +414,14 @@ async function run(): Promise<void> {
       '历史案例正文未保留在案例沉淀',
     )
     assert(!document.querySelector('[aria-label="来源复盘正文"]'), '无快照的历史案例不得渲染来源正文')
+    assert(!document.querySelector('[aria-label="案例来源"] a'), '不可用的原交易不应产生空链接')
+    useStore.setState({ trades: [{ ...legacyCase, sourceTradeId: undefined, sourceNoteHtml: '<p><br></p>' }] })
+    await waitFor(() => !document.querySelector('[aria-label="案例来源"]'), '独立案例不能显示空来源区')
+    useStore.setState({ trades: [source, { ...legacyCase, sourceTradeId: source.id, sourceNoteHtml: '<p><br></p>' }] })
+    await waitFor(() => Boolean(document.querySelector('[aria-label="案例来源"] a')), '没有来源复盘的案例仍应可以打开原交易')
+    assert(!findButton('来源复盘'), '空来源复盘不应有展开按钮')
+    document.querySelector<HTMLAnchorElement>('[aria-label="案例来源"] a')!.click()
+    await waitFor(() => document.querySelector('[data-current-path]')?.textContent === '/trade/TRD-SOURCE', '来源链接没有打开原交易')
   } finally {
     root?.unmount()
     storage.saveAsset = originalSaveAsset

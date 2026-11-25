@@ -1,4 +1,5 @@
 import type { Trade } from '@/data/trades'
+import type { JournalViewState } from '@/lib/journalQuickViews'
 import type { CommandSearchSession } from '@/lib/commandDateSearch'
 import { routeWithSearch } from '@/lib/tradeView'
 import {
@@ -7,7 +8,7 @@ import {
   isTradeWorkspaceEntryPath,
 } from '@/lib/workspaceViews'
 
-export type TradeDetailFrom = {
+export type TradeDetailFrom = Partial<JournalViewState> & {
   pathname: string
   search?: string
   restoreSearch?: string
@@ -48,6 +49,7 @@ export function tradeDetailNavState(
       search: from.search ?? '',
       ...(from.restoreSearch !== undefined ? { restoreSearch: from.restoreSearch } : {}),
       ...(from.anchorTradeId ? { anchorTradeId: from.anchorTradeId } : {}),
+      ...(from.journalView ? { journalView: from.journalView } : {}),
     },
     ...(extras?.focusField ? { focusField: extras.focusField } : {}),
   }

@@ -44,6 +44,7 @@ import {
   normalizeSavedTradeViews,
   type SavedTradeView,
 } from '@/lib/savedTradeViews'
+import { canPinWorkspaceView } from '@/lib/workspaceViews'
 import {
   normalizeSymbol,
   type SymbolIconsMap,
@@ -522,10 +523,10 @@ interface State {
   saveReviewPoolPreset: (preset: ReviewPoolPreset) => void
   removeReviewPoolPreset: (id: string) => void
   setReviewPoolLayout: (layout: ReviewPoolLayout) => void
-  saveTradeView: (view: SavedTradeView) => void
+  saveTradeView: (view: SavedTradeView) => boolean
   renameTradeView: (id: string, name: string) => void
   removeTradeView: (id: string) => void
-  togglePinTradeView: (id: string) => void
+  togglePinTradeView: (id: string) => 'full' | void
   setSymbolIconPreset: (symbol: string, presetId: string | null) => void
   setSymbolIconCustom: (symbol: string, dataUrl: string | null) => void
   clearSymbolIcon: (symbol: string) => void
@@ -1203,13 +1204,14 @@ export const useStore = create<State>()((set, get) => ({
             review.id === id ? reopenCompletedReview(review) : review,
           )),
         })),
-      saveTradeView: (view) =>
-        set((s) => ({
-          savedTradeViews: normalizeSavedTradeViews([
-            ...s.savedTradeViews.filter((item) => item.id !== view.id),
-            view,
-          ]),
-        })),
+      saveTradeView: (view) => {
+        const views = get().savedTradeViews
+        const pinned = view.pinned && canPinWorkspaceView(views, view)
+        set({ savedTradeViews: normalizeSavedTradeViews([
+          ...views.filter(item => item.id !== view.id), { ...view, pinned },
+        ]) })
+        return pinned
+      },
       renameTradeView: (id, name) => {
         const trimmed = name.trim().slice(0, 24)
         if (!trimmed) return
@@ -1233,20 +1235,15 @@ export const useStore = create<State>()((set, get) => ({
             ),
           },
         })),
-      togglePinTradeView: (id) =>
-        set((s) => {
-          const target = s.savedTradeViews.find((view) => view.id === id)
-          if (!target) return s
-          const pinnedCount = s.savedTradeViews.filter((view) => view.pinned).length
-          if (!target.pinned && pinnedCount >= 4) return s
-          return {
-            savedTradeViews: s.savedTradeViews.map((view) =>
-              view.id === id
-                ? { ...view, pinned: !view.pinned, updatedAt: new Date().toISOString() }
-                : view,
-            ),
-          }
-        }),
+      togglePinTradeView: (id) => {
+        const views = get().savedTradeViews
+        const target = views.find(view => view.id === id)
+        if (!target) return
+        if (!target.pinned && !canPinWorkspaceView(views, target)) return 'full'
+        set({ savedTradeViews: views.map(view => view.id === id
+          ? { ...view, pinned: !view.pinned, updatedAt: new Date().toISOString() }
+          : view) })
+      },
       setSymbolIconPreset: (symbol, presetId) => {
         const key = normalizeSymbol(symbol)
         if (!key) return

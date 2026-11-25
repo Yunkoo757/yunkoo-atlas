@@ -2,7 +2,7 @@ import type { Trade, TradeKind } from '@/data/trades'
 import type { ListFilter } from '@/lib/tradeFilters'
 import { isHiddenWhenClosedFilter } from '@/lib/tradeStatus'
 import { matchesTradeFacets } from '@/lib/tradeView'
-import { filterTrades, parseTradeFacets } from '@/lib/workbenchTrades'
+import { canHideClosedTrades, filterTrades, parseTradeFacets } from '@/lib/workbenchTrades'
 import type { BusinessDateAnchor } from '@/lib/periods'
 import {
   pathWithWorkbenchMode,
@@ -111,10 +111,8 @@ export function shouldResetWorkbenchHideClosed(options: {
   businessDateAnchor?: BusinessDateAnchor
 }): boolean {
   if (!options.hideClosed) return false
-  if (options.filter.type === 'missed' || options.filter.tradeKind === 'case') return false
-
   const facets = parseTradeFacets(options.search)
-  if (facets.status && isHiddenWhenClosedFilter(facets.status)) return false
+  if (!canHideClosedTrades(options.filter, facets.status)) return false
 
   const tradingDayStartHour = options.businessDateAnchor?.tradingDayStartHour
   return filterTrades(

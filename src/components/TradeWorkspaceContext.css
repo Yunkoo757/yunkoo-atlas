@@ -132,7 +132,6 @@
 .trade-workspace-scope-trigger > svg {
   flex: 0 0 auto;
   color: var(--text-tertiary);
-  transition: transform var(--motion-fast) var(--ease-out);
 }
 
 .trade-workspace-scope-trigger:hover,
@@ -143,8 +142,18 @@
   box-shadow: none;
 }
 
-.trade-workspace-scope-trigger.is-open > svg {
-  transform: rotate(180deg);
+[data-workspace-page="log"] .trade-workspace-scope-trigger {
+  border-color: transparent;
+  border-radius: var(--radius-6);
+  background: transparent;
+}
+
+[data-workspace-page="log"] .trade-workspace-scope-trigger:is(:hover, .is-open) {
+  background: var(--surface-control-hover);
+}
+
+.trade-workspace-kind-label {
+  flex: none;
 }
 
 .trade-workspace-scope-panel {

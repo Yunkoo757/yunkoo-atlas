@@ -1,6 +1,6 @@
 import type { Trade } from '@/data/trades'
 import type { SidebarQuickWorkspace } from '@/lib/sidebarWorkspace'
-import { deriveWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
+import { countWorkbenchVisibleTrades, deriveWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -133,4 +133,16 @@ export function testHistoricalCaseWorkbenchUsesCaseStageOwnership(): void {
   const result = deriveWorkbenchVisibleTrades(options)
 
   assert(result.visible.map((item) => item.id).join() === 'stage-two-case', '历史案例必须按案例自身 stage ID 投影')
+}
+
+export function testStarredClosedTradeIsCountedWhenClosedTradesAreHidden(): void {
+  const options = {
+    trades: [{ ...trade('win', 'live'), status: 'win' as const }],
+    filter: { type: 'starred' as const, tradeKind: 'live' as const },
+    starredIds: ['win'],
+    display: { ...DEFAULT_DISPLAY, hideClosed: true },
+    search: 'view=starred',
+  }
+  assert(deriveWorkbenchVisibleTrades(options).visible.length === 1, '星标视图保留已平仓记录')
+  assert(countWorkbenchVisibleTrades(options) === 1, '计数与列表使用相同的隐藏已平仓例外')
 }

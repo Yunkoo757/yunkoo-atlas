@@ -276,7 +276,6 @@
 }
 .db-chart-data > summary::-webkit-details-marker,.db-week-detail > summary::-webkit-details-marker { display: none; }
 :is(.db-chart-data,.db-week-detail) > summary:hover { color: var(--text-strong); }
-:is(.db-chart-data,.db-week-detail)[open] > summary > svg { transform: rotate(90deg); }
 
 .db-week {
   margin-block-start: var(--space-section-gap);

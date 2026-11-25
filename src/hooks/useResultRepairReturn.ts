@@ -8,7 +8,7 @@ export function resultRepairAnchor(id: string): string {
 }
 
 export function useResultRepairReturn() {
-  const entry = useRef<{ reopen: (id: string) => void }>(null)
+  const entry = useRef<{ reopen: (id?: string) => void }>(null)
   useTradeReturnAnchor({
     onRestoreStart(anchor) {
       if (anchor.startsWith(prefix)) entry.current?.reopen(anchor.slice(prefix.length))

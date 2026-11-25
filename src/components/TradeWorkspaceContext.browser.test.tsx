@@ -126,7 +126,7 @@ async function run(): Promise<void> {
       '交易日志不得继续渲染独占的范围栏',
     )
     const scopeTrigger = document.querySelector<HTMLButtonElement>('[data-workspace-compact] > button')
-    assert(scopeTrigger?.textContent?.includes('第二阶段 · 实盘'), '紧凑范围按钮必须同时表达阶段与记录类型')
+    assert(scopeTrigger?.textContent === '第二阶段实盘' && scopeTrigger.getAttribute('aria-label') === '数据范围：第二阶段 · 实盘', '历史阶段和盘型必须可见并有完整的辅助说明')
     const scheduleHint = [...document.querySelectorAll('button')].find((button) => button.textContent?.includes('已预约'))
     assert(scheduleHint?.textContent?.includes('1月5日'), '未到期预约必须作为范围旁的弱提示')
     assert(!document.querySelector('[data-stage-rollover-banner]'), '未到期预约不得再占壳层横幅')

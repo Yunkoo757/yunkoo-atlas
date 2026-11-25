@@ -1,0 +1,62 @@
+/* The SVG viewport and its hit target stay put. Only the affected strokes move. */
+[data-icon-motion='section'] > path {
+  transform-box: view-box;
+  transform-origin: center;
+  transition: transform var(--motion-state) var(--ease-out);
+}
+
+[data-icon-motion='section'][data-active='true'] > path,
+[aria-expanded='true'] > [data-icon-motion='section']:not([data-active]) > path,
+details[open] > summary > [data-icon-motion='section']:not([data-active]) > path {
+  transform: rotate(90deg);
+}
+
+.atlas-panel-inset {
+  transform-box: fill-box;
+  transform-origin: left center;
+  transition: transform var(--motion-state) var(--ease-out), opacity var(--motion-state) var(--ease-out);
+}
+[data-icon-motion='panel'][data-side='right'] > .atlas-panel-inset { transform-origin: right center; }
+[data-icon-motion='panel'][data-active='false'] > .atlas-panel-inset {
+  transform: scaleX(.32);
+  opacity: .7;
+}
+
+/* Reflect the two strokes through their midpoint without swinging outside the icon. */
+[data-icon-motion='menu'] > path,
+[data-icon-motion='upward-menu'] > path {
+  transition: d var(--motion-state) var(--ease-out);
+}
+[data-icon-motion='menu'] > path,
+[data-icon-motion='upward-menu'][data-active='true'] > path,
+[aria-expanded='true'] > [data-icon-motion='upward-menu']:not([data-active]) > path {
+  d: path('M6 9 L12 15 L18 9');
+}
+[data-icon-motion='upward-menu'] > path,
+[data-icon-motion='menu'][data-active='true'] > path,
+[aria-expanded='true'] > [data-icon-motion='menu']:not([data-active]) > path,
+details[open] > summary > [data-icon-motion='menu']:not([data-active]) > path {
+  d: path('M6 15 L12 9 L18 15');
+}
+
+[data-icon-motion='mark'] {
+  fill-opacity: 0;
+  transition: fill-opacity var(--motion-state) var(--ease-out);
+}
+[data-icon-motion='mark'][data-active='true'] { fill-opacity: 1; }
+
+[data-icon-motion='check'] > path,
+[data-icon-motion='pin'] > :is(.pin-bridge, .pin-slash) {
+  stroke-dasharray: 1 1;
+  transition: stroke-dashoffset var(--motion-state) var(--ease-out), opacity var(--motion-state) var(--ease-out);
+}
+[data-icon-motion='check'][data-active='false'] > path,
+[data-icon-motion='pin'][data-active='true'] > .pin-bridge,
+[data-icon-motion='pin'][data-active='false'] > .pin-slash {
+  stroke-dashoffset: 1;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  svg[data-icon-motion], svg[data-icon-motion] > * { transition: none !important; }
+}

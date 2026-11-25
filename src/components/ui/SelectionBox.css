@@ -9,6 +9,8 @@
   border-radius: var(--radius-4);
   opacity: 0;
   background: transparent;
+  transition: opacity var(--motion-state) var(--ease-out), background-color var(--motion-state) var(--ease-out),
+    border-color var(--motion-state) var(--ease-out);
 }
 
 .selection-box.is-always-on,
@@ -26,14 +28,3 @@
   background: var(--accent);
   border-color: var(--accent);
 }
-
-.selection-box {
-  transition: opacity var(--motion-state) var(--ease-out), background-color var(--motion-state) var(--ease-out),
-    border-color var(--motion-state) var(--ease-out);
-}
-.selection-box > svg {
-  opacity: 0;
-  scale: .85;
-  transition: opacity var(--motion-state) var(--ease-out), scale var(--motion-state) var(--ease-out);
-}
-.selection-box[aria-checked='true'] > svg { opacity: 1; scale: 1; }

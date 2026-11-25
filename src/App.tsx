@@ -31,6 +31,9 @@ import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
 import { WindowTitlebar } from './components/WindowTitlebar'
 import { TradeWorkspaceContext } from './components/TradeWorkspaceContext'
+import { getJournalViewState } from './lib/journalQuickViews'
+import { Toolbar } from './components/ui/Toolbar'
+import { SaveStatusIndicator } from './components/SaveStatusIndicator'
 import { AppFrame } from './components/ui/AppFrame'
 import { StageRolloverBanner } from './components/StageRolloverBanner'
 import { CommandPalette } from './components/CommandPalette'
@@ -323,8 +326,7 @@ const ReviewTemplatesPanel = lazy(() =>
 )
 
 export function TradeLogPage() {
-  const { search } = useLocation()
-  const { pathname } = useLocation()
+  const { pathname, search, state } = useLocation()
   const liveStages = useStore((state) => state.liveStages)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const legacyPage = tradeWorkspacePageFromSearch(search)
@@ -337,7 +339,7 @@ export function TradeLogPage() {
     }} replace />
   }
   if (normalizedSearch !== new URLSearchParams(search).toString()) {
-    return <Navigate to={{ pathname, search: normalizedSearch ? `?${normalizedSearch}` : '' }} replace />
+    return <Navigate to={{ pathname, search: normalizedSearch ? `?${normalizedSearch}` : '' }} state={getJournalViewState(state)} replace />
   }
   const query = parseTradeWorkspaceQuery(normalized, liveStages, currentLiveStageId)
   const filter = resolveTradeWorkspaceListFilter(query)
@@ -346,7 +348,9 @@ export function TradeLogPage() {
       title="交易日志"
       filter={filter}
       listPath="/list"
-      filterActions={<TradeWorkspaceContext page="log" compact />}
+      header={!getDesktopPlatform() && (
+        <Toolbar title="交易日志" actions={<SaveStatusIndicator />} />
+      )}
     />
   )
 }
@@ -495,6 +499,7 @@ async function waitForUiFonts(): Promise<void> {
 
 function Shell() {
   const desktop = getDesktopPlatform()
+  const [detailToolbarHost, setDetailToolbarHost] = useState<HTMLDivElement | null>(null)
   const sidebarCollapsed = useStore(state => state.display.sidebarCollapsed === true) && Boolean(desktop)
   const [cmdkOpen, setCmdkOpen] = useState(false)
   const [cmdkReturnFocus, setCmdkReturnFocus] = useState<HTMLElement | null>(null)
@@ -524,7 +529,7 @@ function Shell() {
   return (
     <>
       <AppFrame
-        titlebar={desktop && <WindowTitlebar onOpenSearch={openCmdk} searchOpen={cmdkOpen} sidebarCollapsed={sidebarCollapsed} />}
+        titlebar={desktop && <WindowTitlebar detailToolbarRef={setDetailToolbarHost} onOpenSearch={openCmdk} searchOpen={cmdkOpen} sidebarCollapsed={sidebarCollapsed} />}
         sidebarCollapsed={sidebarCollapsed}
         sidebar={<Sidebar showSearch={!desktop} onOpenSearch={() => openCmdk()} />}
       >
@@ -580,7 +585,7 @@ function Shell() {
           <Route path="/live-archive" element={<LegacyLiveArchiveRedirect />} />
           <Route path="/live-archive/:archiveId" element={<LegacyLiveArchiveRedirect />} />
           <Route path="/import-data-health" element={<ImportDataHealthView />} />
-          <Route path="/trade/:id" element={<DetailView />} />
+          <Route path="/trade/:id" element={<DetailView toolbarHost={detailToolbarHost} />} />
           <Route path="/cases" element={<Navigate to="/review-cases" replace />} />
           <Route path="/trash" element={<Navigate to="/trade-trash" replace />} />
           <Route path="/trade-trash" element={<TradeTrashView />} />

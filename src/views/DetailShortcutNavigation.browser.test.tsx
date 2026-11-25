@@ -199,7 +199,7 @@ async function run(): Promise<void> {
     assert(findButton('复制案例'), '案例详情更多菜单缺少复制案例')
     const caseMenuLabels = [...document.querySelectorAll<HTMLButtonElement>('.menu-pop [role="menuitem"]')]
       .map((button) => button.textContent?.trim())
-    const expectedCaseActions = ['编辑案例', '复制案例', '设为重点案例', '复制链接', '复制编号', '删除案例']
+    const expectedCaseActions = ['编辑案例', '复制案例', '设为重点案例', '复制图文', '复制链接', '复制编号', '删除案例']
     const caseActionIndexes = expectedCaseActions.map((label) => caseMenuLabels.indexOf(label))
     assert(
       caseActionIndexes.every((index, position) => index >= 0 && (position === 0 || index > caseActionIndexes[position - 1])),
@@ -415,7 +415,7 @@ async function run(): Promise<void> {
       </MemoryRouter>,
     )
     await waitFor(
-      () => document.querySelector('[aria-label="返回列表"]') !== null,
+      () => document.querySelector('[aria-label="返回交易日志"]') !== null,
       '模拟盘非法周复盘来源仍显示周复盘返回名称',
     )
     assert(!document.querySelector('.dv-copy-id'), '低频复制编号不得占用侧栏常驻空间')
@@ -424,7 +424,7 @@ async function run(): Promise<void> {
     findButton('复制编号')?.click()
     await waitFor(() => copied.at(-1) === invalidWeeklyPaper.ref, '模拟盘详情更多菜单没有复制正确编号')
     assert(!document.body.textContent?.includes('周复盘'), '模拟盘非法来源不得显示周复盘面包屑')
-    document.querySelector<HTMLAnchorElement>('[aria-label="返回列表"]')?.click()
+    document.querySelector<HTMLAnchorElement>('[aria-label="返回交易日志"]')?.click()
     await waitFor(
       () => document.querySelector('[data-testid="detail-return-path"]')?.textContent === '/list',
       '模拟盘非法周复盘来源没有返回交易列表',
@@ -451,11 +451,11 @@ async function run(): Promise<void> {
       </MemoryRouter>,
     )
     await waitFor(
-      () => document.querySelector('[aria-label="返回列表"]') !== null,
+      () => document.querySelector('[aria-label="返回案例库"]') !== null,
       '案例非法周复盘来源仍显示周复盘返回名称',
     )
     assert(!document.body.textContent?.includes('周复盘'), '案例非法来源不得显示周复盘面包屑')
-    document.querySelector<HTMLAnchorElement>('[aria-label="返回列表"]')?.click()
+    document.querySelector<HTMLAnchorElement>('[aria-label="返回案例库"]')?.click()
     await waitFor(
       () => document.querySelector('[data-testid="detail-return-path"]')?.textContent
         === '/review-cases',

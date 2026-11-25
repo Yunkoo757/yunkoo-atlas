@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
-import { DisclosureChevron, StatusIndicator } from '@/icons/StatusIndicator'
+import { DisclosureIcon } from '@/icons/StateIcons'
+import { StatusIndicator } from '@/icons/StatusIndicator'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -18,8 +19,8 @@ export function testLoadingIndicatorUsesAccessibleProductOwnedMarkup(): void {
 export function testStatusAndDisclosureIndicatorsUseSemanticLucideGlyphs(): void {
   const completed = renderToStaticMarkup(<StatusIndicator state="completed" />)
   const disclosure = renderToStaticMarkup(
-    <DisclosureChevron style={{ transform: 'rotate(90deg)' }} />,
+    <DisclosureIcon expanded />,
   )
   assert(completed.includes('lucide-circle-check'), '完成状态必须使用明确的完成语义')
-  assert(disclosure.includes('rotate(90deg)'), '折叠箭头必须接受调用方的展开旋转')
+  assert(disclosure.includes('data-icon-motion="section"') && disclosure.includes('data-active="true"'), '折叠箭头必须暴露展开状态并保留节点')
 }

@@ -274,6 +274,8 @@ async function run(): Promise<void> {
     addButton.click()
     assert(createCount === 1, '点击月份条的新建按钮必须继续触发 onCreate')
 
+    const monthIcon = toggleButton.querySelector('.trade-list-group-chevron svg')
+    assert(monthIcon, '月份折叠按钮应包含状态图标')
     assertButtonHitTarget(toggleButton, '间距层不得在月份条上形成透明点击空洞')
     toggleButton.click()
     await waitFor(() => toggleButton.getAttribute('aria-expanded') === 'false', '点击月份条必须折叠分组')
@@ -291,6 +293,8 @@ async function run(): Promise<void> {
       const row = host.querySelector<HTMLElement>('[data-trade-id="august-1"]')
       return Boolean(row?.parentElement && row.parentElement.getBoundingClientRect().height >= 43)
     }, '展开动画结束后首组交易行必须恢复完整高度')
+    assert(toggleButton.querySelector('.trade-list-group-chevron svg') === monthIcon && monthIcon.isConnected,
+      '在虚拟列表快速收展时，原月份图标应保持挂载以便从当前方向反转')
     await waitFor(() => scrollHost.scrollHeight > scrollHost.clientHeight, 'fixture 必须真实触发虚拟滚动')
 
     scrollHost.scrollTop = scrollHost.scrollHeight - scrollHost.clientHeight

@@ -213,9 +213,10 @@ export async function testPrimaryIconActionsUseTheSharedTooltipLanguage(): Promi
       !quickNotes.includes('title="删除随记"') &&
       quickNotes.includes('<IconButton label={selectedNote.pinned') &&
       quickNotes.includes('<IconButton label="删除随记"') &&
-      !displayMenu.includes('Tooltip') &&
+      displayMenu.includes('<Tooltip asChild content={label} label={label} disabled={!journalActions || open}>') &&
       !displayMenu.includes('title=') &&
-      displayMenu.includes('aria-label="显示选项"') &&
+      displayMenu.includes('aria-label={label}') &&
+      displayMenu.includes("'日志选项' : '显示选项'") &&
       !lightbox.includes('title={closeShortcut') &&
       !lightbox.includes('title={previousShortcut') &&
       !lightbox.includes('title={nextShortcut') &&

@@ -1,15 +1,17 @@
+import {
+  AnalyticsNavIcon,
+  CaseLibraryNavIcon,
+  JournalNavIcon,
+  NoteNavIcon,
+  PeriodReviewNavIcon,
+  PracticeNavIcon,
+} from '@/icons/NavigationIcons'
 import type { AppIcon } from '@/icons/appIcons'
 import {
   Ban,
-  BarChart3,
-  BookOpen,
   Calendar,
   Clock,
-  CalendarDays,
-  FileText,
   FlaskConical,
-  ListTodo,
-  RotateCcw,
   Star,
 } from '@/icons/appIcons'
 import {
@@ -40,14 +42,14 @@ export interface PrimarySidebarNavItem {
   icon: SidebarNavIcon
 }
 
-const PRIMARY_NAV_ICONS: Record<PrimarySidebarNavId, SidebarNavIcon> = {
+export const PRIMARY_NAV_ICONS: Record<PrimarySidebarNavId, SidebarNavIcon> = {
   today: Calendar,
-  quickNotes: FileText,
-  trades: ListTodo,
-  reviewCases: BookOpen,
-  weeklyReview: CalendarDays,
-  reviewSession: RotateCcw,
-  dashboard: BarChart3,
+  quickNotes: NoteNavIcon,
+  trades: JournalNavIcon,
+  reviewCases: CaseLibraryNavIcon,
+  weeklyReview: PeriodReviewNavIcon,
+  reviewSession: PracticeNavIcon,
+  dashboard: AnalyticsNavIcon,
 }
 
 export const PRIMARY_NAV: PrimarySidebarNavItem[] = PRIMARY_NAV_ITEMS.map((item) => ({

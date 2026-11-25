@@ -147,10 +147,10 @@ async function run(): Promise<void> {
       '记录交易必须保持与搜索一致的 28px 圆形 Compose 按钮',
     )
     assert(
-      createStyle.color === searchStyle.color
+      createStyle.color !== searchStyle.color
         && createStyle.borderStyle === 'none'
-        && createStyle.boxShadow === 'none',
-      '记录交易必须与搜索使用一致的图标透明层级，且不得额外增加边框或阴影',
+        && createStyle.boxShadow !== 'none' && !!createAction.querySelector('.atlas-compose-nib'),
+      '新建按钮需要可辨识的笔尖、独立底面和轻量内高光',
     )
     assert(!document.querySelector('.sb-quick-record'), '记录交易不得继续成为孤立行')
     assert(document.body.textContent?.includes('工作区'), '主导航分组必须使用工作区表述')
@@ -158,7 +158,7 @@ async function run(): Promise<void> {
 
     const setupRisk = document.querySelector<HTMLAnchorElement>('a.sb-risk-summary')
     assert(setupRisk && setupRisk.textContent?.includes('风险额度') && setupRisk.getAttribute('href') === '/settings/risk', '无额度时应该提供有名称的设置入口')
-    assert(!setupRisk.hasAttribute('aria-haspopup') && !!setupRisk.querySelector('svg.lucide-shield'), '初次设置入口应使用风险管理的盾牌图标并直接导航')
+    assert(!setupRisk.hasAttribute('aria-haspopup') && !!setupRisk.querySelector('svg.lucide-atlas-risk'), '初次设置入口应使用风险管理的额度表盘并直接导航')
     assert(!document.querySelector('.sb-footer a[href="/settings"]'), '侧栏底部不得重复保留通用设置入口')
     setupRisk.click()
     await waitFor(() => document.querySelector('[data-test-location]')?.textContent === '/settings/risk', '未设额度应直接进入风险规则')
@@ -203,7 +203,7 @@ async function run(): Promise<void> {
       '配置生效后风险入口应自动切换为额度摘要',
     )
     const riskTrigger = document.querySelector<HTMLButtonElement>('button.sb-risk-summary')
-    assert(riskTrigger && riskTrigger.textContent?.includes('今日余 2R') && riskTrigger.querySelector('svg.lucide-shield'), '未使用的额度应显示当前周期余额')
+    assert(riskTrigger && riskTrigger.textContent?.includes('今日余 2R') && riskTrigger.querySelector('.sb-risk-value strong')?.textContent === '2R' && riskTrigger.querySelector('svg.lucide-atlas-risk'), '未使用的额度应显示当前周期余额')
     assert(riskTrigger.getAttribute('aria-expanded') === 'false', '明细应默认关闭')
     riskTrigger.click()
     await waitFor(() => !!document.querySelector('.sb-risk-popover[role="dialog"]'), '点击额度没有打开明细')

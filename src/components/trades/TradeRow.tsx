@@ -1,6 +1,6 @@
 import { ICON_LG, ICON_SM } from '@/icons/iconSize'
 import { memo } from 'react'
-import { Bookmark, Star } from '@/icons/appIcons'
+import { MarkIcon } from '@/icons/StateIcons'
 import type { Strategy } from '@/data/strategies'
 import { resolveTimeframe, type Trade } from '@/data/trades'
 import { StatusIcon, SideTag } from '@/components/StatusIcon'
@@ -200,9 +200,7 @@ export const TradeRow = memo(function TradeRow({
               onToggleStar(trade)
             }}
           >
-            {isCase
-              ? <Bookmark size={ICON_SM} fill="currentColor" fillOpacity={starred ? 1 : 0} />
-              : <Star size={ICON_SM} fill="currentColor" fillOpacity={starred ? 1 : 0} />}
+            <MarkIcon kind={isCase ? 'bookmark' : 'star'} active={starred} size={ICON_SM} />
           </button>
         </Tooltip>
       }

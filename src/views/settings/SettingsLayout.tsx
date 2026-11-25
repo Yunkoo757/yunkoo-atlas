@@ -18,7 +18,7 @@ export function SettingsLayout() {
               onDragStart={(event) => event.preventDefault()}
               className={({ isActive }) => 'settings-nav-item' + (isActive ? ' is-active' : '')}
             >
-              <Icon size={ICON_MD} />
+              <Icon size={ICON_MD} aria-hidden />
               <span>{label}</span>
             </NavLink>
           ))}

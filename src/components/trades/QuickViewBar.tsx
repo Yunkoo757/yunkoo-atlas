@@ -2,7 +2,8 @@ import { useExitClone } from '@/components/ui/useExitClone'
 import { isComposingKey } from '@/lib/keyboardComposition'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { BookmarkPlus, Check, MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from '@/icons/appIcons'
+import { BookmarkPlus, Check, MoreHorizontal, Pencil, Trash2 } from '@/icons/appIcons'
+import { PinActionIcon } from '@/icons/StateIcons'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   normalizeSavedViewPath,
@@ -13,10 +14,10 @@ import {
   type SavedTradeView,
 } from '@/lib/savedTradeViews'
 import {
-  filterViewsBySidebarCapabilities,
   getActiveWorkspaceView,
   getWorkspacePrimaryViews,
   isSavedViewInWorkspace,
+  MAX_PINNED_WORKSPACE_VIEWS,
   matchesWorkspaceView,
   searchForWorkspaceViewTarget,
   type WorkspaceKind,
@@ -26,98 +27,11 @@ import { pathWithWorkbenchMode, workbenchModeFromPathname } from '@/lib/routeCon
 import { clampPopoverLeft } from '@/lib/popoverPosition'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
-import { Tooltip } from '@/components/ui/Tooltip'
+import { OverflowTooltip, Tooltip } from '@/components/ui/Tooltip'
+import { journalBuiltinTarget, getMoreViewGroups, resolveJournalView } from '@/lib/journalQuickViews'
 import './QuickViewBar.css'
 
-type ViewGroup = {
-  label: string
-  items: WorkspaceViewTarget[]
-}
-
-const TRADE_MORE_GROUPS: ViewGroup[] = [
-  {
-    label: '时间',
-    items: [
-      { id: 'today', label: '今日', pathname: '/today-record' },
-      { id: 'last-week', label: '上周', pathname: '/period/last-week' },
-      { id: 'last-month', label: '上月', pathname: '/period/last-month' },
-    ],
-  },
-  {
-    label: '结果',
-    items: [
-      { id: 'win', label: '盈利', pathname: '/list', search: '?status=win' },
-      { id: 'breakeven', label: '保本', pathname: '/list', search: '?status=breakeven' },
-    ],
-  },
-  {
-    label: '状态',
-    items: [
-      { id: 'active', label: '进行中', pathname: '/active' },
-    ],
-  },
-  {
-    label: '交易时段',
-    items: [
-      { id: 'london', label: '伦敦盘', pathname: '/list', search: '?session=london' },
-      { id: 'new-york', label: '纽约盘', pathname: '/list', search: '?session=new-york' },
-      { id: 'asia', label: '亚盘', pathname: '/list', search: '?session=asia' },
-      { id: 'outside', label: '盘外时段', pathname: '/list', search: '?session=outside' },
-      { id: 'other', label: '其他时段', pathname: '/list', search: '?session=other' },
-    ],
-  },
-]
-
-const PAPER_MORE_GROUPS: ViewGroup[] = [
-  {
-    label: '时间',
-    items: [
-      { id: 'paper-week', label: '本周', pathname: '/sim', search: '?period=this-week' },
-      { id: 'paper-month', label: '本月', pathname: '/sim', search: '?period=this-month' },
-    ],
-  },
-  {
-    label: '结果',
-    items: [
-      { id: 'paper-win', label: '盈利', pathname: '/sim', search: '?status=win' },
-      { id: 'paper-breakeven', label: '保本', pathname: '/sim', search: '?status=breakeven' },
-      { id: 'paper-missed', label: '错过机会', pathname: '/sim', search: '?status=missed' },
-    ],
-  },
-  {
-    label: '交易时段',
-    items: [
-      { id: 'paper-london', label: '伦敦盘', pathname: '/sim', search: '?session=london' },
-      { id: 'paper-new-york', label: '纽约盘', pathname: '/sim', search: '?session=new-york' },
-      { id: 'paper-asia', label: '亚盘', pathname: '/sim', search: '?session=asia' },
-      { id: 'paper-outside', label: '盘外时段', pathname: '/sim', search: '?session=outside' },
-      { id: 'paper-other', label: '其他时段', pathname: '/sim', search: '?session=other' },
-    ],
-  },
-]
-
-const HISTORICAL_TRADE_MORE_GROUPS: ViewGroup[] = [
-  {
-    label: '结果',
-    items: [
-      { id: 'win', label: '盈利', pathname: '/live-history', search: '?status=win' },
-      { id: 'breakeven', label: '保本', pathname: '/live-history', search: '?status=breakeven' },
-      { id: 'missed', label: '错过机会', pathname: '/live-history', search: '?status=missed' },
-    ],
-  },
-  {
-    label: '交易时段',
-    items: [
-      { id: 'london', label: '伦敦盘', pathname: '/live-history', search: '?session=london' },
-      { id: 'new-york', label: '纽约盘', pathname: '/live-history', search: '?session=new-york' },
-      { id: 'asia', label: '亚盘', pathname: '/live-history', search: '?session=asia' },
-      { id: 'outside', label: '盘外时段', pathname: '/live-history', search: '?session=outside' },
-      { id: 'other', label: '其他时段', pathname: '/live-history', search: '?session=other' },
-    ],
-  },
-]
-
-export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
+export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; journal?: boolean }) {
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -143,19 +57,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
   const primaryViews = getWorkspacePrimaryViews(kind, sidebarWorkspaceItems).filter((view) => (
     view.id !== 'historical-cases' && view.id !== 'historical-trades'
   ))
-  const moreGroups = (kind === 'trade'
-    ? TRADE_MORE_GROUPS
-    : kind === 'historical-trade'
-      ? HISTORICAL_TRADE_MORE_GROUPS
-      : kind === 'paper'
-        ? PAPER_MORE_GROUPS
-        : []
-  )
-    .map((group) => ({
-      ...group,
-      items: filterViewsBySidebarCapabilities(kind, group.items, sidebarWorkspaceItems),
-    }))
-    .filter((group) => group.items.length > 0)
+  const moreGroups = getMoreViewGroups(kind, sidebarWorkspaceItems)
   const workspaceLabel = kind === 'case'
     ? '案例视图'
     : kind === 'historical-case'
@@ -166,24 +68,80 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
           ? '模拟视图'
           : '交易视图'
   const workspaceSavedViews = savedViews.filter((view) => isSavedViewInWorkspace(view, kind))
-  const pinned = workspaceSavedViews.filter((view) => view.pinned).slice(0, 4)
-  const activeSavedViewId = pinned.find((view) =>
+  const pinned = workspaceSavedViews.filter((view) => view.pinned).slice(0, MAX_PINNED_WORKSPACE_VIEWS)
+  const journalView = journal
+    ? resolveJournalView(kind, location.pathname, location.search, sidebarWorkspaceItems, savedViews, location.state)
+    : undefined
+  const activeSaved = journal ? journalView?.saved : pinned.find((view) =>
     savedViewMatchesLocation(view, location.pathname, location.search),
-  )?.id
-  const activePrimaryViewId = activeSavedViewId
-    ? undefined
-    : getActiveWorkspaceView(
-      kind,
-      location.pathname,
-      location.search,
-      sidebarWorkspaceItems,
-    )?.id
-  const hasActiveQuickView = Boolean(activeSavedViewId || activePrimaryViewId)
+  )
+  const activeView = journal ? journalView : getActiveWorkspaceView(kind, location.pathname, location.search, sidebarWorkspaceItems)
+  const builtinTabs = journal && !activeSaved && activeView && !primaryViews.some((view) => view.id === activeView.id)
+    ? [...primaryViews, activeView]
+    : primaryViews
+  const savedTabs = journal && activeSaved && !pinned.includes(activeSaved) ? [...pinned, activeSaved] : pinned
+  const tabItems = [
+    ...builtinTabs.map((item) => ({
+      key: `builtin-${item.id}`, label: item.label, saved: false,
+      active: !activeSaved && activeView?.id === item.id, select: () => goTarget(item),
+    })),
+    ...savedTabs.map((view) => ({
+      key: `saved-${view.id}`, label: view.name, saved: true,
+      active: activeSaved?.id === view.id, select: () => goSavedView(view),
+    })),
+  ]
+  const selectedIndex = tabItems.findIndex((item) => item.active)
+  const priorityIndex = Math.max(0, selectedIndex)
+  const sizesRef = useRef<HTMLDivElement>(null)
+  const [visibleLimit, setVisibleLimit] = useState(Infinity)
+  const tabSignature = JSON.stringify(tabItems.map(({ key, label, active }) => [key, label, active]))
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    const sizes = sizesRef.current
+    const more = overflowButtonRef.current
+    if (!journal || !root || !sizes || !more) return
+    const chips = Array.from(sizes.querySelectorAll<HTMLElement>('[data-tab-size]'))
+    const moreLabel = sizes.querySelector<HTMLElement>('.quick-view-more-label')!
+    const measure = () => {
+      const widths = chips.map((chip) => chip.getBoundingClientRect().width)
+      const room = root.getBoundingClientRect().width - parseFloat(getComputedStyle(root).columnGap)
+      const gap = parseFloat(getComputedStyle(sizes).columnGap)
+      const total = widths.reduce((sum, width) => sum + width, 0) + Math.max(0, widths.length - 1) * gap
+      if (total + more.offsetHeight <= room) {
+        setVisibleLimit(widths.length)
+        return
+      }
+      // 先为当前项预留空间，余下位置按原顺序展示完整标签。
+      const available = room - moreLabel.getBoundingClientRect().width
+      let used = widths[priorityIndex] ?? 0
+      let limit = 0
+      for (; limit < widths.length; limit += 1) {
+        if (limit === priorityIndex) continue
+        used += gap + widths[limit]
+        if (used > available) break
+      }
+      setVisibleLimit(limit)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    for (const element of [root, moreLabel, ...chips]) observer.observe(element)
+    return () => observer.disconnect()
+  }, [journal, priorityIndex, tabSignature])
+  const isOverflowed = (index: number) => journal && index >= visibleLimit && index !== priorityIndex
+  const hiddenBuiltinTabs = builtinTabs.filter((_, index) => isOverflowed(index))
+  const showMoreLabel = tabItems.some((_, index) => isOverflowed(index))
+  const menuGroups = hiddenBuiltinTabs.length
+    ? [{ label: '快捷视图', items: hiddenBuiltinTabs }, ...moreGroups]
+    : moreGroups
+  const moreName = journal ? '更多视图' : '视图选项'
 
   useEffect(() => {
     if (!panel) return
     const focusFrame = requestAnimationFrame(() => {
-      if (panel === 'more') rootRef.current?.querySelector<HTMLButtonElement>('.quick-view-save-entry')?.focus({ preventScroll: true })
+      if (panel === 'more') {
+        const firstAction = journal ? '.quick-view-menu button' : '.quick-view-save-entry'
+        rootRef.current?.querySelector<HTMLButtonElement>(firstAction)?.focus({ preventScroll: true })
+      }
     })
     const onPointerDown = (event: PointerEvent) => {
       if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setPanel(null)
@@ -203,7 +161,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
       document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [panel])
+  }, [panel, journal])
 
   useLayoutEffect(() => {
     if (!panel || !overflowAnchorRef.current) return
@@ -219,22 +177,34 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
     return () => window.removeEventListener('resize', updatePosition)
   }, [panel])
 
-  const goTarget = (target: WorkspaceViewTarget) => {
+  const closeViewMenu = () => {
     setPanel(null)
+    if (journal && panel === 'more') {
+      requestAnimationFrame(() => rootRef.current?.querySelector<HTMLButtonElement>('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true }))
+    }
+  }
+
+  const goTarget = (target: WorkspaceViewTarget) => {
+    closeViewMenu()
     const mode = workbenchModeFromPathname(location.pathname)
+    const destination = journal ? journalBuiltinTarget(target) : target
     navigate({
-      pathname: pathWithWorkbenchMode(target.pathname, mode),
-      search: searchForWorkspaceViewTarget(location.search, target),
-    })
+      pathname: pathWithWorkbenchMode(destination.pathname, mode),
+      search: searchForWorkspaceViewTarget(location.search, destination),
+    }, journal ? { state: { journalView: { type: 'builtin', id: target.id } } } : undefined)
   }
 
   const goSavedView = (view: SavedTradeView) => {
-    setPanel(null)
+    closeViewMenu()
     const mode = workbenchModeFromPathname(location.pathname)
+    const path = normalizeSavedViewPath(view.pathname)
+    const params = new URLSearchParams(savedViewSearch(view))
+    const paperAlias = journal && path === '/sim'
+    if (paperAlias) params.set('kind', 'paper')
     navigate({
-      pathname: pathWithWorkbenchMode(normalizeSavedViewPath(view.pathname), mode),
-      search: savedViewSearch(view),
-    })
+      pathname: pathWithWorkbenchMode(paperAlias ? '/list' : path, mode),
+      search: params.toString(),
+    }, journal ? { state: { journalView: { type: 'saved', id: view.id } } } : undefined)
   }
 
   const openSave = () => {
@@ -253,15 +223,20 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
       name: trimmed,
       pathname: normalizeSavedViewPath(location.pathname),
       search: searchParamsToRecord(searchParams),
-      pinned: pinned.length < 4,
+      pinned: pinned.length < MAX_PINNED_WORKSPACE_VIEWS,
       order: savedViews.length,
       createdAt: now,
       updatedAt: now,
     }
-    saveTradeView(view)
+    const pinnedAtTop = saveTradeView(view)
+    if (journal) {
+      navigate({ pathname: location.pathname, search: location.search }, {
+        replace: true, state: { journalView: { type: 'saved', id: view.id } },
+      })
+    }
     setPanel(null)
     requestAnimationFrame(() => overflowButtonRef.current?.focus())
-    toast(view.pinned ? '视图已固定到顶部' : '视图已保存')
+    toast(pinnedAtTop ? '视图已固定到顶部' : `视图已保存，可在「${moreName}」中打开`)
   }
 
   const commitRename = (id: string) => {
@@ -282,73 +257,82 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
     })
   }
 
+  const saveEntry = (
+    <button type="button" className="quick-view-save-entry" onClick={openSave}>
+      <BookmarkPlus size={ICON_SM} />
+      <span>保存当前视图</span>
+    </button>
+  )
+
   return (
-    <div className="quick-view-bar" ref={rootRef} aria-label={workspaceLabel}>
+    <div className={'quick-view-bar' + (journal ? ' quick-view-journal' : '')} ref={rootRef} aria-label={workspaceLabel}>
       <div
         className="quick-view-primary"
         role="tablist"
         aria-label={workspaceLabel}
         onKeyDown={(event) => {
           if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
-          const tabs = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
-          const currentIndex = Math.max(0, tabs.indexOf(document.activeElement as HTMLButtonElement))
+          const currentIndex = Number((event.target as HTMLElement).closest('[data-tab-index]')?.getAttribute('data-tab-index') ?? 0)
           const nextIndex = event.key === 'Home'
             ? 0
             : event.key === 'End'
-              ? tabs.length - 1
+              ? tabItems.length - 1
               : event.key === 'ArrowLeft'
-                ? (currentIndex - 1 + tabs.length) % tabs.length
-                : (currentIndex + 1) % tabs.length
-          const nextTab = tabs[nextIndex]
-          if (!nextTab) return
+                ? (currentIndex - 1 + tabItems.length) % tabItems.length
+                : (currentIndex + 1) % tabItems.length
+          const next = tabItems[nextIndex]
+          if (!next) return
           event.preventDefault()
-          nextTab.focus()
-          nextTab.click()
+          const tabList = event.currentTarget
+          tabList.querySelector<HTMLButtonElement>(`[data-tab-index="${nextIndex}"]`)?.focus({ preventScroll: true })
+          next.select()
+          if (journal) requestAnimationFrame(() => tabList.querySelector<HTMLButtonElement>('[aria-selected="true"]')?.focus({ preventScroll: true }))
         }}
       >
-        {primaryViews.map((item, index) => {
-          const active = activePrimaryViewId === item.id
+        {tabItems.map((item, index) => {
+          if (isOverflowed(index)) return null
+          const active = item.active
           return (
             <button
               type="button"
               role="tab"
               aria-selected={active}
-              tabIndex={active || (!hasActiveQuickView && index === 0) ? 0 : -1}
-              className={'quick-view-chip quick-view-builtin' + (active ? ' is-active' : '')}
-              key={item.id}
-              onClick={() => goTarget(item)}
+              tabIndex={active || (selectedIndex < 0 && index === 0) ? 0 : -1}
+              data-tab-index={index}
+              className={'quick-view-chip ' + (item.saved ? 'quick-view-saved' : 'quick-view-builtin') + (active ? ' is-active' : '')}
+              key={item.key}
+              onClick={item.select}
             >
-              {item.label}
+              {journal && item.saved ? (
+                <OverflowTooltip text={item.label}>
+                  <span className="quick-view-saved-label">{item.label}</span>
+                </OverflowTooltip>
+              ) : <span className="quick-view-saved-label">{item.label}</span>}
             </button>
           )
         })}
-        {pinned.map((view) => (
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeSavedViewId === view.id}
-            tabIndex={activeSavedViewId === view.id ? 0 : -1}
-            className={'quick-view-chip quick-view-saved' + (activeSavedViewId === view.id ? ' is-active' : '')}
-            key={view.id}
-            onClick={() => goSavedView(view)}
-          >
-            <span className="quick-view-saved-label">{view.name}</span>
-          </button>
-        ))}
       </div>
+      {journal && (
+        <div ref={sizesRef} className="quick-view-sizes" aria-hidden="true">
+          {tabItems.map((item) => (
+            <span key={item.key} data-tab-size className={'quick-view-chip' + (item.active ? ' is-active' : '')}>{item.label}</span>
+          ))}
+          <span className="quick-view-more-label">{moreName}</span>
+        </div>
+      )}
 
       <div className="quick-view-overflow-anchor" ref={overflowAnchorRef}>
-        <Tooltip content="视图选项" label="视图选项">
+        <Tooltip content={moreName} label={moreName} disabled={showMoreLabel}>
           <button
             ref={overflowButtonRef}
             type="button"
-            className={'quick-view-overflow' + (panel ? ' is-active' : '')}
+            className={'quick-view-overflow' + (panel ? ' is-active' : '') + (showMoreLabel ? ' has-label' : '')}
             onClick={() => setPanel((value) => (value === 'more' ? null : 'more'))}
-            aria-label="视图选项"
+            aria-label={moreName}
             aria-haspopup="dialog"
             aria-expanded={panel !== null}
           >
-            <MoreHorizontal size={ICON_MD} />
+            {showMoreLabel ? <span className="quick-view-more-label">{moreName}</span> : <MoreHorizontal size={ICON_MD} />}
           </button>
         </Tooltip>
 
@@ -357,22 +341,19 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
             ref={menuExit}
             className="quick-view-popover quick-view-menu"
             role="dialog"
-            aria-label="视图选项"
+            aria-label={moreName}
             style={{ left: popoverLeft }}
           >
-            <button type="button" className="quick-view-save-entry" onClick={openSave}>
-              <BookmarkPlus size={ICON_SM} />
-              <span>保存当前视图</span>
-            </button>
-            {moreGroups.length > 0 && (
+            {!journal && saveEntry}
+            {menuGroups.length > 0 && (
               <div className="quick-view-groups">
-                {moreGroups.map((group) => (
+                {menuGroups.map((group) => (
                   <section className="quick-view-group" key={group.label}>
                     <h3>{group.label}</h3>
                     {group.items.map((item) => (
                       <button type="button" key={item.id} onClick={() => goTarget(item)}>
                         <span>{item.label}</span>
-                        {matchesWorkspaceView(item, location.pathname, location.search) && <Check size={ICON_SM} />}
+                        {(journal ? !activeSaved && activeView?.id === item.id : matchesWorkspaceView(item, location.pathname, location.search)) && <Check size={ICON_SM} />}
                       </button>
                     ))}
                   </section>
@@ -407,7 +388,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
                     ) : (
                       <button type="button" className="quick-view-manage-name" onClick={() => goSavedView(view)}>
                         <span>{view.name}</span>
-                        {savedViewMatchesLocation(view, location.pathname, location.search) && <Check size={ICON_SM} />}
+                        {(journal ? activeSaved?.id === view.id : savedViewMatchesLocation(view, location.pathname, location.search)) && <Check size={ICON_SM} />}
                       </button>
                     )}
                     <Tooltip content="重命名" label={`重命名 ${view.name}`}>
@@ -430,15 +411,14 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
                         type="button"
                         className="quick-view-icon"
                         onClick={() => {
-                          if (!view.pinned && pinned.length >= 4) {
-                            toast('每个模块最多固定 4 个视图')
-                            return
+                          if (togglePinTradeView(view.id) === 'full') {
+                            toast(`${workspaceLabel}最多固定 ${MAX_PINNED_WORKSPACE_VIEWS} 个，可先取消固定一个`)
                           }
-                          togglePinTradeView(view.id)
                         }}
                         aria-label={view.pinned ? `取消固定 ${view.name}` : `固定 ${view.name}`}
+                        aria-pressed={view.pinned}
                       >
-                        {view.pinned ? <PinOff size={ICON_SM} /> : <Pin size={ICON_SM} />}
+                        <PinActionIcon pinned={view.pinned} size={ICON_SM} />
                       </button>
                     </Tooltip>
                     <Tooltip content="删除" label={`删除 ${view.name}`}>
@@ -450,6 +430,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
                 ))}
               </section>
             )}
+            {journal && saveEntry}
           </div>
         )}
 
@@ -468,7 +449,7 @@ export function QuickViewBar({ kind }: { kind: WorkspaceKind }) {
             <label id="saved-view-name-label" htmlFor="saved-view-name">保存当前视图</label>
             <input id="saved-view-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={24} autoFocus />
             <div className="quick-view-save-actions">
-              <span>{pinned.length < 4 ? '保存后固定到顶部' : '保存到视图选项'}</span>
+              <span>{pinned.length < MAX_PINNED_WORKSPACE_VIEWS ? '保存后固定到顶部' : `保存到「${moreName}」`}</span>
               <button type="submit" disabled={!name.trim()}>保存</button>
             </div>
           </form>

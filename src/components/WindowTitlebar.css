@@ -25,40 +25,63 @@
   padding-inline: max(var(--sp-2), env(titlebar-area-x, 0px)) var(--sp-4);
 }
 
-.window-titlebar .ui-btn {
+.window-navigation .ui-btn,
+.window-titlebar .window-search {
   app-region: no-drag;
   width: var(--control-height-sm);
   padding: 0;
 }
 
+.window-context,
 .window-location {
   display: flex;
   align-items: center;
-  justify-self: start;
   min-width: 0;
+}
+
+.window-location {
   max-width: 100%;
-  padding-inline: var(--sp-2);
-  gap: var(--sp-2);
+  padding-inline: var(--sp-4) var(--space-control-gap);
+  gap: var(--space-control-gap);
 }
 
 .window-location-icon {
   flex: none;
-  color: var(--nav-active-icon);
+  color: var(--text-nav-rest);
 }
 
 .window-location-label {
+  margin: 0;
   min-width: 0;
   overflow: hidden;
-  color: var(--text-primary);
-  font-size: var(--type-row-size);
-  line-height: var(--type-row-line-height);
+  color: var(--text-content-supporting);
+  font-size: var(--type-list-primary-size);
+  line-height: var(--type-list-primary-line-height);
   font-weight: var(--type-list-primary-weight);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
+.window-context :is(button, a) {
+  app-region: no-drag;
+}
+
 /* A clipped title can be read on hover. Short titles belong to the native drag area. */
 .window-location-label[data-text-overflow] {
+  app-region: no-drag;
+}
+
+.window-detail-tools {
+  min-width: 0;
+}
+
+.window-detail-tools .dv-topbar {
+  height: var(--window-titlebar-height);
+  padding-inline: var(--sp-2);
+  border: 0;
+}
+
+.window-detail-tools :is(button, a, .save-status) {
   app-region: no-drag;
 }
 

@@ -10,6 +10,41 @@ import './Topbar.css'
 
 export type WorkbenchView = 'list' | 'board'
 
+export function WorkbenchViewSwitch({ view, onView }: {
+  view: WorkbenchView
+  onView: (view: WorkbenchView) => void
+}) {
+  return (
+    <SegmentedControl
+      label="视图切换"
+      value={view}
+      onChange={onView}
+      options={[
+        {
+          value: 'list',
+          label: '列表视图',
+          content: <List size={ICON_MD} />,
+          wrap: (button) => (
+            <ShortcutTooltip key="list" actionId="view.list" label="列表视图">
+              {button}
+            </ShortcutTooltip>
+          ),
+        },
+        {
+          value: 'board',
+          label: '看板视图',
+          content: <LayoutGrid size={ICON_MD} />,
+          wrap: (button) => (
+            <ShortcutTooltip key="board" actionId="view.board" label="看板视图">
+              {button}
+            </ShortcutTooltip>
+          ),
+        },
+      ]}
+    />
+  )
+}
+
 export function Topbar({
   title,
   children,
@@ -38,33 +73,7 @@ export function Topbar({
         <div className="tb-right">
           {showSaveStatus && <SaveStatusIndicator />}
           {onView && view && (
-            <SegmentedControl
-              label="视图切换"
-              value={view}
-              onChange={onView}
-              options={[
-                {
-                  value: 'list',
-                  label: '列表视图',
-                  content: <List size={ICON_MD} />,
-                  wrap: (button) => (
-                    <ShortcutTooltip key="list" actionId="view.list" label="列表视图">
-                      {button}
-                    </ShortcutTooltip>
-                  ),
-                },
-                {
-                  value: 'board',
-                  label: '看板视图',
-                  content: <LayoutGrid size={ICON_MD} />,
-                  wrap: (button) => (
-                    <ShortcutTooltip key="board" actionId="view.board" label="看板视图">
-                      {button}
-                    </ShortcutTooltip>
-                  ),
-                },
-              ]}
-            />
+            <WorkbenchViewSwitch view={view} onView={onView} />
           )}
           {showDisplay && <DisplayMenu view={view ?? 'list'} />}
         </div>

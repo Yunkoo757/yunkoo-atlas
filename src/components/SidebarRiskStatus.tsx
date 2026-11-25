@@ -3,8 +3,10 @@ import { Link, useLocation } from 'react-router-dom'
 import { PopoverSurface } from '@/components/ui/PopoverSurface'
 import { useExitClone } from '@/components/ui/useExitClone'
 import type { RiskPeriodOutcomeSnapshot, RiskPeriodScope } from '@/data/riskManagement'
-import { ChevronRight, ChevronUp, Shield } from '@/icons/appIcons'
+import { ChevronRight } from '@/icons/appIcons'
+import { RiskNavIcon } from '@/icons/SettingsIcons'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
+import { DisclosureIcon } from '@/icons/StateIcons'
 import { fmtR } from '@/lib/format'
 import { getCurrentLiveStage } from '@/lib/liveStages'
 import { resolveRiskOutcomes } from '@/lib/riskBudget'
@@ -46,10 +48,10 @@ export function buildSidebarRiskSummary(rows: readonly SidebarRiskRow[], preferr
     PRIORITY[next.presentation.kind] > PRIORITY[lead.presentation.kind] ? next : lead
   ), selected)
   const { kind } = row.presentation
-  const value = kind === 'normal' || kind === 'near'
-    ? `${row.label}余 ${formatR(row.outcome.remainingR)}`
-    : row.label + periodStatus(row)
-  return { row, value }
+  const hasBalance = kind === 'normal' || kind === 'near'
+  const prefix = hasBalance ? `${row.label}余 ` : row.label
+  const detail = hasBalance ? formatR(row.outcome.remainingR) : periodStatus(row)
+  return { row, prefix, detail, value: prefix + detail }
 }
 
 function SidebarRiskPeriod({ row }: { row: SidebarRiskRow }) {
@@ -113,7 +115,7 @@ function SidebarRiskDisclosure({ rows, scope }: { rows: SidebarRiskRow[]; scope:
 
   const summary = buildSidebarRiskSummary(rows, scope)
   if (!summary) return null
-  const { row, value } = summary
+  const { row, prefix, detail, value } = summary
   const needsReview = rows.some(item => item.outcome.coverage !== 'complete')
   return (
     <>
@@ -129,10 +131,10 @@ function SidebarRiskDisclosure({ rows, scope }: { rows: SidebarRiskRow[]; scope:
         aria-controls={open ? panelId : undefined}
         onClick={() => setOpen(wasOpen => !wasOpen)}
       >
-        <Shield size={ICON_MD} aria-hidden="true" />
+        <RiskNavIcon size={ICON_MD} aria-hidden="true" />
         <span>风险额度</span>
-        <span className="sb-risk-value">{value}</span>
-        <ChevronUp className="sb-risk-chevron" size={ICON_SM} aria-hidden="true" />
+        <span className="sb-risk-value">{prefix}<strong>{detail}</strong></span>
+        <DisclosureIcon kind="upward-menu" className="sb-risk-chevron" size={ICON_SM} />
       </button>
       {open && (
         <PopoverSurface ref={exitRef} kind="menu" id={panelId} labelledBy={panelId + '-title'}
@@ -184,7 +186,7 @@ export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayK
   if (rows.every(row => row.presentation.kind === 'unconfigured')) {
     return (
       <Link to="/settings/risk" className="sb-item sb-risk-summary" data-sidebar-risk-state="unconfigured" aria-label="设置风险额度">
-        <Shield size={ICON_MD} aria-hidden="true" />
+        <RiskNavIcon size={ICON_MD} aria-hidden="true" />
         <span>风险额度</span>
         <span className="sb-risk-value">设置</span>
         <ChevronRight className="sb-risk-chevron" size={ICON_SM} aria-hidden="true" />

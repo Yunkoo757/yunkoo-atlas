@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import type { Editor as TiptapEditor } from '@tiptap/core'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
@@ -115,18 +116,25 @@ async function run(): Promise<void> {
       </MemoryRouter>,
     )
 
-    await waitFor(() => Boolean(findButton('完成复盘')), '完成复盘操作未出现')
-    const pendingToolbar = document.querySelector<HTMLElement>('.dv-review-toolbar')
-    const pendingState = document.querySelector<HTMLElement>('.dv-review-state')
-    const completionAction = findButton('完成复盘')
-    assert(pendingToolbar, '待复盘交易必须保留状态/动作工具行')
-    assert(!pendingState, '完成复盘旁不应重复显示待复盘状态')
-    assert(completionAction, '完成复盘操作未出现')
-    assert(pendingToolbar.contains(completionAction), '完成复盘动作必须留在轻量工具行内')
+    const editorSelector = '[aria-label="复盘正文"][contenteditable="true"]'
+    await waitFor(() => Boolean(document.querySelector(editorSelector)), '空白复盘编辑器未就绪')
+    assert(!findButton('完成复盘') && !document.querySelector('.dv-review-toolbar'), '空白复盘不应占用顶栏操作位')
+    assert(!document.querySelector('.dv-review-state'), '待复盘状态不应占用顶栏')
+    const editor = document.querySelector<HTMLElement & { editor: TiptapEditor }>(editorSelector)!.editor
+    editor.commands.insertContent('等待确认后再入场。')
+    await waitFor(() => findButton('完成复盘')?.disabled === false, '补充复盘结论后应在顶栏出现完成操作')
+    const completionAction = findButton('完成复盘')!
     assert(completionAction.classList.contains('ui-btn-bordered'), '详情页推进动作必须使用公共轻边框按钮')
-    assert(document.querySelector('.dv-topbar')?.contains(completionAction), '完成复盘必须在固定顶栏内随时可达')
-    assert(document.querySelector('[aria-label="复盘正文"]'), '复盘正文编辑器缺少准确名称')
-    assert(document.querySelector('[aria-label="补充追记"]'), '复盘追记输入框缺少准确名称')
+    assert(document.querySelector('.dv-topbar .dv-review-toolbar')?.contains(completionAction), '完成复盘必须在固定顶栏内随时可达')
+    editor.commands.clearContent(true)
+    await waitFor(() => !findButton('完成复盘'), '清空复盘结论后应移除完成操作')
+    const commentTrigger = findButton('添加追记')
+    assert(commentTrigger && !document.querySelector('[aria-label="补充追记"]'), '首次打开只应提供追加入口')
+    commentTrigger.click()
+    await waitFor(() => document.activeElement?.getAttribute('aria-label') === '补充追记', '点击添加追记应聚焦输入框')
+    document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await waitFor(() => !document.querySelector('[aria-label="补充追记"]'), 'Escape 应收起追记')
+    assert(document.activeElement === commentTrigger, '收起追记应把焦点交还入口')
     const detailMain = document.querySelector<HTMLElement>('.trade-detail-layout .dv-main')
     const detailProperties = document.querySelector<HTMLElement>('.trade-detail-layout .dv-props')
     assert(detailMain && detailProperties, '详情页缺少正文或属性区域')
@@ -155,8 +163,6 @@ async function run(): Promise<void> {
       await waitFor(() => !detailProperties.inert && getComputedStyle(detailProperties).visibility === 'visible'
         && propertiesToggle.getAttribute('aria-expanded') === 'true', '属性栏无法重新展开')
     }
-    findButton('完成复盘')?.click()
-    await waitForFrame()
     assert(
       useStore.getState().trades[0]?.reviewStatus === 'unreviewed',
       '空白笔记不能直接完成复盘',
@@ -214,7 +220,7 @@ async function run(): Promise<void> {
     findButton('完成复盘')?.click()
     await waitFor(() => Boolean(findButton('下一条待复盘')), '再次完成后下一条入口未恢复')
     findButton('下一条待复盘')?.click()
-    await waitFor(() => document.querySelector('.dv-crumb-active')?.textContent === raceTrade.ref, '常驻入口未进入同范围下一条待复盘')
+    await waitFor(() => document.querySelector('.dv-record-ref')?.textContent === raceTrade.ref, '常驻入口未进入同范围下一条待复盘')
 
     root.unmount()
     resetNoteDraftsForTests()

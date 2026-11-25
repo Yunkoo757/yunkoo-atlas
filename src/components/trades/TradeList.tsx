@@ -1,5 +1,6 @@
 import { playMotion, reducesMotion } from '@/lib/motion'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
+import { DisclosureIcon } from '@/icons/StateIcons'
 import {
   useCallback,
   useEffect,
@@ -14,7 +15,7 @@ import {
 } from 'react'
 import { useVirtualizer, defaultRangeExtractor, type Range } from '@tanstack/react-virtual'
 import { CalendarDays, Plus } from '@/icons/appIcons'
-import { DisclosureChevron, StatusIndicator } from '@/icons/StatusIndicator'
+import { StatusIndicator } from '@/icons/StatusIndicator'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
@@ -475,7 +476,7 @@ export function TradeList({
                   onClick={() => toggleGroup(item.groupKey, item.count)}
                 >
                   <span className="trade-list-group-chevron" aria-hidden="true">
-                    <DisclosureChevron />
+                    <DisclosureIcon expanded={item.expanded} size={ICON_MD} />
                   </span>
                   <span className="trade-list-group-status" aria-hidden="true">
                     <GroupLeadingIcon

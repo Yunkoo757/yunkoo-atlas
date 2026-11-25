@@ -1,5 +1,5 @@
 import { ICON_SM } from '@/icons/iconSize'
-import { Check } from '@/icons/appIcons'
+import { CheckMark } from '@/icons/StateIcons'
 import { useEffect, useState } from 'react'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { useStore } from '@/store/useStore'
@@ -318,7 +318,7 @@ export function DisplaySettingsPanel() {
                       {selected ? <span className="display-row-desc">{preset.description}</span> : null}
                     </span>
                     <span className="display-choice-check">
-                      {selected ? <Check size={ICON_SM} /> : null}
+                      <CheckMark checked={selected} size={ICON_SM} />
                     </span>
                   </button>
                 )

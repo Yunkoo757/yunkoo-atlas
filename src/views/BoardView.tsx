@@ -5,10 +5,9 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { createRecordForContext, resolveCreateRecordAction } from '@/lib/createRecordAction'
 import { Plus } from '@/icons/appIcons'
-import { Topbar } from '@/components/Topbar'
 import type { WorkbenchView } from '@/components/Topbar'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
-import { TradeFilters } from '@/components/trades/TradeFilters'
+import { TradeWorkbenchHeader } from '@/components/trades/TradeWorkbenchHeader'
 import { WorkbenchEmptyState } from '@/components/trades/WorkbenchEmptyState'
 import { moveRecordsToTrash } from '@/lib/tradeTrashAction'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
@@ -32,18 +31,11 @@ import { STATUS_ORDER } from '@/lib/tradeStatus'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
-import { ResultConflictRepair } from '@/components/ResultConflictRepair'
-import { collectWorkbenchResultRepairIds } from '@/lib/workbenchResultHealth'
-import { useResultRepairReturn } from '@/hooks/useResultRepairReturn'
 import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
 import { Tooltip } from '@/components/ui/Tooltip'
 import type { Strategy } from '@/data/strategies'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
-import {
-  getWorkbenchResetPath,
-  resolveWorkbenchEmptyState,
-  shouldResetWorkbenchHideClosed,
-} from '@/lib/workbenchEmptyState'
+import { useWorkbenchEmptyState } from '@/hooks/useWorkbenchEmptyState'
 import './BoardView.css'
 import './ListView.css'
 
@@ -57,7 +49,7 @@ export function BoardView({
   onOpen,
   filter = { type: 'all' },
   header,
-  filterActions,
+  journal = false,
 }: {
   title?: string
   view: WorkbenchView
@@ -65,12 +57,11 @@ export function BoardView({
   onOpen: (id: string, focusField?: 'result') => void
   filter?: ListFilter
   header?: ReactNode
-  filterActions?: ReactNode
+  journal?: boolean
 }) {
   const strategies = useStore((s) => s.strategies)
   const symbolIcons = useStore((s) => s.symbolIcons)
   const display = useStore((s) => s.display)
-  const setDisplay = useStore((s) => s.setDisplay)
   const requestTradeClose = useStore((s) => s.requestTradeClose)
   const requestTradeOpen = useStore((s) => s.requestTradeOpen)
   const setStatus = useStore((s) => s.setStatus)
@@ -89,12 +80,8 @@ export function BoardView({
   const location = useLocation()
   const createRecord = () => createRecordForContext(location.pathname, location.search, navigate)
   useListContextSync(filter)
-  const repairEntry = useResultRepairReturn()
-  const { trades, visible, totalCount, workspaceCount, businessDateAnchor } = useWorkbenchVisibleTrades(filter)
-  const resultRepairIds = useMemo(
-    () => collectWorkbenchResultRepairIds(trades),
-    [trades],
-  )
+  const workspace = useWorkbenchVisibleTrades(filter)
+  const { trades, visible } = workspace
 
   const cols = useMemo(() => {
     const map = new Map<TradeStatus, Trade[]>()
@@ -130,36 +117,7 @@ export function BoardView({
 
   const isReviewCaseView = filter.tradeKind === 'case'
   const createLabel = resolveCreateRecordAction(location.pathname, location.search).label
-  const emptyState = resolveWorkbenchEmptyState({
-    totalCount,
-    workspaceCount,
-    visibleCount: visible.length,
-    recordKind: filter.tradeKind,
-  })
-  const resetEmptyConditions = () => {
-    if (shouldResetWorkbenchHideClosed({
-      hideClosed: display.hideClosed,
-      trades,
-      filter,
-      starredIds: useStore.getState().starredIds,
-      search: location.search,
-      businessDateAnchor,
-    })) {
-      setDisplay({ hideClosed: false })
-    }
-    if (filter.historicalLiveScope) {
-      const params = new URLSearchParams(location.search)
-      for (const key of [...params.keys()]) {
-        if (key !== 'liveStage' && key !== 'tab') params.delete(key)
-      }
-      navigate({
-        pathname: '/live-history/board',
-        search: params.toString(),
-      }, { replace: true })
-      return
-    }
-    navigate(getWorkbenchResetPath(location.pathname, filter.tradeKind), { replace: true })
-  }
+  const { emptyState, resetEmptyConditions } = useWorkbenchEmptyState(filter, workspace, journal)
 
   const transition = { requestTradeClose, requestTradeOpen, setStatus, toast }
 
@@ -173,17 +131,17 @@ export function BoardView({
 
   return (
     <>
-      <Topbar title={title} view={view} onView={onView}>
-        {resultRepairIds.length > 0 && (
-          <ResultConflictRepair ref={repairEntry} showCount ids={resultRepairIds} onOpenTrade={id => onOpen(id, 'result')} />
-        )}
-      </Topbar>
-      {header}
-      <TradeFilters
+      <TradeWorkbenchHeader
+        journal={journal}
+        title={title}
+        view={view}
+        onView={onView}
+        header={header}
         filter={filter}
         trades={trades}
         strategies={strategies}
-        actions={filterActions}
+        showFilters
+        onOpenResult={id => onOpen(id, 'result')}
       />
       <div className="board-scroll">
         {emptyState ? (

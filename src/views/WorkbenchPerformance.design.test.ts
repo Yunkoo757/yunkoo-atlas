@@ -30,7 +30,7 @@ export function testDetailStarActionUsesOneStarMetaphor(): void {
   if (detail.includes('Favorite')) {
     throw new Error('detail star action must not switch to a heart icon when inactive')
   }
-  if (!detail.includes("<Star size={ICON_MD} fill={starred ? 'currentColor' : 'none'} />")) {
+  if (!detail.includes("kind={trade.tradeKind === 'case' ? 'bookmark' : 'star'} active={starred}")) {
     throw new Error('detail star action must use one outlined/filled star icon')
   }
 }
@@ -182,7 +182,7 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
     throw new Error('sidebar search must keep an explicit sb-hbtn-search class')
   }
   const appIcons = read('src/icons/appIcons.tsx')
-  if (!appIcons.includes('SquarePen as Compose') || !appIcons.includes('Search,')) {
+  if (!appIcons.includes("createLucideIcon('AtlasCompose'") || !appIcons.includes('Search,')) {
     throw new Error('sidebar action icons must come from the application icon facade')
   }
 }

@@ -1,4 +1,4 @@
-/* ===== 顶栏（高 44 / 左8 右15 / gap6）===== */
+/* 桌面窗口和独立页面共享同一组记录操作。 */
 .dv-topbar {
   height: 44px;
   flex-shrink: 0;
@@ -7,66 +7,35 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-control-gap);
-  padding: 0 15px 0 var(--sp-2);
+  padding-inline: var(--sp-2);
   min-width: 0;
   overflow: hidden;
 }
 .dv-topbar svg {
   overflow: visible;
 }
-.dv-tb-left {
-  align-self: stretch;
-  display: flex;
-  align-items: center;
-  gap: var(--space-control-gap);
-  min-width: 0;
-  overflow: hidden;
-}
-.dv-tb-left > .dv-crumb {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.dv-tb-left > .dv-back,
-.dv-tb-left > .dv-detail-crumb-actions {
-  flex-shrink: 0;
-}
 .dv-back {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
+  flex: 0 0 auto;
+  height: var(--control-height-sm);
+  padding-inline: var(--sp-2);
   border-radius: var(--radius-6);
   color: var(--text-secondary);
-  transition: background var(--dur-fast) var(--ease-out);
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .dv-back:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
-.dv-crumb {
-  font-size: var(--type-row-size);
-  color: var(--text-secondary);
+.dv-record-action.ui-icon-btn {
+  border-radius: var(--radius-6);
+  background: transparent;
+  box-shadow: none;
 }
-.dv-crumb-active {
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-.dv-crumb-sep {
-  color: var(--text-tertiary);
-}
-.dv-detail-crumb-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  margin-left: 6px;
-}
-.dv-detail-crumb-actions .menu-root,
-.dv-detail-crumb-actions .menu-trigger {
-  display: inline-flex;
-}
-.dv-detail-crumb-actions svg,
 .dv-detail-navigation svg {
   display: block;
   flex: 0 0 auto;
@@ -93,14 +62,11 @@
 .dv-detail-navigation {
   display: inline-flex;
   align-items: center;
-  height: 28px;
+  height: var(--control-height-sm);
   flex: 0 0 auto;
-  margin-left: var(--sp-1);
-  border-left: 1px solid var(--border-subtle);
 }
 .dv-detail-position {
-  min-width: 48px;
-  padding: 0 var(--sp-2) 0 10px;
+  padding-inline: var(--sp-2);
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
   font-variant-numeric: var(--numeric-tabular);
@@ -108,12 +74,13 @@
   white-space: nowrap;
 }
 .dv-detail-position > span {
-  padding: 0 5px;
+  padding-inline: var(--sp-1);
   color: var(--text-quaternary);
 }
-.dv-detail-nav-button {
-  border-left: 1px solid var(--border-subtle);
-  border-radius: 0;
+.dv-detail-nav-button.ui-icon-btn {
+  background: transparent;
+  box-shadow: none;
+  border-radius: var(--radius-6);
 }
 .dv-review-complete-meta {
   display: inline-flex;
@@ -142,15 +109,14 @@
   overflow-y: auto;
 }
 .dv-main-inner {
-  max-width: var(--page-rail-standard);
-  margin: 0 auto;
-  padding: var(--sp-7) clamp(var(--page-inset-compact), 3vw, var(--page-inset-wide)) 48px;
+  width: min(var(--page-rail-reading), calc(100% - 2 * var(--page-inset-default)));
+  margin-inline: auto;
+  padding-block: var(--page-inset-wide);
 }
 .dv-title-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
+  gap: var(--space-control-gap);
   margin: 0 0 var(--sp-2);
 }
 .dv-title {
@@ -164,6 +130,14 @@
   letter-spacing: 0;
   color: var(--text-primary);
   margin: 0;
+}
+.dv-symbol-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.dv-record-ref {
+  font-variant-numeric: var(--numeric-tabular);
+  overflow-wrap: anywhere;
 }
 .dv-review-toolbar {
   display: inline-flex;
@@ -186,7 +160,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
-  margin-bottom: var(--sp-5);
+  margin-bottom: var(--space-section-gap);
   color: var(--text-content-metadata);
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
@@ -196,22 +170,6 @@
   margin-right: var(--sp-2);
   color: var(--text-tertiary);
 }
-.dv-reading-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2) var(--sp-4);
-  margin-bottom: var(--sp-6);
-}
-.dv-reading-header .dv-reading-context { margin-bottom: 0; }
-.dv-reading-tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2);
-}
-.dv-reading-tools:empty { display: none; }
-.dv-reading-tools .editor-review-tools { margin: 0; min-height: 0; }
 .dv-supplementary-field,
 .dv-supplementary-field > .menu-root { display: block; width: 100%; }
 .dv-summary {
@@ -286,94 +244,6 @@
   gap: var(--space-control-gap);
 }
 
-.dv-case-source {
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 9px;
-  margin: -2px 0 22px;
-  padding: 9px 10px;
-  color: var(--text-tertiary);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-8);
-}
-
-.dv-case-source > div {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.dv-case-source span { color: var(--text-faint); font-size: var(--type-caption-size); }
-.dv-case-source strong {
-  overflow: hidden;
-  color: var(--text-secondary);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dv-case-source button {
-  height: 28px;
-  padding: 0 9px;
-  color: var(--text-secondary);
-  font-size: var(--type-metadata-size);
-  background: transparent;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-6);
-}
-
-.dv-case-source button:hover { color: var(--text-primary); background: var(--bg-hover); }
-
-.dv-case-source-note {
-  position: relative;
-  margin-bottom: var(--sp-6);
-  padding-bottom: var(--sp-6);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.dv-case-note-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  margin-bottom: var(--sp-3);
-}
-
-.dv-case-note-heading h2 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: var(--type-row-size);
-  font-weight: var(--font-weight-medium);
-}
-
-.dv-case-note-heading span,
-.dv-case-source-note-status {
-  color: var(--text-tertiary);
-  font-size: var(--type-metadata-size);
-}
-
-.dv-case-source-note-status {
-  margin-bottom: var(--sp-2);
-}
-
-.dv-case-source-note .editor .ProseMirror {
-  min-height: 120px;
-}
-
-.dv-case-source-note summary { cursor: pointer; list-style: none; margin-bottom: 0; }
-.dv-case-source-note summary::-webkit-details-marker { display: none; }
-.dv-case-source-note summary::before { content: '›'; color: var(--text-tertiary); }
-.dv-case-source-note summary h2 { flex: 1; }
-.dv-case-source-note details[open] > summary { margin-bottom: var(--sp-3); }
-.dv-case-source-note details[open] > summary::before { transform: rotate(90deg); }
-
-.dv-case-source-note .dv-note-load.is-error {
-  grid-template-columns: 18px minmax(0, 1fr);
-}
 .dv-summary-item {
   min-width: 0;
   padding: 10px var(--sp-3);
@@ -413,10 +283,43 @@
 .dv-editor {
   min-height: 96px;
 }
+.dv-writing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+.dv-writing-header h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--type-section-title-size);
+  font-weight: var(--type-section-title-weight);
+  line-height: var(--type-row-line-height);
+}
+.dv-writing-tools {
+  margin-inline-start: auto;
+}
+.dv-writing-header:has(> .dv-writing-tools:only-child:empty) {
+  display: none;
+}
+.dv-writing-tools .editor-review-tools {
+  min-height: 0;
+  margin: 0;
+}
+.dv-trade-writing .editor .ProseMirror {
+  border-radius: var(--radius-8);
+  padding: var(--sp-3) var(--sp-4);
+  background-color: var(--surface-inset);
+}
 .dv-editor .editor .ProseMirror {
   min-height: 96px;
 }
 
+.dv-editor.dv-case-writing,
+.dv-case-writing .editor .ProseMirror {
+  min-height: var(--control-height-lg);
+}
 .dv-document .editor [data-review-context] {
   color: var(--text-detail-body);
   font-weight: var(--type-list-secondary-weight);
@@ -427,14 +330,8 @@
 .dv-document .editor [data-review-context]::before {
   color: var(--text-secondary);
 }
-/* D4：空白备注近乎隐身，hover / focus 才加重 */
 .dv-document .editor .ProseMirror p.is-editor-empty:first-child::before {
-  opacity: 0.72;
-  transition: opacity var(--motion-dialog-in) var(--ease-out);
-}
-.dv-document .editor .ProseMirror:hover p.is-editor-empty:first-child::before,
-.dv-document .editor .ProseMirror-focused p.is-editor-empty:first-child::before {
-  opacity: 1;
+  color: var(--text-content-metadata);
 }
 .dv-document .editor img {
   width: auto;
@@ -544,8 +441,23 @@
   border-top: 0;
 }
 
+.dv-comments-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.dv-comments-header:has(+ *) {
+  margin-bottom: var(--sp-2);
+}
+.dv-comments-header .dv-comment-toggle {
+  color: var(--text-content-metadata);
+}
+.dv-comments-header .dv-comment-toggle:hover {
+  color: var(--text-content-supporting);
+}
 .dv-comments-title {
-  margin: 0 0 6px;
+  margin: 0;
   color: var(--text-secondary);
   font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
@@ -572,12 +484,6 @@
 .dv-activity-toggle:hover {
   color: var(--text-tertiary);
   opacity: 1;
-}
-.dv-activity-toggle svg {
-  transition: transform var(--dur-fast) var(--ease-out);
-}
-.dv-activity-toggle svg.is-open {
-  transform: rotate(180deg);
 }
 .dv-activity-panel {
   padding: var(--sp-1) 0 var(--sp-2);
@@ -815,13 +721,7 @@
   color: var(--text-secondary);
   background: var(--bg-hover);
 }
-.dv-section-chev {
-  color: var(--text-quaternary);
-  transition: transform var(--dur-fast) var(--ease-out);
-}
-.dv-section-chev.is-closed {
-  transform: rotate(-90deg);
-}
+.dv-section-chev { color: var(--text-quaternary); }
 .dv-section.is-open > .dv-section-head { margin-bottom: var(--sp-1); }
 .dv-section-body {
   display: flex;

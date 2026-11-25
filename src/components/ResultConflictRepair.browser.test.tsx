@@ -1,5 +1,9 @@
 import { createRef } from 'react'
 import { createRoot } from 'react-dom/client'
+import { MemoryRouter } from 'react-router-dom'
+import { TradeWorkbenchHeader } from './trades/TradeWorkbenchHeader'
+import { resultRepairAnchor } from '@/hooks/useResultRepairReturn'
+import { tradeReturnLocationState } from '@/hooks/useTradeReturnAnchor'
 import type { Trade } from '@/data/trades'
 import { ResultConflictRepair } from './ResultConflictRepair'
 import { useStore } from '@/store/useStore'
@@ -49,7 +53,7 @@ window.__resultConflictRepairTest = (async () => {
       createBackup: async () => { backupCalls++; return 'test-backup' },
     } as NonNullable<Window['journalBridge']>
     useStore.setState({ trades: [pending], display: { ...original.display, privacyMode: false } })
-    const entry = createRef<{ reopen: (id: string) => void }>()
+    const entry = createRef<{ reopen: (id?: string) => void }>()
     const render = (ids: string[]) => root.render(<ResultConflictRepair ref={entry} showCount ids={ids} onOpenTrade={id => { opened = id }} />)
     render([pending.id])
     await waitFor(() => !!document.querySelector('#root button'), '缺少核对入口')
@@ -74,7 +78,7 @@ window.__resultConflictRepairTest = (async () => {
     const trades = [...conflicts, eligible]
     useStore.setState({ trades })
     render(trades.map(trade => trade.id))
-    await waitFor(() => trigger.textContent === `${trades.length} 笔结果待核对`, '入口应已切换到新的待核对范围')
+    await waitFor(() => trigger.getAttribute('aria-label') === `核对交易结果，共 ${trades.length} 笔待核对` && trigger.textContent === `核对结果${trades.length} 笔`, '入口应已切换到新的待核对范围')
     trigger.click()
     await waitFor(() => rows()?.length === 5, '首页应显示四笔冲突和一笔可修正交易')
     expect(rows()?.[0].textContent?.includes('CN¥0.00001234'), '应保留实际币种和很小的非零金额')
@@ -106,6 +110,52 @@ window.__resultConflictRepairTest = (async () => {
     trigger.click()
     await waitFor(() => !!dialog()?.textContent?.includes('当前范围的交易已全部核对'), '已处理的范围应显示完成状态')
     expect(!dialog()?.querySelector('footer,li') && backupCalls === 0, '没有候选时不应展示写入操作')
+
+    const candidates = Array.from({ length: 150 }, (_, index) => ({
+      ...pending, id: 'journal-' + index, ref: 'LOG-' + index,
+    }))
+    const journal = (view: 'list' | 'board', records: Trade[], returnId?: string) => {
+      useStore.setState({ trades: records })
+      root.render(<MemoryRouter key={view + (returnId ?? '')} initialEntries={[{
+        pathname: '/' + view, state: returnId ? tradeReturnLocationState(resultRepairAnchor(returnId)) : undefined,
+      }]}>
+        <TradeWorkbenchHeader journal title="交易日志" view={view} onView={() => {}} filter={{type: 'all'}}
+          trades={records} strategies={[]} onOpenResult={id => { opened = id }} showFilters />
+      </MemoryRouter>)
+    }
+    const options = () => document.querySelector<HTMLButtonElement>('[aria-label="日志选项"]')
+    const menuItem = () => document.querySelector<HTMLButtonElement>('[role="menuitem"][aria-haspopup="dialog"]')
+    journal('list', candidates)
+    await waitFor(() => !!options(), '交易日志应有稳定的选项入口')
+    expect(options()!.textContent === '' && !!options()!.querySelector('svg'), '日志选项以图标显示并保留可访问名称')
+    expect(!document.querySelector('[data-workbench-result-repair]'), '列表工具栏不应常驻核对数量')
+    options()!.click()
+    await waitFor(() => menuItem()?.textContent === '核对交易结果150 笔', '当前日志的核对数量应在菜单中显示')
+    const key = (el: HTMLElement, key: string) => el.dispatchEvent(new KeyboardEvent('keydown', {key, bubbles: true}))
+    const menu = document.querySelector<HTMLElement>('.display-pop')!
+    key(menu, 'End')
+    expect(document.activeElement === menuItem(), '日志选项应能用键盘定位核对操作')
+    menuItem()!.click()
+    await waitFor(() => rows()?.length === 4 && !document.querySelector('.display-pop:not(.ui-exit-clone)'), '选择核对后应关闭菜单并打开原有弹窗')
+    dialog()!.querySelector<HTMLButtonElement>('[aria-label="关闭"]')!.click()
+    await waitFor(() => !dialog() && document.activeElement === options(), '核对弹窗关闭后应回到日志选项')
+    journal('board', candidates, 'journal-12')
+    await waitFor(() => document.activeElement?.closest('li')?.getAttribute('data-trade-id') === resultRepairAnchor('journal-12'), '从交易详情返回看板，应恢复到原核对页与交易')
+    dialog()!.querySelector<HTMLButtonElement>('[aria-label="关闭"]')!.click()
+    await waitFor(() => !dialog() && document.activeElement === options(), '看板返回后仍可继续使用日志选项')
+    const boardOptions = options()
+    journal('list', [])
+    await waitFor(() => !!options() && options() !== boardOptions && !dialog(), '零笔记录应保留日志选项')
+    options()!.focus()
+    options()!.click()
+    await Promise.resolve()
+    const firstItem = document.querySelector<HTMLElement>('.display-pop [role="menuitemcheckbox"]')
+    expect(firstItem && document.activeElement === firstItem, '日志菜单打开后应立即接收键盘操作')
+    expect(!menuItem() && !document.querySelector('[role="group"][aria-label="数据整理"]'), '无待处理记录时不应显示入口或分组标题')
+    key(firstItem, 'Escape')
+    await Promise.resolve()
+    expect(options()!.getAttribute('aria-expanded') === 'false' && document.activeElement === options(), '立即按 Esc 应关闭菜单并返回三点按钮')
+
   } finally {
     root.unmount()
     useStore.setState(original, true)

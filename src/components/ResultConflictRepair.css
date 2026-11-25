@@ -1,10 +1,14 @@
 .result-repair { display: flex; align-items: center; }
 [data-workbench-result-repair] > .ui-btn {
-  color: var(--text-muted);
-  font-variant-numeric: var(--numeric-tabular);
+  color: var(--text-nav-rest);
   white-space: nowrap;
 }
-[data-workbench-result-repair] > .ui-btn > svg:first-child { color: var(--diagnostic-text); }
+.result-repair-total {
+  color: var(--text-content-metadata);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
+  font-variant-numeric: var(--numeric-tabular);
+}
 
 .result-repair-body {
   padding-block: var(--sp-4);

@@ -27,11 +27,7 @@
 
 .performance-data-notice > summary > svg { flex: 0 0 auto; }
 .performance-data-notice-icon { color: var(--diagnostic-text); }
-.performance-data-notice-chevron {
-  color: var(--text-muted);
-  transition: transform var(--motion-state) var(--ease-out);
-}
-.performance-data-notice[open] > summary > .performance-data-notice-chevron { transform: rotate(90deg); }
+.performance-data-notice-chevron { color: var(--text-muted); }
 
 .performance-data-notice-body {
   display: grid;

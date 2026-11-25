@@ -1,6 +1,7 @@
 import { forwardRef, type ReactNode } from 'react'
-import { AlertCircle, ChevronRight } from '@/icons/appIcons'
+import { AlertCircle } from '@/icons/appIcons'
 import { ICON_SM } from '@/icons/iconSize'
+import { DisclosureIcon } from '@/icons/StateIcons'
 import './PerformanceDataNotice.css'
 
 export const PerformanceDataNotice = forwardRef<HTMLDetailsElement, {
@@ -13,7 +14,7 @@ export const PerformanceDataNotice = forwardRef<HTMLDetailsElement, {
       <summary>
         {attention && <AlertCircle className="performance-data-notice-icon" size={ICON_SM} aria-hidden />}
         <span>{label}</span>
-        <ChevronRight className="performance-data-notice-chevron" size={ICON_SM} aria-hidden />
+        <DisclosureIcon className="performance-data-notice-chevron" size={ICON_SM} />
       </summary>
       <div className="performance-data-notice-body">{children}</div>
     </details>

@@ -205,14 +205,19 @@ function matchesListFilter(
   return true
 }
 
+export function canHideClosedTrades(filter?: ListFilter, status?: TradeStatus | null): boolean {
+  return !filter?.analysisScope && filter?.tradeKind !== 'case' &&
+    filter?.type !== 'starred' && filter?.type !== 'missed' && filter?.type !== 'incomplete' &&
+    !(status && isHiddenWhenClosedFilter(status))
+}
+
 export function applyDisplayPrefs(
   trades: Trade[],
   prefs: WorkbenchTradeDisplay,
   filter?: ListFilter,
+  status?: TradeStatus,
 ): Trade[] {
-  // 错过机会页要看终态；案例是复盘样本，不受「隐藏已平仓」影响
-  const skipHideClosed = filter?.type === 'starred' || filter?.type === 'missed' || filter?.type === 'incomplete' || filter?.tradeKind === 'case'
-  const visible = prefs.hideClosed && !skipHideClosed
+  const visible = prefs.hideClosed && canHideClosedTrades(filter, status)
     ? trades.filter((trade) => trade.tradeKind === 'case' || !isHiddenWhenClosedFilter(trade.status))
     : [...trades]
   const direction = prefs.sortDirection === 'asc' ? 1 : -1
@@ -281,11 +286,7 @@ export function deriveWorkbenchVisibleTrades(
         tradingDayStartHour,
       )
     : cycleFiltered
-  // 用户显式筛选已平仓状态时，不能再被「隐藏已平仓」吃掉。
-  const prefs = options.filter.analysisScope || (facets.status && isHiddenWhenClosedFilter(facets.status))
-    ? { ...options.display, hideClosed: false }
-    : options.display
-  const preferred = applyDisplayPrefs(analysisFiltered, prefs, options.filter)
+  const preferred = applyDisplayPrefs(analysisFiltered, options.display, options.filter, facets.status)
   const starred = new Set(options.starredIds)
   return {
     trades: cycleFiltered,
@@ -348,10 +349,7 @@ export function countWorkbenchVisibleTrades(options: {
     ),
   )
   const cycleScopedTrades = routeFiltered
-  const skipHideClosed = options.filter.type === 'missed' || options.filter.type === 'incomplete' || options.filter.tradeKind === 'case'
-  const hideClosed = options.display.hideClosed && !skipHideClosed && !options.filter.analysisScope && !(
-    facets.status && isHiddenWhenClosedFilter(facets.status)
-  )
+  const hideClosed = options.display.hideClosed && canHideClosedTrades(options.filter, facets.status)
   const sourceTrades = options.filter.analysisScope
     ? filterTradesByAnalysisScope(
       cycleScopedTrades,

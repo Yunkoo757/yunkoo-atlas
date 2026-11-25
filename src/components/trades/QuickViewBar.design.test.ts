@@ -3,13 +3,13 @@ import path from 'node:path'
 
 export function testPinnedQuickViewsDoNotRepeatTheirVisibleNameInTooltip(): void {
   const source = readFileSync(path.resolve('src/components/trades/QuickViewBar.tsx'), 'utf8').replace(/\r\n/g, '\n')
-  const pinnedStart = source.indexOf('{pinned.map((view) => (')
-  const pinnedEnd = source.indexOf('</button>\n        ))}', pinnedStart)
-  if (pinnedStart < 0 || pinnedEnd < 0) {
-    throw new Error('找不到固定自定义视图渲染区')
+  const tabStart = source.indexOf('{tabItems.map((item, index) => {')
+  const tabEnd = source.indexOf('</button>', tabStart)
+  if (tabStart < 0 || tabEnd < 0) {
+    throw new Error('找不到快捷视图渲染区')
   }
-  const pinnedMarkup = source.slice(pinnedStart, pinnedEnd)
-  if (pinnedMarkup.includes('<Tooltip')) {
-    throw new Error('自定义视图名称已经直接可见，不得再用 Tooltip 重复解释')
+  const tabMarkup = source.slice(tabStart, tabEnd)
+  if (tabMarkup.includes('<Tooltip') || !tabMarkup.includes('OverflowTooltip text={item.label}')) {
+    throw new Error('只应对实际截断的自定义视图名称补充完整提示')
   }
 }

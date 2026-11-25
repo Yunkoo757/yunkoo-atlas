@@ -501,7 +501,7 @@ export function testFilterUiExposesCaseFacetsAndPaperQuickViews(): void {
     'utf8',
   )
   const quickViews = readFileSync(
-    path.resolve('src/components/trades/QuickViewBar.tsx'),
+    path.resolve('src/lib/journalQuickViews.ts'),
     'utf8',
   )
 
@@ -509,7 +509,7 @@ export function testFilterUiExposesCaseFacetsAndPaperQuickViews(): void {
     assert(filters.includes(label), `案例/时段筛选 UI 应展示“${label}”`)
   }
   assert(filters.includes("? 'paper'"), 'TradeFilters 应把模拟页识别为独立 paper workspace')
-  assert(filters.includes('quickViews={<QuickViewBar kind={workspaceKind} />}'), '模拟页不得隐藏 QuickViewBar')
+  assert(filters.includes('quickViews={<QuickViewBar kind={workspaceKind} journal={journal} />}'), '模拟页不得隐藏 QuickViewBar')
   assert(quickViews.includes('PAPER_MORE_GROUPS'), '模拟工作区应提供扩展快捷视图')
   assert(!quickViews.includes("label: '时间',\n    items: [\n      { id: 'paper-week', label: '本周', pathname: '/list'"), '模拟快捷视图不得指向 /list')
 }

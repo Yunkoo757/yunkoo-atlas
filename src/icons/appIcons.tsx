@@ -1,7 +1,12 @@
 /** 业务图标统一出口；通用图形由 Lucide 提供。 */
-import type { LucideIcon } from 'lucide-react'
+import { createLucideIcon, type LucideIcon } from 'lucide-react'
 
 export type AppIcon = LucideIcon
+
+export const Compose = createLucideIcon('AtlasCompose', [
+  ['path', { d: 'M12.25 5.25H6.5a2.25 2.25 0 0 0-2.25 2.25v10A2.25 2.25 0 0 0 6.5 19.75h10a2.25 2.25 0 0 0 2.25-2.25v-5.75', strokeWidth: 'var(--icon-stroke-width)', key: 'sheet' }],
+  ['path', { d: 'm17.2 4.75 2.05 2.05-7.6 7.6-3.02.97.97-3.02Z', fill: 'currentColor', stroke: 'none', className: 'atlas-compose-nib', key: 'pen' }],
+])
 
 export {
   Activity,
@@ -40,6 +45,7 @@ export {
   Download,
   FileSpreadsheet,
   FileText,
+  Filter,
   Flame,
   FlaskConical,
   FolderOpen,
@@ -98,6 +104,5 @@ export {
 
 export {
   Heart as Favorite,
-  SquarePen as Compose,
   Wrench as DesignTools,
 } from 'lucide-react'

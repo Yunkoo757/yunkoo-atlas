@@ -1,7 +1,7 @@
-import { forwardRef, useId, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useId, useImperativeHandle, useRef, useState, type RefObject } from 'react'
 import { resultRepairAnchor } from '@/hooks/useResultRepairReturn'
 import { STATUS_META } from '@/data/trades'
-import { AlertCircle, ArrowRight, ChevronLeft, ChevronRight } from '@/icons/appIcons'
+import { ArrowRight, ChevronLeft, ChevronRight } from '@/icons/appIcons'
 import { ICON_2XL, ICON_SM } from '@/icons/iconSize'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { Button } from '@/components/ui/Button'
@@ -103,11 +103,12 @@ function RepairSection({ kind, title, rows, busy, returnId, onOpen }: {
 
 type RepairPreview = { snapshot: string; libraryId: string; returnId?: string; groups: ReturnType<typeof groupResultRepairs> }
 
-export const ResultConflictRepair = forwardRef<{ reopen: (id: string) => void }, {
+export const ResultConflictRepair = forwardRef<{ reopen: (id?: string) => void }, {
   ids: readonly string[]
   onOpenTrade: (id: string) => void
   showCount?: boolean
-}>(function ResultConflictRepair({ ids, onOpenTrade, showCount = false }, ref) {
+  menuTrigger?: RefObject<HTMLButtonElement>
+}>(function ResultConflictRepair({ ids, onOpenTrade, showCount = false, menuTrigger }, ref) {
   const trigger = useRef<HTMLButtonElement>(null)
   const [preview, setPreview] = useState<RepairPreview | null>(null)
   const [busy, setBusy] = useState(false)
@@ -156,10 +157,16 @@ export const ResultConflictRepair = forwardRef<{ reopen: (id: string) => void },
     preview.groups[kind].some(({ trade }) => trade.id === preview.returnId),
   )
 
+  if (menuTrigger && !preview && !feedback) return null
   return <div className="result-repair" data-workbench-result-repair={showCount || undefined}>
-    <Button ref={trigger} variant="ghost" size="sm" aria-haspopup="dialog" busy={busy} onClick={() => void show()}>
-      {showCount ? <><AlertCircle size={ICON_SM} aria-hidden />{ids.length} 笔结果待核对<ChevronRight size={ICON_SM} aria-hidden /></> : '查看并修正'}
-    </Button>
+    {!menuTrigger && <Button ref={trigger} variant="ghost" size="sm" aria-haspopup="dialog" busy={busy}
+      aria-label={showCount ? `核对交易结果，共 ${ids.length} 笔待核对` : undefined}
+      onClick={() => void show()}>
+      {showCount ? <>
+        <span>核对结果</span>
+        <span className="result-repair-total">{ids.length} 笔</span>
+      </> : '查看并修正'}
+    </Button>}
     {(preview || feedback) && (
       <ModalShell
         title="核对交易结果"
@@ -167,7 +174,7 @@ export const ResultConflictRepair = forwardRef<{ reopen: (id: string) => void },
         bodyClassName="result-repair-body"
         footerClassName="result-repair-footer"
         busy={busy}
-        returnFocusTo={trigger.current}
+        returnFocusTo={menuTrigger?.current ?? trigger.current}
         initialFocusSelector={returningRowExists ? '[data-result-return]' : preview?.returnId ? '.result-repair-row' : undefined}
         onClose={close}
         footer={feedback ? (

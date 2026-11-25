@@ -1,16 +1,14 @@
 import { createRecordForContext, isRecordCreationArchived, resolveCreateRecordAction } from '@/lib/createRecordAction'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useLocation, useMatch, useNavigate } from 'react-router-dom'
+import { BacktestNavIcon, CaseLibraryNavIcon, NoteNavIcon } from '@/icons/NavigationIcons'
 import type { AppIcon } from '@/icons/appIcons'
 import {
-  ChevronDown,
   Ban,
-  BookOpen,
   Bookmark,
   Clock,
   Compose,
   FlaskConical,
-  FolderClock,
   MoreHorizontal,
   Plus,
   Search,
@@ -50,6 +48,7 @@ import {
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { strategyNavigationSearch } from '@/lib/strategyNavigation'
+import { findTradeByRouteParam } from '@/lib/tradeRoute'
 import { sharedTradeWorkspaceSearch, tradeHomeSearch } from '@/lib/tradeWorkspaceQuery'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { toast } from '@/lib/toast'
@@ -59,6 +58,7 @@ import {
   SidebarWorkspaceEditor,
 } from '@/components/sidebar/SidebarWorkspaceEditor'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
+import { DisclosureIcon } from '@/icons/StateIcons'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { SidebarRiskStatus } from '@/components/SidebarRiskStatus'
 import { SidebarBackupHealth } from '@/components/SidebarBackupHealth'
@@ -137,7 +137,7 @@ export const WORKSPACE_ICONS: Record<
   paper: FlaskConical,
   'saved-view': Bookmark,
   strategy: Target,
-  'case-view': BookOpen,
+  'case-view': CaseLibraryNavIcon,
 }
 
 function activeIconStyle(color: string): CSSProperties {
@@ -290,6 +290,17 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
     [workspaceItems],
   )
   const primaryNav = useMemo(() => resolvePrimarySidebarNav(primaryOrder), [primaryOrder])
+
+  const detailId = useMatch('/trade/:id')?.params.id
+  const detailModule = useMemo(() => {
+    const record = findTradeByRouteParam(trades, detailId)
+    if (!record || record.deletedAt) return undefined
+    if (record.tradeKind === 'case') return 'reviewCases'
+    if (record.tradeKind === 'backtest') return 'backtests'
+    return 'trades'
+  }, [trades, detailId])
+  const backtestRoute = useMatch('/backtests/*')
+  const backtestsActive = Boolean(backtestRoute) || detailModule === 'backtests'
 
   const createAction = resolveCreateRecordAction(path, search, trades)
   const creationArchived = useStore(state => isRecordCreationArchived(path, state.trades, state.backtestProjects))
@@ -466,7 +477,7 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
             >
               <UserAvatar className="sb-ws-avatar" shape="rounded-square" />
               <span className="sb-ws-name">{profile.displayName}</span>
-              <ChevronDown size={ICON_SM} className="sb-ws-chevron" aria-hidden />
+              <DisclosureIcon kind="menu" size={ICON_SM} className="sb-ws-chevron" />
             </button>
           }
           options={[
@@ -505,7 +516,7 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
               aria-label={createAction.label}
               onClick={() => createRecordForContext(path, search, navigate)}
             >
-              <Compose size={ICON_MD} />
+              <Compose size={ICON_MD} aria-hidden />
             </button>
           </ShortcutTooltip>}
         </div>
@@ -516,7 +527,7 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
       <nav className="sb-section sb-primary" aria-label="主要导航">
         <div className="sb-section-label">工作区</div>
         {primaryNav.map(({ id, to, label, icon: Icon }) => {
-          const active = selection.activePrimaryId === id
+          const active = (detailModule ?? selection.activePrimaryId) === id
           const contextOnly = active && selection.primaryContextOnly
           return (
             <div
@@ -531,7 +542,7 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
                 onDragStart={(event) => event.preventDefault()}
                 className="sb-item"
                 data-primary-id={id}
-                aria-current={active ? (contextOnly ? 'location' : 'page') : undefined}
+                aria-current={active ? (detailModule || contextOnly ? 'location' : 'page') : undefined}
               >
                 <Icon size={ICON_MD} />
                 <span className="sb-item-label">
@@ -563,13 +574,18 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
           style={activeIconStyle('var(--nav-active-icon)')}
           className={({ isActive }) => `sb-item${isActive ? ' is-active is-page-active' : ''}`}
         >
-          <Bookmark size={ICON_MD} />
+          <NoteNavIcon size={ICON_MD} />
           <span className="sb-item-label">随记</span>
         </NavLink>
-        <NavLink to="/backtests" style={activeIconStyle('var(--nav-active-icon)')} className={({ isActive }) => `sb-item${isActive ? ' is-active is-page-active' : ''}`}>
-          <FolderClock size={ICON_MD} />
+        <Link
+          to="/backtests"
+          style={activeIconStyle('var(--nav-active-icon)')}
+          className={`sb-item${backtestsActive ? ' is-active is-page-active' : ''}`}
+          aria-current={backtestsActive ? (detailModule === 'backtests' ? 'location' : 'page') : undefined}
+        >
+          <BacktestNavIcon size={ICON_MD} />
           <span className="sb-item-label">回测项目</span>
-        </NavLink>
+        </Link>
         {pinnedWorkspaceItems.map(renderWorkspaceLink)}
         {overflowWorkspaceItems.length > 0 ? (
           <div className="sb-workspace-overflow" data-sidebar-overflow>

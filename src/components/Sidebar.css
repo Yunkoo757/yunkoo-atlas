@@ -150,10 +150,7 @@
   color: var(--neg);
 }
 
-/*
- * Sidebar IconButton 几何（Search / Create 共用）：
- * 28×28、radius 9999、padding 0 2px、min-width 28、图标 16、fill lch(60.307%)
- */
+/* 搜索与新建共用 28px 的命中区域。 */
 .sb-hbtn {
   position: relative;
   appearance: none;
@@ -178,12 +175,8 @@
   font-weight: var(--font-weight-medium);
   line-height: var(--type-caption-line-height);
   cursor: default;
-  transition:
-    border 0.15s,
-    background-color 0.15s,
-    color 0.15s,
-    opacity 0.15s,
-    box-shadow 0.15s;
+  transition: background-color var(--motion-state) var(--ease-out),
+    color var(--motion-state) var(--ease-out);
 }
 .sb-hbtn svg {
   display: block;
@@ -203,7 +196,22 @@
 }
 
 .sb-hbtn-create {
-  background: var(--bg-hover);
+  color: var(--text-content-supporting);
+  background: var(--surface-nav-active);
+  box-shadow: inset 0 1px var(--control-highlight-hover), var(--sidebar-create-shadow);
+}
+
+.sb-hbtn-create:hover {
+  background: var(--surface-control-active);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .atlas-compose-nib {
+    transition: transform var(--motion-state) var(--ease-out);
+  }
+  .sb-hbtn-create:active .atlas-compose-nib {
+    transform: translate(-1px, 1px);
+  }
 }
 
 .sb-section {
@@ -318,6 +326,11 @@
 html[data-ui-settled='1'] .sb-item {
   transition: background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
+}
+@media (prefers-reduced-motion: no-preference) {
+  html[data-ui-settled='1'] .sb-item > svg {
+    transition: color var(--motion-state) var(--ease-out);
+  }
 }
 .sb-item svg {
   color: var(--sb-text);
@@ -481,19 +494,20 @@ html[data-ui-settled='1'] .sb-item {
   white-space: normal;
   text-align: end;
   overflow-wrap: anywhere;
-  color: var(--sb-risk-ink, var(--text-content-metadata));
+  color: var(--text-content-metadata);
   font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
   font-variant-numeric: var(--numeric-tabular);
+}
+
+.sb-risk-value strong {
+  color: var(--sb-risk-ink, var(--text-content-supporting));
+  font-weight: var(--font-weight-medium);
 }
 
 .sb-item .sb-risk-chevron {
   margin-inline-start: calc(-1 * var(--sp-1));
   color: var(--text-content-context);
-  transition: transform var(--motion-menu) var(--ease-out);
-}
-
-.sb-risk-summary[aria-expanded='true'] .sb-risk-chevron {
-  transform: rotate(180deg);
 }
 
 .sb-risk-summary.is-near,
@@ -623,5 +637,4 @@ html[data-ui-settled='1'] .sb-item {
 
 @media (prefers-reduced-motion: reduce) {
   .sb-risk-popover { animation: none; }
-  .sb-item .sb-risk-chevron { transition: none; }
 }

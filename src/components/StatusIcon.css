@@ -4,8 +4,31 @@
   vertical-align: middle;
 }
 
-.status-icon.is-animate {
-  animation: status-icon-reveal var(--motion-dialog-in) var(--ease-out) backwards;
+/* Preserve the status outline while its inner strokes change; newly mounted rows start settled. */
+[data-icon-motion='status'] > * { opacity: 0; }
+[data-status='planned'] > .status-ring,
+[data-status='open'] > :is(.status-ring, .status-dot),
+[data-status='win'] > :is(.status-ring, .status-result),
+[data-status='loss'] > :is(.status-ring, .status-result, .status-cross),
+[data-status='breakeven'] > .status-even,
+[data-status='missed'] > .status-missed { opacity: 1; }
+
+.status-ring {
+  stroke-dasharray: 12.5 0;
+  stroke-dashoffset: 3;
+}
+[data-status='planned'] > .status-ring { stroke-dasharray: 6.1 6.4; }
+[data-status='loss'] > .status-result { d: path('M9 15 L12 12 L15 9'); }
+.status-cross { stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+[data-status='loss'] > .status-cross { stroke-dashoffset: 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-icon-motion='status'][data-animate='true'],
+  [data-icon-motion='status'][data-animate='true'] > * {
+    transition-property: color, opacity, d, stroke-dasharray, stroke-dashoffset;
+    transition-duration: var(--motion-state);
+    transition-timing-function: var(--ease-out);
+  }
 }
 
 /* 列表中的方向是固定信息列，不使用胶囊；交易、案例与回收站共享同一尺寸和色阶。 */
@@ -34,21 +57,4 @@
 
 .side-tag.is-quiet[data-side='short'] {
   color: var(--direction-list-short);
-}
-
-@keyframes status-icon-reveal {
-  from {
-    transform: scale(0.92);
-    opacity: 0;
-  }
-
-  to {
-    transform: scale(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .status-icon.is-animate {
-    animation: none;
-  }
 }

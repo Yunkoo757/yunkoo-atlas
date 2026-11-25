@@ -12,9 +12,13 @@ export function testAllWorkbenchLayoutsShareRecoverableEmptyStates(): void {
     if (!source.includes('onReset={resetEmptyConditions}')) {
       throw new Error(`${file} must expose the recovery action when records are filtered out`)
     }
-    if (!source.includes('shouldResetWorkbenchHideClosed({')) {
-      throw new Error(`${file} must not clear hideClosed unless it affects the current workspace`)
+    if (!source.includes('useWorkbenchEmptyState(filter, workspace, journal)')) {
+      throw new Error(`${file} must share its recovery logic with the other layout`)
     }
+  }
+  const recovery = readFileSync(path.resolve('src/hooks/useWorkbenchEmptyState.ts'), 'utf8')
+  if (!recovery.includes('shouldResetWorkbenchHideClosed({') || !recovery.includes('getJournalFilterResetSearch(')) {
+    throw new Error('Recovery must distinguish hidden closed trades from temporary filters')
   }
 }
 

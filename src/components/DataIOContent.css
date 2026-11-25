@@ -437,5 +437,5 @@
 .dio-disclosure > summary { cursor: pointer; }
 .dio-disclosure[open] > summary { margin-bottom: var(--space-row-gap); }
 
-.dio-disclosure > summary::before { content: '›'; display: inline-block; margin-right: var(--space-row-gap); }
+.dio-disclosure > summary::before { content: '›'; display: inline-block; margin-right: var(--space-row-gap); transition: transform var(--motion-state) var(--ease-out); }
 .dio-disclosure[open] > summary::before { transform: rotate(90deg); }

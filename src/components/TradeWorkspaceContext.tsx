@@ -12,8 +12,9 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Check, ChevronDown } from '@/icons/appIcons'
+import { Check } from '@/icons/appIcons'
 import { ICON_SM } from '@/icons/iconSize'
+import { DisclosureIcon } from '@/icons/StateIcons'
 import { PopoverSurface } from '@/components/ui/PopoverSurface'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { Select } from '@/components/ui/Select'
@@ -28,6 +29,7 @@ import { useStore } from '@/store/useStore'
 import { fmtDate } from '@/lib/format'
 import { shouldSurfaceStageRolloverBanner } from '@/lib/stageRollover'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
+import { getJournalViewState } from '@/lib/journalQuickViews'
 import './TradeWorkspaceContext.css'
 
 const LiveStageManager = lazy(async () => {
@@ -113,7 +115,9 @@ export function TradeWorkspaceContext({
         },
       },
     })
-    navigate({ pathname: location.pathname, search: next.toString() ? `?${next}` : '' })
+    navigate({ pathname: location.pathname, search: next.toString() ? `?${next}` : '' }, {
+      state: page === 'log' ? getJournalViewState(location.state) : undefined,
+    })
   }
 
   if (compact && page !== 'review') {
@@ -189,7 +193,9 @@ function TradeWorkspaceScopeMenu({
   const exitRef = useExitClone<HTMLDivElement>(open, panelRef)
   const [position, setPosition] = useState({ top: 0, left: 0 })
   const stageLabel = stageOptions.find((option) => option.value === stage)?.label ?? '当前阶段'
-  const kindLabel = KIND_OPTIONS.find((option) => option.value === kind)?.label ?? '全部'
+  const kindLabel = page === 'log' && kind === 'all'
+    ? '全部类型'
+    : KIND_OPTIONS.find((option) => option.value === kind)?.label ?? '全部'
   const scopeLabel = `${stageLabel} · ${kindLabel}`
 
   const updatePosition = () => {
@@ -197,10 +203,9 @@ function TradeWorkspaceScopeMenu({
     if (!rect) return
     const width = 272
     const edge = 8
-    const preferredLeft = page === 'stats' ? rect.left : rect.right - width
     setPosition({
       top: rect.bottom + 6,
-      left: Math.min(Math.max(edge, preferredLeft), window.innerWidth - width - edge),
+      left: Math.min(Math.max(edge, rect.left), window.innerWidth - width - edge),
     })
   }
 
@@ -208,7 +213,7 @@ function TradeWorkspaceScopeMenu({
     if (!open) return
     updatePosition()
     requestAnimationFrame(() => {
-      panelRef.current?.querySelector<HTMLButtonElement>('[data-workspace-stage]')?.focus()
+      panelRef.current?.querySelector<HTMLButtonElement>('[data-workspace-stage][aria-pressed="true"]')?.focus()
     })
   }, [open])
 
@@ -258,8 +263,11 @@ function TradeWorkspaceScopeMenu({
         aria-controls={open ? id : undefined}
         onClick={() => setOpen((current) => !current)}
       >
-        <span>{scopeLabel}</span>
-        <ChevronDown size={ICON_SM} />
+        {page === 'log' ? <>
+          {stage !== 'current' && <span>{stageLabel}</span>}
+          <span className="trade-workspace-kind-label">{kindLabel}</span>
+        </> : <span>{scopeLabel}</span>}
+        <DisclosureIcon kind="menu" size={ICON_SM} />
       </button>
       {open && createPortal(
         <PopoverSurface

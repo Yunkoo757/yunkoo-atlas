@@ -25,7 +25,7 @@ export function testCoreDesktopPagesConsumeSemanticRails(): void {
   const contracts = [
     ['src/views/Dashboard.css', '--page-rail-wide'],
     ['src/views/WeeklyReviewView.css', '--page-rail-reading'],
-    ['src/views/DetailView.css', '--page-rail-standard'],
+    ['src/views/DetailView.css', '--page-rail-reading'],
     ['src/views/settings/SettingsLayout.css', '--page-rail-form'],
   ] as const
   for (const [file, token] of contracts) {

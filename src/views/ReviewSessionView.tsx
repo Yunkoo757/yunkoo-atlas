@@ -1,4 +1,5 @@
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
+import { CaseLibraryNavIcon, JournalNavIcon, PracticeNavIcon } from '@/icons/NavigationIcons'
 import { ICON_2XL, ICON_LG, ICON_MD, ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -9,7 +10,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Image,
-  ListTodo,
   MoreHorizontal,
   RotateCcw,
   SlidersHorizontal,
@@ -776,7 +776,7 @@ export function ReviewSessionView() {
           <span>{session && session.ids.length > 0 ? '退出复盘' : '返回'}</span>
         </Button>
         <div className="review-session-heading">
-          <RotateCcw size={ICON_MD} aria-hidden />
+          <PracticeNavIcon size={ICON_MD} aria-hidden />
           <strong>{session?.decisionPractice ? '先判断' : '随机复盘'}</strong>
         </div>
         {session && session.ids.length > 0 && !roundEnded ? (
@@ -1104,7 +1104,7 @@ function ReviewSessionSettingsModal({
             checked={filters.includeCases}
             onChange={(event) => patchFilters({ includeCases: event.target.checked })}
           />
-          <BookOpen size={ICON_XL} aria-hidden />
+          <CaseLibraryNavIcon size={ICON_XL} aria-hidden />
           <span><strong>案例库</strong><small>全部历史案例，不随新实盘阶段清空</small></span>
         </label>
         <label className={filters.includeLiveTrades ? 'is-selected' : undefined}>
@@ -1113,7 +1113,7 @@ function ReviewSessionSettingsModal({
             checked={filters.includeLiveTrades}
             onChange={(event) => patchFilters({ includeLiveTrades: event.target.checked, includeAccountTrades: false })}
           />
-          <ListTodo size={ICON_XL} aria-hidden />
+          <JournalNavIcon size={ICON_XL} aria-hidden />
           <span><strong>实盘交易</strong><small>所选阶段内已结束或已错过的实盘记录</small></span>
         </label>
         <label className={filters.includePaperTrades ? 'is-selected' : undefined}>
@@ -1122,7 +1122,7 @@ function ReviewSessionSettingsModal({
             checked={filters.includePaperTrades}
             onChange={(event) => patchFilters({ includePaperTrades: event.target.checked, includeAccountTrades: false })}
           />
-          <ListTodo size={ICON_XL} aria-hidden />
+          <JournalNavIcon size={ICON_XL} aria-hidden />
           <span><strong>模拟盘</strong><small>全部已结束或已错过的模拟记录，不受实盘阶段限制</small></span>
         </label>
       </fieldset>

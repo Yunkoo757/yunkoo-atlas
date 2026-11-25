@@ -146,8 +146,8 @@ async function run(): Promise<void> {
     assert(!document.querySelector('[data-trade-id="current"]'), '下钻列表不得显示当前 stage 记录')
 
     document.querySelector<HTMLButtonElement>('[aria-label="打开 BTCUSDT TRD-historical"]')?.click()
-    await waitFor(() => Boolean(document.querySelector('[aria-label="返回列表"]')), '历史 stage 行必须继续使用原详情路径')
-    document.querySelector<HTMLAnchorElement>('[aria-label="返回列表"]')?.click()
+    await waitFor(() => Boolean(document.querySelector('[aria-label="返回交易日志"]')), '历史 stage 行必须继续使用原详情路径')
+    document.querySelector<HTMLAnchorElement>('[aria-label="返回交易日志"]')?.click()
     await waitFor(() => document.querySelector('[data-testid="location"]')?.textContent === '/list?kind=live&range=all&liveStage=stage-old', '详情返回必须恢复历史 stage 与过滤查询')
 
     const currentDay = getTradingDayKey(new Date(), useStore.getState().display.tradingDayStartHour)

@@ -28,22 +28,22 @@ try {
   assert.equal(await byMonth.getAttribute('aria-pressed'), 'false')
 
   assert.equal(await page.getByRole('switch', { name: /只看未结束交易/ }).count(), 1)
-  assert.equal(await page.getByRole('switch', { name: /保留空状态/ }).count(), 1)
-  const recentTrades = page.getByRole('button', { name: /最近交易.*新记录在前/ })
+  assert.equal(await page.getByRole('switch', { name: /显示空分组与空看板列/ }).count(), 1)
+  const recentTrades = page.getByRole('button', { name: '最近交易', exact: true })
   assert.equal(await recentTrades.count(), 1)
   assert.equal(await recentTrades.getAttribute('aria-pressed'), 'true')
-  await recentTrades.click()
+  await page.getByRole('button', { name: '升序', exact: true }).click()
   assert.equal(
-    await page.getByRole('button', { name: /最近交易.*旧记录在前/ }).getAttribute('aria-pressed'),
-    'true',
+    await page.getByText('按开仓时间，旧记录在前', { exact: true }).count(),
+    1,
   )
-  assert.equal(await page.getByRole('heading', { name: '排序方向', exact: true }).count(), 0)
+  assert.equal(await page.getByRole('heading', { name: '排序方向', exact: true }).count(), 1)
 
   await page.evaluate(() => {
     history.pushState({}, '', '/list')
     window.dispatchEvent(new PopStateEvent('popstate'))
   })
-  await page.getByRole('button', { name: '显示选项' }).click()
+  await page.getByRole('button', { name: '日志选项' }).click()
   const dateAscending = page.getByRole('menuitemradio', { name: '开仓日期，正序' })
   assert.equal(await dateAscending.getAttribute('aria-checked'), 'true')
   await dateAscending.click()
@@ -64,7 +64,7 @@ try {
 
   await page.waitForTimeout(600)
   await page.reload()
-  await page.getByRole('button', { name: '显示选项' }).click()
+  await page.getByRole('button', { name: '日志选项' }).click()
   assert.equal(
     await page.getByRole('menuitemradio', { name: '盈亏金额，正序' }).getAttribute('aria-checked'),
     'true',
@@ -76,10 +76,11 @@ try {
   })
   await page.getByRole('heading', { name: '默认排序', exact: true }).waitFor()
   assert.equal(
-    await page.getByRole('button', { name: /盈亏表现.*从低到高/ }).getAttribute('aria-pressed'),
+    await page.getByRole('button', { name: '盈亏表现', exact: true }).getAttribute('aria-pressed'),
     'true',
   )
 
+  assert.equal(await page.getByText('按盈亏金额，从低到高', { exact: true }).count(), 1)
   console.log('PASS: display settings and menu expose persistent two-way sorting')
 } finally {
   await browser?.close()

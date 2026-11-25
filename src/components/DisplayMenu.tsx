@@ -1,9 +1,10 @@
-import { ICON_SM } from '@/icons/iconSize'
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import { Tooltip } from '@/components/ui/Tooltip'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { useModalPortalRoot } from '@/components/ui/ModalShell'
-import { ArrowDown, ArrowUp, SlidersHorizontal } from '@/icons/appIcons'
+import { ArrowDown, ArrowUp, MoreHorizontal, SlidersHorizontal } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import type { WorkbenchView } from '@/components/Topbar'
@@ -15,13 +16,27 @@ const SORT_OPTS: { value: DisplayPrefs['sortBy']; label: string }[] = [
   { value: 'conviction', label: '信心度' },
 ]
 
-export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
+export type JournalMenuAction = {
+  label: string
+  count: string
+  opensDialog?: boolean
+  onSelect: () => void
+}
+
+export function DisplayMenu({ view = 'list', showHideClosed = true, journalActions, menuTrigger }: {
+  view?: WorkbenchView
+  showHideClosed?: boolean
+  journalActions?: readonly JournalMenuAction[]
+  menuTrigger?: RefObject<HTMLButtonElement>
+}) {
   const menuId = useId()
   const display = useStore((s) => s.display)
   const setDisplay = useStore((s) => s.setDisplay)
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
+  const localTrigger = useRef<HTMLButtonElement>(null)
+  const triggerRef = menuTrigger ?? localTrigger
+  const label = journalActions ? '日志选项' : '显示选项'
   const popRef = useRef<HTMLDivElement | null>(null)
   const popExitRef = useExitClone<HTMLDivElement>(open)
   const registerModalPortalRoot = useModalPortalRoot()
@@ -35,7 +50,7 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
 
   const closeAndRestore = () => {
     setOpen(false)
-    requestAnimationFrame(() => triggerRef.current?.focus())
+    triggerRef.current?.focus({ preventScroll: true })
   }
 
   const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -85,26 +100,27 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
       top: rect.bottom + 6,
       right: Math.max(8, window.innerWidth - rect.right),
     })
-    requestAnimationFrame(() => {
-      popRef.current?.querySelector<HTMLButtonElement>('[role^="menuitem"]:not(:disabled)')?.focus()
-    })
+    popRef.current?.querySelector<HTMLButtonElement>('[role^="menuitem"]:not(:disabled)')?.focus({ preventScroll: true })
   }, [open])
 
   return (
     <div className="display-menu-root" ref={rootRef}>
-      <button
-        ref={triggerRef}
-        type="button"
-        className={'tb-btn' + (open ? ' is-open' : '')}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-controls={open ? menuId : undefined}
-        aria-label="显示选项"
-        onClick={() => setOpen((o) => !o)}
-      >
-        <SlidersHorizontal size={ICON_SM} />
-        <span>显示</span>
-      </button>
+      <Tooltip asChild content={label} label={label} disabled={!journalActions || open}>
+        <button
+          ref={triggerRef}
+          type="button"
+          className={'tb-btn' + (open ? ' is-open' : '')}
+          aria-expanded={open}
+          aria-haspopup="menu"
+          aria-controls={open ? menuId : undefined}
+          aria-label={label}
+          onClick={() => setOpen((o) => !o)}
+        >
+          {journalActions
+            ? <MoreHorizontal size={ICON_MD} aria-hidden />
+            : <><SlidersHorizontal size={ICON_SM} aria-hidden /><span>显示</span></>}
+        </button>
+      </Tooltip>
       {open &&
         createPortal(
           <div
@@ -115,13 +131,16 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
             style={{ top: pos.top, right: pos.right }}
             onKeyDown={handleMenuKeyDown}
           >
-            <ToggleRow
-              label="隐藏已平仓"
-              checked={display.hideClosed}
-              onChange={(v) => setDisplay({ hideClosed: v })}
-            />
+            {journalActions && <div className="display-label">显示</div>}
+            {showHideClosed && (
+              <DisplayToggle
+                label="隐藏已平仓"
+                checked={display.hideClosed}
+                onChange={(v) => setDisplay({ hideClosed: v })}
+              />
+            )}
             {showEmptyGroups && (
-              <ToggleRow
+              <DisplayToggle
                 label="显示空分组"
                 checked={display.showEmptyGroups}
                 onChange={(v) => setDisplay({ showEmptyGroups: v })}
@@ -129,7 +148,7 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
             )}
             {showGrouping && (
               <>
-                <ToggleRow
+                <DisplayToggle
                   label="按月份分组"
                   checked={display.groupByDate}
                     onChange={(v) =>
@@ -140,7 +159,7 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
                     })
                   }
                 />
-                <ToggleRow
+                <DisplayToggle
                   label="按策略分组"
                   checked={display.groupByStrategy}
                   onChange={(v) =>
@@ -188,6 +207,24 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
                 ))}
               </>
             )}
+            {journalActions && journalActions.length > 0 && (
+              <div role="group" aria-label="数据整理">
+                <div className="display-divider" />
+                <div className="display-label" aria-hidden>数据整理</div>
+                {journalActions.map(action => (
+                  <button key={action.label} type="button" role="menuitem" className="display-item"
+                    aria-haspopup={action.opensDialog ? 'dialog' : undefined}
+                    onClick={() => {
+                      setOpen(false)
+                      triggerRef.current?.focus({ preventScroll: true })
+                      action.onSelect()
+                    }}>
+                    <span>{action.label}</span>
+                    <span className="display-action-count">{action.count}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>,
           document.body,
         )}
@@ -195,11 +232,13 @@ export function DisplayMenu({ view = 'list' }: { view?: WorkbenchView }) {
   )
 }
 
-function ToggleRow({
+export function DisplayToggle({
   label,
   checked,
   onChange,
+  role = 'menuitemcheckbox',
 }: {
+  role?: 'menuitemcheckbox' | 'switch'
   label: string
   checked: boolean
   onChange: (v: boolean) => void
@@ -208,7 +247,7 @@ function ToggleRow({
     <button
       type="button"
       className="display-toggle"
-      role="menuitemcheckbox"
+      role={role}
       aria-checked={checked}
       onClick={() => onChange(!checked)}
     >

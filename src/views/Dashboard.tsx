@@ -3,6 +3,7 @@ import { rememberTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { resultRepairAnchor, useResultRepairReturn } from '@/hooks/useResultRepairReturn'
 import { ResultConflictRepair } from '@/components/ResultConflictRepair'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
+import { DisclosureIcon } from '@/icons/StateIcons'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { createRecordForContext, resolveCreateRecordAction } from '@/lib/createRecordAction'
@@ -418,7 +419,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                   <>
                     <RDistributionChart buckets={stats.rDist} />
                     <details className="db-chart-data">
-                      <summary>查看分布数据<ChevronRight size={ICON_SM} aria-hidden /></summary>
+                      <summary>查看分布数据<DisclosureIcon size={ICON_SM} /></summary>
                       <table aria-label="R 倍数分布数据">
                         <thead><tr><th scope="col">R 区间</th><th scope="col">笔数</th></tr></thead>
                         <tbody>
@@ -443,7 +444,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                 </Link>
               </div>
               <details className="db-week-detail">
-                <summary>本周概况<ChevronRight size={ICON_SM} aria-hidden /></summary>
+                <summary>本周概况<DisclosureIcon size={ICON_SM} /></summary>
                 {scope.range !== 'this-week' && (
                   <dl className="db-week-metrics">
                     <div className="db-week-metric"><dt>平仓交易</dt><dd><strong>{weekMetrics.tradeCount}</strong></dd></div>

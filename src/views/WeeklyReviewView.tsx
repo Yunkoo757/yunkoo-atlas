@@ -6,6 +6,7 @@ import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { PopoverSurface } from '@/components/ui/PopoverSurface'
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
+import { DisclosureIcon } from '@/icons/StateIcons'
 import { lazy, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   Link,
@@ -17,7 +18,6 @@ import {
 import { Editor } from '@/editor/Editor'
 import {
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   RotateCcw,
@@ -769,7 +769,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
           <summary aria-label={`选择复盘记录：${selectedWeek.slice(0, 4)}年 · ${formatWeekRange(selectedWeek)}，${reviewStageName}`}>
             <span>{selectedWeek.slice(0, 4)}年 · {formatWeekRange(selectedWeek)}</span>
             <small>{reviewStageName}</small>
-            <ChevronDown size={ICON_MD} aria-hidden />
+            <DisclosureIcon kind="menu" size={ICON_MD} />
           </summary>
           <PopoverSurface kind="menu" className="wr-record-popup">
             {header}
@@ -1022,7 +1022,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                       <summary>
                         <span>上次行动</span>
                         <small>{commitmentResultLabel ?? '待验收'}</small>
-                        <ChevronRight size={ICON_SM} aria-hidden />
+                        <DisclosureIcon size={ICON_SM} />
                       </summary>
                       <section className="wr-previous-content" data-weekly-section="previous-commitment">
                         <div>
@@ -1088,7 +1088,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                   <summary>
                     <span>模式归因</span>
                     {review.strengthTags.length + review.mistakeTags.length > 0 && <small>{review.strengthTags.length + review.mistakeTags.length} 项</small>}
-                    <ChevronRight size={ICON_SM} aria-hidden />
+                    <DisclosureIcon size={ICON_SM} />
                   </summary>
                   <section className="wr-section" data-weekly-section="patterns" data-invalid="false">
                     <TagGroup tone="strength" title="做得好的" options={STRENGTH_TAGS} selected={review.strengthTags} onChange={(strengthTags) => commitPatch({ strengthTags })} />
@@ -1112,7 +1112,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 </details>
                 {evidenceCount > 0 && <details id="weekly-trade-evidence" className="wr-disclosure wr-detail-evidence" ref={evidenceRef}>
                   <summary onClick={(event) => { event.preventDefault(); closeEvidence('evidence') }}>
-                    <span>交易证据</span><small>{evidenceCount} 笔</small><ChevronRight size={ICON_SM} aria-hidden />
+                    <span>交易证据</span><small>{evidenceCount} 笔</small><DisclosureIcon size={ICON_SM} />
                   </summary>
                   <section className="wr-section" data-weekly-section="evidence" data-invalid="false">
                     {evidenceCount > 6 ? <button type="button" className="ui-btn ui-btn-ghost wr-evidence-toggle" aria-expanded={showAllEvidence} onClick={() => setShowAllEvidence((value) => !value)}>{showAllEvidence ? '只看已标记证据' : `查看和标记全部 ${evidenceCount} 笔交易`}</button> : null}
@@ -1157,7 +1157,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 </details>}
                 <details id="weekly-risk-evidence" className="wr-disclosure wr-detail-risk" ref={riskRef}>
                   <summary onClick={(event) => { event.preventDefault(); closeEvidence('risk') }}>
-                    <span>风控明细</span><ChevronRight size={ICON_SM} aria-hidden />
+                    <span>风控明细</span><DisclosureIcon size={ICON_SM} />
                   </summary>
                   <WeeklyRiskEvidence
                     snapshot={usesCompleteSnapshot ? review.riskSnapshot : undefined}

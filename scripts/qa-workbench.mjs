@@ -602,7 +602,6 @@ try {
   await closeDialog.getByRole('button', { name: '保存并待复盘', exact: true }).click()
   await closeDialog.waitFor({ state: 'hidden', timeout: 10000 })
   const completeReviewButton = page.getByRole('button', { name: '完成复盘', exact: true })
-  await completeReviewButton.waitFor({ state: 'visible' })
   await editor.evaluate((element) => {
     const tiptap = element.editor
     if (!tiptap) throw new Error('复盘编辑器实例不可用')

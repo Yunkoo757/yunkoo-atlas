@@ -33,8 +33,12 @@ import {
   savedViewMatchesLocation,
 } from '@/lib/savedTradeViews'
 import { getActiveWorkspaceView, type WorkspaceKind } from '@/lib/workspaceViews'
-import { FilterBar, type ActiveFilter } from '@/components/ui/FilterBar'
+import { ActiveFilterChips, FilterBar, type ActiveFilter } from '@/components/ui/FilterBar'
 import { QuickViewBar } from '@/components/trades/QuickViewBar'
+import { DisplayToggle } from '@/components/DisplayMenu'
+import { canHideClosedTrades } from '@/lib/workbenchTrades'
+import { JOURNAL_ROUTE_VIEW_LABELS } from '@/lib/journalQuickViews'
+import { getJournalFilterResetSearch } from '@/lib/journalFilterSearch'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { Select } from '@/components/ui/Select'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -47,15 +51,21 @@ export function TradeFilters({
   trades,
   strategies,
   actions,
+  trailingActions,
+  journal = false,
 }: {
   filter: ListFilter
   trades: Trade[]
   strategies: Strategy[]
   actions?: ReactNode
+  trailingActions?: ReactNode
+  journal?: boolean
 }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
+  const hideClosed = useStore((state) => state.display.hideClosed)
+  const setDisplay = useStore((state) => state.setDisplay)
   const savedViews = useStore((state) => state.savedTradeViews)
   const sidebarWorkspaceItems = useStore((state) => state.display.sidebarWorkspaceItems)
   const symbolCatalog = useStore((state) => state.symbolCatalog)
@@ -84,7 +94,7 @@ export function TradeFilters({
           : 'trade'
   const isCaseWorkspace = workspaceKind === 'case' || workspaceKind === 'historical-case'
   const isPaperWorkspace = workspaceKind === 'paper'
-  const usesQueryScope = isCaseWorkspace || isPaperWorkspace || Boolean(filter.historicalLiveScope)
+  const usesQueryScope = journal || isCaseWorkspace || isPaperWorkspace || Boolean(filter.historicalLiveScope)
   const unifiedTradeWorkspace = location.pathname === '/list' || location.pathname === '/board'
   const allowsTradeKindFacet = !unifiedTradeWorkspace && !filter.tradeKind && (
     !filter.analysisScope || filter.analysisScope.kind === 'all'
@@ -117,7 +127,7 @@ export function TradeFilters({
     if (value) next.set(key, value)
     else next.delete(key)
     if (key === 'liveCycle') next.delete('liveCycle')
-    setSearchParams(next, { replace: true })
+    setSearchParams(next, { replace: true, state: location.state })
   }
 
   useEffect(() => {
@@ -125,9 +135,10 @@ export function TradeFilters({
     const canonical = canonicalizeTradeViewSearch(searchParams)
     if (!allowsTradeKindFacet) canonical.delete('tradeKind')
     canonical.delete('liveCycle')
-    if (canonical.toString() !== current) setSearchParams(canonical, { replace: true })
+    if (canonical.toString() !== current) setSearchParams(canonical, { replace: true, state: location.state })
   }, [
     allowsTradeKindFacet,
+    location.state,
     searchParams,
     setSearchParams,
   ])
@@ -157,6 +168,7 @@ export function TradeFilters({
   }
 
   const facetLabels: Array<[string, string]> = [
+    ['view', journal ? JOURNAL_ROUTE_VIEW_LABELS[searchParams.get('view') ?? ''] ?? '' : ''],
     [
       'tradeKind',
       allowsTradeKindFacet
@@ -217,13 +229,13 @@ export function TradeFilters({
         : '',
     ],
   ]
-  const activeWorkspaceView = getActiveWorkspaceView(
-    workspaceKind,
-    location.pathname,
-    location.search,
-    sidebarWorkspaceItems,
-  )
-  const baselineParams = new URLSearchParams(activeWorkspaceView?.search ?? '')
+  const baselineParams = useMemo(() => {
+    if (journal) {
+      return getJournalFilterResetSearch(location.pathname, location.search, sidebarWorkspaceItems, savedViews, location.state)
+    }
+    const view = getActiveWorkspaceView(workspaceKind, location.pathname, location.search, sidebarWorkspaceItems)
+    return new URLSearchParams(view?.search)
+  }, [journal, workspaceKind, location.pathname, location.search, location.state, sidebarWorkspaceItems, savedViews])
   for (const [key, label] of facetLabels) {
     const isLegacyCaseReviewCategory = key === 'reviewCategory' && isCaseWorkspace
     if (label && (isLegacyCaseReviewCategory || baselineParams.get(key) !== searchParams.get(key))) {
@@ -235,7 +247,7 @@ export function TradeFilters({
     }
   }
   const searchText = searchParams.toString()
-  const currentSavedView = savedViews.some((view) =>
+  const currentSavedView = !journal && savedViews.some((view) =>
     savedViewMatchesLocation(view, location.pathname, searchText),
   )
   const visibleActiveFilters = currentSavedView
@@ -250,6 +262,10 @@ export function TradeFilters({
   }
 
   const resetFilters = () => {
+    if (journal) {
+      setSearchParams(baselineParams, { replace: true, state: location.state })
+      return
+    }
     const base = filter.historicalLiveScope
       ? '/live-history'
       : filter.tradeKind === 'paper'
@@ -325,7 +341,8 @@ export function TradeFilters({
       if (event.target instanceof Element && event.target.closest('.ui-select-menu')) return
       const target = event.target
       if (!(target instanceof Node)) return
-      if (rootRef.current?.contains(target) || panelRef.current?.contains(target)) return
+      const triggerArea = journal ? triggerRef.current : rootRef.current
+      if (triggerArea?.contains(target) || panelRef.current?.contains(target)) return
       setOpen(false)
     }
     const onKeyDown = (event: KeyboardEvent) => {
@@ -340,8 +357,11 @@ export function TradeFilters({
       document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [closeFilters, open])
+  }, [closeFilters, journal, open])
 
+  const showClosedPreference = journal &&
+    canHideClosedTrades(filter, searchParams.get('status') as TradeStatus | null)
+  const resetLabel = journal ? '清除附加条件' : '清除全部条件'
   const panel = open
     ? createPortal(
         <div
@@ -360,11 +380,13 @@ export function TradeFilters({
           <div className="trade-filter-head">
             <strong>{filterLabel}</strong>
             <div className="trade-filter-head-actions">
-              <Tooltip content="清除全部条件" label="清除全部条件">
-                <button type="button" onClick={resetFilters} aria-label="清除全部条件">
-                  <RotateCcw size={ICON_SM} />
-                </button>
-              </Tooltip>
+              {(!journal || visibleActiveFilters.length > 0) && (
+                <Tooltip content={resetLabel} label={resetLabel}>
+                  <button type="button" onClick={resetFilters} aria-label={resetLabel}>
+                    <RotateCcw size={ICON_SM} />
+                  </button>
+                </Tooltip>
+              )}
               <Tooltip content="关闭" label="关闭筛选器">
                 <button
                   type="button"
@@ -378,6 +400,11 @@ export function TradeFilters({
           </div>
 
           <div className="trade-filter-body">
+            {journal && visibleActiveFilters.length > 0 && (
+              <div className="trade-filter-applied" aria-label="附加条件" role="group">
+                <ActiveFilterChips filters={visibleActiveFilters} />
+              </div>
+            )}
             <section className="trade-filter-section">
               <h3>范围</h3>
               <div className="trade-filter-scope-grid">
@@ -527,6 +554,16 @@ export function TradeFilters({
                     </>
                   )}
                 </div>
+                {showClosedPreference && (
+                  <div className="trade-filter-preference">
+                    <DisplayToggle
+                      role="switch"
+                      label="隐藏已平仓"
+                      checked={hideClosed}
+                      onChange={(value) => setDisplay({ hideClosed: value })}
+                    />
+                  </div>
+                )}
               </section>
 
               <section className="trade-filter-section">
@@ -564,8 +601,11 @@ export function TradeFilters({
         panelId={panelId}
         label={filterLabel}
         shortcutActionId="list.toggleFilters"
-        quickViews={<QuickViewBar kind={workspaceKind} />}
+        quickViews={<QuickViewBar kind={workspaceKind} journal={journal} />}
         actions={actions}
+        trailingActions={trailingActions}
+        journal={journal}
+        preferenceActive={showClosedPreference && hideClosed}
       />
       {panel}
     </>
