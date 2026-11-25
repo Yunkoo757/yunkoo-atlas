@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from '@/icons/appIcons'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
+import { StrategyIcon } from '@/components/StrategyIcon'
 import type { Strategy } from '@/data/strategies'
 import type { CaseType, TradeSide } from '@/data/trades'
 import { Button } from '@/components/ui/Button'
@@ -358,6 +359,7 @@ function ReviewPoolEditor({
             {strategies.map((strategy) => (
               <label key={strategy.id}>
                 <input type="checkbox" checked={filters.strategyIds.includes(strategy.id)} onChange={() => patch({ strategyIds: toggleValue(filters.strategyIds, strategy.id) })} />
+                <StrategyIcon icon={strategy.icon} color={strategy.color} />
                 <span>{strategy.name}</span>
               </label>
             ))}

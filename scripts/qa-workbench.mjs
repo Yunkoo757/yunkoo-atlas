@@ -261,14 +261,8 @@ const context = await browser.newContext({ viewport: { width: 1280, height: 800 
 await context.addInitScript(() => {
   Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true })
 })
+// 每轮创建独立的非持久浏览器上下文，IndexedDB 从空库开始。
 let page = await context.newPage()
-await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-await page.evaluate(() => new Promise((resolve) => {
-  const request = indexedDB.deleteDatabase('trader-atlas-v3')
-  request.onsuccess = () => resolve()
-  request.onerror = () => resolve()
-  request.onblocked = () => resolve()
-}))
 const results = []
 const runtimeErrors = []
 const diagnostics = createDiagnostics()
@@ -397,9 +391,9 @@ try {
   )
 
   await page.setViewportSize({ width: 800, height: 760 })
-  const propertiesToggle = page.getByRole('button', { name: '打开交易属性' })
+  const propertiesToggle = page.getByRole('button', { name: '打开案例属性' })
   await propertiesToggle.click()
-  const propertiesPanel = page.locator('.dv-props.is-properties-open')
+  const propertiesPanel = page.getByRole('dialog', { name: '案例属性', exact: true })
   await propertiesPanel.waitFor({ state: 'visible' })
   await page.waitForFunction(() => {
     const panel = document.querySelector('.dv-props.is-properties-open')
@@ -435,13 +429,13 @@ try {
   await page.keyboard.press('Escape')
   await page.locator('.dv-props.is-properties-open').waitFor({ state: 'hidden' })
   await page.waitForFunction(() =>
-    document.activeElement?.getAttribute('aria-label')?.includes('打开交易属性') === true,
+    document.activeElement?.getAttribute('aria-label')?.includes('打开案例属性') === true,
   )
   const drawerFocusReturned = await propertiesToggle.evaluate(
     (element) => element === document.activeElement,
   )
   record(
-    '窄屏交易属性抽屉可用',
+    '窄屏案例属性抽屉可用',
     drawerRect.left >= 0 &&
       drawerRect.right <= drawerRect.viewport &&
       drawerRole === 'dialog' &&
@@ -461,7 +455,8 @@ try {
 
   await page.goto(`${BASE}/today-record`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  await openComposer('记录交易', '新建交易')
+  await page.waitForURL((url) => url.pathname === '/list' && url.searchParams.get('view') === 'incomplete')
+  await openComposer('新建交易', '新建交易')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'XAUUSD')
   await page.getByRole('button', { name: '做空' }).click()
   await page.getByRole('button', { name: '更多信息', exact: true }).click()
@@ -662,7 +657,8 @@ try {
 
   await page.goto(`${BASE}/sim`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  await openComposer('记录交易', '新建交易')
+  await page.waitForURL((url) => url.pathname === '/list' && url.searchParams.get('kind') === 'paper')
+  await openComposer('新建模拟交易', '新建交易')
   await selectValue(page.getByRole('combobox', { name: '交易品种' }), 'EURUSD')
   await page.getByLabel('一句话').fill('工作台 QA：验证模拟盘快速记录')
   await page.locator('.composer-btn-primary').click()
@@ -707,6 +703,9 @@ try {
         ref: `TRD-QA-${month}-${day}-${index}`,
         openedAt,
         closedAt: openedAt,
+        closedTradingDayKey: openedAt,
+        // 曲线按美元现金盈亏绘制；原始记录保留仅有 R 倍数的情形。
+        ...(index === 0 ? { pnl: 200, cashCurrency: 'USD', resultSource: 'imported' } : {}),
         createdAt: `${openedAt}T08:00:00.000Z`,
         updatedAt: `${openedAt}T09:00:00.000Z`,
       }
@@ -968,13 +967,14 @@ try {
 
   await page.goto(`${BASE}/review-cases`, { waitUntil: 'domcontentloaded' })
   await waitForApp()
-  const reviewSurface = await page.evaluate(() => {
-    const toolbar = document.querySelector('.ui-toolbar')
-    const style = toolbar ? getComputedStyle(toolbar) : null
-    return {
-      toolbarRadius: style?.borderRadius ?? '',
-      toolbarMarginLeft: style?.marginLeft ?? '',
-    }
+  const caseToolbar = page.locator('.ui-filter-bar')
+  await caseToolbar.getByRole('tablist', { name: '案例视图' }).waitFor({ state: 'visible' })
+  await caseToolbar.getByRole('button', { name: '筛选案例' }).waitFor({ state: 'visible' })
+  await caseToolbar.getByRole('group', { name: '视图切换' }).waitFor({ state: 'visible' })
+  await caseToolbar.getByRole('button', { name: '案例库选项' }).waitFor({ state: 'visible' })
+  const reviewSurface = await caseToolbar.evaluate((toolbar) => {
+    const style = getComputedStyle(toolbar)
+    return { toolbarRadius: style.borderRadius, toolbarMarginLeft: style.marginLeft }
   })
   record(
     '案例记录工具栏回归连续页面表面',
@@ -1030,6 +1030,7 @@ try {
 
   const reviewCaseRoutes = [
     { path: '/review-cases', search: '', tab: '全部' },
+    { path: '/review-cases/exemplar', search: '', tab: '交易案例' },
     { path: '/review-cases/focus', search: '', tab: '重点案例' },
     { path: '/review-cases/mistakes', search: '', tab: '错题' },
     { path: '/review-cases/unreviewed', search: '', tab: '待复看' },
@@ -1062,9 +1063,9 @@ try {
   }
   const caseTabLabels = await page.getByRole('tab').allTextContents()
   const caseTabsIsolated =
-    ['全部', '重点案例', '错题', '待复看', '已掌握'].every((label) => caseTabLabels.includes(label)) &&
+    reviewCaseRoutes.every(({ tab }) => caseTabLabels.includes(tab)) &&
     !['本周', '本月', '亏损'].some((label) => caseTabLabels.includes(label))
-  record('五个案例分类使用统一顶部视图且不混入交易入口', caseTabsIsolated, caseTabLabels.join(', '))
+  record('案例分类使用统一顶部视图且不混入交易入口', caseTabsIsolated, caseTabLabels.join(', '))
 
   await page.getByRole('button', { name: '筛选案例' }).click()
   await page.getByRole('dialog', { name: '案例筛选' }).waitFor({ state: 'visible' })
@@ -1082,7 +1083,7 @@ try {
   const tradeTabLabels = await page.getByRole('tab').allTextContents()
   const tradeTabsIsolated =
     ['全部', '本周', '本月', '亏损', '星标交易', '错过机会'].every((label) => tradeTabLabels.includes(label)) &&
-    !['重点案例', '错题', '待复看', '已掌握'].some((label) => tradeTabLabels.includes(label))
+    !reviewCaseRoutes.some(({ tab }) => tab !== '全部' && tradeTabLabels.includes(tab))
   record('交易日志顶部视图不混入案例分类', tradeTabsIsolated, tradeTabLabels.join(', '))
 
   await page.goto(`${BASE}/list?symbol=ETHUSDT&side=long`, { waitUntil: 'domcontentloaded' })
@@ -1105,37 +1106,28 @@ try {
 
   await page.getByRole('button', { name: '筛选交易' }).click()
   await page.getByRole('dialog', { name: '交易筛选' }).waitFor({ state: 'visible' })
-  await page.locator('.ui-toolbar-title').click()
+  await page.getByRole('heading', { name: '交易日志', exact: true }).click()
   await page.getByRole('dialog', { name: '交易筛选' }).waitFor({ state: 'hidden' })
   record('点击筛选器外部可关闭', true)
 
   await page.getByRole('button', { name: '筛选交易' }).click()
   await page.getByRole('dialog', { name: '交易筛选' }).waitFor({ state: 'visible' })
   await selectValue(page.getByRole('combobox', { name: '时间' }), 'this-month')
-  await page.waitForURL(
+  const waitForFilteredJournal = (pathname) => page.waitForURL(
     (url) =>
-      url.pathname === '/period/this-month' &&
+      url.pathname === pathname &&
+      url.searchParams.get('period') === 'this-month' &&
       url.searchParams.get('symbol') === 'ETHUSDT' &&
       url.searchParams.get('side') === 'long',
     { timeout: 10000 },
   )
+  await waitForFilteredJournal('/list')
   record('筛选器进入本月交易并保留组合条件', true, page.url())
+  await page.keyboard.press('Escape')
   await page.getByRole('button', { name: '看板视图' }).click()
-  await page.waitForURL(
-    (url) =>
-      url.pathname === '/period/this-month/board' &&
-      url.searchParams.get('symbol') === 'ETHUSDT' &&
-      url.searchParams.get('side') === 'long',
-    { timeout: 10000 },
-  )
+  await waitForFilteredJournal('/board')
   await page.getByRole('button', { name: '列表视图' }).click()
-  await page.waitForURL(
-    (url) =>
-      url.pathname === '/period/this-month' &&
-      url.searchParams.get('symbol') === 'ETHUSDT' &&
-      url.searchParams.get('side') === 'long',
-    { timeout: 10000 },
-  )
+  await waitForFilteredJournal('/list')
   record('视图切换保留组合筛选条件', true)
 
   const baselineRoutes = [

@@ -36,7 +36,7 @@ export function TradesPage({
     })
     const target = nextView === 'board' ? boardPath : listPath
     navigate(routeWithSearch(target, search), {
-      state: listPath === '/list' ? getJournalViewState(routeState) : undefined,
+      state: getJournalViewState(routeState),
     })
   }
 

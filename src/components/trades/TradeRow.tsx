@@ -12,6 +12,7 @@ import {
   buildTradeRowAccessibleLabel,
   buildTradeRowContext,
   resolveTradeRowResultPresentation,
+  tradeMetricTone,
 } from '@/lib/tradeRowPresentation'
 import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { OverflowTooltip, Tooltip } from '@/components/ui/Tooltip'
@@ -159,7 +160,7 @@ export const TradeRow = memo(function TradeRow({
           data-value-state={result.r.state}
           data-value-sign={
             result.r.state === 'value'
-              ? trade.rMultiple != null && trade.rMultiple > 0 ? 'positive' : 'negative'
+              ? tradeMetricTone(trade.status, trade.rMultiple)
               : undefined
           }
         >

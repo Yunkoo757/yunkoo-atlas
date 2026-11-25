@@ -3,6 +3,7 @@ import type { Trade } from '@/data/trades'
 import {
   buildTradeRowContext,
   resolveTradeRowResultPresentation,
+  tradeMetricTone,
 } from '@/lib/tradeRowPresentation'
 
 function fixture(overrides: Partial<Trade> = {}): Trade {
@@ -80,6 +81,19 @@ export async function testTradeRowResultsDistinguishMissingZeroAndUncollected():
   )
   assert.deepEqual(missing.cash, { text: '待补', state: 'missing' })
   assert.deepEqual(missing.r, { text: '待补', state: 'missing' })
+}
+
+export function testPotentialResultsRemainSeparateFromRealizedPerformance(): void {
+  for (const amount of [-2, 0, 2]) {
+    const trade = fixture({ status: 'missed', rMultiple: amount })
+    const result = resolveTradeRowResultPresentation(trade, null, false)
+    assert.equal(result.r.state, 'missed')
+    assert.equal(tradeMetricTone(trade.status, amount), 'opportunity')
+    assert.match(result.accessibleSummary, /潜在/)
+  }
+  assert.equal(tradeMetricTone('breakeven', -0.1), 'negative')
+  assert.equal(tradeMetricTone('open', 2), 'neutral')
+  assert.equal(tradeMetricTone('loss', null), 'neutral')
 }
 
 export async function testTradeRowPrivacyKeepsRAndNeverLeaksCash(): Promise<void> {

@@ -214,7 +214,7 @@ export async function testTradeListVisualAlignmentContract(): Promise<void> {
 export async function testSymbolIconsUseBareOfficialMarksInDenseLists(): Promise<void> {
   const fs = await import('node:fs/promises')
   const css = await fs.readFile('src/components/SymbolIcon.css', 'utf8')
-  const panelCss = await fs.readFile('src/views/settings/SymbolsPanel.css', 'utf8')
+  const panel = await fs.readFile('src/views/settings/SymbolsPanel.tsx', 'utf8')
   const presets = await fs.readFile('src/lib/symbolIcons.ts', 'utf8')
   const component = await fs.readFile('src/components/SymbolIcon.tsx', 'utf8')
   const row = await fs.readFile('src/components/trades/TradeRow.tsx', 'utf8')
@@ -222,10 +222,10 @@ export async function testSymbolIconsUseBareOfficialMarksInDenseLists(): Promise
 
   assert(css.includes('border-radius: var(--radius-full)'), '品种图标必须使用统一圆形容器')
   assert(css.includes('currentColor 8%'), '圆章只允许极弱内描边，不得恢复厚重边框')
-  assert(panelCss.includes('.symbols-preset-swatch') && panelCss.includes('border-radius: var(--radius-full)'), '设置页预设缩略图必须与正式品种图标同为圆形')
+  assert(panel.includes('<SymbolIcon symbol={active} preset={preset}'), '设置页预设缩略图必须使用正式品种图标')
   assert(presets.includes('SYMBOL_ICON_SURFACE_TINT = 12'), '品种圆章色底必须固定为低噪声 12%')
-  assert(component.includes("quiet ? 0.66 : resolved.glyph.length > 1 ? 0.46 : 0.56"), '无底列表符号必须扩大字形占比，同时保留大尺寸预览的光学比例')
-  assert(component.includes("quiet ? 'transparent' : background"), '高密度列表品种标识必须取消圆章底色')
+  assert(component.includes("resolved.glyph.length > 1 ? 'var(--type-caption-size)' : 'var(--type-metadata-size)'") && component.includes('resolved.glyph.length > 1 ? 0.46 : 0.56'), '无底列表符号必须扩大字形占比，同时保留大尺寸预览的光学比例')
+  assert(component.includes("quiet ? 'transparent' : resolved.background"), '高密度列表品种标识必须取消圆章底色')
   assert(component.includes("quiet ? ' is-quiet' : ''"), '高密度列表必须暴露稳定的无底样式入口')
   assert(css.includes('.symbol-icon.is-quiet') && css.includes('border-radius: 0') && css.includes('box-shadow: none'), '无底方案必须同时取消圆形裁切与内描边')
   assert(row.includes('size={ICON_LG} quiet'), '交易列表无底符号必须使用 18px 光学尺寸')

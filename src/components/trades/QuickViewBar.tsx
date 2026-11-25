@@ -1,9 +1,9 @@
 import { useExitClone } from '@/components/ui/useExitClone'
 import { isComposingKey } from '@/lib/keyboardComposition'
-import { ICON_MD, ICON_SM } from '@/icons/iconSize'
+import { ICON_SM } from '@/icons/iconSize'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { BookmarkPlus, Check, MoreHorizontal, Pencil, Trash2 } from '@/icons/appIcons'
-import { PinActionIcon } from '@/icons/StateIcons'
+import { BookmarkPlus, Check, Pencil, Trash2 } from '@/icons/appIcons'
+import { DisclosureIcon, PinActionIcon } from '@/icons/StateIcons'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   normalizeSavedViewPath,
@@ -69,17 +69,18 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
           : '交易视图'
   const workspaceSavedViews = savedViews.filter((view) => isSavedViewInWorkspace(view, kind))
   const pinned = workspaceSavedViews.filter((view) => view.pinned).slice(0, MAX_PINNED_WORKSPACE_VIEWS)
-  const journalView = journal
+  const namedViews = journal || kind === 'case'
+  const namedView = namedViews
     ? resolveJournalView(kind, location.pathname, location.search, sidebarWorkspaceItems, savedViews, location.state)
     : undefined
-  const activeSaved = journal ? journalView?.saved : pinned.find((view) =>
+  const activeSaved = namedViews ? namedView?.saved : pinned.find((view) =>
     savedViewMatchesLocation(view, location.pathname, location.search),
   )
-  const activeView = journal ? journalView : getActiveWorkspaceView(kind, location.pathname, location.search, sidebarWorkspaceItems)
-  const builtinTabs = journal && !activeSaved && activeView && !primaryViews.some((view) => view.id === activeView.id)
+  const activeView = namedViews ? namedView : getActiveWorkspaceView(kind, location.pathname, location.search, sidebarWorkspaceItems)
+  const builtinTabs = namedViews && !activeSaved && activeView && !primaryViews.some((view) => view.id === activeView.id)
     ? [...primaryViews, activeView]
     : primaryViews
-  const savedTabs = journal && activeSaved && !pinned.includes(activeSaved) ? [...pinned, activeSaved] : pinned
+  const savedTabs = namedViews && activeSaved && !pinned.includes(activeSaved) ? [...pinned, activeSaved] : pinned
   const tabItems = [
     ...builtinTabs.map((item) => ({
       key: `builtin-${item.id}`, label: item.label, saved: false,
@@ -99,7 +100,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
     const root = rootRef.current
     const sizes = sizesRef.current
     const more = overflowButtonRef.current
-    if (!journal || !root || !sizes || !more) return
+    if (!root || !sizes || !more) return
     const chips = Array.from(sizes.querySelectorAll<HTMLElement>('[data-tab-size]'))
     const moreLabel = sizes.querySelector<HTMLElement>('.quick-view-more-label')!
     const measure = () => {
@@ -126,21 +127,20 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
     const observer = new ResizeObserver(measure)
     for (const element of [root, moreLabel, ...chips]) observer.observe(element)
     return () => observer.disconnect()
-  }, [journal, priorityIndex, tabSignature])
-  const isOverflowed = (index: number) => journal && index >= visibleLimit && index !== priorityIndex
+  }, [priorityIndex, tabSignature])
+  const isOverflowed = (index: number) => index >= visibleLimit && index !== priorityIndex
   const hiddenBuiltinTabs = builtinTabs.filter((_, index) => isOverflowed(index))
   const showMoreLabel = tabItems.some((_, index) => isOverflowed(index))
   const menuGroups = hiddenBuiltinTabs.length
     ? [{ label: '快捷视图', items: hiddenBuiltinTabs }, ...moreGroups]
     : moreGroups
-  const moreName = journal ? '更多视图' : '视图选项'
+  const moreName = '更多视图'
 
   useEffect(() => {
     if (!panel) return
     const focusFrame = requestAnimationFrame(() => {
       if (panel === 'more') {
-        const firstAction = journal ? '.quick-view-menu button' : '.quick-view-save-entry'
-        rootRef.current?.querySelector<HTMLButtonElement>(firstAction)?.focus({ preventScroll: true })
+        rootRef.current?.querySelector<HTMLButtonElement>('.quick-view-menu button')?.focus({ preventScroll: true })
       }
     })
     const onPointerDown = (event: PointerEvent) => {
@@ -161,7 +161,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
       document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [panel, journal])
+  }, [panel])
 
   useLayoutEffect(() => {
     if (!panel || !overflowAnchorRef.current) return
@@ -173,13 +173,19 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
       setPopoverLeft(left - rect.left)
     }
     updatePosition()
+    const observer = new ResizeObserver(updatePosition)
+    const strip = rootRef.current?.querySelector('.quick-view-primary')
+    if (strip) observer.observe(strip)
     window.addEventListener('resize', updatePosition)
-    return () => window.removeEventListener('resize', updatePosition)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updatePosition)
+    }
   }, [panel])
 
   const closeViewMenu = () => {
     setPanel(null)
-    if (journal && panel === 'more') {
+    if (panel === 'more') {
       requestAnimationFrame(() => rootRef.current?.querySelector<HTMLButtonElement>('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true }))
     }
   }
@@ -191,7 +197,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
     navigate({
       pathname: pathWithWorkbenchMode(destination.pathname, mode),
       search: searchForWorkspaceViewTarget(location.search, destination),
-    }, journal ? { state: { journalView: { type: 'builtin', id: target.id } } } : undefined)
+    }, namedViews ? { state: { journalView: { type: 'builtin', id: target.id } } } : undefined)
   }
 
   const goSavedView = (view: SavedTradeView) => {
@@ -204,7 +210,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
     navigate({
       pathname: pathWithWorkbenchMode(paperAlias ? '/list' : path, mode),
       search: params.toString(),
-    }, journal ? { state: { journalView: { type: 'saved', id: view.id } } } : undefined)
+    }, namedViews ? { state: { journalView: { type: 'saved', id: view.id } } } : undefined)
   }
 
   const openSave = () => {
@@ -229,7 +235,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
       updatedAt: now,
     }
     const pinnedAtTop = saveTradeView(view)
-    if (journal) {
+    if (namedViews) {
       navigate({ pathname: location.pathname, search: location.search }, {
         replace: true, state: { journalView: { type: 'saved', id: view.id } },
       })
@@ -265,7 +271,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
   )
 
   return (
-    <div className={'quick-view-bar' + (journal ? ' quick-view-journal' : '')} ref={rootRef} aria-label={workspaceLabel}>
+    <div className="quick-view-bar" ref={rootRef} aria-label={workspaceLabel}>
       <div
         className="quick-view-primary"
         role="tablist"
@@ -286,7 +292,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
           const tabList = event.currentTarget
           tabList.querySelector<HTMLButtonElement>(`[data-tab-index="${nextIndex}"]`)?.focus({ preventScroll: true })
           next.select()
-          if (journal) requestAnimationFrame(() => tabList.querySelector<HTMLButtonElement>('[aria-selected="true"]')?.focus({ preventScroll: true }))
+          requestAnimationFrame(() => tabList.querySelector<HTMLButtonElement>('[aria-selected="true"]')?.focus({ preventScroll: true }))
         }}
       >
         {tabItems.map((item, index) => {
@@ -303,7 +309,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
               key={item.key}
               onClick={item.select}
             >
-              {journal && item.saved ? (
+              {item.saved ? (
                 <OverflowTooltip text={item.label}>
                   <span className="quick-view-saved-label">{item.label}</span>
                 </OverflowTooltip>
@@ -312,14 +318,12 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
           )
         })}
       </div>
-      {journal && (
-        <div ref={sizesRef} className="quick-view-sizes" aria-hidden="true">
-          {tabItems.map((item) => (
-            <span key={item.key} data-tab-size className={'quick-view-chip' + (item.active ? ' is-active' : '')}>{item.label}</span>
-          ))}
-          <span className="quick-view-more-label">{moreName}</span>
-        </div>
-      )}
+      <div ref={sizesRef} className="quick-view-sizes" aria-hidden="true">
+        {tabItems.map((item) => (
+          <span key={item.key} data-tab-size className={'quick-view-chip' + (item.active ? ' is-active' : '')}>{item.label}</span>
+        ))}
+        <span className="quick-view-more-label">{moreName}</span>
+      </div>
 
       <div className="quick-view-overflow-anchor" ref={overflowAnchorRef}>
         <Tooltip content={moreName} label={moreName} disabled={showMoreLabel}>
@@ -332,7 +336,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
             aria-haspopup="dialog"
             aria-expanded={panel !== null}
           >
-            {showMoreLabel ? <span className="quick-view-more-label">{moreName}</span> : <MoreHorizontal size={ICON_MD} />}
+            {showMoreLabel ? <span className="quick-view-more-label">{moreName}</span> : <DisclosureIcon kind="menu" expanded={panel !== null} size={ICON_SM} />}
           </button>
         </Tooltip>
 
@@ -344,7 +348,6 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
             aria-label={moreName}
             style={{ left: popoverLeft }}
           >
-            {!journal && saveEntry}
             {menuGroups.length > 0 && (
               <div className="quick-view-groups">
                 {menuGroups.map((group) => (
@@ -353,7 +356,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
                     {group.items.map((item) => (
                       <button type="button" key={item.id} onClick={() => goTarget(item)}>
                         <span>{item.label}</span>
-                        {(journal ? !activeSaved && activeView?.id === item.id : matchesWorkspaceView(item, location.pathname, location.search)) && <Check size={ICON_SM} />}
+                        {(namedViews ? !activeSaved && activeView?.id === item.id : matchesWorkspaceView(item, location.pathname, location.search)) && <Check size={ICON_SM} />}
                       </button>
                     ))}
                   </section>
@@ -388,7 +391,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
                     ) : (
                       <button type="button" className="quick-view-manage-name" onClick={() => goSavedView(view)}>
                         <span>{view.name}</span>
-                        {(journal ? activeSaved?.id === view.id : savedViewMatchesLocation(view, location.pathname, location.search)) && <Check size={ICON_SM} />}
+                        {(namedViews ? activeSaved?.id === view.id : savedViewMatchesLocation(view, location.pathname, location.search)) && <Check size={ICON_SM} />}
                       </button>
                     )}
                     <Tooltip content="重命名" label={`重命名 ${view.name}`}>
@@ -430,7 +433,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
                 ))}
               </section>
             )}
-            {journal && saveEntry}
+            {saveEntry}
           </div>
         )}
 

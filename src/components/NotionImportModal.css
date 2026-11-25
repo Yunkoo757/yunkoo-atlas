@@ -179,7 +179,7 @@
   margin: 0;
   font-size: var(--type-row-size);
   font-weight: var(--font-weight-normal);
-  color: var(--accent);
+  color: var(--accent-readable);
   display: flex;
   align-items: center;
   gap: var(--space-control-gap);

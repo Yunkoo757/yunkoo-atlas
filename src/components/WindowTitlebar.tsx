@@ -9,9 +9,8 @@ import { PRIMARY_NAV } from '@/lib/sidebarNav'
 import { findSettingsSection } from '@/lib/settingsNav'
 import { findTradeByRouteParam } from '@/lib/tradeRoute'
 import { isValidPeriodSlug, PERIOD_LABELS } from '@/lib/periods'
-import { savedViewMatchesLocation } from '@/lib/savedTradeViews'
-import { getActiveWorkspaceView } from '@/lib/workspaceViews'
-import { isReviewCaseScope, REVIEW_CASE_SCOPE_LABELS } from '@/lib/reviewCaseScope'
+import { getStrategyIcon } from '@/data/strategies'
+import { StrategiesNavIcon } from '@/icons/SettingsIcons'
 import { useStore } from '@/store/useStore'
 import { registerShortcutHandlers } from '@/shortcuts/engine'
 import { useShortcutHint } from '@/shortcuts/useShortcutHint'
@@ -23,7 +22,7 @@ import { OverflowTooltip, Tooltip } from './ui/Tooltip'
 import './WindowTitlebar.css'
 
 const sectionIcons: Record<string, AppIcon | undefined> = {
-  board: JournalNavIcon, trade: JournalNavIcon, period: JournalNavIcon, strategy: JournalNavIcon,
+  board: JournalNavIcon, trade: JournalNavIcon, period: JournalNavIcon, strategy: StrategiesNavIcon,
   notes: NoteNavIcon, backtests: BacktestNavIcon, settings: Settings2, 'trade-trash': Trash2, 'import-data-health': Database,
 }
 
@@ -35,12 +34,14 @@ function WindowActionHint({ actionId, label, children }: { actionId: string; lab
 }
 
 function useWindowLocation() {
-  const { pathname, search } = useLocation()
+  const { pathname } = useLocation()
   const { section, item } = useMatch('/:section/:item?/*')?.params ?? {}
   const page = PRIMARY_NAV.find(entry => entry.to === '/' + section)
   const settingsSection = section === 'settings' ? findSettingsSection(pathname) : undefined
   const journal = section === 'list' || section === 'board'
-  const label = useStore(state => {
+  const strategy = useStore(state => section === 'strategy' ? state.strategies.find(entry => entry.id === item) : undefined)
+  const listPage = journal || section === 'review-cases' || section === 'strategy' || (section === 'period' && !!item && isValidPeriodSlug(item))
+  const nativeLabel = useStore(state => {
     switch (section) {
       case 'trade': {
         const trade = findTradeByRouteParam(state.trades, item)
@@ -48,19 +49,7 @@ function useWindowLocation() {
       }
       case 'list':
       case 'board': return '交易日志'
-      case 'review-cases': {
-        const params = new URLSearchParams(search)
-        const saved = state.savedTradeViews.find(view => view.pinned && savedViewMatchesLocation(view, pathname, search))
-        if (saved) return saved.name
-        const strategy = params.get('strategyId')
-        const strategyName = strategy && state.strategies.find(s => s.id === strategy)?.name
-        if (strategyName) return strategyName
-        if (item && item !== 'all' && isReviewCaseScope(item)) return REVIEW_CASE_SCOPE_LABELS[item]
-        const active = getActiveWorkspaceView('case', pathname, search, state.display.sidebarWorkspaceItems)
-        if (active && active.id !== 'all') return active.label
-        if (pathname.endsWith('/board')) return '案例看板'
-        return active ? '全部案例' : '案例库'
-      }
+      case 'review-cases': return '案例库'
       case 'notes':
         return item ? state.quickNotes.find(note => note.id === item)?.title || UNTITLED_QUICK_NOTE : '随记'
       case 'backtests':
@@ -72,30 +61,34 @@ function useWindowLocation() {
       case 'period':
         return item && isValidPeriodSlug(item) ? PERIOD_LABELS[item] : '交易日志'
       case 'strategy':
-        return state.strategies.find(strategy => strategy.id === item)?.name ?? '策略'
+        return strategy?.name ?? '策略'
       case 'import-data-health': return '导入数据健康'
       case 'trade-trash': return '回收站'
       default: return page?.label ?? ''
     }
   })
   return {
-    label,
-    journal,
+    label: section === 'settings' ? '设置' : section === 'notes' ? '随记' : nativeLabel,
+    nativeLabel,
+    listPage,
+    ownsHeading: listPage || ['dashboard', 'backtests', 'notes', 'trade-trash', 'import-data-health'].includes(section ?? ''),
     recordRoute: section === 'trade',
-    moduleRoot: !item && (journal || !!page || section === 'notes' || section === 'backtests'),
-    Icon: settingsSection?.icon ?? page?.icon ?? sectionIcons[section ?? ''] ?? Layers,
+    moduleRoot: section === 'review-cases' || section === 'settings' || section === 'notes' || (!item && (journal || !!page || section === 'backtests')),
+    Icon: strategy ? getStrategyIcon(strategy.icon) : page?.icon ?? sectionIcons[section ?? ''] ?? Layers,
   }
 }
 
-export function WindowTitlebar({ onOpenSearch, searchOpen, sidebarCollapsed, detailToolbarRef }: {
+export function WindowTitlebar({ onOpenSearch, searchOpen, sidebarCollapsed, detailToolbarRef, pageToolbarRef }: {
+  pageToolbarRef?: Ref<HTMLDivElement>
   detailToolbarRef?: Ref<HTMLDivElement>
   onOpenSearch: (trigger: HTMLElement) => void
   searchOpen: boolean
   sidebarCollapsed: boolean
 }) {
   const navigate = useNavigate()
-  const { label, Icon, journal, moduleRoot, recordRoute } = useWindowLocation()
+  const { label, nativeLabel, Icon, listPage, moduleRoot, recordRoute, ownsHeading } = useWindowLocation()
   const title = label || 'Trader Atlas'
+  const Title = ownsHeading ? 'h1' : 'span'
   const sidebarLabel = sidebarCollapsed ? '展开左侧导航' : '折叠左侧导航'
   const sidebarToggle = useRef<HTMLButtonElement>(null)
   const toggleSidebar = useCallback(() => {
@@ -109,9 +102,9 @@ export function WindowTitlebar({ onOpenSearch, searchOpen, sidebarCollapsed, det
   // Chromium exposes the actual session history, including replace, traversal and reload.
   const history = (window as Window & { navigation?: { canGoBack: boolean; canGoForward: boolean } }).navigation
   useEffect(() => {
-    document.title = label ? `${label} — Trader Atlas` : 'Trader Atlas'
+    document.title = nativeLabel ? `${nativeLabel} — Trader Atlas` : 'Trader Atlas'
     return () => { document.title = 'Trader Atlas' }
-  }, [label])
+  }, [nativeLabel])
 
   return (
     <header className="window-titlebar" aria-label="窗口工具栏">
@@ -140,11 +133,10 @@ export function WindowTitlebar({ onOpenSearch, searchOpen, sidebarCollapsed, det
         <div className="window-context">
           <div className="window-location" aria-current="page">
             {(sidebarCollapsed || !moduleRoot) && <Icon className="window-location-icon" size={ICON_MD} aria-hidden />}
-            {journal
-              ? <h1 className="window-location-label">{title}</h1>
-              : <OverflowTooltip text={title}><span className="window-location-label">{title}</span></OverflowTooltip>}
+            <OverflowTooltip text={title}><Title className="window-location-label">{title}</Title></OverflowTooltip>
           </div>
-          {journal && <SaveStatusIndicator />}
+          {listPage && <SaveStatusIndicator />}
+          <div className="window-page-tools" ref={pageToolbarRef} />
         </div>
       )}
       <WindowActionHint actionId="global.commandPalette" label="搜索与命令">

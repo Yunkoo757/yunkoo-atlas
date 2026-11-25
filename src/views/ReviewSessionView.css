@@ -38,6 +38,7 @@
 }
 
 .review-session-topbar-end {
+  grid-column: -2;
   justify-self: end;
 }
 
@@ -723,8 +724,9 @@
   text-overflow: ellipsis;
 }
 
-.review-session-summary .is-positive { color: var(--pos); }
-.review-session-summary .is-negative { color: var(--neg); }
+.review-session-summary .is-positive { color: var(--result-positive); }
+.review-session-summary .is-negative { color: var(--result-negative); }
+.review-session-summary .is-opportunity { color: var(--result-opportunity); }
 .review-session-summary .ui-btn { margin-left: auto; }
 
 .review-session-reading {

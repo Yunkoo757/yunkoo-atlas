@@ -14,16 +14,3 @@ export const ICON_TOOLBAR = ICON_SM
 
 /** A1：列表/筛选等内容标外框 */
 export const ICON_TILE = ICON_MD
-
-/** A1：软色底透明度（与 --icon-tile-tint 一致） */
-export const ICON_TILE_TINT = 20
-
-/** 内容标内字形 ≈ tile × 0.75 */
-export function iconTileGlyphSize(tile = ICON_TILE): number {
-  return Math.max(10, Math.round(tile * 0.75))
-}
-
-/** 品牌色 → A1 软色底 */
-export function softIconBackground(color: string, tint = ICON_TILE_TINT): string {
-  return `color-mix(in srgb, ${color} ${tint}%, transparent)`
-}

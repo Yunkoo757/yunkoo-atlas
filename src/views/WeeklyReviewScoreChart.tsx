@@ -16,6 +16,7 @@ export function WeeklyReviewScoreChart({ data }: { data: WeeklyReviewTrendPoint[
             width={24}
           />
           <Tooltip
+            cursor={{ stroke: 'var(--border-strong)' }}
             contentStyle={{
               background: 'var(--popover-bg)',
               border: '1px solid var(--border-default)',
@@ -29,11 +30,12 @@ export function WeeklyReviewScoreChart({ data }: { data: WeeklyReviewTrendPoint[
             type="monotone"
             dataKey="score"
             name="平均评分"
-            stroke="var(--accent)"
+            stroke="var(--chart-series)"
             strokeWidth={2}
             connectNulls
             isAnimationActive={false}
-            dot={{ r: 3 }}
+            dot={{ r: 3, fill: 'var(--surface-elevated)' }}
+            activeDot={{ r: 4, fill: 'var(--chart-series)', stroke: 'var(--surface-elevated)' }}
           />
         </LineChart>
       </ResponsiveContainer>

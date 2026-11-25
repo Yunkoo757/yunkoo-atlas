@@ -1097,7 +1097,7 @@ export function testSidebarWorkspaceResolvesEveryTargetKindAndKeepsInvalidRefere
 
   assert(paper?.pathname === '/sim' && paper.icon === 'paper', 'paper 应解析为模拟回测目标 /sim')
   assert(saved?.label === '重命名后的亏损' && !saved.invalid, '保存视图应实时显示重命名后的名称')
-  assert(resolvedStrategy?.label === strategy.name && !resolvedStrategy.invalid, '策略应解析当前名称')
+  assert(resolvedStrategy?.label === strategy.name && resolvedStrategy.strategy === strategy && !resolvedStrategy.invalid, '策略入口应同时使用当前名称及自定义图标')
   assert(
     mistakes?.pathname === '/review-cases/mistakes' && mistakes.icon === 'case-view',
     '案例错题应解析到固定案例路径',
@@ -2331,6 +2331,18 @@ export function testSymbolIconsResolveDefaultsAndOverrides(): void {
     eth.type === 'svg' && eth.svgId === 'eth-diamond',
     'A1：以太坊默认使用官方菱形标识，不再使用临时字符',
   )
+
+  const alternateQuote = resolveSymbolIcon('XBT/USDC')
+  assert(alternateQuote.type === 'glyph' && btc.type === 'glyph' &&
+    alternateQuote.glyph === btc.glyph && alternateQuote.color === btc.color, '同一基础资产的历史交易对沿用可识别的品种标记')
+
+  const silver = resolveSymbolIcon('XAGEUR')
+  assert(silver.type === 'glyph' && silver.glyph === 'Ag', '历史白银交叉盘使用白银预设')
+
+  const unknownA = resolveSymbolIcon('OAKUSDT')
+  const unknownB = resolveSymbolIcon('ASHUSDT')
+  assert(unknownA.type === 'glyph' && unknownB.type === 'glyph' &&
+    unknownA.color === unknownB.color && unknownA.glyph !== unknownB.glyph, '未知品种使用不同缩写和统一中性色')
 
   const custom = resolveSymbolIcon('BTCUSDT', {
     BTCUSDT: {

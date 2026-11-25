@@ -62,6 +62,27 @@ async function run() {
     mount.style.width = '1000px'
     await waitFor(() => more.textContent === '' && tabList.querySelectorAll('button').length === 6, '扩大轨道应立即恢复全部主视图')
 
+    mount.style.width = '245px'
+    useStore.setState({ savedTradeViews: [{
+      id: 'saved-case', name, pathname: '/review-cases/focus', search: { symbol: 'XAUUSD' },
+      pinned: false, order: 0, createdAt: '', updatedAt: '',
+    }] })
+    flushSync(() => root.render(
+      <MemoryRouter key="case" initialEntries={['/review-cases/focus/board?symbol=XAUUSD']}>
+        <QuickViewBar kind="case" />
+      </MemoryRouter>,
+    ))
+    const caseTab = () => mount.querySelector<HTMLButtonElement>('button[role="tab"][aria-selected="true"]')
+    await waitFor(() => caseTab()?.textContent === name, '案例看板的未固定长视图应保留在窄工具栏')
+    mount.querySelector<HTMLButtonElement>('.quick-view-overflow')!.click()
+    await waitFor(() => !!mount.querySelector('.quick-view-menu'), '案例的更多视图应能展开')
+    const mistakes = Array.from(mount.querySelectorAll<HTMLButtonElement>('.quick-view-group button'))
+      .find(button => button.textContent === '错题')
+    if (!mistakes) throw new Error('案例收纳的范围必须可以从更多视图打开')
+    mistakes.click()
+    await waitFor(() => caseTab()?.textContent === '错题' && document.activeElement === caseTab(), '切换案例范围后应把焦点还给当前视图')
+    mount.style.width = '1000px'
+
     // 在明确选中的内置视图上重复保存，选中身份应转交给新名称。
     useStore.setState({ savedTradeViews: [{
       id: 'old-paper', name: '旧模拟视图', pathname: '/sim', search: {},

@@ -122,7 +122,7 @@
 }
 
 .ui-date-grid button.is-today {
-  color: color-mix(in srgb, var(--accent) 72%, var(--accent-text));
+  color: var(--accent-readable);
 }
 
 .ui-date-grid button[aria-selected='true'] {
@@ -156,7 +156,7 @@
 
 .ui-date-footer .ui-date-today {
   margin-left: auto;
-  color: color-mix(in srgb, var(--accent) 72%, white);
+  color: var(--accent-readable);
 }
 
 .ui-date-head .ui-date-heading {

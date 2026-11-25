@@ -1,82 +1,52 @@
 .quick-view-bar {
   --quick-view-control-height: var(--toolbar-chip-height);
-  --quick-view-surface-rest: var(--surface-control);
-  --quick-view-surface-hover: var(--surface-control-hover);
-  --quick-view-border-rest: var(--surface-control-border);
-  --quick-view-border-hover: var(--surface-control-border-active);
-
   position: relative;
   display: flex;
   align-items: center;
   min-width: 0;
-  flex: 1 1 auto;
-  gap: var(--space-control-gap);
-  overflow: visible;
+  gap: var(--sp-1);
 }
 
 .quick-view-primary {
   display: flex;
   align-items: center;
   min-width: 0;
-  gap: var(--space-control-gap);
-  padding-block: var(--sp-1);
-  margin-block: calc(-1 * var(--sp-1));
-  overflow-x: auto;
-  scrollbar-width: none;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
+  gap: var(--sp-1);
+  overflow: hidden;
 }
 
 .quick-view-chip,
 .quick-view-overflow {
-  position: relative;
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
+  min-width: 0;
   height: var(--quick-view-control-height);
   color: var(--list-text-secondary);
   font-family: var(--font-ui);
   font-size: var(--type-row-size);
   font-weight: var(--type-list-secondary-weight);
   line-height: var(--type-row-line-height);
-  /* 描边用 border（盒内），避免外扩 shadow / ::after 在非整数 DPR 或 overflow 下被裁 */
-  border: 1px solid var(--quick-view-border-rest);
-  border-radius: var(--radius-full);
-  background: var(--quick-view-surface-rest);
-  box-shadow: none;
-  transition:
-    border-color var(--motion-state),
-    background-color var(--motion-state),
-    color var(--motion-state),
-    box-shadow var(--motion-state),
-    opacity var(--motion-state);
-}
-
-.quick-view-chip::after,
-.quick-view-overflow::after {
-  position: absolute;
-  inset: 0;
-  content: '';
-  pointer-events: none;
-  border-radius: var(--radius-full);
-  /* 保留伪层契约；可见描边由 border 承担，避免双线与裁切 */
-  box-shadow: var(--surface-control-shadow-active);
-  opacity: 0;
+  border: 0;
+  border-radius: var(--radius-6);
+  background: transparent;
+  transition: background-color var(--motion-state), color var(--motion-state);
 }
 
 .quick-view-chip {
-  padding: 0 var(--field-padding-inline);
+  padding-inline: var(--sp-2);
   white-space: nowrap;
+}
+
+.quick-view-chip[aria-selected='true'] {
+  flex-shrink: 1;
 }
 
 .quick-view-chip:hover,
 .quick-view-overflow:hover {
   color: var(--list-text-primary);
-  background: var(--quick-view-surface-hover);
-  border-color: var(--quick-view-border-hover);
-  box-shadow: none;
+  background: var(--surface-control-hover);
 }
 
 .quick-view-chip.is-active,
@@ -84,13 +54,6 @@
   color: var(--list-text-strong);
   font-weight: var(--type-list-primary-weight);
   background: var(--surface-control-active);
-  border-color: var(--surface-control-border-active);
-  box-shadow: none;
-}
-
-.quick-view-saved {
-  /* 文本截断放在内部 label，避免 chip 自身 overflow 裁掉 ::after ring */
-  max-width: 136px;
 }
 
 .quick-view-saved-label {
@@ -102,6 +65,10 @@
 
 .quick-view-overflow {
   width: var(--quick-view-control-height);
+}
+
+.quick-view-overflow.has-label {
+  width: auto;
 }
 
 .quick-view-overflow-anchor {
@@ -281,59 +248,6 @@
   opacity: 0.45;
 }
 
-@media (max-width: 1024px) {
-  .quick-view-saved {
-    display: none;
-  }
-}
-
-
-.quick-view-journal,
-.quick-view-journal .quick-view-primary,
-.quick-view-sizes {
-  gap: var(--sp-1);
-}
-
-.quick-view-journal .quick-view-primary {
-  flex: 0 1 auto;
-  overflow: hidden;
-}
-
-.quick-view-journal .quick-view-chip,
-.quick-view-journal .quick-view-overflow {
-  min-width: 0;
-  border: 0;
-  border-radius: var(--radius-6);
-  background: transparent;
-}
-
-.quick-view-journal .quick-view-chip {
-  padding-inline: var(--sp-2);
-}
-
-.quick-view-journal .quick-view-saved {
-  display: inline-flex;
-  max-width: none;
-}
-
-.quick-view-journal .quick-view-chip[aria-selected='true'] {
-  flex-shrink: 1;
-}
-
-.quick-view-journal .quick-view-chip:hover,
-.quick-view-journal .quick-view-overflow:hover {
-  background: var(--surface-control-hover);
-}
-
-.quick-view-journal .quick-view-chip.is-active,
-.quick-view-journal .quick-view-overflow.is-active {
-  background: var(--surface-control-active);
-}
-
-.quick-view-journal .quick-view-overflow.has-label {
-  width: auto;
-}
-
 .quick-view-more-label {
   padding-inline: var(--sp-2);
   font-family: var(--font-ui);
@@ -344,6 +258,7 @@
 }
 
 .quick-view-sizes {
+  gap: var(--sp-1);
   position: absolute;
   display: flex;
   width: 0;
@@ -353,12 +268,12 @@
   pointer-events: none;
 }
 
-.quick-view-journal .quick-view-menu > .quick-view-groups:first-child {
+.quick-view-menu > .quick-view-groups:first-child {
   margin-top: 0;
   padding-top: 0;
   border-top: 0;
 }
 
-.quick-view-journal .quick-view-save-entry:not(:first-child) {
+.quick-view-save-entry:not(:first-child) {
   margin-top: var(--sp-2);
 }

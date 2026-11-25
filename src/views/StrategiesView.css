@@ -33,10 +33,6 @@
   background: var(--bg-hover);
 }
 
-.st-row > .strategy-icon {
-  color: var(--text-tertiary);
-}
-
 .st-row-main {
   flex: 1;
   min-width: 0;

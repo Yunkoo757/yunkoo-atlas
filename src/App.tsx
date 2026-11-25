@@ -32,8 +32,7 @@ import { Sidebar } from './components/Sidebar'
 import { WindowTitlebar } from './components/WindowTitlebar'
 import { TradeWorkspaceContext } from './components/TradeWorkspaceContext'
 import { getJournalViewState } from './lib/journalQuickViews'
-import { Toolbar } from './components/ui/Toolbar'
-import { SaveStatusIndicator } from './components/SaveStatusIndicator'
+import { WindowToolbarHost } from './components/ui/Toolbar'
 import { AppFrame } from './components/ui/AppFrame'
 import { StageRolloverBanner } from './components/StageRolloverBanner'
 import { CommandPalette } from './components/CommandPalette'
@@ -348,9 +347,6 @@ export function TradeLogPage() {
       title="交易日志"
       filter={filter}
       listPath="/list"
-      header={!getDesktopPlatform() && (
-        <Toolbar title="交易日志" actions={<SaveStatusIndicator />} />
-      )}
     />
   )
 }
@@ -499,6 +495,7 @@ async function waitForUiFonts(): Promise<void> {
 
 function Shell() {
   const desktop = getDesktopPlatform()
+  const [pageToolbarHost, setPageToolbarHost] = useState<HTMLDivElement | null>(null)
   const [detailToolbarHost, setDetailToolbarHost] = useState<HTMLDivElement | null>(null)
   const sidebarCollapsed = useStore(state => state.display.sidebarCollapsed === true) && Boolean(desktop)
   const [cmdkOpen, setCmdkOpen] = useState(false)
@@ -529,10 +526,11 @@ function Shell() {
   return (
     <>
       <AppFrame
-        titlebar={desktop && <WindowTitlebar detailToolbarRef={setDetailToolbarHost} onOpenSearch={openCmdk} searchOpen={cmdkOpen} sidebarCollapsed={sidebarCollapsed} />}
+        titlebar={desktop && <WindowTitlebar pageToolbarRef={setPageToolbarHost} detailToolbarRef={setDetailToolbarHost} onOpenSearch={openCmdk} searchOpen={cmdkOpen} sidebarCollapsed={sidebarCollapsed} />}
         sidebarCollapsed={sidebarCollapsed}
         sidebar={<Sidebar showSearch={!desktop} onOpenSearch={() => openCmdk()} />}
       >
+        <WindowToolbarHost.Provider value={pageToolbarHost}>
         <StageRolloverBanner />
         <RouteErrorBoundary resetKey={`${location.pathname}${location.search}`}>
           <Suspense fallback={<DelayedRouteFallback />}>
@@ -610,6 +608,7 @@ function Shell() {
             </Routes>
           </Suspense>
         </RouteErrorBoundary>
+        </WindowToolbarHost.Provider>
       </AppFrame>
       <CommandPalette
         open={cmdkOpen}

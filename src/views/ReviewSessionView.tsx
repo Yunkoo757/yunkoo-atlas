@@ -1,7 +1,9 @@
+import { tradeMetricTone } from '@/lib/tradeRowPresentation'
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { CaseLibraryNavIcon, JournalNavIcon, PracticeNavIcon } from '@/icons/NavigationIcons'
 import { ICON_2XL, ICON_LG, ICON_MD, ICON_SM, ICON_XL } from '@/icons/iconSize'
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Toolbar, WindowToolbarHost } from '@/components/ui/Toolbar'
+import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
@@ -239,6 +241,7 @@ export function splitReviewNoteHtml(html: string): ReviewNotePresentation {
 }
 
 export function ReviewSessionView() {
+  const windowToolbar = useContext(WindowToolbarHost)
   const navigate = useNavigate()
   const trades = useStore((state) => state.trades)
   const liveStages = useStore((state) => state.liveStages)
@@ -768,28 +771,37 @@ export function ReviewSessionView() {
     )
   }
 
+  const hasRound = !!session?.ids.length
+  const exitButton = (
+    <Button type="button" variant="ghost" className="review-session-back" onClick={exitReviewSession}>
+      <ChevronLeft size={ICON_MD} aria-hidden />
+      <span>{hasRound ? '退出复盘' : '返回交易日志'}</span>
+    </Button>
+  )
+
   return (
     <div className="review-session-view">
-      <header className="review-session-topbar">
-        <Button type="button" variant="ghost" className="review-session-back" onClick={exitReviewSession}>
-          <ChevronLeft size={ICON_MD} aria-hidden />
-          <span>{session && session.ids.length > 0 ? '退出复盘' : '返回'}</span>
-        </Button>
-        <div className="review-session-heading">
-          <PracticeNavIcon size={ICON_MD} aria-hidden />
-          <strong>{session?.decisionPractice ? '先判断' : '随机复盘'}</strong>
-        </div>
-        {session && session.ids.length > 0 && !roundEnded ? (
-          <div className="review-session-topbar-end">
-            <span className="review-session-assessed">已评 {assessedCount}</span>
-            <span className="review-session-progress" aria-live="polite">
-              {session.cursor + 1} / {session.ids.length}
-            </span>
-            {!session.decisionPractice && <Button type="button" variant="bordered" onClick={() => openSettings(session.filters)}>调整范围</Button>}
-            <Button type="button" variant="bordered" onClick={() => clearActiveSession(session.decisionPractice ? filters : reviewFiltersForNextRound(session))}>结束本轮</Button>
-          </div>
-        ) : <span />}
-      </header>
+      {windowToolbar && !hasRound ? (
+        <Toolbar title="随机复盘" actions={exitButton} />
+      ) : (
+        <header className="review-session-topbar">
+          {exitButton}
+          {(!windowToolbar || session?.decisionPractice) && <div className="review-session-heading">
+            <PracticeNavIcon size={ICON_MD} aria-hidden />
+            <strong>{session?.decisionPractice ? '先判断' : '随机复盘'}</strong>
+          </div>}
+          {session && session.ids.length > 0 && !roundEnded ? (
+            <div className="review-session-topbar-end">
+              <span className="review-session-assessed">已评 {assessedCount}</span>
+              <span className="review-session-progress" aria-live="polite">
+                {session.cursor + 1} / {session.ids.length}
+              </span>
+              {!session.decisionPractice && <Button type="button" variant="bordered" onClick={() => openSettings(session.filters)}>调整范围</Button>}
+              <Button type="button" variant="bordered" onClick={() => clearActiveSession(session.decisionPractice ? filters : reviewFiltersForNextRound(session))}>结束本轮</Button>
+            </div>
+          ) : <span />}
+        </header>
+      )}
 
       {persistenceWarning ? (
         <div className="review-session-warning" role="status">
@@ -1228,10 +1240,6 @@ function ReviewSessionEmptySelection({ onAdjust }: { onAdjust: () => void }) {
   )
 }
 
-function metricTone(value: number | null | undefined): 'zero' | 'positive' | 'negative' {
-  return value == null || value === 0 ? 'zero' : value > 0 ? 'positive' : 'negative'
-}
-
 function ReviewSessionAssessmentButton({
   option,
   onAssess,
@@ -1329,9 +1337,9 @@ function ReviewSessionItem({
   legacyCashCurrencyAssumption: import('@/storage/types').LegacyCashCurrencyAssumption | null
   originLabel: string
 }) {
-  const rTone = metricTone(trade.rMultiple)
-  const rawPnlTone = metricTone(trade.pnl)
-  const pnlTone = privacyMode ? 'zero' : rawPnlTone
+  const rTone = tradeMetricTone(trade.status, trade.rMultiple)
+  const rawPnlTone = tradeMetricTone(trade.status, trade.pnl)
+  const pnlTone = privacyMode ? 'neutral' : rawPnlTone
   const skipShortcut = useShortcutHint(
     'reviewSession.skip',
     trade.tradeKind === 'case' ? '跳过' : '下一条',

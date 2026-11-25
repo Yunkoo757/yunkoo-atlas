@@ -2,7 +2,7 @@
   position: relative;
 }
 
-.ui-filter-bar-journal .display-menu-root .tb-btn {
+.ui-filter-actions .display-menu-root .tb-btn {
   width: var(--toolbar-chip-height);
   height: var(--toolbar-chip-height);
   padding: 0;
@@ -123,5 +123,5 @@
 }
 
 .display-item svg {
-  color: var(--accent);
+  color: var(--accent-readable);
 }

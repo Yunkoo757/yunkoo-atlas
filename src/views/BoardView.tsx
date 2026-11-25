@@ -1,5 +1,5 @@
 import { BoardCardTags } from '@/components/trades/BoardCardTags'
-import { ICON_MD } from '@/icons/iconSize'
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -18,13 +18,14 @@ import { useStore } from '@/store/useStore'
 import {
   REVIEW_CATEGORY_META,
   CASE_TYPE_META,
+  CONVICTION_META,
   STATUS_META,
   resolveTimeframe,
   type TradeStatus,
   type Trade,
 } from '@/data/trades'
 import type { ListFilter } from '@/lib/tradeFilters'
-import { resolveTradeRowResultPresentation } from '@/lib/tradeRowPresentation'
+import { resolveTradeRowResultPresentation, tradeMetricTone } from '@/lib/tradeRowPresentation'
 import { toast } from '@/lib/toast'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
@@ -140,7 +141,6 @@ export function BoardView({
         filter={filter}
         trades={trades}
         strategies={strategies}
-        showFilters
         onOpenResult={id => onOpen(id, 'result')}
       />
       <div className="board-scroll">
@@ -361,7 +361,7 @@ function BoardColumnBody({
                         : REVIEW_CATEGORY_META[t.reviewCategory].label}
                     </span>
                   ) : (
-                    <ConvictionIcon conviction={t.conviction} />
+                    <ConvictionIcon conviction={t.conviction} label={`信心度：${CONVICTION_META[t.conviction].label}`} />
                   )}
                 </div>
                 <div className="bd-card-title">
@@ -373,11 +373,11 @@ function BoardColumnBody({
                   {result.r.state !== 'not-applicable' ? <span
                     className="bd-card-result"
                     data-value-state={result.r.state}
-                    data-value-sign={result.r.state === 'value' ? t.rMultiple != null && t.rMultiple > 0 ? 'positive' : 'negative' : undefined}
+                    data-value-sign={result.r.state === 'value' ? tradeMetricTone(t.status, t.rMultiple) : undefined}
                   >{result.r.text}</span> : null}
                 </div>
                 <div className="bd-card-strategy">
-                  <StrategyLabel strategyId={t.strategyId} strategies={strategies} />
+                  <StrategyLabel strategyId={t.strategyId} strategies={strategies} size={ICON_SM} variant="nav" />
                 </div>
                 <div className="bd-case-tags">
                   <span className="bd-case-tag bd-card-timeframe">

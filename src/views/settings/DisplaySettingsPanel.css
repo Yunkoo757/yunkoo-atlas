@@ -115,7 +115,7 @@
   display: grid;
   place-items: center;
   width: 24px;
-  color: var(--accent);
+  color: var(--accent-readable);
 }
 
 .display-settings-section > .ui-segmented { max-width: 100%; flex-wrap: wrap; }

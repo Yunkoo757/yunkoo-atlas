@@ -135,7 +135,7 @@
 .symbols-preset {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--sp-1);
   min-height: 36px;
   padding: 6px var(--sp-2);
   color: var(--text-secondary);
@@ -153,15 +153,10 @@
   background: var(--bg-hover);
 }
 
-.symbols-preset-swatch {
-  display: inline-grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: var(--radius-full);
-  font-size: var(--type-caption-size);
-  font-weight: var(--font-weight-semibold);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 8%, transparent);
+.symbols-preset-check {
+  flex-shrink: 0;
+  margin-inline-start: auto;
+  color: var(--text-secondary);
 }
 
 .symbols-catalog-note {

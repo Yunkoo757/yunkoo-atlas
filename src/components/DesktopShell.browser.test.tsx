@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter, Link, MemoryRouter } from 'react-router-dom'
 import '../styles/tokens.css'
@@ -8,7 +9,7 @@ import { WINDOW_TITLEBAR_HEIGHT } from '../lib/windowBounds'
 import { useStore } from '../store/useStore'
 import { useShortcutHost } from '../shortcuts/ShortcutHost'
 import { AppFrame } from './ui/AppFrame'
-import { Toolbar } from './ui/Toolbar'
+import { Toolbar, WindowToolbarHost } from './ui/Toolbar'
 
 declare global {
   interface Window {
@@ -25,14 +26,18 @@ function nextFrame(): Promise<void> {
 }
 
 function DesktopFixture({ onSearch }: { onSearch: (button: HTMLElement) => void }) {
+  const [host, setHost] = useState<HTMLDivElement | null>(null)
   const collapsed = useStore(state => state.display.sidebarCollapsed === true)
   useShortcutHost({ onToggleCmdk: () => {} })
   return (
     <AppFrame
-      titlebar={<WindowTitlebar onOpenSearch={onSearch} searchOpen={false} sidebarCollapsed={collapsed} />}
+      titlebar={<WindowTitlebar pageToolbarRef={setHost} onOpenSearch={onSearch} searchOpen={false} sidebarCollapsed={collapsed} />}
       sidebarCollapsed={collapsed}
       sidebar={<Sidebar showSearch={false} />}
     >
+      <WindowToolbarHost.Provider value={host}>
+        <Toolbar title="测试页标题" context="当前范围" actions={<button data-test-action>页面操作</button>} />
+      </WindowToolbarHost.Provider>
       <Link to="/review-cases/mistakes" data-window-case>错题</Link>
       <Link to="/settings/risk" data-window-settings>风险管理</Link>
       <input aria-label="测试编辑" />
@@ -129,6 +134,7 @@ async function run(): Promise<void> {
   const bar = titlebar.getBoundingClientRect()
   assert(bar.height === WINDOW_TITLEBAR_HEIGHT && bar.bottom === pane.top, '窗口工具栏必须直接衔接内容窗格')
   assert(title.getBoundingClientRect().left === pane.left, '位置标题必须与内容窗格对齐')
+  assert(!document.querySelector('main .ui-toolbar') && !!titlebar.querySelector('[data-test-action]'), '桌面页面操作应由窗口栏承接，内容区不重复显示标题行')
   assert(!title.closest('button') && title.tabIndex === -1, '标题应为静态文本')
   assert(title.querySelector('h1') && !title.querySelector('svg'), '侧栏展开时，顶栏以单独的标题标识日志')
   toggle.click()
@@ -143,22 +149,22 @@ async function run(): Promise<void> {
   assert(!titlebar.querySelector('[data-workspace-page="log"]'), '数据范围属于日志工具栏')
   search.click()
   assert(opener === search, '搜索入口必须传递焦点返回目标')
-  async function expectTitle(label: string) {
-    for (let i = 0; i < 60 && document.title !== label + ' — Trader Atlas'; i++) await nextFrame()
-    assert(document.title === label + ' — Trader Atlas' && title.textContent?.includes(label), '位置应同步到窗口及工具栏：' + label)
+  async function expectTitle(label: string, native = label) {
+    for (let i = 0; i < 60 && document.title !== native + ' — Trader Atlas'; i++) await nextFrame()
+    assert(document.title === native + ' — Trader Atlas' && title.textContent?.includes(label), '位置应同步到窗口及工具栏：' + label)
   }
   document.querySelector<HTMLAnchorElement>('[data-window-case]')!.click()
-  await expectTitle('错题')
+  await expectTitle('案例库')
   assert(!back.disabled, '进入案例后可以后退')
   back.click()
   await expectTitle('交易日志')
   assert(!forward.disabled, '回到日志后可以前进')
   forward.click()
-  await expectTitle('错题')
+  await expectTitle('案例库')
   back.click()
   await expectTitle('交易日志')
   document.querySelector<HTMLAnchorElement>('[data-window-settings]')!.click()
-  await expectTitle('风险管理')
+  await expectTitle('设置', '风险管理')
   assert(forward.disabled, '从历史中间切换页面应丢弃旧的前进分支')
 
   const nav = document.getElementById(toggle.getAttribute('aria-controls')!)!
@@ -176,7 +182,7 @@ async function run(): Promise<void> {
   assert(nav.inert && document.activeElement === input, '在编辑区域输入快捷键不得收展侧栏')
   toggle.click()
   await nextFrame()
-  assert(!nav.inert && title.textContent === '风险管理', '展开应恢复原导航并保留当前页面')
+  assert(!nav.inert && title.textContent === '设置', '展开应恢复原导航并保留当前页面')
 
   root.unmount()
   document.documentElement.style.removeProperty('--window-titlebar-height')

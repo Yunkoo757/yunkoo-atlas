@@ -36,8 +36,8 @@
   --direction-short-bg: color-mix(in srgb, var(--direction-short-text) 10%, transparent);
   --direction-short-border: color-mix(in srgb, var(--direction-short-text) 28%, transparent);
   /* 高密度列表只保留方向辨识，不让多空与最终结果争夺注意力。 */
-  --direction-list-long: lch(65% 8 225);
-  --direction-list-short: lch(65% 8 305);
+  --direction-list-long: lch(65% 12 225);
+  --direction-list-short: lch(65% 12 305);
 
   /* —— 全局浮层层级 —— */
   --z-local-base: 0;
@@ -318,19 +318,6 @@
   --text-nav-rest: var(--text-content-scan);
   --text-nav-hover: var(--text-content-supporting);
   --text-nav-active: var(--text-content-strong);
-  /* 侧栏当前位置：文字保持中性，图标用低面积色相帮助快速定位模块。 */
-  --nav-icon-today: lch(80% 90 85);
-  --nav-icon-notes: lch(72% 48 175);
-  --nav-icon-trades: lch(66% 42 252);
-  --nav-icon-cases: lch(68% 52 310);
-  --nav-icon-weekly: lch(70% 44 200);
-  --nav-icon-review-session: lch(58% 55 288);
-  --nav-icon-dashboard: lch(68% 46 145);
-  --nav-icon-ws-active: lch(78% 72 88);
-  --nav-icon-ws-favorites: lch(80% 90 85);
-  --nav-icon-ws-missed: lch(66% 80 48);
-  --nav-icon-ws-paper: lch(62% 52 275);
-  --nav-icon-ws-case: lch(68% 50 310);
   /* 持久导航使用统一强调色；模块身份不再制造彩虹式选中态。 */
   --nav-active-icon: color-mix(in srgb, var(--accent-readable) 58%, var(--text-nav-active));
   --text-list-strong: var(--text-content-strong);
@@ -347,16 +334,17 @@
 
   /* 品牌 */
   --accent-hover: color-mix(in srgb, var(--accent) 90%, black 10%);
-  --accent-readable: color-mix(in srgb, var(--accent) 84%, white 16%);
+  --accent-readable: color-mix(in srgb, var(--accent) 68%, white);
   --accent-text: #fff;
+  --chart-series: lch(67% 24 277);
 
   /* 业务语义色（交易盈亏） */
-  --pos: lch(72% 45 152);   /* 盈利绿 */
-  --neg: lch(66% 58 28);    /* 亏损红，与盈利绿保持接近的视觉权重 */
+  --pos: lch(72% 36 152);   /* 盈利绿 */
+  --neg: lch(68% 45 28);    /* 亏损红，与盈利绿保持接近的视觉权重 */
   --neg-strong: color-mix(in srgb, var(--neg) 88%, white 12%);
   --warn: lch(80% 70 85);   /* 警告黄 */
   --pending: lch(68% 40 252); /* 待处理蓝 */
-  --opportunity: #8290c9; /* 错过机会的复盘结果，不计入实盘绩效 */
+  --opportunity: lch(65% 18 290); /* 错过机会的复盘结果，不计入实盘绩效 */
 
   /* 最终结果是高密度列表唯一允许保持完整强度的业务色。 */
   --result-positive: var(--pos);
@@ -386,12 +374,14 @@
   --faint-bg: color-mix(in srgb, #fff 4%, transparent); /* 极淡背景，用于模糊标签 */
 
   /* 警告状态色（用于危险操作、错误提示等） */
-  --warn-action: lch(55 55 35); /* 橙黄色，用于警告按钮 */
+  --warn-action: lch(72% 34 75); /* 准备事项与需要注意的操作 */
   --warn-action-border: color-mix(in srgb, var(--warn-action) 35%, transparent);
   --warn-action-bg: color-mix(in srgb, var(--warn-action) 8%, transparent);
   --error-action: lch(55 62 28); /* 错误红，用于错误按钮 */
   --error-action-bg: color-mix(in srgb, var(--error-action) 6%, transparent);
   --error-action-border: color-mix(in srgb, var(--error-action) 10%, transparent);
+  --danger-solid-bg: lch(44% 41 28);
+  --danger-solid-hover: lch(48% 42 28);
   /* 危险实心按钮的禁用态必须保持可读，但不能继续表现为可执行的强红 CTA。 */
   --danger-solid-disabled-bg: color-mix(in srgb, var(--neg) 12%, var(--bg-surface));
   --danger-solid-disabled-border: color-mix(in srgb, var(--neg) 18%, var(--border-subtle));
@@ -406,17 +396,16 @@
   --overlay-dark: lch(0 0 0 / 0.82);
 
   /* 星标金；置顶关注另用雾蓝，避免与星标同色抢视线 */
-  --star-color: #f2c94c;
+  --star-color: lch(77% 43 86);
 
   /* 交易状态色（StatusIcon / 表格 chip 共用） */
-  --status-open: color-mix(in srgb, var(--pending) 72%, var(--text-secondary));
+  --status-planned: lch(64% 1.2 272);
+  --status-even: var(--text-content-scan);
+  --status-open: color-mix(in srgb, var(--pending) 68%, var(--text-secondary));
   --status-win: color-mix(in srgb, var(--pos) 66%, var(--text-secondary));
   --status-loss: color-mix(in srgb, var(--neg) 66%, var(--text-secondary));
   --status-completed: var(--status-win);
-  /* 取消状态使用中性灰（非交易亏损）；亏损图标见 StatusIcon → --neg */
-  /* 错过：低饱和暖石色，勿与亏损红或警告橙抢视线 */
-  --status-missed: lch(58% 14 55);
-  --status-urgent: var(--warn-action);
+  --status-missed: var(--opportunity);
 
   /* accent 辅助 token（组件用） */
   --accent-bg: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -449,10 +438,14 @@
   --space-page-inset-wide: var(--page-inset-wide);
   --space-optical-icon-gap: 7px;
 
-  /* 内容标 tile（A1：品种/策略同级软色 chip） */
-  --icon-tile: var(--icon-md);
-  --icon-tile-tint: 20%;
-  --icon-tile-radius: var(--radius-6);
+  /* 品种识别色。交易方向和交易结果各用独立的语义色。 */
+  --instrument-gold: lch(74% 27 87);
+  --instrument-bitcoin: lch(72% 32 59);
+  --instrument-euro: lch(72% 19 249);
+  --instrument-sterling: lch(70% 18 335);
+  --instrument-ether: lch(71% 23 281);
+  --instrument-mint: lch(72% 18 174);
+  --instrument-silver: lch(72% 5 245);
 
   /* 圆角别名 */
   --radius-4: 4px;

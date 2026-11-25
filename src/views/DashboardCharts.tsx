@@ -97,13 +97,15 @@ export function EquityChart({
             dataKey="equity"
             baseValue={0}
             isAnimationActive={false}
-            stroke="var(--accent-readable)"
+            stroke="var(--chart-series)"
             strokeWidth={2}
-            fill="var(--accent)"
+            fill="var(--chart-series)"
             fillOpacity={0.10}
             dot={series.length === 1 ? { r: 3, strokeWidth: 1, fill: 'var(--surface-elevated)' } : false}
             activeDot={{
               r: 4,
+              fill: 'var(--chart-series)',
+              stroke: 'var(--surface-elevated)',
               cursor: 'pointer',
               onClick: (_event, dot) => {
                 const point = (dot as { payload?: DashboardCurvePoint }).payload
@@ -155,12 +157,12 @@ export function RDistributionChart({ buckets }: { buckets: DashboardRBucket[] })
           />
           <Bar
             dataKey="n"
-            fill="var(--accent)"
-            fillOpacity={0.70}
+            fill="var(--chart-series)"
+            fillOpacity={0.78}
             radius={[3, 3, 0, 0]}
             maxBarSize={24}
             isAnimationActive={false}
-            activeBar={{ fill: 'var(--accent-readable)', fillOpacity: 1 }}
+            activeBar={{ fill: 'var(--chart-series)', fillOpacity: 1 }}
           />
         </BarChart>
       </ResponsiveContainer>

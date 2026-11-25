@@ -1,31 +1,35 @@
 .status-icon {
   display: inline-flex;
+  flex: none;
   line-height: var(--line-height-none);
   vertical-align: middle;
 }
 
-/* Preserve the status outline while its inner strokes change; newly mounted rows start settled. */
-[data-icon-motion='status'] > * { opacity: 0; }
-[data-status='planned'] > .status-ring,
-[data-status='open'] > :is(.status-ring, .status-dot),
-[data-status='win'] > :is(.status-ring, .status-result),
-[data-status='loss'] > :is(.status-ring, .status-result, .status-cross),
-[data-status='breakeven'] > .status-even,
-[data-status='missed'] > .status-missed { opacity: 1; }
-
-.status-ring {
-  stroke-dasharray: 12.5 0;
-  stroke-dashoffset: 3;
+.status-icon > svg {
+  display: block;
+  shape-rendering: geometricPrecision;
 }
-[data-status='planned'] > .status-ring { stroke-dasharray: 6.1 6.4; }
-[data-status='loss'] > .status-result { d: path('M9 15 L12 12 L15 9'); }
+
+[data-icon-motion='status'] > * { opacity: 0; }
+[data-status='planned'] > .status-plan,
+[data-status='open'] > :is(.status-ring, .status-progress),
+[data-status='missed'] > .status-skip,
+:is([data-status='win'], [data-status='breakeven'], [data-status='loss']) > .status-result,
+[data-status='loss'] > .status-cross { opacity: 1; }
+
+:is([data-status='win'], [data-status='breakeven'], [data-status='loss']) > .status-disc {
+  opacity: .12;
+}
+.status-result, .status-cross, .status-skip { stroke-width: var(--icon-stroke-width); }
+[data-status='breakeven'] > .status-result { d: path('M4 8 L8 8 L12 8'); }
+[data-status='loss'] > .status-result { d: path('M5 11 L8 8 L11 5'); }
 .status-cross { stroke-dasharray: 1 1; stroke-dashoffset: 1; }
 [data-status='loss'] > .status-cross { stroke-dashoffset: 0; }
 
 @media (prefers-reduced-motion: no-preference) {
   [data-icon-motion='status'][data-animate='true'],
   [data-icon-motion='status'][data-animate='true'] > * {
-    transition-property: color, opacity, d, stroke-dasharray, stroke-dashoffset;
+    transition-property: color, opacity, d, stroke-dashoffset;
     transition-duration: var(--motion-state);
     transition-timing-function: var(--ease-out);
   }

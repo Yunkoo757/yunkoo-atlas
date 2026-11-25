@@ -287,7 +287,6 @@ export function ListView({
         filter={filter}
         trades={trades}
         strategies={strategies}
-        showFilters={emptyState?.kind !== 'library'}
         onOpenResult={(id) => {
           const trade = trades.find(item => item.id === id)
           if (trade) openTrade(trade, 'result')

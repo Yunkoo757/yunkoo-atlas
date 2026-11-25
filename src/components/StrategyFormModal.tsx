@@ -1,50 +1,37 @@
 import { ICON_LG } from '@/icons/iconSize'
-import { useEffect, useState, useRef } from 'react'
+import { useState } from 'react'
 import {
-  STRATEGY_COLOR_PRESETS,
   STRATEGY_ICON_OPTIONS,
   type Strategy,
   type StrategyIconId,
   slugifyStrategyName,
 } from '@/data/strategies'
+import { STRATEGY_COLOR_OPTIONS, findStrategyColorOption } from '@/data/strategyColors'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { ModalShell } from '@/components/ui/ModalShell'
 import './StrategyFormModal.css'
 
 export function StrategyFormModal({
-  open,
   initial,
   existingNames,
   onClose,
   onSave,
 }: {
-  open: boolean
   initial: Strategy | null
   existingNames: string[]
   onClose: () => void
   onSave: (data: Omit<Strategy, 'id'>, id?: string) => void
 }) {
-  const [name, setName] = useState('')
-  const [icon, setIcon] = useState<StrategyIconId>('target')
-  const [color, setColor] = useState<string>(STRATEGY_COLOR_PRESETS[0])
-  const nameInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (open) {
-      setName(initial?.name ?? '')
-      setIcon(initial?.icon ?? 'target')
-      setColor(initial?.color ?? STRATEGY_COLOR_PRESETS[0])
-      // 状态初始化后再聚焦，避免 autoFocus 与 useEffect 设值竞争导致焦点丢失
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          nameInputRef.current?.focus()
-        })
-      })
-    }
-  }, [open, initial])
-
-  if (!open) return null
+  const [name, setName] = useState(initial?.name ?? '')
+  const [icon, setIcon] = useState<StrategyIconId>(initial?.icon ?? 'target')
+  const initialColor = initial?.color ?? STRATEGY_COLOR_OPTIONS[0].color
+  const [color, setColor] = useState(initialColor)
+  const initialOption = findStrategyColorOption(initialColor)
+  const options = initialOption
+    ? STRATEGY_COLOR_OPTIONS
+    : [...STRATEGY_COLOR_OPTIONS, { label: '自定义色', color: initialColor }]
+  const selectedColor = findStrategyColorOption(color)?.color ?? color
 
   const trimmed = name.trim()
   const nameTaken =
@@ -85,7 +72,6 @@ export function StrategyFormModal({
           <label className="sfm-field">
             <span className="sfm-label">名称</span>
             <input
-              ref={nameInputRef}
               className="sfm-input"
               data-autofocus
               value={name}
@@ -97,25 +83,17 @@ export function StrategyFormModal({
 
           <div className="sfm-field">
             <span className="sfm-label">图标</span>
-            <div className="sfm-icon-grid">
+            <div className="sfm-icon-grid" role="group" aria-label="图标">
               {STRATEGY_ICON_OPTIONS.map(({ id, label, Icon }) => (
                 <Tooltip content={label} label={label} key={id}>
                   <button
                     type="button"
                     className={'sfm-icon-opt' + (icon === id ? ' is-on' : '')}
                     aria-label={label}
+                    aria-pressed={icon === id}
                     onClick={() => setIcon(id)}
-                    style={
-                      icon === id
-                        ? {
-                            background: `color-mix(in srgb, ${color} 24%, transparent)`,
-                            color,
-                            borderColor: color,
-                          }
-                        : undefined
-                    }
                   >
-                    <Icon size={ICON_LG} />
+                    <Icon size={ICON_LG} aria-hidden />
                   </button>
                 </Tooltip>
               ))}
@@ -124,22 +102,24 @@ export function StrategyFormModal({
 
           <div className="sfm-field">
             <span className="sfm-label">配色</span>
-            <div className="sfm-color-grid">
-              {STRATEGY_COLOR_PRESETS.map((c) => (
-                <Tooltip content={c} label={`选择配色 ${c}`} key={c}>
+            <div className="sfm-color-grid" role="group" aria-label="配色">
+              {options.map(option => (
+                <Tooltip asChild content={option.label} label={option.label} key={option.color}>
                   <button
                     type="button"
-                    className={'sfm-color-opt' + (color === c ? ' is-on' : '')}
-                    style={{ background: c }}
-                    aria-label={`选择配色 ${c}`}
-                    onClick={() => setColor(c)}
-                  />
+                    className="sfm-color-opt"
+                    aria-label={option.label}
+                    aria-pressed={selectedColor === option.color}
+                    onClick={() => setColor(option.color === initialOption?.color ? initialColor : option.color)}
+                  >
+                    <span className="sfm-color-dot" style={{ backgroundColor: option.color }} />
+                  </button>
                 </Tooltip>
               ))}
             </div>
             <div className="sfm-preview">
               <StrategyIcon icon={icon} color={color} size={ICON_LG} />
-              <span style={{ color }}>{trimmed || '预览'}</span>
+              <span>{trimmed || '预览'}</span>
             </div>
           </div>
     </ModalShell>

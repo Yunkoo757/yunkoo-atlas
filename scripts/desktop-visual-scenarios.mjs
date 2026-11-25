@@ -21,7 +21,7 @@ export const DESKTOP_VISUAL_SCENARIOS = Object.freeze([
   Object.freeze({ id: 'review-cases-board', path: '/review-cases/board', ready: '.board-scroll', horizontalScrollSelector: '.board-scroll' }),
   Object.freeze({ id: 'paper-trades', path: '/sim', ready: '.list-scroll' }),
   Object.freeze({ id: 'live-archive', path: '/live-history', ready: '.list-scroll' }),
-  Object.freeze({ id: 'live-history-cases', path: '/live-history?view=cases', ready: '.list-scroll' }),
+  Object.freeze({ id: 'live-history-cases', path: '/trade/CASE-HISTORY-FOCUS', ready: '[aria-label="案例来源"] a[href]' }),
   Object.freeze({ id: 'trash', path: '/trade-trash', ready: '.trash-view' }),
   Object.freeze({ id: 'settings-profile', path: '/settings/profile', ready: '.profile-settings' }),
   Object.freeze({ id: 'settings-shortcuts', path: '/settings/shortcuts', ready: '.shortcuts-panel' }),

@@ -213,10 +213,10 @@ export async function testPrimaryIconActionsUseTheSharedTooltipLanguage(): Promi
       !quickNotes.includes('title="删除随记"') &&
       quickNotes.includes('<IconButton label={selectedNote.pinned') &&
       quickNotes.includes('<IconButton label="删除随记"') &&
-      displayMenu.includes('<Tooltip asChild content={label} label={label} disabled={!journalActions || open}>') &&
+      displayMenu.includes('<Tooltip asChild content={label} label={label} disabled={open}>') &&
       !displayMenu.includes('title=') &&
       displayMenu.includes('aria-label={label}') &&
-      displayMenu.includes("'日志选项' : '显示选项'") &&
+      displayMenu.includes('<MoreHorizontal size={ICON_MD} aria-hidden />') &&
       !lightbox.includes('title={closeShortcut') &&
       !lightbox.includes('title={previousShortcut') &&
       !lightbox.includes('title={nextShortcut') &&
@@ -321,9 +321,9 @@ export async function testResultConflictsAndReviewShortcutsHaveDedicatedRecovery
     '随机复盘评估/换条后必须把焦点留在可连续接收快捷键的容器',
   )
   assert(
-    review.includes('const rTone = metricTone(trade.rMultiple)') &&
-      review.includes('const rawPnlTone = metricTone(trade.pnl)') &&
-      review.includes("const pnlTone = privacyMode ? 'zero' : rawPnlTone"),
+    review.includes('const rTone = tradeMetricTone(trade.status, trade.rMultiple)') &&
+      review.includes('const rawPnlTone = tradeMetricTone(trade.status, trade.pnl)') &&
+      review.includes("const pnlTone = privacyMode ? 'neutral' : rawPnlTone"),
     '冲突结果的 PnL 与 R 必须分别着色，不能互相覆盖语义',
   )
 }

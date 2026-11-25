@@ -171,11 +171,6 @@
   max-width: 100%;
 }
 
-.bd-card-strategy .strategy-icon {
-  color: var(--text-content-metadata) !important;
-  background: transparent !important;
-}
-
 .bd-card-result {
   margin-left: auto;
   white-space: nowrap;
@@ -185,11 +180,19 @@
 }
 
 .bd-card-result[data-value-state='value'][data-value-sign='positive'] {
-  color: var(--pos);
+  color: var(--result-positive);
 }
 
 .bd-card-result[data-value-state='value'][data-value-sign='negative'] {
-  color: var(--neg);
+  color: var(--result-negative);
+}
+
+.bd-card-result[data-value-state='zero'] {
+  color: var(--result-neutral);
+}
+
+.bd-card-result[data-value-state='missed'] {
+  color: var(--result-opportunity);
 }
 
 .bd-card-result[data-value-state='missing'] {

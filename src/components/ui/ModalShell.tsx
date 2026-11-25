@@ -17,6 +17,18 @@ import { useExitClone } from '@/components/ui/useExitClone'
 import { useShortcutStore } from '@/store/shortcutStore'
 import './ModalShell.css'
 
+export function useModalShortcutScope(open = true) {
+  useEffect(() => {
+    if (!open) return
+    const { acquireModalOverlay, releaseModalOverlay } = useShortcutStore.getState()
+    acquireModalOverlay()
+    return releaseModalOverlay
+  }, [open])
+}
+
+let openShells = 0
+let previousBodyOverflow = ''
+
 function focusableElements(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(
     'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
@@ -100,6 +112,7 @@ export function ModalShell({
   const returnFocusRef = useRef<HTMLElement | null>(null)
   const exitRef = useExitClone<HTMLDivElement>()
   const { portalRootsRef, portalRegistry } = useModalPortalRegistry(busy)
+  useModalShortcutScope()
 
   const isTopmostModal = useCallback(
     () => {
@@ -110,11 +123,11 @@ export function ModalShell({
   )
 
   useEffect(() => {
-    useShortcutStore.getState().acquireModalOverlay()
     returnFocusRef.current = focusOptions.current.returnFocusTo ?? (
       document.activeElement instanceof HTMLElement ? document.activeElement : null
     )
-    const previousOverflow = document.body.style.overflow
+    if (openShells === 0) previousBodyOverflow = document.body.style.overflow
+    openShells += 1
     document.body.style.overflow = 'hidden'
     const frame = requestAnimationFrame(() => {
       const panel = panelRef.current
@@ -127,8 +140,8 @@ export function ModalShell({
     })
     return () => {
       cancelAnimationFrame(frame)
-      document.body.style.overflow = previousOverflow
-      useShortcutStore.getState().releaseModalOverlay()
+      openShells -= 1
+      if (openShells === 0) document.body.style.overflow = previousBodyOverflow
       const target = returnFocusRef.current
       requestAnimationFrame(() => {
         restoreFocusIfUnclaimed(target)

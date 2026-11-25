@@ -269,5 +269,5 @@
 }
 .bubble-btn.is-on {
   background: var(--bg-selected);
-  color: var(--accent);
+  color: var(--accent-readable);
 }

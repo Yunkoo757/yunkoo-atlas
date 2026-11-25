@@ -158,40 +158,38 @@
 
 .sb-workspace-editor {
   position: absolute;
+  display: flex;
+  flex-direction: column;
   z-index: var(--z-navigation-low);
   top: 96px;
   left: 228px;
   width: min(520px, calc(100vw - 244px));
   max-height: calc(100vh - 116px);
-  overflow: auto;
+  overflow: hidden;
   padding: var(--sp-4);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-high);
+  border: 1px solid var(--popover-menu-border);
+  border-radius: var(--popover-modal-radius);
+  background: var(--popover-modal-bg);
+  box-shadow: var(--popover-modal-shadow);
   user-select: text;
   pointer-events: auto;
 }
 
 .sb-workspace-editor-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  margin-bottom: 14px;
+  flex: none;
+  margin-bottom: var(--sp-3);
 }
 
-.sb-workspace-editor-nav {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  min-width: 0;
+.sb-workspace-editor-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .sb-workspace-editor-title-row {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--sp-3);
+  align-items: center;
+  gap: var(--space-control-gap);
 }
 
 .sb-workspace-editor-header h2 {
@@ -199,41 +197,15 @@
   color: var(--text-primary);
   font-size: var(--type-dialog-title-size);
   font-weight: var(--type-dialog-title-weight);
+  line-height: var(--type-dialog-title-line-height);
 }
 
 .sb-workspace-editor-title-row > span {
+  margin-left: auto;
   flex-shrink: 0;
   color: var(--text-tertiary);
   font-size: var(--type-caption-size);
   font-variant-numeric: var(--numeric-tabular);
-}
-
-.sb-editor-back {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  width: fit-content;
-  min-height: 28px;
-  margin: 0 0 2px;
-  padding: 0 var(--sp-2) 0 var(--sp-1);
-  border: 0;
-  border-radius: var(--radius-6);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--type-row-size);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-}
-
-.sb-editor-back:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  outline: none;
-}
-
-.sb-editor-back svg {
-  display: block;
-  flex-shrink: 0;
 }
 
 .sb-editor-browse {
@@ -258,13 +230,6 @@
   background: var(--bg-hover);
   color: var(--text-primary);
   outline: none;
-}
-
-.sb-editor-help {
-  margin: 0;
-  color: var(--text-tertiary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line-height);
 }
 
 .sb-editor-list {
@@ -328,7 +293,7 @@
 }
 
 .sb-editor-message button {
-  color: var(--accent);
+  color: var(--accent-readable);
 }
 
 .sb-editor-defaults {
@@ -341,6 +306,7 @@
 }
 
 .sb-editor-actions {
+  flex: none;
   display: flex;
   justify-content: flex-end;
   gap: var(--sp-2);
@@ -371,10 +337,6 @@
 .sb-editor-actions button.is-primary:hover {
   background: var(--accent-hover);
   color: var(--accent-text);
-}
-
-.sb-editor-actions-secondary {
-  margin-right: auto;
 }
 
 .sb-target-picker {
@@ -543,7 +505,7 @@
 
 .sb-target-row-state.is-pinned {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: color-mix(in srgb, var(--accent) 82%, white 18%);
+  color: var(--accent-readable);
 }
 
 .sb-target-row-state.is-overflow {

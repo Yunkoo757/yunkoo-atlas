@@ -114,21 +114,9 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   if (!/\.trade-row-result,\s*\.trade-row-date\s*\{[^}]*font-variant-numeric:\s*var\(--numeric-tabular\)/s.test(list)) {
     throw new Error('trade results and dates must preserve tabular numeric alignment')
   }
-  if (!quickViews.includes('.quick-view-chip::after') || !quickViews.includes('box-shadow: var(--surface-control-shadow-active)')) {
-    throw new Error('quick-view pills must retain the calibrated ::after contract layer')
-  }
-  if (!quickViews.includes('border: 1px solid var(--quick-view-border-rest)')) {
-    throw new Error('quick-view pills must paint the 1px ring with inset border, not outward box-shadow')
-  }
-  if (quickViews.includes('box-shadow: var(--surface-control-shadow);')) {
-    throw new Error('quick-view pills must not use outward surface-control-shadow rings that clip under overflow')
-  }
-  if (
-    !quickViews.includes('--quick-view-surface-rest:')
-    || !quickViews.includes('background: var(--quick-view-surface-rest)')
-    || !quickViews.includes('--quick-view-surface-rest: var(--surface-control);')
-  ) {
-    throw new Error('quick-view pills must use the shared control surface in their default state')
+  if (!/\.quick-view-chip,\s*\.quick-view-overflow\s*\{[^}]*background: transparent;/.test(quickViews)
+    || !/\.quick-view-overflow\.is-active\s*\{[^}]*background: var\(--surface-control-active\)/.test(quickViews)) {
+    throw new Error('Only the current workbench view should carry the selected surface')
   }
   if (
     !quickViews.includes('height: var(--quick-view-control-height)')
@@ -141,7 +129,7 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   if (!list.includes('inset: 2px 8px') || !list.includes('padding: 0 10px')) {
     throw new Error('trade rows must preserve symmetric 2px vertical breathing room and content padding')
   }
-  if (!filterBar.includes('padding: 0 15px 0 8px')) {
+  if (!filterBar.includes('padding-inline: var(--sp-2)')) {
     throw new Error('filter toolbar must share the calibrated 8px leading inset')
   }
   if (!filterBar.includes('border: 1px solid var(--filter-chip-border-rest)')) {
@@ -150,8 +138,8 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
   if (filterBar.includes('box-shadow: var(--surface-control-shadow)')) {
     throw new Error('filter chips must not use outward surface-control-shadow rings that clip under overflow')
   }
-  if (!filterBar.includes('padding-block:') || !filterBar.includes('overflow-x: auto')) {
-    throw new Error('active filter strip must keep horizontal scroll with vertical padding so rings are not clipped')
+  if (!filterBar.includes('grid-template-columns: minmax(0, 1fr) auto')) {
+    throw new Error('Filter bar must reserve space for actions when tab labels overflow')
   }
   if (!quickViews.includes('border: 0')) {
     throw new Error('quick-view strip must not offset calibrated tabs with a transparent parent border')

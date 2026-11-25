@@ -87,7 +87,10 @@ function Harness() {
               title="二级确认"
               size="compact"
               onClose={() => setNestedOpen(false)}
-              footer={<button type="button" data-autofocus onClick={() => setNestedOpen(false)}>继续编辑</button>}
+              footer={<>
+                <button type="button" data-autofocus onClick={() => setNestedOpen(false)}>继续编辑</button>
+                <button type="button" id="close-both" onClick={() => { setNestedOpen(false); setOpen(false) }}>全部关闭</button>
+              </>}
             />
           ) : null}
         </ModalShell>
@@ -175,6 +178,13 @@ async function run(): Promise<void> {
     await waitFor(() => !document.querySelector('[role="dialog"]'), 'Escape 没有关闭空闲弹层')
     await waitFor(() => document.activeElement === opener, '关闭弹层后没有恢复触发器焦点')
     assert(bodyOverflow() === '', '关闭弹层后必须恢复页面滚动')
+    opener.click()
+    await waitFor(() => !!document.getElementById('nested-modal-opener'), '无法再次打开一级弹层')
+    document.getElementById('nested-modal-opener')!.click()
+    await waitFor(() => !!document.getElementById('close-both'), '无法再次打开二级弹层')
+    document.getElementById('close-both')!.click()
+    await waitFor(() => !document.querySelector('[role="dialog"]'), '嵌套弹窗没有一起关闭')
+    assert(bodyOverflow() === '', '同时关闭嵌套弹层时也必须释放滚动')
   } finally {
     root.unmount()
   }

@@ -1,7 +1,7 @@
 import { useExitClone } from '@/components/ui/useExitClone'
 import { isComposingKey } from '@/lib/keyboardComposition'
 import { createRecordForContext, isRecordCreationArchived, resolveCreateRecordAction } from '@/lib/createRecordAction'
-import { BacktestNavIcon, NoteNavIcon } from '@/icons/NavigationIcons'
+import { BacktestNavIcon, CaseLibraryNavIcon, NoteNavIcon } from '@/icons/NavigationIcons'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useCallback, useDeferredValue, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -18,7 +18,6 @@ import {
   FlaskConical,
   Clock,
   X,
-  BookOpen,
   Maximize2,
 } from '@/icons/appIcons'
 import { findTradeByRouteParam, tradeDetailPath } from '@/lib/tradeRoute'
@@ -250,7 +249,7 @@ function CommandPaletteDialog({
     const createAction = resolveCreateRecordAction(pathname, search, trades)
     const actions: Cmd[] = [
       ...(!creationArchived ? [{ id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: createAction.label, hint: shortcutHint(createAction.actionId), run: () => { requestClose(); createRecordForContext(pathname, search, navigate) } }] : []),
-      ...(createAction.kind === 'case' ? [] : [{ id: 'a-new-case', group: '操作', icon: <BookOpen size={ICON_MD} />, label: '新建案例', hint: shortcutHint('global.newCase'), run: () => { requestClose(); openComposer(null, 'case') } }]),
+      ...(createAction.kind === 'case' ? [] : [{ id: 'a-new-case', group: '操作', icon: <CaseLibraryNavIcon size={ICON_MD} />, label: '新建案例', hint: shortcutHint('global.newCase'), run: () => { requestClose(); openComposer(null, 'case') } }]),
       { id: 'a-fullscreen', group: '操作', icon: <Maximize2 size={ICON_MD} />, label: '切换应用全屏', hint: shortcutHint('global.toggleFullscreen'), run: () => {
         requestClose()
         const bridge = window.journalBridge

@@ -8,6 +8,7 @@ import type { buildDashboardStats } from '@/lib/dashboardStats'
 import { STATUS_META, CONVICTION_META } from '@/data/trades'
 import { PreviewHeader, PreviewMeta } from '@/components/HoverPreview'
 import { StrategyIcon } from '@/components/StrategyIcon'
+import { StatusIcon } from '@/components/StatusIcon'
 import { useStore } from '@/store/useStore'
 import './RowPreviews.css'
 
@@ -30,11 +31,7 @@ export function TradePreview({
   return (
     <div className="rp-card">
       <PreviewHeader
-        icon={
-          <span className="rp-status-ring" data-status={trade.status}>
-            {statusMeta.label.charAt(0)}
-          </span>
-        }
+        icon={<StatusIcon status={trade.status} size={ICON_LG} />}
         title={`${trade.symbol} ${trade.side === 'long' ? '多' : trade.side === 'short' ? '空' : ''}`}
         subtitle={strategyName}
       />

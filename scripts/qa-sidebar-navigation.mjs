@@ -338,9 +338,9 @@ try {
   await page.locator('.sb-primary a[data-primary-id]').first().waitFor({ state: 'visible', timeout: 10000 })
   await page.evaluate(async () => {
     const { useShortcutStore } = await import('/src/store/shortcutStore.ts')
-    useShortcutStore.getState().setBinding('view.board', { key: 'd' })
+    useShortcutStore.getState().setBinding('view.board', { key: 'f9' })
   })
-  await page.keyboard.press('d')
+  await page.keyboard.press('F9')
   await page.waitForURL((url) => url.pathname === '/board' && url.search === '?view=active&symbol=BTCUSDT')
   await page.evaluate(async () => {
     const { useShortcutStore } = await import('/src/store/shortcutStore.ts')
@@ -378,12 +378,12 @@ try {
   if (!editorId) throw new Error('Manager opener must expose aria-controls')
   await manageButton.click()
   await expectAttribute(manageButton, 'aria-expanded', 'true')
-  const editor = page.getByRole('dialog', { name: '管理我的空间' })
+  const editor = page.getByRole('dialog', { name: /^(管理我的空间|添加项目)$/ })
   await expectAttribute(editor, 'id', editorId)
   const editorHeading = editor.getByRole('heading', { name: '管理我的空间' })
   await expectAttribute(editor, 'aria-labelledby', 'sidebar-workspace-editor-title')
   await expectFocused(editorHeading)
-  await expectText(page.locator('[data-sidebar-capacity]'), /常驻 \d+ \/ 8/)
+  await expectText(editor.locator('[data-sidebar-capacity]'), /\d+ \/ 8/)
   await expectVisible(page.getByRole('button', { name: '添加项目' }))
   await expectVisible(editor.getByRole('heading', { name: '常驻侧栏' }))
   await expectVisible(editor.getByRole('heading', { name: '更多' }))
@@ -434,6 +434,7 @@ try {
   await editor.getByRole('button', { name: '添加项目' }).click()
   await expectVisible(editor.getByRole('heading', { name: '添加项目' }))
   await expectVisible(editor.getByRole('button', { name: '返回管理列表' }))
+  await expectCount(editor.getByRole('button', { name: /返回/ }), 1)
   const search = editor.getByRole('searchbox', { name: '搜索可添加项目' })
   await search.focus()
   await page.evaluate(async () => {
@@ -468,6 +469,7 @@ try {
   await expectVisible(strategyButton(primaryStrategy))
   await search.fill('不会匹配失效引用')
   await expectCount(editor.getByText('已删除的保存视图'), 0)
+  await expectVisible(editor.getByText('没有匹配的项目'))
   await search.fill('')
 
   await editor.getByRole('button', { name: /^QA 保存视图（交易日志）：/ }).click()
@@ -481,6 +483,7 @@ try {
   await expectVisible(editor.getByText(/常驻已满，已放入「更多」/))
   await expectText(strategyButton(overflowStrategy), /更多/)
   await editor.getByRole('button', { name: '返回管理列表' }).click()
+  await expectFocused(editor.getByRole('button', { name: '添加项目' }))
   await expectVisible(editor.locator('[data-sidebar-editor-overflow] [data-sidebar-item-label]', { hasText: overflowStrategy }))
 
   await editor.getByRole('button', { name: '完成' }).click()
@@ -538,8 +541,15 @@ try {
   await page.goto(`${BASE}/review-cases/mistakes/board?reviewStatus=focus`, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(250)
   await coreLink('trades').click()
+  await page.waitForURL((url) => url.pathname === '/board')
+  await page.getByRole('button', { name: '列表视图', exact: true }).click()
+  await page.waitForURL((url) => url.pathname === '/list')
   await coreLink('reviewCases').click()
-  await expectUrl(page, '/review-cases/mistakes/board?reviewStatus=focus', 'Case core must restore pathname, search, and board mode')
+  await expectUrl(page, '/review-cases/mistakes?reviewStatus=focus', 'Case core must retain its subview and filters with the shared list layout')
+  await page.getByRole('button', { name: '看板视图', exact: true }).click()
+  await expectUrl(page, '/review-cases/mistakes/board?reviewStatus=focus', 'Switching layout must retain the case subview and filters')
+  await coreLink('trades').click()
+  await page.waitForURL((url) => url.pathname === '/board')
 
   // 详情返回锚点有独立浏览器测试；侧栏门禁默认不重复改写整库交易数据。
   if (process.env.QA_LEGACY_DETAIL_ANCHORS === '1') {
@@ -673,7 +683,7 @@ try {
   await expectCount(restoredEditor.getByText('确认恢复默认项目？当前草稿将被替换。'), 0)
   await restoredEditor.getByRole('button', { name: '恢复默认' }).click()
   await restoredEditor.getByRole('button', { name: '确认恢复默认' }).click()
-  await expectText(page.locator('[data-sidebar-capacity]'), /常驻 2 \/ 8/)
+  await expectText(restoredEditor.locator('[data-sidebar-capacity]'), /1 \/ 8/)
   await restoredEditor.getByRole('button', { name: '完成' }).click()
   await waitForAutoSave(page)
   await page.waitForFunction(async () => {

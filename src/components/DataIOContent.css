@@ -259,7 +259,7 @@
 .dio-task:last-child { border-bottom: 0; }
 .dio-task-primary { background: transparent; }
 .dio-task-icon { flex: 0 0 auto; color: var(--text-tertiary); }
-.dio-task-primary .dio-task-icon { color: var(--accent); }
+.dio-task-primary .dio-task-icon { color: var(--accent-readable); }
 .dio-task-copy { flex: 1; min-width: 0; }
 .dio-task-title {
   font-size: var(--type-row-size);

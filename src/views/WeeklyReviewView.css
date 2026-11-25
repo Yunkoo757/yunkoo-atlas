@@ -118,8 +118,8 @@
 
 .wr-metric strong.is-positive { color: color-mix(in srgb, var(--pos) 62%, var(--text-secondary)); }
 .wr-metric strong.is-negative { color: color-mix(in srgb, var(--neg) 62%, var(--text-secondary)); }
-.wr-result.is-positive { color: var(--pos); }
-.wr-result.is-negative { color: var(--neg); }
+.wr-result.is-positive { color: var(--result-positive); }
+.wr-result.is-negative { color: var(--result-negative); }
 
 .wr-facts-empty,.wr-facts-date {
   margin: 0;
@@ -167,7 +167,7 @@
 .wr-risk-remaining span { color: var(--text-muted); font-size: var(--type-metadata-size); }
 .wr-risk-period-meter { min-width: 0; }
 .wr-risk-track { height: 3px; overflow: hidden; background: var(--bg-surface); border-radius: var(--radius-6); }
-.wr-risk-track i { display: block; width: var(--risk-progress); height: 100%; background: var(--accent); }
+.wr-risk-track i { display: block; width: var(--risk-progress); height: 100%; background: var(--chart-series); }
 [data-risk-tone="negative"] .wr-risk-period-head strong { color: var(--neg); }
 [data-risk-tone="negative"] .wr-risk-track i { background: var(--neg); }
 [data-risk-tone="warning"] .wr-risk-period-head strong { color: var(--warn); }
@@ -274,7 +274,7 @@ p.wr-previous-criteria { margin-block-start: var(--space-row-gap); }
 .wr-evidence-tags { display: flex; align-items: flex-start; gap: var(--sp-5); margin-top: 18px; padding-top: var(--sp-4); border-top: 1px solid var(--border-subtle); }
 .wr-evidence-tags > div { width: 184px; display: flex; flex-direction: column; gap: 3px; }.wr-evidence-tags label { color: var(--text-secondary); font-size: var(--type-row-size); }.wr-evidence-tags small { color: var(--text-tertiary); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); white-space: nowrap; }
 .wr-evidence-tags p { display: flex; flex-wrap: wrap; gap: 7px; margin: 0; }.wr-evidence-tags span { display: inline-flex; align-items: center; gap: var(--space-control-gap); min-height: 30px; padding: 0 10px; border: 1px dashed var(--border-default); border-radius: var(--radius-full); color: var(--text-tertiary); font-size: var(--type-row-size); background: var(--bg-inset); }.wr-evidence-tags b { color: var(--text-tertiary); font-family: var(--font-ui); font-weight: var(--type-metadata-weight); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
-.wr-evidence-groups,.wr-evidence-group { display: grid; gap: 9px; }.wr-evidence-groups { gap: var(--sp-4); }.wr-evidence-group-title { color: var(--text-tertiary); font-size: var(--type-metadata-size); }.wr-evidence-group-title small { margin-left: 6px; color: var(--text-tertiary); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }.wr-trade-list { display: grid; gap: 1px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-8); background: var(--border-subtle); }.wr-trade-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: 50px; padding: var(--sp-2) var(--sp-3); background: var(--bg-surface); }.wr-trade-main { min-width: 0; flex: 1; display: grid; grid-template-columns: 75px minmax(60px, 1fr) auto; align-items: center; gap: 10px; color: var(--text-tertiary); font-size: var(--type-metadata-size); text-decoration: none; }.wr-trade-main:hover .wr-symbol { color: var(--accent-readable); }.wr-symbol { color: var(--text-primary); font-weight: var(--font-weight-semibold); }.wr-result { font-family: var(--font-ui); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }.wr-result.is-missed { color: var(--warn); font-family: inherit; }.wr-trade-roles { display: flex; gap: 5px; }.wr-trade-roles button { min-height: 24px; padding: 0 7px; font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }.wr-empty { padding: var(--sp-7); border: 1px dashed var(--border-default); border-radius: var(--radius-8); color: var(--text-tertiary); font-size: var(--type-row-size); text-align: center; }
+.wr-evidence-groups,.wr-evidence-group { display: grid; gap: 9px; }.wr-evidence-groups { gap: var(--sp-4); }.wr-evidence-group-title { color: var(--text-tertiary); font-size: var(--type-metadata-size); }.wr-evidence-group-title small { margin-left: 6px; color: var(--text-tertiary); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }.wr-trade-list { display: grid; gap: 1px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-8); background: var(--border-subtle); }.wr-trade-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: 50px; padding: var(--sp-2) var(--sp-3); background: var(--bg-surface); }.wr-trade-main { min-width: 0; flex: 1; display: grid; grid-template-columns: 75px minmax(60px, 1fr) auto; align-items: center; gap: 10px; color: var(--text-tertiary); font-size: var(--type-metadata-size); text-decoration: none; }.wr-trade-main:hover .wr-symbol { color: var(--accent-readable); }.wr-symbol { color: var(--text-primary); font-weight: var(--font-weight-semibold); }.wr-result { font-family: var(--font-ui); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }.wr-result.is-opportunity { color: var(--result-opportunity); font-family: inherit; }.wr-trade-roles { display: flex; gap: 5px; }.wr-trade-roles button { min-height: 24px; padding: 0 7px; font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }.wr-empty { padding: var(--sp-7); border: 1px dashed var(--border-default); border-radius: var(--radius-8); color: var(--text-tertiary); font-size: var(--type-row-size); text-align: center; }
 .wr-editor-wrap {
   min-width: 0;
   border: 1px solid var(--border-default);
@@ -429,7 +429,7 @@ p.wr-previous-criteria { margin-block-start: var(--space-row-gap); }
 }
 .wr-chart-skeleton-grid { position: absolute; inset: 46px 0 var(--sp-6); background: repeating-linear-gradient(to bottom, transparent 0, transparent calc(25% - 1px), var(--border-subtle) 25%); }
 .wr-chart-skeleton-line { width: 100%; height: 100%; overflow: visible; opacity: .58; animation: wr-skeleton-pulse var(--motion-pulse) var(--ease-in-out) infinite alternate; }
-.wr-chart-skeleton-line polyline { fill: none; stroke: var(--accent); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.wr-chart-skeleton-line polyline { fill: none; stroke: var(--chart-series); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
 
 .wr-trend-start,.wr-year-empty p {
   color: var(--text-muted);
@@ -440,7 +440,7 @@ p.wr-previous-criteria { margin-block-start: var(--space-row-gap); }
 .wr-year-rhythm-head { margin-block-end: var(--space-row-gap); }
 .wr-heatmap { display: grid; grid-template-columns: repeat(var(--week-count), minmax(8px, 1fr)); gap: 3px; }
 .wr-heatmap i { min-width: 0; aspect-ratio: 1; border: 1px solid var(--border-subtle); border-radius: var(--radius-4); background: var(--bg-elevated); }
-.wr-heatmap i.is-filled { border-color: color-mix(in srgb, var(--accent) calc(var(--level) * 70%), var(--border-default)); background: color-mix(in srgb, var(--accent) calc(var(--level) * 70%), var(--bg-elevated)); }
+.wr-heatmap i.is-filled { border-color: var(--chart-series); background: color-mix(in srgb, var(--chart-series) calc(12% + var(--level) * 88%), var(--bg-elevated)); }
 @keyframes wr-skeleton-pulse { from { opacity: .35; } to { opacity: .72; } }
 @media (prefers-reduced-motion: reduce) { .wr-chart-skeleton-line { animation: none; opacity: .58; } }
 

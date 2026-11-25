@@ -1,10 +1,10 @@
-import { ICON_HERO, ICON_LG, ICON_SM } from '@/icons/iconSize'
+import { ICON_HERO, ICON_LG, ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useMemo, useRef, useState } from 'react'
-import { GripVertical, ImagePlus, RotateCcw, Shapes } from '@/icons/appIcons'
+import { Check, GripVertical, ImagePlus, RotateCcw, Shapes } from '@/icons/appIcons'
 import { SymbolIcon } from '@/components/SymbolIcon'
-import { SymbolPresetSvg } from '@/components/SymbolPresetSvg'
 import {
   SYMBOL_ICON_PRESETS,
+  defaultSymbolPresetId,
   normalizeSymbol,
   resizeSymbolIconImage,
 } from '@/lib/symbolIcons'
@@ -30,6 +30,8 @@ export function SymbolsPanel() {
   const symbols = useMemo(() => symbolCatalog, [symbolCatalog])
 
   const active = selected && symbols.includes(selected) ? selected : symbols[0] ?? null
+  const override = active ? symbolIcons[active] : undefined
+  const activePresetId = active && !override?.customDataUrl ? override?.presetId || defaultSymbolPresetId(active) : null
   const historicalSymbolCount = useMemo(() => {
     const catalogSet = new Set(symbols)
     return new Set(
@@ -161,28 +163,16 @@ export function SymbolsPanel() {
                   <button
                     type="button"
                     key={preset.id}
-                    className={
-                      'symbols-preset' +
-                      (symbolIcons[active]?.presetId === preset.id && !symbolIcons[active]?.customDataUrl
-                        ? ' is-active'
-                        : '')
-                    }
+                    className={'symbols-preset' + (activePresetId === preset.id ? ' is-active' : '')}
+                    aria-pressed={activePresetId === preset.id}
                     onClick={() => {
                       setSymbolIconPreset(active, preset.id)
                       toast(`已应用预设「${preset.label}」`)
                     }}
                   >
-                    <span
-                      className="symbols-preset-swatch"
-                      style={{ color: preset.color, background: preset.background }}
-                    >
-                      {preset.svgId ? (
-                        <SymbolPresetSvg id={preset.svgId} size={ICON_SM} />
-                      ) : (
-                        preset.glyph
-                      )}
-                    </span>
+                    <SymbolIcon symbol={active} preset={preset} size={ICON_XL} />
                     <span>{preset.label}</span>
+                    {activePresetId === preset.id && <Check className="symbols-preset-check" size={ICON_SM} aria-hidden />}
                   </button>
                 ))}
               </div>

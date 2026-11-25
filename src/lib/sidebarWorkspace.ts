@@ -44,6 +44,7 @@ export type SidebarWorkspaceItem = {
 export type ResolvedSidebarWorkspaceItem = {
   item: SidebarWorkspaceItem
   key: string
+  strategy?: Strategy
   label: string
   pathname: string
   search: string
@@ -585,6 +586,7 @@ export function resolveSidebarWorkspaceItem(
       item,
       key,
       label: strategy?.name ?? '已删除的策略',
+      strategy,
       pathname: '/list',
       search: `?${params.toString()}`,
       icon: 'strategy',

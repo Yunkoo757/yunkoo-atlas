@@ -142,7 +142,7 @@ function normalizePath(root, file) {
 function classifyColorMix({ source, property, file, line }) {
   const key = `${file}:${line}`
   if (THEME_COLOR_MIX_ALLOWLIST.some((entry) => entry.key === key)) return 'Optical Calibration Allowlist'
-  if (/(?:profit|loss|danger|warning|success|accent|side-|status|conviction|risk)|var\(--(?:pos|neg|warn|pending|danger)(?:-[a-z0-9-]+)?\)/i.test(source)) {
+  if (/(?:profit|loss|danger|warning|success|accent|side-|status|conviction|risk)|var\(--(?:pos|neg|warn|pending|danger|chart-series)(?:-[a-z0-9-]+)?\)/i.test(source)) {
     return 'Business Semantic'
   }
   if (property.startsWith('--') || /color|background|border|outline|shadow|fill|stroke|filter/i.test(property)) {
@@ -581,6 +581,7 @@ function styleSnapshot(page, selector, pseudo = null) {
       color: style.color,
       backgroundColor: style.backgroundColor,
       borderColor: style.borderColor,
+      borderWidth: style.borderWidth,
       outlineColor: style.outlineColor,
       outlineStyle: style.outlineStyle,
       outlineWidth: style.outlineWidth,
@@ -622,6 +623,7 @@ async function stateSemanticFailures(page, state, evidence) {
   }
   for (const [field, property] of [
     ['afterBackground', 'backgroundColor'],
+    ['afterBorderWidth', 'borderWidth'],
     ['afterBoxShadow', 'boxShadow'],
     ['afterOpacity', 'opacity'],
   ]) {

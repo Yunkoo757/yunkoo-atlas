@@ -39,13 +39,18 @@ export function useWorkbenchEmptyState(
   const revealClosed = shouldResetWorkbenchHideClosed({
     hideClosed, trades, filter, starredIds, search, businessDateAnchor,
   })
-  if (journal) {
+  const caseLibrary = filter.tradeKind === 'case' && !filter.historicalLiveScope
+  if (journal || caseLibrary) {
     const baseline = getJournalFilterResetSearch(pathname, search, sidebarItems, savedViews, state)
     const current = new URLSearchParams(search)
     current.sort()
     baseline.sort()
     if (baseline.toString() !== current.toString()) {
       return { emptyState, resetEmptyConditions: () => go(pathname, baseline.toString(), true) }
+    }
+    if (caseLibrary) return {
+      emptyState: { ...emptyState, primaryAction: { ...emptyState.primaryAction, label: '查看全部案例' } },
+      resetEmptyConditions: () => go(getWorkbenchResetPath(pathname, 'case')),
     }
     const label = revealClosed ? '显示已平仓交易' : '查看全部交易'
     return {

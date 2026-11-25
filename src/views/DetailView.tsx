@@ -17,11 +17,11 @@ import {
   X,
   Send,
   Plus,
-  BookOpen,
   AlertCircle,
   CheckCircle,
   Check,
 } from '@/icons/appIcons'
+import { CaseLibraryNavIcon } from '@/icons/NavigationIcons'
 import { DisclosureIcon, MarkIcon } from '@/icons/StateIcons'
 import { useStore } from '@/store/useStore'
 import { Editor, type EditorChangeMeta } from '@/editor/Editor'
@@ -37,7 +37,7 @@ import { DatePicker } from '@/components/ui/DatePicker'
 import { TagEditor } from '@/components/TagEditor'
 import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
-import { StrategyIcon, StrategyLabel } from '@/components/StrategyIcon'
+import { StrategyLabel, strategySelectOption } from '@/components/StrategyIcon'
 import { UserAvatar } from '@/components/UserAvatar'
 import type { Strategy } from '@/data/strategies'
 import {
@@ -101,6 +101,7 @@ import {
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
+import { tradeMetricTone } from '@/lib/tradeRowPresentation'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { prepareTradeResultEdit, type TradeResultEdit } from '@/lib/tradeResult'
 import { evaluateReviewCompletion } from '@/lib/reviewCompletion'
@@ -866,7 +867,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
   const recordActionIcon = (actionId: RecordActionId) => {
     if (actionId === 'edit') return <Pencil size={ICON_MD} />
     if (actionId === 'copy') return <Copy size={ICON_MD} />
-    if (actionId === 'extract-case') return <BookOpen size={ICON_MD} />
+    if (actionId === 'extract-case') return <CaseLibraryNavIcon size={ICON_MD} />
     if (actionId === 'star') return <MarkIcon kind="star" active={starred} size={ICON_MD} />
     if (actionId === 'focus-case') return <MarkIcon kind="bookmark" active={starred} size={ICON_MD} />
     return <Trash2 size={ICON_MD} />
@@ -954,6 +955,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
   return (
     <>
       <TradeDetailLayout
+      recordLabel={detailUnit}
       toolbarHost={toolbarHost}
       revealProperties={focusField === 'closedAt'}
       header={(propertiesToggle) => (
@@ -1460,15 +1462,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
               }
               inputType="number"
               nullable
-              color={
-                privacyMode
-                  ? undefined
-                  : trade.pnl != null && trade.pnl > 0
-                  ? 'var(--pos)'
-                  : trade.pnl != null && trade.pnl < 0
-                    ? 'var(--neg)'
-                    : undefined
-              }
+              color={privacyMode || trade.pnl == null ? undefined : `var(--result-${tradeMetricTone(trade.status, trade.pnl)})`}
               masked={privacyMode}
               onSave={(v) => commitTradeResultEdit({
                 kind: 'result',
@@ -1487,13 +1481,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
               inputType="number"
               step="0.1"
               nullable
-              color={
-                trade.rMultiple != null && trade.rMultiple > 0
-                  ? 'var(--pos)'
-                  : trade.rMultiple != null && trade.rMultiple < 0
-                    ? 'var(--neg)'
-                    : undefined
-              }
+              color={trade.rMultiple == null ? undefined : `var(--result-${tradeMetricTone(trade.status, trade.rMultiple)})`}
               onSave={(v) => commitTradeResultEdit({
                 kind: 'result',
                 source: 'r',
@@ -1575,11 +1563,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
             <Menu
               value={trade.strategyId}
               onSelect={(v) => setStrategy(trade.id, v)}
-              options={strategies.map((s) => ({
-                value: s.id,
-                label: s.name,
-                icon: <StrategyIcon icon={s.icon} color={s.color} size={ICON_MD} />,
-              }))}
+              options={strategies.map(strategySelectOption)}
               trigger={
                 <button className="dv-pitem dv-pitem-ghost">
                   <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />

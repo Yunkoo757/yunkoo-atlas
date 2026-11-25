@@ -290,7 +290,7 @@ button.shortcuts-capture[aria-pressed='true'] {
   align-items: center;
   gap: 7px;
   padding: 0 2px;
-  color: var(--accent);
+  color: var(--accent-readable);
   font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
 }

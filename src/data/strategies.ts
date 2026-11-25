@@ -1,37 +1,13 @@
 import type { AppIcon } from '@/icons/appIcons'
 import { createDefaultStrategies } from '@/config/defaultProfile'
+import { AnalyticsNavIcon } from '@/icons/NavigationIcons'
+import { RiskNavIcon } from '@/icons/SettingsIcons'
 import {
-  TrendingUp,
-  ArrowLeftRight,
-  Activity,
-  Newspaper,
-  Zap,
-  Target,
-  Layers,
-  BarChart2,
-  Flame,
-  Rocket,
-  Shield,
-  LineChart,
-  Crosshair,
-  Gauge,
-} from '@/icons/appIcons'
+  AimIcon, CurveIcon, DefenseIcon, HeatIcon, LaunchIcon, MomentumIcon,
+  NewsIcon, PrecisionIcon, ReversionIcon, StrataIcon, TrendIcon, VolatilityIcon,
+} from '@/icons/StrategyIcons'
 
-export type StrategyIconId =
-  | 'trending-up'
-  | 'arrow-left-right'
-  | 'activity'
-  | 'newspaper'
-  | 'zap'
-  | 'target'
-  | 'layers'
-  | 'bar-chart-2'
-  | 'flame'
-  | 'rocket'
-  | 'shield'
-  | 'line-chart'
-  | 'crosshair'
-  | 'gauge'
+export type StrategyIconId = typeof STRATEGY_ICON_OPTIONS[number]['id']
 
 export interface Strategy {
   id: string
@@ -40,50 +16,33 @@ export interface Strategy {
   color: string
 }
 
-export const STRATEGY_ICON_OPTIONS: {
-  id: StrategyIconId
-  label: string
-  Icon: AppIcon
-}[] = [
-  { id: 'trending-up', label: '趋势', Icon: TrendingUp },
-  { id: 'arrow-left-right', label: '回归', Icon: ArrowLeftRight },
-  { id: 'activity', label: '波动', Icon: Activity },
-  { id: 'newspaper', label: '新闻', Icon: Newspaper },
-  { id: 'zap', label: '闪电', Icon: Zap },
-  { id: 'target', label: '目标', Icon: Target },
-  { id: 'layers', label: '分层', Icon: Layers },
-  { id: 'bar-chart-2', label: '图表', Icon: BarChart2 },
-  { id: 'flame', label: '热点', Icon: Flame },
-  { id: 'rocket', label: '火箭', Icon: Rocket },
-  { id: 'shield', label: '防守', Icon: Shield },
-  { id: 'line-chart', label: '曲线', Icon: LineChart },
-  { id: 'crosshair', label: '精准', Icon: Crosshair },
-  { id: 'gauge', label: '仪表', Icon: Gauge },
-]
-
-export const STRATEGY_COLOR_PRESETS = [
-  '#5e6ad2',
-  '#27ae60',
-  '#bb6bd9',
-  '#f2994a',
-  '#56ccf2',
-  '#eb5757',
-  '#f2c94c',
-  '#6fcf97',
-  '#9b51e0',
-  '#2f80ed',
-  '#e67e22',
-  '#1abc9c',
+export const STRATEGY_ICON_OPTIONS = [
+  { id: 'trending-up', label: '趋势', Icon: TrendIcon },
+  { id: 'arrow-left-right', label: '回归', Icon: ReversionIcon },
+  { id: 'activity', label: '波动', Icon: VolatilityIcon },
+  { id: 'newspaper', label: '新闻', Icon: NewsIcon },
+  { id: 'zap', label: '闪电', Icon: MomentumIcon },
+  { id: 'target', label: '目标', Icon: AimIcon },
+  { id: 'layers', label: '分层', Icon: StrataIcon },
+  { id: 'bar-chart-2', label: '图表', Icon: AnalyticsNavIcon },
+  { id: 'flame', label: '热点', Icon: HeatIcon },
+  { id: 'rocket', label: '火箭', Icon: LaunchIcon },
+  { id: 'shield', label: '防守', Icon: DefenseIcon },
+  { id: 'line-chart', label: '曲线', Icon: CurveIcon },
+  { id: 'crosshair', label: '精准', Icon: PrecisionIcon },
+  { id: 'gauge', label: '仪表', Icon: RiskNavIcon },
 ] as const
+
+export { STRATEGY_COLOR_PRESETS } from './strategyColors'
 
 export const DEFAULT_STRATEGIES: Strategy[] = createDefaultStrategies()
 
-const ICON_MAP = Object.fromEntries(
-  STRATEGY_ICON_OPTIONS.map((o) => [o.id, o.Icon]),
-) as Record<StrategyIconId, AppIcon>
+const ICON_MAP = new Map<StrategyIconId, AppIcon>(
+  STRATEGY_ICON_OPTIONS.map(({ id, Icon }) => [id, Icon]),
+)
 
 export function getStrategyIcon(icon: StrategyIconId): AppIcon {
-  return ICON_MAP[icon] ?? Target
+  return ICON_MAP.get(icon) ?? AimIcon
 }
 
 export function slugifyStrategyName(name: string): string {

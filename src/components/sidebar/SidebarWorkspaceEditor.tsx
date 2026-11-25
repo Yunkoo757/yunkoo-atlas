@@ -1,7 +1,10 @@
 import { isComposingKey } from '@/lib/keyboardComposition'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronLeft, GripVertical, Trash2 } from '@/icons/appIcons'
+import { IconButton } from '@/components/ui/IconButton'
+import { useModalShortcutScope } from '@/components/ui/ModalShell'
+import { StrategyIcon } from '@/components/StrategyIcon'
 import type { Strategy } from '@/data/strategies'
 import type { SavedTradeView } from '@/lib/savedTradeViews'
 import { DEFAULT_SIDEBAR_PINS } from '@/lib/sidebarNav'
@@ -77,35 +80,45 @@ export function SidebarWorkspaceEditor({
   const [capacityMessage, setCapacityMessage] = useState('')
   const [announcement, setAnnouncement] = useState('')
   const titleRef = useRef<HTMLHeadingElement>(null)
+  const addButtonRef = useRef<HTMLButtonElement>(null)
+  const wasPicking = useRef(false)
   const overflowSectionRef = useRef<HTMLElement>(null)
   const navigationDraft = draft.filter((item) => isSidebarNavigationTarget(item.target))
   const pinnedItems = navigationDraft.filter((item) => item.placement === 'pinned')
   const overflowItems = navigationDraft.filter((item) => item.placement === 'overflow')
   const pinnedCount = pinnedItems.length
   const primaryItems = resolvePrimarySidebarNav(primaryDraft)
+  useModalShortcutScope()
 
-  useEffect(() => {
-    titleRef.current?.focus()
-  }, [pickerOpen])
-
-  useEffect(() => {
-    if (pickerOpen || initialSection !== 'overflow') return
-    overflowSectionRef.current?.scrollIntoView({ block: 'nearest' })
+  useLayoutEffect(() => {
+    if (!pickerOpen && wasPicking.current) {
+      addButtonRef.current?.focus()
+    } else {
+      titleRef.current?.focus()
+      if (!pickerOpen && initialSection === 'overflow') {
+        overflowSectionRef.current?.scrollIntoView({ block: 'nearest' })
+      }
+    }
+    wasPicking.current = pickerOpen
   }, [initialSection, pickerOpen])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || isComposingKey(event)) return
+      if (event.key !== 'Escape' || event.defaultPrevented || isComposingKey(event)) return
       event.preventDefault()
       if (pickerOpen) {
         setPickerOpen(false)
+        return
+      }
+      if (confirmDefaults) {
+        setConfirmDefaults(false)
         return
       }
       onCancel()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onCancel, pickerOpen])
+  }, [confirmDefaults, onCancel, pickerOpen])
 
   const removeItem = (item: SidebarWorkspaceItem, label: string) => {
     const index = draft.findIndex((candidate) => candidate.id === item.id)
@@ -248,6 +261,9 @@ export function SidebarWorkspaceEditor({
           {placement === 'pinned' ? '常驻' : '更多'}第 {indexInGroup + 1} 项，共 {group.length}{' '}
           项。使用 Alt + 上/下方向键排序
         </span>
+        {resolved.strategy && (
+          <StrategyIcon icon={resolved.strategy.icon} color={resolved.strategy.color} variant="nav" />
+        )}
         <span className="sb-editor-item-label" data-sidebar-item-label>
           {resolved.label}
         </span>
@@ -383,54 +399,27 @@ export function SidebarWorkspaceEditor({
         }
       }}
     >
-      {/* 对话框名称保持稳定；可视化标题可随「添加项目」切换，避免 QA/读屏找不到 dialog */}
-      <span id={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID} className="sb-screen-reader">
-        管理我的空间
-      </span>
       <header className="sb-workspace-editor-header">
-        {pickerOpen ? (
-          <div className="sb-workspace-editor-nav">
-            <button
-              type="button"
-              className="sb-editor-back"
-              aria-label="返回管理列表"
+        <div className="sb-workspace-editor-title-row">
+          {pickerOpen && (
+            <IconButton
+              label="返回管理列表"
+              tooltip="返回管理列表"
               onClick={() => setPickerOpen(false)}
             >
               <ChevronLeft size={ICON_MD} aria-hidden="true" />
-              <span>返回</span>
-            </button>
-            <div className="sb-workspace-editor-title-row">
-              <h2 ref={titleRef} tabIndex={-1}>
-                添加项目
-              </h2>
-              <span data-sidebar-capacity>
-                常驻 {pinnedCount} / 8
-                {overflowItems.length > 0 ? ` · 更多 ${overflowItems.length}` : ''}
-              </span>
-            </div>
-            <p className="sb-editor-help">点击项目添加或移动位置；完成后点「完成」。</p>
-          </div>
-        ) : (
-          <div className="sb-workspace-editor-nav">
-            <div className="sb-workspace-editor-title-row">
-              <h2 ref={titleRef} tabIndex={-1}>
-                管理我的空间
-              </h2>
-              <span data-sidebar-capacity>
-                常驻 {pinnedCount} / 8
-                {overflowItems.length > 0 ? ` · 更多 ${overflowItems.length}` : ''}
-              </span>
-            </div>
-            <p className="sb-editor-help">
-              常驻最多 8 项直接出现在侧栏；超出项在「更多」，可随时改回。
-              {variant === 'mobile-fullscreen' ? ' 使用上移/下移排序。' : ' 组内可拖动或 Alt + ↑/↓ 排序。'}
-            </p>
-          </div>
-        )}
+            </IconButton>
+          )}
+          <h2 id={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID} ref={titleRef} tabIndex={-1}>
+            {pickerOpen ? '添加项目' : '管理我的空间'}
+          </h2>
+          {pickerOpen && <span data-sidebar-capacity>常驻 {pinnedCount} / {MAX_PINNED_SIDEBAR_ITEMS}</span>}
+        </div>
       </header>
       <span className="sb-screen-reader" aria-live="polite">
         {announcement}
       </span>
+      <div className="sb-workspace-editor-body">
       {pickerOpen ? (
         <SidebarTargetPicker
           items={draft}
@@ -450,7 +439,7 @@ export function SidebarWorkspaceEditor({
             <section className="sb-editor-group" aria-label="常驻侧栏">
               <header className="sb-editor-group-header">
                 <h3>常驻侧栏</h3>
-                <span>
+                <span data-sidebar-capacity>
                   {pinnedCount} / {MAX_PINNED_SIDEBAR_ITEMS}
                 </span>
               </header>
@@ -492,7 +481,7 @@ export function SidebarWorkspaceEditor({
               {capacityMessage}
             </p>
           ) : null}
-          <button type="button" className="sb-editor-browse" onClick={() => setPickerOpen(true)}>
+          <button type="button" ref={addButtonRef} className="sb-editor-browse" onClick={() => setPickerOpen(true)}>
             添加项目
           </button>
           <div className="sb-editor-defaults">
@@ -522,12 +511,9 @@ export function SidebarWorkspaceEditor({
           </div>
         </>
       )}
+      </div>
       <footer className="sb-editor-actions">
-        {pickerOpen ? (
-          <button type="button" className="sb-editor-actions-secondary" onClick={() => setPickerOpen(false)}>
-            返回列表
-          </button>
-        ) : (
+        {!pickerOpen && (
           <button type="button" onClick={onCancel}>
             取消
           </button>

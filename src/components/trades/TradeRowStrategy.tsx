@@ -1,4 +1,5 @@
 import { HoverPreview } from '@/components/HoverPreview'
+import { ICON_SM } from '@/icons/iconSize'
 import { StrategyLabel } from '@/components/StrategyIcon'
 import { StrategyPreview, type StrategyPreviewStats } from '@/components/RowPreviews'
 import type { Strategy } from '@/data/strategies'
@@ -18,7 +19,7 @@ export function TradeRowStrategy({
   ariaLabel,
   onClick,
 }: TradeRowStrategyProps) {
-  const label = <StrategyLabel strategyId={strategyId} strategies={strategies} />
+  const label = <StrategyLabel strategyId={strategyId} strategies={strategies} size={ICON_SM} variant="nav" />
 
   return (
     <HoverPreview

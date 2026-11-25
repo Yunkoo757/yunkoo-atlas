@@ -30,3 +30,18 @@ export function testJournalResetRetainsNamedViewScopeAndOnlyItsConditions(): voi
     checkReset(path, 'view=starred&status=loss', 'view=starred')
   }
 }
+
+export function testCaseViewResetPreservesSavedConditionsAndScope(): void {
+  const saved: SavedTradeView = {
+    id: 'gold-cases', pathname: '/review-cases/focus', search: { symbol: 'XAUUSD' },
+    name: '重点黄金', pinned: false, order: 0, createdAt: '', updatedAt: '',
+  }
+  for (const path of ['/review-cases/focus', '/review-cases/focus/board']) {
+    checkReset(path, 'symbol=XAUUSD&side=short', 'symbol=XAUUSD', [saved], {
+      journalView: { type: 'saved', id: saved.id },
+    })
+    checkReset(path, 'symbol=XAUUSD&side=short', '', [saved], {
+      journalView: { type: 'builtin', id: 'focus' },
+    })
+  }
+}

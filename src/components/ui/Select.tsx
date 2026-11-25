@@ -162,6 +162,7 @@ export const Select = forwardRef<
       return
     }
     if (event.key === 'Tab') {
+      triggerRef.current?.focus({ preventScroll: true })
       setOpen(false)
       return
     }

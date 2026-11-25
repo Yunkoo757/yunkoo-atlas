@@ -1,14 +1,16 @@
 import {
   resolveSymbolIcon,
+  resolveSymbolPreset,
+  type SymbolIconPreset,
   type SymbolIconsMap,
 } from '@/lib/symbolIcons'
-import { SymbolPresetSvg } from '@/components/SymbolPresetSvg'
 import { ICON_TILE } from '@/icons/iconSize'
 import './SymbolIcon.css'
 
 export function SymbolIcon({
   symbol,
   overrides,
+  preset,
   size = ICON_TILE,
   className = '',
   quiet = false,
@@ -16,20 +18,15 @@ export function SymbolIcon({
 }: {
   symbol: string
   overrides?: SymbolIconsMap | null
+  preset?: SymbolIconPreset
   size?: number
   className?: string
-  /** 高密度列表中的低噪声呈现；详情、表单与设置仍使用完整资产色。 */
+  /** 高密度列表使用无底色的品种标识。 */
   quiet?: boolean
   /** @deprecated 不再写入原生 title，避免系统默认气泡 */
   title?: string
 }) {
-  const resolved = resolveSymbolIcon(symbol, overrides)
-  const quietColor = (color: string) =>
-    quiet
-      ? `color-mix(in srgb, ${color} 86%, var(--text-body))`
-      : color
-  const quietBackground = (_color: string, background: string) =>
-    quiet ? 'transparent' : background
+  const resolved = preset ? resolveSymbolPreset(symbol, preset) : resolveSymbolIcon(symbol, overrides)
 
   if (resolved.type === 'image') {
     return (
@@ -44,24 +41,28 @@ export function SymbolIcon({
   }
 
   if (resolved.type === 'svg') {
+    const markSize = Math.max(10, Math.round(size * (quiet ? 0.82 : 0.75)))
     return (
       <span
         className={'symbol-icon is-svg' + (quiet ? ' is-quiet' : '') + (className ? ` ${className}` : '')}
         style={{
           width: size,
           height: size,
-          background: quietBackground(resolved.color, resolved.background),
-          color: quietColor(resolved.color),
+          background: quiet ? 'transparent' : resolved.background,
+          color: resolved.color,
         }}
         aria-hidden
       >
-        <SymbolPresetSvg id={resolved.svgId} size={Math.max(10, Math.round(size * (quiet ? 0.82 : 0.75)))} />
+        <svg width={markSize} height={markSize} viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+          <path d="M8 1.35 3.8 8 8 10.45 12.2 8 8 1.35Z" />
+          <path d="M8 11.35 3.8 8.9 8 14.65l4.2-5.75L8 11.35Z" fillOpacity="0.72" />
+        </svg>
       </span>
     )
   }
 
   // 无底列表符号把有限像素交给字形本身；大尺寸预览仍保持原有光学重量。
-  const glyphScale = quiet ? 0.66 : resolved.glyph.length > 1 ? 0.46 : 0.56
+  const glyphScale = resolved.glyph.length > 1 ? 0.46 : 0.56
 
   return (
     <span
@@ -69,8 +70,8 @@ export function SymbolIcon({
       style={{
         width: size,
         height: size,
-        color: quietColor(resolved.color),
-        background: quietBackground(resolved.color, resolved.background),
+        color: resolved.color,
+        background: quiet ? 'transparent' : resolved.background,
         fontSize: quiet
           ? resolved.glyph.length > 1 ? 'var(--type-caption-size)' : 'var(--type-metadata-size)'
           : Math.max(9, Math.round(size * glyphScale)),

@@ -42,21 +42,6 @@
   white-space: nowrap;
 }
 
-.ui-toolbar-sep {
-  flex-shrink: 0;
-  width: auto;
-  height: auto;
-  color: var(--text-quaternary);
-  font-size: var(--type-row-size);
-  font-weight: var(--font-weight-normal);
-  line-height: var(--type-row-line-height);
-  background: transparent;
-}
-
-.ui-toolbar-sep::before {
-  content: '/';
-}
-
 .ui-toolbar-context {
   overflow: hidden;
   color: var(--text-tertiary);

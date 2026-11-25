@@ -1,5 +1,6 @@
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
-import { useEffect, useMemo, useState } from 'react'
+import { Toolbar, WindowToolbarHost } from '@/components/ui/Toolbar'
+import { useContext, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore, type TradePurgeTarget } from '@/store/useStore'
 import {
@@ -89,6 +90,7 @@ function groupTrash(trades: Trade[]): TrashGroup[] {
 }
 
 export function TradeTrashView() {
+  const windowToolbar = useContext(WindowToolbarHost)
   const navigate = useNavigate()
   const allTrades = useStore((s) => s.trades)
   const strategies = useStore((s) => s.strategies)
@@ -277,12 +279,12 @@ export function TradeTrashView() {
 
   return (
     <div className="trash-view">
-      <CrumbsNav
+      {windowToolbar ? <Toolbar title="回收站" context={trashTrades.length > 0 ? `${trashTrades.length} 笔` : undefined} /> : <CrumbsNav
         backLabel="返回"
         onBack={handleBack}
         crumbs={[{ label: '回收站', active: true }]}
         context={trashTrades.length > 0 ? `${trashTrades.length} 笔` : undefined}
-      />
+      />}
 
       <div className="trash-content">
         {trashTrades.length === 0 ? (

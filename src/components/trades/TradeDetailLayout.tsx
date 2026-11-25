@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom'
 import { isComposingKey } from '@/lib/keyboardComposition'
-import { ModalPortalContext, useModalPortalRegistry } from '@/components/ui/ModalShell'
+import { ModalPortalContext, useModalPortalRegistry, useModalShortcutScope } from '@/components/ui/ModalShell'
 import { ICON_MD } from '@/icons/iconSize'
 import { PanelToggleIcon } from '@/icons/StateIcons'
 import { useCallback, useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode } from 'react'
@@ -12,12 +12,14 @@ import { useShortcutHint } from '@/shortcuts/useShortcutHint'
 import './TradeDetailLayout.css'
 
 export function TradeDetailLayout({
+  recordLabel,
   header,
   toolbarHost,
   content,
   properties,
   revealProperties = false,
 }: {
+  recordLabel: string
   header: (propertiesToggle: ReactNode) => ReactNode
   toolbarHost?: HTMLElement | null
   content: ReactNode
@@ -31,10 +33,13 @@ export function TradeDetailLayout({
   const propertiesVisible = useStore((state) => state.display.detailPropertiesVisible !== false)
   const setDisplay = useStore((state) => state.setDisplay)
   const propertiesOpen = compact && (drawerOpen || temporaryReveal)
+  useModalShortcutScope(propertiesOpen)
   const expanded = compact ? propertiesOpen : propertiesVisible || temporaryReveal
+  const propertiesLabel = recordLabel + '属性'
+  const closeLabel = '关闭' + propertiesLabel
   const propertiesHint = useShortcutHint(
     'trade.toggleProperties',
-    expanded ? '关闭交易属性' : '打开交易属性',
+    expanded ? closeLabel : '打开' + propertiesLabel,
   )
   const propertiesId = useId()
   const layoutRef = useRef<HTMLDivElement>(null)
@@ -172,14 +177,14 @@ export function TradeDetailLayout({
     <div className={'trade-detail-layout' + (!compact && !expanded ? ' is-properties-hidden' : '')} ref={layoutRef}>
       {toolbarHost ? createPortal(header(propertiesToggle), toolbarHost) : header(propertiesToggle)}
       <div className="dv-body">
-        <section className="dv-main" aria-label="交易详情">{content}</section>
+        <section className="dv-main" aria-label={recordLabel + '详情'}>{content}</section>
         {compact && (
           <button
             type="button"
             className="trade-detail-properties-backdrop"
             data-open={propertiesOpen}
             aria-hidden={!propertiesOpen}
-            aria-label="关闭交易属性"
+            aria-label={closeLabel}
             tabIndex={-1}
             onClick={closeProperties}
           />
@@ -189,18 +194,18 @@ export function TradeDetailLayout({
           id={propertiesId}
           ref={propertiesRef}
           aria-hidden={!expanded}
-          aria-label="交易属性"
+          aria-label={propertiesLabel}
           role={propertiesOpen ? 'dialog' : undefined}
           aria-modal={propertiesOpen ? 'true' : undefined}
           tabIndex={-1}
         >
-          <Tooltip asChild content="关闭交易属性" label="关闭交易属性">
+          <Tooltip asChild content={closeLabel} label={closeLabel}>
             <button
               type="button"
               className="trade-detail-properties-close"
               ref={closeRef}
               onClick={closeProperties}
-              aria-label="关闭交易属性"
+              aria-label={closeLabel}
             >
               <X size={ICON_MD} />
             </button>

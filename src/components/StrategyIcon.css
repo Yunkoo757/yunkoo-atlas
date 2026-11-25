@@ -5,14 +5,9 @@
   flex-shrink: 0;
 }
 
-.strategy-icon.is-placeholder {
-  background: color-mix(in srgb, var(--bg-hover) 80%, transparent);
-}
-
-.strategy-icon.is-nav {
-  background: none !important;
-  opacity: 1;
-  transition: opacity var(--dur-fast) var(--ease-out);
+.strategy-icon > svg {
+  display: block;
+  shape-rendering: geometricPrecision;
 }
 
 .strategy-label {

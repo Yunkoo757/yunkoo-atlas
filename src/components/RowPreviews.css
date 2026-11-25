@@ -3,23 +3,6 @@
   max-width: 320px;
 }
 
-.rp-status-ring {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: var(--radius-full);
-  font-size: var(--type-caption-size);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-secondary);
-  background: var(--bg-elevated);
-}
-
-.rp-status-ring[data-status="open"] { color: var(--pos); background: color-mix(in srgb, var(--pos) 14%, transparent); }
-.rp-status-ring[data-status="closed"] { color: var(--text-tertiary); }
-.rp-status-ring[data-status="missed"] { color: var(--status-missed); background: color-mix(in srgb, var(--status-missed) 14%, transparent); }
-.rp-status-ring[data-status="planned"] { color: var(--pending); background: color-mix(in srgb, var(--pending) 14%, transparent); }
-
 .rp-divider {
   height: 1px;
   margin: 10px 0 var(--sp-2);
@@ -83,10 +66,6 @@
   width: 100%;
   min-width: 0;
   font-family: var(--font-ui);
-}
-
-.sp-card .strategy-icon {
-  background: transparent !important;
 }
 
 .sp-summary {

@@ -211,6 +211,11 @@ export function Menu({
   }
 
   const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Tab') {
+      resolveTriggerControl()?.focus({ preventScroll: true })
+      setOpen(false)
+      return
+    }
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
     const items = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('.menu-item:not(:disabled)')]
     if (items.length === 0) return

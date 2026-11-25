@@ -61,7 +61,7 @@
 
 .quick-notes-list-title svg {
   flex: 0 0 auto;
-  color: var(--accent);
+  color: var(--accent-readable);
 }
 
 .quick-notes-list-title strong {

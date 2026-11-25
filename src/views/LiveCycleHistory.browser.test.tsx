@@ -261,13 +261,13 @@ async function run(): Promise<void> {
         <CaseFiltersProbe />
       </MemoryRouter>,
     )
+    await waitFor(() => Boolean(document.querySelector<HTMLButtonElement>('.ui-filter-trigger')), '案例筛选入口未渲染')
+    document.querySelector<HTMLButtonElement>('.ui-filter-trigger')!.click()
+    await waitFor(() => Boolean(document.querySelector('.trade-filter-panel[aria-label="案例筛选"]')), '案例筛选面板未打开')
     await waitFor(
       () => Boolean(document.querySelector<HTMLButtonElement>('[aria-label="移除 旧分类：重点"]')),
       'legacy reviewCategory 必须渲染为可移除的旧分类 chip',
     )
-    await waitFor(() => Boolean(document.querySelector<HTMLButtonElement>('.ui-filter-trigger')), '案例筛选入口未渲染')
-    document.querySelector<HTMLButtonElement>('.ui-filter-trigger')!.click()
-    await waitFor(() => Boolean(document.querySelector('.trade-filter-panel[aria-label="案例筛选"]')), '案例筛选面板未打开')
     assert(document.querySelector('[role="combobox"][aria-label="案例类型"]'), '案例筛选必须真实渲染案例类型')
     assert(document.querySelector('[role="combobox"][aria-label="掌握状态"]'), '案例筛选必须真实渲染掌握状态')
     assert(document.querySelector('[role="combobox"][aria-label="错误标签"]'), '案例筛选必须真实渲染错误标签')

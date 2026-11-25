@@ -3,16 +3,13 @@ import { ICON_SM } from '@/icons/iconSize'
 import './StatusIcon.css'
 
 const STATUS_COLOR: Record<TradeStatus, string> = {
-  planned: 'var(--text-tertiary)',
+  planned: 'var(--status-planned)',
   open: 'var(--status-open)',
   missed: 'var(--status-missed)',
   win: 'var(--status-win)',
-  breakeven: 'var(--text-secondary)',
+  breakeven: 'var(--status-even)',
   loss: 'var(--status-loss)',
 }
-
-const MISSED_STATUS_PATH =
-  'M7 14C10.866 14 14 10.866 14 7C14 3.13401 10.866 0 7 0C3.13401 0 0 3.13401 0 7C0 10.866 3.13401 14 7 14ZM10.0303 4.96967C10.3232 5.26256 10.3232 5.73744 10.0303 6.03033L6.03033 10.0303C5.73744 10.3232 5.26256 10.3232 4.96967 10.0303C4.67678 9.73744 4.67678 9.26256 4.96967 8.96967L8.96967 4.96967C9.26256 4.67678 9.73744 4.67678 10.0303 4.96967Z'
 
 export function StatusIcon({ status, size = ICON_SM, animate = true }: {
   status: TradeStatus
@@ -21,51 +18,49 @@ export function StatusIcon({ status, size = ICON_SM, animate = true }: {
 }) {
   return (
     <span className="status-icon">
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      <svg width={size} height={size} viewBox="0 0 16 16" fill="none"
+        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
         aria-hidden="true" data-icon-motion="status" data-status={status} data-animate={animate}
         style={{ color: STATUS_COLOR[status] }}>
-        <circle className="status-ring" cx="12" cy="12" r="10" pathLength="100" />
-        <circle className="status-dot" cx="12" cy="12" r="1" />
-        <path className="status-result" d="M9 12 L11 14 L15 10" />
-        <path className="status-cross" d="m9 9 6 6" pathLength="1" />
-        <g className="status-even">
-          <rect x="8" y="8" width="14" height="14" rx="2" />
-          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-        </g>
-        <path className="status-missed" d={MISSED_STATUS_PATH} transform="scale(1.7142857)"
-          fill="currentColor" stroke="none" fillRule="evenodd" />
+        <circle className="status-plan" cx="8" cy="8" r="6.25" pathLength="60"
+          strokeDasharray="5 5" transform="rotate(-105 8 8)" />
+        <circle className="status-ring" cx="8" cy="8" r="6.25" />
+        <path className="status-progress" d="M8 3.75a4.25 4.25 0 0 1 0 8.5Z" fill="currentColor" stroke="none" />
+        <path className="status-skip" d="M2.5 11.75v-1A4 4 0 0 1 6.5 6.75H13m-3.25-3.25L13 6.75 9.75 10" />
+        <circle className="status-disc" cx="8" cy="8" r="7.25" fill="currentColor" stroke="none" />
+        <path className="status-result" d="M3.75 8 L6.75 11 L12.5 5.25" />
+        <path className="status-cross" d="M5 5 L11 11" pathLength="1" />
       </svg>
     </span>
   )
 }
 
-// 信心度图标：三段信号条；极高与高同为满格，用紧急色区分（不再用红叹号方块）。
-const BARS: Record<Conviction, number> = { low: 1, medium: 2, high: 3, urgent: 3 }
+// 四档信心度按亮起的信号条数量区分。
+const BARS: Record<Conviction, number> = { low: 1, medium: 2, high: 3, urgent: 4 }
+const BAR_HEIGHTS = [4, 6, 8.5, 11]
 
 export function ConvictionIcon({
   conviction,
   size = ICON_SM,
+  label,
 }: {
   conviction: Conviction
   size?: number
+  label?: string
 }) {
   const active = BARS[conviction]
-  const heights = [4, 7, 10]
-  const on =
-    conviction === 'urgent' ? 'var(--status-urgent)' : 'var(--text-secondary)'
-  const off = 'var(--text-quaternary)'
   return (
-    <svg width={size} height={size} viewBox="0 0 14 14" aria-hidden>
-      {heights.map((h, i) => (
+    <svg width={size} height={size} viewBox="0 0 14 14"
+      role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+      {BAR_HEIGHTS.map((h, i) => (
         <rect
           key={i}
-          x={1 + i * 4.2}
+          x={1 + i * 3.3}
           y={13 - h}
-          width="2.6"
+          width="2.2"
           height={h}
           rx="1"
-          fill={i < active ? on : off}
+          fill={i < active ? 'var(--text-secondary)' : 'var(--text-quaternary)'}
         />
       ))}
     </svg>

@@ -4,6 +4,7 @@ import { ICON_2XL, ICON_SM, ICON_XL, ICON_MD } from '@/icons/iconSize'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, X } from '@/icons/appIcons'
+import { strategySelectOption } from '@/components/StrategyIcon'
 import { Select } from '@/components/ui/Select'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { SymbolIcon } from '@/components/SymbolIcon'
@@ -505,7 +506,7 @@ export function TradeComposer() {
   </div>
   const strategyField = <div className="composer-essential-field">
     <span className="composer-essential-label">策略</span>
-    <Select value={strategyId} onValueChange={setStrategyId} ariaLabel="交易策略" options={strategies.length === 0 ? [{ value: '', label: '未设置' }] : strategies.map(strategy => ({ value: strategy.id, label: strategy.name }))} />
+    <Select value={strategyId} onValueChange={setStrategyId} ariaLabel="交易策略" options={strategies.length === 0 ? [{ value: '', label: '未设置' }] : strategies.map(strategySelectOption)} />
   </div>
 
   return (

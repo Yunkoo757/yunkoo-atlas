@@ -16,6 +16,7 @@
 import type { CaseType, Trade, TradeKind, TradeStatus, TradeSide, Conviction } from '@/data/trades'
 import { normalizeCashCurrency, normalizeTimeframe, resolveTimeframe } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
+import { STRATEGY_COLOR_PRESETS } from '@/data/strategyColors'
 import type { CsvParseResult } from '@/lib/csvImport'
 import { parseCsv } from '@/lib/csvImport'
 import { normalizeSession, normalizeNarrative, normalizePsychology } from '@/lib/tradeView'
@@ -1074,7 +1075,6 @@ export function parseNotionCsv(
 // ⑧ 导入执行
 // ============================================================
 
-const STRATEGY_COLORS = ['#5e6ad2', '#27ae60', '#bb6bd9', '#f2994a', '#56ccf2', '#eb5757', '#f2c94c', '#6fcf97', '#9b51e0', '#2f80ed', '#e67e22', '#1abc9c']
 const STRATEGY_ICONS: string[] = ['trending-up', 'target', 'zap', 'crosshair', 'activity', 'bar-chart-2', 'rocket', 'flame', 'layers', 'shield', 'gauge', 'line-chart']
 
 export interface NotionImportOptions {
@@ -1148,7 +1148,7 @@ export function executeNotionImport(
         id,
         name,
         icon: (opts.defaultIcon || STRATEGY_ICONS[i % STRATEGY_ICONS.length]) as Strategy['icon'],
-        color: opts.defaultColor || STRATEGY_COLORS[i % STRATEGY_COLORS.length],
+        color: opts.defaultColor || STRATEGY_COLOR_PRESETS[i % STRATEGY_COLOR_PRESETS.length],
       })
       strategyMap.set(name.toLowerCase(), strategies[strategies.length - 1]!)
     }

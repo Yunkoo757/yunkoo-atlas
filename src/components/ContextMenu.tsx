@@ -58,16 +58,19 @@ export function ContextMenu({
   const open = resolvedAnchor !== null
   const exitRef = useExitClone<HTMLDivElement>(open)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const previousFocus = useRef<HTMLElement | null>(null)
 
   const assignMenuRef = (node: HTMLDivElement | null) => {
     menuRef.current = node
     exitRef(node)
   }
 
+  const focusOrigin = () => state?.originElement ?? restoreFocusRef?.current ?? previousFocus.current
+
   const closeAndRestore = () => {
+    const target = focusOrigin()
     onClose()
     requestAnimationFrame(() => {
-      const target = state?.originElement ?? restoreFocusRef?.current ?? null
       restoreFocusIfUnclaimed(target)
     })
   }
@@ -82,6 +85,11 @@ export function ContextMenu({
       event.preventDefault()
       event.stopPropagation()
       closeAndRestore()
+      return
+    }
+    if (event.key === 'Tab') {
+      focusOrigin()?.focus({ preventScroll: true })
+      onClose()
       return
     }
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key) || buttons.length === 0) return
@@ -99,7 +107,9 @@ export function ContextMenu({
 
   useLayoutEffect(() => {
     if (!open) return
-    focusableItems()[0]?.focus({ preventScroll: true })
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const target = focusableItems()[0] ?? menuRef.current
+    target?.focus({ preventScroll: true })
   }, [open])
 
   const anchorX = resolvedAnchor?.x
@@ -147,6 +157,7 @@ export function ContextMenu({
       ref={assignMenuRef}
       kind="menu"
       role="menu"
+      tabIndex={-1}
       className={['ctx', className].filter(Boolean).join(' ')}
       onKeyDown={handleMenuKeyDown}
       onClick={(e) => e.stopPropagation()}
@@ -170,6 +181,8 @@ export function ContextMenu({
             tabIndex={-1}
             onClick={() => {
               if (it.disabled) return
+              // 弹出确认框的菜单项会随菜单卸载，先让后续弹窗记住真正的入口。
+              if (!it.keepOpen) focusOrigin()?.focus({ preventScroll: true })
               it.onClick()
               if (!it.keepOpen) closeAndRestore()
             }}

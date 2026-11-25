@@ -208,7 +208,7 @@
   place-items: center;
   width: 30px;
   height: 30px;
-  color: var(--accent);
+  color: var(--accent-readable);
   background: var(--accent-bg);
   border-radius: var(--radius-6);
 }

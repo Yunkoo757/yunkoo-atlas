@@ -1,5 +1,6 @@
 import { useValueMotion } from '@/hooks/useValueMotion'
 import { buildWeeklyReviewHistory } from '@/lib/weeklyReviewHistory'
+import { WindowToolbarHost } from '@/components/ui/Toolbar'
 import { Button } from '@/components/ui/Button'
 import { PerformanceDataNotice } from '@/components/PerformanceDataNotice'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
@@ -46,6 +47,7 @@ import {
 import { MISS_REASON_META, type MissReason, type Trade } from '@/data/trades'
 import { fmtMoney, fmtR } from '@/lib/format'
 import { formatTradeCashPnl } from '@/lib/cashCurrency'
+import { tradeMetricTone } from '@/lib/tradeRowPresentation'
 import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 import { parseLocalDate, formatYmd } from '@/lib/periods'
 import { toast } from '@/lib/toast'
@@ -215,6 +217,8 @@ function TradeEvidence({
 }) {
   const privacyMode = useStore((state) => state.display.privacyMode)
   const isMissedTrade = trade.status === 'missed'
+  const displayedMetric = trade.pnl == null ? trade.rMultiple : privacyMode ? null : trade.pnl
+  const resultTone = isMissedTrade ? 'opportunity' : tradeMetricTone(trade.status, displayedMetric)
   const result = isMissedTrade
     ? `错过 · ${MISS_REASON_META[trade.missReason ?? 'other'].label}`
     : typeof trade.pnl === 'number'
@@ -236,7 +240,7 @@ function TradeEvidence({
       >
         <span className="wr-symbol">{trade.symbol}</span>
         <span>{trade.ref}</span>
-        <span className={`wr-result ${isMissedTrade ? 'is-missed' : trade.status === 'loss' ? 'is-negative' : trade.status === 'win' ? 'is-positive' : ''}`}>
+        <span className={`wr-result is-${resultTone}`}>
           {result}
         </span>
       </Link>
@@ -259,6 +263,7 @@ function TradeEvidence({
 }
 
 export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
+  const windowToolbar = useContext(WindowToolbarHost)
   const trades = useStore((state) => state.trades)
   const privacyMode = useStore((state) => state.display.privacyMode)
   const tradingDayStartHour = useStore((state) => state.display.tradingDayStartHour)
@@ -764,7 +769,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
   return (
     <>
       <header className="wr-toolbar">
-        <span className="wr-toolbar-label">周期复盘</span>
+        {!windowToolbar && <span className="wr-toolbar-label">周期复盘</span>}
         <details className="wr-record-picker" ref={historyPickerRef}>
           <summary aria-label={`选择复盘记录：${selectedWeek.slice(0, 4)}年 · ${formatWeekRange(selectedWeek)}，${reviewStageName}`}>
             <span>{selectedWeek.slice(0, 4)}年 · {formatWeekRange(selectedWeek)}</span>

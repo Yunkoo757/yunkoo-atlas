@@ -102,6 +102,8 @@ async function run(): Promise<void> {
     assert(getComputedStyle(columns[1]!).borderLeftWidth === '1px', '相邻状态列应以轻分隔线建立结构')
     assert(cards.every((card) => card.getBoundingClientRect().width > 240), '案例卡片宽度不应因内外双层容器被过度压缩')
     assert(document.querySelectorAll('.bd-card-result').length === 4, '已结束和有潜在 R 的错过卡片应保留结果值，计划不展示不适用占位')
+    const potential = board.querySelector('.bd-card-result[data-value-state="missed"]')
+    assert(potential && potential.textContent?.includes('4.3R') && !potential.hasAttribute('data-value-sign'), '潜在 R 必须可读并使用机会色')
     assert(!/突破后等待回踩确认|来源复盘|张截图/.test(board.textContent ?? ''), '案例看板只在打开详情后展示复盘正文和截图')
     assert(!document.body.textContent?.includes('$350'), '看板不得重新引入列表已经移除的现金金额')
   } finally {

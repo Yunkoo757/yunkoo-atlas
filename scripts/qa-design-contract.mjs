@@ -26,7 +26,7 @@ const settingsDataPanel = read('src/views/settings/DataSettingsPanel.tsx')
 const dataIOContent = read('src/components/DataIOContent.tsx')
 const updatesPanelStyles = read('src/views/settings/UpdatesSettingsPanel.css')
 const dioContentStyles = read('src/components/DataIOContent.css')
-const symbolsPanelStyles = read('src/views/settings/SymbolsPanel.css')
+const symbolsPanel = read('src/views/settings/SymbolsPanel.tsx')
 const reviewTemplatesStyles = read('src/views/settings/ReviewTemplatesPanel.css')
 const shortcutsViewCss = read('src/views/ShortcutsView.css')
 const strategiesViewCss = read('src/views/StrategiesView.css')
@@ -285,8 +285,9 @@ const checks = [
       /\.ui-btn-danger-solid:disabled,[\s\S]*?color:\s*var\(--danger-solid-disabled-text\);[\s\S]*?background:\s*var\(--danger-solid-disabled-bg\);[\s\S]*?border-color:\s*var\(--danger-solid-disabled-border\);[\s\S]*?opacity:\s*1;/s.test(buttonStyles),
   ],
   [
-    'quick views consume shared control surfaces without decorative depth',
-    ['--surface-control', '--surface-control-hover', '--surface-control-active', '--surface-control-border', '--surface-control-border-active']
+    'quick views keep resting tabs quiet and use shared hover and selection surfaces',
+    /\.quick-view-chip,\s*\.quick-view-overflow\s*\{[^}]*background: transparent;/.test(quickViewStyles) &&
+    ['--surface-control-hover', '--surface-control-active']
       .every((token) => tokens.includes(token) && quickViewStyles.includes(`var(${token})`)) &&
       !/(?:\blch\(|#[\da-f]{3,8}\b|inset 0 1px)/i.test(quickViewStyles),
   ],
@@ -407,9 +408,9 @@ const checks = [
       /className="dio-btn"\s+disabled=\{dataBusy\}\s+onClick=\{electron \? onImportZip/.test(dataIOContent),
   ],
   [
-    'Symbols preset swatch uses the semantic caption role (not bare 10px)',
-    !symbolsPanelStyles.includes('font-size: 10px') &&
-      /\.symbols-preset-swatch\s*\{[^}]*font-size:\s*var\(--type-caption-size\);/s.test(symbolsPanelStyles),
+    'Symbols settings renders the same asset mark as lists and editors',
+    symbolsPanel.includes('<SymbolIcon symbol={active} preset={preset} size={ICON_XL}') &&
+      symbolsPanel.includes('aria-pressed={activePresetId === preset.id}'),
   ],
   [
     'Tag chip remove uses radius-full (not bare 50%)',

@@ -1,6 +1,7 @@
 import { createRecordForContext, isRecordCreationArchived, resolveCreateRecordAction } from '@/lib/createRecordAction'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, NavLink, useLocation, useMatch, useNavigate } from 'react-router-dom'
+import { StrategiesNavIcon } from '@/icons/SettingsIcons'
 import { BacktestNavIcon, CaseLibraryNavIcon, NoteNavIcon } from '@/icons/NavigationIcons'
 import type { AppIcon } from '@/icons/appIcons'
 import {
@@ -14,7 +15,6 @@ import {
   Search,
   Settings2,
   Star,
-  Target,
   Trash2,
 } from '@/icons/appIcons'
 import { UserAvatar } from '@/components/UserAvatar'
@@ -47,6 +47,7 @@ import {
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
+import { pathWithWorkbenchMode, workbenchModeFromPathname } from '@/lib/routeContext'
 import { strategyNavigationSearch } from '@/lib/strategyNavigation'
 import { findTradeByRouteParam } from '@/lib/tradeRoute'
 import { sharedTradeWorkspaceSearch, tradeHomeSearch } from '@/lib/tradeWorkspaceQuery'
@@ -136,7 +137,7 @@ export const WORKSPACE_ICONS: Record<
   missed: Ban,
   paper: FlaskConical,
   'saved-view': Bookmark,
-  strategy: Target,
+  strategy: StrategiesNavIcon,
   'case-view': CaseLibraryNavIcon,
 }
 
@@ -217,7 +218,7 @@ export function useSidebarNavigationModel() {
   const todayTarget = { pathname: '/today-record', search: '' }
   const caseTarget = resolveWorkspaceNavTarget('case', workspaceMemory?.case)
   const tradeHomeTarget = {
-    pathname: '/list',
+    pathname: pathWithWorkbenchMode('/list', workbenchModeFromPathname(tradeTarget.pathname)),
     search: tradeHomeSearch(stageContextSearch),
   }
   const primaryHref = (id: PrimarySidebarNavId, fallback: string) => {
@@ -326,10 +327,7 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
 
   const renderWorkspaceLink = (item: (typeof workspaceItems)[number]) => {
     const Icon = WORKSPACE_ICONS[item.icon]
-    const strategyTarget = item.item.target.kind === 'strategy' ? item.item.target : undefined
-    const strategy = strategyTarget
-      ? strategies.find((candidate) => candidate.id === strategyTarget.strategyId)
-      : undefined
+    const { strategy } = item
     const active = selection.activeWorkspaceItemId === item.item.id
     const modified = selection.modifiedWorkspaceItemId === item.item.id
     const capabilityId =
@@ -556,7 +554,7 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
 
       <nav className="sb-section sb-workspace" aria-label="我的空间">
         <div className="sb-section-label sb-workspace-heading">
-          <span>更多</span>
+          <span>我的空间</span>
           <button
             type="button"
             className="sb-workspace-menu"

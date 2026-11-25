@@ -7,30 +7,12 @@
 }
 
 .ui-filter-bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-control-gap);
   height: var(--filter-bar-height);
-  padding: 0 15px 0 8px;
-  overflow: visible;
-}
-
-.ui-filter-bar:has(.quick-view-bar) {
-  display: grid;
-  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto;
-}
-
-.ui-filter-bar:has(.quick-view-bar):has(.ui-filter-chip) {
-  grid-template-columns: minmax(0, max-content) minmax(7rem, 1fr) auto;
-}
-
-.ui-filter-bar.ui-filter-bar-journal:has(.quick-view-bar) {
-  grid-template-columns: minmax(0, 1fr) auto;
   padding-inline: var(--sp-2);
-}
-
-.ui-filter-bar-journal .ui-filter-trigger {
-  border-radius: var(--radius-6);
 }
 
 .ui-filter-trigger,
@@ -60,6 +42,7 @@
 
 .ui-filter-trigger {
   gap: var(--space-control-gap);
+  border-radius: var(--radius-6);
   min-width: var(--toolbar-chip-height);
   padding: 0 7px;
   margin-left: auto;
@@ -137,29 +120,6 @@
   border-color: var(--surface-control-border-active);
 }
 
-.ui-active-filters {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-1);
-  min-width: 0;
-  flex: 0 1 auto;
-  /* 为横向滚动区域内的胶囊边界保留上下间距。 */
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-block: 6px;
-  margin-block: -6px;
-  scrollbar-width: none;
-}
-
-.ui-filter-bar:has(.quick-view-bar) .ui-active-filters:not(:empty) {
-  padding-left: 6px;
-  border-left: 1px solid var(--border-subtle);
-}
-
-.ui-active-filters::-webkit-scrollbar {
-  display: none;
-}
-
 .ui-filter-chip {
   gap: var(--sp-1);
   max-width: 100%;
@@ -175,11 +135,4 @@
 
 .ui-filter-chip-static {
   cursor: default;
-}
-
-.ui-filter-empty {
-  color: var(--text-tertiary);
-  font-family: var(--font-ui);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--type-metadata-weight);
 }

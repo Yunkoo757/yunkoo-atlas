@@ -40,6 +40,8 @@ import { canHideClosedTrades } from '@/lib/workbenchTrades'
 import { JOURNAL_ROUTE_VIEW_LABELS } from '@/lib/journalQuickViews'
 import { getJournalFilterResetSearch } from '@/lib/journalFilterSearch'
 import { SymbolIcon } from '@/components/SymbolIcon'
+import { StatusIcon } from '@/components/StatusIcon'
+import { strategySelectOption } from '@/components/StrategyIcon'
 import { Select } from '@/components/ui/Select'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { preservePageOwnedSearch } from '@/lib/tradeViewParams'
@@ -74,7 +76,6 @@ export function TradeFilters({
   const mistakeTagPresets = useStore((state) => state.mistakeTagPresets)
   const [open, setOpen] = useState(false)
   const [panelPos, setPanelPos] = useState({ top: 0, left: 8, maxHeight: 480 })
-  const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const panelExitRef = useExitClone<HTMLDivElement>(open)
@@ -94,6 +95,7 @@ export function TradeFilters({
           : 'trade'
   const isCaseWorkspace = workspaceKind === 'case' || workspaceKind === 'historical-case'
   const isPaperWorkspace = workspaceKind === 'paper'
+  const namedViews = journal || workspaceKind === 'case'
   const usesQueryScope = journal || isCaseWorkspace || isPaperWorkspace || Boolean(filter.historicalLiveScope)
   const unifiedTradeWorkspace = location.pathname === '/list' || location.pathname === '/board'
   const allowsTradeKindFacet = !unifiedTradeWorkspace && !filter.tradeKind && (
@@ -230,12 +232,12 @@ export function TradeFilters({
     ],
   ]
   const baselineParams = useMemo(() => {
-    if (journal) {
+    if (namedViews) {
       return getJournalFilterResetSearch(location.pathname, location.search, sidebarWorkspaceItems, savedViews, location.state)
     }
     const view = getActiveWorkspaceView(workspaceKind, location.pathname, location.search, sidebarWorkspaceItems)
     return new URLSearchParams(view?.search)
-  }, [journal, workspaceKind, location.pathname, location.search, location.state, sidebarWorkspaceItems, savedViews])
+  }, [namedViews, workspaceKind, location.pathname, location.search, location.state, sidebarWorkspaceItems, savedViews])
   for (const [key, label] of facetLabels) {
     const isLegacyCaseReviewCategory = key === 'reviewCategory' && isCaseWorkspace
     if (label && (isLegacyCaseReviewCategory || baselineParams.get(key) !== searchParams.get(key))) {
@@ -247,7 +249,7 @@ export function TradeFilters({
     }
   }
   const searchText = searchParams.toString()
-  const currentSavedView = !journal && savedViews.some((view) =>
+  const currentSavedView = !namedViews && savedViews.some((view) =>
     savedViewMatchesLocation(view, location.pathname, searchText),
   )
   const visibleActiveFilters = currentSavedView
@@ -262,7 +264,7 @@ export function TradeFilters({
   }
 
   const resetFilters = () => {
-    if (journal) {
+    if (namedViews) {
       setSearchParams(baselineParams, { replace: true, state: location.state })
       return
     }
@@ -341,8 +343,7 @@ export function TradeFilters({
       if (event.target instanceof Element && event.target.closest('.ui-select-menu')) return
       const target = event.target
       if (!(target instanceof Node)) return
-      const triggerArea = journal ? triggerRef.current : rootRef.current
-      if (triggerArea?.contains(target) || panelRef.current?.contains(target)) return
+      if (triggerRef.current?.contains(target) || panelRef.current?.contains(target)) return
       setOpen(false)
     }
     const onKeyDown = (event: KeyboardEvent) => {
@@ -357,11 +358,10 @@ export function TradeFilters({
       document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [closeFilters, journal, open])
+  }, [closeFilters, open])
 
-  const showClosedPreference = journal &&
-    canHideClosedTrades(filter, searchParams.get('status') as TradeStatus | null)
-  const resetLabel = journal ? '清除附加条件' : '清除全部条件'
+  const showClosedPreference = canHideClosedTrades(filter, searchParams.get('status') as TradeStatus | null)
+  const resetLabel = namedViews ? '清除附加条件' : '清除全部条件'
   const panel = open
     ? createPortal(
         <div
@@ -380,7 +380,7 @@ export function TradeFilters({
           <div className="trade-filter-head">
             <strong>{filterLabel}</strong>
             <div className="trade-filter-head-actions">
-              {(!journal || visibleActiveFilters.length > 0) && (
+              {visibleActiveFilters.length > 0 && (
                 <Tooltip content={resetLabel} label={resetLabel}>
                   <button type="button" onClick={resetFilters} aria-label={resetLabel}>
                     <RotateCcw size={ICON_SM} />
@@ -400,7 +400,7 @@ export function TradeFilters({
           </div>
 
           <div className="trade-filter-body">
-            {journal && visibleActiveFilters.length > 0 && (
+            {visibleActiveFilters.length > 0 && (
               <div className="trade-filter-applied" aria-label="附加条件" role="group">
                 <ActiveFilterChips filters={visibleActiveFilters} />
               </div>
@@ -448,7 +448,7 @@ export function TradeFilters({
                         ? go(`/strategy/${value}`)
                         : go('/list')
                   }
-                  options={[['', '全部策略'], ...strategies.map((item) => [item.id, item.name] as [string, string])]}
+                  options={[['', '全部策略'], ...strategies.map(strategySelectOption)]}
                 />
               </div>
             </section>
@@ -513,7 +513,12 @@ export function TradeFilters({
                         label="状态"
                         value={searchParams.get('status') ?? ''}
                         onChange={(value) => setParam('status', value)}
-                        options={[['', '全部状态'], ...STATUS_ORDER.map((value) => [value, STATUS_META[value].label] as [string, string])]}
+                        options={[
+                          ['', '全部状态'],
+                          ...STATUS_ORDER.map((value) => ({
+                            value, label: STATUS_META[value].label, icon: <StatusIcon status={value} />,
+                          })),
+                        ]}
                       />
                       <FilterSelect
                         label="品种"
@@ -596,7 +601,6 @@ export function TradeFilters({
         activeFilters={visibleActiveFilters}
         open={open}
         onToggle={toggleFilters}
-        rootRef={rootRef}
         triggerRef={triggerRef}
         panelId={panelId}
         label={filterLabel}
@@ -604,7 +608,6 @@ export function TradeFilters({
         quickViews={<QuickViewBar kind={workspaceKind} journal={journal} />}
         actions={actions}
         trailingActions={trailingActions}
-        journal={journal}
         preferenceActive={showClosedPreference && hideClosed}
       />
       {panel}

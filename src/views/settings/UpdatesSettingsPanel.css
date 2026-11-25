@@ -52,7 +52,7 @@
 }
 
 .update-status.is-accent {
-  color: var(--accent);
+  color: var(--accent-readable);
   border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }

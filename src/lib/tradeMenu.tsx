@@ -1,6 +1,7 @@
 import { ICON_MD } from '@/icons/iconSize'
 import type { ReactNode } from 'react'
-import { Pencil, Trash2, BookOpen, Copy } from '@/icons/appIcons'
+import { CaseLibraryNavIcon } from '@/icons/NavigationIcons'
+import { Pencil, Trash2, Copy } from '@/icons/appIcons'
 import { MarkIcon } from '@/icons/StateIcons'
 import { StatusIcon } from '@/components/StatusIcon'
 import { STATUS_META, type Trade, type TradeStatus } from '@/data/trades'
@@ -48,7 +49,7 @@ export function buildTradeCtxItems(
   const actionIcons: Record<RecordActionId, ReactNode> = {
     edit: <Pencil size={ICON_MD} />,
     copy: <Copy size={ICON_MD} />,
-    'extract-case': <BookOpen size={ICON_MD} />,
+    'extract-case': <CaseLibraryNavIcon size={ICON_MD} />,
     star: <MarkIcon kind="star" active={Boolean(starred)} size={ICON_MD} />,
     'focus-case': <MarkIcon kind="bookmark" active={Boolean(starred)} size={ICON_MD} />,
     delete: <Trash2 size={ICON_MD} />,

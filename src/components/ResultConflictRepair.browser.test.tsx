@@ -120,7 +120,7 @@ window.__resultConflictRepairTest = (async () => {
         pathname: '/' + view, state: returnId ? tradeReturnLocationState(resultRepairAnchor(returnId)) : undefined,
       }]}>
         <TradeWorkbenchHeader journal title="交易日志" view={view} onView={() => {}} filter={{type: 'all'}}
-          trades={records} strategies={[]} onOpenResult={id => { opened = id }} showFilters />
+          trades={records} strategies={[]} onOpenResult={id => { opened = id }} />
       </MemoryRouter>)
     }
     const options = () => document.querySelector<HTMLButtonElement>('[aria-label="日志选项"]')

@@ -1,6 +1,6 @@
 import { ICON_SM } from '@/icons/iconSize'
 import type { ReactNode, RefObject } from 'react'
-import { Filter, SlidersHorizontal, X } from '@/icons/appIcons'
+import { Filter, X } from '@/icons/appIcons'
 import { ShortcutTooltip } from '@/components/ShortcutTooltip'
 import { OverflowTooltip } from './Tooltip'
 import './FilterBar.css'
@@ -16,7 +16,6 @@ export function FilterBar({
   open,
   onToggle,
   children,
-  rootRef,
   triggerRef,
   panelId,
   quickViews,
@@ -24,14 +23,12 @@ export function FilterBar({
   shortcutActionId,
   actions,
   trailingActions,
-  journal = false,
   preferenceActive = false,
 }: {
   activeFilters: ActiveFilter[]
   open: boolean
   onToggle: () => void
   children?: ReactNode
-  rootRef?: RefObject<HTMLDivElement>
   triggerRef?: RefObject<HTMLButtonElement>
   panelId?: string
   quickViews?: ReactNode
@@ -39,7 +36,6 @@ export function FilterBar({
   shortcutActionId?: string
   actions?: ReactNode
   trailingActions?: ReactNode
-  journal?: boolean
   preferenceActive?: boolean
 }) {
   const count = activeFilters.length + Number(preferenceActive)
@@ -59,23 +55,16 @@ export function FilterBar({
       aria-label={label}
       aria-description={count ? `已启用 ${count} 项条件` : undefined}
     >
-      {journal ? <><Filter size={ICON_SM} />筛选</> : <SlidersHorizontal size={ICON_SM} />}
+      <Filter size={ICON_SM} aria-hidden />筛选
       {count > 0 ? (
         <span className="ui-filter-count" aria-hidden="true">{count}</span>
       ) : null}
     </button>
   )
   return (
-    <div className="ui-filter-shell" ref={rootRef}>
-      <div className={journal ? 'ui-filter-bar ui-filter-bar-journal' : 'ui-filter-bar'}>
+    <div className="ui-filter-shell">
+      <div className="ui-filter-bar">
         {quickViews}
-        {!journal && (
-          <div className="ui-active-filters" aria-label="当前筛选条件">
-            {activeFilters.length === 0 && !quickViews
-              ? <span className="ui-filter-empty">全部记录</span>
-              : <ActiveFilterChips filters={activeFilters} />}
-          </div>
-        )}
         <div className="ui-filter-actions">
           {actions}
           {shortcutActionId ? (

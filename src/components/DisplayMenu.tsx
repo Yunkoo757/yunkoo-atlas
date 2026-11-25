@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { useModalPortalRoot } from '@/components/ui/ModalShell'
-import { ArrowDown, ArrowUp, MoreHorizontal, SlidersHorizontal } from '@/icons/appIcons'
+import { ArrowDown, ArrowUp, MoreHorizontal } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import type { WorkbenchView } from '@/components/Topbar'
@@ -16,17 +16,18 @@ const SORT_OPTS: { value: DisplayPrefs['sortBy']; label: string }[] = [
   { value: 'conviction', label: '信心度' },
 ]
 
-export type JournalMenuAction = {
+export type WorkbenchMenuAction = {
   label: string
   count: string
   opensDialog?: boolean
   onSelect: () => void
 }
 
-export function DisplayMenu({ view = 'list', showHideClosed = true, journalActions, menuTrigger }: {
+export function DisplayMenu({ view = 'list', showHideClosed = true, actions = [], menuTrigger, label = '显示选项' }: {
+  label?: string
   view?: WorkbenchView
   showHideClosed?: boolean
-  journalActions?: readonly JournalMenuAction[]
+  actions?: readonly WorkbenchMenuAction[]
   menuTrigger?: RefObject<HTMLButtonElement>
 }) {
   const menuId = useId()
@@ -36,7 +37,6 @@ export function DisplayMenu({ view = 'list', showHideClosed = true, journalActio
   const rootRef = useRef<HTMLDivElement>(null)
   const localTrigger = useRef<HTMLButtonElement>(null)
   const triggerRef = menuTrigger ?? localTrigger
-  const label = journalActions ? '日志选项' : '显示选项'
   const popRef = useRef<HTMLDivElement | null>(null)
   const popExitRef = useExitClone<HTMLDivElement>(open)
   const registerModalPortalRoot = useModalPortalRoot()
@@ -54,6 +54,10 @@ export function DisplayMenu({ view = 'list', showHideClosed = true, journalActio
   }
 
   const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Tab') {
+      closeAndRestore()
+      return
+    }
     if (event.key === 'Escape') {
       event.preventDefault()
       event.stopPropagation()
@@ -95,17 +99,20 @@ export function DisplayMenu({ view = 'list', showHideClosed = true, journalActio
 
   useLayoutEffect(() => {
     if (!open || !rootRef.current) return
-    const rect = rootRef.current.getBoundingClientRect()
-    setPos({
-      top: rect.bottom + 6,
-      right: Math.max(8, window.innerWidth - rect.right),
-    })
+    const root = rootRef.current
+    const updatePosition = () => {
+      const rect = root.getBoundingClientRect()
+      setPos({ top: rect.bottom + 6, right: Math.max(8, window.innerWidth - rect.right) })
+    }
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
     popRef.current?.querySelector<HTMLButtonElement>('[role^="menuitem"]:not(:disabled)')?.focus({ preventScroll: true })
+    return () => window.removeEventListener('resize', updatePosition)
   }, [open])
 
   return (
     <div className="display-menu-root" ref={rootRef}>
-      <Tooltip asChild content={label} label={label} disabled={!journalActions || open}>
+      <Tooltip asChild content={label} label={label} disabled={open}>
         <button
           ref={triggerRef}
           type="button"
@@ -116,9 +123,7 @@ export function DisplayMenu({ view = 'list', showHideClosed = true, journalActio
           aria-label={label}
           onClick={() => setOpen((o) => !o)}
         >
-          {journalActions
-            ? <MoreHorizontal size={ICON_MD} aria-hidden />
-            : <><SlidersHorizontal size={ICON_SM} aria-hidden /><span>显示</span></>}
+          <MoreHorizontal size={ICON_MD} aria-hidden />
         </button>
       </Tooltip>
       {open &&
@@ -127,11 +132,12 @@ export function DisplayMenu({ view = 'list', showHideClosed = true, journalActio
             id={menuId}
             className="display-pop"
             role="menu"
+            aria-label={label}
             ref={assignPopRef}
             style={{ top: pos.top, right: pos.right }}
             onKeyDown={handleMenuKeyDown}
           >
-            {journalActions && <div className="display-label">显示</div>}
+            <div className="display-label">显示</div>
             {showHideClosed && (
               <DisplayToggle
                 label="隐藏已平仓"
@@ -207,11 +213,11 @@ export function DisplayMenu({ view = 'list', showHideClosed = true, journalActio
                 ))}
               </>
             )}
-            {journalActions && journalActions.length > 0 && (
+            {actions.length > 0 && (
               <div role="group" aria-label="数据整理">
                 <div className="display-divider" />
                 <div className="display-label" aria-hidden>数据整理</div>
-                {journalActions.map(action => (
+                {actions.map(action => (
                   <button key={action.label} type="button" role="menuitem" className="display-item"
                     aria-haspopup={action.opensDialog ? 'dialog' : undefined}
                     onClick={() => {

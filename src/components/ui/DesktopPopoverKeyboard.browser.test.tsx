@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { ContextMenu, type CtxItem } from '@/components/ContextMenu'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { Select } from '@/components/ui/Select'
+import { ModalShell } from '@/components/ui/ModalShell'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
 
@@ -37,12 +38,13 @@ const contextTriggerRef = createRef<HTMLButtonElement>()
 
 function Harness() {
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [date, setDate] = useState('2026-01-15')
   const [selectValue, setSelectValue] = useState('one')
   const contextItems: CtxItem[] = [
     { type: 'item', label: '第一项', onClick: () => undefined },
     { type: 'item', label: '不可用', disabled: true, onClick: () => undefined },
-    { type: 'item', label: '最后一项', onClick: () => undefined },
+    { type: 'item', label: '最后一项', onClick: () => setConfirmOpen(true) },
   ]
 
   return (
@@ -64,6 +66,7 @@ function Harness() {
         restoreFocusRef={contextTriggerRef}
         onClose={() => setAnchor(null)}
       />
+      {confirmOpen && <ModalShell title="核对记录" onClose={() => setConfirmOpen(false)} />}
       <DatePicker
         value={date}
         ariaLabel="交易日期"
@@ -104,6 +107,15 @@ async function run(): Promise<void> {
     assert(document.activeElement?.textContent?.includes('第一项'), 'Home 没有聚焦首项')
     press(menu, 'Escape')
     await waitFor(() => document.activeElement === contextTrigger, '关闭菜单后没有归还焦点')
+
+    contextTrigger.click()
+    await waitFor(() => document.activeElement?.getAttribute('role') === 'menuitem', '再次打开菜单失败')
+    press(document.activeElement!, 'End')
+    ;(document.activeElement as HTMLButtonElement).click()
+    const closeConfirm = () => document.querySelector<HTMLButtonElement>('[role="dialog"] .modal-shell-close')
+    await waitFor(() => Boolean(closeConfirm()) && document.activeElement === closeConfirm(), '菜单没有把操作交给确认框')
+    closeConfirm()!.click()
+    await waitFor(() => document.activeElement === contextTrigger, '关闭确认框后应回到菜单的原始入口')
 
     await waitFor(() => Boolean(document.querySelector('.ui-date-trigger')), '日期选择器未完成加载')
     const dateTrigger = document.querySelector<HTMLButtonElement>('.ui-date-trigger')

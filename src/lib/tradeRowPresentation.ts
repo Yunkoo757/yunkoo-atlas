@@ -105,6 +105,13 @@ function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
+export function tradeMetricTone(status: Trade['status'], value: number | null | undefined) {
+  if (!finite(value) || status === 'planned' || status === 'open') return 'neutral'
+  if (status === 'missed') return 'opportunity'
+  if (value === 0) return 'neutral'
+  return value > 0 ? 'positive' : 'negative'
+}
+
 function metricState(value: number, masked = false): TradeRowValueState {
   if (masked) return 'masked'
   return value === 0 ? 'zero' : 'value'
@@ -148,7 +155,7 @@ export function resolveTradeRowResultPresentation(
     return {
       cash: { text: '未成交', state: 'missed' },
       r: rValue !== null
-        ? { text: fmtR(rValue), state: metricState(rValue) }
+        ? { text: fmtR(rValue), state: 'missed' }
         : { text: '—', state: 'not-applicable' },
       source,
       integrity: 'incomplete',

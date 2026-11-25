@@ -54,7 +54,7 @@ test('desktop visual matrix owns every supported window and core route', () => {
       ['review-cases-board', '/review-cases/board'],
       ['paper-trades', '/sim'],
       ['live-archive', '/live-history'],
-      ['live-history-cases', '/live-history?view=cases'],
+      ['live-history-cases', '/trade/CASE-HISTORY-FOCUS'],
       ['trash', '/trade-trash'],
       ['settings-profile', '/settings/profile'],
       ['settings-shortcuts', '/settings/shortcuts'],
@@ -105,6 +105,15 @@ test('desktop visual archive readiness matches the unified trade workspace route
   const archive = DESKTOP_VISUAL_SCENARIOS.find((scenario) => scenario.id === 'live-archive')
   assert.equal(archive?.path, '/live-history')
   assert.equal(archive?.ready, '.list-scroll')
+
+  const historicalCase = DESKTOP_VISUAL_SCENARIOS.find((scenario) => scenario.id === 'live-history-cases')
+  const { trades, liveStages } = createDesktopVisualSnapshot()
+  const linkedCase = trades.find((trade) => trade.tradeKind === 'case' && historicalCase?.path === `/trade/${trade.ref}`)
+  assert.ok(linkedCase, '历史案例截图需要打开样本中的实际案例')
+  const sourceTrade = trades.find((trade) => trade.id === linkedCase.sourceTradeId && trade.tradeKind === 'live')
+  assert.ok(sourceTrade, '历史案例需要可查看的来源实盘')
+  assert.ok(liveStages.some((stage) => stage.id === sourceTrade.liveStageId && stage.status === 'archived'))
+  assert.equal(historicalCase.ready, '[aria-label="案例来源"] a[href]')
 })
 
 test('desktop visual CLI accepts one runtime and one protected output root', () => {

@@ -464,21 +464,6 @@
   white-space: nowrap;
 }
 
-.trade-row-strategy .strategy-icon {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  border-radius: 0;
-  background: transparent !important;
-  color: inherit !important;
-  opacity: 1;
-}
-
-.trade-row-strategy .strategy-icon > svg {
-  width: 14px;
-  height: 14px;
-}
-
 .trade-row-tags {
   gap: var(--sp-1);
   overflow: clip;
@@ -642,13 +627,11 @@ button.trade-row-symbol-main {
   color: var(--result-neutral);
 }
 
-.trade-row-result [data-value-state='missed'],
-.trade-row-result-value.is-opportunity {
+.trade-row-result [data-value-state='missed'] {
   color: var(--result-opportunity);
 }
 
-.trade-row-result [data-value-state='missing'],
-.trade-row-result-value.is-zero {
+.trade-row-result [data-value-state='missing'] {
   color: var(--text-tertiary);
 }
 

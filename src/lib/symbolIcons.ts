@@ -23,7 +23,7 @@ export type { SymbolIconOverride, SymbolIconsMap } from '@/lib/symbolIconCodec'
 
 export type SymbolMarketKind = 'crypto' | 'forex' | 'metal' | 'index' | 'other'
 
-export type SymbolPresetSvgId = 'gold-bar' | 'silver-bar' | 'eth-diamond'
+export type SymbolPresetSvgId = 'eth-diamond'
 
 export type SymbolIconPreset = {
   id: string
@@ -59,57 +59,48 @@ function glyphPreset(
   label: string,
   glyph: string,
   color: string,
+  svgId?: SymbolPresetSvgId,
 ): SymbolIconPreset {
-  return { id, label, glyph, color, background: symbolSurface(color) }
+  return { id, label, glyph, color, background: symbolSurface(color), svgId }
 }
 
 export const SYMBOL_ICON_PRESETS: SymbolIconPreset[] = [
-  glyphPreset('gold', '黄金', 'Au', '#D9B846'),
-  glyphPreset('eur', '欧元', '€', '#639BE6'),
-  glyphPreset('gbp', '英镑', '£', '#D178A5'),
-  glyphPreset('btc', 'Bitcoin', '₿', '#F2A33A'),
-  {
-    id: 'eth',
-    label: 'Ethereum',
-    glyph: 'ETH',
-    color: '#8998EF',
-    background: symbolSurface('#8998EF'),
-    svgId: 'eth-diamond',
-  },
+  glyphPreset('gold', '黄金', 'Au', 'var(--instrument-gold)'),
+  glyphPreset('eur', '欧元', '€', 'var(--instrument-euro)'),
+  glyphPreset('gbp', '英镑', '£', 'var(--instrument-sterling)'),
+  glyphPreset('btc', 'Bitcoin', '₿', 'var(--instrument-bitcoin)'),
+  glyphPreset('eth', 'Ethereum', 'ETH', 'var(--instrument-ether)', 'eth-diamond'),
 ]
 
 const LEGACY_SYMBOL_ICON_PRESETS: SymbolIconPreset[] = [
-  glyphPreset('sol', 'Solana', '◎', '#5ED7B1'),
-  glyphPreset('bnb', 'BNB', 'B', '#D9B444'),
-  glyphPreset('sui', 'Sui', 'S', '#62A8E5'),
-  glyphPreset('xrp', 'XRP', 'X', '#B7BCC4'),
-  glyphPreset('silver', '白银', 'Ag', '#B5BDC8'),
-  glyphPreset('forex', '外汇', 'Fx', '#70A7D5'),
-  glyphPreset('jpy', '日元', '¥', '#D87575'),
-  glyphPreset('aud', '澳元', 'A$', '#5FBA7C'),
-  glyphPreset('usd', '美元', '$', '#5FBA7C'),
-  glyphPreset('index', '指数', 'Ix', '#9B84D6'),
-  { id: 'generic', label: '通用', glyph: '·', color: 'var(--text-secondary)', background: 'var(--bg-hover)' },
+  glyphPreset('sol', 'Solana', '◎', 'var(--instrument-mint)'),
+  glyphPreset('bnb', 'BNB', 'B', 'var(--instrument-gold)'),
+  glyphPreset('sui', 'Sui', 'S', 'var(--instrument-euro)'),
+  glyphPreset('xrp', 'XRP', 'X', 'var(--instrument-silver)'),
+  glyphPreset('silver', '白银', 'Ag', 'var(--instrument-silver)'),
+  glyphPreset('forex', '外汇', 'Fx', 'var(--text-content-scan)'),
+  glyphPreset('jpy', '日元', '¥', 'var(--text-content-scan)'),
+  glyphPreset('aud', '澳元', 'A$', 'var(--text-content-scan)'),
+  glyphPreset('usd', '美元', '$', 'var(--text-content-scan)'),
+  glyphPreset('index', '指数', 'Ix', 'var(--text-content-scan)'),
+  glyphPreset('generic', '通用', '·', 'var(--text-content-scan)'),
 ]
 
 const PRESET_BY_ID = new Map(
   [...SYMBOL_ICON_PRESETS, ...LEGACY_SYMBOL_ICON_PRESETS].map((preset) => [preset.id, preset]),
 )
 
+const CRYPTO_BASE_PRESETS: Record<string, string> = {
+  BTC: 'btc',
+  XBT: 'btc',
+  ETH: 'eth',
+  SOL: 'sol',
+  BNB: 'bnb',
+  SUI: 'sui',
+  XRP: 'xrp',
+}
+
 const BUILTIN_SYMBOL_PRESETS: Record<string, string> = {
-  BTCUSDT: 'btc',
-  BTCUSD: 'btc',
-  XBTUSD: 'btc',
-  ETHUSDT: 'eth',
-  ETHUSD: 'eth',
-  SOLUSDT: 'sol',
-  SOLUSD: 'sol',
-  BNBUSDT: 'bnb',
-  BNBUSD: 'bnb',
-  SUIUSDT: 'sui',
-  SUIUSD: 'sui',
-  XRPUSDT: 'xrp',
-  XRPUSD: 'xrp',
   XAUUSD: 'gold',
   XAUUSDT: 'gold',
   GOLD: 'gold',
@@ -127,8 +118,6 @@ const BUILTIN_SYMBOL_PRESETS: Record<string, string> = {
   SPX500: 'index',
 }
 
-const PALETTE = ['#83AEE3', '#72BE8C', '#D7B75A', '#CB87AB', '#A291D4', '#72BBC5', '#D99B69', '#D4828D']
-
 export function detectSymbolMarket(symbol: string): SymbolMarketKind {
   const key = normalizeSymbol(symbol)
   if (!key) return 'other'
@@ -144,12 +133,6 @@ export function detectSymbolMarket(symbol: string): SymbolMarketKind {
   return 'other'
 }
 
-function hashSymbol(symbol: string): number {
-  let hash = 0
-  for (const char of symbol) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
-  return hash
-}
-
 function initialGlyph(symbol: string): string {
   const key = normalizeSymbol(symbol)
   if (!key) return '?'
@@ -159,18 +142,20 @@ function initialGlyph(symbol: string): string {
   return key.slice(0, 2)
 }
 
-function defaultPresetId(symbol: string): string {
+export function defaultSymbolPresetId(symbol: string): string {
   const key = normalizeSymbol(symbol)
-  if (BUILTIN_SYMBOL_PRESETS[key]) return BUILTIN_SYMBOL_PRESETS[key]!
+  const cryptoBase = key.replace(/(?:USDT|USDC|BUSD|USD)$/, '')
+  const preset = BUILTIN_SYMBOL_PRESETS[key] ?? CRYPTO_BASE_PRESETS[cryptoBase]
+  if (preset) return preset
   const kind = detectSymbolMarket(key)
   if (kind === 'crypto') return 'generic'
   if (kind === 'forex') return 'forex'
-  if (kind === 'metal') return 'gold'
+  if (kind === 'metal') return /^(XAG|SILVER)/.test(key) ? 'silver' : 'gold'
   if (kind === 'index') return 'index'
   return 'generic'
 }
 
-function glyphFromPresetOrFallback(symbol: string, preset: SymbolIconPreset): ResolvedSymbolIcon {
+export function resolveSymbolPreset(symbol: string, preset: SymbolIconPreset): ResolvedSymbolIcon {
   const label = normalizeSymbol(symbol) || symbol
   if (preset.svgId) {
     return {
@@ -181,19 +166,9 @@ function glyphFromPresetOrFallback(symbol: string, preset: SymbolIconPreset): Re
       label,
     }
   }
-  if (preset.id === 'generic') {
-    const color = PALETTE[hashSymbol(normalizeSymbol(symbol)) % PALETTE.length]!
-    return {
-      type: 'glyph',
-      glyph: initialGlyph(symbol),
-      color,
-      background: symbolSurface(color),
-      label,
-    }
-  }
   return {
     type: 'glyph',
-    glyph: preset.glyph,
+    glyph: preset.id === 'generic' ? initialGlyph(symbol) : preset.glyph,
     color: preset.color,
     background: preset.background,
     label,
@@ -217,9 +192,9 @@ export function resolveSymbolIcon(
     return { type: 'image', src: override.customDataUrl, label }
   }
 
-  const presetId = override?.presetId || defaultPresetId(symbol)
+  const presetId = override?.presetId || defaultSymbolPresetId(symbol)
   const preset = getSymbolIconPreset(presetId) ?? getSymbolIconPreset('generic')!
-  return glyphFromPresetOrFallback(symbol, preset)
+  return resolveSymbolPreset(symbol, preset)
 }
 
 /** 合并目录与历史/当前品种；显式空目录保持为空。 */

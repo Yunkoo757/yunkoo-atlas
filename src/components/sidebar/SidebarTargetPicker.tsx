@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import { StrategyIcon } from '@/components/StrategyIcon'
+import type { Strategy } from '@/data/strategies'
 import {
   MAX_PINNED_SIDEBAR_ITEMS,
   SIDEBAR_CAPABILITY_LABELS,
@@ -20,7 +22,9 @@ import type { SidebarTargetSources } from '@/components/sidebar/SidebarWorkspace
 type CatalogItem = {
   label: string
   domain: string
+  detail?: string
   target: SidebarTarget
+  strategy?: Strategy
 }
 
 type CapabilityItem = {
@@ -71,6 +75,7 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
       .map((view) => ({
         label: view.name,
         domain: '交易日志 · 模拟',
+        detail: '模拟',
         target: { kind: 'saved-view' as const, viewId: view.id },
       }))
     const caseSavedViews = sources.savedViews
@@ -108,6 +113,7 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
         label: '策略',
         items: sources.strategies.map((strategy) => ({
           label: strategy.name,
+          strategy,
           domain: '交易日志 · 策略',
           target: { kind: 'strategy' as const, strategyId: strategy.id },
         })),
@@ -120,6 +126,15 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
     if (!normalizedQuery) return true
     return parts.some((part) => part.toLocaleLowerCase().includes(normalizedQuery))
   }
+  const visibleGroups = normalizedQuery ? groups.map<CatalogGroup>((group) => {
+    if (group.kind === 'capability') return {
+      ...group,
+      items: group.items.filter(item => matchesQuery(
+        item.label, group.label, ...item.workspaces.map(workspace => SIDEBAR_QUICK_WORKSPACE_LABELS[workspace]),
+      )),
+    }
+    return { ...group, items: group.items.filter(item => matchesQuery(item.label, item.domain, group.label)) }
+  }).filter(group => group.items.length > 0) : groups
 
   const setItems = (next: SidebarWorkspaceItem[]) => {
     onChange(reindex(next))
@@ -155,18 +170,14 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
     enabled: boolean,
   ) => {
     setCapacityMessage('')
-    const beforePinned = pinnedCount
     const next = setCapabilityWorkspaceEnabled(items, capabilityId, workspace, enabled)
     if (capabilityId === 'missed' && !enabled && next === items) {
       setCapacityMessage('至少保留一个包含来源')
       return
     }
-    const afterPinned = next.filter((item) => item.placement === 'pinned').length
-    if (afterPinned > beforePinned && afterPinned >= MAX_PINNED_SIDEBAR_ITEMS) {
-      const added = next.find((item) => item.id === `system:${capabilityId}`)
-      if (added?.placement === 'overflow') {
-        setCapacityMessage('常驻已满，已放入「更多」。可返回上一层改回常驻或删除。')
-      }
+    const key = `system:${capabilityId}`
+    if (!byTarget.has(key) && next.some((item) => item.id === key && item.placement === 'overflow')) {
+      setCapacityMessage('常驻已满，已放入「更多」。可返回上一层改回常驻或删除。')
     }
     setItems(next)
   }
@@ -189,24 +200,14 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
         />
       </label>
       {capacityMessage ? <p className="sb-editor-message" role="status">{capacityMessage}</p> : null}
+      {visibleGroups.length === 0 && <p className="sb-editor-empty" role="status">没有匹配的项目</p>}
       <div className="sb-target-groups">
-        {groups.map((group) => {
+        {visibleGroups.map((group) => {
           if (group.kind === 'capability') {
-            const visible = group.items.filter((item) =>
-              matchesQuery(
-                item.label,
-                group.label,
-                ...item.workspaces.map((workspace) => SIDEBAR_QUICK_WORKSPACE_LABELS[workspace]),
-              ),
-            )
-            if (visible.length === 0 && normalizedQuery) return null
             return (
               <section key={group.label} className="sb-target-group" aria-label={group.label}>
                 <h4>{group.label}</h4>
-                {visible.length === 0 ? (
-                  <p className="sb-editor-empty">暂无可添加项</p>
-                ) : (
-                  visible.map((capability) => {
+                {group.items.map((capability) => {
                     const scopeLabel = capability.id === 'missed' ? '包含范围' : '可见工作区'
                     const existing = byTarget.get(`system:${capability.id}`)
                     const enabled = existing && existing.target.kind === 'system'
@@ -222,9 +223,7 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
                           <span className={`sb-target-row-state ${stateClass}`}>{state}</span>
                         </div>
                         <p className="sb-capability-hint">
-                          {capability.id === 'missed'
-                            ? '包含范围（侧栏只显示一项）'
-                            : '可见工作区（侧栏只显示一项）'}
+                          {scopeLabel}
                         </p>
                         <div
                           className="sb-capability-options"
@@ -257,23 +256,18 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
                         </div>
                       </div>
                     )
-                  })
-                )}
+                  })}
               </section>
             )
           }
 
-          const visibleItems = group.items.filter((item) =>
-            matchesQuery(item.label, item.domain, group.label),
-          )
-          if (visibleItems.length === 0 && normalizedQuery) return null
           return (
             <section key={group.label} className="sb-target-group" aria-label={group.label}>
               <h4>{group.label}</h4>
-              {visibleItems.length === 0 ? (
+              {group.items.length === 0 ? (
                 <p className="sb-editor-empty">暂无可添加项</p>
               ) : (
-                visibleItems.map((catalogItem) => {
+                group.items.map((catalogItem) => {
                   const current = byTarget.get(sidebarTargetKey(catalogItem.target))
                   const state = stateOf(current)
                   const stateClass =
@@ -288,9 +282,12 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
                       aria-label={`${catalogItem.label}（${catalogItem.domain}）：${state}，${actionHint}`}
                       onClick={() => toggleSimpleTarget(catalogItem)}
                     >
+                      {catalogItem.strategy && (
+                        <StrategyIcon icon={catalogItem.strategy.icon} color={catalogItem.strategy.color} variant="nav" />
+                      )}
                       <span className="sb-target-row-text">
                         <span className="sb-target-row-label">{catalogItem.label}</span>
-                        <span className="sb-target-row-domain">{catalogItem.domain}</span>
+                        {catalogItem.detail && <span className="sb-target-row-domain">{catalogItem.detail}</span>}
                       </span>
                       <span className={`sb-target-row-state ${stateClass}`}>{state}</span>
                     </button>

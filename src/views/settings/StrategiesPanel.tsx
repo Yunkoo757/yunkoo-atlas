@@ -2,7 +2,7 @@ import { ICON_MD } from '@/icons/iconSize'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Pencil, Trash2, ChevronRight } from '@/icons/appIcons'
-import { StrategyIcon } from '@/components/StrategyIcon'
+import { StrategyIcon, strategySelectOption } from '@/components/StrategyIcon'
 import { StrategyFormModal, uniqueStrategyId } from '@/components/StrategyFormModal'
 import { useStore } from '@/store/useStore'
 import { countStrategyReferences } from '@/lib/strategies'
@@ -92,7 +92,7 @@ export function StrategiesPanel() {
         <div className="st-list">
           {rows.map((s) => (
             <div className="st-row" key={s.id}>
-              <StrategyIcon icon={s.icon} color={s.color} size={ICON_MD} variant="nav" />
+              <StrategyIcon icon={s.icon} color={s.color} size={ICON_MD} />
               <div className="st-row-main">
                 <Link to={`/strategy/${s.id}`} className="st-row-name">
                   {s.name}
@@ -130,13 +130,14 @@ export function StrategiesPanel() {
         </div>
       </div>
 
-      <StrategyFormModal
-        open={modalOpen}
-        initial={editing}
-        existingNames={existingNames}
-        onClose={() => setModalOpen(false)}
-        onSave={onSave}
-      />
+      {modalOpen && (
+        <StrategyFormModal
+          initial={editing}
+          existingNames={existingNames}
+          onClose={() => setModalOpen(false)}
+          onSave={onSave}
+        />
+      )}
 
       {deleteTarget ? (
         <ModalShell
@@ -182,7 +183,7 @@ export function StrategiesPanel() {
                 value={reassignId}
                 onValueChange={setReassignId}
                 ariaLabel="迁移到策略"
-                options={destinations.map((strategy) => ({ value: strategy.id, label: strategy.name }))}
+                options={destinations.map(strategySelectOption)}
               />}
             </>
           ) : (

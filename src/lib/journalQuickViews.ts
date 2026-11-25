@@ -1,4 +1,5 @@
 import { normalizeSavedViewPath, savedViewSearch, searchParamsToRecord, type SavedTradeView } from '@/lib/savedTradeViews'
+import { REVIEW_CASE_SCOPE_LABELS } from '@/lib/reviewCaseScope'
 import type { SidebarWorkspaceItem } from '@/lib/sidebarWorkspace'
 import {
   filterViewsBySidebarCapabilities,
@@ -165,10 +166,14 @@ export function resolveJournalView(
   state?: unknown,
 ): JournalView | undefined {
   const path = normalizeSavedViewPath(pathname)
-  const params = comparableJournalQuery(search)
+  const comparableQuery = (query?: string) => kind === 'case' ? new URLSearchParams(query) : comparableJournalQuery(query)
+  const params = comparableQuery(search)
   const named = [...getWorkspacePrimaryViews(kind, sidebarItems), ...getMoreViewGroups(kind, sidebarItems).flatMap(group => group.items)]
     .map(journalBuiltinTarget)
-  const currentView = params.get('view')
+  if (kind === 'case' && path === '/review-cases/missed') {
+    named.push({ id: 'missed', label: REVIEW_CASE_SCOPE_LABELS.missed, pathname: path })
+  }
+  const currentView = kind === 'case' ? null : params.get('view')
   if (currentView && JOURNAL_ROUTE_VIEW_LABELS[currentView] && !named.some(item => new URLSearchParams(item.search).get('view') === currentView)) {
     named.push({ id: `view-${currentView}`, label: JOURNAL_ROUTE_VIEW_LABELS[currentView], pathname: '/list', search: `view=${currentView}` })
   }
@@ -178,14 +183,14 @@ export function resolveJournalView(
     ? saved.find(view => view.id === requested.id)
     : named.find(view => view.id === requested?.id)
   const fits = (view: JournalView) => {
-    const baseline = view.saved ? comparableJournalQuery(view.search) : new URLSearchParams(view.search)
+    const baseline = view.saved ? comparableQuery(view.search) : new URLSearchParams(view.search)
     return view.pathname === path && [...baseline].every(([key, value]) => params.get(key) === value)
   }
   // 只有点选过的视图才能按其基线匹配附加条件，旧链接必须完全匹配才认作保存视图。
   if (selected && fits(selected)) return selected
   const exactQuery = JSON.stringify(searchParamsToRecord(params))
   const savedMatch = saved.find(view => view.pathname === path
-    && JSON.stringify(searchParamsToRecord(comparableJournalQuery(view.search))) === exactQuery)
+    && JSON.stringify(searchParamsToRecord(comparableQuery(view.search))) === exactQuery)
   if (savedMatch) return savedMatch
   const matches = named.filter(view => view.id !== 'all' && fits(view))
   return matches.find(view => currentView && new URLSearchParams(view.search).get('view') === currentView)

@@ -1,7 +1,7 @@
-import type { CSSProperties } from 'react'
-import type { StrategyIconId } from '@/data/strategies'
+import type { Strategy, StrategyIconId } from '@/data/strategies'
 import { getStrategyIcon } from '@/data/strategies'
-import { ICON_TILE, iconTileGlyphSize, softIconBackground } from '@/icons/iconSize'
+import { strategyGlyphColor } from '@/data/strategyColors'
+import { ICON_TILE } from '@/icons/iconSize'
 import './StrategyIcon.css'
 
 export function StrategyIcon({
@@ -13,48 +13,44 @@ export function StrategyIcon({
 }: {
   icon: StrategyIconId
   color: string
-  /** A1：外框 tile 边长（默认 16）；内嵌字形按 0.75 缩放 */
+  /** A1：图标边长，字形在 24 单位画布内自带光学留白 */
   size?: number
   className?: string
-  /** nav：侧栏等导航场景，弱化色块背景 */
+  /** 导航和密集列表中的字形跟随当前文字状态。 */
   variant?: 'default' | 'nav'
 }) {
   const Icon = getStrategyIcon(icon)
   const isNav = variant === 'nav'
-  const glyph = isNav ? size : iconTileGlyphSize(size)
-  const navStyle = {
-    width: size,
-    height: size,
-    '--sb-strategy-color': color,
-  } as CSSProperties
   return (
     <span
+      aria-hidden
       className={
         'strategy-icon' + (isNav ? ' is-nav' : '') + (className ? ` ${className}` : '')
       }
-      style={
-        isNav
-          ? navStyle
-          : {
-              width: size,
-              height: size,
-              background: softIconBackground(color),
-              color,
-            }
-      }
+      style={{ width: size, height: size, color: isNav ? undefined : strategyGlyphColor(color) }}
     >
-      <Icon size={glyph} />
+      <Icon size={size} />
     </span>
   )
+}
+
+export function strategySelectOption(strategy: Strategy) {
+  return {
+    value: strategy.id,
+    label: strategy.name,
+    icon: <StrategyIcon icon={strategy.icon} color={strategy.color} />,
+  }
 }
 
 export function StrategyLabel({
   strategyId,
   strategies,
   size = ICON_TILE,
+  variant,
 }: {
   strategyId: string
-  strategies: { id: string; name: string; icon: StrategyIconId; color: string }[]
+  strategies: Strategy[]
+  variant?: 'default' | 'nav'
   /** A1：tile 边长，与 SymbolIcon 对齐 */
   size?: number
 }) {
@@ -63,7 +59,7 @@ export function StrategyLabel({
     return (
       <span className="strategy-label strategy-label-fallback">
         <span
-          className="strategy-icon is-placeholder"
+          className="strategy-icon"
           style={{ width: size, height: size }}
           aria-hidden
         />
@@ -73,7 +69,7 @@ export function StrategyLabel({
   }
   return (
     <span className="strategy-label">
-      <StrategyIcon icon={s.icon} color={s.color} size={size} />
+      <StrategyIcon icon={s.icon} color={s.color} size={size} variant={variant} />
       <span>{s.name}</span>
     </span>
   )
