@@ -62,54 +62,57 @@
   color: var(--text-tertiary);
 }
 
-.sp-card {
-  width: 100%;
-  min-width: 0;
-  font-family: var(--font-ui);
+.sp-card .hp-head {
+  align-items: flex-start;
+}
+
+.sp-card .hp-head-icon {
+  width: var(--icon-md);
+  height: var(--type-row-line-height);
+}
+
+.sp-card .hp-title {
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--type-row-line-height);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.sp-card .hp-subtitle {
+  color: var(--text-content-metadata);
+  white-space: normal;
 }
 
 .sp-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--sp-2) var(--sp-3);
-  color: var(--text-tertiary);
+  grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+  margin: var(--sp-3) 0 0;
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--surface-control-border);
+}
+
+.sp-summary dt {
+  color: var(--text-content-metadata);
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
 }
 
-.sp-outcomes {
-  grid-column: 1 / -1;
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 7px 10px;
-}
-
-.sp-metric {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  min-width: 0;
-  white-space: nowrap;
-}
-
-.sp-metric strong {
-  min-width: 0;
-  color: var(--text-secondary);
+.sp-summary dd {
+  margin: var(--sp-1) 0 0;
+  color: var(--text-content-supporting);
+  font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
+  line-height: var(--type-row-line-height);
   font-variant-numeric: var(--numeric-tabular);
+  overflow-wrap: anywhere;
 }
 
-.sp-card .is-positive {
-  color: var(--pos);
+.sp-summary .is-positive {
+  color: var(--result-positive);
 }
 
-.sp-card .is-negative {
-  color: var(--neg);
-}
-
-.sp-empty {
-  color: var(--text-tertiary);
-  font-size: var(--type-metadata-size);
-  line-height: var(--type-metadata-line-height);
+.sp-summary .is-negative {
+  color: var(--result-negative);
 }

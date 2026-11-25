@@ -883,14 +883,14 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                   className="wr-snapshot-cta"
                   detail={`缺少完成时快照：${missingSnapshotLabels.join('、')}。重新打开后可按当前数据完成并冻结。`}
                   action={(
-                    <button
+                    <Button
                       type="button"
-                      className="ui-btn ui-btn-bordered"
+                      variant="bordered" size="sm"
                       data-weekly-snapshot-cta
                       onClick={reopenReview}
                     >
                       重新打开
-                    </button>
+                    </Button>
                   )}
                 />
               ) : null}
@@ -1120,7 +1120,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                     <span>交易证据</span><small>{evidenceCount} 笔</small><DisclosureIcon size={ICON_SM} />
                   </summary>
                   <section className="wr-section" data-weekly-section="evidence" data-invalid="false">
-                    {evidenceCount > 6 ? <button type="button" className="ui-btn ui-btn-ghost wr-evidence-toggle" aria-expanded={showAllEvidence} onClick={() => setShowAllEvidence((value) => !value)}>{showAllEvidence ? '只看已标记证据' : `查看和标记全部 ${evidenceCount} 笔交易`}</button> : null}
+                    {evidenceCount > 6 ? <Button type="button" className="wr-evidence-toggle" variant="ghost" size="sm" aria-expanded={showAllEvidence} onClick={() => setShowAllEvidence((value) => !value)}>{showAllEvidence ? '只看已标记证据' : `查看和标记全部 ${evidenceCount} 笔交易`}</Button> : null}
                     {compactEvidence && displayedEvidenceTrades.length + displayedMissedTrades.length === 0 ? <p className="wr-empty">尚未标记关键证据。</p> : null}
                     <div className="wr-evidence-groups">
                         {displayedEvidenceTrades.length ? (

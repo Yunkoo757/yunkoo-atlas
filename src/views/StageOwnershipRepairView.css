@@ -32,7 +32,7 @@
 .stage-ownership-total > svg { grid-row: 1 / span 2; color: var(--text-tertiary); }
 .stage-ownership-total strong { color: var(--text-primary); font-size: var(--type-section-title-size); font-weight: var(--type-section-title-weight); line-height: var(--type-row-line-height); font-variant-numeric: var(--numeric-tabular); }
 .stage-ownership-page-status { min-height: var(--type-caption-line-height); margin: var(--sp-2) 0 0; font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
-.stage-ownership-page-status.is-success { color: var(--pos); }
+.stage-ownership-page-status.is-success { color: var(--success); }
 .stage-ownership-page-status.is-error { color: var(--neg); }
 
 .stage-ownership-list { margin-top: var(--sp-3); border-top: 1px solid var(--border-subtle); }
@@ -91,13 +91,13 @@
 .stage-ownership-target-field > span { color: var(--text-secondary); font-size: var(--type-metadata-size); font-weight: var(--type-metadata-weight); line-height: var(--type-metadata-line-height); }
 .stage-ownership-feedback { grid-column: 1 / -1; min-height: var(--type-caption-line-height); margin: 0; color: var(--text-muted); font-size: var(--type-caption-size); line-height: var(--type-caption-line-height); }
 .stage-ownership-feedback.is-progress { color: var(--text-secondary); }
-.stage-ownership-feedback.is-success { color: var(--pos); }
+.stage-ownership-feedback.is-success { color: var(--success); }
 .stage-ownership-feedback.is-error { color: var(--neg); }
 
 .stage-ownership-empty { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-4); padding: var(--sp-4) 0; border-block: 1px solid var(--border-subtle); }
-.stage-ownership-empty > svg { color: var(--pos); }
+.stage-ownership-empty > svg { color: var(--success); }
 .stage-ownership-empty div { display: flex; flex-direction: column; gap: 2px; }
-.stage-ownership-empty strong { color: var(--pos); font-size: var(--type-section-title-size); font-weight: var(--type-section-title-weight); line-height: var(--type-row-line-height); }
+.stage-ownership-empty strong { color: var(--text-primary); font-size: var(--type-section-title-size); font-weight: var(--type-section-title-weight); line-height: var(--type-row-line-height); }
 .stage-ownership-empty span { color: var(--text-muted); font-size: var(--type-caption-size); }
 
 @media (max-width: 1099px) {

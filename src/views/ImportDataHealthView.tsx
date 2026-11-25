@@ -5,6 +5,7 @@ import { ArrowLeft } from '@/icons/appIcons'
 import { EmptyState } from '@/components/EmptyState'
 import { Topbar } from '@/components/Topbar'
 import { ModalShell } from '@/components/ui/ModalShell'
+import { InlineStatus } from '@/components/ui/InlineStatus'
 import { Button } from '@/components/ui/Button'
 import { buildCopiedCloseDateCandidates } from '@/lib/importDataHealth'
 import { useStore } from '@/store/useStore'
@@ -101,31 +102,32 @@ export function ImportDataHealthView() {
             平仓日待核对 <span>{candidates.length}</span>
           </p> : null}
           {candidates.length > 0 ? (
-            <button type="button" className="ui-btn ui-btn-ghost idh-toolbar-action" onClick={toggleAllHigh}>
+            <Button type="button" size="sm" variant="ghost" onClick={toggleAllHigh}>
               切换高置信选中
-            </button>
+            </Button>
           ) : null}
         </div>
 
-        {notice ? (
-          <div className="idh-banner is-success" role="status">
-            <span>{notice}</span>
-            {lastActionId ? (
-              <button
+        {notice && (
+          <InlineStatus
+            className="idh-banner"
+            compact
+            tone="success"
+            title={notice}
+            action={lastActionId && (
+              <Button
                 data-health-undo
-                type="button"
-                className="ui-btn ui-btn-ghost"
+                size="sm"
+                variant="ghost"
                 disabled={busy}
                 onClick={() => void undoCleanup()}
               >
                 {busy ? '正在安全撤销…' : '撤销本次清理'}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-        {error ? (
-          <div className="idh-banner is-danger" role="alert">{error}</div>
-        ) : null}
+              </Button>
+            )}
+          />
+        )}
+        {error && <InlineStatus className="idh-banner" compact tone="error" title={error} />}
 
         <section className="list-scroll idh-content" aria-label="平仓日待核对">
           {candidates.length === 0 ? (
@@ -196,10 +198,10 @@ export function ImportDataHealthView() {
           onClose={() => setConfirming(false)}
           footer={(
             <>
-              <Button data-health-cancel variant="bordered" disabled={busy} onClick={() => setConfirming(false)}>
+              <Button data-health-cancel size="lg" variant="bordered" disabled={busy} onClick={() => setConfirming(false)}>
                 取消
               </Button>
-              <Button data-health-confirm variant="danger-solid" disabled={busy} onClick={() => void confirmCleanup()}>
+              <Button data-health-confirm size="lg" variant="danger-solid" disabled={busy} onClick={() => void confirmCleanup()}>
                 {busy ? '正在安全保存…' : '确认清空'}
               </Button>
             </>

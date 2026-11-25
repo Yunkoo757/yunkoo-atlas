@@ -3,10 +3,6 @@
   min-width: 0;
 }
 
-.ui-date-trigger {
-  padding-inline: 9px;
-}
-
 .ui-date-trigger > span {
   min-width: 0;
   overflow: hidden;
@@ -21,9 +17,17 @@
   flex-shrink: 0;
 }
 
-.ui-date-trigger .is-placeholder,
+.ui-date-trigger .is-placeholder {
+  color: var(--field-placeholder);
+}
+
 .ui-date-trigger > svg {
   color: var(--text-tertiary);
+}
+
+.ui-date-trigger:disabled .is-placeholder,
+.ui-date-trigger:disabled > svg {
+  color: var(--text-disabled);
 }
 
 .ui-date-popover {
@@ -194,8 +198,8 @@
   font-size: var(--type-row-size);
   font-variant-numeric: var(--numeric-tabular);
 }
-.ui-date-year-input[aria-invalid='true'] { border-color: var(--neg); }
-.ui-date-year-error { grid-column: 1 / -1; color: var(--neg); }
+.ui-date-year-input[aria-invalid='true'] { border-color: var(--danger); }
+.ui-date-year-error { grid-column: 1 / -1; color: var(--danger); }
 
 .ui-date-jump {
   height: var(--field-height-md);

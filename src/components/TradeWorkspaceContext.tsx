@@ -152,19 +152,12 @@ export function TradeWorkspaceContext({
         />
         {scheduleHint}
       </div>
-      {page !== 'review' ? <div className="trade-workspace-kind" role="group" aria-label="记录类型">
-        {KIND_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            className={query.kind === option.value ? 'is-active' : ''}
-            aria-pressed={query.kind === option.value}
-            onClick={() => update({ kind: option.value })}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div> : null}
+      {page !== 'review' && <SegmentedControl
+        label="记录类型"
+        value={query.kind}
+        options={KIND_OPTIONS}
+        onChange={kind => update({ kind })}
+      />}
     </div>
     {stageManager}
     </>

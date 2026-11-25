@@ -5,6 +5,7 @@ import { BacktestNavIcon, CaseLibraryNavIcon, NoteNavIcon } from '@/icons/Naviga
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useCallback, useDeferredValue, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { PopoverSurface } from '@/components/ui/PopoverSurface'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Plus,
@@ -547,7 +548,8 @@ function CommandPaletteDialog({
 
   return createPortal(
     <div ref={exitRef} className="cmdk-overlay" role="presentation" onMouseDown={requestClose}>
-      <div
+      <PopoverSurface
+        kind="modal"
         className="cmdk"
         role="dialog"
         aria-modal="true"
@@ -677,7 +679,7 @@ function CommandPaletteDialog({
               }}>加载更多</Button>}
             </div>
           )}
-      </div>
+      </PopoverSurface>
     </div>,
     document.body,
   )

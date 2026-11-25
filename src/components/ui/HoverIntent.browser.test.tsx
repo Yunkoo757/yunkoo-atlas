@@ -24,9 +24,11 @@ function Harness() {
       <Tooltip asChild content="普通提示" label="普通提示">
         <button id="tooltip-trigger" type="button">普通提示触发器</button>
       </Tooltip>
-      <HoverPreview content={<div>策略统计</div>}>
-        <button id="preview-trigger" type="button">策略统计触发器</button>
-      </HoverPreview>
+      <div style={{ position: 'fixed', right: 8, top: 8 }}>
+        <HoverPreview compact content={<div>策略统计</div>}>
+          <button id="preview-trigger" type="button">策略统计触发器</button>
+        </HoverPreview>
+      </div>
     </div>
   )
 }
@@ -55,7 +57,12 @@ async function run(): Promise<void> {
     await wait(350)
     assert(!document.querySelector('.hover-preview-pop'), '短暂掠过不应立即打开统计预览')
     await wait(190)
-    assert(document.querySelector('.hover-preview-pop'), '稳定停留后统计预览应打开')
+    const panel = document.querySelector<HTMLElement>('.hover-preview-pop')
+    assert(panel, '稳定停留后统计预览应打开')
+    const bounds = panel.getBoundingClientRect()
+    assert(bounds.width < 200 && bounds.right <= window.innerWidth - 7, '精简预览应适配内容并留在右边界内')
+    assert(bounds.top >= previewTrigger.getBoundingClientRect().bottom, '顶部空间不足时应在触发器下方打开')
+    assert(previewTrigger.getAttribute('aria-describedby') === panel.id, '触发按钮应关联实际预览')
     previewTrigger.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }))
     await wait(100)
 

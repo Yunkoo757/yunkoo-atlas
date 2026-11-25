@@ -1,107 +1,151 @@
 .trade-open-risk-dialog {
   display: flex;
   flex-direction: column;
-  gap: var(--space-section-gap);
+  gap: var(--sp-4);
 }
 
 .trade-open-risk-callout {
   display: flex;
   align-items: flex-start;
   gap: var(--space-row-gap);
-  color: var(--text-body);
 }
+
 .trade-open-risk-callout > svg {
   flex: none;
-  margin-top: var(--sp-1);
+  align-self: flex-start;
   color: var(--diagnostic-text);
 }
+
 .trade-open-risk-callout.is-triggered > svg { color: var(--neg); }
-.trade-open-risk-callout strong { color: var(--text-primary); font-size: var(--type-row-size); }
-.trade-open-risk-callout p { margin: 3px 0 0; color: var(--text-muted); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }
+
+.trade-open-risk-callout p {
+  margin: 0;
+  color: var(--dialog-label-ink);
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
+  overflow-wrap: anywhere;
+}
+
+.trade-open-risk-callout small,
+.trade-open-risk-periods small,
+.trade-open-risk-policy dt,
+.trade-open-risk-reason small {
+  color: var(--dialog-supporting-ink);
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--type-caption-line-height);
+}
+
+.trade-open-risk-callout small {
+  display: block;
+  margin-top: var(--sp-1);
+}
 
 .trade-open-risk-periods {
-  display: grid;
-  gap: 0;
-  border-block: 1px solid var(--border-subtle);
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: right;
+  font-size: var(--type-row-size);
+  font-variant-numeric: var(--numeric-tabular);
+  line-height: var(--type-row-line-height);
 }
 
-.trade-open-risk-periods > div {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--sp-1) var(--sp-3);
-  padding-block: var(--sp-2);
+.trade-open-risk-periods td,
+.trade-open-risk-periods th {
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--dialog-label-ink);
+  font-weight: var(--font-weight-normal);
 }
 
-.trade-open-risk-periods span,
-.trade-open-risk-periods small,
-.trade-open-risk-periods em {
-  color: var(--text-muted);
+.trade-open-risk-periods th:first-child { text-align: left; }
+
+.trade-open-risk-periods thead th {
+  padding-top: 0;
+  color: var(--dialog-supporting-ink);
   font-size: var(--type-caption-size);
-  font-style: normal;
 }
-.trade-open-risk-periods strong { color: var(--text-primary); font-family: var(--font-ui); font-size: var(--type-row-size); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
-.trade-open-risk-periods > div + div { border-top: 1px solid var(--border-subtle); }
-.trade-open-risk-periods small { font-family: var(--font-ui); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
-.trade-open-risk-periods em { text-align: right; }
-.trade-open-risk-periods .is-triggered strong { color: var(--neg); }
-.trade-open-risk-periods .is-unknown em { color: var(--diagnostic-text); }
 
-.trade-open-risk-policy {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sp-2) 14px;
-  padding: 0 2px;
+.trade-open-risk-periods th[scope='row'] small,
+.trade-open-risk-gain { display: block; }
+
+.trade-open-risk-periods strong {
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-variant-numeric: var(--numeric-tabular);
+  font-feature-settings: "tnum" 1, "kern" 1;
+  font-weight: var(--font-weight-medium);
 }
-.trade-open-risk-policy > div { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
-.trade-open-risk-policy span { color: var(--text-muted); font-size: var(--type-caption-size); }
-.trade-open-risk-policy strong { color: var(--text-secondary); font-size: var(--type-metadata-size); font-weight: var(--font-weight-medium); }
-.trade-open-risk-policy p { grid-column: 1 / -1; margin: 0; color: var(--text-muted); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }
-.trade-open-risk-baseline-action {
-  grid-column: 1 / -1;
-  justify-self: start;
-  padding: 0;
-  color: var(--accent-readable);
-  font: inherit;
+
+.trade-open-risk-periods .is-triggered strong { color: var(--neg); }
+
+.trade-open-risk-policy dl,
+.trade-open-risk-policy dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-control-gap);
+  margin: 0;
+}
+
+.trade-open-risk-policy dl { column-gap: var(--sp-5); }
+
+.trade-open-risk-policy dd {
+  margin: 0;
+  color: var(--dialog-label-ink);
   font-size: var(--type-metadata-size);
-  background: none;
-  border: 0;
-  cursor: pointer;
+  font-variant-numeric: var(--numeric-tabular);
 }
-.trade-open-risk-baseline-action:hover { text-decoration: underline; }
-.trade-open-risk-baseline-status { margin: var(--sp-3) 0 0; color: var(--text-muted); font-size: var(--type-metadata-size); }
+
+.trade-open-risk-policy p,
+.trade-open-risk-baseline-status {
+  margin: var(--sp-1) 0 0;
+  color: var(--dialog-supporting-ink);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
+  overflow-wrap: anywhere;
+}
+
 .trade-open-risk-baseline-retry { display: grid; gap: var(--sp-2); margin-top: var(--sp-3); }
 .trade-open-risk-baseline-retry .trade-open-risk-error { margin: 0; }
 
-.trade-open-risk-reason { display: flex; flex-direction: column; gap: var(--space-control-gap); }
-.trade-open-risk-reason > span { display: flex; justify-content: space-between; color: var(--text-secondary); font-size: var(--type-metadata-size); font-weight: var(--font-weight-medium); }
-.trade-open-risk-reason small { color: var(--text-quaternary); font-weight: var(--font-weight-normal); }
+.trade-open-risk-reason {
+  display: grid;
+  gap: var(--space-control-gap);
+}
+
+.trade-open-risk-reason > span {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-control-gap);
+  color: var(--dialog-label-ink);
+  font-size: var(--type-metadata-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.trade-open-risk-count { margin-left: auto; font-variant-numeric: var(--numeric-tabular); }
+
 .trade-open-risk-reason textarea {
   width: 100%;
   min-height: calc(var(--type-body-line-height) * 2 + var(--sp-4));
   resize: vertical;
-  padding: 9px 10px;
-  color: var(--text-primary);
-  font: inherit;
+  padding: var(--sp-2) var(--field-padding-inline);
   font-size: var(--type-body-size);
   line-height: var(--type-body-line-height);
-  background: var(--field-bg);
-  border: 1px solid var(--field-border);
-  border-radius: var(--radius-6);
-  outline: none;
 }
-.trade-open-risk-reason textarea:disabled { color: var(--text-disabled); opacity: 0.6; }
 
 .trade-open-risk-error {
   display: flex;
   align-items: flex-start;
-  gap: 7px;
-  padding: 9px 10px;
+  gap: var(--space-row-gap);
+  padding: var(--sp-2) var(--field-padding-inline);
   color: var(--neg);
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
   background: var(--neg-bg);
-  border: 1px solid color-mix(in srgb, var(--neg) 30%, transparent);
   border-radius: var(--radius-6);
-  outline: none;
+  overflow-wrap: anywhere;
 }
-.trade-open-risk-error svg { flex: 0 0 auto; margin-top: 1px; }
+
+.trade-open-risk-error svg { flex: none; }

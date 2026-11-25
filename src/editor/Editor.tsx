@@ -1,5 +1,7 @@
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { createPortal } from 'react-dom'
+import { motionDuration, reducesMotion } from '@/lib/motion'
+import '@/components/ui/PopoverSurface.css'
 import { Button } from '@/components/ui/Button'
 import { useEditor, EditorContent, BubbleMenu, type Editor as TiptapEditor } from '@tiptap/react'
 import type { Content } from '@tiptap/core'
@@ -352,8 +354,12 @@ export function Editor({
       {editor && (
         <BubbleMenu
           editor={editor}
-          tippyOptions={{ duration: 120 }}
-          className="bubble-menu"
+          tippyOptions={{
+            onShow: instance => {
+              instance.setProps({ duration: reducesMotion() ? 0 : motionDuration(document.documentElement, '--motion-menu') })
+            },
+          }}
+          className="ui-popover-surface ui-popover-menu bubble-menu"
           shouldShow={({ editor: ed, state }) => {
             if (lightboxOpen || readOnly || !ed.isEditable) return false
             if (ed.isActive('image')) return false
@@ -362,24 +368,28 @@ export function Editor({
         >
           <BtnGroup>
             <BBtn
+              label="粗体"
               on={editor.isActive('bold')}
               onClick={() => editor.chain().focus().toggleBold().run()}
             >
               <Bold size={ICON_TOOLBAR} />
             </BBtn>
             <BBtn
+              label="斜体"
               on={editor.isActive('italic')}
               onClick={() => editor.chain().focus().toggleItalic().run()}
             >
               <Italic size={ICON_TOOLBAR} />
             </BBtn>
             <BBtn
+              label="删除线"
               on={editor.isActive('strike')}
               onClick={() => editor.chain().focus().toggleStrike().run()}
             >
               <Strikethrough size={ICON_TOOLBAR} />
             </BBtn>
             <BBtn
+              label="行内代码"
               on={editor.isActive('code')}
               onClick={() => editor.chain().focus().toggleCode().run()}
             >
@@ -389,6 +399,7 @@ export function Editor({
           <span className="bubble-sep" />
           <BtnGroup>
             <BBtn
+              label="二级标题"
               on={editor.isActive('heading', { level: 2 })}
               onClick={() =>
                 editor.chain().focus().toggleHeading({ level: 2 }).run()
@@ -397,18 +408,21 @@ export function Editor({
               <Heading2 size={ICON_TOOLBAR} />
             </BBtn>
             <BBtn
+              label="项目列表"
               on={editor.isActive('bulletList')}
               onClick={() => editor.chain().focus().toggleBulletList().run()}
             >
               <List size={ICON_TOOLBAR} />
             </BBtn>
             <BBtn
+              label="任务列表"
               on={editor.isActive('taskList')}
               onClick={() => editor.chain().focus().toggleTaskList().run()}
             >
               <ListChecks size={ICON_TOOLBAR} />
             </BBtn>
             <BBtn
+              label="引用"
               on={editor.isActive('blockquote')}
               onClick={() => editor.chain().focus().toggleBlockquote().run()}
             >
@@ -433,18 +447,20 @@ function BtnGroup({ children }: { children: React.ReactNode }) {
 }
 
 function BBtn({
+  label,
   children,
   on,
   onClick,
 }: {
   children: React.ReactNode
+  label: string
   on?: boolean
   onClick: () => void
 }) {
   return (
-    <button className={'bubble-btn' + (on ? ' is-on' : '')} onClick={onClick}>
+    <Button variant="ghost" size="sm" className="bubble-btn" aria-label={label} aria-pressed={on} onClick={onClick}>
       {children}
-    </button>
+    </Button>
   )
 }
 

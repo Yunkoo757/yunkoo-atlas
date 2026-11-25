@@ -107,8 +107,8 @@ export const Select = forwardRef<
     if (!rect) return
     const edge = 8
     const optionHeight = Number.parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue('--field-height-md'),
-    ) || 32
+      getComputedStyle(document.documentElement).getPropertyValue('--menu-item-height'),
+    ) || 30
     const desiredHeight = Math.min(280, options.length * optionHeight + 10)
     const roomBelow = window.innerHeight - rect.bottom - edge - 4
     const roomAbove = rect.top - edge - 4

@@ -41,15 +41,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
   border-radius: var(--radius-6);
   color: var(--text-tertiary);
 }
 
 .trade-filter-head-actions button:hover {
   color: var(--text-primary);
-  background: var(--bg-hover);
+  background: var(--surface-menu-hover);
 }
 
 .trade-filter-body {

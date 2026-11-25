@@ -84,6 +84,9 @@ async function run(): Promise<void> {
     assert(trigger.getAttribute('aria-expanded') === 'true', '打开态真实触发控件缺少 aria-expanded="true"')
     const items = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
     assert(items.length === 3, '共享菜单必须渲染三个真实菜单项')
+    assert(menu.classList.contains('ui-popover-menu'), '普通菜单应消费统一菜单浮层材质')
+    const itemHeight = getComputedStyle(document.documentElement).getPropertyValue('--menu-item-height').trim()
+    assert(items.every(item => getComputedStyle(item).height === itemHeight), '普通菜单项应遵循统一行高')
     const separator = document.querySelector<HTMLElement>('[role="separator"]')
     assert(separator && separator.tagName !== 'BUTTON', '菜单分隔符必须存在且不可成为按钮')
     assert(items[2].classList.contains('menu-item-danger'), '危险动作必须显示统一的危险语义样式')

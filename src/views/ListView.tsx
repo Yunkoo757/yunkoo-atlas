@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/Button'
 import { ICON_SM } from '@/icons/iconSize'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -340,22 +341,22 @@ export function ListView({
           onClose={() => setCopyCandidateIds(null)}
           footer={(
             <>
-              <button
+              <Button
                 type="button"
-                className="ui-btn ui-btn-bordered"
+                size="lg" variant="bordered"
                 data-autofocus
                 onClick={() => setCopyCandidateIds(null)}
               >
                 取消
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="ui-btn ui-btn-primary"
+                size="lg" variant="primary"
                 disabled={copyCandidates.length !== copyCandidateIds.length}
                 onClick={confirmBatchCopy}
               >
                 {copyConfirmLabel}
-              </button>
+              </Button>
             </>
           )}
         >

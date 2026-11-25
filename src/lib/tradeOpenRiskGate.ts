@@ -237,6 +237,10 @@ function riskResultRefs(
     }))
 }
 
+export function reachesRiskLimit(outcome: RiskPeriodOutcomeSnapshot): boolean {
+  return outcome.limitR > 0 && outcome.netBudgetR <= -outcome.limitR
+}
+
 function cloneRiskOutcome(outcome: RiskPeriodOutcomeSnapshot): RiskPeriodOutcomeSnapshot {
   return { ...outcome, unknownReasons: [...outcome.unknownReasons] }
 }
@@ -279,8 +283,7 @@ function createPendingRequest(
     week: cloneRiskOutcome(resolved.week),
     month: cloneRiskOutcome(resolved.month),
   }
-  const knownLimitTriggered = Object.values(outcomes).some((outcome) =>
-    outcome.limitR > 0 && outcome.netBudgetR <= -outcome.limitR)
+  const knownLimitTriggered = Object.values(outcomes).some(reachesRiskLimit)
   const decisionType: RiskDecisionType | null = knownLimitTriggered
     ? 'triggered'
     : policy === null || monthlyLimit === null || resolved.gateCoverage === 'unknown'

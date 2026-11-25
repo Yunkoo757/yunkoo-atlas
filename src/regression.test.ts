@@ -2320,21 +2320,22 @@ export function testSymbolIconsResolveDefaultsAndOverrides(): void {
   assert(detectSymbolMarket('EURUSD') === 'forex', '六位货币对应外汇')
   assert(detectSymbolMarket('XAUUSD') === 'metal', 'XAU 对应贵金属')
 
-  const btc = resolveSymbolIcon('BTCUSDT')
-  assert(btc.type === 'glyph' && btc.glyph === '₿', 'BTC 默认使用比特币占位符')
-
-  const xau = resolveSymbolIcon('XAUUSD')
-  assert(xau.type === 'glyph' && xau.glyph === 'Au', 'A1：黄金默认使用平面 Au glyph')
-
-  const eth = resolveSymbolIcon('ETHUSDT')
-  assert(
-    eth.type === 'svg' && eth.svgId === 'eth-diamond',
-    'A1：以太坊默认使用官方菱形标识，不再使用临时字符',
-  )
+  const expectedMarks = {
+    XAUUSD: 'gold-au',
+    EURUSD: 'euro',
+    GBPUSD: 'sterling',
+    BTCUSDT: 'bitcoin',
+    ETHUSDT: 'eth-diamond',
+  }
+  for (const [symbol, mark] of Object.entries(expectedMarks)) {
+    const resolved = resolveSymbolIcon(symbol)
+    assert(resolved.type === 'svg' && resolved.svgId === mark, `${symbol} 应显示对应的矢量标识`)
+  }
 
   const alternateQuote = resolveSymbolIcon('XBT/USDC')
-  assert(alternateQuote.type === 'glyph' && btc.type === 'glyph' &&
-    alternateQuote.glyph === btc.glyph && alternateQuote.color === btc.color, '同一基础资产的历史交易对沿用可识别的品种标记')
+  const btc = resolveSymbolIcon('BTCUSDT')
+  assert(alternateQuote.type === 'svg' && btc.type === 'svg' &&
+    alternateQuote.svgId === btc.svgId && alternateQuote.color === btc.color, '同一基础资产的历史交易对沿用相同字形与颜色')
 
   const silver = resolveSymbolIcon('XAGEUR')
   assert(silver.type === 'glyph' && silver.glyph === 'Ag', '历史白银交叉盘使用白银预设')
@@ -2344,14 +2345,13 @@ export function testSymbolIconsResolveDefaultsAndOverrides(): void {
   assert(unknownA.type === 'glyph' && unknownB.type === 'glyph' &&
     unknownA.color === unknownB.color && unknownA.glyph !== unknownB.glyph, '未知品种使用不同缩写和统一中性色')
 
-  const custom = resolveSymbolIcon('BTCUSDT', {
-    BTCUSDT: {
-      presetId: null,
-      customDataUrl: 'data:image/png;base64,abc',
-      updatedAt: '2026-07-11T00:00:00.000Z',
-    },
-  })
-  assert(custom.type === 'image' && custom.src.startsWith('data:'), '自定义上传应覆盖默认图标')
+  const override = { presetId: 'eur', updatedAt: '2026-07-11T00:00:00.000Z' }
+  const selected = resolveSymbolIcon('btc/usdt', { BTCUSDT: override })
+  assert(selected.type === 'svg' && selected.svgId === 'euro', '应优先使用保存的预设选择')
+
+  const customDataUrl = 'data:image/png;base64,abc'
+  const custom = resolveSymbolIcon('BTCUSDT', { BTCUSDT: { ...override, customDataUrl } })
+  assert(custom.type === 'image' && custom.src === customDataUrl, '同时存有预设和自定义图片时应显示上传原图')
 }
 
 export function testSymbolCatalogSyncsComposerAndSettings(): void {

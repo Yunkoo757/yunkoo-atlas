@@ -1251,7 +1251,7 @@ function ReviewSessionAssessmentButton({
   return (
     <button
       type="button"
-      className={`is-${option.value}`}
+      className={`review-session-assessment-option is-${option.value}`}
       aria-label={shortcut.ariaLabel}
       aria-keyshortcuts={shortcut.hint ?? undefined}
       onClick={() => onAssess(option.value)}
@@ -1386,25 +1386,25 @@ function ReviewSessionItem({
                   onAssess={onAssess}
                 />
               ))}
-              <button
+              <Button
                 type="button"
-                className="review-session-skip"
+                className="review-session-skip" variant="ghost"
                 aria-label={skipShortcut.ariaLabel}
                 aria-keyshortcuts={skipShortcut.hint ?? undefined}
                 onClick={onSkip}
               >
                 跳过 {skipShortcut.hint ? <Kbd>{skipShortcut.hint}</Kbd> : null}
-              </button>
+              </Button>
               {onBack ? (
-                <button
+                <Button
                   type="button"
-                  className="review-session-skip"
+                  className="review-session-skip" variant="ghost"
                   aria-label={backShortcut.ariaLabel}
                   aria-keyshortcuts={backShortcut.hint ?? undefined}
                   onClick={onBack}
                 >
                   {backLabel} {backShortcut.hint ? <Kbd>{backShortcut.hint}</Kbd> : null}
-                </button>
+                </Button>
               ) : null}
             </div>
           </footer>
@@ -1414,17 +1414,17 @@ function ReviewSessionItem({
               <span>账户交易不记录案例掌握度</span>
             </div>
             <div className="review-session-assessment-actions review-session-account-actions">
-              {onBack && <button type="button" className="review-session-skip" aria-label={backShortcut.ariaLabel} aria-keyshortcuts={backShortcut.hint ?? undefined} onClick={onBack}>{backLabel} {backShortcut.hint ? <Kbd>{backShortcut.hint}</Kbd> : null}</button>}
-              <button type="button" onClick={onExtractCase}>提炼为案例</button>
-              <button
+              {onBack && <Button type="button" className="review-session-skip" variant="ghost" aria-label={backShortcut.ariaLabel} aria-keyshortcuts={backShortcut.hint ?? undefined} onClick={onBack}>{backLabel} {backShortcut.hint ? <Kbd>{backShortcut.hint}</Kbd> : null}</Button>}
+              <Button type="button" variant="bordered" onClick={onExtractCase}>提炼为案例</Button>
+              <Button
                 type="button"
-                className="review-session-skip"
+                className="review-session-skip" variant="ghost"
                 aria-label={skipShortcut.ariaLabel}
                 aria-keyshortcuts={skipShortcut.hint ?? undefined}
                 onClick={onSkip}
               >
                 下一条 {skipShortcut.hint ? <Kbd>{skipShortcut.hint}</Kbd> : null}
-              </button>
+              </Button>
             </div>
           </footer>
         )}

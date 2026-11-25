@@ -35,7 +35,7 @@ export function WorkbenchEmptyState({
           {state.secondaryActions.map((action) => (
             <Link
               key={action.id}
-              className="workbench-empty-secondary"
+              className="ui-btn ui-btn-ghost ui-btn-md"
               to={action.href ?? '/'}
             >
               {action.label}

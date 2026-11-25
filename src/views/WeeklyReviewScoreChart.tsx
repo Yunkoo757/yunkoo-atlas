@@ -16,12 +16,15 @@ export function WeeklyReviewScoreChart({ data }: { data: WeeklyReviewTrendPoint[
             width={24}
           />
           <Tooltip
+            isAnimationActive={false}
             cursor={{ stroke: 'var(--border-strong)' }}
             contentStyle={{
-              background: 'var(--popover-bg)',
-              border: '1px solid var(--border-default)',
-              borderRadius: 'var(--radius-8)',
-              fontSize: 'var(--type-row-size)',
+              background: 'var(--popover-tooltip-bg)',
+              border: '1px solid var(--popover-tooltip-border)',
+              borderRadius: 'var(--popover-tooltip-radius)',
+              boxShadow: 'var(--popover-tooltip-shadow)',
+              padding: 'var(--sp-2) var(--sp-3)',
+              fontSize: 'var(--type-metadata-size)',
             }}
             labelStyle={{ color: 'var(--text-strong)' }}
             itemStyle={{ color: 'var(--text-body)' }}

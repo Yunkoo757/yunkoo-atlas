@@ -72,7 +72,7 @@ function RepairRow({ item }: { item: RiskRepairItem }) {
           <small className="risk-repair-retained-note">核对平仓日期；当时已有明确规则的，可通过上方入口补录。</small>
         ) : null}
       </div>
-      <RepairAction item={item} className="risk-repair-action" />
+      <RepairAction item={item} className="ui-btn ui-btn-bordered ui-btn-sm risk-repair-action" />
     </article>
   )
 }
@@ -175,7 +175,7 @@ export function RiskDataRepairView() {
         {queue.nextItem ? (
           <RepairAction
             item={queue.nextItem}
-            className="risk-repair-action risk-repair-next"
+            className="ui-btn ui-btn-primary ui-btn-sm risk-repair-action"
             label={queue.nextItem.actionKind === 'data-settings' ? '调整核算起点' : '处理下一项'}
             isNext
           />

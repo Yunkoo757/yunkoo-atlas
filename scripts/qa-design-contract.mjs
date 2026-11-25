@@ -78,8 +78,22 @@ const completeSource = sourceFiles.map(read).join('\n')
 const cssFiles = sourceFiles.filter((file) => file.endsWith('.css'))
 const completeCssSource = cssFiles.map(read).join('\n')
 const focusDecorations = []
+const styleViolations = []
+const literalColor = /#[\da-f]{3,8}\b|\b(?:rgba?|hsla?|oklch|lch|lab|oklab|hwb|color)\(|(?:^|[ ,])(white|black|red|green|blue)(?=$|[ ,)])/i
 for (const file of cssFiles) {
-  postcss.parse(read(file), { from: file }).walkRules(rule => {
+  const sheet = postcss.parse(read(file), { from: file })
+  if (file !== 'src/styles/tokens.css') {
+    sheet.walkDecls(decl => {
+      const value = decl.value.replace(/url\([^)]*\)/gi, '')
+      const isVisual = /^(?:color$|accent-color$|background|border|outline|box-shadow$|text-shadow$|fill$|stroke$|--)/.test(decl.prop)
+      if ((isVisual && literalColor.test(value)) ||
+        (decl.prop === 'font-size' && /(?:^|[^\w.-])\d*\.?\d+px\b/i.test(value)) ||
+        (/^transition(?:-property)?$/.test(decl.prop) && /\ball\b/.test(value))) {
+        styleViolations.push(`${file}:${decl.source.start.line} ${decl.prop}: ${decl.value}`)
+      }
+    })
+  }
+  sheet.walkRules(rule => {
     if (!rule.selector.includes(':focus')) return
     // The image outline belongs to the selected document node while editing.
     if (file === 'src/editor/Editor.css' && rule.selector.endsWith('img.ProseMirror-selectednode')) return
@@ -102,10 +116,6 @@ const undefinedCustomProperties = [...customPropertyUses]
 const selfReferentialCustomProperties = [
   ...completeCssSource.matchAll(/(--[a-z0-9_-]+)\s*:\s*var\(\1(?:\s*,[^)]*)?\)/gi),
 ].map((match) => match[1])
-const sharedUiRawColorFiles = collectFiles('src/components/ui', /\.css$/).filter((file) =>
-  /(?:#[\da-f]{3,8}\b|\brgba?\(|\bhsla?\(|\boklch\(|\blch\()/i.test(read(file)),
-)
-
 const checks = [
   [
     'theme luminance evidence command and canonical contracts are registered',
@@ -148,7 +158,7 @@ const checks = [
     ['--surface-card-hover:', '--surface-menu-hover:', '--surface-menu-pressed:', '--surface-menu-selected:']
       .every((token) => tokens.includes(token)) &&
       /\.bd-card:hover\s*\{[^}]*background:\s*var\(--surface-card-hover\);/s.test(boardViewStyles) &&
-      /\.menu-item:hover\s*\{[^}]*background:\s*var\(--surface-menu-hover\);/s.test(menuStyles) &&
+      /\.menu-item:hover:not\(:disabled\)\s*\{[^}]*background:\s*var\(--surface-menu-hover\);/s.test(menuStyles) &&
       /\.menu-item:active:not\(:disabled\)\s*\{[^}]*background:\s*var\(--surface-menu-pressed\);/s.test(menuStyles) &&
       /\.display-toggle:hover\s*\{[^}]*background:\s*var\(--surface-menu-hover\);/s.test(displayMenuCss) &&
       /\.display-item:hover\s*\{[^}]*background:\s*var\(--surface-menu-hover\);/s.test(displayMenuCss) &&
@@ -164,6 +174,18 @@ const checks = [
       !riskManagementStyles.includes('.risk-indicator-options'),
   ],
   ['sidebar width', tokens.includes('--sidebar-width: 244px')],
+  [
+    'field geometry and anchored menu measurements use their shared roles',
+    !/\.ui-(?:select|date)-trigger\s*\{[^}]*padding/.test(selectCss + read('src/components/ui/DatePicker.css')) &&
+      selectCss.includes('height: var(--menu-item-height)') &&
+      menuStyles.includes('height: var(--menu-item-height)') &&
+      read('src/components/ui/Select.tsx').includes("getPropertyValue('--menu-item-height')"),
+  ],
+  [
+    'both text hints and hover previews use the shared tooltip surface',
+    ['src/components/ui/Tooltip.tsx', 'src/components/HoverPreview.tsx']
+      .every(file => /<PopoverSurface\b[^>]*kind="tooltip"/s.test(read(file))),
+  ],
   ['Tab preserves desktop control appearance' + (focusDecorations.length ? ' (' + focusDecorations.join(', ') + ')' : ''), focusDecorations.length === 0],
   [
     'sidebar navigation keeps the measured hierarchy',
@@ -221,8 +243,8 @@ const checks = [
       .every((contract) => iconSize.includes(contract)) && !iconSize.includes('ICON_XS = 12'),
   ],
   [
-    'shared UI components only consume semantic colors',
-    sharedUiRawColorFiles.length === 0,
+    'all desktop styles use semantic colors, type roles and explicit transitions',
+    styleViolations.length === 0,
   ],
   [
     'every consumed custom property has a source definition',
@@ -275,8 +297,7 @@ const checks = [
   ],
   [
     'disabled primary actions use a quiet semantic state',
-    buttonStyles.includes('.ui-btn-primary:disabled') &&
-      buttonStyles.includes('opacity: 1'),
+    /\.ui-btn-primary:disabled,[^{]*\{[^}]*color:\s*var\(--action-primary-disabled-text\);[^}]*background:\s*var\(--action-primary-disabled-bg\);[^}]*opacity:\s*1;/.test(buttonStyles),
   ],
   [
     'disabled danger-solid actions use their dedicated readable semantic state',
@@ -476,6 +497,7 @@ for (const [name, ok] of checks) {
 }
 
 if (failed.length > 0) {
+  for (const violation of styleViolations) console.error(violation)
   process.exitCode = 1
 } else {
   console.log('PASS: Trader Atlas design contract')

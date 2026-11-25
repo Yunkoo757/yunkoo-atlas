@@ -274,13 +274,8 @@
 }
 
 .review-pool-field input {
-  min-height: 36px;
-  padding: 0 var(--sp-3);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-8);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font: inherit;
+  min-width: 0;
+  font-size: var(--type-row-size);
 }
 
 .review-pool-choice-group > div {
@@ -315,9 +310,6 @@
 .review-pool-choice-group input,
 .review-pool-content-toggle input {
   flex: 0 0 auto;
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent);
 }
 
 .review-pool-content-toggle {
@@ -411,13 +403,7 @@
 
 .review-session-stage-option:hover {
   border-color: var(--border-strong);
-  background: var(--bg-hover);
-}
-
-.review-session-stage-option input {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent);
+  background: var(--surface-control-hover);
 }
 
 .review-session-stage-option > span {
@@ -473,19 +459,12 @@
 
 .review-session-settings-sources label:hover {
   border-color: var(--border-strong);
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
 }
 
 .review-session-settings-sources label.is-selected {
-  border-color: color-mix(in srgb, var(--accent) 60%, var(--border-default));
-  background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
-}
-
-.review-session-settings-sources input,
-.review-session-content-toggle input {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent);
+  border-color: var(--surface-control-border-active);
+  background: var(--surface-control-active);
 }
 
 .review-session-settings-sources label > span {
@@ -882,7 +861,7 @@ button.review-session-gallery-slot.is-ready {
   line-height: var(--type-row-line-height);
 }
 
-.review-session-note-state.is-error { color: var(--warn); }
+.review-session-note-state.is-error { color: var(--warn-action); }
 
 .review-session-assessment {
   display: flex;
@@ -916,13 +895,13 @@ button.review-session-gallery-slot.is-ready {
   gap: 7px;
 }
 
-.review-session-assessment-actions button {
+.review-session-assessment-option {
   display: grid;
   min-width: 126px;
   min-height: var(--modal-cta-height);
   grid-template-columns: 1fr auto;
   align-content: center;
-  gap: 2px 9px;
+  gap: 2px var(--sp-2);
   padding: 7px 9px 7px 11px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-8);
@@ -930,34 +909,18 @@ button.review-session-gallery-slot.is-ready {
   text-align: left;
 }
 
-.review-session-assessment-actions button:hover { background: var(--bg-hover); }
-.review-session-assessment-actions button.is-unfamiliar:hover { border-color: color-mix(in srgb, var(--neg) 55%, var(--border-default)); }
-.review-session-assessment-actions button.is-recheck:hover { border-color: color-mix(in srgb, var(--warn) 55%, var(--border-default)); }
-.review-session-assessment-actions button.is-mastered:hover { border-color: color-mix(in srgb, var(--pos) 55%, var(--border-default)); }
+.review-session-assessment-option:hover { background: var(--surface-card-hover); }
+.review-session-assessment-option.is-unfamiliar:hover { border-color: var(--diagnostic-border); }
+.review-session-assessment-option.is-recheck:hover { border-color: var(--warn-action-border); }
+.review-session-assessment-option.is-mastered:hover { border-color: var(--status-win); }
 
-.review-session-assessment-actions button > span { font-size: var(--type-metadata-size); font-weight: var(--font-weight-semibold); }
-.review-session-assessment-actions button > small { color: var(--text-tertiary); font-size: var(--type-metadata-size); }
+.review-session-assessment-option > span { font-size: var(--type-metadata-size); font-weight: var(--font-weight-semibold); }
+.review-session-assessment-option > small { color: var(--text-tertiary); font-size: var(--type-metadata-size); }
 
-.review-session-assessment-actions .ui-kbd {
+.review-session-assessment-option .ui-kbd {
   grid-row: 1 / span 2;
   grid-column: 2;
   align-self: center;
-}
-
-.review-session-assessment-actions .review-session-skip {
-  display: inline-flex;
-  min-width: auto;
-  align-items: center;
-  gap: 7px;
-  color: var(--text-tertiary);
-}
-
-.review-session-account-actions button {
-  display: inline-flex;
-  min-width: 128px;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
 }
 
 .review-session-finished {
@@ -1000,8 +963,8 @@ button.review-session-gallery-slot.is-ready {
   margin-bottom: 18px;
   place-items: center;
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--pos) 12%, transparent);
-  color: var(--pos);
+  background: var(--pos-bg);
+  color: var(--success);
 }
 
 .review-session-result-grid {

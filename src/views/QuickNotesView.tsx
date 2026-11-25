@@ -330,10 +330,10 @@ export function QuickNotesView() {
         actions={notes.length > 0 ? (
           <>
             <SaveStatusIndicator />
-            <button type="button" className="empty-btn" onClick={() => void createNote()}>
+            <Button type="button" variant="primary" onClick={() => void createNote()}>
               <Plus size={ICON_MD} />
               新建随记
-            </button>
+            </Button>
           </>
         ) : undefined}
       />
@@ -468,10 +468,10 @@ export function QuickNotesView() {
               title="留下一条随记"
               hint="记录想法或保存截图。"
               action={(
-                <button type="button" className="empty-btn" onClick={() => void createNote()}>
+                <Button type="button" variant="primary" onClick={() => void createNote()}>
                   <Plus size={ICON_MD} />
                   新建随记
-                </button>
+                </Button>
               )}
             />
           )}
@@ -486,8 +486,8 @@ export function QuickNotesView() {
           onClose={() => setDeleteTarget(null)}
           footer={(
             <>
-              <button type="button" className="ui-btn ui-btn-bordered" data-autofocus onClick={() => setDeleteTarget(null)}>取消</button>
-              <button type="button" className="ui-btn ui-btn-danger-solid" onClick={confirmDelete}>删除随记</button>
+              <Button type="button" size="lg" variant="bordered" data-autofocus onClick={() => setDeleteTarget(null)}>取消</Button>
+              <Button type="button" size="lg" variant="danger-solid" onClick={confirmDelete}>删除随记</Button>
             </>
           )}
         />

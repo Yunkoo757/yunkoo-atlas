@@ -46,14 +46,6 @@
   letter-spacing: 0;
 }
 
-.route-state-title {
-  margin: 0;
-  font-size: var(--type-page-title-size);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--type-page-title-line-height);
-  letter-spacing: 0;
-}
-
 .app-storage-error-card .ui-inline-status-detail {
   display: flex;
   flex-direction: column;
@@ -91,14 +83,13 @@
 .app-close-save-panel {
   min-height: 42px;
   max-width: min(560px, calc(100vw - 32px));
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-10);
-  background: var(--surface-floating);
-  box-shadow: var(--shadow-high);
+  border: 1px solid var(--toast-border);
+  border-radius: var(--toast-radius);
+  background: var(--toast-surface);
+  box-shadow: var(--toast-shadow);
   color: var(--text-primary);
-  backdrop-filter: blur(14px);
   pointer-events: auto;
-  animation: app-close-save-in var(--motion-dialog-in) var(--ease-out);
+  animation: app-close-save-in var(--toast-motion-in) var(--ease-out);
 }
 
 .app-windows-close-remember {
@@ -113,14 +104,11 @@
 }
 
 .app-windows-close-remember input {
-  width: 15px;
-  height: 15px;
   margin: 0;
-  accent-color: var(--accent);
 }
 
 .app-close-save.is-error .app-close-save-panel {
-  border-color: color-mix(in srgb, var(--danger) 38%, var(--border-default));
+  border-color: var(--toast-error-border);
 }
 
 .app-close-save-panel .ui-inline-status-detail {

@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/Button'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { Toolbar, WindowToolbarHost } from '@/components/ui/Toolbar'
 import { useContext, useEffect, useMemo, useState } from 'react'
@@ -402,25 +403,25 @@ export function TradeTrashView() {
                         </div>
 
                         <div className="trash-item-actions">
-                          <Tooltip content="恢复" label={`恢复 ${trade.ref}`}>
-                            <button
+                          <Tooltip asChild showOnFocus content="恢复" label={`恢复 ${trade.ref}`}>
+                            <Button
                               type="button"
-                              className="trash-btn-restore"
+                              className="trash-btn-restore" size="sm" variant="ghost"
                               aria-label={`恢复 ${trade.ref}`}
                               onClick={() => handleRestore(trade.id)}
                             >
                               <RotateCcw size={ICON_SM} />
-                            </button>
+                            </Button>
                           </Tooltip>
-                          <Tooltip content="彻底删除" label={`彻底删除 ${trade.ref}`}>
-                            <button
+                          <Tooltip asChild showOnFocus content="彻底删除" label={`彻底删除 ${trade.ref}`}>
+                            <Button
                               type="button"
-                              className="trash-btn-purge"
+                              className="trash-btn-purge" size="sm" variant="danger"
                               aria-label={`彻底删除 ${trade.ref}`}
                               onClick={() => requestPurge(trade)}
                             >
                               <Trash2 size={ICON_SM} />
-                            </button>
+                            </Button>
                           </Tooltip>
                         </div>
                       </div>
@@ -446,23 +447,23 @@ export function TradeTrashView() {
           onClose={() => { if (!purgeBusy) { setPurgeRequest(null); setPurgeError(null) } }}
           footer={(
             <>
-              <button
+              <Button
                 type="button"
-                className="ui-btn ui-btn-bordered"
+                size="lg" variant="bordered"
                 data-autofocus
                 disabled={purgeBusy}
                 onClick={() => { setPurgeRequest(null); setPurgeError(null) }}
               >
                 取消
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="ui-btn ui-btn-danger-solid"
+                size="lg" variant="danger-solid"
                 disabled={purgeBusy}
                 onClick={confirmPurge}
               >
                 {purgeBusy ? '创建并验证恢复点中…' : purgeError ? '重新验证并删除' : '彻底删除'}
-              </button>
+              </Button>
             </>
           )}
         >

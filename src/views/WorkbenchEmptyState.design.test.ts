@@ -33,7 +33,7 @@ export function testEmptyLibraryKeepsOnePrimaryAndOrderedSecondaryActions(): voi
   if (!source.includes('state.secondaryActions.map((action)')) {
     throw new Error('Secondary first-use actions must follow the model order')
   }
-  if (!source.includes('className="workbench-empty-secondary"')) {
+  if (!source.includes('className="ui-btn ui-btn-ghost ui-btn-md"')) {
     throw new Error('Secondary actions must use a quieter visual role than the primary action')
   }
 }

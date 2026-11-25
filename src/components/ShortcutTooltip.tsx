@@ -1,5 +1,6 @@
 import { cloneElement, type ReactElement } from 'react'
 import { useShortcutHint } from '@/shortcuts/useShortcutHint'
+import { Kbd } from '@/components/ui/Kbd'
 import { Tooltip, type TooltipSide } from '@/components/ui/Tooltip'
 import './ShortcutTooltip.css'
 
@@ -41,7 +42,7 @@ export function ShortcutTooltip({
           {shortcutOnly ? model.hint : (
             <>
               <span>{model.label}</span>
-              <kbd>{model.hint}</kbd>
+              <Kbd>{model.hint}</Kbd>
             </>
           )}
         </span>

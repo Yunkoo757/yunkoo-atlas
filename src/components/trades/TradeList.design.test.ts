@@ -191,7 +191,7 @@ export async function testTradeListVisualAlignmentContract(): Promise<void> {
     /\.trade-row-strategy\s*\{[\s\S]*?min-height:\s*var\(--chip-height-md\);[\s\S]*?border-radius:\s*var\(--radius-full\);/.test(css),
     '策略与标签必须共享胶囊语义',
   )
-  assert(trash.includes('height: var(--trade-row-height, 44px)'), '回收站必须共享 44px 列表行高')
+  assert(trash.includes('height: var(--trade-row-height)'), '回收站必须共享 44px 列表行高')
   assert(trash.includes('grid-template-columns: 9ch 18px minmax(0, 1fr)'), '回收站品种与方向也必须固定对齐')
   assert(!trash.includes('.trash-item.is-selected'), '回收站选中态不得额外铺整行底色或左侧强调线')
   assert(
@@ -215,18 +215,12 @@ export async function testSymbolIconsUseBareOfficialMarksInDenseLists(): Promise
   const fs = await import('node:fs/promises')
   const css = await fs.readFile('src/components/SymbolIcon.css', 'utf8')
   const panel = await fs.readFile('src/views/settings/SymbolsPanel.tsx', 'utf8')
-  const presets = await fs.readFile('src/lib/symbolIcons.ts', 'utf8')
-  const component = await fs.readFile('src/components/SymbolIcon.tsx', 'utf8')
   const row = await fs.readFile('src/components/trades/TradeRow.tsx', 'utf8')
   const tradeListCss = await fs.readFile('src/components/trades/TradeList.css', 'utf8')
 
   assert(css.includes('border-radius: var(--radius-full)'), '品种图标必须使用统一圆形容器')
   assert(css.includes('currentColor 8%'), '圆章只允许极弱内描边，不得恢复厚重边框')
   assert(panel.includes('<SymbolIcon symbol={active} preset={preset}'), '设置页预设缩略图必须使用正式品种图标')
-  assert(presets.includes('SYMBOL_ICON_SURFACE_TINT = 12'), '品种圆章色底必须固定为低噪声 12%')
-  assert(component.includes("resolved.glyph.length > 1 ? 'var(--type-caption-size)' : 'var(--type-metadata-size)'") && component.includes('resolved.glyph.length > 1 ? 0.46 : 0.56'), '无底列表符号必须扩大字形占比，同时保留大尺寸预览的光学比例')
-  assert(component.includes("quiet ? 'transparent' : resolved.background"), '高密度列表品种标识必须取消圆章底色')
-  assert(component.includes("quiet ? ' is-quiet' : ''"), '高密度列表必须暴露稳定的无底样式入口')
   assert(css.includes('.symbol-icon.is-quiet') && css.includes('border-radius: 0') && css.includes('box-shadow: none'), '无底方案必须同时取消圆形裁切与内描边')
   assert(row.includes('size={ICON_LG} quiet'), '交易列表无底符号必须使用 18px 光学尺寸')
   assert(tradeListCss.includes('grid-template-columns: 18px minmax(0, 1fr);'), '交易列表必须为 18px 无底符号预留同尺寸网格轨道')

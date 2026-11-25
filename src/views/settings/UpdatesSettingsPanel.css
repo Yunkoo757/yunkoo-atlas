@@ -35,39 +35,6 @@
   line-height: var(--type-metadata-line-height);
 }
 
-.update-status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  min-height: var(--chip-height-md);
-  padding: 0 var(--sp-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-4);
-  color: var(--text-tertiary);
-  font-family: var(--font-ui);
-  font-size: var(--type-chip-size);
-  font-weight: var(--type-chip-weight);
-  line-height: var(--type-chip-line-height);
-  white-space: nowrap;
-}
-
-.update-status.is-accent {
-  color: var(--accent-readable);
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-.update-status:not(.is-accent):not(.is-ok):not(.is-warn) { padding: 0; border: 0; }
-
-.update-status.is-ok {
-  color: var(--pos);
-  border-color: color-mix(in srgb, var(--pos) 24%, var(--border-subtle));
-}
-
-.update-status.is-warn {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 24%, var(--border-subtle));
-}
-
 .update-actions {
   display: flex;
   align-items: center;

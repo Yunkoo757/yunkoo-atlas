@@ -10,7 +10,7 @@
 }
 
 .display-menu-root .tb-btn.is-open {
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
   color: var(--text-primary);
 }
 
@@ -18,10 +18,6 @@
   position: fixed;
   min-width: 220px;
   padding: 6px;
-  background: var(--popover-bg);
-  border: 0.8px solid var(--popover-border);
-  border-radius: var(--popover-radius);
-  box-shadow: var(--popover-shadow);
   z-index: var(--z-floating);
   transform-origin: top right;
   animation: uiPopIn var(--motion-menu) var(--ease-out) both;
@@ -32,7 +28,7 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 32px;
+  min-height: var(--menu-item-height);
   padding: 0 var(--sp-2);
   border-radius: var(--radius-4);
   font-size: var(--type-row-size);
@@ -96,7 +92,7 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  min-height: 32px;
+  min-height: var(--menu-item-height);
   padding: 0 var(--sp-2);
   border-radius: var(--radius-6);
   font-size: var(--type-row-size);
@@ -118,7 +114,13 @@
   line-height: var(--type-metadata-line-height);
 }
 
+.display-toggle:active,
+.display-item:active {
+  background: var(--surface-menu-pressed);
+}
+
 .display-item.is-on {
+  background: var(--surface-menu-selected);
   color: var(--text-primary);
 }
 

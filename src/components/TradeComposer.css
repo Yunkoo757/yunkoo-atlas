@@ -22,7 +22,8 @@
 
 .composer-field-quick label,
 .composer-essential-label {
-  color: var(--text-muted);
+  color: var(--dialog-label-ink);
+  line-height: var(--type-metadata-line-height);
   font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
 }
@@ -31,49 +32,6 @@ input.composer-input-quick {
   font-size: var(--type-row-size);
   line-height: var(--type-row-line-height);
   font-weight: var(--type-row-weight);
-}
-
-.composer-input-quick .ui-select-trigger,
-.composer-essential-field .ui-select-trigger,
-.composer-essential-field .ui-date-trigger,
-.composer-side-control {
-  width: 100%;
-  min-width: 0;
-  color: var(--text-body);
-  background: var(--field-bg);
-  border: 1px solid transparent;
-  border-radius: var(--radius-8);
-  outline: none;
-  transition:
-    border-color var(--dur-fast) var(--ease-out),
-    background var(--dur-fast) var(--ease-out);
-}
-
-.composer-input-quick .ui-select-trigger:hover,
-.composer-essential-field .ui-select-trigger:hover,
-.composer-essential-field .ui-date-trigger:hover {
-  background: var(--field-bg-hover);
-}
-
-.composer-input-symbol .ui-select-trigger {
-  height: var(--field-height-md);
-  padding: 0 var(--sp-3);
-  color: var(--text-strong);
-  font-size: var(--type-row-size);
-  font-weight: var(--type-row-weight);
-}
-
-.composer-essential-field .ui-select-trigger,
-.composer-essential-field .ui-date-trigger {
-  height: var(--field-height-md);
-  padding: 0 10px;
-  color: var(--text-body);
-  font-size: var(--type-row-size);
-}
-
-.composer-essential-field .ui-date-trigger {
-  gap: var(--space-control-gap);
-  padding: 0 var(--sp-2);
 }
 
 .composer-parameter-grid {
@@ -94,43 +52,12 @@ input.composer-input-quick {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.composer-side-control {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 2px;
-  padding: 2px;
-  height: var(--field-height-md);
+.composer-side-control .ui-segmented-option {
+  flex: 1;
 }
 
-.composer-side-control button {
-  min-width: 0;
-  color: var(--text-muted);
-  font-size: var(--type-row-size);
-  font-family: inherit;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-6);
-  cursor: pointer;
-}
-
-.composer-side-control button:hover {
-  color: var(--text-secondary);
-  background: var(--bg-hover);
-}
-
-.composer-side-control button.is-on.is-long {
-  color: var(--direction-long-text);
-  background: var(--direction-long-bg);
-  box-shadow: inset 0 0 0 1px var(--direction-long-border);
-  font-weight: var(--font-weight-medium);
-}
-
-.composer-side-control button.is-on.is-short {
-  color: var(--direction-short-text);
-  background: var(--direction-short-bg);
-  box-shadow: inset 0 0 0 1px var(--direction-short-border);
-  font-weight: var(--font-weight-medium);
-}
+.composer-side-control [data-value='long'][aria-pressed='true'] { color: var(--direction-long-text); }
+.composer-side-control [data-value='short'][aria-pressed='true'] { color: var(--direction-short-text); }
 
 .composer-media {
   display: flex;
@@ -235,48 +162,10 @@ input.composer-input-quick {
 .composer-footer-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-row-gap);
   flex-shrink: 0;
 }
 
-.composer-btn-secondary,
-.composer-btn-primary {
-  height: var(--modal-cta-height);
-  padding: 0 var(--modal-cta-padding-inline);
-  font-family: var(--font-ui);
-  font-size: var(--modal-cta-font-size);
-  font-weight: var(--font-weight-medium);
-  border-radius: var(--modal-cta-radius);
-  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-}
-
-.composer-btn-secondary {
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--border-default);
-}
-
-.composer-btn-secondary:hover:not(:disabled) {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.composer-btn-primary {
-  color: var(--accent-text);
-  background: var(--accent);
-  border: 1px solid transparent;
-}
-
-.composer-btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.composer-btn-secondary:disabled,
-.composer-btn-primary:disabled {
-  color: var(--text-disabled);
-  cursor: default;
-  opacity: 0.45;
-}
 .composer-quick-context {
   display: flex;
   flex-direction: column;
@@ -285,20 +174,16 @@ input.composer-input-quick {
 
 .composer-quick-context label,
 .composer-quick-context > span {
-  color: var(--text-secondary);
+  color: var(--dialog-label-ink);
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
 }
 
 .composer-quick-context input,
 .composer-parameter-grid input {
-  min-height: 38px;
-  padding: 0 var(--sp-3);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-8);
-  background: var(--field-bg);
-  color: var(--text-primary);
-  font: inherit;
+  min-width: 0;
+  font-size: var(--type-row-size);
+  line-height: var(--type-row-line-height);
 }
 
 .composer-more-toggle {
@@ -315,12 +200,3 @@ input.composer-input-quick {
 .composer-backtest-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .composer-backtest-result { display: flex; flex-direction: column; gap: var(--space-row-gap); }
 .composer-backtest-hint { margin: 0; color: var(--text-content-metadata); font-size: var(--type-metadata-size); font-weight: var(--type-metadata-weight); line-height: var(--type-metadata-line-height); }
-.composer-backtest .composer-essential-label,
-.composer-backtest .composer-field-quick label { line-height: var(--type-metadata-line-height); }
-.composer-backtest .composer-essential-field .ui-select-trigger,
-.composer-backtest .composer-essential-field .ui-date-trigger { border-color: var(--field-border); border-radius: var(--radius-6); }
-.composer-backtest .composer-essential-field .ui-select-trigger:hover,
-.composer-backtest .composer-essential-field .ui-date-trigger:hover { border-color: var(--field-border-hover); }
-.composer-backtest .composer-quick-context input,
-.composer-backtest .composer-parameter-grid input { min-height: var(--field-height-md); padding-inline: var(--field-padding-inline); border-color: var(--field-border); border-radius: var(--radius-6); }
-.composer-backtest .composer-footer-actions { gap: var(--space-row-gap); }

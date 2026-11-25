@@ -11,6 +11,10 @@
   pointer-events: none;
 }
 
+body:has(.batch-action-bar.is-floating) .toast-host {
+  bottom: calc(var(--batch-bar-bottom) + var(--batch-bar-height) + var(--sp-2));
+}
+
 .toast-panel {
   position: relative;
   display: grid;
@@ -39,7 +43,7 @@
 }
 
 .toast-panel.is-error {
-  border-color: color-mix(in srgb, var(--neg) 38%, var(--border-default));
+  border-color: var(--toast-error-border);
 }
 
 .toast-panel.is-warning {
@@ -54,7 +58,7 @@
 }
 
 .toast-panel.is-success .toast-icon {
-  color: var(--pos);
+  color: var(--success);
 }
 
 .toast-panel.is-warning .toast-icon {
@@ -62,7 +66,7 @@
 }
 
 .toast-panel.is-error .toast-icon {
-  color: var(--neg);
+  color: var(--danger);
 }
 
 .toast-message {
@@ -74,8 +78,8 @@
 }
 
 .toast-action {
-  height: 26px;
-  padding-inline: 7px;
+  height: var(--control-height-sm);
+  padding-inline: var(--sp-2);
   color: var(--accent-readable);
 }
 

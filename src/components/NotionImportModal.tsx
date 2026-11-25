@@ -1,6 +1,8 @@
 import { DurableStorePublishError } from '@/lib/committedPublish'
-import { useEffect, useState, useRef, useMemo, type DragEvent } from 'react'
-import { Upload, ArrowRight, CheckCircle, FileText, Image } from '@/icons/appIcons'
+import { useEffect, useState, useRef, useMemo } from 'react'
+import { InlineStatus } from '@/components/ui/InlineStatus'
+import { ImportFileDrop } from './ImportFileDrop'
+import { ArrowRight, CheckCircle, FileText, Image } from '@/icons/appIcons'
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { ICON_HERO, ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { ModalShell } from '@/components/ui/ModalShell'
@@ -78,7 +80,6 @@ export function NotionImportModal({ open, onClose }: Props) {
   const [fileName, setFileName] = useState('')
   const [imported, setImported] = useState(0)
   const [importedImages, setImportedImages] = useState(0)
-  const [dragging, setDragging] = useState(false)
   const [skipDuplicates, setSkipDuplicates] = useState(true)
   const [duplicateByRow, setDuplicateByRow] = useState<Record<number, DuplicateMatch>>({})
   const [forceImportRows, setForceImportRows] = useState<Record<number, boolean>>({})
@@ -252,20 +253,6 @@ export function NotionImportModal({ open, onClose }: Props) {
     }
   }
 
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    await processFile(file)
-  }
-
-  const onDrop = async (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    setDragging(false)
-    if (parsing) return
-    const file = event.dataTransfer.files?.[0]
-    if (file) await processFile(file)
-  }
-
   const shouldImportPreview = (preview: NotionTradePreview) => {
     if (preview.errors.length > 0) return false
     const dup = duplicateByRow[preview.rowIndex]
@@ -357,7 +344,6 @@ export function NotionImportModal({ open, onClose }: Props) {
     setFileName('')
     setImported(0)
     setImportedImages(0)
-    setDragging(false)
     setSkipDuplicates(true)
     setDuplicateByRow({})
     setForceImportRows({})
@@ -392,7 +378,7 @@ export function NotionImportModal({ open, onClose }: Props) {
   const footer =
     step === 'upload' ? (
       <>
-        {fileName ? <span className="nim-file-status">{fileName}</span> : null}
+        {fileName ? <span className="import-file-status">{fileName}</span> : null}
         <Button variant="primary" size="lg" onClick={pickFile} disabled={parsing}>
           {parsing ? '正在解析…' : '选择文件'}
         </Button>
@@ -440,44 +426,16 @@ export function NotionImportModal({ open, onClose }: Props) {
     >
       {/* Step 1: Upload */}
       {step === 'upload' && (
-        <div className="nim-upload-area">
-          <div
-            className={'nim-drop' + (dragging ? ' is-drag' : '')}
-            onDragOver={(event) => {
-              event.preventDefault()
-              if (parsing) return
-              setDragging(true)
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={onDrop}
-            onClick={pickFile}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                pickFile()
-              }
-            }}
-            role="button"
-            tabIndex={parsing ? -1 : 0}
-            aria-disabled={parsing}
-            aria-busy={parsing}
-            aria-label="拖放或选择 Notion 导出文件"
-          >
-            <div className="nim-drop-icon">
-              <Upload size={ICON_MD} />
-            </div>
-            <p className="nim-drop-title">拖放或选择文件</p>
-            <p className="nim-drop-hint">.zip 含截图（推荐） · .csv 仅数据</p>
-          </div>
-          <input
-            ref={fileRef}
-            type="file"
+        <div className="import-upload-area">
+          <ImportFileDrop
+            inputRef={fileRef}
+            label="拖放或选择 Notion 导出文件"
+            hint=".zip 含截图（推荐） · .csv 仅数据"
             accept=".zip,.csv"
-            onChange={handleFile}
-            disabled={parsing}
-            className="nim-file-input-hidden"
+            busy={parsing}
+            onFile={processFile}
           />
-          {error && <p className="nim-error" role="alert">{error}</p>}
+          {error && <InlineStatus tone="error" compact title={error} />}
         </div>
       )}
 
@@ -556,13 +514,13 @@ export function NotionImportModal({ open, onClose }: Props) {
             </ImportPreviewRecord>
           )}</ImportPreviewList>
 
-          {error && <p className="nim-error" role="alert">{error}</p>}
+          {error && <InlineStatus tone="error" compact title={error} />}
         </div>
       )}
 
       {/* Step 2.5: Importing */}
       {step === 'importing' && (
-        <div className="nim-done-area">
+        <div className="import-done-area">
           <LoadingIndicator size={ICON_HERO} aria-hidden />
           <p>正在导入…</p>
           <p className="nim-done-hint">截图正在离线保存到本地库，请稍候。</p>
@@ -571,8 +529,8 @@ export function NotionImportModal({ open, onClose }: Props) {
 
       {/* Step 3: Done */}
       {step === 'done' && (
-        <div className="nim-done-area">
-          <CheckCircle size={ICON_HERO} className="nim-ok" />
+        <div className="import-done-area">
+          <CheckCircle size={ICON_HERO} className="import-success-icon" />
           <p>
             已导入 {imported} {IMPORT_TARGETS.find((target) => target.kind === targetKind)!.recordLabel}
           </p>

@@ -1,6 +1,8 @@
 import { ICON_HERO, ICON_MD, ICON_SM } from '@/icons/iconSize'
-import { useEffect, useState, useMemo, useRef, type DragEvent } from 'react'
-import { Upload, ArrowRight, CheckCircle } from '@/icons/appIcons'
+import { useEffect, useState, useMemo, useRef } from 'react'
+import { InlineStatus } from '@/components/ui/InlineStatus'
+import { ImportFileDrop } from './ImportFileDrop'
+import { ArrowRight, CheckCircle } from '@/icons/appIcons'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Button } from '@/components/ui/Button'
 import { useStore } from '@/store/useStore'
@@ -50,7 +52,6 @@ export function CsvImportModal({ open, onClose }: Props) {
   const [previews, setPreviews] = useState<ImportPreview[]>([])
   const [error, setError] = useState('')
   const [fileName, setFileName] = useState('')
-  const [dragging, setDragging] = useState(false)
   const [skipDuplicates, setSkipDuplicates] = useState(true)
   const [duplicateByRow, setDuplicateByRow] = useState<Record<number, DuplicateMatch>>({})
   const [forceImportRows, setForceImportRows] = useState<Record<number, boolean>>({})
@@ -107,19 +108,6 @@ export function CsvImportModal({ open, onClose }: Props) {
       if (requestGenerationRef.current !== requestGeneration) return
       setError('无法读取文件，请确认是有效的 CSV 文件')
     }
-  }
-
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    await processFile(file)
-  }
-
-  const onDrop = async (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    setDragging(false)
-    const file = event.dataTransfer.files?.[0]
-    if (file) await processFile(file)
   }
 
   const setMap = (colIdx: number, field: TradeField | '') => {
@@ -278,7 +266,6 @@ export function CsvImportModal({ open, onClose }: Props) {
     setPreviews([])
     setError('')
     setFileName('')
-    setDragging(false)
     setSkipDuplicates(true)
     setDuplicateByRow({})
     setForceImportRows({})
@@ -307,7 +294,7 @@ export function CsvImportModal({ open, onClose }: Props) {
   const footer =
     step === 'upload' ? (
       <>
-        {fileName ? <span className="csv-file-status">{fileName}</span> : null}
+        {fileName ? <span className="import-file-status">{fileName}</span> : null}
         <Button variant="primary" size="lg" onClick={pickFile}>
           选择文件
         </Button>
@@ -370,40 +357,15 @@ export function CsvImportModal({ open, onClose }: Props) {
     >
         {/* Step 1: Upload */}
         {step === 'upload' && (
-          <div className="csv-upload-area">
-            <div
-              className={'csv-drop' + (dragging ? ' is-drag' : '')}
-              onDragOver={(event) => {
-                event.preventDefault()
-                setDragging(true)
-              }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={onDrop}
-              onClick={pickFile}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault()
-                  pickFile()
-                }
-              }}
-              role="button"
-              tabIndex={0}
-              aria-label="拖放或选择 CSV 文件"
-            >
-              <div className="csv-drop-icon">
-                <Upload size={ICON_MD} />
-              </div>
-              <p className="csv-drop-title">拖放或选择文件</p>
-              <p className="csv-drop-hint">.csv · .tsv · .txt</p>
-            </div>
-            <input
-              ref={fileRef}
-              type="file"
+          <div className="import-upload-area">
+            <ImportFileDrop
+              inputRef={fileRef}
+              label="拖放或选择 CSV 文件"
+              hint=".csv · .tsv · .txt"
               accept=".csv,.tsv,.txt"
-              onChange={handleFile}
-              className="csv-file-input-hidden"
+              onFile={processFile}
             />
-            {error && <p className="csv-error" role="alert">{error}</p>}
+            {error && <InlineStatus tone="error" compact title={error} />}
           </div>
         )}
 
@@ -450,7 +412,7 @@ export function CsvImportModal({ open, onClose }: Props) {
                 </tbody>
               </table>
             </div>
-            {error && <p className="csv-error" role="alert">{error}</p>}
+            {error && <InlineStatus tone="error" compact title={error} />}
           </div>
         )}
 
@@ -486,7 +448,7 @@ export function CsvImportModal({ open, onClose }: Props) {
                 <dt>现金盈亏</dt><dd>{formatTradeCashPnl(preview.trade, null, privacyMode)}</dd>
               </ImportPreviewRecord>
             )}</ImportPreviewList>
-            {error && <p className="csv-error" role="alert">{error}</p>}
+            {error && <InlineStatus tone="error" compact title={error} />}
             {duplicateScanState === 'scanning' && (
               <p className="csv-preview-summary" role="status">正在检测重复记录…</p>
             )}
@@ -495,8 +457,8 @@ export function CsvImportModal({ open, onClose }: Props) {
 
         {/* Step 4: Done */}
         {step === 'done' && (
-          <div className="csv-done-area">
-            <CheckCircle size={ICON_HERO} className="csv-ok" />
+          <div className="import-done-area">
+            <CheckCircle size={ICON_HERO} className="import-success-icon" />
             <p>导入完成</p>
           </div>
         )}

@@ -1,5 +1,6 @@
 .ui-app-frame {
-  --app-sidebar-width: 244px;
+  --app-sidebar-width: var(--sidebar-width);
+  --workspace-start: var(--app-sidebar-width);
 
   display: flex;
   width: 100%;
@@ -14,7 +15,7 @@
 
 .ui-app-frame.with-titlebar {
   display: grid;
-  grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
+  grid-template-columns: var(--workspace-start) minmax(0, 1fr);
   grid-template-rows: var(--window-titlebar-height) minmax(0, 1fr);
 }
 
@@ -35,7 +36,7 @@
 }
 
 .ui-app-frame.with-titlebar[data-sidebar-collapsed] {
-  grid-template-columns: var(--main-inset) minmax(0, 1fr);
+  --workspace-start: var(--main-inset);
 }
 
 .with-titlebar[data-sidebar-collapsed] > .ui-desktop-sidebar {
@@ -78,6 +79,6 @@
 
 @media (max-width: 1099px) {
   .ui-app-frame {
-    --app-sidebar-width: 208px;
+    --app-sidebar-width: var(--sidebar-width-compact);
   }
 }

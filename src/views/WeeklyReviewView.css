@@ -4,7 +4,7 @@
 .wr-record-picker { position: relative; min-width: 0; }
 .wr-record-picker > summary { min-height: var(--control-height); display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); border-radius: var(--radius-6); color: var(--text-primary); font-size: var(--type-row-size); cursor: pointer; list-style: none; }
 .wr-record-picker > summary::-webkit-details-marker { display: none; }
-.wr-record-picker > summary:hover { background: var(--bg-hover); }
+.wr-record-picker > summary:hover { background: var(--surface-control-hover); }
 .wr-record-picker > summary > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wr-record-picker > summary small { max-width: 130px; overflow: hidden; color: var(--text-tertiary); font-size: var(--type-metadata-size); text-overflow: ellipsis; white-space: nowrap; }
 .wr-record-picker > summary svg { flex-shrink: 0; color: var(--text-tertiary); }
@@ -15,7 +15,7 @@
 .wr-history { padding: var(--sp-2); }
 .wr-history-title { padding: 0 9px 10px; color: var(--text-tertiary); font-size: var(--type-metadata-size); font-weight: var(--font-weight-semibold); }
 .wr-history button { width: 100%; min-height: 44px; display: grid; grid-template-columns: minmax(0, 1fr) 7px; grid-template-rows: auto auto; align-items: center; column-gap: var(--space-optical-icon-gap); padding: 6px 9px; border: 0; border-radius: var(--radius-6); background: transparent; color: var(--text-tertiary); font: inherit; font-size: var(--type-row-size); text-align: left; cursor: pointer; }
-.wr-history button:hover { background: var(--bg-hover); color: var(--text-secondary); }
+.wr-history button:hover { background: var(--surface-menu-hover); color: var(--text-secondary); }
 .wr-history button.is-active { background: var(--bg-selected); color: var(--text-primary); }
 .wr-history-week { grid-column: 1; color: inherit; font-size: var(--type-row-size); font-weight: var(--type-row-weight); white-space: nowrap; }
 .wr-history-stage { grid-column: 1; overflow: hidden; color: var(--text-tertiary); font-size: var(--type-metadata-size); text-overflow: ellipsis; white-space: nowrap; }
@@ -116,8 +116,8 @@
   overflow-wrap: anywhere;
 }
 
-.wr-metric strong.is-positive { color: color-mix(in srgb, var(--pos) 62%, var(--text-secondary)); }
-.wr-metric strong.is-negative { color: color-mix(in srgb, var(--neg) 62%, var(--text-secondary)); }
+.wr-metric strong.is-positive { color: var(--result-positive); }
+.wr-metric strong.is-negative { color: var(--result-negative); }
 .wr-result.is-positive { color: var(--result-positive); }
 .wr-result.is-negative { color: var(--result-negative); }
 
@@ -245,7 +245,9 @@ p.wr-previous-criteria { margin-block-start: var(--space-row-gap); }
 .wr-commitment-evidence li > :is(a, span) { min-width: 0; overflow-wrap: anywhere; }
 .wr-commitment-evidence a { color: var(--text-secondary); text-underline-offset: var(--sp-1); }
 .wr-commitment-evidence a:hover { color: var(--text-primary); }
-.wr-tag-group button,.wr-trade-roles button { min-height: var(--chip-height-md); padding: 0 9px; border: 1px solid var(--border-default); border-radius: var(--radius-full); background: var(--bg-surface); color: var(--text-tertiary); font-family: var(--font-ui); font-size: var(--type-chip-size); font-weight: var(--type-chip-weight); line-height: var(--type-chip-line-height); cursor: pointer; }.wr-tag-group button[aria-pressed="true"],.wr-trade-roles button[aria-pressed="true"] { border-color: color-mix(in srgb, var(--accent) 60%, var(--border-default)); background: var(--accent-bg); color: var(--text-primary); }
+.wr-tag-group button,.wr-trade-roles button { min-height: var(--chip-height-md); padding: 0 9px; border: 1px solid var(--border-default); border-radius: var(--radius-full); background: var(--bg-surface); color: var(--text-tertiary); font-family: var(--font-ui); font-size: var(--type-chip-size); font-weight: var(--type-chip-weight); line-height: var(--type-chip-line-height); cursor: pointer; }
+.wr-tag-group button:hover,.wr-trade-roles button:hover { background: var(--surface-control-hover); color: var(--text-primary); }
+.wr-tag-group button[aria-pressed="true"],.wr-trade-roles button[aria-pressed="true"] { border-color: var(--surface-control-border-active); background: var(--surface-control-active); color: var(--text-primary); }
 .wr-score-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -267,14 +269,12 @@ p.wr-previous-criteria { margin-block-start: var(--space-row-gap); }
 }
 
 .wr-tag-group + .wr-tag-group { margin-top: var(--sp-4); }.wr-tag-group > label { display: block; margin-bottom: 9px; color: var(--text-tertiary); font-size: var(--type-metadata-size); }.wr-tag-group > div { display: flex; flex-wrap: wrap; gap: 7px; }
-.wr-tag-group.is-strength > label { color: color-mix(in srgb, var(--pos) 72%, var(--text-secondary)); }
-.wr-tag-group.is-strength button[aria-pressed="true"] { border-color: color-mix(in srgb, var(--pos) 52%, var(--border-default)); background: var(--pos-bg); color: var(--pos); }
-.wr-tag-group.is-correction > label { color: color-mix(in srgb, var(--neg) 72%, var(--text-secondary)); }
-.wr-tag-group.is-correction button[aria-pressed="true"] { border-color: color-mix(in srgb, var(--neg) 52%, var(--border-default)); background: var(--neg-bg); color: var(--neg); }
+.wr-tag-group.is-strength button[aria-pressed="true"] { color: var(--status-win); }
+.wr-tag-group.is-correction button[aria-pressed="true"] { border-color: var(--diagnostic-border); background: var(--diagnostic-bg); color: var(--diagnostic-text); }
 .wr-evidence-tags { display: flex; align-items: flex-start; gap: var(--sp-5); margin-top: 18px; padding-top: var(--sp-4); border-top: 1px solid var(--border-subtle); }
 .wr-evidence-tags > div { width: 184px; display: flex; flex-direction: column; gap: 3px; }.wr-evidence-tags label { color: var(--text-secondary); font-size: var(--type-row-size); }.wr-evidence-tags small { color: var(--text-tertiary); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); white-space: nowrap; }
 .wr-evidence-tags p { display: flex; flex-wrap: wrap; gap: 7px; margin: 0; }.wr-evidence-tags span { display: inline-flex; align-items: center; gap: var(--space-control-gap); min-height: 30px; padding: 0 10px; border: 1px dashed var(--border-default); border-radius: var(--radius-full); color: var(--text-tertiary); font-size: var(--type-row-size); background: var(--bg-inset); }.wr-evidence-tags b { color: var(--text-tertiary); font-family: var(--font-ui); font-weight: var(--type-metadata-weight); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }
-.wr-evidence-groups,.wr-evidence-group { display: grid; gap: 9px; }.wr-evidence-groups { gap: var(--sp-4); }.wr-evidence-group-title { color: var(--text-tertiary); font-size: var(--type-metadata-size); }.wr-evidence-group-title small { margin-left: 6px; color: var(--text-tertiary); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }.wr-trade-list { display: grid; gap: 1px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-8); background: var(--border-subtle); }.wr-trade-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: 50px; padding: var(--sp-2) var(--sp-3); background: var(--bg-surface); }.wr-trade-main { min-width: 0; flex: 1; display: grid; grid-template-columns: 75px minmax(60px, 1fr) auto; align-items: center; gap: 10px; color: var(--text-tertiary); font-size: var(--type-metadata-size); text-decoration: none; }.wr-trade-main:hover .wr-symbol { color: var(--accent-readable); }.wr-symbol { color: var(--text-primary); font-weight: var(--font-weight-semibold); }.wr-result { font-family: var(--font-ui); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }.wr-result.is-opportunity { color: var(--result-opportunity); font-family: inherit; }.wr-trade-roles { display: flex; gap: 5px; }.wr-trade-roles button { min-height: 24px; padding: 0 7px; font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }.wr-empty { padding: var(--sp-7); border: 1px dashed var(--border-default); border-radius: var(--radius-8); color: var(--text-tertiary); font-size: var(--type-row-size); text-align: center; }
+.wr-evidence-groups,.wr-evidence-group { display: grid; gap: 9px; }.wr-evidence-groups { gap: var(--sp-4); }.wr-evidence-group-title { color: var(--text-tertiary); font-size: var(--type-metadata-size); }.wr-evidence-group-title small { margin-left: 6px; color: var(--text-tertiary); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }.wr-trade-list { display: grid; gap: 1px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-8); background: var(--border-subtle); }.wr-trade-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: 50px; padding: var(--sp-2) var(--sp-3); background: var(--bg-surface); }.wr-trade-main { min-width: 0; flex: 1; display: grid; grid-template-columns: 75px minmax(60px, 1fr) auto; align-items: center; gap: 10px; color: var(--text-tertiary); font-size: var(--type-metadata-size); text-decoration: none; }.wr-trade-main:hover .wr-symbol { color: var(--accent-readable); }.wr-symbol { color: var(--text-primary); font-weight: var(--font-weight-semibold); }.wr-result { font-family: var(--font-ui); font-variant-numeric: var(--numeric-tabular); font-feature-settings: "tnum" 1, "kern" 1; }.wr-result.is-opportunity { color: var(--result-opportunity); font-family: inherit; }.wr-trade-roles { display: flex; gap: 5px; }.wr-trade-roles button { min-height: var(--chip-height-md); padding: 0 var(--sp-2); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }.wr-empty { padding: var(--sp-7); border: 1px dashed var(--border-default); border-radius: var(--radius-8); color: var(--text-tertiary); font-size: var(--type-row-size); text-align: center; }
 .wr-editor-wrap {
   min-width: 0;
   border: 1px solid var(--border-default);

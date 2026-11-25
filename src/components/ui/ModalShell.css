@@ -17,10 +17,10 @@
   max-height: min(760px, calc(100vh - 32px));
   overflow: hidden;
   color: var(--text-body);
-  background: var(--popover-bg);
-  border: 1px solid var(--popover-border);
-  border-radius: var(--modal-border-radius);
-  box-shadow: var(--popover-shadow-deep);
+  background: var(--popover-modal-bg);
+  border: 1px solid var(--popover-modal-border);
+  border-radius: var(--popover-modal-radius);
+  box-shadow: var(--popover-modal-shadow);
   outline: none;
   animation: uiDialogIn var(--motion-dialog-in) var(--ease-out);
 }
@@ -33,11 +33,10 @@
   width: min(720px, calc(100vw - 32px));
 }
 
-.modal-shell-footer .ui-btn-lg,
-.modal-shell-footer .ui-btn-primary,
-.modal-shell-footer .ui-btn-bordered,
-.modal-shell-footer .ui-btn-ghost {
+.modal-shell-footer .ui-btn {
   height: var(--modal-cta-height);
+  padding-inline: var(--modal-cta-padding-inline);
+  border-radius: var(--modal-cta-radius);
 }
 
 .modal-shell-header {
@@ -69,15 +68,15 @@
 
 .modal-shell-heading p {
   margin: var(--sp-1) 0 0;
-  color: var(--text-secondary);
-  font-size: var(--type-row-size);
-  line-height: var(--type-row-line-height);
+  color: var(--dialog-supporting-ink);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
 }
 
 .modal-shell-close {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: var(--control-height-md);
+  height: var(--control-height-md);
   flex: 0 0 auto;
   place-items: center;
   color: var(--text-tertiary);
@@ -101,8 +100,7 @@
 
 .modal-shell-close:disabled {
   color: var(--text-disabled);
-  cursor: default;
-  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .modal-shell-body {

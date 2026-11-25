@@ -197,34 +197,11 @@
   flex-shrink: 0;
 }
 .editor ul[data-type='taskList'] input[type='checkbox'] {
-  appearance: none;
   width: 14px;
   height: 14px;
-  border: 1.5px solid var(--border-strong);
-  border-radius: var(--radius-4);
+  margin: 0;
   cursor: pointer;
-  position: relative;
-  transition:
-    background-color var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out),
-    box-shadow var(--dur-fast) var(--ease-out);
 }
-.editor ul[data-type='taskList'] input[type='checkbox']:checked {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-.editor ul[data-type='taskList'] input[type='checkbox']:checked::after {
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 4px;
-  height: 7px;
-  border: solid var(--accent-text);
-  border-width: 0 1.6px 1.6px 0;
-  transform: rotate(45deg);
-}
-
 
 .editor ul[data-type='taskList'] li[data-checked='true'] > div {
   color: var(--text-tertiary);
@@ -237,10 +214,6 @@
   align-items: center;
   gap: 2px;
   padding: 3px;
-  background: var(--popover-bg);
-  border: 0.8px solid var(--popover-border);
-  border-radius: var(--radius-8);
-  box-shadow: var(--popover-shadow);
 }
 .bubble-group {
   display: flex;
@@ -253,21 +226,17 @@
   background: var(--border-default);
   margin: 0 3px;
 }
-.bubble-btn {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-6);
-  color: var(--text-secondary);
-  transition: background var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
+.bubble-btn.ui-btn {
+  width: var(--control-height-sm);
+  padding: 0;
 }
-.bubble-btn:hover {
-  background: var(--bg-hover);
+.bubble-btn.ui-btn:hover {
+  background: var(--surface-menu-hover);
+}
+.bubble-btn.ui-btn[aria-pressed='true'] {
   color: var(--text-primary);
+  background: var(--surface-menu-selected);
 }
-.bubble-btn.is-on {
-  background: var(--bg-selected);
-  color: var(--accent-readable);
+.bubble-btn.ui-btn:active {
+  background: var(--surface-menu-pressed);
 }

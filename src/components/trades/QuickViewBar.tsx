@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/Button'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { isComposingKey } from '@/lib/keyboardComposition'
 import { ICON_SM } from '@/icons/iconSize'
@@ -453,7 +454,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
             <input id="saved-view-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={24} autoFocus />
             <div className="quick-view-save-actions">
               <span>{pinned.length < MAX_PINNED_WORKSPACE_VIEWS ? '保存后固定到顶部' : `保存到「${moreName}」`}</span>
-              <button type="submit" disabled={!name.trim()}>保存</button>
+              <Button type="submit" size="sm" variant="primary" disabled={!name.trim()}>保存</Button>
             </div>
           </form>
         )}

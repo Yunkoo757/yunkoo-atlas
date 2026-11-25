@@ -4,7 +4,8 @@ import { ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useEffect, useState } from 'react'
 import { FileText, GripVertical, Plus, Trash2 } from '@/icons/appIcons'
 import { useStore } from '@/store/useStore'
-import { Tooltip } from '@/components/ui/Tooltip'
+import { IconButton } from '@/components/ui/IconButton'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { toast } from '@/lib/toast'
 import { hideNativeDragPreview } from '@/lib/dragPreview'
 import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
@@ -73,26 +74,14 @@ export function ReviewTemplatesPanel() {
         <div>
           <h2 id="review-pin-setting-title">详情页开头</h2>
         </div>
-        <div className="review-pin-options" role="radiogroup" aria-label="详情页开头显示方式">
-          <button
-            type="button"
-            role="radio"
-            aria-checked={reviewContextPinned}
-            className={reviewContextPinned ? 'is-active' : ''}
-            onClick={() => setDisplay({ reviewContextPinned: true })}
-          >
-            全部固定
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={!reviewContextPinned}
-            className={!reviewContextPinned ? 'is-active' : ''}
-            onClick={() => setDisplay({ reviewContextPinned: false })}
-          >
-            全部不固定
-          </button>
-        </div>
+        <SegmentedControl
+          label="详情页开头显示方式"
+          role="radiogroup"
+          size="md"
+          value={reviewContextPinned ? 'pinned' : 'unpinned'}
+          options={[{ value: 'pinned', label: '全部固定' }, { value: 'unpinned', label: '全部不固定' }]}
+          onChange={(value) => setDisplay({ reviewContextPinned: value === 'pinned' })}
+        />
       </section>
 
       {selected ? (
@@ -164,16 +153,14 @@ export function ReviewTemplatesPanel() {
           <section className="review-template-editor" aria-label={`编辑${selected.name}`}>
             <div className="review-template-field-head">
               <label htmlFor="review-template-name">模板名称</label>
-              <Tooltip content="删除模板" label={`删除模板「${selected.name}」`} asChild>
-                <button
-                  type="button"
-                  className="review-template-delete"
-                  aria-label={`删除模板「${selected.name}」`}
-                  onClick={handleRemove}
-                >
-                  <Trash2 size={ICON_SM} aria-hidden />
-                </button>
-              </Tooltip>
+              <IconButton
+                className="review-template-delete"
+                label={`删除模板「${selected.name}」`}
+                tooltip="删除模板"
+                onClick={handleRemove}
+              >
+                <Trash2 size={ICON_SM} aria-hidden />
+              </IconButton>
             </div>
             <input
               id="review-template-name"

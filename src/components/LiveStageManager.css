@@ -154,18 +154,8 @@
 }
 
 .live-stage-manager-disclosure summary {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  min-height: 42px;
-  color: var(--text-secondary);
-  font-size: var(--type-row-size);
-  cursor: pointer;
-  list-style: none;
-}
-
-.live-stage-manager-disclosure summary::-webkit-details-marker {
-  display: none;
+  width: 100%;
+  min-height: var(--control-height-md);
 }
 
 .live-stage-manager-disclosure[open] summary {
@@ -183,8 +173,8 @@
   justify-content: space-between;
   gap: var(--sp-3);
   padding: var(--sp-3) var(--sp-4);
-  border-color: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
-  background: color-mix(in srgb, var(--accent) 7%, var(--bg-surface));
+  border-color: var(--stage-notice-border);
+  background: var(--stage-notice-bg);
 }
 
 .live-stage-manager-scheduled > div {
@@ -222,13 +212,7 @@
 
 .live-stage-manager-name-row input {
   min-width: 0;
-  height: var(--control-height-md);
-  padding: 0 var(--sp-2);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-6);
-  color: var(--text-primary);
-  background: var(--bg-surface);
-  font: inherit;
+  font-size: var(--type-row-size);
 }
 
 @media (max-width: 1099px) {

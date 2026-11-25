@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { PopoverSurface } from '@/components/ui/PopoverSurface'
 import { Check } from '@/icons/appIcons'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { useModalPortalRoot } from '@/components/ui/ModalShell'
@@ -248,7 +249,8 @@ export function Menu({
       </div>
       {open &&
         createPortal(
-          <div
+          <PopoverSurface
+            kind="menu"
             id={menuId}
             className={`menu-pop menu-placement-${position.placement}${maxWidth === undefined ? '' : ' menu-pop-bounded'}`}
             role="menu"
@@ -280,7 +282,7 @@ export function Menu({
                 )}
               </button>
             ))}
-          </div>,
+          </PopoverSurface>,
           document.body,
         )}
     </div>

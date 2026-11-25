@@ -91,7 +91,7 @@ async function run(): Promise<void> {
     <strong class="profile-preview-name">桌面视觉样本</strong>
     <div class="display-section-head"><p>显示设置说明</p></div>
     <p class="dio-group-desc">资料库设置说明</p>
-    <main class="route-state"><h1 class="route-state-title">范围不存在</h1></main>
+    <section class="app-route-state" data-invalid-period><h1 id="invalid-period-title">范围不存在</h1></section>
     <span class="trash-item-pnl">+123.45</span>
     <button class="ui-field-trigger">筛选条件</button>
     <div class="ui-date-grid"><button class="is-outside">31</button></div>
@@ -121,22 +121,22 @@ async function run(): Promise<void> {
     <div class="nim-import-target-options"><button><strong>交易日志</strong><span>计入实盘统计</span></button></div>
     <div class="editor-review-tools"><button class="ui-btn ui-btn-sm ui-btn-ghost">复盘起稿</button></div>
     <button class="settings-tag-chip-remove">删除预设标签</button>
-    <button class="review-template-delete">删除起稿</button>
+    <button class="ui-icon-btn ui-icon-btn-sm review-template-delete">删除起稿</button>
     <button class="review-template-select"><svg aria-hidden="true"></svg><span>选择起稿模板</span></button>
     <button class="review-template-drag-handle">拖拽起稿模板</button>
     <button class="symbols-drag-handle">拖拽品种</button>
     <input disabled value="禁用输入" />
     <button class="ui-select-option" disabled>禁用选项</button>
-    <button class="empty-btn" disabled>禁用按钮</button>
+    <button class="ui-btn ui-btn-primary" disabled>禁用按钮</button>
     <button class="review-template-drag-handle" disabled>禁用起稿拖拽</button>
     <button class="symbols-drag-handle" disabled>禁用品种拖拽</button>
     <button class="dv-comment-send" disabled>禁用发送</button>
     <button class="welcome-path-btn" disabled>禁用欢迎路径</button>
-    <button class="welcome-btn" disabled>禁用欢迎操作</button>
-    <button class="shortcuts-reset-all" disabled>禁用快捷键重置</button>
+    <button class="ui-btn ui-btn-bordered ui-btn-lg welcome-btn" disabled>禁用欢迎操作</button>
+    <button class="ui-btn ui-btn-ghost ui-btn-sm shortcuts-reset-all" disabled>禁用快捷键重置</button>
     <div class="dv-review-stage-actions"><button class="ui-btn ui-btn-sm ui-btn-bordered" disabled>禁用复盘阶段操作</button></div>
     <button class="ui-icon-btn ui-icon-btn-md" disabled>禁用周复盘导航</button>
-    <div class="shortcuts-row"><div class="shortcuts-actions"><button class="shortcuts-action">快捷键操作</button></div></div>
+    <div class="shortcuts-row"><div class="shortcuts-actions"><button class="ui-icon-btn ui-icon-btn-sm shortcuts-action">快捷键操作</button></div></div>
     <div class="trash-item"><div class="trash-item-actions"><button class="trash-btn-purge">删除</button></div></div>
   `
   for (const selector of [
@@ -149,7 +149,7 @@ async function run(): Promise<void> {
     '.app-route-state h1',
     '.dv-empty-card h1',
     '.settings-page-title',
-    '.route-state-title',
+    '#invalid-period-title',
   ]) assertPageTitle(selector)
 
   const profileName = getComputedStyle(document.querySelector<HTMLElement>('.profile-preview-name')!)
@@ -238,7 +238,6 @@ async function run(): Promise<void> {
   for (const selector of [
     'input:disabled',
     '.ui-select-option:disabled',
-    '.empty-btn:disabled',
     '.review-template-drag-handle:disabled',
     '.symbols-drag-handle:disabled',
     '.dv-comment-send:disabled',
@@ -248,6 +247,7 @@ async function run(): Promise<void> {
     '.dv-review-stage-actions > button:disabled',
     '.ui-icon-btn:disabled',
   ]) assertComputedTextRole(selector, '--text-disabled')
+  assertComputedTextRole('.ui-btn-primary:disabled', '--action-primary-disabled-text')
   assert(getComputedStyle(document.querySelector<HTMLElement>('.tag-chip-remove')!).opacity === '1', '标签移除操作不得常驻弱化')
   await assertFocusReveal('.dv-feed-delete', '.dv-feed-delete', '活动记录删除操作')
   await assertFocusReveal('.sb-workspace-capability-menu', '.sb-workspace-capability-menu', '侧栏能力菜单操作')

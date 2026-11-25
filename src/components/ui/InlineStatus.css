@@ -23,15 +23,15 @@
 }
 
 .ui-inline-status.is-success .ui-inline-status-icon {
-  color: var(--pos);
+  color: var(--success);
 }
 
 .ui-inline-status.is-warning .ui-inline-status-icon {
-  color: var(--warn);
+  color: var(--warn-action);
 }
 
 .ui-inline-status.is-error .ui-inline-status-icon {
-  color: var(--neg);
+  color: var(--danger);
 }
 
 .ui-inline-status.is-info .ui-inline-status-icon {

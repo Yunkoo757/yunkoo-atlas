@@ -25,17 +25,6 @@
   overflow: hidden;
 }
 
-/* UserAvatar 放在圆角方形容器内时，确保 img 拉伸覆盖 */
-.profile-preview-avatar img,
-.sb-ws-avatar img,
-.lv-avatar img,
-.dv-comment-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: var(--radius-8);
-}
-
 .profile-preview-name {
   font-size: var(--type-body-size);
   font-weight: var(--font-weight-semibold);
@@ -91,25 +80,15 @@
   height: 42px;
   border-radius: var(--radius-8);
   overflow: hidden;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-text) 12%, transparent);
+  box-shadow: 0 0 0 1px var(--border-subtle);
 }
 
 .profile-avatar-item:hover .profile-avatar-art {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-color) 52%, transparent);
+  box-shadow: 0 0 0 1px var(--border-strong);
 }
 
 .profile-avatar-item.is-selected .profile-avatar-art {
   box-shadow: 0 0 0 1px var(--accent-color);
-}
-
-.profile-avatar-art svg,
-.profile-preview-avatar svg,
-.sb-ws-avatar svg,
-.lv-avatar svg,
-.dv-comment-avatar svg {
-  display: block;
-  width: 100%;
-  height: 100%;
 }
 
 .profile-avatar-label {
@@ -149,14 +128,7 @@
   flex: 1;
   min-width: 0;
   max-width: 280px;
-  height: var(--field-height-md);
-  padding: 0 var(--field-padding-inline);
   font-size: var(--type-row-size);
-  border: 1px solid var(--field-border);
-  border-radius: var(--radius-6);
-  background: var(--field-bg);
-  color: var(--text-primary);
-  outline: none;
 }
 
 .profile-section-hint {

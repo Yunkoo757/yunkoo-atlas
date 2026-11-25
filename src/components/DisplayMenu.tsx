@@ -1,6 +1,7 @@
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import { PopoverSurface } from '@/components/ui/PopoverSurface'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { useModalPortalRoot } from '@/components/ui/ModalShell'
@@ -128,7 +129,8 @@ export function DisplayMenu({ view = 'list', showHideClosed = true, actions = []
       </Tooltip>
       {open &&
         createPortal(
-          <div
+          <PopoverSurface
+            kind="menu"
             id={menuId}
             className="display-pop"
             role="menu"
@@ -231,7 +233,7 @@ export function DisplayMenu({ view = 'list', showHideClosed = true, actions = []
                 ))}
               </div>
             )}
-          </div>,
+          </PopoverSurface>,
           document.body,
         )}
     </div>

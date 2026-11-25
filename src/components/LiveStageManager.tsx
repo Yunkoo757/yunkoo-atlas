@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, Archive, CalendarDays, CheckCircle, Pencil } from '@/icons/appIcons'
+import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
+import { AlertCircle, CalendarDays, CheckCircle, Pencil } from '@/icons/appIcons'
 import { ICON_MD } from '@/icons/iconSize'
 import { fmtDate } from '@/lib/format'
 import { getCurrentLiveStage, normalizeLiveStageName } from '@/lib/liveStages'
@@ -252,7 +253,7 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
         </section>
 
         <details className="live-stage-manager-disclosure">
-          <summary><Archive size={ICON_MD} aria-hidden />查看归档范围</summary>
+          <DisclosureSummary>查看归档范围</DisclosureSummary>
           <div className="live-stage-manager-counts">
             <div><strong>{currentTrades.length}</strong><span>实盘交易</span></div>
             <div><strong>{currentCases.length}</strong><span>实盘案例</span></div>
@@ -279,7 +280,7 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
         </section> : null}
 
         <details className="live-stage-manager-disclosure">
-          <summary>交接规则</summary>
+          <DisclosureSummary>交接规则</DisclosureSummary>
           <p>新阶段风险恢复为未建档；策略、标签、模板和随记继续保留。</p>
         </details>
 

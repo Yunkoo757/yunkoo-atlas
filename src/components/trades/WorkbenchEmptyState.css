@@ -5,24 +5,3 @@
   justify-content: center;
   gap: var(--sp-1) var(--sp-3);
 }
-
-.workbench-empty-secondary {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--control-height-sm);
-  padding: 0 var(--sp-2);
-  color: var(--text-secondary);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--control-height-sm);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-6);
-  background: var(--bg-elevated);
-  text-decoration: none;
-}
-
-.workbench-empty-secondary:hover {
-  color: var(--text-primary);
-  border-color: var(--border-strong);
-  background: var(--bg-hover);
-}

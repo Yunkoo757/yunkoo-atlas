@@ -18,7 +18,7 @@
 .trade-workspace-stage .ui-select-trigger {
   width: auto;
   min-width: 154px;
-  height: 28px;
+  height: var(--toolbar-chip-height);
   border-color: transparent;
   background: transparent;
   box-shadow: none;
@@ -27,34 +27,6 @@
 .trade-workspace-stage .ui-select-trigger:hover,
 .trade-workspace-stage .ui-select-trigger[aria-expanded='true'] {
   background: var(--bg-hover);
-}
-
-.trade-workspace-kind {
-  display: inline-flex;
-  align-items: center;
-  gap: 1px;
-}
-
-.trade-workspace-kind button {
-  min-width: 44px;
-  height: 26px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: var(--radius-6);
-  color: var(--text-tertiary);
-  font: inherit;
-  font-size: var(--type-metadata-size);
-  cursor: pointer;
-}
-
-.trade-workspace-kind button:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.trade-workspace-kind button.is-active {
-  color: var(--text-primary);
-  background: var(--bg-selected);
 }
 
 @media (max-width: 1099px) {
@@ -191,7 +163,7 @@
   justify-content: space-between;
   gap: var(--sp-2);
   width: 100%;
-  height: var(--field-height-md);
+  height: var(--menu-item-height);
   padding: 0 var(--sp-2);
   border-radius: var(--radius-4);
   color: var(--text-secondary);
@@ -210,11 +182,15 @@
 .trade-workspace-scope-options button:hover,
 .trade-workspace-scope-options button.is-selected {
   color: var(--text-primary);
-  background: var(--bg-hover);
+  background: var(--surface-menu-hover);
 }
 
 .trade-workspace-scope-options button.is-selected {
-  background: color-mix(in srgb, var(--accent) 11%, var(--bg-hover));
+  background: var(--surface-menu-selected);
+}
+
+.trade-workspace-scope-options button:active {
+  background: var(--surface-menu-pressed);
 }
 
 .trade-workspace-scope-kinds {

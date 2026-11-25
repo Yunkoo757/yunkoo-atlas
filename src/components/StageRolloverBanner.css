@@ -4,8 +4,8 @@
   align-items: flex-start;
   gap: var(--sp-3);
   padding: var(--sp-3) var(--sp-4);
-  border-bottom: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
-  background: color-mix(in srgb, var(--accent) 7%, var(--bg-surface));
+  border-bottom: 1px solid var(--stage-notice-border);
+  background: var(--stage-notice-bg);
 }
 
 .stage-rollover-banner.has-blockers {

@@ -7,6 +7,7 @@ import { parseLocalDate } from '@/lib/periods'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
 import { getCurrentLiveStage } from '@/lib/liveStages'
+import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import { Button } from '@/components/ui/Button'
 import './WeeklyRiskPreparationCard.css'
 import { previewRiskPolicyBaseline } from '@/lib/riskPolicy'
@@ -249,7 +250,7 @@ export function WeeklyRiskPreparationCard({
             <p>{preview.policy.effectiveTradingDay} 起生效，此前交易不回写；{currentMonthLimit
               ? `${currentMonthKey} 额度保持 ${fmtLimitR(currentMonthLimit.limitR)}，月止损线仅用于未锁定月份。`
               : `本月额度首次锁定为 ${fmtLimitR(draft.monthlyLossLimitRDefault)}。`}</p>
-            {diff && diff.changes.length > 0 ? <details><summary>查看 {diff.changes.length} 项修改</summary>
+            {diff && diff.changes.length > 0 ? <details><DisclosureSummary>查看 {diff.changes.length} 项修改</DisclosureSummary>
               <ul>{diff.changes.map((change) => <li key={change}>{change}</li>)}</ul>
             </details> : null}
           </div>

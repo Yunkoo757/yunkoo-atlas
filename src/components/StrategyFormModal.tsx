@@ -1,5 +1,5 @@
 import { ICON_LG } from '@/icons/iconSize'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import {
   STRATEGY_ICON_OPTIONS,
   type Strategy,
@@ -23,6 +23,7 @@ export function StrategyFormModal({
   onClose: () => void
   onSave: (data: Omit<Strategy, 'id'>, id?: string) => void
 }) {
+  const nameErrorId = useId()
   const [name, setName] = useState(initial?.name ?? '')
   const [icon, setIcon] = useState<StrategyIconId>(initial?.icon ?? 'target')
   const initialColor = initial?.color ?? STRATEGY_COLOR_OPTIONS[0].color
@@ -51,7 +52,6 @@ export function StrategyFormModal({
       title={initial ? '编辑策略' : '新建策略'}
       size="compact"
       bodyClassName="sfm-body"
-      footerClassName="sfm-foot"
       onClose={onClose}
       footer={(
         <>
@@ -73,12 +73,14 @@ export function StrategyFormModal({
             <span className="sfm-label">名称</span>
             <input
               className="sfm-input"
+              aria-invalid={nameTaken || undefined}
+              aria-describedby={nameTaken ? nameErrorId : undefined}
               data-autofocus
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="如 Breakout、波段趋势"
             />
-            {nameTaken && <span className="sfm-error">名称已存在</span>}
+            {nameTaken && <span id={nameErrorId} className="sfm-error" role="alert">名称已存在</span>}
           </label>
 
           <div className="sfm-field">

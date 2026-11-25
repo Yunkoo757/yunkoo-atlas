@@ -67,9 +67,13 @@
   font-size: var(--type-metadata-size);
 }
 
-.trade-detail-properties-toggle:hover,
+.trade-detail-properties-toggle:hover {
+  background: var(--surface-control-hover);
+  color: var(--text-primary);
+}
+
 .trade-detail-properties-toggle[aria-expanded='true'] {
-  background: var(--bg-hover);
+  background: var(--surface-control-active);
   color: var(--text-primary);
 }
 

@@ -201,12 +201,38 @@ async function run(): Promise<void> {
     }))
     assert(useStore.getState().requestTradeOpen('target') === 'pending-confirmation', '未建档记录必须进入可继续的未知风险确认')
     await waitFor(() => Boolean(document.querySelector('[data-trade-open-risk-dialog]')), '未建档记录没有显示未知风险确认')
-    const unknownBudgetRows = [...document.querySelectorAll('.trade-open-risk-periods > div')]
+    const unknownBudgetRows = [...document.querySelectorAll<HTMLTableRowElement>('.trade-open-risk-periods tbody tr')]
     assert(unknownBudgetRows.length === 3, '未知风险仍须呈现日周月证据')
-    assert(unknownBudgetRows.every((row) => row.querySelector('strong')?.textContent === '无法确认'), '未建档预算不得被表现为确定的零值')
-    assert(unknownBudgetRows.every((row) => row.textContent?.includes('限额 未设置') && row.textContent?.includes('记录覆盖：')), '预算未设置和记录覆盖必须分别表达')
+    assert(unknownBudgetRows.every((row) => row.cells[1].textContent === '待核实' && row.cells[2].textContent === '未设置'), '未建档的额度和限额不能伪造为零')
     click('取消开仓')
     await waitFor(() => !document.querySelector('[role="dialog"]'), '取消没有关闭风险确认')
+
+    useStore.setState({ riskPolicyVersions: [policy] })
+    assert(useStore.getState().requestTradeOpen('target') === 'pending-confirmation', '缺少当月限额必须进入确认')
+    await waitFor(() => Boolean(document.querySelector('[data-trade-open-risk-dialog]')), '缺月限额没有打开风险表')
+    const monthBudgetRows = [...document.querySelectorAll<HTMLTableRowElement>('.trade-open-risk-periods tbody tr')]
+    assert(monthBudgetRows.map((row) => row.cells[2].textContent).join(',') === '2.0R,5.0R,未设置', '日周限额和缺失的月限额应分别展示')
+    assert(monthBudgetRows.every((row) => row.cells[1].textContent === '0.0R'), '已配置规则时保留已知的零用量')
+    assert(document.querySelector('.trade-open-risk-callout')?.textContent?.includes('本月止损限额尚未设置'), '不得把缺月限额误报为交易记录缺失')
+    let confirmedReason: string | undefined
+    useStore.setState({ confirmTradeOpen: async (reason) => {
+      confirmedReason = reason
+      useStore.getState().cancelTradeOpen()
+      return { kind: 'committed' }
+    } })
+    await frame()
+    click('确认继续开仓')
+    await waitFor(() => !document.querySelector('[data-trade-open-risk-dialog]'), '未填可选原因时应提交')
+    assert(confirmedReason === '', '未知风险的空原因必须原样交给确认流程')
+    useStore.setState({ confirmTradeOpen: previous.confirmTradeOpen })
+
+    useStore.setState({ monthlyRiskLimits: [monthlyLimit], trades: [trade('target', 'planned'), trade('missing-loss', 'loss', { unknown: true })] })
+    useStore.getState().requestTradeOpen('target')
+    await waitFor(() => Boolean(document.querySelector('[data-trade-open-risk-dialog]')), '缺失交易数据没有进入确认')
+    assert(document.querySelector('.trade-open-risk-callout')?.textContent?.includes('亏损交易缺少'), '风险提示必须指出交易缺失字段')
+    assert(document.querySelector('.trade-open-risk-periods tbody th')?.textContent?.includes('记录待核实'), '不完整的周期必须标出记录待核实')
+    click('取消开仓')
+    await waitFor(() => !document.querySelector('[role="dialog"]'), '缺失数据确认无法取消')
 
     useStore.setState((state) => ({
       trades: state.trades.map((item) => item.id === 'target'
@@ -262,15 +288,13 @@ async function run(): Promise<void> {
     const reason = document.querySelector<HTMLTextAreaElement>('[aria-label="继续开仓原因"]')
     assert(reason, '确认框缺少原因输入')
 
+    setText(reason, 'x'.repeat(501))
     click('确认继续开仓')
-    await waitFor(() => Boolean(document.querySelector('[role="alert"]')), '空原因没有显示校验错误')
+    await waitFor(() => document.querySelector('[role="alert"]')?.textContent?.includes('最多 500 字') ?? false, '501 字原因没有被拒绝')
     const validationAlert = document.querySelector<HTMLElement>('[role="alert"]')
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]')
     assert(validationAlert?.id && dialog?.getAttribute('aria-describedby')?.includes(validationAlert.id), '错误必须通过 aria-describedby 关联到 dialog')
     assert(useStore.getState().trades[0]?.status === 'planned', '校验失败不得开仓')
-    setText(reason, 'x'.repeat(501))
-    click('确认继续开仓')
-    await waitFor(() => document.body.textContent?.includes('最多 500 字') ?? false, '501 字原因没有被拒绝')
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     await waitFor(() => !document.querySelector('[data-trade-open-risk-dialog]'), 'Esc 没有关闭确认框')

@@ -327,14 +327,14 @@
 
 .trade-row:hover .selection-box:not(.is-selected) {
   opacity: 1;
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
   border-color: var(--border-strong);
 }
 
 .trade-row:hover .selection-box:not(.is-selected):hover {
   opacity: 1;
-  background: var(--bg-hover);
-  border-color: color-mix(in srgb, var(--accent) 72%, var(--border-strong));
+  background: var(--surface-control-hover);
+  border-color: var(--field-border-focus);
 }
 
 .trade-row-status,
@@ -437,7 +437,7 @@
 
 .trade-row-strategy:hover {
   color: var(--list-text-primary);
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
   border-color: var(--list-interactive-border-hover);
   box-shadow: none;
 }
@@ -686,7 +686,7 @@ button.trade-row-symbol-main {
   transition: background-color var(--motion-state) var(--ease-out);
 }
 .trade-row-context > button.trade-row-tag:hover {
-  background-color: var(--bg-hover);
+  background-color: var(--surface-control-hover);
 }
 .trade-row-context > button.trade-row-tag:active {
   background-color: var(--bg-selected);

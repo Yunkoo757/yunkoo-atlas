@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: 6px 10px;
+  padding: var(--space-control-gap) var(--field-padding-inline);
   background: var(--popover-bg);
   border: 1px solid var(--popover-border);
   border-radius: var(--radius-10);
@@ -14,8 +14,9 @@
 
 .batch-action-bar.is-floating {
   position: fixed;
-  bottom: 24px;
-  left: calc(var(--sidebar-width) + (100vw - var(--sidebar-width)) / 2);
+  bottom: var(--batch-bar-bottom);
+  height: var(--batch-bar-height);
+  left: calc((100% + var(--workspace-start, var(--sidebar-width)) - var(--main-inset)) / 2);
   transform: translateX(-50%);
 }
 
@@ -39,9 +40,9 @@
 .batch-bar-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-control-gap);
   height: var(--control-height);
-  padding: 0 9px;
+  padding: 0 var(--sp-2);
   color: var(--text-secondary);
   font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
@@ -56,14 +57,14 @@
 
 .batch-bar-action-btn:disabled {
   color: var(--text-disabled);
-  cursor: default;
+  cursor: not-allowed;
 }
 
 .batch-bar-action-btn-danger {
-  color: var(--neg);
+  color: var(--danger);
 }
 
 .batch-bar-action-btn-danger:hover:not(:disabled) {
-  color: var(--neg);
+  color: var(--danger);
   background: var(--error-action-bg);
 }

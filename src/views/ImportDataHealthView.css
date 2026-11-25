@@ -38,36 +38,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-.idh-toolbar-action {
-  height: var(--toolbar-chip-height);
-  margin-left: 0;
-}
-
-.idh-banner {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
+.idh-banner.ui-inline-status {
   flex: 0 0 auto;
-  margin: 0;
   padding: var(--sp-2) var(--sp-4);
   border-bottom: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  font-size: var(--type-metadata-size);
-}
-
-.idh-banner.is-success {
-  border-bottom-color: color-mix(in srgb, var(--pos) 28%, var(--border-subtle));
-  background: color-mix(in srgb, var(--pos) 8%, var(--bg-surface));
-}
-
-.idh-banner.is-danger {
-  border-bottom-color: color-mix(in srgb, var(--neg) 28%, var(--border-subtle));
-  background: color-mix(in srgb, var(--neg) 8%, var(--bg-surface));
-  color: var(--text-primary);
-}
-
-.idh-banner .ui-btn {
-  margin-left: auto;
 }
 
 .idh-content {
@@ -101,7 +75,7 @@
 }
 
 .idh-row:hover {
-  background: var(--bg-hover);
+  background: var(--surface-row-hover);
 }
 
 .idh-select {
@@ -109,12 +83,6 @@
   align-items: center;
   gap: var(--sp-2);
   min-width: 0;
-}
-
-.idh-select input {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent);
 }
 
 .idh-select span {
@@ -133,15 +101,13 @@
 }
 
 .idh-select .is-high {
-  color: var(--pos);
-  border-color: color-mix(in srgb, var(--pos) 28%, var(--surface-control-border));
-  background: color-mix(in srgb, var(--pos) 10%, var(--surface-control));
+  color: var(--text-content-supporting);
 }
 
 .idh-select .is-review {
-  color: var(--warn);
-  border-color: color-mix(in srgb, var(--warn) 28%, var(--surface-control-border));
-  background: color-mix(in srgb, var(--warn) 10%, var(--surface-control));
+  color: var(--warn-action);
+  border-color: var(--warn-action-border);
+  background: var(--warn-action-bg);
 }
 
 .idh-identity {

@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, X } from '@/icons/appIcons'
 import { strategySelectOption } from '@/components/StrategyIcon'
+import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { Select } from '@/components/ui/Select'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { SymbolIcon } from '@/components/SymbolIcon'
@@ -484,10 +485,14 @@ export function TradeComposer() {
 
   const directionField = <div className="composer-essential-field">
     <span className="composer-essential-label">方向</span>
-    <div className="composer-side-control" role="group" aria-label="交易方向">
-      <button type="button" className={`is-long${side === 'long' ? ' is-on' : ''}`} aria-pressed={side === 'long'} onClick={() => setSide('long')}>做多</button>
-      <button type="button" className={`is-short${side === 'short' ? ' is-on' : ''}`} aria-pressed={side === 'short'} onClick={() => setSide('short')}>做空</button>
-    </div>
+    <SegmentedControl<TradeSide>
+      className="composer-side-control"
+      label="交易方向"
+      size="md"
+      value={side}
+      options={[{ value: 'long', label: '做多' }, { value: 'short', label: '做空' }]}
+      onChange={setSide}
+    />
   </div>
   const numberField = (key: string, label: string, value: string, change: (value: string) => void) => {
     const invalid = invalidNumber === key

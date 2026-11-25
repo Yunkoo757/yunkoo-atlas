@@ -2,6 +2,7 @@ import { isComposingKey } from '@/lib/keyboardComposition'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronLeft, GripVertical, Trash2 } from '@/icons/appIcons'
+import { Button } from '@/components/ui/Button'
 import { IconButton } from '@/components/ui/IconButton'
 import { useModalShortcutScope } from '@/components/ui/ModalShell'
 import { StrategyIcon } from '@/components/StrategyIcon'
@@ -374,7 +375,7 @@ export function SidebarWorkspaceEditor({
   return (
     <section
       id={SIDEBAR_WORKSPACE_EDITOR_ID}
-      className={`sb-workspace-editor${variant === 'mobile-fullscreen' ? ' is-mobile-fullscreen' : ''}`}
+      className={`ui-popover-surface ui-popover-modal sb-workspace-editor${variant === 'mobile-fullscreen' ? ' is-mobile-fullscreen' : ''}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID}
@@ -514,17 +515,18 @@ export function SidebarWorkspaceEditor({
       </div>
       <footer className="sb-editor-actions">
         {!pickerOpen && (
-          <button type="button" onClick={onCancel}>
+          <Button variant="bordered" size="lg" onClick={onCancel}>
             取消
-          </button>
+          </Button>
         )}
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="lg"
           className="is-primary"
           onClick={() => onCommit(normalizeSidebarWorkspaceItems(draft), primaryDraft)}
         >
           完成
-        </button>
+        </Button>
       </footer>
     </section>
   )

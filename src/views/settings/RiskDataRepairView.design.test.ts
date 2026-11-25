@@ -16,17 +16,19 @@ function declaration(source: string, selector: string, property: string): string
 }
 
 export function testRiskRepairPrimaryActionUsesReadableTokenPairs(): void {
-  const css = read('src/views/settings/RiskDataRepairView.css')
+  const css = read('src/components/ui/Button.css')
+  const view = read('src/views/settings/RiskDataRepairView.tsx')
+  assert.match(view, /className="ui-btn ui-btn-primary ui-btn-sm risk-repair-action"/)
 
-  assert.equal(declaration(css, '.risk-repair-next', 'background'), 'var(--accent)')
+  assert.equal(declaration(css, '.ui-btn-primary', 'background'), 'var(--accent)')
   assert.equal(
-    declaration(css, '.risk-repair-next', 'color'),
+    declaration(css, '.ui-btn-primary', 'color'),
     'var(--accent-text)',
     '修复中心主动作必须在 accent 背景上使用 accent-text 前景',
   )
-  assert.equal(declaration(css, '.risk-repair-next:hover', 'background'), 'var(--accent-hover)')
+  assert.equal(declaration(css, '.ui-btn-primary:hover:not(:disabled)', 'background'), 'var(--accent-hover)')
   assert.equal(
-    declaration(css, '.risk-repair-next:hover', 'color'),
+    declaration(css, '.ui-btn-primary:hover:not(:disabled)', 'color'),
     'var(--accent-text)',
     '修复中心主动作悬停态必须在 accent-hover 背景上继续使用 accent-text 前景',
   )

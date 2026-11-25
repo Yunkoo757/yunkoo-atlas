@@ -68,6 +68,16 @@ async function run() {
     useStore.getState().openComposer(null, 'live')
     await until(() => composer()?.querySelector('#composer-quick-text'), '新建交易未打开')
     const input = composer()!.querySelector<HTMLInputElement>('#composer-quick-text')!
+    const tokens = getComputedStyle(document.documentElement)
+    const field = composer()!.querySelector<HTMLElement>('.composer-input-symbol .ui-field-trigger')!
+    const fieldHeight = tokens.getPropertyValue('--field-height-md').trim()
+    assert(getComputedStyle(input).height === fieldHeight && getComputedStyle(field).height === fieldHeight,
+      '交易快速录入的输入框和选择器须保持公共字段高度')
+    assert(getComputedStyle(input).borderRadius === getComputedStyle(field).borderRadius,
+      '快速录入不可覆写选择器圆角')
+    const direction = composer()!.querySelector<HTMLElement>('.composer-side-control')!
+    assert(direction.querySelectorAll('.ui-segmented-option[aria-pressed]').length === 2,
+      '不同交易方向需要复用支持键盘与双向切换的分段控件')
     const canvas = document.createElement('canvas')
     canvas.width = canvas.height = 2
     const png = await new Promise<Blob>(resolve => canvas.toBlob(blob => resolve(blob!), 'image/png'))

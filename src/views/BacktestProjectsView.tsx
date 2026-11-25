@@ -215,7 +215,7 @@ export function BacktestProjectsView() {
         { value: 'complete', label: project.completedAt ? '继续回测' : '标记完成' },
         ...(!project.archivedAt ? [{ value: 'archive', label: '归档项目' }] : []),
       ]} onSelect={value => { if (value === 'info') setPanel('info'); else if (value === 'edit') setEditing(project); else if (value === 'export') void exportProject(); else if (value === 'archive') updateLifecycle('archivedAt'); else if (value === 'complete') updateLifecycle('completedAt') }} /></>}</>} />
-    {id && !project ? <EmptyState variant="missing" title="找不到这个回测项目" action={<Link className="empty-btn" to="/backtests">返回全部项目</Link>} /> : project ? <>
+    {id && !project ? <EmptyState variant="missing" title="找不到这个回测项目" action={<Link className="ui-btn ui-btn-bordered ui-btn-md" to="/backtests">返回全部项目</Link>} /> : project ? <>
       <div className="ui-filter-bar backtest-filter-bar">
         <div className="quick-view-bar" role="group" aria-label="项目记录"><div className="quick-view-primary">
           {([{ value: 'all', label: '全部记录' }, { value: 'pending', label: '待确认' }, { value: 'missed', label: '未参与' }] as const).map(item => <button key={item.value} type="button" className={`quick-view-chip${recordScope === item.value ? ' is-active' : ''}`} aria-pressed={recordScope === item.value} onClick={() => changeScope('records', item.value)}>{item.label}</button>)}

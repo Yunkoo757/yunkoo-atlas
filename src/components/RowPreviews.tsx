@@ -1,4 +1,4 @@
-import { ICON_LG } from '@/icons/iconSize'
+import { ICON_LG, ICON_MD } from '@/icons/iconSize'
 import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { fmtMoney, fmtR, fmtDate } from '@/lib/format'
@@ -95,37 +95,39 @@ export function StrategyPreview({
   const strategy = strategies.find((item) => item.id === strategyId)
   const strategyName = strategy?.name ?? stats?.name ?? '未分类'
 
+  const empty = !stats || stats.n === 0
+  const summary = empty
+    ? (stats?.closedCount ? `已平仓 ${stats.closedCount} 笔，结果待核对` : '暂无已平仓的实盘交易')
+    : [
+      `盈利 ${stats.wins}`,
+      `亏损 ${stats.losses}`,
+      stats.breakevens > 0 ? `保本 ${stats.breakevens}` : null,
+    ].filter(Boolean).join(' · ')
+
   return (
     <div className="sp-card">
       <PreviewHeader
-        icon={strategy ? <StrategyIcon icon={strategy.icon} color={strategy.color} size={ICON_LG} /> : undefined}
+        icon={strategy ? <StrategyIcon icon={strategy.icon} color={strategy.color} size={ICON_MD} /> : undefined}
         title={strategyName}
+        subtitle={summary}
       />
-      <div className="rp-divider" />
-      {!stats || stats.n === 0 ? (
-        <p className="sp-empty">
-          {stats?.closedCount ? `${stats.closedCount} 笔已平，暂无可信结果` : '暂无已完成的实盘交易'}
-        </p>
-      ) : (
-        <div className="sp-summary">
-          <span className="sp-outcomes">
-            <span className="is-positive">盈利 {stats.wins}</span>
-            <span className="is-negative">亏损 {stats.losses}</span>
-            {stats.breakevens > 0 && <span>保本 {stats.breakevens}</span>}
-          </span>
-          <span className="sp-metric">
-            净盈亏
-            <strong className={stats.pnl > 0 ? 'is-positive' : stats.pnl < 0 ? 'is-negative' : ''}>
+      {!empty && (
+        <dl className="sp-summary">
+          <div>
+            <dt>净盈亏</dt>
+            <dd className={stats.pnl > 0 ? 'is-positive' : stats.pnl < 0 ? 'is-negative' : undefined}>
               {stats.pnlCount ? fmtMoney(stats.pnl, 'USD', privacyMode) : '—'}
-            </strong>
-          </span>
-          <span className="sp-metric">
-            <strong>{stats.winRate === null ? '—' : `${stats.winRate.toFixed(0)}%`}</strong> 胜率
-          </span>
-          <span className="sp-metric">
-            平均 R <strong>{stats.rCount ? fmtR(stats.averageR) : '—'}</strong>
-          </span>
-        </div>
+            </dd>
+          </div>
+          <div>
+            <dt>胜率</dt>
+            <dd>{stats.winRate === null ? '—' : `${stats.winRate.toFixed(0)}%`}</dd>
+          </div>
+          <div>
+            <dt>平均 R</dt>
+            <dd>{stats.rCount ? fmtR(stats.averageR) : '—'}</dd>
+          </div>
+        </dl>
       )}
     </div>
   )

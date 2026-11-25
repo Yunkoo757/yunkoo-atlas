@@ -102,6 +102,28 @@ async function run(): Promise<void> {
     const reopenedPnlInput = document.querySelector<HTMLInputElement>('input[aria-label="盈亏金额"]')
     const reopenedRInput = document.querySelector<HTMLInputElement>('input[aria-label="R 倍数"]')
     assert(reopenedPnlInput && reopenedRInput, '重开平仓弹窗后必须重新渲染结果输入框')
+    const outcomes = document.querySelector('[role="radiogroup"][aria-label="交易结果"]')
+    const win = outcomes?.querySelector<HTMLButtonElement>('[role="radio"][aria-label="盈利"]')
+    const even = outcomes?.querySelector<HTMLButtonElement>('[role="radio"][aria-label="保本"]')
+    const loss = outcomes?.querySelector<HTMLButtonElement>('[role="radio"][aria-label="亏损"]')
+    const summary = document.getElementById('trade-close-summary')
+    assert(win && even && loss && summary, '应同时显示三种平仓结果与输入反馈')
+    assert(win.getAttribute('aria-checked') === 'true' && win.tabIndex === 0 && loss.tabIndex === -1, '结果组只有当前结果进入 Tab 顺序')
+    assert([win, even, loss].every((option) => option.querySelector('[data-icon-motion="status"]')), '结果选项必须沿用列表、属性中的状态图标')
+
+    await waitFor(() => document.activeElement === reopenedPnlInput, '平仓初始焦点应落在盈亏金额')
+    win.focus()
+    win.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }))
+    await waitFor(() => document.activeElement === loss && loss.getAttribute('aria-checked') === 'true', '键盘应能从盈利切换到亏损')
+    enterValue(reopenedPnlInput, '0')
+    await waitFor(() => submit.disabled && reopenedPnlInput.getAttribute('aria-invalid') === 'true' && summary.getAttribute('role') === 'alert', '非保本零值要在输入项和邻近反馈中明确指出')
+    enterValue(reopenedPnlInput, '25')
+    enterValue(reopenedRInput, '1.5')
+    await waitFor(() => !submit.disabled && Boolean(summary.textContent?.includes('-1.5R')), '亏损预览必须准确显示记录的负值')
+    even.click()
+    await waitFor(() => reopenedPnlInput.value === '-25' && reopenedRInput.value === '-1.5', '切到保本时必须保留已输入数据的方向')
+    win.click()
+    await waitFor(() => reopenedPnlInput.value === '25' && reopenedRInput.value === '1.5' && !submit.disabled, '切回盈利后数值和可提交状态应同步恢复')
     enterValue(reopenedPnlInput, '500')
     enterValue(reopenedRInput, '2')
     await waitFor(() => !submit.disabled, '填写有效结果后主按钮没有启用')
@@ -159,6 +181,31 @@ async function run(): Promise<void> {
     assert(useStore.getState().trades[0]?.closedTradingDayKey === '2026-07-01', '保存后必须更新平仓业务日事实')
     const savedArchiveCandidate = useStore.getState().trades[0]
     assert(savedArchiveCandidate?.tradeKind === 'live' && savedArchiveCandidate.liveStageId === previous.currentLiveStageId, '平仓日期编辑必须保留原 stage ID')
+
+    const oldInstant = '2026-07-12T02:30:00+08:00'
+    for (const closedAt of [oldInstant, '2026-02-30', '']) {
+      const source: Trade = { ...trade, id: 'date-check', closedAt, closedTradingDayKey: '2026-07-11', rMultiple: 1.5 }
+      useStore.setState({ trades: [source], closeTradeRequest: { tradeId: source.id, targetStatus: 'loss' } })
+      await waitFor(() => document.querySelector<HTMLInputElement>('[role="dialog"] input[aria-label="R 倍数"]')?.value === '1.5', '历史交易应载入原始 R')
+      const date = document.querySelector<HTMLButtonElement>('[role="dialog"] .ui-date-trigger')!
+      const save = document.querySelector<HTMLButtonElement>('[role="dialog"] button[type="submit"]')!
+      const feedback = document.getElementById('trade-close-summary')!
+      if (closedAt === oldInstant) {
+        assert(date.textContent?.trim() === '2026-07-11', '历史时刻应展示已有业务日')
+      } else {
+        assert(date.getAttribute('aria-invalid') === 'true' && save.disabled && feedback.textContent?.includes('平仓日期'), '旧日期无效时应标出日期并说明原因')
+        date.click()
+        await waitFor(() => Boolean(document.querySelector('.ui-date-today')), '无效日期应能打开日历修正')
+        document.querySelector<HTMLButtonElement>('.ui-date-today')!.click()
+      }
+      await waitFor(() => !save.disabled && feedback.textContent?.trim() === '将记录 -1.5R', '只填 R 应只预览带签名的 R')
+      const shownDate = date.textContent?.trim()
+      save.click()
+      await waitFor(() => useStore.getState().closeTradeRequest === null, '日期有效后应能提交')
+      const stored = useStore.getState().trades[0]
+      assert(stored.closedAt === (closedAt === oldInstant ? oldInstant : shownDate), '未重选日期须保留历史时刻，重选日期则保存所选日期')
+      assert(stored.pnl === null && stored.rMultiple === -1.5, '单独 R 不得推算金额')
+    }
 
     for (const amount of ['-2.5', '1.25', '']) {
       useStore.setState({ trades: [trade], closeTradeRequest: { tradeId: trade.id, targetStatus: 'breakeven' } })

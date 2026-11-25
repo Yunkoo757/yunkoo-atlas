@@ -23,7 +23,7 @@ export type { SymbolIconOverride, SymbolIconsMap } from '@/lib/symbolIconCodec'
 
 export type SymbolMarketKind = 'crypto' | 'forex' | 'metal' | 'index' | 'other'
 
-export type SymbolPresetSvgId = 'eth-diamond'
+export type SymbolPresetSvgId = 'gold-au' | 'euro' | 'sterling' | 'bitcoin' | 'eth-diamond'
 
 export type SymbolIconPreset = {
   id: string
@@ -65,10 +65,10 @@ function glyphPreset(
 }
 
 export const SYMBOL_ICON_PRESETS: SymbolIconPreset[] = [
-  glyphPreset('gold', '黄金', 'Au', 'var(--instrument-gold)'),
-  glyphPreset('eur', '欧元', '€', 'var(--instrument-euro)'),
-  glyphPreset('gbp', '英镑', '£', 'var(--instrument-sterling)'),
-  glyphPreset('btc', 'Bitcoin', '₿', 'var(--instrument-bitcoin)'),
+  glyphPreset('gold', '黄金', 'Au', 'var(--instrument-gold)', 'gold-au'),
+  glyphPreset('eur', '欧元', '€', 'var(--instrument-euro)', 'euro'),
+  glyphPreset('gbp', '英镑', '£', 'var(--instrument-sterling)', 'sterling'),
+  glyphPreset('btc', 'Bitcoin', '₿', 'var(--instrument-bitcoin)', 'bitcoin'),
   glyphPreset('eth', 'Ethereum', 'ETH', 'var(--instrument-ether)', 'eth-diamond'),
 ]
 

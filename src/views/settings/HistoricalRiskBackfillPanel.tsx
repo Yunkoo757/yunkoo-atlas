@@ -6,6 +6,7 @@ import { activeRiskPolicy } from '@/lib/activeRiskPolicy'
 import { previewHistoricalRiskBackfill, type HistoricalRiskInput, type HistoricalRiskPreview } from '@/lib/historicalRiskBackfill'
 import { flushPersistNow } from '@/storage/persist'
 import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { fmtR } from '@/lib/format'
 import './HistoricalRiskBackfillPanel.css'
@@ -77,14 +78,14 @@ export function HistoricalRiskBackfillPanel({ today, issues }: { today: string; 
     </section> : null}
     {history.length ? <section className="settings-page-section historical-risk-history" aria-label="历史补录记录">
       <details>
-        <summary className="historical-risk-history-title">历史补录记录 <span>{history.length} 次</span></summary>
+        <DisclosureSummary>历史补录记录 <span>{history.length} 次</span></DisclosureSummary>
         {history.map((policy) => <details key={policy.id} className="historical-risk-record">
-          <summary>{policy.effectiveTradingDay} 至 {policy.historicalBackfill!.throughTradingDay}</summary>
+          <DisclosureSummary>{policy.effectiveTradingDay} 至 {policy.historicalBackfill!.throughTradingDay}</DisclosureSummary>
           <div className="historical-risk-record-body">
             <p>补录于 {new Date(policy.confirmedAt).toLocaleString()} · 1R = {state.display.privacyMode ? '****' : policy.riskAmount}</p>
             <p>日 {policy.dailyLossLimitR}R · 周 {policy.weeklyLossLimitR}R · 月 {policy.monthlyLossLimitRDefault}R</p>
             <p>依据：{policy.historicalBackfill!.note}</p>
-            <details><summary>技术详情</summary><p>参考规则：{policy.historicalBackfill!.sourcePolicyVersionId}</p></details>
+            <details><DisclosureSummary>技术详情</DisclosureSummary><p>参考规则：{policy.historicalBackfill!.sourcePolicyVersionId}</p></details>
           </div>
         </details>)}
       </details>
@@ -106,7 +107,10 @@ export function HistoricalRiskBackfillPanel({ today, issues }: { today: string; 
       <div className="historical-risk-form">
 
         {!preview ? <fieldset disabled={busy}>
-          <label>历史起始日期<input type="date" aria-label="历史起始日期" value={input.startsOn} onChange={(e) => change({ startsOn: e.target.value })} /></label>
+          <div className="historical-risk-date">
+            <span>历史起始日期</span>
+            <DatePicker ariaLabel="历史起始日期" value={input.startsOn} onValueChange={startsOn => change({ startsOn })} required disabled={busy} />
+          </div>
           {([
             ['capitalBase', '历史资金基准'], ['riskPercent', '单笔风险比例（%）'],
             ['dailyLossLimitR', '日止损线（R）'], ['weeklyLossLimitR', '周止损线（R）'], ['monthlyLossLimitRDefault', '月止损默认（R）'],

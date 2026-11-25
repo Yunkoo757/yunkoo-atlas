@@ -15,17 +15,9 @@
 .tag-preset-input {
   flex: 1;
   min-width: 0;
-  height: var(--field-height-md);
-  padding: 0 var(--sp-3);
-  font-family: var(--font-ui);
   font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);
   line-height: var(--type-row-line-height);
-  border: 1px solid var(--field-border);
-  border-radius: var(--radius-6);
-  background: var(--field-bg);
-  color: var(--text-primary);
-  outline: none;
 }
 
 .tag-batch {
@@ -37,17 +29,10 @@
 .tag-batch-input {
   display: block;
   width: 100%;
-
-  padding: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2) var(--field-padding-inline);
   margin-bottom: var(--sp-2);
-  font: inherit;
   font-size: var(--type-row-size);
-  color: var(--text-primary);
-  background: var(--field-bg);
-  border: 1px solid var(--field-border);
-  border-radius: var(--radius-6);
   resize: vertical;
-  outline: none;
 }
 
 .tag-section-empty {

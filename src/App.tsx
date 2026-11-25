@@ -431,12 +431,14 @@ export function PeriodPage() {
   if (!slug || !isValidPeriodSlug(slug)) {
     const requestedPath = `${location.pathname}${location.search}`
     return (
-      <main className="route-state" data-invalid-period role="alert">
-        <h1 className="route-state-title">范围不存在</h1>
+      <section className="app-route-state" data-invalid-period role="alert" aria-labelledby="invalid-period-title">
+        <h1 id="invalid-period-title">范围不存在</h1>
         <p>无法识别范围“{requestedPath}”，原请求未被改写。</p>
         <p>请选择有效范围，或返回今日交易日志。</p>
-        <Link to="/period/today">返回今日</Link>
-      </main>
+        <div className="app-route-state-actions">
+          <Link className="ui-btn ui-btn-bordered" to="/period/today">返回今日</Link>
+        </div>
+      </section>
     )
   }
   const listPath = `/period/${slug}`

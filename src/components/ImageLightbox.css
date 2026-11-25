@@ -138,8 +138,8 @@
 .img-lightbox-close {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: var(--control-height-md);
+  height: var(--control-height-md);
   border-radius: var(--radius-6);
   color: var(--text-muted);
   transition: color var(--motion-state) var(--ease-out), background var(--motion-state) var(--ease-out);
@@ -148,8 +148,11 @@
 .img-lightbox-action:hover,
 .img-lightbox-close:hover {
   color: var(--text-primary);
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
 }
+
+.img-lightbox-action:active,
+.img-lightbox-close:active { background: var(--surface-control-active); }
 
 .img-lightbox-ratio {
   font-size: var(--type-caption-size);

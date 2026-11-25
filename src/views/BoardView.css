@@ -53,8 +53,8 @@
 .bd-col-add {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
   border-radius: var(--radius-4);
   color: var(--text-tertiary);
   opacity: 0;
@@ -65,7 +65,7 @@
   opacity: 1;
 }
 .bd-col-add:hover {
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
   color: var(--text-primary);
 }
 .bd-col-body {
@@ -265,8 +265,8 @@
 }
 .bd-card.is-focused,
 .bd-card.is-selected {
-  border-color: var(--border-strong);
-  background: var(--bg-hover);
+  border-color: var(--surface-control-border-active);
+  background: var(--surface-card-hover);
 }
 
 .bd-card-timeframe {

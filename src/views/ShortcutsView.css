@@ -12,37 +12,6 @@
   margin-bottom: 0;
 }
 
-.shortcuts-reset-all {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-control-gap);
-  height: var(--control-height);
-  padding: 0 9px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-6);
-  color: var(--text-tertiary);
-  background: transparent;
-  font-family: var(--font-ui);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
-  transition:
-    color var(--dur-fast) var(--ease-out),
-    background var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out);
-}
-
-.shortcuts-reset-all:hover {
-  color: var(--text-primary);
-  border-color: var(--border-subtle);
-  background: var(--bg-hover);
-}
-
-.shortcuts-reset-all:disabled {
-  color: var(--text-disabled);
-  cursor: default;
-  opacity: 0.45;
-}
-
 .window-hotkey-setting {
   margin-bottom: var(--space-section-gap);
 }
@@ -154,7 +123,7 @@
 }
 
 .shortcuts-section {
-  margin-bottom: 26px;
+  margin-bottom: var(--space-section-gap);
 }
 
 /* 分组标签——非内容区域标题，故意弱于 .settings-section-title */
@@ -223,14 +192,10 @@ button.shortcuts-capture:hover {
 }
 
 button.shortcuts-capture[aria-pressed='true'] {
-  outline: none;
   color: var(--text-primary);
-  border-color: color-mix(in srgb, var(--accent) 62%, var(--border-default));
-  background: color-mix(in srgb, var(--accent) 8%, var(--bg-elevated));
-}
-
-button.shortcuts-capture[aria-pressed='true'] {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: var(--field-border-focus);
+  background: var(--field-bg-focus);
+  box-shadow: var(--field-focus-shadow);
 }
 
 .shortcuts-capture.is-fixed {
@@ -319,34 +284,6 @@ button.shortcuts-capture[aria-pressed='true'] {
 .shortcuts-actions:focus-within,
 .shortcuts-row.is-recording .shortcuts-actions {
   opacity: 1;
-}
-
-.shortcuts-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-height);
-  height: var(--control-height);
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--radius-6);
-  color: var(--text-tertiary);
-  background: transparent;
-  transition:
-    color var(--dur-fast) var(--ease-out),
-    background var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out);
-}
-
-.shortcuts-action:hover {
-  color: var(--text-secondary);
-  border-color: var(--border-subtle);
-  background: var(--bg-hover);
-}
-
-.shortcuts-action:focus-visible {
-  outline: none;
-  outline-offset: 1px;
 }
 
 .shortcuts-actions:empty {

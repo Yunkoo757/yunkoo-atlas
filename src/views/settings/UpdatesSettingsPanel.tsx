@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Download, RotateCcw } from '@/icons/appIcons'
+import { InlineStatus, type InlineStatusTone } from '@/components/ui/InlineStatus'
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { ICON_SM } from '@/icons/iconSize'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
@@ -29,6 +30,13 @@ function statusLabel(state: AppUpdateState): string {
   }
 }
 
+const UPDATE_STATUS_TONES: Partial<Record<AppUpdateState['phase'], InlineStatusTone>> = {
+  available: 'info',
+  downloaded: 'success',
+  'up-to-date': 'success',
+  error: 'warning',
+}
+
 export function UpdatesSettingsPanel() {
   const electron = isElectron()
   const [state, setState] = useState<AppUpdateState>(FALLBACK_STATE)
@@ -48,12 +56,6 @@ export function UpdatesSettingsPanel() {
   }, [electron])
 
   const busy = state.phase === 'checking' || state.phase === 'downloading'
-  const statusTone = useMemo(() => {
-    if (state.phase === 'error') return ' is-warn'
-    if (state.phase === 'available' || state.phase === 'downloaded') return ' is-accent'
-    if (state.phase === 'up-to-date') return ' is-ok'
-    return ''
-  }, [state.phase])
 
   const installUpdate = async () => {
     if (!electron) return
@@ -84,7 +86,9 @@ export function UpdatesSettingsPanel() {
             <h2 id="update-version-title">当前版本</h2>
             <p>Trader Atlas {state.currentVersion}</p>
           </div>
-          <span className={'update-status' + statusTone}>{statusLabel(state)}</span>
+          {UPDATE_STATUS_TONES[state.phase]
+            ? <InlineStatus tone={UPDATE_STATUS_TONES[state.phase]} compact title={statusLabel(state)} />
+            : <p role="status">{statusLabel(state)}</p>}
         </div>
 
         {state.phase === 'downloading' && (

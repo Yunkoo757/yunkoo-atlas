@@ -39,7 +39,7 @@ export function PresetAvatarGraphic({
   const preset = getAvatarPreset(presetId)
 
   return (
-    <svg viewBox="0 0 80 80" role="img" aria-label={preset.label}>
+    <svg display="block" width="100%" height="100%" viewBox="0 0 80 80" role="img" aria-label={preset.label}>
       <rect width="80" height="80" rx={shape === 'rounded-square' ? 20 : 40} fill={preset.background} />
       {shape === 'rounded-square' ? (
         <rect x="15" y="17" width="50" height="50" rx="16" fill={preset.face} stroke={preset.ink} strokeWidth="3" />

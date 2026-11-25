@@ -655,7 +655,7 @@ export async function testPageTitleSelectorsUseTheCanonical20PxRole(): Promise<v
     'src/App.css',
     'src/components/RouteState.css',
   ].map(async (path) => [path, await fs.readFile(path, 'utf8')] as const)).then((entries) => Object.fromEntries(entries))])
-  assert(app.includes('<h1 className="route-state-title">范围不存在</h1>'), 'invalid period 路由必须使用可审计的 Page title selector')
+  assert(app.includes('<section className="app-route-state" data-invalid-period') && app.includes('<h1 id="invalid-period-title">范围不存在</h1>'), 'invalid period 路由必须使用可审计的 Page title selector')
   for (const [path, selector] of [
     ['src/views/DetailView.css', '.dv-title'],
     ['src/views/DetailView.css', '.dv-empty-card h1'],
@@ -665,7 +665,6 @@ export async function testPageTitleSelectorsUseTheCanonical20PxRole(): Promise<v
     ['src/views/settings/SettingsLayout.css', '.settings-page-title'],
     ['src/components/WelcomeScreen.css', '.welcome-title'],
     ['src/App.css', '.app-storage-error-card h1'],
-    ['src/App.css', '.route-state-title'],
     ['src/components/RouteState.css', '.app-route-state h1'],
   ] as const) {
     assertRoleDeclarations(cssRule(sources[path], selector), selector, [
@@ -910,7 +909,6 @@ export async function testSemanticChipsUseCanonicalTypographyRole(): Promise<voi
     ['src/components/RowPreviews.css', '.rp-tag'],
     ['src/views/WeeklyReviewView.css', '.wr-tag-group button,.wr-trade-roles button'],
     ['src/views/ImportDataHealthView.css', '.idh-select span'],
-    ['src/views/settings/UpdatesSettingsPanel.css', '.update-status'],
     ['src/views/settings/RiskDataRepairView.css', '.risk-repair-row-title small'],
     ['src/components/sidebar/SidebarWorkspace.css', '.sb-target-row-state'],
   ]

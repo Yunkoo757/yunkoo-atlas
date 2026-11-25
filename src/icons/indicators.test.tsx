@@ -1,5 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { getStrategyIcon, STRATEGY_ICON_OPTIONS, type StrategyIconId } from '@/data/strategies'
+import { SymbolIcon } from '@/components/SymbolIcon'
+import { DEFAULT_SYMBOL_CATALOG, SYMBOL_ICON_PRESETS, SYMBOL_ICON_SURFACE_TINT, defaultSymbolPresetId } from '@/lib/symbolIcons'
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { DisclosureIcon } from '@/icons/StateIcons'
 import { StatusIndicator } from '@/icons/StatusIndicator'
@@ -41,4 +43,24 @@ export function testStrategyIconPickerAndSavedIconsUseTheSameGlyphs(): void {
   }
   assert(shapes.size === savedIds.length, '每个已保存的策略类型都应有可辨别的形状')
   assert(getStrategyIcon('unknown' as StrategyIconId) === getStrategyIcon('target'), '未知历史字形应该回退到目标图标')
+}
+
+export function testSymbolPresetsAndJournalUseTheSameVectorMarks(): void {
+  assert(SYMBOL_ICON_SURFACE_TINT === 12, '详情和设置的品种色底使用 12% 色彩')
+  const svgBody = (markup: string) => markup.match(/<svg\b[^>]*>([\s\S]*?)<\/svg>/)?.[1]
+  const marks = new Set<string>()
+  for (const symbol of DEFAULT_SYMBOL_CATALOG) {
+    const preset = SYMBOL_ICON_PRESETS.find(option => option.id === defaultSymbolPresetId(symbol))
+    assert(preset, `${symbol} 应有对应的预设选项`)
+
+    const menu = renderToStaticMarkup(<SymbolIcon symbol="CUSTOM" preset={preset} />)
+    const row = renderToStaticMarkup(<SymbolIcon symbol={symbol} quiet />)
+    const mark = svgBody(row)
+    assert(mark && /<(?:path|polygon|polyline|line|circle|rect)\b/.test(mark) && !mark.includes('<text'),
+      `${symbol} 的识别形状应使用独立于字体的矢量几何`)
+    assert(mark === svgBody(menu), `${symbol} 的设置预览和交易行应呈现相同字形`)
+    assert(row.includes('background:transparent') && menu.includes(preset.background), '列表保留无底字标，设置预设使用对应浅色底板')
+    marks.add(mark)
+  }
+  assert(marks.size === DEFAULT_SYMBOL_CATALOG.length, '五款预设应各有可辨的形状')
 }

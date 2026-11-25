@@ -6,9 +6,7 @@
   background: var(--surface-pane);
 }
 
-.trash-select-all-btn,
-.trash-btn-restore,
-.trash-btn-purge {
+.trash-select-all-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -40,13 +38,13 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 .trash-select-all-btn {
-  min-height: 28px;
+  min-height: var(--control-height-sm);
   padding: 0 6px;
   color: var(--text-secondary);
   font-size: var(--type-row-size);
 }
 .trash-select-all-btn:hover {
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
   color: var(--text-primary);
 }
 .trash-select-all-btn .selection-box {
@@ -67,7 +65,7 @@
   margin-left: auto;
   font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
-  color: var(--text-quaternary);
+  color: var(--list-group-count);
   font-variant-numeric: var(--numeric-tabular);
   font-feature-settings: "tnum" 1, "kern" 1;
 }
@@ -94,11 +92,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-control-gap);
-  height: var(--trade-group-height, 36px);
+  height: var(--trade-group-height);
   margin: var(--sp-1) var(--sp-2);
   padding: 0 10px;
   border-bottom: 1px solid var(--border-subtle);
-  background-color: var(--bg-elevated);
+  background-color: var(--surface-group);
   border-radius: var(--radius-8);
   box-shadow: none;
   overflow: hidden;
@@ -111,7 +109,7 @@
   color: var(--text-secondary);
 }
 .trash-group-count {
-  color: var(--text-quaternary);
+  color: var(--list-group-count);
   font-family: var(--font-ui);
   font-size: var(--type-caption-size);
   font-variant-numeric: var(--numeric-tabular);
@@ -120,13 +118,14 @@
 
 /* 对齐交易列表：check | status | ref | identity | pnl | R | date | expiry | actions */
 .trash-item {
+  --trash-actions-width: calc(2 * var(--control-height-sm) + var(--sp-1));
   display: grid;
   grid-template-columns:
     18px 16px 8ch minmax(180px, 1.4fr)
-    84px 56px 64px 76px 52px;
+    84px 56px 64px 76px var(--trash-actions-width);
   column-gap: var(--sp-3);
   align-items: center;
-  height: var(--trade-row-height, 44px);
+  height: var(--trade-row-height);
   margin: 0 var(--sp-2);
   padding: 0 10px;
   border-radius: var(--radius-8);
@@ -137,7 +136,7 @@
   transition: background var(--dur-fast) var(--ease-out);
 }
 .trash-item:hover {
-  background: var(--bg-hover);
+  background: var(--surface-row-hover);
 }
 
 /* 选中语义仅由 SelectionBox 表达，与交易日志和案例列表保持一致。 */
@@ -200,10 +199,10 @@
   color: var(--text-tertiary);
 }
 .trash-item-pnl.is-positive {
-  color: var(--pos);
+  color: var(--result-positive);
 }
 .trash-item-pnl.is-negative {
-  color: var(--neg);
+  color: var(--result-negative);
 }
 .trash-item-r {
   font-size: var(--type-list-secondary-size);
@@ -248,38 +247,24 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 2px;
+  gap: var(--sp-1);
   opacity: 0;
 }
 .trash-item:hover .trash-item-actions,
 .trash-item-actions:focus-within {
   opacity: 1;
 }
-.trash-btn-restore {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  color: var(--text-tertiary);
-}
-.trash-btn-restore:hover {
-  background: var(--bg-selected);
-  color: var(--text-primary);
-}
+.trash-btn-restore,
 .trash-btn-purge {
-  width: 26px;
-  height: 26px;
-  color: var(--text-tertiary);
-}
-.trash-btn-purge:hover {
-  background: var(--error-action-bg);
-  color: var(--neg);
+  width: var(--control-height-sm);
+  padding: 0;
 }
 
 @media (max-width: 1024px) {
   .trash-item {
     grid-template-columns:
       18px 16px 8ch minmax(140px, 1.2fr)
-      72px 48px 58px 68px 48px;
+      72px 48px 58px 68px var(--trash-actions-width);
     column-gap: 10px;
   }
 }

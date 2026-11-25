@@ -66,6 +66,7 @@
   --popover-radius: 10px;
   --popover-shadow: 0 3px 8px lch(0 0 0 / 0.125), 0 2px 5px lch(0 0 0 / 0.125),
     0 1px 1px lch(0 0 0 / 0.125);
+  --preview-max-width: 336px;
   --popover-menu-bg: var(--popover-bg);
   --popover-menu-border: var(--popover-border);
   --popover-menu-radius: var(--popover-radius);
@@ -113,9 +114,11 @@
   --modal-border-radius: 14px;
   --radius-rounded: 9999px;
   --modal-overlay-padding: 16px;
-  --modal-header-padding: 18px 20px 15px;
-  --modal-body-padding: 18px 20px;
-  --modal-footer-padding: 10px 20px;
+  --modal-header-padding: var(--sp-4) var(--sp-5) var(--sp-3);
+  --modal-body-padding: var(--sp-4) var(--sp-5);
+  --modal-footer-padding: 10px var(--sp-5);
+  --dialog-label-ink: var(--text-secondary);
+  --dialog-supporting-ink: var(--text-content-metadata);
 
   /* —— 缓动曲线 —— */
   --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
@@ -124,6 +127,7 @@
 
   /* —— 布局尺寸 —— */
   --sidebar-width: 244px;
+  --sidebar-width-compact: 208px;
   /* Web previews have no native bar. The desktop entry sets the shared native height. */
   --window-titlebar-height: 0px;
   --main-inset: 8px;
@@ -142,6 +146,7 @@
   --modal-cta-font-size: var(--type-row-size);
   --field-height-md: 32px;
   --field-padding-inline: 10px;
+  --menu-item-height: 30px;
   --trade-row-height: 44px;
   --trade-group-height: 36px;
   --filter-bar-height: 43px;
@@ -174,6 +179,9 @@
   --motion-panel: 220ms;
 
   /* —— 桌面通知回执 —— */
+  --batch-bar-bottom: var(--sp-6);
+  --batch-bar-height: calc(var(--control-height-sm) + 2 * var(--space-control-gap) + 2px);
+  --toast-error-border: color-mix(in srgb, var(--danger) 38%, var(--border-default));
   --toast-surface: color-mix(in srgb, var(--surface-floating) 96%, var(--text-primary) 1%);
   --toast-border: var(--popover-border);
   --toast-highlight: var(--control-highlight-rest);
@@ -235,6 +243,8 @@
   /* 独立对象与浮层分别从自己的承载面建立状态，不复用 Row 的绝对色。 */
   --surface-card-hover: var(--bg-hover);
   --surface-menu-hover: lch(15.7% 0.85 272 / 1);
+  --stage-notice-bg: color-mix(in srgb, var(--accent) 7%, var(--bg-surface));
+  --stage-notice-border: color-mix(in srgb, var(--accent) 28%, var(--border-subtle));
   --surface-menu-pressed: lch(17.7% 1 272 / 1);
   --surface-menu-selected: color-mix(in srgb, var(--accent) 11%, var(--surface-menu-hover));
   --surface-control: var(--color-bg-secondary);
@@ -410,6 +420,9 @@
   /* accent 辅助 token（组件用） */
   --accent-bg: color-mix(in srgb, var(--accent) 12%, transparent);
   --accent-color: var(--accent);
+  /* 主操作保留可读字色，收回禁用状态的饱和底色。 */
+  --action-primary-disabled-bg: color-mix(in srgb, var(--accent) 7%, var(--surface-control-active));
+  --action-primary-disabled-text: color-mix(in srgb, var(--text-content-context) 80%, var(--text-disabled));
 
   /* 边框别名 */
 

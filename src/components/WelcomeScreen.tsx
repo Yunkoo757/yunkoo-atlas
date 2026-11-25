@@ -1,6 +1,7 @@
 import { ICON_HERO, ICON_LG, ICON_MD } from '@/icons/iconSize'
 import { useState } from 'react'
 import { FolderOpen, Plus, HardDrive } from '@/icons/appIcons'
+import { Button } from '@/components/ui/Button'
 import './WelcomeScreen.css'
 
 interface Props {
@@ -85,24 +86,28 @@ export function WelcomeScreen({ onReady }: Props) {
 
         {pickedPath && (
           <div className="welcome-actions">
-            <button
-              className="welcome-btn welcome-btn-primary"
+            <Button
+              className="welcome-btn"
+              variant="primary"
+              size="lg"
               onClick={createNew}
               disabled={busy}
               type="button"
             >
               <Plus size={ICON_LG} />
               <span>在此创建新资料库</span>
-            </button>
-            <button
-              className="welcome-btn welcome-btn-secondary"
+            </Button>
+            <Button
+              className="welcome-btn"
+              variant="bordered"
+              size="lg"
               onClick={openExisting}
               disabled={busy}
               type="button"
             >
               <FolderOpen size={ICON_LG} />
               <span>打开已有资料库</span>
-            </button>
+            </Button>
           </div>
         )}
 

@@ -67,7 +67,7 @@
   shape-rendering: geometricPrecision;
 }
 
-.ui-btn[aria-busy='true'] {
+.ui-btn:disabled[aria-busy='true'] {
   cursor: wait;
 }
 
@@ -100,7 +100,6 @@
 .batch-action-btn:disabled {
   color: var(--text-disabled);
   cursor: not-allowed;
-  opacity: 0.64;
 }
 
 .ui-btn-ghost,
@@ -168,9 +167,9 @@
 .empty-btn:disabled,
 .csv-btn-primary:disabled,
 .nim-btn-primary:disabled {
-  color: var(--text-disabled);
-  background: color-mix(in srgb, var(--accent) 10%, var(--bg-surface));
-  border-color: var(--border-subtle);
+  color: var(--action-primary-disabled-text);
+  background: var(--action-primary-disabled-bg);
+  border-color: transparent;
   opacity: 1;
 }
 
@@ -179,13 +178,13 @@
 .batch-action-btn-danger {
   background: transparent;
   border: 1px solid transparent;
-  color: var(--neg);
+  color: var(--danger);
 }
 .ui-btn-danger:hover:not(:disabled),
 .dio-btn-warn:hover:not(:disabled),
 .batch-action-btn-danger:hover:not(:disabled) {
   background: var(--error-action-bg);
-  color: var(--neg);
+  color: var(--danger);
 }
 
 .ui-btn-danger-solid,

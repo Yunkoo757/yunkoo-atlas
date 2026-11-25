@@ -5,6 +5,7 @@ import {
   type SymbolIconsMap,
 } from '@/lib/symbolIcons'
 import { ICON_TILE } from '@/icons/iconSize'
+import { InstrumentMark } from '@/icons/InstrumentMark'
 import './SymbolIcon.css'
 
 export function SymbolIcon({
@@ -41,7 +42,7 @@ export function SymbolIcon({
   }
 
   if (resolved.type === 'svg') {
-    const markSize = Math.max(10, Math.round(size * (quiet ? 0.82 : 0.75)))
+    const markSize = Math.min(size, Math.max(12, quiet ? size - 2 : Math.round(size * 0.75)))
     return (
       <span
         className={'symbol-icon is-svg' + (quiet ? ' is-quiet' : '') + (className ? ` ${className}` : '')}
@@ -53,10 +54,7 @@ export function SymbolIcon({
         }}
         aria-hidden
       >
-        <svg width={markSize} height={markSize} viewBox="0 0 16 16" fill="currentColor" aria-hidden>
-          <path d="M8 1.35 3.8 8 8 10.45 12.2 8 8 1.35Z" />
-          <path d="M8 11.35 3.8 8.9 8 14.65l4.2-5.75L8 11.35Z" fillOpacity="0.72" />
-        </svg>
+        <InstrumentMark id={resolved.svgId} size={markSize} />
       </span>
     )
   }

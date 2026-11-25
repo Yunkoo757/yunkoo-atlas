@@ -1,6 +1,7 @@
 import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import { Button } from '@/components/ui/Button'
-import { ICON_LG, ICON_MD } from '@/icons/iconSize'
+import { DisclosureIcon } from '@/icons/StateIcons'
+import { ICON_LG, ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useRef, useState } from 'react'
 import {
   Download,
@@ -371,7 +372,7 @@ export function DataIOContent({
         <section className="dio-section dio-section-muted">
           <h2 className="dio-section-title">本地资料库</h2>
           {libraryPath ? (
-            <details className="dio-disclosure"><summary>{libraryPath.split(/[\\/]/).filter(Boolean).at(-1) || '当前资料库'}</summary><p className="dio-desc dio-mono">{libraryPath}</p></details>
+            <details className="dio-disclosure"><summary><DisclosureIcon size={ICON_SM} />{libraryPath.split(/[\\/]/).filter(Boolean).at(-1) || '当前资料库'}</summary><p className="dio-desc dio-mono">{libraryPath}</p></details>
           ) : (
             <p className="dio-desc">正在读取资料库路径…</p>
           )}
@@ -399,7 +400,7 @@ export function DataIOContent({
       )}
 
       <details className="dio-disclosure">
-        <summary>保存说明</summary>
+        <summary><DisclosureIcon size={ICON_SM} />保存说明</summary>
         <div className="dio-task-list">
           <div className="dio-task">
             <Database size={ICON_LG} className="dio-task-icon" />
@@ -458,7 +459,7 @@ export function DataIOContent({
       </section>
 
       <details className="dio-group dio-disclosure">
-        <summary id="dio-import-title" className="dio-group-title">导入与迁移</summary>
+        <summary id="dio-import-title" className="dio-group-title"><DisclosureIcon size={ICON_SM} />导入与迁移</summary>
         <input
           ref={fileRef}
           type="file"
@@ -510,7 +511,7 @@ export function DataIOContent({
       </details>
 
 <details className="dio-group dio-disclosure">
-        <summary id="dio-dup-title" className="dio-group-title">重复检测</summary>
+        <summary id="dio-dup-title" className="dio-group-title"><DisclosureIcon size={ICON_SM} />重复检测</summary>
         <div className="dio-task-list">
           <div className="dio-task">
             <Search size={ICON_LG} className="dio-task-icon" />

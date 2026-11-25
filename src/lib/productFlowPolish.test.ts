@@ -293,7 +293,8 @@ export async function testRestoresAndDesktopControlsPreserveSafeInteractionState
     '快速视图 tablist 必须支持方向键与 roving tabindex',
   )
   assert(
-    appFrame.includes('--app-sidebar-width: 208px') &&
+    appFrame.includes('--app-sidebar-width: var(--sidebar-width-compact)') &&
+      (await fs.readFile('src/styles/tokens.css', 'utf8')).includes('--sidebar-width-compact: 208px') &&
       !appFrame.includes('ui-mobile-navigation') &&
       !appFrame.includes('safe-area-inset'),
     '紧凑桌面壳层必须保留侧栏，并移除移动导航与安全区补偿',

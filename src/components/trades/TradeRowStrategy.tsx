@@ -23,6 +23,7 @@ export function TradeRowStrategy({
 
   return (
     <HoverPreview
+      compact={!stats?.n}
       content={(
         <StrategyPreview
           strategyId={strategyId}

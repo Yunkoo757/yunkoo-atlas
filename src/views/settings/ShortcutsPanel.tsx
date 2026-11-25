@@ -2,6 +2,8 @@ import { ICON_SM } from '@/icons/iconSize'
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Ban, LockKeyhole, RotateCcw } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { IconButton } from '@/components/ui/IconButton'
+import { Button } from '@/components/ui/Button'
 import { SearchField } from '@/components/ui/SearchField'
 import type { WindowHotkeyState } from '@/lib/windowHotkeyBinding'
 import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
@@ -113,8 +115,9 @@ export function ShortcutsPanel() {
     <div className="settings-page settings-page--form shortcuts-panel">
       <div className="settings-page-head shortcuts-panel-head">
         <h1 className="settings-page-title">键盘快捷键</h1>
-        {Object.keys(bindings).length > 0 ? <button
-          type="button"
+        {Object.keys(bindings).length > 0 ? <Button
+          variant="ghost"
+          size="sm"
           className="shortcuts-reset-all"
           aria-label={windowHotkeyLoading
             ? `恢复全部默认，${WINDOW_HOTKEY_LOADING_COPY}`
@@ -136,7 +139,7 @@ export function ShortcutsPanel() {
         >
           <RotateCcw size={ICON_SM} />
           恢复全部默认
-        </button> : null}
+        </Button> : null}
       </div>
       <SearchField
         className="shortcuts-search"
@@ -210,49 +213,45 @@ export function ShortcutsPanel() {
 
                     <span className="shortcuts-actions">
                       {!isDefault && !action.sequenceFixed && (
-                        <Tooltip label={`恢复${action.label}的默认快捷键`} content="恢复默认">
-                          <button
-                            type="button"
-                            className="shortcuts-action"
-                            aria-label={windowHotkeyLoading
-                              ? `恢复${action.label}的默认快捷键，${WINDOW_HOTKEY_LOADING_COPY}`
-                              : `恢复${action.label}的默认快捷键`}
-                            disabled={windowHotkeyLoading}
-                            onClick={() => {
-                              setRecordingId(null)
-                              if (
-                                windowHotkeyState?.registered &&
-                                action.defaultBinding &&
-                                !isSequence(action.defaultBinding) &&
-                                chordsEqual(action.defaultBinding, windowHotkeyState.binding)
-                              ) {
-                                setBinding(action.id, null)
-                                toast('该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键')
-                                return
-                              }
-                              resetBinding(action.id)
-                              toast('已恢复默认')
-                            }}
-                          >
-                            <RotateCcw size={ICON_SM} />
-                          </button>
-                        </Tooltip>
+                        <IconButton
+                          className="shortcuts-action"
+                          tooltip="恢复默认"
+                          label={windowHotkeyLoading
+                            ? `恢复${action.label}的默认快捷键，${WINDOW_HOTKEY_LOADING_COPY}`
+                            : `恢复${action.label}的默认快捷键`}
+                          disabled={windowHotkeyLoading}
+                          onClick={() => {
+                            setRecordingId(null)
+                            if (
+                              windowHotkeyState?.registered &&
+                              action.defaultBinding &&
+                              !isSequence(action.defaultBinding) &&
+                              chordsEqual(action.defaultBinding, windowHotkeyState.binding)
+                            ) {
+                              setBinding(action.id, null)
+                              toast('该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键')
+                              return
+                            }
+                            resetBinding(action.id)
+                            toast('已恢复默认')
+                          }}
+                        >
+                          <RotateCcw size={ICON_SM} />
+                        </IconButton>
                       )}
                       {binding && !isSequence(binding) && !action.sequenceFixed && (
-                        <Tooltip label={`禁用${action.label}快捷键`} content="禁用快捷键">
-                          <button
-                            type="button"
-                            className="shortcuts-action"
-                            aria-label={`禁用${action.label}快捷键`}
-                            onClick={() => {
-                              setRecordingId(null)
-                              setBinding(action.id, null)
-                              toast('已禁用')
-                            }}
-                          >
-                            <Ban size={ICON_SM} />
-                          </button>
-                        </Tooltip>
+                        <IconButton
+                          className="shortcuts-action"
+                          tooltip="禁用快捷键"
+                          label={`禁用${action.label}快捷键`}
+                          onClick={() => {
+                            setRecordingId(null)
+                            setBinding(action.id, null)
+                            toast('已禁用')
+                          }}
+                        >
+                          <Ban size={ICON_SM} />
+                        </IconButton>
                       )}
                     </span>
                   </div>

@@ -28,13 +28,16 @@
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .dv-back:hover {
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
   color: var(--text-primary);
 }
 .dv-record-action.ui-icon-btn {
   border-radius: var(--radius-6);
   background: transparent;
   box-shadow: none;
+}
+.dv-record-action.ui-icon-btn.is-pressed {
+  color: var(--star-color);
 }
 .dv-detail-navigation svg {
   display: block;
@@ -188,19 +191,19 @@
   gap: 10px;
   margin: -2px 0 22px;
   padding: 10px 11px;
-  background: color-mix(in srgb, var(--accent) 5%, var(--bg-surface));
-  border: 1px solid color-mix(in srgb, var(--accent) 17%, var(--border-subtle));
+  background: var(--surface-inset);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-8);
 }
 
 .dv-review-stage.is-result-pending {
-  background: color-mix(in srgb, var(--warn) 5%, var(--bg-surface));
-  border-color: color-mix(in srgb, var(--warn) 20%, var(--border-subtle));
+  background: var(--warn-action-bg);
+  border-color: var(--warn-action-border);
 }
 
 .dv-review-stage.is-result-conflict {
-  background: color-mix(in srgb, var(--neg) 5%, var(--bg-surface));
-  border-color: color-mix(in srgb, var(--neg) 20%, var(--border-subtle));
+  background: var(--error-action-bg);
+  border-color: var(--error-action-border);
 }
 
 .dv-review-stage-icon {
@@ -213,7 +216,7 @@
   border-radius: var(--radius-6);
 }
 
-.dv-review-stage.is-result-pending .dv-review-stage-icon { color: var(--warn); }
+.dv-review-stage.is-result-pending .dv-review-stage-icon { color: var(--warn-action); background: var(--warn-action-bg); }
 .dv-review-stage.is-result-conflict .dv-review-stage-icon { color: var(--neg); background: var(--error-action-bg); }
 
 .dv-review-stage-copy {
@@ -384,9 +387,9 @@
   gap: 9px;
   margin-bottom: 14px;
   padding: 9px 10px;
-  color: var(--warn);
-  background: color-mix(in srgb, var(--warn) 5%, var(--bg-surface));
-  border: 1px solid color-mix(in srgb, var(--warn) 18%, var(--border-subtle));
+  color: var(--warn-action);
+  background: var(--warn-action-bg);
+  border: 1px solid var(--warn-action-border);
   border-radius: var(--radius-8);
 }
 .dv-note-load-copy {
@@ -410,22 +413,6 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-control-gap);
-}
-.dv-note-load.is-error button {
-  display: inline-flex;
-  align-items: center;
-  align-self: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 9px;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-6);
-}
-.dv-note-load.is-error button:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
 }
 .dv-document.is-note-readonly .editor .ProseMirror {
   cursor: default;
@@ -550,8 +537,8 @@
 .dv-feed-delete {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
   border-radius: var(--radius-6);
   color: var(--text-tertiary);
   opacity: 0;
@@ -561,7 +548,7 @@
     color var(--dur-fast) var(--ease-out);
 }
 .dv-feed-delete:hover {
-  background: var(--bg-hover);
+  background: var(--error-action-bg);
   color: var(--neg);
 }
 .dv-feed-text b {
@@ -653,8 +640,8 @@
 .dv-comment-send {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
   border-radius: var(--radius-full);
   background: var(--accent);
   color: var(--accent-text);
@@ -719,7 +706,7 @@
 }
 .dv-section-head:hover {
   color: var(--text-secondary);
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
 }
 .dv-section-chev { color: var(--text-quaternary); }
 .dv-section.is-open > .dv-section-head { margin-bottom: var(--sp-1); }
@@ -863,7 +850,7 @@
     color var(--dur-fast) var(--ease-out);
 }
 .dv-case-row:hover {
-  background: var(--bg-hover);
+  background: var(--surface-row-hover);
   color: var(--text-primary);
 }
 .dv-case-row svg {
@@ -888,7 +875,7 @@
   color: var(--text-secondary);
 }
 .dv-case-link:hover {
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
   color: var(--text-primary);
 }
 .dv-case-id {
@@ -1026,7 +1013,7 @@
 }
 .dv-strategy-manage:hover {
   color: var(--text-primary);
-  background: var(--bg-hover);
+  background: var(--surface-control-hover);
 }
 
 
@@ -1068,28 +1055,4 @@
   display: flex;
   gap: var(--sp-2);
 }
-.dv-empty-action {
-  display: inline-flex;
-  align-items: center;
-  height: 30px;
-  padding: 0 10px;
-  color: var(--text-secondary);
-  font-size: var(--type-metadata-size);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-6);
-}
-.dv-empty-action:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-.dv-empty-action.is-primary {
-  color: var(--accent-text);
-  background: var(--accent);
-  border-color: transparent;
-}
-.dv-empty-action.is-primary:hover {
-  color: var(--accent-text);
-  background: var(--accent-hover);
-}
-
 /* 详情局部控件使用内边界标识键盘位置，属性只标记值而不高亮整行。 */

@@ -1,6 +1,11 @@
+import { PopoverSurface } from '@/components/ui/PopoverSurface'
 import { motionDuration, reducesMotion } from '@/lib/motion'
 import {
+  cloneElement,
+  isValidElement,
   useEffect,
+  useId,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -18,14 +23,18 @@ export function HoverPreview({
   content,
   placement = 'top',
   delay = DEFAULT_PREVIEW_DELAY_MS,
+  compact = false,
   disabled,
 }: {
   children: ReactNode
   content: ReactNode
   placement?: Placement
   delay?: number
+  compact?: boolean
   disabled?: boolean
 }) {
+  const id = useId()
+  const panelRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLSpanElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -56,25 +65,6 @@ export function HoverPreview({
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     closeTimerRef.current = null
     timerRef.current = setTimeout(() => {
-      const rect = triggerRef.current?.getBoundingClientRect()
-      if (!rect) return
-      const width = Math.min(336, Math.max(260, window.innerWidth - 24))
-      const left = Math.min(
-        Math.max(12, rect.left + rect.width / 2 - width / 2),
-        window.innerWidth - width - 12,
-      )
-      const nextPlacement =
-        placement === 'top' && rect.top < 150 ? 'bottom' : placement
-      const top =
-        nextPlacement === 'bottom'
-          ? rect.bottom + 8
-          : rect.top - 8
-      setActualPlacement(nextPlacement)
-      setStyle({
-        left,
-        top,
-        width,
-      })
       setRendered(true)
       frameRef.current = requestAnimationFrame(() => {
         setVisible(true)
@@ -82,6 +72,36 @@ export function HoverPreview({
       })
     }, wait)
   }
+
+  useLayoutEffect(() => {
+    if (!rendered) return
+    const trigger = triggerRef.current
+    const panel = panelRef.current
+    if (!trigger || !panel) return
+
+    const position = () => {
+      const rect = trigger.getBoundingClientRect()
+      const inset = 8
+      const gap = 6
+      const above = rect.top - inset - gap
+      const below = window.innerHeight - rect.bottom - inset - gap
+      const preferredRoom = placement === 'top' ? above : below
+      const alternateRoom = placement === 'top' ? below : above
+      const side = panel.offsetHeight > preferredRoom && alternateRoom > preferredRoom
+        ? (placement === 'top' ? 'bottom' : 'top')
+        : placement
+      const left = Math.max(inset, Math.min(rect.left, window.innerWidth - panel.offsetWidth - inset))
+      const preferredTop = side === 'top' ? rect.top - gap - panel.offsetHeight : rect.bottom + gap
+      const top = Math.max(inset, Math.min(preferredTop, window.innerHeight - panel.offsetHeight - inset))
+      setActualPlacement(side)
+      setStyle({ left, top })
+    }
+    position()
+    const observer = new ResizeObserver(position)
+    observer.observe(panel)
+    observer.observe(trigger)
+    return () => observer.disconnect()
+  }, [rendered, placement])
 
   const schedulePointerOpen = () => scheduleOpen(delay)
   const openFromFocus = () => scheduleOpen(0)
@@ -124,18 +144,26 @@ export function HoverPreview({
         onFocus={openFromFocus}
         onBlur={close}
       >
-        {children}
+        {rendered && isValidElement<{ 'aria-describedby'?: string }>(children)
+          ? cloneElement(children, {
+            'aria-describedby': [children.props['aria-describedby'], id].filter(Boolean).join(' '),
+          })
+          : children}
       </span>
       {rendered &&
         createPortal(
-          <div
+          <PopoverSurface
+            ref={panelRef}
+            id={id}
+            kind="tooltip"
+            data-compact={compact || undefined}
             className={'hover-preview-pop hover-preview-' + actualPlacement}
             data-state={visible ? 'open' : 'closed'}
             style={style}
             role="tooltip"
           >
             {content}
-          </div>,
+          </PopoverSurface>,
           document.body,
         )}
     </>

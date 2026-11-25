@@ -13,6 +13,7 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { PopoverSurface } from './PopoverSurface'
 import './Tooltip.css'
 
 export type TooltipSide = 'auto' | 'top' | 'bottom' | 'right'
@@ -239,7 +240,7 @@ export function Tooltip({
 
 function TooltipBubble({ mounted, ...props }: HTMLAttributes<HTMLDivElement> & { mounted: RefObject<HTMLDivElement> }) {
   const ref = useExitClone<HTMLDivElement>(true, mounted)
-  return <div {...props} ref={ref} />
+  return <PopoverSurface kind="tooltip" {...props} ref={ref} />
 }
 
 /** 仅在文字被裁切时提示完整内容，避免重复可见原文。 */

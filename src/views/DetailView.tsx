@@ -532,12 +532,12 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
               <Link
                 to={detailReturn}
                 state={detailReturnState}
-                className="ui-btn ui-btn-bordered"
+                className="ui-btn ui-btn-bordered ui-btn-md"
               >
                 {commandSearch ? '返回搜索结果' : `返回${returnDestinationLabel}`}
               </Link>
               {deletedTrade && (
-                <Link to="/trade-trash" className="empty-btn">
+                <Link to="/trade-trash" className="ui-btn ui-btn-bordered ui-btn-md">
                   前往回收站
                 </Link>
               )}
@@ -1119,7 +1119,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
                     </div>
                     <div className="dv-note-load-actions">
                       {activeNoteLoad.reason === 'incomplete' && (
-                        <button
+                        <Button size="sm" variant="bordered"
                           type="button"
                           onClick={() => {
                             const repaired = removeMissingAssetReferences(trade.note, activeNoteLoad.fallbackHtml)
@@ -1134,9 +1134,9 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
                           }}
                         >
                           移除缺失图片并继续编辑
-                        </button>
+                        </Button>
                       )}
-                      <button
+                      <Button size="sm" variant="bordered"
                         type="button"
                         disabled={noteRetrying}
                         onClick={() => {
@@ -1146,7 +1146,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
                       >
                         <RotateCcw size={ICON_SM} aria-hidden />
                         {noteRetrying ? '正在载入…' : '重新载入'}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -1907,24 +1907,24 @@ function FeedItem({
           onClose={() => setDeleteOpen(false)}
           footer={(
             <>
-              <button
+              <Button
                 type="button"
-                className="ui-btn ui-btn-bordered"
+                size="lg" variant="bordered"
                 data-autofocus
                 onClick={() => setDeleteOpen(false)}
               >
                 取消
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="ui-btn ui-btn-danger-solid"
+                size="lg" variant="danger-solid"
                 onClick={() => {
                   setDeleteOpen(false)
                   onDelete()
                 }}
               >
                 删除追记
-              </button>
+              </Button>
             </>
           )}
         />

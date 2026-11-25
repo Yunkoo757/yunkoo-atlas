@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import { ToastHost } from '@/components/Toast'
+import { BatchActionBar } from '@/components/ui/BatchActionBar'
 import { toast, useToast } from '@/lib/toast'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
@@ -34,7 +35,10 @@ async function run(): Promise<void> {
   let actionCalls = 0
 
   try {
-    root.render(<ToastHost />)
+    const renderToastWithSelection = (count: number) => root.render(
+      <><ToastHost /><BatchActionBar count={count}><button>复制</button></BatchActionBar></>,
+    )
+    renderToastWithSelection(0)
     toast('已记录', {
       actionLabel: '打开记录',
       onAction: () => { actionCalls += 1 },
@@ -56,6 +60,14 @@ async function run(): Promise<void> {
     assert(style.animationName === 'toastIn', '通知回执必须使用 token 驱动的入场动效')
     assert(panel.dataset.state === 'active', '新通知必须处于 active 状态')
 
+    const restingBottom = getComputedStyle(panel.parentElement!).bottom
+    renderToastWithSelection(2)
+    await waitFor(() => {
+      const bar = document.querySelector('.batch-action-bar.is-floating')
+      return Boolean(bar && panel.getBoundingClientRect().bottom + 4 <= bar.getBoundingClientRect().top)
+    }, '浮动批量工具栏必须避开当前通知')
+    renderToastWithSelection(0)
+    await waitFor(() => getComputedStyle(panel.parentElement!).bottom === restingBottom, '取消选择后通知应回到底部')
     document.querySelector<HTMLButtonElement>('.toast-action')?.click()
     assert(actionCalls === 1, '通知动作必须只执行一次')
     await waitFor(

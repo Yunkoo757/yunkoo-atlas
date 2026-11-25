@@ -50,9 +50,9 @@
   min-height: var(--chip-height-md);
   gap: 2px;
   padding: 0 3px 0 var(--sp-2);
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border-default));
+  border: 1px solid var(--surface-control-border);
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: var(--surface-control);
   color: var(--text-secondary);
   font-family: var(--font-ui);
   font-size: var(--type-chip-size);
@@ -81,13 +81,7 @@
   color: var(--text-secondary);
 }.tag-input {
   width: 100%;
-  height: var(--field-height-md);
-  padding: 0 10px;
-  border-radius: var(--radius-6);
-  border: 1px solid var(--field-border);
-  background: var(--field-bg);
   font-size: var(--type-row-size);
-  color: var(--text-primary);
 }.tag-input-wrap {
   position: relative;
   flex: 1 1 140px;
@@ -103,16 +97,13 @@
   margin: 0;
   padding: var(--sp-1);
   list-style: none;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-8);
-  box-shadow: var(--shadow-md);
   max-height: 160px;
   overflow-y: auto;
 }.tag-suggest-item {
   display: block;
   width: 100%;
-  padding: 6px 10px;
+  min-height: var(--menu-item-height);
+  padding-inline: var(--sp-2);
   overflow: hidden;
   border-radius: var(--radius-6);
   color: var(--text-secondary);
@@ -123,7 +114,7 @@
   transition: background var(--dur-fast) var(--ease-out);
 }.tag-suggest-item:hover,
 .tag-suggest-item.is-active {
-  background: var(--bg-hover);
+  background: var(--surface-menu-hover);
   color: var(--text-primary);
 }/* 详情侧栏：沿用同一套分区，去掉旧的 order / 限高滚动 */
 .dv-props .tag-editor {
@@ -144,9 +135,6 @@
   min-height: var(--chip-height-md);
 }.dv-props .tag-chip {
   padding-inline: var(--sp-2) 3px;
-  color: var(--text-secondary);
-  background: var(--surface-control);
-  border-color: var(--surface-control-border);
 }.dv-props .tag-preset-chip {
   background: transparent;
   border-color: var(--surface-control-border);
@@ -156,7 +144,7 @@
 }.dv-props .tag-chip:hover,
 .dv-props .tag-preset-chip:hover {
   color: var(--text-primary);
-  background: var(--group-add-hover-bg);
+  background: var(--surface-control-hover);
   border-color: var(--border-default);
 }
 

@@ -1,15 +1,17 @@
 import { ICON_LG, ICON_MD } from '@/icons/iconSize'
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertCircle, Shield } from '@/icons/appIcons'
+import { AlertCircle } from '@/icons/appIcons'
+import { RiskNavIcon } from '@/icons/SettingsIcons'
 import type { RiskPeriodScope } from '@/data/riskManagement'
 import { fmtMoney, fmtR } from '@/lib/format'
 import { RiskGatePublishAfterCommitError } from '@/lib/riskGatedTradeOpenCommit'
+import { reachesRiskLimit } from '@/lib/tradeOpenRiskGate'
 import { RISK_UNKNOWN_REASON_COPY } from '@/lib/riskUnknownReasonPresentation'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Button } from '@/components/ui/Button'
 import { WeeklyRiskPreparationCard } from '@/components/WeeklyRiskPreparationCard'
-import { useStore, type StorePendingTradeOpenRequest } from '@/store/useStore'
+import { useStore } from '@/store/useStore'
 import './TradeOpenRiskDialog.css'
 
 const PERIODS: Array<{ scope: RiskPeriodScope; label: string }> = [
@@ -137,10 +139,6 @@ export function TradeOpenRiskDialog() {
     return () => cancelAnimationFrame(frame)
   }, [commitState])
 
-  const unknownReasonText = useMemo(() => request
-    ? request.unknownReasons.map((item) => RISK_UNKNOWN_REASON_COPY[item]).join('、')
-    : '', [request])
-
   if (!activeRequest || !trade) return null
 
   const close = () => {
@@ -207,12 +205,12 @@ export function TradeOpenRiskDialog() {
     return (
       <ModalShell
         title="设置当前阶段风险基准"
-        description={`${trade.ref} · ${trade.symbol} · 保存后将重新计算本次开仓风险`}
+        description={`${trade.symbol} · ${trade.ref} · 保存后将重新计算本次开仓风险`}
         busy={baselineSaving}
         dismissible={!baselineSaving}
         onClose={close}
         size="default"
-        footer={<Button variant="bordered" size="lg" disabled={baselineSaving} onClick={close}>取消开仓</Button>}
+        footer={<Button variant="ghost" size="lg" disabled={baselineSaving} onClick={close}>取消开仓</Button>}
       >
         <div data-risk-baseline-dialog>
           <WeeklyRiskPreparationCard currentTradingDayKey={request.currentTradingDayKey} />
@@ -240,7 +238,7 @@ export function TradeOpenRiskDialog() {
         size="compact"
         footer={(
           <>
-            <Button variant="bordered" size="lg" onClick={close}>取消开仓</Button>
+            <Button variant="ghost" size="lg" onClick={close}>取消开仓</Button>
             {isStageMismatch ? null : (
               <Link className="ui-btn ui-btn-primary ui-btn-lg" to="/settings/risk" onClick={close}>
                 前往风险设置
@@ -251,7 +249,7 @@ export function TradeOpenRiskDialog() {
       >
         <section className="trade-open-risk-dialog" data-risk-setup-dialog>
           <div className="trade-open-risk-callout is-unknown">
-            <Shield size={ICON_LG} aria-hidden />
+            <RiskNavIcon size={ICON_LG} aria-hidden />
             <div>
               <p>{isStageMismatch
                 ? '历史或未归属交易不能在当前阶段开仓。请新建当前阶段的计划交易。'
@@ -265,13 +263,18 @@ export function TradeOpenRiskDialog() {
 
   if (!request) return null
 
-  const triggeredPeriods = PERIODS
-    .filter(({ scope }) => request.outcomes[scope].triggered)
+  const triggeredPeriods = PERIODS.filter(({ scope }) => reachesRiskLimit(request.outcomes[scope]))
     .map(({ label }) => label)
+
+  const observations: string[] = []
+  if (triggeredPeriods.length > 0) observations.push(`${triggeredPeriods.join('、')}已达止损限额`)
+  if (!policy) observations.push('当前阶段尚无生效的风险规则')
+  else if (!request.monthlyLimitId) observations.push('本月止损限额尚未设置')
+  observations.push(...request.unknownReasons.map((item) => RISK_UNKNOWN_REASON_COPY[item]))
 
   return (
     <ModalShell
-      title={request.decisionType === 'unknown' ? '当前风险无法确认' : '止损预算已触线'}
+      title={request.decisionType === 'unknown' ? '开仓风险待确认' : '止损预算已触线'}
       description={`${trade.symbol} · ${trade.ref}`}
       busy={commitState === 'committing'}
       dismissible={commitState !== 'committing' && !reloadRequired}
@@ -290,7 +293,7 @@ export function TradeOpenRiskDialog() {
           </Button>
         ) : (
           <>
-            <Button variant="bordered" size="lg" disabled={commitState === 'committing'} onClick={close}>
+            <Button variant="ghost" size="lg" disabled={commitState === 'committing'} onClick={close}>
               取消开仓
             </Button>
             <Button
@@ -316,46 +319,60 @@ export function TradeOpenRiskDialog() {
         data-trade-open-risk-dialog
         onSubmit={submit}
       >
-        <section className={`trade-open-risk-callout is-${request.decisionType}`}>
-          <Shield size={ICON_LG} aria-hidden />
+        <section className={`trade-open-risk-callout is-${request.decisionType}`} tabIndex={-1} data-autofocus>
+          <RiskNavIcon size={ICON_LG} aria-hidden />
           <div>
-            {request.decisionType !== 'unknown' ? <strong>{triggeredPeriods.join('、') || '当前'}止损预算已触线</strong> : null}
-            <p>
-              {request.decisionType === 'unknown'
-                ? !policy ? `当前未设置有效风险规则，无法计算可用预算。${unknownReasonText}` : unknownReasonText || '当前风险数据覆盖不足。'
-                : '继续开仓会形成不可撤销的风险确认审计记录。'}
-            </p>
+            <p>{observations.length > 0 ? `${observations.join('，')}。` : '当前交易记录不足以核实止损预算。'}</p>
+            <small>确认后将保存风险快照，此记录无法撤销。</small>
           </div>
         </section>
 
-        <div className="trade-open-risk-periods" aria-label="日周月风险预算">
-          {PERIODS.map(({ scope, label }) => {
-            const outcome = request.outcomes[scope]
-            return (
-              <div key={scope} className={outcome.triggered ? 'is-triggered' : outcome.coverage === 'unknown' ? 'is-unknown' : ''}>
-                <span>{label}</span>
-                <strong>{!policy || outcome.coverage === 'unknown' ? '无法确认' : fmtR(outcome.netBudgetR)}</strong>
-                <small>{outcome.coverage === 'complete' ? '已用' : '已知已用'} {fmtBudgetR(outcome.consumedR)} / 限额 {policy ? fmtBudgetR(outcome.limitR) : '未设置'}</small>
-                <em>记录覆盖：{outcome.coverage === 'complete' ? '完整' : outcome.coverage === 'partial' ? '部分缺失' : '未知'}</em>
-              </div>
-            )
-          })}
-        </div>
+        <table className="trade-open-risk-periods" aria-label="日周月风险预算">
+          <thead>
+            <tr><th scope="col">周期</th><th scope="col">已用额度</th><th scope="col">止损限额</th></tr>
+          </thead>
+          <tbody>
+            {PERIODS.map(({ scope, label }) => {
+              const outcome = request.outcomes[scope]
+              const limitSet = scope === 'month' ? Boolean(request.monthlyLimitId) : Boolean(policy)
+              const hasUsage = outcome.includedTradeCount > 0 || (Boolean(policy) && outcome.coverage === 'complete')
+              return (
+                <tr key={scope} className={triggeredPeriods.includes(label) ? 'is-triggered' : undefined}>
+                  <th scope="row">
+                    {label}
+                    {outcome.coverage !== 'complete' && (
+                      <small>{outcome.coverage === 'partial' ? '部分记录缺失' : '记录待核实'}</small>
+                    )}
+                  </th>
+                  <td>
+                    {hasUsage ? (
+                      <>
+                        {outcome.coverage !== 'complete' && <small>已知 </small>}
+                        <strong>{fmtBudgetR(outcome.consumedR)}</strong>
+                        {outcome.netBudgetR > 0 && <small className="trade-open-risk-gain">净收益 {fmtR(outcome.netBudgetR)}</small>}
+                      </>
+                    ) : <small>待核实</small>}
+                  </td>
+                  <td>{limitSet ? fmtBudgetR(outcome.limitR) : <small>未设置</small>}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
 
-        <section className="trade-open-risk-policy">
-          <div>
-            <span>有效规则</span>
-            <strong>{policy ? `${policy.effectiveTradingDay} 起生效` : '当前无有效规则'}</strong>
-          </div>
-          <div>
-            <span>1R 金额</span>
-            <strong>{policy ? (privacyMode ? '****' : fmtMoney(policy.riskAmount, 'USD')) : '—'}</strong>
-          </div>
-          <p>{policy?.disciplineText || '当前无风险基准；你仍可确认本次开仓，系统会保留未知风险审计。'}</p>
-          {!policy ? (
-            <button
-              type="button"
-              className="trade-open-risk-baseline-action"
+        <section className="trade-open-risk-policy" aria-label="有效风险规则">
+          {policy ? (
+            <>
+              <dl>
+                <div><dt>规则生效日</dt><dd>{policy.effectiveTradingDay}</dd></div>
+                <div><dt>1R 金额</dt><dd>{fmtMoney(policy.riskAmount, 'USD', privacyMode).replace(/^\+/, '')}</dd></div>
+              </dl>
+              {policy.disciplineText && <p>{policy.disciplineText}</p>}
+            </>
+          ) : (
+            <Button
+              variant="bordered"
+              size="sm"
               onClick={() => {
                 setBaselinePolicyCount(currentStagePolicyCount)
                 setBaselineError('')
@@ -363,15 +380,14 @@ export function TradeOpenRiskDialog() {
               }}
             >
               设置风险基准
-            </button>
-          ) : null}
+            </Button>
+          )}
         </section>
 
         <label className="trade-open-risk-reason">
-          <span>继续开仓原因（可选） <small>{Array.from(reason).length}/500</small></span>
+          <span>继续开仓原因 <small>可选</small><small className="trade-open-risk-count">{reason.length}/500</small></span>
           <textarea
             aria-label="继续开仓原因"
-            data-autofocus
             value={reason}
             maxLength={500}
             rows={2}
@@ -383,7 +399,7 @@ export function TradeOpenRiskDialog() {
                 setError('')
               }
             }}
-            placeholder="可留空；如填写，将与本次风险快照一起保存。"
+            placeholder="随本次风险记录保存"
           />
         </label>
 

@@ -1,3 +1,4 @@
+import '@/components/ui/PopoverSurface.css'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { Button } from '@/components/ui/Button'
 import { ICON_SM } from '@/icons/iconSize'
@@ -166,7 +167,7 @@ export function TagEditor({
               aria-autocomplete="list"
             />
             {showDropdown && (
-              <ul ref={exitSuggestions} className="tag-suggest" role="listbox" id={listId} aria-label="标签候选">
+              <ul ref={exitSuggestions} className="ui-popover-surface ui-popover-menu tag-suggest" role="listbox" id={listId} aria-label="标签候选">
                 {matches.map((s, i) => (
                   <li key={s}>
                     <button

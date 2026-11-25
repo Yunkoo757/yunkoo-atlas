@@ -17,7 +17,7 @@ export function RiskDataHealthSummary({ currentTradingDayKey }: { currentTrading
       </div>
       <div className="risk-data-summary-status">
         <span>{queue.retainedOnly ? '仅剩历史缺口' : '风险数据需要补全'}</span>
-        <Link to="/settings/risk/data-repair">{actionLabel}</Link>
+        <Link className="ui-btn ui-btn-bordered ui-btn-sm" to="/settings/risk/data-repair">{actionLabel}</Link>
       </div>
     </section>
   )

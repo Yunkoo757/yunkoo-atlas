@@ -472,7 +472,7 @@ export function DataSettingsPanel({
 
           {backups.length > 0 && (
             <details className="data-maintenance-disclosure">
-              <summary>查看备份 <span>{backups.length}</span></summary>
+              <DisclosureSummary>查看备份 <span>{backups.length}</span></DisclosureSummary>
               <div className="data-maintenance-actions">
                 <button
                   className="dio-btn"
@@ -756,7 +756,7 @@ export function DataSettingsPanel({
         >
           {purgeRecoveryError ? <div role="alert">
             <p>{assetPurgeCommitEnabled ? '恢复归档导出失败，您仍可直接清理，或选择其他保存位置重试。' : '恢复归档导出失败，请选择其他保存位置重试。'}</p>
-            <details><summary>查看失败详情</summary><p>{purgeRecoveryError}</p></details>
+            <details><DisclosureSummary>查看失败详情</DisclosureSummary><p>{purgeRecoveryError}</p></details>
           </div> : null}
           <div className="data-purge-summary">
             <span>{assetPurgeCommitEnabled ? '待清理' : '扫描结果'}</span>

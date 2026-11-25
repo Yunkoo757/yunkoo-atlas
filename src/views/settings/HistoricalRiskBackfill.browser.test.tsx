@@ -41,7 +41,14 @@ async function run() {
     await waitFor(() => document.body.textContent?.includes('补录历史风险规则') ?? false, '补录入口未出现')
     button('补录历史风险规则').click()
     await waitFor(() => !!document.querySelector('[role="dialog"]'), '弹窗未打开')
-    assert(document.querySelector<HTMLInputElement>('[aria-label="历史起始日期"]')?.value === '2026-07-12', '应预填最早缺口日期')
+    const dateSelector = 'button[aria-label="历史起始日期"]'
+    await waitFor(() => document.querySelector<HTMLButtonElement>(dateSelector)?.disabled === false, '日期选择器未就绪')
+    const dateTrigger = document.querySelector<HTMLButtonElement>(dateSelector)!
+    assert(dateTrigger.textContent === '2026-07-12', '应预填最早缺口日期')
+    dateTrigger.click()
+    await waitFor(() => !!document.querySelector('[aria-label="历史起始日期日历"]'), '应打开共享日历')
+    dateTrigger.click()
+    await waitFor(() => dateTrigger.getAttribute('aria-expanded') === 'false', '关闭日历应返回补录表单')
     assert(document.querySelector<HTMLInputElement>('[aria-label="历史资金基准"]')?.value === '12345.67', '应预填当前规则资金基准')
     button('预览补录结果').click()
     await waitFor(() => document.body.textContent?.includes('可解除 10 项缺口') ?? false, '预览未展示可解除缺口')

@@ -58,7 +58,8 @@
 }
 
 .app-route-state p {
-  max-width: 420px;
+  max-width: min(420px, 100%);
+  overflow-wrap: anywhere;
   margin: var(--sp-2) 0 0;
   color: var(--text-tertiary);
   font-size: var(--type-body-size);

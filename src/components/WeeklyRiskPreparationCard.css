@@ -115,18 +115,9 @@
 .risk-preparation-form input {
   width: 100%;
   min-width: 0;
-  height: var(--field-height-md);
-  padding: 0 var(--field-padding-inline);
-  color: var(--text-primary);
-  font: inherit;
   font-size: var(--type-row-size);
-  font-family: var(--font-ui);
   font-variant-numeric: var(--numeric-tabular);
   font-feature-settings: "tnum" 1, "kern" 1;
-  background: var(--field-bg);
-  border: 1px solid var(--field-border);
-  border-radius: var(--radius-6);
-  outline: none;
 }
 
 .risk-preparation-inline-input { position: relative; }
@@ -135,7 +126,7 @@
   position: absolute;
   top: 50%;
   right: var(--field-padding-inline);
-  color: var(--text-quaternary);
+  color: var(--text-content-metadata);
   font-size: var(--type-metadata-size);
   transform: translateY(-50%);
 }
@@ -186,7 +177,7 @@
 
 .risk-preparation-summary-copy { min-width: 0; flex: 1; }
 .risk-policy-diff { margin-top: var(--sp-3); }
-.risk-policy-diff summary { margin-top: var(--space-row-gap); color: var(--text-muted); font-size: var(--type-metadata-size); cursor: pointer; }
+.risk-policy-diff summary { margin-top: var(--space-row-gap); }
 .risk-policy-diff strong { color: var(--text-primary); }
 .risk-policy-diff p, .risk-policy-diff li { color: var(--text-tertiary); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }
 .risk-policy-diff p { margin: var(--sp-1) 0 0; }
