@@ -337,13 +337,13 @@ const checks = [
   ],
   [
     'trade group counts keep canonical numeric metrics',
-    /\.trade-list-group-count\s*\{[^}]*color:\s*var\(--text-content-metadata\);[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--font-weight-normal\);[^}]*font-feature-settings:\s*normal;[^}]*font-variant-numeric:\s*var\(--numeric-tabular\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(
+    /\.trade-list-group-count\s*\{[^}]*color:\s*var\(--list-group-count\);[^}]*font-family:\s*var\(--font-ui\);[^}]*font-size:\s*var\(--type-metadata-size\);[^}]*font-weight:\s*var\(--font-weight-normal\);[^}]*font-feature-settings:\s*normal;[^}]*font-variant-numeric:\s*var\(--numeric-tabular\);[^}]*line-height:\s*var\(--type-metadata-line-height\);/s.test(
       tradeListStyles,
     ),
   ],
   [
-    'scan metadata consumes the canonical metadata text role',
-    /\.trade-row-timeframe\s*\{[^}]*color:\s*var\(--text-content-metadata\);/s.test(tradeListStyles) &&
+    'trade scanning fields and board metadata consume their respective text roles',
+    /\.trade-row-timeframe\s*\{[^}]*color:\s*var\(--text-content-scan\);/s.test(tradeListStyles) &&
       /\.bd-col-count\s*\{[^}]*color:\s*var\(--text-content-metadata\);/s.test(boardViewStyles) &&
       /\.bd-card-ref\s*\{[^}]*color:\s*var\(--text-content-metadata\);/s.test(boardViewStyles),
   ],

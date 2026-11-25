@@ -178,7 +178,7 @@
 }
 
 .trade-list-group-count {
-  color: var(--text-content-metadata);
+  color: var(--list-group-count);
   font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-normal);
@@ -209,7 +209,7 @@
     opacity var(--motion-state) var(--ease-out);
 }
 
-/* 圆底 lch(13.456% 0.943 272) 压在未抬亮的 surface-group 上才显得「亮起」 */
+/* 悬停时单独提亮加号的圆形底色，月份分组保持稳定。 */
 .trade-list-group-add:hover {
   color: var(--text-strong);
   background-color: var(--group-add-hover-bg);
@@ -576,7 +576,7 @@ button.trade-row-symbol-main {
   max-width: none;
   min-width: 2.75ch;
   padding: 2px 6px;
-  color: var(--text-content-metadata);
+  color: var(--text-content-scan);
   font-variant-numeric: var(--numeric-tabular);
   letter-spacing: 0;
   background: transparent;
@@ -668,7 +668,7 @@ button.trade-row-symbol-main {
 }
 
 .trade-row-date {
-  color: var(--text-content-metadata);
+  color: var(--text-content-scan);
   font-family: var(--font-ui);
   font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
@@ -721,5 +721,6 @@ button.trade-row-symbol-main {
 }
 
 .trade-row-date-detail { pointer-events:auto; padding:0; border:0; background:transparent; color:inherit; font:inherit; cursor:pointer; }
+.trade-row-date-detail[data-value-state="missing"] { color: var(--text-content-metadata); }
 
 .trade-row-star > svg { transition: fill-opacity var(--motion-state) var(--ease-out); }

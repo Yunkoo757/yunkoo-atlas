@@ -20,7 +20,6 @@ import {
   REVIEW_CATEGORY_META,
   CASE_TYPE_META,
   STATUS_META,
-  getTimeframeTone,
   resolveTimeframe,
   type TradeStatus,
   type Trade,
@@ -423,9 +422,7 @@ function BoardColumnBody({
                   <StrategyLabel strategyId={t.strategyId} strategies={strategies} />
                 </div>
                 <div className="bd-case-tags">
-                  <span
-                    className={`bd-case-tag bd-card-timeframe is-${getTimeframeTone(resolveTimeframe(t.timeframe))}`}
-                  >
+                  <span className="bd-case-tag bd-card-timeframe">
                     {resolveTimeframe(t.timeframe)}
                   </span>
                   {isReviewCaseView && <BoardCardTags errors={t.mistakeTags} tags={t.tags} />}

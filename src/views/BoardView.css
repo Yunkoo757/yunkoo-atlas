@@ -156,26 +156,8 @@
   letter-spacing: 0;
 }
 
-.bd-card-timeframe.is-minute {
+.bd-case-tag.bd-card-timeframe {
   color: var(--text-secondary);
-  background: transparent;
-  border-color: var(--border-subtle);
-}
-
-.bd-card-timeframe.is-hour {
-  color: var(--text-secondary);
-  background: transparent;
-  border-color: var(--border-subtle);
-}
-
-.bd-card-timeframe.is-day {
-  color: var(--text-secondary);
-  background: transparent;
-  border-color: var(--border-subtle);
-}
-
-.bd-card-timeframe.is-other {
-  color: var(--text-tertiary);
   background: transparent;
   border-color: var(--border-subtle);
 }

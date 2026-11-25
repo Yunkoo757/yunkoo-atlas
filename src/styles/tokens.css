@@ -9,10 +9,10 @@
 
   /* —— 背景（LCH，中性微靛轴）—— */
   --bg-color: lch(2.6% 0.4 272 / 1);
-  --color-bg-primary: lch(5.52% 0.4 272 / 1);
-  --color-bg-secondary: lch(7.32% 0.85 272 / 1);
-  --color-bg-tertiary: lch(8.22% 1.3 272 / 1);
-  --color-bg-quaternary: lch(9.35% 0.85 272 / 1);
+  --color-bg-primary: lch(8% 0.4 272 / 1);
+  --color-bg-secondary: lch(10% 0.85 272 / 1);
+  --color-bg-tertiary: lch(11% 1.3 272 / 1);
+  --color-bg-quaternary: lch(12% 0.85 272 / 1);
   --bg-sidebar-color: var(--bg-color);
 
   /* —— 文字 —— */
@@ -36,8 +36,8 @@
   --direction-short-bg: color-mix(in srgb, var(--direction-short-text) 10%, transparent);
   --direction-short-border: color-mix(in srgb, var(--direction-short-text) 28%, transparent);
   /* 高密度列表只保留方向辨识，不让多空与最终结果争夺注意力。 */
-  --direction-list-long: lch(60% 8 225);
-  --direction-list-short: lch(60% 8 305);
+  --direction-list-long: lch(65% 8 225);
+  --direction-list-short: lch(65% 8 305);
 
   /* —— 全局浮层层级 —— */
   --z-local-base: 0;
@@ -61,7 +61,7 @@
   --z-critical: 1600;
 
   /* —— 弹出面板 popover —— */
-  --popover-bg: lch(9.92% 0.75 272);
+  --popover-bg: lch(12.5% 0.75 272);
   --popover-border: lch(16.5% 1.7 272);
   --popover-radius: 10px;
   --popover-shadow: 0 3px 8px lch(0 0 0 / 0.125), 0 2px 5px lch(0 0 0 / 0.125),
@@ -197,8 +197,8 @@
   --bg-app: var(--bg-color);
   --bg-surface: var(--color-bg-primary);
   --bg-elevated: var(--color-bg-secondary);
-  --bg-hover: lch(10.15% 0.6 272 / 1);
-  --bg-selected: lch(10.8% 0.85 272 / 1);
+  --bg-hover: lch(12.7% 0.6 272 / 1);
+  --bg-selected: lch(13.4% 0.85 272 / 1);
   --bg-sidebar: var(--bg-sidebar-color);
   /* 内嵌浅底（评分格、证据标签等 inset 面） */
   --bg-inset: color-mix(in srgb, var(--bg-elevated) 55%, var(--bg-surface));
@@ -211,13 +211,13 @@
   --surface-floating: var(--popover-bg);
 
   /* 分组条底色统一；生命力靠三角/状态图标 tint */
-  --surface-group: lch(10.8% 0.85 272 / 1);
+  --surface-group: lch(13% 0.85 272 / 1);
   /*
    * 持久导航位置：active 必须明显强于 hover。
    * 筛选控件继续使用 --surface-control-*，数据多选继续使用
    * --surface-row-selected，避免三种“选中”争夺同一视觉语义。
    */
-  --surface-nav-hover: var(--bg-hover);
+  --surface-nav-hover: lch(10.15% 0.6 272 / 1);
   --surface-nav-active: lch(13.85% 1.3 272 / 1);
   /* CollapseArrow / 分组 + 按状态着色 */
   --group-chevron-started: lch(50% 7 78);
@@ -228,14 +228,14 @@
   --group-add-todo: lch(62.672% 7 272);
   --group-add-backlog: lch(62.672% 7 270);
   --group-add-done: lch(62.672% 7 283);
-  --group-add-hover-bg: lch(13.456% 0.943 272);
+  --group-add-hover-bg: lch(15.7% 0.943 272);
   --group-add-active-bg: lch(23.8411% 0.832 272);
-  --surface-row-hover: lch(10.7% 0.6 272 / 1);
-  --surface-row-selected: lch(10.691% 0.493 272 / 1);
+  --surface-row-hover: lch(13% 0.6 272 / 1);
+  --surface-row-selected: lch(13.3% 0.5 272 / 1);
   /* 独立对象与浮层分别从自己的承载面建立状态，不复用 Row 的绝对色。 */
   --surface-card-hover: var(--bg-hover);
-  --surface-menu-hover: lch(13.1% 0.85 272 / 1);
-  --surface-menu-pressed: lch(15.1% 1 272 / 1);
+  --surface-menu-hover: lch(15.7% 0.85 272 / 1);
+  --surface-menu-pressed: lch(17.7% 1 272 / 1);
   --surface-menu-selected: color-mix(in srgb, var(--accent) 11%, var(--surface-menu-hover));
   --surface-control: var(--color-bg-secondary);
   --surface-control-hover: var(--bg-hover);
@@ -266,8 +266,9 @@
   --list-text-secondary: var(--text-list-secondary);
   --list-text-context: var(--text-content-metadata);
   --list-group-title: var(--text-content-supporting);
+  --list-group-count: lch(63% 1.2 272 / 1);
   --list-group-chevron-collapsed-opacity: 1;
-  --list-status-opacity-rest: 0.72;
+  --list-status-opacity-rest: 0.84;
   --list-status-opacity-active: 0.92;
   --list-interactive-border-rest: color-mix(in srgb, var(--list-text-secondary) 6%, transparent);
   --list-interactive-border-hover: color-mix(in srgb, var(--list-text-secondary) 24%, transparent);
@@ -300,6 +301,7 @@
    */
   --text-content-strong: lch(98% 0.4 272 / 1);
   --text-content-supporting: lch(88% 0.8 272 / 1);
+  --text-content-scan: lch(68% 1.2 272 / 1);
   --text-content-metadata: lch(62% 1.2 272 / 1);
   --text-content-context: lch(56% 1.2 272 / 1);
   --text-content-faint: lch(38% 1.2 272 / 1);
@@ -313,7 +315,7 @@
   --text-tertiary: var(--text-content-context);
   --text-quaternary: var(--text-content-faint);
   /* 高频桌面信息角色：避免侧栏和表格继续复用过暗的辅助灰。 */
-  --text-nav-rest: var(--text-content-metadata);
+  --text-nav-rest: var(--text-content-scan);
   --text-nav-hover: var(--text-content-supporting);
   --text-nav-active: var(--text-content-strong);
   /* 侧栏当前位置：文字保持中性，图标用低面积色相帮助快速定位模块。 */

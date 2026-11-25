@@ -10,6 +10,7 @@
 }
 
 .modal-shell {
+  --surface-control-hover: var(--surface-menu-hover);
   display: flex;
   flex-direction: column;
   width: min(560px, calc(100vw - 32px));
@@ -90,7 +91,7 @@
 
 .modal-shell-close:hover:not(:disabled) {
   color: var(--text-primary);
-  background: var(--bg-hover);
+  background: var(--surface-menu-hover);
 }
 
 .modal-shell-close:active:not(:disabled) {

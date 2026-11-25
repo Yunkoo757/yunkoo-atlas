@@ -44,6 +44,7 @@ const TEXT_ROLE_TOKENS = Object.freeze({
   strong: '--text-content-strong',
   supporting: '--text-content-supporting',
   body: '--text-secondary',
+  scan: '--text-content-scan',
   metadata: '--text-content-metadata',
   context: '--text-content-context',
   faint: '--text-content-faint',
@@ -514,6 +515,10 @@ async function collectResolvedEvidence(root, build) {
   try {
     for (const pageContract of THEME_LUMINANCE_PAGES) {
       await harness.navigate(pageContract.path, pageContract.ready)
+      // RouteContentMotion also fades settings subpages after the app has already settled.
+      await harness.page.waitForFunction(() => !document.getAnimations().some((animation) =>
+        animation.id === 'atlas-route' && animation.playState === 'running',
+      ))
       const rootStyle = await collectResolvedProbe(harness.page, pageContract.root, SURFACE_ROLE_TOKENS)
       const rootPass = rootStyle.found && rootStyle.resolvedBackgroundRole === pageContract.rootSurface
       checks.push({

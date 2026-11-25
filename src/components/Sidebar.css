@@ -224,7 +224,7 @@
   font-size: var(--type-chip-size);
   font-weight: var(--type-chip-weight);
   letter-spacing: 0;
-  color: var(--sb-text);
+  color: var(--text-content-metadata);
 }
 
 .sb-item {

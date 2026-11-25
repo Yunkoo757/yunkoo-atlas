@@ -148,7 +148,7 @@ function assertContextHierarchy(row: HTMLElement): void {
   const ordinary = row.querySelector<HTMLElement>('.trade-row-context > .is-tag')!
   assert(status && side && strategyEntry && mistake && session && ordinary, '列表层级 fixture 必须包含完整上下文')
 
-  assert(getComputedStyle(status).opacity === '0.72', '静止状态图标必须以令牌化透明度退后')
+  assert(getComputedStyle(status).opacity === getComputedStyle(row).getPropertyValue('--list-status-opacity-rest').trim(), '静止状态图标必须以令牌化透明度退后')
   assert(getComputedStyle(side).color === computedColorFor('--direction-list-long'), '方向文字必须消费列表专用色')
   assert(getComputedStyle(ordinary).color === computedColorFor('--list-text-context'), '普通标签必须使用列表上下文灰阶')
   assert(getComputedStyle(ordinary).borderTopColor === 'rgba(0, 0, 0, 0)', '普通标签不得绘制胶囊轮廓')

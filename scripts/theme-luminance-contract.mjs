@@ -4,6 +4,7 @@ export const THEME_LUMINANCE_THRESHOLDS = Object.freeze({
   strong: 12,
   supporting: 7,
   body: 7,
+  scan: 7,
   metadata: 5.5,
   context: 4.5,
 })
@@ -26,18 +27,19 @@ export const THEME_SURFACE_PROBES = Object.freeze([
 
 export const THEME_TEXT_PROBES = Object.freeze([
   Object.freeze({ id: 'sidebar-section', page: 'trades-list', selector: '.sb-primary .sb-section-label', semantic: 'Context', targetRole: 'metadata', required: true }),
-  Object.freeze({ id: 'sidebar-rest', page: 'trades-list', selector: '.sb-primary [data-primary-id="reviewCases"] .sb-item-label', semantic: 'Scan Metadata', targetRole: 'metadata', required: true }),
+  Object.freeze({ id: 'sidebar-rest', page: 'trades-list', selector: '.sb-primary [data-primary-id="reviewCases"] .sb-item-label', semantic: 'Navigation', targetRole: 'scan', expectedToken: '--text-nav-rest', required: true }),
   Object.freeze({ id: 'sidebar-active', page: 'trades-list', selector: '.sb-primary [data-primary-id="trades"] .sb-item-label', semantic: 'Identity', targetRole: 'strong', required: true }),
   Object.freeze({ id: 'month-title', page: 'trades-list', selector: '.trade-list-group-header strong', semantic: 'Grouping', targetRole: 'supporting', required: true }),
-  Object.freeze({ id: 'month-count', page: 'trades-list', selector: '.trade-list-group-count', semantic: 'Scan Metadata', targetRole: 'metadata', required: true }),
+  Object.freeze({ id: 'month-count', page: 'trades-list', selector: '.trade-list-group-count', semantic: 'Scan Metadata', targetRole: 'metadata', expectedToken: '--list-group-count', required: true }),
   Object.freeze({ id: 'trade-strategy', page: 'trades-list', selector: '.trade-row-strategy .strategy-label', semantic: 'Scan Metadata', targetRole: 'metadata', expectedToken: '--list-text-secondary', required: true }),
   Object.freeze({ id: 'trade-symbol', page: 'trades-list', selector: '.trade-row-symbol strong', semantic: 'Identity', targetRole: 'strong', required: true }),
-  Object.freeze({ id: 'trade-timeframe', page: 'trades-list', selector: '.trade-row-timeframe', semantic: 'Scan Metadata', targetRole: 'metadata', required: true }),
-  Object.freeze({ id: 'trade-date', page: 'trades-list', selector: '.trade-row-date', semantic: 'Scan Metadata', targetRole: 'metadata', required: true }),
+  Object.freeze({ id: 'trade-timeframe', page: 'trades-list', selector: '.trade-row-timeframe', semantic: 'Scan Metadata', targetRole: 'scan', required: true }),
+  Object.freeze({ id: 'trade-date', page: 'trades-list', selector: '.trade-row-date-detail:not([data-value-state="missing"])', semantic: 'Scan Metadata', targetRole: 'scan', required: true }),
   Object.freeze({ id: 'trade-tag', page: 'trades-list', selector: '.trade-row-context > .is-tag', semantic: 'Scan Metadata', targetRole: 'metadata', required: true }),
   Object.freeze({ id: 'trade-session', page: 'trades-list', selector: '.trade-row-context > .is-session', semantic: 'Scan Metadata', targetRole: 'metadata', expectedToken: '--tag-session-text', required: true }),
   Object.freeze({ id: 'trade-mistake', page: 'trades-list', selector: '.trade-row-context > .is-mistake', semantic: 'Diagnostic', targetRole: 'metadata', expectedToken: '--tag-error-text', required: true }),
   Object.freeze({ id: 'case-classification', page: 'review-cases-list', selector: '.trade-row-context > .is-review', semantic: 'Case Classification', targetRole: 'metadata', expectedToken: '--text-chip', required: true }),
+  Object.freeze({ id: 'trade-empty-result', page: 'trades-list', selector: '.trade-row-result :is([data-value-state="not-applicable"], [data-value-state="not-collected"])', semantic: 'Placeholder', targetRole: 'metadata', expectedToken: '--result-neutral', required: true }),
   Object.freeze({ id: 'trade-neutral-result', page: 'trades-list', selector: '.trade-row-result [data-value-state="zero"]', semantic: 'Result', targetRole: 'metadata', required: true }),
   Object.freeze({ id: 'trade-positive-result', page: 'trades-list', selector: '.trade-row-result [data-value-sign="positive"]', semantic: 'Result', targetRole: 'body', expectedToken: '--result-positive', required: true }),
   Object.freeze({ id: 'trade-negative-result', page: 'trades-list', selector: '.trade-row-result [data-value-sign="negative"]', semantic: 'Result', targetRole: 'context', expectedToken: '--result-negative', required: true }),
@@ -52,7 +54,7 @@ export const THEME_TEXT_PROBES = Object.freeze([
 ])
 
 export const THEME_STATE_CONTRACTS = Object.freeze([
-  Object.freeze({ id: 'trade-row-hover', path: '/list', ready: '.trade-list', kind: 'hover', target: '.trade-row', pseudo: '::after', afterBackgroundToken: '--surface-row-hover', contrastProbe: '.trade-row .trade-row-date-detail', minimumContrast: 5.5, restore: 'mouse-out' }),
+  Object.freeze({ id: 'trade-row-hover', path: '/list', ready: '.trade-list', kind: 'hover', target: '.trade-row', pseudo: '::after', afterBackgroundToken: '--surface-row-hover', contrastProbe: '.trade-row .trade-row-date-detail', minimumContrast: 6, restore: 'mouse-out' }),
   Object.freeze({ id: 'paper-quick-view-selected', path: '/list?kind=paper', ready: '.quick-view-bar', kind: 'observe', target: '.quick-view-chip.is-active', afterBackgroundToken: '--surface-control-active', restore: 'mouse-out' }),
   Object.freeze({ id: 'quick-view-active-focus', path: '/list', ready: '.quick-view-bar', kind: 'keyboard-focus', target: '.quick-view-chip.is-active', afterBackgroundToken: '--surface-control-active', afterBorderToken: '--surface-control-border-active', restore: 'blur' }),
   Object.freeze({ id: 'month-collapsed-chevron', path: '/list', ready: '.trade-list', kind: 'click', trigger: '.trade-list-group-toggle', target: '.trade-list-group-header.is-collapsed .trade-list-group-chevron', afterOpacity: '1', contrastProbe: '.trade-list-group-header.is-collapsed .trade-list-group-chevron', minimumContrast: 3, restore: 'mouse-out' }),

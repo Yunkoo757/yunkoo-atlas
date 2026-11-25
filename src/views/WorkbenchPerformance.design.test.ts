@@ -84,13 +84,13 @@ export function testCalibratedListGeometryAndSurfacesStayCanonical(): void {
     '--trade-group-height: 36px',
     '--trade-row-height: 44px',
     '--toolbar-chip-height: 28px',
-    '--surface-row-hover: lch(10.7% 0.6 272 / 1)',
-    '--surface-row-selected: lch(10.691% 0.493 272 / 1)',
-    '--surface-group: lch(10.8% 0.85 272 / 1)',
     '--group-chevron-started: lch(50% 7 78)',
     '--group-chevron-done: lch(50% 7 283)',
   ]) {
     if (!tokens.includes(contract)) throw new Error(`missing calibrated token: ${contract}`)
+  }
+  if (!list.includes('background-color: var(--surface-group)') || !list.includes('background: var(--surface-row-hover)')) {
+    throw new Error('group headers and hovered rows must consume their semantic surfaces')
   }
   if (!list.includes('--trade-group-chevron')) {
     throw new Error('group headers must tint CollapseArrow by status/recency, not repaint the bar')

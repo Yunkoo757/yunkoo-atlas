@@ -102,7 +102,8 @@ async function run(): Promise<void> {
         <span class="trade-row-strategy"><span class="strategy-label">导航1</span></span>
         <span class="trade-row-tags"><span class="trade-row-tag">伦敦收盘</span></span>
         <span class="trade-row-timeframe">4H</span>
-        <span class="trade-row-date">8月27日</span>
+        <span class="trade-row-date"><button class="trade-row-date-detail">8月27日</button></span>
+        <span class="trade-row-date"><button class="trade-row-date-detail" data-value-state="missing">—</button></span>
       </div>
     </section>
     <section class="board-scroll">
@@ -213,9 +214,12 @@ async function run(): Promise<void> {
   assertComputedTextRole('.ui-date-grid button.is-outside', '--text-tertiary')
   assertComputedTextRole('.trade-row', '--text-list-secondary')
   assertComputedTextRole('.trade-list-group-header', '--text-content-supporting')
+  assertComputedTextRole('.trade-list-group-count', '--list-group-count')
+  for (const selector of ['.trade-row-date-detail:not([data-value-state="missing"])', '.trade-row-timeframe']) {
+    assertComputedTextRole(selector, '--text-content-scan')
+  }
   for (const selector of [
-    '.trade-list-group-count',
-    '.trade-row-timeframe',
+    '.trade-row-date-detail[data-value-state="missing"]',
     '.bd-col-count',
     '.bd-card-ref',
   ]) assertComputedTextRole(selector, '--text-content-metadata')
