@@ -76,23 +76,6 @@
   box-shadow: none;
   border-radius: var(--radius-6);
 }
-.dv-review-complete-action:not(:disabled) {
-  color: var(--accent-readable);
-}
-.dv-review-complete-meta {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  gap: var(--space-control-gap);
-  padding: 0 var(--sp-1);
-  color: var(--text-tertiary);
-  font-size: var(--type-metadata-size);
-  white-space: nowrap;
-}
-.dv-review-complete-meta > svg {
-  color: var(--pos);
-}
-
 /* ===== 主体 ===== */
 .dv-body {
   flex: 1;
@@ -136,22 +119,6 @@
   font-variant-numeric: var(--numeric-tabular);
   overflow-wrap: anywhere;
 }
-.dv-review-toolbar {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-2);
-  margin: 0;
-}
-.dv-review-actions {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  gap: var(--sp-2);
-}
-.dv-review-actions:empty { display: none; }
-
 .dv-reading-context {
   display: flex;
   flex-wrap: wrap;
@@ -308,6 +275,45 @@
   border-radius: var(--radius-8);
   padding: var(--sp-3) var(--sp-4);
   background-color: var(--surface-inset);
+}
+.dv-trade-writing:has(.dv-review-actions) .editor .ProseMirror {
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+.dv-review-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-4);
+  border-radius: 0 0 var(--radius-8) var(--radius-8);
+  background: var(--surface-inset);
+}
+.dv-review-actions::before {
+  content: '';
+  position: absolute;
+  inset: 0 var(--sp-4) auto;
+  border-top: 1px solid var(--border-subtle);
+}
+.dv-review-actions .ui-btn,
+.dv-review-complete-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-control-gap);
+  min-height: var(--control-height-sm);
+  padding-inline: 0;
+  border: 0;
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
+  color: var(--text-content-metadata);
+}
+.dv-review-actions .ui-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: transparent;
+}
+.dv-review-complete-meta > svg {
+  color: var(--pos);
 }
 .dv-editor .editor .ProseMirror {
   min-height: 96px;

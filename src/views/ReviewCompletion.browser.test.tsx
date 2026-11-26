@@ -118,14 +118,14 @@ async function run(): Promise<void> {
 
     const editorSelector = '[aria-label="复盘正文"][contenteditable="true"]'
     await waitFor(() => Boolean(document.querySelector(editorSelector)), '空白复盘编辑器未就绪')
-    assert(!findButton('完成复盘') && !document.querySelector('.dv-review-toolbar'), '空白复盘不应占用顶栏操作位')
+    assert(!findButton('完成复盘') && !document.querySelector('.dv-review-actions'), '空白复盘不应出现收尾操作行')
     assert(!document.querySelector('.dv-review-state'), '待复盘状态不应占用顶栏')
     const editor = document.querySelector<HTMLElement & { editor: TiptapEditor }>(editorSelector)!.editor
     editor.commands.insertContent('等待确认后再入场。')
-    await waitFor(() => findButton('完成复盘')?.disabled === false, '补充复盘结论后应在顶栏出现完成操作')
+    await waitFor(() => findButton('完成复盘')?.disabled === false, '补充复盘结论后应在正文末尾出现完成操作')
     const completionAction = findButton('完成复盘')!
-    assert(completionAction.classList.contains('ui-btn-ghost') && !completionAction.querySelector('svg'), '完成前应显示轻量文字操作，成功标记留给已复盘状态')
-    assert(document.querySelector('.dv-topbar .dv-review-toolbar')?.contains(completionAction), '完成复盘必须在固定顶栏内随时可达')
+    assert(document.querySelector('.dv-document .dv-review-actions')?.contains(completionAction), '完成操作应在复盘正文末尾')
+    assert(!document.querySelector('.dv-topbar')?.contains(completionAction), '记录导航不应混入复盘操作')
     editor.commands.clearContent(true)
     await waitFor(() => !findButton('完成复盘'), '清空复盘结论后应移除完成操作')
     const commentTrigger = findButton('添加追记')
@@ -195,18 +195,16 @@ async function run(): Promise<void> {
       () => useStore.getState().trades[0]?.reviewStatus === 'reviewed',
       '写下复盘结论后仍无法完成复盘',
     )
-    assert(!document.querySelector('.dv-review-toolbar'), '已复盘正文不得保留空工具行')
     assert(!document.querySelector('.dv-main')?.textContent?.includes('复盘正文'), '普通已复盘交易不得显示重复视觉标题')
     assert(document.querySelector('[aria-label="复盘正文"]'), '去除视觉标题后必须保留编辑器可访问名称')
     assert(!document.querySelector('.dv-review-stage'), '已完成状态不应继续占据正文首屏')
     assert(!document.querySelector('.dv-review-complete-action'), '已完成状态不应继续显示完成命令')
     assert(
       document.querySelector('.dv-review-complete-meta')?.textContent?.trim() === '已复盘',
-      '已完成状态应收敛到顶部应用栏',
+      '完成后应就地显示已复盘状态',
     )
     const nextPending = findButton('下一条待复盘')
-    assert(nextPending && document.querySelector('.dv-topbar')?.contains(nextPending), '完成后缺少常驻下一条待复盘入口')
-    assert(nextPending.classList.contains('ui-btn-ghost') && !nextPending.querySelector('svg'), '下一条应为中性直接跳转，不应伪装成下拉菜单')
+    assert(nextPending && document.querySelector('.dv-document .dv-review-actions')?.contains(nextPending), '完成后应在正文末尾直接进入下一条待复盘')
     const reviewActions = document.querySelector('.dv-review-actions')!
     assert(reviewActions.contains(nextPending) && reviewActions.firstElementChild?.classList.contains('dv-review-complete-meta'), '复盘状态应位于同组推进动作之前')
     document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')?.click()
@@ -217,9 +215,15 @@ async function run(): Promise<void> {
       '顶部菜单无法重新打开复盘',
     )
     await waitFor(() => findButton('完成复盘')?.disabled === false, '重新复盘后完成操作不可用')
-    findButton('完成复盘')?.click()
+    const more = document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')!
+    const menuAction = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(button => button.textContent?.trim() === label)
+    more.click()
+    await waitFor(() => Boolean(menuAction('完成复盘')), '长文档应能从固定的更多菜单完成复盘')
+    menuAction('完成复盘')!.click()
     await waitFor(() => Boolean(findButton('下一条待复盘')), '再次完成后下一条入口未恢复')
-    findButton('下一条待复盘')?.click()
+    more.click()
+    await waitFor(() => Boolean(menuAction('下一条待复盘')), '长文档应能从固定的更多菜单进入下一条')
+    menuAction('下一条待复盘')!.click()
     await waitFor(() => document.querySelector('.dv-record-ref')?.textContent === raceTrade.ref, '常驻入口未进入同范围下一条待复盘')
 
     root.unmount()

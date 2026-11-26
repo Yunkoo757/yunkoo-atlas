@@ -6,6 +6,8 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import {
   ArrowLeft,
+  ArrowRight,
+  Circle,
   ChevronDown,
   ChevronUp,
   Link2,
@@ -699,6 +701,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
     trade.tradeKind !== 'case' &&
     isReviewCompleted(trade.reviewStatus) &&
     (truth.executionState === 'missed' || truth.executionState === 'closed')
+  const showCompletionAction = needsReview && !needsResult && activeNoteLoad.status === 'ready' && (reviewReadiness.ready || reviewSubmitting)
   const nextPendingReviewId = reviewComplete
     ? findNextPendingReviewId(
       trade.id,
@@ -897,6 +900,12 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
         icon: recordActionIcon(action.id),
       })),
     { type: 'separator' },
+    ...(showCompletionAction
+      ? [{ value: 'complete-review', label: '完成复盘', icon: <Circle size={ICON_MD} />, disabled: reviewSubmitting }]
+      : []),
+    ...(nextPendingReviewId
+      ? [{ value: 'next-review', label: '下一条待复盘', icon: <ArrowRight size={ICON_MD} /> }]
+      : []),
     ...(reviewComplete
       ? [{ value: 'reopen-review', label: '重新复盘', icon: <RotateCcw size={ICON_MD} /> }]
       : []),
@@ -929,6 +938,8 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
           toggleCaseFocus(trade.id)
           toast(starred ? '已取消重点' : '已设为重点案例')
         }
+        else if (v === 'complete-review') void completeReview()
+        else if (v === 'next-review' && nextPendingReviewId) navigateDetail(nextPendingReviewId)
         else if (v === 'reopen-review') updateTradeData(trade.id, { reviewStatus: 'unreviewed' })
         else if (v === 'decision-image') void openDecisionImage()
         else if (v === 'copy-content') void copyContent()
@@ -953,6 +964,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       disabled={activeNoteLoad.status !== 'ready' || !reviewReadiness.ready}
       onClick={() => void completeReview()}
     >
+      <Circle size={ICON_SM} aria-hidden />
       {reviewSubmitting ? '正在保存…' : '完成复盘'}
     </Button>
   )
@@ -967,34 +979,6 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
         <div className="dv-topbar" role="group" aria-label="记录工具栏">
           {sourceLink}
           <div className="dv-tb-right">
-            <div className="dv-review-actions" role="group" aria-label="复盘状态与推进">
-              {needsReview && !needsResult && activeNoteLoad.status === 'ready' && (reviewReadiness.ready || reviewSubmitting) ? (
-                <div className="dv-review-toolbar" aria-label="复盘状态与操作">
-                  {reviewIssue ? (
-                    <Tooltip asChild content={reviewIssue} label="无法完成复盘">
-                      {completionButton}
-                    </Tooltip>
-                  ) : completionButton}
-                </div>
-              ) : null}
-              {reviewComplete && (
-                <Tooltip
-                  asChild
-                  content={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
-                  label={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
-                >
-                  <span className="dv-review-complete-meta">
-                    <CheckCircle size={ICON_SM} aria-hidden />
-                    <span>已复盘</span>
-                  </span>
-                </Tooltip>
-              )}
-              {nextPendingReviewId && (
-                <Button variant="ghost" size="sm" onClick={() => navigateDetail(nextPendingReviewId)}>
-                  下一条待复盘
-                </Button>
-              )}
-            </div>
             <SaveStatusIndicator quiet />
             {detailNavigation && (
               <nav className="dv-detail-navigation" aria-label={`${detailUnit}导航`}>
@@ -1174,6 +1158,33 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
                     : '记下交易判断，或粘贴截图…'
                 }
               />
+              {(showCompletionAction || reviewComplete) && (
+                <div className="dv-review-actions" role="group" aria-label="复盘状态与推进">
+                  {showCompletionAction && (
+                    reviewIssue
+                      ? <Tooltip asChild content={reviewIssue} label="无法完成复盘">{completionButton}</Tooltip>
+                      : completionButton
+                  )}
+                  {reviewComplete && (
+                    <Tooltip
+                      asChild
+                      content={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
+                      label={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
+                    >
+                      <span className="dv-review-complete-meta">
+                        <CheckCircle size={ICON_SM} aria-hidden />
+                        <span>已复盘</span>
+                      </span>
+                    </Tooltip>
+                  )}
+                  {nextPendingReviewId && (
+                    <Button variant="ghost" size="sm" onClick={() => navigateDetail(nextPendingReviewId)}>
+                      下一条待复盘
+                      <ArrowRight size={ICON_SM} aria-hidden />
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
 
             {trade.tradeKind === 'case' && (

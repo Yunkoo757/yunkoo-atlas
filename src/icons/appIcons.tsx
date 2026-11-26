@@ -35,6 +35,7 @@ export {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Circle,
   CircleDot,
   Clock,
   Code,
