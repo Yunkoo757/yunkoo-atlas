@@ -20,7 +20,6 @@ import {
   Plus,
   AlertCircle,
   CheckCircle,
-  Check,
 } from '@/icons/appIcons'
 import { CaseLibraryNavIcon } from '@/icons/NavigationIcons'
 import { DisclosureIcon, MarkIcon } from '@/icons/StateIcons'
@@ -947,14 +946,13 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
 
   const completionButton = (
     <Button
-      variant="bordered"
+      variant="ghost"
       size="sm"
       className="dv-review-complete-action"
       busy={reviewSubmitting}
       disabled={activeNoteLoad.status !== 'ready' || !reviewReadiness.ready}
       onClick={() => void completeReview()}
     >
-      <Check size={ICON_SM} aria-hidden />
       {reviewSubmitting ? '正在保存…' : '完成复盘'}
     </Button>
   )
@@ -992,7 +990,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
                 </Tooltip>
               )}
               {nextPendingReviewId && (
-                <Button variant="bordered" size="sm" onClick={() => navigateDetail(nextPendingReviewId)}>
+                <Button variant="ghost" size="sm" onClick={() => navigateDetail(nextPendingReviewId)}>
                   下一条待复盘
                 </Button>
               )}

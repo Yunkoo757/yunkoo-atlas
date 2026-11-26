@@ -124,7 +124,7 @@ async function run(): Promise<void> {
     editor.commands.insertContent('等待确认后再入场。')
     await waitFor(() => findButton('完成复盘')?.disabled === false, '补充复盘结论后应在顶栏出现完成操作')
     const completionAction = findButton('完成复盘')!
-    assert(completionAction.classList.contains('ui-btn-bordered'), '详情页推进动作必须使用公共轻边框按钮')
+    assert(completionAction.classList.contains('ui-btn-ghost') && !completionAction.querySelector('svg'), '完成前应显示轻量文字操作，成功标记留给已复盘状态')
     assert(document.querySelector('.dv-topbar .dv-review-toolbar')?.contains(completionAction), '完成复盘必须在固定顶栏内随时可达')
     editor.commands.clearContent(true)
     await waitFor(() => !findButton('完成复盘'), '清空复盘结论后应移除完成操作')
@@ -206,7 +206,7 @@ async function run(): Promise<void> {
     )
     const nextPending = findButton('下一条待复盘')
     assert(nextPending && document.querySelector('.dv-topbar')?.contains(nextPending), '完成后缺少常驻下一条待复盘入口')
-    assert(nextPending.classList.contains('ui-btn-bordered') && !nextPending.querySelector('svg'), '下一条应为中性直接跳转，不应伪装成下拉菜单')
+    assert(nextPending.classList.contains('ui-btn-ghost') && !nextPending.querySelector('svg'), '下一条应为中性直接跳转，不应伪装成下拉菜单')
     const reviewActions = document.querySelector('.dv-review-actions')!
     assert(reviewActions.contains(nextPending) && reviewActions.firstElementChild?.classList.contains('dv-review-complete-meta'), '复盘状态应位于同组推进动作之前')
     document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')?.click()

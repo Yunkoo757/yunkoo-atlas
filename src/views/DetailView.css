@@ -76,6 +76,9 @@
   box-shadow: none;
   border-radius: var(--radius-6);
 }
+.dv-review-complete-action:not(:disabled) {
+  color: var(--accent-readable);
+}
 .dv-review-complete-meta {
   display: inline-flex;
   align-items: center;
