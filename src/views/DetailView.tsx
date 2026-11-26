@@ -5,6 +5,7 @@ import { ICON_2XL, ICON_MD, ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import {
+  ArrowLeft,
   ChevronDown,
   ChevronUp,
   Link2,
@@ -508,8 +509,14 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       : activities.system.length - FEED_VISIBLE
 
   const sourceLink = (
-    <Link to={detailReturn} state={detailReturnState} className="dv-back" aria-label={backAriaLabel}>
-      {backAriaLabel}
+    <Link
+      to={detailReturn}
+      state={detailReturnState}
+      className="ui-btn ui-btn-ghost ui-btn-sm dv-back"
+      aria-label={backAriaLabel}
+    >
+      <ArrowLeft size={ICON_SM} aria-hidden />
+      <span>{commandSearch ? '搜索结果' : returnDestinationLabel}</span>
     </Link>
   )
 

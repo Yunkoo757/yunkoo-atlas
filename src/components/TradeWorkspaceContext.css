@@ -71,61 +71,34 @@
 }
 
 .trade-workspace-scope-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-control-gap);
+  min-width: 0;
   max-width: 196px;
-  height: var(--toolbar-chip-height);
-  padding: 0 var(--sp-2);
-  border: 1px solid var(--surface-control-border);
-  border-radius: var(--radius-full);
-  color: var(--list-text-secondary);
-  background: var(--surface-control);
-  box-shadow: none;
-  font-family: var(--font-ui);
+  padding-inline: var(--sp-2);
   font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
   line-height: var(--type-metadata-line-height);
-  transition:
-    color var(--motion-state) var(--ease-out),
-    background-color var(--motion-state) var(--ease-out),
-    border-color var(--motion-state) var(--ease-out),
-    box-shadow var(--motion-state) var(--ease-out);
 }
 
-.trade-workspace-scope-trigger > span {
+.trade-workspace-stage-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.trade-workspace-scope-trigger > svg {
-  flex: 0 0 auto;
-  color: var(--text-tertiary);
-}
-
-.trade-workspace-scope-trigger:hover,
-.trade-workspace-scope-trigger.is-open {
-  color: var(--list-text-strong);
-  border-color: var(--surface-control-border-active);
-  background: var(--surface-control-hover);
-  box-shadow: none;
-}
-
-[data-workspace-page="log"] .trade-workspace-scope-trigger {
-  border-color: transparent;
-  border-radius: var(--radius-6);
-  background: transparent;
-}
-
-[data-workspace-page="log"] .trade-workspace-scope-trigger:is(:hover, .is-open) {
-  background: var(--surface-control-hover);
+.trade-workspace-scope-trigger[aria-expanded='true'] {
+  color: var(--text-primary);
+  background: var(--surface-control-active);
 }
 
 .trade-workspace-kind-label {
   flex: none;
+}
+
+.trade-workspace-stage-label + .trade-workspace-kind-label {
+  padding-inline-start: var(--space-control-gap);
+  border-inline-start: 1px solid var(--surface-control-border-active);
+  color: var(--text-content-metadata);
 }
 
 .trade-workspace-scope-panel {
@@ -163,8 +136,8 @@
   justify-content: space-between;
   gap: var(--sp-2);
   width: 100%;
-  height: var(--menu-item-height);
-  padding: 0 var(--sp-2);
+  min-height: var(--menu-item-height);
+  padding: var(--sp-1) var(--sp-2);
   border-radius: var(--radius-4);
   color: var(--text-secondary);
   font-size: var(--type-row-size);
@@ -174,9 +147,11 @@
 
 .trade-workspace-scope-options button > span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+}
+
+.trade-workspace-scope-options button > svg {
+  flex: none;
 }
 
 .trade-workspace-scope-options button:hover,

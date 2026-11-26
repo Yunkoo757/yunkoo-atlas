@@ -148,6 +148,7 @@ async function run(): Promise<void> {
         '/list?liveStage=stage-old&status=loss&kind=paper',
       '切换模拟盘必须保留已选择的阶段范围',
     )
+    await waitFor(() => scopeTrigger.textContent === '模拟', '模拟交易跨实盘阶段，范围摘要应只显示模拟')
     assert(
       document.querySelector('a[data-primary-id="trades"]')?.getAttribute('aria-current') === 'page',
       '切换模拟后左侧必须继续完整高亮交易日志',
@@ -180,6 +181,10 @@ async function run(): Promise<void> {
       useStore.getState().display.workspaceMemory?.trade?.search === '?status=loss&liveStage=all',
       '统计分析修改阶段后必须写回交易工作区记忆',
     )
+    document.querySelector<HTMLElement>('[data-workspace-kind="all"]')?.click()
+    await waitFor(() => statsScopeTrigger.textContent === '全部阶段' && statsScopeTrigger.getAttribute('aria-label') === '数据范围：全部阶段 · 全部类型', '双维度全部时应压缩摘要并保留完整范围说明')
+    document.querySelector<HTMLElement>('[data-workspace-kind="live"]')?.click()
+    await waitFor(() => statsScopeTrigger.textContent === '全部阶段实盘', '仅实盘时必须显示所选盘型')
     statsScopeTrigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
     await waitFor(() => !document.querySelector('.trade-workspace-scope-panel'), 'Escape 必须先关闭数据范围菜单')
     assert(document.querySelector('[data-testid="location"]')?.textContent === '/dashboard?liveStage=all', '关闭范围菜单时不得离开统计分析')

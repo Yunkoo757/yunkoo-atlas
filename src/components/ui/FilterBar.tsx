@@ -66,12 +66,14 @@ export function FilterBar({
       <div className="ui-filter-bar">
         {quickViews}
         <div className="ui-filter-actions">
-          {actions}
-          {shortcutActionId ? (
-            <ShortcutTooltip actionId={shortcutActionId} label={label}>
-              {trigger}
-            </ShortcutTooltip>
-          ) : trigger}
+          <div className="ui-filter-data-actions">
+            {actions}
+            {shortcutActionId ? (
+              <ShortcutTooltip actionId={shortcutActionId} label={label}>
+                {trigger}
+              </ShortcutTooltip>
+            ) : trigger}
+          </div>
           {trailingActions}
         </div>
       </div>

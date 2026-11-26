@@ -15,21 +15,12 @@
   overflow: visible;
 }
 .dv-back {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  height: var(--control-height-sm);
-  padding-inline: var(--sp-2);
-  border-radius: var(--radius-6);
-  color: var(--text-secondary);
-  font-size: var(--type-row-size);
-  line-height: var(--type-row-line-height);
-  white-space: nowrap;
-  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  min-width: 0;
+  flex: 0 1 auto;
 }
-.dv-back:hover {
-  background: var(--surface-control-hover);
-  color: var(--text-primary);
+.dv-back > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .dv-record-action.ui-icon-btn {
   border-radius: var(--radius-6);

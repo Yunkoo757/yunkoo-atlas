@@ -1,20 +1,13 @@
 import { createRecordForContext, isRecordCreationArchived, resolveCreateRecordAction } from '@/lib/createRecordAction'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, NavLink, useLocation, useMatch, useNavigate } from 'react-router-dom'
-import { StrategiesNavIcon } from '@/icons/SettingsIcons'
-import { BacktestNavIcon, CaseLibraryNavIcon, NoteNavIcon } from '@/icons/NavigationIcons'
-import type { AppIcon } from '@/icons/appIcons'
+import { BacktestNavIcon, NoteNavIcon } from '@/icons/NavigationIcons'
 import {
-  Ban,
-  Bookmark,
-  Clock,
   Compose,
-  FlaskConical,
   MoreHorizontal,
   Plus,
   Search,
   Settings2,
-  Star,
   Trash2,
 } from '@/icons/appIcons'
 import { UserAvatar } from '@/components/UserAvatar'
@@ -25,6 +18,7 @@ import { getShortcutHintModel } from '@/shortcuts/hints'
 import { Menu } from '@/components/Menu'
 import { ContextMenu, type CtxItem, type CtxState } from '@/components/ContextMenu'
 import {
+  WORKSPACE_ICONS,
   normalizePrimarySidebarOrder,
   resolvePrimarySidebarNav,
   type PrimarySidebarNavId,
@@ -41,7 +35,6 @@ import {
   setCapabilityWorkspaceEnabled,
   systemCapabilityWorkspaces,
   workspaceKindFromPath,
-  type ResolvedSidebarWorkspaceItem,
   type SidebarCapabilityId,
   type SidebarQuickWorkspace,
   type SidebarWorkspaceItem,
@@ -128,18 +121,7 @@ function buildCapabilityVisibilityItems(
   ]
 }
 
-export const WORKSPACE_ICONS: Record<
-  ResolvedSidebarWorkspaceItem['icon'],
-  AppIcon
-> = {
-  active: Clock,
-  favorites: Star,
-  missed: Ban,
-  paper: FlaskConical,
-  'saved-view': Bookmark,
-  strategy: StrategiesNavIcon,
-  'case-view': CaseLibraryNavIcon,
-}
+export { WORKSPACE_ICONS }
 
 function activeIconStyle(color: string): CSSProperties {
   return { '--sb-active-icon-color': color } as CSSProperties

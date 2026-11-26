@@ -386,7 +386,7 @@ try {
   await expectText(editor.locator('[data-sidebar-capacity]'), /\d+ \/ 8/)
   await expectVisible(page.getByRole('button', { name: '添加项目' }))
   await expectVisible(editor.getByRole('heading', { name: '常驻侧栏' }))
-  await expectVisible(editor.getByRole('heading', { name: '更多' }))
+  await expectCount(editor.getByRole('heading', { name: '更多' }), 0)
 
   const rows = editor.locator('[data-sidebar-item][data-sidebar-placement]')
   await expectAttribute(rows.nth(0), 'tabindex', null)
@@ -484,6 +484,7 @@ try {
   await expectText(strategyButton(overflowStrategy), /更多/)
   await editor.getByRole('button', { name: '返回管理列表' }).click()
   await expectFocused(editor.getByRole('button', { name: '添加项目' }))
+  await expectVisible(editor.getByRole('heading', { name: '更多' }))
   await expectVisible(editor.locator('[data-sidebar-editor-overflow] [data-sidebar-item-label]', { hasText: overflowStrategy }))
 
   await editor.getByRole('button', { name: '完成' }).click()

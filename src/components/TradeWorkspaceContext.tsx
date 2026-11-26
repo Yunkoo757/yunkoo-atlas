@@ -18,6 +18,7 @@ import { DisclosureIcon } from '@/icons/StateIcons'
 import { PopoverSurface } from '@/components/ui/PopoverSurface'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { Select } from '@/components/ui/Select'
+import { Button } from '@/components/ui/Button'
 import {
   mergeSharedTradeWorkspaceSearch,
   parseTradeWorkspaceQuery,
@@ -186,10 +187,9 @@ function TradeWorkspaceScopeMenu({
   const exitRef = useExitClone<HTMLDivElement>(open, panelRef)
   const [position, setPosition] = useState({ top: 0, left: 0 })
   const stageLabel = stageOptions.find((option) => option.value === stage)?.label ?? '当前阶段'
-  const kindLabel = page === 'log' && kind === 'all'
-    ? '全部类型'
-    : KIND_OPTIONS.find((option) => option.value === kind)?.label ?? '全部'
-  const scopeLabel = `${stageLabel} · ${kindLabel}`
+  const kindLabel = kind === 'all' ? '全部类型' : kind === 'live' ? '实盘' : '模拟'
+  const scopeLabel = kind === 'paper' ? kindLabel : `${stageLabel} · ${kindLabel}`
+  const triggerLabel = `数据范围：${scopeLabel}`
 
   const updatePosition = () => {
     const rect = triggerRef.current?.getBoundingClientRect()
@@ -246,22 +246,20 @@ function TradeWorkspaceScopeMenu({
       data-workspace-page={page}
       data-workspace-compact
     >
-      <button
+      <Button
         ref={triggerRef}
-        type="button"
-        className={`trade-workspace-scope-trigger${open ? ' is-open' : ''}`}
-        aria-label={`数据范围：${scopeLabel}`}
+        size="sm"
+        className="trade-workspace-scope-trigger"
+        aria-label={triggerLabel}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? id : undefined}
         onClick={() => setOpen((current) => !current)}
       >
-        {page === 'log' ? <>
-          {stage !== 'current' && <span>{stageLabel}</span>}
-          <span className="trade-workspace-kind-label">{kindLabel}</span>
-        </> : <span>{scopeLabel}</span>}
+        {kind !== 'paper' && <span className="trade-workspace-stage-label">{stageLabel}</span>}
+        {(kind !== 'all' || stage !== 'all') && <span className="trade-workspace-kind-label">{kindLabel}</span>}
         <DisclosureIcon kind="menu" size={ICON_SM} />
-      </button>
+      </Button>
       {open && createPortal(
         <PopoverSurface
           ref={exitRef}

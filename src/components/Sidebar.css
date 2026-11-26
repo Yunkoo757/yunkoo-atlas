@@ -466,15 +466,14 @@ html[data-ui-settled='1'] .sb-item {
 .sb-footer {
   position: relative;
   flex: 0 0 auto;
-  padding: var(--sp-2) 0 var(--sp-1);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border-divider);
 }
 
 .sb-risk-summary {
   min-height: var(--control-height-md);
   height: auto;
-  padding-block: var(--sp-1);
-  font-size: var(--type-row-size);
-  white-space: nowrap;
+  padding-block: var(--sp-2);
   text-decoration: none;
 }
 
@@ -488,25 +487,38 @@ html[data-ui-settled='1'] .sb-item {
   background: var(--surface-nav-active);
 }
 
-.sb-risk-value {
-  margin-inline-start: auto;
+.sb-risk-reading {
+  flex: 1 1 auto;
+  display: grid;
   min-width: 0;
-  white-space: normal;
-  text-align: end;
-  overflow-wrap: anywhere;
+}
+
+.sb-risk-label,
+.sb-risk-value {
   color: var(--text-content-metadata);
   font-size: var(--type-metadata-size);
   line-height: var(--type-metadata-line-height);
+  font-weight: var(--type-metadata-weight);
+}
+
+.sb-risk-value {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: var(--sp-1);
   font-variant-numeric: var(--numeric-tabular);
 }
 
 .sb-risk-value strong {
-  color: var(--sb-risk-ink, var(--text-content-supporting));
-  font-weight: var(--font-weight-medium);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--sb-risk-ink, var(--text-nav-active));
+  font-size: var(--type-toolbar-title-size);
+  line-height: var(--type-toolbar-title-line-height);
+  font-weight: var(--type-toolbar-title-weight);
 }
 
 .sb-item .sb-risk-chevron {
-  margin-inline-start: calc(-1 * var(--sp-1));
   color: var(--text-content-context);
 }
 
@@ -518,10 +530,6 @@ html[data-ui-settled='1'] .sb-item {
 .sb-risk-summary.is-triggered,
 .sb-risk-period.is-triggered {
   --sb-risk-ink: var(--neg);
-}
-
-.sb-risk-summary.is-triggered > svg:first-child {
-  color: var(--sb-risk-ink);
 }
 
 .sb-risk-popover {
@@ -629,10 +637,6 @@ html[data-ui-settled='1'] .sb-item {
 .sb-risk-actions a:hover {
   background: var(--surface-nav-hover);
   color: var(--text-primary);
-}
-
-.sidebar[data-density='compact'] button.sb-risk-summary .sb-risk-chevron {
-  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

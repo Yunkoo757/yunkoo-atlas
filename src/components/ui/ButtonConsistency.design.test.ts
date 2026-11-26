@@ -32,9 +32,13 @@ export async function testWorkspaceScopeDoesNotCreateAParallelButtonPalette(): P
   assert(source.includes('<SegmentedControl'), '记录类型必须复用共享 SegmentedControl')
   assert(!css.includes('.trade-workspace-scope-kinds button'), '记录类型不得覆盖共享按钮视觉状态')
   assert(
-    css.includes('border: 1px solid var(--surface-control-border);') &&
-      css.includes('box-shadow: none;'),
-    '范围触发按钮必须使用共享控件表面与边框 token',
+    /<Button\b[^>]*className="trade-workspace-scope-trigger"/s.test(source),
+    '范围入口必须使用公共按钮',
+  )
+  const rest = css.match(/\.trade-workspace-scope-trigger\s*\{([^}]*)\}/)?.[1] ?? ''
+  assert(
+    !/(?:^|;)\s*(?:background(?:-color)?|border(?:-color)?|box-shadow)\s*:/.test(rest),
+    '常态范围入口应继承轻量按钮表面，同栏的下拉控件不需要独立围框',
   )
 }
 

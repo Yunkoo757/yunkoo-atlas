@@ -6,9 +6,12 @@ import {
   PeriodReviewNavIcon,
   PracticeNavIcon,
 } from '@/icons/NavigationIcons'
+import { StrategiesNavIcon } from '@/icons/SettingsIcons'
+import type { ResolvedSidebarWorkspaceItem } from '@/lib/sidebarWorkspace'
 import type { AppIcon } from '@/icons/appIcons'
 import {
   Ban,
+  Bookmark,
   Calendar,
   Clock,
   FlaskConical,
@@ -74,6 +77,13 @@ const SECONDARY_NAV_ICONS: Record<SidebarNavId, SidebarNavIcon> = {
   favorites: Star,
   missed: Ban,
   paper: FlaskConical,
+}
+
+export const WORKSPACE_ICONS: Record<ResolvedSidebarWorkspaceItem['icon'], SidebarNavIcon> = {
+  ...SECONDARY_NAV_ICONS,
+  'saved-view': Bookmark,
+  strategy: StrategiesNavIcon,
+  'case-view': CaseLibraryNavIcon,
 }
 
 export const SECONDARY_NAV: SidebarNavItem[] = SECONDARY_NAV_ITEMS.map((item) => ({

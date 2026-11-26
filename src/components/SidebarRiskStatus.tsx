@@ -132,8 +132,10 @@ function SidebarRiskDisclosure({ rows, scope }: { rows: SidebarRiskRow[]; scope:
         onClick={() => setOpen(wasOpen => !wasOpen)}
       >
         <RiskNavIcon size={ICON_MD} aria-hidden="true" />
-        <span>风险额度</span>
-        <span className="sb-risk-value">{prefix}<strong>{detail}</strong></span>
+        <span className="sb-risk-reading">
+          <span className="sb-risk-label">风险额度{row.presentation.kind === 'near' && ' · 接近限额'}</span>
+          <span className="sb-risk-value"><span>{prefix}</span><strong>{detail}</strong></span>
+        </span>
         <DisclosureIcon kind="upward-menu" className="sb-risk-chevron" size={ICON_SM} />
       </button>
       {open && (
@@ -187,8 +189,10 @@ export function SidebarRiskStatus({ currentTradingDayKey }: { currentTradingDayK
     return (
       <Link to="/settings/risk" className="sb-item sb-risk-summary" data-sidebar-risk-state="unconfigured" aria-label="设置风险额度">
         <RiskNavIcon size={ICON_MD} aria-hidden="true" />
-        <span>风险额度</span>
-        <span className="sb-risk-value">设置</span>
+        <span className="sb-risk-reading">
+          <span className="sb-risk-label">风险额度</span>
+          <span className="sb-risk-value"><strong>设置规则</strong></span>
+        </span>
         <ChevronRight className="sb-risk-chevron" size={ICON_SM} aria-hidden="true" />
       </Link>
     )
