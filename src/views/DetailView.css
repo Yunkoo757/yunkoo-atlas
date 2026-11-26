@@ -366,21 +366,6 @@
   pointer-events: none;
   animation: dv-note-load-reveal var(--motion-dialog-in) var(--ease-out) var(--motion-panel) forwards;
 }
-.dv-note-load-indicator {
-  width: 14px;
-  height: 14px;
-  border: 1.5px solid var(--border-strong);
-  border-right-color: var(--text-secondary);
-  border-radius: var(--radius-full);
-  animation: dv-note-spin var(--motion-spin) linear infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .dv-note-load-indicator {
-    animation: none;
-    border-color: var(--text-secondary);
-    border-style: dotted;
-  }
-}
 .dv-note-load.is-error {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) auto;
@@ -416,9 +401,6 @@
 }
 .dv-document.is-note-readonly .editor .ProseMirror {
   cursor: default;
-}
-@keyframes dv-note-spin {
-  to { transform: rotate(360deg); }
 }
 .dv-comments {
   width: 100%;

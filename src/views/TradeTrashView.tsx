@@ -323,22 +323,18 @@ export function TradeTrashView() {
                 </span>
               )}
               <BatchActionBar count={selected.size} placement="inline">
-                <button type="button" className="batch-bar-action-btn" onClick={handleBatchRestore}>
+                <Button size="sm" onClick={handleBatchRestore}>
                   <RotateCcw size={ICON_SM} />
                   <span>恢复</span>
-                </button>
-                <button
-                  type="button"
-                  className="batch-bar-action-btn batch-bar-action-btn-danger"
-                  onClick={handleBatchPurge}
-                >
+                </Button>
+                <Button size="sm" variant="danger" onClick={handleBatchPurge}>
                   <Trash2 size={ICON_SM} />
                   <span>彻底删除</span>
-                </button>
-                <button type="button" className="batch-bar-action-btn" onClick={() => setSelected(new Set())}>
+                </Button>
+                <Button size="sm" onClick={() => setSelected(new Set())}>
                   <X size={ICON_SM} />
                   <span>取消选择</span>
-                </button>
+                </Button>
               </BatchActionBar>
             </div>
 

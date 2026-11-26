@@ -13,9 +13,9 @@ interface SaveStatusState {
 }
 
 function getSaveErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) return error.message.trim()
-  if (typeof error === 'string' && error.trim()) return error.trim()
-  return '无法写入本地资料库'
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
+  const reason = message.replace(/^Error invoking remote method 'storage:saveSnapshot': (?:\w*Error: )?/, '').trim()
+  return reason || '无法写入本地资料库'
 }
 
 export const useSaveStatus = create<SaveStatusState>((set) => ({

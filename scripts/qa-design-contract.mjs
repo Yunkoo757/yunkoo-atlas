@@ -147,7 +147,7 @@ const checks = [
       /\.dv-props\s*\{[^}]*background:\s*var\(--surface-pane\);/s.test(detailStyles) &&
       /\.dv-note-load\.is-loading\s*\{[^}]*background:\s*var\(--surface-floating\);/s.test(detailStyles) &&
       /\.quick-notes-list-pane\s*\{[^}]*background:\s*var\(--surface-pane\);/s.test(quickNotesStyles) &&
-      /\.review-session-topbar\s*\{[^}]*background:\s*var\(--surface-pane\);/s.test(reviewSessionStyles) &&
+      /\.review-session-view\s*\{[^}]*background:\s*var\(--surface-pane\);/s.test(reviewSessionStyles) &&
       /\.review-session-stage-option\s*\{[^}]*background:\s*var\(--surface-elevated\);/s.test(reviewSessionStyles) &&
       /\.review-session-assessment\s*\{[^}]*background:\s*var\(--surface-elevated\);/s.test(reviewSessionStyles) &&
       /\.trash-item\s*\{[^}]*border-bottom:\s*1px solid var\(--border-subtle\);/s.test(trashStyles) &&

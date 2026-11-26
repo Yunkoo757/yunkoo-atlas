@@ -72,11 +72,11 @@
   margin-top: var(--sp-5);
 }
 
-.app-route-error-detail {
-  max-width: 520px;
+.app-route-error > .ui-error-details {
+  max-width: min(100%, 520px);
   margin-top: var(--sp-4);
-  color: var(--text-quaternary);
-  font-family: var(--font-mono);
-  font-size: var(--type-metadata-size);
-  overflow-wrap: anywhere;
+}
+
+.app-route-error .ui-disclosure-summary {
+  margin-inline: auto;
 }

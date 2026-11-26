@@ -16,7 +16,7 @@ export function testLoadingIndicatorUsesAccessibleProductOwnedMarkup(): void {
   assert(decorative.includes('aria-hidden="true"'), '装饰性加载图标必须对辅助技术隐藏')
   assert(labelled.includes('role="img"'), '带标题的加载图标必须暴露图像角色')
   assert(labelled.includes('aria-label="加载交易库"'), '加载图标必须保留可访问名称')
-  assert(labelled.includes('<animateTransform'), '加载图标必须自行提供轻量旋转动画')
+  assert(labelled.includes('loading-indicator-motion') && labelled.includes('loading-indicator-static'), '加载指示需同时支持旋转和减少动效时的静态标记')
 }
 
 export function testStatusAndDisclosureIndicatorsUseSemanticLucideGlyphs(): void {

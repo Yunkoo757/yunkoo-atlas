@@ -103,10 +103,19 @@
   padding: 0;
 }
 .display-choice {
+  position: relative;
+  cursor: pointer;
   min-height: var(--field-height-md);
   border: 0;
   border-radius: var(--radius-6);
 }
+.display-choice > input[type='radio'] {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  clip-path: inset(50%);
+}
+
 .display-choice.is-selected {
   background: var(--surface-row-selected);
   color: var(--text-primary);

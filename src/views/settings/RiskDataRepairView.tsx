@@ -167,8 +167,8 @@ export function RiskDataRepairView() {
           <Link className="risk-repair-back" to="/settings/risk">返回风险管理</Link>
           <h1 className="settings-page-title" tabIndex={-1}>风险数据修复</h1>
           {queue.counts.total > 0 ? <div className="risk-repair-counts" data-risk-repair-counts aria-label="风险数据缺口摘要">
-            <span>待处理 {queue.counts.total - queue.retainedCount} 项</span>
-            <span>历史缺口 {queue.retainedCount} 项</span>
+            {queue.actionableCount > 0 && <span>待处理 {queue.actionableCount} 项</span>}
+            {queue.retainedCount > 0 && <span>历史缺口 {queue.retainedCount} 项</span>}
             <span>涉及 {new Set(queue.items.map((item) => item.issue.tradeId).filter(Boolean)).size} 笔交易</span>
           </div> : null}
         </div>

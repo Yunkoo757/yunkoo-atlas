@@ -284,7 +284,7 @@ async function run(): Promise<void> {
       }))
       await frame()
     }
-    const commitButton = document.querySelector<HTMLButtonElement>('.sb-editor-actions .is-primary')
+    const commitButton = document.querySelector<HTMLButtonElement>('#sidebar-workspace-editor .modal-shell-footer .ui-btn-primary')
     assert(commitButton, '管理器缺少完成按钮')
     commitButton.click()
     await waitFor(

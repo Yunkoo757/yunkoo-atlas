@@ -73,6 +73,7 @@ export function useModalPortalRegistry(busy = false) {
 }
 
 export function ModalShell({
+  id,
   title,
   description,
   children,
@@ -88,6 +89,7 @@ export function ModalShell({
   describedById,
   onClose,
 }: {
+  id?: string
   title: string
   description?: string
   children?: ReactNode
@@ -217,6 +219,7 @@ export function ModalShell({
         }}
       >
         <div
+          id={id}
           ref={panelRef}
           className={[
             'modal-shell',

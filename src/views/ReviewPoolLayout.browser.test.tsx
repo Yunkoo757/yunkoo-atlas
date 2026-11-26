@@ -60,6 +60,9 @@ async function run(): Promise<void> {
     const count = pool.querySelector('.review-session-preset-count')!.getBoundingClientRect()
     const bounds = pool.getBoundingClientRect()
     assert(count.right <= bounds.right && count.left >= bounds.left, '复盘池数量必须保持可见')
+    const availableStyle = getComputedStyle(start.querySelector('.review-session-available-count')!)
+    const poolStyle = getComputedStyle(pool.querySelector('strong')!)
+    assert(parseFloat(availableStyle.fontSize) < parseFloat(poolStyle.fontSize) && Number(availableStyle.fontWeight) < Number(poolStyle.fontWeight), '复盘计数应比池名小且轻')
 
     button('更多').click()
     await waitFor('[role="menuitem"]')

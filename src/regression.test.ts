@@ -479,7 +479,7 @@ export async function testDesktopSidebarConsumesUnifiedWorkspaceNavigationContra
   assert(dailyItems.length === 5, '日常列表应保留进行中与自定义 pinned 中的有效项')
   assert(!dailyItems.some((item) => item.item.id === 'saved-invalid'), '失效项不得进入日常列表')
   assert(source.includes('data-sidebar-overflow'), 'Sidebar 应为 overflow 项渲染「更多」分区')
-  assert(source.includes('sb-workspace-editor-backdrop'), 'Sidebar 管理器应支持点击外部关闭')
+  assert(editor.includes('<ModalShell') && editor.includes('returnFocusTo={returnFocusTo}'), '侧栏管理器应通过标准模态窗口支持点击外部关闭并还原入口焦点')
   assert(source.includes('state.display.sidebarWorkspaceItems'), 'Sidebar 应读取统一工作区配置')
   assert(source.includes('resolveSidebarWorkspaceItem'), 'Sidebar 应通过统一解析器准备日常项')
   assert(source.includes('resolveSidebarSelection'), 'Sidebar 应通过统一选择器保证唯一强选中态')

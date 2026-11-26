@@ -25,6 +25,7 @@ export function testRepairQueuePrioritizesActionableIssues(): void {
 
   assert(queue.nextItem?.issue.severity === 'global', '全局问题必须成为下一项')
   assert(queue.items.map((item) => item.issue.tradeId).join(',') === ',retained,blocking,partial', '必须按全局、阻断、完整度并保持同级输入顺序')
+  assert(queue.actionableCount === 3, '待处理数必须排除保留型历史缺口')
   assert(queue.retainedCount === 1, '必须独立统计保留型历史缺口')
 }
 

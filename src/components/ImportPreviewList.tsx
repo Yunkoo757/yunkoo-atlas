@@ -55,8 +55,8 @@ export function ImportPreviewRecord({ trade, rowIndex, privacyMode, errors, warn
           {trade.side && <span>{trade.side === 'long' ? '做多' : '做空'}</span>}
           {warnings.length > 0 && <span>{warnings.length} 项提示</span>}
         </span>
-        <span title={trade.openedAt ? fmtFullDateTime(trade.openedAt) : undefined}>{trade.openedAt && fmtDate(trade.openedAt)}</span>
-        <span className="import-preview-amount" title="现金盈亏">{trade.pnl != null && formatTradeCashPnl(trade, null, privacyMode)}</span>
+        <span>{trade.openedAt && fmtDate(trade.openedAt)}</span>
+        <span className="import-preview-amount">{trade.pnl != null && formatTradeCashPnl(trade, null, privacyMode)}</span>
         <span>第 {rowIndex + 1} 行</span>
       </DisclosureSummary>
       <dl className="import-preview-facts">

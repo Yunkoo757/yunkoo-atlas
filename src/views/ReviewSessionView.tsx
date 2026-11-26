@@ -1,9 +1,9 @@
 import { tradeMetricTone } from '@/lib/tradeRowPresentation'
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
-import { CaseLibraryNavIcon, JournalNavIcon, PracticeNavIcon } from '@/icons/NavigationIcons'
+import { CaseLibraryNavIcon, JournalNavIcon } from '@/icons/NavigationIcons'
 import { ICON_2XL, ICON_LG, ICON_MD, ICON_SM, ICON_XL } from '@/icons/iconSize'
-import { Toolbar, WindowToolbarHost } from '@/components/ui/Toolbar'
-import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Toolbar } from '@/components/ui/Toolbar'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
@@ -241,7 +241,6 @@ export function splitReviewNoteHtml(html: string): ReviewNotePresentation {
 }
 
 export function ReviewSessionView() {
-  const windowToolbar = useContext(WindowToolbarHost)
   const navigate = useNavigate()
   const trades = useStore((state) => state.trades)
   const liveStages = useStore((state) => state.liveStages)
@@ -773,36 +772,20 @@ export function ReviewSessionView() {
   }
 
   const hasRound = !!session?.ids.length
-  const exitButton = (
-    <Button type="button" variant="ghost" className="review-session-back" onClick={exitReviewSession}>
-      <ChevronLeft size={ICON_MD} aria-hidden />
-      <span>{hasRound ? '退出复盘' : '返回交易日志'}</span>
-    </Button>
-  )
-
   return (
     <div className="review-session-view">
-      {windowToolbar && !hasRound ? (
-        <Toolbar title="随机复盘" actions={exitButton} />
-      ) : (
-        <header className="review-session-topbar">
-          {exitButton}
-          {(!windowToolbar || session?.decisionPractice) && <div className="review-session-heading">
-            <PracticeNavIcon size={ICON_MD} aria-hidden />
-            <strong>{session?.decisionPractice ? '先判断' : '随机复盘'}</strong>
-          </div>}
-          {session && session.ids.length > 0 && !roundEnded ? (
-            <div className="review-session-topbar-end">
-              <span className="review-session-assessed">已评 {assessedCount}</span>
-              <span className="review-session-progress" aria-live="polite">
-                {session.cursor + 1} / {session.ids.length}
-              </span>
-              {!session.decisionPractice && <Button type="button" variant="bordered" onClick={() => openSettings(session.filters)}>调整范围</Button>}
-              <Button type="button" variant="bordered" onClick={() => clearActiveSession(session.decisionPractice ? filters : reviewFiltersForNextRound(session))}>结束本轮</Button>
-            </div>
-          ) : <span />}
-        </header>
-      )}
+      <Toolbar title="随机复盘" titleAsHeading={false} actions={session && hasRound && !roundEnded && <>
+        <span className="review-session-assessed">已评 {assessedCount}</span>
+        <span className="review-session-progress" aria-live="polite">{session.cursor + 1} / {session.ids.length}</span>
+        {!session.decisionPractice && <Button onClick={() => openSettings(session.filters)}>调整范围</Button>}
+        <Button onClick={() => clearActiveSession(session.decisionPractice ? filters : reviewFiltersForNextRound(session))}>结束本轮</Button>
+      </>}>
+        <Button size="sm" className="review-session-back" onClick={exitReviewSession}>
+          <ChevronLeft size={ICON_MD} aria-hidden />
+          {hasRound ? '退出复盘' : '返回交易日志'}
+        </Button>
+        {session?.decisionPractice && <span className="review-session-practice-label">先判断</span>}
+      </Toolbar>
 
       {persistenceWarning ? (
         <div className="review-session-warning" role="status">
@@ -967,7 +950,7 @@ function ReviewSessionStart({
 
       <div className="review-session-start-footer">
         <div>
-          <strong>{poolSize > 0 ? `可随机复盘 ${poolSize} 条` : emptyMessage}</strong>
+          <span className="review-session-available-count">{poolSize > 0 ? `可随机复盘 ${poolSize} 条` : emptyMessage}</span>
           <span>{poolSize > 0 ? reviewStageSourceLabel(filters.stageSource) : emptyHint}</span>
         </div>
         <div className="review-session-start-actions">
@@ -1098,8 +1081,11 @@ function ReviewSessionSettingsModal({
                   onChange={(event) => toggleStage(stage.id, event.target.checked)}
                 />
                 <span>
-                  <strong>{stage.name} · {stage.id === currentLiveStageId && stage.status === 'current' ? '当前阶段' : '已归档'}</strong>
-                  <small>{stage.startsOn}{stage.endsOn ? ` — ${stage.endsOn}` : ' — 至今'}</small>
+                  <strong>{stage.name}</strong>
+                  <small>
+                    {stage.id === currentLiveStageId && stage.status === 'current' ? '当前阶段' : '已归档'}
+                    {' · '}{stage.startsOn}{stage.endsOn ? ` — ${stage.endsOn}` : ' — 至今'}
+                  </small>
                 </span>
               </label>
             ))}

@@ -1,0 +1,18 @@
+.ui-error-details {
+  min-width: 0;
+  max-width: 100%;
+  text-align: start;
+}
+
+.ui-error-reason {
+  max-height: 30vh;
+  overflow: auto;
+  margin-block-start: var(--sp-1);
+  padding-inline: var(--sp-1);
+  color: var(--text-body);
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}

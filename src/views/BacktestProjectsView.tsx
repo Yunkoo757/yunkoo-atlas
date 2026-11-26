@@ -219,7 +219,7 @@ export function BacktestProjectsView() {
       <div className="ui-filter-bar backtest-filter-bar">
         <div className="quick-view-bar" role="group" aria-label="项目记录"><div className="quick-view-primary">
           {([{ value: 'all', label: '全部记录' }, { value: 'pending', label: '待确认' }, { value: 'missed', label: '未参与' }] as const).map(item => <button key={item.value} type="button" className={`quick-view-chip${recordScope === item.value ? ' is-active' : ''}`} aria-pressed={recordScope === item.value} onClick={() => changeScope('records', item.value)}>{item.label}</button>)}
-        </div><span className="backtest-visible-count" title="按历史日期顺序">{visible.length} 条</span></div>
+        </div><Tooltip focusable label={`共 ${visible.length} 条，按历史日期顺序`} content="按历史日期顺序"><span className="backtest-visible-count">{visible.length} 条</span></Tooltip></div>
         <div className="backtest-summary" aria-label="整个项目统计摘要">
           {statistics.filter(([label]) => label === '胜率' || label === '总 R').map(([label, value, , explanation]) => <Tooltip key={label} asChild showOnFocus content={explanation} label={`${label}统计口径`}><button type="button" className="backtest-summary-metric" aria-label={`${label}，查看统计口径`}><span>{label}</span><OverflowTooltip text={value}><strong>{value}</strong></OverflowTooltip></button></Tooltip>)}
           <Button variant="ghost" size="sm" aria-label="项目统计" onClick={() => setPanel('statistics')}>统计</Button>
@@ -270,8 +270,8 @@ export function BacktestProjectsView() {
     </>}
     <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
     {project && <BatchActionBar count={selectedIds.size}>
-      {!project.archivedAt && <button type="button" className="batch-bar-action-btn" onClick={requestBatchCopy}><Copy size={ICON_SM} /><span>{getBatchCopyActionLabel(visible.filter(trade => selectedIds.has(trade.id)))}</span></button>}
-      <button type="button" className="batch-bar-action-btn batch-bar-action-btn-danger" onClick={batchDelete}><Trash2 size={ICON_SM} /><span>删除</span></button>
+      {!project.archivedAt && <Button size="sm" onClick={requestBatchCopy}><Copy size={ICON_SM} /><span>{getBatchCopyActionLabel(visible.filter(trade => selectedIds.has(trade.id)))}</span></Button>}
+      <Button size="sm" variant="danger" onClick={batchDelete}><Trash2 size={ICON_SM} /><span>删除</span></Button>
     </BatchActionBar>}
     {copyCandidateIds && <ModalShell title="确认复制所选记录" size="compact" onClose={() => setCopyCandidateIds(null)} footer={<><Button variant="bordered" onClick={() => setCopyCandidateIds(null)}>取消</Button><Button variant="primary" onClick={confirmBatchCopy}>创建 {copyCandidateIds.length} 条待确认记录</Button></>}>
       <p className="backtest-copy-description">将在当前项目生成独立副本，保留历史日期、品种、方向与分类，清空结果和复盘正文。</p>

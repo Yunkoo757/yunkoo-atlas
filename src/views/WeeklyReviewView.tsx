@@ -8,7 +8,7 @@ import { PopoverSurface } from '@/components/ui/PopoverSurface'
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { DisclosureIcon } from '@/icons/StateIcons'
-import { lazy, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import {
   Link,
   UNSAFE_DataRouterContext,
@@ -341,6 +341,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
   const [showAllEvidence, setShowAllEvidence] = useState(Boolean(returnRequest))
   const mainContentRef = useRef<HTMLElement>(null)
   const historyPickerRef = useRef<HTMLDetailsElement>(null)
+  const [historyCursor, setHistoryCursor] = useState<string | null>(null)
   const evidenceRef = useRef<HTMLDetailsElement>(null)
   const riskRef = useRef<HTMLDetailsElement>(null)
   const commitmentRef = useRef<HTMLDetailsElement>(null)
@@ -704,6 +705,24 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     picker.querySelector('summary')?.focus({ preventScroll: true })
   }
 
+  const navigateHistoryRows = (event: ReactKeyboardEvent<HTMLDetailsElement>) => {
+    if (event.defaultPrevented || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+    const picker = event.currentTarget
+    const trigger = picker.querySelector('summary')
+    const rows = Array.from(picker.querySelectorAll<HTMLButtonElement>('[data-review-week]'))
+    const current = rows.indexOf(event.target as HTMLButtonElement)
+    if (!rows.length || (event.target !== trigger && current < 0)) return
+    event.preventDefault()
+    picker.open = true
+    let next = current < 0 ? Math.max(0, selectedHistoryIndex) : current
+    if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = rows.length - 1
+    else if (current >= 0) next = (current + (event.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length
+    rows[next].focus()
+    setHistoryCursor(historyItems[next].key)
+  }
+
   const changeReview = async (item: typeof historyItems[number]) => {
     const intentGeneration = ++routeIntentGenerationRef.current
     if (
@@ -770,7 +789,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     <>
       <header className="wr-toolbar">
         {!windowToolbar && <span className="wr-toolbar-label">周期复盘</span>}
-        <details className="wr-record-picker" ref={historyPickerRef}>
+        <details className="wr-record-picker" ref={historyPickerRef} onKeyDown={navigateHistoryRows}>
           <summary aria-label={`选择复盘记录：${selectedWeek.slice(0, 4)}年 · ${formatWeekRange(selectedWeek)}，${reviewStageName}`}>
             <span>{selectedWeek.slice(0, 4)}年 · {formatWeekRange(selectedWeek)}</span>
             <small>{reviewStageName}</small>
@@ -778,10 +797,16 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
           </summary>
           <PopoverSurface kind="menu" className="wr-record-popup">
             {header}
-            <div className="wr-history" aria-label="周复盘历史">
+            <nav
+              className="wr-history"
+              aria-label="周复盘历史"
+              onBlur={() => setHistoryCursor(null)}
+              onPointerMove={() => setHistoryCursor(null)}
+            >
                 <div className="wr-history-title">复盘记录</div>
                 {historyItems.map((item) => {
                   const stageName = liveStages.find((stage) => stage.id === item.liveStageId)?.name ?? '未知阶段'
+                  const stateLabel = item.review?.status === 'completed' ? '已完成' : item.review ? '草稿' : '待补做'
                   const isActive = selectedReviewId
                     ? item.routeId === selectedReviewId
                     : item.week === selectedWeek && item.liveStageId === reviewLiveStageId
@@ -790,24 +815,22 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                       key={item.key}
                       type="button"
                       className={isActive ? 'is-active' : ''}
+                      data-arrow-current={item.key === historyCursor || undefined}
                       data-review-week={item.week}
                       data-review-id={item.review?.id ?? ''}
                       aria-current={isActive ? 'page' : undefined}
                       data-review-stage-id={item.liveStageId}
                       data-review-week-state={item.review?.status ?? 'pending'}
-                      aria-label={`${weekLabel(item.week, currentWeek, item.liveStageId === currentLiveStageId)} ${stageName} ${item.review?.status === 'completed' ? '已完成' : item.review ? '草稿' : '待补做'}`}
+                      aria-label={`${weekLabel(item.week, currentWeek, item.liveStageId === currentLiveStageId)} ${stageName} ${stateLabel}`}
                       onClick={() => void changeReview(item)}
                     >
                       <span className="wr-history-week">{weekLabel(item.week, currentWeek, item.liveStageId === currentLiveStageId)}</span>
                       <small className="wr-history-stage">{stageName}</small>
-                      <i
-                        className={item.review?.status === 'completed' ? 'is-complete' : item.review ? 'is-draft' : 'is-pending'}
-                        aria-hidden
-                      />
+                      <span className="wr-history-state">{stateLabel}</span>
                     </button>
                   )
                 })}
-            </div>
+            </nav>
           </PopoverSurface>
         </details>
         {tab === 'review' && (olderHistoryItem || newerHistoryItem) && (

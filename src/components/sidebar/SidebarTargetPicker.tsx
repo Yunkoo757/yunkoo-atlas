@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type RefObject } from 'react'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import type { Strategy } from '@/data/strategies'
 import {
@@ -51,12 +51,13 @@ function reindex(items: SidebarWorkspaceItem[]): SidebarWorkspaceItem[] {
 }
 
 export type SidebarTargetPickerProps = {
+  searchRef: RefObject<HTMLInputElement>
   items: SidebarWorkspaceItem[]
   sources: SidebarTargetSources
   onChange: (items: SidebarWorkspaceItem[]) => void
 }
 
-export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetPickerProps) {
+export function SidebarTargetPicker({ searchRef, items, sources, onChange }: SidebarTargetPickerProps) {
   const [query, setQuery] = useState('')
   const [capacityMessage, setCapacityMessage] = useState('')
   const pinnedCount = items.filter((item) => item.placement === 'pinned').length
@@ -190,15 +191,19 @@ export function SidebarTargetPicker({ items, sources, onChange }: SidebarTargetP
 
   return (
     <div className="sb-target-picker">
-      <label className="sb-target-picker-search">
-        <span className="sb-screen-reader">搜索可添加项目</span>
-        <input
-          type="search"
-          placeholder="搜索项目…"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </label>
+      <div className="sb-target-picker-toolbar">
+        <label className="sb-target-picker-search">
+          <span className="sb-screen-reader">搜索可添加项目</span>
+          <input
+            ref={searchRef}
+            type="search"
+            placeholder="搜索项目…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <span data-sidebar-capacity>常驻 {pinnedCount} / {MAX_PINNED_SIDEBAR_ITEMS}</span>
+      </div>
       {capacityMessage ? <p className="sb-editor-message" role="status">{capacityMessage}</p> : null}
       {visibleGroups.length === 0 && <p className="sb-editor-empty" role="status">没有匹配的项目</p>}
       <div className="sb-target-groups">

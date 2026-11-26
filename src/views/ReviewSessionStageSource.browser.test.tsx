@@ -175,8 +175,9 @@ async function run(): Promise<void> {
     await waitFor(() => document.querySelectorAll<HTMLInputElement>('.review-session-stage-option input').length === 2, '自选阶段没有列出当前与历史阶段')
     const stageInputs = [...document.querySelectorAll<HTMLInputElement>('.review-session-stage-option input')]
     assert(stageInputs.every((input) => !input.checked), '切换到自选阶段不得自动选中任何阶段')
-    assert(document.body.textContent?.includes('突破训练 · 已归档'), '历史阶段缺少名称与状态')
-    assert(document.body.textContent?.includes('当前执行 · 当前阶段'), '当前阶段缺少名称与状态')
+    const stageLabels = stageInputs.map(input => input.labels?.[0])
+    assert(stageLabels[0]?.querySelector('strong')?.textContent === '突破训练' && stageLabels[0]?.querySelector('small')?.textContent?.includes('已归档'), '历史阶段名称与归档状态应分别可读')
+    assert(stageLabels[1]?.querySelector('strong')?.textContent === '当前执行' && stageLabels[1]?.querySelector('small')?.textContent?.includes('当前阶段'), '当前阶段名称与当前状态应分别可读')
     assert(stageInputs.every((input) => input.tabIndex === 0), '多阶段复选框必须保持原生键盘焦点能力')
     stageInputs[0]?.focus()
     assert(document.activeElement === stageInputs[0], '历史阶段复选框不能通过键盘焦点访问')

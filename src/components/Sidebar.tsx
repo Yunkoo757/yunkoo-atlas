@@ -42,6 +42,7 @@ import {
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
 import { pathWithWorkbenchMode, workbenchModeFromPathname } from '@/lib/routeContext'
 import { strategyNavigationSearch } from '@/lib/strategyNavigation'
+import { restoreFocusIfUnclaimed } from '@/lib/restoreFocus'
 import { findTradeByRouteParam } from '@/lib/tradeRoute'
 import { sharedTradeWorkspaceSearch, tradeHomeSearch } from '@/lib/tradeWorkspaceQuery'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
@@ -53,7 +54,6 @@ import {
 } from '@/components/sidebar/SidebarWorkspaceEditor'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { DisclosureIcon } from '@/icons/StateIcons'
-import { useExitClone } from '@/components/ui/useExitClone'
 import { SidebarRiskStatus } from '@/components/SidebarRiskStatus'
 import { SidebarBackupHealth } from '@/components/SidebarBackupHealth'
 import { countExpiringTradeTrash } from '@/lib/trashCleanup'
@@ -235,8 +235,8 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
   const [workspaceEditorOpen, setWorkspaceEditorOpen] = useState(false)
   const [workspaceEditorSection, setWorkspaceEditorSection] = useState<'pinned' | 'overflow'>('pinned')
   const [capabilityMenu, setCapabilityMenu] = useState<(CtxState & { itemId: string }) | null>(null)
+  const workspaceManageButton = useRef<HTMLButtonElement>(null)
   const workspaceEditorOpener = useRef<HTMLButtonElement | null>(null)
-  const workspaceEditorExitRef = useExitClone<HTMLDivElement>(workspaceEditorOpen)
   const openComposer = useStore((state) => state.openComposer)
   const storedPrimaryOrder = useStore((state) => state.display.sidebarPrimaryOrder)
   const primaryOrder = normalizePrimarySidebarOrder(storedPrimaryOrder)
@@ -303,8 +303,11 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
     setWorkspaceEditorOpen(true)
   }
   const closeWorkspaceEditor = () => {
+    const opener = workspaceEditorOpener.current
     setWorkspaceEditorOpen(false)
-    requestAnimationFrame(() => workspaceEditorOpener.current?.focus())
+    requestAnimationFrame(() => {
+      if (!opener?.isConnected) restoreFocusIfUnclaimed(workspaceManageButton.current)
+    })
   }
 
   const renderWorkspaceLink = (item: (typeof workspaceItems)[number]) => {
@@ -540,9 +543,11 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
           <span>我的空间</span>
           <button
             type="button"
+            ref={workspaceManageButton}
             className="sb-workspace-menu"
             aria-label="管理我的空间"
             aria-expanded={workspaceEditorOpen}
+            aria-haspopup="dialog"
             aria-controls={SIDEBAR_WORKSPACE_EDITOR_ID}
             onClick={(event) => openWorkspaceEditor(event.currentTarget)}
           >
@@ -577,6 +582,7 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
                 className="sb-workspace-overflow-manage"
                 aria-label="管理更多项目"
                 aria-expanded={workspaceEditorOpen}
+                aria-haspopup="dialog"
                 aria-controls={SIDEBAR_WORKSPACE_EDITOR_ID}
                 onClick={(event) => openWorkspaceEditor(event.currentTarget, 'overflow')}
               >
@@ -591,6 +597,7 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
           className="sb-workspace-manage"
           aria-label="添加或管理我的空间"
           aria-expanded={workspaceEditorOpen}
+          aria-haspopup="dialog"
           aria-controls={SIDEBAR_WORKSPACE_EDITOR_ID}
           onClick={(event) => openWorkspaceEditor(event.currentTarget)}
         >
@@ -605,27 +612,19 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
       </div>
 
       {workspaceEditorOpen ? (
-        <div ref={workspaceEditorExitRef} className="sb-workspace-editor-portal" role="presentation">
-          <button
-            type="button"
-            className="sb-workspace-editor-backdrop"
-            aria-label="关闭管理我的空间"
-            tabIndex={-1}
-            onClick={closeWorkspaceEditor}
-          />
-          <SidebarWorkspaceEditor
-            items={sidebarWorkspaceItems}
-            primaryOrder={primaryOrder}
-            sources={{ savedViews: savedTradeViews, strategies }}
-            initialSection={workspaceEditorSection}
-            onCommit={(items, nextPrimaryOrder) => {
-              replaceSidebarWorkspaceItems(items)
-              setDisplay({ sidebarPrimaryOrder: nextPrimaryOrder })
-              closeWorkspaceEditor()
-            }}
-            onCancel={closeWorkspaceEditor}
-          />
-        </div>
+        <SidebarWorkspaceEditor
+          returnFocusTo={workspaceEditorOpener.current}
+          items={sidebarWorkspaceItems}
+          primaryOrder={primaryOrder}
+          sources={{ savedViews: savedTradeViews, strategies }}
+          initialSection={workspaceEditorSection}
+          onCommit={(items, nextPrimaryOrder) => {
+            replaceSidebarWorkspaceItems(items)
+            setDisplay({ sidebarPrimaryOrder: nextPrimaryOrder })
+            closeWorkspaceEditor()
+          }}
+          onCancel={closeWorkspaceEditor}
+        />
       ) : null}
 
       <ContextMenu

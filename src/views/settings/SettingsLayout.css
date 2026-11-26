@@ -35,9 +35,9 @@
   height: var(--field-height-md);
   padding: 0 10px;
   border-radius: var(--radius-6);
-  font-size: var(--type-row-size);
-  font-weight: var(--type-row-weight);
-  line-height: var(--type-row-line-height);
+  font-size: var(--type-nav-size);
+  font-weight: var(--type-nav-weight);
+  line-height: var(--type-nav-line-height);
   color: var(--text-secondary);
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }

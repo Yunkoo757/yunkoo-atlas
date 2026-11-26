@@ -1,13 +1,14 @@
 import { isComposingKey } from '@/lib/keyboardComposition'
 import { ICON_SM } from '@/icons/iconSize'
-import { useState, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useStore } from '@/store/useStore'
 import { AVATAR_PRESETS, getAvatarPreset, resizeAvatarImage } from '@/lib/avatars'
 import { PresetAvatarGraphic, UserAvatar } from '@/components/UserAvatar'
 import { Check, Upload, X } from '@/icons/appIcons'
 import { flushPersistNow } from '@/storage/persist'
 import { InlineStatus } from '@/components/ui/InlineStatus'
-import { toast } from '@/lib/toast'
+import { Button } from '@/components/ui/Button'
+import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import './ProfileSettingsPanel.css'
 
 export function ProfileSettingsPanel() {
@@ -15,35 +16,44 @@ export function ProfileSettingsPanel() {
   const setAvatar = useStore((s) => s.setAvatar)
   const setCustomAvatar = useStore((s) => s.setCustomAvatar)
   const setDisplayName = useStore((s) => s.setDisplayName)
-  const [nameDraft, setNameDraft] = useState(profile.displayName)
+  const [nameDraft, setNameDraft] = useState<string | null>(null)
+  const nameValue = nameDraft ?? profile.displayName
+  const [nameError, setNameError] = useState('')
+  const nameErrorId = useId()
   const [saved, setSaved] = useState(false)
   const [savingName, setSavingName] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [avatarError, setAvatarError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => {
+    if (!saved) return
+    const timeout = window.setTimeout(() => setSaved(false), 1500)
+    return () => window.clearTimeout(timeout)
+  }, [saved])
+
   const handleNameSave = async () => {
-    const trimmed = nameDraft.trim()
-    if (savingName || !trimmed || trimmed === profile.displayName) {
-      setNameDraft(profile.displayName)
-      return
-    }
+    const trimmed = nameValue.trim()
+    if (savingName || !trimmed || trimmed === profile.displayName) return
     const previousName = profile.displayName
+    setNameError('')
     setSavingName(true)
     setDisplayName(trimmed)
     try {
       await flushPersistNow()
+      setNameDraft(null)
       setSaved(true)
-      setTimeout(() => setSaved(false), 1500)
     } catch {
-      setDisplayName(previousName)
-      setNameDraft(previousName)
-      try {
-        await flushPersistNow()
-        toast('名称保存失败，原名称已保留', { tone: 'error' })
-      } catch {
-        toast('名称保存失败，回滚也未能写入；请重试', { tone: 'error' })
+      if (useStore.getState().profile.displayName === trimmed) {
+        setDisplayName(previousName)
+        try {
+          await flushPersistNow()
+        } catch {
+          setNameError('无法写入资料库。请检查资料库是否可写，再重试。')
+          return
+        }
       }
+      setNameError('名称保存失败，请重试。')
     } finally {
       setSavingName(false)
     }
@@ -92,25 +102,32 @@ export function ProfileSettingsPanel() {
             type="text"
             className="profile-name-input"
             aria-label="显示名称"
-            value={nameDraft}
+            value={nameValue}
+            readOnly={savingName}
+            aria-describedby={nameError ? nameErrorId : undefined}
             onChange={(e) => {
               setSaved(false)
-              setNameDraft(e.target.value)
+              setNameError('')
+              setNameDraft(e.target.value === profile.displayName ? null : e.target.value)
             }}
             onKeyDown={(e) => { if (e.key === 'Enter' && !isComposingKey(e.nativeEvent)) void handleNameSave() }}
             placeholder="输入名称…"
             maxLength={24}
           />
-          <button
-            type="button"
-            className="dio-btn dio-btn-primary"
+          <Button
+            variant="primary"
+            busy={savingName}
             onClick={() => void handleNameSave()}
-            disabled={savingName || !nameDraft.trim() || nameDraft.trim() === profile.displayName}
+            disabled={!nameValue.trim() || nameValue.trim() === profile.displayName}
           >
-            <Check size={ICON_SM} />
-            <span>{savingName ? '保存中…' : saved ? '已保存' : '保存'}</span>
-          </button>
+            {savingName && <LoadingIndicator size={ICON_SM} />}
+            {saved && <Check size={ICON_SM} aria-hidden />}
+            {savingName ? '保存中…' : saved ? '已保存' : nameError ? '重试' : '保存'}
+          </Button>
         </div>
+        {nameError && (
+          <InlineStatus compact className="profile-name-error" tone="error" title={<span id={nameErrorId}>{nameError}</span>} />
+        )}
       </section>
 
       {/* 自定义图片上传 */}

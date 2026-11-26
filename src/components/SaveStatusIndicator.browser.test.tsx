@@ -12,6 +12,8 @@ import {
 import { useSaveStatus } from '@/store/saveStatus'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
+import '@/styles/tokens.css'
+import '@/styles/global.css'
 
 declare global {
   interface Window {
@@ -51,7 +53,7 @@ async function run(): Promise<void> {
   try {
     enablePersistWrites()
     schedulePersist(pickPersisted(useStore.getState(), useShortcutStore.getState().bindings))
-    useSaveStatus.getState().setError(new Error('disk full'))
+    useSaveStatus.getState().setError(new Error("Error invoking remote method 'storage:saveSnapshot': Error: disk full"))
     root.render(
       <MemoryRouter>
         <SaveStatusIndicator />
@@ -67,7 +69,14 @@ async function run(): Promise<void> {
     assert(retry, '保存失败后必须提供一键重试')
     assert(retry.textContent?.includes('重试'), '保存失败后必须提供一键重试')
     assert(recovery?.textContent?.includes('数据与备份'), '保存失败后必须提供数据恢复入口')
-
+    const failure = document.querySelector<HTMLElement>('.save-status-recovery[role="alert"]')
+    assert(failure && !failure.textContent?.includes('disk full'), '失败原因不能把顶栏挤成多行')
+    assert(failure.getBoundingClientRect().height <= 28, '失败提示必须与同轨道按钮等高')
+    retry.focus()
+    await waitFor(
+      () => document.querySelector('[role="tooltip"]')?.textContent?.trim() === 'disk full',
+      '聚焦重试按钮时应可查看具体失败原因',
+    )
     retry.click()
     await waitFor(() => useSaveStatus.getState().status === 'saved', '点击重试后没有完成保存')
     root.render(<MemoryRouter><SaveStatusIndicator quiet /></MemoryRouter>)

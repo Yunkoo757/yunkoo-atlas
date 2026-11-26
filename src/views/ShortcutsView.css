@@ -185,7 +185,7 @@
     box-shadow var(--dur-fast) var(--ease-out);
 }
 
-button.shortcuts-capture:hover {
+button.shortcuts-capture:hover:not(:disabled) {
   color: var(--text-primary);
   border-color: var(--border-default);
   background: var(--bg-elevated);
@@ -221,33 +221,20 @@ button.shortcuts-capture[aria-pressed='true'] {
   gap: 3px;
 }
 
-.shortcuts-keycap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: auto;
-  padding: 1px 5px;
-  border: 0.8px solid var(--border-strong);
-  border-radius: var(--radius-4);
-  color: var(--text-primary);
-  background: var(--surface-raised);
-  box-shadow: var(--shadow-low);
-  font-family: var(--font-mono);
-  font-size: var(--type-caption-size);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--type-caption-line-height);
-}
-
 .shortcuts-sequence-arrow {
   flex: 0 0 auto;
   color: var(--text-quaternary);
 }
 
 .shortcuts-unassigned {
-  padding-right: 2px;
-  color: var(--text-quaternary);
-  font-size: var(--type-caption-size);
+  color: inherit;
+  font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
+  font-weight: var(--type-metadata-weight);
+}
+
+button.shortcuts-capture:disabled {
+  color: var(--text-disabled);
 }
 
 .shortcuts-recording {

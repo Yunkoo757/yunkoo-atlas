@@ -325,14 +325,14 @@ export function ListView({
       </div>
       <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
       <BatchActionBar count={selectedIds.size}>
-        <button type="button" className="batch-bar-action-btn" onClick={requestBatchCopy}>
+        <Button size="sm" onClick={requestBatchCopy}>
           <Copy size={ICON_SM} />
           <span>{copyActionLabel}</span>
-        </button>
-        <button type="button" className="batch-bar-action-btn batch-bar-action-btn-danger" onClick={batchDelete}>
+        </Button>
+        <Button size="sm" variant="danger" onClick={batchDelete}>
           <Trash2 size={ICON_SM} />
           <span>删除</span>
-        </button>
+        </Button>
       </BatchActionBar>
       {copyCandidateIds ? (
         <ModalShell

@@ -8,13 +8,15 @@
 .menu-pop {
   position: fixed;
   z-index: var(--z-popover);
-  min-width: 180px;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: var(--sp-1);
   transform-origin: center top;
   animation: uiPopIn var(--motion-menu) var(--ease-out);
 }
 .menu-placement-top {
-  transform: translateY(-100%);
   transform-origin: center bottom;
 }
 .menu-item {
@@ -33,7 +35,8 @@
     color var(--dur-fast) var(--ease-out),
     transform var(--motion-state) var(--ease-out);
 }
-.menu-item:hover:not(:disabled) {
+.menu-item[data-keyboard-item],
+.menu-pop:not([data-keyboard-active]) .menu-item:hover:not(:disabled) {
   background: var(--surface-menu-hover);
   color: var(--text-primary);
 }
@@ -51,26 +54,22 @@
   flex-shrink: 0;
 }
 .menu-item-label {
+  min-width: 0;
   flex: 1;
+  overflow: hidden;
   text-align: left;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .menu-item-check {
   color: var(--text-secondary);
   flex-shrink: 0;
 }
-.menu-pop-bounded {
-  overflow-y: auto;
-}
-.menu-pop-bounded .menu-item-label {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
 .menu-item-danger:not(:disabled) {
   color: var(--danger);
 }
-.menu-item-danger:hover:not(:disabled) {
+.menu-item-danger[data-keyboard-item],
+.menu-pop:not([data-keyboard-active]) .menu-item-danger:hover:not(:disabled) {
   color: var(--danger);
   background: var(--error-action-bg);
 }

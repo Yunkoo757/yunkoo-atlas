@@ -4,13 +4,23 @@ import { flushPersistNow } from '@/storage/persist'
 import { useSaveStatus } from '@/store/saveStatus'
 import { InlineStatus } from '@/components/ui/InlineStatus'
 import { Button } from '@/components/ui/Button'
+import { Tooltip } from '@/components/ui/Tooltip'
+import { AlertCircle, Check, Clock } from '@/icons/appIcons'
+import { ICON_SM } from '@/icons/iconSize'
+import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import './SaveStatusIndicator.css'
 
 const LABELS = {
-  dirty: '未保存',
+  dirty: '待保存',
   saving: '保存中…',
   saved: '已保存',
 } as const
+
+const ICONS = {
+  dirty: Clock,
+  saving: LoadingIndicator,
+  saved: Check,
+}
 
 const SAVED_VISIBLE_MS = 1600
 const PENDING_VISIBLE_DELAY_MS = 600
@@ -54,18 +64,20 @@ export function SaveStatusIndicator({ quiet = true }: { quiet?: boolean }) {
         className="save-status-recovery"
         tone="error"
         title="保存失败"
-        detail={reason}
+        icon={<AlertCircle size={ICON_SM} aria-hidden />}
         action={(
           <>
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label={`保存失败：${reason}。点击重试`}
-              onClick={() => void flushPersistNow().catch(() => {})}
-            >
-              重试
-            </Button>
-            <Link className="save-status-recovery-link" to="/settings/data">
+            <Tooltip asChild showOnFocus content={reason} label="查看保存失败原因">
+              <Button
+                size="sm"
+                className="save-status-retry"
+                aria-label={`重试保存（${reason}）`}
+                onClick={() => void flushPersistNow().catch(() => {})}
+              >
+                重试
+              </Button>
+            </Tooltip>
+            <Link className="ui-btn ui-btn-ghost ui-btn-sm save-status-recovery-link" to="/settings/data">
               数据与备份
             </Link>
           </>
@@ -74,10 +86,12 @@ export function SaveStatusIndicator({ quiet = true }: { quiet?: boolean }) {
     )
   }
 
+  const Icon = ICONS[status]
   return (
     <InlineStatus
       compact
       className={`save-status is-${status}`}
+      icon={<Icon size={ICON_SM} aria-hidden />}
       tone={status === 'saved' ? 'success' : status === 'saving' ? 'progress' : 'neutral'}
       title={LABELS[status]}
     />

@@ -1,6 +1,7 @@
 import { ICON_LG, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { Button } from '@/components/ui/Button'
 import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import { DataIOContent } from '@/components/DataIOContent'
 import { LivePerformanceCycleControl } from '@/components/LivePerformanceCycleControl'
@@ -692,9 +693,8 @@ export function DataSettingsPanel({
               >
                 取消
               </button>
-              <button
-                type="button"
-                className={`ui-btn ${confirmRequest.kind === 'delete' ? 'ui-btn-danger-solid' : 'ui-btn-primary'}`}
+              <Button
+                variant="danger-solid"
                 disabled={backing || (confirmRequest.kind === 'restore' && restoring !== null)}
                 onClick={() => {
                   const { kind, backup } = confirmRequest
@@ -702,8 +702,8 @@ export function DataSettingsPanel({
                   void (kind === 'restore' ? handleRestore(name) : handleDelete(name))
                 }}
               >
-                {confirmRequest.kind === 'restore' ? '恢复备份' : '删除备份'}
-              </button>
+                {confirmRequest.kind === 'restore' ? '用备份替换当前资料库' : '删除备份'}
+              </Button>
             </>
           )}
         >

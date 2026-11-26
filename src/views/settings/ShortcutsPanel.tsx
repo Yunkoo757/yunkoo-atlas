@@ -183,32 +183,35 @@ export function ShortcutsPanel() {
                         </span>
                       </Tooltip>
                     ) : (
-                      <button
-                        type="button"
-                        className="shortcuts-capture"
-                        aria-label={
-                          windowHotkeyLoading
-                            ? `${action.label}，${WINDOW_HOTKEY_LOADING_COPY}`
-                            : isRecording
-                            ? `${action.label}，等待输入新快捷键`
-                            : `${action.label}，当前快捷键 ${bindingLabel}，点击修改`
-                        }
-                        aria-pressed={isRecording}
-                        disabled={windowHotkeyLoading}
-                        onClick={() => setRecordingId(isRecording ? null : action.id)}
-                        onBlur={() => {
-                          if (isRecording) setRecordingId(null)
-                        }}
-                      >
-                        {isRecording ? (
-                          <span className="shortcuts-recording">
-                            <span className="shortcuts-recording-dot" />
-                            按下新快捷键 · Esc 取消
-                          </span>
-                        ) : (
-                          <ShortcutKeycaps binding={binding} />
-                        )}
-                      </button>
+                      <Tooltip asChild showOnFocus disabled={Boolean(binding) || isRecording || windowHotkeyLoading}
+                        label={action.label} content="按 Enter 开始录制快捷键">
+                        <button
+                          type="button"
+                          className="shortcuts-capture"
+                          aria-label={
+                            windowHotkeyLoading
+                              ? `${action.label}，${WINDOW_HOTKEY_LOADING_COPY}`
+                              : isRecording
+                              ? `${action.label}，等待输入新快捷键`
+                              : `${action.label}，当前快捷键 ${bindingLabel}，按 Enter 或点击修改`
+                          }
+                          aria-pressed={isRecording}
+                          disabled={windowHotkeyLoading}
+                          onClick={() => setRecordingId(isRecording ? null : action.id)}
+                          onBlur={() => {
+                            if (isRecording) setRecordingId(null)
+                          }}
+                        >
+                          {isRecording ? (
+                            <span className="shortcuts-recording">
+                              <span className="shortcuts-recording-dot" />
+                              按下新快捷键 · Esc 取消
+                            </span>
+                          ) : (
+                            <ShortcutKeycaps binding={binding} />
+                          )}
+                        </button>
+                      </Tooltip>
                     )}
 
                     <span className="shortcuts-actions">

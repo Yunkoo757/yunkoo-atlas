@@ -4,9 +4,8 @@ import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useLayoutEffect, useRef, useState, type DragEvent } from 'react'
 import { ChevronLeft, GripVertical, Plus, Trash2 } from '@/icons/appIcons'
 import { Button } from '@/components/ui/Button'
-import { IconButton } from '@/components/ui/IconButton'
 import { OverflowTooltip } from '@/components/ui/Tooltip'
-import { useModalShortcutScope } from '@/components/ui/ModalShell'
+import { ModalShell } from '@/components/ui/ModalShell'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import type { Strategy } from '@/data/strategies'
 import type { SavedTradeView } from '@/lib/savedTradeViews'
@@ -42,13 +41,12 @@ export type SidebarWorkspaceEditorProps = {
   sources: SidebarTargetSources
   onCommit: (items: SidebarWorkspaceItem[], primaryOrder: PrimarySidebarNavId[]) => void
   onCancel: () => void
-  variant?: 'popover' | 'mobile-fullscreen'
+  returnFocusTo: HTMLButtonElement | null
   /** 打开时滚到对应分组，便于从侧栏「更多 · 管理」直达 */
   initialSection?: 'pinned' | 'overflow'
 }
 
 export const SIDEBAR_WORKSPACE_EDITOR_ID = 'sidebar-workspace-editor'
-const SIDEBAR_WORKSPACE_EDITOR_TITLE_ID = 'sidebar-workspace-editor-title'
 
 type Removal = {
   item: SidebarWorkspaceItem
@@ -66,7 +64,7 @@ export function SidebarWorkspaceEditor({
   sources,
   onCommit,
   onCancel,
-  variant = 'popover',
+  returnFocusTo,
   initialSection = 'pinned',
 }: SidebarWorkspaceEditorProps) {
   const [draft, setDraft] = useState<SidebarWorkspaceItem[]>(() =>
@@ -84,30 +82,21 @@ export function SidebarWorkspaceEditor({
   const [confirmDefaults, setConfirmDefaults] = useState(false)
   const [capacityMessage, setCapacityMessage] = useState('')
   const [announcement, setAnnouncement] = useState('')
-  const titleRef = useRef<HTMLHeadingElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
   const addButtonRef = useRef<HTMLButtonElement>(null)
   const wasPicking = useRef(false)
   const restoreActionRef = useRef<HTMLButtonElement>(null)
   const wasConfirming = useRef(false)
-  const overflowSectionRef = useRef<HTMLElement>(null)
   const navigationDraft = draft.filter((item) => isSidebarNavigationTarget(item.target))
   const pinnedItems = navigationDraft.filter((item) => item.placement === 'pinned')
   const overflowItems = navigationDraft.filter((item) => item.placement === 'overflow')
   const pinnedCount = pinnedItems.length
   const primaryItems = resolvePrimarySidebarNav(primaryDraft)
-  useModalShortcutScope()
-
   useLayoutEffect(() => {
-    if (!pickerOpen && wasPicking.current) {
-      addButtonRef.current?.focus()
-    } else {
-      titleRef.current?.focus()
-      if (!pickerOpen && initialSection === 'overflow') {
-        overflowSectionRef.current?.scrollIntoView({ block: 'nearest' })
-      }
-    }
+    if (pickerOpen) searchRef.current?.focus()
+    else if (wasPicking.current) addButtonRef.current?.focus()
     wasPicking.current = pickerOpen
-  }, [initialSection, pickerOpen])
+  }, [pickerOpen])
 
   useLayoutEffect(() => {
     if (wasConfirming.current !== confirmDefaults) restoreActionRef.current?.focus()
@@ -115,22 +104,17 @@ export function SidebarWorkspaceEditor({
   }, [confirmDefaults])
 
   useEffect(() => {
+    if (!pickerOpen && !confirmDefaults) return
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented || isComposingKey(event)) return
+      if (!(event.target instanceof Node) || !document.getElementById(SIDEBAR_WORKSPACE_EDITOR_ID)?.contains(event.target)) return
       event.preventDefault()
-      if (pickerOpen) {
-        setPickerOpen(false)
-        return
-      }
-      if (confirmDefaults) {
-        setConfirmDefaults(false)
-        return
-      }
-      onCancel()
+      if (pickerOpen) setPickerOpen(false)
+      else setConfirmDefaults(false)
     }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [confirmDefaults, onCancel, pickerOpen])
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [confirmDefaults, pickerOpen])
 
   const removeItem = (item: SidebarWorkspaceItem, label: string) => {
     const index = draft.findIndex((candidate) => candidate.id === item.id)
@@ -263,7 +247,7 @@ export function SidebarWorkspaceEditor({
           className="sb-editor-sort-handle"
           aria-label={`排序 ${resolved.label}`}
           aria-describedby={descriptionId}
-          draggable={variant !== 'mobile-fullscreen'}
+          draggable
           onDragStart={(event) => {
             setDraggedId(item.id)
             event.dataTransfer.effectAllowed = 'move'
@@ -304,24 +288,6 @@ export function SidebarWorkspaceEditor({
           </span>
         </OverflowTooltip>
         {resolved.invalid ? <span className="sb-editor-invalid">已失效</span> : null}
-        <span className="sb-editor-mobile-moves">
-          <button
-            type="button"
-            aria-label={`上移 ${resolved.label}`}
-            disabled={indexInGroup === 0}
-            onClick={() => moveByKeyboard(item.id, -1, placement)}
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            aria-label={`下移 ${resolved.label}`}
-            disabled={indexInGroup === group.length - 1}
-            onClick={() => moveByKeyboard(item.id, 1, placement)}
-          >
-            ↓
-          </button>
-        </span>
         <div className="sb-editor-row-actions">
           <Button size="sm" onClick={() => togglePlacement(item)}>
             {item.placement === 'pinned' ? '移至更多' : '常驻侧栏'}
@@ -364,7 +330,7 @@ export function SidebarWorkspaceEditor({
           className="sb-editor-sort-handle"
           aria-label={`排序 ${item.label}`}
           aria-describedby={descriptionId}
-          draggable={variant !== 'mobile-fullscreen'}
+          draggable
           onDragStart={(event) => {
             setDraggedPrimaryId(item.id)
             event.dataTransfer.effectAllowed = 'move'
@@ -392,88 +358,60 @@ export function SidebarWorkspaceEditor({
         </span>
         <Icon size={ICON_MD} aria-hidden />
         <span className="sb-editor-item-label">{item.label}</span>
-        <span className="sb-editor-mobile-moves">
-          <button
-            type="button"
-            aria-label={`上移 ${item.label}`}
-            disabled={index === 0}
-            onClick={() => movePrimaryByKeyboard(item.id, -1)}
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            aria-label={`下移 ${item.label}`}
-            disabled={index === primaryItems.length - 1}
-            onClick={() => movePrimaryByKeyboard(item.id, 1)}
-          >
-            ↓
-          </button>
-        </span>
       </div>
     )
   }
 
-  return (
-    <section
-      id={SIDEBAR_WORKSPACE_EDITOR_ID}
-      className={`ui-popover-surface ui-popover-modal sb-workspace-editor${variant === 'mobile-fullscreen' ? ' is-mobile-fullscreen' : ''}`}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID}
-      data-mobile-fullscreen={variant === 'mobile-fullscreen' ? 'true' : undefined}
-      onKeyDown={(event) => {
-        if (event.key !== 'Tab') return
-        const focusable = Array.from(
-          event.currentTarget.querySelectorAll<HTMLElement>(
-            'button:not(:disabled), input:not(:disabled)',
-          ),
-        ).filter((element) => element.offsetParent !== null)
-        const first = focusable[0]
-        const last = focusable[focusable.length - 1]
-        if (!first || !last) return
+  const footer = confirmDefaults && !pickerOpen ? (
+    <>
+      <span className="sb-editor-restore-message" role="status">确认恢复默认项目？当前草稿将被替换。</span>
+      <Button ref={restoreActionRef} aria-label="取消恢复默认" onClick={() => setConfirmDefaults(false)}>取消</Button>
+      <Button variant="bordered" onClick={() => {
+        setDraft(migrateSidebarPins(DEFAULT_SIDEBAR_PINS))
+        setPrimaryDraft([...DEFAULT_PRIMARY_SIDEBAR_ORDER])
+        setRemoval(null)
+        setCapacityMessage('')
+        setConfirmDefaults(false)
+      }}>确认恢复默认</Button>
+    </>
+  ) : (
+    <>
+      {pickerOpen ? (
+        <Button onClick={() => setPickerOpen(false)} aria-label="返回管理列表">
+          <ChevronLeft size={ICON_SM} aria-hidden />返回
+        </Button>
+      ) : (
+        <>
+          <Button className="sb-editor-restore" ref={restoreActionRef} size="sm" onClick={() => setConfirmDefaults(true)}>
+            恢复默认
+          </Button>
+          <Button onClick={onCancel}>取消</Button>
+        </>
+      )}
+      <Button
+        variant="primary"
+        onClick={() => onCommit(normalizeSidebarWorkspaceItems(draft), primaryDraft)}
+      >
+        完成
+      </Button>
+    </>
+  )
 
-        if (event.shiftKey && (document.activeElement === first || document.activeElement === titleRef.current)) {
-          event.preventDefault()
-          last.focus()
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault()
-          first.focus()
-        }
-      }}
+  return (
+    <ModalShell
+      id={SIDEBAR_WORKSPACE_EDITOR_ID}
+      title={pickerOpen ? '添加项目' : '管理我的空间'}
+      initialFocusSelector={initialSection === 'overflow' ? '[data-sidebar-editor-overflow]' : undefined}
+      returnFocusTo={returnFocusTo}
+      footer={footer}
+      onClose={onCancel}
     >
-      <header className="sb-workspace-editor-header">
-        <div className="sb-workspace-editor-title-row">
-          {pickerOpen && (
-            <IconButton
-              label="返回管理列表"
-              tooltip="返回管理列表"
-              onClick={() => setPickerOpen(false)}
-            >
-              <ChevronLeft size={ICON_MD} aria-hidden="true" />
-            </IconButton>
-          )}
-          <h2 id={SIDEBAR_WORKSPACE_EDITOR_TITLE_ID} ref={titleRef} tabIndex={-1}>
-            {pickerOpen ? '添加项目' : '管理我的空间'}
-          </h2>
-          {pickerOpen ? (
-            <span data-sidebar-capacity>常驻 {pinnedCount} / {MAX_PINNED_SIDEBAR_ITEMS}</span>
-          ) : (
-            <Button size="sm" variant="bordered" ref={addButtonRef} onClick={() => {
-              setConfirmDefaults(false)
-              setPickerOpen(true)
-            }}>
-              <Plus size={ICON_SM} aria-hidden />添加项目
-            </Button>
-          )}
-        </div>
-      </header>
       <span className="sb-screen-reader" aria-live="polite">
         {announcement}
       </span>
-      <div className="sb-workspace-editor-body">
       {pickerOpen ? (
         <SidebarTargetPicker
+          searchRef={searchRef}
           items={draft}
           sources={sources}
           onChange={setDraft}
@@ -493,6 +431,12 @@ export function SidebarWorkspaceEditor({
                 <span data-sidebar-capacity>
                   {pinnedCount} / {MAX_PINNED_SIDEBAR_ITEMS}
                 </span>
+                <Button size="sm" variant="bordered" ref={addButtonRef} onClick={() => {
+                  setConfirmDefaults(false)
+                  setPickerOpen(true)
+                }}>
+                  <Plus size={ICON_SM} aria-hidden />添加项目
+                </Button>
               </header>
               {pinnedItems.length === 0 ? (
                 <p className="sb-editor-empty">暂无常驻项目</p>
@@ -502,7 +446,7 @@ export function SidebarWorkspaceEditor({
             </section>
             {(overflowItems.length > 0 || initialSection === 'overflow') && (
               <section
-                ref={overflowSectionRef}
+                tabIndex={-1}
                 className="sb-editor-group"
                 aria-label="更多"
                 data-sidebar-editor-overflow
@@ -536,41 +480,6 @@ export function SidebarWorkspaceEditor({
           ) : null}
         </>
       )}
-      </div>
-      <footer className="sb-editor-actions">
-        {confirmDefaults && !pickerOpen ? (
-          <>
-            <span className="sb-editor-restore-message" role="status">确认恢复默认项目？当前草稿将被替换。</span>
-            <Button size="sm" ref={restoreActionRef} aria-label="取消恢复默认" onClick={() => setConfirmDefaults(false)}>取消</Button>
-            <Button size="sm" variant="bordered" onClick={() => {
-              setDraft(migrateSidebarPins(DEFAULT_SIDEBAR_PINS))
-              setPrimaryDraft([...DEFAULT_PRIMARY_SIDEBAR_ORDER])
-              setRemoval(null)
-              setCapacityMessage('')
-              setConfirmDefaults(false)
-            }}>确认恢复默认</Button>
-          </>
-        ) : (
-          <>
-            {!pickerOpen && (
-              <>
-                <Button className="sb-editor-restore" ref={restoreActionRef} size="sm" onClick={() => setConfirmDefaults(true)}>
-                  恢复默认
-                </Button>
-                <Button variant="ghost" size="md" onClick={onCancel}>取消</Button>
-              </>
-            )}
-            <Button
-              variant="primary"
-              size="md"
-              className="is-primary"
-              onClick={() => onCommit(normalizeSidebarWorkspaceItems(draft), primaryDraft)}
-            >
-              完成
-            </Button>
-          </>
-        )}
-      </footer>
-    </section>
+    </ModalShell>
   )
 }

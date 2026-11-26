@@ -12,6 +12,7 @@ export function InlineStatus({
   title,
   detail,
   action,
+  icon,
   compact = false,
   className = '',
 }: {
@@ -19,10 +20,11 @@ export function InlineStatus({
   title: ReactNode
   detail?: ReactNode
   action?: ReactNode
+  icon?: ReactNode
   compact?: boolean
   className?: string
 }) {
-  const icon = tone === 'progress'
+  const statusIcon = icon ?? (tone === 'progress'
     ? <LoadingIndicator size={ICON_MD} aria-hidden />
     : tone === 'success'
       ? <CheckCircle size={ICON_MD} aria-hidden />
@@ -30,7 +32,7 @@ export function InlineStatus({
         ? <AlertTriangle size={ICON_MD} aria-hidden />
         : tone === 'error'
           ? <AlertCircle size={ICON_MD} aria-hidden />
-          : <CircleDot size={ICON_MD} aria-hidden />
+          : <CircleDot size={ICON_MD} aria-hidden />)
   const iconRef = useValueMotion<HTMLSpanElement>(tone)
   const assertive = tone === 'error'
 
@@ -45,7 +47,7 @@ export function InlineStatus({
       role={assertive ? 'alert' : 'status'}
       aria-live={assertive ? 'assertive' : 'polite'}
     >
-      <span className="ui-inline-status-icon" ref={iconRef}>{icon}</span>
+      <span className="ui-inline-status-icon" ref={iconRef}>{statusIcon}</span>
       <div className="ui-inline-status-copy">
         <div className="ui-inline-status-title">{title}</div>
         {detail ? <div className="ui-inline-status-detail">{detail}</div> : null}

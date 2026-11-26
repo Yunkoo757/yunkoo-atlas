@@ -381,8 +381,8 @@ try {
   const editor = page.getByRole('dialog', { name: /^(管理我的空间|添加项目)$/ })
   await expectAttribute(editor, 'id', editorId)
   const editorHeading = editor.getByRole('heading', { name: '管理我的空间' })
-  await expectAttribute(editor, 'aria-labelledby', 'sidebar-workspace-editor-title')
-  await expectFocused(editorHeading)
+  await expectAttribute(editor, 'aria-labelledby', await editorHeading.getAttribute('id'))
+  await expectFocused(editor.getByRole('button', { name: '关闭', exact: true }))
   await expectText(editor.locator('[data-sidebar-capacity]'), /\d+ \/ 8/)
   await expectVisible(page.getByRole('button', { name: '添加项目' }))
   await expectVisible(editor.getByRole('heading', { name: '常驻侧栏' }))
@@ -405,8 +405,7 @@ try {
 
   await manageButton.click()
   await expectVisible(editor)
-  // 弹层居中偏左，点 backdrop 左上角避免命中对话框本体
-  await page.locator('.sb-workspace-editor-backdrop').click({ position: { x: 8, y: 8 } })
+  await page.locator('.modal-shell-overlay').filter({ has: editor }).click({ position: { x: 8, y: 8 } })
   await expectCount(editor, 0)
   await expectFocused(manageButton)
 

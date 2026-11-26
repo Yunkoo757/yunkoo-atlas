@@ -1,10 +1,17 @@
 import { ICON_MD } from '@/icons/iconSize'
-import { NavLink, Outlet } from 'react-router-dom'
+import { useLayoutEffect, useRef } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { SETTINGS_NAV } from '@/lib/settingsNav'
 import { Topbar } from '@/components/Topbar'
 import './SettingsLayout.css'
 
 export function SettingsLayout() {
+  const { pathname } = useLocation()
+  const panelRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (panelRef.current) panelRef.current.scrollTop = 0
+  }, [pathname])
+
   return (
     <div className="settings-layout">
       <Topbar title="设置" titleAsHeading={false} showDisplay={false} />
@@ -23,7 +30,7 @@ export function SettingsLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="settings-panel">
+        <div ref={panelRef} className="settings-panel">
           <Outlet />
         </div>
       </div>

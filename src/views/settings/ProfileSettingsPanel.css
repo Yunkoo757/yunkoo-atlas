@@ -124,6 +124,8 @@
   align-items: center;
 }
 
+.profile-name-error { margin-top: var(--space-row-gap); }
+
 .profile-name-input {
   flex: 1;
   min-width: 0;

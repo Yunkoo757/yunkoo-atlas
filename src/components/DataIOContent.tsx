@@ -1,7 +1,6 @@
 import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import { Button } from '@/components/ui/Button'
-import { DisclosureIcon } from '@/icons/StateIcons'
-import { ICON_LG, ICON_MD, ICON_SM } from '@/icons/iconSize'
+import { ICON_LG, ICON_MD } from '@/icons/iconSize'
 import { useEffect, useRef, useState } from 'react'
 import {
   Download,
@@ -68,6 +67,7 @@ export function DataIOContent({
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const archiveFileRef = useRef<HTMLInputElement>(null)
+  const archiveTriggerRef = useRef<HTMLButtonElement>(null)
   const electron = isElectron()
   const trades = useStore((s) => s.trades)
   const removeTrades = useStore((s) => s.removeTrades)
@@ -375,7 +375,7 @@ export function DataIOContent({
         <section className="dio-section dio-section-muted">
           <h2 className="dio-section-title">本地资料库</h2>
           {libraryPath ? (
-            <details className="dio-disclosure"><summary><DisclosureIcon size={ICON_SM} />{libraryPath.split(/[\\/]/).filter(Boolean).at(-1) || '当前资料库'}</summary><p className="dio-desc dio-mono">{libraryPath}</p></details>
+            <details className="dio-disclosure"><DisclosureSummary>{libraryPath.split(/[\\/]/).filter(Boolean).at(-1) || '当前资料库'}</DisclosureSummary><p className="dio-desc dio-mono">{libraryPath}</p></details>
           ) : (
             <p className="dio-desc">正在读取资料库路径…</p>
           )}
@@ -403,7 +403,7 @@ export function DataIOContent({
       )}
 
       <details className="dio-disclosure">
-        <summary><DisclosureIcon size={ICON_SM} />保存说明</summary>
+        <DisclosureSummary>保存说明</DisclosureSummary>
         <div className="dio-task-list">
           <div className="dio-task">
             <Database size={ICON_LG} className="dio-task-icon" />
@@ -462,7 +462,7 @@ export function DataIOContent({
       </section>
 
       <details className="dio-group dio-disclosure">
-        <summary id="dio-import-title" className="dio-group-title"><DisclosureIcon size={ICON_SM} />导入与迁移</summary>
+        <DisclosureSummary id="dio-import-title" className="dio-group-title">导入与迁移</DisclosureSummary>
         <input
           ref={fileRef}
           type="file"
@@ -513,8 +513,8 @@ export function DataIOContent({
         </div>
       </details>
 
-<details className="dio-group dio-disclosure">
-        <summary id="dio-dup-title" className="dio-group-title"><DisclosureIcon size={ICON_SM} />重复检测</summary>
+      <details className="dio-group dio-disclosure">
+        <DisclosureSummary id="dio-dup-title" className="dio-group-title">重复检测</DisclosureSummary>
         <div className="dio-task-list">
           <div className="dio-task">
             <Search size={ICON_LG} className="dio-task-icon" />
@@ -601,6 +601,7 @@ export function DataIOContent({
             </div>
             <button
               type="button"
+              ref={archiveTriggerRef}
               className="dio-btn"
               disabled={dataBusy}
               onClick={electron ? onImportZip : () => archiveFileRef.current?.click()}
@@ -644,6 +645,7 @@ export function DataIOContent({
       {webArchive && (
         <ModalShell
           title="恢复完整资料库"
+          returnFocusTo={archiveTriggerRef.current}
           busy={archiveRestoring}
           onClose={() => setWebArchive(null)}
           footer={(
@@ -665,14 +667,14 @@ export function DataIOContent({
               >
                 取消
               </button>
-              <button
-                type="button"
-                className="dio-btn dio-btn-warn"
-                disabled={archiveRestoring || archiveBackingUp}
+              <Button
+                variant="danger-solid"
+                busy={archiveRestoring}
+                disabled={archiveBackingUp}
                 onClick={onRestoreWebArchive}
               >
                 {archiveRestoring ? '正在替换…' : '替换当前资料库'}
-              </button>
+              </Button>
             </>
           )}
         >
@@ -714,12 +716,13 @@ export function DataIOContent({
       {preparedDesktopArchive ? (
         <ModalShell
           title="确认恢复完整资料库"
+          returnFocusTo={archiveTriggerRef.current}
           busy={archiveRestoring}
           onClose={() => { if (!archiveRestoring) void cancelPreparedDesktopArchive() }}
           footer={(
             <>
               <Button variant="bordered" data-autofocus disabled={archiveRestoring} onClick={() => void cancelPreparedDesktopArchive()}>取消</Button>
-              <button type="button" className="ui-btn ui-btn-danger-solid" disabled={archiveRestoring} onClick={() => void commitDesktopArchive()}>{archiveRestoring ? '正在安全恢复…' : '替换当前资料库'}</button>
+              <Button variant="danger-solid" busy={archiveRestoring} onClick={() => void commitDesktopArchive()}>{archiveRestoring ? '正在安全恢复…' : '替换当前资料库'}</Button>
             </>
           )}
         >
@@ -742,6 +745,7 @@ export function DataIOContent({
       {archivePreparing ? (
         <ModalShell
           title="正在检查归档"
+          returnFocusTo={archiveTriggerRef.current}
           description="正在校验数据库与附件，完成后可预览恢复范围。"
           size="compact"
           busy

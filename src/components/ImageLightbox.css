@@ -86,17 +86,6 @@
   font-size: var(--type-row-size);
 }
 
-.img-lightbox-loading-indicator {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--border-strong);
-  border-top-color: var(--text-secondary);
-  border-radius: var(--radius-full);
-  animation: img-lightbox-spin var(--motion-spin) linear infinite;
-}
-
-@keyframes img-lightbox-spin { to { transform: rotate(360deg); } }
-
 .img-lightbox-chrome {
   position: absolute;
   inset: 0;
@@ -190,12 +179,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .img-lightbox-loading-indicator {
-    animation: none;
-    border-color: var(--text-secondary);
-    border-style: dotted;
-  }
-
   .img-lightbox-overlay,
   .img-lightbox-transition,
   .img-lightbox-chrome,

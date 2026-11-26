@@ -202,6 +202,7 @@
   border-block: 1px solid var(--border-subtle);
 }
 .dio-disclosure > summary {
+  width: auto;
   gap: var(--space-control-gap);
   list-style: none;
   min-height: var(--control-height);
@@ -419,8 +420,4 @@
 .data-purge-body .data-purge-details { margin-top: 0; }
 .data-purge-body [role="alert"] { display: grid; gap: var(--sp-2); color: var(--neg); font-size: var(--type-metadata-size); overflow-wrap: anywhere; }
 
-.dio-disclosure > summary { cursor: pointer; }
 .dio-disclosure[open] > summary { margin-bottom: var(--space-row-gap); }
-
-.dio-disclosure > summary::before { content: '›'; display: inline-block; margin-right: var(--space-row-gap); transition: transform var(--motion-state) var(--ease-out); }
-.dio-disclosure[open] > summary::before { transform: rotate(90deg); }

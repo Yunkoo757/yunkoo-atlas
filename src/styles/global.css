@@ -83,6 +83,15 @@ a {
   to { opacity: 0; transform: translateY(3px) scale(0.992); }
 }
 
+.loading-indicator-motion {
+  transform-origin: center;
+  animation: atlasLoadingSpin var(--motion-spin) linear infinite;
+}
+
+@keyframes atlasLoadingSpin {
+  to { transform: rotate(1turn); }
+}
+
 .loading-indicator-static {
   display: none;
 }
@@ -90,6 +99,7 @@ a {
 @media (prefers-reduced-motion: reduce) {
   .loading-indicator-motion {
     display: none;
+    animation: none;
   }
 
   .loading-indicator-static {

@@ -302,17 +302,19 @@ export function DisplaySettingsPanel() {
                 {currentSizeLabel ? ` ${currentSizeLabel}` : ''}
               </p>
             </div>
-            <div className="display-choice-list" role="listbox" aria-label="主窗口尺寸预置">
+            <div className="display-choice-list" role="radiogroup" aria-label="主窗口尺寸预置">
               {WINDOW_SIZE_PRESETS.map((preset) => {
                 const selected = windowState?.presetId === preset.id
                 return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    className={'display-choice' + (selected ? ' is-selected' : '')}
-                    aria-pressed={selected}
-                    onClick={() => void applyWindowPreset(preset.id)}
-                  >
+                  <label key={preset.id} className={'display-choice' + (selected ? ' is-selected' : '')}>
+                    <input
+                      type="radio"
+                      name="window-size-preset"
+                      value={preset.id}
+                      checked={selected}
+                      aria-label={preset.label}
+                      onChange={() => void applyWindowPreset(preset.id)}
+                    />
                     <span className="display-row-copy">
                       <span className="display-row-title">{preset.label}</span>
                       {selected ? <span className="display-row-desc">{preset.description}</span> : null}
@@ -320,7 +322,7 @@ export function DisplaySettingsPanel() {
                     <span className="display-choice-check">
                       <CheckMark checked={selected} size={ICON_SM} />
                     </span>
-                  </button>
+                  </label>
                 )
               })}
             </div>

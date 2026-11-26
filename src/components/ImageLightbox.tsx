@@ -1,3 +1,4 @@
+import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { reducesMotion } from '@/lib/motion'
 import { ICON_2XL, ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type SetStateAction } from 'react'
@@ -337,7 +338,7 @@ export function ImageLightbox() {
         )}
         {lightbox.loading ? (
           <div className="img-lightbox-loading" role="status" aria-live="polite">
-            <span className="img-lightbox-loading-indicator" aria-hidden />
+            <LoadingIndicator size={ICON_SM} />
             <span>正在载入当前案例图片…</span>
           </div>
         ) : failed ? (

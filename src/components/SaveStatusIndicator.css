@@ -1,47 +1,63 @@
 .save-status-slot,
-.save-status {
-  min-width: 4.5em;
-}
-
-.save-status {
-  color: var(--text-tertiary);
-  white-space: nowrap;
-}
-
-.save-status.is-saved .ui-inline-status-icon,
-.save-status.is-saved .ui-inline-status-title {
-  color: var(--text-muted);
-}
-
-.save-status.is-saved .ui-inline-status-title {
-  font-weight: var(--font-weight-normal);
-}
-
-.save-status .ui-inline-status-copy,
-.save-status-recovery .ui-inline-status-copy {
-  font-size: var(--type-metadata-size);
-}
-
+.save-status,
 .save-status-recovery {
-  white-space: nowrap;
-}
-
-.save-status-recovery .ui-inline-status-detail {
-  max-width: 240px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.save-status-recovery-link {
-  padding: var(--sp-1);
-  color: var(--text-secondary);
   font-size: var(--type-metadata-size);
-  text-decoration: none;
+  line-height: var(--type-metadata-line-height);
+  white-space: nowrap;
 }
 
-.save-status-recovery-link:hover {
-  color: var(--text-primary);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.save-status-slot,
+.save-status {
+  min-inline-size: calc(var(--icon-sm) + var(--sp-1) + 4em);
+}
+
+.save-status.ui-inline-status,
+.save-status-recovery.ui-inline-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: var(--sp-1);
+}
+
+.save-status .ui-inline-status-title,
+.save-status-recovery .ui-inline-status-title {
+  font-size: inherit;
+  font-weight: var(--type-metadata-weight);
+  line-height: inherit;
+}
+
+.save-status .ui-inline-status-title,
+.save-status .ui-inline-status-icon {
+  color: var(--text-content-metadata);
+}
+
+.save-status.is-saved .ui-inline-status-icon {
+  color: var(--success);
+}
+
+:is(.save-status, .save-status-recovery) .ui-inline-status-icon > svg {
+  stroke-width: var(--icon-stroke-width);
+  shape-rendering: geometricPrecision;
+}
+
+.save-status-recovery .ui-inline-status-title {
+  color: var(--text-content-supporting);
+}
+
+.save-status-recovery .ui-inline-status-action {
+  gap: 0;
+  margin-inline-start: var(--sp-1);
+}
+
+.save-status-recovery .ui-btn {
+  padding-inline: var(--sp-2);
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.save-status-retry.ui-btn {
+  color: var(--accent-readable);
+}
+
+.save-status-recovery-link.ui-btn {
+  text-decoration: none;
 }

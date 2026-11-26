@@ -1,3 +1,4 @@
+import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { createPortal } from 'react-dom'
 import { isComposingKey } from '@/lib/keyboardComposition'
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
@@ -1091,7 +1092,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
               <div className="dv-note-status">
                 {activeNoteLoad.status === 'loading' && (
                   <div className="dv-note-load is-loading" role="status" aria-live="polite">
-                    <span className="dv-note-load-indicator" aria-hidden />
+                    <LoadingIndicator size={ICON_SM} />
                     <span>复盘笔记载入中…</span>
                   </div>
                 )}

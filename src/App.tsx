@@ -39,6 +39,7 @@ import { CommandPalette } from './components/CommandPalette'
 import { DeferredTradeOverlays } from './components/DeferredTradeOverlays'
 import { ToastHost } from './components/Toast'
 import { Button } from './components/ui/Button'
+import { ErrorDetails } from './components/ui/ErrorDetails'
 import { InlineStatus, type InlineStatusTone } from './components/ui/InlineStatus'
 import { ModalShell } from './components/ui/ModalShell'
 import type { WindowsCloseChoice } from './types/journalBridge'
@@ -199,7 +200,7 @@ function CloseSaveReceipt({
         className="app-close-save-panel"
         tone={tone}
         title={message}
-        detail={state.phase === 'error' ? state.message : undefined}
+        detail={state.phase === 'error' ? <ErrorDetails message={state.message} /> : undefined}
         action={state.phase === 'error' ? (
           <>
             <Button size="sm" onClick={onDismiss}>继续使用</Button>

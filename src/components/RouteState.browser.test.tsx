@@ -67,6 +67,13 @@ async function run(): Promise<void> {
     )
 
     await waitForText('页面暂时无法显示')
+    const detail = document.querySelector<HTMLDetailsElement>('.app-route-error details')
+    const summary = detail?.querySelector('summary')
+    assert(detail && !detail.open && summary, '技术原因应收在可操作的详情内')
+    summary.focus()
+    assert(document.activeElement === summary, '错误详情须可使用键盘访问')
+    summary.click()
+    assert(detail.open && detail.innerText.includes('route render failed'), '应能阅读原始错误')
     assert(document.body.textContent?.includes('工作区导航'), '路由异常不应卸载应用导航')
     const backLink = document.querySelector<HTMLAnchorElement>('a[href="/list"]')
     assert(backLink, '异常页应提供返回交易日志动作')

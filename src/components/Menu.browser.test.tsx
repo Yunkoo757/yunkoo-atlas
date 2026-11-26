@@ -117,6 +117,45 @@ async function run(): Promise<void> {
     reopenedItems[0].click()
     await waitFor(() => document.getElementById(controls) === null, '选择菜单项后共享菜单未关闭')
     assert(selected === 'first', '共享菜单选择行为发生回归')
+
+    const options = Array.from({ length: 50 }, (_, i) => ({ value: String(i), label: '模板 ' + (i + 1) }))
+    root.render(
+      <div style={{ position: 'fixed', right: 8, bottom: 60 }}>
+        <Menu trigger={<OpaqueTrigger />} options={options} value="48" onSelect={(value) => { selected = value }} />
+      </div>,
+    )
+    await frame()
+    const longTrigger = document.querySelector<HTMLButtonElement>('[aria-label="共享菜单触发器"]')!
+    longTrigger.click()
+    await waitFor(() => Boolean(document.querySelector('[role="menuitemradio"][aria-checked="true"]')), '长菜单未打开')
+    await frame()
+    const longMenu = document.querySelector<HTMLElement>('[role="menu"]')!
+    await Promise.all(longMenu.getAnimations().map(animation => animation.finished))
+    const bounds = longMenu.getBoundingClientRect()
+    assert(bounds.top >= 7 && bounds.bottom <= innerHeight - 7, '未限宽菜单也必须完整留在视口')
+    assert(bounds.bottom <= longTrigger.getBoundingClientRect().top, '下方不足时长菜单应向上展开')
+    assert(longMenu.scrollHeight > longMenu.clientHeight && getComputedStyle(longMenu).overflowY === 'auto', '长菜单必须可滚动')
+    const radioItems = [...longMenu.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')]
+    const focusedVisible = (item: HTMLElement) => {
+      const rect = item.getBoundingClientRect()
+      return document.activeElement === item && rect.top >= bounds.top && rect.bottom <= bounds.bottom
+    }
+    assert(focusedVisible(radioItems[48]), '打开选择菜单应聚焦并滚动到当前选项')
+    pressKey('Home')
+    assert(focusedVisible(radioItems[0]), 'Home 应将长菜单首项滚入视口')
+    pressKey('End')
+    assert(focusedVisible(radioItems.at(-1)!), 'End 应将长菜单末项滚入视口')
+    await frame()
+    assert(longMenu.querySelector('[data-keyboard-item]') === radioItems.at(-1), '方向键位置应可辨认')
+    longMenu.dispatchEvent(new PointerEvent('pointermove', { bubbles: true }))
+    await frame()
+    assert(!longMenu.querySelector('[data-keyboard-item]'), '移动指针应回到悬停反馈')
+    pressKey('ArrowDown')
+    assert(focusedVisible(radioItems[0]), '方向键循环时应滚回首项')
+    pressKey('End')
+    radioItems.at(-1)!.click()
+    await waitFor(() => !document.querySelector('[role="menu"]'), '长菜单选择末项后未关闭')
+    assert(String(selected) === '49', '末项无法正常选择')
   } finally {
     root.unmount()
   }

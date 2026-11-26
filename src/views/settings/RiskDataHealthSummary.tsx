@@ -13,10 +13,10 @@ export function RiskDataHealthSummary({ currentTradingDayKey }: { currentTrading
   return (
     <section className="settings-page-section risk-data-summary" data-risk-data-summary>
       <div className="risk-data-summary-counts" aria-label="风险数据缺口摘要">
-        <span>待处理 {queue.counts.total} 项</span>
+        {queue.actionableCount > 0 && <span>待处理 {queue.actionableCount} 项</span>}
+        {queue.retainedCount > 0 && <span>历史缺口 {queue.retainedCount} 项</span>}
       </div>
       <div className="risk-data-summary-status">
-        <span>{queue.retainedOnly ? '仅剩历史缺口' : '风险数据需要补全'}</span>
         <Link className="ui-btn ui-btn-bordered ui-btn-sm" to="/settings/risk/data-repair">{actionLabel}</Link>
       </div>
     </section>

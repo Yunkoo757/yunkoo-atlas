@@ -3,6 +3,7 @@ import { playMotion } from '@/lib/motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertCircle, Home, RotateCcw } from '@/icons/appIcons'
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
+import { ErrorDetails } from '@/components/ui/ErrorDetails'
 import { ICON_LG, ICON_XL } from '@/icons/iconSize'
 import './RouteState.css'
 
@@ -95,7 +96,7 @@ function RouteFailure({
           重新加载
         </button>
       </div>
-      <small className="app-route-error-detail">{error.message}</small>
+      <ErrorDetails message={error.message} />
     </section>
   )
 }

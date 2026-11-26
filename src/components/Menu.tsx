@@ -39,6 +39,7 @@ type MenuPosition = {
   top: number
   placement: 'bottom' | 'top'
   minWidth: number
+  maxHeight: number
 }
 
 const NATIVE_TRIGGER_CONTROL_SELECTOR = [
@@ -75,11 +76,13 @@ export function Menu({
 }) {
   const menuId = useId()
   const [open, setOpen] = useState(false)
+  const [keyboardItem, setKeyboardItem] = useState<string | null>(null)
   const [position, setPosition] = useState<MenuPosition>({
     left: 0,
     top: 0,
     placement: 'bottom',
     minWidth: 180,
+    maxHeight: 0,
   })
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLDivElement>(null)
@@ -112,12 +115,14 @@ export function Menu({
 
     const edge = 8
     const popup = popRef.current
-    const popHeight = popup?.offsetHeight ?? options.length * 30 + 10
-    const popWidth = Math.max(popup?.offsetWidth ?? 180, 180)
+    const popHeight = popup ? popup.scrollHeight + popup.offsetHeight - popup.clientHeight : options.length * 30 + 10
+    const viewportWidth = window.innerWidth - edge * 2
+    const minWidth = Math.min(Math.max(180, triggerRect.width), maxWidth ?? viewportWidth, viewportWidth)
+    const popWidth = Math.min(Math.max(popup?.offsetWidth ?? maxWidth ?? minWidth, minWidth), viewportWidth)
     const roomBelow = window.innerHeight - triggerRect.bottom - edge - 4
     const roomAbove = triggerRect.top - edge - 4
     const placement =
-      roomBelow >= Math.min(popHeight, 120) || roomBelow >= roomAbove ? 'bottom' : 'top'
+      roomBelow >= popHeight || roomBelow >= roomAbove ? 'bottom' : 'top'
 
     let left =
       align === 'right' ? triggerRect.right - popWidth : triggerRect.left
@@ -127,9 +132,10 @@ export function Menu({
       left,
       top: placement === 'bottom' ? triggerRect.bottom + 4 : triggerRect.top - 4,
       placement,
-      minWidth: Math.max(180, triggerRect.width),
+      minWidth,
+      maxHeight: Math.max(0, placement === 'bottom' ? roomBelow : roomAbove),
     })
-  }, [align, options.length])
+  }, [align, maxWidth, options.length])
 
   useEffect(() => {
     if (!open) return
@@ -179,14 +185,24 @@ export function Menu({
   useLayoutEffect(() => {
     if (!open) return
     updatePosition()
-    popRef.current?.querySelector<HTMLButtonElement>('.menu-item:not(:disabled)')?.focus()
     const frame = requestAnimationFrame(() => updatePosition())
     return () => cancelAnimationFrame(frame)
   }, [open, updatePosition])
 
+  useLayoutEffect(() => {
+    if (!open) return
+    const menu = popRef.current
+    const initialItem = menu?.querySelector<HTMLButtonElement>('.menu-item[aria-checked="true"]:not(:disabled)')
+      ?? menu?.querySelector<HTMLButtonElement>('.menu-item:not(:disabled)')
+    initialItem?.focus()
+  }, [open])
+
   useEffect(() => {
     if (!open) return
-    const onViewportChange = () => updatePosition()
+    const onViewportChange = (event: Event) => {
+      if (event.target instanceof Node && popRef.current?.contains(event.target)) return
+      updatePosition()
+    }
     window.addEventListener('resize', onViewportChange)
     window.addEventListener('scroll', onViewportChange, true)
     return () => {
@@ -197,11 +213,11 @@ export function Menu({
 
   const popStyle: CSSProperties = {
     left: position.left,
-    top: position.top,
+    ...(position.placement === 'top' ? { bottom: window.innerHeight - position.top } : { top: position.top }),
     minWidth: position.minWidth,
+    maxHeight: position.maxHeight,
     ...(maxWidth === undefined ? {} : {
       width: Math.min(maxWidth, window.innerWidth - 16),
-      maxHeight: Math.max(30, position.placement === 'bottom' ? window.innerHeight - position.top - 8 : position.top - 8),
     }),
   }
 
@@ -228,7 +244,9 @@ export function Menu({
     else nextIndex = currentIndex < 0 ? items.length - 1 : (currentIndex - 1 + items.length) % items.length
     event.preventDefault()
     event.stopPropagation()
-    items[nextIndex]?.focus()
+    const next = items[nextIndex]
+    setKeyboardItem(next.value)
+    next.focus()
   }
 
   return (
@@ -241,6 +259,7 @@ export function Menu({
             setOpen(false)
             return
           }
+          setKeyboardItem(null)
           updatePosition()
           setOpen(true)
         }}
@@ -257,6 +276,8 @@ export function Menu({
             ref={assignPopRef}
             style={popStyle}
             data-menu-id={menuId}
+            data-keyboard-active={keyboardItem !== null || undefined}
+            onPointerMove={keyboardItem === null ? undefined : () => setKeyboardItem(null)}
             onKeyDown={onMenuKeyDown}
           >
             {options.map((option, index) => option.type === 'separator' ? (
@@ -264,6 +285,8 @@ export function Menu({
             ) : (
               <button
                 key={option.value}
+                value={option.value}
+                data-keyboard-item={keyboardItem === option.value || undefined}
                 className={`menu-item${option.danger ? ' menu-item-danger' : ''}`}
                 disabled={option.disabled}
                 role={isSelectionMenu ? 'menuitemradio' : 'menuitem'}
@@ -276,7 +299,9 @@ export function Menu({
                 }}
               >
                 {option.icon && <span className="menu-item-icon">{option.icon}</span>}
-                {maxWidth === undefined ? <span className="menu-item-label">{option.label}</span> : <OverflowTooltip text={option.label}><span className="menu-item-label">{option.label}</span></OverflowTooltip>}
+                <OverflowTooltip text={option.label}>
+                  <span className="menu-item-label">{option.label}</span>
+                </OverflowTooltip>
                 {isSelectionMenu && option.value === value && (
                   <Check size={ICON_SM} className="menu-item-check" />
                 )}

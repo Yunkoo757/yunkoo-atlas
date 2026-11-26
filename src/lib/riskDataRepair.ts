@@ -20,6 +20,7 @@ export interface RiskRepairGroup {
 
 export interface RiskDataRepairQueue {
   counts: { total: number; global: number; blocking: number; partial: number }
+  actionableCount: number
   retainedCount: number
   retainedOnly: boolean
   items: RiskRepairItem[]
@@ -74,6 +75,7 @@ export function buildRiskDataRepairQueue(issues: readonly RiskDataIssue[]): Risk
       blocking: ordered.filter((item) => item.issue.severity === 'blocking').length,
       partial: ordered.filter((item) => item.issue.severity === 'partial').length,
     },
+    actionableCount: ordered.length - retainedCount,
     retainedCount,
     retainedOnly: ordered.length > 0 && retainedCount === ordered.length,
     items: ordered,

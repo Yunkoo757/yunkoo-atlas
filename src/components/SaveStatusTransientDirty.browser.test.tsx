@@ -50,14 +50,25 @@ async function run(): Promise<void> {
 
     await wait(100)
     assert(
-      !rootElement.textContent?.includes('未保存'),
-      '短暂的后台脏状态不应闪现“未保存”',
+      !rootElement.textContent?.includes('待保存'),
+      '短暂的后台脏状态不应闪现待保存',
     )
 
     await waitFor(
-      () => rootElement.textContent?.includes('未保存') ?? false,
-      '持续未保存的用户编辑必须得到明确反馈',
+      () => rootElement.textContent?.includes('待保存') ?? false,
+      '持续等待自动保存的编辑必须得到明确反馈',
     )
+    const indicator = rootElement.querySelector<HTMLElement>('.save-status[role="status"]')
+    const title = indicator?.querySelector<HTMLElement>('.ui-inline-status-title')
+    const clock = indicator?.querySelector('svg')
+    assert(indicator && title && clock, '待保存应显示状态文案与共享时钟图标')
+    const titleStyle = getComputedStyle(title)
+    assert(clock.getBoundingClientRect().width === 14, '工具栏状态图标应用紧凑图标尺寸')
+    assert(titleStyle.fontWeight === '400' && titleStyle.fontSize === getComputedStyle(indicator).fontSize, '工具栏状态必须采用辅助文字层级')
+    const pendingWidth = indicator.getBoundingClientRect().width
+    useSaveStatus.getState().setSaving()
+    await waitFor(() => !!indicator.querySelector('.loading-indicator-motion'), '进入保存中后应复用加载图标')
+    assert(Math.abs(indicator.getBoundingClientRect().width - pendingWidth) < 1, '待保存到写入时工具栏宽度不应跳动')
   } finally {
     root.unmount()
     useSaveStatus.getState().reset()
