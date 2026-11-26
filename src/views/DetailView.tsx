@@ -234,7 +234,6 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
   const [noteLoadAttempt, setNoteLoadAttempt] = useState(0)
   const [noteRetrying, setNoteRetrying] = useState(false)
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
-  const [announcedReviewId, setAnnouncedReviewId] = useState<string | null>(null)
   const [caseCreating, setCaseCreating] = useState(false)
   const [decisionImageCaseId, setDecisionImageCaseId] = useState<string | null>(null)
   const [contentCopying, setContentCopying] = useState(false)
@@ -473,7 +472,6 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
 
   useLayoutEffect(() => {
     activeTradeIdRef.current = trade?.id ?? null
-    setAnnouncedReviewId(null)
     caseCreationGenerationRef.current += 1
     caseCreationOwnerRef.current = null
     setCommentOpen(false)
@@ -711,10 +709,9 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       trades,
     )
     : null
-  const completeReview = async (source: 'document' | 'menu') => {
+  const completeReview = async () => {
     if (reviewSubmitting || activeNoteLoad.status !== 'ready' || !reviewReadiness.ready) return
 
-    setAnnouncedReviewId(null)
     setReviewSubmitting(true)
     setReviewIssue(null)
     try {
@@ -738,11 +735,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       }
 
       updateTradeData(trade.id, { reviewStatus: 'reviewed' })
-      if (source === 'menu' || activeTradeIdRef.current !== trade.id) {
-        toast(`已完成 ${trade.ref} 的复盘`, { tone: 'success' })
-      } else {
-        setAnnouncedReviewId(trade.id)
-      }
+      toast(`已完成 ${trade.ref} 的复盘`, { tone: 'success' })
     } finally {
       setReviewSubmitting(false)
     }
@@ -945,7 +938,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
           toggleCaseFocus(trade.id)
           toast(starred ? '已取消重点' : '已设为重点案例', { tone: 'success' })
         }
-        else if (v === 'complete-review') void completeReview('menu')
+        else if (v === 'complete-review') void completeReview()
         else if (v === 'next-review' && nextPendingReviewId) navigateDetail(nextPendingReviewId)
         else if (v === 'reopen-review') updateTradeData(trade.id, { reviewStatus: 'unreviewed' })
         else if (v === 'decision-image') void openDecisionImage()
@@ -969,7 +962,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       className="dv-review-complete-action"
       busy={reviewSubmitting}
       disabled={activeNoteLoad.status !== 'ready' || !reviewReadiness.ready}
-      onClick={() => void completeReview('document')}
+      onClick={() => void completeReview()}
     >
       <Circle size={ICON_SM} aria-hidden />
       {reviewSubmitting ? '正在保存…' : '完成复盘'}
@@ -1165,9 +1158,6 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
                     : '记下交易判断，或粘贴截图…'
                 }
               />
-              <span className="dv-review-announcement" role="status" aria-live="polite">
-                {reviewComplete && announcedReviewId === trade.id ? '复盘已完成' : ''}
-              </span>
               {(showCompletionAction || reviewComplete) && (
                 <div className="dv-review-actions" role="group" aria-label="复盘状态与推进">
                   {showCompletionAction && (

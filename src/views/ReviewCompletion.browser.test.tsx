@@ -8,6 +8,7 @@ import { useShortcutStore } from '@/store/shortcutStore'
 import { DetailView } from '@/views/DetailView'
 import { getStorage } from '@/storage/bootstrap'
 import { useToast } from '@/lib/toast'
+import { ToastHost } from '@/components/Toast'
 import {
   hasNoteDraft,
   resetNoteDraftsForTests,
@@ -182,6 +183,7 @@ async function run(): Promise<void> {
     root = createRoot(rootElement)
     root.render(
       <MemoryRouter initialEntries={['/trade/TRD-REVIEW-FILLED']}>
+        <ToastHost />
         <Routes>
           <Route path="/trade/:id" element={<DetailView />} />
         </Routes>
@@ -193,8 +195,14 @@ async function run(): Promise<void> {
       '已有复盘结论时完成操作仍不可用',
     )
     useToast.getState().dismiss()
-    const announcement = document.querySelector('.dv-review-announcement[aria-live="polite"]')
-    assert(announcement?.textContent?.length === 0, '进入记录时就地播报区应为空')
+    const successNotifications = () =>
+      document.querySelectorAll('.toast-panel.is-success[role="status"][data-state="active"]')
+    const expectedReceipt = `已完成 ${filledTrade.ref} 的复盘`
+    const hasSingleReceipt = () => {
+      const notices = successNotifications()
+      return notices.length === 1 && notices[0]?.textContent === expectedReceipt
+    }
+    assert(successNotifications().length === 0, '进入待复盘记录时不应弹出成功通知')
     findButton('完成复盘')?.click()
     await waitFor(
       () => useStore.getState().trades[0]?.reviewStatus === 'reviewed',
@@ -208,8 +216,9 @@ async function run(): Promise<void> {
       document.querySelector('.dv-review-complete-meta')?.textContent?.trim() === '已复盘',
       '完成后应就地显示已复盘状态',
     )
-    assert(useToast.getState().items.length === 0, '在正文完成时应只显示就地回执')
-    assert(announcement.textContent?.trim() === '复盘已完成', '在正文完成时应通过就地状态播报结果')
+    await waitFor(hasSingleReceipt, '从正文完成应弹出一条带记录编号的成功通知')
+    useToast.getState().dismiss()
+    await waitFor(() => successNotifications().length === 0, '正文的成功通知未结束')
     const nextPending = findButton('下一条待复盘')
     assert(nextPending && document.querySelector('.dv-document .dv-review-actions')?.contains(nextPending), '完成后应在正文末尾直接进入下一条待复盘')
     const reviewActions = document.querySelector('.dv-review-actions')!
@@ -228,17 +237,16 @@ async function run(): Promise<void> {
     await waitFor(() => Boolean(menuAction('完成复盘')), '长文档应能从固定的更多菜单完成复盘')
     menuAction('完成复盘')!.click()
     await waitFor(() => Boolean(findButton('下一条待复盘')), '再次完成后下一条入口未恢复')
-    assert(!announcement.textContent, '从菜单完成时就地状态不应重复读出')
-    const receipt = useToast.getState().items.at(-1)
-    assert(receipt?.tone === 'success' && receipt.message.includes(filledTrade.ref), '从顶部菜单完成应提供带记录编号的成功回执')
+    await waitFor(hasSingleReceipt, '从顶部菜单完成应弹出一条带记录编号的成功通知')
+    useToast.getState().dismiss()
     more.click()
     await waitFor(() => Boolean(menuAction('下一条待复盘')), '长文档应能从固定的更多菜单进入下一条')
     menuAction('下一条待复盘')!.click()
     await waitFor(() => document.querySelector('.dv-record-ref')?.textContent === raceTrade.ref, '常驻入口未进入同范围下一条待复盘')
-    assert(!document.querySelector('.dv-review-announcement')?.textContent, '切换交易时不应保留前一笔的就地播报')
+    assert(successNotifications().length === 0, '切换交易时不应再次弹出成功通知')
     findButton('上一个交易')?.click()
     await waitFor(() => document.querySelector('.dv-record-ref')?.textContent === filledTrade.ref, '未能返回已经复盘的交易')
-    assert(!document.querySelector('.dv-review-announcement')?.textContent, '打开历史已复盘记录时不应当作新的完成反馈')
+    assert(successNotifications().length === 0, '打开历史已复盘记录时不应弹出成功通知')
 
     root.unmount()
     resetNoteDraftsForTests()
@@ -276,6 +284,7 @@ async function run(): Promise<void> {
       useStore.getState().trades[0]?.reviewStatus === 'unreviewed',
       '保存等待期间被清空的笔记不能继续标记为已复盘',
     )
+    assert(!useToast.getState().items.some(item => item.tone === 'success'), '复盘未完成时不应推送成功通知')
   } finally {
     root.unmount()
     useToast.setState(previousToasts)
