@@ -332,7 +332,7 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
       const previous = useStore.getState().display.sidebarWorkspaceItems
       const next = setCapabilityWorkspaceEnabled(previous, id, workspace, enabled)
       if (id === 'missed' && !enabled && next === previous) {
-        toast('至少保留一个包含来源')
+        toast('至少保留一个包含来源', { tone: 'warning' })
         return
       }
       replaceSidebarWorkspaceItems(next)
@@ -342,6 +342,7 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
       if (!stillPresent) {
         setCapabilityMenu(null)
         toast(`已从侧栏移除「${label}」`, {
+          tone: 'success',
           label: '撤销',
           onClick: () => {
             const current = useStore.getState().display.sidebarWorkspaceItems

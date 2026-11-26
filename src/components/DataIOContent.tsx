@@ -106,7 +106,7 @@ export function DataIOContent({
     if (!electron || dataBusy) return
     const bridge = getJournalBridge()
     if (!bridge) {
-      toast('无法访问桌面能力')
+      toast('无法访问桌面能力', { tone: 'warning' })
       return
     }
 
@@ -117,7 +117,7 @@ export function DataIOContent({
 
       setPendingLibrarySwitch({ mode, picked })
     } catch (err) {
-      toast(userFacingErrorMessage(err, '选择资料库目录失败，请重试'))
+      toast(userFacingErrorMessage(err, '选择资料库目录失败，请重试'), { tone: 'error', persistent: false })
     } finally {
       setLibraryBusy(false)
     }
@@ -132,16 +132,16 @@ export function DataIOContent({
       const result = await switchActiveLibrary(request.mode, request.picked)
       if (result.canceled) return
       if (!result.ok) {
-        toast(userFacingErrorMessage(result.error, '切换资料库失败，请重试'))
+        toast(userFacingErrorMessage(result.error, '切换资料库失败，请重试'), { tone: 'error' })
         return
       }
       setLibraryPath(result.path ?? null)
       setDupGroups(null)
-      toast(request.mode === 'create' ? '已切换到新资料库' : '已切换资料库')
+      toast(request.mode === 'create' ? '已切换到新资料库' : '已切换资料库', { tone: 'success' })
       onLibraryChanged?.()
       onDone?.()
     } catch (err) {
-      toast(userFacingErrorMessage(err, '切换资料库失败，请重试'))
+      toast(userFacingErrorMessage(err, '切换资料库失败，请重试'), { tone: 'error' })
     } finally {
       setLibraryBusy(false)
     }
@@ -150,9 +150,9 @@ export function DataIOContent({
   const onExportJson = async () => {
     try {
       await downloadExport()
-      toast('JSON 数据副本已下载')
+      toast('JSON 数据副本已下载', { tone: 'success' })
     } catch (error) {
-      toast(userFacingErrorMessage(error, '导出失败，请重试'))
+      toast(userFacingErrorMessage(error, '导出失败，请重试'), { tone: 'error', persistent: false })
     }
   }
 
@@ -160,14 +160,14 @@ export function DataIOContent({
     try {
       if (electron) {
         const result = await exportJournalArchive()
-        if (result.ok) toast('资料库已导出')
+        if (result.ok) toast('资料库已导出', { tone: 'success' })
         else toast('已取消导出')
       } else {
         await downloadWebJournalZip()
-        toast('资料库已导出 (.journal.zip)')
+        toast('资料库已导出 (.journal.zip)', { tone: 'success' })
       }
     } catch (error) {
-      toast(userFacingErrorMessage(error, '导出失败，请重试'))
+      toast(userFacingErrorMessage(error, '导出失败，请重试'), { tone: 'error', persistent: false })
     }
   }
 
@@ -181,10 +181,10 @@ export function DataIOContent({
       if (result.ok) {
         if (activePrepareRequestRef.current === prepareRequestId) setPreparedDesktopArchive(result.preview)
       } else if (!result.canceled) {
-        toast(userFacingErrorMessage(result.error, '归档检查失败，请重试'))
+        toast(userFacingErrorMessage(result.error, '归档检查失败，请重试'), { tone: 'error', persistent: false })
       }
     } catch (err) {
-      toast(userFacingErrorMessage(err, '归档检查失败，请重试'))
+      toast(userFacingErrorMessage(err, '归档检查失败，请重试'), { tone: 'error', persistent: false })
     } finally {
       if (activePrepareRequestRef.current === prepareRequestId) {
         activePrepareRequestRef.current = null
@@ -216,17 +216,20 @@ export function DataIOContent({
       if (result.ok) {
         setPreparedDesktopArchive(null)
         setDupGroups(null)
-        toast('资料库已恢复')
+        toast('资料库已恢复', { tone: 'success' })
         onLibraryChanged?.()
         onDone?.()
       } else {
         if (result.code === 'SOURCE_CHANGED' || result.code === 'TOKEN_EXPIRED') {
           setPreparedDesktopArchive(null)
         }
-        toast(userFacingErrorMessage(result.error, result.code === 'LIBRARY_BUSY' ? '资料库正在执行其他操作，请稍后重试' : '恢复资料库失败，请重试'))
+        toast(
+          userFacingErrorMessage(result.error, result.code === 'LIBRARY_BUSY' ? '资料库正在执行其他操作，请稍后重试' : '恢复资料库失败，请重试'),
+          { tone: result.code === 'LIBRARY_BUSY' ? 'warning' : 'error' },
+        )
       }
     } catch (error) {
-      toast(userFacingErrorMessage(error, '恢复资料库失败，请重试'))
+      toast(userFacingErrorMessage(error, '恢复资料库失败，请重试'), { tone: 'error' })
     } finally {
       setArchiveRestoring(false)
     }
@@ -242,7 +245,7 @@ export function DataIOContent({
     try {
       setWebArchive(await parseWebJournalArchive(file))
     } catch (error) {
-      toast(userFacingErrorMessage(error, '无法读取完整备份'))
+      toast(userFacingErrorMessage(error, '无法读取完整备份'), { tone: 'error', persistent: false })
     } finally {
       setLibraryBusy(false)
     }
@@ -254,13 +257,13 @@ export function DataIOContent({
     setLibraryBusy(true)
     try {
       const result = await restoreWebJournalArchive(webArchive)
-      toast(result.summary)
+      toast(result.summary, { tone: 'success' })
       setWebArchive(null)
       setDupGroups(null)
       onLibraryChanged?.()
       onDone?.()
     } catch (error) {
-      toast(userFacingErrorMessage(error, '恢复资料库失败，请重试'))
+      toast(userFacingErrorMessage(error, '恢复资料库失败，请重试'), { tone: 'error' })
     } finally {
       setArchiveRestoring(false)
       setLibraryBusy(false)
@@ -272,9 +275,9 @@ export function DataIOContent({
     setArchiveBackingUp(true)
     try {
       await downloadWebJournalZip()
-      toast('当前资料库备份已下载')
+      toast('当前资料库备份已下载', { tone: 'success' })
     } catch (error) {
-      toast(userFacingErrorMessage(error, '当前资料库导出失败，请重试'))
+      toast(userFacingErrorMessage(error, '当前资料库导出失败，请重试'), { tone: 'error', persistent: false })
     } finally {
       setArchiveBackingUp(false)
     }
@@ -290,15 +293,15 @@ export function DataIOContent({
       const text = await readJsonImportFile(file)
       const result = parseImportJson(text)
       if (!result.ok) {
-        toast(userFacingErrorMessage(result.error, '导入文件内容无法识别'))
+        toast(userFacingErrorMessage(result.error, '导入文件内容无法识别'), { tone: 'warning' })
         return
       }
       const imported = await applyImport(result.data)
       setDupGroups(null)
-      toast(imported.summary)
+      toast(imported.summary, { tone: 'success' })
       onDone?.()
     } catch (error) {
-      toast(userFacingErrorMessage(error, '读取文件失败'))
+      toast(userFacingErrorMessage(error, '读取文件失败'), { tone: 'error', persistent: false })
     } finally {
       setLibraryBusy(false)
     }
@@ -327,14 +330,14 @@ export function DataIOContent({
       )
       if (useStore.getState().trades !== scannedTrades) {
         duplicateScanTradesRef.current = null
-        toast('交易库已变化，请重新扫描重复项')
+        toast('交易库已变化，请重新扫描重复项', { tone: 'warning' })
         return
       }
       setDupGroups(groups)
       toast(groups.length === 0 ? '未发现明显重复' : `发现 ${groups.length} 组重复`)
     } catch (err) {
       console.error('[DataIO] duplicate scan failed', err)
-      toast('扫描失败')
+      toast('扫描失败', { tone: 'error', persistent: false })
     } finally {
       setDupScanning(false)
     }
@@ -345,7 +348,7 @@ export function DataIOContent({
     if (duplicateScanTradesRef.current !== useStore.getState().trades) {
       duplicateScanTradesRef.current = null
       setDupGroups(null)
-      toast('交易库已变化，请重新扫描重复项')
+      toast('交易库已变化，请重新扫描重复项', { tone: 'warning' })
       return
     }
     setDupCleaning(true)
@@ -359,7 +362,7 @@ export function DataIOContent({
       }
       removeTrades([...idsToRemove])
       setDupGroups([])
-      toast(`已清理 ${idsToRemove.size} 条重复记录（移入回收站）`)
+      toast(`已清理 ${idsToRemove.size} 条重复记录（移入回收站）`, { tone: 'success' })
       onDone?.()
     } finally {
       setDupCleaning(false)

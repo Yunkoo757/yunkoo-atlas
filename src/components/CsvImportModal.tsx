@@ -249,11 +249,11 @@ export function CsvImportModal({ open, onClose }: Props) {
     const skipped = skipDuplicates
       ? Object.keys(duplicateByRow).filter((row) => !forceImportRows[Number(row)]).length
       : 0
-    toast(
-      skipped > 0
-        ? `成功导入 ${imported} 笔，跳过 ${skipped} 笔重复`
-        : `成功导入 ${imported} 笔交易`,
-    )
+    const invalid = previews.length - skipped - imported
+    const parts = [`成功导入 ${imported} 笔交易`]
+    if (skipped > 0) parts.push(`跳过 ${skipped} 笔重复`)
+    if (invalid > 0) parts.push(`${invalid} 行有误未导入`)
+    toast(parts.join('，'), { tone: invalid > 0 ? 'warning' : 'success' })
   }
 
   const reset = () => {

@@ -80,6 +80,7 @@ export function NotionImportModal({ open, onClose }: Props) {
   const [fileName, setFileName] = useState('')
   const [imported, setImported] = useState(0)
   const [importedImages, setImportedImages] = useState(0)
+  const [addedStrategyNames, setAddedStrategyNames] = useState<string[]>([])
   const [skipDuplicates, setSkipDuplicates] = useState(true)
   const [duplicateByRow, setDuplicateByRow] = useState<Record<number, DuplicateMatch>>({})
   const [forceImportRows, setForceImportRows] = useState<Record<number, boolean>>({})
@@ -314,6 +315,7 @@ export function NotionImportModal({ open, onClose }: Props) {
     const totalImages = committed.imageCount
     const newTrades = committed.importedTrades
     const newStrategies = committed.newStrategies
+    setAddedStrategyNames(newStrategies.map((strategy) => strategy.name))
     setImportedImages(totalImages)
     setImported(newTrades.length)
     setStep('done')
@@ -324,8 +326,9 @@ export function NotionImportModal({ open, onClose }: Props) {
     const target = IMPORT_TARGETS.find((item) => item.kind === targetKind)!
     const parts = [`${newTrades.length} ${target.recordLabel}`]
     if (skipped > 0) parts.push(`跳过 ${skipped} 笔重复`)
+    if (result.errorRows > 0) parts.push(`${result.errorRows} 行有误未导入`)
     if (newStrategies.length > 0) {
-      parts.push(`${newStrategies.length} 个策略：${newStrategies.map((s) => s.name).join('、')}`)
+      parts.push(`新增 ${newStrategies.length} 个策略`)
     }
     if (totalImages > 0) {
       parts.push(`${totalImages} 张截图`)
@@ -333,7 +336,9 @@ export function NotionImportModal({ open, onClose }: Props) {
     if (committed.trailingSaveFailed) {
       parts.push('并发设置待重试保存')
     }
-    toast(`已从 Notion 导入 ${parts.join('，')}`)
+    toast(`已从 Notion 导入 ${parts.join('，')}`, {
+      tone: committed.trailingSaveFailed || result.errorRows > 0 ? 'warning' : 'success',
+    })
   }
 
   const reset = () => {
@@ -374,6 +379,14 @@ export function NotionImportModal({ open, onClose }: Props) {
   }
 
   const targetLabel = IMPORT_TARGETS.find((target) => target.kind === targetKind)!.label
+
+  const strategyNames = step === 'done' ? addedStrategyNames : result?.newStrategies
+  const strategyDetails = strategyNames && strategyNames.length > 0 && (
+    <details className="nim-strategy-details">
+      <DisclosureSummary>{step === 'done' ? '已新增' : '将新增'} {strategyNames.length} 个策略</DisclosureSummary>
+      <p>{strategyNames.join('、')}</p>
+    </details>
+  )
 
   const footer =
     step === 'upload' ? (
@@ -472,10 +485,7 @@ export function NotionImportModal({ open, onClose }: Props) {
             </p>
             {importFactCounts.missingCloseDate > 0 && <p>{importFactCounts.missingCloseDate} 笔缺少平仓日：将进入待整理且不计入绩效</p>}
             {importFactCounts.unknownCurrency > 0 && <p>{importFactCounts.unknownCurrency} 笔币种未知：不进入 USD 总计</p>}
-            {result.newStrategies.length > 0 && <details>
-              <DisclosureSummary>将新增 {result.newStrategies.length} 个策略</DisclosureSummary>
-              <p>{result.newStrategies.join('、')}</p>
-            </details>}
+            {strategyDetails}
           </div>
 
           {dupScanState === 'scanning' && (
@@ -534,6 +544,7 @@ export function NotionImportModal({ open, onClose }: Props) {
           <p>
             已导入 {imported} {IMPORT_TARGETS.find((target) => target.kind === targetKind)!.recordLabel}
           </p>
+          {strategyDetails}
           {importedImages > 0 && (
             <p className="nim-done-images">
               <Image size={ICON_MD} /> {importedImages} 张截图已离线保存

@@ -109,11 +109,11 @@ export function useShortcutHost({
       'global.newQuickNote': () => createAndOpenQuickNote(navigate, pathname),
       'global.undo': () => {
         const s = useStore.getState()
-        if (s.undoStack.length > 0 && s.undo()) toast('已撤销')
+        if (s.undoStack.length > 0 && s.undo()) toast('已撤销', { tone: 'success' })
       },
       'global.redo': () => {
         const s = useStore.getState()
-        if (s.redoStack.length > 0 && s.redo()) toast('已重做')
+        if (s.redoStack.length > 0 && s.redo()) toast('已重做', { tone: 'success' })
       },
       'global.closeOverlay': () => {
         if (lightbox) {

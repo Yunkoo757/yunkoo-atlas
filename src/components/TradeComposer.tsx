@@ -289,7 +289,7 @@ export function TradeComposer() {
   const addImage = async (file: File) => {
     if (submittingRef.current) return
     if (file.size > MAX_WEB_JOURNAL_ENTRY_BYTES) {
-      toast('单张原图超过 32 MB，无法加入资料库；请缩小图片后重试')
+      toast('单张原图超过 32 MB，无法加入资料库；请缩小图片后重试', { tone: 'warning' })
       return
     }
     const id = crypto.randomUUID()
@@ -332,7 +332,7 @@ export function TradeComposer() {
   const handleQuickCreate = (continueRecording = false) => {
     if (submittingRef.current || !openedAt) return
     if (!symbol.trim()) {
-      toast('请先选择交易品种')
+      toast('请先选择交易品种', { tone: 'warning' })
       return
     }
     const invalid = Object.entries({ entry, size, stopLoss }).find(([, value]) => value.trim() && optionalNumber(value) === null)
@@ -343,7 +343,7 @@ export function TradeComposer() {
       return
     }
     if (activeKind === 'backtest') {
-      if (!project || (project.archivedAt && !editing)) { toast('请先打开一个未归档的回测项目'); return }
+      if (!project || (project.archivedAt && !editing)) { toast('请先打开一个未归档的回测项目', { tone: 'warning' }); return }
       if (openedAt < project.startedAt) { setBacktestError({ field: 'date', message: '历史日期不能早于项目开始日期' }); document.querySelector<HTMLButtonElement>('.composer-date-field button')?.focus(); return }
       if (status !== 'missed' && ((backtestR.trim() && optionalNumber(backtestR) === null) || (document.getElementById('backtest-r') as HTMLInputElement | null)?.validity.badInput)) { setBacktestError({ field: 'r', message: '请输入有效的 R 数值' }); document.getElementById('backtest-r')?.focus(); return }
     }
@@ -427,7 +427,7 @@ export function TradeComposer() {
       const trade = result.trade
 
       if (!trade) {
-        toast(`该${recordLabel}已不存在，未保存本次修改`)
+        toast(`该${recordLabel}已不存在，未保存本次修改`, { tone: 'error' })
         close()
         return
       }
@@ -443,7 +443,7 @@ export function TradeComposer() {
           const firstField = status === 'missed' ? '[aria-label="回测历史日期"]' : '#backtest-r'
           document.querySelector<HTMLElement>(firstField)?.focus({ preventScroll: true })
         })
-        toast('已保存，可继续下一笔')
+        toast('已保存，可继续下一笔', { tone: 'success' })
         return
       }
       close()
@@ -454,10 +454,11 @@ export function TradeComposer() {
             search: location.search,
           }),
         })
-        toast(trade.tradeKind === 'case' ? '已创建案例' : '已记录')
+        toast(trade.tradeKind === 'case' ? '已创建案例' : '已记录', { tone: 'success' })
         return
       }
       toast(editing ? '已保存' : '已记录', {
+        tone: 'success',
         label: '打开记录',
         onClick: () => navigate(tradeDetailPath(trade)),
       })
@@ -467,7 +468,7 @@ export function TradeComposer() {
         close()
         return // 已提交后的发布失败由资料库恢复页处理。
       }
-      toast('保存失败，交易和本次截图均未写入；请重试')
+      toast('保存失败，交易和本次截图均未写入；请重试', { tone: 'error' })
     }).finally(() => {
       submittingRef.current = false
       setSubmitting(false)

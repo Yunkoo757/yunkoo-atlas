@@ -463,7 +463,7 @@ export function ReviewSessionView() {
       hadAssessment &&
       (!hasUndoReference || (typeof actionId === 'string' && !useStore.getState().undo(actionId)))
     ) {
-      toast('该评估之后目标字段已变化，无法安全撤销')
+      toast('该评估之后目标字段已变化，无法安全撤销', { tone: 'warning' })
       return
     }
     const assessments = { ...value.assessments }
@@ -501,10 +501,11 @@ export function ReviewSessionView() {
     } : value)
     if (actionId) {
       toast('已记录评估', {
+        tone: 'success',
         label: '撤销',
         onClick: () => {
           if (!useStore.getState().undo(actionId)) {
-            toast('该评估之后目标字段已变化，无法安全撤销')
+            toast('该评估之后目标字段已变化，无法安全撤销', { tone: 'warning' })
             return
           }
           setSession((value) => {
@@ -518,7 +519,7 @@ export function ReviewSessionView() {
         },
       })
     } else {
-      toast('已记录评估')
+      toast('已记录评估', { tone: 'success' })
     }
   }, [businessDateAnchor.now, current, decisionPending, tradingDayStartHour, updateTradeData])
 
@@ -526,10 +527,10 @@ export function ReviewSessionView() {
     if (!current || current.tradeKind === 'case') return
     const result = useStore.getState().createReviewCaseFromTrade(current.id)
     if (result.status !== 'created') {
-      toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在')
+      toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在', { tone: 'warning' })
       return
     }
-    toast('已提炼为案例')
+    toast('已提炼为案例', { tone: 'success' })
   }, [current])
 
   useEffect(() => {

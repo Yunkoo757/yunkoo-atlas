@@ -62,12 +62,12 @@ export function UpdatesSettingsPanel() {
     await flushPersistNow()
     const backup = await getJournalBridge()!.createBackup()
     if (!backup) {
-      toast('无法创建更新前备份，已取消安装')
+      toast('无法创建更新前备份，已取消安装', { tone: 'error' })
       return
     }
     const verification = await getJournalBridge()!.verifyBackup(backup)
     if (verification.status !== 'verified') {
-      toast(verification.error ?? '更新前备份验证失败，已取消安装')
+      toast(verification.error ?? '更新前备份验证失败，已取消安装', { tone: 'error' })
       return
     }
     // 安装会走关闭保存回执（正在安全保存 / 已安全保存），不再弹 toast，避免底部双条重叠

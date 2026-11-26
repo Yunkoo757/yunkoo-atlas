@@ -666,7 +666,7 @@ async function captureStates(root, outputRoot, build, runtime) {
           panel.className = 'toast-panel is-success'
           panel.dataset.themeQaToast = 'true'
           panel.setAttribute('role', 'status')
-          panel.innerHTML = '<span class="toast-icon" aria-hidden="true">●</span><span class="toast-message">主题状态证据已生成</span>'
+          panel.innerHTML = '<div class="toast-content"><svg class="toast-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m20 6-11 11-5-5"/></svg><span class="toast-message">主题状态证据已生成</span></div>'
           host.append(panel)
           document.body.append(host)
         })

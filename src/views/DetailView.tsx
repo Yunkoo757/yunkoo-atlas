@@ -234,6 +234,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
   const [noteLoadAttempt, setNoteLoadAttempt] = useState(0)
   const [noteRetrying, setNoteRetrying] = useState(false)
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [announcedReviewId, setAnnouncedReviewId] = useState<string | null>(null)
   const [caseCreating, setCaseCreating] = useState(false)
   const [decisionImageCaseId, setDecisionImageCaseId] = useState<string | null>(null)
   const [contentCopying, setContentCopying] = useState(false)
@@ -472,6 +473,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
 
   useLayoutEffect(() => {
     activeTradeIdRef.current = trade?.id ?? null
+    setAnnouncedReviewId(null)
     caseCreationGenerationRef.current += 1
     caseCreationOwnerRef.current = null
     setCommentOpen(false)
@@ -580,18 +582,18 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href)
-      toast('链接已复制')
+      toast('链接已复制', { tone: 'success' })
     } catch {
-      toast('复制失败，请重试')
+      toast('复制失败，请重试', { tone: 'error', persistent: false })
     }
   }
 
   const copyRef = async () => {
     try {
       await navigator.clipboard.writeText(trade.ref)
-      toast(`已复制 ${trade.ref}`)
+      toast(`已复制 ${trade.ref}`, { tone: 'success' })
     } catch {
-      toast('复制失败，请重试')
+      toast('复制失败，请重试', { tone: 'error', persistent: false })
     }
   }
 
@@ -633,7 +635,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
     addComment(trade.id, comment)
     setComment('')
     closeComment()
-    toast('复盘追记已保存')
+    toast('复盘追记已保存', { tone: 'success' })
   }
 
   const onDelete = () => {
@@ -659,17 +661,17 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       const noteSaved = await flushNoteDraftToStore(operation.tradeId)
       if (!ownsCurrentTrade()) return
       if (!noteSaved) {
-        toast('正文尚未保存，未创建案例')
+        toast('正文尚未保存，未创建案例', { tone: 'error' })
         return
       }
       const result = useStore.getState().createReviewCaseFromTrade(operation.tradeId)
       if (!ownsCurrentTrade()) return
       if (result.status !== 'created') {
-        toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在')
+        toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在', { tone: 'warning' })
         return
       }
       if (!ownsCurrentTrade()) return
-      toast('已提炼为案例')
+      toast('已提炼为案例', { tone: 'success' })
       navigate(tradeDetailPath(result.reviewCase), { state: location.state })
     } finally {
       if (caseCreationOwnerRef.current === operation) {
@@ -709,9 +711,10 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       trades,
     )
     : null
-  const completeReview = async () => {
+  const completeReview = async (source: 'document' | 'menu') => {
     if (reviewSubmitting || activeNoteLoad.status !== 'ready' || !reviewReadiness.ready) return
 
+    setAnnouncedReviewId(null)
     setReviewSubmitting(true)
     setReviewIssue(null)
     try {
@@ -719,7 +722,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       if (!noteSaved) {
         const message = '笔记图片尚未保存，复盘状态未变更'
         setReviewIssue(message)
-        toast(message)
+        toast(message, { tone: 'error' })
         return
       }
 
@@ -730,12 +733,16 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
           ? '笔记已变为空白，请补充复盘内容后重试'
           : '请补充复盘结论、勾选检查项或加入截图证据'
         setReviewIssue(message)
-        toast(message)
+        toast(message, { tone: 'warning' })
         return
       }
 
       updateTradeData(trade.id, { reviewStatus: 'reviewed' })
-      toast(`${trade.ref} 复盘已完成`)
+      if (source === 'menu' || activeTradeIdRef.current !== trade.id) {
+        toast(`已完成 ${trade.ref} 的复盘`, { tone: 'success' })
+      } else {
+        setAnnouncedReviewId(trade.id)
+      }
     } finally {
       setReviewSubmitting(false)
     }
@@ -862,10 +869,10 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       onClick={() => {
         if (trade.tradeKind === 'case') {
           toggleCaseFocus(trade.id)
-          toast(starred ? '已取消重点' : '已设为重点案例')
+          toast(starred ? '已取消重点' : '已设为重点案例', { tone: 'success' })
         } else {
           toggleStar(trade.id)
-          toast(starred ? '已取消星标' : '已加入星标')
+          toast(starred ? '已取消星标' : '已加入星标', { tone: 'success' })
         }
       }}
     >
@@ -885,7 +892,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
   const deleteAction = detailRecordActions.find((action) => action.id === 'delete')
   const openDecisionImage = async () => {
     if (!(await flushNoteDraftToStore(trade.id))) {
-      toast('正文尚未保存，请稍后重试')
+      toast('正文尚未保存，请稍后重试', { tone: 'error' })
       return
     }
     if (detailMountedRef.current && activeTradeIdRef.current === trade.id) setDecisionImageCaseId(trade.id)
@@ -932,13 +939,13 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
         else if (v === 'extract-case') void createCaseFromCurrentTrade()
         else if (v === 'star') {
           toggleStar(trade.id)
-          toast(starred ? '已取消星标' : '已加入星标')
+          toast(starred ? '已取消星标' : '已加入星标', { tone: 'success' })
         }
         else if (v === 'focus-case') {
           toggleCaseFocus(trade.id)
-          toast(starred ? '已取消重点' : '已设为重点案例')
+          toast(starred ? '已取消重点' : '已设为重点案例', { tone: 'success' })
         }
-        else if (v === 'complete-review') void completeReview()
+        else if (v === 'complete-review') void completeReview('menu')
         else if (v === 'next-review' && nextPendingReviewId) navigateDetail(nextPendingReviewId)
         else if (v === 'reopen-review') updateTradeData(trade.id, { reviewStatus: 'unreviewed' })
         else if (v === 'decision-image') void openDecisionImage()
@@ -962,7 +969,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       className="dv-review-complete-action"
       busy={reviewSubmitting}
       disabled={activeNoteLoad.status !== 'ready' || !reviewReadiness.ready}
-      onClick={() => void completeReview()}
+      onClick={() => void completeReview('document')}
     >
       <Circle size={ICON_SM} aria-hidden />
       {reviewSubmitting ? '正在保存…' : '完成复盘'}
@@ -1119,7 +1126,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
                             updateNote(trade.id, repaired.html)
                             setNoteRetrying(true)
                             setNoteLoadAttempt((value) => value + 1)
-                            toast(`已移除 ${repaired.removedCount} 个缺失图片引用`)
+                            toast(`已移除 ${repaired.removedCount} 个缺失图片引用`, { tone: 'success' })
                           }}
                         >
                           移除缺失图片并继续编辑
@@ -1158,6 +1165,9 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
                     : '记下交易判断，或粘贴截图…'
                 }
               />
+              <span className="dv-review-announcement" role="status" aria-live="polite">
+                {reviewComplete && announcedReviewId === trade.id ? '复盘已完成' : ''}
+              </span>
               {(showCompletionAction || reviewComplete) && (
                 <div className="dv-review-actions" role="group" aria-label="复盘状态与推进">
                   {showCompletionAction && (
@@ -1216,7 +1226,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
                       deletable
                       onDelete={event.commentId ? () => {
                         removeComment(trade.id, event.commentId!)
-                        toast('复盘追记已删除')
+                        toast('复盘追记已删除', { tone: 'success' })
                       } : undefined}
                     >
                       {node}
@@ -1603,7 +1613,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
           onSave={(decisionImageId) => {
             updateTradeData(trade.id, { decisionImageId })
             setDecisionImageCaseId(null)
-            toast(decisionImageId ? '已设置先判断图' : '已取消截图标记')
+            toast(decisionImageId ? '已设置先判断图' : '已取消截图标记', { tone: 'success' })
           }}
         />
       )}

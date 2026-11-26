@@ -271,6 +271,17 @@ async function run(): Promise<void> {
       )
       assert(asset.mime === 'image/png', `第 ${index + 1} 张图片 MIME 不得改变`)
     })
+    storage.commitImport = async () => {}
+    const retryButton = await waitForEnabledButton('确认导入')
+    retryButton.click()
+    const details = await waitForSelector('.import-done-area details')
+    const toggle = details.querySelector('summary')
+    assert(toggle && toggle.textContent?.includes('已新增 1 个策略'), '完成页应提供本次实际新增策略的摘要')
+    toggle.click()
+    await waitForFrame()
+    assert(details.querySelector('p')?.textContent === '新策略', '展开后应能查到本次实际新增的策略名称')
+    const receipt = useToast.getState().message
+    assert(receipt?.includes('新增 1 个策略') && !receipt.includes('新策略'), '导入通知应只报告策略数量')
   } finally {
     window.removeEventListener('unhandledrejection', onUnhandledRejection)
     console.error = originalConsoleError

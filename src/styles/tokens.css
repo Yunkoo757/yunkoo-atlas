@@ -182,11 +182,12 @@
   --batch-bar-bottom: var(--sp-6);
   --batch-bar-height: calc(var(--control-height-sm) + 2 * var(--space-control-gap) + 2px);
   --toast-error-border: color-mix(in srgb, var(--danger) 38%, var(--border-default));
-  --toast-surface: color-mix(in srgb, var(--surface-floating) 96%, var(--text-primary) 1%);
+  --toast-inset: var(--sp-6);
+  --toast-max-width: 390px;
+  --toast-surface: var(--surface-floating);
   --toast-border: var(--popover-border);
-  --toast-highlight: var(--control-highlight-rest);
-  --toast-shadow: var(--popover-shadow-deep);
-  --toast-radius: var(--radius-10);
+  --toast-shadow: var(--popover-shadow);
+  --toast-radius: var(--radius-8);
   --toast-motion-in: var(--motion-dialog-in);
   --toast-motion-out: var(--motion-dialog-out);
 

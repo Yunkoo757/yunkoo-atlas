@@ -132,8 +132,8 @@ export function BacktestProjectsView() {
         isStarred: state.isStarred,
         createReviewCase: source => {
           const result = useStore.getState().createReviewCaseFromTrade(source.id)
-          if (result.status !== 'created') { toast('原记录已变化，请重新打开'); return }
-          toast('已提炼为案例')
+          if (result.status !== 'created') { toast('原记录已变化，请重新打开', { tone: 'warning' }); return }
+          toast('已提炼为案例', { tone: 'success' })
           openRecord(result.reviewCase)
         },
       }),
@@ -156,16 +156,16 @@ export function BacktestProjectsView() {
     const sourceById = new Map(getProjectTrades(state.trades, project.id).map(trade => [trade.id, trade]))
     const sources = copyCandidateIds.map(id => sourceById.get(id)).filter((trade): trade is Trade => Boolean(trade))
     if (!latestProject || latestProject.archivedAt || sources.length !== copyCandidateIds.length) {
-      toast(latestProject?.archivedAt ? '项目已归档，请重新打开后复制' : '源记录已变化，请重新选择')
+      toast(latestProject?.archivedAt ? '项目已归档，请重新打开后复制' : '源记录已变化，请重新选择', { tone: 'warning' })
       setCopyCandidateIds(null)
       return
     }
     try {
       const copies = buildSafeTradeCopies(sources, state.trades, { now: new Date(), createId: () => crypto.randomUUID() })
       if (state.upsertTrades(copies) !== 'updated') throw new Error('复制失败，请重试')
-      toast(`已复制 ${copies.length} 条待确认回测记录`)
+      toast(`已复制 ${copies.length} 条待确认回测记录`, { tone: 'success' })
       setSelectedIds(new Set())
-    } catch (error) { toast(error instanceof Error ? error.message : '复制失败，请重试') }
+    } catch (error) { toast(error instanceof Error ? error.message : '复制失败，请重试', { tone: 'error' }) }
     setCopyCandidateIds(null)
   }
   const createRecord = () => { if (project && !project.archivedAt) openComposer(null, 'backtest', project.id) }
@@ -186,8 +186,8 @@ export function BacktestProjectsView() {
       anchor.click()
       anchor.remove()
       setTimeout(() => URL.revokeObjectURL(url), 60000)
-      toast('已导出分析包：项目说明、JSON、CSV 和截图')
-    } catch (error) { toast(`导出失败：${error instanceof Error ? error.message : '请重试'}`) }
+      toast('已导出分析包：项目说明、JSON、CSV 和截图', { tone: 'success' })
+    } catch (error) { toast(`导出失败：${error instanceof Error ? error.message : '请重试'}`, { tone: 'error' }) }
     finally { setExporting(false) }
   }
   const updateLifecycle = (field: 'archivedAt' | 'completedAt') => {

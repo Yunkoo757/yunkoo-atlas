@@ -275,7 +275,7 @@ export async function testRestoresAndDesktopControlsPreserveSafeInteractionState
 
   const electronRestore = dataIO.slice(dataIO.indexOf('const onImportZip'))
   assert(
-    electronRestore.indexOf('setDupGroups(null)') < electronRestore.indexOf("toast('资料库已恢复')"),
+    electronRestore.indexOf('setDupGroups(null)') < electronRestore.indexOf("toast('资料库已恢复', { tone: 'success' })"),
     'Electron 整库恢复后必须在展示成功状态前清除旧重复扫描结果',
   )
   assert(electronRestore.includes('onLibraryChanged?.()'), 'Electron 整库恢复后必须刷新资料库派生状态')

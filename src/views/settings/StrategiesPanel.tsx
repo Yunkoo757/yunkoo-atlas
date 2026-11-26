@@ -56,11 +56,11 @@ export function StrategiesPanel() {
   const onSave = (data: Omit<Strategy, 'id'>, id?: string) => {
     if (id) {
       updateStrategy(id, data)
-      toast('策略已更新')
+      toast('策略已更新', { tone: 'success' })
     } else {
       const newId = uniqueStrategyId(data.name, strategies)
       addStrategy({ ...data, id: newId })
-      toast('策略已创建')
+      toast('策略已创建', { tone: 'success' })
     }
   }
 
@@ -71,7 +71,7 @@ export function StrategiesPanel() {
       toast('策略或关联记录已变化，请重新核对', { tone: 'warning' })
       return
     }
-    toast('策略已删除')
+    toast('策略已删除', { tone: 'success' })
     setDeleteTarget(null)
     setReassignId('')
   }

@@ -212,14 +212,15 @@ export function DataSettingsPanel({
           verification.status === 'verified'
             ? '备份已创建并验证'
             : verification.error ?? '备份已创建，但验证失败',
+          { tone: verification.status === 'verified' ? 'success' : 'error' },
         )
         await Promise.all([refreshBackups(), refreshHealth()])
       } else {
-        toast('备份失败')
+        toast('备份失败', { tone: 'error' })
       }
     } catch (error) {
       reportDataSettingsFailure('创建备份失败', error)
-      toast('备份失败')
+      toast('备份失败', { tone: 'error' })
     } finally {
       setBacking(false)
     }
@@ -232,6 +233,7 @@ export function DataSettingsPanel({
     const unlockInteraction = lockStorageCutoverInteraction()
     let suspended = false
     let safeToFlush = true
+    let restored = false
     try {
       await flushStorageBeforeCutover()
       suspendPersist()
@@ -249,18 +251,23 @@ export function DataSettingsPanel({
         applySnapshotToStore(result.snapshot)
         clearSessionUiAfterLibrarySwitch()
         safeToFlush = true
-        toast('备份已恢复')
         await Promise.all([refreshBackups(), refreshHealth()])
+        restored = true
       } else {
-        toast(result.error ?? '恢复失败')
+        toast(result.error ?? '恢复失败', { tone: 'error' })
       }
     } catch (error) {
       reportDataSettingsFailure('恢复备份失败', error)
-      toast('恢复失败')
+      toast('恢复失败', { tone: 'error' })
     } finally {
       if (suspended) {
         if (safeToFlush) {
-          await resumePersistAndFlush().catch(() => toast('恢复后保存失败，请勿关闭软件'))
+          try {
+            await resumePersistAndFlush()
+            if (restored) toast('备份已恢复', { tone: 'success' })
+          } catch {
+            toast('恢复后保存失败，请勿关闭软件', { tone: 'error' })
+          }
         } else {
           discardPendingAndResumePersist()
           disablePersistWrites()
@@ -281,11 +288,14 @@ export function DataSettingsPanel({
       const result = await getJournalBridge()!.verifyBackup(name)
       await refreshBackups()
       if (!quiet || result.status !== 'verified') {
-        toast(result.status === 'verified' ? '备份验证通过' : result.error ?? '备份验证失败')
+        toast(
+          result.status === 'verified' ? '备份验证通过' : result.error ?? '备份验证失败',
+          { tone: result.status === 'verified' ? 'success' : 'error' },
+        )
       }
     } catch (error) {
       reportDataSettingsFailure('验证备份失败', error)
-      if (!quiet) toast('备份验证失败')
+      if (!quiet) toast('备份验证失败', { tone: 'error' })
     } finally {
       setVerifying(null)
     }
@@ -309,10 +319,13 @@ export function DataSettingsPanel({
         if (result.status !== 'verified') invalidCount++
       }
       await refreshBackups()
-      toast(invalidCount === 0 ? '全部备份验证通过' : `${invalidCount} 份备份验证未通过，建议重新备份`)
+      toast(
+        invalidCount === 0 ? '全部备份验证通过' : `${invalidCount} 份备份验证未通过，建议重新备份`,
+        { tone: invalidCount === 0 ? 'success' : 'error' },
+      )
     } catch (error) {
       reportDataSettingsFailure('批量验证备份失败', error)
-      toast('备份验证未完成')
+      toast('备份验证未完成', { tone: 'error' })
     } finally {
       setVerifying(null)
     }
@@ -324,14 +337,14 @@ export function DataSettingsPanel({
     try {
       const deleted = await getJournalBridge()!.deleteBackup(name)
       if (!deleted) {
-        toast('备份不存在或已被删除')
+        toast('备份不存在或已被删除', { tone: 'warning' })
         return
       }
       await Promise.all([refreshBackups(), refreshHealth()])
-      toast('备份已删除')
+      toast('备份已删除', { tone: 'success' })
     } catch (error) {
       reportDataSettingsFailure('删除备份失败', error)
-      toast('删除失败')
+      toast('删除失败', { tone: 'error', persistent: false })
     }
   }
 
@@ -360,7 +373,7 @@ export function DataSettingsPanel({
       setPurgePreview(preview)
     } catch (error) {
       reportDataSettingsFailure('预览附件清理失败', error)
-      toast(userFacingErrorMessage(error, '附件清理预览失败'))
+      toast(userFacingErrorMessage(error, '附件清理预览失败'), { tone: 'error', persistent: false })
     } finally {
       setPurgeBusy(false)
     }
@@ -401,7 +414,7 @@ export function DataSettingsPanel({
       setPurgePreview(refreshedPreview)
       setPurgeAuthorization(recovery.authorization)
       setPurgeArchiveReady(true)
-      toast('当前资料库恢复归档已导出')
+      toast('当前资料库恢复归档已导出', { tone: 'success' })
     } catch (error) {
       const canceled = error instanceof Error && error.message === '恢复归档导出已取消'
       if (!canceled) reportDataSettingsFailure('导出清理恢复归档失败', error)
@@ -427,11 +440,11 @@ export function DataSettingsPanel({
       setPurgeArchiveReady(false)
       setPurgeAuthorization(null)
       await refreshHealth()
-      toast(`已从当前库永久清理 ${result.deletedIds.length} 个孤立附件；历史备份未改变`)
+      toast(`已从当前库永久清理 ${result.deletedIds.length} 个孤立附件；历史备份未改变`, { tone: 'success' })
     } catch (error) {
       reportDataSettingsFailure('永久清理附件失败', error)
       discardPurge()
-      toast(`${userFacingErrorMessage(error, '永久清理失败')}；请重新预览后再确认`)
+      toast(`${userFacingErrorMessage(error, '永久清理失败')}；请重新预览后再确认`, { tone: 'error' })
     } finally {
       setPurgeBusy(false)
     }

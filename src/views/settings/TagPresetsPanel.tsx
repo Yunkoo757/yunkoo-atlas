@@ -23,7 +23,7 @@ export function TagPresetsPanel() {
     const remove = mistake ? removeMistakeTagPreset : removeTagPreset
     const add = mistake ? addMistakeTagPreset : addTagPreset
     remove(tag)
-    toast(`已移除${mistake ? '错误' : '普通'}标签「${tag}」`, { actionLabel: '撤销', onAction: () => add(tag) })
+    toast(`已移除${mistake ? '错误' : '普通'}标签「${tag}」`, { tone: 'success', actionLabel: '撤销', onAction: () => add(tag) })
   }
   const [category, setCategory] = useState<'normal' | 'mistake'>('normal')
   return (
@@ -73,7 +73,7 @@ function TagSection({
     }
     onAdd(trimmed)
     setInput('')
-    toast(`已添加「${trimmed}」`)
+    toast(`已添加「${trimmed}」`, { tone: 'success' })
   }
 
   const handleBatchAdd = () => {
@@ -90,7 +90,7 @@ function TagSection({
       }
     }
     setBatch('')
-    if (added > 0) toast(`已批量添加 ${added} 个标签`)
+    if (added > 0) toast(`已批量添加 ${added} 个标签`, { tone: 'success' })
     else toast('所有标签已存在')
   }
 

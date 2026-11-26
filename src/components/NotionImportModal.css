@@ -91,7 +91,8 @@
 }
 
 .nim-preview-counts { display: grid; gap: var(--sp-1); }
-.nim-preview-counts p {
+.nim-preview-counts p,
+.nim-strategy-details > p {
   margin: 0;
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
@@ -100,7 +101,8 @@
 }
 .nim-preview-counts .nim-preview-stats { color: var(--text-secondary); font-size: var(--type-row-size); }
 .nim-preview-stats strong { color: var(--text-strong); }
-.nim-preview-counts details > p { margin-left: var(--sp-5); }
+.nim-strategy-details { max-width: 100%; text-align: start; }
+.nim-strategy-details > p { margin-left: var(--sp-5); }
 
 .nim-dup-scan,
 .nim-dup-toggle {

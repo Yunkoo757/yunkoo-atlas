@@ -243,7 +243,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
     }
     setPanel(null)
     requestAnimationFrame(() => overflowButtonRef.current?.focus())
-    toast(pinnedAtTop ? '视图已固定到顶部' : `视图已保存，可在「${moreName}」中打开`)
+    toast(pinnedAtTop ? '视图已固定到顶部' : `视图已保存，可在「${moreName}」中打开`, { tone: 'success' })
   }
 
   const commitRename = (id: string) => {
@@ -254,12 +254,13 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
   const deleteSavedView = (view: SavedTradeView) => {
     removeTradeView(view.id)
     toast(`已删除视图「${view.name}」`, {
+      tone: 'success',
       label: '撤销',
       onClick: () => {
         const state = useStore.getState()
         if (state.savedTradeViews.some(item => item.id === view.id)) return
         state.saveTradeView(view)
-        toast('视图已恢复')
+        toast('视图已恢复', { tone: 'success' })
       },
     })
   }
@@ -416,7 +417,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
                         className="quick-view-icon"
                         onClick={() => {
                           if (togglePinTradeView(view.id) === 'full') {
-                            toast(`${workspaceLabel}最多固定 ${MAX_PINNED_WORKSPACE_VIEWS} 个，可先取消固定一个`)
+                            toast(`${workspaceLabel}最多固定 ${MAX_PINNED_WORKSPACE_VIEWS} 个，可先取消固定一个`, { tone: 'warning' })
                           }
                         }}
                         aria-label={view.pinned ? `取消固定 ${view.name}` : `固定 ${view.name}`}

@@ -131,9 +131,9 @@ const checkDueStageRollover = createStageRolloverCheck(async () => {
     },
   })
   if (result.kind === 'committed') {
-    toast('已安全切换到新的实盘阶段', { dedupeKey: 'stage-rollover-committed' })
+    toast('已安全切换到新的实盘阶段', { tone: 'success', dedupeKey: 'stage-rollover-committed' })
   } else if (result.kind === 'postponed') {
-    toast('阶段切换条件尚未满足，已顺延到下周', { dedupeKey: 'stage-rollover-postponed' })
+    toast('阶段切换条件尚未满足，已顺延到下周', { tone: 'warning', dedupeKey: 'stage-rollover-postponed' })
   } else if (result.kind === 'failed') {
     toast(result.message, { tone: 'error', dedupeKey: `stage-rollover-${result.reason}` })
   }

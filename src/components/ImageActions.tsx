@@ -40,7 +40,7 @@ export function ImageActions() {
           const handler = window.journalBridge?.outputImage
           if (!handler) throw new Error('请重启最新客户端后重试')
           const bytes = await imagePng(image)
-          if (await handler(action, bytes)) toast(action === 'copy' ? '图片已复制' : '图片已保存')
+          if (await handler(action, bytes)) toast(action === 'copy' ? '图片已复制' : '图片已保存', { tone: 'success' })
         } catch (error) { toast(error instanceof Error ? error.message : '图片操作失败', { tone: 'error' }) }
         finally { busy.current = false }
       }

@@ -107,7 +107,7 @@ export const THEME_STATE_CONTRACTS = Object.freeze([
     restore: 'escape',
   }),
   Object.freeze({ id: 'risk-disabled', path: '/settings/risk', ready: '.risk-management-settings', kind: 'inject-disabled', target: '[data-theme-qa-disabled]', afterColorToken: '--text-disabled', afterBackground: 'rgba(0, 0, 0, 0)', afterBoxShadow: 'none', restore: 'remove-fixture' }),
-  Object.freeze({ id: 'trade-toast', path: '/list', ready: '.trade-list', kind: 'inject-toast', target: '[data-theme-qa-toast]', afterBorderToken: '--popover-border', afterOpacity: '1', restore: 'remove-fixture' }),
+  Object.freeze({ id: 'trade-toast', path: '/list', ready: '.trade-list', kind: 'inject-toast', target: '[data-theme-qa-toast]', afterBorderToken: '--toast-border', afterBackgroundToken: '--toast-surface', afterOpacity: '1', restore: 'remove-fixture' }),
 ])
 
 const opticalMix = (key, reason, expiresWhen) => Object.freeze({

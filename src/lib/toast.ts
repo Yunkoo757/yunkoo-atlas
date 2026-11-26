@@ -86,7 +86,7 @@ export function createToastStore(options: { canPush?: () => boolean } = {}): Toa
   const scheduleDismiss = (item: ToastItem) => {
     cancelTimer(item.id)
     if (item.persistent || holds.has(item.id)) return
-    const duration = item.actionLabel ? 5_000 : 2_200
+    const duration = item.actionLabel || item.tone === 'warning' ? 5_000 : 3_200
     const timer = setTimeout(() => store.dismiss(item.id), duration)
     releaseTimer(timer)
     timers.set(item.id, timer)
@@ -95,7 +95,7 @@ export function createToastStore(options: { canPush?: () => boolean } = {}): Toa
   const store: ToastStore = {
     hold(id, reason, active) {
       const item = state.items.find(candidate => candidate.id === id)
-      if (!item || item.persistent || !item.onAction) return
+      if (!item || item.persistent) return
       const reasons = holds.get(id) ?? new Set<'pointer' | 'focus'>()
       if (active) {
         reasons.add(reason)

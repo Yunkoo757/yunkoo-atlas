@@ -9,9 +9,10 @@ export function moveRecordsToTrash(target: string | string[]): void {
   const single = count === 1 ? state.trades.find(trade => trade.id === action.trades[0]!.id) : undefined
   const label = single?.ref ?? `${count} 条记录`
   toast(`${label} 已移至回收站`, {
+    tone: 'success',
     actionLabel: '撤销',
     onAction: () => {
-      if (useStore.getState().undo(action.actionId)) toast(`已恢复 ${label}`)
+      if (useStore.getState().undo(action.actionId)) toast(`已恢复 ${label}`, { tone: 'success' })
       else toast('记录已发生变化，请到回收站查看', { tone: 'warning' })
     },
   })

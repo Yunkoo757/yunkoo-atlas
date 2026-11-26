@@ -192,7 +192,7 @@ export function ListView({
       .map((id) => sourceById.get(id))
       .filter((trade): trade is Trade => Boolean(trade && !trade.deletedAt))
     if (sources.length !== copyCandidateIds.length) {
-      toast('部分源记录已变化，请重新选择后再复制')
+      toast('部分源记录已变化，请重新选择后再复制', { tone: 'warning' })
       setCopyCandidateIds(null)
       return
     }
@@ -213,11 +213,12 @@ export function ListView({
           : hasCases
             ? `已复制 ${copies.length} 个案例`
             : `已将 ${copies.length} 笔交易复制为新计划`,
+        { tone: 'success' },
       )
       setSelectedIds(new Set())
       setCopyCandidateIds(null)
     } catch (error) {
-      toast(error instanceof Error ? error.message : '复制失败，源记录未改变')
+      toast(error instanceof Error ? error.message : '复制失败，源记录未改变', { tone: 'error' })
       setCopyCandidateIds(null)
     }
   }
@@ -250,10 +251,10 @@ export function ListView({
         createReviewCase: (source) => {
           const result = useStore.getState().createReviewCaseFromTrade(source.id)
           if (result.status !== 'created') {
-            toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在')
+            toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在', { tone: 'warning' })
             return
           }
-          toast('已提炼为案例')
+          toast('已提炼为案例', { tone: 'success' })
           openTrade(result.reviewCase)
         },
         toggleStar,

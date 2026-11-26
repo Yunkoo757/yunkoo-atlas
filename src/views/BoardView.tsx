@@ -211,10 +211,10 @@ export function BoardView({
                       createReviewCase: (source) => {
                         const result = useStore.getState().createReviewCaseFromTrade(source.id)
                         if (result.status !== 'created') {
-                          toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在')
+                          toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在', { tone: 'warning' })
                           return
                         }
-                        toast('已提炼为案例')
+                        toast('已提炼为案例', { tone: 'success' })
                         onOpen(result.reviewCase.id)
                       },
                       toggleStar,

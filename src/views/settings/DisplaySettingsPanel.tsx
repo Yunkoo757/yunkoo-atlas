@@ -150,10 +150,10 @@ export function DisplaySettingsPanel() {
     try {
       const state = await bridge.setAutoLaunchEnabled(enabled)
       setAutoLaunchState(state)
-      if (state.error) toast(state.error)
-      else toast(enabled ? '已开启开机自动启动' : '已关闭开机自动启动')
+      if (state.error) toast(state.error, { tone: 'error', persistent: false })
+      else toast(enabled ? '已开启开机自动启动' : '已关闭开机自动启动', { tone: 'success' })
     } catch {
-      toast('开机启动设置失败，请重试')
+      toast('开机启动设置失败，请重试', { tone: 'error', persistent: false })
       await loadAutoLaunchState()
     } finally {
       setAutoLaunchBusy(false)

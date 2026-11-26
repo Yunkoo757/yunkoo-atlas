@@ -58,9 +58,9 @@ export function SymbolsPanel() {
     try {
       const dataUrl = await resizeSymbolIconImage(file)
       setSymbolIconCustom(active, dataUrl)
-      toast(`已更新 ${active} 图标`)
+      toast(`已更新 ${active} 图标`, { tone: 'success' })
     } catch {
-      toast('图标上传失败')
+      toast('图标上传失败', { tone: 'error', persistent: false })
     }
   }
 
@@ -167,7 +167,7 @@ export function SymbolsPanel() {
                     aria-pressed={activePresetId === preset.id}
                     onClick={() => {
                       setSymbolIconPreset(active, preset.id)
-                      toast(`已应用预设「${preset.label}」`)
+                      toast(`已应用预设「${preset.label}」`, { tone: 'success' })
                     }}
                   >
                     <SymbolIcon symbol={active} preset={preset} size={ICON_XL} />
@@ -201,7 +201,7 @@ export function SymbolsPanel() {
                   className="symbols-btn"
                   onClick={() => {
                     clearSymbolIcon(active)
-                    toast(`已恢复 ${active} 默认图标`)
+                    toast(`已恢复 ${active} 默认图标`, { tone: 'success' })
                   }}
                 >
                   <RotateCcw size={ICON_SM} />

@@ -1,19 +1,19 @@
 import { motionDuration, reducesMotion } from '@/lib/motion'
 import { createPortal } from 'react-dom'
 import { useEffect, useRef, useState } from 'react'
-import { AlertCircle, AlertTriangle, CheckCircle, CircleDot, X } from '@/icons/appIcons'
-import { ICON_MD } from '@/icons/iconSize'
+import { AlertCircle, AlertTriangle, Check, X } from '@/icons/appIcons'
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useToast, type ToastItem, type ToastTone } from '@/lib/toast'
 import { Button } from '@/components/ui/Button'
 import { IconButton } from '@/components/ui/IconButton'
 import './Toast.css'
 
 const TONE_ICONS = {
-  info: CircleDot,
-  success: CheckCircle,
+  info: null,
+  success: Check,
   warning: AlertTriangle,
   error: AlertCircle,
-} satisfies Record<ToastTone, typeof AlertCircle>
+} satisfies Record<ToastTone, typeof AlertCircle | null>
 
 type PresentToast = ToastItem & { exiting: boolean }
 
@@ -93,8 +93,10 @@ export function ToastHost() {
               if (!event.currentTarget.contains(event.relatedTarget)) useToast.hold(item.id, 'focus', false)
             }}
           >
-            <Icon className="toast-icon" size={ICON_MD} aria-hidden />
-            <span className="toast-message">{item.message}</span>
+            <div className="toast-content">
+              {Icon && <Icon className="toast-icon" size={ICON_MD} aria-hidden />}
+              <span className="toast-message">{item.message}</span>
+            </div>
             {item.actionLabel && item.onAction ? (
               <Button
                 size="sm"
@@ -116,7 +118,7 @@ export function ToastHost() {
                 label="关闭通知"
                 onClick={() => dismiss(item.id)}
               >
-                <X size={ICON_MD} aria-hidden />
+                <X size={ICON_SM} aria-hidden />
               </IconButton>
             ) : null}
           </div>

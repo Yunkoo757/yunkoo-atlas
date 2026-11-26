@@ -51,7 +51,7 @@ export function WindowHotkeySetting({
       publishState(await bridge.getWindowHotkey(), true)
     } catch {
       setLoadError(true)
-      toast('系统快捷键状态读取失败，请重试')
+      toast('系统快捷键状态读取失败，请重试', { tone: 'error', persistent: false })
     }
   }, [publishState])
 
@@ -69,12 +69,15 @@ export function WindowHotkeySetting({
       const result = await bridge.setWindowHotkey(candidate)
       publishState(result.state)
       if (!result.ok) {
-        toast(result.message)
+        toast(
+          result.message,
+          { tone: result.errorCode === 'persistence-failed' ? 'error' : 'warning', persistent: false },
+        )
         return
       }
       const labels = useShortcutStore.getState().disableConflictsWithWindowHotkey(candidate)
-      if (labels.length > 0) toast(`已更新，并覆盖「${labels.join('、')}」`)
-      else toast('系统快捷键已更新')
+      if (labels.length > 0) toast(`已更新，并覆盖「${labels.join('、')}」`, { tone: 'success' })
+      else toast('系统快捷键已更新', { tone: 'success' })
     } finally {
       setBusy(false)
     }
@@ -100,13 +103,16 @@ export function WindowHotkeySetting({
       const result = await bridge.resetWindowHotkey()
       publishState(result.state)
       if (!result.ok) {
-        toast(result.message)
+        toast(
+          result.message,
+          { tone: result.errorCode === 'persistence-failed' ? 'error' : 'warning', persistent: false },
+        )
         return
       }
       const labels = useShortcutStore.getState()
         .disableConflictsWithWindowHotkey(DEFAULT_WINDOW_HOTKEY)
-      if (labels.length > 0) toast(`已恢复默认，并覆盖「${labels.join('、')}」`)
-      else toast('已恢复系统快捷键默认值')
+      if (labels.length > 0) toast(`已恢复默认，并覆盖「${labels.join('、')}」`, { tone: 'success' })
+      else toast('已恢复系统快捷键默认值', { tone: 'success' })
     } finally {
       setBusy(false)
     }
@@ -138,12 +144,12 @@ export function WindowHotkeySetting({
       if (event.repeat) return
       const platform = /Mac/i.test(navigator.platform) ? 'darwin' : 'win32'
       if (!isWindowHotkeyModifierAllowed(event, platform)) {
-        toast(platform === 'darwin' ? 'macOS 系统快捷键请使用 Command' : 'Windows 系统快捷键请使用 Ctrl')
+        toast(platform === 'darwin' ? 'macOS 系统快捷键请使用 Command' : 'Windows 系统快捷键请使用 Ctrl', { tone: 'warning' })
         return
       }
       const candidate = normalizeWindowHotkeyBinding(chordFromEvent(event))
       if (!candidate) {
-        toast('不支持这个系统级快捷键')
+        toast('不支持这个系统级快捷键', { tone: 'warning' })
         return
       }
       setRecording(false)

@@ -645,7 +645,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
       if (cancelled) return
       setEditorHtml(result.html)
       editorReadyRef.current = result.editable
-      if (!result.editable) toast('周复盘中有图片附件缺失，正文已切换为只读')
+      if (!result.editable) toast('周复盘中有图片附件缺失，正文已切换为只读', { tone: 'warning' })
     })
     return () => {
       cancelled = true
@@ -713,7 +713,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     const draftSaved = await flushNoteDraftToStore(draftId)
     if (intentGeneration !== routeIntentGenerationRef.current) return
     if (!draftSaved) {
-      toast('正文尚未保存，请重试')
+      toast('正文尚未保存，请重试', { tone: 'error' })
       return
     }
     const nextReviewId = item.week === currentWeek && item.liveStageId === currentLiveStageId
@@ -749,12 +749,12 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     }
     setVisualIssues([])
     completeWeeklyReview(latest.id)
-    toast('本周复盘已完成，指标已冻结')
+    toast('本周复盘已完成，指标已冻结', { tone: 'success' })
   }
 
   const reopenReview = () => {
     reopenWeeklyReview(review.id)
-    toast('已重新打开，本周指标恢复实时更新')
+    toast('已重新打开，本周指标恢复实时更新', { tone: 'success' })
   }
 
   const year = parseLocalDate(selectedWeek).getFullYear()

@@ -43,9 +43,10 @@ export function ReviewTemplatesPanel() {
     if (!undo) return
     setSelectedId(next?.id ?? null)
     toast(`已删除起稿模板「${selected.name}」`, {
+      tone: 'success',
       actionLabel: '撤销',
       onAction: () => {
-        if (undo()) toast(`已恢复「${selected.name}」`)
+        if (undo()) toast(`已恢复「${selected.name}」`, { tone: 'success' })
         else toast('模板列表已变化，未能恢复', { tone: 'warning' })
       },
     })

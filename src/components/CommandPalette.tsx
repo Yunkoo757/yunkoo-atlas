@@ -279,7 +279,7 @@ function CommandPaletteDialog({
           requestClose()
           toast(activeTrade.tradeKind === 'case'
             ? (starred ? '已取消重点' : '已设为重点案例')
-            : (starred ? '已取消星标' : '已加入星标'))
+            : (starred ? '已取消星标' : '已加入星标'), { tone: 'success' })
         },
       })
       for (const status of STATUS_ORDER) {

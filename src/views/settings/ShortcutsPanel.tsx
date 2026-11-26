@@ -75,7 +75,7 @@ export function ShortcutsPanel() {
       if (e.key === 'Backspace' || e.key === 'Delete') {
         setBinding(recordingId, null)
         setRecordingId(null)
-        toast('快捷键已禁用')
+        toast('快捷键已禁用', { tone: 'success' })
         return
       }
 
@@ -85,21 +85,21 @@ export function ShortcutsPanel() {
       if (!chord.key) return
 
       if (windowHotkeyState?.registered && chordsEqual(chord, windowHotkeyState.binding)) {
-        toast('该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键')
+        toast('该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键', { tone: 'warning' })
         return
       }
 
       const result = assignBinding(recordingId, chord)
       if (!result.ok) {
-        toast(result.error)
+        toast(result.error, { tone: 'warning' })
         return
       }
 
       setRecordingId(null)
       if (result.clearedLabels.length > 0) {
-        toast(`已更新，并覆盖「${result.clearedLabels.join('、')}」`)
+        toast(`已更新，并覆盖「${result.clearedLabels.join('、')}」`, { tone: 'success' })
       } else {
-        toast('快捷键已更新')
+        toast('快捷键已更新', { tone: 'success' })
       }
     },
     [recordingId, assignBinding, setBinding, windowHotkeyState],
@@ -126,14 +126,14 @@ export function ShortcutsPanel() {
           onClick={() => {
             if (!windowHotkeyState?.registered) {
               resetAllBindings()
-              toast('已恢复全部默认快捷键')
+              toast('已恢复全部默认快捷键', { tone: 'success' })
               return
             }
             const labels = resetAllBindingsForWindowHotkey(windowHotkeyState.binding)
             if (labels.length > 0) {
-              toast(`已恢复全部默认；因系统快捷键占用，保留禁用「${labels.join('、')}」`)
+              toast(`已恢复全部默认；因系统快捷键占用，保留禁用「${labels.join('、')}」`, { tone: 'warning' })
             } else {
-              toast('已恢复全部默认快捷键')
+              toast('已恢复全部默认快捷键', { tone: 'success' })
             }
           }}
         >
@@ -229,11 +229,11 @@ export function ShortcutsPanel() {
                               chordsEqual(action.defaultBinding, windowHotkeyState.binding)
                             ) {
                               setBinding(action.id, null)
-                              toast('该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键')
+                              toast('该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键', { tone: 'warning' })
                               return
                             }
                             resetBinding(action.id)
-                            toast('已恢复默认')
+                            toast('已恢复默认', { tone: 'success' })
                           }}
                         >
                           <RotateCcw size={ICON_SM} />
@@ -247,7 +247,7 @@ export function ShortcutsPanel() {
                           onClick={() => {
                             setRecordingId(null)
                             setBinding(action.id, null)
-                            toast('已禁用')
+                            toast('已禁用', { tone: 'success' })
                           }}
                         >
                           <Ban size={ICON_SM} />

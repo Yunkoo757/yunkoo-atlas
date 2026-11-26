@@ -141,7 +141,7 @@ export function TradeTrashView() {
       next.delete(id)
       return next
     })
-    toast('已恢复交易')
+    toast('已恢复交易', { tone: 'success' })
   }
 
   const requestPurge = (trade: Trade) => {
@@ -183,15 +183,17 @@ export function TradeTrashView() {
           result.purgedIds.length > 0
             ? `已彻底删除 ${result.purgedIds.length} 笔；另有 ${result.staleIds.length + result.notInTrashIds.length} 笔状态已变化，未执行删除`
             : '交易状态已变化，已停止删除；请重新检查后再试',
+          { tone: 'warning' },
         )
       } else if (result.blockedIds.length > 0) {
         toast(
           result.purgedIds.length > 0
             ? `已彻底删除 ${result.purgedIds.length} 笔；另有 ${result.blockedIds.length} 笔被旧版完成周复盘引用，请重新打开并完成对应复盘后再试`
             : '该交易被旧版完成周复盘引用；请重新打开并完成对应复盘后再彻底删除',
+          { tone: 'warning' },
         )
       } else {
-        toast(result.purgedIds.length === 1 ? '已彻底删除' : `已彻底删除 ${result.purgedIds.length} 笔交易`)
+        toast(result.purgedIds.length === 1 ? '已彻底删除' : `已彻底删除 ${result.purgedIds.length} 笔交易`, { tone: 'success' })
       }
     } catch (error) {
       setPurgeError(error instanceof Error ? error.message : '删除失败，请重新检查后再试')
@@ -205,7 +207,7 @@ export function TradeTrashView() {
     const count = selected.size
     restoreTrades([...selected])
     setSelected(new Set())
-    toast(`已恢复 ${count} 笔交易`)
+    toast(`已恢复 ${count} 笔交易`, { tone: 'success' })
   }
 
   const handleBatchPurge = () => {

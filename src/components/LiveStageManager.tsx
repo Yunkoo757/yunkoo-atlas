@@ -127,21 +127,21 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
     if (!startOperation('schedule')) return
     const previous = useStore.getState().scheduledStageRollover
     if (previous) {
-      toast('已有阶段切换预约，不能重复创建')
+      toast('已有阶段切换预约，不能重复创建', { tone: 'warning' })
       finishOperation()
       return
     }
     scheduleLiveStageRollover(currentTradingDayKey, new Date().toISOString())
     try {
       await flushPersistNow()
-      toast(`已预约 ${fmtDate(useStore.getState().scheduledStageRollover?.effectiveWeekStart ?? effectiveWeekStart)} 开启新实盘阶段`)
+      toast(`已预约 ${fmtDate(useStore.getState().scheduledStageRollover?.effectiveWeekStart ?? effectiveWeekStart)} 开启新实盘阶段`, { tone: 'success' })
     } catch {
       useStore.setState({ scheduledStageRollover: previous })
       try {
         await flushPersistNow()
-        toast('阶段预约保存失败，原设置已保留')
+        toast('阶段预约保存失败，原设置已保留', { tone: 'error', persistent: false })
       } catch {
-        toast('阶段预约保存与回滚均失败，请重新打开应用核对')
+        toast('阶段预约保存与回滚均失败，请重新打开应用核对', { tone: 'error' })
       }
     } finally {
       finishOperation()
@@ -158,14 +158,14 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
     cancelLiveStageRollover()
     try {
       await flushPersistNow()
-      toast('已取消阶段切换预约')
+      toast('已取消阶段切换预约', { tone: 'success' })
     } catch {
       useStore.setState({ scheduledStageRollover: previous })
       try {
         await flushPersistNow()
-        toast('取消预约保存失败，原预约已保留')
+        toast('取消预约保存失败，原预约已保留', { tone: 'error', persistent: false })
       } catch {
-        toast('取消预约保存与回滚均失败，请重新打开应用核对')
+        toast('取消预约保存与回滚均失败，请重新打开应用核对', { tone: 'error' })
       }
     } finally {
       finishOperation()
@@ -186,7 +186,7 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
         normalizeLiveStageName(item.name) === normalizeLiveStageName(draft),
       )) message = '阶段名称已存在，请使用其他名称'
       setRenameError(message)
-      toast(message)
+      toast(message, { tone: 'warning' })
       finishOperation()
       return
     }
@@ -196,15 +196,15 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
       if (saved) setNameDrafts((drafts) => ({ ...drafts, [stageId]: saved.name }))
       setEditingStageId(null)
       restoreRenameFocus(stageId)
-      toast('阶段名称已保存')
+      toast('阶段名称已保存', { tone: 'success' })
     } catch {
       useStore.setState({ liveStages: previousStages })
       try {
         await flushPersistNow()
-        toast('阶段名称保存失败，原名称已保留')
+        toast('阶段名称保存失败，原名称已保留', { tone: 'error', persistent: false })
         setRenameError('阶段名称保存失败，原名称已保留，请重试。')
       } catch {
-        toast('阶段名称保存与回滚均失败，请重新打开应用核对')
+        toast('阶段名称保存与回滚均失败，请重新打开应用核对', { tone: 'error' })
         setRenameError('阶段名称保存与回滚均失败，请重新打开应用核对。')
       }
     } finally {
