@@ -122,3 +122,29 @@ test('an isolated worktree may share its installed dependencies through a direct
   symlinkSync(dependencies, path.join(root, 'node_modules'), 'junction')
   assert.deepEqual(await readGitProvenance(root), clean)
 })
+
+test('regression results cannot attest a dependency edited after its test build', { timeout: 30_000 }, async t => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'atlas-regression-source-change-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  mkdirSync(path.join(root, 'src'))
+  writeFileSync(path.join(root, 'vite.config.ts'), 'export default {}')
+  writeFileSync(path.join(root, 'src/value.ts'), 'export const value = 1')
+  writeFileSync(path.join(root, 'src/value.test.ts'), `
+import { writeFileSync } from 'node:fs'
+import { value } from './value'
+export function testCompiledValue() {
+  writeFileSync('src/value.ts', 'export const value = 2')
+  if (value !== 1) throw new Error('fixture must have executed the original dependency')
+}
+`)
+  initRepository(root)
+  const child = spawn(process.execPath, [runner, '--unit-only'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
+  let output = ''
+  child.stdout.on('data', data => { output += data })
+  child.stderr.on('data', data => { output += data })
+  const code = await new Promise((resolve, reject) => { child.once('close', resolve); child.once('error', reject) })
+  assert.match(output, /PASS src\/value.test.ts :: testCompiledValue/)
+  assert.notEqual(code, 0, '源码已改变，运行器仍发布了通过报告')
+  assert.match(output, /source changed|源码.*变化/i)
+  assert.equal(existsSync(path.join(root, 'test-results', 'quality-execution.json')), false)
+})

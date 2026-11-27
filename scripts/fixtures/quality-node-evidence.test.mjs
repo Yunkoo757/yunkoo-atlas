@@ -16,6 +16,7 @@ test('Node 质量证据只登记实际执行的测试，失败或跳过后移除
   const fixture = 'scripts/fixtures/evidence.test.mjs'
   try {
     fs.mkdirSync(path.join(root, 'scripts', 'fixtures'), { recursive: true })
+    fs.writeFileSync(path.join(root, '.gitignore'), 'test-results/\n')
     for (const name of ['release-command', 'release-artifacts', 'test-discovery']) {
       fs.writeFileSync(path.join(root, 'scripts', name + '.test.mjs'), "import test from 'node:test'; test('entry', () => {})")
     }
@@ -38,6 +39,17 @@ test('Node 质量证据只登记实际执行的测试，失败或跳过后移除
       assert.notEqual(failed.status, 0)
       assert.equal(fs.existsSync(report), false)
     }
+    fs.writeFileSync(path.join(root, 'value.mjs'), 'export const value = 1')
+    fs.writeFileSync(path.join(root, fixture), [
+      "import test from 'node:test'",
+      "import { value } from '../../value.mjs'",
+      "import { writeFileSync } from 'node:fs'",
+      "test('compiled dependency', () => { if (value !== 1) throw Error(); writeFileSync('value.mjs', 'export const value = 2') })",
+    ].join('\n'))
+    const changed = execute()
+    assert.notEqual(changed.status, 0, '执行期间源码变化，不能登记为新源码的 PASS')
+    assert.match(changed.stderr, /source changed|源码.*变化/i)
+    assert.equal(fs.existsSync(report), false)
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }
