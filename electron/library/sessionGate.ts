@@ -20,7 +20,7 @@ function abortError(): Error {
 export class LibraryOperationGate {
   private active = 0
   private exclusive = false
-  private drainWaiters: Array<() => void> = []
+  private onDrained?: () => void
 
   async run<T>(operation: () => T | Promise<T>): Promise<T> {
     if (this.exclusive) throw new LibraryBusyError()
@@ -29,11 +29,7 @@ export class LibraryOperationGate {
       return await operation()
     } finally {
       this.active -= 1
-      if (this.active === 0) {
-        const waiters = this.drainWaiters
-        this.drainWaiters = []
-        waiters.forEach((resolve) => resolve())
-      }
+      if (this.active === 0) this.onDrained?.()
     }
   }
 
@@ -46,28 +42,24 @@ export class LibraryOperationGate {
         await new Promise<void>((resolve, reject) => {
           const onAbort = () => reject(abortError())
           signal?.addEventListener('abort', onAbort, { once: true })
-          this.drainWaiters.push(() => {
+          this.onDrained = () => {
             signal?.removeEventListener('abort', onAbort)
             resolve()
-          })
+          }
         })
       }
       if (signal?.aborted) throw abortError()
       return await operation()
     } finally {
+      this.onDrained = undefined
       this.exclusive = false
     }
   }
 
   /** 独占操作的非阻塞入口；存在任何进行中操作时立即返回 busy，不排队。 */
   async tryRunExclusive<T>(operation: () => T | Promise<T>): Promise<T> {
-    if (this.exclusive || this.active > 0) throw new LibraryBusyError()
-    this.exclusive = true
-    try {
-      return await operation()
-    } finally {
-      this.exclusive = false
-    }
+    if (this.active > 0) throw new LibraryBusyError()
+    return this.runExclusive(operation)
   }
 
   isExclusive(): boolean {

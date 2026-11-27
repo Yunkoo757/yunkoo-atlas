@@ -1,3 +1,5 @@
+import { rejects } from 'node:assert/strict'
+import { mock } from 'node:test'
 import { LibraryBusyError, LibraryOperationGate } from './sessionGate'
 
 function assert(condition: unknown, message: string): void {
@@ -80,4 +82,34 @@ export async function testCancelledExclusiveWaitReleasesGateWithoutRunningOperat
   assert(cancelled, 'an aborted exclusive wait must reject with AbortError')
   assert(!exclusiveRan, 'an aborted exclusive operation must never run')
   assert(nextWriteRan, 'aborting an exclusive wait must release the gate for future writes')
+}
+
+export async function testCancelledDrainIsGoneWhileOtherWritesRemainActive(): Promise<void> {
+  const gate = new LibraryOperationGate()
+  const first = deferred()
+  const last = deferred()
+  const firstWrite = gate.run(() => first.promise)
+  const lastWrite = gate.run(() => last.promise)
+  const controller = new AbortController()
+  const cleanup = mock.method(controller.signal, 'removeEventListener')
+  try {
+    const cancelled = gate.runExclusive(() => { throw Error('cancelled operation ran') }, controller.signal)
+    controller.abort()
+    await rejects(cancelled, { name: 'AbortError' })
+    const cleanupsAfterAbort = cleanup.mock.callCount()
+    let commits = 0
+    const retry = gate.runExclusive(() => { commits++ })
+    first.resolve()
+    await firstWrite
+    assert(commits === 0 && gate.isExclusive(), '仍有最后一个写入时，新独占操作必须继续等待')
+    last.resolve()
+    await lastWrite
+    await retry
+    assert(commits === 1 && !gate.isExclusive(), '最后一次写入结束后只交接给新请求')
+    assert(cleanup.mock.callCount() === cleanupsAfterAbort, '取消后旧等待不得留到写入结束时再次接收通知')
+  } finally {
+    cleanup.mock.restore()
+    first.resolve()
+    last.resolve()
+  }
 }
