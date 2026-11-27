@@ -604,7 +604,7 @@ function Shell() {
 }
 
 export function App() {
-  const { screen, start, selectAnotherLibrary, recover, reloadAuthorized } = useWorkspaceStartup(checkDueStageRollover)
+  const { screen, retry, selectAnotherLibrary, activateSelection, recover, reloadAuthorized } = useWorkspaceStartup(checkDueStageRollover)
   const [closeSaveState, setCloseSaveState] = useState<CloseSaveState>({ phase: 'idle' })
   const [windowsClosePromptOpen, setWindowsClosePromptOpen] = useState(false)
   const [rememberWindowsClose, setRememberWindowsClose] = useState(false)
@@ -852,7 +852,7 @@ export function App() {
                 <Button
                   size="lg"
                   variant="primary"
-                  onClick={() => void start('location')}
+                  onClick={() => void retry()}
                 >
                   重试打开
                 </Button>
@@ -877,7 +877,7 @@ export function App() {
   if (screen.kind === 'welcome') {
     return <>
       <Suspense fallback={<DelayedRouteFallback />}>
-        <WelcomeScreen bridge={screen.bridge} onReady={() => void start('selection')} />
+        <WelcomeScreen pickFolder={screen.bridge.pickLibraryFolder} activateSelection={activateSelection} />
       </Suspense>
       {closingUi}
     </>

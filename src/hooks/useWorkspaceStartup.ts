@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AsyncGeneration } from '@/lib/asyncGeneration'
-import { STORAGE_RECOVERY_REQUIRED_EVENT } from '@/lib/storageRecovery'
+import { notifyStorageRecoveryRequired, STORAGE_RECOVERY_REQUIRED_EVENT } from '@/lib/storageRecovery'
+import { userFacingErrorMessage } from '@/lib/userFacingError'
 import { runStartupTrashCleanup } from '@/lib/trashCleanup'
-import { bootstrapStorage, stopStorageForRecovery } from '@/storage/bootstrap'
+import { bootstrapStorage, isStorageHydrated, stopStorageForRecovery } from '@/storage/bootstrap'
 import { getJournalBridge } from '@/storage/runtime'
-import type { JournalBridge } from '@/types/journalBridge'
+import type { JournalBridge, LibrarySwitchMode } from '@/types/journalBridge'
 
 type StartupScreen =
   | { kind: 'loading' | 'ready' }
@@ -129,5 +130,28 @@ export function useWorkspaceStartup(checkDueStage: () => Promise<unknown>) {
     setScreen({ kind: 'welcome', bridge })
   }
 
-  return { screen, start, selectAnotherLibrary, recover, reloadAuthorized }
+  async function activateSelection(mode: LibrarySwitchMode, path: string): Promise<void> {
+    if (screen.kind !== 'welcome') return
+    const current = attempts.current.capture()
+    if (isStorageHydrated()) {
+      // 启动后段失败时，旧库仍持有写入会话。按设置页的协议交接快照与凭据。
+      const { switchActiveLibrary } = await import('@/lib/librarySwitch')
+      if (!current()) return
+      const result = await switchActiveLibrary(mode, path)
+      if (!result.ok) throw new Error(result.error)
+    } else {
+      const result = mode === 'create'
+        ? await screen.bridge.createNewLibrary(path)
+        : await screen.bridge.openExistingLibrary(path)
+      if (!current()) return
+      if (!result.ok) {
+        if (!result.requiresReload) throw new Error(result.error)
+        notifyStorageRecoveryRequired(userFacingErrorMessage(result.error, '资料库位置需要重新确认，请重新打开资料库'))
+        return
+      }
+    }
+    if (current()) await start('selection')
+  }
+
+  return { screen, retry: () => start('location'), selectAnotherLibrary, activateSelection, recover, reloadAuthorized }
 }

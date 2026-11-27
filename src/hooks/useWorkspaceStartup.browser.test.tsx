@@ -1,7 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { useWorkspaceStartup } from './useWorkspaceStartup'
-import { bootstrapStorage } from '@/storage/bootstrap'
+import { createNewLibrarySnapshot } from '@/storage/emptySnapshot'
 import { useStore } from '@/store/useStore'
 import { performanceTruthFixture } from '@/test/fixtures/performanceTruthFixture'
 import type { JournalBridge, LibraryLocationState } from '@/types/journalBridge'
@@ -32,21 +32,29 @@ async function verify(entry: 'initial' | 'selected' | 'retry') {
     : { kind: 'unavailable', configuredPath: '/missing', reason: '待重试' }
   let releaseFonts!: () => void
   const fonts = new Promise<void>(resolve => { releaseFonts = resolve })
-  const bridge = { isElectron: true, getLibraryStatus: async () => { events.push('status'); return status } } satisfies Partial<JournalBridge>
+  const snapshot = createNewLibrarySnapshot()
+  const expired = {
+    ...performanceTruthFixture.trades[0], tradeKind: 'live' as const, liveStageId: null,
+    strategyId: snapshot.strategies[0].id, deletedAt: '2000-01-01T00:00:00.000Z',
+  }
+  const bridge = {
+    isElectron: true,
+    getLibraryStatus: async () => { events.push('status'); return status },
+    openExistingLibrary: async () => ({ ok: true, snapshot: null } as const),
+    storageOpen: async () => true,
+    loadSnapshot: async () => ({ ...snapshot, trades: [expired] }),
+    saveSnapshot: async () => true,
+  } satisfies Partial<JournalBridge>
   const stage = async () => { events.push('stage') }
   function Screen() {
     const startup = useWorkspaceStartup(stage)
     return <button data-kind={startup.screen.kind} onClick={() =>
-      void startup.start(startup.screen.kind === 'welcome' ? 'selection' : 'location')}>{startup.screen.kind}</button>
+      void (startup.screen.kind === 'welcome' ? startup.activateSelection('open', '/fixture') : startup.retry())}>{startup.screen.kind}</button>
   }
   const kind = () => host.querySelector('button')?.dataset.kind
   try {
     Object.defineProperty(window, 'journalBridge', { configurable: true, value: bridge })
     Object.defineProperty(document.fonts, 'ready', { configurable: true, get() { return fonts } })
-    const expired = {
-      ...performanceTruthFixture.trades[0], tradeKind: 'live' as const, liveStageId: null,
-      strategyId: oldStore.strategies[0].id, deletedAt: '2000-01-01T00:00:00.000Z',
-    }
     useStore.setState({
       trades: [expired],
       purgeTrades: targets => {
@@ -81,8 +89,7 @@ async function verify(entry: 'initial' | 'selected' | 'retry') {
 }
 
 window.__workspaceStartupTest = (async () => {
-  await bootstrapStorage()
-  await verify('initial')
   await verify('selected')
+  await verify('initial')
   await verify('retry')
 })()

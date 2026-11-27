@@ -2,27 +2,26 @@ import { ICON_HERO, ICON_LG, ICON_MD } from '@/icons/iconSize'
 import { useRef, useState } from 'react'
 import type { JournalBridge, LibrarySwitchMode } from '@/types/journalBridge'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
-import { notifyStorageRecoveryRequired } from '@/lib/storageRecovery'
 import { FolderOpen, Plus, HardDrive } from '@/icons/appIcons'
 import { Button } from '@/components/ui/Button'
 import './WelcomeScreen.css'
 
 interface Props {
-  bridge: JournalBridge
-  onReady: () => void
+  pickFolder: JournalBridge['pickLibraryFolder']
+  activateSelection: (mode: LibrarySwitchMode, path: string) => Promise<void>
 }
 
-export function WelcomeScreen({ bridge, onReady }: Props) {
+export function WelcomeScreen({ pickFolder, activateSelection }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [pickedPath, setPickedPath] = useState('')
 
   const activating = useRef(false)
 
-  const pickFolder = async () => {
+  const selectFolder = async () => {
     setError('')
     try {
-      const p = await bridge.pickLibraryFolder()
+      const p = await pickFolder()
       if (p) setPickedPath(p)
     } catch {
       setError('无法打开文件夹选择器')
@@ -36,16 +35,7 @@ export function WelcomeScreen({ bridge, onReady }: Props) {
     setError('')
     const fallback = mode === 'create' ? '创建库失败，请重试' : '无法打开所选库'
     try {
-      const result = mode === 'create'
-        ? await bridge.createNewLibrary(pickedPath)
-        : await bridge.openExistingLibrary(pickedPath)
-      if (result.ok) {
-        onReady()
-      } else if (result.requiresReload) {
-        notifyStorageRecoveryRequired(userFacingErrorMessage(result.error, '资料库位置需要重新确认，请重新打开资料库'))
-      } else {
-        setError(userFacingErrorMessage(result.error, fallback))
-      }
+      await activateSelection(mode, pickedPath)
     } catch (error) {
       setError(userFacingErrorMessage(error, fallback))
     } finally {
@@ -68,7 +58,7 @@ export function WelcomeScreen({ bridge, onReady }: Props) {
         <div className="welcome-path-row">
           <button
             className="welcome-path-btn"
-            onClick={pickFolder}
+            onClick={selectFolder}
             disabled={busy}
             type="button"
           >

@@ -81,18 +81,24 @@ async function run(): Promise<void> {
   }
 }
 
-async function verifyWelcomeReceipts(mode: 'open' | 'create') {
+async function verifyWelcomeReceipts(mode: 'open' | 'create', interrupt = false) {
   const host = document.getElementById('root')!
   const root = createRoot(host)
   const originalBridge = window.journalBridge
   const path = '/isolated/selected-library'
   const message = '新交易库只能创建在空目录中，请选择空目录或新文件夹'
   let uncertain = false
+  let release!: () => void
+  const pending = new Promise<void>(resolve => { release = resolve })
   let activations = 0
   let recoveries = 0
   const activate = async (selected: string) => {
     assert(selected === path, '欢迎页应提交用户选择的原始目录')
     activations++
+    if (uncertain && interrupt) {
+      await pending
+      return { ok: true, snapshot: null } as const
+    }
     return uncertain
       ? { ok: false, requiresReload: true, error: '配置已写入但回读未确认' } as const
       : { ok: false, error: message } as const
@@ -119,6 +125,15 @@ async function verifyWelcomeReceipts(mode: 'open' | 'create') {
     assert(activations === 1 && button(path), '同一次提交只激活一次，拒绝后应保留目录')
     uncertain = true
     action.click()
+    if (interrupt) {
+      await waitFor(() => activations === 2, '必须先发出选库请求')
+      window.dispatchEvent(new CustomEvent(STORAGE_RECOVERY_REQUIRED_EVENT, { detail: '隔离选库期间要求恢复' }))
+      await waitFor(() => Boolean(button('重新打开资料库')), '恢复应先接管启动界面')
+      release()
+      await frame()
+      await frame()
+      assert(document.body.textContent?.includes('隔离选库期间要求恢复'), '迟到的选库成功不得重新发起已经中止的启动')
+    }
     await waitFor(() => button('重新打开资料库') !== null, '配置结果未确认时应进入恢复页')
     assert(!button(label) && !button('选择其他资料库') && !document.querySelector('.sb-primary'), '未确认配置前不得继续选库或进入工作区')
     button('重新打开资料库')!.click()
@@ -132,4 +147,5 @@ async function verifyWelcomeReceipts(mode: 'open' | 'create') {
 window.__appStorageRecoveryTest = run().then(async () => {
   await verifyWelcomeReceipts('create')
   await verifyWelcomeReceipts('open')
+  await verifyWelcomeReceipts('open', true)
 })
