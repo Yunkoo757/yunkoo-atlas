@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171918">
+  <title>Phosphor Lab · 磷光加载动效实验室</title>
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><canvas class="brand-mark" width="64" height="64" aria-hidden="true"></canvas><span lang="en">Phosphor <i>Lab</i></span></div>
+    <span class="app-name">加载动效实验室</span>
+    <nav class="file-actions" aria-label="实验台操作">
+      <button class="plain fullscreen-lab" id="fullscreen" type="button" title="全屏实验台" aria-label="全屏实验台"><i data-icon="fullscreen"></i></button>
+      <button class="plain import" id="import" type="button"><i data-icon="upload"></i><span>导入参数</span></button>
+      <div class="export-wrap">
+        <button class="export-trigger" id="export" type="button" aria-expanded="false" aria-controls="export-list"><i data-icon="download"></i>导出<i data-icon="down" class="small"></i></button>
+        <div id="export-list" class="export-list" hidden>
+          <button type="button" data-export="html"><i data-icon="motion"></i>独立加载动画<span>HTML</span></button>
+          <button type="button" data-export="json"><i data-icon="sliders"></i>当前参数<span>JSON</span></button>
+          <button type="button" data-export="png"><i data-icon="image"></i>当前画面<span>PNG</span></button>
+        </div>
+      </div>
+    </nav>
+    <input hidden type="file" id="import-file" accept=".json,application/json">
+  </header>
+  <main class="bench">
+    <section class="preview-rail" aria-labelledby="preview-title">
+      <div class="rail-heading">
+        <h1 id="preview-title">信号预览</h1>
+        <button type="button" id="focus-view" class="quiet" title="专注预览 (F)" aria-pressed="false"><i data-icon="expand"></i><span>专注预览</span></button>
+      </div>
+      <div class="instrument" id="instrument">
+        <div class="screen" id="screen">
+          <canvas id="output" aria-label="数学曲线加载动效"></canvas>
+          <div class="screen-info" aria-hidden="true"><span class="signal-tag"><b></b><span id="signal-mode">X–Y VECTOR</span></span><span id="screen-size"></span></div>
+          <div class="loading-label" role="status" aria-label="载入中"><span lang="en">LOADING</span><span class="loading-lights" aria-hidden="true"><b></b><b></b><b></b></span></div>
+          <button hidden type="button" id="leave-focus" class="leave-focus"><i data-icon="collapse"></i>退出预览</button>
+        </div>
+        <div class="transport">
+          <div class="transport-left">
+            <button id="play" class="play" type="button" aria-label="暂停播放" title="暂停播放（空格）"><i data-icon="pause"></i></button>
+            <button id="rewind" class="quiet icon-only" type="button" aria-label="从头播放" title="回到起点"><i data-icon="rewind"></i></button>
+            <span class="elapsed mono" id="elapsed" aria-label="动画时间">00:00.0</span>
+          </div>
+          <div class="transport-right"><canvas id="frame-trace" width="108" height="32" aria-hidden="true"></canvas><span class="mono fps" id="fps">— FPS</span></div>
+        </div>
+      </div>
+      <section class="presets" aria-labelledby="preset-title">
+        <div class="preset-heading"><h2 id="preset-title">形态预设</h2><span class="preset-status" id="preset-status" aria-live="polite"></span></div>
+        <div class="preset-list" id="presets"></div>
+      </section>
+    </section>
+    <aside class="panel" aria-labelledby="panel-title">
+      <div class="panel-head"><h2 id="panel-title"><i data-icon="sliders"></i>调制参数</h2><button id="reset" class="quiet" type="button" title="还原当前预设"><i data-icon="reset"></i>还原</button></div>
+      <div id="controls" class="panel-controls"></div>
+      <div class="panel-foot"><button id="random" type="button"><i data-icon="dice"></i>更换噪声种子</button></div>
+    </aside>
+  </main>
+  <div class="notice" id="notice" role="status" hidden></div>
+  <noscript>请开启 JavaScript 以运行离线动画与参数面板。</noscript>
+  <script src="engine.js"></script>
+  <script src="controls.js"></script>
+  <script src="io.js"></script>
+  <script src="lab.js"></script>
+</body>
+</html>
