@@ -28,9 +28,11 @@ const entries = requestedEntries.length > 0 ? requestedEntries : discoveredEntri
 let failed = 0
 const passedEntries = []
 const passedTests = []
+const outputParent = path.join(root, 'test-results')
+await fs.mkdir(outputParent, { recursive: true })
 for (const entry of entries) {
   let entryFailed = false
-  const outDir = await fs.mkdtemp(path.join(root, `.tmp-${entry.replace(/\W/g, '-')}-`))
+  const outDir = await fs.mkdtemp(path.join(outputParent, `regression-${entry.replace(/\W/g, '-')}-`))
   try {
     await build({
       configFile: path.resolve('vite.config.ts'),
