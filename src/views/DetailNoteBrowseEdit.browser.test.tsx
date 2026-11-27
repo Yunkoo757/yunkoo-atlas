@@ -6,7 +6,7 @@ import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
 import { DetailView } from '@/views/DetailView'
 import type { Editor as TiptapEditor } from '@tiptap/core'
-import { flushNoteDraftToStore, getNoteDraft, resetNoteDraftsForTests, setNoteDraft } from '@/storage/noteDrafts'
+import { noteDraftKey, flushNoteDraftToStore, getNoteDraft, resetNoteDraftsForTests, setNoteDraft } from '@/storage/noteDrafts'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
 
@@ -91,7 +91,7 @@ async function run(): Promise<void> {
   try {
     useStore.setState({ trades })
     // 另一篇带未归一化附件的草稿不属于当前记录，也不应阻塞本次阅读。
-    const unrelated = 'quick-note-draft:unrelated-draft'
+    const unrelated = noteDraftKey('quickNote', 'unrelated-draft')
     setNoteDraft(unrelated, '<p>其他草稿</p><img src="blob:unavailable-draft-image">')
     useShortcutStore.setState({
       bindings: {
@@ -146,7 +146,7 @@ async function run(): Promise<void> {
     current.editor.commands.undo()
     assert(!current.textContent?.includes('直接补充'), '误输入应可撤销')
     current.editor.commands.insertContent('保存到第二笔')
-    assert(await flushNoteDraftToStore(trades[1].id), '离开前应可保存草稿')
+    assert(await flushNoteDraftToStore(noteDraftKey('trade', trades[1].id)), '离开前应可保存草稿')
     assert(useStore.getState().trades[1].note.includes('保存到第二笔'), '正文修改应写入对应记录')
     assert(!useStore.getState().trades[0].note.includes('保存到第二笔'), '编辑不得写入前一笔记录')
 

@@ -1,4 +1,7 @@
+import { decodeCanonicalSnapshot } from './snapshotCodec'
+import { SCHEMA_VERSION } from './types'
 import {
+  noteDraftKey,
   flushNoteDraftToStore,
   flushNoteDraftsToStore,
   applyNoteDraftsToSnapshot,
@@ -8,7 +11,6 @@ import {
   noteDraftCountForTests,
   resetNoteDraftsForTests,
   setNoteDraft,
-  QUICK_NOTE_DRAFT_PREFIX,
 } from '@/storage/noteDrafts'
 import { createQuickNote } from '@/data/quickNotes'
 import { useStore } from '@/store/useStore'
@@ -22,7 +24,7 @@ function assert(condition: unknown, message: string): asserts condition {
 export async function testPendingNoteDraftStateClearsOnlyAfterSuccessfulFlush(): Promise<void> {
   const originalNotes = useStore.getState().quickNotes
   const note = createQuickNote(new Date('2026-07-28T08:00:00.000Z'))
-  const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${note.id}`
+  const draftId = noteDraftKey('quickNote', note.id)
   resetNoteDraftsForTests()
   useStore.setState({ quickNotes: [note] })
   try {
@@ -41,7 +43,7 @@ export async function testFailedNormalizationKeepsDraftForSuccessfulRetry(): Pro
   const originalNotes = useStore.getState().quickNotes
   const OriginalDOMParser = globalThis.DOMParser
   const note = createQuickNote(new Date('2026-07-28T09:00:00.000Z'))
-  const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${note.id}`
+  const draftId = noteDraftKey('quickNote', note.id)
   resetNoteDraftsForTests()
   useStore.setState({ quickNotes: [note] })
   try {
@@ -95,9 +97,9 @@ export async function testOlderDraftFlushCannotDeleteNewInput(): Promise<void> {
   try {
     const oldDraft = '<p>A</p>'
     const newDraft = '<p>B</p>'
-    setNoteDraft(tradeId, oldDraft)
+    setNoteDraft(noteDraftKey('trade', tradeId), oldDraft)
     const oldFlush = flushNoteDraftsToStore()
-    setNoteDraft(tradeId, newDraft)
+    setNoteDraft(noteDraftKey('trade', tradeId), newDraft)
     await oldFlush
 
     assert(noteDraftCountForTests() === 0, '新草稿完成稳定冲洗后才可删除')
@@ -143,13 +145,13 @@ export async function testSingleDraftFlushCannotDeleteNewInput(): Promise<void> 
   resetNoteDraftsForTests()
 
   try {
-    setNoteDraft(tradeId, '<p>A</p>')
-    const oldFlush = flushNoteDraftToStore(tradeId)
-    setNoteDraft(tradeId, '<p>B</p>')
+    setNoteDraft(noteDraftKey('trade', tradeId), '<p>A</p>')
+    const oldFlush = flushNoteDraftToStore(noteDraftKey('trade', tradeId))
+    setNoteDraft(noteDraftKey('trade', tradeId), '<p>B</p>')
     const flushed = await oldFlush
 
     assert(flushed, '单条 flush 必须等待期间输入的新草稿稳定落盘')
-    assert(getNoteDraft(tradeId) === undefined, '新草稿落盘后才可从草稿队列移除')
+    assert(getNoteDraft(noteDraftKey('trade', tradeId)) === undefined, '新草稿落盘后才可从草稿队列移除')
     assert(
       useStore.getState().trades.find((trade) => trade.id === tradeId)?.note === '<p>B</p>',
       '单条 flush 必须把期间输入的最新值写入 store',
@@ -174,7 +176,7 @@ export async function testConflictRecoverySnapshotIncludesDraftAndDiscardInvalid
 
   try {
     const draft = '<p>尚未保存<img src="blob:http://localhost/preview" data-asset-id="prepared-draft"></p>'
-    setNoteDraft(tradeId, draft)
+    setNoteDraft(noteDraftKey('trade', tradeId), draft)
     const recovery = applyNoteDraftsToSnapshot({
       ...createEmptyPersistedSnapshot(),
       trades: [trade],
@@ -190,7 +192,7 @@ export async function testConflictRecoverySnapshotIncludesDraftAndDiscardInvalid
       '冲突恢复快照必须把真实 Editor blob+data-asset-id 草稿转为可恢复引用',
     )
 
-    const inflight = flushNoteDraftToStore(tradeId)
+    const inflight = flushNoteDraftToStore(noteDraftKey('trade', tradeId))
     discardAllNoteDrafts()
     await inflight
     assert(
@@ -206,7 +208,7 @@ export async function testConflictRecoverySnapshotIncludesDraftAndDiscardInvalid
 export async function testQuickNoteDraftFlushesToIndependentNoteStore(): Promise<void> {
   const originalNotes = useStore.getState().quickNotes
   const note = createQuickNote(new Date('2026-07-18T08:00:00.000Z'))
-  const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${note.id}`
+  const draftId = noteDraftKey('quickNote', note.id)
   resetNoteDraftsForTests()
   useStore.setState({ quickNotes: [note] })
   try {
@@ -241,10 +243,44 @@ export function testRecoveryDraftSnapshotSynchronizesLinkedCaseSource(): void {
   const own = { ...source, id: 'recovery-case', ref: 'CAS-RECOVERY', tradeKind: 'case' as const, sourceTradeId: source.id, sourceNoteHtml: source.note, note: '<p>独立案例结论</p>' }
   snapshot.trades = [source, own]
   try {
-    setNoteDraft(source.id, '<p>尚未冲洗的最新来源</p>')
+    setNoteDraft(noteDraftKey('trade', source.id), '<p>尚未冲洗的最新来源</p>')
     const recovery = applyNoteDraftsToSnapshot(snapshot)
     assert(recovery.trades[1]!.sourceNoteHtml === recovery.trades[0]!.note, '冲突恢复副本必须保持来源与关联案例一致')
     assert(recovery.trades[1]!.note === own.note, '恢复草稿不得覆盖独立案例正文')
     assert(snapshot.trades[0] === source && snapshot.trades[1] === own, '恢复投影不得改写原快照')
   } finally { resetNoteDraftsForTests() }
+}
+
+export async function testTradeIdsWithDraftPrefixesDoNotOverwriteOtherDocuments(): Promise<void> {
+  const original = useStore.getState()
+  const fixture = createFullPersistedSnapshotFixture()
+  const quickId = fixture.quickNotes![0]!.id
+  const reviewId = fixture.weeklyReviews![0]!.id
+  const originalTradeId = fixture.trades[0]!.id
+  try {
+    for (const tradeId of [
+      'quick-note-draft:' + quickId, 'weekly-review-draft:' + reviewId,
+      noteDraftKey('quickNote', quickId), noteDraftKey('weeklyReview', reviewId),
+    ]) {
+      discardAllNoteDrafts()
+      const imported = JSON.parse(JSON.stringify(fixture, (_key, value) => value === originalTradeId ? tradeId : value))
+      const snapshot = decodeCanonicalSnapshot(imported, { version: SCHEMA_VERSION, label: 'isolated draft owners' })
+      useStore.setState({ trades: snapshot.trades, weeklyReviews: snapshot.weeklyReviews, quickNotes: snapshot.quickNotes })
+      setNoteDraft(noteDraftKey('trade', tradeId), '<p>trade edit</p>')
+      const recovered = applyNoteDraftsToSnapshot(snapshot)
+      assert(recovered.trades[0]!.note === '<p>trade edit</p>', '恢复导出必须保留原目标交易的正文')
+      assert(recovered.quickNotes![0]!.contentHtml === snapshot.quickNotes![0]!.contentHtml
+        && recovered.weeklyReviews![0]!.contentHtml === snapshot.weeklyReviews![0]!.contentHtml, '导出不得污染未编辑的随记或周复盘')
+      setNoteDraft(noteDraftKey('quickNote', quickId), '<p>quick edit</p>')
+      setNoteDraft(noteDraftKey('weeklyReview', reviewId), '<p>weekly edit</p>')
+      assert(await flushNoteDraftsToStore(), '三个草稿必须能够独立提交')
+      const state = useStore.getState()
+      assert(state.trades[0]!.id === tradeId && state.trades[0]!.note === '<p>trade edit</p>'
+        && state.quickNotes[0]!.contentHtml === '<p>quick edit</p>' && state.weeklyReviews[0]!.contentHtml === '<p>weekly edit</p>',
+        '任意合法旧 ID 下，三篇正文及交易身份均须独立保留')
+    }
+  } finally {
+    discardAllNoteDrafts()
+    useStore.setState(original, true)
+  }
 }

@@ -8,6 +8,7 @@ import { DetailView } from '@/views/DetailView'
 import { getStorage } from '@/storage/bootstrap'
 import { useToast } from '@/lib/toast'
 import {
+  noteDraftKey,
   hasNoteDraft,
   resetNoteDraftsForTests,
   setNoteDraft,
@@ -127,7 +128,7 @@ async function run(): Promise<void> {
     renderDetail(root, '/trade/TRD-SOURCE')
 
     await waitFor(() => Boolean(findButton('更多')), '来源详情未就绪')
-    setNoteDraft(source.id, `<p>刚补充、尚未 idle 保存的复盘</p><img src="${SOURCE_IMAGE_SRC}">`)
+    setNoteDraft(noteDraftKey('trade', source.id), `<p>刚补充、尚未 idle 保存的复盘</p><img src="${SOURCE_IMAGE_SRC}">`)
     findButton('更多')?.click()
     await waitFor(() => Boolean(findButton('提炼为案例')), '提炼入口未出现')
     findButton('提炼为案例')?.click()
@@ -265,7 +266,7 @@ async function run(): Promise<void> {
     useStore.setState({ trades: [failedSource] })
     storage.saveAsset = async () => { throw new Error('fixture asset failure') }
     setNoteDraft(
-      failedSource.id,
+      noteDraftKey('trade', failedSource.id),
       '<p>保存失败</p><img src="data:image/png;base64,QQ==">',
     )
     root = createRoot(rootElement)
@@ -282,7 +283,7 @@ async function run(): Promise<void> {
       !useStore.getState().trades.some((trade) => trade.tradeKind === 'case'),
       '草稿失败时不得创建案例',
     )
-    assert(hasNoteDraft(failedSource.id), '草稿失败后必须保留草稿')
+    assert(hasNoteDraft(noteDraftKey('trade', failedSource.id)), '草稿失败后必须保留草稿')
     assert(document.body.textContent?.includes('TRD-FAILED'), '草稿失败后必须停留来源详情')
     assert(
       document.querySelector('[data-current-path]')?.textContent === '/trade/TRD-FAILED',
@@ -316,7 +317,7 @@ async function run(): Promise<void> {
     renderDetail(root, '/trade/TRD-RACE-A')
     await waitFor(() => Boolean(findButton('更多')), '慢保存来源 A 详情未就绪')
     setNoteDraft(
-      raceSourceA.id,
+      noteDraftKey('trade', raceSourceA.id),
       '<p>来源 A 慢保存</p><img src="data:image/png;base64,QQ==">',
     )
     findButton('更多')?.click()
@@ -331,7 +332,7 @@ async function run(): Promise<void> {
     )
     await waitFor(() => Boolean(findButton('更多')), '慢保存来源 B 详情未就绪')
     setNoteDraft(
-      raceSourceB.id,
+      noteDraftKey('trade', raceSourceB.id),
       '<p>来源 B 慢保存</p><img src="data:image/png;base64,Qg==">',
     )
     findButton('更多')?.click()
@@ -340,7 +341,7 @@ async function run(): Promise<void> {
     await secondSaveStarted.promise
 
     firstSave.resolve('race-a-asset')
-    await waitFor(() => !hasNoteDraft(raceSourceA.id), '来源 A 慢保存未完成')
+    await waitFor(() => !hasNoteDraft(noteDraftKey('trade', raceSourceA.id)), '来源 A 慢保存未完成')
     await waitForFrame()
     assert(
       !useStore.getState().trades.some((trade) => trade.sourceTradeId === raceSourceA.id),
@@ -357,7 +358,7 @@ async function run(): Promise<void> {
     await waitForFrame()
     assert(slowSaveCalls === 2, '旧操作 finally 不得释放来源 B 的进行中锁')
     secondSave.resolve('race-b-asset')
-    await waitFor(() => !hasNoteDraft(raceSourceB.id), '来源 B 慢保存未完成')
+    await waitFor(() => !hasNoteDraft(noteDraftKey('trade', raceSourceB.id)), '来源 B 慢保存未完成')
     await waitFor(
       () => useStore.getState().trades.filter((trade) => trade.sourceTradeId === raceSourceB.id).length > 0,
       '来源 B 案例未创建',
@@ -382,7 +383,7 @@ async function run(): Promise<void> {
     renderDetail(root, '/trade/TRD-UNMOUNT')
     await waitFor(() => Boolean(findButton('更多')), '卸载竞态来源详情未就绪')
     setNoteDraft(
-      unmountSource.id,
+      noteDraftKey('trade', unmountSource.id),
       '<p>卸载期间慢保存</p><img src="data:image/png;base64,Qw==">',
     )
     findButton('更多')?.click()
@@ -392,7 +393,7 @@ async function run(): Promise<void> {
     root.unmount()
     root = null
     unmountSave.resolve('unmount-asset')
-    await waitFor(() => !hasNoteDraft(unmountSource.id), '卸载后的慢保存未完成')
+    await waitFor(() => !hasNoteDraft(noteDraftKey('trade', unmountSource.id)), '卸载后的慢保存未完成')
     await waitForFrame()
     assert(
       !useStore.getState().trades.some((trade) => trade.tradeKind === 'case'),

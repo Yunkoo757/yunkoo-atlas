@@ -56,17 +56,17 @@ async function run(): Promise<void> {
   useStore.setState({ trades: [trade] })
   drafts.resetNoteDraftsForTests()
 
-  drafts.setNoteDraft(tradeId, '<p>A</p><img src="data:image/png;base64,QQ==">')
-  const oldFlush = drafts.flushNoteDraftToStore(tradeId)
+  drafts.setNoteDraft(drafts.noteDraftKey('trade', tradeId), '<p>A</p><img src="data:image/png;base64,QQ==">')
+  const oldFlush = drafts.flushNoteDraftToStore(drafts.noteDraftKey('trade', tradeId))
   await saveStarted.promise
-  drafts.setNoteDraft(tradeId, '<p>最新 B</p>')
-  const newFlush = drafts.flushNoteDraftToStore(tradeId)
-  const appended = drafts.appendAssetToNoteDraft(tradeId, 'route-asset')
+  drafts.setNoteDraft(drafts.noteDraftKey('trade', tradeId), '<p>最新 B</p>')
+  const newFlush = drafts.flushNoteDraftToStore(drafts.noteDraftKey('trade', tradeId))
+  const appended = drafts.appendAssetToNoteDraft(drafts.noteDraftKey('trade', tradeId), 'route-asset')
   allowOldImage.resolve('asset-old')
 
   const results = await Promise.all([oldFlush, newFlush, appended])
   assert(results.every(Boolean), '并发 flush 都必须等待最新草稿稳定落盘')
-  assert(drafts.getNoteDraft(tradeId) === undefined, '稳定落盘后不应残留草稿')
+  assert(drafts.getNoteDraft(drafts.noteDraftKey('trade', tradeId)) === undefined, '稳定落盘后不应残留草稿')
   assert(
     useStore.getState().trades.find((item) => item.id === tradeId)?.note ===
       '<p>最新 B</p>\n<img src="journal-asset://route-asset">',

@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import { DetailView } from '@/views/DetailView'
 import {
+  noteDraftKey,
   hasNoteDraft,
   resetNoteDraftsForTests,
 } from '@/storage/noteDrafts'
@@ -89,7 +90,7 @@ async function run(): Promise<void> {
       useSaveStatus.getState().status === 'idle',
       '打开详情时，展示性摘要同步不得标记为用户未保存编辑',
     )
-    assert(!hasNoteDraft(trade.id), '展示性摘要同步不得创建笔记草稿')
+    assert(!hasNoteDraft(noteDraftKey('trade', trade.id)), '展示性摘要同步不得创建笔记草稿')
     assert(
       rootElement.querySelector('.ProseMirror')?.getAttribute('contenteditable') === 'true',
       '打开详情时正文应可直接编辑',
@@ -105,7 +106,7 @@ async function run(): Promise<void> {
       () => useSaveStatus.getState().status === 'dirty',
       '用户真实编辑后必须进入未保存状态',
     )
-    assert(hasNoteDraft(trade.id), '用户真实编辑必须创建可恢复的笔记草稿')
+    assert(hasNoteDraft(noteDraftKey('trade', trade.id)), '用户真实编辑必须创建可恢复的笔记草稿')
   } finally {
     root.unmount()
     resetNoteDraftsForTests()

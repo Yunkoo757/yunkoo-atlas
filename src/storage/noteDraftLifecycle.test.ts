@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict'
 import { useStore } from '@/store/useStore'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
-import { clearNoteDraft, discardAllNoteDrafts, flushNoteDraftToStore, getNoteDraft, setNoteDraft } from '@/storage/noteDrafts'
+import { noteDraftKey, type NoteDraftKey, clearNoteDraft, discardAllNoteDrafts, flushNoteDraftToStore, getNoteDraft, setNoteDraft } from '@/storage/noteDrafts'
 
-async function withNote(run: (id: string) => Promise<void>) {
+async function withNote(run: (key: NoteDraftKey) => Promise<void>) {
   const original = useStore.getState().trades
   const note = { ...createFullPersistedSnapshotFixture().trades[0]!, id: 'isolated-note-lifecycle', note: '<p>durable</p>' }
   discardAllNoteDrafts()
   useStore.setState({ trades: [note] })
-  try { await run(note.id) } finally { discardAllNoteDrafts(); useStore.setState({ trades: original }) }
+  try { await run(noteDraftKey('trade', note.id)) } finally { discardAllNoteDrafts(); useStore.setState({ trades: original }) }
 }
 
 export async function testNormalizationNeverPublishesAnAlreadySupersededDraft() {

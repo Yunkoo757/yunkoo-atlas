@@ -29,7 +29,7 @@ import { useShortcutStore } from '@/store/shortcutStore'
 import { collectImageSrcsFromHtml, indexOfImageSrc } from '@/shortcuts/images'
 import { ImageLoadFailure, setEditorImageLoadFailed } from './imageLoadFailure'
 import { trackPendingStorageOperation } from '@/storage/pendingOperations'
-import { appendAssetToNoteDraft } from '@/storage/noteDrafts'
+import { type NoteDraftKey, appendAssetToNoteDraft } from '@/storage/noteDrafts'
 import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
 import { toast } from '@/lib/toast'
 import type { ReviewTemplate } from '@/data/reviewTemplates'
@@ -90,7 +90,7 @@ export function Editor({
   /** 可选的外部编辑开关；默认可写且不自动聚焦。 */
   editing?: boolean
   onEditingChange?: (editing: boolean) => void
-  noteDraftId?: string
+  noteDraftId?: NoteDraftKey
   allowImages?: boolean
   ariaLabel?: string
   /** 交易详情：将开头盘面叙述固定在截图上方，并提供通用起稿骨架。 */
@@ -486,7 +486,7 @@ function imageScopeForEditor(editor: TiptapEditor): AssetObjectUrlScope {
 async function insertImageFile(
   editor: TiptapEditor,
   file: File,
-  noteDraftId?: string,
+  noteDraftId?: NoteDraftKey,
   dropPosition?: number,
   existingAssetId?: string,
 ) {

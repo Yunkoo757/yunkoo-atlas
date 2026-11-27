@@ -10,7 +10,7 @@ import { buildReviewAssessmentPatch, buildReviewSessionPool, DEFAULT_REVIEW_SESS
 import { useStore } from '@/store/useStore'
 import { getStorage } from '@/storage/provider'
 import { collectAssetIdsFromHtml } from '@/storage/snapshotRichText'
-import { getNoteDraft, QUICK_NOTE_DRAFT_PREFIX } from '@/storage/noteDrafts'
+import { noteDraftKey, getNoteDraft } from '@/storage/noteDrafts'
 import { isQuickNoteConverting } from '@/lib/quickNoteConversion'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
 import { useToast } from '@/lib/toast'
@@ -127,7 +127,7 @@ async function run() {
     finishFailedFlush()
     await until(() => !retryLive.disabled && !retryCase.disabled, '冲洗失败后finally必须释放转换锁供重试')
     assert(useStore.getState().trades.length === 2 && !document.querySelector('[data-converted-case-path]'), '冲洗失败不得创建或跳转到额外记录')
-    assert(getNoteDraft(`${QUICK_NOTE_DRAFT_PREFIX}${note.id}`)?.includes('失败后仍需保留的观察。'), '冲洗失败必须保留最新正文草稿')
+    assert(getNoteDraft(noteDraftKey('quickNote', note.id))?.includes('失败后仍需保留的观察。'), '冲洗失败必须保留最新正文草稿')
     assert(useStore.getState().trades.find(trade => trade.id === created.id)?.note === created.note, '转换失败不得覆盖已生成的案例和原图')
     retryLive.click()
     retryLive.click()
@@ -171,7 +171,7 @@ async function run() {
     const confirmDelete = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(item => item.textContent === '删除随记')!
     confirmDelete.click()
     await until(() => useStore.getState().quickNotes.length === 0, '来源随记必须真实删除')
-    assert(getNoteDraft(`${QUICK_NOTE_DRAFT_PREFIX}${note.id}`) === undefined, '删除必须清除来源的内存草稿')
+    assert(getNoteDraft(noteDraftKey('quickNote', note.id)) === undefined, '删除必须清除来源的内存草稿')
     let drained = false
     const draining = waitForPendingStorageOperations().then(() => { drained = true })
     await new Promise(resolve => requestAnimationFrame(resolve))

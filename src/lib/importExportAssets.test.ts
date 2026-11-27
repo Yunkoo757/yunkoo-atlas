@@ -19,6 +19,7 @@ import {
   prepareImportPayloadForCommit,
 } from '@/lib/importExport'
 import {
+  noteDraftKey,
   applyNoteDraftsToSnapshot,
   resetNoteDraftsForTests,
   setNoteDraft,
@@ -232,7 +233,7 @@ export async function testConflictRecoveryExportsRealEditorPreparedImageReferenc
   resetNoteDraftsForTests()
   try {
     setNoteDraft(
-      trade.id,
+      noteDraftKey('trade', trade.id),
       '<p>未保存图片<img src="blob:http://localhost/editor-preview" data-asset-id="prepared-editor"></p>',
     )
     const snapshot = applyNoteDraftsToSnapshot({
@@ -261,7 +262,7 @@ export async function testConflictRecoveryExportsRealEditorPreparedImageReferenc
 export async function testConflictRecoveryMarksBlobWithoutPermanentAssetIdIncomplete(): Promise<void> {
   resetNoteDraftsForTests()
   try {
-    setNoteDraft(trade.id, '<p><img src="blob:http://localhost/not-yet-prepared"></p>')
+    setNoteDraft(noteDraftKey('trade', trade.id), '<p><img src="blob:http://localhost/not-yet-prepared"></p>')
     const snapshot = applyNoteDraftsToSnapshot({
       ...createEmptyPersistedSnapshot(),
       trades: [trade],

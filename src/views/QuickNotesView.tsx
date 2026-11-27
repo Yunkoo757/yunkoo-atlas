@@ -19,10 +19,10 @@ import { getStorage } from '@/storage/bootstrap'
 import { trackPendingStorageOperation } from '@/storage/pendingOperations'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
 import {
+  noteDraftKey, type NoteDraftKey,
   clearNoteDraft,
   flushNoteDraftToStore,
   getNoteDraft,
-  QUICK_NOTE_DRAFT_PREFIX,
   setNoteDraft,
 } from '@/storage/noteDrafts'
 import { Pin, Plus, Trash2 } from '@/icons/appIcons'
@@ -102,7 +102,7 @@ export function QuickNotesView() {
     ? registerQuickNoteConversionView(selectedNote.id)
     : undefined, [selectedNote?.id])
 
-  const reportDraftFailure = useCallback((draftId: string) => {
+  const reportDraftFailure = useCallback((draftId: NoteDraftKey) => {
     const retry = () => {
       void flushNoteDraftToStore(draftId).then((ok) => {
         if (!ok) reportDraftFailure(draftId)
@@ -117,7 +117,7 @@ export function QuickNotesView() {
     })
   }, [])
 
-  const flushDraft = useCallback(async (draftId: string): Promise<boolean> => {
+  const flushDraft = useCallback(async (draftId: NoteDraftKey): Promise<boolean> => {
     const ok = await flushNoteDraftToStore(draftId)
     if (!ok) reportDraftFailure(draftId)
     return ok
@@ -128,7 +128,7 @@ export function QuickNotesView() {
   const createNote = useCallback(async () => {
     const intent = ++navigationIntent.current
     if (selectedNote) {
-      const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
+      const draftId = noteDraftKey('quickNote', selectedNote.id)
       if (!await flushDraft(draftId)) return
     }
     if (intent === navigationIntent.current) createAndOpenQuickNote(navigate, location.pathname)
@@ -139,7 +139,7 @@ export function QuickNotesView() {
     const sameNote = selectedNote?.id === noteId
     if (sameNote && !focusFrom) return
     if (selectedNote && !sameNote) {
-      const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
+      const draftId = noteDraftKey('quickNote', selectedNote.id)
       if (!await flushDraft(draftId)) return
     }
     if (intent !== navigationIntent.current || (focusFrom && document.activeElement !== focusFrom)) return
@@ -225,7 +225,7 @@ export function QuickNotesView() {
     editSessionRef.current = null
     setLoadedNoteId(null)
     if (!selectedNote) return
-    const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
+    const draftId = noteDraftKey('quickNote', selectedNote.id)
     let cancelled = false
     const imageScope = new AssetObjectUrlScope()
     const source = getNoteDraft(draftId) ?? selectedNote.contentHtml
@@ -247,7 +247,7 @@ export function QuickNotesView() {
 
   useEffect(() => {
     if (!selectedNote) return
-    const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
+    const draftId = noteDraftKey('quickNote', selectedNote.id)
     return () => {
       if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
       noteTimerRef.current = null
@@ -271,7 +271,7 @@ export function QuickNotesView() {
     }
     setEditorHtml(html)
     useSaveStatus.getState().setDirty()
-    const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
+    const draftId = noteDraftKey('quickNote', selectedNote.id)
     setNoteDraft(draftId, html)
     if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
     noteTimerRef.current = setTimeout(() => {
@@ -290,7 +290,7 @@ export function QuickNotesView() {
 
     setEditorHtml(restored)
     editSessionRef.current = { noteId: selectedNote.id, baseline: restored, recorded: false }
-    const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
+    const draftId = noteDraftKey('quickNote', selectedNote.id)
     setNoteDraft(draftId, restored)
     if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
     noteTimerRef.current = setTimeout(() => {
@@ -310,7 +310,7 @@ export function QuickNotesView() {
     }
     const currentIndex = filteredNotes.findIndex((note) => note.id === target.id)
     const next = filteredNotes[currentIndex + 1] ?? filteredNotes[currentIndex - 1]
-    clearNoteDraft(`${QUICK_NOTE_DRAFT_PREFIX}${target.id}`)
+    clearNoteDraft(noteDraftKey('quickNote', target.id))
     noteHistoriesRef.current.delete(target.id)
     removeNote(target.id)
     setDeleteTarget(null)
@@ -327,7 +327,7 @@ export function QuickNotesView() {
     const operation = (async () => {
       let succeeded = false
       try {
-        const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
+        const draftId = noteDraftKey('quickNote', selectedNote.id)
         if (!await flushDraft(draftId)) return
         const store = useStore.getState()
         const latest = store.quickNotes.find((note) => note.id === selectedNote.id)
@@ -432,7 +432,7 @@ export function QuickNotesView() {
                     updateNote(selectedNote.id, title.trim()
                       ? { title, titleMode: 'manual' }
                       : {
-                          title: titleFromQuickNoteHtml(getNoteDraft(`${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`) ?? selectedNote.contentHtml),
+                          title: titleFromQuickNoteHtml(getNoteDraft(noteDraftKey('quickNote', selectedNote.id)) ?? selectedNote.contentHtml),
                           titleMode: 'auto',
                         })
                   }}
@@ -490,7 +490,7 @@ export function QuickNotesView() {
                     key={selectedNote.id}
                     content={editorHtml}
                     onChange={onEditorChange}
-                    noteDraftId={`${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`}
+                    noteDraftId={noteDraftKey('quickNote', selectedNote.id)}
                     onHistoryFallback={onEditorHistoryFallback}
                     readOnly={!editorReady}
                     ariaLabel="随记正文"

@@ -98,6 +98,7 @@ import { STATUS_ORDER, isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
 import { getStorage } from '@/storage/bootstrap'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
 import {
+  noteDraftKey,
   flushNoteDraftToStore,
   getNoteDraft,
   setNoteDraft,
@@ -336,11 +337,11 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
   const persistEditorNote = useCallback((html: string, tradeId: string) => {
     pendingHtmlRef.current = html
     pendingTradeIdRef.current = tradeId
-    setNoteDraft(tradeId, html)
+    setNoteDraft(noteDraftKey('trade', tradeId), html)
     if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current)
     noteSaveTimer.current = setTimeout(() => {
       noteSaveTimer.current = null
-      void flushNoteDraftToStore(tradeId)
+      void flushNoteDraftToStore(noteDraftKey('trade', tradeId))
     }, NOTE_IDLE_COMMIT_MS)
   }, [])
 
@@ -359,7 +360,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       if (cancelled) return html
       return resolveNoteForDisplayResult(html, getStorage(), imageScope)
     }, async () => {
-      if (!(await flushNoteDraftToStore(trade.id))) return false
+      if (!(await flushNoteDraftToStore(noteDraftKey('trade', trade.id)))) return false
       return useStore.getState().trades.find((item) => item.id === trade.id)?.note ?? trade.note
     }).then((result) => {
       if (cancelled) return
@@ -377,21 +378,21 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
         clearTimeout(noteSaveTimer.current)
         noteSaveTimer.current = null
       }
-      void flushNoteDraftToStore(trade.id)
+      void flushNoteDraftToStore(noteDraftKey('trade', trade.id))
     }
   }, [trade?.id, noteLoadAttempt])
 
   useLayoutEffect(() => {
     if (!trade || !lightbox) return
     if (!lightbox.ownerId) {
-      syncLightboxForOwner(trade.id, lightbox.images)
+      syncLightboxForOwner(noteDraftKey('trade', trade.id), lightbox.images)
       return
     }
-    if (lightbox.ownerId !== trade.id) syncLightboxForOwner(trade.id, null)
+    if (lightbox.ownerId !== noteDraftKey('trade', trade.id)) syncLightboxForOwner(noteDraftKey('trade', trade.id), null)
   }, [trade?.id, lightbox?.ownerId, syncLightboxForOwner])
 
   useEffect(() => {
-    if (!trade || !lightbox?.loading || lightbox.ownerId !== trade.id) return
+    if (!trade || !lightbox?.loading || lightbox.ownerId !== noteDraftKey('trade', trade.id)) return
     if (noteLoad.tradeId !== trade.id || noteLoad.state.status === 'loading') return
     if (noteLoad.state.status === 'error') {
       closeLightbox()
@@ -404,7 +405,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       toast(`${trade.ref} 暂无图片`)
       return
     }
-    syncLightboxForOwner(trade.id, images)
+    syncLightboxForOwner(noteDraftKey('trade', trade.id), images)
   }, [
     trade?.id,
     trade?.ref,
@@ -589,7 +590,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       if (activeNoteLoad.status !== 'ready') throw new Error('正文尚未完整载入，请重新载入正文后重试')
       const copy = window.journalBridge?.copyCaseContent
       if (!copy) throw new Error('请重启最新桌面客户端后重试')
-      const content = await prepareCaseClipboard(trade, getNoteDraft(trade.id) ?? editorHtml, getStorage())
+      const content = await prepareCaseClipboard(trade, getNoteDraft(noteDraftKey('trade', trade.id)) ?? editorHtml, getStorage())
       const result = await copy(content)
       if (!result.ok) throw new Error(result.error)
       toast(content.images.length ? `已复制正文文件和 ${content.images.length} 张原图` : '文字已复制', { tone: 'success' })
@@ -641,7 +642,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
     caseCreationOwnerRef.current = operation
     setCaseCreating(true)
     try {
-      const noteSaved = await flushNoteDraftToStore(operation.tradeId)
+      const noteSaved = await flushNoteDraftToStore(noteDraftKey('trade', operation.tradeId))
       if (!ownsCurrentTrade()) return
       if (!noteSaved) {
         toast('正文尚未保存，未创建案例', { tone: 'error' })
@@ -699,7 +700,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
     setReviewSubmitting(true)
     setReviewIssue(null)
     try {
-      const noteSaved = await flushNoteDraftToStore(trade.id)
+      const noteSaved = await flushNoteDraftToStore(noteDraftKey('trade', trade.id))
       if (!noteSaved) {
         const message = '笔记图片尚未保存，复盘状态未变更'
         if (ownsView()) setReviewIssue(message)
@@ -873,7 +874,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
   const detailRecordActions = buildRecordActionDescriptors(trade, { starred })
   const deleteAction = detailRecordActions.find((action) => action.id === 'delete')
   const openDecisionImage = async () => {
-    if (!(await flushNoteDraftToStore(trade.id))) {
+    if (!(await flushNoteDraftToStore(noteDraftKey('trade', trade.id)))) {
       toast('正文尚未保存，请稍后重试', { tone: 'error' })
       return
     }
@@ -1135,7 +1136,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
                 content={noteEditorContent}
                 onChange={onEditorChange}
                 ariaLabel={trade.tradeKind === 'case' ? '案例沉淀正文' : '复盘正文'}
-                noteDraftId={trade.id}
+                noteDraftId={noteDraftKey('trade', trade.id)}
                 readOnly={activeNoteLoad.status !== 'ready'}
                 blurOnEscape
                 reviewContextTools

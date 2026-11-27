@@ -46,6 +46,7 @@ import { migrateFromLocalStorageIfNeeded } from '@/storage/migrate'
 import type { StorageAdapter } from '@/storage/adapter'
 import type { PersistedSnapshot } from '@/storage/types'
 import {
+  noteDraftKey,
   clearNoteDraft,
   getNoteDraft,
   hasNoteDraft,
@@ -3921,12 +3922,12 @@ export function testPersistSuspendNesting(): void {
 
 export function testNoteDraftsStayLocalUntilCleared(): void {
   resetNoteDraftsForTests()
-  setNoteDraft('draft-1', '<p>hello</p>')
-  assert(hasNoteDraft('draft-1'), '应记录本地草稿')
-  assert(getNoteDraft('draft-1') === '<p>hello</p>', '应读回草稿 HTML')
+  setNoteDraft(noteDraftKey('trade', 'draft-1'), '<p>hello</p>')
+  assert(hasNoteDraft(noteDraftKey('trade', 'draft-1')), '应记录本地草稿')
+  assert(getNoteDraft(noteDraftKey('trade', 'draft-1')) === '<p>hello</p>', '应读回草稿 HTML')
   assert(noteDraftCountForTests() === 1, '草稿计数应为 1')
-  clearNoteDraft('draft-1')
-  assert(!hasNoteDraft('draft-1'), '清除后不应再有草稿')
+  clearNoteDraft(noteDraftKey('trade', 'draft-1'))
+  assert(!hasNoteDraft(noteDraftKey('trade', 'draft-1')), '清除后不应再有草稿')
   assert(noteDraftCountForTests() === 0, '清除后计数应为 0')
 }
 

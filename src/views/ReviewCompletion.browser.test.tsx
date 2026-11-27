@@ -10,6 +10,7 @@ import { getStorage } from '@/storage/bootstrap'
 import { useToast } from '@/lib/toast'
 import { ToastHost } from '@/components/Toast'
 import {
+  noteDraftKey,
   hasNoteDraft,
   resetNoteDraftsForTests,
   setNoteDraft,
@@ -282,14 +283,14 @@ async function run(): Promise<void> {
       '并发场景的复盘内容就绪后，完成操作仍不可用',
     )
     setNoteDraft(
-      raceTrade.id,
+      noteDraftKey('trade', raceTrade.id),
       '<p>完整复盘结论</p><img src="data:image/png;base64,QQ==">',
     )
     findButton('完成复盘')?.click()
     await saveStarted.promise
-    setNoteDraft(raceTrade.id, '')
+    setNoteDraft(noteDraftKey('trade', raceTrade.id), '')
     allowSave.resolve('review-race-asset')
-    await waitFor(() => !hasNoteDraft(raceTrade.id), '最新空白草稿没有完成落库')
+    await waitFor(() => !hasNoteDraft(noteDraftKey('trade', raceTrade.id)), '最新空白草稿没有完成落库')
     await waitForFrame()
     assert(
       useStore.getState().trades[0]?.reviewStatus === 'unreviewed',

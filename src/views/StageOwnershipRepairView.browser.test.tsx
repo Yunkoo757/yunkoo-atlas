@@ -17,12 +17,12 @@ import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
 import { useStore } from '@/store/useStore'
 import { useSaveStatus } from '@/store/saveStatus'
 import {
+  noteDraftKey,
   flushNoteDraftsToStore,
   flushNoteDraftToStore,
   hasNoteDraft,
   resetNoteDraftsForTests,
   setNoteDraft,
-  WEEKLY_REVIEW_DRAFT_PREFIX,
 } from '@/storage/noteDrafts'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
@@ -406,10 +406,10 @@ async function run(): Promise<void> {
     await selectStage('missed', 'stage-current')
     saveButton('missed').click()
     await waitFor(() => failureAttempts === 2 && failureGate.release !== null, '没有进入第二次归属耐久保存')
-    setNoteDraft('source', '<p>第二次保存期间并发交易草稿</p>')
-    setNoteDraft(`${WEEKLY_REVIEW_DRAFT_PREFIX}review`, '<p>第二次保存期间并发周复盘草稿</p>')
-    assert(await flushNoteDraftToStore('source'), '并发交易草稿没有写入 Store')
-    assert(await flushNoteDraftToStore(`${WEEKLY_REVIEW_DRAFT_PREFIX}review`), '并发周复盘草稿没有写入 Store')
+    setNoteDraft(noteDraftKey('trade', 'source'), '<p>第二次保存期间并发交易草稿</p>')
+    setNoteDraft(noteDraftKey('weeklyReview', 'review'), '<p>第二次保存期间并发周复盘草稿</p>')
+    assert(await flushNoteDraftToStore(noteDraftKey('trade', 'source')), '并发交易草稿没有写入 Store')
+    assert(await flushNoteDraftToStore(noteDraftKey('weeklyReview', 'review')), '并发周复盘草稿没有写入 Store')
     useStore.setState((state) => ({
       trades: state.trades.map((item) => item.id === 'missed' ? { ...item, note: '<p>并发更新目标实体正文</p>' } : item),
     }))
@@ -429,7 +429,7 @@ async function run(): Promise<void> {
     assert(savedDraftCarrier?.note.includes('第二次保存期间并发交易草稿'), '耐久回滚快照丢失了并发交易草稿')
     assert(concurrentReview?.contentHtml.includes('并发周复盘草稿'), '失败回滚丢失了并发周复盘草稿')
     assert(savedConcurrentReview?.contentHtml.includes('并发周复盘草稿'), '耐久回滚快照丢失了并发周复盘草稿')
-    assert(!hasNoteDraft('source'), '成功 pre-flush 后草稿应由 Store 接管')
+    assert(!hasNoteDraft(noteDraftKey('trade', 'source')), '成功 pre-flush 后草稿应由 Store 接管')
     assert(!hasPendingChanges() && useSaveStatus.getState().status === 'saved', '耐久回滚完成后必须是磁盘与 Store 对齐的 saved/clean 状态')
     saveSnapshot = async (snapshot) => { saved.push(structuredClone(snapshot)) }
     saveButton('missed').click()

@@ -74,10 +74,10 @@ import { WeeklyRiskEvidence } from '@/views/WeeklyRiskEvidence'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
 import { getStorage } from '@/storage/bootstrap'
 import {
+  noteDraftKey, type NoteDraftKey,
   flushNoteDraftToStore,
   getNoteDraft,
   setNoteDraft,
-  WEEKLY_REVIEW_DRAFT_PREFIX,
 } from '@/storage/noteDrafts'
 import { useStore } from '@/store/useStore'
 import { useSaveStatus } from '@/store/saveStatus'
@@ -95,7 +95,7 @@ import {
 } from '@/lib/weeklyReviewVisualState'
 import './WeeklyReviewView.css'
 
-async function flushWeeklyDraft(draftId: string): Promise<boolean> {
+async function flushWeeklyDraft(draftId: NoteDraftKey): Promise<boolean> {
   const saved = await flushNoteDraftToStore(draftId)
   if (!saved) useSaveStatus.getState().setError('周复盘正文仍保留在本次会话，可重试保存')
   return saved
@@ -647,7 +647,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     else upsertReview({ ...createWeeklyReview(selectedWeek, reviewLiveStageId), ...patch, updatedAt: new Date().toISOString() })
   }, [reviewLiveStageId, selectedWeek, updateReview, upsertReview])
 
-  const draftId = `${WEEKLY_REVIEW_DRAFT_PREFIX}${review.id}`
+  const draftId = noteDraftKey('weeklyReview', review.id)
   useEffect(() => {
     setNoteLoad(null)
     let cancelled = false
@@ -679,11 +679,11 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
       item.weekStart === selectedWeek && item.liveStageId === reviewLiveStageId,
     )
     if (!existing) upsertReview(createWeeklyReview(selectedWeek, reviewLiveStageId))
-    setNoteDraft(`${WEEKLY_REVIEW_DRAFT_PREFIX}${review.id}`, html)
+    setNoteDraft(noteDraftKey('weeklyReview', review.id), html)
     if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
     noteTimerRef.current = setTimeout(() => {
       noteTimerRef.current = null
-      void flushWeeklyDraft(`${WEEKLY_REVIEW_DRAFT_PREFIX}${review.id}`)
+      void flushWeeklyDraft(noteDraftKey('weeklyReview', review.id))
     }, 500)
   }, [review.id, reviewLiveStageId, selectedWeek, upsertReview, visibleNoteStatus])
 

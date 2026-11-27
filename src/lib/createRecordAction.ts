@@ -4,7 +4,7 @@ import { findTradeByRouteParam } from '@/lib/tradeRoute'
 import { parseTradeFacets } from '@/lib/workbenchTrades'
 import { newTradeKindForPath } from '@/lib/tradeKind'
 import { backtestProjectIdForPath, type BacktestProject } from '@/lib/backtestProjects'
-import { hasNoteDraft, QUICK_NOTE_DRAFT_PREFIX } from '@/storage/noteDrafts'
+import { noteDraftKey, hasNoteDraft } from '@/storage/noteDrafts'
 import { hasPendingStorageOperations } from '@/storage/pendingOperations'
 import { createQuickNote } from '@/data/quickNotes'
 import { useStore } from '@/store/useStore'
@@ -53,7 +53,7 @@ export function createAndOpenQuickNote(navigate: NavigateToRecord, pathname: str
   const store = useStore.getState()
   const blank = !hasPendingStorageOperations() && store.quickNotes.find(note =>
     note.titleMode === 'auto' && !note.pinned && !note.contentHtml && note.createdAt === note.updatedAt &&
-    !hasNoteDraft(QUICK_NOTE_DRAFT_PREFIX + note.id),
+    !hasNoteDraft(noteDraftKey('quickNote', note.id)),
   )
   const note = blank || createQuickNote()
   const path = `/notes/${encodeURIComponent(note.id)}`

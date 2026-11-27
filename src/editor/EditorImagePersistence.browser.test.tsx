@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
 import {
+  noteDraftKey,
   getNoteDraft,
   resetNoteDraftsForTests,
 } from '@/storage/noteDrafts'
@@ -75,7 +76,7 @@ async function pasteImage(
       <div data-editor-host>
         <Editor
           content={content}
-          noteDraftId={tradeId}
+          noteDraftId={noteDraftKey('trade', tradeId)}
           onChange={() => {}}
         />
       </div>,
@@ -190,7 +191,7 @@ async function run(): Promise<void> {
     'saveAsset 返回后发现 Editor 已卸载，必须把永久附件引用补回原交易',
   )
   assert(objectUrlReads === 0, 'saveAsset 后已卸载时不应再读取临时 Object URL')
-  assert(getNoteDraft(slowSaveTrade.id) === undefined, '卸载补写成功后必须清空原交易草稿')
+  assert(getNoteDraft(noteDraftKey('trade', slowSaveTrade.id)) === undefined, '卸载补写成功后必须清空原交易草稿')
   assert(pendingStorageOperationCountForTests() === 0, '卸载补写完成后 pending operation 必须归零')
 
   scenario = 'slow-object-url'
@@ -221,7 +222,7 @@ async function run(): Promise<void> {
     'Object URL 返回后发现 Editor 已卸载，必须把永久附件引用补回原交易',
   )
   assert(Number(objectUrlReads) === 1, 'Object URL 边界测试必须真实读取一次附件')
-  assert(getNoteDraft(slowObjectUrlTrade.id) === undefined, 'Object URL 后卸载补写成功后必须清空草稿')
+  assert(getNoteDraft(noteDraftKey('trade', slowObjectUrlTrade.id)) === undefined, 'Object URL 后卸载补写成功后必须清空草稿')
   assert(pendingStorageOperationCountForTests() === 0, '第二条卸载补写完成后 pending operation 必须归零')
 
   const verifyDestroyedObjectUrlFailure = async ({
@@ -268,7 +269,7 @@ async function run(): Promise<void> {
       `${label} 后发现 Editor 已卸载，必须把已保存的永久附件引用补回原交易`,
     )
     assert(fallbackObjectUrls === 0, `${label} 后 Editor 已卸载时不得创建 fallback Blob URL`)
-    assert(getNoteDraft(tradeRecord.id) === undefined, `${label} 后补写成功必须清空草稿`)
+    assert(getNoteDraft(noteDraftKey('trade', tradeRecord.id)) === undefined, `${label} 后补写成功必须清空草稿`)
     assert(pendingStorageOperationCountForTests() === 0, `${label} 后 pending operation 必须归零`)
   }
 

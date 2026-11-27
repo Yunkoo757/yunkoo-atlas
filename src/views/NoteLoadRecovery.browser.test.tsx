@@ -4,7 +4,7 @@ import { createQuickNote } from '@/data/quickNotes'
 import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
 import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { getStorage } from '@/storage/bootstrap'
-import { getNoteDraft, QUICK_NOTE_DRAFT_PREFIX, setNoteDraft, WEEKLY_REVIEW_DRAFT_PREFIX } from '@/storage/noteDrafts'
+import { noteDraftKey, getNoteDraft, setNoteDraft } from '@/storage/noteDrafts'
 import { useStore } from '@/store/useStore'
 import { QuickNotesView } from './QuickNotesView'
 import { WeeklyReviewView } from './WeeklyReviewView'
@@ -31,8 +31,8 @@ async function run() {
   try {
     useStore.setState({ weeklyReviews: [review], quickNotes: [note] })
     for (const fixture of [
-      { path: '/weekly-review', editor: '周复盘正文', draftId: WEEKLY_REVIEW_DRAFT_PREFIX + review.id, element: <WeeklyReviewView /> },
-      { path: '/notes/' + note.id, editor: '随记正文', draftId: QUICK_NOTE_DRAFT_PREFIX + note.id, element: <QuickNotesView /> },
+      { path: '/weekly-review', editor: '周复盘正文', draftId: noteDraftKey('weeklyReview', review.id), element: <WeeklyReviewView /> },
+      { path: '/notes/' + note.id, editor: '随记正文', draftId: noteDraftKey('quickNote', note.id), element: <QuickNotesView /> },
     ]) {
       let reads = 0
       storage.acquireAssetObjectUrl = async () => {

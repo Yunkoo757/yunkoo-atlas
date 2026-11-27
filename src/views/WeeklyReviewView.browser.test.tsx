@@ -23,10 +23,10 @@ import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import type { TradeDetailLocationState } from '@/lib/tradeRoute'
 import { getStorage } from '@/storage/bootstrap'
 import {
+  noteDraftKey,
   hasNoteDraft,
   resetNoteDraftsForTests,
   setNoteDraft,
-  WEEKLY_REVIEW_DRAFT_PREFIX,
 } from '@/storage/noteDrafts'
 import { useStore } from '@/store/useStore'
 import { WeeklyReviewView } from '@/views/WeeklyReviewView'
@@ -1461,7 +1461,7 @@ async function run(): Promise<void> {
       createWeeklyReview(intentWeekA, useStore.getState().currentLiveStageId),
       createWeeklyReview(intentWeekB, useStore.getState().currentLiveStageId),
     ]
-    const currentDraftId = `${WEEKLY_REVIEW_DRAFT_PREFIX}weekly-review:${useStore.getState().currentLiveStageId}:${activeWeekStart}`
+    const currentDraftId = noteDraftKey('weeklyReview', `weekly-review:${useStore.getState().currentLiveStageId}:${activeWeekStart}`)
 
     useStore.setState({ trades: [], weeklyReviews: makeIntentReviews() })
     const weekThenTabStarted = deferred<void>()

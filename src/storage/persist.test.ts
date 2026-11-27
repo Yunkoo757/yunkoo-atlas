@@ -17,6 +17,7 @@ import { useSaveStatus } from '@/store/saveStatus'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
 import {
+  noteDraftKey,
   flushNoteDraftsToStore,
   noteDraftCountForTests,
   resetNoteDraftsForTests,
@@ -401,11 +402,11 @@ export async function testExplicitFlushPersistsNoteDraftCreatedDuringAnActiveSav
 
   try {
     enablePersistWrites()
-    setNoteDraft(tradeId, '<p>A</p>')
+    setNoteDraft(noteDraftKey('trade', tradeId), '<p>A</p>')
     const flush = flushPersistNow()
     await waitUntil(() => savedNotes.length === 1, '笔记快照 A 未开始写盘')
 
-    setNoteDraft(tradeId, '<p>B</p>')
+    setNoteDraft(noteDraftKey('trade', tradeId), '<p>B</p>')
     firstSave.resolve()
     await flush
 
