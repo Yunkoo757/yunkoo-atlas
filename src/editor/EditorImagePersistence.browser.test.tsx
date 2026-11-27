@@ -4,6 +4,8 @@ import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
+import { replaceLibraryInStore } from '@/lib/snapshotStore'
+import { pickPersisted } from '@/storage/persist'
 import {
   noteDraftKey,
   getNoteDraft,
@@ -350,6 +352,33 @@ async function run(): Promise<void> {
   firstTiptap.destroy()
   secondTiptap.destroy()
   twoEditorContainer.remove()
+
+  for (const destroyed of [true, false]) {
+    const start = deferred<void>()
+    const saved = deferred<string>()
+    const bridge = window.journalBridge!
+    bridge.saveAsset = async () => { start.resolve(); return saved.promise }
+    const source = trade('same-library-record-id', '<p>源库正文</p>')
+    useStore.setState({ trades: [source] })
+    const container = document.createElement('div')
+    document.body.append(container)
+    const noteEditor = await pasteImage(createRoot(container), container, source.id, source.note)
+    await start.promise
+    if (destroyed) leaveEditor(noteEditor, container)
+
+    const replacement = { ...source, note: '<p>目标库同 ID 正文</p>' }
+    replaceLibraryInStore({ ...pickPersisted(useStore.getState()), trades: [replacement] })
+    const readsBeforeSaveFinished: number = objectUrlReads
+    saved.resolve('isolated-old-library-asset')
+    await waitForPendingStorageOperations()
+    const note = useStore.getState().trades[0]?.note
+    assert(note === replacement.note, `源库图片不得追加到新库同 ID 记录：${note}`)
+    assert(objectUrlReads === readsBeforeSaveFinished, '旧库保存收尾不得从新库读取同名图片')
+    if (!destroyed) {
+      assert(!noteEditor.getHTML().includes('isolated-old-library-asset'), '存活的编辑器不得接收旧库图片')
+      leaveEditor(noteEditor, container)
+    }
+  }
 
   resetNoteDraftsForTests()
   Reflect.deleteProperty(window, 'journalBridge')

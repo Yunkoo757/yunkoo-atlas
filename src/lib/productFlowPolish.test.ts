@@ -397,7 +397,7 @@ export async function testBackupPreviewDuplicateScanAndImageLimitsStayTruthful()
   const fs = await import('node:fs/promises')
   const [dataIO, editor, composer, archiveContract] = await Promise.all([
     fs.readFile('src/components/DataIOContent.tsx', 'utf8'),
-    fs.readFile('src/editor/Editor.tsx', 'utf8'),
+    fs.readFile('src/editor/insertEditorImage.ts', 'utf8'),
     fs.readFile('src/components/TradeComposer.tsx', 'utf8'),
     fs.readFile('src/lib/webJournalArchiveContract.ts', 'utf8'),
   ])

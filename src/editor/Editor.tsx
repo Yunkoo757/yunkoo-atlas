@@ -1,18 +1,15 @@
-import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { createPortal } from 'react-dom'
 import { motionDuration, reducesMotion } from '@/lib/motion'
 import '@/components/ui/PopoverSurface.css'
 import { Button } from '@/components/ui/Button'
 import { useEditor, EditorContent, BubbleMenu, type Editor as TiptapEditor } from '@tiptap/react'
 import type { Content } from '@tiptap/core'
-import type { Transaction } from '@tiptap/pm/state'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { getStorage } from '@/storage/bootstrap'
 import {
   Bold,
   Italic,
@@ -28,10 +25,8 @@ import { ICON_SM, ICON_TOOLBAR } from '@/icons/iconSize'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { collectImageSrcsFromHtml, indexOfImageSrc } from '@/shortcuts/images'
 import { ImageLoadFailure, setEditorImageLoadFailed } from './imageLoadFailure'
-import { trackPendingStorageOperation } from '@/storage/pendingOperations'
-import { type NoteDraftKey, appendAssetToNoteDraft } from '@/storage/noteDrafts'
-import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
-import { toast } from '@/lib/toast'
+import type { NoteDraftKey } from '@/storage/noteDrafts'
+import { insertEditorImage } from './insertEditorImage'
 import type { ReviewTemplate } from '@/data/reviewTemplates'
 import { Menu } from '@/components/Menu'
 import {
@@ -194,9 +189,7 @@ export function Editor({
           if (it.type.startsWith('image/')) {
             const file = it.getAsFile()
             if (file && editorRef.current) {
-              void trackPendingStorageOperation(
-                insertImageFile(editorRef.current, file, noteDraftIdRef.current),
-              )
+              insertEditorImage(editorRef.current, file, noteDraftIdRef.current)
               return true
             }
           }
@@ -208,10 +201,8 @@ export function Editor({
         const files = (event as DragEvent).dataTransfer?.files
         if (files && files.length && files[0].type.startsWith('image/')) {
           if (editorRef.current) {
-            void trackPendingStorageOperation(
-              insertImageFile(editorRef.current, files[0], noteDraftIdRef.current,
-                view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos),
-            )
+            insertEditorImage(editorRef.current, files[0], noteDraftIdRef.current,
+              view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos)
             event.preventDefault()
             return true
           }
@@ -467,96 +458,4 @@ function BBtn({
       {children}
     </Button>
   )
-}
-
-const editorImageScopes = new WeakMap<TiptapEditor, AssetObjectUrlScope>()
-function imageScopeForEditor(editor: TiptapEditor): AssetObjectUrlScope {
-  let scope = editorImageScopes.get(editor)
-  if (!scope) {
-    scope = new AssetObjectUrlScope()
-    editorImageScopes.set(editor, scope)
-    const owned = scope
-    // 包含编辑器撤销历史中的图片；销毁记录编辑器时统一释放。
-    editor.on('destroy', () => { owned.release(); editorImageScopes.delete(editor) })
-  }
-  return scope
-}
-
-// 粘贴/拖入图片：立即持久化到存储，获取可显示的 blob URL，标记 data-asset-id 建立永久关联
-async function insertImageFile(
-  editor: TiptapEditor,
-  file: File,
-  noteDraftId?: NoteDraftKey,
-  dropPosition?: number,
-  existingAssetId?: string,
-) {
-  if (file.size > MAX_WEB_JOURNAL_ENTRY_BYTES) {
-    toast('单张原图超过 32 MB，无法加入资料库；请缩小图片后重试')
-    return
-  }
-  // 落盘期间可以继续输入、移动光标或离开正文。只跟踪原插入位置。
-  let from = dropPosition ?? editor.state.selection.from
-  let to = dropPosition ?? editor.state.selection.to
-  const replacedContent = editor.state.doc.slice(from, to)
-  const mapInsertion = ({ transaction }: { transaction: Transaction }) => {
-    if (!transaction.docChanged) return
-    const wasEmpty = from === to
-    from = transaction.mapping.map(from, -1)
-    to = wasEmpty ? from : Math.max(from, transaction.mapping.map(to, -1))
-  }
-  editor.on('transaction', mapInsertion)
-  let savedAssetId: string | null = existingAssetId ?? null
-  try {
-    const storage = getStorage()
-    savedAssetId ??= await storage.saveAsset(file, file.type || 'image/png')
-    if (editor.isDestroyed) {
-      if (noteDraftId) await appendAssetToNoteDraft(noteDraftId, savedAssetId)
-      return
-    }
-    const displayUrl = await imageScopeForEditor(editor).get(storage, savedAssetId)
-    if (!displayUrl) throw new Error('getAssetObjectUrl returned null')
-
-    if (editor.isDestroyed) {
-      if (noteDraftId) await appendAssetToNoteDraft(noteDraftId, savedAssetId)
-      return
-    }
-
-    // 选中文字已被用户改写时，保留其新内容。只有光标仍停在原处才推进到图后。
-    if (!editor.state.doc.slice(from, to).eq(replacedContent)) to = from
-    const selection = editor.state.selection
-    const advanceCaret = editor.view.hasFocus() && selection.from === from && selection.to === to
-    const insertion = editor.chain().insertContentAt({ from, to }, {
-      type: 'image',
-      attrs: { src: displayUrl, 'data-asset-id': savedAssetId },
-    }, { updateSelection: advanceCaret })
-    if (advanceCaret) insertion.createParagraphNear()
-    insertion.run()
-  } catch (e) {
-    if (editor.isDestroyed) {
-      if (savedAssetId && noteDraftId) {
-        try {
-          await appendAssetToNoteDraft(noteDraftId, savedAssetId)
-        } catch (appendError) {
-          console.error('Saved image draft recovery failed', appendError)
-        }
-      }
-      console.error('Image persistence finished after editor was destroyed', e)
-      return
-    }
-
-    console.error('Image persist failed', e)
-    toast('截图保存失败，未插入正文', {
-      tone: 'error',
-      actionLabel: '重试',
-      onAction: () => {
-        if (editor.isDestroyed) return
-        void trackPendingStorageOperation(
-          insertImageFile(editor, file, noteDraftId, undefined, savedAssetId ?? undefined),
-        )
-      },
-      dedupeKey: 'editor-image-persist-failed',
-    })
-  } finally {
-    editor.off('transaction', mapInsertion)
-  }
 }
