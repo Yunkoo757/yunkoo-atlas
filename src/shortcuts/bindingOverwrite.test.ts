@@ -1,9 +1,27 @@
-import { buildBindingOverwritePatch, findBindingConflicts } from '@/shortcuts/engine'
+import { bindingsForPersist, buildBindingOverwritePatch, findBindingConflicts, resolveBinding } from '@/shortcuts/bindingRules'
 import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
-import { migrateShortcutBindings, resolveBinding } from '@/store/shortcutStore'
+import { migrateShortcutBindings } from '@/shortcuts/migrate'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
+}
+
+export function testShortcutExportOnlyKeepsEffectiveOverrides(): void {
+  const reordered = bindingsForPersist({ 'global.commandPalette': { key: 'k', mod: true } })
+  assert(!('global.commandPalette' in reordered), '属性顺序不同的默认组合键不应写为覆盖')
+  const withExtension = { key: 'n', extension: { label: '历史格式' } }
+  assert(bindingsForPersist({ 'global.newTrade': withExtension })['global.newTrade'] === withExtension, '备份保留扩展字段')
+  const sequence = [{ key: 'a' }]
+  const persisted = bindingsForPersist({
+    'global.newTrade': { alt: false, key: 'n' },
+    'global.toggleSidebar': null,
+    'nav.list': sequence,
+    'image.close': { shift: true, key: 'escape' },
+  })
+  assert(!('global.newTrade' in persisted), '显式 false 的默认按键不应写为覆盖')
+  assert(persisted['global.toggleSidebar'] === null, '显式禁用必须保留')
+  assert(persisted['nav.list'] === sequence, '单步序列与单键的触发方式不同')
+  assert('image.close' in persisted, '启用修饰键必须保留')
 }
 
 export function testNewSidebarDefaultRespectsExistingBracketBinding(): void {

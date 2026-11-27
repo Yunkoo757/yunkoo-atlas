@@ -30,7 +30,8 @@ import {
 } from '@/lib/strategies'
 import { normalizeTrades } from '@/lib/tradeKind'
 import { useStore } from '@/store/useStore'
-import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
+import { bindingsForPersist } from '@/shortcuts/bindingRules'
+import { useShortcutStore } from '@/store/shortcutStore'
 import { collectAssetIdsFromSnapshot } from '@/storage/snapshotRichText'
 import { getStorage } from '@/storage/provider'
 import type { ExportAssetRecord } from '@/storage/types'
@@ -378,7 +379,7 @@ export async function buildExportPayload(): Promise<ExportPayload> {
       subscribedIds,
       pinnedStrategyIds,
       display,
-      shortcuts: bindingsForPersist(useShortcutStore.getState().bindings),
+      shortcuts: useShortcutStore.getState().bindings,
       tagPresets,
       mistakeTagPresets,
       profile,

@@ -147,7 +147,8 @@ import {
 } from '@/lib/activities'
 import { syncEditorLightboxEditable } from '@/editor/Editor'
 import { useStore } from '@/store/useStore'
-import { migrateShortcutBindings, useShortcutStore } from '@/store/shortcutStore'
+import { migrateShortcutBindings } from '@/shortcuts/migrate'
+import { useShortcutStore } from '@/store/shortcutStore'
 import {
   findTradeReturnFocusTarget,
   parseTradeReturnAnchor,

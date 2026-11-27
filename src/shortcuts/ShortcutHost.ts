@@ -4,10 +4,7 @@ import { isStorageCutoverInteractionLocked } from '@/storage/cutover'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useStore } from '@/store/useStore'
 import { toast } from '@/lib/toast'
-import {
-  useShortcutStore,
-  resolveBinding,
-} from '@/store/shortcutStore'
+import { useShortcutStore } from '@/store/shortcutStore'
 import {
   setShortcutHandlers,
   handleShortcutKeydown,

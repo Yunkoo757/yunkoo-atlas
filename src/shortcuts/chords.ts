@@ -37,6 +37,29 @@ export function isSequence(binding: ShortcutBinding): binding is KeyChord[] {
   return Array.isArray(binding)
 }
 
+// 快照可携带未来版本的扩展属性；即使按键等效，写回时也要保留这些数据。
+function storedChordsEqual(a: KeyChord, b: KeyChord): boolean {
+  if (a === b) return true
+  if (!chordsEqual(a, b)) return false
+  const extensions = (chord: KeyChord) => Object.entries(chord).filter(
+    ([key]) => key !== 'key' && key !== 'mod' && key !== 'shift' && key !== 'alt',
+  )
+  const left = extensions(a)
+  const right = extensions(b)
+  return left.length === right.length && left.every(([key, value]) =>
+    right.some(([other, data]) => key === other && JSON.stringify(value) === JSON.stringify(data)),
+  )
+}
+
+export function storedBindingsEqual(a: ShortcutBinding | null, b: ShortcutBinding | null): boolean {
+  if (a === b) return true
+  if (a === null || b === null) return false
+  if (isSequence(a)) {
+    return isSequence(b) && a.length === b.length && a.every((chord, index) => storedChordsEqual(chord, b[index]!))
+  }
+  return !isSequence(b) && storedChordsEqual(a, b)
+}
+
 export function bindingKey(binding: ShortcutBinding): string {
   if (isSequence(binding)) {
     return binding.map(chordKey).join('>')

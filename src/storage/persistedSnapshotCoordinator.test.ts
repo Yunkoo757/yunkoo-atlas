@@ -75,6 +75,35 @@ export function testDurableRefreshSuppressesStoreAndShortcutAutosaves(): void {
   assert(harness.scheduled.length === 0, 'authoritative Store and shortcuts refresh must not autosave')
 }
 
+export function testEquivalentModifiersDoNotWriteAndSequenceOrderStillMatters(): void {
+  const first = initialSnapshot()
+  first.shortcuts = { 'nav.list': [{ key: 'a' }, { key: 'b' }] }
+  const { coordinator, scheduled } = createHarness(first)
+  const observeBinding = (binding: ShortcutBinding | null) => coordinator.observe(
+    { ...first, shortcuts: { 'nav.list': binding } }, { source: 'shortcuts' },
+  )
+  observeBinding([{ alt: false, key: 'a' }, { key: 'b', shift: false }])
+  assert(scheduled.length === 0, '省略和关闭修饰键含义相同，不应触发自动保存')
+  observeBinding([{ key: 'b' }, { key: 'a' }])
+  observeBinding([{ key: 'a' }])
+  observeBinding({ key: 'a' })
+  observeBinding(null)
+  observeBinding(null)
+  assert(Number(scheduled.length) === 4, '顺序、长度、触发方式和禁用各应保存一次')
+}
+
+export function testShortcutExtensionOnlyEditsArePersisted(): void {
+  const first = initialSnapshot()
+  const original = { key: 'a', extension: { label: '旧数据' } }
+  first.shortcuts = { 'nav.list': original }
+  const { coordinator, scheduled } = createHarness(first)
+  for (const label of ['旧数据', '新数据']) {
+    const chord = { key: 'a', extension: { label } }
+    coordinator.observe({ ...first, shortcuts: { 'nav.list': chord } }, { source: 'shortcuts' })
+  }
+  assert(scheduled.length === 1, '扩展字段未变时跳过，扩展值变化时保留用户数据')
+}
+
 export function testShortcutOnlyEditSchedulesOneFullAuthoritativeSnapshot(): void {
   const harness = createHarness()
   const changed = {

@@ -1,7 +1,7 @@
 import { getActionMeta } from '@/shortcuts/actions'
 import { formatBinding } from '@/shortcuts/format'
 import type { ShortcutBinding } from '@/shortcuts/types'
-import { resolveBinding } from '@/store/shortcutStore'
+import { resolveBinding } from '@/shortcuts/bindingRules'
 
 export interface ShortcutHintModel {
   label: string

@@ -1,5 +1,5 @@
 import { getActionMeta, SHORTCUT_ACTIONS } from '@/shortcuts/actions'
-import { bindingKey } from '@/shortcuts/chords'
+import { bindingKey, storedBindingsEqual } from '@/shortcuts/chords'
 import type { ShortcutBinding, ShortcutScope } from '@/shortcuts/types'
 
 export const SHORTCUT_SCOPE_LABELS: Record<ShortcutScope, string> = {
@@ -20,6 +20,19 @@ export function resolveBinding(
 ): ShortcutBinding | null {
   if (id in bindings) return bindings[id]
   return getActionMeta(id)?.defaultBinding ?? null
+}
+
+export function bindingsForPersist(
+  bindings: Record<string, ShortcutBinding | null>,
+): Record<string, ShortcutBinding | null> {
+  const overrides: Record<string, ShortcutBinding | null> = {}
+  for (const action of SHORTCUT_ACTIONS) {
+    const binding = bindings[action.id]
+    if (!action.sequenceFixed && binding !== undefined && !storedBindingsEqual(binding, action.defaultBinding)) {
+      overrides[action.id] = binding
+    }
+  }
+  return overrides
 }
 
 export function findBindingConflicts(

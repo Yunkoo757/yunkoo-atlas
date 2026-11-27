@@ -6,7 +6,8 @@ import { resolveTradeDetailSourceCopy } from '@/views/detailSourceCopy'
 import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import { migrateShortcutBindings } from '@/shortcuts/migrate'
 import { handleShortcutKeydown, registerShortcutHandlers } from '@/shortcuts/engine'
-import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
+import { bindingsForPersist } from '@/shortcuts/bindingRules'
+import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
 
 export function testRetiredWorkspacesCannotReturnThroughOldNavigationPreferences(): void {

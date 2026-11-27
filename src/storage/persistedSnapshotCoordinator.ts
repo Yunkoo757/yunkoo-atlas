@@ -1,5 +1,5 @@
 import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
-import type { KeyChord, ShortcutBinding } from '@/shortcuts/types'
+import { storedBindingsEqual } from '@/shortcuts/chords'
 import type { PersistedSnapshot } from '@/storage/types'
 
 export interface PersistedSnapshotCoordinatorDependencies {
@@ -20,30 +20,13 @@ export function haveSamePersistedReferences(previous: PersistedSnapshot, next: P
   return PERSISTED_STATE_REFERENCE_KEYS.every((key) => previous[key] === next[key])
 }
 
-function sameChord(previous: KeyChord, next: KeyChord): boolean {
-  return previous.key === next.key &&
-    previous.mod === next.mod &&
-    previous.shift === next.shift &&
-    previous.alt === next.alt
-}
-
-function sameBinding(previous: ShortcutBinding | null, next: ShortcutBinding | null): boolean {
-  if (previous === null || next === null) return previous === next
-  if (Array.isArray(previous) || Array.isArray(next)) {
-    return Array.isArray(previous) && Array.isArray(next) &&
-      previous.length === next.length &&
-      previous.every((chord, index) => sameChord(chord, next[index]!))
-  }
-  return sameChord(previous, next)
-}
-
 function haveSameShortcuts(previous: PersistedSnapshot['shortcuts'], next: PersistedSnapshot['shortcuts']): boolean {
   const previousBindings = previous ?? {}
   const nextBindings = next ?? {}
   const previousKeys = Object.keys(previousBindings).sort()
   const nextKeys = Object.keys(nextBindings).sort()
   return previousKeys.length === nextKeys.length && previousKeys.every((key, index) =>
-    key === nextKeys[index] && sameBinding(previousBindings[key]!, nextBindings[key]!),
+    key === nextKeys[index] && storedBindingsEqual(previousBindings[key]!, nextBindings[key]!),
   )
 }
 

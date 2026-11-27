@@ -1,7 +1,6 @@
 import type { ShortcutBinding, ShortcutScope } from '@/shortcuts/types'
-import { getActionMeta, SHORTCUT_ACTIONS } from '@/shortcuts/actions'
+import { SHORTCUT_ACTIONS } from '@/shortcuts/actions'
 import {
-  bindingKey,
   chordFromEvent,
   eventMatchesChord,
   isSequence,
@@ -301,8 +300,3 @@ export function handleShortcutKeydown(e: KeyboardEvent, pathname?: string): bool
 
   return false
 }
-
-export {
-  buildBindingOverwritePatch,
-  findBindingConflicts,
-} from '@/shortcuts/bindingRules'

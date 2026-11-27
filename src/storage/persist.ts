@@ -1,4 +1,5 @@
-import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
+import { bindingsForPersist } from '@/shortcuts/bindingRules'
+import { useShortcutStore } from '@/store/shortcutStore'
 import type { ShortcutBinding } from '@/shortcuts/types'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useStore } from '@/store/useStore'

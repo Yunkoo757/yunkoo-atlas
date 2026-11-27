@@ -1,15 +1,11 @@
 import { retainAssetObjectUrls } from '@/storage/assetObjectUrls'
 import { create } from 'zustand'
 import type { KeyChord, ListNavigationContext, ShortcutBinding } from '@/shortcuts/types'
-import { getActionMeta, SHORTCUT_ACTIONS } from '@/shortcuts/actions'
-import { isSequence } from '@/shortcuts/chords'
-import { buildBindingOverwritePatch, resolveBinding } from '@/shortcuts/bindingRules'
+import { buildBindingOverwritePatch } from '@/shortcuts/bindingRules'
 import { migrateShortcutBindings } from '@/shortcuts/migrate'
 import { disableWindowHotkeyConflicts } from '@/shortcuts/windowHotkeyConflicts'
 import type { LightboxOrigin } from '@/lib/lightboxView'
 import type { WindowHotkeyState } from '@/lib/windowHotkeyBinding'
-
-export { migrateShortcutBindings } from '@/shortcuts/migrate'
 
 export interface LightboxState {
   images: string[]
@@ -54,28 +50,6 @@ export function isModalOverlayOpen(
   state: Pick<ShortcutState, 'modalOverlayCount'> = useShortcutStore.getState(),
 ): boolean {
   return state.modalOverlayCount > 0
-}
-
-export { resolveBinding } from '@/shortcuts/bindingRules'
-
-export function bindingsForPersist(
-  bindings: Record<string, ShortcutBinding | null>,
-): Record<string, ShortcutBinding | null> {
-  const out: Record<string, ShortcutBinding | null> = {}
-  for (const action of SHORTCUT_ACTIONS) {
-    if (action.sequenceFixed) continue
-    if (!(action.id in bindings)) continue
-    const b = bindings[action.id]
-    const def = action.defaultBinding
-    if (b === null) {
-      if (def !== null) out[action.id] = null
-      continue
-    }
-    if (b === undefined) continue
-    const same = def !== null && JSON.stringify(b) === JSON.stringify(def)
-    if (!same) out[action.id] = b
-  }
-  return out
 }
 
 export const useShortcutStore = create<ShortcutState>()((set, get) => ({
