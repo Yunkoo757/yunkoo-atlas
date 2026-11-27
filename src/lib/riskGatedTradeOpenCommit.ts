@@ -1,3 +1,4 @@
+import type { PersistencePause } from '@/storage/persistenceController'
 import { canonicalRiskJson } from '@/lib/riskFingerprint'
 import { cloneRiskOutcome } from '@/data/riskManagement'
 import type {
@@ -22,8 +23,6 @@ import {
   lockStorageCutoverInteraction,
 } from '@/storage/cutover'
 import {
-  discardPendingAndResumePersist,
-  resumePersist,
   suspendPersist,
 } from '@/storage/persist'
 import { getStorage } from '@/storage/provider'
@@ -237,12 +236,11 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
   const reason = input.reason.trim()
   if (Array.from(reason).length > 500) throw new Error('风险覆盖原因最多 500 字')
   const unlockInteraction = lockStorageCutoverInteraction()
-  let suspended = false
+  let pause: PersistencePause | undefined
   let durablyCommitted = false
   try {
     await flushStorageBeforeCutover()
-    suspendPersist()
-    suspended = true
+    pause = suspendPersist()
     const baseline = input.captureLatestState()
     if (!stateMatchesSnapshot(baseline.state, baseline.snapshot)) {
       return { kind: 'needs-reconfirmation' }
@@ -305,9 +303,9 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
     return { kind: 'committed' }
   } finally {
     try {
-      if (suspended) {
-        if (durablyCommitted) discardPendingAndResumePersist()
-        else resumePersist()
+      if (pause) {
+        if (durablyCommitted) pause.discardAndResume()
+        else pause.resume()
       }
     } finally {
       unlockInteraction()

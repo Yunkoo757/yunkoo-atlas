@@ -200,9 +200,10 @@ export async function testBoundaryDiscardsOldAutosaveIfPublishFailsAfterDurableC
         lockInteraction: () => { events.push('lock'); return () => { events.push('unlock') } },
         flushBeforeCommit: async () => { events.push('flush') },
         createVerifiedBackup: async () => { events.push('backup') },
-        suspendPersist: () => { events.push('suspend') },
-        resumePersist: () => { events.push('resume') },
-        discardPendingAndResumePersist: () => { events.push('discard-resume') },
+        suspendPersist: () => {
+          events.push('suspend')
+          return { resume: () => { events.push('resume') }, discardAndResume: () => { events.push('discard-resume') } }
+        },
         recoverDurableSnapshot: (snapshot) => {
           events.push('recover')
           memory = snapshot
@@ -242,9 +243,10 @@ export async function testVerifiedBackupFailurePreventsCommitAndPublish(): Promi
         lockInteraction: () => { events.push('lock'); return () => { events.push('unlock') } },
         flushBeforeCommit: async () => { events.push('flush') },
         createVerifiedBackup: async () => { events.push('backup'); throw new Error('backup invalid') },
-        suspendPersist: () => { events.push('suspend') },
-        resumePersist: () => { events.push('resume') },
-        discardPendingAndResumePersist: () => { events.push('discard-resume') },
+        suspendPersist: () => {
+          events.push('suspend')
+          return { resume: () => { events.push('resume') }, discardAndResume: () => { events.push('discard-resume') } }
+        },
         recoverDurableSnapshot: () => { events.push('recover') },
       },
     })
@@ -262,9 +264,10 @@ function successfulStoreBoundary(events: string[]) {
     lockInteraction: () => { events.push('lock'); return () => { events.push('unlock') } },
     flushBeforeCommit: async () => { events.push('flush') },
     createVerifiedBackup: async () => { events.push('backup') },
-    suspendPersist: () => { events.push('suspend') },
-    resumePersist: () => { events.push('resume') },
-    discardPendingAndResumePersist: () => { events.push('discard-resume') },
+    suspendPersist: () => {
+      events.push('suspend')
+      return { resume: () => { events.push('resume') }, discardAndResume: () => { events.push('discard-resume') } }
+    },
     recoverDurableSnapshot: () => { events.push('recover') },
   }
 }
@@ -426,7 +429,7 @@ export async function testCleanupUnlocksAndReleasesOnceWhenPersistenceResumeThro
           persistSnapshot: async () => { events.push('persist') },
           publish: () => { events.push('publish') },
         },
-        boundary: { ...successfulStoreBoundary(events), resumePersist: failResume, discardPendingAndResumePersist: failResume },
+        boundary: { ...successfulStoreBoundary(events), suspendPersist: () => ({ resume: failResume, discardAndResume: failResume }) },
       })
     } catch (error) { caught = error }
     assert(caught === failure, '恢复持久化的异常必须保留')

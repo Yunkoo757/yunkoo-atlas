@@ -69,7 +69,7 @@ export function testOrganizationIndependentOperationsAndNoLiveGateForCases() {
 }
 function boundary() {
   const s=fixture(),events:string[]=[]
-  const b:OrganizationBoundary={lock:()=>{events.push('lock');return()=>{events.push('unlock')}},flush:async()=>{events.push('flush')},capture:()=>s,suspend:()=>{events.push('suspend')},resume:()=>{events.push('resume')},backup:async()=>{events.push('backup');return 'verified.zip'},persist:async()=>{events.push('persist')},publish:()=>{events.push('publish')},halt:()=>{events.push('halt')}}
+  const b:OrganizationBoundary={lock:()=>{events.push('lock');return()=>{events.push('unlock')}},flush:async()=>{events.push('flush')},capture:()=>s,suspend:()=>{events.push('suspend');return()=>{events.push('resume')}},backup:async()=>{events.push('backup');return 'verified.zip'},persist:async()=>{events.push('persist')},publish:()=>{events.push('publish')},halt:()=>{events.push('halt')}}
   return {s,events,b}
 }
 export async function testOrganizationRequiresVerifiedBackupBeforePersistence() {

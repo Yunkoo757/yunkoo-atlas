@@ -40,7 +40,6 @@ import { cleanExpiredTradeTrash } from '@/lib/trashCleanup'
 import { buildOrderedTradeIds } from '@/shortcuts/listNav'
 import {
   getPersistSuspendDepth,
-  resumePersist,
   suspendPersist,
 } from '@/storage/persist'
 import { migrateFromLocalStorageIfNeeded } from '@/storage/migrate'
@@ -3909,12 +3908,14 @@ export function testMissingTradeDoesNotCreateInvalidUndoSnapshot(): void {
 
 export function testPersistSuspendNesting(): void {
   assert(getPersistSuspendDepth() === 0, '初始挂起深度应为 0')
-  suspendPersist()
-  suspendPersist()
+  const outer = suspendPersist()
+  const inner = suspendPersist()
   assert(getPersistSuspendDepth() === 2, 'suspend 应可嵌套')
-  resumePersist({ flushNow: false })
+  outer.resume({ flushNow: false })
   assert(getPersistSuspendDepth() === 1, 'resume 应逐层减一')
-  resumePersist({ flushNow: false })
+  outer.discardAndResume()
+  assert(getPersistSuspendDepth() === 1, '重复释放同一暂停不得消耗另一持有者的暂停')
+  inner.resume({ flushNow: false })
   assert(getPersistSuspendDepth() === 0, '全部 resume 后深度归零')
 }
 

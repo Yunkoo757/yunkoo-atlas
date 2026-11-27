@@ -2,7 +2,7 @@ import { applySnapshotToStore, clearSessionUiAfterLibrarySwitch, resetEmptyLibra
 import { haltPersistAfterCutover, lockStorageCutoverInteraction } from '@/storage/cutover'
 import { getElectronAdapter } from '@/storage/electronAdapter'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
-import { flushPersistNow, resumePersistAndFlush, suspendPersist } from '@/storage/persist'
+import { flushPersistNow, suspendPersist } from '@/storage/persist'
 import { getJournalBridge } from '@/storage/runtime'
 import {
   capturePersistedStateRevision,
@@ -52,7 +52,7 @@ export async function switchActiveLibrary(
   }
 
   const unlockInteraction = lockStorageCutoverInteraction()
-  suspendPersist()
+  const pause = suspendPersist()
   let safeToFlush = false
   let candidateActivated = false
   try {
@@ -111,9 +111,9 @@ export async function switchActiveLibrary(
     }
     unlockInteraction()
     if (safeToFlush) {
-      await resumePersistAndFlush()
+      await pause.resumeAndFlush()
     } else {
-      haltPersistAfterCutover('新交易库载入失败，自动保存已暂停', 'reload')
+      haltPersistAfterCutover(pause, '新交易库载入失败，自动保存已暂停', 'reload')
     }
   }
 }

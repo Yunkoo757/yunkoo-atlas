@@ -1,9 +1,10 @@
+import type { PersistencePause } from '@/storage/persistenceController'
 import assert from 'node:assert/strict'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useStore } from '@/store/useStore'
 import { getStorage } from '@/storage/provider'
 import { isStorageCutoverInteractionLocked } from '@/storage/cutover'
-import { disablePersistWrites, enablePersistWrites, getPersistSuspendDepth, resumePersist, setPreFlushCallback, suspendPersist } from '@/storage/persist'
+import { disablePersistWrites, enablePersistWrites, getPersistSuspendDepth, setPreFlushCallback, suspendPersist } from '@/storage/persist'
 import { commitComposerTradeBatch } from '@/lib/tradeComposerCommit'
 import { commitNotionImportBatch } from '@/lib/notionImportCommit'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
@@ -74,7 +75,7 @@ export async function testFailedBatchPreflushCannotReleaseAnotherOperationsSuspe
   const failure = new Error('isolated preflush failure')
   adapter.commitImport = async () => { writes++ }
   enablePersistWrites()
-  suspendPersist()
+  const outerPause = suspendPersist()
   setPreFlushCallback(async () => { throw failure })
   try {
     for (const run of [
@@ -89,7 +90,7 @@ export async function testFailedBatchPreflushCannotReleaseAnotherOperationsSuspe
   } finally {
     disablePersistWrites()
     setPreFlushCallback(null)
-    if (getPersistSuspendDepth() > initialDepth) resumePersist({ flushNow: false })
+    outerPause.resume({ flushNow: false })
     adapter.commitImport = original
   }
 }
@@ -101,6 +102,7 @@ export async function testFailedTrailingSaveRetriesWithoutConsumingANewSuspensio
   const originalCommit = adapter.commitImport
   const seed = createFullPersistedSnapshotFixture()
   const originalDepth = getPersistSuspendDepth()
+  let otherPause: PersistencePause | undefined
   try {
     for (const anotherOperationSuspends of [false, true]) {
       let committed = false
@@ -114,7 +116,7 @@ export async function testFailedTrailingSaveRetriesWithoutConsumingANewSuspensio
         if (!committed) return
         trailingAttempts++
         if (trailingAttempts === 1) {
-          if (anotherOperationSuspends) suspendPersist()
+          if (anotherOperationSuspends) otherPause = suspendPersist()
           throw new Error('isolated trailing save failed')
         }
       }
@@ -128,11 +130,11 @@ export async function testFailedTrailingSaveRetriesWithoutConsumingANewSuspensio
       assert.equal(getPersistSuspendDepth(), originalDepth + Number(anotherOperationSuspends))
       assert.equal(isStorageCutoverInteractionLocked(), false)
       disablePersistWrites()
-      if (anotherOperationSuspends) resumePersist({ flushNow: false })
+      otherPause?.resume({ flushNow: false })
     }
   } finally {
     disablePersistWrites()
-    if (getPersistSuspendDepth() > originalDepth) resumePersist({ flushNow: false })
+    otherPause?.resume({ flushNow: false })
     adapter.saveSnapshot = originalSave
     adapter.commitImport = originalCommit
     useStore.setState(originalState)

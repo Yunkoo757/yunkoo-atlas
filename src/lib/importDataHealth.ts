@@ -1,3 +1,4 @@
+import type { PersistencePause } from '@/storage/persistenceController'
 import type { TradeStatus } from '@/data/trades'
 import { openedTradingDayKey } from '@/lib/liveCycle'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
@@ -134,9 +135,7 @@ export interface CopiedCloseDatePersistenceBoundary {
   lockInteraction: () => () => void
   flushBeforeCommit: () => Promise<void>
   createVerifiedBackup: () => Promise<void>
-  suspendPersist: () => void
-  resumePersist: () => void
-  discardPendingAndResumePersist: () => void
+  suspendPersist: () => Pick<PersistencePause, 'resume' | 'discardAndResume'>
   recoverDurableSnapshot: (snapshot: PersistedSnapshot) => void | Promise<void>
 }
 
@@ -151,7 +150,7 @@ async function commitThroughPersistenceBoundary<Result, Context extends unknown[
   try {
     await input.boundary.flushBeforeCommit()
     await input.boundary.createVerifiedBackup()
-    input.boundary.suspendPersist()
+    const pause = input.boundary.suspendPersist()
     let durableSnapshot: PersistedSnapshot | null = null
     try {
       return await input.commit(async (snapshot, ...context) => {
@@ -162,8 +161,8 @@ async function commitThroughPersistenceBoundary<Result, Context extends unknown[
       if (durableSnapshot) await input.boundary.recoverDurableSnapshot(durableSnapshot)
       throw error
     } finally {
-      if (durableSnapshot) input.boundary.discardPendingAndResumePersist()
-      else input.boundary.resumePersist()
+      if (durableSnapshot) pause.discardAndResume()
+      else pause.resume()
     }
   } finally {
     unlockInteraction()

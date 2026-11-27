@@ -36,6 +36,12 @@ export interface PersistenceDiagnostics {
   maxPendingSnapshotCount: 0 | 1
 }
 
+export interface PersistencePause {
+  resume(options?: { flushNow?: boolean }): void
+  discardAndResume(): void
+  resumeAndFlush(): Promise<void>
+}
+
 export class PersistenceController {
   private readonly debounceMs: number
   private readonly maxStablePreflushWrites: number
@@ -86,33 +92,36 @@ export class PersistenceController {
     }, this.debounceMs)
   }
 
-  suspend(): void {
+  suspend(): PersistencePause {
     this.suspendDepth += 1
     this.clearTimer()
-  }
-
-  resume(options?: { flushNow?: boolean }): void {
-    this.suspendDepth = Math.max(0, this.suspendDepth - 1)
-    if (this.suspendDepth > 0) return
-    if (options?.flushNow === false) {
-      if (this.pending) this.schedule(this.pending)
-      return
+    let held = true
+    const release = () => {
+      if (!held) return false
+      held = false
+      this.suspendDepth -= 1
+      return true
     }
-    void this.flushNow().catch(() => {})
-  }
-
-  discardPendingAndResume(): void {
-    this.writeGeneration += 1
-    this.suspendDepth = Math.max(0, this.suspendDepth - 1)
-    this.clearTimer()
-    this.setPending(null)
-    this.dependencies.status.reset()
-  }
-
-  async resumeAndFlush(): Promise<void> {
-    this.suspendDepth = Math.max(0, this.suspendDepth - 1)
-    if (this.suspendDepth > 0) return
-    await this.flushNow()
+    return {
+      resume: options => {
+        if (!release() || this.suspendDepth > 0) return
+        if (options?.flushNow === false) {
+          if (this.pending) this.schedule(this.pending)
+        } else {
+          void this.flushNow().catch(() => {})
+        }
+      },
+      discardAndResume: () => {
+        if (!release()) return
+        this.writeGeneration += 1
+        this.clearTimer()
+        this.setPending(null)
+        this.dependencies.status.reset()
+      },
+      resumeAndFlush: async () => {
+        if (release() && this.suspendDepth === 0) await this.flushNow()
+      },
+    }
   }
 
   getSuspendDepth(): number {

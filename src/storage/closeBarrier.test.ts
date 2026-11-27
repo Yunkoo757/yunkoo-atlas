@@ -11,7 +11,7 @@ export async function testCloseWaitsForImageTailBeforeFinalFlushAndKeepsItsLease
   const image = deferred(), entered = deferred(), events: string[] = []
   const barrier = new RendererCloseBarrier({
     lockInteraction: () => { events.push('lock'); return () => { events.push('unlock') } },
-    suspend: () => { events.push('suspend') }, resume: () => { events.push('resume') },
+    suspend: () => { events.push('suspend'); return () => { events.push('resume') } },
     drain: async () => { entered.resolve(); await image.promise; events.push('image-tail') },
     flush: async () => { events.push('flush') },
   })
@@ -28,7 +28,7 @@ export async function testCloseWaitsForImageTailBeforeFinalFlushAndKeepsItsLease
 
 export async function testCancelledCloseNeverFlushesAfterItsImageFinallyCompletes() {
   const image = deferred(), events: string[] = []
-  const barrier = new RendererCloseBarrier({ lockInteraction: () => () => {}, suspend() {}, resume() {}, drain: () => image.promise, flush: async () => { events.push('flush') } })
+  const barrier = new RendererCloseBarrier({ lockInteraction: () => () => {}, suspend: () => () => {}, drain: () => image.promise, flush: async () => { events.push('flush') } })
   const old = barrier.flush(barrier.begin())
   barrier.cancel()
   const next = barrier.begin()
@@ -42,7 +42,7 @@ export async function testCancelledCloseNeverFlushesAfterItsImageFinallyComplete
 
 export async function testFailedCloseDrainReleasesTheWindowForRetry() {
   let releases = 0
-  const barrier = new RendererCloseBarrier({ lockInteraction: () => () => { releases++ }, suspend() {}, resume() {}, drain: async () => { throw new Error('image failed') }, flush: async () => { assert.fail('失败附件不能越过最终保存') } })
+  const barrier = new RendererCloseBarrier({ lockInteraction: () => () => { releases++ }, suspend: () => () => {}, drain: async () => { throw new Error('image failed') }, flush: async () => { assert.fail('失败附件不能越过最终保存') } })
   await assert.rejects(barrier.flush(barrier.begin()), /image failed/)
   assert.equal(barrier.isHolding(), false)
   assert.equal(releases, 1)

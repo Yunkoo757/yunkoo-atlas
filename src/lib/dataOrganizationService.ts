@@ -6,7 +6,7 @@ import { commitDataOrganization, prepareDataOrganization, type DataOrganizationR
 import { getStorage } from '@/storage'
 import { getJournalBridge } from '@/storage/runtime'
 import { flushStorageBeforeCutover, isStorageCutoverInteractionLocked, lockStorageCutoverInteraction } from '@/storage/cutover'
-import { pickPersisted, suspendPersist, resumePersist, discardPendingAndResumePersist, disablePersistWrites } from '@/storage/persist'
+import { pickPersisted, suspendPersist, disablePersistWrites } from '@/storage/persist'
 import { useStore } from '@/store/useStore'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useSaveStatus } from '@/store/saveStatus'
@@ -50,13 +50,16 @@ async function commitLibraryOrganization(expected: string, makeCandidate: (befor
         lock: lockStorageCutoverInteraction,
         flush: flushStorageBeforeCutover,
         capture: captureOrganizationSnapshot,
-        suspend: suspendPersist,
-        resume: () => {
-          if (published || halted) {
-            discardPendingAndResumePersist()
-            if (halted) useSaveStatus.getState().setError(recoveryMessage)
+        suspend: () => {
+          const pause = suspendPersist()
+          return () => {
+            if (published || halted) {
+              pause.discardAndResume()
+              if (halted) useSaveStatus.getState().setError(recoveryMessage)
+            } else {
+              pause.resume()
+            }
           }
-          else resumePersist({ flushNow: true })
         },
         backup: async () => {
           if ((await storage.getManifest()).libraryId !== manifest.libraryId) throw new Error('当前资料库已切换，请重新确认。')

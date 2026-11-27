@@ -9,7 +9,7 @@ import {
   type WebLockManagerLike,
 } from '@/storage/webWriteGuard'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
-import { pickPersisted } from '@/storage/persist'
+import { getPersistSuspendDepth, pickPersisted, suspendPersist } from '@/storage/persist'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
@@ -149,6 +149,21 @@ async function run(): Promise<void> {
       (button) => button.textContent?.includes('加载资料库最新版'),
     )
     assert(reloadButton, '冲突 modal 必须提供加载完整远端快照的操作')
+    const resetStatus = useSaveStatus.getState().reset
+    const outerPause = suspendPersist()
+    try {
+      let resets = 0
+      useSaveStatus.setState({ reset: () => {
+        if (++resets === 2) throw new Error('保存状态订阅失败')
+        resetStatus()
+      } })
+      reloadButton.click()
+      await waitFor(() => document.body.textContent?.includes('保存状态订阅失败') === true, '恢复失败必须能重试')
+      assert(getPersistSuspendDepth() === 1, '载入失败不得归还其他写入者持有的暂停')
+    } finally {
+      useSaveStatus.setState({ reset: resetStatus })
+      outerPause.resume({ flushNow: false })
+    }
     reloadButton.click()
     await waitFor(
       () => JSON.stringify(useStore.getState().liveStages) === JSON.stringify(remoteStages),

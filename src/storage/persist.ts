@@ -102,28 +102,16 @@ export function schedulePersist(snapshot: PersistedSnapshot): void {
   controller.schedule(snapshot)
 }
 
-export function suspendPersist(): void {
-  controller.suspend()
-}
-
-export function resumePersist(options?: { flushNow?: boolean }): void {
-  controller.resume(options)
-}
-
-export function discardPendingAndResumePersist(): void {
-  controller.discardPendingAndResume()
-}
-
-export async function resumePersistAndFlush(): Promise<void> {
-  await controller.resumeAndFlush()
+export function suspendPersist() {
+  return controller.suspend()
 }
 
 export async function withPersistSuspended<T>(fn: () => T | Promise<T>): Promise<T> {
-  suspendPersist()
+  const pause = suspendPersist()
   try {
     return await Promise.resolve(fn())
   } finally {
-    await resumePersistAndFlush()
+    await pause.resumeAndFlush()
   }
 }
 

@@ -1,7 +1,6 @@
 import { getStorage } from '@/storage'
 import {
   disablePersistWrites,
-  discardPendingAndResumePersist,
   enablePersistWrites,
   flushPersistNow,
   getPersistSuspendDepth,
@@ -442,9 +441,9 @@ export async function testDiscardPendingResumeCannotWriteThePreviousLibrarySnaps
 
   try {
     enablePersistWrites()
-    suspendPersist()
+    const pause = suspendPersist()
     schedulePersist(snapshotWithName('旧资料库快照'))
-    discardPendingAndResumePersist()
+    pause.discardAndResume()
 
     assert(getPersistSuspendDepth() === 0, '丢弃旧库待写后应释放一层 suspend gate')
     assert(!hasPendingChanges(), '路径切换失败后必须丢弃旧库的 pending 快照')

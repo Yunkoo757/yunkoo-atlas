@@ -85,13 +85,30 @@ export async function testAutosaveStopsTakingPendingSnapshotsWhileSuspended() {
   f.schedule('A')
   f.tick()
   await started.promise
-  f.controller.suspend()
+  const pause = f.controller.suspend()
   f.schedule('B')
   allow.resolve()
   // 等待在途写入及其 finally；不依赖宿主时钟或磁盘速度。
   for (let i = 0; i < 12; i++) await Promise.resolve()
   assert.deepEqual(saved, ['A'], '暂停期间自动保存不得开始写入 B')
   assert.equal(f.status(), 'dirty')
-  await f.controller.resumeAndFlush()
+  await pause.resumeAndFlush()
   assert.deepEqual(saved, ['A', 'B'])
+}
+
+export async function testReleasedPauseCannotDiscardOrFlushAnotherOwnersSnapshot() {
+  const saved: string[] = []
+  const f = fixture(async value => { saved.push(value.profile!.displayName) })
+  const first = f.controller.suspend()
+  const second = f.controller.suspend()
+  first.resume({ flushNow: false })
+  f.schedule('pending')
+  first.discardAndResume()
+  await first.resumeAndFlush()
+  assert.deepEqual(saved, [])
+  assert.equal(f.controller.getSuspendDepth(), 1)
+  assert.equal(f.controller.getDiagnostics().pendingSnapshotCount, 1)
+  await second.resumeAndFlush()
+  assert.deepEqual(saved, ['pending'])
+  assert.equal(f.controller.getSuspendDepth(), 0)
 }

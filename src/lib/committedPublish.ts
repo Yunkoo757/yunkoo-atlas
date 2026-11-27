@@ -1,8 +1,9 @@
+import type { PersistencePause } from '@/storage/persistenceController'
 import type { StorageAdapter } from '@/storage/adapter'
 import { lockStorageCutoverInteraction } from '@/storage/cutover'
 import {
-  disablePersistWrites, discardPendingAndResumePersist, flushPersistNow,
-  getPersistSuspendDepth, resumePersistAndFlush, suspendPersist,
+  disablePersistWrites, flushPersistNow,
+  getPersistSuspendDepth, suspendPersist,
 } from '@/storage/persist'
 import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
 import { notifyStorageRecoveryRequired } from '@/lib/storageRecovery'
@@ -52,9 +53,9 @@ export async function commitTradeBatch<Result extends object>(
   }
 
   // resumeAndFlush 先归还暂停，再等待写盘。重试只能写盘，不能再次减少暂停深度。
-  async function resumeAndSave() {
+  async function resumeAndSave(pause: PersistencePause) {
     try {
-      await resumePersistAndFlush()
+      await pause.resumeAndFlush()
     } catch (error) {
       await retrySaveIfUnheld()
       throw error
@@ -68,7 +69,7 @@ export async function commitTradeBatch<Result extends object>(
       await retrySaveIfUnheld()
       throw error
     }
-    suspendPersist()
+    const pause = suspendPersist()
     let diskAhead = false
     let compensated = false
     let outcome: { result: Result; hasConcurrentChanges: boolean }
@@ -90,27 +91,27 @@ export async function commitTradeBatch<Result extends object>(
           throw error instanceof DurableStorePublishError ? error : durablePublishFailure(error)
         } finally {
           try {
-            discardPendingAndResumePersist()
+            pause.discardAndResume()
           } catch (cleanupError) {
             report('failed to reset persistence after durable write', cleanupError)
           }
         }
       }
-      if (compensated) await resumeAndSave()
-      else await resumeAndSave().catch(saveError => report('failed to save after batch error', saveError))
+      if (compensated) await resumeAndSave(pause)
+      else await resumeAndSave(pause).catch(saveError => report('failed to save after batch error', saveError))
       throw error
     }
 
     if (outcome.hasConcurrentChanges) {
       try {
-        await resumeAndSave()
+        await resumeAndSave(pause)
       } catch (error) {
         report('failed to persist concurrent changes after commit', error)
         return { ...outcome.result, trailingSaveFailed: true }
       }
     } else {
       try {
-        discardPendingAndResumePersist()
+        pause.discardAndResume()
       } catch (error) {
         if (diskAhead) throw durablePublishFailure(error)
         throw error

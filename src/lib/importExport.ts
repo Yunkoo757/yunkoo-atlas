@@ -1,3 +1,4 @@
+import type { PersistencePause } from '@/storage/persistenceController'
 import { collectRetiredSnapshotAssetIds, stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
 import { DEFAULT_STRATEGIES, type Strategy } from '@/data/strategies'
 import {
@@ -38,7 +39,6 @@ import type { ExportAssetRecord } from '@/storage/types'
 import {
   flushPersistNow,
   suspendPersist,
-  resumePersistAndFlush,
 } from '@/storage/persist'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
@@ -884,11 +884,10 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
   const payloadDigest = await sha256CanonicalImportPayload(payload)
   const prepared = prepareImportPayloadForCommit(payload)
   const unlockInteraction = lockStorageCutoverInteraction()
-  let suspended = false
+  let pause: PersistencePause | undefined
   try {
     await flushStorageBeforeCutover()
-    suspendPersist()
-    suspended = true
+    pause = suspendPersist()
     let revision = capturePersistedStateRevision()
     const importedTradeBaseline = captureImportedTradeBaseline(
       revision,
@@ -948,7 +947,7 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
     return { summary: `已导入 ${parts.join('、')}` }
   } finally {
     try {
-      if (suspended) await resumePersistAndFlush()
+      await pause?.resumeAndFlush()
     } finally {
       unlockInteraction()
     }

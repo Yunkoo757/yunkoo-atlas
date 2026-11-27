@@ -1,10 +1,11 @@
+import type { PersistencePause } from '@/storage/persistenceController'
 import { clearReviewSessionFilters, clearReviewSessionStorage } from '@/lib/reviewSession'
 import { applySnapshotToStore, clearSessionUiAfterLibrarySwitch } from '@/lib/snapshotStore'
 import type { ParsedWebJournalArchive } from '@/lib/webJournalArchive'
 import { flushStorageBeforeCutover, haltPersistAfterCutover, lockStorageCutoverInteraction } from '@/storage/cutover'
 import { getElectronAdapter } from '@/storage/electronAdapter'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
-import { resumePersistAndFlush, suspendPersist } from '@/storage/persist'
+import { suspendPersist } from '@/storage/persist'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
 import type { CommitJournalImportResult } from '@/types/journalBridge'
 
@@ -18,11 +19,11 @@ export class BackupRestoreFlushError extends Error {
   constructor() { super('恢复后保存失败，请勿关闭软件') }
 }
 
-function requireRecovery(source: RestoreSource): void {
+function requireRecovery(source: RestoreSource, pause: PersistencePause): void {
   const message = source === 'backup'
     ? '备份替换已开始，但界面无法安全载入磁盘状态；已停止保存，请重新打开资料库'
     : '完整恢复后的内存载入失败，自动保存已暂停'
-  haltPersistAfterCutover(message, source === 'backup' ? 'reopen' : 'reload')
+  haltPersistAfterCutover(pause, message, source === 'backup' ? 'reopen' : 'reload')
 }
 
 async function restoreCurrentLibrary(
@@ -33,7 +34,7 @@ async function restoreCurrentLibrary(
   const unlock = lockStorageCutoverInteraction()
   try {
     await flushStorageBeforeCutover()
-    suspendPersist()
+    const pause = suspendPersist()
     // IndexedDB 拒绝表示事务已回滚。桌面 IPC 中断时，磁盘可能已经完成替换。
     let safeToFlush = source === 'web-archive'
     try {
@@ -53,10 +54,10 @@ async function restoreCurrentLibrary(
       await afterPublish?.()
       return { ok: true, committed: true }
     } finally {
-      if (!safeToFlush) requireRecovery(source)
+      if (!safeToFlush) requireRecovery(source, pause)
       else {
         try {
-          await resumePersistAndFlush()
+          await pause.resumeAndFlush()
         } catch (error) {
           if (source === 'backup') throw new BackupRestoreFlushError()
           throw error

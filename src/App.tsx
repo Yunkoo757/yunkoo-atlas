@@ -19,7 +19,7 @@ import {
   isStorageHydrated,
   publishDurableStoreRefresh,
 } from './storage'
-import { disablePersistWrites, flushPersistNow, hasPendingChanges, setPreFlushCallback, suspendPersist, resumePersist } from './storage/persist'
+import { disablePersistWrites, flushPersistNow, hasPendingChanges, setPreFlushCallback, suspendPersist } from './storage/persist'
 import { flushNoteDraftsToStore, hasPendingNoteDrafts } from './storage/noteDrafts'
 import { flushStorageBeforeCutover, lockStorageCutoverInteraction } from './storage/cutover'
 import { waitForPendingStorageOperations } from './storage/pendingOperations'
@@ -639,8 +639,10 @@ export function App() {
   const closeSaveGeneration = useRef(new AsyncGeneration())
   const closeBarrier = useRef(new RendererCloseBarrier({
     lockInteraction: lockStorageCutoverInteraction,
-    suspend: suspendPersist,
-    resume: () => resumePersist({ flushNow: false }),
+    suspend: () => {
+      const pause = suspendPersist()
+      return () => pause.resume({ flushNow: false })
+    },
     drain: waitForPendingStorageOperations,
     flush: flushPersistNow,
   }))

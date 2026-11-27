@@ -1,7 +1,6 @@
 export interface CloseBarrierDependencies {
   lockInteraction(): () => void
-  suspend(): void
-  resume(): void
+  suspend(): () => void
   drain(): Promise<void>
   flush(): Promise<void>
 }
@@ -9,16 +8,21 @@ export interface CloseBarrierDependencies {
 /** 从开始退出到主进程终结/取消，持续持有交互与自动保存的同一份租约。 */
 export class RendererCloseBarrier {
   private generation = 0
-  private attempt: { generation: number; unlock: () => void } | null = null
+  private attempt: { generation: number; resume: () => void; unlock: () => void } | null = null
 
   constructor(private readonly dependencies: CloseBarrierDependencies) {}
 
   begin(): number {
     if (this.attempt) return this.attempt.generation
     const unlock = this.dependencies.lockInteraction()
-    try { this.dependencies.suspend() } catch (error) { unlock(); throw error }
-    this.attempt = { generation: ++this.generation, unlock }
-    return this.attempt.generation
+    try {
+      const resume = this.dependencies.suspend()
+      this.attempt = { generation: ++this.generation, unlock, resume }
+      return this.attempt.generation
+    } catch (error) {
+      unlock()
+      throw error
+    }
   }
 
   isHolding(): boolean { return this.attempt !== null }
@@ -42,6 +46,6 @@ export class RendererCloseBarrier {
     const attempt = this.attempt
     if (!attempt) return
     this.attempt = null
-    try { this.dependencies.resume() } finally { attempt.unlock() }
+    try { attempt.resume() } finally { attempt.unlock() }
   }
 }

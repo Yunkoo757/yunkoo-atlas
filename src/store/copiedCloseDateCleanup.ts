@@ -7,7 +7,7 @@ import {
 } from '@/lib/importDataHealth'
 import type { UndoAction } from '@/lib/tradeUndo'
 import { flushStorageBeforeCutover, lockStorageCutoverInteraction } from '@/storage/cutover'
-import { discardPendingAndResumePersist, pickPersisted, resumePersist, suspendPersist } from '@/storage/persist'
+import { pickPersisted, suspendPersist } from '@/storage/persist'
 import { getStorage } from '@/storage/provider'
 import { getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
@@ -40,8 +40,6 @@ function desktopDependencies(
         if (verification.status !== 'verified') throw new Error(verification.error ?? `${operation}前备份验证失败`)
       },
       suspendPersist,
-      resumePersist,
-      discardPendingAndResumePersist,
       recoverDurableSnapshot,
     },
   }

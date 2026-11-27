@@ -11,8 +11,6 @@ import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
 import { discardAllNoteDrafts } from '@/storage/noteDrafts'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
 import {
-  discardPendingAndResumePersist,
-  resumePersist,
   suspendPersist,
 } from '@/storage/persist'
 import {
@@ -34,7 +32,7 @@ export function WebStorageGuard() {
   const loadLatest = useCallback(async () => {
     setBusy('reload')
     setMessage(null)
-    suspendPersist()
+    const pause = suspendPersist()
     try {
       await waitForPendingStorageOperations()
       const envelope = await getIndexedDbAdapter().loadSnapshotEnvelope()
@@ -44,11 +42,11 @@ export function WebStorageGuard() {
         else resetEmptyLibraryIntoStore()
         clearSessionUiAfterLibrarySwitch()
       })
-      discardPendingAndResumePersist()
+      pause.discardAndResume()
       clearWebWriteConflictAfterReload(envelope.revision)
       useSaveStatus.getState().reset()
     } catch (error) {
-      resumePersist({ flushNow: false })
+      pause.resume({ flushNow: false })
       setMessage(error instanceof Error ? error.message : '加载资料库最新版失败，请重试。')
     } finally {
       setBusy(null)
