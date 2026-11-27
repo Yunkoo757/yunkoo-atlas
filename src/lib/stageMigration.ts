@@ -21,6 +21,18 @@ export type LegacyStageSnapshot = Record<string, unknown> & Partial<PersistedSna
   livePerformanceCycles?: LegacyPerformanceCycle[]
 }
 
+const legacyStageFields = ['liveStatsStartTradingDayKey', 'livePerformanceCycles'] as const
+
+export function hasLegacyStageFields(value: object): boolean {
+  return legacyStageFields.some(key => Object.prototype.hasOwnProperty.call(value, key))
+}
+
+export function withoutLegacyStageFields<T extends object>(value: T): Omit<T, typeof legacyStageFields[number]> {
+  const retained = { ...value }
+  for (const key of legacyStageFields) Reflect.deleteProperty(retained, key)
+  return retained
+}
+
 export interface LegacyStageMigrationOptions {
   now: string
   currentTradingDayKey: string
@@ -322,8 +334,8 @@ export function migrateLegacyStageSnapshot(
     riskLiveStageId,
   )
 
-  const migrated = {
-    ...(raw as unknown as Omit<PersistedSnapshot, 'trades' | 'weeklyReviews' | 'weeklyRiskPreparations' | 'riskPolicyVersions' | 'monthlyRiskLimits' | 'riskOverrideEvents'>),
+  return {
+    ...(withoutLegacyStageFields(raw) as unknown as Omit<PersistedSnapshot, 'trades' | 'weeklyReviews' | 'weeklyRiskPreparations' | 'riskPolicyVersions' | 'monthlyRiskLimits' | 'riskOverrideEvents'>),
     trades,
     weeklyReviews,
     weeklyRiskPreparations: (raw.weeklyRiskPreparations ?? []).map((item) => ({ ...item, liveStageId: riskLiveStageId })),
@@ -334,7 +346,4 @@ export function migrateLegacyStageSnapshot(
     currentLiveStageId,
     scheduledStageRollover: null,
   }
-  delete (migrated as LegacyStageSnapshot).liveStatsStartTradingDayKey
-  delete (migrated as LegacyStageSnapshot).livePerformanceCycles
-  return migrated
 }

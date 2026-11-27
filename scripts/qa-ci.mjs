@@ -20,3 +20,4 @@ function run(name, args) {
 run('pnpm', ['test'])
 run('pnpm', ['qa:design'])
 run('pnpm', ['typecheck'])
+run('pnpm', ['exec', 'tsc', '-p', 'tools/atlas-data-editor/tsconfig.json', '--pretty', 'false'])

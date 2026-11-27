@@ -44,6 +44,13 @@ const withRetired=decode({...snapshot,judgmentDesk:{invalid:true},reviewComposer
 assert(!('judgmentDesk' in withRetired) && !('reviewComposer' in withRetired))
 assert.deepEqual(withRetired.trades,snapshot.trades)
 assert.deepEqual(withRetired.retainedExtension,{keep:true})
+const legacy = { ...snapshot, liveStatsStartTradingDayKey: '2025-01-06', livePerformanceCycles: [], extraRecords: [{ id: 'extra', value: '旧库扩展' }] }
+const upgraded = decode(legacy, 11)
+assert.deepEqual(upgraded.extraRecords, legacy.extraRecords)
+assert(!('livePerformanceCycles' in upgraded) && !('liveStatsStartTradingDayKey' in upgraded))
+assert.deepEqual(legacy.livePerformanceCycles, [])
+assert.throws(() => decode(legacy, SCHEMA_VERSION), /旧实盘周期字段/)
+assert.throws(() => validate({ ...upgraded, extraRecords: [{ id: 'dup' }, { id: 'dup' }] }), /重复 ID/)
 const selected=new Set(snapshot.trades.filter(t=>t.tradeKind!=='paper').map(t=>t.id))
 const migrated=migrateToPaper(snapshot,selected)
 assert.equal(migrated.trades.filter(t=>t.tradeKind!=='paper').length,0)

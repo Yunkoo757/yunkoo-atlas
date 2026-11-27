@@ -1,3 +1,4 @@
+import { hasLegacyStageFields } from '@/lib/stageMigration'
 import { isBacktestProject } from '@/lib/backtestProjects'
 import type { PersistedSnapshot } from '@/storage/types'
 import { normalizeCashCurrency } from '@/data/trades'
@@ -920,11 +921,7 @@ export function assertValidPersistedSnapshot(
   if (!isRecord(value) || !Array.isArray(value.trades) || !Array.isArray(value.strategies)) {
     throw new Error(`${label} is missing trades or strategies`)
   }
-  const retiredStageKeys = [
-    ['livePerformance', 'Cycles'].join(''),
-    ['liveStatsStart', 'TradingDayKey'].join(''),
-  ]
-  if (retiredStageKeys.some((key) => Object.prototype.hasOwnProperty.call(value, key))) {
+  if (hasLegacyStageFields(value)) {
     throw new Error(`${label} contains retired stage fields`)
   }
   try {

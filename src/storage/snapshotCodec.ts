@@ -19,6 +19,7 @@ import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
 import { isCanonicalWeeklyReviewPeriod } from '@/lib/weeklyReviewPeriod'
 import {
   collectReliableLegacyStageRecordDays,
+  hasLegacyStageFields,
   migrateLegacyStageSnapshot,
   type LegacyStageSnapshot,
   type LegacyStageMigrationOptions,
@@ -319,10 +320,7 @@ export function decodeCanonicalSnapshot(
         options.stageMigration ?? defaultStageMigrationOptions(raw),
       )
     : (() => {
-        if (
-          Object.prototype.hasOwnProperty.call(raw, 'liveStatsStartTradingDayKey') ||
-          Object.prototype.hasOwnProperty.call(raw, 'livePerformanceCycles')
-        ) throw new Error('v12 快照不得包含旧实盘周期字段')
+        if (hasLegacyStageFields(raw)) throw new Error('v12 快照不得包含旧实盘周期字段')
         return {
           ...candidate,
           weeklyReviews: reclassifyCanonicalLegacyPeriodQuarantines(candidate.weeklyReviews),
