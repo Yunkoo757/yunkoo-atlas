@@ -12,6 +12,7 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# 两个平台构建时从同一仓库变量注入主进程与界面。显式 false 会关闭永久清理。
 jobs:
   certification:
     runs-on: ubuntu-latest
@@ -72,7 +73,6 @@ jobs:
 
       - name: Build application
         env:
-          # Repository variable ATLAS_ENABLE_ASSET_PURGE_COMMIT=true 时开闸；未设置保持 dry-run。
           ATLAS_ENABLE_ASSET_PURGE_COMMIT: ${{ vars.ATLAS_ENABLE_ASSET_PURGE_COMMIT }}
           VITE_ENABLE_ASSET_PURGE_COMMIT: ${{ vars.ATLAS_ENABLE_ASSET_PURGE_COMMIT }}
         run: pnpm build:app
@@ -231,7 +231,6 @@ jobs:
 
       - name: Build application
         env:
-          # Repository variable ATLAS_ENABLE_ASSET_PURGE_COMMIT=true 时开闸；未设置保持 dry-run。
           ATLAS_ENABLE_ASSET_PURGE_COMMIT: ${{ vars.ATLAS_ENABLE_ASSET_PURGE_COMMIT }}
           VITE_ENABLE_ASSET_PURGE_COMMIT: ${{ vars.ATLAS_ENABLE_ASSET_PURGE_COMMIT }}
         run: pnpm build:app

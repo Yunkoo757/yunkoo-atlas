@@ -1,3 +1,4 @@
+import { rendererAllowsAssetPurge } from '@/config/assetPurge'
 import { base64ToBytes } from '@/lib/base64'
 import { stripRetiredSnapshotDomains } from './retiredSnapshotDomains'
 import { AssetObjectUrlCache } from './assetObjectUrls'
@@ -295,7 +296,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     options: { assetPurgeCommitEnabled?: boolean } = {},
   ) {
     this.assetPurgeCommitEnabled = options.assetPurgeCommitEnabled
-      ?? import.meta.env.VITE_ENABLE_ASSET_PURGE_COMMIT !== 'false'
+      ?? rendererAllowsAssetPurge()
   }
 
   clearObjectUrlCache(): void {

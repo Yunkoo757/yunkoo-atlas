@@ -1,3 +1,4 @@
+import { isAssetPurgeCommitEnabled } from '../../src/config/assetPurge'
 import { sha256File } from './fileChecksum'
 import {
   ipcMain,
@@ -966,7 +967,7 @@ export function registerLibraryIpc(): void {
     })
     try {
       const result = await operationGate.runExclusive(async () => {
-        if (process.env.ATLAS_ENABLE_ASSET_PURGE_COMMIT === 'false') {
+        if (!isAssetPurgeCommitEnabled(process.env.ATLAS_ENABLE_ASSET_PURGE_COMMIT)) {
           throw new Error('附件永久清理已在主进程边界关闭')
         }
         const lib = await ensureStorage()

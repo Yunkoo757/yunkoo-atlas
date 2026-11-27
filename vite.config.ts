@@ -1,3 +1,4 @@
+import { isAssetPurgeCommitEnabled } from './src/config/assetPurge'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import electron from 'vite-plugin-electron/simple'
@@ -6,7 +7,7 @@ import path from 'node:path'
 
 const isElectron = process.env.ELECTRON === '1'
 /** 默认开放完整安全清理链路；紧急回滚时显式注入 false。 */
-const assetPurgeCommitFlag = process.env.ATLAS_ENABLE_ASSET_PURGE_COMMIT === 'false' ? 'false' : 'true'
+const assetPurgeCommitFlag = String(isAssetPurgeCommitEnabled(process.env.ATLAS_ENABLE_ASSET_PURGE_COMMIT))
 
 function git(args: string[]) {
   return execFileSync('git', args, {

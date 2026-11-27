@@ -1,3 +1,4 @@
+import { rendererAllowsAssetPurge } from '@/config/assetPurge'
 import { ICON_LG, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
@@ -47,7 +48,6 @@ import {
   type BackupListState,
 } from '@/lib/backupHealthPresentation'
 
-const ASSET_PURGE_COMMIT_ENABLED = import.meta.env.VITE_ENABLE_ASSET_PURGE_COMMIT !== 'false'
 
 function reportDataSettingsFailure(operation: string, error: unknown): void {
   console.warn(`[DataSettings] ${operation}`, error)
@@ -118,7 +118,7 @@ export function StageOwnershipHealthEntry() {
 }
 
 export function DataSettingsPanel({
-  assetPurgeCommitEnabled = ASSET_PURGE_COMMIT_ENABLED,
+  assetPurgeCommitEnabled = rendererAllowsAssetPurge(),
 }: { assetPurgeCommitEnabled?: boolean } = {}) {
   const currentTradingDayKey = useLocalDateKey()
   const electron = isElectron()
