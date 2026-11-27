@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 
@@ -27,7 +28,7 @@ function resolveSpecifier(importer, specifier) {
   return specifier
 }
 
-const withoutExtension = value => value.replace(/\.(?:ts|tsx|mjs|js)$/, '')
+const withoutExtension = value => value.replace(/\.[cm]?[jt]sx?$/, '')
 
 function matchesTarget(file, target, within) {
   const normalized = withoutExtension(target)
@@ -54,30 +55,38 @@ export function importsWithinTarget(source, importer, target) {
   return importsMatching(source, importer, target, true)
 }
 
-/** 解析编译后仍存在的模块边，运行时依赖与类型引用分别处理。 */
-export function desktopDependencyGraph(sources, root) {
-  const modules = sources.filter(file => /^(src|electron)\/.*\.[jt]sx?$/.test(file.path) && !file.path.endsWith('.d.ts'))
-  const paths = new Set(modules.map(file => file.path))
+/** 从入口追踪仓库内的运行时引用；即使中间文件位于其他交付物或工具目录也继续追踪。 */
+export function runtimeDependencyGraph(files, root, entryPoints) {
+  const localModules = new Set(files.filter(file => /\.[cm]?[jt]sx?$/.test(file) && !/\.d\.[cm]?ts$/.test(file)))
   const config = ts.readConfigFile(path.join(root, 'tsconfig.json'), ts.sys.readFile)
   if (config.error) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'))
   const { options, errors } = ts.convertCompilerOptionsFromJson(config.config.compilerOptions, root)
   if (errors.length) throw new Error(ts.flattenDiagnosticMessageText(errors[0].messageText, '\n'))
   const cache = ts.createModuleResolutionCache(root, file => file, options)
+  const pending = new Set(entryPoints)
   const graph = {}
-  for (const file of modules) {
-    const emitted = ts.transpileModule(file.source, { fileName: file.path, compilerOptions: options })
-    const { eager, lazy } = moduleReferences(emitted.outputText, 'output.js')
+  for (const file of pending) {
+    if (!localModules.has(file)) throw new Error(`依赖图缺少入口：${file}`)
+    const absolute = path.join(root, file)
+    const source = readFileSync(absolute, 'utf8')
+    const emitted = /\.(?:[cm]?ts|tsx|jsx)$/.test(file)
+      ? ts.transpileModule(source, { fileName: file, compilerOptions: options }).outputText
+      : source
+    const { eager, lazy } = moduleReferences(emitted, 'output.js')
     function localPaths(specifiers) {
       const dependencies = new Set()
       for (const specifier of specifiers) {
-        const resolved = ts.resolveModuleName(specifier, path.join(root, file.path), options, ts.sys, cache).resolvedModule
+        const resolved = ts.resolveModuleName(specifier, absolute, options, ts.sys, cache).resolvedModule
         if (!resolved) continue
         const relative = path.relative(root, resolved.resolvedFileName).split(path.sep).join('/')
-        if (paths.has(relative)) dependencies.add(relative)
+        if (localModules.has(relative)) {
+          dependencies.add(relative)
+          pending.add(relative)
+        }
       }
       return [...dependencies].sort()
     }
-    graph[file.path] = { eager: localPaths(eager), lazy: localPaths(lazy) }
+    graph[file] = { eager: localPaths(eager), lazy: localPaths(lazy) }
   }
   return graph
 }

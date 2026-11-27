@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { discoverBrowserTests, discoverQualityNodeTests, discoverUnitTestEntries } from './test-discovery.mjs'
 import { executionReportPath, hashFile } from './quality-execution.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
-import { desktopDependencyGraph, findEagerCycles, firstForbiddenPath, importsTarget, importsWithinTarget } from './governance-imports.mjs'
+import { runtimeDependencyGraph, findEagerCycles, firstForbiddenPath, importsTarget, importsWithinTarget } from './governance-imports.mjs'
 import {
   findForbiddenLegacyRuntimeMatches,
   isExecutableProductionSource,
@@ -172,15 +172,25 @@ async function main() {
   for (const file of files.filter(isExecutableProductionSource)) {
     executableSources.push({ path: file, source: await fs.readFile(path.join(root, file), 'utf8') })
   }
-  const graph = desktopDependencyGraph(executableSources, root)
-  for (const cycle of findEagerCycles(graph)) failures.push(`桌面运行时循环依赖：${cycle.join(' → ')}`)
+  const desktopModules = executableSources.map(file => file.path)
+    .filter(file => /^(src|electron)\/.*\.[jt]sx?$/.test(file) && !file.endsWith('.d.ts'))
+  const editor = 'tools/atlas-data-editor/app.ts'
+  const trainer = ['execution-trainer/main.cjs', 'execution-trainer/preload.cjs', 'execution-trainer/renderer.js']
+  const graph = runtimeDependencyGraph(files, root, [...desktopModules, editor, ...trainer])
+  for (const cycle of findEagerCycles(graph)) failures.push(`运行时循环依赖：${cycle.join(' → ')}`)
+  for (const entry of [editor, ...trainer]) {
+    const violation = firstForbiddenPath(graph, entry, forbiddenPureTargets)
+    if (violation) failures.push(`独立工具依赖 Atlas 会话或主进程：${violation.join(' → ')}`)
+  }
   for (const file of pureModules) {
     const violation = firstForbiddenPath(graph, file, forbiddenPureTargets)
     if (violation) failures.push(`纯模块经依赖链访问运行环境：${violation.join(' → ')}`)
   }
   const graphDirectory = path.join(root, 'test-results')
   await fs.mkdir(graphDirectory, { recursive: true })
-  await fs.writeFile(path.join(graphDirectory, 'desktop-dependencies.json'), JSON.stringify(graph, null, 2) + '\n')
+  const desktopGraph = Object.fromEntries(desktopModules.map(file => [file, graph[file]]))
+  await fs.writeFile(path.join(graphDirectory, 'desktop-dependencies.json'), JSON.stringify(desktopGraph, null, 2) + '\n')
+  await fs.writeFile(path.join(graphDirectory, 'runtime-dependencies.json'), JSON.stringify(graph, null, 2) + '\n')
 
   for (const match of findForbiddenLegacyRuntimeMatches(executableSources)) {
     failures.push(`legacy runtime truth 禁止：${match.path}:${match.line} → ${match.token}`)

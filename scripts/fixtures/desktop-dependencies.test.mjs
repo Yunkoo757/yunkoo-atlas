@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { desktopDependencyGraph, findEagerCycles, firstForbiddenPath, importsTarget } from '../governance-imports.mjs'
+import { runtimeDependencyGraph, findEagerCycles, firstForbiddenPath, importsTarget } from '../governance-imports.mjs'
 
 test('依赖门按 TypeScript 语法识别导入，忽略注释和字符串', () => {
   const importer = 'src/lib/check.ts'
@@ -24,6 +24,12 @@ test('运行时依赖图保留真实模块边并报告闭合的同步环', () =>
       'src/lazy.ts': "import './start';",
       'src/types.ts': "export type T = string;",
       'electron/self.ts': "import './self';",
+      'tools/editor.ts': "export const later = () => import('../shared/middle');",
+      'shared/middle.ts': "export { state } from '@/store/session';",
+      'src/store/session.ts': "export const state = 1;",
+      'trainer/main.cjs': "const model = require('./model.cjs');",
+      'trainer/model.cjs': "module.exports = {};",
+      'trainer/unreferenced.js': "require('./model.cjs');",
     }
     const sources = Object.entries(entries).map(([file, source]) => ({ path: file, source }))
     for (const file of sources) {
@@ -31,7 +37,12 @@ test('运行时依赖图保留真实模块边并报告闭合的同步环', () =>
       fs.mkdirSync(path.dirname(absolute), { recursive: true })
       fs.writeFileSync(absolute, file.source)
     }
-    const graph = desktopDependencyGraph(sources, root)
+    const graph = runtimeDependencyGraph(Object.keys(entries), root, ['src/start.ts', 'electron/self.ts', 'tools/editor.ts', 'trainer/main.cjs'])
+    assert.deepEqual(graph['trainer/main.cjs'].eager, ['trainer/model.cjs'])
+    assert.equal(graph['trainer/unreferenced.js'], undefined)
+    assert.deepEqual(firstForbiddenPath(graph, 'tools/editor.ts', ['src/store']), [
+      'tools/editor.ts', 'shared/middle.ts', 'src/store/session.ts',
+    ])
     assert.deepEqual(graph['src/start.ts'], { eager: ['src/folder/index.ts'], lazy: [] })
     assert.deepEqual(graph['src/folder/index.ts'], { eager: ['src/start.ts'], lazy: ['src/lazy.ts'] })
     assert.deepEqual(firstForbiddenPath(graph, 'src/start.ts', ['src/lazy']), [
