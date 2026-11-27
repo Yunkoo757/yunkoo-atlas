@@ -1,5 +1,5 @@
 import { bytesToBase64 } from '@/lib/base64'
-import { DurableStorePublishError, durablePublishFailure, publishDurablyCommitted } from '@/lib/committedPublish'
+import { commitTradeBatch } from '@/lib/committedPublish'
 import type { Strategy } from '@/data/strategies'
 import type { Trade, TradeKind } from '@/data/trades'
 import {
@@ -10,23 +10,15 @@ import {
 } from '@/lib/notionImport'
 import { isSafeAssetId } from '@/storage/assetId'
 import type { StorageAdapter } from '@/storage/adapter'
-import { getStorage } from '@/storage'
-import {
-  discardPendingAndResumePersist,
-  pickPersisted,
-  resumePersistAndFlush,
-  suspendPersist,
-} from '@/storage/persist'
+import { getStorage } from '@/storage/provider'
+import { pickPersisted } from '@/storage/persist'
 import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
 import {
   applyTradeUpsertsToSlice,
   useStore,
   type TradeUpsertSlice,
 } from '@/store/useStore'
-import {
-  flushStorageBeforeCutover,
-  lockStorageCutoverInteraction,
-} from '@/storage/cutover'
+import { flushStorageBeforeCutover } from '@/storage/cutover'
 import {
   assertNotionImageByteLimits,
   MAX_NOTION_IMAGE_BYTES,
@@ -140,15 +132,9 @@ export async function commitNotionImportBatch(
 ): Promise<CommittedNotionImport> {
   const storage = options.storage ?? getStorage()
   const prepared = prepareNotionAssetsForCommit(previews, options.createAssetId)
-  const unlockInteraction = lockStorageCutoverInteraction()
-  let suspended = false
-  let released = false
-  let durablyCommitted = false
-
-  try {
-    await flushStorageBeforeCutover()
-    suspendPersist()
-    suspended = true
+  return commitTradeBatch<Omit<CommittedNotionImport, 'trailingSaveFailed'>>({
+    storage, assets: prepared.assets, beforeCommit: flushStorageBeforeCutover, source: 'NotionImport',
+  }, async writer => {
     const revision = capturePersistedStateRevision()
     const imported = executeNotionImport(
       previews,
@@ -177,8 +163,7 @@ export async function commitNotionImportBatch(
     const patch = buildStorePatch(revision.state, importedTrades, newStrategies)
     const snapshot = buildSnapshot(revision, patch)
 
-    await storage.commitImport(snapshot, prepared.assets)
-    durablyCommitted = true
+    await writer.commit(snapshot)
 
     // commit 等待期间若有其他设置变化，只把本批内容合并进最新 store，绝不回退并发编辑。
     const latest = capturePersistedStateRevision()
@@ -186,62 +171,14 @@ export async function commitNotionImportBatch(
     const finalPatch = unchanged
       ? patch
       : buildStorePatch(latest.state, importedTrades, newStrategies)
-    publishDurablyCommitted(() => useStore.setState(finalPatch))
+    useStore.setState(finalPatch)
     const committedImportedTrades = importedTrades.map((trade) =>
       finalPatch.trades.find((candidate) => candidate.id === trade.id) ?? trade,
     )
 
-    let trailingSaveFailed = false
-    if (unchanged) {
-      // 原子提交的 snapshot 与发布到 store 的内容一致，清掉订阅器产生的冗余待写。
-      discardPendingAndResumePersist()
-      suspended = false
-      released = true
-    } else {
-      // 批次已完整提交；仅追写提交期间发生的并发设置，不把追写错误误报为导入回滚。
-      released = true
-      try {
-        await resumePersistAndFlush()
-        suspended = false
-      } catch (error) {
-        trailingSaveFailed = true
-        console.error('[NotionImport] failed to persist concurrent changes after import', error)
-      }
-    }
-
     return {
-      importedTrades: committedImportedTrades,
-      newStrategies,
-      imageCount: prepared.assets.length,
-      trailingSaveFailed,
+      result: { importedTrades: committedImportedTrades, newStrategies, imageCount: prepared.assets.length },
+      hasConcurrentChanges: !unchanged,
     }
-  } catch (error) {
-    if (durablyCommitted && !released && !(error instanceof DurableStorePublishError)) {
-      error = durablePublishFailure(error)
-    }
-    if (error instanceof DurableStorePublishError) {
-      if (suspended) discardPendingAndResumePersist()
-      suspended = false
-      released = true
-      throw error
-    }
-    if (!released) {
-      released = true
-      try {
-        // 导入本身未发布；仅保存等待期间可能发生的既有数据变化。
-        await resumePersistAndFlush()
-        suspended = false
-      } catch (resumeError) {
-        console.error('[NotionImport] failed to resume persistence after import error', resumeError)
-      }
-    }
-    throw error
-  } finally {
-    if (suspended) {
-      await resumePersistAndFlush().catch((resumeError) => {
-        console.error('[NotionImport] failed to resume persistence', resumeError)
-      })
-    }
-    unlockInteraction()
-  }
+  })
 }

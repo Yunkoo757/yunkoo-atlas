@@ -1,22 +1,18 @@
 import { bytesToBase64 } from '@/lib/base64'
-import { DurableStorePublishError, durablePublishFailure, publishDurablyCommitted } from '@/lib/committedPublish'
+import { commitTradeBatch } from '@/lib/committedPublish'
 import type { Trade } from '@/data/trades'
 import { isSafeAssetId } from '@/storage/assetId'
 import type { StorageAdapter } from '@/storage/adapter'
 import { getStorage } from '@/storage/provider'
 import {
-  discardPendingAndResumePersist,
   flushPersistNow,
   pickPersisted,
-  resumePersistAndFlush,
-  suspendPersist,
 } from '@/storage/persist'
 import type { ExportAssetRecord } from '@/storage/types'
 import {
   capturePersistedStateRevision,
   hasSamePersistedStateRevision,
 } from '@/store/persistedRevision'
-import { lockStorageCutoverInteraction } from '@/storage/cutover'
 import { applyTradeUpsertsToSlice, useStore } from '@/store/useStore'
 import { assetUrl } from '@/storage/assets'
 
@@ -112,28 +108,18 @@ export async function commitComposerTradeBatch({
   createAssetId,
 }: CommitComposerOptions): Promise<CommittedComposerTrade> {
   const prepared = await prepareComposerAssetsForCommit(images, createAssetId)
-  const unlockInteraction = lockStorageCutoverInteraction()
-  let suspended = false
-  let released = false
-  let durablyCommitted = false
-
-  try {
-    await flushPersistNow()
-    suspendPersist()
-    suspended = true
+  return commitTradeBatch<Omit<CommittedComposerTrade, 'trailingSaveFailed'>>({
+    storage, assets: prepared.assets, beforeCommit: flushPersistNow, source: 'TradeComposer',
+  }, async writer => {
     const revision = capturePersistedStateRevision()
     const candidate = resolveComposerCandidate(buildTrade(revision.state, prepared.imageHtml))
     if (!candidate) {
-      discardPendingAndResumePersist()
-      suspended = false
-      released = true
-      return { trade: null, imageCount: 0, trailingSaveFailed: false }
+      return { result: { trade: null, imageCount: 0 }, hasConcurrentChanges: false }
     }
     const patch = buildTradePatch(revision.state, candidate)
     const snapshot = pickPersisted({ ...revision.state, ...patch }, revision.shortcutBindings)
 
-    await storage.commitImport(snapshot, prepared.assets)
-    durablyCommitted = true
+    await writer.commit(snapshot)
 
     const latest = capturePersistedStateRevision()
     const unchanged = hasSamePersistedStateRevision(revision, latest)
@@ -141,10 +127,7 @@ export async function commitComposerTradeBatch({
     const latestTarget = latest.state.trades.find((item) => item.id === targetTradeId)
     if (originalTarget && latestTarget !== originalTarget) {
       const latestSnapshot = pickPersisted(latest.state, latest.shortcutBindings)
-      await storage.commitImport(latestSnapshot, prepared.assets, { pruneUnreferenced: true })
-      released = true
-      await resumePersistAndFlush()
-      suspended = false
+      await writer.compensate(latestSnapshot)
       throw new TradeComposerConcurrentEditError()
     }
     const finalCandidate = unchanged
@@ -154,51 +137,11 @@ export async function commitComposerTradeBatch({
     const finalPatch = unchanged
       ? patch
       : buildTradePatch(latest.state, finalCandidate)
-    publishDurablyCommitted(() => useStore.setState(finalPatch))
+    useStore.setState(finalPatch)
 
-    let trailingSaveFailed = false
-    if (unchanged) {
-      discardPendingAndResumePersist()
-      suspended = false
-      released = true
-    } else {
-      released = true
-      try {
-        await resumePersistAndFlush()
-        suspended = false
-      } catch (error) {
-        trailingSaveFailed = true
-        console.error('[TradeComposer] failed to persist concurrent changes after commit', error)
-      }
+    return {
+      result: { trade: finalTrade, imageCount: prepared.assets.length },
+      hasConcurrentChanges: !unchanged,
     }
-
-    return { trade: finalTrade, imageCount: prepared.assets.length, trailingSaveFailed }
-  } catch (error) {
-    if (durablyCommitted && !released && !(error instanceof DurableStorePublishError)) {
-      error = durablePublishFailure(error)
-    }
-    if (error instanceof DurableStorePublishError) {
-      if (suspended) discardPendingAndResumePersist()
-      suspended = false
-      released = true
-      throw error
-    }
-    if (!released) {
-      released = true
-      try {
-        await resumePersistAndFlush()
-        suspended = false
-      } catch (resumeError) {
-        console.error('[TradeComposer] failed to resume persistence after commit error', resumeError)
-      }
-    }
-    throw error
-  } finally {
-    if (suspended) {
-      await resumePersistAndFlush().catch((resumeError) => {
-        console.error('[TradeComposer] failed to resume persistence', resumeError)
-      })
-    }
-    unlockInteraction()
-  }
+  })
 }
