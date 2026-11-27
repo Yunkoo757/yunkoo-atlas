@@ -14,7 +14,7 @@ import { collectAssetIdsFromHtml } from '@/storage/snapshotRichText'
 import { noteDraftKey, getNoteDraft } from '@/storage/noteDrafts'
 import { isQuickNoteConverting } from '@/lib/quickNoteConversion'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
 
@@ -204,7 +204,7 @@ async function run() {
     release()
     await waitForPendingStorageOperations()
     assert(useStore.getState().trades.length === 6 && document.querySelector('[data-conversion-away]'), '后台转换完成须保留用户当前页面')
-    const receipt = useToast.getState().items.at(-1)
+    const receipt = toastStore.getVisible().at(-1)
     assert(receipt?.actionLabel === '打开草稿' && receipt.onAction, '完成后应允许从回执打开草稿')
     receipt.onAction()
     await until(() => document.querySelector('[data-converted-case-path]'), '主动打开回执应进入新的草稿')
@@ -212,7 +212,7 @@ async function run() {
     openNote()
     await until(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '离页过渡前随记未就绪')
     const editorBeforeLeave = (document.querySelector('[aria-label="随记正文"]') as HTMLElement & { editor: TiptapEditor }).editor
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     const finishImage = delayAssetSave()
     const beforeLeave = assetSaveCalls
     editorBeforeLeave.chain().focus('end').setImage({ src: image }).createParagraphNear().run()
@@ -223,7 +223,7 @@ async function run() {
     navigate!('/elsewhere')
     finishImage()
     await waitForPendingStorageOperations()
-    const pendingReceipt = useToast.getState().items.at(-1)
+    const pendingReceipt = toastStore.getVisible().at(-1)
     assert(!isQuickNoteConverting(note.id), '后台完成后不能继续锁住仍留在屏幕上的原编辑器')
     awayGate = null
     finishPage()

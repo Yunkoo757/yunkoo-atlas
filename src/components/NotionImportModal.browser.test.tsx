@@ -3,7 +3,7 @@ import JSZip from 'jszip'
 import { NotionImportModal } from './NotionImportModal'
 import { getStorage } from '@/storage/provider'
 import { disablePersistWrites, enablePersistWrites } from '@/storage/persist'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 
 declare global {
@@ -103,7 +103,7 @@ async function run(): Promise<void> {
   }
 
   disablePersistWrites()
-  useToast.setState({ message: null })
+  toastStore.dismiss()
   useStore.setState({
     trades: [{
       id: 'existing-trade',
@@ -233,7 +233,7 @@ async function run(): Promise<void> {
     )
     assert(!document.body.textContent?.includes('正在导入'), '写盘失败后不得卡在 importing')
     assert(!document.body.textContent?.includes('已导入 1 笔交易'), '写盘失败不得进入完成状态')
-    assert(!useToast.getState().message?.includes('已从 Notion 导入'), '写盘失败不得显示成功 toast')
+    assert(!toastStore.getVisible().some(item => item.message.includes('已从 Notion 导入')), '写盘失败不得显示成功 toast')
     assert(unhandledRejections === 0, 'Notion 写盘失败不得产生未处理 Promise rejection')
     assert(
       useStore.getState().trades.map((trade) => trade.id).join(',') === 'existing-trade',
@@ -280,7 +280,7 @@ async function run(): Promise<void> {
     toggle.click()
     await waitForFrame()
     assert(details.querySelector('p')?.textContent === '新策略', '展开后应能查到本次实际新增的策略名称')
-    const receipt = useToast.getState().message
+    const receipt = toastStore.getVisible().at(-1)?.message
     assert(receipt?.includes('新增 1 个策略') && !receipt.includes('新策略'), '导入通知应只报告策略数量')
   } finally {
     window.removeEventListener('unhandledrejection', onUnhandledRejection)

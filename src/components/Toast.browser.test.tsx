@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { ToastHost } from '@/components/Toast'
 import { BatchActionBar } from '@/components/ui/BatchActionBar'
-import { toast, useToast } from '@/lib/toast'
+import { toast, toastStore } from '@/lib/toast'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
 
@@ -57,7 +57,7 @@ async function run(): Promise<void> {
     assert(short.getAttribute('role') === 'status' && short.getAttribute('aria-live') === 'polite', '成功回执应礼貌播报')
     assert(document.activeElement === editor, '成功回执出现时不得打断输入')
     assert(shortId !== null, '成功回执未入队')
-    useToast.getState().dismiss(shortId)
+    toastStore.dismiss(shortId)
     await waitFor(() => !document.querySelector('.toast-panel'), '成功回执没有退场')
     toast('已记录', {
       actionLabel: '打开记录',
@@ -126,7 +126,7 @@ async function run(): Promise<void> {
     assert(actionCalls === 1, '关闭通知不应触发重试')
     await waitFor(() => !document.querySelector('.toast-panel'), '关闭后错误仍占用界面')
   } finally {
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     root.unmount()
   }
 }

@@ -346,8 +346,8 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
         setCapabilityMenu(null)
         toast(`已从侧栏移除「${label}」`, {
           tone: 'success',
-          label: '撤销',
-          onClick: () => {
+          actionLabel: '撤销',
+          onAction: () => {
             const current = useStore.getState().display.sidebarWorkspaceItems
             const index = previous.findIndex(entry => entry.target.kind === 'system' && entry.target.id === id)
             const removed = previous[index]

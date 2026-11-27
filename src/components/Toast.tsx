@@ -1,9 +1,9 @@
 import { motionDuration, reducesMotion } from '@/lib/motion'
 import { createPortal } from 'react-dom'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { AlertCircle, AlertTriangle, Check, X } from '@/icons/appIcons'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
-import { useToast, type ToastItem, type ToastTone } from '@/lib/toast'
+import { toastStore, type ToastItem, type ToastTone } from '@/lib/toast'
 import { Button } from '@/components/ui/Button'
 import { IconButton } from '@/components/ui/IconButton'
 import './Toast.css'
@@ -18,7 +18,7 @@ const TONE_ICONS = {
 type PresentToast = ToastItem & { exiting: boolean }
 
 
-function usePresentToasts(items: ToastItem[]): PresentToast[] {
+function usePresentToasts(items: readonly ToastItem[]): PresentToast[] {
   const [present, setPresent] = useState<PresentToast[]>(() =>
     items.map((item) => ({ ...item, exiting: false })),
   )
@@ -66,8 +66,7 @@ function usePresentToasts(items: ToastItem[]): PresentToast[] {
 }
 
 export function ToastHost() {
-  const items = useToast((state) => state.items)
-  const dismiss = useToast((state) => state.dismiss)
+  const items = useSyncExternalStore(toastStore.subscribe, toastStore.getVisible, toastStore.getVisible)
   const presentItems = usePresentToasts(items)
   if (presentItems.length === 0) return null
 
@@ -86,11 +85,11 @@ export function ToastHost() {
             aria-hidden={item.exiting || undefined}
             aria-live={isError ? 'assertive' : 'polite'}
             aria-atomic="true"
-            onPointerEnter={() => useToast.hold(item.id, 'pointer', true)}
-            onPointerLeave={() => useToast.hold(item.id, 'pointer', false)}
-            onFocus={() => useToast.hold(item.id, 'focus', true)}
+            onPointerEnter={() => toastStore.hold(item.id, 'pointer', true)}
+            onPointerLeave={() => toastStore.hold(item.id, 'pointer', false)}
+            onFocus={() => toastStore.hold(item.id, 'focus', true)}
             onBlur={event => {
-              if (!event.currentTarget.contains(event.relatedTarget)) useToast.hold(item.id, 'focus', false)
+              if (!event.currentTarget.contains(event.relatedTarget)) toastStore.hold(item.id, 'focus', false)
             }}
           >
             <div className="toast-content">
@@ -102,9 +101,9 @@ export function ToastHost() {
                 size="sm"
                 className="toast-action"
                 onClick={() => {
-                  const active = useToast.getState().items.find(candidate => candidate.id === item.id)
+                  const active = toastStore.getVisible().find(candidate => candidate.id === item.id)
                   if (!active?.onAction) return
-                  dismiss(item.id)
+                  toastStore.dismiss(item.id)
                   active.onAction()
                 }}
               >
@@ -116,7 +115,7 @@ export function ToastHost() {
                 size="sm"
                 className="toast-close"
                 label="关闭通知"
-                onClick={() => dismiss(item.id)}
+                onClick={() => toastStore.dismiss(item.id)}
               >
                 <X size={ICON_SM} aria-hidden />
               </IconButton>

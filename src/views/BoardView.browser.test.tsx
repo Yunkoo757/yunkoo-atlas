@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Trade, TradeStatus } from '@/data/trades'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { handleShortcutKeydown } from '@/shortcuts/engine'
 import { getDetailNavigation } from '@/shortcuts/listNav'
@@ -70,7 +70,6 @@ async function run(): Promise<void> {
   assert(host, '缺少测试挂载节点')
   const preview = new URLSearchParams(window.location.search).has('preview')
   const previous = useStore.getState()
-  const previousToast = useToast.getState()
   const previousShortcuts = useShortcutStore.getState()
   const root = createRoot(host)
 
@@ -155,8 +154,8 @@ async function run(): Promise<void> {
       await waitFor(() => !document.querySelector('[role="dialog"]:not([aria-hidden="true"])'), '取消应返回仍保留选择的看板')
       batchButton('删除')!.click()
       await waitFor(() => useStore.getState().trades.filter(t => t.deletedAt).length === 2, '批量删除应只软删除所选案例')
-      assert(useToast.getState().actionLabel === '撤销', '必须能撤销看板删除')
-      useToast.getState().onAction?.()
+      assert(toastStore.getVisible().at(-1)?.actionLabel === '撤销', '必须能撤销看板删除')
+      toastStore.getVisible().at(-1)?.onAction?.()
       await waitFor(() => useStore.getState().trades.every(t => !t.deletedAt), '撤销应恢复两条案例')
       const active = { ...caseTrade('win', 1, currentLiveStageId), id: 'active-live', ref: 'TRD-1', openedAt: '2026-08-26', tradeKind: 'live' as const }
       const hidden = { ...active, id: 'other-stage', ref: 'TRD-3', liveStageId: 'past-stage', openedAt: '2026-08-25' }
@@ -207,8 +206,7 @@ async function run(): Promise<void> {
     if (!preview) {
       root.unmount()
       useStore.setState(previous, true)
-      useToast.getState().dismiss()
-      useToast.setState(previousToast)
+      toastStore.dismiss()
       useShortcutStore.setState(previousShortcuts, true)
     }
   }

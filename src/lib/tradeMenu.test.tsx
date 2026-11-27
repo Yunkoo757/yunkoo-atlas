@@ -1,7 +1,7 @@
 import type { Trade } from '@/data/trades'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
 import { moveRecordsToTrash } from '@/lib/tradeTrashAction'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 
 const source: Trade = {
@@ -71,21 +71,21 @@ export function testContextMenuCopiesOneTradeIntoANewPlan(): void {
 
 export function testTrashNotificationsTargetTheOriginalDeletion() {
   const previous = useStore.getState()
-  const notices = useToast.getState()
   try {
     useStore.setState({ trades: [source], undoStack: [], redoStack: [] })
     moveRecordsToTrash(source.id)
-    const oldUndo = useToast.getState().onAction!
+    const oldUndo = toastStore.getVisible().at(-1)?.onAction
     useStore.getState().restoreTrade(source.id)
     moveRecordsToTrash(source.id)
-    const latestUndo = useToast.getState().onAction!
+    const latestUndo = toastStore.getVisible().at(-1)?.onAction
+    if (!oldUndo || !latestUndo) throw Error('两次删除均需提供撤销操作')
     oldUndo()
     assert(useStore.getState().trades[0]?.deletedAt, '旧提示不能撤销后来发生的另一次删除')
     latestUndo()
     assert(!useStore.getState().trades[0]?.deletedAt, '当前删除应能原样撤销')
   } finally {
     useStore.setState(previous, true)
-    useToast.setState(notices)
+    toastStore.dismiss()
   }
 }
 

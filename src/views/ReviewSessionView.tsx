@@ -505,8 +505,8 @@ export function ReviewSessionView() {
     if (actionId) {
       toast('已记录评估', {
         tone: 'success',
-        label: '撤销',
-        onClick: () => {
+        actionLabel: '撤销',
+        onAction: () => {
           if (!useStore.getState().undo(actionId)) {
             toast('该评估之后目标字段已变化，无法安全撤销', { tone: 'warning' })
             return

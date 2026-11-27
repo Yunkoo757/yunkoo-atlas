@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
 import { ToastHost } from '@/components/Toast'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import { TradeTrashView } from './TradeTrashView'
 
 declare global { interface Window { __trashSelectionTest: Promise<void> } }
@@ -59,7 +59,7 @@ async function run() {
     if (useStore.getState().trades.find(t => t.id === 'TRD-B')?.deletionId !== 'deleted-TRD-B') throw new Error('原删除标识丢失')
   } finally {
     root.unmount()
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     useStore.setState(previous, true)
   }
 }

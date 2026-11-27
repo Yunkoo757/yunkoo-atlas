@@ -6,7 +6,7 @@ import { handleShortcutKeydown } from '@/shortcuts/engine'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { DetailView } from '@/views/DetailView'
 import { getStorage } from '@/storage/provider'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import {
   noteDraftKey,
   hasNoteDraft,
@@ -115,7 +115,6 @@ async function run(): Promise<void> {
   assert(rootElement, '缺少测试挂载节点')
   const previousStore = useStore.getState()
   const previousShortcuts = useShortcutStore.getState()
-  const previousToast = useToast.getState()
   const storage = getStorage()
   const originalSaveAsset = storage.saveAsset.bind(storage)
   let root: Root | null = null
@@ -276,7 +275,7 @@ async function run(): Promise<void> {
     await waitFor(() => Boolean(findButton('提炼为案例')), '失败来源提炼入口未出现')
     findButton('提炼为案例')?.click()
     await waitFor(
-      () => useToast.getState().message === '正文尚未保存，未创建案例',
+      () => toastStore.getVisible().at(-1)?.message === '正文尚未保存，未创建案例',
       '草稿保存失败回执未出现',
     )
     assert(
@@ -432,8 +431,7 @@ async function run(): Promise<void> {
     root?.unmount()
     storage.saveAsset = originalSaveAsset
     resetNoteDraftsForTests()
-    useToast.getState().dismiss()
-    useToast.setState(previousToast)
+    toastStore.dismiss()
     useStore.setState(previousStore)
     useShortcutStore.setState(previousShortcuts)
   }

@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { CsvImportModal } from './CsvImportModal'
 import { getStorage } from '@/storage/provider'
 import { disablePersistWrites, enablePersistWrites } from '@/storage/persist'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 
 declare global {
@@ -66,7 +66,7 @@ async function run(): Promise<void> {
   }
 
   disablePersistWrites()
-  useToast.setState({ message: null })
+  toastStore.dismiss()
   useStore.setState({
     trades: [],
     strategies: [{ id: 'strategy-test', name: '测试策略', icon: 'target', color: '#5e6ad2' }],
@@ -115,7 +115,7 @@ async function run(): Promise<void> {
       'CSV 写盘失败后应在当前步骤显示可重试错误',
     )
     assert(!document.body.textContent?.includes('导入完成'), '写盘失败不得进入导入完成步骤')
-    assert(!useToast.getState().message?.includes('成功导入'), '写盘失败不得显示成功 toast')
+    assert(!toastStore.getVisible().some(item => item.message.includes('成功导入')), '写盘失败不得显示成功 toast')
     assert(unhandledRejections === 0, 'CSV 写盘失败不得产生未处理 Promise rejection')
     assert(useStore.getState().trades.length === 0, 'CSV 写盘失败必须回滚本批新增交易')
     assert(attemptedSnapshots.some((ids) => ids.length === 25), '确认导入应提交所有页的有效记录')

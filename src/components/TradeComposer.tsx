@@ -462,8 +462,8 @@ export function TradeComposer() {
       }
       toast(editing ? '已保存' : '已记录', {
         tone: 'success',
-        label: '打开记录',
-        onClick: () => navigate(tradeDetailPath(trade)),
+        actionLabel: '打开记录',
+        onAction: () => navigate(tradeDetailPath(trade)),
       })
     })().catch((error) => {
       console.error('[TradeComposer] quick create failed', error)

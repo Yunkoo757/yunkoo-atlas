@@ -256,8 +256,8 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
     removeTradeView(view.id)
     toast(`已删除视图「${view.name}」`, {
       tone: 'success',
-      label: '撤销',
-      onClick: () => {
+      actionLabel: '撤销',
+      onAction: () => {
         const state = useStore.getState()
         if (state.savedTradeViews.some(item => item.id === view.id)) return
         state.saveTradeView(view)

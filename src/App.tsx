@@ -39,7 +39,7 @@ import { ErrorDetails } from './components/ui/ErrorDetails'
 import { InlineStatus, type InlineStatusTone } from './components/ui/InlineStatus'
 import { ModalShell } from './components/ui/ModalShell'
 import type { WindowsCloseChoice } from './types/journalBridge'
-import { toast } from './lib/toast'
+import { toast, toastStore } from './lib/toast'
 import { AsyncGeneration } from './lib/asyncGeneration'
 import { WebStorageGuard } from './components/WebStorageGuard'
 import { DelayedRouteFallback, RouteContentMotion, RouteErrorBoundary, RouteNotFound } from './components/RouteState'
@@ -64,7 +64,6 @@ import { getTradingDayKey, isValidPeriodSlug, parseLocalDate, PERIOD_LABELS } fr
 import { routeWithSearch } from './lib/tradeView'
 import { listPathFromLegacyTablePath } from './lib/routeContext'
 import { useShortcutHost } from './shortcuts/ShortcutHost'
-import { lockBottomChrome, unlockBottomChrome } from './lib/toast'
 import { parseAnalysisScope } from './lib/analysisScope'
 import { weekStartFor } from './data/weeklyReviews'
 import {
@@ -646,8 +645,7 @@ export function App() {
   const storageRecoveryReloadAuthorized = useRef(false)
 
   useEffect(() => {
-    if (closeSaveState.phase === 'idle') unlockBottomChrome()
-    else lockBottomChrome()
+    toastStore.setSuspended(closeSaveState.phase !== 'idle')
   }, [closeSaveState.phase])
 
   useEffect(() => {
@@ -870,7 +868,7 @@ export function App() {
         if (bridge?.onBeforeClose) {
           unsubscribeBeforeClose = bridge.onBeforeClose(async () => {
             const generation = closeSaveGeneration.current.begin()
-            lockBottomChrome()
+            toastStore.setSuspended(true)
             setCloseSaveState({ phase: 'saving' })
             const closeAttempt = closeBarrier.current.begin()
             // 给状态至少一帧绘制时间，避免快速落盘时提示从未真正出现。
@@ -911,7 +909,7 @@ export function App() {
           unsubscribeCloseError = bridge.onCloseSaveError((message: string) => {
             closeSaveGeneration.current.invalidate()
             closeBarrier.current.cancel()
-            lockBottomChrome()
+            toastStore.setSuspended(true)
             // 错误回执已覆盖底部通知，不再额外 toast，避免双条重叠
             setCloseSaveState((state) => ({
               phase: 'error',

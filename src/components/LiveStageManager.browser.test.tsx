@@ -4,7 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import type { CaseTrade, LiveTrade, PaperTrade, Trade, TradeKind, TradeStatus } from '@/data/trades'
 import type { WeeklyReview } from '@/data/weeklyReviews'
 import type { LiveStage } from '@/lib/liveStages'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import { StorageRevisionConflictError } from '@/storage/adapter'
 import { disablePersistWrites, enablePersistWrites, flushPersistNow } from '@/storage/persist'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
@@ -220,8 +220,8 @@ async function run(): Promise<void> {
     button('保存名称').click()
     await waitFor(() => !button('保存名称').disabled, '重复名称校验后必须恢复操作')
     assert(useStore.getState().liveStages[1]?.name === '第二次实盘', '重复阶段名称必须在 Store 边界被拒绝')
-    assert(useToast.getState().message === '阶段名称已存在，请使用其他名称', '重复阶段名称必须给出明确 UX 说明')
-    useToast.getState().dismiss()
+    assert(toastStore.getVisible().at(-1)?.message === '阶段名称已存在，请使用其他名称', '重复阶段名称必须给出明确 UX 说明')
+    toastStore.dismiss()
 
     changeInput('阶段名称', '自由命名阶段')
     button('保存名称').click()
@@ -276,8 +276,8 @@ async function run(): Promise<void> {
     await waitFor(() => !button('取消预约').disabled, '取消回滚完成后必须恢复操作')
     assert(useStore.getState().scheduledStageRollover === scheduled, '取消首次保存失败必须恢复原预约对象')
     assert(savedSnapshots.at(-1)?.scheduledStageRollover?.id === scheduled.id, '取消回滚必须把原预约重新写入快照')
-    assert(useToast.getState().message === '取消预约保存失败，原预约已保留', '取消回滚成功必须如实说明原预约已保留')
-    useToast.getState().dismiss()
+    assert(toastStore.getVisible().at(-1)?.message === '取消预约保存失败，原预约已保留', '取消回滚成功必须如实说明原预约已保留')
+    toastStore.dismiss()
 
     saveSnapshot = async (value) => { savedSnapshots.push(structuredClone(value)) }
     button('取消预约').click()
@@ -296,10 +296,10 @@ async function run(): Promise<void> {
     await waitFor(() => !button('确认预约').disabled, '冲突回滚失败后必须退出 busy')
     assert(useStore.getState().scheduledStageRollover === null, '预约 revision conflict 必须恢复内存中的空预约')
     assert(
-      useToast.getState().message === '阶段预约保存与回滚均失败，请重新打开应用核对',
+      toastStore.getVisible().at(-1)?.message === '阶段预约保存与回滚均失败，请重新打开应用核对',
       'revision conflict 导致回滚也失败时必须显示用户可执行的核对提示',
     )
-    useToast.getState().dismiss()
+    toastStore.dismiss()
 
     saveSnapshot = async (value) => { savedSnapshots.push(structuredClone(value)) }
     await flushPersistNow()
@@ -322,7 +322,7 @@ async function run(): Promise<void> {
       savedSnapshots.at(-1)?.liveStages.find((stage) => stage.id === 'stage-current')?.name === '自由命名阶段',
       '重命名回滚必须把旧名称重新写入规范快照',
     )
-    assert(useToast.getState().message === '阶段名称保存失败，原名称已保留', '重命名回滚成功必须如实说明原名称已保留')
+    assert(toastStore.getVisible().at(-1)?.message === '阶段名称保存失败，原名称已保留', '重命名回滚成功必须如实说明原名称已保留')
 
     assert(document.documentElement.scrollWidth <= document.documentElement.clientWidth, '桌面宽度不得产生横向溢出')
   } finally {
@@ -330,7 +330,7 @@ async function run(): Promise<void> {
     storage.saveSnapshot = originalSaveSnapshot
     disablePersistWrites()
     useSaveStatus.getState().reset()
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     useStore.setState(previous)
   }
 }

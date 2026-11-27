@@ -6,7 +6,7 @@ import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { getStorage } from '@/storage/provider'
 import { flushNoteDraftToStore, noteDraftKey, resetNoteDraftsForTests, setNoteDraft } from '@/storage/noteDrafts'
 import { useStore } from '@/store/useStore'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import { WeeklyReviewView } from './WeeklyReviewView'
 
 declare global { interface Window { __weeklyReviewSubmissionTest?: Promise<void> } }
@@ -52,7 +52,7 @@ async function run() {
       storage.saveAsset = async () => { started = true; return gate }
       const source = scenario === 'leave-invalid' ? { ...ready, riskScore: null } : ready
       useStore.setState({ weeklyReviews: [source, history] })
-      useToast.getState().dismiss()
+      toastStore.dismiss()
       let completions = 0
       const unsubscribe = useStore.subscribe((next, previous) => {
         if (next.weeklyReviews !== previous.weeklyReviews && next.weeklyReviews.some(r => r.id === source.id && r.status === 'completed')) completions++
@@ -90,7 +90,7 @@ async function run() {
         if (scenario.startsWith('leave')) {
           if (reviews.find(r => r.id === history.id)?.status !== 'draft') failures.push('历史周状态被修改')
           if (document.querySelector('[data-weekly-section][data-invalid="true"]') || document.activeElement?.closest('[data-weekly-field]')) failures.push('迟到的字段提示或焦点落在另一周')
-          if (useToast.getState().message === '本周复盘已完成，指标已冻结') failures.push('另一周显示了来源周的成功提示')
+          if (toastStore.getVisible().some(item => item.message === '本周复盘已完成，指标已冻结')) failures.push('另一周显示了来源周的成功提示')
         }
         if ((scenario === 'double' || scenario === 'leave-valid') && completions !== 1) failures.push(scenario + ' 完成发布次数 ' + completions)
         if (scenario === 'leave-invalid' && completions !== 0) failures.push('不完整复盘被提交')
@@ -104,7 +104,7 @@ async function run() {
   } finally {
     window.removeEventListener('unhandledrejection', unhandled)
     storage.saveAsset = save
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     useStore.setState(state, true)
   }
   if (failures.length) throw Error(failures.join('、'))

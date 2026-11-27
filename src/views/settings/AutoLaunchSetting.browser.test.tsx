@@ -1,6 +1,6 @@
 import { createRoot, type Root } from 'react-dom/client'
 import type { AutoLaunchState } from '@/types/journalBridge'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
 import { DisplaySettingsPanel } from './DisplaySettingsPanel'
@@ -59,7 +59,7 @@ async function run(): Promise<void> {
         },
       } as unknown as Window['journalBridge'],
     })
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     root = createRoot(rootElement)
     root.render(<DisplaySettingsPanel />)
     await waitFor(
@@ -78,10 +78,10 @@ async function run(): Promise<void> {
     toggle.click()
     await waitFor(() => toggle.getAttribute('aria-checked') === 'true', '开关未采用写入后的系统状态')
     assert(writes.length === 1 && writes[0] === true, '开关未向主进程提交启用设置')
-    assert(useToast.getState().message === '已开启开机自动启动', '成功状态缺少明确回执')
+    assert(toastStore.getVisible().at(-1)?.message === '已开启开机自动启动', '成功状态缺少明确回执')
   } finally {
     root?.unmount()
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     if (originalBridge) {
       Object.defineProperty(window, 'journalBridge', { configurable: true, value: originalBridge })
     } else {

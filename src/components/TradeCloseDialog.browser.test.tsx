@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { DeferredTradeOverlays } from '@/components/DeferredTradeOverlays'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import { resolveTradeTruth, summarizeTradeResults } from '@/lib/tradeTruth'
 
 declare global {
@@ -136,7 +136,7 @@ async function run(): Promise<void> {
     assert(closed?.exit === trade.exit, '平仓不得覆盖历史出场价兼容数据')
 
     const closeActionId = useStore.getState().undoStack.at(-1)?.actionId
-    const oldToastAction = useToast.getState().onAction
+    const oldToastAction = toastStore.getVisible().at(-1)?.onAction
     assert(closeActionId && oldToastAction, '平仓 Toast 必须捕获本次 actionId')
     useStore.getState().updateTradeData(trade.id, { openedAt: '2026-07-16' })
     const laterActionId = useStore.getState().undoStack.at(-1)?.actionId
@@ -232,7 +232,7 @@ async function run(): Promise<void> {
   } finally {
     root.unmount()
     returnFocus.remove()
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     useStore.setState({
       trades: previous.trades,
       closeTradeRequest: previous.closeTradeRequest,

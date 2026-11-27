@@ -1,7 +1,7 @@
 import { discardAllNoteDrafts } from '@/storage/noteDrafts'
 import { snapshotToRuntimeState } from '@/storage/snapshotToRuntimeState'
 import { createDefaultUserProfile } from '@/config/defaultProfile'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
@@ -47,6 +47,6 @@ export function replaceLibraryInStore(snapshot: PersistedSnapshot | null): void 
     riskSetupTradeOpenRequest: null,
   })
   useShortcutStore.setState({ listContext: null, lightbox: null })
-  useToast.getState().dismiss()
+  toastStore.dismiss()
   useSaveStatus.getState().reset()
 }

@@ -19,7 +19,7 @@ import { SCHEMA_VERSION, type PersistedSnapshot } from '@/storage/types'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import { useStore } from '@/store/useStore'
 import { MAX_JSON_FILE_BYTES } from '@/lib/importLimits'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import { downloadExport, downloadWebJournalZip } from '@/lib/importExport'
 import {
   clearWebOperationLogsForTests,
@@ -272,7 +272,7 @@ async function run(): Promise<void> {
     Object.defineProperty(jsonInput, 'files', { configurable: true, value: [oversizedJson] })
     jsonInput.dispatchEvent(new Event('change', { bubbles: true }))
     await waitFor(
-      () => useToast.getState().message?.includes('JSON 备份超过 64 MiB') === true,
+      () => toastStore.getVisible().at(-1)?.message.includes('JSON 备份超过 64 MiB') === true,
       '超限 JSON 必须在真实文件入口显示稳定容量错误',
     )
     assert(oversizedTextReads === 0, '真实 JSON 文件入口必须在调用 file.text() 前拒绝超限输入')

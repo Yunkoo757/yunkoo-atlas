@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { QuickViewBar } from './QuickViewBar'
 import { useStore } from '@/store/useStore'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
 
@@ -131,7 +131,7 @@ async function run() {
       throw new Error('固定状态切换时必须沿用同一枚图标')
     }
     pin(5)
-    if (isPinned('live-5') || !useToast.getState().message?.includes('可先取消固定一个')) throw new Error('第 5 个视图必须有满额反馈')
+    if (isPinned('live-5') || !toastStore.getVisible().at(-1)?.message.includes('可先取消固定一个')) throw new Error('第 5 个视图必须有满额反馈')
     if (store.saveTradeView({ ...live(6), pinned: true }) || isPinned('live-6') !== false) throw new Error('直接保存也必须遵守固定额度，并保留未固定的视图')
     store.togglePinTradeView('live-1')
     pin(5)

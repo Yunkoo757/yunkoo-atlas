@@ -3,7 +3,7 @@ import { chordKey } from '@/shortcuts/chords'
 import type { KeyChord } from '@/shortcuts/types'
 import type { WindowHotkeyState, WindowHotkeyUpdateResult } from '@/lib/windowHotkeyBinding'
 import { useShortcutStore } from '@/store/shortcutStore'
-import { useToast } from '@/lib/toast'
+import { toastStore } from '@/lib/toast'
 import { ShortcutsPanel } from '@/views/settings/ShortcutsPanel'
 
 declare global {
@@ -130,10 +130,10 @@ async function run(): Promise<void> {
         resetWindowHotkey: async () => { throw new Error('unused') },
       } as unknown as Window['journalBridge'],
     })
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     root = await renderPanel(rootElement)
     await eventually(() => screenText().includes('读取失败'), '首次 IPC reject 不得永久停在 loading')
-    assert(useToast.getState().message === '系统快捷键状态读取失败，请重试', '首次 IPC reject 必须 toast')
+    assert(toastStore.getVisible().at(-1)?.message === '系统快捷键状态读取失败，请重试', '首次 IPC reject 必须 toast')
     rejectInitialLoad = false
     clickButton('重试读取')
     await eventually(() => Boolean(document.querySelector('[data-window-hotkey-setting][data-registered="true"]')), '读取失败后必须允许重试成功')
@@ -240,10 +240,10 @@ async function run(): Promise<void> {
         loadingRestores.every((button) => !button.disabled),
       '系统键状态加载完成后普通绑定入口未解锁',
     )
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     await recordOrdinaryChord('新建交易', { key: 'F2' })
     await eventually(
-      () => useToast.getState().message === '快捷键已更新',
+      () => toastStore.getVisible().at(-1)?.message === '快捷键已更新',
       '未注册系统热键不得阻止普通录制',
     )
     assert(
@@ -276,10 +276,10 @@ async function run(): Promise<void> {
     )
 
     useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': null } })
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     await recordOrdinaryChord('备用命令面板', { ctrlKey: true, key: 'k' })
     await eventually(
-      () => useToast.getState().message === '该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键',
+      () => toastStore.getVisible().at(-1)?.message === '该按键已用于显示/隐藏 Trader Atlas，请先修改系统快捷键',
       '普通录制撞系统键时必须给出拒绝原因',
     )
     assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] === null, '普通录制撞系统键时不得修改状态')
@@ -290,14 +290,14 @@ async function run(): Promise<void> {
     )
 
     useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': { alt: true, key: 'x' } } })
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     clickButton('恢复全部默认')
     await eventually(
       () => useShortcutStore.getState().bindings['global.commandPaletteMod'] === undefined,
       '恢复默认必须回到原厂 T，不再与 Ctrl+K 系统键冲突',
     )
     assert(useShortcutStore.getState().bindings['global.commandPalette'] === null, '已用作系统热键的 Ctrl+K 应继续禁用应用内搜索组合键')
-    assert(useToast.getState().message?.includes('因系统快捷键占用') === true, '恢复全部后应说明主搜索按键仍由系统占用')
+    assert(toastStore.getVisible().at(-1)?.message.includes('因系统快捷键占用') === true, '恢复全部后应说明主搜索按键仍由系统占用')
 
     useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': { mod: true, key: 'k' } } })
     const callCountBeforeCancel = calls.length
@@ -313,7 +313,7 @@ async function run(): Promise<void> {
     clickButton('恢复默认')
     await eventually(() => calls.at(-1) === 'ipc:reset', '系统快捷键恢复默认未调用 IPC')
     useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': { mod: true, key: 'k' } } })
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     nextSet = 'failure'
     await recordSystemChord({ ctrlKey: true, key: 'k' })
     await eventually(
@@ -321,13 +321,13 @@ async function run(): Promise<void> {
       '失败场景未识别普通快捷键冲突',
     )
     clickButton('确认覆盖')
-    await eventually(() => useToast.getState().message === '该按键当前无法注册', 'IPC 失败原因未显示')
+    await eventually(() => toastStore.getVisible().at(-1)?.message === '该按键当前无法注册', 'IPC 失败原因未显示')
     assert(useShortcutStore.getState().bindings['global.commandPaletteMod'] !== null, 'IPC 失败绝不能清空普通绑定')
     assert(Boolean(document.querySelector('[data-window-hotkey-setting][data-registered="true"]')), 'IPC 失败后应显示桥接层返回的当前状态')
 
     await eventually(() => !document.querySelector('[role="dialog"]'), '系统键设置失败后确认弹层未关闭')
     useShortcutStore.setState({ bindings: { 'global.newTrade': { key: 'f2' } } })
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     nextReset = 'success'
     const resetCallsBeforeCancel = calls.filter((call) => call === 'ipc:reset').length
     await eventually(() => !!document.querySelector('.window-hotkey-reset'), '需要恢复时应显示恢复默认')
@@ -378,14 +378,14 @@ async function run(): Promise<void> {
 
     await eventually(() => !document.querySelector('[role="dialog"]'), '系统恢复默认成功后弹层未关闭')
     useShortcutStore.setState({ bindings: { 'global.newTrade': { key: 'f2' } } })
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     nextReset = 'failure'
     await eventually(() => !!document.querySelector('.window-hotkey-reset'), '需要恢复时应显示恢复默认')
     clickButton('恢复默认')
     await eventually(() => Boolean(document.querySelector('[role="dialog"]')), '系统恢复默认失败场景未打开确认弹层')
     clickButton('确认覆盖')
     await eventually(
-      () => useToast.getState().message === '默认系统快捷键当前无法注册',
+      () => toastStore.getVisible().at(-1)?.message === '默认系统快捷键当前无法注册',
       '系统恢复默认失败原因未显示',
     )
     assert(
@@ -395,7 +395,7 @@ async function run(): Promise<void> {
 
     await eventually(() => !document.querySelector('[role="dialog"]'), '系统恢复默认失败后弹层未关闭')
     useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': null } })
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     await eventually(
       () => Boolean(document.querySelector('button[aria-label="恢复备用命令面板的默认快捷键"]')),
       '缺少命令面板的单项恢复按钮',
@@ -409,11 +409,11 @@ async function run(): Promise<void> {
       () => useShortcutStore.getState().bindings['global.commandPaletteMod'] === undefined,
       '原厂默认 T 不与当前系统键冲突，单项恢复必须成功',
     )
-    assert(useToast.getState().message === '已恢复默认', '单项恢复成功必须提示已恢复默认')
+    assert(toastStore.getVisible().at(-1)?.message === '已恢复默认', '单项恢复成功必须提示已恢复默认')
   } finally {
     root?.unmount()
     useShortcutStore.setState({ bindings: originalBindings })
-    useToast.getState().dismiss()
+    toastStore.dismiss()
     if (originalBridge) {
       Object.defineProperty(window, 'journalBridge', { configurable: true, value: originalBridge })
     } else {
