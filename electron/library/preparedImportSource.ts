@@ -74,6 +74,7 @@ export async function recoverPreparedImportCommitFailure<TStorage extends Storag
 }
 
 export interface PreparedJournalArchiveStaging {
+  archiveModifiedAt: number
   stagedArchivePath: string
   stagedArchiveSha256: string
   stagedLibraryRoot: string
@@ -94,6 +95,7 @@ export function stagePreparedJournalArchive(
   fsyncFileSync(stagedArchivePath)
   fs.mkdirSync(stagedLibraryRoot)
   return {
+    archiveModifiedAt: sourceStat.mtimeMs,
     stagedArchivePath,
     stagedArchiveSha256: sha256File(stagedArchivePath),
     stagedLibraryRoot,

@@ -76,7 +76,7 @@ export function DataIOContent({
   const [archiveBackingUp, setArchiveBackingUp] = useState(false)
   const [preparedDesktopArchive, setPreparedDesktopArchive] = useState<PreparedJournalImportPreview | null>(null)
   const [archivePreparing, setArchivePreparing] = useState(false)
-  const activePrepareRequestRef = useRef<string | null>(null)
+  const archiveSelectionRef = useRef<string | null>(null)
   const [pendingLibrarySwitch, setPendingLibrarySwitch] = useState<{
     mode: 'open' | 'create'
     picked: string
@@ -92,7 +92,13 @@ export function DataIOContent({
 
   useEffect(() => {
     if (!electron) return
-    void getJournalBridge()?.getLibraryPath().then(setLibraryPath)
+    const bridge = getJournalBridge()
+    void bridge?.getLibraryPath().then(setLibraryPath)
+    return () => {
+      const id = archiveSelectionRef.current
+      archiveSelectionRef.current = null
+      if (id) void bridge?.cancelPreparedJournalImport(id).catch(() => {})
+    }
   }, [electron])
 
   const onSwitchLibrary = async (mode: 'open' | 'create') => {
@@ -167,35 +173,44 @@ export function DataIOContent({
   const onImportZip = async () => {
     if (dataBusy) return
     const prepareRequestId = crypto.randomUUID()
-    activePrepareRequestRef.current = prepareRequestId
+    archiveSelectionRef.current = prepareRequestId
     setArchivePreparing(true)
     try {
       const result = await prepareJournalArchive(prepareRequestId)
+      if (archiveSelectionRef.current !== prepareRequestId) {
+        if (result.ok) await getJournalBridge()?.cancelPreparedJournalImport(result.preview.token)
+        return
+      }
       if (result.ok) {
-        if (activePrepareRequestRef.current === prepareRequestId) setPreparedDesktopArchive(result.preview)
+        archiveSelectionRef.current = result.preview.token
+        setPreparedDesktopArchive(result.preview)
+        setArchivePreparing(false)
       } else if (!result.canceled) {
         toast(userFacingErrorMessage(result.error, '归档检查失败，请重试'), { tone: 'error', persistent: false })
       }
     } catch (err) {
-      toast(userFacingErrorMessage(err, '归档检查失败，请重试'), { tone: 'error', persistent: false })
+      if (archiveSelectionRef.current === prepareRequestId) {
+        toast(userFacingErrorMessage(err, '归档检查失败，请重试'), { tone: 'error', persistent: false })
+      }
     } finally {
-      if (activePrepareRequestRef.current === prepareRequestId) {
-        activePrepareRequestRef.current = null
+      if (archiveSelectionRef.current === prepareRequestId) {
+        archiveSelectionRef.current = null
         setArchivePreparing(false)
       }
     }
   }
 
   const cancelDesktopArchivePreparation = async () => {
-    const requestId = activePrepareRequestRef.current
+    const requestId = archiveSelectionRef.current
     if (!requestId) return
-    activePrepareRequestRef.current = null
+    archiveSelectionRef.current = null
     setArchivePreparing(false)
     await getJournalBridge()?.cancelPreparedJournalImport(requestId)
   }
 
   const cancelPreparedDesktopArchive = async () => {
     const prepared = preparedDesktopArchive
+    archiveSelectionRef.current = null
     setPreparedDesktopArchive(null)
     if (prepared) await getJournalBridge()?.cancelPreparedJournalImport(prepared.token)
   }
@@ -207,6 +222,7 @@ export function DataIOContent({
     try {
       const result = await commitPreparedJournalArchive(prepared.token)
       if (result.ok) {
+        archiveSelectionRef.current = null
         setPreparedDesktopArchive(null)
         setDupGroups(null)
         toast('资料库已恢复', { tone: 'success' })
@@ -214,6 +230,7 @@ export function DataIOContent({
         onDone?.()
       } else {
         if (result.code === 'SOURCE_CHANGED' || result.code === 'TOKEN_EXPIRED') {
+          archiveSelectionRef.current = null
           setPreparedDesktopArchive(null)
         }
         toast(
