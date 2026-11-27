@@ -1,10 +1,8 @@
-import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Editor } from '@/editor/Editor'
 import { NoteLoadRecovery } from '@/components/NoteLoadRecovery'
-import { loadDetailNote } from '@/views/detailNoteLoad'
 import {
   textFromQuickNoteHtml,
   titleFromQuickNoteHtml,
@@ -15,15 +13,11 @@ import { currentLiveStageIdForWrite, useStore } from '@/store/useStore'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { buildQuickNoteRecord, getNextTradeRef } from '@/lib/quickNoteRecordDraft'
 import { acquireQuickNoteConversion, isQuickNoteConverting, isQuickNoteViewOpen, registerQuickNoteConversionView, subscribeQuickNoteConversions } from '@/lib/quickNoteConversion'
-import { getStorage } from '@/storage/bootstrap'
 import { trackPendingStorageOperation } from '@/storage/pendingOperations'
-import { resolveNoteForDisplayResult } from '@/storage/assets'
 import {
   noteDraftKey, type NoteDraftKey,
   clearNoteDraft,
-  flushNoteDraftToStore,
   getNoteDraft,
-  setNoteDraft,
 } from '@/storage/noteDrafts'
 import { Pin, Plus, Trash2 } from '@/icons/appIcons'
 import { PinActionIcon } from '@/icons/StateIcons'
@@ -38,10 +32,10 @@ import { Button } from '@/components/ui/Button'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
 import { toast } from '@/lib/toast'
+import { useDraftNoteEditor } from './useDraftNoteEditor'
 import { withLibrarySession } from './withLibrarySession'
 import './QuickNotesView.css'
 
-const NOTE_IDLE_COMMIT_MS = 500
 const QUICK_NOTE_HISTORY_LIMIT = 50
 
 function formatNoteTime(value: string): string {
@@ -52,6 +46,13 @@ function formatNoteTime(value: string): string {
     return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' }).format(date)
   }
   return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(date)
+}
+
+function reportDraftFailure(key: NoteDraftKey, retry: () => void) {
+  useSaveStatus.getState().setError('随记正文仍保留在本次会话草稿中，尚未写入资料库')
+  toast('随记保存失败，正文仍保留；请重试', {
+    tone: 'error', actionLabel: '重试', onAction: retry, dedupeKey: `quick-note-save:${key}`,
+  })
 }
 
 export const QuickNotesView = withLibrarySession<object>(QuickNotesWorkspace)
@@ -76,15 +77,8 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
   const editorPane = useRef<HTMLElement>(null)
   const navigationIntent = useRef(0)
   const skipFocus = useRef(false)
-  const [editorHtml, setEditorHtml] = useState('')
-  const [loadedNoteId, setLoadedNoteId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null)
-  const [editorReady, setEditorReady] = useState(false)
-  const [loadState, setLoadState] = useState<'idle' | 'loading' | 'ready' | 'readonly' | 'error'>('idle')
-  const [reloadNonce, setReloadNonce] = useState(0)
-  const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const noteHistoriesRef = useRef(new Map<string, string[]>())
-  const editSessionRef = useRef<{ noteId: string; baseline: string; recorded: boolean } | null>(null)
 
   const filteredNotes = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase('zh-CN')
@@ -96,6 +90,10 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
     ))
   }, [notes, query])
   const selectedNote = notes.find((note) => note.id === id) ?? null
+  const key = selectedNote ? noteDraftKey('quickNote', selectedNote.id) : null
+  const { load, html: editorHtml, write, flush: flushDraft, retry } = useDraftNoteEditor(key, selectedNote?.contentHtml ?? '', librarySession, reportDraftFailure)
+  const editorReady = load?.status === 'ready'
+  const editSessionRef = useRef<{ load: typeof load; baseline: string | null } | null>(null)
   const converting = useSyncExternalStore(
     subscribeQuickNoteConversions,
     () => selectedNote ? isQuickNoteConverting(selectedNote.id) : false,
@@ -105,37 +103,12 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
     ? registerQuickNoteConversionView(selectedNote.id)
     : undefined, [selectedNote?.id])
 
-  const reportDraftFailure = useCallback((draftId: NoteDraftKey) => {
-    const retry = () => {
-      if (useStore.getState().librarySession !== librarySession) return
-      void flushNoteDraftToStore(draftId).then((ok) => {
-        if (!ok && useStore.getState().librarySession === librarySession) reportDraftFailure(draftId)
-      })
-    }
-    useSaveStatus.getState().setError('随记正文仍保留在本次会话草稿中，尚未写入资料库')
-    toast('随记保存失败，正文仍保留；请重试', {
-      tone: 'error',
-      actionLabel: '重试',
-      onAction: retry,
-      dedupeKey: `quick-note-save:${draftId}`,
-    })
-  }, [librarySession])
-
-  const flushDraft = useCallback(async (draftId: NoteDraftKey): Promise<boolean> => {
-    if (useStore.getState().librarySession !== librarySession) return false
-    const ok = await flushNoteDraftToStore(draftId)
-    if (useStore.getState().librarySession !== librarySession) return false
-    if (!ok) reportDraftFailure(draftId)
-    return ok
-  }, [reportDraftFailure, librarySession])
-
   useLayoutEffect(() => () => { navigationIntent.current++ }, [id])
 
   const createNote = useCallback(async () => {
     const intent = ++navigationIntent.current
     if (selectedNote) {
-      const draftId = noteDraftKey('quickNote', selectedNote.id)
-      if (!await flushDraft(draftId)) return
+      if (!await flushDraft()) return
     }
     if (intent === navigationIntent.current) createAndOpenQuickNote(navigate, location.pathname)
   }, [flushDraft, location.pathname, navigate, selectedNote])
@@ -145,8 +118,7 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
     const sameNote = selectedNote?.id === noteId
     if (sameNote && !focusFrom) return
     if (selectedNote && !sameNote) {
-      const draftId = noteDraftKey('quickNote', selectedNote.id)
-      if (!await flushDraft(draftId)) return
+      if (!await flushDraft()) return
     }
     if (intent !== navigationIntent.current || (focusFrom && document.activeElement !== focusFrom)) return
     navigate({ pathname: `/notes/${encodeURIComponent(noteId)}`, search: location.search }, {
@@ -205,7 +177,7 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
   }, [editorFocusRequested, location.key])
 
   useLayoutEffect(() => {
-    if (!editorFocusRequested || loadedNoteId !== id) return
+    if (!editorFocusRequested || !load) return
     const pane = editorPane.current
     if (!pane) return
     const focusWhenReady = () => {
@@ -222,89 +194,30 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
     observer.observe(pane, { childList: true, subtree: true })
     focusWhenReady()
     return () => observer.disconnect()
-  }, [editorFocusRequested, editorReady, id, loadedNoteId, location.pathname, location.search, location.state, navigate])
-
-  useEffect(() => {
-    setEditorReady(false)
-    setLoadState(selectedNote ? 'loading' : 'idle')
-    setEditorHtml('')
-    editSessionRef.current = null
-    setLoadedNoteId(null)
-    if (!selectedNote) return
-    const draftId = noteDraftKey('quickNote', selectedNote.id)
-    let cancelled = false
-    const imageScope = new AssetObjectUrlScope()
-    const source = getNoteDraft(draftId) ?? selectedNote.contentHtml
-    void loadDetailNote(source, html => resolveNoteForDisplayResult(html, getStorage(), imageScope)).then(result => {
-      if (cancelled) return
-      const ready = result.status === 'ready'
-      const html = ready ? result.html : result.fallbackHtml
-      setEditorHtml(html)
-      editSessionRef.current = { noteId: selectedNote.id, baseline: html, recorded: false }
-      setEditorReady(ready)
-      setLoadState(ready ? 'ready' : result.reason === 'incomplete' ? 'readonly' : 'error')
-      setLoadedNoteId(selectedNote.id)
-    })
-    return () => {
-      cancelled = true
-      imageScope.release()
-    }
-  }, [reloadNonce, selectedNote?.id])
-
-  useEffect(() => {
-    if (!selectedNote) return
-    const draftId = noteDraftKey('quickNote', selectedNote.id)
-    return () => {
-      if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
-      noteTimerRef.current = null
-      void flushDraft(draftId)
-    }
-  }, [flushDraft, selectedNote?.id])
+  }, [editorFocusRequested, editorReady, id, load, location.pathname, location.search, location.state, navigate])
 
   const onEditorChange = useCallback((html: string) => {
-    if (!selectedNote || !editorReady) return
+    if (!selectedNote || load?.status !== 'ready' || !write(html)) return
     const session = editSessionRef.current
-    if (
-      session?.noteId === selectedNote.id &&
-      !session.recorded &&
-      html !== session.baseline
-    ) {
-      const history = noteHistoriesRef.current.get(selectedNote.id) ?? []
-      if (history.at(-1) !== session.baseline) history.push(session.baseline)
-      if (history.length > QUICK_NOTE_HISTORY_LIMIT) history.shift()
-      noteHistoriesRef.current.set(selectedNote.id, history)
-      session.recorded = true
-    }
-    setEditorHtml(html)
-    useSaveStatus.getState().setDirty()
-    const draftId = noteDraftKey('quickNote', selectedNote.id)
-    setNoteDraft(draftId, html)
-    if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
-    noteTimerRef.current = setTimeout(() => {
-      noteTimerRef.current = null
-      void flushDraft(draftId)
-    }, NOTE_IDLE_COMMIT_MS)
-  }, [editorReady, flushDraft, selectedNote])
+    const baseline = session?.load === load ? session.baseline : load.html
+    if (baseline === null || baseline === html) return
+    const history = noteHistoriesRef.current.get(selectedNote.id) ?? []
+    if (history.at(-1) !== baseline) history.push(baseline)
+    if (history.length > QUICK_NOTE_HISTORY_LIMIT) history.shift()
+    noteHistoriesRef.current.set(selectedNote.id, history)
+    editSessionRef.current = { load, baseline: null }
+  }, [selectedNote, load, write])
 
   const onEditorHistoryFallback = useCallback((currentHtml: string): string | null => {
-    if (!selectedNote || loadedNoteId !== selectedNote.id) return null
+    if (!selectedNote || load?.status !== 'ready') return null
     const history = noteHistoriesRef.current.get(selectedNote.id)
     if (!history) return null
     while (history.at(-1) === currentHtml) history.pop()
     const restored = history.pop()
-    if (restored === undefined) return null
-
-    setEditorHtml(restored)
-    editSessionRef.current = { noteId: selectedNote.id, baseline: restored, recorded: false }
-    const draftId = noteDraftKey('quickNote', selectedNote.id)
-    setNoteDraft(draftId, restored)
-    if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
-    noteTimerRef.current = setTimeout(() => {
-      noteTimerRef.current = null
-      void flushDraft(draftId)
-    }, NOTE_IDLE_COMMIT_MS)
+    if (restored === undefined || !write(restored)) return null
+    editSessionRef.current = { load, baseline: restored }
     return restored
-  }, [flushDraft, loadedNoteId, selectedNote])
+  }, [selectedNote, load, write])
 
   const confirmDelete = () => {
     if (!deleteTarget) return
@@ -333,8 +246,7 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
     const operation = (async () => {
       let succeeded = false
       try {
-        const draftId = noteDraftKey('quickNote', selectedNote.id)
-        if (!await flushDraft(draftId)) return
+        if (!await flushDraft()) return
         const store = useStore.getState()
         if (store.librarySession !== librarySession) return
         const latest = store.quickNotes.find((note) => note.id === selectedNote.id)
@@ -468,7 +380,7 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
                       size="sm"
                       variant="ghost"
                       data-note-convert-live
-                      disabled={converting || loadState === 'loading'}
+                      disabled={converting || !load}
                       onClick={() => void convertNote('live')}
                     >
                       转为交易
@@ -477,7 +389,7 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
                       size="sm"
                       variant="ghost"
                       data-note-convert-case
-                      disabled={converting || loadState === 'loading'}
+                      disabled={converting || !load}
                       onClick={() => void convertNote('case')}
                     >
                       转为案例
@@ -486,13 +398,13 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
                 </details>
               </div>
               <div className="quick-notes-editor-body">
-                {loadState === 'loading' ? (
+                {!load ? (
                   <InlineStatus tone="progress" title="正在载入随记" />
                 ) : null}
-                {loadedNoteId === selectedNote.id && (loadState === 'error' || loadState === 'readonly') && (
-                  <NoteLoadRecovery missingImages={loadState === 'readonly'} onRetry={() => setReloadNonce(value => value + 1)} />
+                {load?.status === 'error' && (
+                  <NoteLoadRecovery missingImages={load.reason === 'incomplete'} onRetry={retry} />
                 )}
-                {loadedNoteId === selectedNote.id ? (
+                {load ? (
                   <Editor
                     key={selectedNote.id}
                     content={editorHtml}

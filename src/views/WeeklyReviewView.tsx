@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/Button'
 import { PerformanceDataNotice } from '@/components/PerformanceDataNotice'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { PopoverSurface } from '@/components/ui/PopoverSurface'
-import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { DisclosureIcon } from '@/icons/StateIcons'
 import { lazy, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
@@ -18,7 +17,6 @@ import {
 } from 'react-router-dom'
 import { Editor } from '@/editor/Editor'
 import { NoteLoadRecovery } from '@/components/NoteLoadRecovery'
-import { loadDetailNote } from '@/views/detailNoteLoad'
 import {
   Check,
   ChevronLeft,
@@ -71,14 +69,7 @@ import {
 } from '@/lib/tradeRoute'
 import { getWeeklyRiskStatus } from '@/lib/weeklyRiskPresentation'
 import { WeeklyRiskEvidence } from '@/views/WeeklyRiskEvidence'
-import { resolveNoteForDisplayResult } from '@/storage/assets'
-import { getStorage } from '@/storage/bootstrap'
-import {
-  noteDraftKey, type NoteDraftKey,
-  flushNoteDraftToStore,
-  getNoteDraft,
-  setNoteDraft,
-} from '@/storage/noteDrafts'
+import { noteDraftKey } from '@/storage/noteDrafts'
 import { useStore } from '@/store/useStore'
 import { useSaveStatus } from '@/store/saveStatus'
 import { parseTradeWorkspaceQuery } from '@/lib/tradeWorkspaceQuery'
@@ -93,15 +84,12 @@ import {
   getWeeklyVisualIssues,
   type WeeklyVisualIssue,
 } from '@/lib/weeklyReviewVisualState'
+import { useDraftNoteEditor } from './useDraftNoteEditor'
 import { withLibrarySession } from './withLibrarySession'
 import './WeeklyReviewView.css'
 
-async function flushWeeklyDraft(draftId: NoteDraftKey, librarySession: number): Promise<boolean> {
-  if (useStore.getState().librarySession !== librarySession) return false
-  const saved = await flushNoteDraftToStore(draftId)
-  if (useStore.getState().librarySession !== librarySession) return false
-  if (!saved) useSaveStatus.getState().setError('周复盘正文仍保留在本次会话，可重试保存')
-  return saved
+function reportWeeklyDraftFailure() {
+  useSaveStatus.getState().setError('周复盘正文仍保留在本次会话，可重试保存')
 }
 
 const WeeklyReviewScoreChart = lazy(() =>
@@ -354,7 +342,6 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
     [routeReviews, availableWeeks, currentWeek, location.search, returnRequest?.restoreSearch, selectedReviewStageId],
   )
   const { selectedWeek, selectedReviewId, tab } = routeResolution.state
-  const [editorHtml, setEditorHtml] = useState('')
   const [showAllEvidence, setShowAllEvidence] = useState(Boolean(returnRequest))
   const mainContentRef = useRef<HTMLElement>(null)
   const historyPickerRef = useRef<HTMLDetailsElement>(null)
@@ -403,9 +390,6 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
   useEffect(() => setTrendLiveStageId(allStages ? undefined : selectedReviewStageId), [allStages, selectedReviewStageId])
   const [visualIssues, setVisualIssues] = useState<WeeklyVisualIssue[]>([])
   const pendingIssueFocusRef = useRef<WeeklyVisualIssue | null>(null)
-  const [noteLoad, setNoteLoad] = useState<{ id: string; status: 'ready' | 'missing' | 'error' } | null>(null)
-  const [loadAttempt, setLoadAttempt] = useState(0)
-  const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const routeIntentGenerationRef = useRef(0)
   const dataRouterContext = useContext(UNSAFE_DataRouterContext)
   const navigationContext = useContext(UNSAFE_NavigationContext)
@@ -655,44 +639,14 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
   }, [reviewLiveStageId, selectedWeek, updateReview, upsertReview])
 
   const draftId = noteDraftKey('weeklyReview', review.id)
-  useEffect(() => {
-    setNoteLoad(null)
-    let cancelled = false
-    const imageScope = new AssetObjectUrlScope()
-    const source = getNoteDraft(draftId) ?? review.contentHtml
-    void loadDetailNote(source, html => resolveNoteForDisplayResult(html, getStorage(), imageScope)).then(result => {
-      if (cancelled) return
-      setEditorHtml(result.status === 'ready' ? result.html : result.fallbackHtml)
-      setNoteLoad({ id: review.id, status: result.status === 'ready' ? 'ready' : result.reason === 'incomplete' ? 'missing' : 'error' })
-    })
-    return () => {
-      cancelled = true
-      imageScope.release()
-    }
-  }, [review.id, loadAttempt])
-
-  useEffect(() => () => {
-    if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
-    noteTimerRef.current = null
-    void flushWeeklyDraft(draftId, librarySession)
-  }, [draftId, librarySession])
-
-  const visibleNoteStatus = noteLoad?.id === review.id ? noteLoad.status : 'loading'
+  const { load, html: editorHtml, write, flush: flushDraft, retry } = useDraftNoteEditor(draftId, review.contentHtml, librarySession, reportWeeklyDraftFailure)
   const onEditorChange = useCallback((html: string) => {
-    if (visibleNoteStatus !== 'ready') return
-    setEditorHtml(html)
-    useSaveStatus.getState().setDirty()
+    if (!write(html)) return
     const existing = useStore.getState().weeklyReviews.find((item) =>
       item.weekStart === selectedWeek && item.liveStageId === reviewLiveStageId,
     )
     if (!existing) upsertReview(createWeeklyReview(selectedWeek, reviewLiveStageId))
-    setNoteDraft(noteDraftKey('weeklyReview', review.id), html)
-    if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
-    noteTimerRef.current = setTimeout(() => {
-      noteTimerRef.current = null
-      void flushWeeklyDraft(noteDraftKey('weeklyReview', review.id), librarySession)
-    }, 500)
-  }, [review.id, reviewLiveStageId, selectedWeek, upsertReview, visibleNoteStatus, librarySession])
+  }, [reviewLiveStageId, selectedWeek, upsertReview, write])
 
   const replaceRouteState = useCallback((
     nextWeek: string,
@@ -751,7 +705,7 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
       item.week === selectedWeek &&
       item.liveStageId === reviewLiveStageId
     ) { closeHistoryPicker(); return }
-    const draftSaved = await flushWeeklyDraft(draftId, librarySession)
+    const draftSaved = await flushDraft()
     if (useStore.getState().librarySession !== librarySession || intentGeneration !== routeIntentGenerationRef.current) return
     if (!draftSaved) {
       toast('正文尚未保存，请重试', { tone: 'error' })
@@ -775,7 +729,7 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
   }
 
   const completeReview = async () => {
-    const draftSaved = await flushWeeklyDraft(draftId, librarySession)
+    const draftSaved = await flushDraft()
     if (useStore.getState().librarySession !== librarySession) return
     const latest = useStore.getState().weeklyReviews.find((item) =>
       item.weekStart === selectedWeek && item.liveStageId === reviewLiveStageId,
@@ -946,17 +900,17 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
                 <div className="wr-writing">
                   <section data-weekly-section="judgment" aria-label="本周判断">
                     <div className="wr-editor-wrap" data-weekly-field="review-content" data-invalid={sectionHasIssue('judgment')}>
-                      {visibleNoteStatus === 'loading' ? <InlineStatus tone="progress" title="正在载入周复盘" compact /> : <>
-                        {visibleNoteStatus !== 'ready' && <NoteLoadRecovery
-                          missingImages={visibleNoteStatus === 'missing'}
-                          onRetry={() => setLoadAttempt(value => value + 1)}
+                      {!load ? <InlineStatus tone="progress" title="正在载入周复盘" compact /> : <>
+                        {load.status === 'error' && <NoteLoadRecovery
+                          missingImages={load.reason === 'incomplete'}
+                          onRetry={retry}
                         />}
                         <Editor
                           key={review.id}
                           content={editorHtml}
                           onChange={onEditorChange}
                           noteDraftId={storedReview ? draftId : undefined}
-                          readOnly={visibleNoteStatus !== 'ready'}
+                          readOnly={load.status !== 'ready'}
                           ariaLabel="周复盘正文"
                           placeholder="写下本周判断，或粘贴截图…"
                         />
