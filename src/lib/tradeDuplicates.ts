@@ -1,3 +1,4 @@
+import { sha256Hex } from '@/lib/sha256'
 import { base64ToBytes } from '@/lib/base64'
 import type { Trade } from '@/data/trades'
 import { parseAssetId, ASSET_URL_PREFIX } from '@/storage/assets'
@@ -75,14 +76,6 @@ export function hashUtf8(text: string): string {
     h = Math.imul(h, 16777619)
   }
   return (h >>> 0).toString(16).padStart(8, '0')
-}
-
-export async function hashBytes(data: ArrayBuffer | Uint8Array): Promise<string> {
-  const view = data instanceof Uint8Array ? data : new Uint8Array(data)
-  const copy = new Uint8Array(view.byteLength)
-  copy.set(view)
-  const digest = await crypto.subtle.digest('SHA-256', copy)
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 export function noteContentFingerprint(html: string | null | undefined): {
@@ -268,7 +261,7 @@ export async function hashImageFiles(
 ): Promise<string[]> {
   const hashes: string[] = []
   for (const file of files) {
-    hashes.push(await hashBytes(file.data))
+    hashes.push(await sha256Hex(file.data))
   }
   return hashes
 }
@@ -285,7 +278,7 @@ export async function signatureFromTradeNoteAssets(
     const data = await loadAssetBase64(id)
     if (shouldContinue && !shouldContinue()) throw new Error('Duplicate scan cancelled')
     if (!data) continue
-    hashes.push(await hashBytes(base64ToBytes(data)))
+    hashes.push(await sha256Hex(base64ToBytes(data)))
   }
   return buildContentSignature(trade.note, hashes)
 }

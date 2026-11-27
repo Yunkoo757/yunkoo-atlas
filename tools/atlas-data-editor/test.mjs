@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import os from 'node:os'
 import { pathToFileURL } from 'node:url'
@@ -197,11 +198,21 @@ try{
  await page.waitForFunction(()=>!document.querySelector('#export').disabled)
  assert.match(await page.locator('#message').innerText(),/数据库回读与本次导出不一致/)
  assert.equal(await page.evaluate(()=>window.testOutput.has('manifest.json')),false)
+ // Reopening an incomplete directory must not misattribute another valid snapshot to these edits.
+ await page.evaluate(()=>{window.testReadOutput=true})
+ await page.locator('#open').click()
+ await page.locator('#confirm').click()
+ await page.waitForFunction(()=>!document.querySelector('#open').disabled)
+ assert.match(await page.locator('#message').innerText(),/恢复记录与数据库不匹配/)
+ assert.match(await page.locator('#source').innerText(),/测试源/)
+ await page.evaluate(()=>{window.testReadOutput=false})
  await page.evaluate(()=>{window.testSubstituteDb=null;window.testOutput.clear()})
  await page.locator('#export').click();await page.waitForFunction(()=>document.querySelector('#message').textContent.includes('导出完成：'))
  await page.locator('#export').click();await page.waitForFunction(()=>document.querySelector('#message').textContent.includes('导出目录必须为空'))
  const result=await page.evaluate(()=>Object.fromEntries([...window.testOutput].map(([k,v])=>[k,Array.from(v)])))
  for(const [key,bytes]of Object.entries(result)){const target=path.join(out,'export',key);await fs.mkdir(path.dirname(target),{recursive:true});await fs.writeFile(target,new Uint8Array(bytes))}
+ const recovery=JSON.parse(Buffer.from(result['editor-export-state.json']).toString('utf8'))
+ assert.equal(recovery.databaseSha256,createHash('sha256').update(Buffer.from(result['journal.db'])).digest('hex'))
  const reopened=new SQL.Database(new Uint8Array(result['journal.db']));validate(decode(JSON.parse(reopened.exec("SELECT value FROM meta WHERE key='snapshot'")[0].values[0][0]),SCHEMA_VERSION));reopened.close()
  assert.deepEqual(Buffer.from(result['attachments/fixture.png']),png)
  await build({configFile:false,resolve:{alias:{'@':path.resolve('src')}},build:{ssr:path.resolve('electron/library/storage.ts'),outDir:path.join(out,'desktop-reader'),emptyOutDir:false,rollupOptions:{output:{entryFileNames:'storage.mjs'}}}})
@@ -236,6 +247,25 @@ try{
  await page.evaluate(()=>window.testOutput.set('attachments/fixture.png',window.testSource.get('attachments/fixture.png')))
  await page.locator('#check').click()
  await page.waitForFunction(()=>document.querySelector('#message').textContent.includes('校验通过'))
+
+ // Native createWritable can leave an empty manifest; older recovery records have no digest.
+ for(const legacy of [false,true]){
+   await page.evaluate(legacy=>{
+     if (legacy) {
+       window.testOutput.delete('manifest.json')
+       const record=JSON.parse(new TextDecoder().decode(window.testOutput.get('editor-export-state.json')))
+       delete record.databaseSha256
+       window.testOutput.set('editor-export-state.json',new TextEncoder().encode(JSON.stringify(record)))
+     } else {
+       window.testOutput.set('manifest.json',new Uint8Array())
+     }
+   },legacy)
+   await page.locator('#open').click()
+   await page.waitForFunction(()=>!document.querySelector('#open').disabled)
+   assert.match(await page.locator('#message').innerText(),/已打开/)
+   await page.locator('#check').click()
+   await page.waitForFunction(()=>document.querySelector('#message').textContent.includes('校验通过'))
+ }
 
  // Exercise the shipped picker flow with Chromium's real directory and writable handles.
  const fsPage=await browser.newPage()

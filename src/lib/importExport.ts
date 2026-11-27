@@ -1,3 +1,4 @@
+import { sha256Hex } from '@/lib/sha256'
 import type { PersistencePause } from '@/storage/persistenceController'
 import { collectRetiredSnapshotAssetIds, stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
 import { DEFAULT_STRATEGIES, type Strategy } from '@/data/strategies'
@@ -875,8 +876,7 @@ function buildImportSnapshot(
 
 async function sha256CanonicalImportPayload(payload: ExportPayload): Promise<string> {
   const bytes = new TextEncoder().encode(canonicalImportValue(payload))
-  const digest = await crypto.subtle.digest('SHA-256', bytes)
-  return `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')}`
+  return `sha256:${await sha256Hex(bytes)}`
 }
 
 export async function applyImport(payload: ExportPayload): Promise<{ summary: string }> {

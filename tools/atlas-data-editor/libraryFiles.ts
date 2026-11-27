@@ -1,3 +1,4 @@
+import { sha256Hex } from '../../src/lib/sha256'
 import type { Database, SqlJsStatic } from 'sql.js'
 import { CREATE_LIBRARY_TABLES_SQL, isPortableAssetFileName, resolveSnapshotVersion, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import type { LibraryManifest } from '../../src/storage/types'
@@ -24,17 +25,21 @@ async function readBytes(directory: FileSystemDirectoryHandle, name: string) {
   return new Uint8Array(await (await handle.getFile()).arrayBuffer())
 }
 
-async function readManifestVersion(directory: FileSystemDirectoryHandle): Promise<number> {
-  let bytes
+async function readManifestVersion(directory: FileSystemDirectoryHandle, databaseBytes: Uint8Array): Promise<number> {
+  let manifestBytes: Uint8Array | undefined
   try {
-    bytes = await readBytes(directory, 'manifest.json')
+    manifestBytes = await readBytes(directory, 'manifest.json')
   } catch (error) {
     if (!(error instanceof DOMException && error.name === 'NotFoundError')) throw error
-    const recovery = JSON.parse(new TextDecoder().decode(await readBytes(directory, recoveryFile)))
-    if (recovery.format !== recoveryFormat) throw new Error('未找到有效的导出恢复记录')
-    return Number(recovery.manifest.schemaVersion)
   }
-  return Number(JSON.parse(new TextDecoder().decode(bytes)).schemaVersion)
+  // A failed first write may leave a zero-length handle for the final manifest.
+  if (manifestBytes?.length) return Number(JSON.parse(new TextDecoder().decode(manifestBytes)).schemaVersion)
+  const recovery = JSON.parse(new TextDecoder().decode(await readBytes(directory, recoveryFile)))
+  if (recovery.format !== recoveryFormat) throw new Error('未找到有效的导出恢复记录')
+  if ('databaseSha256' in recovery && recovery.databaseSha256 !== await sha256Hex(databaseBytes)) {
+    throw new Error('导出恢复记录与数据库不匹配，请保留本页修改并另选空目录重试。')
+  }
+  return Number(recovery.manifest.schemaVersion)
 }
 
 function readSnapshot(db: Database, manifestVersion: number): EditorSnapshot {
@@ -48,9 +53,11 @@ function readSnapshot(db: Database, manifestVersion: number): EditorSnapshot {
 }
 
 export async function openEditorLibrary(sql: SqlJsStatic, directory: FileSystemDirectoryHandle) {
-  const db = new sql.Database(await readBytes(directory, 'journal.db'))
+  const bytes = await readBytes(directory, 'journal.db')
+  const manifestVersion = await readManifestVersion(directory, bytes)
+  const db = new sql.Database(bytes)
   try {
-    const snapshot = readSnapshot(db, await readManifestVersion(directory))
+    const snapshot = readSnapshot(db, manifestVersion)
     const assets: EditorAsset[] = []
     const statement = db.prepare('SELECT * FROM assets')
     while (statement.step()) {
@@ -149,11 +156,13 @@ export async function exportEditorLibrary(
   let phase = '保存编辑副本'
   let copied = 0
   let recoveryHandle: FileSystemFileHandle | undefined
+  let databaseSha256: string
   const state = () => JSON.stringify({
-    format: recoveryFormat, status: 'incomplete', phase, copiedAssets: copied, totalAssets: source.assets.length, manifest,
+    format: recoveryFormat, status: 'incomplete', phase, copiedAssets: copied, totalAssets: source.assets.length, manifest, databaseSha256,
   }, null, 2)
   try {
     const bytes = encodeDatabase(sql, snapshot, source.assets)
+    databaseSha256 = await sha256Hex(bytes)
     await requireEmptyDestination()
     recoveryHandle = await writeNewFile(destination, recoveryFile, state())
     // sql.js exports a standalone Uint8Array from its in-memory filesystem.
