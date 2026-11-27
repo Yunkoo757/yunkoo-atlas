@@ -1,15 +1,17 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
+import { useContext, useLayoutEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
-  createMemoryRouter,
+  HashRouter,
+  UNSAFE_NavigationContext,
   Link,
-  MemoryRouter,
   Route,
-  RouterProvider,
   Routes,
   useLocation,
   useNavigate,
   useNavigationType,
 } from 'react-router-dom'
+import { NavigationIntentBoundary } from '@/hooks/useNavigationIntent'
 import type { Trade } from '@/data/trades'
 import type { RiskOverrideEvent, RiskPeriodOutcomeSnapshot } from '@/data/riskManagement'
 import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
@@ -322,6 +324,13 @@ function clickLink(label: string): HTMLAnchorElement {
   return link
 }
 
+// 这个历史对象属于测试路由。页面即使拿到只读实例也必须能完成导航。
+function ReadonlyHistoryProbe() {
+  const { navigator } = useContext(UNSAFE_NavigationContext)
+  useLayoutEffect(() => { Object.freeze(navigator) }, [navigator])
+  return null
+}
+
 function RouteProbe() {
   const location = useLocation()
   const navigationType = useNavigationType()
@@ -502,12 +511,12 @@ async function run(): Promise<void> {
       riskOverrideEvents: [riskEvent(), resolvedRiskEvent()],
     }))
     root.render(
-      <MemoryRouter initialEntries={['/weekly-review']}>
+      <MemoryAppRouter initialEntries={['/weekly-review']}>
         <Routes>
           <Route path="/weekly-review" element={<><WeeklyReviewView /><StoreRenderSentinel /><RouteProbe /></>} />
           <Route path="/trade/:id" element={<DetailFixture />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
 
     await waitFor(() => document.body.textContent?.includes('+$100') ?? false, '自动周指标未按平仓交易计算')
@@ -974,14 +983,14 @@ async function run(): Promise<void> {
     await waitFor(() => !document.body.textContent?.includes('上一周真实复盘'), '返回本周后仍显示历史正文')
     assert(!pageErrors.some((message) => message.includes('removeChild')), '切换周次触发了 removeChild 页面异常')
     root.render(
-      <MemoryRouter
+      <MemoryAppRouter
         key="restored-weekly-route"
         initialEntries={[`/weekly-review?week=${priorReview.weekStart}&tab=year&visual=mobile`]}
       >
         <Routes>
           <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /></>} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => Boolean(document.querySelector('#weekly-review-panel-year')),
@@ -1019,12 +1028,12 @@ async function run(): Promise<void> {
     }))
     const sameWeekHistoricalSearch = `?review=${encodeURIComponent(sameWeekHistoricalReview.id)}`
     root.render(
-      <MemoryRouter key="same-week-history-route" initialEntries={[`/weekly-review${sameWeekHistoricalSearch}`]}>
+      <MemoryAppRouter key="same-week-history-route" initialEntries={[`/weekly-review${sameWeekHistoricalSearch}`]}>
         <Routes>
           <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /></>} />
           <Route path="/trade/:id" element={<DetailFixture />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(() => document.body.textContent?.includes('同周历史阶段正文') ?? false, '同周历史阶段深链没有打开对应正文')
     assert(
@@ -1054,11 +1063,11 @@ async function run(): Promise<void> {
       '当前周当前阶段必须回到紧凑默认地址',
     )
     root.render(
-      <MemoryRouter key="same-week-history-refresh" initialEntries={[`/weekly-review${sameWeekHistoricalSearch}`]}>
+      <MemoryAppRouter key="same-week-history-refresh" initialEntries={[`/weekly-review${sameWeekHistoricalSearch}`]}>
         <Routes>
           <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /></>} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(() => document.body.textContent?.includes('同周历史阶段正文') ?? false, '刷新同周历史深链后正文发生漂移')
 
@@ -1068,14 +1077,14 @@ async function run(): Promise<void> {
       weeklyReviews: [completed],
     }))
     root.render(
-      <MemoryRouter
+      <MemoryAppRouter
         key="invalid-weekly-route"
         initialEntries={['/weekly-review?week=2026-07-22&tab=unknown&visual=mobile']}
       >
         <Routes>
           <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /></>} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => document.querySelector('[data-testid="weekly-route-probe"]')
@@ -1130,7 +1139,7 @@ async function run(): Promise<void> {
       '缺少风控快照时不得伪造历史风控数据',
     )
     root.render(
-      <MemoryRouter
+      <MemoryAppRouter
         key="missing-weekly-anchor"
         initialEntries={[{
           pathname: '/weekly-review',
@@ -1140,7 +1149,7 @@ async function run(): Promise<void> {
         <Routes>
           <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /><ToastHost /></>} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => document.body.textContent?.includes('原交易已不在当前复盘证据中') ?? false,
@@ -1160,7 +1169,7 @@ async function run(): Promise<void> {
     focusedRestoreStarts.length = 0
     focusedRestoreMissing.length = 0
     root.render(
-      <MemoryRouter
+      <MemoryAppRouter
         key="weekly-anchor-race"
         initialEntries={[{
           pathname: '/weekly-anchor-race',
@@ -1171,7 +1180,7 @@ async function run(): Promise<void> {
         <Routes>
           <Route path="/weekly-anchor-race" element={<ReturnAnchorRaceFixture />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => focusedRestoreStarts.join('|') === 'weekly-trade:race-a',
@@ -1198,7 +1207,7 @@ async function run(): Promise<void> {
     focusedRestoreStarts.length = 0
     focusedRestoreMissing.length = 0
     root.render(
-      <MemoryRouter
+      <MemoryAppRouter
         key="weekly-hidden-anchor"
         initialEntries={[{
           pathname: '/weekly-hidden-anchor',
@@ -1208,7 +1217,7 @@ async function run(): Promise<void> {
         <Routes>
           <Route path="/weekly-hidden-anchor" element={<HiddenReturnAnchorFixture />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => focusedRestoreMissing.includes('weekly-risk:hidden-event'),
@@ -1230,7 +1239,7 @@ async function run(): Promise<void> {
     focusedRestoreStarts.length = 0
     focusedRestoreMissing.length = 0
     root.render(
-      <MemoryRouter
+      <MemoryAppRouter
         key="board-card-return-anchor"
         initialEntries={[{
           pathname: '/board-return-anchor',
@@ -1240,7 +1249,7 @@ async function run(): Promise<void> {
         <Routes>
           <Route path="/board-return-anchor" element={<BoardCardReturnAnchorFixture />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => document.querySelector('[data-trade-id="board-card:return-target"]') !== null,
@@ -1259,7 +1268,7 @@ async function run(): Promise<void> {
     focusedRestoreStarts.length = 0
     focusedRestoreMissing.length = 0
     root.render(
-      <MemoryRouter
+      <MemoryAppRouter
         key="return-anchor-navigation"
         initialEntries={[{
           pathname: '/return-anchor-navigation',
@@ -1271,7 +1280,7 @@ async function run(): Promise<void> {
           <Route path="/return-anchor-navigation" element={<ReturnAnchorNavigationFixture />} />
           <Route path="/return-anchor-detail" element={<ReturnAnchorNavigationDetailFixture />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => focusedRestoreStarts.join('|') === 'weekly-trade:race-a',
@@ -1309,12 +1318,12 @@ async function run(): Promise<void> {
     currentDateControl = installCurrentDate(rolloverBoundary - 10_000)
     useStore.setState({ trades: [rolloverTrade], weeklyReviews: [] })
     root.render(
-      <MemoryRouter key="weekly-current-rollover" initialEntries={['/weekly-review']}>
+      <MemoryAppRouter key="weekly-current-rollover" initialEntries={['/weekly-review']}>
         <Routes>
           <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /><ToastHost /></>} />
           <Route path="/trade/:id" element={<DetailFixture />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => document.querySelector('[data-trade-id="weekly-trade:rollover-source"]') !== null,
@@ -1353,12 +1362,12 @@ async function run(): Promise<void> {
     currentDateControl = installCurrentDate(rolloverBoundary - 10_000)
     useStore.setState({ trades: [rolloverTrade], weeklyReviews: [] })
     root.render(
-      <MemoryRouter key="weekly-current-rollover-browser-back" initialEntries={['/weekly-review']}>
+      <MemoryAppRouter key="weekly-current-rollover-browser-back" initialEntries={['/weekly-review']}>
         <Routes>
           <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /><ToastHost /></>} />
           <Route path="/trade/:id" element={<DetailFixture />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => (
@@ -1392,7 +1401,7 @@ async function run(): Promise<void> {
     }
     useStore.setState({ trades: [disappearingTrade], weeklyReviews: [] })
     root.render(
-      <MemoryRouter
+      <MemoryAppRouter
         key="weekly-disappearing-activity"
         initialEntries={[`/weekly-review?week=${disappearingWeek}`]}
       >
@@ -1400,7 +1409,7 @@ async function run(): Promise<void> {
           <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /><ToastHost /></>} />
           <Route path="/trade/:id" element={<DetailFixture />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => document.querySelector('[data-trade-id="weekly-trade:disappearing-activity"]') !== null,
@@ -1432,14 +1441,14 @@ async function run(): Promise<void> {
     assert(useStore.getState().weeklyReviews.length === 0, '为保留返回周次不得创建周复盘实体')
 
     root.render(
-      <MemoryRouter
+      <MemoryAppRouter
         key="weekly-disappearing-direct-link"
         initialEntries={[`/weekly-review?week=${disappearingWeek}`]}
       >
         <Routes>
           <Route path="/weekly-review" element={<><WeeklyReviewView /><RouteProbe /></>} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => document.querySelector('[data-testid="weekly-route-probe"]')
@@ -1464,6 +1473,30 @@ async function run(): Promise<void> {
     const currentDraftId = noteDraftKey('weeklyReview', `weekly-review:${useStore.getState().currentLiveStageId}:${activeWeekStart}`)
 
     useStore.setState({ trades: [], weeklyReviews: makeIntentReviews() })
+    // 原生 navigate 事件记录每一次历史写入，即便 React 从未提交过中间页面。
+    function renderWeeklyHistory(key: string, previousPath?: string) {
+      if (previousPath) {
+        window.history.replaceState({ idx: 0, key: key + '-previous' }, '', '#' + previousPath)
+        window.history.pushState({ idx: 1, key }, '', '#/weekly-review')
+      } else {
+        window.history.replaceState({ idx: 0, key }, '', '#/weekly-review')
+      }
+      const changes = (window as Window & { navigation?: EventTarget }).navigation
+      assert(changes, '浏览器缺少导航写入观察接口')
+      const writes: string[] = []
+      const onNavigate = (event: Event) => {
+        const { destination } = event as Event & { destination: { url: string } }
+        const route = new URL(destination.url).hash.slice(1)
+        writes.push(new URL(route, location.origin).search)
+      }
+      changes.addEventListener('navigate', onNavigate)
+      root.render(<HashRouter key={key} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <NavigationIntentBoundary>
+          <ReadonlyHistoryProbe /><WeeklyReviewView /><RouteProbe /><ToastHost />
+        </NavigationIntentBoundary>
+      </HashRouter>)
+      return { writes, close: () => changes.removeEventListener('navigate', onNavigate) }
+    }
     const weekThenTabStarted = deferred<void>()
     const allowWeekThenTab = deferred<string>()
     storage.saveAsset = async () => {
@@ -1471,15 +1504,7 @@ async function run(): Promise<void> {
       return allowWeekThenTab.promise
     }
     setNoteDraft(currentDraftId, '<p>周切换等待页签</p><img src="data:image/png;base64,QQ==">')
-    const weekThenTabRouter = createMemoryRouter([{
-      path: '/weekly-review',
-      element: <><WeeklyReviewView /><RouteProbe /></>,
-    }], { initialEntries: ['/weekly-review'] })
-    const weekThenTabWrites: string[] = []
-    const unsubscribeWeekThenTab = weekThenTabRouter.subscribe((state) => {
-      weekThenTabWrites.push(state.location.search)
-    })
-    root.render(<RouterProvider key="week-then-tab" router={weekThenTabRouter} />)
+    const weekThenTabHistory = renderWeeklyHistory('week-then-tab')
     await waitFor(
       () => document.querySelector(`[data-review-week="${intentWeekA}"]`) !== null,
       '周后页签竞态夹具没有渲染目标周',
@@ -1499,10 +1524,11 @@ async function run(): Promise<void> {
       '较旧的周切换在 flush 后覆盖了较新的页签意图',
     )
     assert(
-      !weekThenTabWrites.some((search) => search.includes(`week=${intentWeekA}`)),
+      !weekThenTabHistory.writes.some((search) => search.includes(`week=${intentWeekA}`)),
       '较旧的周切换仍曾写入路由',
     )
-    unsubscribeWeekThenTab()
+    assert(weekThenTabHistory.writes.includes('?tab=year'), '没有实际观察到年度趋势路由写入')
+    weekThenTabHistory.close()
 
     root.render(<div data-testid="route-intent-reset" />)
     await waitForFrame()
@@ -1515,15 +1541,7 @@ async function run(): Promise<void> {
       return allowWeekThenWeek.promise
     }
     setNoteDraft(currentDraftId, '<p>连续周切换</p><img src="data:image/png;base64,Qg==">')
-    const weekThenWeekRouter = createMemoryRouter([{
-      path: '/weekly-review',
-      element: <><WeeklyReviewView /><RouteProbe /></>,
-    }], { initialEntries: ['/weekly-review'] })
-    const weekThenWeekWrites: string[] = []
-    const unsubscribeWeekThenWeek = weekThenWeekRouter.subscribe((state) => {
-      weekThenWeekWrites.push(state.location.search)
-    })
-    root.render(<RouterProvider key="week-then-week" router={weekThenWeekRouter} />)
+    const weekThenWeekHistory = renderWeeklyHistory('week-then-week')
     await waitFor(
       () => document.querySelector(`[data-review-week="${intentWeekB}"]`) !== null,
       '连续周切换竞态夹具没有渲染两个目标周',
@@ -1540,10 +1558,11 @@ async function run(): Promise<void> {
       '连续周切换没有保留最后一次周选择',
     )
     assert(
-      !weekThenWeekWrites.some((search) => search.includes(`week=${intentWeekA}`)),
+      !weekThenWeekHistory.writes.some((search) => search.includes(`week=${intentWeekA}`)),
       '连续周切换期间较旧的周 A 仍曾写入路由',
     )
-    unsubscribeWeekThenWeek()
+    assert(weekThenWeekHistory.writes.some(search => search.includes('week=' + intentWeekB)), '没有实际观察到最后选择的周次写入')
+    weekThenWeekHistory.close()
 
     root.render(<div data-testid="route-intent-reset" />)
     await waitForFrame()
@@ -1556,34 +1575,15 @@ async function run(): Promise<void> {
       return allowBrowserNavigation.promise
     }
     setNoteDraft(currentDraftId, '<p>等待浏览器导航</p><img src="data:image/png;base64,Qw==">')
-    const browserNavigationRouter = createMemoryRouter([{
-      path: '/weekly-review',
-      element: <><WeeklyReviewView /><RouteProbe /></>,
-    }], {
-      initialEntries: ['/weekly-review?tab=year&visual=browser', '/weekly-review'],
-      initialIndex: 1,
-    })
-    const browserNavigationWrites: string[] = []
-    let releaseFlushOnBrowserNavigation = false
-    const unsubscribeBrowserNavigation = browserNavigationRouter.subscribe((state) => {
-      browserNavigationWrites.push(state.location.search)
-      if (
-        releaseFlushOnBrowserNavigation &&
-        state.location.search === '?tab=year&visual=browser'
-      ) {
-        releaseFlushOnBrowserNavigation = false
-        allowBrowserNavigation.resolve('browser-navigation-asset')
-      }
-    })
-    root.render(<RouterProvider key="browser-navigation-before-flush" router={browserNavigationRouter} />)
+    const browserHistory = renderWeeklyHistory('browser-navigation-before-flush', '/weekly-review?tab=year&visual=browser')
     await waitFor(
       () => document.querySelector(`[data-review-week="${intentWeekA}"]`) !== null,
       '浏览器导航竞态夹具没有渲染目标周',
     )
     document.querySelector<HTMLButtonElement>(`[data-review-week="${intentWeekA}"]`)?.click()
     await browserNavigationStarted.promise
-    releaseFlushOnBrowserNavigation = true
-    await browserNavigationRouter.navigate(-1)
+    window.addEventListener('popstate', () => allowBrowserNavigation.resolve('browser-navigation-asset'), { once: true })
+    window.history.back()
     await waitFor(
       () => document.querySelector('[data-testid="weekly-route-probe"]')
         ?.getAttribute('data-search') === '?tab=year&visual=browser',
@@ -1597,10 +1597,11 @@ async function run(): Promise<void> {
       '较旧的周切换在 flush 后覆盖了浏览器导航',
     )
     assert(
-      !browserNavigationWrites.some((search) => search.includes(`week=${intentWeekA}`)),
+      !browserHistory.writes.some((search) => search.includes(`week=${intentWeekA}`)),
       '浏览器导航后较旧的周切换仍曾写入路由',
     )
-    unsubscribeBrowserNavigation()
+    assert(browserHistory.writes.includes('?tab=year&visual=browser'), '没有实际观察到浏览器后退')
+    browserHistory.close()
 
     root.render(<div data-testid="route-intent-reset" />)
     await waitForFrame()
@@ -1613,15 +1614,7 @@ async function run(): Promise<void> {
       return allowUnmountedFlush.promise
     }
     setNoteDraft(currentDraftId, '<p>等待组件卸载</p><img src="data:image/png;base64,RA==">')
-    const unmountRouter = createMemoryRouter([{
-      path: '/weekly-review',
-      element: <><WeeklyReviewView /><RouteProbe /></>,
-    }], { initialEntries: ['/weekly-review'] })
-    const unmountWrites: string[] = []
-    const unsubscribeUnmount = unmountRouter.subscribe((state) => {
-      unmountWrites.push(state.location.search)
-    })
-    root.render(<RouterProvider key="unmount-before-flush" router={unmountRouter} />)
+    const unmountHistory = renderWeeklyHistory('unmount-before-flush')
     await waitFor(
       () => document.querySelector(`[data-review-week="${intentWeekA}"]`) !== null,
       '组件卸载竞态夹具没有渲染目标周',
@@ -1637,20 +1630,16 @@ async function run(): Promise<void> {
     await waitFor(() => !hasNoteDraft(currentDraftId), '组件卸载后的草稿没有完成 flush')
     await waitForFrames(4)
     assert(
-      !unmountWrites.some((search) => search.includes(`week=${intentWeekA}`)),
+      !unmountHistory.writes.some((search) => search.includes(`week=${intentWeekA}`)),
       '组件卸载后较旧的周切换仍写入路由',
     )
-    unsubscribeUnmount()
+    unmountHistory.close()
 
     resetNoteDraftsForTests()
     useStore.setState({ trades: [], weeklyReviews: makeIntentReviews() })
     storage.saveAsset = async () => { throw new Error('fixture draft save failure') }
     setNoteDraft(currentDraftId, '<p>保存失败</p><img src="data:image/png;base64,RQ==">')
-    const failedDraftRouter = createMemoryRouter([{
-      path: '/weekly-review',
-      element: <><WeeklyReviewView /><RouteProbe /><ToastHost /></>,
-    }], { initialEntries: ['/weekly-review'] })
-    root.render(<RouterProvider key="failed-current-route-intent" router={failedDraftRouter} />)
+    const failedHistory = renderWeeklyHistory('failed-current-route-intent')
     await waitFor(
       () => document.querySelector(`[data-review-week="${intentWeekA}"]`) !== null,
       '保存失败夹具没有渲染目标周',
@@ -1664,6 +1653,7 @@ async function run(): Promise<void> {
       document.querySelector('[data-testid="weekly-route-probe"]')?.getAttribute('data-search') === '',
       '草稿保存失败后仍执行了周切换',
     )
+    failedHistory.close()
   } finally {
     currentDateControl?.restore()
     storage.saveAsset = originalSaveAsset

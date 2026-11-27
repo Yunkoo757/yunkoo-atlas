@@ -1,6 +1,7 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
 import type { Editor as TiptapEditor } from '@tiptap/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { QuickNotesView } from '@/views/QuickNotesView'
 import { useStore } from '@/store/useStore'
 import type { QuickNote } from '@/data/quickNotes'
@@ -86,12 +87,12 @@ async function run(): Promise<void> {
     }
     useStore.setState({ quickNotes: [previousNote, currentNote] })
     root.render(
-      <MemoryRouter initialEntries={['/notes/previous-note']}>
+      <MemoryAppRouter initialEntries={['/notes/previous-note']}>
         <Routes>
           <Route path="/notes" element={<QuickNotesView />} />
           <Route path="/notes/:id" element={<QuickNotesView />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     const search = await waitForSearch()
     search.focus()

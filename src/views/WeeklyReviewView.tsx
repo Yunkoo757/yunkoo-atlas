@@ -1,3 +1,4 @@
+import { useNavigationIntent } from '@/hooks/useNavigationIntent'
 import { useValueMotion } from '@/hooks/useValueMotion'
 import { buildWeeklyReviewHistory } from '@/lib/weeklyReviewHistory'
 import { WindowToolbarHost } from '@/components/ui/Toolbar'
@@ -10,8 +11,6 @@ import { DisclosureIcon } from '@/icons/StateIcons'
 import { lazy, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import {
   Link,
-  UNSAFE_DataRouterContext,
-  UNSAFE_NavigationContext,
   useLocation,
   useNavigate,
 } from 'react-router-dom'
@@ -384,50 +383,7 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
   useEffect(() => setTrendLiveStageId(allStages ? undefined : selectedReviewStageId), [allStages, selectedReviewStageId])
   const [visualIssues, setVisualIssues] = useState<WeeklyVisualIssue[]>([])
   const pendingIssueFocusRef = useRef<WeeklyVisualIssue | null>(null)
-  const routeIntentGenerationRef = useRef(0)
-  const dataRouterContext = useContext(UNSAFE_DataRouterContext)
-  const navigationContext = useContext(UNSAFE_NavigationContext)
-
-  useEffect(() => {
-    const invalidatePendingRouteIntent = () => {
-      routeIntentGenerationRef.current += 1
-    }
-    if (dataRouterContext) {
-      return dataRouterContext.router.subscribe(invalidatePendingRouteIntent)
-    }
-    const navigator = navigationContext.navigator
-    const originalPush = navigator.push
-    const originalReplace = navigator.replace
-    const originalGo = navigator.go
-    const wrappedPush: typeof originalPush = (...args) => {
-      invalidatePendingRouteIntent()
-      originalPush(...args)
-    }
-    const wrappedReplace: typeof originalReplace = (...args) => {
-      invalidatePendingRouteIntent()
-      originalReplace(...args)
-    }
-    const wrappedGo: typeof originalGo = (...args) => {
-      invalidatePendingRouteIntent()
-      originalGo(...args)
-    }
-    navigator.push = wrappedPush
-    navigator.replace = wrappedReplace
-    navigator.go = wrappedGo
-    window.addEventListener('popstate', invalidatePendingRouteIntent)
-    window.addEventListener('hashchange', invalidatePendingRouteIntent)
-    return () => {
-      if (navigator.push === wrappedPush) navigator.push = originalPush
-      if (navigator.replace === wrappedReplace) navigator.replace = originalReplace
-      if (navigator.go === wrappedGo) navigator.go = originalGo
-      window.removeEventListener('popstate', invalidatePendingRouteIntent)
-      window.removeEventListener('hashchange', invalidatePendingRouteIntent)
-    }
-  }, [dataRouterContext, navigationContext.navigator])
-
-  useLayoutEffect(() => () => {
-    routeIntentGenerationRef.current += 1
-  }, [])
+  const navigationIntent = useNavigationIntent()
 
   const handleReturnRestoreStart = useCallback((anchorId: string) => {
     setReturnRestoreActive(true)
@@ -688,13 +644,13 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
   }
 
   const changeReview = async (item: typeof historyItems[number]) => {
-    const intentGeneration = ++routeIntentGenerationRef.current
+    const isCurrent = navigationIntent.begin()
     if (
       item.week === selectedWeek &&
       item.liveStageId === reviewLiveStageId
     ) { closeHistoryPicker(); return }
     const draftSaved = await flushDraft()
-    if (useStore.getState().librarySession !== librarySession || intentGeneration !== routeIntentGenerationRef.current) return
+    if (useStore.getState().librarySession !== librarySession || !isCurrent()) return
     if (!draftSaved) {
       toast('正文尚未保存，请重试', { tone: 'error' })
       return
@@ -711,17 +667,17 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
   }
 
   const changeTab = (nextTab: WeeklyReviewTab) => {
-    routeIntentGenerationRef.current += 1
+    navigationIntent.invalidate()
     if (nextTab === tab) return
     replaceRouteState(selectedWeek, nextTab, selectedReviewId)
   }
 
   const completeReview = async () => {
-    const intent = routeIntentGenerationRef.current
+    const isCurrent = navigationIntent.capture()
     const result = await submitWeeklyReview(review, librarySession)
     if (useStore.getState().librarySession !== librarySession || result.status === 'superseded') return
     if (result.status === 'blocked' && !result.completion.draftSaved) reportWeeklyDraftFailure()
-    if (intent !== routeIntentGenerationRef.current) return
+    if (!isCurrent()) return
     if (result.status === 'blocked') {
       const issues = getWeeklyVisualIssues(result.completion)
       pendingIssueFocusRef.current = issues[0] ?? null

@@ -1,5 +1,6 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import {
   buildWeeklyReviewMetrics,
@@ -95,9 +96,9 @@ async function run(): Promise<void> {
       display: { ...previous.display, privacyMode: true },
     })
     root.render(
-      <MemoryRouter initialEntries={['/weekly-review']}>
+      <MemoryAppRouter initialEntries={['/weekly-review']}>
         <Routes><Route path="/weekly-review" element={<WeeklyReviewView />} /></Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
 
     await waitFor(() => document.body.textContent?.includes('本周交易标签') ?? false, '自定义交易标签证据区未显示')

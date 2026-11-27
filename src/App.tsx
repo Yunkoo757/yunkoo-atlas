@@ -1,3 +1,4 @@
+import { NavigationIntentBoundary } from './hooks/useNavigationIntent'
 import { ImageActions } from './components/ImageActions'
 import {
   BrowserRouter,
@@ -1068,7 +1069,7 @@ export function App() {
   return (
     <>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Shell />
+        <NavigationIntentBoundary><Shell /></NavigationIntentBoundary>
       </Router>
       {closingUi}
       {!isElectron() ? <WebStorageGuard /> : null}

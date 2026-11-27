@@ -1,5 +1,6 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { QuickNotesView } from '@/views/QuickNotesView'
 import { useStore } from '@/store/useStore'
 import '@/styles/tokens.css'
@@ -34,12 +35,12 @@ async function run() {
   try {
     useStore.setState({ quickNotes: [] })
     root.render(
-      <MemoryRouter initialEntries={['/notes']}>
+      <MemoryAppRouter initialEntries={['/notes']}>
         <Routes>
           <Route path="/notes" element={<QuickNotesView />} />
           <Route path="/notes/:id" element={<QuickNotesView />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(() => Boolean(document.querySelector('.quick-notes-empty')), '随记空状态未渲染')
 

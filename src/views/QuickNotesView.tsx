@@ -12,7 +12,7 @@ import { createAndOpenQuickNote } from '@/lib/createRecordAction'
 import { currentLiveStageIdForWrite, useStore } from '@/store/useStore'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { buildQuickNoteRecord, getNextTradeRef } from '@/lib/quickNoteRecordDraft'
-import { acquireQuickNoteConversion, isQuickNoteConverting, isQuickNoteViewOpen, registerQuickNoteConversionView, subscribeQuickNoteConversions } from '@/lib/quickNoteConversion'
+import { acquireQuickNoteConversion, isQuickNoteConverting, hasCurrentQuickNoteView, registerQuickNoteConversionView, subscribeQuickNoteConversions } from '@/lib/quickNoteConversion'
 import { trackPendingStorageOperation } from '@/storage/pendingOperations'
 import {
   noteDraftKey, type NoteDraftKey,
@@ -32,6 +32,7 @@ import { Button } from '@/components/ui/Button'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
 import { toast } from '@/lib/toast'
+import { useNavigationIntent } from '@/hooks/useNavigationIntent'
 import { useDraftNoteEditor } from './useDraftNoteEditor'
 import { withLibrarySession } from './withLibrarySession'
 import './QuickNotesView.css'
@@ -67,7 +68,6 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
   const upsertTrade = useStore((state) => state.upsertTrade)
   const query = new URLSearchParams(location.search).get('q') ?? ''
   const setQuery = (value: string) => {
-    navigationIntent.current++
     const next = new URLSearchParams(location.search)
     if (value) next.set('q', value)
     else next.delete('q')
@@ -75,7 +75,7 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
   }
   const [editingTitle, setEditingTitle] = useState<{ id: string; value: string } | null>(null)
   const editorPane = useRef<HTMLElement>(null)
-  const navigationIntent = useRef(0)
+  const navigationIntent = useNavigationIntent()
   const skipFocus = useRef(false)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null)
   const noteHistoriesRef = useRef(new Map<string, string[]>())
@@ -100,32 +100,30 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
   )
 
   useLayoutEffect(() => selectedNote
-    ? registerQuickNoteConversionView(selectedNote.id)
-    : undefined, [selectedNote?.id])
-
-  useLayoutEffect(() => () => { navigationIntent.current++ }, [id])
+    ? registerQuickNoteConversionView(selectedNote.id, navigationIntent.capture())
+    : undefined, [selectedNote?.id, location.key, navigationIntent])
 
   const createNote = useCallback(async () => {
-    const intent = ++navigationIntent.current
+    const isCurrent = navigationIntent.begin()
     if (selectedNote) {
       if (!await flushDraft()) return
     }
-    if (intent === navigationIntent.current) createAndOpenQuickNote(navigate, location.pathname)
-  }, [flushDraft, location.pathname, navigate, selectedNote])
+    if (isCurrent()) createAndOpenQuickNote(navigate, location.pathname)
+  }, [flushDraft, location.pathname, navigate, navigationIntent, selectedNote])
 
   const openNote = useCallback(async (noteId: string, focusFrom?: HTMLElement) => {
-    const intent = ++navigationIntent.current
+    const isCurrent = navigationIntent.begin()
     const sameNote = selectedNote?.id === noteId
     if (sameNote && !focusFrom) return
     if (selectedNote && !sameNote) {
       if (!await flushDraft()) return
     }
-    if (intent !== navigationIntent.current || (focusFrom && document.activeElement !== focusFrom)) return
+    if (!isCurrent() || (focusFrom && document.activeElement !== focusFrom)) return
     navigate({ pathname: `/notes/${encodeURIComponent(noteId)}`, search: location.search }, {
       replace: sameNote,
       state: focusFrom ? { focusNoteEditor: noteId } : null,
     })
-  }, [flushDraft, location.search, navigate, selectedNote])
+  }, [flushDraft, location.search, navigate, navigationIntent, selectedNote])
 
   function handleListKeys(event: ReactKeyboardEvent<HTMLElement>) {
     if (isComposingKey(event.nativeEvent) || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
@@ -155,11 +153,11 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
     if (id) return
     const first = filteredNotes[0]
     if (!first) return
-    const intent = navigationIntent.current
+    const isCurrent = navigationIntent.capture()
     queueMicrotask(() => {
-      if (intent === navigationIntent.current) navigate({ pathname: `/notes/${encodeURIComponent(first.id)}`, search: location.search }, { replace: true })
+      if (isCurrent()) navigate({ pathname: `/notes/${encodeURIComponent(first.id)}`, search: location.search }, { replace: true })
     })
-  }, [filteredNotes, id, location.search, navigate])
+  }, [filteredNotes, id, location.search, navigate, navigationIntent])
 
   const editorFocusRequested = Boolean(id && (location.state?.focusNewNote === id || location.state?.focusNoteEditor === id))
   useLayoutEffect(() => {
@@ -243,8 +241,9 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
     if (!selectedNote) return
     const releaseConversion = acquireQuickNoteConversion(selectedNote.id)
     if (!releaseConversion) return
+    const isCurrent = navigationIntent.capture()
     const operation = (async () => {
-      let succeeded = false
+      let awaitingViewExit = false
       try {
         if (!await flushDraft()) return
         const store = useStore.getState()
@@ -262,21 +261,21 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
           tradingDayStartHour: store.display.tradingDayStartHour,
         })
         if (upsertTrade(created) !== 'updated') throw new Error(kind === 'case' ? '案例未写入' : '交易未写入')
-        succeeded = true
         const openCreated = () => navigate(tradeDetailPath(created), {
           state: tradeDetailNavState({ pathname: `/notes/${encodeURIComponent(latest.id)}`, search: location.search }),
         })
         const message = kind === 'case' ? '已写入案例草稿' : '已写入交易草稿'
-        if (isQuickNoteViewOpen(latest.id)) {
+        if (isCurrent() || hasCurrentQuickNoteView(latest.id)) {
           toast(message)
           openCreated()
+          awaitingViewExit = true
         } else {
           toast(message, { actionLabel: '打开草稿', onAction: openCreated })
         }
       } catch (error) {
         toast(error instanceof Error ? error.message : '未能写入记录', { tone: 'error' })
       } finally {
-        releaseConversion(succeeded)
+        releaseConversion(awaitingViewExit)
       }
     })()
     return trackPendingStorageOperation(operation)

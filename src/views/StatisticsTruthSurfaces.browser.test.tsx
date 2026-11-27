@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import type { Strategy } from '@/data/strategies'
 import type { PaperTrade, Trade } from '@/data/trades'
 import { StrategyHeader } from '@/components/StrategyHeader'
@@ -135,9 +135,9 @@ async function run(): Promise<void> {
       display: { ...previous.display, tradingDayStartHour: 6 },
     })
     root.render(
-      <MemoryRouter>
+      <MemoryAppRouter>
         <StrategyHeader strategyId={strategy.id} />
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(() => document.querySelector('.sh') !== null, 'StrategyHeader 未渲染')
     const headerText = document.querySelector('.sh')?.textContent ?? ''
@@ -152,9 +152,9 @@ async function run(): Promise<void> {
       ],
     })
     root.render(
-      <MemoryRouter>
+      <MemoryAppRouter>
         <StrategyHeader strategyId={strategy.id} analysisScope={{ kind: 'all', range: 'all' }} />
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(() => document.querySelector('.sh-sub')?.textContent?.includes('全部类型') ?? false, 'StrategyHeader 全部类型口径未渲染')
     const allHeaderText = document.querySelector('.sh')?.textContent ?? ''
@@ -162,7 +162,7 @@ async function run(): Promise<void> {
     assert(allHeaderText.includes('+$150') && allHeaderText.includes('+3.0R') && !allHeaderText.includes('1050'), '全部类型策略表现必须合并 current live 与 paper，并排除归档 live')
 
     useStore.setState({ trades: truthTrades() })
-    root.render(<MemoryRouter><StrategiesPanel /></MemoryRouter>)
+    root.render(<MemoryAppRouter><StrategiesPanel /></MemoryAppRouter>)
     await waitFor(() => document.querySelector('.st-row') !== null, 'StrategiesPanel 未渲染')
     const panelText = document.querySelector('.st-row')?.textContent ?? ''
     assert(panelText.includes('8 笔关联交易'), '策略管理页必须保留简洁而准确的关联数量')
@@ -182,7 +182,7 @@ async function run(): Promise<void> {
       monthlyRiskLimits: [],
       riskOverrideEvents: [],
     })
-    root.render(<MemoryRouter><WeeklyReviewView /></MemoryRouter>)
+    root.render(<MemoryAppRouter><WeeklyReviewView /></MemoryAppRouter>)
     await waitFor(() => document.querySelector('.wr-trade-row') !== null, 'WeeklyReviewView 证据未渲染')
     const weeklyText = document.body.textContent ?? ''
     assert(weeklyText.includes('+$100') && !weeklyText.includes('TRD-WEEKLY-FUTURE'), 'Weekly renderer 必须冻结在当前业务日')

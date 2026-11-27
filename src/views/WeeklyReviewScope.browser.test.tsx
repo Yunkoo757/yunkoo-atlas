@@ -1,5 +1,6 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
 import type { Trade } from '@/data/trades'
 import { getTradingDayKey, parseLocalDate, formatYmd } from '@/lib/periods'
@@ -24,7 +25,7 @@ async function run(){
   const pendingTrade:Trade={id:'scope-pending-trade',ref:'SCOPE',symbol:'ETHUSDT',tradeKind:'live',liveStageId:old,side:'long',status:'win',conviction:'medium',strategyId:'',tags:[],mistakeTags:[],reviewStatus:'unreviewed',reviewCategory:'normal',openedAt:previousWeek,closedAt:previousWeek,pnl:77,cashCurrency:'USD',rMultiple:1,resultSource:'pnl',entry:1,exit:2,size:1,note:'<p>原图与正文保留</p>'}
   try{
     useStore.setState({trades:[],weeklyReviews:[],scheduledStageRollover:null,liveStages:[...before.liveStages.map(stage=>stage.id===current?{...stage,startsOn:week}:stage),{id:old,sequence:0,name:'隔离历史阶段',status:'archived',startsOn:'2020-01-06',endsOn:formatYmd(new Date(parseLocalDate(week).getTime()-86400000)),createdAt:'2020-01-06T00:00:00.000Z',archivedAt:week}]})
-    root.render(<MemoryRouter initialEntries={['/weekly-review?liveStage=all']}><Fixture/></MemoryRouter>)
+    root.render(<MemoryAppRouter initialEntries={['/weekly-review?liveStage=all']}><Fixture/></MemoryAppRouter>)
     await waitFor(()=>Boolean(row(current)),'空资料库应显示当前周入口')
     const shell=document.querySelector('.wr-shell')!, rail=document.querySelector('.wr-history')!, left=document.querySelector('.wr-main')!.getBoundingClientRect().left, columns=getComputedStyle(shell).gridTemplateColumns
     assert(!document.querySelector<HTMLDetailsElement>('.wr-record-picker')!.open,'记录默认收起，正文保持完整阅读轨道')
@@ -61,7 +62,7 @@ async function run(){
     const pendingSearch=document.querySelector('[data-scope-route]')?.textContent ?? ''
     assert(new URLSearchParams(pendingSearch).get('liveStage')==='all'&&new URLSearchParams(pendingSearch).get('review')===createWeeklyReview(previousWeek,old).id,'待补做记录必须保持可刷新阶段身份与全部范围')
     const previousShell=document.querySelector('.wr-shell')
-    root.render(<MemoryRouter key="refresh" initialEntries={['/weekly-review'+pendingSearch]}><Fixture/></MemoryRouter>)
+    root.render(<MemoryAppRouter key="refresh" initialEntries={['/weekly-review'+pendingSearch]}><Fixture/></MemoryAppRouter>)
     await waitFor(()=>document.querySelector('.wr-shell')!==previousShell&&owner()===old&&document.body.textContent?.includes('+$77')===true,'刷新待补做深链后阶段发生漂移')
     const score=document.querySelector<HTMLButtonElement>('[data-weekly-field="score-execution"] button')!;score.click();await waitFor(()=>Boolean(document.querySelector('[role="option"][data-value="4"]')),'评分菜单未打开');document.querySelector<HTMLButtonElement>('[role="option"][data-value="4"]')!.click()
     await waitFor(()=>useStore.getState().weeklyReviews.some(r=>r.liveStageId===old&&r.weekStart===previousWeek),'首次编辑没有保存到正确阶段和周')

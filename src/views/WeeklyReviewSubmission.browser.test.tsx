@@ -1,5 +1,6 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
 import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { getStorage } from '@/storage/provider'
@@ -61,7 +62,7 @@ async function run() {
       const text = () => document.querySelector('[aria-label="周复盘正文"]')?.textContent
       try {
         const historyPath = '/weekly-review?week=' + previousWeek + '&review=' + encodeURIComponent(history.id)
-        root.render(<MemoryRouter initialEntries={['/weekly-review']}><Fixture historyPath={historyPath} /></MemoryRouter>)
+        root.render(<MemoryAppRouter initialEntries={['/weekly-review']}><Fixture historyPath={historyPath} /></MemoryAppRouter>)
         await until(() => text()?.includes('提交来源') === true, '未载入来源复盘')
         setNoteDraft(key, '<p>提交时的输入</p><img src="data:image/png;base64,AQID">')
         const submit = [...document.querySelectorAll('button')].find(b => b.textContent === '完成本周复盘')!

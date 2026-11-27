@@ -1,6 +1,7 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
 import type { Editor as TiptapEditor } from '@tiptap/core'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { createQuickNote } from '@/data/quickNotes'
 import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
 import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
@@ -50,9 +51,9 @@ async function run() {
       const editor = () => document.querySelector<HTMLElement>(`[aria-label="${fixture.editor}"]`)
       const retry = () => [...document.querySelectorAll('button')].find(button => button.textContent === '重新载入')
       try {
-        root.render(<MemoryRouter initialEntries={[fixture.path]}><Routes>
+        root.render(<MemoryAppRouter initialEntries={[fixture.path]}><Routes>
           <Route path={fixture.path.startsWith('/notes/') ? '/notes/:id' : fixture.path} element={fixture.element} />
-        </Routes></MemoryRouter>)
+        </Routes></MemoryAppRouter>)
         await waitFor(() => Boolean(retry()) && editor()?.isContentEditable === false, '读取出错时必须锁定编辑并提供重试')
         if (!editor()?.textContent?.includes('会话中较新的判断') || getNoteDraft(fixture.draftId) !== draft) {
           throw Error('读取失败必须保留原草稿并显示最新文字')
@@ -103,10 +104,10 @@ async function verifyLibraryReplacement() {
         : document.querySelector<HTMLButtonElement>('[data-note-convert-case]')
       const key = weekly ? noteDraftKey('weeklyReview', review.id) : noteDraftKey('quickNote', note.id)
       try {
-        root.render(<MemoryRouter initialEntries={[weekly ? '/weekly-review' : '/notes/' + note.id]}><Routes>
+        root.render(<MemoryAppRouter initialEntries={[weekly ? '/weekly-review' : '/notes/' + note.id]}><Routes>
           <Route path={weekly ? '/weekly-review' : '/notes/:id'} element={weekly ? <WeeklyReviewView /> : <QuickNotesView />} />
           <Route path="/trade/:id" element={<span>已跳转到案例</span>} />
-        </Routes></MemoryRouter>)
+        </Routes></MemoryAppRouter>)
         await waitFor(() => editor()?.textContent?.includes('源库') === true && Boolean(action()), '源库编辑器未就绪')
         if (!weekly) {
           const sourceEditor = (editor() as HTMLElement & { editor: TiptapEditor }).editor

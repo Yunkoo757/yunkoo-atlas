@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import type { Trade } from '@/data/trades'
 import { createWeeklyReview, weekStartFor } from '@/data/weeklyReviews'
 import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
@@ -34,7 +34,7 @@ async function run() {
   const root = createRoot(document.getElementById('root')!)
   try {
     useStore.setState({ trades, weeklyReviews: [review], liveStages: previous.liveStages.map((stage) => stage.id === stageId ? { ...stage, startsOn: week } : stage) })
-    root.render(<MemoryRouter initialEntries={[`/weekly-review?week=${week}`]}><WeeklyReviewView /></MemoryRouter>)
+    root.render(<MemoryAppRouter initialEntries={[`/weekly-review?week=${week}`]}><WeeklyReviewView /></MemoryAppRouter>)
     await waitFor(() => Boolean(document.querySelector('.wr-evidence-toggle')), '大量证据缺少展开入口')
     assert(document.querySelectorAll('.wr-trade-row').length === 1, '默认应突出已标记证据')
     const documentBefore = document.querySelector('.wr-editor-wrap')!.getBoundingClientRect()

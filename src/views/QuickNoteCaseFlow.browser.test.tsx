@@ -1,6 +1,7 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes, useLocation, useNavigate, type NavigateFunction } from 'react-router-dom'
+import { Route, Routes, useLocation, useNavigate, type NavigateFunction } from 'react-router-dom'
 import type { Editor as TiptapEditor } from '@tiptap/react'
 import { QuickNotesView } from './QuickNotesView'
 import { createQuickNote } from '@/data/quickNotes'
@@ -56,11 +57,13 @@ async function run() {
   const image = canvas.toDataURL('image/png')
   let navigate: NavigateFunction | undefined
   const routeGate: { current: Promise<void> | null } = { current: null }
+  let awayGate: Promise<void> | null = null
+  function AwayProbe() { if (awayGate) throw awayGate; return <main data-conversion-away /> }
   function NavigationProbe() { navigate = useNavigate(); return null }
   function TargetProbe() { if (routeGate.current) throw routeGate.current; return <DetailProbe /> }
   const openNote = () => {
     if (navigate) navigate('/notes/case-conversion-note?q=demo')
-    else root.render(<MemoryRouter future={{ v7_startTransition: true }} initialEntries={['/notes/case-conversion-note?q=demo']}><NavigationProbe /><Suspense fallback={<main data-route-loading />}><Routes><Route path="/notes/:id" element={<QuickNotesView />} /><Route path="/notes" element={<QuickNotesView />} /><Route path="/trade/:id" element={<TargetProbe />} /><Route path="/elsewhere" element={<main data-conversion-away />} /></Routes></Suspense></MemoryRouter>)
+    else root.render(<MemoryAppRouter future={{ v7_startTransition: true }} initialEntries={['/notes/case-conversion-note?q=demo']}><NavigationProbe /><Suspense fallback={<main data-route-loading />}><Routes><Route path="/notes/:id" element={<QuickNotesView />} /><Route path="/notes" element={<QuickNotesView />} /><Route path="/trade/:id" element={<TargetProbe />} /><Route path="/elsewhere" element={<AwayProbe />} /></Routes></Suspense></MemoryAppRouter>)
   }
   const note = { ...createQuickNote(), id: 'case-conversion-note', title: '结构观察', contentHtml: '<p>只在结构确认后参与。</p>' }
   const strategy = { id: 'isolated-strategy', name: '隔离策略', icon: 'target' as const, color: '#5e6ad2' }
@@ -205,6 +208,28 @@ async function run() {
     assert(receipt?.actionLabel === '打开草稿' && receipt.onAction, '完成后应允许从回执打开草稿')
     receipt.onAction()
     await until(() => document.querySelector('[data-converted-case-path]'), '主动打开回执应进入新的草稿')
+
+    openNote()
+    await until(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '离页过渡前随记未就绪')
+    const editorBeforeLeave = (document.querySelector('[aria-label="随记正文"]') as HTMLElement & { editor: TiptapEditor }).editor
+    useToast.getState().dismiss()
+    const finishImage = delayAssetSave()
+    const beforeLeave = assetSaveCalls
+    editorBeforeLeave.chain().focus('end').setImage({ src: image }).createParagraphNear().run()
+    document.querySelector<HTMLButtonElement>('[data-note-convert-case]')!.click()
+    await until(() => assetSaveCalls > beforeLeave, '离页过渡必须发生在图片保存期间')
+    let finishPage!: () => void
+    awayGate = new Promise(resolve => { finishPage = resolve })
+    navigate!('/elsewhere')
+    finishImage()
+    await waitForPendingStorageOperations()
+    const pendingReceipt = useToast.getState().items.at(-1)
+    assert(!isQuickNoteConverting(note.id), '后台完成后不能继续锁住仍留在屏幕上的原编辑器')
+    awayGate = null
+    finishPage()
+    assert(pendingReceipt?.actionLabel === '打开草稿', '目标页面仍在加载时，来源随记的转换覆盖了离页意图')
+    await until(() => document.querySelector('[data-conversion-away]'), '转换完成后应落在用户选择的页面')
+    assert(useStore.getState().trades.length === 7, '来源随记的转换仍应只保存一次')
   } finally {
     releaseAssetGate()
     storage.saveAsset = originalSaveAsset

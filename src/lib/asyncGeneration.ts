@@ -10,6 +10,11 @@ export class AsyncGeneration {
     this.value += 1
   }
 
+  capture(): () => boolean {
+    const generation = this.value
+    return () => this.isCurrent(generation)
+  }
+
   isCurrent(generation: number): boolean {
     return generation === this.value
   }
