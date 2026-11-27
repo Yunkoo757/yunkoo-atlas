@@ -40,7 +40,7 @@ async function verify(entry: 'initial' | 'selected' | 'retry') {
   const bridge = {
     isElectron: true,
     getLibraryStatus: async () => { events.push('status'); return status },
-    openExistingLibrary: async () => ({ ok: true, snapshot: null } as const),
+    openExistingLibrary: async path => ({ ok: true, path, snapshot: null } as const),
     storageOpen: async () => true,
     loadSnapshot: async () => ({ ...snapshot, trades: [expired] }),
     saveSnapshot: async () => true,

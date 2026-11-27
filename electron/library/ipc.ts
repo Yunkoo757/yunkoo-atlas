@@ -47,7 +47,6 @@ import { assertExitWithinDeadline, releaseThenFinalizeWithRollback } from '../qu
 import { createVerifiedRestorePoint, restoreLibraryBackup } from './backupRestore'
 import { beginOperation, type OperationLogHandle } from '../operationLogger'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
-import type { SnapshotEnvelope } from '../../src/storage/adapter'
 import type {
   LibraryActivationResult,
   LibrarySwitchMode,
@@ -349,11 +348,9 @@ function activateLibraryCandidate(
     return { ok: false, error: `候选交易库不可用：${toErrorMessage(error)}` }
   }
 
+  const libraryPath = candidate.getLibraryPath()
   try {
-    saveLibraryConfig({
-      libraryPath: candidate.getLibraryPath(),
-      libraryId,
-    })
+    saveLibraryConfig({ libraryPath, libraryId })
   } catch (error) {
     candidate.release()
     if (error instanceof UnconfirmedLibraryConfigError) {
@@ -374,7 +371,7 @@ function activateLibraryCandidate(
   } catch (error) {
     safeConsoleError('library-release-after-cutover-failed', error)
   }
-  return { ok: true, snapshot }
+  return { ok: true, path: libraryPath, snapshot }
 }
 
 async function switchActiveLibrary(
@@ -410,7 +407,7 @@ async function activatePreparedLibrarySwitch(
   writerToken: string,
   event: IpcMainInvokeEvent,
 ): Promise<
-  | ({ ok: true; writerGrant: WriterGrant } & SnapshotEnvelope)
+  | (Extract<LibraryActivationResult, { ok: true }> & { writerGrant: WriterGrant; revision: number })
   | Extract<LibraryActivationResult, { ok: false }>
 > {
   try {

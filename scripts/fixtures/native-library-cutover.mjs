@@ -218,6 +218,7 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
       if (!candidate.ok) throw new Error('无法准备隔离资料库')
       const activated = await bridge.activatePreparedLibrary(candidate.token)
       if (!activated.ok) throw new Error('无法激活隔离资料库')
+      if (activated.path !== root) throw new Error('切库回执中的路径与实际选定的隔离库不符')
       return activated.snapshot
     }
     if (await activate(candidatePath, 'create') !== null) throw new Error('新建目标应为空')
@@ -235,6 +236,7 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
     for (const dir of [candidatePath, libraryPath]) {
       const opened = await bridge.openExistingLibrary(dir)
       if (!opened.ok) throw Error(opened.error)
+      if (opened.path !== dir) throw Error('直接开库回执应包含已确认的路径')
     }
     await bridge.storageOpen()
     const stale = await bridge.activatePreparedLibrary(ready.token)

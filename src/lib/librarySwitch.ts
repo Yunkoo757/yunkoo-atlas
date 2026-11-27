@@ -91,7 +91,7 @@ export async function switchActiveLibrary(mode: LibrarySwitchMode, path: string)
     replaceLibraryInStore(result.snapshot)
 
     safeToFlush = true
-    return { ok: true, path: await bridge.getLibraryPath() }
+    return { ok: true, path: result.path }
   } catch (err) {
     if (storageDocumentSignal.aborted) return interrupted
     safeToFlush = !candidateActivated && await sourceIsCurrent()

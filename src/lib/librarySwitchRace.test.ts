@@ -95,11 +95,14 @@ export async function testSuccessfulLibrarySwitchUsesSnapshotReturnedByAtomicIpc
     value: {
       journalBridge: {
         isElectron: true,
-        getLibraryPath: async () => activePath,
+        getLibraryPath: async () => {
+          if (activePath === 'D:\\new-library') throw new Error('隔离样例在激活后占用资料库')
+          return activePath
+        },
         prepareLibrarySwitch: async () => ({ ok: true, token: 'successful-switch' }),
         activatePreparedLibrary: async () => {
           activePath = 'D:\\new-library'
-          return { ok: true, snapshot: returnedSnapshot }
+          return { ok: true, path: activePath, snapshot: returnedSnapshot }
         },
         cancelPreparedLibrary: async () => false,
         loadSnapshot: async () => {
@@ -113,8 +116,9 @@ export async function testSuccessfulLibrarySwitchUsesSnapshotReturnedByAtomicIpc
 
   enablePersistWrites()
   try {
-    const result = await switchActiveLibrary('open', 'D:\\new-library')
+    const result = await switchActiveLibrary('open', 'd:\\picked-alias')
     assert(result.ok, '已验证候选库应成功切换')
+    assert(result.ok && result.path === activePath, '切库路径必须来自实际接管的候选库')
     assert(separateLoadCount === 0, 'renderer 必须直接使用原子切库 IPC 返回的已验证快照')
     assert(useStore.getState().tagPresets.includes('已验证候选库'), '返回快照必须 hydrate 到当前 store')
   } finally {
@@ -186,7 +190,7 @@ export async function testDelayedLibraryPreparationFlushesLateTradeToOldLibraryB
             '激活候选库之前必须把准备期间新增的交易稳定写入旧库',
           )
           activePath = 'D:\\new-library'
-          return { ok: true, snapshot: newSnapshot }
+          return { ok: true, path: activePath, snapshot: newSnapshot }
         },
         cancelPreparedLibrary: async () => true,
         saveSnapshot: async (snapshot: PersistedSnapshot) => {

@@ -97,7 +97,7 @@ async function verifyWelcomeReceipts(mode: 'open' | 'create', interrupt = false)
     activations++
     if (uncertain && interrupt) {
       await pending
-      return { ok: true, snapshot: null } as const
+      return { ok: true, path: selected, snapshot: null } as const
     }
     return uncertain
       ? { ok: false, requiresReload: true, error: '配置已写入但回读未确认' } as const

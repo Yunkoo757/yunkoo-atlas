@@ -107,7 +107,7 @@ export type AutoLaunchState = {
 export type LibrarySwitchMode = 'create' | 'open'
 
 export type LibraryActivationResult =
-  | { ok: true; snapshot: PersistedSnapshot | null }
+  | { ok: true; path: string; snapshot: PersistedSnapshot | null }
   | { ok: false; error?: string; requiresReload?: true }
 
 export type LibraryLocationState =

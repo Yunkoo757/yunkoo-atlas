@@ -39,7 +39,7 @@ async function run() {
   let canceled = 0
   const direct = async (path: string) => {
     active = path
-    return { ok: true as const, snapshot: libraries.get(path) ?? null }
+    return { ok: true as const, path, snapshot: libraries.get(path) ?? null }
   }
   const bridge = {
     isElectron: true, platform: 'darwin', onTrayNavigate: () => () => {},
