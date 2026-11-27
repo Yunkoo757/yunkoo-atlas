@@ -34,6 +34,7 @@ export function replaceLibraryInStore(snapshot: PersistedSnapshot | null): void 
     ...data,
     ...initialTags,
     librarySession: useStore.getState().librarySession + 1,
+    pendingAvatarUpload: null,
     selectedId: null,
     composerOpen: false,
     composerTrade: null,

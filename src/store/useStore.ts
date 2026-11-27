@@ -257,6 +257,7 @@ interface State {
   tagPresets: string[]
   mistakeTagPresets: string[]
   profile: UserProfile
+  pendingAvatarUpload: symbol | null
   savedTradeViews: SavedTradeView[]
   symbolIcons: SymbolIconsMap
   symbolCatalog: string[]
@@ -281,7 +282,7 @@ interface State {
   removeReviewTemplate: (id: string) => (() => boolean) | undefined
   reorderReviewTemplates: (sourceId: string, targetId: string) => void
   setAvatar: (avatarId: string | null) => void
-  setCustomAvatar: (dataUrl: string | null) => void
+  uploadAvatar: (readImage: () => Promise<string>) => Promise<void>
   setDisplayName: (name: string) => void
   saveWeeklyRiskDraft: (weekStart: string, draft: RiskPolicyDraft, updatedAt: string) => void
   confirmWeeklyRiskPreparation: (
@@ -606,6 +607,7 @@ export const useStore = create<State>()((set, get) => ({
       tagPresets: [],
       mistakeTagPresets: [],
       display: DEFAULT_DISPLAY,
+      pendingAvatarUpload: null,
       profile: {
         avatarId: null,
         displayName: DEFAULT_USER_DISPLAY_NAME,
@@ -1016,11 +1018,23 @@ export const useStore = create<State>()((set, get) => ({
       setAvatar: (avatarId) =>
         set((s) => ({
           profile: { ...s.profile, avatarId, customAvatarDataUrl: null },
+          pendingAvatarUpload: null,
         })),
-      setCustomAvatar: (dataUrl) =>
-        set((s) => ({
-          profile: { ...s.profile, customAvatarDataUrl: dataUrl, avatarId: null },
-        })),
+      uploadAvatar: async (readImage) => {
+        const request = Symbol('avatar')
+        set({ pendingAvatarUpload: request })
+        try {
+          const customAvatarDataUrl = await readImage()
+          set((state) => state.pendingAvatarUpload === request ? {
+            profile: { ...state.profile, avatarId: null, customAvatarDataUrl },
+            pendingAvatarUpload: null,
+          } : state)
+        } catch (error) {
+          if (get().pendingAvatarUpload !== request) return
+          set({ pendingAvatarUpload: null })
+          throw error
+        }
+      },
       setDisplayName: (displayName) =>
         set((s) => ({
           profile: {

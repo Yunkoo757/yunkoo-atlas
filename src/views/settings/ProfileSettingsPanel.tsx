@@ -12,9 +12,15 @@ import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import './ProfileSettingsPanel.css'
 
 export function ProfileSettingsPanel() {
+  const librarySession = useStore((s) => s.librarySession)
+  return <ProfileSettingsForm key={librarySession} librarySession={librarySession} />
+}
+
+function ProfileSettingsForm({ librarySession }: { librarySession: number }) {
   const profile = useStore((s) => s.profile)
   const setAvatar = useStore((s) => s.setAvatar)
-  const setCustomAvatar = useStore((s) => s.setCustomAvatar)
+  const uploadAvatar = useStore((s) => s.uploadAvatar)
+  const uploading = useStore((s) => s.pendingAvatarUpload !== null)
   const setDisplayName = useStore((s) => s.setDisplayName)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const nameValue = nameDraft ?? profile.displayName
@@ -22,7 +28,6 @@ export function ProfileSettingsPanel() {
   const nameErrorId = useId()
   const [saved, setSaved] = useState(false)
   const [savingName, setSavingName] = useState(false)
-  const [uploading, setUploading] = useState(false)
   const [avatarError, setAvatarError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -44,7 +49,9 @@ export function ProfileSettingsPanel() {
       setNameDraft(null)
       setSaved(true)
     } catch {
-      if (useStore.getState().profile.displayName === trimmed) {
+      const current = useStore.getState()
+      if (current.librarySession !== librarySession) return
+      if (current.profile.displayName === trimmed) {
         setDisplayName(previousName)
         try {
           await flushPersistNow()
@@ -68,14 +75,10 @@ export function ProfileSettingsPanel() {
       setAvatarError('请选择图片文件。')
       return
     }
-    setUploading(true)
     try {
-      const dataUrl = await resizeAvatarImage(file)
-      setCustomAvatar(dataUrl)
+      await uploadAvatar(() => resizeAvatarImage(file))
     } catch {
       setAvatarError('无法读取这张图片，请重新选择。')
-    } finally {
-      setUploading(false)
     }
   }
 
@@ -157,7 +160,7 @@ export function ProfileSettingsPanel() {
             <button
               type="button"
               className="dio-btn"
-              onClick={() => setCustomAvatar(null)}
+              onClick={() => setAvatar(null)}
             >
               <X size={ICON_SM} />
               <span>移除自定义头像</span>
@@ -197,10 +200,7 @@ export function ProfileSettingsPanel() {
           <button
             type="button"
             className="profile-reset-avatar"
-            onClick={() => {
-              setAvatar(null)
-              setCustomAvatar(null)
-            }}
+            onClick={() => setAvatar(null)}
           >
             恢复默认头像
           </button>
