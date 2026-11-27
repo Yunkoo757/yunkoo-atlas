@@ -1,5 +1,6 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import type { Trade, TradeStatus } from '@/data/trades'
 import { toastStore } from '@/lib/toast'
 import { useShortcutStore } from '@/store/shortcutStore'
@@ -82,7 +83,7 @@ async function run(): Promise<void> {
     }))
 
     root.render(
-      <MemoryRouter initialEntries={['/review-cases/board']}>
+      <MemoryAppRouter initialEntries={['/review-cases/board']}>
         <main style={{ width: '1440px', height: '760px', display: 'flex', flexDirection: 'column' }}>
           <BoardView
             title="案例库"
@@ -92,7 +93,7 @@ async function run(): Promise<void> {
             filter={{ type: 'all', tradeKind: 'case', reviewCaseScope: 'all' }}
           />
         </main>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
 
     await waitFor(() => document.querySelectorAll('.bd-col').length === 5, '五个状态列未完整渲染')
@@ -166,14 +167,14 @@ async function run(): Promise<void> {
         display: { ...state.display, groupByDate: true, groupByStrategy: false, sortBy: 'date', sortDirection: 'desc' },
       }))
       root.render(
-        <MemoryRouter key="journal" initialEntries={['/list?kind=all']}>
+        <MemoryAppRouter key="journal" initialEntries={['/list?kind=all']}>
           <main style={{ height: '760px', display: 'flex', flexDirection: 'column' }}>
             <Routes>
               <Route path="/list" element={<ListView title="交易日志" view="list" onView={() => {}} journal />} />
               <Route path="/trade/:id" element={<DetailView />} />
             </Routes>
           </main>
-        </MemoryRouter>,
+        </MemoryAppRouter>,
       )
       await waitFor(() => document.querySelectorAll('.trade-row').length === 3, '日志应呈现两个可折叠月份')
       document.querySelector<HTMLButtonElement>('[data-trade-id="folded-month"] [role="checkbox"]')!.click()

@@ -1,5 +1,6 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { Route, Routes, useLocation } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import { useShortcutHost } from '@/shortcuts/ShortcutHost'
 import { useShortcutStore } from '@/store/shortcutStore'
@@ -110,9 +111,9 @@ async function run(): Promise<void> {
       },
     })
     root.render(
-      <MemoryRouter initialEntries={['/trade/TRD-BROWSE-1']}>
+      <MemoryAppRouter initialEntries={['/trade/TRD-BROWSE-1']}>
         <ShortcutDetailFixture />
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
 
     await waitFor(
@@ -214,7 +215,7 @@ async function verifyReadOnlyRecovery(): Promise<void> {
   const root = createRoot(document.getElementById('root')!)
   try {
     useStore.setState({ trades: [record] })
-    root.render(<MemoryRouter initialEntries={['/trade/' + record.ref]}><ShortcutDetailFixture /></MemoryRouter>)
+    root.render(<MemoryAppRouter initialEntries={['/trade/' + record.ref]}><ShortcutDetailFixture /></MemoryAppRouter>)
     const retry = () => [...document.querySelectorAll('button')].find(button => button.textContent?.includes('重新载入'))
     await waitFor(() => Boolean(retry()), '缺失附件时应可重新载入')
     const editor = document.querySelector<HTMLElement>('.ProseMirror')
@@ -230,7 +231,7 @@ async function verifyReadOnlyRecovery(): Promise<void> {
     damaged.note += '<img src="journal-asset://missing-image">'
     storage.acquireAssetObjectUrl = async () => null
     useStore.setState({ trades: [damaged] })
-    root.render(<MemoryRouter key={damaged.id} initialEntries={['/trade/' + damaged.ref]}><ShortcutDetailFixture /></MemoryRouter>)
+    root.render(<MemoryAppRouter key={damaged.id} initialEntries={['/trade/' + damaged.ref]}><ShortcutDetailFixture /></MemoryAppRouter>)
     const repair = () => [...document.querySelectorAll('button')].find(button => button.textContent === '移除缺失图片并继续编辑')
     await waitFor(() => Boolean(repair()), '缺图时应可明确选择移除引用')
     const latestNote = damaged.note + '<p>载入后的补充</p>'

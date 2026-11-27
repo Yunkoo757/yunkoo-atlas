@@ -1,5 +1,6 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { Route, Routes, useLocation } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import { tradeDetailNavState } from '@/lib/tradeRoute'
 import { useShortcutHost } from '@/shortcuts/ShortcutHost'
@@ -145,9 +146,9 @@ async function run(): Promise<void> {
     })
 
     root.render(
-      <MemoryRouter initialEntries={['/trade/CAS-2']}>
+      <MemoryAppRouter initialEntries={['/trade/CAS-2']}>
         <ShortcutDetailFixture />
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
 
     await waitFor(
@@ -310,7 +311,7 @@ async function run(): Promise<void> {
     const weeklyTrade = makeWeeklyLiveTrade()
     useStore.setState({ trades: [weeklyTrade] })
     root.render(
-      <MemoryRouter
+      <MemoryAppRouter
         key="weekly-detail-source"
         initialEntries={[{
           pathname: `/trade/${weeklyTrade.ref}`,
@@ -325,7 +326,7 @@ async function run(): Promise<void> {
           <Route path="/trade/:id" element={<DetailView />} />
           <Route path="/weekly-review" element={<WeeklyReturnProbe />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => document.querySelector('[aria-label="返回周复盘"]') !== null,
@@ -357,7 +358,7 @@ async function run(): Promise<void> {
     useStore.getState().removeTrade(weeklyTrade.id)
     useStore.getState().purgeTrade(weeklyTrade.id)
     root.render(
-      <MemoryRouter
+      <MemoryAppRouter
         key="missing-weekly-detail-source"
         initialEntries={[{
           pathname: `/trade/${weeklyTrade.ref}`,
@@ -372,7 +373,7 @@ async function run(): Promise<void> {
           <Route path="/trade/:id" element={<DetailView />} />
           <Route path="/weekly-review" element={<WeeklyReturnProbe />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => [...document.querySelectorAll<HTMLAnchorElement>('a')]
@@ -397,7 +398,7 @@ async function run(): Promise<void> {
     }
     useStore.setState({ trades: [invalidWeeklyPaper] })
     root.render(
-      <MemoryRouter
+      <MemoryAppRouter
         key="invalid-paper-weekly-source"
         initialEntries={[{
           pathname: `/trade/${invalidWeeklyPaper.ref}`,
@@ -412,7 +413,7 @@ async function run(): Promise<void> {
           <Route path="/trade/:id" element={<DetailView />} />
           <Route path="/list" element={<ReturnPathProbe />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => document.querySelector('[aria-label="返回交易日志"]') !== null,
@@ -433,7 +434,7 @@ async function run(): Promise<void> {
     const invalidWeeklyCase = makeCase(4)
     useStore.setState({ trades: [invalidWeeklyCase] })
     root.render(
-      <MemoryRouter
+      <MemoryAppRouter
         key="invalid-case-weekly-source"
         initialEntries={[{
           pathname: `/trade/${invalidWeeklyCase.ref}`,
@@ -448,7 +449,7 @@ async function run(): Promise<void> {
           <Route path="/trade/:id" element={<DetailView />} />
           <Route path="/review-cases" element={<ReturnPathProbe />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(
       () => document.querySelector('[aria-label="返回案例库"]') !== null,

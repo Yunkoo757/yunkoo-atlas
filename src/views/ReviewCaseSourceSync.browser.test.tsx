@@ -1,5 +1,7 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
+import { Suspense } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
 import { handleShortcutKeydown } from '@/shortcuts/engine'
@@ -63,6 +65,7 @@ function CurrentPath() {
   return (
     <div data-test-navigation>
       <output data-current-path>{location.pathname}</output>
+      <button type="button" onClick={() => navigate('/elsewhere')}>打开延迟页面</button>
       <button type="button" onClick={() => navigate('/trade/TRD-RACE-B')}>
         切换到第二来源
       </button>
@@ -72,12 +75,12 @@ function CurrentPath() {
 
 function renderDetail(root: Root, route: string): void {
   root.render(
-    <MemoryRouter initialEntries={[route]}>
+    <MemoryAppRouter initialEntries={[route]}>
       <CurrentPath />
       <Routes>
         <Route path="/trade/:id" element={<DetailView />} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryAppRouter>,
   )
 }
 
@@ -398,6 +401,35 @@ async function run(): Promise<void> {
       !useStore.getState().trades.some((trade) => trade.tradeKind === 'case'),
       '详情卸载后旧操作不得创建案例',
     )
+
+
+    useStore.setState({ trades: [unmountSource] })
+    const nextPage = deferred<void>()
+    let destinationReady = false
+    function SlowPage() {
+      if (!destinationReady) throw nextPage.promise
+      return <main data-delayed-destination />
+    }
+    root = createRoot(rootElement)
+    root.render(<MemoryAppRouter initialEntries={['/trade/TRD-UNMOUNT']} future={{ v7_startTransition: true }}>
+      <CurrentPath />
+      <Suspense fallback={null}><Routes>
+        <Route path="/trade/:id" element={<DetailView />} />
+        <Route path="/elsewhere" element={<SlowPage />} />
+      </Routes></Suspense>
+    </MemoryAppRouter>)
+    await waitFor(() => Boolean(findButton('更多')), '延迟离页前详情未就绪')
+    findButton('更多')!.click()
+    await waitFor(() => Boolean(findButton('提炼为案例')), '延迟离页前提炼入口未出现')
+    findButton('提炼为案例')!.click()
+    findButton('打开延迟页面')!.click()
+    await waitForFrame()
+    destinationReady = true
+    nextPage.resolve()
+    await waitFor(() => Boolean(document.querySelector('[data-delayed-destination]')), '旧提炼抢回了尚在加载的目标页面')
+    assert(!useStore.getState().trades.some(item => item.tradeKind === 'case'), '离页意图已发出后旧详情仍创建了案例')
+    root.unmount()
+    root = null
 
     resetNoteDraftsForTests()
     const legacyCase: Trade = {

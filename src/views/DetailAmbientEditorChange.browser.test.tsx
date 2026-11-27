@@ -1,6 +1,7 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
 import type { Editor as TiptapEditor } from '@tiptap/core'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import { DetailView } from '@/views/DetailView'
 import {
@@ -74,11 +75,11 @@ async function run(): Promise<void> {
       display: { ...previous.display, reviewContextPinned: true },
     })
     root.render(
-      <MemoryRouter initialEntries={['/trade/TRD-AMBIENT']}>
+      <MemoryAppRouter initialEntries={['/trade/TRD-AMBIENT']}>
         <Routes>
           <Route path="/trade/:id" element={<DetailView />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
 
     await waitFor(

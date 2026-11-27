@@ -1,5 +1,6 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import type { Editor as TiptapEditor } from '@tiptap/core'
 import type { Trade } from '@/data/trades'
 import { prepareCaseClipboard } from '@/lib/caseClipboard'
@@ -58,10 +59,10 @@ async function run() {
   try {
     useStore.setState({ trades: [trade], display: { ...previous.display, reviewContextPinned: true } })
     root.render(
-      <MemoryRouter initialEntries={['/trade/CASE-CLIPBOARD']}>
+      <MemoryAppRouter initialEntries={['/trade/CASE-CLIPBOARD']}>
         <Routes><Route path="/trade/:id" element={<DetailView />} /></Routes>
         <ToastHost />
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(() => Boolean(document.querySelector('[aria-label="案例沉淀正文"][contenteditable="true"]')), '正文未载入')
     const editor = document.querySelector<HTMLElement>('[aria-label="案例沉淀正文"]') as HTMLElement & { editor: TiptapEditor }

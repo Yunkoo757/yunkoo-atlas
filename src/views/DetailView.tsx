@@ -118,15 +118,11 @@ import { buildPerformanceSelection } from '@/lib/performanceSelection'
 import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { useTradeNote } from './useTradeNote'
+import { useNavigationIntent } from '@/hooks/useNavigationIntent'
 import { withLibrarySession } from './withLibrarySession'
 import './DetailView.css'
 
 const FEED_VISIBLE = 8
-
-type CaseCreationOperation = Readonly<{
-  generation: number
-  tradeId: string
-}>
 
 const STATUS_OPTS: TradeStatus[] = STATUS_ORDER
 const CONV_OPTS: Conviction[] = ['urgent', 'high', 'medium', 'low']
@@ -227,8 +223,8 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
   const contentCopyOwnerRef = useRef(false)
   const contentCopyIssueRef = useRef<HTMLDivElement>(null)
   const [reviewIssue, setReviewIssue] = useState<string | null>(null)
-  const caseCreationOwnerRef = useRef<CaseCreationOperation | null>(null)
-  const caseCreationGenerationRef = useRef(0)
+  const navigationIntent = useNavigationIntent()
+  const caseCreationOwnerRef = useRef<(() => boolean) | null>(null)
   const activeTradeIdRef = useRef<string | null>(trade?.id ?? null)
   const detailMountedRef = useRef(true)
   const commentRef = useRef<HTMLTextAreaElement>(null)
@@ -363,7 +359,6 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
     return () => {
       detailMountedRef.current = false
       activeTradeIdRef.current = null
-      caseCreationGenerationRef.current += 1
       caseCreationOwnerRef.current = null
     }
   }, [])
@@ -391,7 +386,6 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
 
   useLayoutEffect(() => {
     activeTradeIdRef.current = trade?.id ?? null
-    caseCreationGenerationRef.current += 1
     caseCreationOwnerRef.current = null
     setCommentOpen(false)
     setActivityOpen(false)
@@ -561,43 +555,32 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
 
   const createCaseFromCurrentTrade = async () => {
     if (caseCreationOwnerRef.current || caseCreating || trade.tradeKind === 'case') return
-    const operation: CaseCreationOperation = {
-      generation: caseCreationGenerationRef.current,
-      tradeId: trade.id,
-    }
+    const isCurrent = navigationIntent.capture()
     const ownsCurrentTrade = () =>
-      detailMountedRef.current &&
-      useStore.getState().librarySession === librarySession &&
-      caseCreationOwnerRef.current === operation &&
-      caseCreationGenerationRef.current === operation.generation &&
-      activeTradeIdRef.current === operation.tradeId
+      isCurrent() && caseCreationOwnerRef.current === isCurrent &&
+      useStore.getState().librarySession === librarySession && activeTradeIdRef.current === trade.id
 
-    caseCreationOwnerRef.current = operation
+    caseCreationOwnerRef.current = isCurrent
     setCaseCreating(true)
     try {
-      const noteSaved = await flushNoteDraftToStore(noteDraftKey('trade', operation.tradeId))
+      const noteSaved = await flushNoteDraftToStore(noteDraftKey('trade', trade.id))
       if (!ownsCurrentTrade()) return
       if (!noteSaved) {
         toast('正文尚未保存，未创建案例', { tone: 'error' })
         return
       }
-      const result = useStore.getState().createReviewCaseFromTrade(operation.tradeId)
+      const result = useStore.getState().createReviewCaseFromTrade(trade.id)
       if (!ownsCurrentTrade()) return
       if (result.status !== 'created') {
         toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在', { tone: 'warning' })
         return
       }
-      if (!ownsCurrentTrade()) return
       toast('已提炼为案例', { tone: 'success' })
       navigate(tradeDetailPath(result.reviewCase), { state: relatedTradeDetailState(trade.id, result.reviewCase.id, routeState) })
     } finally {
-      if (caseCreationOwnerRef.current === operation) {
+      if (caseCreationOwnerRef.current === isCurrent) {
         caseCreationOwnerRef.current = null
-        if (
-          detailMountedRef.current &&
-          caseCreationGenerationRef.current === operation.generation &&
-          activeTradeIdRef.current === operation.tradeId
-        ) setCaseCreating(false)
+        setCaseCreating(false)
       }
     }
   }
@@ -627,7 +610,8 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
   const completeReview = async () => {
     if (pendingReviewsRef.current.has(trade.id) || activeNoteLoad.status !== 'ready' || !reviewReadiness.ready) return
 
-    const ownsView = () => detailMountedRef.current && activeTradeIdRef.current === trade.id
+    const isCurrent = navigationIntent.capture()
+    const ownsView = () => isCurrent() && activeTradeIdRef.current === trade.id
     const continueKeyboardFlow = completionButtonRef.current === document.activeElement
     pendingReviewsRef.current.add(trade.id)
     setReviewSubmitting(true)
@@ -649,7 +633,7 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
       })
     } finally {
       pendingReviewsRef.current.delete(trade.id)
-      if (ownsView()) setReviewSubmitting(false)
+      if (detailMountedRef.current && activeTradeIdRef.current === trade.id) setReviewSubmitting(false)
     }
   }
 
@@ -796,11 +780,14 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
   const detailRecordActions = buildRecordActionDescriptors(trade, { starred })
   const deleteAction = detailRecordActions.find((action) => action.id === 'delete')
   const openDecisionImage = async () => {
-    if (!(await flushNoteDraftToStore(noteDraftKey('trade', trade.id)))) {
+    const isCurrent = navigationIntent.capture()
+    const saved = await flushNoteDraftToStore(noteDraftKey('trade', trade.id))
+    if (!isCurrent() || activeTradeIdRef.current !== trade.id || useStore.getState().librarySession !== librarySession) return
+    if (!saved) {
       toast('正文尚未保存，请稍后重试', { tone: 'error' })
       return
     }
-    if (detailMountedRef.current && activeTradeIdRef.current === trade.id) setDecisionImageCaseId(trade.id)
+    setDecisionImageCaseId(trade.id)
   }
 
   const moreMenuOptions: MenuOption[] = [

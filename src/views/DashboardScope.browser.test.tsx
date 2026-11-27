@@ -1,5 +1,6 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { Route, Routes, useLocation } from 'react-router-dom'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import type { LiveStage } from '@/lib/liveStages'
@@ -109,13 +110,13 @@ async function run(): Promise<void> {
       currentLiveStageId: 'stage-current',
     })
     root.render(
-      <MemoryRouter initialEntries={['/dashboard?kind=live&range=all&liveStage=stage-old&symbol=BTCUSDT']}>
+      <MemoryAppRouter initialEntries={['/dashboard?kind=live&range=all&liveStage=stage-old&symbol=BTCUSDT']}>
         <Routes>
           <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
           <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
           <Route path="/trade/:id" element={<DetailView />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
 
     await waitFor(
@@ -161,9 +162,9 @@ async function run(): Promise<void> {
     })
     root = createRoot(element)
     root.render(
-      <MemoryRouter initialEntries={['/dashboard?kind=live&range=all&liveStage=current']}>
+      <MemoryAppRouter initialEntries={['/dashboard?kind=live&range=all&liveStage=current']}>
         <Routes><Route path="/dashboard" element={<Dashboard />} /></Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(() => Boolean(document.querySelector('[data-currency-merge-status="usd-with-exclusions"]')), '混合/未知币种必须显示独立覆盖状态')
     const notice = document.querySelector<HTMLDetailsElement>('.db-report-context .performance-data-notice')
@@ -183,9 +184,9 @@ async function run(): Promise<void> {
     useStore.setState({ trades: [usdLive] })
     root = createRoot(element)
     root.render(
-      <MemoryRouter initialEntries={['/dashboard?kind=paper&range=this-week&liveStage=stage-old']}>
+      <MemoryAppRouter initialEntries={['/dashboard?kind=paper&range=this-week&liveStage=stage-old']}>
         <Routes><Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} /></Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     const allData = () => [...document.querySelectorAll<HTMLButtonElement>('.db-empty button')]
       .find(button => button.textContent === '查看全部数据')
@@ -209,12 +210,12 @@ async function run(): Promise<void> {
     useStore.setState({ trades: [openLive] })
     root = createRoot(element)
     root.render(
-      <MemoryRouter initialEntries={['/dashboard?kind=live&range=this-week&liveStage=current']}>
+      <MemoryAppRouter initialEntries={['/dashboard?kind=live&range=this-week&liveStage=current']}>
         <Routes>
           <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
           <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(() => [...document.querySelectorAll<HTMLButtonElement>('button')].some((button) => button.textContent?.trim() === '查看进行中交易'), '当前 stage 只有持仓时必须显示查看进行中交易空状态')
     ;[...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.trim() === '查看进行中交易')?.click()
@@ -224,11 +225,11 @@ async function run(): Promise<void> {
     useStore.setState({ trades: [usdLive] })
     root = createRoot(element)
     root.render(
-      <MemoryRouter initialEntries={['/dashboard?kind=live&range=all&liveStage=current&symbol=BTCUSDT']}>
+      <MemoryAppRouter initialEntries={['/dashboard?kind=live&range=all&liveStage=current&symbol=BTCUSDT']}>
         <Routes>
           <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(() => Boolean(document.querySelector('[aria-label="本周交易分析"]')), '本周有数据时必须显示有效分析')
     assert(!document.body.textContent?.includes('查看累计盈亏数据'), 'Dashboard 不得保留重复的内联数据表入口')
@@ -237,12 +238,12 @@ async function run(): Promise<void> {
     useStore.setState({ trades: [usdLive] })
     root = createRoot(element)
     root.render(
-      <MemoryRouter initialEntries={['/dashboard?kind=live&range=ytd&liveStage=current']}>
+      <MemoryAppRouter initialEntries={['/dashboard?kind=live&range=ytd&liveStage=current']}>
         <Routes>
           <Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} />
           <Route path="/list" element={<><TradeLogPage /><LocationProbe /></>} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(() => Boolean(document.querySelector('[data-kpi-drilldown]')), '本年 Dashboard 必须显示 KPI 下钻')
     const ytdDrilldown = document.querySelector<HTMLAnchorElement>('[data-kpi-drilldown]')
@@ -254,18 +255,18 @@ async function run(): Promise<void> {
     root.unmount()
     root = createRoot(element)
     root.render(
-      <MemoryRouter initialEntries={['/period/ytd']}>
+      <MemoryAppRouter initialEntries={['/period/ytd']}>
         <Routes><Route path="/period/:slug" element={<><PeriodPage /><LocationProbe /></>} /></Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(() => document.querySelector('h1')?.textContent === '本年' && document.querySelectorAll('[data-trade-id]').length === 1, '/period/ytd 必须保留本年标题与真实列表')
     assert(document.querySelector('[data-testid="location"]')?.textContent === '/period/ytd', '/period/ytd 不得静默跳转到 today')
     root.unmount()
     root = createRoot(element)
     root.render(
-      <MemoryRouter initialEntries={['/period/bad/board?symbol=BTCUSDT']}>
+      <MemoryAppRouter initialEntries={['/period/bad/board?symbol=BTCUSDT']}>
         <Routes><Route path="/period/:slug/board" element={<><PeriodPage /><LocationProbe /></>} /></Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
     await waitFor(() => Boolean(document.querySelector('[data-invalid-period]')), '非法 period slug 必须显示可解释恢复页')
     assert(document.body.textContent?.includes('/period/bad/board?symbol=BTCUSDT'), '恢复页必须保留并解释原始 pathname/query')

@@ -1,5 +1,6 @@
+import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import type { Editor as TiptapEditor } from '@tiptap/core'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
@@ -114,11 +115,11 @@ async function run(): Promise<void> {
   try {
     useStore.setState({ trades: [trade], strategies: [strategy] })
     root.render(
-      <MemoryRouter initialEntries={['/trade/TRD-REVIEW']}>
+      <MemoryAppRouter initialEntries={['/trade/TRD-REVIEW']}>
         <Routes>
           <Route path="/trade/:id" element={<DetailView />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
 
     const editorSelector = '[aria-label="复盘正文"][contenteditable="true"]'
@@ -185,12 +186,12 @@ async function run(): Promise<void> {
     })
     root = createRoot(rootElement)
     root.render(
-      <MemoryRouter initialEntries={['/trade/TRD-REVIEW-FILLED']}>
+      <MemoryAppRouter initialEntries={['/trade/TRD-REVIEW-FILLED']}>
         <ToastHost />
         <Routes>
           <Route path="/trade/:id" element={<DetailView />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
 
     await waitFor(
@@ -272,11 +273,11 @@ async function run(): Promise<void> {
     }
     root = createRoot(rootElement)
     root.render(
-      <MemoryRouter initialEntries={['/trade/TRD-REVIEW-RACE']}>
+      <MemoryAppRouter initialEntries={['/trade/TRD-REVIEW-RACE']}>
         <Routes>
           <Route path="/trade/:id" element={<DetailView />} />
         </Routes>
-      </MemoryRouter>,
+      </MemoryAppRouter>,
     )
 
     await waitFor(
