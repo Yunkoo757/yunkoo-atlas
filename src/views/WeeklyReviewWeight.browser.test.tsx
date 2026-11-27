@@ -1,3 +1,4 @@
+import { waitFor } from '../test/browserTiming'
 import { createRoot } from 'react-dom/client'
 import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import type { Trade } from '@/data/trades'
@@ -10,15 +11,6 @@ import '@/styles/global.css'
 
 declare global { interface Window { __weeklyReviewWeightTest?: Promise<void> } }
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
-async function waitFor(check: () => boolean, message: string) {
-  const deadline = performance.now() + 5_000
-  while (performance.now() < deadline) {
-    if (check()) return
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-  }
-  throw new Error(message)
-}
-
 async function run() {
   const previous = useStore.getState()
   const week = weekStartFor(parseLocalDate(getTradingDayKey()))

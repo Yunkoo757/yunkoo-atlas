@@ -1,3 +1,4 @@
+import { nextFrame as waitForFrame, waitFor } from '../test/browserTiming'
 import { createRoot } from 'react-dom/client'
 import type { Editor as TiptapEditor } from '@tiptap/core'
 import { Editor } from './Editor'
@@ -57,19 +58,6 @@ function assertFontInheritance(context: HTMLElement): void {
   normal.remove()
   inlineCodeDescendant.remove()
   pre.remove()
-}
-
-function waitForFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
-}
-
-async function waitFor(condition: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 5_000
-  while (performance.now() < deadline) {
-    if (condition()) return
-    await waitForFrame()
-  }
-  throw new Error(message)
 }
 
 async function run(): Promise<void> {

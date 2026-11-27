@@ -1,3 +1,4 @@
+import { waitFor } from '../test/browserTiming'
 import { StrictMode } from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
@@ -19,17 +20,7 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
 const task = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
-
-async function waitFor(condition: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 5_000
-  while (performance.now() < deadline) {
-    if (condition()) return
-    await frame()
-  }
-  throw new Error(message)
-}
 
 const composer = () => document.querySelector<HTMLElement>('[role="dialog"].composer-modal')
 

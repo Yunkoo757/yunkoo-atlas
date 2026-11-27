@@ -1,3 +1,4 @@
+import { createBrowserWait } from '../test/browserTiming'
 import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -18,12 +19,9 @@ import { toastStore } from '@/lib/toast'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
 
+const waitFor = createBrowserWait(4_000)
+
 function assert(value: unknown, message: string): asserts value { if (!value) throw Error(message) }
-async function until(check: () => unknown, message: string) {
-  const deadline = performance.now() + 4000
-  while (performance.now() < deadline) { if (check()) return; await new Promise(resolve => requestAnimationFrame(resolve)) }
-  throw Error(message)
-}
 function DetailProbe() {
   const location = useLocation()
   return <main data-converted-case-path data-source-search={location.state?.from?.search}>{location.pathname}</main>
@@ -72,7 +70,7 @@ async function run() {
   try {
     useStore.setState({ quickNotes: [note], trades: [oldCase], strategies: [strategy], liveStages: [stage], currentLiveStageId: stage.id })
     openNote()
-    await until(() => document.querySelector('[aria-label="随记正文"]')?.textContent === '只在结构确认后参与。', '随记正文尚未载入')
+    await waitFor(() => document.querySelector('[aria-label="随记正文"]')?.textContent === '只在结构确认后参与。', '随记正文尚未载入')
     const editable = document.querySelector<HTMLElement>('[aria-label="随记正文"]')! as HTMLElement & { editor?: TiptapEditor }
     assert(editable.editor, '缺少实际随记编辑器')
     editable.editor.commands.focus('end')
@@ -85,16 +83,16 @@ async function run() {
     convert.click()
     convert.click()
     convertLive.click()
-    await until(() => assetSaveCalls === 1 && convert.disabled && convertLive.disabled, '图片冲洗期间两个转换按钮必须共用禁用状态')
+    await waitFor(() => assetSaveCalls === 1 && convert.disabled && convertLive.disabled, '图片冲洗期间两个转换按钮必须共用禁用状态')
     assert(useStore.getState().trades.length === 1, '图片未保存时不得提前创建记录')
     navigate!('/elsewhere')
-    await until(() => document.querySelector('[data-conversion-away]') && !document.querySelector('[data-note-convert-case]'), '等待冲洗时必须真实卸载随记页面')
+    await waitFor(() => document.querySelector('[data-conversion-away]') && !document.querySelector('[data-note-convert-case]'), '等待冲洗时必须真实卸载随记页面')
     openNote()
-    await until(() => document.querySelector<HTMLButtonElement>('[data-note-convert-case]')?.disabled && document.querySelector<HTMLButtonElement>('[data-note-convert-live]')?.disabled, '重挂载后同随记的案例/交易入口必须共享在途锁')
+    await waitFor(() => document.querySelector<HTMLButtonElement>('[data-note-convert-case]')?.disabled && document.querySelector<HTMLButtonElement>('[data-note-convert-live]')?.disabled, '重挂载后同随记的案例/交易入口必须共享在途锁')
     document.querySelector<HTMLButtonElement>('[data-note-convert-case]')!.click()
     document.querySelector<HTMLButtonElement>('[data-note-convert-live]')!.click()
     finishCaseFlush()
-    await until(() => !!document.querySelector('[data-converted-case-path]'), '转案例后未进入新案例详情')
+    await waitFor(() => !!document.querySelector('[data-converted-case-path]'), '转案例后未进入新案例详情')
     assert(useStore.getState().trades.length === 2, '等待冲洗时双击及卸载重挂后的案例/交易点击只允许创建一个案例')
     const created = useStore.getState().trades.find(trade => trade.id !== oldCase.id)
     assert(created, '转案例必须通过现有store写入新记录')
@@ -116,7 +114,7 @@ async function run() {
 
     // A later deliberate conversion is allowed; a failed flush must release the shared lock.
     openNote()
-    await until(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '重新打开随记未就绪')
+    await waitFor(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '重新打开随记未就绪')
     const retryEditor = (document.querySelector('[aria-label="随记正文"]') as HTMLElement & { editor?: TiptapEditor }).editor!
     const finishFailedFlush = delayAssetSave(true)
     retryEditor.chain().focus('end').insertContent('失败后仍需保留的观察。').setImage({ src: image }).createParagraphNear().run()
@@ -126,16 +124,16 @@ async function run() {
     retryLive.click()
     retryLive.click()
     retryCase.click()
-    await until(() => assetSaveCalls > savesBeforeFailure && retryLive.disabled && retryCase.disabled, '交易转换也必须在冲洗前取得同一把锁')
+    await waitFor(() => assetSaveCalls > savesBeforeFailure && retryLive.disabled && retryCase.disabled, '交易转换也必须在冲洗前取得同一把锁')
     finishFailedFlush()
-    await until(() => !retryLive.disabled && !retryCase.disabled, '冲洗失败后finally必须释放转换锁供重试')
+    await waitFor(() => !retryLive.disabled && !retryCase.disabled, '冲洗失败后finally必须释放转换锁供重试')
     assert(useStore.getState().trades.length === 2 && !document.querySelector('[data-converted-case-path]'), '冲洗失败不得创建或跳转到额外记录')
     assert(getNoteDraft(noteDraftKey('quickNote', note.id))?.includes('失败后仍需保留的观察。'), '冲洗失败必须保留最新正文草稿')
     assert(useStore.getState().trades.find(trade => trade.id === created.id)?.note === created.note, '转换失败不得覆盖已生成的案例和原图')
     retryLive.click()
     retryLive.click()
     retryCase.click()
-    await until(() => !!document.querySelector('[data-converted-case-path]'), '修复保存后应允许正常重试转换')
+    await waitFor(() => !!document.querySelector('[data-converted-case-path]'), '修复保存后应允许正常重试转换')
     const live = useStore.getState().trades.find(trade => trade.tradeKind === 'live')
     assert(live?.ref === 'TRD-1' && useStore.getState().trades.length === 3, '后续主动转交易允许一次，连续点击不得新增重复案例或交易')
     assert(live.note.includes('失败后仍需保留的观察。'), '重试必须使用仍保留的最新草稿')
@@ -145,12 +143,12 @@ async function run() {
 
     // Fast flush must not release while the old controls survive a suspended navigation.
     openNote()
-    await until(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '快速转换前随记未就绪')
+    await waitFor(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '快速转换前随记未就绪')
     let finishRoute!: () => void
     routeGate.current = new Promise<void>(resolve => { finishRoute = resolve })
     const fastCase = document.querySelector<HTMLButtonElement>('[data-note-convert-case]')!
     fastCase.click()
-    await until(() => useStore.getState().trades.length === 4, '快速冲洗后应生成一条案例')
+    await waitFor(() => useStore.getState().trades.length === 4, '快速冲洗后应生成一条案例')
     assert(fastCase.isConnected && fastCase.disabled && isQuickNoteConverting(note.id), '成功转换到路由离开前必须继续持有锁并禁用旧控件')
     fastCase.click()
     document.querySelector<HTMLButtonElement>('[data-note-convert-live]')!.click()
@@ -158,22 +156,22 @@ async function run() {
     assert(useStore.getState().trades.length === 4, '快速冲洗后的连续点击不得生成第二条记录')
     routeGate.current = null
     finishRoute()
-    await until(() => document.querySelector('[data-converted-case-path]') && !isQuickNoteConverting(note.id), '目标路由完成离开随记后必须释放成功锁')
+    await waitFor(() => document.querySelector('[data-converted-case-path]') && !isQuickNoteConverting(note.id), '目标路由完成离开随记后必须释放成功锁')
 
     // Deleting the source during normalization must cancel, rather than revive its captured value.
     openNote()
-    await until(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '删除来源前随记未就绪')
+    await waitFor(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '删除来源前随记未就绪')
     const deleteEditor = (document.querySelector('[aria-label="随记正文"]') as HTMLElement & { editor?: TiptapEditor }).editor!
     const finishDeletedFlush = delayAssetSave()
     const savesBeforeDelete = assetSaveCalls
     deleteEditor.chain().focus('end').setImage({ src: image }).createParagraphNear().run()
     document.querySelector<HTMLButtonElement>('[data-note-convert-case]')!.click()
-    await until(() => assetSaveCalls > savesBeforeDelete, '删除来源测试必须先进入慢冲洗')
+    await waitFor(() => assetSaveCalls > savesBeforeDelete, '删除来源测试必须先进入慢冲洗')
     document.querySelector<HTMLButtonElement>('[aria-label="删除随记"]')!.click()
-    await until(() => document.querySelector('[role="dialog"]'), '删除随记确认没有打开')
+    await waitFor(() => document.querySelector('[role="dialog"]'), '删除随记确认没有打开')
     const confirmDelete = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(item => item.textContent === '删除随记')!
     confirmDelete.click()
-    await until(() => useStore.getState().quickNotes.length === 0, '来源随记必须真实删除')
+    await waitFor(() => useStore.getState().quickNotes.length === 0, '来源随记必须真实删除')
     assert(getNoteDraft(noteDraftKey('quickNote', note.id)) === undefined, '删除必须清除来源的内存草稿')
     let drained = false
     const draining = waitForPendingStorageOperations().then(() => { drained = true })
@@ -181,43 +179,43 @@ async function run() {
     assert(!drained, '退出和切库使用的pending屏障必须等待草稿已清除的在途转换')
     finishDeletedFlush()
     await draining
-    await until(() => !isQuickNoteConverting(note.id), '来源消失后必须释放转换锁')
+    await waitFor(() => !isQuickNoteConverting(note.id), '来源消失后必须释放转换锁')
     assert(useStore.getState().trades.length === 4 && !document.querySelector('[data-converted-case-path]'), '来源已删不能从捕获旧值生成记录或跳转')
     assert((await Promise.all(allAssetIds.map(id => storage.getAssetForExport(id)))).every(Boolean), '删除来源和取消转换不得破坏已转换记录所用原图')
     useStore.getState().upsertQuickNote(note)
     openNote()
-    await until(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '转换终结后重新写入的随记必须仍可编辑')
+    await waitFor(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '转换终结后重新写入的随记必须仍可编辑')
     document.querySelector<HTMLButtonElement>('[data-note-convert-case]')!.click()
-    await until(() => document.querySelector('[data-converted-case-path]') && useStore.getState().trades.length === 5, '屏障排空后后续主动转换必须仍可正常写入')
+    await waitFor(() => document.querySelector('[data-converted-case-path]') && useStore.getState().trades.length === 5, '屏障排空后后续主动转换必须仍可正常写入')
     await waitForPendingStorageOperations()
 
     openNote()
-    await until(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '再次转换前应能编辑随记')
+    await waitFor(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '再次转换前应能编辑随记')
     const turningAway = (document.querySelector('[aria-label="随记正文"]') as HTMLElement & { editor: TiptapEditor }).editor
     const release = delayAssetSave()
     const savesBeforeLeaving = assetSaveCalls
     turningAway.chain().focus('end').setImage({ src: image }).createParagraphNear().run()
     document.querySelector<HTMLButtonElement>('[data-note-convert-case]')!.click()
-    await until(() => assetSaveCalls > savesBeforeLeaving, '转换应等待截图落盘')
+    await waitFor(() => assetSaveCalls > savesBeforeLeaving, '转换应等待截图落盘')
     navigate!('/elsewhere')
-    await until(() => document.querySelector('[data-conversion-away]'), '用户应可在保存期间继续浏览')
+    await waitFor(() => document.querySelector('[data-conversion-away]'), '用户应可在保存期间继续浏览')
     release()
     await waitForPendingStorageOperations()
     assert(useStore.getState().trades.length === 6 && document.querySelector('[data-conversion-away]'), '后台转换完成须保留用户当前页面')
     const receipt = toastStore.getVisible().at(-1)
     assert(receipt?.actionLabel === '打开草稿' && receipt.onAction, '完成后应允许从回执打开草稿')
     receipt.onAction()
-    await until(() => document.querySelector('[data-converted-case-path]'), '主动打开回执应进入新的草稿')
+    await waitFor(() => document.querySelector('[data-converted-case-path]'), '主动打开回执应进入新的草稿')
 
     openNote()
-    await until(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '离页过渡前随记未就绪')
+    await waitFor(() => !!document.querySelector<HTMLElement>('[aria-label="随记正文"]')?.isContentEditable, '离页过渡前随记未就绪')
     const editorBeforeLeave = (document.querySelector('[aria-label="随记正文"]') as HTMLElement & { editor: TiptapEditor }).editor
     toastStore.dismiss()
     const finishImage = delayAssetSave()
     const beforeLeave = assetSaveCalls
     editorBeforeLeave.chain().focus('end').setImage({ src: image }).createParagraphNear().run()
     document.querySelector<HTMLButtonElement>('[data-note-convert-case]')!.click()
-    await until(() => assetSaveCalls > beforeLeave, '离页过渡必须发生在图片保存期间')
+    await waitFor(() => assetSaveCalls > beforeLeave, '离页过渡必须发生在图片保存期间')
     let finishPage!: () => void
     awayGate = new Promise(resolve => { finishPage = resolve })
     navigate!('/elsewhere')
@@ -228,7 +226,7 @@ async function run() {
     awayGate = null
     finishPage()
     assert(pendingReceipt?.actionLabel === '打开草稿', '目标页面仍在加载时，来源随记的转换覆盖了离页意图')
-    await until(() => document.querySelector('[data-conversion-away]'), '转换完成后应落在用户选择的页面')
+    await waitFor(() => document.querySelector('[data-conversion-away]'), '转换完成后应落在用户选择的页面')
     assert(useStore.getState().trades.length === 7, '来源随记的转换仍应只保存一次')
   } finally {
     releaseAssetGate()

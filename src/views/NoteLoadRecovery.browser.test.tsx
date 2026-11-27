@@ -1,3 +1,4 @@
+import { createBrowserWait } from '../test/browserTiming'
 import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
 import type { Editor as TiptapEditor } from '@tiptap/core'
@@ -14,16 +15,9 @@ import { useStore } from '@/store/useStore'
 import { QuickNotesView } from './QuickNotesView'
 import { WeeklyReviewView } from './WeeklyReviewView'
 
-declare global { interface Window { __noteLoadRecoveryTest?: Promise<void> } }
+const waitFor = createBrowserWait(4_000)
 
-async function waitFor(check: () => boolean, message: string) {
-  const deadline = performance.now() + 4000
-  while (performance.now() < deadline) {
-    if (check()) return
-    await new Promise(resolve => requestAnimationFrame(resolve))
-  }
-  throw Error(message)
-}
+declare global { interface Window { __noteLoadRecoveryTest?: Promise<void> } }
 
 async function run() {
   const state = useStore.getState()

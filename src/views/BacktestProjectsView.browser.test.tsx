@@ -1,3 +1,4 @@
+import { createBrowserWait } from '../test/browserTiming'
 import { createRoot } from 'react-dom/client'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router-dom'
 import { BacktestProjectsView } from './BacktestProjectsView'
@@ -10,13 +11,10 @@ import type { Trade } from '@/data/trades'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
 
+const waitFor = createBrowserWait(4_000)
+
 declare global { interface Window { __backtestListInteractionTest?: Promise<void> } }
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
-async function waitFor(check: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 4000
-  while (performance.now() < deadline) { if (check()) return; await new Promise(resolve => requestAnimationFrame(resolve)) }
-  throw new Error(message)
-}
 function button(label: string): HTMLButtonElement {
   const element = [...document.querySelectorAll<HTMLButtonElement>('button')].find(item => item.textContent?.trim() === label || item.getAttribute('aria-label') === label)
   assert(element, `找不到按钮：${label}`)

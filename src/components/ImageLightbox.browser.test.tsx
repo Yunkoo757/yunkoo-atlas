@@ -1,3 +1,4 @@
+import { waitFor } from '../test/browserTiming'
 import { createRoot } from 'react-dom/client'
 import { DeferredTradeOverlays } from './DeferredTradeOverlays'
 import { useShortcutStore } from '@/store/shortcutStore'
@@ -10,15 +11,6 @@ declare global {
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-async function waitFor(condition: () => boolean, message: string) {
-  const deadline = performance.now() + 5_000
-  while (performance.now() < deadline) {
-    if (condition()) return
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-  }
-  throw new Error(message)
 }
 
 const transform = () => document.querySelector<HTMLElement>('.img-lightbox-canvas')?.style.transform

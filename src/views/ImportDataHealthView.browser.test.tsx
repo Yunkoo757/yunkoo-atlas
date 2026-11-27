@@ -1,3 +1,4 @@
+import { createBrowserWait } from '../test/browserTiming'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import type { PersistedTrade } from '@/storage/types'
@@ -5,6 +6,8 @@ import { useStore } from '@/store/useStore'
 import { ImportDataHealthView } from '@/views/ImportDataHealthView'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
+
+const waitFor = createBrowserWait(2_000)
 
 declare global {
   interface Window {
@@ -14,19 +17,6 @@ declare global {
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-function frame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
-}
-
-async function waitFor(condition: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 2_000
-  while (performance.now() < deadline) {
-    if (condition()) return
-    await frame()
-  }
-  throw new Error(message)
 }
 
 function trade(id: string, high: boolean): PersistedTrade {

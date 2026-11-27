@@ -1,3 +1,4 @@
+import { nextFrame as waitForFrame, waitFor } from '../test/browserTiming'
 import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
@@ -13,19 +14,6 @@ declare global {
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-function waitForFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
-}
-
-async function waitFor(condition: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 5_000
-  while (performance.now() < deadline) {
-    if (condition()) return
-    await waitForFrame()
-  }
-  throw new Error(message)
 }
 
 function pressKey(target: HTMLElement, key: string): KeyboardEvent {

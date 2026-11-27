@@ -1,3 +1,4 @@
+import { waitFor } from '../test/browserTiming'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
@@ -31,19 +32,6 @@ window.__atlasBrowserAllowedErrors = [
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-function frame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
-}
-
-async function waitFor(condition: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 5_000
-  while (performance.now() < deadline) {
-    if (condition()) return
-    await frame()
-  }
-  throw new Error(message)
 }
 
 function currentTrade(id: string, status: TradeStatus): LiveTrade

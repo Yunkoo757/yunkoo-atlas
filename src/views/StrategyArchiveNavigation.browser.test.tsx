@@ -1,3 +1,4 @@
+import { waitFor } from '../test/browserTiming'
 import { createRoot } from 'react-dom/client'
 import { createMemoryRouter, RouterProvider, useLocation } from 'react-router-dom'
 import type { Strategy } from '@/data/strategies'
@@ -8,11 +9,6 @@ import { useStore } from '@/store/useStore'
 
 declare global { interface Window { __strategyArchiveNavigationTest?: Promise<void> } }
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
-async function waitFor(check: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 5_000
-  while (performance.now() < deadline) { if (check()) return; await new Promise((resolve) => requestAnimationFrame(resolve)) }
-  throw new Error(message)
-}
 function RouteProbe() { const location = useLocation(); return <output data-route>{location.pathname}{location.search}</output> }
 
 const strategy: Strategy = { id: 'archive-strategy', name: '归档策略', icon: 'target', color: '#5e6ad2' }

@@ -1,6 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { waitFor } from './test/browserTiming'
 import { switchActiveLibrary } from './lib/librarySwitch'
 import { notifyStorageRecoveryRequired } from './lib/storageRecovery'
 import { isStorageHydrated } from './storage/bootstrap'
@@ -12,12 +13,6 @@ import type { JournalBridge, LibrarySwitchMode } from './types/journalBridge'
 
 declare global {
   interface Window { __appStartupLibrarySelectionTest?: Promise<void> }
-}
-
-async function until(check: () => boolean, reason: string) {
-  const end = performance.now() + 5000
-  while (!check() && performance.now() < end) await new Promise(requestAnimationFrame)
-  if (!check()) throw new Error(reason)
 }
 
 function button(text: string) {
@@ -79,15 +74,15 @@ async function run() {
       } })
       try {
         root.render(<App />)
-        await until(() => Boolean(button('选择其他资料库')), '应允许从启动错误进入欢迎页')
+        await waitFor(() => Boolean(button('选择其他资料库')), '应允许从启动错误进入欢迎页')
         if (!isStorageHydrated()) throw new Error('用例必须先加载旧库')
         button('选择其他资料库')!.click()
-        await until(() => Boolean(button('点击选择目录…')), '应显示欢迎页')
+        await waitFor(() => Boolean(button('点击选择目录…')), '应显示欢迎页')
         button('点击选择目录…')!.click()
         const action = mode === 'open' ? '打开已有资料库' : '在此创建新资料库'
-        await until(() => Boolean(button(action)), '应提供所选目录的操作')
+        await waitFor(() => Boolean(button(action)), '应提供所选目录的操作')
         button(action)!.click()
-        await until(() => Boolean(document.querySelector('.sb-primary')), '选库成功后应进入工作区')
+        await waitFor(() => Boolean(document.querySelector('.sb-primary')), '选库成功后应进入工作区')
         const tags = useStore.getState().tagPresets
         if (active !== '/' + mode || writer !== active || (mode === 'open' ? !tags.includes('目标库') : tags.includes('目标库'))) {
           throw new Error('选库后资料与写入资格必须一致。模式=' + mode + ' 位置=' + active + ' 写入资格=' + writer + ' 标签=' + tags)
@@ -107,12 +102,12 @@ async function run() {
     const started = new Promise<void>(resolve => { saving = resolve })
     try {
       root.render(<App />)
-      await until(() => Boolean(document.querySelector('.sb-primary')), '中断用例必须先进入已载入的工作区')
+      await waitFor(() => Boolean(document.querySelector('.sb-primary')), '中断用例必须先进入已载入的工作区')
       holdSave = () => { saving(); return waiting }
       const switching = switchActiveLibrary(target, '/' + target)
       await started
       notifyStorageRecoveryRequired('隔离切库写回期间进入恢复')
-      await until(() => Boolean(button('重新打开资料库')), '恢复应接管在途切换')
+      await waitFor(() => Boolean(button('重新打开资料库')), '恢复应接管在途切换')
       const usableDuringSave = !button('重新打开资料库')?.closest('[inert]')
       const canceledDuringSave = canceled
       release()

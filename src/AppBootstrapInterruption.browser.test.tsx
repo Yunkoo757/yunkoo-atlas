@@ -1,6 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { waitFor } from './test/browserTiming'
 import { notifyStorageRecoveryRequired } from './lib/storageRecovery'
 import { bootstrapStorage, isStorageHydrated } from './storage/bootstrap'
 import { createEmptyPersistedSnapshot } from './storage/emptySnapshot'
@@ -43,7 +44,7 @@ async function run() {
     notifyStorageRecoveryRequired('隔离资料库读取期间要求重新打开')
     finishRead()
     const result = await opening.then(() => 'opened', () => 'interrupted')
-    await new Promise(requestAnimationFrame)
+    await waitFor(() => document.documentElement.dataset.uiSettled === '1', '启动中断后界面应完成渲染')
     assert(document.body.textContent?.includes('隔离资料库读取期间要求重新打开') &&
       document.body.textContent?.includes('重新打开资料库') && !document.querySelector('.sb-primary'),
       '迟到的启动结果不得覆盖原始恢复原因或进入工作区')

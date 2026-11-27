@@ -1,3 +1,4 @@
+import { nextFrame as frame, waitFor } from '../test/browserTiming'
 import { createRoot } from 'react-dom/client'
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { createWeeklyReview } from '@/data/weeklyReviews'
@@ -19,19 +20,6 @@ declare global {
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-function frame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
-}
-
-async function waitFor(condition: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 5_000
-  while (performance.now() < deadline) {
-    if (condition()) return
-    await frame()
-  }
-  throw new Error(message)
 }
 
 function Fixture() {

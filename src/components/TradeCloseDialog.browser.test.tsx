@@ -1,3 +1,4 @@
+import { waitFor } from '../test/browserTiming'
 import { createRoot } from 'react-dom/client'
 import { DeferredTradeOverlays } from '@/components/DeferredTradeOverlays'
 import type { Trade } from '@/data/trades'
@@ -13,19 +14,6 @@ declare global {
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-function waitForFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
-}
-
-async function waitFor(condition: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 5000
-  while (performance.now() < deadline) {
-    if (condition()) return
-    await waitForFrame()
-  }
-  throw new Error(message)
 }
 
 function enterValue(input: HTMLInputElement, value: string): void {

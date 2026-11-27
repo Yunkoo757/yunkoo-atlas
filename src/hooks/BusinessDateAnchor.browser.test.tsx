@@ -1,3 +1,4 @@
+import { waitFor } from '../test/browserTiming'
 import { createRoot } from 'react-dom/client'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
@@ -10,15 +11,6 @@ declare global {
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-async function waitFor(condition: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 5_000
-  while (performance.now() < deadline) {
-    if (condition()) return
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-  }
-  throw new Error(message)
 }
 
 function Probe() {

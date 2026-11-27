@@ -1,3 +1,4 @@
+import { nextFrame as waitForFrame, waitFor } from '../test/browserTiming'
 import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
 import { Route, Routes } from 'react-router-dom'
@@ -31,23 +32,10 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-function waitForFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
-}
-
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((done) => { resolve = done })
   return { promise, resolve }
-}
-
-async function waitFor(condition: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 5_000
-  while (performance.now() < deadline) {
-    if (condition()) return
-    await waitForFrame()
-  }
-  throw new Error(message)
 }
 
 function findButton(label: string): HTMLButtonElement | undefined {

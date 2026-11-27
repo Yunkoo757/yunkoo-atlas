@@ -1,3 +1,4 @@
+import { nextFrame as frame, createBrowserWait } from '../test/browserTiming'
 import { MemoryAppRouter } from '@/test/fixtures/MemoryAppRouter'
 import { createRoot } from 'react-dom/client'
 import type { Editor as TiptapEditor } from '@tiptap/react'
@@ -8,6 +9,8 @@ import type { QuickNote } from '@/data/quickNotes'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
 
+const waitFor = createBrowserWait(2_000)
+
 declare global {
   interface Window {
     __quickNotesFocusBrowserTest?: Promise<void>
@@ -16,10 +19,6 @@ declare global {
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-function frame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
 }
 
 function delay(ms: number): Promise<void> {
@@ -50,15 +49,6 @@ async function waitForSearch(): Promise<HTMLInputElement> {
     await frame()
   }
   throw new Error('随记页面缺少搜索框')
-}
-
-async function waitFor(condition: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 2_000
-  while (performance.now() < deadline) {
-    if (condition()) return
-    await frame()
-  }
-  throw new Error(message)
 }
 
 async function run(): Promise<void> {

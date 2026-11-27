@@ -1,3 +1,4 @@
+import { createBrowserWait } from '../test/browserTiming'
 import { restoreWebJournalArchive } from '@/lib/libraryRestore'
 import { isStorageCutoverInteractionLocked } from '@/storage/cutover'
 import JSZip from 'jszip'
@@ -27,6 +28,8 @@ import {
   getWebOperationLogs,
 } from '@/storage/webOperationLogger'
 
+const waitFor = createBrowserWait(8_000)
+
 declare global {
   interface Window {
     __dataIOWebArchiveRestoreTest?: Promise<void>
@@ -35,19 +38,6 @@ declare global {
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-function waitForFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
-}
-
-async function waitFor(condition: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 8_000
-  while (performance.now() < deadline) {
-    if (condition()) return
-    await waitForFrame()
-  }
-  throw new Error(message)
 }
 
 function trade(id: string, liveStageId: string, note = ''): Trade {

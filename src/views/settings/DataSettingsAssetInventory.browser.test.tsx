@@ -1,3 +1,4 @@
+import { createBrowserWait } from '../../test/browserTiming'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { DataSettingsPanel } from '@/views/settings/DataSettingsPanel'
@@ -9,6 +10,8 @@ import { useShortcutStore } from '@/store/shortcutStore'
 import { pickPersisted } from '@/storage/snapshotProjection'
 import { StorageRevisionConflictError } from '@/storage/adapter'
 
+const waitFor = createBrowserWait(8_000)
+
 declare global {
   interface Window {
     __dataSettingsAssetInventoryTest?: Promise<void>
@@ -17,15 +20,6 @@ declare global {
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-async function waitFor(condition: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 8_000
-  while (performance.now() < deadline) {
-    if (condition()) return
-    await new Promise((resolve) => requestAnimationFrame(resolve))
-  }
-  throw new Error(message)
 }
 
 async function run(): Promise<void> {

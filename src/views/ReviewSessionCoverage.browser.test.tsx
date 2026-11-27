@@ -1,3 +1,4 @@
+import { createBrowserWait } from '../test/browserTiming'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { Strategy } from '@/data/strategies'
@@ -15,6 +16,8 @@ import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
 import { ReviewSessionView } from '@/views/ReviewSessionView'
 
+const waitFor = createBrowserWait(8_000)
+
 declare global {
   interface Window {
     __reviewSessionCoverageTest?: Promise<void>
@@ -23,19 +26,6 @@ declare global {
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-function waitForFrame(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()))
-}
-
-async function waitFor(condition: () => boolean, message: string): Promise<void> {
-  const deadline = performance.now() + 8_000
-  while (performance.now() < deadline) {
-    if (condition()) return
-    await waitForFrame()
-  }
-  throw new Error(message)
 }
 
 function findButton(label: string): HTMLButtonElement | undefined {
