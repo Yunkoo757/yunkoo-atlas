@@ -117,7 +117,21 @@ export function testPerformanceSelectionFreezesTheSixAmCloseDayBoundary(): void 
   assert.deepEqual(selection.eligibleMetricIds, ['FX-CLOSE-0600'])
 }
 
-export function testPerformanceSelectionSupportsAnInternalTodayWindowWithoutChangingTheRouteContract(): void {
+export function testLivePerformanceUsesFrozenCloseDayBeforeRecomputingTheSessionDate(): void {
+  const base = fixture.trades.find(trade => trade.id === 'FX-USD')!
+  const frozen = { ...base, id: 'frozen', closedAt: '2026-08-09T09:00:00+08:00', closedTradingDayKey: '2026-08-08' }
+  const early = { ...base, id: 'early', closedAt: '2026-08-09T05:59:00+08:00', closedTradingDayKey: undefined }
+  const late = { ...base, id: 'late', closedAt: '2026-08-09T06:00:00+08:00', closedTradingDayKey: undefined }
+  const selection = buildPerformanceSelection([frozen, early, late], {
+    scope: { kind: 'live', range: 'all' },
+    dateBounds: { startInclusive: '2026-08-08', endExclusive: '2026-08-09' },
+    anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
+    legacyCashCurrencyAssumption: null,
+  })
+  assert.deepEqual(selection.eligibleMetricIds, ['frozen', 'early'])
+}
+
+export function testLivePerformanceWindowExcludesUnreliableFutureAndConflictingFacts(): void {
   const close0559 = fixture.trades.find((trade) => trade.id === 'FX-CLOSE-0559')!
   const close0600 = fixture.trades.find((trade) => trade.id === 'FX-CLOSE-0600')!
   const missing = fixture.trades.find((trade) => trade.id === 'FX-CLOSE-MISSING')!
@@ -130,11 +144,10 @@ export function testPerformanceSelectionSupportsAnInternalTodayWindowWithoutChan
     [close0559, close0600, missing, invalid, future, conflict, usd, rOnly],
     {
       scope: { kind: 'live', range: 'all' },
-      dateBounds: fixture.currentDateBounds,
+      dateBounds: { startInclusive: '2026-08-09', endExclusive: '2026-08-10' },
       anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
       legacyCashCurrencyAssumption: null,
-      internalRange: 'today',
-    } as Parameters<typeof buildPerformanceSelection>[1] & { internalRange: 'today' },
+    },
   )
 
   assert.deepEqual(selection.eligibleMetricIds, ['FX-CLOSE-0600', 'FX-USD', 'FX-R-ONLY'])

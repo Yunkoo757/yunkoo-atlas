@@ -104,6 +104,7 @@ import {
 } from '@/storage/noteDrafts'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
+import { isPendingReviewTrade, findNextPendingReviewId } from '@/lib/tradeWorkflow'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
 import { tradeMetricTone } from '@/lib/tradeRowPresentation'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
@@ -138,30 +139,6 @@ const KIND_OPTS: TradeKind[] = ['live', 'paper', 'case']
 const MISS_OPTS: MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other']
 const CASE_TYPE_OPTS: CaseType[] = ['exemplar', 'mistake', 'ambiguous', 'missed']
 const MASTERY_OPTS: MasteryState[] = ['new', 'recheck', 'mastered']
-
-function isPendingReviewTrade(trade: Trade): boolean {
-  if (trade.deletedAt || trade.tradeKind === 'case' || isReviewCompleted(trade.reviewStatus)) return false
-  const truth = resolveTradeTruth(trade)
-  return (
-    truth.executionState === 'missed' ||
-    (truth.executionState === 'closed' && truth.isResultComplete)
-  )
-}
-
-function findNextPendingReviewId(
-  fromId: string,
-  orderedIds: string[],
-  trades: Trade[],
-): string | null {
-  const byId = new Map(trades.map((item) => [item.id, item]))
-  const start = orderedIds.indexOf(fromId)
-  if (start < 0) return null
-  for (let offset = 1; offset < orderedIds.length; offset += 1) {
-    const candidate = byId.get(orderedIds[(start + offset) % orderedIds.length]!)
-    if (candidate && isPendingReviewTrade(candidate)) return candidate.id
-  }
-  return null
-}
 
 export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null } = {}) {
   const { id: routeParam } = useParams()
@@ -700,11 +677,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
   const needsResult =
     trade.tradeKind !== 'case' && truth.executionState === 'closed' && !truth.isResultComplete
   const hasResultConflict = needsResult && truth.hasConflict
-  const needsReview =
-    trade.tradeKind !== 'case' &&
-    !isReviewCompleted(trade.reviewStatus) &&
-    (truth.executionState === 'missed' ||
-      (truth.executionState === 'closed' && truth.isResultComplete))
+  const needsReview = isPendingReviewTrade(trade, truth)
   const reviewComplete =
     trade.tradeKind !== 'case' &&
     isReviewCompleted(trade.reviewStatus) &&

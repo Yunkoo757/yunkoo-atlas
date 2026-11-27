@@ -15,19 +15,19 @@ import {
 test('statistics truth canonical gate covers the final truth surfaces', () => {
   assert.deepEqual(
     STATISTICS_TRUTH_UNIT_ENTRIES.filter((entry) => [
-      'src/lib/tradeWorkflow.test.ts',
+      'src/lib/performanceSelection.test.ts',
       'src/lib/strategies.test.ts',
       'src/data/weeklyReviews.test.ts',
     ].includes(entry)),
     [
-      'src/lib/tradeWorkflow.test.ts',
+      'src/lib/performanceSelection.test.ts',
       'src/lib/strategies.test.ts',
       'src/data/weeklyReviews.test.ts',
     ],
   )
   assert(BROWSER_TEST_IDS.includes('src/views/StatisticsTruthSurfaces.browser.test.html#__statisticsTruthSurfacesTest'))
   const canonicalIds = new Set(Object.values(ACCEPTANCE_TESTS).flat())
-  assert(canonicalIds.has('src/lib/tradeWorkflow.test.ts#testTodayClosedMetricsRejectsUnreliableFutureAndConflictingFacts'))
+  assert(canonicalIds.has('src/lib/performanceSelection.test.ts#testLivePerformanceWindowExcludesUnreliableFutureAndConflictingFacts'))
   assert(canonicalIds.has('src/lib/strategies.test.ts#testStrategyStatsConsumeCallerEligibilityWithoutReclassifyingFacts'))
   assert(canonicalIds.has('src/data/weeklyReviews.test.ts#testWeeklyReviewEvidenceKeepsReliableConflictAndPendingResultsWithoutMetrics'))
   assert(canonicalIds.has('src/lib/weeklyReviewSnapshot.test.ts#testCompletionFreezesConflictAndPendingEvidenceWithoutPerformance'))

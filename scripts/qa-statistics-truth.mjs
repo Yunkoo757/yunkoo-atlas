@@ -22,7 +22,6 @@ export const STATISTICS_TRUTH_FIXTURE_SAMPLE_COUNT = 56
 export const STATISTICS_TRUTH_UNIT_ENTRIES = [
   'src/lib/performanceSelection.test.ts',
   'src/lib/analysisScope.test.ts',
-  'src/lib/tradeWorkflow.test.ts',
   'src/lib/strategies.test.ts',
   'src/data/weeklyReviews.test.ts',
   'src/lib/dashboardStats.test.ts',
@@ -63,12 +62,12 @@ export const ACCEPTANCE_TESTS = {
   'T-DATE-002': [UNIT_TEST('src/lib/analysisScope.test.ts', 'testAllRangeStopsAtTheNextBusinessDayExclusiveBoundary')],
   'T-DATE-003': [
     UNIT_TEST('src/lib/performanceSelection.test.ts', 'testPerformanceSelectionFreezesTheSixAmCloseDayBoundary'),
-    UNIT_TEST('src/lib/tradeWorkflow.test.ts', 'testTodayClosedMetricsPrefersFrozenTradingDayAndHonorsDayBoundary'),
+    UNIT_TEST('src/lib/performanceSelection.test.ts', 'testLivePerformanceUsesFrozenCloseDayBeforeRecomputingTheSessionDate'),
     UNIT_TEST('src/data/weeklyReviews.test.ts', 'testWeeklyReviewWeeksAndTradesRejectFactsAfterTheFrozenBusinessDay'),
   ],
   'T-DATE-004': [
     UNIT_TEST('src/lib/dashboardStats.test.ts', 'testDashboardStatsUseOnlyEligibleMetricIdsForEveryAggregation'),
-    UNIT_TEST('src/lib/tradeWorkflow.test.ts', 'testTodayClosedMetricsRejectsUnreliableFutureAndConflictingFacts'),
+    UNIT_TEST('src/lib/performanceSelection.test.ts', 'testLivePerformanceWindowExcludesUnreliableFutureAndConflictingFacts'),
   ],
   'T-IMPORT-001': [
     UNIT_TEST('src/lib/notionImportTradeFacts.test.ts', 'testNotionImportParsesCurrencyOnlyFromSourceMoneyFacts'),
@@ -93,7 +92,7 @@ export const ACCEPTANCE_TESTS = {
   ],
   'T-CURRENCY-001': [
     UNIT_TEST('src/lib/cashCurrency.test.ts', 'testUsdEligibilityAndTotalsShareOneCurrencyFactRule'),
-    UNIT_TEST('src/lib/tradeWorkflow.test.ts', 'testTodayClosedMetricsUsesUsdOnlyWithExplicitLegacyAssumption'),
+    UNIT_TEST('src/lib/performanceSelection.test.ts', 'testPerformanceSelectionUsesTheExplicitLegacyCashCurrencyAssumption'),
     UNIT_TEST('src/lib/strategies.test.ts', 'testStrategyStatsAggregateUsdOnlyAndRespectLegacyFact'),
     BROWSER_TEST_IDS[4],
   ],

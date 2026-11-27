@@ -2,7 +2,6 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { Sidebar } from '@/components/Sidebar'
 import type { Trade } from '@/data/trades'
-import { toLocalDateKey } from '@/lib/tradeWorkflow'
 import { useStore } from '@/store/useStore'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
@@ -61,7 +60,6 @@ async function run(): Promise<void> {
   assert(rootElement, '缺少测试挂载节点')
   const previous = useStore.getState()
   const root = createRoot(rootElement)
-  const today = toLocalDateKey()
   const currentPlan: Trade = {
     ...legacyPlan,
     id: 'current-plan',
