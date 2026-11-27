@@ -1,7 +1,7 @@
 export const lessons = [
   {
     id: 'orientation',
-    number: '00',
+    searchDescription: '理解交易日志与复盘工作台的边界',
     kind: 'main',
     group: '主线',
     navLabel: '认识 Atlas',
@@ -69,7 +69,7 @@ export const lessons = [
   },
   {
     id: 'record-first-trade',
-    number: '01',
+    searchDescription: '先捕捉交易事实，再补充详情',
     kind: 'main',
     group: '主线',
     navLabel: '记录第一笔交易',
@@ -127,7 +127,7 @@ export const lessons = [
   },
   {
     id: 'enrich-trade',
-    number: '02',
+    searchDescription: '正文、截图、属性和来源关系',
     kind: 'main',
     group: '主线',
     navLabel: '补充详情',
@@ -186,7 +186,7 @@ export const lessons = [
   },
   {
     id: 'complete-review',
-    number: '03',
+    searchDescription: '事实、判断、改进动作与复盘状态',
     kind: 'main',
     group: '主线',
     navLabel: '完成复盘',
@@ -243,8 +243,83 @@ export const lessons = [
     ],
   },
   {
+    id: 'quick-notes',
+    searchDescription: '观察、情绪、交易纪律、置顶与搜索回看',
+    searchFirst: true,
+    kind: 'main',
+    group: '主线',
+    navLabel: '随记与反思',
+    title: '随记与反思',
+    eyebrow: '把尚未成形的想法留下来',
+    objective: '记录盘面观察、情绪与纪律，在回看中理解自己的判断。',
+    description: '打开侧栏随记，新建内容后填写标题与正文；用置顶和搜索找回重要记录。',
+    tags: ['随记', '反思', '交易纪律'],
+    steps: [
+      {
+        id: 'observe',
+        type: 'observe',
+        eyebrow: '01 / 04 · 观察',
+        title: '不必等到成交，才开始记录',
+        body: [
+          '盘中闪过的判断、错过机会时的情绪、想反复提醒自己的纪律，都可以先放进随记。',
+          '随记提供标题、正文、置顶与搜索。它保存思考，不会把一段文字当成一笔成交或计入交易统计。',
+        ],
+        facts: ['即时记录观察与反思', '置顶需要反复提醒自己的内容', '用搜索和列表回到过去的判断'],
+        productView: 'notes',
+        actionLabel: '开始练习',
+      },
+      {
+        id: 'operate',
+        type: 'operate',
+        eyebrow: '02 / 04 · 操作',
+        title: '为一条想法选择合适的位置',
+        body: ['Yunkoo 今天没有成交，但发现自己因为担心错过而反复看盘，想把这段感受留给盘后回看。'],
+        prompt: '请选择适合保存这条观察的记录方式。',
+        action: 'sourceMapping',
+        success: '随记可以保留没有成交的观察；已有执行事实时，应使用对应的交易记录。',
+        actionLabel: '完成分类',
+      },
+      {
+        id: 'understand',
+        type: 'understand',
+        eyebrow: '03 / 04 · 理解',
+        title: '回看随记，让感受变得具体',
+        body: [
+          '给记录一个以后能搜到的标题，写清发生的情境、当时的判断，以及下一次想验证的事情。重要的纪律可以置顶。',
+          '复盘时回看这些观察，分清“看见了什么”和“怎样解释它”。需要形成下一周承诺时，再进入周期复盘整理。',
+        ],
+        demo: 'source-rule',
+        actionLabel: '我明白了',
+      },
+      {
+        id: 'confirm',
+        type: 'quiz',
+        eyebrow: '04 / 04 · 确认',
+        title: '确认随记的作用',
+        question: '没有成交，但想记录盘中情绪和观察，应该怎样处理？',
+        options: [
+          {
+            value: 'note',
+            label: '写入随记，保留上下文并在之后回看',
+            correct: true,
+          },
+          {
+            value: 'trade',
+            label: '创建一笔虚构成交，让它进入盈亏统计',
+          },
+          {
+            value: 'skip',
+            label: '没有成交，所以不需要留下任何记录',
+          },
+        ],
+        explanation: '正确。随记保存思考，交易日志保存执行事实，两者共同支持复盘。',
+        actionLabel: '完成随记学习',
+      },
+    ],
+  },
+  {
     id: 'case-library',
-    number: '04',
+    searchDescription: '让高价值交易形成可追溯案例',
     kind: 'main',
     group: '主线',
     navLabel: '沉淀案例',
@@ -302,7 +377,7 @@ export const lessons = [
   },
   {
     id: 'read-statistics',
-    number: '05',
+    searchDescription: '先选择范围，再解释指标口径',
     kind: 'main',
     group: '主线',
     navLabel: '读懂统计',
@@ -361,7 +436,7 @@ export const lessons = [
   },
   {
     id: 'review-loop',
-    number: '06',
+    searchDescription: '模式总结与旧交易抽查',
     kind: 'main',
     group: '主线',
     navLabel: '周复盘与随机复盘',
@@ -419,7 +494,7 @@ export const lessons = [
   },
   {
     id: 'special-records',
-    number: '07',
+    searchDescription: '实盘、模拟盘、错过机会、随记',
     kind: 'branch',
     group: '分支',
     navLabel: '其它记录方式',
@@ -478,7 +553,7 @@ export const lessons = [
   },
   {
     id: 'risk-maintenance',
-    number: '08',
+    searchDescription: '风险证据、备份、导入、恢复与回收站',
     kind: 'branch',
     group: '分支',
     navLabel: '风险与维护',
@@ -537,7 +612,7 @@ export const lessons = [
   },
   {
     id: 'settings-efficiency',
-    number: '09',
+    searchDescription: '快捷键、策略、标签、显示与更新',
     kind: 'branch',
     group: '分支',
     navLabel: '设置与桌面效率',
@@ -593,18 +668,14 @@ export const lessons = [
       },
     ],
   },
-];
+].map((lesson, index) => ({ ...lesson, number: String(index).padStart(2, '0') }));
 
-lessons.splice(4,0,{
- id:'quick-notes',number:'04',kind:'main',group:'主线',navLabel:'随记与反思',title:'随记与反思',eyebrow:'把尚未成形的想法留下来',objective:'记录盘面观察、情绪与纪律，在回看中理解自己的判断。',description:'打开侧栏随记，新建内容后填写标题与正文；用置顶和搜索找回重要记录。',tags:['随记','反思','交易纪律'],
- steps:[
- {id:'observe',type:'observe',eyebrow:'01 / 04 · 观察',title:'不必等到成交，才开始记录',body:['盘中闪过的判断、错过机会时的情绪、想反复提醒自己的纪律，都可以先放进随记。','随记提供标题、正文、置顶与搜索。它保存思考，不会把一段文字当成一笔成交或计入交易统计。'],facts:['即时记录观察与反思','置顶需要反复提醒自己的内容','用搜索和列表回到过去的判断'],productView:'notes',actionLabel:'开始练习'},
- {id:'operate',type:'operate',eyebrow:'02 / 04 · 操作',title:'为一条想法选择合适的位置',body:['Yunkoo 今天没有成交，但发现自己因为担心错过而反复看盘，想把这段感受留给盘后回看。'],prompt:'请选择适合保存这条观察的记录方式。',action:'sourceMapping',success:'随记可以保留没有成交的观察；已有执行事实时，应使用对应的交易记录。',actionLabel:'完成分类'},
- {id:'understand',type:'understand',eyebrow:'03 / 04 · 理解',title:'回看随记，让感受变得具体',body:['给记录一个以后能搜到的标题，写清发生的情境、当时的判断，以及下一次想验证的事情。重要的纪律可以置顶。','复盘时回看这些观察，分清“看见了什么”和“怎样解释它”。需要形成下一周承诺时，再进入周期复盘整理。'],demo:'source-rule',actionLabel:'我明白了'},
- {id:'confirm',type:'quiz',eyebrow:'04 / 04 · 确认',title:'确认随记的作用',question:'没有成交，但想记录盘中情绪和观察，应该怎样处理？',options:[{value:'note',label:'写入随记，保留上下文并在之后回看',correct:true},{value:'trade',label:'创建一笔虚构成交，让它进入盈亏统计'},{value:'skip',label:'没有成交，所以不需要留下任何记录'}],explanation:'正确。随记保存思考，交易日志保存执行事实，两者共同支持复盘。',actionLabel:'完成随记学习'}
- ]
-});
-lessons.forEach((lesson,index)=>{lesson.number=String(index).padStart(2,'0');});
+const searchOrder = [...lessons].sort((a, b) => Number(Boolean(b.searchFirst)) - Number(Boolean(a.searchFirst)));
+
+export function searchLessons(text) {
+  const query = text.trim().toLowerCase();
+  return searchOrder.filter(lesson => `${lesson.title} ${lesson.searchDescription}`.toLowerCase().includes(query));
+}
 
 export const lessonGroups = [
   { id: 'main', label: '核心工作流' },

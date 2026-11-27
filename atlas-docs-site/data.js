@@ -108,17 +108,3 @@ export const maintenanceOptions = [
     action: '选择 .journal.zip',
   },
 ];
-
-export const searchIndex = [
-  {id:'quick-notes',title:'随记与反思',description:'观察、情绪、交易纪律、置顶与搜索回看'},
-  { id: 'orientation', title: '认识 Atlas', description: '理解交易日志与复盘工作台的边界' },
-  { id: 'record-first-trade', title: '记录第一笔交易', description: '先捕捉交易事实，再补充详情' },
-  { id: 'enrich-trade', title: '补充详情', description: '正文、截图、属性和来源关系' },
-  { id: 'complete-review', title: '完成复盘', description: '事实、判断、改进动作与复盘状态' },
-  { id: 'case-library', title: '沉淀案例', description: '让高价值交易形成可追溯案例' },
-  { id: 'read-statistics', title: '读懂统计', description: '先选择范围，再解释指标口径' },
-  { id: 'review-loop', title: '周复盘与随机复盘', description: '模式总结与旧交易抽查' },
-  { id: 'special-records', title: '其它记录方式', description: '实盘、模拟盘、错过机会、随记' },
-  { id: 'risk-maintenance', title: '风险与维护', description: '风险证据、备份、导入、恢复与回收站' },
-  { id: 'settings-efficiency', title: '设置与桌面效率', description: '快捷键、策略、标签、显示与更新' },
-];

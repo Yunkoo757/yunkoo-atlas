@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import { lessons } from './content.js';
-import { searchIndex } from './data.js';
+import { lessons, searchLessons } from './content.js';
 
 assert.equal(lessons.length, 11, '教学站应包含 11 个章节');
 
@@ -21,9 +20,16 @@ for (const lesson of lessons) {
 }
 
 assert.deepEqual(
-  new Set(searchIndex.map((item) => item.id)),
+  new Set(searchLessons('').map((lesson) => lesson.id)),
   ids,
   '搜索索引必须覆盖所有章节',
 );
+
+for (const lesson of lessons) {
+  assert.ok(lesson.searchDescription && searchLessons(lesson.searchDescription).includes(lesson));
+}
+assert.equal(searchLessons('')[0].id, 'quick-notes');
+assert.deepEqual(searchLessons('  aTLaS  ').map(lesson => lesson.id), ['orientation']);
+assert.deepEqual(searchLessons('置顶').map(lesson => lesson.id), ['quick-notes']);
 
 console.log(`Atlas teaching content verified: ${lessons.length} lessons, ${lessons.length * 4} steps.`);

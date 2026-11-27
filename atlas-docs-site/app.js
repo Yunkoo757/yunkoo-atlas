@@ -1,8 +1,7 @@
 import {siteHeader} from './site-shell.js';
-import { lessons, lessonGroups } from './content.js';
+import { lessons, lessonGroups, searchLessons } from './content.js';
 import {
   maintenanceOptions,
-  searchIndex,
   shortcutRows,
   sourceCards,
   teachingStats,
@@ -700,16 +699,13 @@ function renderCompletion(lesson) {
 }
 
 function renderSearchDialog() {
-  const query = searchQuery.trim().toLowerCase();
-  const results = searchIndex.filter((item) => `${item.title} ${item.description}`.toLowerCase().includes(query));
-  return `<div class="dialog-backdrop" data-close-search></div><section class="search-dialog" role="dialog" aria-modal="true" aria-labelledby="search-heading"><div class="search-header"><h2 id="search-heading">搜索教学章节</h2><button class="dialog-close" type="button" data-close-search aria-label="关闭搜索">${icon('close', 'md')}</button></div><div class="search-body"><label class="sr-only" for="search-input">搜索关键词</label><input class="search-input" id="search-input" type="search" value="${escapeHtml(searchQuery)}" placeholder="输入交易日志、案例、风险……" data-search-input><div class="search-results">${results.length ? results.map(renderSearchResult).join('') : '<p class="empty-result">没有找到匹配章节。试试“复盘”“数据”或“快捷键”。</p>'}</div></div></section>`;
+  return `<div class="dialog-backdrop" data-close-search></div><section class="search-dialog" role="dialog" aria-modal="true" aria-labelledby="search-heading"><div class="search-header"><h2 id="search-heading">搜索教学章节</h2><button class="dialog-close" type="button" data-close-search aria-label="关闭搜索">${icon('close', 'md')}</button></div><div class="search-body"><label class="sr-only" for="search-input">搜索关键词</label><input class="search-input" id="search-input" type="search" value="${escapeHtml(searchQuery)}" placeholder="输入交易日志、案例、风险……" data-search-input><div class="search-results">${renderSearchResults()}</div></div></section>`;
 }
 
-function renderSearchResult(item) {
-  const lesson = lessons.find((candidate) => candidate.id === item.id);
-  const locked = lesson ? !isUnlocked(lesson) : false;
-  const description = locked ? `完成前置章节后解锁 · ${item.description}` : item.description;
-  return `<button class="search-result" type="button" data-search-result="${item.id}" ${locked ? 'disabled' : ''}><span class="search-result-number">${lesson?.number ?? '—'}</span><span><strong>${item.title}</strong><span>${description}</span></span></button>`;
+function renderSearchResult(lesson) {
+  const locked = !isUnlocked(lesson);
+  const description = locked ? `完成前置章节后解锁 · ${lesson.searchDescription}` : lesson.searchDescription;
+  return `<button class="search-result" type="button" data-search-result="${lesson.id}" ${locked ? 'disabled' : ''}><span class="search-result-number">${lesson.number}</span><span><strong>${lesson.title}</strong><span>${description}</span></span></button>`;
 }
 
 function renderResetDialog() {
@@ -879,14 +875,8 @@ function handleClick(event) {
 function handleInputEvent(event) {
   if (event.target.matches('[data-search-input]')) {
     searchQuery = event.target.value;
-    const dialog = document.querySelector('.search-dialog');
-    if (dialog) {
-      const body = dialog.querySelector('.search-body');
-      if (body) body.innerHTML = `<label class="sr-only" for="search-input">搜索关键词</label><input class="search-input" id="search-input" type="search" value="${escapeHtml(searchQuery)}" placeholder="输入交易日志、案例、风险……" data-search-input><div class="search-results">${renderSearchResults()}</div>`;
-      const input = dialog.querySelector('[data-search-input]');
-      input?.focus();
-      // Search inputs do not support setSelectionRange in Chromium.
-    }
+    const results = event.target.closest('.search-dialog')?.querySelector('.search-results');
+    if (results) results.innerHTML = renderSearchResults();
     return;
   }
   const input = event.target.closest('[data-input]');
@@ -894,8 +884,7 @@ function handleInputEvent(event) {
 }
 
 function renderSearchResults() {
-  const query = searchQuery.trim().toLowerCase();
-  const results = searchIndex.filter((item) => `${item.title} ${item.description}`.toLowerCase().includes(query));
+  const results = searchLessons(searchQuery);
   return results.length
     ? results.map(renderSearchResult).join('')
     : '<p class="empty-result">没有找到匹配章节。试试“复盘”“数据”或“快捷键”。</p>';
