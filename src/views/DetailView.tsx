@@ -2,7 +2,6 @@ import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { createPortal } from 'react-dom'
 import { isComposingKey } from '@/lib/keyboardComposition'
 import { restoreFocusIfUnclaimed } from '@/lib/restoreFocus'
-import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { ICON_2XL, ICON_MD, ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
@@ -95,16 +94,13 @@ import { toast } from '@/lib/toast'
 import { buildRecordActionDescriptors, type RecordActionId } from '@/lib/tradeActionContract'
 import { copyTradeRecordWithFeedback } from '@/lib/tradeCopyAction'
 import { STATUS_ORDER, isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
-import { getStorage } from '@/storage/bootstrap'
-import { resolveNoteForDisplayResult } from '@/storage/assets'
+import { getStorage } from '@/storage/provider'
 import {
   noteDraftKey,
   flushNoteDraftToStore,
   getNoteDraft,
-  setNoteDraft,
 } from '@/storage/noteDrafts'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
-import { useSaveStatus } from '@/store/saveStatus'
 import { isPendingReviewTrade, findNextPendingReviewId } from '@/lib/tradeWorkflow'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
 import { tradeMetricTone } from '@/lib/tradeRowPresentation'
@@ -121,11 +117,7 @@ import { collectImageSrcsFromHtml } from '@/shortcuts/images'
 import { buildPerformanceSelection } from '@/lib/performanceSelection'
 import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
-import {
-  loadDetailNote,
-  removeMissingAssetReferences,
-  type DetailNoteLoadResult,
-} from '@/views/detailNoteLoad'
+import { useTradeNote } from './useTradeNote'
 import './DetailView.css'
 
 const FEED_VISIBLE = 8
@@ -168,7 +160,6 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
     return record?.deletedAt ? record : undefined
   }, [allTrades, routeParam])
   const updateTradeData = useStore((s) => s.updateTradeData)
-  const updateNote = useStore((s) => s.updateNote)
   const transitionTradeKind = useStore((s) => s.transitionTradeKind)
   const completeTradeClose = useStore((s) => s.completeTradeClose)
   const setStatus = useStore((s) => s.setStatus)
@@ -216,11 +207,16 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
   const [reviewToolsContainer, setReviewToolsContainer] = useState<HTMLDivElement | null>(null)
   const [commentOpen, setCommentOpen] = useState(false)
   const [commentDrafts, setCommentDrafts] = useState(() => new Map<string, string>())
-  const [editorHtml, setEditorHtml] = useState('')
+  const {
+    load: activeNoteLoad,
+    change: changeNote,
+    retry: retryNote,
+    retrying: noteRetrying,
+    removeMissingImages,
+  } = useTradeNote(trade?.id, librarySession)
+  const editorHtml = activeNoteLoad.status === 'ready' ? activeNoteLoad.html : ''
   const [feedExpanded, setFeedExpanded] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
-  const [noteLoadAttempt, setNoteLoadAttempt] = useState(0)
-  const [noteRetrying, setNoteRetrying] = useState(false)
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const pendingReviewsRef = useRef(new Set<string>())
   const completionButtonRef = useRef<HTMLButtonElement>(null)
@@ -233,14 +229,6 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
   const contentCopyOwnerRef = useRef(false)
   const contentCopyIssueRef = useRef<HTMLDivElement>(null)
   const [reviewIssue, setReviewIssue] = useState<string | null>(null)
-  const [noteLoad, setNoteLoad] = useState<{
-    tradeId: string | null
-    state: DetailNoteLoadResult | { status: 'loading' }
-  }>({ tradeId: null, state: { status: 'loading' } })
-  const noteSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pendingHtmlRef = useRef<string | null>(null)
-  const pendingTradeIdRef = useRef<string | null>(null)
-  const noteResolvedRef = useRef(false)   // 初始内容是否已加载，防止空 onUpdate 覆盖真实笔记
   const caseCreationOwnerRef = useRef<CaseCreationOperation | null>(null)
   const caseCreationGenerationRef = useRef(0)
   const activeTradeIdRef = useRef<string | null>(trade?.id ?? null)
@@ -252,9 +240,6 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
   const sourceTrade = trade?.sourceTradeId
     ? trades.find((item) => item.id === trade.sourceTradeId)
     : undefined
-  /** 键入只更新本地草稿；idle 后再写入 trades，避免全量快照 thrash */
-  const NOTE_IDLE_COMMIT_MS = 2000
-
   const adjustCommentHeight = useCallback(() => {
     const el = commentRef.current
     if (!el) return
@@ -279,9 +264,7 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
     })
   }, [trade, routeParam, navigate, location.state])
 
-  const noteReady = Boolean(
-    trade && noteLoad.tradeId === trade.id && noteLoad.state.status === 'ready',
-  )
+  const noteReady = activeNoteLoad.status === 'ready'
 
   useEffect(() => {
     if (contentCopyIssue?.tradeId === trade?.id) contentCopyIssueRef.current?.scrollIntoView({ block: 'nearest' })
@@ -342,54 +325,6 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
     'trade.backToList': () => navigate(detailReturn, { state: returnState() }),
   }), [navigate, detailReturn, returnState])
 
-  const persistEditorNote = useCallback((html: string, tradeId: string) => {
-    pendingHtmlRef.current = html
-    pendingTradeIdRef.current = tradeId
-    setNoteDraft(noteDraftKey('trade', tradeId), html)
-    if (noteSaveTimer.current) clearTimeout(noteSaveTimer.current)
-    noteSaveTimer.current = setTimeout(() => {
-      noteSaveTimer.current = null
-      void flushNoteDraftToStore(noteDraftKey('trade', tradeId))
-    }, NOTE_IDLE_COMMIT_MS)
-  }, [])
-
-  useEffect(() => {
-    if (!trade) return
-    const preserveReadOnlyFallback =
-      noteLoadAttempt > 0 && noteLoad.tradeId === trade.id && noteLoad.state.status === 'error'
-    noteResolvedRef.current = false   // 切换交易时重置，阻止旧 onUpdate 写入空内容
-    if (!preserveReadOnlyFallback) {
-      setNoteRetrying(false)
-      setNoteLoad({ tradeId: trade.id, state: { status: 'loading' } })
-    }
-    let cancelled = false
-    const imageScope = new AssetObjectUrlScope()
-    void loadDetailNote(trade.note, async (html) => {
-      if (cancelled) return html
-      return resolveNoteForDisplayResult(html, getStorage(), imageScope)
-    }, async () => {
-      if (!(await flushNoteDraftToStore(noteDraftKey('trade', trade.id)))) return false
-      return useStore.getState().trades.find((item) => item.id === trade.id)?.note ?? trade.note
-    }).then((result) => {
-      if (cancelled) return
-      if (result.status === 'ready') {
-        setEditorHtml(result.html)
-        noteResolvedRef.current = true  // 标记初始内容已就绪，允许后续编辑触发保存
-      }
-      setNoteLoad({ tradeId: trade.id, state: result })
-      setNoteRetrying(false)
-    })
-    return () => {
-      cancelled = true
-      imageScope.release()
-      if (noteSaveTimer.current) {
-        clearTimeout(noteSaveTimer.current)
-        noteSaveTimer.current = null
-      }
-      void flushNoteDraftToStore(noteDraftKey('trade', trade.id))
-    }
-  }, [trade?.id, noteLoadAttempt])
-
   useLayoutEffect(() => {
     if (!trade || !lightbox) return
     if (!lightbox.ownerId) {
@@ -401,8 +336,8 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
 
   useEffect(() => {
     if (!trade || !lightbox?.loading || lightbox.ownerId !== noteDraftKey('trade', trade.id)) return
-    if (noteLoad.tradeId !== trade.id || noteLoad.state.status === 'loading') return
-    if (noteLoad.state.status === 'error') {
+    if (activeNoteLoad.status === 'loading') return
+    if (activeNoteLoad.status === 'error') {
       closeLightbox()
       toast(`${trade.ref} 的图片未能载入`)
       return
@@ -419,7 +354,7 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
     trade?.ref,
     lightbox?.loading,
     lightbox?.ownerId,
-    noteLoad,
+    activeNoteLoad.status,
     editorHtml,
     closeLightbox,
     syncLightboxForOwner,
@@ -437,15 +372,9 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
 
   const onEditorChange = useCallback(
     (html: string, meta: EditorChangeMeta) => {
-      setEditorHtml(html)
-      if (meta.origin === 'presentation') return
-      setReviewIssue(null)
-      if (!trade?.id) return
-      if (!noteResolvedRef.current) return  // 初始内容尚未加载，拒绝保存空/占位内容
-      useSaveStatus.getState().setDirty()
-      persistEditorNote(html, trade.id)
+      if (changeNote(html, meta)) setReviewIssue(null)
     },
-    [trade?.id, persistEditorNote],
+    [changeNote],
   )
 
   const starred = trade
@@ -550,9 +479,6 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
     )
   }
 
-  const activeNoteLoad = noteLoad.tradeId === trade.id
-    ? noteLoad.state
-    : { status: 'loading' as const }
   const noteEditorContent = activeNoteLoad.status === 'error'
       ? activeNoteLoad.fallbackHtml
       : editorHtml
@@ -1100,15 +1026,12 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
                         <Button size="sm" variant="bordered"
                           type="button"
                           onClick={() => {
-                            const repaired = removeMissingAssetReferences(trade.note, activeNoteLoad.fallbackHtml)
-                            if (repaired.removedCount === 0) {
+                            const count = removeMissingImages()
+                            if (count === 0) {
                               toast('没有找到可移除的缺失图片引用')
                               return
                             }
-                            updateNote(trade.id, repaired.html)
-                            setNoteRetrying(true)
-                            setNoteLoadAttempt((value) => value + 1)
-                            toast(`已移除 ${repaired.removedCount} 个缺失图片引用`, { tone: 'success' })
+                            toast(`已移除 ${count} 个缺失图片引用`, { tone: 'success' })
                           }}
                         >
                           移除缺失图片并继续编辑
@@ -1117,10 +1040,7 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
                       <Button size="sm" variant="bordered"
                         type="button"
                         disabled={noteRetrying}
-                        onClick={() => {
-                          setNoteRetrying(true)
-                          setNoteLoadAttempt((value) => value + 1)
-                        }}
+                        onClick={retryNote}
                       >
                         <RotateCcw size={ICON_SM} aria-hidden />
                         {noteRetrying ? '正在载入…' : '重新载入'}

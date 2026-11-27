@@ -5,6 +5,7 @@ import { useShortcutHost } from '@/shortcuts/ShortcutHost'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
 import { DetailView } from '@/views/DetailView'
+import { getStorage } from '@/storage/provider'
 import type { Editor as TiptapEditor } from '@tiptap/core'
 import { noteDraftKey, flushNoteDraftToStore, getNoteDraft, resetNoteDraftsForTests, setNoteDraft } from '@/storage/noteDrafts'
 import '@/styles/tokens.css'
@@ -195,4 +196,55 @@ async function run(): Promise<void> {
   }
 }
 
-window.__detailNoteBrowseEditTest = run()
+async function verifyReadOnlyRecovery(): Promise<void> {
+  const record = makeTrade(3)
+  record.note += '<img src="journal-asset://recoverable-image">'
+  const original = useStore.getState().trades
+  const storage = getStorage()
+  const acquire = storage.acquireAssetObjectUrl
+  let releaseRead!: () => void
+  const pending = new Promise<void>(resolve => { releaseRead = resolve })
+  let reads = 0
+  let released = 0
+  storage.acquireAssetObjectUrl = async () => {
+    if (++reads === 1) return null
+    await pending
+    return { url: '/src/views/fixtures/browser-test-image.svg', release: () => { released++ } }
+  }
+  const root = createRoot(document.getElementById('root')!)
+  try {
+    useStore.setState({ trades: [record] })
+    root.render(<MemoryRouter initialEntries={['/trade/' + record.ref]}><ShortcutDetailFixture /></MemoryRouter>)
+    const retry = () => [...document.querySelectorAll('button')].find(button => button.textContent?.includes('重新载入'))
+    await waitFor(() => Boolean(retry()), '缺失附件时应可重新载入')
+    const editor = document.querySelector<HTMLElement>('.ProseMirror')
+    assert(editor && !editor.isContentEditable && editor.textContent?.includes('浏览态正文 3'), '缺图时应只读显示本笔原文')
+    retry()!.click()
+    await waitFor(() => reads === 2, '重试应重新读取附件')
+    assert(editor.isConnected && !editor.isContentEditable && editor.textContent?.includes('浏览态正文 3'), '等待读取期间保留原只读正文')
+    releaseRead()
+    await waitFor(() => editor.isContentEditable && Boolean(editor.querySelector('img[data-asset-id]')), '恢复后同一编辑器应显示附件并接受输入')
+    assert(useStore.getState().trades[0]?.note === record.note && !getNoteDraft(noteDraftKey('trade', record.id)), '重试不得将只读占位或显示地址写回')
+
+    const damaged = makeTrade(4)
+    damaged.note += '<img src="journal-asset://missing-image">'
+    storage.acquireAssetObjectUrl = async () => null
+    useStore.setState({ trades: [damaged] })
+    root.render(<MemoryRouter key={damaged.id} initialEntries={['/trade/' + damaged.ref]}><ShortcutDetailFixture /></MemoryRouter>)
+    const repair = () => [...document.querySelectorAll('button')].find(button => button.textContent === '移除缺失图片并继续编辑')
+    await waitFor(() => Boolean(repair()), '缺图时应可明确选择移除引用')
+    const latestNote = damaged.note + '<p>载入后的补充</p>'
+    useStore.getState().updateNote(damaged.id, latestNote)
+    repair()!.click()
+    await waitFor(() => document.querySelector<HTMLElement>('.ProseMirror')?.isContentEditable === true && !repair(), '移除缺图后应可继续编辑')
+    assert(useStore.getState().trades[0]?.note === latestNote.replace('<img src="journal-asset://missing-image">', ''), '只移除缺失引用，保留最新正文')
+  } finally {
+    releaseRead()
+    root.unmount()
+    storage.acquireAssetObjectUrl = acquire
+    useStore.setState({ trades: original })
+  }
+  assert(released === 1, '离开正文时应归还恢复后持有的显示地址')
+}
+
+window.__detailNoteBrowseEditTest = run().then(verifyReadOnlyRecovery)
