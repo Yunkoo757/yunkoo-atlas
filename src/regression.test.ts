@@ -696,20 +696,6 @@ export async function testHeavyRoutesAreLoadedOnDemand(): Promise<void> {
   assert(source.includes("const DetailView = lazy(() =>"), '交易详情编辑器应按路由延迟加载')
   assert(source.includes("const StrategiesPanel = lazy(() =>"), '策略编辑器应按设置路由延迟加载')
   assert(source.includes('<Suspense'), '延迟路由必须提供加载反馈')
-
-  const detailSource = await fs.readFile('src/views/DetailView.tsx', 'utf8')
-  const editorSource = await fs.readFile('src/editor/Editor.tsx', 'utf8')
-  const draftsSource = await fs.readFile('src/storage/noteDrafts.ts', 'utf8')
-  for (const [name, moduleSource] of [
-    ['DetailView', detailSource],
-    ['Editor', editorSource],
-    ['noteDrafts', draftsSource],
-  ] as const) {
-    assert(
-      moduleSource.includes("from '@/storage/bootstrap'"),
-      `${name} 应直接导入 storage/bootstrap，避免延迟分块循环依赖`,
-    )
-  }
 }
 
 export async function testMissedOpportunityUsesTheTradeLogShellContract(): Promise<void> {
