@@ -110,26 +110,37 @@ async function readMainSnapshot(database: IDBDatabase): Promise<unknown> {
   return snapshot
 }
 
-async function writeTargetEntries(
+async function copyToEmptyTarget(
   database: IDBDatabase,
   entries: Record<StoreName, StoredEntry[]>,
-): Promise<void> {
+): Promise<'copied' | 'skipped'> {
   const transaction = database.transaction([...REQUIRED_STORES], 'readwrite')
   const done = transactionDone(transaction)
-  try {
-    for (const storeName of REQUIRED_STORES) {
-      const store = transaction.objectStore(storeName)
-      for (const entry of entries[storeName]) {
-        if (store.keyPath === null) store.put(entry.value, entry.key)
-        else store.put(entry.value)
+  const current = transaction.objectStore('snapshot').get('main')
+  let copied = false
+  let writeError: unknown
+  current.onsuccess = () => {
+    if (current.result !== undefined) return
+    try {
+      for (const storeName of REQUIRED_STORES) {
+        const store = transaction.objectStore(storeName)
+        for (const entry of entries[storeName]) {
+          if (store.keyPath === null) store.put(entry.value, entry.key)
+          else store.put(entry.value)
+        }
       }
+      copied = true
+    } catch (error) {
+      writeError = error
+      transaction.abort()
     }
-  } catch (error) {
-    transaction.abort()
-    await done.catch(() => undefined)
-    throw error
   }
-  await done
+  try {
+    await done
+  } catch (error) {
+    throw writeError ?? error
+  }
+  return copied ? 'copied' : 'skipped'
 }
 
 export async function migrateLegacyBrowserIdentity(
@@ -150,8 +161,8 @@ export async function migrateLegacyBrowserIdentity(
     if (await readMainSnapshot(target) !== undefined) return 'skipped'
 
     const entries = await readSourceEntries(source)
-    await writeTargetEntries(target, entries)
-    return 'copied'
+    if (!entries.snapshot.some(entry => entry.key === 'main' && entry.value !== undefined)) return 'unavailable'
+    return await copyToEmptyTarget(target, entries)
   } finally {
     target?.close()
     source.close()

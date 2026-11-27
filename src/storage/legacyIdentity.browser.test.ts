@@ -69,12 +69,48 @@ async function resetDatabases(): Promise<void> {
   await deleteDatabase(BROWSER_DATABASE_NAME)
 }
 
+async function verifyChangesDuringMigration(side: 'source' | 'target'): Promise<void> {
+  await resetDatabases()
+  await seedDatabase(LEGACY_DATABASE_NAME, 'legacy')
+  const originalTransaction = IDBDatabase.prototype.transaction
+  let injected = false
+  IDBDatabase.prototype.transaction = function (stores, mode, options) {
+    if (!injected && side === 'target' && this.name === BROWSER_DATABASE_NAME && mode === 'readwrite') {
+      injected = true
+      const writer = originalTransaction.call(this, ['snapshot', 'assets', 'meta'], 'readwrite')
+      writer.objectStore('snapshot').put({ displayName: 'concurrent' }, 'main')
+      writer.objectStore('meta').put(42, 'snapshotRevision')
+      writer.objectStore('assets').put({ id: 'asset-1', blob: new Blob(['new image']) })
+    }
+    if (!injected && side === 'source' && this.name === LEGACY_DATABASE_NAME && Array.isArray(stores) && stores.includes('assets')) {
+      injected = true
+      originalTransaction.call(this, 'snapshot', 'readwrite').objectStore('snapshot').delete('main')
+    }
+    return originalTransaction.call(this, stores, mode, options)
+  }
+  try {
+    const result = await migrateLegacyBrowserIdentity(indexedDB)
+    assert(injected, '应在迁移读取或写入边界安排并发事务')
+    const current = await readValue<{ displayName: string }>(BROWSER_DATABASE_NAME, 'snapshot', 'main')
+    const asset = await readValue<{ blob: Blob }>(BROWSER_DATABASE_NAME, 'assets', 'asset-1')
+    const revision = await readValue<number>(BROWSER_DATABASE_NAME, 'meta', 'snapshotRevision')
+    if (side === 'target') {
+      assert(result === 'skipped' && current?.displayName === 'concurrent', '迁移必须保留预检后写入的目标快照')
+      assert(revision === 42 && await asset?.blob.text() === 'new image', '并发写入的版本和附件必须与快照一起保留')
+    } else {
+      assert(result === 'unavailable' && current === undefined && !asset && revision === undefined, '源快照消失后不得单独复制附件或版本')
+    }
+  } finally {
+    IDBDatabase.prototype.transaction = originalTransaction
+  }
+}
+
 async function run(): Promise<void> {
   await resetDatabases()
   await seedDatabase(LEGACY_DATABASE_NAME, 'legacy')
 
-  const copied = await migrateLegacyBrowserIdentity(indexedDB)
-  assert(copied === 'copied', '空目标库必须从旧库复制')
+  const results = await Promise.all([migrateLegacyBrowserIdentity(indexedDB), migrateLegacyBrowserIdentity(indexedDB)])
+  assert(results.sort().join(',') === 'copied,skipped', '并发迁移只能有一次提交旧快照')
   const migrated = await readValue<{ displayName: string }>(BROWSER_DATABASE_NAME, 'snapshot', 'main')
   const source = await readValue<{ displayName: string }>(LEGACY_DATABASE_NAME, 'snapshot', 'main')
   assert(migrated?.displayName === 'legacy', '新库必须包含完整旧快照')
@@ -118,6 +154,9 @@ async function run(): Promise<void> {
   const targetAfterFailure = await readValue(BROWSER_DATABASE_NAME, 'snapshot', 'main')
   assert(sourceAfterFailure?.displayName === 'legacy', '失败迁移不得修改旧库')
   assert(targetAfterFailure === undefined, '失败事务不得留下部分目标快照')
+
+  await verifyChangesDuringMigration('target')
+  await verifyChangesDuringMigration('source')
 }
 
 window.__legacyIdentityMigrationTest = run().finally(resetDatabases)
