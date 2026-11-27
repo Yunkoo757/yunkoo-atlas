@@ -4,7 +4,7 @@ import JSZip from 'jszip'
 import { isSafeAssetId } from '@/storage/assetId'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
 import { collectRetiredSnapshotAssetIds } from '@/storage/retiredSnapshotDomains'
-import { tradeRichTextEntries } from '@/storage/tradeRichText'
+import { htmlAssetIds, snapshotRichTextRecords } from '@/storage/snapshotRichText'
 import {
   SCHEMA_VERSION,
   type ExportAssetRecord,
@@ -581,43 +581,15 @@ function validateNoteAssetReferences(
   allowedUnreferencedIds: ReadonlySet<string> = new Set(),
 ): Set<string> {
   const referencedIds = new Set<string>()
-  for (const trade of snapshot.trades) {
-    for (const html of tradeRichTextEntries(trade)) {
-      for (const match of html.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
-        const id = match[1]
-        if (!id || !isSafeAssetId(id)) {
-          throw archiveError('invalid-asset', `记录 ${trade.ref || trade.id} 引用了非法附件`)
-        }
-        if (!declaredIds.has(id)) {
-          throw archiveError(
-            'invalid-asset',
-            `记录 ${trade.ref || trade.id} 引用了未声明或缺失的附件：${id}`,
-          )
-        }
-        referencedIds.add(id)
-      }
-    }
-  }
-  for (const review of snapshot.weeklyReviews ?? []) {
-    for (const match of review.contentHtml.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
-      const id = match[1]
-      if (!id || !isSafeAssetId(id)) {
-        throw archiveError('invalid-asset', `周复盘 ${review.weekStart} 引用了非法附件`)
-      }
-      if (!declaredIds.has(id)) {
-        throw archiveError('invalid-asset', `周复盘 ${review.weekStart} 引用了缺失的附件：${id}`)
-      }
-      referencedIds.add(id)
-    }
-  }
-  for (const note of snapshot.quickNotes ?? []) {
-    for (const match of note.contentHtml.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
-      const id = match[1]
-      if (!id || !isSafeAssetId(id)) {
-        throw archiveError('invalid-asset', `随记「${note.title}」引用了非法附件`)
-      }
-      if (!declaredIds.has(id)) {
-        throw archiveError('invalid-asset', `随记「${note.title}」引用了缺失的附件：${id}`)
+  for (const source of snapshotRichTextRecords(snapshot)) {
+    for (const id of htmlAssetIds(source.html)) {
+      const valid = isSafeAssetId(id)
+      if (!valid || !declaredIds.has(id)) {
+        const label = source.domain === 'trade' ? `记录 ${source.record.ref || source.record.id}`
+          : source.domain === 'weeklyReview' ? `周复盘 ${source.record.weekStart}` : `随记「${source.record.title}」`
+        if (!valid) throw archiveError('invalid-asset', `${label} 引用了非法附件`)
+        const problem = source.domain === 'trade' ? '未声明或缺失' : '缺失'
+        throw archiveError('invalid-asset', `${label} 引用了${problem}的附件：${id}`)
       }
       referencedIds.add(id)
     }

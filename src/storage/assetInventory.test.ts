@@ -1,4 +1,5 @@
-import { buildAssetInventory, RICH_TEXT_ASSET_DOMAINS } from '@/storage/assetInventory'
+import { htmlAssetIds, remapHtmlAssetIds, snapshotRichTextRecords } from './snapshotRichText'
+import { buildAssetInventory } from '@/storage/assetInventory'
 import type { PhysicalAssetRecord } from '@/storage/adapter'
 import {
   createFullPersistedSnapshotFixture,
@@ -46,11 +47,18 @@ export function testAssetInventoryDeduplicatesSharedReferencesAcrossAllRichTextD
   assert(inventory.physical.length === records.length, 'physical 必须保留完整物理扫描结果')
 }
 
-export function testRichTextAssetDomainsAreRegisteredInOneInventoryTable(): void {
-  assert(
-    RICH_TEXT_ASSET_DOMAINS.map((entry) => entry.domain).join(',') === 'trade,weeklyReview,quickNote',
-    '现行富文本域必须通过统一注册表接入盘点',
-  )
+export function testRichTextReferencesPreserveSourceOrderAndMalformedCandidates(): void {
+  const records = [...snapshotRichTextRecords({
+    trades: [{ note: 'journal-asset://one journal-asset://one', sourceNoteHtml: 'journal-asset://../invalid' }],
+    weeklyReviews: [{ contentHtml: 'journal-asset://week' }],
+    quickNotes: [{ contentHtml: 'journal-asset://note' }],
+  })]
+  assert(records.map(entry => entry.domain).join(',') === 'trade,weeklyReview,quickNote', '盘点与归档必须保留正文域顺序')
+  const ids = records.flatMap(entry => [...htmlAssetIds(entry.html)])
+  assert(ids.join(',') === 'one,one,../invalid,week,note', '识别阶段须保留重复和非法候选，供去重或报错')
+  const text = '<img src="journal-asset://one"> journal-asset://../invalid'
+  const remapped = remapHtmlAssetIds(text, id => id === 'one' ? 'new' : 'invalid')
+  assert(remapped === '<img src="journal-asset://new"> journal-asset://invalid', '重编号必须消费与校验相同的完整候选')
 }
 
 export function testCaseSourceSnapshotAssetsRemainInTradeDomain(): void {

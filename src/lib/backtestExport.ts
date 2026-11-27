@@ -3,7 +3,7 @@ import JSZip from 'jszip'
 import type { Trade } from '@/data/trades'
 import type { ExportAssetRecord } from '@/storage/types'
 import { getProjectTrades, summarizeBacktest, type BacktestProject } from '@/lib/backtestProjects'
-import { collectAssetIdsFromSnapshot } from '@/storage/assets'
+import { collectAssetIdsFromSnapshot } from '@/storage/snapshotRichText'
 import { loadReferencedAssetsForExport } from '@/lib/importExport'
 import { webJournalExtensionForMime } from '@/lib/webJournalArchiveContract'
 

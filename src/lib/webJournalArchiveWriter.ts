@@ -1,7 +1,7 @@
 import { base64ToBytes } from '@/lib/base64'
 import { crc32 } from '@/lib/crc32'
 import { isSafeAssetId } from '@/storage/assetId'
-import { collectAssetIdsFromSnapshot } from '@/storage/assets'
+import { collectAssetIdsFromSnapshot } from '@/storage/snapshotRichText'
 import { stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
 import { SCHEMA_VERSION, type ExportAssetRecord, type PersistedSnapshot } from '@/storage/types'
 import {

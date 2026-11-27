@@ -2,12 +2,10 @@ import { base64ToBytes } from '@/lib/base64'
 import type { AssetObjectUrlScope } from './assetObjectUrls'
 import type { StorageAdapter } from '@/storage/adapter'
 import { isSafeAssetId } from '@/storage/assetId'
-import {
-  tradeRichTextEntries,
-  type TradeRichTextCarrier,
-} from '@/storage/tradeRichText'
+import type { TradeRichTextCarrier } from '@/storage/tradeRichText'
+import { ASSET_URL_PREFIX, collectAssetIdsFromSnapshot } from './snapshotRichText'
 
-export const ASSET_URL_PREFIX = 'journal-asset://'
+export { ASSET_URL_PREFIX } from './snapshotRichText'
 
 export function assetUrl(id: string): string {
   return `${ASSET_URL_PREFIX}${id}`
@@ -198,33 +196,8 @@ export async function normalizeNoteForStorage(
   return changed ? doc.body.innerHTML : html
 }
 
-export function collectAssetIdsFromHtml(htmlEntries: readonly string[]): string[] {
-  const ids = new Set<string>()
-  for (const html of htmlEntries) {
-    if (!html.includes(ASSET_URL_PREFIX)) continue
-    let match: RegExpExecArray | null
-    const re = /journal-asset:\/\/([^"'\s>]+)/g
-    while ((match = re.exec(html)) !== null) {
-      ids.add(match[1])
-    }
-  }
-  return [...ids]
-}
-
 export function collectAssetIdsFromNotes(trades: TradeRichTextCarrier[]): string[] {
-  return collectAssetIdsFromHtml(trades.flatMap(tradeRichTextEntries))
-}
-
-export function collectAssetIdsFromSnapshot(snapshot: {
-  trades: TradeRichTextCarrier[]
-  weeklyReviews?: { contentHtml: string }[]
-  quickNotes?: { contentHtml: string }[]
-}): string[] {
-  return collectAssetIdsFromHtml([
-    ...snapshot.trades.flatMap(tradeRichTextEntries),
-    ...(snapshot.weeklyReviews ?? []).map((review) => review.contentHtml),
-    ...(snapshot.quickNotes ?? []).map((note) => note.contentHtml),
-  ])
+  return collectAssetIdsFromSnapshot({ trades })
 }
 
 export const RECOVERY_MISSING_DRAFT_ASSET_PREFIX = 'recovery-missing-draft-image-'

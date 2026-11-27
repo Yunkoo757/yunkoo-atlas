@@ -1,5 +1,5 @@
 import { mapTradeRichText, tradeRichTextEntries } from '@/storage/tradeRichText'
-import { collectAssetIdsFromSnapshot } from '@/storage/assets'
+import { collectAssetIdsFromSnapshot } from '@/storage/snapshotRichText'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 
 function assert(condition: unknown, message: string): asserts condition {

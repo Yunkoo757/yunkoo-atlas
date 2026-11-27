@@ -19,10 +19,9 @@ import {
   assertValidPersistedSnapshot,
   isValidPersistedTrade,
 } from '@/storage/snapshotValidation'
-import { collectAssetIdsFromHtml, collectAssetIdsFromSnapshot } from '@/storage/assets'
+import { collectAssetIdsFromSnapshot, htmlAssetIds, snapshotRichTextRecords } from '@/storage/snapshotRichText'
 import { isSafeAssetId } from '@/storage/assetId'
 import { buildAssetInventory } from '@/storage/assetInventory'
-import { tradeRichTextEntries } from '@/storage/tradeRichText'
 import { OperationalError } from '@/lib/operationalError'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
 import {
@@ -89,32 +88,12 @@ async function collectAssetIdsFromSnapshotCooperatively(
   snapshot: PersistedSnapshot,
 ): Promise<Set<string>> {
   const assetIds = new Set<string>()
-  const collectEntries = async (
-    length: number,
-    getHtmlEntries: (index: number) => readonly string[],
-  ): Promise<void> => {
-    for (let start = 0; start < length; start += SNAPSHOT_VALIDATION_BATCH_SIZE) {
-      await yieldMainThread()
-      const end = Math.min(start + SNAPSHOT_VALIDATION_BATCH_SIZE, length)
-      const htmlEntries: string[] = []
-      for (let index = start; index < end; index += 1) {
-        htmlEntries.push(...getHtmlEntries(index))
-      }
-      for (const id of collectAssetIdsFromHtml(htmlEntries)) assetIds.add(id)
-    }
+  let recordIndex = 0
+  for (const { html } of snapshotRichTextRecords(snapshot)) {
+    if (recordIndex % SNAPSHOT_VALIDATION_BATCH_SIZE === 0) await yieldMainThread()
+    for (const id of htmlAssetIds(html)) assetIds.add(id)
+    recordIndex += 1
   }
-
-  await collectEntries(snapshot.trades.length, (index) => (
-    tradeRichTextEntries(snapshot.trades[index])
-  ))
-  await collectEntries(
-    snapshot.weeklyReviews?.length ?? 0,
-    (index) => [snapshot.weeklyReviews?.[index].contentHtml ?? ''],
-  )
-  await collectEntries(
-    snapshot.quickNotes?.length ?? 0,
-    (index) => [snapshot.quickNotes?.[index].contentHtml ?? ''],
-  )
   return assetIds
 }
 

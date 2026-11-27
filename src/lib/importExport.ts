@@ -31,8 +31,6 @@ import { normalizeTrades } from '@/lib/tradeKind'
 import { useStore } from '@/store/useStore'
 import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
 import {
-  collectAssetIdsFromNotes,
-  collectAssetIdsFromHtml,
   collectAssetIdsFromSnapshot,
   getStorage,
 } from '@/storage'
@@ -68,7 +66,8 @@ import {
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
 import { applyNoteDraftsToSnapshot } from '@/storage/noteDrafts'
 import { RECOVERY_MISSING_DRAFT_ASSET_PREFIX } from '@/storage/assets'
-import { mapTradeRichText, tradeRichTextEntries } from '@/storage/tradeRichText'
+import { remapHtmlAssetIds, snapshotRichTextRecords } from '@/storage/snapshotRichText'
+import { mapTradeRichText } from '@/storage/tradeRichText'
 import {
   capturePersistedStateRevision,
   hasSamePersistedStateRevision,
@@ -274,7 +273,7 @@ function assertValidInlineImportImages(
 }
 
 function normalizeAndValidateImportAssets(
-  htmlEntries: readonly string[],
+  snapshot: Pick<PersistedSnapshot, 'trades' | 'weeklyReviews' | 'quickNotes'>,
   value: unknown,
   retiredAssetIds: ReadonlySet<string> = new Set(),
 ): ExportAssetRecord[] {
@@ -299,7 +298,7 @@ function normalizeAndValidateImportAssets(
     normalized.push({ id: v.id, mime, data: v.data })
   }
 
-  const referencedIds = new Set(collectAssetIdsFromHtml(htmlEntries))
+  const referencedIds = new Set(collectAssetIdsFromSnapshot(snapshot))
   for (const id of referencedIds) {
     if (!isSafeAssetId(id)) throw new Error(`正文引用了非法附件 ID：${id}`)
     if (!assetIds.has(id)) throw new Error(`导入内容缺少附件：${id}`)
@@ -307,7 +306,9 @@ function normalizeAndValidateImportAssets(
   for (const id of assetIds) {
     if (!referencedIds.has(id) && !retiredAssetIds.has(id)) throw new Error(`附件 ${id} 未被任何正文引用`)
   }
-  assertValidInlineImportImages(htmlEntries, attachmentBudget)
+  for (const { html } of snapshotRichTextRecords(snapshot)) {
+    assertValidInlineImportImages(html, attachmentBudget)
+  }
   return normalized.filter(asset => referencedIds.has(asset.id))
 }
 
@@ -433,11 +434,7 @@ export function serializeJsonExportPayload(payload: unknown): string {
   try {
     assertJsonEntityBudget(payload)
     const snapshot = decodeCanonicalSnapshot(payload, { version: payload.version, label: 'JSON export' })
-    const assets = normalizeAndValidateImportAssets([
-      ...snapshot.trades.flatMap(tradeRichTextEntries),
-      ...(snapshot.weeklyReviews ?? []).map((review) => review.contentHtml),
-      ...(snapshot.quickNotes ?? []).map((note) => note.contentHtml),
-    ], payload.assets, collectRetiredSnapshotAssetIds(payload))
+    const assets = normalizeAndValidateImportAssets(snapshot, payload.assets, collectRetiredSnapshotAssetIds(payload))
     payload = { ...stripRetiredSnapshotDomains(payload), ...(payload.assets === undefined ? {} : { assets }) }
   } catch (error) {
     if (error instanceof JsonImportBudgetError) throw error
@@ -572,11 +569,7 @@ export function parseImportJson(
         ? stageMigration ?? createLegacyStageMigrationOptions(raw, new Date())
         : undefined,
     })
-    assets = normalizeAndValidateImportAssets([
-      ...snapshotCandidate.trades.flatMap(tradeRichTextEntries),
-      ...(snapshotCandidate.weeklyReviews ?? []).map((review) => review.contentHtml),
-      ...(snapshotCandidate.quickNotes ?? []).map((note) => note.contentHtml),
-    ], raw.assets, collectRetiredSnapshotAssetIds(raw))
+    assets = normalizeAndValidateImportAssets(snapshotCandidate, raw.assets, collectRetiredSnapshotAssetIds(raw))
   } catch (error) {
     if (error instanceof JsonImportBudgetError) return importFailure(error.code)
     return importFailure('json-contract-invalid')
@@ -692,11 +685,7 @@ export function prepareImportPayloadForCommit(
   payload: ExportPayload,
   createId: () => string = () => crypto.randomUUID(),
 ): { payload: ExportPayload; assets: ExportAssetRecord[] } {
-  const sourceAssets = normalizeAndValidateImportAssets([
-    ...payload.trades.flatMap(tradeRichTextEntries),
-    ...(payload.weeklyReviews ?? []).map((review) => review.contentHtml),
-    ...(payload.quickNotes ?? []).map((note) => note.contentHtml),
-  ], payload.assets, collectRetiredSnapshotAssetIds(payload))
+  const sourceAssets = normalizeAndValidateImportAssets(payload, payload.assets, collectRetiredSnapshotAssetIds(payload))
   const idMap = new Map<string, string>()
   const generatedIds = new Set<string>()
   const nextAssetId = (): string => {
@@ -713,14 +702,11 @@ export function prepareImportPayloadForCommit(
   })
 
   const rewriteHtml = (source: string): string => {
-    let html = source.replace(
-      /journal-asset:\/\/([^"'\s>]+)/g,
-      (_full, id: string) => {
-        const importedId = idMap.get(id)
-        if (!importedId) throw new Error(`导入内容缺少附件：${id}`)
-        return `journal-asset://${importedId}`
-      },
-    )
+    let html = remapHtmlAssetIds(source, (id) => {
+      const importedId = idMap.get(id)
+      if (!importedId) throw new Error(`导入内容缺少附件：${id}`)
+      return importedId
+    })
     IMPORT_DATA_IMAGE_RE.lastIndex = 0
     html = html.replace(
       IMPORT_DATA_IMAGE_RE,

@@ -13,7 +13,7 @@ import {
 import { resolveTradeTruth } from '@/lib/tradeTruth'
 import type { LiveStage } from '@/lib/liveStages'
 import type { SystemReviewPoolId } from '@/lib/reviewPools'
-import { collectAssetIdsFromHtml } from '@/storage/assets'
+import { collectAssetIdsFromHtml } from '@/storage/snapshotRichText'
 import { isSafeAssetId } from '@/storage/assetId'
 
 export type ReviewStageSource =

@@ -22,7 +22,7 @@ import {
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { collectRetiredSnapshotAssetIds } from '../../src/storage/retiredSnapshotDomains'
 import { isSafeAssetId } from '../../src/storage/assetId'
-import { tradeRichTextEntries } from '../../src/storage/tradeRichText'
+import { collectAssetIdsFromSnapshot, htmlAssetIds, snapshotRichTextRecords } from '../../src/storage/snapshotRichText'
 import {
   WEB_JOURNAL_EXPORT_VERSION,
   normalizeWebJournalImageMime,
@@ -468,44 +468,15 @@ function validateWebAssets(
   }
 
   const referencedIds = new Set<string>()
-  for (const trade of snapshot.trades) {
-    for (const html of tradeRichTextEntries(trade)) {
-      for (const match of html.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
-        const id = match[1]
-        if (!isSafeAssetId(id)) {
-          throw new Error(
-            `Invalid .journal.zip: trade ${trade.ref || trade.id} references an invalid asset`,
-          )
-        }
-        if (!declarations.has(id)) {
-          throw new Error(
-            `Invalid .journal.zip: trade ${trade.ref || trade.id} references an undeclared asset (${id})`,
-          )
-        }
-        referencedIds.add(id)
-      }
-    }
-  }
-  for (const review of snapshot.weeklyReviews ?? []) {
-    for (const match of review.contentHtml.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
-      const id = match[1]
-      if (!isSafeAssetId(id)) {
-        throw new Error(`Invalid .journal.zip: weekly review ${review.weekStart} references an invalid asset`)
-      }
-      if (!declarations.has(id)) {
-        throw new Error(`Invalid .journal.zip: weekly review ${review.weekStart} references missing asset ${id}`)
-      }
-      referencedIds.add(id)
-    }
-  }
-  for (const note of snapshot.quickNotes ?? []) {
-    for (const match of note.contentHtml.matchAll(/journal-asset:\/\/([^"'\s>]+)/g)) {
-      const id = match[1]
-      if (!isSafeAssetId(id)) {
-        throw new Error(`Invalid .journal.zip: quick note ${note.id} references an invalid asset`)
-      }
-      if (!declarations.has(id)) {
-        throw new Error(`Invalid .journal.zip: quick note ${note.id} references missing asset ${id}`)
+  for (const source of snapshotRichTextRecords(snapshot)) {
+    for (const id of htmlAssetIds(source.html)) {
+      const valid = isSafeAssetId(id)
+      if (!valid || !declarations.has(id)) {
+        const label = source.domain === 'trade' ? `trade ${source.record.ref || source.record.id}`
+          : source.domain === 'weeklyReview' ? `weekly review ${source.record.weekStart}` : `quick note ${source.record.id}`
+        if (!valid) throw new Error(`Invalid .journal.zip: ${label} references an invalid asset`)
+        const problem = source.domain === 'trade' ? `an undeclared asset (${id})` : `missing asset ${id}`
+        throw new Error(`Invalid .journal.zip: ${label} references ${problem}`)
       }
       referencedIds.add(id)
     }
@@ -650,30 +621,7 @@ export async function validateLibraryDatabaseFile(
       })
     }
 
-    const referencedAssetIds = new Set<string>()
-    for (const trade of snapshot?.trades ?? []) {
-      for (const html of tradeRichTextEntries(trade)) {
-        const pattern = /journal-asset:\/\/([^"'\s>]+)/g
-        let match: RegExpExecArray | null
-        while ((match = pattern.exec(html)) !== null) {
-          if (match[1]) referencedAssetIds.add(match[1])
-        }
-      }
-    }
-    for (const review of snapshot?.weeklyReviews ?? []) {
-      const pattern = /journal-asset:\/\/([^"'\s>]+)/g
-      let match: RegExpExecArray | null
-      while ((match = pattern.exec(review.contentHtml)) !== null) {
-        if (match[1]) referencedAssetIds.add(match[1])
-      }
-    }
-    for (const note of snapshot?.quickNotes ?? []) {
-      const pattern = /journal-asset:\/\/([^"'\s>]+)/g
-      let match: RegExpExecArray | null
-      while ((match = pattern.exec(note.contentHtml)) !== null) {
-        if (match[1]) referencedAssetIds.add(match[1])
-      }
-    }
+    const referencedAssetIds = snapshot ? collectAssetIdsFromSnapshot(snapshot) : []
 
     const assetRows = db.exec('SELECT id, mime, file_name, byte_size FROM assets')
     const assets = (assetRows[0]?.values ?? []).map((row) => ({
@@ -700,7 +648,7 @@ export async function validateLibraryDatabaseFile(
       tradeCount: snapshot?.trades.length ?? 0,
       strategyCount: snapshot?.strategies.length ?? 0,
       assets,
-      referencedAssetIds: [...referencedAssetIds],
+      referencedAssetIds,
     }
   } catch (err) {
     throw new Error(

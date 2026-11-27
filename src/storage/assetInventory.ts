@@ -1,8 +1,7 @@
 import type { PersistedSnapshot } from '@/storage/types'
 import type { PhysicalAssetRecord } from '@/storage/adapter'
-import { collectAssetIdsFromHtml } from '@/storage/assets'
+import { htmlAssetIds, snapshotRichTextRecords } from '@/storage/snapshotRichText'
 import { isSafeAssetId } from '@/storage/assetId'
-import { tradeRichTextEntries } from '@/storage/tradeRichText'
 
 export interface AssetInventoryItem {
   id: string
@@ -11,22 +10,6 @@ export interface AssetInventoryItem {
 }
 
 export type AssetReferenceDomain = 'trade' | 'weeklyReview' | 'quickNote'
-
-/** 新增富文本域时只需在此注册其 HTML 选择器，盘点算法无需再复制扫描逻辑。 */
-export const RICH_TEXT_ASSET_DOMAINS: ReadonlyArray<{
-  domain: AssetReferenceDomain
-  selectHtml(snapshot: Pick<PersistedSnapshot, 'trades' | 'weeklyReviews' | 'quickNotes'>): string[]
-}> = [
-  { domain: 'trade', selectHtml: (snapshot) => snapshot.trades.flatMap(tradeRichTextEntries) },
-  {
-    domain: 'weeklyReview',
-    selectHtml: (snapshot) => (snapshot.weeklyReviews ?? []).map((review) => review.contentHtml),
-  },
-  {
-    domain: 'quickNote',
-    selectHtml: (snapshot) => (snapshot.quickNotes ?? []).map((note) => note.contentHtml),
-  },
-]
 
 export interface AssetInventory {
   physical: PhysicalAssetRecord[]
@@ -43,18 +26,12 @@ export function buildAssetInventory(
   physicalRecords: readonly PhysicalAssetRecord[],
 ): AssetInventory {
   const domainsById = new Map<string, Set<AssetReferenceDomain>>()
-  const addDomain = (
-    domain: AssetReferenceDomain,
-    htmlEntries: readonly string[],
-  ) => {
-    for (const id of collectAssetIdsFromHtml(htmlEntries)) {
-      const domains = domainsById.get(id) ?? new Set()
+  for (const { domain, html } of snapshotRichTextRecords(snapshot)) {
+    for (const id of htmlAssetIds(html)) {
+      const domains = domainsById.get(id) ?? new Set<AssetReferenceDomain>()
       domains.add(domain)
       domainsById.set(id, domains)
     }
-  }
-  for (const registration of RICH_TEXT_ASSET_DOMAINS) {
-    addDomain(registration.domain, registration.selectHtml(snapshot))
   }
 
   const committedById = new Map<string, PhysicalAssetRecord>()

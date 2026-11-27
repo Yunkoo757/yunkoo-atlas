@@ -10,7 +10,8 @@ import { DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
 import {
   migrateTrades,
 } from '@/lib/strategies'
-import { externalizeNoteImages, collectAssetIdsFromSnapshot } from '@/storage/assets'
+import { collectAssetIdsFromSnapshot } from '@/storage/snapshotRichText'
+import { externalizeNoteImages } from '@/storage/assets'
 import type { StorageAdapter } from '@/storage/adapter'
 import type { PersistedSnapshot } from '@/storage/types'
 import { LEGACY_LOCAL_STORAGE_KEY } from '@/storage/legacyIdentity'
