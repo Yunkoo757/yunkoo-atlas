@@ -11,21 +11,17 @@ import {
   suspendPersist,
 } from '@/storage/persist'
 import type { ExportAssetRecord } from '@/storage/types'
-import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
+import {
+  capturePersistedStateRevision,
+  hasSamePersistedStateRevision,
+} from '@/store/persistedRevision'
 import { lockStorageCutoverInteraction } from '@/storage/cutover'
-import { useShortcutStore } from '@/store/shortcutStore'
 import { applyTradeUpsertsToSlice, useStore } from '@/store/useStore'
 import { assetUrl } from '@/storage/assets'
 
 export interface ComposerImageInput {
   file: Blob
   mime: string
-}
-
-interface PersistedRevision {
-  state: ReturnType<typeof useStore.getState>
-  bindings: ReturnType<typeof useShortcutStore.getState>['bindings']
-  references: readonly unknown[]
 }
 
 type ComposerState = ReturnType<typeof useStore.getState>
@@ -91,23 +87,6 @@ export async function prepareComposerAssetsForCommit(
   return { assets, imageHtml: imageTags.join('\n') }
 }
 
-function captureRevision(): PersistedRevision {
-  const state = useStore.getState()
-  const bindings = useShortcutStore.getState().bindings
-  return {
-    state,
-    bindings,
-    references: [
-      ...PERSISTED_STATE_REFERENCE_KEYS.map((key) => state[key]),
-      bindings,
-    ],
-  }
-}
-
-function sameRevision(left: PersistedRevision, right: PersistedRevision): boolean {
-  return left.references.every((value, index) => value === right.references[index])
-}
-
 function resolveComposerCandidate(result: ComposerTradeBuildResult): ComposerTradeCandidate | null {
   if (!result) return null
   return 'trade' in result ? result : { trade: result }
@@ -150,7 +129,7 @@ export async function commitComposerTradeBatch({
     await flushPersistNow()
     suspendPersist()
     suspended = true
-    const revision = captureRevision()
+    const revision = capturePersistedStateRevision()
     const candidate = resolveComposerCandidate(buildTrade(revision.state, prepared.imageHtml))
     if (!candidate) {
       discardPendingAndResumePersist()
@@ -159,33 +138,34 @@ export async function commitComposerTradeBatch({
       return { trade: null, imageCount: 0, trailingSaveFailed: false }
     }
     const patch = buildTradePatch(revision.state, candidate)
-    const snapshot = pickPersisted({ ...revision.state, ...patch }, revision.bindings)
+    const snapshot = pickPersisted({ ...revision.state, ...patch }, revision.shortcutBindings)
 
     await storage.commitImport(snapshot, prepared.assets)
     durablyCommitted = true
 
-    const latest = captureRevision()
+    const latest = capturePersistedStateRevision()
+    const unchanged = hasSamePersistedStateRevision(revision, latest)
     const originalTarget = revision.state.trades.find((item) => item.id === targetTradeId)
     const latestTarget = latest.state.trades.find((item) => item.id === targetTradeId)
     if (originalTarget && latestTarget !== originalTarget) {
-      const latestSnapshot = pickPersisted(latest.state, latest.bindings)
+      const latestSnapshot = pickPersisted(latest.state, latest.shortcutBindings)
       await storage.commitImport(latestSnapshot, prepared.assets, { pruneUnreferenced: true })
       released = true
       await resumePersistAndFlush()
       suspended = false
       throw new TradeComposerConcurrentEditError()
     }
-    const finalCandidate = sameRevision(revision, latest)
+    const finalCandidate = unchanged
       ? candidate
       : resolveComposerCandidate(buildTrade(latest.state, prepared.imageHtml)) ?? candidate
     const finalTrade = finalCandidate.trade
-    const finalPatch = sameRevision(revision, latest)
+    const finalPatch = unchanged
       ? patch
       : buildTradePatch(latest.state, finalCandidate)
     publishDurablyCommitted(() => useStore.setState(finalPatch))
 
     let trailingSaveFailed = false
-    if (sameRevision(revision, latest)) {
+    if (unchanged) {
       discardPendingAndResumePersist()
       suspended = false
       released = true

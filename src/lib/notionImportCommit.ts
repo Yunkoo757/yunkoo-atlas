@@ -17,7 +17,6 @@ import {
   suspendPersist,
 } from '@/storage/persist'
 import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
-import { useShortcutStore } from '@/store/shortcutStore'
 import {
   applyTradeUpsertsToSlice,
   useStore,
@@ -32,13 +31,11 @@ import {
   MAX_NOTION_IMAGE_BYTES,
   MAX_NOTION_IMPORT_IMAGE_BYTES,
 } from '@/lib/notionImportLimits'
-import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
-
-interface PersistedRevision {
-  state: ReturnType<typeof useStore.getState>
-  bindings: ReturnType<typeof useShortcutStore.getState>['bindings']
-  references: readonly unknown[]
-}
+import {
+  capturePersistedStateRevision,
+  hasSamePersistedStateRevision,
+  type PersistedStateRevision,
+} from '@/store/persistedRevision'
 
 export interface PreparedNotionAssets {
   assets: ExportAssetRecord[]
@@ -111,23 +108,6 @@ export function prepareNotionAssetsForCommit(
   return { assets, assetIdsByRow }
 }
 
-function captureRevision(): PersistedRevision {
-  const state = useStore.getState()
-  const bindings = useShortcutStore.getState().bindings
-  return {
-    state,
-    bindings,
-    references: [
-      ...PERSISTED_STATE_REFERENCE_KEYS.map((key) => state[key]),
-      bindings,
-    ],
-  }
-}
-
-function sameRevision(left: PersistedRevision, right: PersistedRevision): boolean {
-  return left.references.every((value, index) => value === right.references[index])
-}
-
 function mergeStrategies(current: Strategy[], additions: Strategy[]): Strategy[] {
   const next = [...current]
   for (const strategy of additions) {
@@ -152,10 +132,10 @@ function buildStorePatch(
 }
 
 function buildSnapshot(
-  revision: PersistedRevision,
+  revision: PersistedStateRevision,
   patch: TradeUpsertSlice,
 ): PersistedSnapshot {
-  return pickPersisted({ ...revision.state, ...patch }, revision.bindings)
+  return pickPersisted({ ...revision.state, ...patch }, revision.shortcutBindings)
 }
 
 /**
@@ -177,7 +157,7 @@ export async function commitNotionImportBatch(
     await flushStorageBeforeCutover()
     suspendPersist()
     suspended = true
-    const revision = captureRevision()
+    const revision = capturePersistedStateRevision()
     const imported = executeNotionImport(
       previews,
       revision.state.strategies,
@@ -209,8 +189,9 @@ export async function commitNotionImportBatch(
     durablyCommitted = true
 
     // commit 等待期间若有其他设置变化，只把本批内容合并进最新 store，绝不回退并发编辑。
-    const latest = captureRevision()
-    const finalPatch = sameRevision(revision, latest)
+    const latest = capturePersistedStateRevision()
+    const unchanged = hasSamePersistedStateRevision(revision, latest)
+    const finalPatch = unchanged
       ? patch
       : buildStorePatch(latest.state, importedTrades, newStrategies)
     publishDurablyCommitted(() => useStore.setState(finalPatch))
@@ -219,7 +200,7 @@ export async function commitNotionImportBatch(
     )
 
     let trailingSaveFailed = false
-    if (sameRevision(revision, latest)) {
+    if (unchanged) {
       // 原子提交的 snapshot 与发布到 store 的内容一致，清掉订阅器产生的冗余待写。
       discardPendingAndResumePersist()
       suspended = false

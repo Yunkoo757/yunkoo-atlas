@@ -1,5 +1,5 @@
 import fs from 'node:fs/promises'
-import { haveSamePersistedReferences } from '@/storage/bootstrap'
+import { haveSamePersistedReferences } from '@/storage/persistedSnapshotCoordinator'
 import type { PersistedSnapshot } from '@/storage/types'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 

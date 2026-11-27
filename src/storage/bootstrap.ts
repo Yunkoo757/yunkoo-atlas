@@ -13,7 +13,6 @@ import { useSaveStatus } from '@/store/saveStatus'
 
 import type { PersistedSnapshot } from '@/storage/types'
 import type { StorageAdapter } from '@/storage/adapter'
-import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
 import {
   createPersistedSnapshotCoordinator,
   type PersistedSnapshotCoordinator,
@@ -26,17 +25,6 @@ import {
 let hydrated = false
 let bootstrapPromise: Promise<void> | null = null
 let persistedSnapshotCoordinator: PersistedSnapshotCoordinator | null = null
-
-/**
- * Zustand 内的持久化字段均采用不可变更新；引用未变化代表无需重写全量快照。
- * shortcuts 由独立 store 的订阅负责，不在此处重复比较。
- */
-export function haveSamePersistedReferences(
-  previous: PersistedSnapshot,
-  next: PersistedSnapshot,
-): boolean {
-  return PERSISTED_STATE_REFERENCE_KEYS.every((key) => previous[key] === next[key])
-}
 
 export function isStorageHydrated(): boolean {
   return hydrated

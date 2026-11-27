@@ -16,7 +16,7 @@ export type PersistedSnapshotObservation =
   | { source: 'store' }
   | { source: 'shortcuts' }
 
-function haveSameReferences(previous: PersistedSnapshot, next: PersistedSnapshot): boolean {
+export function haveSamePersistedReferences(previous: PersistedSnapshot, next: PersistedSnapshot): boolean {
   return PERSISTED_STATE_REFERENCE_KEYS.every((key) => previous[key] === next[key])
 }
 
@@ -67,7 +67,7 @@ export function createPersistedSnapshotCoordinator(
         dependencies.schedule(snapshot)
         lastShortcuts = snapshot.shortcuts
       } else {
-        if (haveSameReferences(lastPersisted, snapshot)) return
+        if (haveSamePersistedReferences(lastPersisted, snapshot)) return
         dependencies.schedule(snapshot)
         lastPersisted = snapshot
       }

@@ -73,7 +73,11 @@ import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
 import { applyNoteDraftsToSnapshot } from '@/storage/noteDrafts'
 import { RECOVERY_MISSING_DRAFT_ASSET_PREFIX } from '@/storage/assets'
 import { mapTradeRichText, tradeRichTextEntries } from '@/storage/tradeRichText'
-import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
+import {
+  capturePersistedStateRevision,
+  hasSamePersistedStateRevision,
+  type PersistedStateRevision,
+} from '@/store/persistedRevision'
 import {
   MAX_WEB_JOURNAL_ARCHIVE_BYTES,
   MAX_WEB_JOURNAL_ENTRY_BYTES,
@@ -969,32 +973,6 @@ export function prepareImportPayloadForCommit(
     payload: { ...stripRetiredSnapshotDomains(payload), trades, weeklyReviews, quickNotes, assets },
     assets,
   }
-}
-
-interface PersistedStateRevision {
-  state: ReturnType<typeof useStore.getState>
-  shortcutBindings: ReturnType<typeof useShortcutStore.getState>['bindings']
-  references: readonly unknown[]
-}
-
-function capturePersistedStateRevision(): PersistedStateRevision {
-  const state = useStore.getState()
-  const shortcutBindings = useShortcutStore.getState().bindings
-  return {
-    state,
-    shortcutBindings,
-    references: [
-      ...PERSISTED_STATE_REFERENCE_KEYS.map((key) => state[key]),
-      shortcutBindings,
-    ],
-  }
-}
-
-function hasSamePersistedStateRevision(
-  previous: PersistedStateRevision,
-  next: PersistedStateRevision,
-): boolean {
-  return previous.references.every((value, index) => value === next.references[index])
 }
 
 interface ImportedTradeBaseline {
