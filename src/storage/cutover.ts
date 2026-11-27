@@ -1,4 +1,6 @@
-import { flushPersistNow } from '@/storage/persist'
+import { notifyStorageRecoveryRequired } from '@/lib/storageRecovery'
+import { useSaveStatus } from '@/store/saveStatus'
+import { disablePersistWrites, discardPendingAndResumePersist, flushPersistNow } from '@/storage/persist'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
 
 let interactionLockDepth = 0
@@ -51,4 +53,22 @@ export function isStorageCutoverInteractionLocked(): boolean {
 export async function flushStorageBeforeCutover(): Promise<void> {
   await waitForPendingStorageOperations()
   await flushPersistNow()
+}
+
+/** 磁盘状态不再可信时停止写盘并归还调用方持有的一层暂停。 */
+export function haltPersistAfterCutover(message: string, recovery: 'reload' | 'reopen'): void {
+  // 先禁止后续写入。状态订阅者即使抛错，仍要归还暂停并进入恢复界面。
+  disablePersistWrites()
+  try {
+    discardPendingAndResumePersist()
+  } finally {
+    try {
+      useSaveStatus.getState().setError(message)
+    } finally {
+      if (recovery === 'reopen') notifyStorageRecoveryRequired(message)
+      else {
+        try { window.location?.reload() } catch { /* 当前宿主可能无法重新加载 */ }
+      }
+    }
+  }
 }

@@ -1,6 +1,6 @@
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
-import { applySnapshotToStore } from '@/lib/importExport'
+import { applySnapshotToStore } from '@/lib/snapshotStore'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 
 function assert(condition: unknown, message: string): void {

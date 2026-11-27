@@ -1,7 +1,9 @@
-import { enablePersistWrites, disablePersistWrites } from '@/storage/persist'
+import { useSaveStatus } from '@/store/saveStatus'
+import { isStorageCutoverInteractionLocked } from '@/storage/cutover'
+import { enablePersistWrites, disablePersistWrites, flushPersistNow, getPersistSuspendDepth } from '@/storage/persist'
 import type { PersistedSnapshot } from '@/storage/types'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
-import { switchActiveLibrary } from '@/lib/importExport'
+import { switchActiveLibrary } from '@/lib/librarySwitch'
 import { useStore } from '@/store/useStore'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
@@ -9,13 +11,17 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
-export async function testFailedLibrarySwitchNeverWritesOldStoreToChangedPath(): Promise<void> {
+async function verifyFailedSwitch(observerFails: boolean): Promise<void> {
+  const previousStatus = useSaveStatus.getState()
+  const failure = new Error('failed save status observer')
+  let reloads = 0
   let activePath = 'D:\\old-library'
   const savedPaths: string[] = []
 
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: {
+      location: { reload: () => { reloads++ } },
       journalBridge: {
         isElectron: true,
         getLibraryPath: async () => activePath,
@@ -36,17 +42,33 @@ export async function testFailedLibrarySwitchNeverWritesOldStoreToChangedPath():
 
   enablePersistWrites()
   try {
-    const result = await switchActiveLibrary('open', 'D:\\broken-library')
+    if (observerFails) useSaveStatus.setState({ reset: () => { throw failure } })
+    const result = await switchActiveLibrary('open', 'D:\\broken-library').catch(error => {
+      if (error !== failure || !observerFails) throw error
+      return { ok: false }
+    })
+    await flushPersistNow()
     assert(!result.ok, '损坏候选库必须返回失败')
     assert(savedPaths.includes('D:\\old-library'), '切库前应先保存旧库')
     assert(
       !savedPaths.includes('D:\\uncertain-library'),
       '切库失败且路径状态变化后，绝不能把旧 Zustand 快照写入不确定的新路径',
     )
+    assert(reloads === 1, '无法确认路径时必须请求重新载入磁盘状态')
+    assert(!isStorageCutoverInteractionLocked() && getPersistSuspendDepth() === 0, '故障恢复后不得遗留暂停或交互锁')
   } finally {
+    useSaveStatus.setState(previousStatus, true)
     disablePersistWrites()
     Reflect.deleteProperty(globalThis, 'window')
   }
+}
+
+export async function testFailedLibrarySwitchNeverWritesOldStoreToChangedPath(): Promise<void> {
+  await verifyFailedSwitch(false)
+}
+
+export async function testFailedLibrarySwitchDoesNotResumeWritesWhenStatusObserverFails(): Promise<void> {
+  await verifyFailedSwitch(true)
 }
 
 export async function testSuccessfulLibrarySwitchUsesSnapshotReturnedByAtomicIpc(): Promise<void> {

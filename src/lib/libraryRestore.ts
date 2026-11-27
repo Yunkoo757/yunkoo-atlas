@@ -1,13 +1,11 @@
 import { clearReviewSessionFilters, clearReviewSessionStorage } from '@/lib/reviewSession'
 import { applySnapshotToStore, clearSessionUiAfterLibrarySwitch } from '@/lib/snapshotStore'
-import { notifyStorageRecoveryRequired } from '@/lib/storageRecovery'
 import type { ParsedWebJournalArchive } from '@/lib/webJournalArchive'
-import { flushStorageBeforeCutover, lockStorageCutoverInteraction } from '@/storage/cutover'
+import { flushStorageBeforeCutover, haltPersistAfterCutover, lockStorageCutoverInteraction } from '@/storage/cutover'
 import { getElectronAdapter } from '@/storage/electronAdapter'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
-import { disablePersistWrites, discardPendingAndResumePersist, resumePersistAndFlush, suspendPersist } from '@/storage/persist'
+import { resumePersistAndFlush, suspendPersist } from '@/storage/persist'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
-import { useSaveStatus } from '@/store/saveStatus'
 import type { CommitJournalImportResult } from '@/types/journalBridge'
 
 type RestoreSource = 'backup' | 'desktop-archive' | 'web-archive'
@@ -24,20 +22,7 @@ function requireRecovery(source: RestoreSource): void {
   const message = source === 'backup'
     ? '备份替换已开始，但界面无法安全载入磁盘状态；已停止保存，请重新打开资料库'
     : '完整恢复后的内存载入失败，自动保存已暂停'
-  // 先禁止后续写入。状态订阅者即使抛错，仍要归还暂停并进入恢复界面。
-  disablePersistWrites()
-  try {
-    discardPendingAndResumePersist()
-  } finally {
-    try {
-      useSaveStatus.getState().setError(message)
-    } finally {
-      if (source === 'backup') notifyStorageRecoveryRequired(message)
-      else {
-        try { window.location?.reload() } catch { /* 当前宿主可能无法重新加载 */ }
-      }
-    }
-  }
+  haltPersistAfterCutover(message, source === 'backup' ? 'reopen' : 'reload')
 }
 
 async function restoreCurrentLibrary(

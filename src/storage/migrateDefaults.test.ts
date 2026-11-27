@@ -24,7 +24,7 @@ import { useStore } from '@/store/useStore'
 import {
   applySnapshotToStore,
   clearSessionUiAfterLibrarySwitch,
-} from '@/lib/importExport'
+} from '@/lib/snapshotStore'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 

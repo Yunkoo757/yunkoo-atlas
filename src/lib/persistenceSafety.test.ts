@@ -79,10 +79,11 @@ export async function testWebStorageConflictShellDoesNotPullImportWorkflowIntoSt
 }
 
 export async function testAttachmentPreviewCachesAreBoundedAndInvalidatedOnImport(): Promise<void> {
-  const [indexedDb, electron, importExport] = await Promise.all([
+  const [indexedDb, electron, librarySwitch, libraryRestore] = await Promise.all([
     fs.readFile('src/storage/indexedDbAdapter.ts', 'utf8'),
     fs.readFile('src/storage/electronAdapter.ts', 'utf8'),
-    fs.readFile('src/lib/importExport.ts', 'utf8'),
+    fs.readFile('src/lib/librarySwitch.ts', 'utf8'),
+    fs.readFile('src/lib/libraryRestore.ts', 'utf8'),
   ])
   const cache = await fs.readFile('src/storage/assetObjectUrls.ts', 'utf8')
   assert(cache.includes('MAX_IDLE_ENTRIES = 128'), '未持有的图片预览缓存必须有数量上限')
@@ -93,7 +94,7 @@ export async function testAttachmentPreviewCachesAreBoundedAndInvalidatedOnImpor
     assert(source.includes('this.objectUrls.invalidate('), `${name} 写入提交后必须失效相应旧预览`)
   }
   assert(
-    importExport.includes('getElectronAdapter().clearObjectUrlCache()'),
+    librarySwitch.includes('getElectronAdapter().clearObjectUrlCache()') && libraryRestore.includes('storage.clearObjectUrlCache()'),
     '整库导入后必须清除桌面附件预览缓存',
   )
 }

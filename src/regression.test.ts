@@ -1,3 +1,4 @@
+import { resetEmptyLibraryIntoStore } from '@/lib/snapshotStore'
 import type { Strategy } from '@/data/strategies'
 import { getTradeRemainingDays, isTradeExpired, type Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY, filterTrades, applyDisplayPrefs, type DisplayPrefs } from '@/lib/tradeFilters'
@@ -5,7 +6,6 @@ import {
   buildExportPayloadFromState,
   mergeImportPayload,
   parseImportJson,
-  resetEmptyLibraryIntoStore,
 } from '@/lib/importExport'
 import { collectTagOptions, mergeTagPresets } from '@/lib/tags'
 import { computeStrategyStats } from '@/lib/strategies'

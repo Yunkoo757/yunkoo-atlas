@@ -119,7 +119,7 @@ const checkDueStageRollover = createStageRolloverCheck(async () => {
     publish: (authoritative) => reconcileCommittedStageRollover(authoritative, {
       reloadAuthoritativeSnapshot: () => getStorage().loadSnapshot(),
       publishDurableSnapshot: async (snapshot, publish) => {
-        const { applySnapshotToStore } = await import('./lib/importExport')
+        const { applySnapshotToStore } = await import('./lib/snapshotStore')
         publishDurableStoreRefresh(() => {
           applySnapshotToStore(snapshot)
           useStore.getState().publishCommittedStageRollover(publish)

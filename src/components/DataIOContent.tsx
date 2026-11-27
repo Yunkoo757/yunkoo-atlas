@@ -1,3 +1,4 @@
+import { switchActiveLibrary } from '@/lib/librarySwitch'
 import { commitPreparedJournalArchive, restoreWebJournalArchive } from '@/lib/libraryRestore'
 import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import { Button } from '@/components/ui/Button'
@@ -24,10 +25,8 @@ import {
   downloadExport,
   downloadWebJournalZip,
   exportJournalArchive,
-  getLibraryPath,
   prepareJournalArchive,
   parseImportJson,
-  switchActiveLibrary,
 } from '@/lib/importExport'
 import {
   parseWebJournalArchive,
@@ -98,7 +97,7 @@ export function DataIOContent({
 
   useEffect(() => {
     if (!electron) return
-    void getLibraryPath().then(setLibraryPath)
+    void getJournalBridge()?.getLibraryPath().then(setLibraryPath)
   }, [electron])
 
   const onSwitchLibrary = async (mode: 'open' | 'create') => {
