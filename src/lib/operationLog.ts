@@ -9,8 +9,8 @@ export interface OperationLogFields {
   stage: string
   status: OperationStatus
   code: string
-  revisionBefore: number
-  revisionAfter: number
+  revisionBefore: number | null
+  revisionAfter: number | null
   durationMs: number
 }
 
@@ -19,14 +19,14 @@ export interface BeginOperationOptions {
   actionId?: string
   requestId?: string
   stage: string
-  revisionBefore?: number
+  revisionBefore?: number | null
   now?: () => number
 }
 
 export interface FinishOperationOptions {
   stage: string
   code?: string
-  revisionAfter?: number
+  revisionAfter?: number | null
 }
 
 export interface OperationLogHandle {
@@ -53,14 +53,14 @@ export function beginLoggedOperation(
   const operationId = options.operationId ?? createId()
   const actionId = options.actionId ?? operationId
   const requestId = options.requestId ?? operationId
-  const revisionBefore = options.revisionBefore ?? 0
+  const revisionBefore = options.revisionBefore ?? null
   let terminal = false
 
   const emit = (
     status: OperationStatus,
     stage: string,
     code: string,
-    revisionAfter: number,
+    revisionAfter: number | null,
   ) => {
     write(`${kind}:${status}`, {
       operationId,
@@ -86,7 +86,7 @@ export function beginLoggedOperation(
         'success',
         finish.stage,
         finish.code ?? 'operation-succeeded',
-        finish.revisionAfter ?? revisionBefore,
+        finish.revisionAfter === undefined ? revisionBefore : finish.revisionAfter,
       )
       return true
     },

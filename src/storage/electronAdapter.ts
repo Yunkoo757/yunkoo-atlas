@@ -19,6 +19,10 @@ export class ElectronStorageAdapter implements StorageAdapter {
     await bridge.storageOpen()
   }
 
+  async getSnapshotRevision(): Promise<number> {
+    return getJournalBridge()!.getSnapshotRevision()
+  }
+
   async getManifest(): Promise<LibraryManifest> {
     return getJournalBridge()!.getManifest()
   }

@@ -159,6 +159,22 @@ async function verifyExportOperationLogging(
       )
       assert(!failureLogs.some((record) => record.status === 'success'), `${name} export 失败不得误报 success`)
       await flushPersistNow()
+
+      const readRevision = adapter.getSnapshotRevision
+      adapter.getSnapshotRevision = async () => {
+        adapter.getSnapshotRevision = readRevision
+        throw new Error('isolated revision unavailable')
+      }
+      try {
+        clearWebOperationLogsForTests()
+        await exporter()
+        const records = getWebOperationLogs()
+        assert(records.length === 2 && records[1].status === 'success', `${name} 诊断读取失败仍可导出`)
+        assert(records[0].revisionBefore === null && records[0].revisionAfter === null, `${name} 无法取得的开始版本必须标为未知`)
+        assert(records[1].revisionBefore === null && records[1].revisionAfter === await adapter.getSnapshotRevision(), `${name} 读取恢复后必须记录提交版本`)
+      } finally {
+        adapter.getSnapshotRevision = readRevision
+      }
     }
     assert(expectedPersistFailures.length === 2, 'JSON/ZIP fault injection 必须各触发一次真实 persist failure')
   } finally {

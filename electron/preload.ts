@@ -136,6 +136,7 @@ const bridge: JournalBridge = {
     return session.ok
   },
   recoverStorage: () => ipcRenderer.invoke('storage:recover'),
+  getSnapshotRevision: () => ipcRenderer.invoke('storage:getSnapshotRevision'),
   getManifest: () => ipcRenderer.invoke('storage:getManifest'),
   loadSnapshot: async () => {
     const result = await ipcRenderer.invoke('storage:loadSnapshot') as {

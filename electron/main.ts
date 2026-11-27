@@ -443,12 +443,11 @@ function reportExitStart(event: QuitOperationalLifecycle): void {
     operationId: event.operationId,
     requestId: event.operationId,
     stage: event.stage,
-    revisionBefore: 0,
   }))
 }
 
 function reportExitSuccess(event: QuitOperationalLifecycle): void {
-  quitOperationLogs.get(event.operationId)?.success({ stage: event.stage, revisionAfter: 0 })
+  quitOperationLogs.get(event.operationId)?.success({ stage: event.stage })
   quitOperationLogs.delete(event.operationId)
 }
 

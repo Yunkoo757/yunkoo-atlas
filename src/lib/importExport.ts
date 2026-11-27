@@ -395,9 +395,13 @@ export async function buildExportPayload(): Promise<ExportPayload> {
   )
 }
 
+async function readExportRevision(storage: ReturnType<typeof getStorage>): Promise<number | null> {
+  try { return await storage.getSnapshotRevision?.() ?? null } catch { return null }
+}
+
 export async function downloadExport(): Promise<void> {
   const storage = getStorage()
-  const revisionBefore = (await storage.getSnapshotRevision?.()) ?? 0
+  const revisionBefore = await readExportRevision(storage)
   const operation = beginWebOperation('archive', {
     stage: 'export-json',
     revisionBefore,
@@ -405,7 +409,7 @@ export async function downloadExport(): Promise<void> {
   })
   try {
     await flushPersistNow()
-    const revisionAfter = (await storage.getSnapshotRevision?.()) ?? revisionBefore
+    const revisionAfter = await readExportRevision(storage)
     const payload = await buildExportPayload()
     const json = serializeJsonExportPayload(payload)
     const blob = new Blob([json], { type: 'application/json;charset=utf-8' })
@@ -455,7 +459,7 @@ function serializeJsonDocumentWithinFileBudget(payload: unknown): string {
  */
 export async function downloadWebJournalZip(): Promise<void> {
   const storage = getStorage()
-  const revisionBefore = (await storage.getSnapshotRevision?.()) ?? 0
+  const revisionBefore = await readExportRevision(storage)
   const operation = beginWebOperation('archive', {
     stage: 'export-zip',
     revisionBefore,
@@ -463,7 +467,7 @@ export async function downloadWebJournalZip(): Promise<void> {
   })
   try {
     await flushPersistNow()
-    const revisionAfter = (await storage.getSnapshotRevision?.()) ?? revisionBefore
+    const revisionAfter = await readExportRevision(storage)
     const state = useStore.getState()
     const portableSnapshot = buildPortableSnapshotFromState(
       state,

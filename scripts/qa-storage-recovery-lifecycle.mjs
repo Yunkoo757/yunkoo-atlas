@@ -74,6 +74,17 @@ async function readDurableSnapshot(libraryPath) {
   }
 }
 
+function verifyOperationRevisions(userData, kind, startStage, status, before, after) {
+  const log = fs.readFileSync(path.join(userData, 'logs', 'main.log'), 'utf8')
+  const records = log.split('\n').filter(line => line.includes(` ${kind}:`)).map(line => JSON.parse(line.slice(line.indexOf('{'))))
+  const start = records.findLast(record => record.status === 'start' && record.stage === startStage)
+  assert(start, `${kind} 缺少 ${startStage} 开始事件`)
+  const pair = records.filter(record => record.operationId === start.operationId)
+  assert(pair.length === 2 && pair[1].status === status, `${kind} 必须恰好记录一次终态 ${status}`)
+  assert(start.revisionBefore === before && start.revisionAfter === before &&
+    pair[1].revisionBefore === before && pair[1].revisionAfter === after, `${kind} 日志与实际操作版本不符`)
+}
+
 function waitForMainFrameNavigation(page, timeoutMs = 15_000) {
   return new Promise((resolve, reject) => {
     const cleanup = () => {
@@ -227,6 +238,13 @@ try {
   })
   assert(seeded.tagPresets?.[0] === 'before-storage-recovery', '恢复故障前基线快照保存失败')
 
+  const importBefore = await page.evaluate(() => window.journalBridge.getSnapshotRevision())
+  assert(importBefore > 0, '先提交非零版本以识别伪造的零值')
+  await page.evaluate(snapshot => window.journalBridge.commitImport(snapshot, []), seeded)
+  const importAfter = await page.evaluate(() => window.journalBridge.getSnapshotRevision())
+  assert(importAfter === importBefore + 1, '实际导入必须推进资料库版本')
+  verifyOperationRevisions(userDataPath, 'import', 'validate', 'success', importBefore, importAfter)
+
   const archivePath = path.join(temporaryRoot, 'isolated-recovery.journal.zip')
   await application.evaluate(({ dialog }, archive) => {
     dialog.showSaveDialog = async () => ({ canceled: false, filePath: archive })
@@ -241,6 +259,7 @@ try {
     return prepared.preview.token
   })
 
+  verifyOperationRevisions(userDataPath, 'archive', 'export', 'success', importAfter, importAfter)
   const mainProcessId = await application.evaluate(() => process.pid)
   const before = await readQaState(application)
   assert(typeof before.lifecycleId === 'string', '故障前必须存在活动 LibraryStorage lifecycle')
@@ -310,7 +329,7 @@ try {
       try { await work(); return '' }
       catch (error) { return error instanceof Error ? error.message : String(error) }
     }
-    const [status, stage, prepare, commit] = await Promise.all([
+    const [status, stage, prepare, commit, archive] = await Promise.all([
       message(() => bridge.getLibraryStatus()),
       message(() => bridge.commitStageRollover({
         expectedCurrentStageId: 'previous',
@@ -318,10 +337,13 @@ try {
       })),
       bridge.prepareJournalImport('during-recovery'),
       bridge.commitPreparedJournalImport(token),
+      message(() => bridge.exportJournalZip()),
     ])
-    return { status, stage, prepare, commit }
+    return { status, stage, prepare, commit, archive }
   }, previewToken)
   assert(competing.status.includes('交易库正在切换'), '状态查询也必须由独占门拒绝')
+  assert(competing.archive.includes('交易库正在切换'), '导出必须与恢复互斥')
+  verifyOperationRevisions(userDataPath, 'archive', 'export', 'failure', null, null)
   assert(competing.stage.includes('stage:commitRollover') && competing.stage.includes('交易库正在切换'), '阶段重置必须在验证写入会话之前取得独占权')
   assert(!competing.prepare.ok && competing.prepare.error?.includes('交易库正在切换'), '预检不得在恢复期间捕获活动库')
   assert(!competing.commit.ok && competing.commit.code === 'LIBRARY_BUSY' && competing.commit.committed === false,
@@ -390,6 +412,8 @@ try {
     staleRendererWriteRejected: staleRendererWrite.rejected,
     staleRendererWriteMessage: staleRendererWrite.message,
     competingRequests: competing,
+    importRevisionBefore: importBefore,
+    importRevisionAfter: importAfter,
     mainFrameNavigationStarted: after.mainFrameNavigationStarted,
     mainFrameNavigationCommitted: after.mainFrameNavigationCommitted,
     exclusiveAtNavigationStart: after.exclusiveAtNavigationStart,

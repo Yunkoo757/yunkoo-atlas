@@ -58,7 +58,16 @@ export function testOperationLoggerFailureNeverEmitsSuccessSavedOrReleased(): vo
   assert(observed.records[1].event === 'import:failure', '导入失败必须记录 failure')
   assert(observed.records[1].detail.code === 'archive-invalid', '失败必须保留稳定错误 code')
   assert(observed.records[1].detail.revisionAfter === observed.records[1].detail.revisionBefore, '失败不得报告新 revision')
+  assert(observed.records.every(({ detail }) => detail.revisionBefore === null && detail.revisionAfter === null), '未取得资料库时保留未知版本')
   assert(!serialized.includes(secret), '结构化操作日志不得包含私密路径')
   assert(!serialized.includes('import:success'), '失败路径不得误报 success')
   assert(!serialized.includes('saved') && !serialized.includes('released'), '失败路径不得误报 saved/released')
+}
+
+export function testOperationLoggerDistinguishesAnEmptyLibraryFromUnknownRevision(): void {
+  const observed = capture()
+  const operation = beginOperation('import', { stage: 'commit', revisionBefore: 0, sink: observed.sink })
+  operation.success({ stage: 'committed', revisionAfter: null })
+  assert(observed.records[0].detail.revisionAfter === 0, '新库的真实版本可以为零')
+  assert(observed.records[1].detail.revisionAfter === null, '无法读取提交后版本时保留未知')
 }

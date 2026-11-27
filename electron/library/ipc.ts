@@ -45,7 +45,7 @@ import {
 import { randomUUID } from 'node:crypto'
 import { assertExitWithinDeadline, releaseThenFinalizeWithRollback } from '../quitCoordinator'
 import { createVerifiedRestorePoint, restoreLibraryBackup } from './backupRestore'
-import { beginOperation } from '../operationLogger'
+import { beginOperation, type OperationLogHandle } from '../operationLogger'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
 import type {
   StageRolloverCommitInput,
@@ -324,6 +324,32 @@ function withStorage<T>(operation: (lib: LibraryStorage) => T | Promise<T>): Pro
     () => operationGate.run(async () => operation(await ensureStorage())),
     notifyStorageRecoveryRequired,
   )
+}
+
+// 诊断读取不能中断提交或抢在独占操作之前打开资料库。
+function readLogRevision(lib: LibraryStorage): number | null {
+  try { return lib.getSnapshotRevision() } catch { return null }
+}
+
+async function withLoggedExclusiveStorage<T>(
+  kind: 'import' | 'archive',
+  stage: string,
+  failureStage: string,
+  work: (lib: LibraryStorage, operation: OperationLogHandle) => Promise<T>,
+): Promise<T> {
+  let operation: OperationLogHandle | undefined
+  try {
+    return await operationGate.runExclusive(async () => {
+      const lib = await ensureStorage()
+      operation = beginOperation(kind, { stage, revisionBefore: readLogRevision(lib) })
+      return work(lib, operation)
+    })
+  } catch (error) {
+    // 获取锁或打开资料库失败时也保留一对事件，版本未知。
+    const log = operation ?? beginOperation(kind, { stage })
+    log.failure(error, { stage: failureStage })
+    throw error
+  }
 }
 
 function notifyStorageRecoveryRequired(
@@ -795,7 +821,7 @@ export function registerLibraryIpc(): void {
       const active = await ensureStorage()
       assertWriterSession(event, payload?.writerToken, active)
       const input = payload.input
-      const operation = beginOperation('stage-rollover', { stage: 'reload', revisionBefore: 0 })
+      const operation = beginOperation('stage-rollover', { stage: 'reload', revisionBefore: readLogRevision(active) })
       let result: StageRolloverCommitResult
       try {
         result = await commitDueStageRollover(input, {
@@ -817,7 +843,7 @@ export function registerLibraryIpc(): void {
         result = { ok: false, reason: 'write-failed', message: '阶段切换提交失败' }
       }
 
-      if (result.ok) operation.success({ stage: 'committed', code: 'stage-rollover-committed' })
+      if (result.ok) operation.success({ stage: 'committed', code: 'stage-rollover-committed', revisionAfter: readLogRevision(active) })
       else operation.failure(
         { code: `stage-rollover-${result.reason}` },
         { stage: result.reason, code: `stage-rollover-${result.reason}` },
@@ -965,34 +991,27 @@ export function registerLibraryIpc(): void {
     expectedRevision: number
     writerToken: string
   }) => {
-    const operation = beginOperation('import', { stage: 'validate', revisionBefore: 0 })
-    try {
-      const committed = await withStorageRecoveryNotification(
-        () => operationGate.runExclusive(async () => {
-          const lib = await ensureStorage()
-          assertWriterSession(event, payload.writerToken, lib)
-          const assets = payload.assets.map((asset) => {
-            assertSafeAssetId(asset.id)
-            return {
-              id: asset.id,
-              mime: asset.mime,
-              buffer: Buffer.from(asset.data, 'base64'),
-            }
-          })
-          await lib.commitImport(payload.snapshot, assets, {
-            ...payload.options,
-            expectedSnapshotRevision: payload.expectedRevision,
-          })
-          return { ok: true, revision: lib.getSnapshotRevision() }
-        }),
-        notifyStorageRecoveryRequired,
-      )
-      operation.success({ stage: 'committed', revisionAfter: 0 })
-      return committed
-    } catch (error) {
-      operation.failure(error, { stage: 'commit' })
-      throw error
-    }
+    return withStorageRecoveryNotification(
+      () => withLoggedExclusiveStorage('import', 'validate', 'commit', async (lib, operation) => {
+        assertWriterSession(event, payload.writerToken, lib)
+        const assets = payload.assets.map((asset) => {
+          assertSafeAssetId(asset.id)
+          return {
+            id: asset.id,
+            mime: asset.mime,
+            buffer: Buffer.from(asset.data, 'base64'),
+          }
+        })
+        await lib.commitImport(payload.snapshot, assets, {
+          ...payload.options,
+          expectedSnapshotRevision: payload.expectedRevision,
+        })
+        const revision = lib.getSnapshotRevision()
+        operation.success({ stage: 'committed', revisionAfter: revision })
+        return { ok: true, revision }
+      }),
+      notifyStorageRecoveryRequired,
+    )
   })
 
   ipcMain.handle('journal:exportZip', async () => {
@@ -1007,17 +1026,11 @@ export function registerLibraryIpc(): void {
       ? await dialog.showSaveDialog(win, options)
       : await dialog.showSaveDialog(options)
     if (result.canceled || !result.filePath) return { ok: false as const }
-    const operation = beginOperation('archive', { stage: 'export', revisionBefore: 0 })
-    try {
-      await operationGate.runExclusive(async () => {
-        await exportJournalZip(await ensureStorage(), result.filePath!)
-      })
-      operation.success({ stage: 'committed', revisionAfter: 0 })
+    return withLoggedExclusiveStorage('archive', 'export', 'export', async (lib, operation) => {
+      await exportJournalZip(lib, result.filePath!)
+      operation.success({ stage: 'committed' })
       return { ok: true as const, path: result.filePath }
-    } catch (error) {
-      operation.failure(error, { stage: 'export' })
-      throw error
-    }
+    })
   })
 
   // ---- 备份 ----
@@ -1112,7 +1125,7 @@ export function registerLibraryIpc(): void {
     const operation = beginOperation('import', {
       stage: 'prepared-commit',
       requestId: entry.prepareRequestId,
-      revisionBefore: 0,
+      revisionBefore: readLogRevision(activeStorage),
     })
     let replacementCommitted = false
     try {
@@ -1131,7 +1144,7 @@ export function registerLibraryIpc(): void {
       adoptWriterSessionLifecycle(event.sender.id, reopened)
       const snapshot = reopened.loadSnapshot()
       entry.dispose()
-      operation.success({ stage: 'committed', revisionAfter: 0 })
+      operation.success({ stage: 'committed', revisionAfter: readLogRevision(reopened) })
       return { ok: true as const, committed: true as const, snapshot }
     } catch (error) {
       operation.failure(error, { stage: 'commit' })

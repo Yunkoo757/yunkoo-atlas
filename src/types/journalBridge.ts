@@ -158,6 +158,7 @@ export interface JournalBridge {
   getLibraryPath(): Promise<string>
   storageOpen(): Promise<boolean>
   recoverStorage(): Promise<StorageRecoveryResult>
+  getSnapshotRevision(): Promise<number>
   getManifest(): Promise<LibraryManifest>
   loadSnapshot(): Promise<PersistedSnapshot | null>
   saveSnapshot(snapshot: PersistedSnapshot): Promise<boolean>

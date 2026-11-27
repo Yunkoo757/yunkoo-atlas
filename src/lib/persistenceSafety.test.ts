@@ -184,11 +184,6 @@ export async function testDesktopJournalImportHasAStartupRecoveryJournal(): Prom
   assert(journalZip.includes('writeFileAtomicallySync(markerPath'), '改写活动库前必须先发布导入恢复标记')
   assert(storage.includes('recoverInterruptedJournalImport(this.paths, expectedLibraryId)'), '资料库打开前必须消费中断导入标记')
   assert(ipc.includes('replacementCommitted'), '整库导入 IPC 必须区分磁盘替换是否已提交')
-  const exportHandler = ipc.slice(
-    ipc.indexOf("ipcMain.handle('journal:exportZip'"),
-    ipc.indexOf('// ---- 备份 ----'),
-  )
-  assert(exportHandler.includes('operationGate.runExclusive'), '整库导出必须与并发保存互斥')
   assert(
     !ipc.includes('librarySourceFingerprint'),
     '恢复预览不得用 journal.db 时间戳判断资料库切换，否则提交前的正常持久化会误杀恢复',

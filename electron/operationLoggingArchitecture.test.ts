@@ -10,8 +10,8 @@ export function testDurableElectronOperationsUseThePairedOperationLogger(): void
   const webAdapter = fs.readFileSync('src/storage/indexedDbAdapter.ts', 'utf8')
   const webExports = fs.readFileSync('src/lib/importExport.ts', 'utf8')
 
-  assert((ipc.match(/beginOperation\('archive'/g) ?? []).length >= 2, '归档与 GC 恢复归档必须使用成对操作日志')
-  assert((ipc.match(/beginOperation\('import'/g) ?? []).length >= 2, '批次导入与桌面归档导入必须使用成对操作日志')
+  assert(ipc.includes("withLoggedExclusiveStorage('archive'") && ipc.includes("beginOperation('archive'"), '归档与 GC 恢复归档必须使用成对操作日志')
+  assert(ipc.includes("withLoggedExclusiveStorage('import'") && ipc.includes("beginOperation('import'"), '批次导入与桌面归档导入必须使用成对操作日志')
   assert((ipc.match(/beginOperation\('gc'/g) ?? []).length >= 1, '附件 GC 提交必须使用成对操作日志')
   assert(main.includes("beginOperation('quit'"), '正常退出必须使用成对操作日志')
   assert(main.includes('reportStart: reportExitStart'), 'QuitCoordinator 必须连接 start 日志')
