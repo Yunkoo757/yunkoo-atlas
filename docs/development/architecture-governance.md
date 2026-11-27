@@ -57,3 +57,4 @@ flowchart LR
 - 附件字节转换已迁移。8 个模块统一使用 `src/lib/base64.ts` 进行字节编解码；MIME 解析、输入预算及 IndexedDB 的 Blob/FileReader 读取继续由各自边界处理。以 Node Buffer 作独立对照，覆盖空输入、子视图、分块边界和非法编码。98 项附件与导入定向测试及两套类型检查通过。
 - 归档 CRC-32 已迁移。Web 写包、Web 分块读取与 Electron 流式解包原有三种实现。现在都以 `crc32(bytes, previous)` 更新同一标准校验值；各自独立检查大小、路径、超时与原子提交。标准向量、每个切分点、空块及两个归档实现的定向测试共 97 项通过。
 - 文件完整性检查已迁移。备份、ZIP、IPC、预备归档及 schema 恢复统一调用 `electron/library/fileChecksum.ts`，分块计算 SHA-256。普通文件的读写打开与 fsync 由 `atomicFile` 负责。目录刷新、写入中持有的描述符及 schema 迁移的普通文件校验继续由原调用点负责。迁移前后相同 107 项回归通过，新增空文件、短文件和跨 1 MiB 两次边界的独立对照测试通过。
+- 依赖门已接入现有 CI。执行 `pnpm check:governance` 会从 TypeScript 编译输出与项目路径解析配置生成 `test-results/desktop-dependencies.json`，按文件列出同步和延迟依赖。当前 391 个模块有 1,920 条同步边和 42 条延迟边，检查通过。同步循环会报告闭合路径，受保护的纯模块即使通过中间层或延迟加载访问 store、组件或平台实现也会失败。反例与既有治理测试共 7 项通过。该图覆盖本地可静态解析的桌面 JS/TS 模块，IPC、回调和动态计算的路径见运行地图与行为测试。

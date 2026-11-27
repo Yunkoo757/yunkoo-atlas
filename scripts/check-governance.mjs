@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { discoverBrowserTests, discoverUnitTestEntries } from './test-discovery.mjs'
 import { executionReportPath, hashFile } from './quality-execution.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
-import { importsTarget, importsWithinTarget } from './governance-imports.mjs'
+import { desktopDependencyGraph, findEagerCycles, firstForbiddenPath, importsTarget, importsWithinTarget } from './governance-imports.mjs'
 import {
   findForbiddenLegacyRuntimeMatches,
   isExecutableProductionSource,
@@ -114,6 +114,7 @@ async function main() {
     'src/lib/importMerge.ts', 'src/storage/snapshotCodec.ts', 'src/storage/persistenceController.ts',
     'src/shortcuts/bindingRules.ts', 'src/lib/tradeUndo.ts', 'src/lib/tradeKind.ts',
     'src/lib/periods.ts', 'src/lib/analysisScope.ts',
+    'src/lib/riskFingerprint.ts', 'src/lib/base64.ts', 'src/lib/crc32.ts',
   ]
   const forbiddenPureTargets = ['src/store', 'src/components', 'src/storage/provider', 'src/storage/index', 'src/storage/bootstrap', 'electron']
   for (const file of pureModules) {
@@ -139,8 +140,8 @@ async function main() {
   if (!importsTarget(preload, 'electron/preload.ts', 'src/types/journalBridge')) failures.push('Electron preload 未使用统一 JournalBridge 类型源')
   if (!importsTarget(declaration, 'src/types/journal-bridge.d.ts', 'src/types/journalBridge')) failures.push('renderer declaration 未使用统一 JournalBridge 类型源')
 
-  files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { cwd: root, encoding: 'utf8' })
-    .split(/\r?\n/).filter(Boolean).map(normalized)
+  files = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, encoding: 'utf8' })
+    .split('\0').filter(Boolean).map(normalized)
   const decoder = new TextDecoder('utf-8', { fatal: true })
   const knownTextExtensions = new Set(['.ts', '.tsx', '.mjs', '.js', '.json', '.md', '.css', '.html', '.yml', '.yaml', '.svg', '.toml', '.txt', '.nsh'])
   const knownTextNames = new Set(['.gitignore', '.gitattributes', '.npmrc', 'license'])
@@ -174,6 +175,16 @@ async function main() {
   for (const file of files.filter(isExecutableProductionSource)) {
     executableSources.push({ path: file, source: await fs.readFile(path.join(root, file), 'utf8') })
   }
+  const graph = desktopDependencyGraph(executableSources, root)
+  for (const cycle of findEagerCycles(graph)) failures.push(`桌面运行时循环依赖：${cycle.join(' → ')}`)
+  for (const file of pureModules) {
+    const violation = firstForbiddenPath(graph, file, forbiddenPureTargets)
+    if (violation) failures.push(`纯模块经依赖链访问运行环境：${violation.join(' → ')}`)
+  }
+  const graphDirectory = path.join(root, 'test-results')
+  await fs.mkdir(graphDirectory, { recursive: true })
+  await fs.writeFile(path.join(graphDirectory, 'desktop-dependencies.json'), JSON.stringify(graph, null, 2) + '\n')
+
   for (const match of findForbiddenLegacyRuntimeMatches(executableSources)) {
     failures.push(`legacy runtime truth 禁止：${match.path}:${match.line} → ${match.token}`)
   }
