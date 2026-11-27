@@ -1,7 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AppUpdateState } from '../src/lib/appUpdate'
-import type { JournalBridge, StorageRecoveryRequiredState, TrayDestination } from '../src/types/journalBridge'
-import type { WindowsClosePreference } from '../src/types/journalBridge'
+import type { JournalBridge, StorageRecoveryRequiredState, TrayDestination, WindowsClosePreference } from '../src/types/journalBridge'
 import { AsyncGeneration } from '../src/lib/asyncGeneration'
 import { WindowWriterSessions, type WriterGrant } from './library/writerSession'
 
@@ -23,21 +22,7 @@ function adoptSnapshotReceipt<T>(receipt: T & { writerGrant?: WriterGrant; revis
   return result as T
 }
 
-export type {
-  BackupInfo,
-  BackupVerificationResult,
-  JournalBridge,
-  LibraryLocationState,
-  StageRolloverCommitInput,
-  StageRolloverCommitResult,
-  StorageRecoveryRequiredState,
-  StorageRecoveryResult,
-  WindowFrameState,
-  WindowsCloseChoice,
-  WindowsClosePreference,
-} from '../src/types/journalBridge'
-
-const bridge: JournalBridge = {
+const bridge: NonNullable<Window['journalBridge']> = {
   isElectron: true,
   copyCaseContent: (content) => ipcRenderer.invoke('case:copy-content', content),
   outputImage: (action, bytes) => ipcRenderer.invoke('image:output', action, bytes),

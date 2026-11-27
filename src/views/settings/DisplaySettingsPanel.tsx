@@ -10,7 +10,7 @@ import {
   type WindowSizePresetId,
 } from '@/lib/windowBounds'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
-import type { AutoLaunchState, WindowFrameState, WindowsClosePreference } from '@/types/journal-bridge'
+import type { AutoLaunchState, WindowFrameState, WindowsClosePreference } from '@/types/journalBridge'
 import { toast } from '@/lib/toast'
 import '@/components/DisplayMenu.css'
 import './DisplaySettingsPanel.css'

@@ -50,18 +50,6 @@ export function testFoundationShortcutRulesStayStateless(): void {
   ])
 }
 
-export function testElectronBridgeContractHasOneInterfaceSource(): void {
-  const contract = source('src/types/journalBridge.ts')
-  const declaration = source('src/types/journal-bridge.d.ts')
-  const preload = source('electron/preload.ts')
-
-  assert(contract.includes('export interface JournalBridge'), '共享文件必须定义 JournalBridge')
-  assert(!declaration.includes('export interface JournalBridge'), 'renderer 声明不得复制 bridge 接口')
-  assert(!preload.includes('interface JournalBridge'), 'preload 不得复制 bridge 接口')
-  assert(declaration.includes("from '@/types/journalBridge'"), 'renderer 必须重导出共享 bridge 类型')
-  assert(preload.includes("from '../src/types/journalBridge'"), 'preload 必须引用共享 bridge 类型')
-}
-
 export function testIndexedDbHasNoBlindSnapshotWriteOutsideTheCasPrimitive(): void {
   const adapter = source('src/storage/indexedDbAdapter.ts')
   const sharedWrites = source('src/storage/indexedDbSnapshotAssetWrites.ts')

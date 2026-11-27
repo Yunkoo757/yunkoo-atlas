@@ -23,6 +23,27 @@ export function moduleReferences(source, file) {
   return { eager, lazy, types }
 }
 
+export function journalBridgeDeclarationOwners(files) {
+  const owners = { contract: [], window: [] }
+  for (const { path, source } of files) {
+    if (!/^(?:src|electron)\/.*\.tsx?$/.test(path) || !/\b[Jj]ournalBridge\b/.test(source)) continue
+    const tree = ts.createSourceFile(path, source, ts.ScriptTarget.Latest)
+    function visit(node) {
+      if ((ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) && node.name.text === 'JournalBridge') {
+        owners.contract.push(path)
+      }
+      if (ts.isInterfaceDeclaration(node) && node.name.text === 'Window') {
+        for (const member of node.members) {
+          if (member.name?.text === 'journalBridge') owners.window.push(path)
+        }
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(tree)
+  }
+  return owners
+}
+
 function resolveSpecifier(importer, specifier) {
   if (specifier.startsWith('@/')) return `src/${specifier.slice(2)}`
   if (specifier.startsWith('.')) return path.posix.join(path.posix.dirname(importer), specifier)

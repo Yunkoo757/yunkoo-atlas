@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { discoverBrowserTests, discoverQualityNodeTests, discoverUnitTestEntries } from './test-discovery.mjs'
 import { executionReportPath, hashFile } from './quality-execution.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
-import { runtimeDependencyGraph, websiteDependencyGraph, findEagerCycles, firstForbiddenPath, importsTarget, importsWithinTarget } from './governance-imports.mjs'
+import { runtimeDependencyGraph, websiteDependencyGraph, journalBridgeDeclarationOwners, findEagerCycles, firstForbiddenPath, importsTarget, importsWithinTarget } from './governance-imports.mjs'
 import {
   findForbiddenLegacyRuntimeMatches,
   isExecutableProductionSource,
@@ -133,9 +133,7 @@ async function main() {
     if (importsTarget(source, file, target)) failures.push(`${message}：${file}`)
   }
   const preload = await fs.readFile(path.join(root, 'electron/preload.ts'), 'utf8')
-  const declaration = await fs.readFile(path.join(root, 'src/types/journal-bridge.d.ts'), 'utf8')
   if (!importsTarget(preload, 'electron/preload.ts', 'src/types/journalBridge')) failures.push('Electron preload 未使用统一 JournalBridge 类型源')
-  if (!importsTarget(declaration, 'src/types/journal-bridge.d.ts', 'src/types/journalBridge')) failures.push('renderer declaration 未使用统一 JournalBridge 类型源')
 
   files = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, encoding: 'utf8' })
     .split('\0').filter(Boolean).map(normalized)
@@ -171,6 +169,12 @@ async function main() {
   const executableSources = []
   for (const file of files.filter(isExecutableProductionSource)) {
     executableSources.push({ path: file, source: await fs.readFile(path.join(root, file), 'utf8') })
+  }
+  const bridgeOwners = journalBridgeDeclarationOwners(executableSources)
+  for (const [role, owners] of Object.entries(bridgeOwners)) {
+    if (owners.length !== 1 || owners[0] !== 'src/types/journalBridge.ts') {
+      failures.push(`JournalBridge 声明归属异常（${role}）：${owners.join(', ')}`)
+    }
   }
   const desktopModules = executableSources.map(file => file.path)
     .filter(file => /^(src|electron)\/.*\.[jt]sx?$/.test(file) && !file.endsWith('.d.ts'))

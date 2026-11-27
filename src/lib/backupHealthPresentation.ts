@@ -1,4 +1,4 @@
-import type { BackupInfo } from '@/types/journal-bridge'
+import type { BackupInfo } from '@/types/journalBridge'
 
 export type BackupListState = 'loading' | 'loaded' | 'error'
 

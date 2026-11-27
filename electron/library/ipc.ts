@@ -1,5 +1,4 @@
 import { isAssetPurgeCommitEnabled } from '../../src/config/assetPurge'
-import type { LibraryActivationResult, LibrarySwitchMode } from '../../src/types/journalBridge'
 import { exportVerifiedPurgeArchive } from './assetPurgeRecovery'
 import {
   ipcMain,
@@ -50,6 +49,8 @@ import { beginOperation, type OperationLogHandle } from '../operationLogger'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
 import type { SnapshotEnvelope } from '../../src/storage/adapter'
 import type {
+  LibraryActivationResult,
+  LibrarySwitchMode,
   StageRolloverCommitInput,
   StageRolloverCommitResult,
   StorageRecoveryResult,

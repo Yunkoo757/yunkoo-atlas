@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { BackupInfo } from '@/types/journal-bridge'
+import type { BackupInfo } from '@/types/journalBridge'
 import {
   presentBackupHealth,
   shouldSurfaceBackupHealth,

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
-import { importsTarget, importsWithinTarget } from '../governance-imports.mjs'
+import { importsTarget, importsWithinTarget, journalBridgeDeclarationOwners } from '../governance-imports.mjs'
 import {
   findForbiddenLegacyRuntimeMatches,
   isExecutableProductionSource,
@@ -99,6 +99,18 @@ test('依赖边界识别 alias、相对路径、re-export 与 dynamic import', (
   assert.equal(importsWithinTarget("import x from '@/store/useStore'", 'src/lib/importMerge.ts', 'src/store'), true)
 })
 
+test('桌面桥接契约和 Window 成员各有一个声明来源，转发或注释不构成声明', () => {
+  const canonical = 'src/types/journalBridge.ts'
+  const duplicate = 'src/other/ambient.d.ts'
+  const observed = journalBridgeDeclarationOwners([
+    { path: canonical, source: 'export interface JournalBridge {}\ndeclare global { interface Window { journalBridge?: JournalBridge } }' },
+    { path: 'electron/preload.ts', source: "import type { JournalBridge } from '../src/types/journalBridge'" },
+    { path: 'src/reference.ts', source: "/* interface JournalBridge {} */ export type { JournalBridge } from './types/journalBridge'" },
+    { path: duplicate, source: "declare global { interface Window { 'journalBridge'?: Copy } }\ntype JournalBridge = Copy" },
+  ])
+  assert.deepEqual(observed, { contract: [canonical, duplicate], window: [canonical, duplicate] })
+})
+
 test('治理门冻结最小依赖边界、UTF-8 fatal decode 与无 BOM 规则', () => {
   const checker = readFileSync('scripts/check-governance.mjs', 'utf8')
   const execution = readFileSync('scripts/quality-execution.mjs', 'utf8')
@@ -109,7 +121,7 @@ test('治理门冻结最小依赖边界、UTF-8 fatal decode 与无 BOM 规则',
     'src/storage/snapshotCodec.ts',
     'src/storage/persistenceController.ts',
     'src/shortcuts/bindingRules.ts',
-    'src/types/journal-bridge.d.ts',
+    'src/types/journalBridge.ts',
   ]) {
     assert.match(checker, new RegExp(contract.replaceAll('/', '\\/').replaceAll('.', '\\.')))
   }
