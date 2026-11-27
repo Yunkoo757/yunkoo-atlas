@@ -94,7 +94,6 @@ import {
   type LegacyStageMigrationOptions,
 } from '@/lib/stageMigration'
 import { assertValidLiveStageState } from '@/lib/liveStages'
-import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 
 export const EXPORT_VERSION = SCHEMA_VERSION
 import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'

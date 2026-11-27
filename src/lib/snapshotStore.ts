@@ -1,19 +1,10 @@
 import { snapshotToRuntimeState } from '@/storage/snapshotToRuntimeState'
-import { DEFAULT_STRATEGIES } from '@/data/strategies'
-import {
-  createDefaultMistakeTagPresets,
-  createDefaultTagPresets,
-  createDefaultUserProfile,
-} from '@/config/defaultProfile'
-import { createDefaultReviewTemplates } from '@/data/reviewTemplates'
-import { DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
-import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
-import { normalizeReviewPoolLayout } from '@/lib/reviewPools'
+import { createDefaultUserProfile } from '@/config/defaultProfile'
 import { useToast } from '@/lib/toast'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
-import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
+import { createNewLibrarySnapshot } from '@/storage/emptySnapshot'
 import type { PersistedSnapshot } from '@/storage/types'
 
 export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
@@ -28,20 +19,14 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
 
 export function resetEmptyLibraryIntoStore(): void {
   useToast.getState().dismiss()
-  const empty = createEmptyPersistedSnapshot()
+  const initial = createNewLibrarySnapshot()
   useStore.setState({
-    trades: [],
-    backtestProjects: [],
-    liveStages: empty.liveStages,
-    currentLiveStageId: empty.currentLiveStageId,
-    scheduledStageRollover: empty.scheduledStageRollover,
-    weeklyRiskPreparations: [],
-    riskPolicyVersions: [],
-    monthlyRiskLimits: [],
-    riskOverrideEvents: [],
-    weeklyReviews: [],
-    quickNotes: [],
-    strategies: DEFAULT_STRATEGIES.map((strategy) => ({ ...strategy })),
+    ...snapshotToRuntimeState(initial),
+    // 新库首次展示使用批准的预设顺序，已保存的标签在读取时按名称归一。
+    tagPresets: initial.tagPresets,
+    mistakeTagPresets: initial.mistakeTagPresets,
+    undoStack: [],
+    redoStack: [],
     selectedId: null,
     composerOpen: false,
     composerTrade: null,
@@ -49,23 +34,9 @@ export function resetEmptyLibraryIntoStore(): void {
     composerProjectId: null,
     composerGroup: null,
     closeTradeRequest: null,
-    undoStack: [],
-    redoStack: [],
-    starredIds: [],
-    subscribedIds: [],
-    pinnedStrategyIds: [],
-    tagPresets: createDefaultTagPresets(),
-    mistakeTagPresets: createDefaultMistakeTagPresets(),
-    display: { ...DEFAULT_DISPLAY },
-    savedTradeViews: [],
-    symbolIcons: {},
-    symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
-    reviewTemplates: createDefaultReviewTemplates(),
-    reviewPoolPresets: [],
-    reviewPoolLayout: normalizeReviewPoolLayout(undefined, []),
   })
-  useStore.getState().hydrateProfile(createDefaultUserProfile())
-  useShortcutStore.getState().hydrateBindings({})
+  useStore.getState().hydrateProfile(initial.profile)
+  useShortcutStore.getState().hydrateBindings(initial.shortcuts)
 }
 
 export function clearSessionUiAfterLibrarySwitch(): void {

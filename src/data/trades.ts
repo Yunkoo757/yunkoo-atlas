@@ -340,6 +340,3 @@ export function getTradeRemainingDays(trade: Trade): number | null {
   const remainingMs = thirtyDaysMs - (now - deletedTime)
   return Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)))
 }
-
-// —— 种子数据 ——
-export const SEED_TRADES: Trade[] = []

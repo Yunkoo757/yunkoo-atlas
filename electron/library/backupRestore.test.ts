@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { DEFAULT_SYMBOL_CATALOG } from '../../src/lib/symbolIconCodec'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import { createBackupAtPath } from './backup'
 import { restoreLibraryBackup } from './backupRestore'
@@ -148,6 +149,7 @@ export async function testVerifiedEmptyBackupReturnsTheSnapshotPersistedForTheNe
     const restored = await restoreLibraryBackup(selected, f.session)
     assert.ok(restored.ok)
     assert.deepEqual(restored.snapshot.trades, [])
+    assert.deepEqual(restored.snapshot.symbolCatalog, [...DEFAULT_SYMBOL_CATALOG])
     assert.deepEqual(restored.snapshot.tagPresets ?? [], [])
     assert.deepEqual(f.active()?.loadSnapshot(), restored.snapshot)
     f.active()?.release()

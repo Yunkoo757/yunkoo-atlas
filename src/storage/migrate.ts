@@ -1,15 +1,3 @@
-import { SEED_TRADES } from '@/data/trades'
-import { DEFAULT_STRATEGIES } from '@/data/strategies'
-import {
-  createDefaultUserProfile,
-  createDefaultMistakeTagPresets,
-  createDefaultTagPresets,
-} from '@/config/defaultProfile'
-import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
-import { DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
-import {
-  migrateTrades,
-} from '@/lib/strategies'
 import { collectAssetIdsFromSnapshot } from '@/storage/snapshotRichText'
 import { externalizeNoteImages } from '@/storage/assets'
 import type { StorageAdapter } from '@/storage/adapter'
@@ -17,7 +5,7 @@ import type { PersistedSnapshot } from '@/storage/types'
 import { LEGACY_LOCAL_STORAGE_KEY } from '@/storage/legacyIdentity'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
-import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
+import { createNewLibrarySnapshot } from '@/storage/emptySnapshot'
 
 interface ZustandPersistEnvelope {
   state?: {
@@ -52,24 +40,6 @@ function parseLegacyLocalStorage(): PersistedSnapshot | null {
     )
   } catch (cause) {
     throw Object.assign(new Error('旧版交易资料无法解析或格式无效，已停止迁移并保留原始数据。'), { cause })
-  }
-}
-
-function createSeedPersistedSnapshot(): PersistedSnapshot {
-  const empty = createEmptyPersistedSnapshot()
-  const trades = migrateTrades(SEED_TRADES, DEFAULT_STRATEGIES).map((trade) => {
-    if (trade.tradeKind === 'paper') return trade
-    return { ...trade, liveStageId: empty.currentLiveStageId }
-  })
-  return {
-    ...empty,
-    trades,
-    strategies: [...DEFAULT_STRATEGIES],
-    display: { ...DEFAULT_DISPLAY },
-    tagPresets: createDefaultTagPresets(),
-    mistakeTagPresets: createDefaultMistakeTagPresets(),
-    symbolCatalog: [...DEFAULT_SYMBOL_CATALOG],
-    profile: createDefaultUserProfile(),
   }
 }
 
@@ -109,7 +79,7 @@ export async function migrateFromLocalStorageIfNeeded(
 
   let snapshot = parseLegacyLocalStorage()
   if (!snapshot) {
-    snapshot = createSeedPersistedSnapshot()
+    snapshot = createNewLibrarySnapshot()
   }
 
   snapshot = await externalizeAllNotes(snapshot, adapter)
@@ -139,7 +109,7 @@ export async function migrateElectronLibraryIfNeeded(
   let snapshot = await idb.loadSnapshot()
   // 零交易是有效资料库状态；只有快照真正缺失时才生成新库默认。
   if (!snapshot) {
-    snapshot = createSeedPersistedSnapshot()
+    snapshot = createNewLibrarySnapshot()
   }
 
   const assetIds = collectAssetIdsFromSnapshot(snapshot)
