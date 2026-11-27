@@ -8,7 +8,6 @@ import {
   app,
   type IpcMainInvokeEvent,
   type OpenDialogOptions,
-  type WebContents,
 } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -42,7 +41,8 @@ import {
   reloadRendererAfterStorageRecovery,
   recoverLibraryStorageLifecycle,
 } from './libraryActivation'
-import { LibrarySwitchTargets, type PreparedLibraryTarget } from './librarySwitchTargets'
+import { LibrarySwitchTargets } from './librarySwitchTargets'
+import { LibrarySwitchRequests } from './librarySwitchRequests'
 import { randomUUID } from 'node:crypto'
 import { assertExitWithinDeadline, releaseThenFinalizeWithRollback } from '../quitCoordinator'
 import { createVerifiedRestorePoint, restoreLibraryBackup } from './backupRestore'
@@ -81,19 +81,7 @@ const autoBackup = new LibraryAutoBackup(operationGate, () => {
 
 const switchTargets = new LibrarySwitchTargets(createRuntimeLibraryStorage)
 
-interface PreparedLibrarySwitch {
-  token: string
-  sourceStorage: LibraryStorage
-  target: PreparedLibraryTarget
-  ownerWebContentsId: number
-  expiresAt: number
-  disposeLease?: () => void
-}
-
-const PREPARED_LIBRARY_TTL_MS = 2 * 60 * 1000
-let preparedLibrarySwitch: PreparedLibrarySwitch | null = null
-let preparingLibrarySwitch = false
-let activatingLibrarySwitch = false
+const switchRequests = new LibrarySwitchRequests()
 let storageRecoveryInProgress = false
 
 type LibraryStorageOptions = NonNullable<ConstructorParameters<typeof LibraryStorage>[1]>
@@ -399,60 +387,20 @@ async function switchActiveLibrary(
   }
 }
 
-function clearPreparedLibrarySwitch(token?: string): PreparedLibrarySwitch | null {
-  const prepared = preparedLibrarySwitch
-  if (!prepared || (token && prepared.token !== token)) return null
-  preparedLibrarySwitch = null
-  prepared.disposeLease?.()
-  return prepared
-}
-
-function attachPreparedLibraryLease(
-  prepared: PreparedLibrarySwitch,
-  sender: WebContents,
-): void {
-  const expire = () => { clearPreparedLibrarySwitch(prepared.token) }
-  const timer = setTimeout(expire, PREPARED_LIBRARY_TTL_MS)
-  sender.once('destroyed', expire)
-  sender.once('render-process-gone', expire)
-  sender.once('did-start-navigation', expire)
-  prepared.disposeLease = () => {
-    clearTimeout(timer)
-    sender.removeListener('destroyed', expire)
-    sender.removeListener('render-process-gone', expire)
-    sender.removeListener('did-start-navigation', expire)
-  }
-}
-
 async function prepareActiveLibrarySwitch(
   libPath: string,
   mode: LibrarySwitchMode,
   event: IpcMainInvokeEvent,
 ): Promise<{ ok: true; token: string } | { ok: false; error: string }> {
-  if (storageRecoveryInProgress || preparingLibrarySwitch || activatingLibrarySwitch || preparedLibrarySwitch) {
-    return { ok: false, error: '已有交易库切换正在进行，请稍后再试' }
-  }
-  preparingLibrarySwitch = true
+  if (storageRecoveryInProgress) return { ok: false, error: '已有交易库切换正在进行，请稍后再试' }
   try {
-    // 准备期间不占用 exclusive gate，旧库仍可正常保存。
-    return await withStorage(async sourceStorage => {
-      const target = await switchTargets.prepare({ path: libPath, mode }, sourceStorage)
-      const token = randomUUID()
-      const prepared: PreparedLibrarySwitch = {
-        token,
-        sourceStorage,
-        target,
-        ownerWebContentsId: event.sender.id,
-        expiresAt: Date.now() + PREPARED_LIBRARY_TTL_MS,
-      }
-      preparedLibrarySwitch = prepared
-      attachPreparedLibraryLease(prepared, event.sender)
-      return { ok: true as const, token }
-    })
+    const token = await switchRequests.prepare(event.sender, () => withStorage(async sourceStorage => ({
+      sourceStorage,
+      target: await switchTargets.prepare({ path: libPath, mode }, sourceStorage),
+    })))
+    return { ok: true, token }
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) }
-  } finally {
-    preparingLibrarySwitch = false
   }
 }
 
@@ -464,47 +412,27 @@ async function activatePreparedLibrarySwitch(
   | ({ ok: true; writerGrant: WriterGrant } & SnapshotEnvelope)
   | Extract<LibraryActivationResult, { ok: false }>
 > {
-  const prepared = preparedLibrarySwitch
-  if (
-    !prepared ||
-    prepared.token !== token ||
-    prepared.ownerWebContentsId !== event.sender.id ||
-    prepared.expiresAt <= Date.now() ||
-    activatingLibrarySwitch
-  ) {
-    if (prepared?.expiresAt && prepared.expiresAt <= Date.now()) {
-      clearPreparedLibrarySwitch(prepared.token)
-    }
-    return { ok: false, error: '候选交易库已失效，请重新选择' }
-  }
-  clearPreparedLibrarySwitch(token)
-  activatingLibrarySwitch = true
   try {
-    return await operationGate.runExclusive(async () => {
+    return await switchRequests.activate(event.sender.id, token, prepared => operationGate.runExclusive(async () => {
       const current = await ensureStorage()
       if (current !== prepared.sourceStorage) {
         return { ok: false as const, error: '当前交易库已变化，请重新执行切换' }
       }
       writers.assert(event, writerToken, current)
       const fresh = await switchTargets.open(prepared.target, current)
+      try {
+        writers.assert(event, writerToken, current)
+      } catch (error) {
+        fresh.candidate.release()
+        throw error
+      }
       const result = activateLibraryCandidate(fresh)
       if (!result.ok) return result
       return { ...result, revision: fresh.revision, writerGrant: writers.grant(event, fresh.candidate) }
-    })
+    }))
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) }
-  } finally {
-    activatingLibrarySwitch = false
   }
-}
-
-function cancelPreparedLibrarySwitch(token: string, event: IpcMainInvokeEvent): boolean {
-  if (
-    !preparedLibrarySwitch ||
-    preparedLibrarySwitch.token !== token ||
-    preparedLibrarySwitch.ownerWebContentsId !== event.sender.id
-  ) return false
-  return clearPreparedLibrarySwitch(token) !== null
 }
 
 async function recoverActiveStorageLifecycle(
@@ -512,9 +440,7 @@ async function recoverActiveStorageLifecycle(
 ): Promise<StorageRecoveryResult> {
   if (
     storageRecoveryInProgress ||
-    preparingLibrarySwitch ||
-    activatingLibrarySwitch ||
-    preparedLibrarySwitch !== null ||
+    switchRequests.busy ||
     exitPreparedStorage !== null
   ) {
     return { ok: false, code: 'busy', message: '交易库正在切换、恢复或退出，请稍后重试' }
@@ -615,7 +541,7 @@ export function registerLibraryIpc(): void {
   })
 
   ipcMain.handle('library:cancelPrepared', async (event, token: string) => {
-    return cancelPreparedLibrarySwitch(token, event)
+    return switchRequests.cancel(event.sender.id, token)
   })
 
   ipcMain.handle('library:createNew', async (_e, libPath: string) => {

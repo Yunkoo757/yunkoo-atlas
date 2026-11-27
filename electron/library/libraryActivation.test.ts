@@ -144,28 +144,6 @@ export async function testDefaultLibraryOpenRejectsFutureSchema(): Promise<void>
   }
 }
 
-export function testIpcDoesNotPersistOrActivateCandidateBeforeValidation(): void {
-  const source = fs.readFileSync(path.resolve('electron/library/ipc.ts'), 'utf8')
-  const activationHelper = source.indexOf('function activateLibraryCandidate(')
-  const saveConfig = source.indexOf('saveLibraryConfig({', activationHelper)
-  const activate = source.indexOf('storage = candidate', activationHelper)
-  const prepareStart = source.indexOf('async function prepareActiveLibrarySwitch(')
-  const activatePreparedStart = source.indexOf('async function activatePreparedLibrarySwitch(')
-  const prepareBody = source.slice(prepareStart, activatePreparedStart)
-  const activatePreparedBody = source.slice(activatePreparedStart, source.indexOf('function cancelPreparedLibrarySwitch('))
-
-  assert(activationHelper >= 0 && saveConfig > activationHelper, '激活阶段必须保存位置配置')
-  assert(activate > saveConfig, '配置成功前不得替换当前内存 storage')
-  assert(!prepareBody.includes('saveLibraryConfig('), '准备候选库时旧库与配置必须保持活跃')
-  assert(!prepareBody.includes('storage = candidate'), '准备候选库时不得提前替换当前 storage')
-  assert(prepareBody.includes('attachPreparedLibraryLease'), '候选令牌必须绑定 owner 与过期租约')
-  assert(activatePreparedBody.includes('current !== prepared.sourceStorage'), '激活前必须确认准备期间旧库未被替换')
-  assert(activatePreparedBody.includes('activateLibraryCandidate(fresh)'), '只有激活阶段才能替换新鲜候选库')
-  assert(source.includes('prepared.ownerWebContentsId !== event.sender.id'), '令牌不得被其他 renderer 激活')
-  assert(source.includes('PREPARED_LIBRARY_TTL_MS'), '遗弃令牌必须自动过期')
-  assert(source.includes("sender.once('render-process-gone', expire)"), 'renderer 崩溃时必须回收令牌')
-}
-
 export async function testRecoveryReplacesIndeterminateStorageBeforeRendererReload(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-library-lifecycle-recovery-'))
   let injectIndeterminate = false

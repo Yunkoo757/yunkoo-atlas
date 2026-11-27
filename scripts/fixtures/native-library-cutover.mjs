@@ -169,6 +169,23 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
     /预览无效或已使用/,
     '接管同一资料库的新窗口必须拒绝原文档遗留的附件清理预览',
   )
+  const prepareNew = () => page.evaluate(dir => window.journalBridge.prepareLibrarySwitch(dir, 'create'), candidatePath)
+  const inPage = await prepareNew()
+  assert.ok(inPage.ok)
+  const nextHash = new URL(page.url()).hash === '#/settings/data' ? '#/settings/profile' : '#/settings/data'
+  const navigated = page.waitForURL(url => url.hash === nextHash)
+  await page.evaluate(hash => { location.hash = hash }, nextHash)
+  await navigated
+  assert.ok(await page.evaluate(token => window.journalBridge.cancelPreparedLibrary(token), inPage.token))
+  const oldDocument = await prepareNew()
+  assert.ok(oldDocument.ok)
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.evaluate(() => window.journalBridge.storageOpen())
+  assert.equal(await page.evaluate(token => window.journalBridge.cancelPreparedLibrary(token), oldDocument.token), false)
+  const freshDocument = await prepareNew()
+  assert.ok(freshDocument.ok)
+  assert.ok(await page.evaluate(token => window.journalBridge.cancelPreparedLibrary(token), freshDocument.token))
+
   // 替换已提交后，单独查询版本可能被下一次独占操作拒绝。
   // 本阶段只保留普通快照读取，禁止通过第二条版本 IPC 补齐写入回执。
   await application.evaluate(({ ipcMain }) => {
@@ -211,7 +228,20 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
     await bridge.saveSnapshot(original)
     return { candidateBackup, staleStage: stale.reason, backup: true, archive: true, create: true, reopen: true }
   }, { libraryPath, candidatePath, backupName: path.basename(backup) })
+  const staleSourceRejected = await page.evaluate(async ({ libraryPath, candidatePath }) => {
+    const bridge = window.journalBridge
+    const ready = await bridge.prepareLibrarySwitch(candidatePath, 'open')
+    if (!ready.ok) throw Error(ready.error)
+    for (const dir of [candidatePath, libraryPath]) {
+      const opened = await bridge.openExistingLibrary(dir)
+      if (!opened.ok) throw Error(opened.error)
+    }
+    await bridge.storageOpen()
+    const stale = await bridge.activatePreparedLibrary(ready.token)
+    return !stale.ok && stale.error?.includes('当前交易库已变化') && await bridge.getLibraryPath() === libraryPath
+  }, { libraryPath, candidatePath })
+  assert.ok(staleSourceRejected, '回到相同路径的新实例后仍须拒绝原资料库的切换请求')
   const retention = await verifyRejectedSwitchPreservesBackups(page, libraryPath, candidatePath, userDataPath, candidateBackup)
   const location = await verifyConfigPublication(application, page, libraryPath, candidatePath, userDataPath)
-  return { ...receipts, retention, location, abandonedPreviewRejected: true }
+  return { ...receipts, retention, location, abandonedPreviewRejected: true, staleSourceRejected, switchDocumentChecked: true }
 }
