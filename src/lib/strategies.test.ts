@@ -8,7 +8,7 @@ import {
   normalizeTradeStrategyReferences,
   migrateTradeStrategy,
 } from '@/lib/strategies'
-import { applyTradeUpsertsToSlice } from '@/store/useStore'
+import { applyTradeUpsertsToSlice } from '@/lib/tradeUpsert'
 
 const strategyId = 'breakout'
 
@@ -164,8 +164,6 @@ export function testFirstTradeInHistoricalEmptyStrategyLibraryCreatesAValidRefer
     trades: [],
     strategies: [],
     symbolCatalog: [],
-    tagPresets: [],
-    mistakeTagPresets: [],
   }, [{ ...closedLiveTrade, strategyId: 'missing-strategy' }])
 
   assert(result.strategies.length === 1, '首次新增记录时应为历史空策略库补一个中性策略')

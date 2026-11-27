@@ -84,13 +84,29 @@ export function transitionTradeKind(
   return { ok: true, changed: true, trade: { ...trade, tradeKind: target } }
 }
 
+/** 模拟与回测交易没有阶段字段，回测来源案例始终显式归属 null。 */
+export function assignTradeStage(trade: Trade, liveStageId: string | null | undefined | (() => string)): Trade {
+  if (trade.tradeKind === 'paper' || trade.tradeKind === 'backtest') {
+    if (!('liveStageId' in trade)) return trade
+    const { liveStageId: _stage, ...unowned } = trade
+    return unowned
+  }
+  if (trade.tradeKind === 'case' && trade.backtestProjectId) return { ...trade, liveStageId: null }
+  const stage = typeof liveStageId === 'function' ? liveStageId() : liveStageId
+  return trade.liveStageId === stage ? trade : { ...trade, liveStageId: stage }
+}
+
+export function normalizeTradeFields(trade: Trade): Trade {
+  const reviewed = normalizeReviewFields(trade)
+  const promoted = promoteTradeNotionMeta(promoteTradeSession(reviewed))
+  return normalizeInitialStopLoss(normalizeTradeMetrics(promoted))
+}
+
 export function normalizeTrades(trades: Trade[]): Trade[] {
   return trades.map((t) => {
     const tradeKind = normalizeTradeKind(t.tradeKind as string)
     const normalizedKind = tradeKind === t.tradeKind ? t : { ...t, tradeKind }
-    return normalizeInitialStopLoss(normalizeTradeMetrics(
-      promoteTradeNotionMeta(promoteTradeSession(normalizeReviewFields(normalizedKind))),
-    ))
+    return normalizeTradeFields(normalizedKind)
   })
 }
 

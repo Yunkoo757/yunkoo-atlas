@@ -13,7 +13,8 @@ import {
   capturePersistedStateRevision,
   hasSamePersistedStateRevision,
 } from '@/store/persistedRevision'
-import { applyTradeUpsertsToSlice, useStore } from '@/store/useStore'
+import { applyTradeUpsertsToSlice } from '@/lib/tradeUpsert'
+import { useStore } from '@/store/useStore'
 import { assetUrl } from '@/storage/assets'
 
 export interface ComposerImageInput {
@@ -86,8 +87,6 @@ function buildTradePatch(state: ComposerState, candidate: ComposerTradeCandidate
     trades: state.trades,
     strategies: state.strategies,
     symbolCatalog: state.symbolCatalog,
-    tagPresets: state.tagPresets,
-    mistakeTagPresets: state.mistakeTagPresets,
   }, [trade], state.display.tradingDayStartHour, state.currentLiveStageId)
   return {
     ...patch,

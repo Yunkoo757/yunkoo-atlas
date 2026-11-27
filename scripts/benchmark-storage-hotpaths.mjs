@@ -19,6 +19,7 @@ const samples = 3
 const median = (values) => [...values].sort((left, right) => left - right)[Math.floor(values.length / 2)]
 const sourceFiles = [
   'src/store/useStore.ts',
+  'src/lib/tradeUpsert.ts',
   'src/storage/persist.ts',
   'src/storage/persistedSnapshotCoordinator.ts',
   'src/storage/snapshotValidation.ts',
@@ -43,7 +44,8 @@ const results = {
 try {
   const entry = path.join(temporary, 'entry.ts')
   await fs.writeFile(entry, [
-    "export { applyTradeUpsertsToSlice, useStore } from '@/store/useStore'",
+    "export { applyTradeUpsertsToSlice } from '@/lib/tradeUpsert'",
+    "export { useStore } from '@/store/useStore'",
     "export { pickPersisted } from '@/storage/persist'",
     "export { createPersistedSnapshotCoordinator } from '@/storage/persistedSnapshotCoordinator'",
     "export { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'",
@@ -63,7 +65,7 @@ try {
   const mod = await import(pathToFileURL(path.join(temporary, 'dist', 'runner.mjs')).href)
   for (const count of [10_000, 20_000]) {
     const fixture = createAnalyticsSnapshot({ count })
-    const slice = { ...fixture, tagPresets: [], mistakeTagPresets: [], symbolCatalog: [] }
+    const slice = { ...fixture, symbolCatalog: [] }
     for (const mode of ['insert', 'update']) {
       const initial = mode === 'insert' ? { ...slice, trades: [] } : slice
       const timings = []

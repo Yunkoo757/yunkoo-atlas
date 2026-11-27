@@ -1,3 +1,4 @@
+import { applyTradeUpsertsToSlice } from '@/lib/tradeUpsert'
 import type { Trade } from '@/data/trades'
 import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
 import type { StageRolloverPublishState } from '@/types/journalBridge'
@@ -8,7 +9,6 @@ import { pickPersisted } from '@/storage/persist'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
 import { SCHEMA_VERSION } from '@/storage/types'
 import {
-  applyTradeUpsertsToSlice,
   currentLiveStageIdForWrite,
   useStore,
 } from '@/store/useStore'
@@ -298,8 +298,6 @@ export function testExistingPaperUpsertRemovesInjectedStageField(): void {
       trades: [paper],
       strategies: useStore.getState().strategies,
       symbolCatalog: [],
-      tagPresets: [],
-      mistakeTagPresets: [],
     }, [injected])
     assert(
       !Object.prototype.hasOwnProperty.call(direct.trades[0], 'liveStageId'),

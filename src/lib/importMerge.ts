@@ -6,7 +6,7 @@ import { ensureStrategies, normalizeTradeStrategyReferences } from '@/lib/strate
 import { mergeSymbolCatalog, mergeSymbolIcons } from '@/lib/symbolIconCodec'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeDisplay } from '@/lib/tradeFilters'
-import { normalizeTrades } from '@/lib/tradeKind'
+import { assignTradeStage, normalizeTrades } from '@/lib/tradeKind'
 import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
 import { mergeRiskImport } from '@/lib/riskImportMerge'
 import { getCurrentLiveStage, type LiveStage } from '@/lib/liveStages'
@@ -57,12 +57,6 @@ function validateImportedStageReferences(payload: ExportPayload, localStages: re
   }
 }
 
-function withoutPaperStage(trade: Trade): Trade {
-  if (trade.tradeKind !== 'paper' && trade.tradeKind !== 'backtest') return trade
-  const { liveStageId: _liveStageId, ...paper } = trade as Trade & { liveStageId?: unknown }
-  return paper as Trade
-}
-
 function assignImportOwnership(
   current: PersistedSlice,
   payload: ExportPayload,
@@ -72,21 +66,19 @@ function assignImportOwnership(
   const localStageIds = new Set(current.liveStages.map((stage) => stage.id))
 
   const accountTrades = payload.trades.map((trade): Trade => {
-    if (trade.tradeKind === 'paper' || trade.tradeKind === 'backtest') return withoutPaperStage(trade)
     if (trade.tradeKind === 'case') return trade
-    return { ...trade, liveStageId: currentStageId }
+    return assignTradeStage(trade, currentStageId)
   })
   const sourcesById = new Map([...current.trades, ...accountTrades].map((trade) => [trade.id, trade]))
   const trades = accountTrades.map((trade): Trade => {
     if (trade.tradeKind !== 'case') return trade
-    if (trade.backtestProjectId) return { ...trade, liveStageId: null }
     const source = trade.sourceTradeId ? sourcesById.get(trade.sourceTradeId) : undefined
     const inherited = source?.tradeKind === 'paper'
       ? currentStageId
       : source && (source.tradeKind === 'live' || source.tradeKind === 'case') && source.liveStageId !== undefined
         ? source.liveStageId
         : currentStageId
-    return { ...trade, liveStageId: inherited }
+    return assignTradeStage(trade, inherited)
   })
   const own = <T extends StageOwned>(entity: T): T => ({ ...entity, liveStageId: currentStageId })
   const historicalRiskOnly = <T extends StageOwned>(

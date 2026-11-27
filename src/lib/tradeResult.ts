@@ -1,9 +1,10 @@
-import type { Trade, TradeStatus } from '@/data/trades'
+import { isReviewCompleted, type Trade, type TradeStatus } from '@/data/trades'
 import { calcPriceResult, calcRFromFrozenPriceRisk, pnlToStatus } from '@/lib/tradeCalc'
 import { resolveTradeResultSource } from '@/lib/tradeTruth'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 
-type ExecutionPatch = Partial<Pick<Trade, 'side' | 'entry' | 'exit' | 'stopLoss' | 'size'>>
+const EXECUTION_RESULT_KEYS = ['side', 'entry', 'exit', 'stopLoss', 'size'] as const
+type ExecutionPatch = Partial<Pick<Trade, (typeof EXECUTION_RESULT_KEYS)[number]>>
 
 function validStopLoss(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value !== 0 ? value : null
@@ -111,5 +112,54 @@ export function prepareTradeResultEdit(
         ? freezeInitialStopLossPatch(trade, edit.patch.stopLoss)
         : {}),
     },
+  }
+}
+
+const REVIEW_SENSITIVE_RESULT_KEYS = [
+  'status',
+  ...EXECUTION_RESULT_KEYS,
+  'pnl',
+  'rMultiple',
+] as const
+
+function sameResultSemanticValue(left: unknown, right: unknown): boolean {
+  return left === right || (left == null && right == null)
+}
+
+export function reopenReviewAfterResultChange(previous: Trade, next: Trade): Trade {
+  if (!isReviewCompleted(previous.reviewStatus)) return next
+  const previousInitialRisk = previous.initialStopLoss ?? previous.stopLoss ?? null
+  const nextInitialRisk = next.initialStopLoss ?? next.stopLoss ?? null
+  const changed =
+    REVIEW_SENSITIVE_RESULT_KEYS.some(
+      (key) => !sameResultSemanticValue(previous[key], next[key]),
+    ) ||
+    !sameResultSemanticValue(previousInitialRisk, nextInitialRisk) ||
+    resolveTradeResultSource(previous) !== resolveTradeResultSource(next)
+  return changed
+    ? { ...next, reviewStatus: 'unreviewed', reviewedAt: null }
+    : next
+}
+
+export function reconcileExistingExecutionEdit(previous: Trade, next: Trade): Trade {
+  const patch: ExecutionPatch = {}
+  for (const key of EXECUTION_RESULT_KEYS) {
+    if (!Object.is(previous[key], next[key])) {
+      Object.assign(patch, { [key]: next[key] })
+    }
+  }
+  if (Object.keys(patch).length === 0) return next
+
+  const result = prepareTradeResultEdit({
+    ...previous,
+    status: next.status,
+    pnl: next.pnl,
+    rMultiple: next.rMultiple,
+    resultSource: next.resultSource,
+  }, { kind: 'execution', patch })
+  return {
+    ...next,
+    ...result.patch,
+    ...(result.status && isExecutedClosed(next.status) ? { status: result.status } : {}),
   }
 }

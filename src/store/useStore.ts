@@ -36,10 +36,8 @@ import {
   type ReviewTemplate,
 } from '@/data/reviewTemplates'
 import { mergeImportPayload } from '@/lib/importMerge'
-import { appendActivity, createActivity } from '@/lib/activities'
+import { appendActivity } from '@/lib/activities'
 import { isActive, isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
-import { normalizeReviewFields } from '@/lib/reviewAnalytics'
-import { promoteTradeSession, promoteTradeNotionMeta } from '@/lib/tradeView'
 import {
   normalizeSavedTradeViews,
   type SavedTradeView,
@@ -52,7 +50,6 @@ import {
   normalizeSelectableSymbolCatalog,
 } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
-import { normalizeTradeMetrics, resolveTradeResultSource } from '@/lib/tradeTruth'
 import { DEFAULT_TRADING_DAY_START_HOUR, getTradingDayKey } from '@/lib/periods'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import type { TradeClosePatch } from '@/lib/tradeClose'
@@ -62,7 +59,7 @@ import {
   reopenCompletedReview,
   type WeeklyReview,
 } from '@/data/weeklyReviews'
-import { normalizeInitialStopLoss, prepareTradeResultEdit } from '@/lib/tradeResult'
+import { reconcileExistingExecutionEdit, reopenReviewAfterResultChange } from '@/lib/tradeResult'
 import {
   normalizeSidebarWorkspaceItems,
   type SidebarWorkspaceItem,
@@ -98,7 +95,8 @@ import {
   applyUndoAction,
   type UndoAction,
 } from '@/lib/tradeUndo'
-import { transitionTradeKind as applyTradeKindTransition } from '@/lib/tradeKind'
+import { applyTradeUpsertsToSlice } from '@/lib/tradeUpsert'
+import { assignTradeStage, transitionTradeKind as applyTradeKindTransition } from '@/lib/tradeKind'
 import type {
   MonthlyRiskLimit,
   RiskOverrideEvent,
@@ -152,64 +150,6 @@ function sameRiskPolicyDraft(left: RiskPolicyDraft, right: RiskPolicyDraft): boo
     left.disciplineText === right.disciplineText
 }
 
-export type TradeUpsertSlice = {
-  trades: Trade[]
-  strategies: Strategy[]
-  symbolCatalog: string[]
-  tagPresets: string[]
-  mistakeTagPresets: string[]
-}
-
-const EXECUTION_RESULT_KEYS = ['side', 'entry', 'exit', 'stopLoss', 'size'] as const
-const REVIEW_SENSITIVE_RESULT_KEYS = [
-  'status',
-  ...EXECUTION_RESULT_KEYS,
-  'pnl',
-  'rMultiple',
-] as const
-
-function sameResultSemanticValue(left: unknown, right: unknown): boolean {
-  return left === right || (left == null && right == null)
-}
-
-function reopenReviewAfterResultChange(previous: Trade, next: Trade): Trade {
-  if (!isReviewCompleted(previous.reviewStatus)) return next
-  const previousInitialRisk = previous.initialStopLoss ?? previous.stopLoss ?? null
-  const nextInitialRisk = next.initialStopLoss ?? next.stopLoss ?? null
-  const changed =
-    REVIEW_SENSITIVE_RESULT_KEYS.some(
-      (key) => !sameResultSemanticValue(previous[key], next[key]),
-    ) ||
-    !sameResultSemanticValue(previousInitialRisk, nextInitialRisk) ||
-    resolveTradeResultSource(previous) !== resolveTradeResultSource(next)
-  return changed
-    ? { ...next, reviewStatus: 'unreviewed', reviewedAt: null }
-    : next
-}
-
-function reconcileExistingExecutionEdit(previous: Trade, next: Trade): Trade {
-  const patch: Partial<Pick<Trade, (typeof EXECUTION_RESULT_KEYS)[number]>> = {}
-  for (const key of EXECUTION_RESULT_KEYS) {
-    if (!Object.is(previous[key], next[key])) {
-      Object.assign(patch, { [key]: next[key] })
-    }
-  }
-  if (Object.keys(patch).length === 0) return next
-
-  const result = prepareTradeResultEdit({
-    ...previous,
-    status: next.status,
-    pnl: next.pnl,
-    rMultiple: next.rMultiple,
-    resultSource: next.resultSource,
-  }, { kind: 'execution', patch })
-  return {
-    ...next,
-    ...result.patch,
-    ...(result.status && isExecutedClosed(next.status) ? { status: result.status } : {}),
-  }
-}
-
 function changeTrashMembership(set: StoreApi<State>['setState'], ids: string[], operation: 'remove' | 'restore'): UndoAction | null {
   if (!ids.length) return null
   const targets = new Set(ids)
@@ -236,177 +176,13 @@ function changeTrashMembership(set: StoreApi<State>['setState'], ids: string[], 
   return receipt
 }
 
-function freezeUpsertedClosedTradingDay(
-  previous: Trade | undefined,
-  trade: Trade,
-  tradingDayStartHour: number,
-): Trade {
-  if (trade.tradeKind !== 'live' || !isExecutedClosed(trade.status)) return trade
-  const shouldCalculate =
-    !previous ||
-    !isExecutedClosed(previous.status) ||
-    previous.closedTradingDayKey === undefined ||
-    previous.closedAt !== trade.closedAt
-  if (!shouldCalculate) {
-    return { ...trade, closedTradingDayKey: previous.closedTradingDayKey }
-  }
-  return {
-    ...trade,
-    closedTradingDayKey:
-      closedTradingDayKeyFromClosedAt(trade.closedAt, tradingDayStartHour) ?? undefined,
-  }
-}
-
-function withoutLiveStageForPaper(trade: Trade): Trade {
-  if (trade.tradeKind !== 'paper' && trade.tradeKind !== 'backtest') return trade
-  const { liveStageId: _liveStageId, ...paper } = trade as Trade & { liveStageId?: unknown }
-  return paper as Trade
-}
-
-function prepareTradeUpsert(
-  s: Pick<TradeUpsertSlice, 'strategies' | 'symbolCatalog'>,
-  trade: Trade,
-  previousTrade: Trade | undefined,
-  tradingDayStartHour: number,
-): { trade: Trade; strategies: Strategy[]; symbolCatalog: string[] } | null {
-  if (previousTrade && (trade.tradeKind ?? 'live') !== previousTrade.tradeKind) return null
-  if (previousTrade?.tradeKind === 'backtest' && (previousTrade.backtestProjectId !== trade.backtestProjectId || previousTrade.symbol !== trade.symbol)) return null
-  trade = withoutLiveStageForPaper(trade)
-  if (previousTrade && (previousTrade.tradeKind === 'live' || previousTrade.tradeKind === 'case') && (trade.tradeKind === 'live' || trade.tradeKind === 'case')) {
-    trade = { ...trade, liveStageId: previousTrade.liveStageId }
-  }
-  const strategies = s.strategies.length > 0 ? s.strategies : createDefaultStrategies()
-  const strategyId = strategies.some((strategy) => strategy.id === trade.strategyId)
-    ? trade.strategyId
-    : strategies[0]?.id ?? 'uncategorized'
-  let normalized: Trade = normalizeInitialStopLoss(normalizeTradeMetrics(promoteTradeNotionMeta(
-    promoteTradeSession(
-      normalizeReviewFields({
-        ...trade,
-        strategyId,
-        tradeKind: trade.tradeKind ?? 'live',
-        comments: trade.comments ?? [],
-        activities: trade.activities,
-      }),
-    ),
-  )))
-  normalized = freezeUpsertedClosedTradingDay(previousTrade, normalized, tradingDayStartHour)
-  if (previousTrade) {
-    normalized = reopenReviewAfterResultChange(
-      previousTrade,
-      reconcileExistingExecutionEdit(previousTrade, normalized),
-    )
-  }
-  const symbolKey = normalizeSymbol(normalized.symbol)
-  const symbolCatalog =
-    !previousTrade && symbolKey && !s.symbolCatalog.includes(symbolKey)
-      ? normalizeSelectableSymbolCatalog([...s.symbolCatalog, symbolKey])
-      : s.symbolCatalog
-  if (!previousTrade) {
-    return {
-      trade: createActivity(normalized),
-      strategies,
-      symbolCatalog,
-    }
-  }
-  const prev = previousTrade
-  if (prev && prev.status !== normalized.status) {
-    normalized = appendActivity(normalized, {
-      kind: 'status',
-      status: normalized.status,
-      timestamp: new Date().toISOString(),
-    })
-  }
-  return {
-    trade: normalized,
-    strategies,
-    symbolCatalog,
-  }
-}
-
-function upsertTradeIntoSlice(
-  s: TradeUpsertSlice,
-  trade: Trade,
-  tradingDayStartHour: number,
-): TradeUpsertSlice {
-  const previousTrade = s.trades.find((candidate) => candidate.id === trade.id)
-  const prepared = prepareTradeUpsert(s, trade, previousTrade, tradingDayStartHour)
-  if (!prepared) return s
-  return {
-    trades: syncReviewCaseSourceNotes(previousTrade
-      ? s.trades.map((candidate) => candidate.id === trade.id ? prepared.trade : candidate)
-      : [prepared.trade, ...s.trades]),
-    strategies: prepared.strategies,
-    symbolCatalog: prepared.symbolCatalog,
-    tagPresets: s.tagPresets,
-    mistakeTagPresets: s.mistakeTagPresets,
-  }
-}
-
-function upsertWouldBypassFirstOpenGate(existing: Trade | undefined, incoming: Trade): boolean {
+function upsertRequiresOpenGate(existing: Trade | undefined, incoming: Trade): boolean {
   if ((incoming.tradeKind ?? 'live') !== 'live' || incoming.status !== 'open') {
     return false
   }
   return existing
     ? requiresFirstOpenGate({ ...existing, deletedAt: undefined })
     : true
-}
-
-/** 纯计算批量写入结果，供需要先落盘、再发布到 store 的原子导入流程复用。 */
-export function applyTradeUpsertsToSlice(
-  initial: TradeUpsertSlice,
-  trades: Trade[],
-  tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
-  currentLiveStageId?: string,
-): TradeUpsertSlice {
-  if (trades.length === 0) return initial
-  // 每条输入仍顺序归一化，重复 ID 看到前一条结果；整批只构建一次列表。
-  const byId = new Map<string, Trade>()
-  for (const trade of initial.trades) {
-    if (!byId.has(trade.id)) byId.set(trade.id, trade)
-  }
-  const addedIds: string[] = []
-  const replacements = new Map<string, Trade>()
-  let strategies = initial.strategies
-  let symbolCatalog = initial.symbolCatalog
-  for (const trade of trades) {
-    const existing = byId.get(trade.id)
-    const owned = existing || !currentLiveStageId
-      ? withoutLiveStageForPaper(trade)
-      : trade.tradeKind === 'paper' || trade.tradeKind === 'backtest' || (trade.tradeKind === 'case' && trade.backtestProjectId)
-        ? withoutLiveStageForPaper(trade)
-        : { ...trade, liveStageId: currentLiveStageId }
-    const prepared = prepareTradeUpsert({ strategies, symbolCatalog }, owned, existing, tradingDayStartHour)
-    if (!prepared) continue
-    if (!existing) addedIds.push(trade.id)
-    else replacements.set(trade.id, prepared.trade)
-    byId.set(trade.id, prepared.trade)
-    strategies = prepared.strategies
-    symbolCatalog = prepared.symbolCatalog
-  }
-  if (addedIds.length === 0 && replacements.size === 0) return initial
-  const existingTrades = replacements.size === 0
-    ? initial.trades
-    : initial.trades.map((trade) => replacements.get(trade.id) ?? trade)
-  return {
-    trades: syncReviewCaseSourceNotes(addedIds.length === 0
-      ? existingTrades
-      : [...addedIds.reverse().map((id) => byId.get(id)!), ...existingTrades]),
-    strategies,
-    symbolCatalog,
-    tagPresets: initial.tagPresets,
-    mistakeTagPresets: initial.mistakeTagPresets,
-  }
-}
-
-function upsertRequiresOpenGate(
-  state: State,
-  existing: Trade | undefined,
-  incoming: Trade,
-): boolean {
-  if ((incoming.tradeKind ?? 'live') !== 'live' || incoming.status !== 'open') return false
-  if (existing?.status === 'open') return false
-  return upsertWouldBypassFirstOpenGate(existing, incoming)
 }
 
 function openTargetsAnotherLiveStage(
@@ -737,20 +513,6 @@ export function currentLiveStageIdForWrite(
   state: Pick<State, 'liveStages' | 'currentLiveStageId'>,
 ): string {
   return getCurrentLiveStage(state.liveStages, state.currentLiveStageId).id
-}
-
-function withCurrentStage(state: State, trade: Trade): Trade {
-  if (trade.tradeKind === 'paper' || trade.tradeKind === 'backtest') return withoutLiveStageForPaper(trade)
-  if (trade.tradeKind === 'case' && trade.backtestProjectId) return { ...trade, liveStageId: null }
-  return { ...trade, liveStageId: currentLiveStageIdForWrite(state) }
-}
-
-function stageOwnedTradeForUpsert(state: State, trade: Trade): Trade {
-  const previous = state.trades.find((candidate) => candidate.id === trade.id)
-  if (!previous) return withCurrentStage(state, trade)
-  if (trade.tradeKind === 'paper' || trade.tradeKind === 'backtest') return withCurrentStage(state, trade)
-  if (previous.tradeKind === 'paper' || previous.tradeKind === 'backtest') return trade
-  return { ...trade, liveStageId: previous.liveStageId }
 }
 
 const initialStageTimestamp = new Date().toISOString()
@@ -1674,7 +1436,7 @@ export const useStore = create<State>()((set, get) => ({
           if (!previous) return s
           const result = applyTradeKindTransition(previous, target)
           if (!result.ok || !result.changed) return s
-          const transitioned = withCurrentStage(s, result.trade)
+          const transitioned = assignTradeStage(result.trade, () => currentLiveStageIdForWrite(s))
           const updated = appendActivity(transitioned, {
             kind: 'tradeKind',
             fromTradeKind: previous.tradeKind,
@@ -1829,11 +1591,12 @@ export const useStore = create<State>()((set, get) => ({
       upsertTrade: (trade) => {
         const existing = get().trades.find((item) => item.id === trade.id)
         if (openTargetsAnotherLiveStage(existing, trade, get().currentLiveStageId)) return 'not-current-stage'
-        if (upsertRequiresOpenGate(get(), existing, trade)) return 'requires-risk-gate'
-        set((s) => upsertTradeIntoSlice(
+        if (upsertRequiresOpenGate(existing, trade)) return 'requires-risk-gate'
+        set((s) => applyTradeUpsertsToSlice(
           s,
-          stageOwnedTradeForUpsert(s, trade),
+          [trade],
           s.display.tradingDayStartHour,
+          () => currentLiveStageIdForWrite(s),
         ))
         return 'updated'
       },
@@ -1859,7 +1622,7 @@ export const useStore = create<State>()((set, get) => ({
               : source.liveStageId
           const ownedReviewCase = { ...reviewCase, liveStageId: sourceStageId } as Trade
           result = { status: 'created', reviewCase: ownedReviewCase }
-          return upsertTradeIntoSlice(state, ownedReviewCase, state.display.tradingDayStartHour)
+          return applyTradeUpsertsToSlice(state, [ownedReviewCase], state.display.tradingDayStartHour)
         })
         return result
       },
@@ -1876,17 +1639,11 @@ export const useStore = create<State>()((set, get) => ({
           currentState.currentLiveStageId,
         ))) return 'not-current-stage'
         if (trades.some((trade) => upsertRequiresOpenGate(
-          currentState,
           currentTrades.get(trade.id),
           trade,
         ))) return 'requires-risk-gate'
-        set((s) => applyTradeUpsertsToSlice({
-            trades: s.trades,
-            strategies: s.strategies,
-            symbolCatalog: s.symbolCatalog,
-            tagPresets: s.tagPresets,
-            mistakeTagPresets: s.mistakeTagPresets,
-          },
+        set((s) => applyTradeUpsertsToSlice(
+          s,
           trades,
           s.display.tradingDayStartHour,
           currentLiveStageIdForWrite(s),
@@ -1894,20 +1651,12 @@ export const useStore = create<State>()((set, get) => ({
         return 'updated'
       },
       upsertTradesFromNonInteractiveImport: (trades) =>
-        set((s) => {
-          if (trades.length === 0) return s
-          return applyTradeUpsertsToSlice({
-            trades: s.trades,
-            strategies: s.strategies,
-            symbolCatalog: s.symbolCatalog,
-            tagPresets: s.tagPresets,
-            mistakeTagPresets: s.mistakeTagPresets,
-          },
+        set((s) => trades.length === 0 ? s : applyTradeUpsertsToSlice(
+          s,
           trades,
           s.display.tradingDayStartHour,
           currentLiveStageIdForWrite(s),
-        )
-        }),
+        )),
       removeTrade: (id) => get().removeTrades([id]),
       removeTrades: (ids) => changeTrashMembership(set, ids, 'remove'),
       restoreTrade: (id) => get().restoreTrades([id]),

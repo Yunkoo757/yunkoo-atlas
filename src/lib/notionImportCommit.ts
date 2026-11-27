@@ -1,3 +1,4 @@
+import { applyTradeUpsertsToSlice, type TradeUpsertSlice } from '@/lib/tradeUpsert'
 import { bytesToBase64 } from '@/lib/base64'
 import { commitTradeBatch } from '@/lib/committedPublish'
 import type { Strategy } from '@/data/strategies'
@@ -13,11 +14,7 @@ import type { StorageAdapter } from '@/storage/adapter'
 import { getStorage } from '@/storage/provider'
 import { pickPersisted } from '@/storage/persist'
 import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
-import {
-  applyTradeUpsertsToSlice,
-  useStore,
-  type TradeUpsertSlice,
-} from '@/store/useStore'
+import { useStore } from '@/store/useStore'
 import { flushStorageBeforeCutover } from '@/storage/cutover'
 import {
   assertNotionImageByteLimits,
@@ -110,8 +107,6 @@ function buildStorePatch(
     trades: state.trades,
     strategies: mergeStrategies(state.strategies, newStrategies),
     symbolCatalog: state.symbolCatalog,
-    tagPresets: state.tagPresets,
-    mistakeTagPresets: state.mistakeTagPresets,
   }, importedTrades, state.display.tradingDayStartHour, state.currentLiveStageId)
 }
 
