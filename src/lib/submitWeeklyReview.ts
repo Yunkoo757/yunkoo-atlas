@@ -1,11 +1,11 @@
 import { completeWeeklyReviewCandidate, type WeeklyReview } from '@/data/weeklyReviews'
 import { flushNoteDraftToStore, noteDraftKey } from '@/storage/noteDrafts'
 import { useStore } from '@/store/useStore'
-import { getWeeklyReviewCompletionIssue } from './weeklyReviewCompletion'
+import { evaluateWeeklyReviewCompletion, type WeeklyReviewCompletion } from './weeklyReviewCompletion'
 
 type Submission =
   | { status: 'completed' | 'superseded' }
-  | { status: 'blocked'; review: WeeklyReview; draftSaved: boolean }
+  | { status: 'blocked'; completion: WeeklyReviewCompletion }
 
 /** 保存后重读提交来源。切换页面可完成原周，替代记录和已冻结快照不能接受这次提交。 */
 export async function submitWeeklyReview(source: WeeklyReview, librarySession: number): Promise<Submission> {
@@ -21,8 +21,8 @@ export async function submitWeeklyReview(source: WeeklyReview, librarySession: n
   if (originallyStored !== Boolean(latest) || latest?.status === 'completed') return { status: 'superseded' }
 
   // 未填写的周只有页面上的空文档；点击完成应给出字段提示，不创建记录。
-  const review = latest ?? source
-  if (getWeeklyReviewCompletionIssue(review, draftSaved)) return { status: 'blocked', review, draftSaved }
+  const completion = evaluateWeeklyReviewCompletion(latest ?? source, draftSaved)
+  if (completion.message) return { status: 'blocked', completion }
   if (!latest) return { status: 'superseded' }
   const { weeklyReviews } = completeWeeklyReviewCandidate(state, latest.id)
   useStore.setState({ weeklyReviews })

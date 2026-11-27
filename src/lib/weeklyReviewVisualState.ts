@@ -1,4 +1,4 @@
-import type { WeeklyReview } from '@/data/weeklyReviews'
+import { WEEKLY_UNSAVED_MESSAGE, type WeeklyRequiredField, type WeeklyReviewCompletion } from './weeklyReviewCompletion'
 
 export type WeeklyVisualIssue = Readonly<{
   key: string
@@ -7,41 +7,21 @@ export type WeeklyVisualIssue = Readonly<{
   message: string
 }>
 
-type WeeklyVisualFields = Pick<
-  WeeklyReview,
-  'executionScore' | 'riskScore' | 'emotionScore' | 'commitmentText' | 'commitmentCriteria'
->
+const fieldIssues: Record<WeeklyRequiredField, WeeklyVisualIssue> = {
+  executionScore: { key: 'score-execution', sectionId: 'scores', fieldId: 'score-execution', message: '请为执行纪律评分' },
+  riskScore: { key: 'score-risk', sectionId: 'scores', fieldId: 'score-risk', message: '请为风险管理评分' },
+  emotionScore: { key: 'score-emotion', sectionId: 'scores', fieldId: 'score-emotion', message: '请为情绪稳定评分' },
+  commitmentText: { key: 'commitment-text', sectionId: 'commitment', fieldId: 'commitment-text', message: '请写清下周只做的一件事' },
+  commitmentCriteria: { key: 'commitment-criteria', sectionId: 'commitment', fieldId: 'commitment-criteria', message: '请写清可验证的验收标准' },
+}
 
-const WEEKLY_VISUAL_RULES: ReadonlyArray<{
-  issue: WeeklyVisualIssue
-  invalid: (review: WeeklyVisualFields) => boolean
-}> = [
-  {
-    issue: { key: 'score-execution', sectionId: 'scores', fieldId: 'score-execution', message: '请为执行纪律评分' },
-    invalid: (review) => review.executionScore === null,
-  },
-  {
-    issue: { key: 'score-risk', sectionId: 'scores', fieldId: 'score-risk', message: '请为风险管理评分' },
-    invalid: (review) => review.riskScore === null,
-  },
-  {
-    issue: { key: 'score-emotion', sectionId: 'scores', fieldId: 'score-emotion', message: '请为情绪稳定评分' },
-    invalid: (review) => review.emotionScore === null,
-  },
-  {
-    issue: { key: 'commitment-text', sectionId: 'commitment', fieldId: 'commitment-text', message: '请写清下周只做的一件事' },
-    invalid: (review) => !review.commitmentText.trim(),
-  },
-  {
-    issue: { key: 'commitment-criteria', sectionId: 'commitment', fieldId: 'commitment-criteria', message: '请写清可验证的验收标准' },
-    invalid: (review) => !review.commitmentCriteria.trim(),
-  },
-]
+export const unsavedContentIssue: WeeklyVisualIssue = {
+  key: 'review-content-unsaved', sectionId: 'judgment', fieldId: 'review-content', message: WEEKLY_UNSAVED_MESSAGE,
+}
 
-export function getWeeklyVisualIssues(review: WeeklyVisualFields): WeeklyVisualIssue[] {
-  return WEEKLY_VISUAL_RULES
-    .filter((rule) => rule.invalid(review))
-    .map((rule) => rule.issue)
+export function getWeeklyVisualIssues(completion: WeeklyReviewCompletion): WeeklyVisualIssue[] {
+  const issues = completion.missingFields.map(key => fieldIssues[key])
+  return completion.draftSaved ? issues : [unsavedContentIssue, ...issues]
 }
 
 export function focusWeeklyIssue(issue: WeeklyVisualIssue, root: ParentNode = document): void {

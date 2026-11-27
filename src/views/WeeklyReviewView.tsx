@@ -51,6 +51,7 @@ import { tradeMetricTone } from '@/lib/tradeRowPresentation'
 import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 import { parseLocalDate, formatYmd } from '@/lib/periods'
 import { toast } from '@/lib/toast'
+import { evaluateWeeklyReviewCompletion, WEEKLY_REQUIRED_COUNT } from '@/lib/weeklyReviewCompletion'
 import { submitWeeklyReview } from '@/lib/submitWeeklyReview'
 import {
   buildWeeklyReviewReturnSearch,
@@ -81,6 +82,7 @@ import {
 } from '@/hooks/useTradeReturnAnchor'
 import {
   focusWeeklyIssue,
+  unsavedContentIssue,
   getWeeklyVisualIssues,
   type WeeklyVisualIssue,
 } from '@/lib/weeklyReviewVisualState'
@@ -119,13 +121,6 @@ const SNAPSHOT_CATEGORY_LABELS = {
   metrics: '指标快照',
   evidence: '交易证据快照',
   risk: '风控快照',
-}
-
-const UNSAVED_CONTENT_ISSUE: WeeklyVisualIssue = {
-  key: 'review-content-unsaved',
-  sectionId: 'judgment',
-  fieldId: 'review-content',
-  message: '正文或图片尚未保存，请重试',
 }
 
 type ReviewPatch = Partial<Pick<
@@ -491,7 +486,10 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
     : selectedHistoryItem?.review
   const reviewLiveStageId = storedReview?.liveStageId ?? selectedHistoryItem?.liveStageId ?? selectedReviewStageId
   const reviewStageName = liveStages.find((stage) => stage.id === reviewLiveStageId)?.name ?? '未知阶段'
-  const review = storedReview ?? createWeeklyReview(selectedWeek, reviewLiveStageId)
+  const review = useMemo(
+    () => storedReview ?? createWeeklyReview(selectedWeek, reviewLiveStageId),
+    [storedReview, selectedWeek, reviewLiveStageId],
+  )
   useLayoutEffect(() => {
     if (mainContentRef.current) mainContentRef.current.scrollTop = 0
   }, [reviewLiveStageId, selectedWeek, tab])
@@ -592,17 +590,8 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
     : item.week === selectedWeek && item.liveStageId === reviewLiveStageId)
   const olderHistoryItem = selectedHistoryIndex >= 0 ? historyItems[selectedHistoryIndex + 1] : undefined
   const newerHistoryItem = selectedHistoryIndex > 0 ? historyItems[selectedHistoryIndex - 1] : undefined
-  const weeklyFieldIssues = useMemo(
-    () => getWeeklyVisualIssues(review),
-    [
-      review.executionScore,
-      review.riskScore,
-      review.emotionScore,
-      review.commitmentText,
-      review.commitmentCriteria,
-    ],
-  )
-  const completedRequiredFields = 5 - weeklyFieldIssues.length
+  const completion = useMemo(() => evaluateWeeklyReviewCompletion(review), [review])
+  const weeklyFieldIssues = useMemo(() => getWeeklyVisualIssues(completion), [completion])
   const sectionHasIssue = (sectionId: string) => visualIssues.some((issue) => issue.sectionId === sectionId)
 
   useEffect(() => {
@@ -620,7 +609,7 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
     setVisualIssues((previous) => {
       if (previous.length === 0) return previous
       const next = [
-        ...previous.filter((issue) => issue.key === UNSAVED_CONTENT_ISSUE.key),
+        ...previous.filter((issue) => issue.key === unsavedContentIssue.key),
         ...weeklyFieldIssues,
       ]
       return next.length === previous.length && next.every((issue, index) => issue.key === previous[index]?.key)
@@ -731,11 +720,10 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
     const intent = routeIntentGenerationRef.current
     const result = await submitWeeklyReview(review, librarySession)
     if (useStore.getState().librarySession !== librarySession || result.status === 'superseded') return
-    if (result.status === 'blocked' && !result.draftSaved) reportWeeklyDraftFailure()
+    if (result.status === 'blocked' && !result.completion.draftSaved) reportWeeklyDraftFailure()
     if (intent !== routeIntentGenerationRef.current) return
     if (result.status === 'blocked') {
-      const issues = getWeeklyVisualIssues(result.review)
-      if (!result.draftSaved) issues.unshift(UNSAVED_CONTENT_ISSUE)
+      const issues = getWeeklyVisualIssues(result.completion)
       pendingIssueFocusRef.current = issues[0] ?? null
       setVisualIssues(issues)
       return
@@ -820,12 +808,12 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
             {tab === 'review' ? <Button id="weekly-review-tab-year" variant="ghost" size="sm" onClick={() => changeTab('year')}>年度趋势</Button> : null}
           </nav>
           {tab === 'review' ? <>
-            <span className="wr-document-status" aria-label={locked ? '周复盘已完成' : `周复盘必填项已完成 ${completedRequiredFields} / 5`}>
-              {locked ? <><Check size={ICON_MD} aria-hidden />已完成</> : completedRequiredFields ? `已填 ${completedRequiredFields}/5` : '待填写'}
+            <span className="wr-document-status" aria-label={locked ? '周复盘已完成' : `周复盘必填项已完成 ${completion.completedCount} / ${WEEKLY_REQUIRED_COUNT}`}>
+              {locked ? <><Check size={ICON_MD} aria-hidden />已完成</> : completion.completedCount ? `已填 ${completion.completedCount}/${WEEKLY_REQUIRED_COUNT}` : '待填写'}
             </span>
             {locked
               ? <Button variant="ghost" onClick={reopenReview}><RotateCcw size={ICON_MD} aria-hidden />重新打开</Button>
-              : <Button variant={completedRequiredFields === 5 ? 'primary' : 'bordered'} onClick={() => void completeReview()}>完成本周复盘</Button>}
+              : <Button variant={completion.message === null ? 'primary' : 'bordered'} onClick={() => void completeReview()}>完成本周复盘</Button>}
           </> : null}
         </div>
       </header>
