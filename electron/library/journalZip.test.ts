@@ -1,4 +1,4 @@
-import { createBackupAtPath, verifyBackupAtPath } from './backup'
+import { writeLibraryBackup, verifyBackupAtPath } from './backup'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -1357,7 +1357,7 @@ export async function testLegacyManifestWithCurrentRiskSnapshotRoundTrips(): Pro
     storage.writeManifest({ ...storage.readManifest(), schemaVersion: 5 })
     const before = fs.readFileSync(storage.getPaths().dbFile)
     await validateDesktopLibrary(storage.getPaths())
-    const backup = createBackupAtPath(storage, storage.getPaths().root)
+    const backup = writeLibraryBackup(storage)
     assert(backup, '应生成删除前恢复点')
     const verification = await verifyBackupAtPath(storage.getPaths().root, path.basename(backup))
     assert(verification.status === 'verified', '旧清单与新快照的删除前恢复点必须验证成功')

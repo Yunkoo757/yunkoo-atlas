@@ -13,7 +13,7 @@ const modules={organization:'src/lib/dataOrganization.ts',storage:'electron/libr
 for(const [name,entry]of Object.entries(modules))await build({configFile:false,logLevel:'error',resolve:{alias:{'@':path.resolve('src')}},build:{ssr:path.resolve(entry),outDir:path.join(root,name),rollupOptions:{output:{entryFileNames:'index.mjs'}}}})
 const {prepareDataOrganization}=await import(pathToFileURL(path.join(root,'organization/index.mjs')))
 const {LibraryStorage}=await import(pathToFileURL(path.join(root,'storage/index.mjs')))
-const {createBackupAtPath,verifyBackupAtPath,restoreBackupAtPath}=await import(pathToFileURL(path.join(root,'backup/index.mjs')))
+const {writeLibraryBackup,verifyBackupAtPath,restoreBackupAtPath}=await import(pathToFileURL(path.join(root,'backup/index.mjs')))
 const copy=path.join(root,'library');await fs.mkdir(copy)
 const sourceBytes=await fs.readFile(path.join(source,'journal.db'))
 for(const name of ['journal.db','manifest.json'])await fs.copyFile(path.join(source,name),path.join(copy,name))
@@ -22,7 +22,7 @@ const digest=async dir=>Object.fromEntries(await Promise.all((await fs.readdir(d
 const hashes=await digest(path.join(copy,'attachments'))
 let store=new LibraryStorage(copy,{allowCreate:false});await store.open()
 const before=store.loadSnapshot()
-const backup=createBackupAtPath(store,copy);assert(backup)
+const backup=writeLibraryBackup(store);assert(backup)
 assert.equal((await verifyBackupAtPath(copy,backup)).status,'verified')
 for(const removeWeekly of [false,true]){
   const next=prepareDataOrganization(before,{migrateLive:true,resetStages:true,deleteWeeklyIds:removeWeekly?(before.weeklyReviews??[]).map(r=>r.id):[]},'2026-09-07','2026-09-07T00:00:00.000Z','fresh')

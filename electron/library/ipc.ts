@@ -16,11 +16,12 @@ import { safeConsoleError } from '../diagnosticSanitizer'
 import { JournalImportPreviews } from './journalImportPreviews'
 import { LibraryStorage } from './storage'
 import { exportJournalZip, importJournalZipToPath, installPreparedLibraryAtPath } from './journalZip'
-import { saveLibraryConfig, ensureLibraryDirs } from './paths'
+import { ensureLibraryDirs } from './paths'
 import {
   getLibraryLocationState,
   getValidatedLibraryLocation,
   libraryLocationError,
+  saveLibraryConfig,
 } from './libraryLocation'
 import {
   createBackup,

@@ -7,7 +7,7 @@ import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { SCHEMA_VERSION, type ExportAssetRecord, type PersistedSnapshot } from '../../src/storage/types'
 import { QuitCoordinator, releaseThenFinalizeWithRollback } from '../quitCoordinator'
 import {
-  createBackupAtPath,
+  writeLibraryBackup,
   deleteBackupAtPath,
   verifyBackupAtPath,
 } from './backup'
@@ -99,7 +99,7 @@ export async function runElectronPersistenceBenchmark(
           createRequestId: () => `benchmark-quit-${index}`,
           requestRendererFlush: async () => { storage.saveSnapshot(input.snapshot) },
           createVerifiedBackup: async () => {
-            const backupPath = createBackupAtPath(storage, root, Date.now() + index)
+            const backupPath = writeLibraryBackup(storage, Date.now() + index)
             if (!backupPath) throw new Error('退出性能基准未生成恢复点')
             backupName = path.basename(backupPath)
             const verification = await verifyBackupAtPath(root, backupName)

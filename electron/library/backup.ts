@@ -1,10 +1,11 @@
+import type { BackupInfo, BackupVerificationResult } from '../../src/types/journalBridge'
 import { assertRecoveryManifestIdentity } from './libraryIdentity'
 import { sha256File } from './fileChecksum'
 import fs from 'node:fs'
 import path from 'node:path'
 import { createHash, randomUUID } from 'node:crypto'
 import type { LibraryStorage } from './storage'
-import { getLibraryPath, ensureLibraryDirs, getLibraryPaths } from './paths'
+import { ensureLibraryDirs, getLibraryPaths } from './paths'
 import { fsyncDirectorySync, fsyncFileSync, writeFileAtomicallySync } from './atomicFile'
 import { validateDesktopLibrary, validateLibraryDatabaseFile } from './journalZip'
 import { safeConsoleError } from '../diagnosticSanitizer'
@@ -30,18 +31,7 @@ interface BackupMeta {
   emptyLibrary?: true
 }
 
-export interface BackupVerificationResult {
-  status: 'verified' | 'invalid'
-  checkedAt: number
-  tradeCount?: number
-  strategyCount?: number
-  attachmentCount?: number
-  error?: string
-  emptyLibrary?: boolean
-}
-
 let intervalTimer: ReturnType<typeof setInterval> | null = null
-let lastBackupAt = 0
 let storageRef: LibraryStorage | null = null
 const BACKUP_RESTORE_MARKER = '.backup-restore.json'
 const BACKUP_RESTORE_RECOVERY_PREFIX = '.backup-restore-recovery-'
@@ -81,11 +71,6 @@ function copyRestoreAttachments(
   }
   if (durable) fsyncDirectorySync(destination)
   return entries
-}
-
-export function cleanupCompletedBackupRestoreRecovery(libraryRoot: string): void {
-  // 没有事务标记就无法证明同前缀目录属于本次操作；保留现场，禁止按前缀猜测删除。
-  void libraryRoot
 }
 
 function validateBackupRestoreRecovery(marker: BackupRestoreMarker, recoveryRoot: string): void {
@@ -282,13 +267,12 @@ function deleteBackupFiles(dbPath: string): void {
   fs.rmSync(backupManifestPath(dbPath), { force: true })
 }
 
-export function createBackupAtPath(
-  storage: Pick<LibraryStorage, 'getCounts' | 'listCommittedAttachmentFileNames' | 'exportSnapshotDatabaseBytes'>,
-  libraryPath: string,
+export function writeLibraryBackup(
+  storage: Pick<LibraryStorage, 'getLibraryPath' | 'getCounts' | 'listCommittedAttachmentFileNames' | 'exportSnapshotDatabaseBytes'>,
   now: number = Date.now(),
   options: { emptyLibrary?: boolean } = {},
 ): string | null {
-  const { backups, dbFile, manifestFile, attachments } = ensureLibraryDirs(libraryPath)
+  const { backups, dbFile, manifestFile, attachments } = ensureLibraryDirs(storage.getLibraryPath())
   if (!fs.existsSync(dbFile)) return null
 
   let timestamp = now
@@ -351,10 +335,7 @@ export function createBackup(
   options: { emptyLibrary?: boolean } = {},
 ): string | null {
   try {
-    const now = Date.now()
-    const dest = createBackupAtPath(storage, storage.getLibraryPath(), now, options)
-    if (dest) lastBackupAt = now
-    return dest
+    return writeLibraryBackup(storage, Date.now(), options)
   } catch (err) {
     safeConsoleError('backup-create-failed', err)
     return null
@@ -369,7 +350,7 @@ export function getBackupStatsAtPath(libraryPath: string): { count: number; tota
   }
 }
 
-export function listBackupsAtPath(libraryPath: string): ReturnType<typeof listBackups> {
+export function listBackupsAtPath(libraryPath: string): BackupInfo[] {
   const { backups } = getLibraryPaths(libraryPath)
   if (!fs.existsSync(backups)) return []
 
@@ -379,7 +360,7 @@ export function listBackupsAtPath(libraryPath: string): ReturnType<typeof listBa
     .map((f) => {
       const fp = path.join(backups, f)
       const stat = fs.statSync(fp)
-      const info: ReturnType<typeof listBackups>[number] = {
+      const info: BackupInfo = {
         name: f,
         timestamp: parseTimestampFromName(f) || stat.mtimeMs,
         size: stat.size,
@@ -569,10 +550,6 @@ export async function verifyBackupAtPath(
   } finally {
     fs.rmSync(verificationRoot, { recursive: true, force: true })
   }
-}
-
-export function verifyBackup(fileName: string): Promise<BackupVerificationResult> {
-  return verifyBackupAtPath(getLibraryPath(), path.basename(fileName))
 }
 
 export function restoreBackupAtPath(
@@ -775,15 +752,6 @@ export function rotateBackups(
   }
 }
 
-/** 获取备份总大小信息 */
-export function getBackupStats(): { count: number; totalSize: number } {
-  return getBackupStatsAtPath(getLibraryPath())
-}
-
-export function listBackups(): { name: string; timestamp: number; size: number; tradeCount?: number; strategyCount?: number; attachmentCount?: number; verification?: BackupVerificationResult }[] {
-  return listBackupsAtPath(getLibraryPath())
-}
-
 export function startAutoBackup(
   storage: LibraryStorage,
   intervalMs: number = DEFAULT_INTERVAL_MS,
@@ -793,7 +761,6 @@ export function startAutoBackup(
 ): void {
   stopAutoBackup()
   storageRef = storage
-  lastBackupAt = 0
   const libraryPath = storage.getLibraryPath()
   rotateBackups(ensureLibraryDirs(libraryPath).backups, maxBackups)
 
@@ -823,12 +790,4 @@ export function stopAutoBackup(): void {
     intervalTimer = null
   }
   storageRef = null
-}
-
-export function deleteBackup(fileName: string): boolean {
-  try {
-    return deleteBackupAtPath(getLibraryPath(), fileName)
-  } catch {
-    return false
-  }
 }

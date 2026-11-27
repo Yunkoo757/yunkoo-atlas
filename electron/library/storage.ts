@@ -17,7 +17,7 @@ import type {
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
-import { ensureLibraryDirs, getLibraryPath, getLibraryPaths } from './paths'
+import { ensureLibraryDirs, getLibraryPaths } from './paths'
 import { isImageMime, processImageBuffer } from './images'
 import { fsyncDirectorySync, fsyncFileSync, writeFileAtomicallySync } from './atomicFile'
 import { assertSafeAssetId, isSafeAssetId } from '../../src/storage/assetId'
@@ -30,10 +30,7 @@ import {
   removeMigrationRecovery,
   restoreVerifiedV8Pair,
 } from './schemaMigration'
-import {
-  cleanupCompletedBackupRestoreRecovery,
-  recoverInterruptedBackupRestore,
-} from './backup'
+import { recoverInterruptedBackupRestore } from './backup'
 import { recoverInterruptedJournalImport } from './journalZip'
 
 const SNAPSHOT_KEY = 'snapshot'
@@ -346,7 +343,7 @@ export class LibraryStorage {
   }>()
 
   constructor(
-    libraryPath = getLibraryPath(),
+    libraryPath: string,
     options: {
       ensureDirectories?: boolean
       allowCreate?: boolean
@@ -498,7 +495,6 @@ export class LibraryStorage {
       // 同一物理路径的 legacy 大小写碰撞。
       assertPortableAssetDatabaseIntegrity(this.requireDb())
       this.recoverAssetTrash()
-      cleanupCompletedBackupRestoreRecovery(this.paths.root)
     } catch (error) {
       this.closeDatabaseBestEffort()
       throw error

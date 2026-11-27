@@ -1,21 +1,33 @@
+import type { LibraryLocationState } from '../../src/types/journalBridge'
 import fs from 'node:fs'
 import path from 'node:path'
 import { assertLibraryIdentity, LibraryIdentityMismatchError } from './libraryIdentity'
 import { LibraryStorage } from './storage'
-import { getConfigPath, getDefaultLibraryPath, getLibraryPaths } from './paths'
+import electronRuntime from 'electron'
+import { writeFileAtomicallySync } from './atomicFile'
+import { getLibraryPaths } from './paths'
 import { OperationalError } from '../../src/lib/operationalError'
 
-export type LibraryLocationState =
-  | { kind: 'unset' }
-  | {
-      kind: 'ready'
-      configuredPath: string
-      resolvedPath: string
-      source: 'config' | 'environment' | 'default'
-    }
-  | { kind: 'unavailable'; configuredPath: string; reason: string }
-  | { kind: 'invalid'; configuredPath: string; reason: string }
-  | { kind: 'needs-recovery'; configuredPath: string; reason: string }
+const CONFIG_FILE = 'library-config.json'
+const electronApp =
+  typeof electronRuntime === 'object' && electronRuntime !== null && 'app' in electronRuntime
+    ? (electronRuntime as { app?: { getPath(name: 'userData' | 'documents'): string } }).app
+    : undefined
+
+function requireAppPath(name: 'userData' | 'documents'): string {
+  if (!electronApp) throw new Error('Electron app paths are unavailable')
+  return electronApp.getPath(name)
+}
+
+function getConfigPath(): string {
+  return path.join(requireAppPath('userData'), CONFIG_FILE)
+}
+
+export function saveLibraryConfig(cfg: { libraryPath: string; libraryId: string }): void {
+  const configFile = getConfigPath()
+  fs.mkdirSync(path.dirname(configFile), { recursive: true })
+  writeFileAtomicallySync(configFile, JSON.stringify(cfg, null, 2), 'utf8')
+}
 
 export type ValidatedLibraryLocation =
   | Exclude<LibraryLocationState, { kind: 'ready' }>
@@ -210,7 +222,7 @@ export function getValidatedLibraryLocation(): Promise<ValidatedLibraryLocation>
   return resolveLibraryLocation({
     configPath: getConfigPath(),
     environmentPath: process.env.TRADER_ATLAS_LIBRARY,
-    defaultPath: getDefaultLibraryPath(),
+    defaultPath: path.join(requireAppPath('documents'), 'Trader Atlas'),
     readTextFile: (filePath) => fs.readFileSync(filePath, 'utf8'),
     inspectPath,
     assertReadableWritable: (filePath) => fs.accessSync(filePath, fs.constants.R_OK | fs.constants.W_OK),

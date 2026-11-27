@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { DEFAULT_SYMBOL_CATALOG } from '../../src/lib/symbolIconCodec'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
-import { createBackupAtPath } from './backup'
+import { writeLibraryBackup } from './backup'
 import { restoreLibraryBackup } from './backupRestore'
 import { LibraryOperationGate } from './sessionGate'
 import { LibraryStorage, SnapshotSaveError } from './storage'
@@ -57,7 +57,7 @@ export async function testBusyBackupRestoreCannotAdoptAnotherRequestsWriterOrCla
     const saved = createEmptyPersistedSnapshot()
     saved.tagPresets = ['backup']
     f.first.saveSnapshot(saved)
-    const selected = createBackupAtPath(f.first, f.root)
+    const selected = writeLibraryBackup(f.first)
     assert.ok(selected)
     f.first.saveSnapshot({ ...saved, tagPresets: ['before restore'] })
     const reopen = f.session.reopenForWriter
@@ -87,7 +87,7 @@ export async function testBackupRestoreRequiresValidSourceAndVerifiedSafetyCopyB
     const missing = await restoreLibraryBackup('missing.db', f.session)
     assert.deepEqual(missing, { ok: false, committed: false, error: '恢复点文件不存在' })
     assert.deepEqual(fs.readdirSync(path.join(f.root, 'backups')).filter(name => name.endsWith('.db')), [])
-    const selected = createBackupAtPath(f.first, f.root)
+    const selected = writeLibraryBackup(f.first)
     assert.ok(selected)
     f.first.exportSnapshotDatabaseBytes = () => Buffer.from('unreadable safety copy')
     const invalid = await restoreLibraryBackup(selected, f.session)
@@ -102,7 +102,7 @@ export async function testBackupRestoreReopensUnderTheSameGateAfterCutoverFailur
   const f = await isolatedSession()
   try {
     f.first.saveSnapshot(createEmptyPersistedSnapshot())
-    const selected = createBackupAtPath(f.first, f.root)
+    const selected = writeLibraryBackup(f.first)
     assert.ok(selected)
     const reopen = f.session.reopenForWriter
     let attempts = 0
@@ -123,7 +123,7 @@ export async function testBackupRestoreReopensUnderTheSameGateAfterCutoverFailur
 export async function testRestoringAnEmptyBackupBroadcastsIndeterminateSnapshotWrite(): Promise<void> {
   const f = await isolatedSession()
   try {
-    const empty = createBackupAtPath(f.first, f.root, Date.now(), { emptyLibrary: true })
+    const empty = writeLibraryBackup(f.first, Date.now(), { emptyLibrary: true })
     assert.ok(empty)
     f.first.saveSnapshot(createEmptyPersistedSnapshot())
     const reopen = f.session.reopenForWriter
@@ -143,7 +143,7 @@ export async function testVerifiedEmptyBackupReturnsTheSnapshotPersistedForTheNe
   const f = await isolatedSession()
   let nextLaunch: LibraryStorage | undefined
   try {
-    const selected = createBackupAtPath(f.first, f.root, Date.now(), { emptyLibrary: true })
+    const selected = writeLibraryBackup(f.first, Date.now(), { emptyLibrary: true })
     assert.ok(selected)
     f.first.saveSnapshot({ ...createEmptyPersistedSnapshot(), tagPresets: ['discarded by restore'] })
     const restored = await restoreLibraryBackup(selected, f.session)

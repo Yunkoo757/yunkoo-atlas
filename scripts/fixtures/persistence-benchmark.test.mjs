@@ -68,7 +68,7 @@ test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durabl
   assert.match(electron, /storage\.saveSnapshot/)
   assert.match(electron, /allowCreate: false/)
   assert.match(electron, /storage\.getAssetBytes/)
-  assert.match(electron, /createBackupAtPath/)
+  assert.match(electron, /writeLibraryBackup/)
   assert.match(electron, /verifyBackupAtPath/)
   assert.match(electron, /releaseThenFinalizeWithRollback/)
   assert.match(electron, /storage\.release\(\)/)

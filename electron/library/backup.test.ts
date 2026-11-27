@@ -1,10 +1,10 @@
+import { LibraryStorage } from './storage'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import initSqlJs from 'sql.js'
 import {
-  createBackupAtPath,
-  cleanupCompletedBackupRestoreRecovery,
+  writeLibraryBackup,
   deleteBackupAtPath,
   getBackupStatsAtPath,
   recoverInterruptedBackupRestore,
@@ -108,8 +108,9 @@ async function createVerifiableBackup(
       'utf8',
     )
 
-    const backup = createBackupAtPath(
+    const backup = writeLibraryBackup(
       {
+        getLibraryPath: () => root,
         getCounts: () => ({
           tradeCount: trades.length,
           strategyCount: 0,
@@ -118,7 +119,6 @@ async function createVerifiableBackup(
         exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => (includeAsset ? ['asset-1.bin'] : []),
       },
-      root,
       Date.UTC(2026, 6, 14, 8, 0, 0),
       { emptyLibrary: options.emptyLibraryBackup },
     )
@@ -298,12 +298,13 @@ export function testDefaultBackupRotationKeepsSevenLatestRestorePoints(): void {
   try {
     fs.writeFileSync(path.join(root, 'journal.db'), 'snapshot')
     const counts = {
+      getLibraryPath: () => root,
       getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 0 }),
       exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
       listCommittedAttachmentFileNames: () => [] as string[],
     }
     for (let hour = 0; hour < 8; hour += 1) {
-      createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, hour, 0, 0))
+      writeLibraryBackup(counts, Date.UTC(2026, 6, 13, hour, 0, 0))
     }
 
     const backups = path.join(root, 'backups')
@@ -324,14 +325,15 @@ export function testBackupsCreatedInTheSameMillisecondRemainIndependent(): void 
   try {
     fs.writeFileSync(path.join(root, 'journal.db'), 'first-snapshot')
     const counts = {
+      getLibraryPath: () => root,
       getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 0 }),
       exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
       listCommittedAttachmentFileNames: () => [] as string[],
     }
     const now = Date.UTC(2026, 6, 13, 8, 0, 0)
-    const first = createBackupAtPath(counts, root, now)
+    const first = writeLibraryBackup(counts, now)
     fs.writeFileSync(path.join(root, 'journal.db'), 'second-snapshot')
-    const second = createBackupAtPath(counts, root, now)
+    const second = writeLibraryBackup(counts, now)
 
     assert(Boolean(first && second), '同一毫秒内的两次备份都应成功')
     assert(first !== second, '同一毫秒内的备份不得覆盖同名恢复点')
@@ -350,17 +352,18 @@ export function testBackupRotationKeepsLatestRestorePointAndItsAttachments(): vo
     fs.writeFileSync(path.join(root, 'journal.db'), 'v1')
     fs.writeFileSync(path.join(attachments, 'old.png'), 'old-image')
     const counts = {
+      getLibraryPath: () => root,
       getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
       exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
       listCommittedAttachmentFileNames: () =>
         fs.existsSync(path.join(attachments, 'new.png')) ? ['new.png'] : ['old.png'],
     }
-    createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 9, 0, 0))
+    writeLibraryBackup(counts, Date.UTC(2026, 6, 13, 9, 0, 0))
 
     fs.rmSync(path.join(attachments, 'old.png'))
     fs.writeFileSync(path.join(attachments, 'new.png'), 'new-image')
     fs.writeFileSync(path.join(root, 'journal.db'), 'v2')
-    createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 10, 0, 0))
+    writeLibraryBackup(counts, Date.UTC(2026, 6, 13, 10, 0, 0))
 
     const backups = path.join(root, 'backups')
     rotateBackups(backups, 1, 1024 * 1024)
@@ -382,13 +385,14 @@ export function testBackupRotationPrefersAUserVerifiedRestorePoint(): void {
   try {
     fs.writeFileSync(path.join(root, 'journal.db'), 'snapshot')
     const counts = {
+      getLibraryPath: () => root,
       getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 0 }),
       exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
       listCommittedAttachmentFileNames: () => [] as string[],
     }
-    const verified = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 8, 0, 0))!
-    const middle = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 9, 0, 0))!
-    const newest = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 10, 0, 0))!
+    const verified = writeLibraryBackup(counts, Date.UTC(2026, 6, 13, 8, 0, 0))!
+    const middle = writeLibraryBackup(counts, Date.UTC(2026, 6, 13, 9, 0, 0))!
+    const newest = writeLibraryBackup(counts, Date.UTC(2026, 6, 13, 10, 0, 0))!
     const meta = JSON.parse(fs.readFileSync(verified + '.meta.json', 'utf8'))
     meta.verification = { status: 'verified', checkedAt: Date.UTC(2026, 6, 13, 8, 5, 0) }
     fs.writeFileSync(verified + '.meta.json', JSON.stringify(meta), 'utf8')
@@ -409,14 +413,15 @@ export function testBackupRotationKeepsANonEmptyRestorePointAheadOfVerifiedEmpty
     fs.writeFileSync(path.join(root, 'journal.db'), 'snapshot')
     let tradeCount = 1
     const counts = {
+      getLibraryPath: () => root,
       getCounts: () => ({ tradeCount, strategyCount: 0, assetCount: 0 }),
       exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
       listCommittedAttachmentFileNames: () => [] as string[],
     }
-    const nonEmpty = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 8, 0, 0))!
+    const nonEmpty = writeLibraryBackup(counts, Date.UTC(2026, 6, 13, 8, 0, 0))!
     tradeCount = 0
-    const verifiedEmpty = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 9, 0, 0))!
-    const newestEmpty = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 10, 0, 0))!
+    const verifiedEmpty = writeLibraryBackup(counts, Date.UTC(2026, 6, 13, 9, 0, 0))!
+    const newestEmpty = writeLibraryBackup(counts, Date.UTC(2026, 6, 13, 10, 0, 0))!
     for (const backup of [verifiedEmpty, newestEmpty]) {
       const meta = JSON.parse(fs.readFileSync(backup + '.meta.json', 'utf8'))
       meta.verification = { status: 'verified', checkedAt: Date.UTC(2026, 6, 13, 10, 5, 0) }
@@ -440,26 +445,26 @@ export function testCorruptBackupMetadataPreventsAssetVaultPruning(): void {
     fs.mkdirSync(attachments, { recursive: true })
     fs.writeFileSync(path.join(root, 'journal.db'), 'v1')
     fs.writeFileSync(path.join(attachments, 'old.png'), 'old-image')
-    const first = createBackupAtPath(
+    const first = writeLibraryBackup(
       {
+        getLibraryPath: () => root,
         getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
         exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => ['old.png'],
       },
-      root,
       Date.UTC(2026, 6, 13, 9, 0, 0),
     )!
 
     fs.rmSync(path.join(attachments, 'old.png'))
     fs.writeFileSync(path.join(attachments, 'current.png'), 'current-image')
     fs.writeFileSync(path.join(root, 'journal.db'), 'v2')
-    const current = createBackupAtPath(
+    const current = writeLibraryBackup(
       {
+        getLibraryPath: () => root,
         getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
         exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => ['current.png'],
       },
-      root,
       Date.UTC(2026, 6, 13, 10, 0, 0),
     )!
 
@@ -480,13 +485,13 @@ export function testBackupRotationNeverDeletesTheOnlyLatestRestorePoint(): void 
     fs.mkdirSync(attachments, { recursive: true })
     fs.writeFileSync(path.join(root, 'journal.db'), 'latest-snapshot')
     fs.writeFileSync(path.join(attachments, 'large.png'), Buffer.alloc(128, 1))
-    createBackupAtPath(
+    writeLibraryBackup(
       {
+        getLibraryPath: () => root,
         getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
         exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => ['large.png'],
       },
-      root,
       Date.UTC(2026, 6, 13, 10, 0, 0),
     )
 
@@ -508,13 +513,13 @@ export function testRestoreWithMissingAttachmentLeavesCurrentLibraryUntouched():
     fs.mkdirSync(attachments, { recursive: true })
     fs.writeFileSync(path.join(root, 'journal.db'), 'backup-db')
     fs.writeFileSync(path.join(attachments, 'chart.png'), 'backup-image')
-    const backup = createBackupAtPath(
+    const backup = writeLibraryBackup(
       {
+        getLibraryPath: () => root,
         getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
         exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => ['chart.png'],
       },
-      root,
       Date.UTC(2026, 6, 13, 10, 0, 0),
     )!
 
@@ -542,15 +547,17 @@ export function testRestoreWithMissingAttachmentLeavesCurrentLibraryUntouched():
   }
 }
 
-export function testUnmarkedRecoveryPrefixDirectoryIsNeverGuessedAndDeleted(): void {
+export async function testUnmarkedRecoveryPrefixDirectoryIsNeverGuessedAndDeleted(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-prefix-preserve-'))
   const unknown = path.join(root, '.backup-restore-recovery-user-data')
+  const storage = new LibraryStorage(root)
   try {
     fs.mkdirSync(unknown)
     fs.writeFileSync(path.join(unknown, 'keep.txt'), 'keep', 'utf8')
-    cleanupCompletedBackupRestoreRecovery(root)
+    await storage.open()
     assert(fs.existsSync(path.join(unknown, 'keep.txt')), '没有事务标记时不得按前缀猜测并删除目录')
   } finally {
+    storage.release()
     fs.rmSync(root, { recursive: true, force: true })
   }
 }
@@ -560,13 +567,13 @@ export function testRestoreRejectsDatabaseBytesChangedAfterVerificationWithoutTo
   try {
     fs.mkdirSync(path.join(root, 'attachments'), { recursive: true })
     fs.writeFileSync(path.join(root, 'journal.db'), 'verified-backup-db')
-    const backup = createBackupAtPath(
+    const backup = writeLibraryBackup(
       {
+        getLibraryPath: () => root,
         getCounts: () => ({ tradeCount: 1, strategyCount: 0, assetCount: 0 }),
         exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => [] as string[],
       },
-      root,
       Date.UTC(2026, 7, 31, 10, 0, 0),
     )!
 
@@ -596,13 +603,13 @@ export function testBackupAccountingAndDeletionIncludeDeduplicatedAttachments():
     fs.mkdirSync(attachments, { recursive: true })
     fs.writeFileSync(path.join(root, 'journal.db'), Buffer.alloc(12, 1))
     fs.writeFileSync(path.join(attachments, 'large.png'), Buffer.alloc(40, 2))
-    const backup = createBackupAtPath(
+    const backup = writeLibraryBackup(
       {
+        getLibraryPath: () => root,
         getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
         exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => ['large.png'],
       },
-      root,
       Date.UTC(2026, 6, 13, 9, 0, 0),
     )!
 
@@ -630,13 +637,13 @@ export function testBackupRestoreProtectsDatabaseManifestAndOriginalAttachments(
     fs.writeFileSync(path.join(root, 'manifest.json'), '{"libraryId":"original"}', 'utf8')
     fs.writeFileSync(path.join(attachments, 'chart.png'), Buffer.from([0, 1, 2, 3, 255]))
 
-    const backup = createBackupAtPath(
+    const backup = writeLibraryBackup(
       {
+        getLibraryPath: () => root,
         getCounts: () => ({ tradeCount: 1, strategyCount: 2, assetCount: 1 }),
         exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
         listCommittedAttachmentFileNames: () => ['chart.png'],
       },
-      root,
       Date.UTC(2026, 6, 13, 8, 30, 0),
     )
     assert(Boolean(backup), '应成功创建恢复点')
@@ -746,15 +753,16 @@ export function testBackupKeepsHistoricalBytesWhenAnAttachmentNameIsReused(): vo
     fs.writeFileSync(path.join(root, 'journal.db'), 'v1')
     fs.writeFileSync(path.join(attachments, 'shared.png'), Buffer.from('first-image'))
     const counts = {
+      getLibraryPath: () => root,
       getCounts: () => ({ tradeCount: 1, strategyCount: 1, assetCount: 1 }),
       exportSnapshotDatabaseBytes: () => fs.readFileSync(path.join(root, 'journal.db')),
       listCommittedAttachmentFileNames: () => ['shared.png'],
     }
-    const first = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 8, 0, 0))!
+    const first = writeLibraryBackup(counts, Date.UTC(2026, 6, 13, 8, 0, 0))!
 
     fs.writeFileSync(path.join(root, 'journal.db'), 'v2')
     fs.writeFileSync(path.join(attachments, 'shared.png'), Buffer.from('second-img!'))
-    const second = createBackupAtPath(counts, root, Date.UTC(2026, 6, 13, 9, 0, 0))!
+    const second = writeLibraryBackup(counts, Date.UTC(2026, 6, 13, 9, 0, 0))!
 
     assert(restoreBackupAtPath(root, path.basename(first)), '应能恢复较早恢复点')
     assert(

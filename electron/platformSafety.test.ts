@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { decodeCanonicalSnapshot } from '../src/storage/snapshotCodec'
 import {
-  createBackupAtPath,
+  writeLibraryBackup,
   verifyBackupAtPath,
 } from './library/backup'
 import { resolveLibraryLocation } from './library/libraryLocation'
@@ -55,7 +55,7 @@ export async function testPlatformBackupVerificationFailureKeepsStorageAndRestor
   const storage = new LibraryStorage(root)
   await storage.open()
   storage.saveSnapshot(decodeCanonicalSnapshot({}, { version: 1 }))
-  const previous = createBackupAtPath(storage, root, Date.UTC(2026, 6, 23, 0, 0, 0))
+  const previous = writeLibraryBackup(storage, Date.UTC(2026, 6, 23, 0, 0, 0))
   assert(previous, '必须先建立一个可验证恢复点')
   assert((await verifyBackupAtPath(root, path.basename(previous))).status === 'verified', '前一恢复点必须可恢复')
 
@@ -66,7 +66,7 @@ export async function testPlatformBackupVerificationFailureKeepsStorageAndRestor
     createRequestId: () => 'platform-backup-failure',
     requestRendererFlush: async () => {},
     createVerifiedBackup: async () => {
-      const candidate = createBackupAtPath(storage, root, Date.UTC(2026, 6, 23, 0, 1, 0))
+      const candidate = writeLibraryBackup(storage, Date.UTC(2026, 6, 23, 0, 1, 0))
       assert(candidate, '候选恢复点必须真实写入磁盘')
       fs.appendFileSync(candidate, Buffer.from('tampered-after-write'))
       const verification = await verifyBackupAtPath(root, path.basename(candidate))

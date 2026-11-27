@@ -6,7 +6,7 @@ import initSqlJs from 'sql.js'
 import JSZip from 'jszip'
 import { createFullPersistedSnapshotFixture } from '../../src/storage/fixtures/fullPersistedSnapshot'
 import { stripRetiredSnapshotDomains } from '../../src/storage/retiredSnapshotDomains'
-import { createBackupAtPath, restoreBackupAtPath, verifyBackupAtPath } from './backup'
+import { writeLibraryBackup, restoreBackupAtPath, verifyBackupAtPath } from './backup'
 import { exportJournalZip, importJournalZipToPath, installPreparedLibraryAtPath } from './journalZip'
 import { retiredSnapshotDatabaseBytes } from './retiredSnapshotDatabase'
 import { LibraryStorage } from './storage'
@@ -95,17 +95,18 @@ export async function testNewBackupAndHistoricalRestoreRetireStateWithoutEditing
     const exported = storage.exportSnapshotDatabaseBytes()
     assert(fs.readFileSync(storage.getPaths().dbFile).equals(original) && storage.getSnapshotRevision() === 17, '只读候选不得写源库或推进revision')
     assert(!('judgmentDesk' in (await inspect(exported)).snapshot), '只读导出候选必须剥离退役状态')
-    const backup = createBackupAtPath(storage, root, Date.UTC(2026, 10, 12, 12))!
+    const backup = writeLibraryBackup(storage, Date.UTC(2026, 10, 12, 12))!
     const backupBytes = fs.readFileSync(backup)
     const meta = JSON.parse(fs.readFileSync(backup + '.meta.json', 'utf8'))
     assert(!('reviewComposer' in (await inspect(backupBytes)).snapshot), '后台新备份不依赖renderer另存即可清理退役状态')
     assert(meta.databaseSha256 === checksum(backupBytes) && meta.librarySizeBytes === backupBytes.byteLength, '新备份hash和大小必须来自清理后的目标字节')
     assert((await verifyBackupAtPath(root, path.basename(backup))).status === 'verified', '清理后的新备份必须通过原有完整验证')
     assert(fs.readFileSync(storage.getPaths().dbFile).equals(original), '备份创建与验证不得改来源DB')
-    const historical = createBackupAtPath({
+    const historical = writeLibraryBackup({
+      getLibraryPath: () => root,
       getCounts: () => storage!.getCounts(), listCommittedAttachmentFileNames: () => storage!.listCommittedAttachmentFileNames(),
       exportSnapshotDatabaseBytes: () => original,
-    }, root, Date.UTC(2026, 10, 12, 11))!
+    }, Date.UTC(2026, 10, 12, 11))!
     const historicalMeta = fs.readFileSync(historical + '.meta.json')
     const cleaner = storage.createSnapshotDatabaseCleaner()
     storage.release()

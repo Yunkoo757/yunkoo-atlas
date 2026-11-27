@@ -185,6 +185,10 @@ async function main() {
     const violation = firstForbiddenPath(graph, entry, forbiddenPureTargets)
     if (violation) failures.push(`独立工具依赖 Atlas 会话或主进程：${violation.join(' → ')}`)
   }
+  for (const file of ['electron/library/storage.ts', 'electron/library/backup.ts', 'electron/library/paths.ts']) {
+    const violation = firstForbiddenPath(graph, file, ['electron/library/libraryLocation', 'electron/library/ipc'])
+    if (violation) failures.push(`底层资料库操作必须由调用方指定目标：${violation.join(' → ')}`)
+  }
   for (const file of pureModules) {
     const violation = firstForbiddenPath(graph, file, forbiddenPureTargets)
     if (violation) failures.push(`纯模块经依赖链访问运行环境：${violation.join(' → ')}`)
