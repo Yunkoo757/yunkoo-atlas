@@ -159,10 +159,16 @@ try {
   await page.locator('.review-session-workspace').waitFor()
   assert(await page.locator('.review-session-card-ref').innerText() === firstRef && await page.locator('.review-session-progress').innerText() === progressBefore, 'Review exit/reentry lost progress')
   const reviewedRefs = []
+  const cardRef = page.locator('.review-session-card-ref')
+  await page.mouse.move(16, 16)
+  await page.getByText('TRD-1 已平仓，已加入待复盘', { exact: true }).waitFor({ state: 'hidden' })
   for (let index = 0; index < 2; index++) {
-    reviewedRefs.push(await page.locator('.review-session-card-ref').innerText())
-    if (await page.locator('.review-session-assessment-actions .is-mastered').count()) await page.locator('.review-session-assessment-actions .is-mastered').click()
+    const ref = (await cardRef.innerText()).trim()
+    assert(ref === 'CAS-1' || ref === 'TRD-1', 'Unexpected record in isolated review pool')
+    reviewedRefs.push(ref)
+    if (ref === 'CAS-1') await page.locator('.review-session-assessment-actions .is-mastered').click()
     else await page.getByRole('button', { name: /^下一条/ }).click()
+    await cardRef.filter({ hasText: ref }).waitFor({ state: 'hidden' })
   }
   await page.locator('[data-review-session-finished-focus]').waitFor()
   assert(reviewedRefs.includes('TRD-1') && reviewedRefs.includes('CAS-1'), 'Normal review skipped an intended record')
