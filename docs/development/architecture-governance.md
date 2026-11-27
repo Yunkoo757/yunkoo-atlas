@@ -58,3 +58,4 @@ flowchart LR
 - 归档 CRC-32 已迁移。Web 写包、Web 分块读取与 Electron 流式解包原有三种实现。现在都以 `crc32(bytes, previous)` 更新同一标准校验值；各自独立检查大小、路径、超时与原子提交。标准向量、每个切分点、空块及两个归档实现的定向测试共 97 项通过。
 - 文件完整性检查已迁移。备份、ZIP、IPC、预备归档及 schema 恢复统一调用 `electron/library/fileChecksum.ts`，分块计算 SHA-256。普通文件的读写打开与 fsync 由 `atomicFile` 负责。目录刷新、写入中持有的描述符及 schema 迁移的普通文件校验继续由原调用点负责。迁移前后相同 107 项回归通过，新增空文件、短文件和跨 1 MiB 两次边界的独立对照测试通过。
 - 依赖门已接入现有 CI。执行 `pnpm check:governance` 会从 TypeScript 编译输出与项目路径解析配置生成 `test-results/desktop-dependencies.json`，按文件列出同步和延迟依赖。当前 391 个模块有 1,920 条同步边和 42 条延迟边，检查通过。同步循环会报告闭合路径，受保护的纯模块即使通过中间层或延迟加载访问 store、组件或平台实现也会失败。反例与既有治理测试共 7 项通过。该图覆盖本地可静态解析的桌面 JS/TS 模块，IPC、回调和动态计算的路径见运行地图与行为测试。
+- macOS 实机验收。修复了全流程脚本中同名“新建随记”按钮及已折叠“随记操作”的定位。用新临时 userData 和两个空白临时库实点 7 组流程，包含带原图录入、平仓、随记转案例、复盘、归档导出恢复及重启后回读，比较原图字节和完整快照，页面错误为零。可操作窗口留在恢复后的随记页。报告位于该 worktree 的 `test-results/module-retirement-full-flow-20261112/desktop.json`。本轮未在 Windows 原生运行。

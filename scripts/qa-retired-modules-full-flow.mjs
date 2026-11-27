@@ -126,11 +126,12 @@ try {
 
   phase = 'note-to-case'
   await page.locator('.sidebar').getByRole('link', { name: '随记', exact: true }).click()
-  await page.getByRole('button', { name: '新建随记', exact: true }).click()
+  await page.locator('.sidebar').getByRole('button', { name: '新建随记', exact: true }).click()
   await page.getByLabel('随记标题', { exact: true }).fill('隔离观察：自上而下')
   const noteEditor = page.locator('[contenteditable=true][aria-label="随记正文"]')
   await noteEditor.fill('HTF：先确认方向。MTF：等待结构。LTF：只记录执行条件。')
   await page.getByRole('button', { name: '置顶随记', exact: true }).click()
+  await page.locator('.quick-notes-actions-disclosure summary').click()
   await noteEditor.press('End'); await noteEditor.pressSequentially('最后补充：保留本段并转为案例。', { delay: 0 })
   // Convert immediately, before the 500 ms note debounce. No store/editor command injection.
   await page.getByRole('button', { name: '转为案例', exact: true }).click()
