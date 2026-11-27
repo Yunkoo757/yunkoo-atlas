@@ -109,7 +109,7 @@ async function main() {
     'src/lib/importMerge.ts', 'src/storage/snapshotCodec.ts', 'src/storage/persistenceController.ts',
     'src/shortcuts/bindingRules.ts', 'src/lib/tradeUndo.ts', 'src/lib/tradeKind.ts',
     'src/lib/periods.ts', 'src/lib/analysisScope.ts',
-    'src/lib/riskFingerprint.ts', 'src/lib/base64.ts', 'src/lib/crc32.ts',
+    'src/lib/riskFingerprint.ts', 'src/lib/base64.ts', 'src/lib/crc32.ts', 'src/lib/operationLog.ts',
   ]
   const forbiddenPureTargets = ['src/store', 'src/components', 'src/storage/provider', 'src/storage/index', 'src/storage/bootstrap', 'electron']
   for (const file of pureModules) {

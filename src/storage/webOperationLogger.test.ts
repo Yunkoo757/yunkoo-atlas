@@ -43,3 +43,23 @@ export function testWebOperationFailureContainsNoPayloadOrSuccessMisreport(): vo
   assert(failure.code === 'archive-invalid', '失败必须保留稳定错误 code')
   assert(failure.revisionAfter === failure.revisionBefore, '失败不得报告新 revision')
 }
+
+export function testWebOperationRingRetainsOnlyRecentMetadataAndCopiesRecords(): void {
+  clearWebOperationLogsForTests()
+  for (let index = 0; index <= 100; index++) {
+    const operation = beginWebOperation('gc', {
+      operationId: String(index),
+      stage: 'prepare',
+      platform: 'electron-renderer',
+    })
+    operation.failure({ code: '/private/secret' }, { stage: 'verify' })
+  }
+  const records = getWebOperationLogs()
+  assert(records.length === 200 && records[0].operationId === '1', '环应只保留最新的 200 条事件')
+  const end = records[199]
+  assert(end.platform === 'electron-renderer' && end.code === 'operation-failed', '渲染进程来源及错误脱敏应保留')
+  assert(end.actionId === '100' && end.requestId === '100', '未显式指定的关联 ID 应取操作 ID')
+  end.stage = 'changed-copy'
+  assert(getWebOperationLogs()[199].stage === 'verify', '调用方修改副本不得改变环内记录')
+  clearWebOperationLogsForTests()
+}
