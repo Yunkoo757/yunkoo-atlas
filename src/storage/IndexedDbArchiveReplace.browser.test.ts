@@ -1,3 +1,4 @@
+import { initializeWebWriterOwnership, resetWebWriteGuardForTests } from '@/storage/webWriteGuard'
 import type { Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { IndexedDbStorageAdapter } from '@/storage/indexedDbAdapter'
@@ -255,6 +256,27 @@ async function run(): Promise<void> {
     contractRevisionAfterFailure === contractRevisionBeforeFailure,
     'PATH-B 失败后快照、全部附件与可观察 revision 指纹必须零变化',
   )
+
+  const revisionBeforeBroadcastFailure = await adapter.getSnapshotRevision()
+  let attempted = false
+  await initializeWebWriterOwnership((await adapter.getManifest()).libraryId, {
+    lockManager: null,
+    broadcastFactory: () => ({
+      onmessage: null,
+      close() {},
+      postMessage() { attempted = true; throw new Error('channel closed') },
+    }),
+  })
+  try {
+    await adapter.replaceArchive(contractSnapshot, contractAssets)
+    assert(attempted, '用例必须实际触发提交后的通知异常')
+    assert(await adapter.getSnapshotRevision() === revisionBeforeBroadcastFailure + 1, '广播失败时仍须返回已经提交的版本')
+    assert(canonicalContractJson((await adapter.loadSnapshot())?.trades) === canonicalContractJson(contractSnapshot.trades), '通知失败不得影响已提交快照')
+    await adapter.saveSnapshot(contractSnapshot)
+    assert(await adapter.getSnapshotRevision() === revisionBeforeBroadcastFailure + 2, '前一次广播失败不得卡住后续写入队列')
+  } finally {
+    resetWebWriteGuardForTests()
+  }
 }
 
 window.__indexedDbArchiveReplaceTest = run()

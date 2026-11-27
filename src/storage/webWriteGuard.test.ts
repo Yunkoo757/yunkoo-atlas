@@ -137,3 +137,19 @@ export async function testReleasedLockCannotBecomeEditableWhenConflictIsCleared(
     'conflict 期间释放真实锁后，加载最新版也不得在未重新持锁时恢复编辑',
   )
 }
+
+export async function testUnavailableBroadcastStillHonorsDeniedWriterLock(): Promise<void> {
+  resetWebWriteGuardForTests()
+  try {
+    await initializeWebWriterOwnership('isolated', {
+      lockManager: { request: async (_name, _options, callback) => callback(null) },
+      broadcastFactory: () => { throw new Error('channel unavailable') },
+    })
+    assert(getWebWriteGuardState().phase === 'readonly', '广播不可用时仍必须遵守其他窗口的写锁')
+    let frozen = false
+    try { assertWebWriteAllowed() } catch (error) { frozen = error instanceof WebStorageWriteFrozenError }
+    assert(frozen, '广播错误不能开放写入权限')
+  } finally {
+    resetWebWriteGuardForTests()
+  }
+}

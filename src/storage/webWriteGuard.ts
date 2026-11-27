@@ -71,20 +71,24 @@ function defaultBroadcastFactory(name: string): BroadcastChannelLike {
   return new BroadcastChannel(name)
 }
 
-function postOwnership(status: 'editable' | 'released'): void {
-  if (state.phase === 'inactive') return
-  channel?.postMessage({ type: 'ownership', libraryId: state.libraryId, tabId, status })
+function broadcast(message: { type: 'revision'; revision: number } | { type: 'ownership'; status: 'editable' | 'released' }): void {
+  if (!channel || state.phase === 'inactive') return
+  try {
+    channel.postMessage({ ...message, libraryId: state.libraryId, tabId })
+  } catch {
+    // 广播只提示其他窗口刷新。事务已经提交，写入权限仍由锁与版本比较决定。
+  }
 }
 
 function holdGrantedLock(libraryId: string): Promise<void> {
   hasHeldWriterLock = true
   setState({ phase: 'editable', lockSupported: true, libraryId })
-  postOwnership('editable')
+  broadcast({ type: 'ownership', status: 'editable' })
   return new Promise((resolve) => {
     releaseHeldLock = () => {
       releaseHeldLock = null
       hasHeldWriterLock = false
-      postOwnership('released')
+      broadcast({ type: 'ownership', status: 'released' })
       resolve()
     }
   })
@@ -95,7 +99,11 @@ function configureBroadcast(
   factory: ((name: string) => BroadcastChannelLike) | null,
 ): void {
   channel?.close()
-  channel = factory?.(webChannelName(libraryId, 'events')) ?? null
+  try {
+    channel = factory?.(webChannelName(libraryId, 'events')) ?? null
+  } catch {
+    channel = null
+  }
   if (!channel) return
   channel.onmessage = (event) => {
     const message = event.data
@@ -239,8 +247,7 @@ export function assertWebWriteAllowed(): void {
 }
 
 export function notifyWebRevisionCommitted(revision: number): void {
-  if (state.phase === 'inactive') return
-  channel?.postMessage({ type: 'revision', libraryId: state.libraryId, tabId, revision })
+  broadcast({ type: 'revision', revision })
 }
 
 export function getWebWriteGuardState(): WebWriteGuardState {
