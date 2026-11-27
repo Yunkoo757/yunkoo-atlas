@@ -59,7 +59,7 @@
     "benchmark:web-zip": "node scripts/benchmark-web-zip.mjs",
     "benchmark:web-zip:release": "node scripts/benchmark-web-zip.mjs --release",
     "spike:generation": "node scripts/spikes/electron-generation/run-generation-spike.mjs",
-    "verify:release-trains": "node scripts/verify-release-train-evidence.mjs --require-complete",
+    "verify:release-trains": "node --experimental-strip-types scripts/verify-release-train-evidence.mjs --require-complete",
     "verify:release-train-drills": "node scripts/run-release-train-drills.mjs --require-complete",
     "verify:generation-decision": "node scripts/verify-generation-decision.mjs --require-complete",
     "measure:json-compatibility": "node --experimental-strip-types scripts/measure-json-import-compatibility.mjs",

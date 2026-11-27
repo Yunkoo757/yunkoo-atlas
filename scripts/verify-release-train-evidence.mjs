@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import fsSync from 'node:fs'
 import path from 'node:path'
 
+import { SCHEMA_VERSION } from '../src/storage/types.ts'
 import { readGitProvenance } from './git-provenance.mjs'
 import {
   APPROVED_BLOB_BRIDGE,
@@ -144,12 +145,12 @@ const drills = check(
 const forcedWindows = check(
   'forced-kill-windows',
   findReports(reports, (_value, name) => /^forced-kill-windows-.*\.json$/i.test(name)),
-  (value) => forcedKillPassed(value, 'win32', 'NTFS'),
+  (value) => forcedKillPassed(value, 'win32', 'NTFS', SCHEMA_VERSION),
 )
 const forcedMac = check(
   'forced-kill-macos',
   findReports(reports, (_value, name) => /^forced-kill-macos-.*\.json$/i.test(name)),
-  (value) => forcedKillPassed(value, 'darwin', 'APFS'),
+  (value) => forcedKillPassed(value, 'darwin', 'APFS', SCHEMA_VERSION),
 )
 const electronSafetyWindows = check(
   'electron-safety-windows',

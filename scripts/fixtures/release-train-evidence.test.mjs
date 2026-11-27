@@ -38,8 +38,8 @@ test('旧发布证据聚合器保持可独立复验，但不再耦合 tag 发布
   assert.match(source, /invalid JSON:/)
   assert.match(source, /name === 'release-train-drills\.json'/)
   assert.match(validation, /\['stop', 'rollback', 'userRecovery'\]/)
-  assert.match(source, /forcedKillPassed\(value, 'win32', 'NTFS'\)/)
-  assert.match(source, /forcedKillPassed\(value, 'darwin', 'APFS'\)/)
+  assert.match(source, /forcedKillPassed\(value, 'win32', 'NTFS', SCHEMA_VERSION\)/)
+  assert.match(source, /forcedKillPassed\(value, 'darwin', 'APFS', SCHEMA_VERSION\)/)
   assert.match(source, /assetLifecyclePassed\(value, 'win32', 'NTFS'\)/)
   assert.match(source, /assetLifecyclePassed\(value, 'darwin', 'APFS'\)/)
   assert.match(source, /electronSafetyPassed\(value, 'win32', 'NTFS'\)/)
@@ -379,15 +379,24 @@ test('损坏、重复或不完整的演练与平台报告必须 fail-closed', ()
       { boundary: 'after-manifest-replace', recoveredSchemaVersion: 12, status: 'pass' },
     ],
   }
-  assert.equal(forcedKillPassed(forced, 'win32', 'NTFS'), true)
-  assert.equal(forcedKillPassed({ ...forced, fileSystem: 'exFAT' }, 'win32', 'NTFS'), false)
-  assert.equal(forcedKillPassed({ ...forced, process: { ...forced.process, killSignalSent: false } }, 'win32', 'NTFS'), false)
-  assert.equal(forcedKillPassed({ ...forced, process: { ...forced.process, signal: null } }, 'win32', 'NTFS'), false)
-  assert.equal(forcedKillPassed({ ...forced, schemaVersion: 11 }, 'win32', 'NTFS'), false)
-  assert.equal(forcedKillPassed({ ...forced, sourceIdentity: '' }, 'win32', 'NTFS'), false)
-  assert.equal(forcedKillPassed({ ...forced, recovery: { ...forced.recovery, liveArchiveScopeRecovered: false } }, 'win32', 'NTFS'), false)
-  assert.equal(forcedKillPassed({ ...forced, recovery: { ...forced.recovery, snapshotRevisionRecovered: false } }, 'win32', 'NTFS'), false)
-  assert.equal(forcedKillPassed({ ...forced, schemaMigration: forced.schemaMigration.slice(1) }, 'win32', 'NTFS'), false)
+  assert.equal(forcedKillPassed(forced, 'win32', 'NTFS', 12), true)
+  const newerVersion = forced.schemaVersion + 1
+  const migrated = {
+    ...forced,
+    schemaVersion: newerVersion,
+    schemaMigration: forced.schemaMigration.map(item => ({ ...item, recoveredSchemaVersion: newerVersion })),
+  }
+  assert.equal(forcedKillPassed(migrated, 'win32', 'NTFS', newerVersion), true)
+  assert.equal(forcedKillPassed(forced, 'win32', 'NTFS', newerVersion), false)
+  assert.equal(forcedKillPassed({ ...migrated, schemaMigration: forced.schemaMigration }, 'win32', 'NTFS', newerVersion), false)
+  assert.equal(forcedKillPassed({ ...forced, fileSystem: 'exFAT' }, 'win32', 'NTFS', 12), false)
+  assert.equal(forcedKillPassed({ ...forced, process: { ...forced.process, killSignalSent: false } }, 'win32', 'NTFS', 12), false)
+  assert.equal(forcedKillPassed({ ...forced, process: { ...forced.process, signal: null } }, 'win32', 'NTFS', 12), false)
+  assert.equal(forcedKillPassed({ ...forced, schemaVersion: 11 }, 'win32', 'NTFS', 12), false)
+  assert.equal(forcedKillPassed({ ...forced, sourceIdentity: '' }, 'win32', 'NTFS', 12), false)
+  assert.equal(forcedKillPassed({ ...forced, recovery: { ...forced.recovery, liveArchiveScopeRecovered: false } }, 'win32', 'NTFS', 12), false)
+  assert.equal(forcedKillPassed({ ...forced, recovery: { ...forced.recovery, snapshotRevisionRecovered: false } }, 'win32', 'NTFS', 12), false)
+  assert.equal(forcedKillPassed({ ...forced, schemaMigration: forced.schemaMigration.slice(1) }, 'win32', 'NTFS', 12), false)
 
   const asset = {
     status: 'pass', exitCode: 0, platform: 'darwin', fileSystem: 'APFS',

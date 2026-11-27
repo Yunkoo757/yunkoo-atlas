@@ -149,7 +149,7 @@ export function releaseTrainDrillsPassed(value) {
     ))
 }
 
-export function forcedKillPassed(value, platform, fileSystem) {
+export function forcedKillPassed(value, platform, fileSystem, expectedSchemaVersion) {
   const expectedMigrationBoundaries = [
     'before-database-replace',
     'after-database-replace',
@@ -165,7 +165,7 @@ export function forcedKillPassed(value, platform, fileSystem) {
 
   return value?.status === 'pass' &&
     value.scenarioId === 'E-FORCED-KILL' &&
-    value.schemaVersion === 12 &&
+    Number.isSafeInteger(expectedSchemaVersion) && value.schemaVersion === expectedSchemaVersion &&
     value.platform === platform && value.fileSystem === fileSystem &&
     typeof value.gitCommit === 'string' && value.gitCommit.length > 0 &&
     typeof value.gitTree === 'string' && value.gitTree.length > 0 &&
@@ -190,7 +190,7 @@ export function forcedKillPassed(value, platform, fileSystem) {
     value.recovery.snapshotRevision === value.recovery.expectedSnapshotRevision &&
     value.recovery.snapshotRevisionRecovered === true &&
     JSON.stringify(migrationBoundaries) === JSON.stringify(expectedMigrationBoundaries) &&
-    value.schemaMigration.every((item) => item?.status === 'pass' && item?.recoveredSchemaVersion === 12)
+    value.schemaMigration.every((item) => item?.status === 'pass' && item?.recoveredSchemaVersion === expectedSchemaVersion)
 }
 
 export function jsonCompatibilityPassed(value) {
