@@ -132,7 +132,7 @@ export async function testPreparedNativeCommitCopyFailureRollsBackOriginalsAndFr
         await resumed.open()
         return resumed
       },
-      adoptWriter: storage => { writerLifecycle = storage.getLifecycleId() },
+      resumeRolledBackWriter: storage => { writerLifecycle = storage.getLifecycleId() },
       invalidatePreview: staged.dispose,
     })
     const active = resumed!

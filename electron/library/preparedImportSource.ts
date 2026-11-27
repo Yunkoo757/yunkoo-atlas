@@ -43,7 +43,7 @@ export async function recoverPreparedImportCommitFailure<TStorage extends Storag
   replacementCommitted: boolean
   currentStorage: () => TStorage | null
   reopen: () => Promise<TStorage>
-  adoptWriter: (storage: TStorage) => void
+  resumeRolledBackWriter: (storage: TStorage) => void
   invalidatePreview: () => void
   reportFailure?: (error: unknown) => void
 }): Promise<{ ok: false; committed: boolean; code: 'TOKEN_EXPIRED'; error: string }> {
@@ -54,7 +54,7 @@ export async function recoverPreparedImportCommitFailure<TStorage extends Storag
   reportFailure(input.error)
   try {
     recovered = input.currentStorage() ?? await input.reopen()
-    input.adoptWriter(recovered)
+    if (!input.replacementCommitted) input.resumeRolledBackWriter(recovered)
   } catch (error) {
     recovered = null
     reportFailure(error)

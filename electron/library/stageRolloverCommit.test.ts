@@ -412,7 +412,7 @@ export function testTypedBridgeCarriesIntentWithoutSnapshotOrClock(): void {
   assert(
     preload.includes("commitStageRollover: async (input) =>") &&
       preload.includes("ipcRenderer.invoke('stage:commitRollover', {") &&
-      preload.includes('writerToken: requireStorageWriterToken()'),
+      preload.includes('writerToken: session.token'),
     'preload must expose the typed stage commit invoke with its private writer token',
   )
   assert(input.includes('expectedRollover: ScheduledStageRollover'), 'intent must carry the full expected schedule')

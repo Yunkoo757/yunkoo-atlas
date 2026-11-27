@@ -17,9 +17,9 @@ export async function createVerifiedRestorePoint(current: LibraryStorage): Promi
 }
 
 interface BackupRestoreSession {
-  withExclusiveWriter<T>(work: (current: LibraryStorage) => Promise<T>): Promise<T>
+  withExclusiveWriter(work: (current: LibraryStorage) => Promise<RestoreReceipt>): Promise<RestoreReceipt>
   close(current: LibraryStorage): void
-  reopenForWriter(): Promise<LibraryStorage>
+  reopen(): Promise<LibraryStorage>
   notifyRecoveryRequired(state: StorageRecoveryRequiredState): void
 }
 
@@ -44,7 +44,7 @@ export async function restoreLibraryBackup(fileName: string, session: BackupRest
       let reopened: LibraryStorage | undefined
       try {
         const installed = restoreBackupAtPath(libraryPath, fileName, clean)
-        reopened = await session.reopenForWriter()
+        reopened = await session.reopen()
         diskMayHaveChanged = installed
         rotateBackups(getLibraryPaths(libraryPath).backups)
         if (!installed) return { ok: false, committed: false, error: '恢复操作未提交' }
@@ -57,8 +57,8 @@ export async function restoreLibraryBackup(fileName: string, session: BackupRest
         return { ok: true, committed: true, snapshot: envelope.snapshot, revision: envelope.revision }
       } finally {
         if (!reopened) {
-          // 持锁恢复本请求关闭的实例，重建自动备份并接管原窗口的写入会话。
-          try { await session.reopenForWriter() }
+          // 持锁重开并重建自动备份；写入资格由已确认的恢复结果决定。
+          try { await session.reopen() }
           catch (error) { safeConsoleError('backup-reopen-after-restore-failed', error) }
         }
       }

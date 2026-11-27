@@ -27,7 +27,7 @@ async function isolatedSession() {
       active = null
       events.push('close')
     },
-    async reopenForWriter() {
+    async reopen() {
       assert.ok(gate.isExclusive(), '重开与接管写入路由都必须在原请求持锁期间完成')
       assert.equal(active, null)
       const next = new LibraryStorage(root, { allowCreate: false })
@@ -60,8 +60,8 @@ export async function testBusyBackupRestoreCannotAdoptAnotherRequestsWriterOrCla
     const selected = writeLibraryBackup(f.first)
     assert.ok(selected)
     f.first.saveSnapshot({ ...saved, tagPresets: ['before restore'] })
-    const reopen = f.session.reopenForWriter
-    f.session.reopenForWriter = async () => {
+    const reopen = f.session.reopen
+    f.session.reopen = async () => {
       const other = await restoreLibraryBackup(selected, f.session)
       assert.equal(other.ok, false)
       assert.equal(other.committed, false)
@@ -105,9 +105,9 @@ export async function testBackupRestoreReopensUnderTheSameGateAfterCutoverFailur
     f.first.saveSnapshot(createEmptyPersistedSnapshot())
     const selected = writeLibraryBackup(f.first)
     assert.ok(selected)
-    const reopen = f.session.reopenForWriter
+    const reopen = f.session.reopen
     let attempts = 0
-    f.session.reopenForWriter = async () => {
+    f.session.reopen = async () => {
       assert.equal(f.gate.isExclusive(), true)
       if (++attempts === 1) throw new Error('readback interrupted')
       return reopen()
@@ -127,8 +127,8 @@ export async function testRestoringAnEmptyBackupBroadcastsIndeterminateSnapshotW
     const empty = writeLibraryBackup(f.first, Date.now(), { emptyLibrary: true })
     assert.ok(empty)
     f.first.saveSnapshot(createEmptyPersistedSnapshot())
-    const reopen = f.session.reopenForWriter
-    f.session.reopenForWriter = async () => {
+    const reopen = f.session.reopen
+    f.session.reopen = async () => {
       const next = await reopen()
       next.saveSnapshot = () => { throw new SnapshotSaveError('indeterminate', new Error('disk state unknown')) }
       return next

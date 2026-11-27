@@ -35,7 +35,7 @@ export async function testFailedPreparedCommitLocksWritesIfReopenOrWriterAdoptio
       error: technicalError, replacementCommitted: false,
       currentStorage: () => null,
       reopen: async () => { if (failure === 'reopen') throw new Error('cannot reopen'); return active },
-      adoptWriter: () => { if (failure === 'adopt') throw new Error('cannot adopt writer') },
+      resumeRolledBackWriter: () => { if (failure === 'adopt') throw new Error('cannot adopt writer') },
       invalidatePreview: () => { invalidations += 1 },
       reportFailure: error => { reported.push(error) },
     })
@@ -58,10 +58,10 @@ export async function testCommittedPreparedFailureStaysLockedEvenAfterSuccessful
     error: new Error('post-commit read failed'), replacementCommitted: true,
     currentStorage: () => current,
     reopen: async () => { throw new Error('existing reopened lifecycle should be reused') },
-    adoptWriter: storage => { adopted = storage },
+    resumeRolledBackWriter: storage => { adopted = storage },
     invalidatePreview: () => { invalidated = true },
   })
-  assert.equal(adopted, current)
+  assert.equal(adopted, undefined)
   assert.equal(invalidated, true)
   assert.equal(result.committed, true, '磁盘已经替换时不能让renderer按原库自动保存')
   assert.equal(result.code, 'TOKEN_EXPIRED')

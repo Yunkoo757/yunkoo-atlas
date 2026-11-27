@@ -363,8 +363,8 @@ export async function testElectronAssetGcIpcUsesTheExclusiveLibraryGate(): Promi
     '永久清理授权必须绑定已验证恢复归档的路径与字节，提交时重新核对',
   )
   assert(
-    handler.includes('assertWriterSession(event, payload.writerToken, lib)') &&
-      handler.indexOf('assertWriterSession') < handler.indexOf('lib.commitAssetPurge') &&
+    handler.includes('writers.assert(event, payload.writerToken, lib)') &&
+      handler.indexOf('writers.assert') < handler.indexOf('lib.commitAssetPurge') &&
       !handler.includes('createBackup(lib)') &&
       !handler.includes('verifyBackupAtPath'),
     '直接清理必须校验当前写入者，且不再额外强制创建备份',

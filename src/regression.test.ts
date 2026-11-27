@@ -222,7 +222,7 @@ export async function testElectronJournalImportRequiresExplicitReplacementConfir
   assert(prepareIndex >= 0 && commitIndex > prepareIndex, '桌面整库导入必须先隔离检查，再开放独立提交入口')
   const commitSource = ipcSource.slice(commitIndex, ipcSource.indexOf("ipcMain.handle('backup", commitIndex))
   assert(
-    commitSource.includes('assertWriterSession(event, payload?.writerToken, activeStorage)'),
+    commitSource.includes('writers.assert(event, payload?.writerToken, activeStorage)'),
     '整库恢复提交必须绑定当前窗口与当前资料库生命周期，阻止旧窗口或过期操作覆盖资料库',
   )
   assert(
