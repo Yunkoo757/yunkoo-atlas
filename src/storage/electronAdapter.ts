@@ -1,3 +1,4 @@
+import { bytesToBase64 } from '@/lib/base64'
 import { AssetObjectUrlCache } from './assetObjectUrls'
 import type {
   AssetPurgePreview,
@@ -55,10 +56,7 @@ export class ElectronStorageAdapter implements StorageAdapter {
   async getAssetForExport(id: string): Promise<ExportAssetRecord | null> {
     const record = await getJournalBridge()!.getAssetBytes(id)
     if (!record) return null
-    let binary = ''
-    const bytes = record.bytes
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-    return { id: record.id, mime: record.mime, data: btoa(binary) }
+    return { id: record.id, mime: record.mime, data: bytesToBase64(record.bytes) }
   }
 
   async getAssetStats(ids: string[]): Promise<AssetStorageStats> {

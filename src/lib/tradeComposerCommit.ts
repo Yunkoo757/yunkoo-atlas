@@ -1,3 +1,4 @@
+import { bytesToBase64 } from '@/lib/base64'
 import { DurableStorePublishError, durablePublishFailure, publishDurablyCommitted } from '@/lib/committedPublish'
 import type { Trade } from '@/data/trades'
 import { isSafeAssetId } from '@/storage/assetId'
@@ -54,15 +55,6 @@ export class TradeComposerConcurrentEditError extends Error {
     super('交易在截图提交期间已被修改或删除，本次截图未写入，请基于最新内容重试')
     this.name = 'TradeComposerConcurrentEditError'
   }
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  const chunks: string[] = []
-  const chunkSize = 0x8000
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + chunkSize)))
-  }
-  return btoa(chunks.join(''))
 }
 
 export async function prepareComposerAssetsForCommit(

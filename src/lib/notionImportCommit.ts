@@ -1,3 +1,4 @@
+import { bytesToBase64 } from '@/lib/base64'
 import { DurableStorePublishError, durablePublishFailure, publishDurablyCommitted } from '@/lib/committedPublish'
 import type { Strategy } from '@/data/strategies'
 import type { Trade, TradeKind } from '@/data/trades'
@@ -57,15 +58,6 @@ interface CommitOptions {
   createAssetId?: () => string
   targetKind?: TradeKind
   now?: Date
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  const chunkSize = 0x8000
-  let binary = ''
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize))
-  }
-  return btoa(binary)
 }
 
 /**

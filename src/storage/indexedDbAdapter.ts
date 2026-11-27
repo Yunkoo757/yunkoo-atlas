@@ -1,3 +1,4 @@
+import { base64ToBytes } from '@/lib/base64'
 import { stripRetiredSnapshotDomains } from './retiredSnapshotDomains'
 import { AssetObjectUrlCache } from './assetObjectUrls'
 import {
@@ -268,9 +269,7 @@ function blobToBase64(blob: Blob): Promise<string> {
 }
 
 function base64ToBlob(base64: string, mime: string): Blob {
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  const bytes = base64ToBytes(base64)
   return new Blob([bytes], { type: mime })
 }
 

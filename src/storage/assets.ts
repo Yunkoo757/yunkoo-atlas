@@ -1,3 +1,4 @@
+import { base64ToBytes } from '@/lib/base64'
 import type { AssetObjectUrlScope } from './assetObjectUrls'
 import type { StorageAdapter } from '@/storage/adapter'
 import { isSafeAssetId } from '@/storage/assetId'
@@ -26,9 +27,7 @@ function dataUrlToBlob(dataUrl: string): { blob: Blob; mime: string } | null {
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
   if (!match) return null
   const mime = match[1]
-  const binary = atob(match[2])
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  const bytes = base64ToBytes(match[2])
   return { blob: new Blob([bytes], { type: mime }), mime }
 }
 

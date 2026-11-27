@@ -1,3 +1,4 @@
+import { base64ToBytes } from '@/lib/base64'
 import type { Trade } from '@/data/trades'
 import { parseAssetId, ASSET_URL_PREFIX } from '@/storage/assets'
 
@@ -260,13 +261,6 @@ export function extractAssetIdsFromNote(html: string): string[] {
     ids.push(id)
   }
   return ids
-}
-
-export function base64ToBytes(base64: string): Uint8Array {
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  return bytes
 }
 
 export async function hashImageFiles(

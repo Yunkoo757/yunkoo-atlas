@@ -1,3 +1,4 @@
+import { bytesToBase64 } from '@/lib/base64'
 import JSZip from 'jszip'
 import { isSafeAssetId } from '@/storage/assetId'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
@@ -656,15 +657,6 @@ function validateNoteAssetReferences(
     if (!declaredIds.has(id)) throw archiveError('invalid-asset', `恢复附件 ${id} 缺少声明或文件`)
   }
   return referencedIds
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  const chunks: string[] = []
-  const chunkSize = 0x8000
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + chunkSize)))
-  }
-  return btoa(chunks.join(''))
 }
 
 function parseVersion(raw: RecordValue): { exportVersion: number; schemaVersion: number | null } {

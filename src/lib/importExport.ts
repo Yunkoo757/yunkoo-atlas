@@ -1,3 +1,4 @@
+import { base64ToBytes } from '@/lib/base64'
 import { collectRetiredSnapshotAssetIds, stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
 import { DEFAULT_STRATEGIES, type Strategy } from '@/data/strategies'
 import {
@@ -618,13 +619,6 @@ export function buildWebJournalArchiveBlob(
 }
 
 // ---- minimal ZIP builder (stored, no compression) ----
-
-function base64ToBytes(b64: string): Uint8Array {
-  const bin = atob(b64)
-  const bytes = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  return bytes
-}
 
 function buildZipBlob(entries: { name: string; data: Uint8Array }[]): Blob {
   const encoder = new TextEncoder()
