@@ -129,6 +129,9 @@ importers:
       postcss:
         specifier: 8.5.18
         version: 8.5.18
+      proper-lockfile:
+        specifier: 4.1.2
+        version: 4.1.2
       puppeteer-core:
         specifier: ^25.1.0
         version: 25.1.0

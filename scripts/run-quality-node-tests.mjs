@@ -1,4 +1,3 @@
-import fs from 'node:fs/promises'
 import path from 'node:path'
 import { run } from 'node:test'
 import { tap } from 'node:test/reporters'
@@ -6,10 +5,10 @@ import { pipeline } from 'node:stream/promises'
 
 import { readGitProvenance } from './git-provenance.mjs'
 import { discoverQualityNodeTests } from './test-discovery.mjs'
-import { executionReportPath, writeExecutionReport } from './quality-execution.mjs'
+import { resetExecutionReport, writeExecutionReport } from './quality-execution.mjs'
 
 const root = process.cwd()
-await fs.rm(executionReportPath(root), { force: true })
+await resetExecutionReport(root)
 const provenance = await readGitProvenance(root)
 const files = await discoverQualityNodeTests(root)
 const selected = new Set(files)

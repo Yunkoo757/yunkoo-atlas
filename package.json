@@ -110,6 +110,7 @@
     "electron-builder": "^26.15.3",
     "playwright": "^1.60.0",
     "postcss": "8.5.18",
+    "proper-lockfile": "4.1.2",
     "puppeteer-core": "^25.1.0",
     "rewampui": "0.1.1",
     "typescript": "^5.6.2",
