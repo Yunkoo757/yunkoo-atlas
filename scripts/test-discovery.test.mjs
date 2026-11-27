@@ -399,16 +399,10 @@ test('sidebar QA targets the live mobile drawer instead of its exit clone', asyn
   assert.match(source, /await drawer\.getByRole\('button', \{ name: '搜索', exact: true \}\)\.click\(\)/)
 })
 
-test('sidebar QA verifies restored defaults in a fresh document', async () => {
+test('侧栏重开验收只使用一个隔离资料库', async () => {
   const source = await fs.readFile(path.resolve('scripts/qa-sidebar-navigation.mjs'), 'utf8')
-  assert.match(source, /const restoredPage = await browser\.newPage\(\{ viewport: \{ width: 1440, height: 900 \} \}\)/)
-  assert.match(source, /await restoredPage\.goto\(`\$\{BASE\}\/list`, \{ waitUntil: 'domcontentloaded' \}\)/)
-})
-
-test('sidebar QA verifies removed views in a fresh document', async () => {
-  const source = await fs.readFile(path.resolve('scripts/qa-sidebar-navigation.mjs'), 'utf8')
-  assert.match(source, /const removedViewPage = await browser\.newPage\(\{ viewport: \{ width: 1440, height: 900 \} \}\)/)
-  assert.match(source, /await removedViewPage\.goto\(`\$\{BASE\}\/list`, \{ waitUntil: 'domcontentloaded' \}\)/)
+  assert.equal([...source.matchAll(/browser\.newPage\(/g)].length, 1)
+  assert.doesNotMatch(source, /browser\.newContext\(/)
 })
 
 test('image QA supplies deterministic image clipboard items without the system clipboard', async () => {

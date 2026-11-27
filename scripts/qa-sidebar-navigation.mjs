@@ -6,6 +6,7 @@ const PORT = 41713
 const BASE = `http://127.0.0.1:${PORT}`
 const stripAnsi = (value) => value.replace(/\x1b\[[0-9;]*m/g, '')
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const qaProfileName = 'QA 父级重渲染'
 const qaStrategies = [
   { id: 'qa-sidebar-primary', name: 'QA 趋势策略', icon: 'target', color: '#5e6ad2' },
   { id: 'qa-sidebar-secondary', name: 'QA 突破策略', icon: 'zap', color: '#26b5ce' },
@@ -289,6 +290,11 @@ try {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true })
   })
+  async function reopenSavedSidebar() {
+    await waitForAutoSave(page)
+    await page.goto(`${BASE}/list`, { waitUntil: 'domcontentloaded' })
+    await expectVisible(page.getByRole('button', { name: `${qaProfileName}；账户菜单`, exact: true }))
+  }
   const browserProblems = []
   page.on('pageerror', (error) => browserProblems.push(`pageerror: ${error.message}`))
   page.on('console', (message) => {
@@ -433,10 +439,10 @@ try {
   await expectCount(editor.getByRole('button', { name: /返回/ }), 1)
   const search = editor.getByRole('searchbox', { name: '搜索可添加项目' })
   await search.focus()
-  await page.evaluate(async () => {
+  await page.evaluate(async (name) => {
     const { useStore } = await import('/src/store/useStore.ts')
-    useStore.getState().setDisplayName('QA 父级重渲染')
-  })
+    useStore.getState().setDisplayName(name)
+  }, qaProfileName)
   await expectFocused(search)
   for (const group of ['工作区能力', '交易日志', '案例库', '策略']) {
     await expectVisible(editor.getByRole('heading', { name: group }))
@@ -484,9 +490,7 @@ try {
   await expectVisible(editor.locator('[data-sidebar-editor-overflow] [data-sidebar-item-label]', { hasText: overflowStrategy }))
 
   await editor.getByRole('button', { name: '完成' }).click()
-  await page.waitForTimeout(250)
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
+  await reopenSavedSidebar()
   const persistedLabels = await page.locator('.sb-workspace [data-sidebar-workspace-id] > a .sb-item-label').allTextContents()
   if (persistedLabels[0] !== originalLabels[1] || persistedLabels[1] !== originalLabels[0]) {
     throw new Error('Completed ordering was not persisted across refresh')
@@ -658,17 +662,10 @@ try {
   const invalidRow = editor.locator('[data-sidebar-item]', { hasText: '已删除的保存视图' })
   await expectCount(invalidRow, 0)
   await editor.getByRole('button', { name: '完成' }).click()
-  await waitForAutoSave(page)
-  const removedViewPage = await browser.newPage({ viewport: { width: 1440, height: 900 } })
-  await removedViewPage.addInitScript(() => {
-    Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true })
-  })
-  await removedViewPage.goto(`${BASE}/list`, { waitUntil: 'domcontentloaded' })
-  await removedViewPage.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
-  await removedViewPage.getByRole('button', { name: '管理我的空间', exact: true }).click()
-  await expectCount(removedViewPage.getByRole('dialog', { name: '管理我的空间' }).locator('[data-sidebar-item]', { hasText: '已删除的保存视图' }), 0)
-  await removedViewPage.close()
-  await page.getByRole('button', { name: '管理我的空间', exact: true }).click()
+  await reopenSavedSidebar()
+  await manageButton.click()
+  await expectVisible(editor.getByRole('heading', { name: '管理我的空间' }))
+  await expectCount(editor.locator('[data-sidebar-item]', { hasText: /已删除的保存视图|QA 保存视图/ }), 0)
 
   const restoredEditor = page.getByRole('dialog', { name: '管理我的空间' })
   const restoredRows = restoredEditor.locator('[data-sidebar-item]')
@@ -709,26 +706,9 @@ try {
       }
     })
   }, undefined, { timeout: 10_000 })
-  const restoredPage = await browser.newPage({ viewport: { width: 1440, height: 900 } })
-  await restoredPage.addInitScript(() => {
-    Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true })
-  })
-  await restoredPage.goto(`${BASE}/list`, { waitUntil: 'domcontentloaded' })
-  await restoredPage.locator('.app-loading').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
-  const expectedDefaultLabels = ['进行中']
-  try {
-    await restoredPage.waitForFunction((expectedLabels) => {
-      const labels = [...document.querySelectorAll('.sb-workspace [data-sidebar-workspace-id] > a .sb-item-label')]
-        .map((element) => element.textContent?.trim() ?? '')
-      return JSON.stringify(labels) === JSON.stringify(expectedLabels)
-    }, expectedDefaultLabels, { timeout: 10_000 })
-  } catch (error) {
-    const actualLabels = await restoredPage.locator('.sb-workspace [data-sidebar-workspace-id] > a .sb-item-label').allTextContents()
-    throw new Error(`Restore default reload did not converge: ${JSON.stringify(actualLabels)}`, { cause: error })
-  }
-  const defaultLabels = await restoredPage.locator('.sb-workspace [data-sidebar-workspace-id] > a .sb-item-label').allTextContents()
-  expectEqual(defaultLabels, expectedDefaultLabels, 'Restore default must persist exact default names and order')
-  await restoredPage.close()
+  await reopenSavedSidebar()
+  const defaultLabels = await page.locator('.sb-workspace [data-sidebar-workspace-id] > a .sb-item-label').allTextContents()
+  expectEqual(defaultLabels, ['进行中'], 'Restore default must persist exact default names and order')
 
   for (const width of [1920, 1440, 900]) {
     await page.setViewportSize({ width, height: 844 })
