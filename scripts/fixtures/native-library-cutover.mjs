@@ -116,6 +116,7 @@ async function verifyConfigPublication(application, page, libraryPath, candidate
 export async function verifyCutoverReceipts({ application, page: workspace, libraryPath, candidatePath, userDataPath }) {
   // 界面阶段已完成真实恢复和接续保存。创建同一主进程的专用窗口，使旧界面的
   // beforeunload 自动保存与直接 IPC 验收相互独立。窗口仍加载相同受信入口与生产 preload。
+  const abandonedPreview = await workspace.evaluate(() => window.journalBridge.previewAssetPurge())
   const trustedUrl = workspace.url()
   const nextWindow = application.waitForEvent('window')
   const { workspaceId, bridgeId } = await application.evaluate(({ BrowserWindow }, { url, preload }) => {
@@ -147,6 +148,11 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
     return (await bridge.loadSnapshot())?.tagPresets[0]
   })
   assert.equal(savedTag, 'post-recovery-follow-up', '实际恢复界面的后续保存应能由新的窗口会话读回')
+  await assert.rejects(
+    page.evaluate(preview => window.journalBridge.commitAssetPurge(preview), abandonedPreview),
+    /预览无效或已使用/,
+    '接管同一资料库的新窗口必须拒绝原文档遗留的附件清理预览',
+  )
   // 替换已提交后，单独查询版本可能被下一次独占操作拒绝。
   // 本阶段只保留普通快照读取，禁止通过第二条版本 IPC 补齐写入回执。
   await application.evaluate(({ ipcMain }) => {
@@ -191,5 +197,5 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
   }, { libraryPath, candidatePath, backupName: path.basename(backup) })
   const retention = await verifyRejectedSwitchPreservesBackups(page, libraryPath, candidatePath, userDataPath, candidateBackup)
   const location = await verifyConfigPublication(application, page, libraryPath, candidatePath, userDataPath)
-  return { ...receipts, retention, location }
+  return { ...receipts, retention, location, abandonedPreviewRejected: true }
 }

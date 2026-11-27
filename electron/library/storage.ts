@@ -1270,13 +1270,17 @@ export class LibraryStorage {
     return this.assetPurgePreviews.create(revision, inventory.orphan, undefined)
   }
 
-  async prepareAssetPurgeRecovery(preview: AssetPurgePreview, exportArchive: () => Promise<{
-    path: string; verify: () => void
-  } | null>) {
+  async prepareAssetPurgeRecovery(
+    preview: AssetPurgePreview,
+    selectDestination: () => Promise<string | null>,
+    exportArchive: (destination: string) => Promise<{ path: string; verify: () => void }>,
+  ) {
     this.assetPurgePreviews.read(preview, this.getSnapshotRevision())
     const signature = JSON.stringify(preview)
-    const archive = await exportArchive()
-    if (!archive) return null
+    const destination = await selectDestination()
+    if (!destination) return null
+    this.assetPurgePreviews.read(preview, this.getSnapshotRevision())
+    const archive = await exportArchive(destination)
     const authorization = this.assetPurgePreviews.authorize(preview, this.getSnapshotRevision(), submitted => {
       if (JSON.stringify(submitted) !== signature) throw new Error('附件清理缺少与本次预览绑定的恢复归档授权')
       archive.verify()
@@ -1357,6 +1361,10 @@ export class LibraryStorage {
       fsyncFileSync(target)
     }
     fsyncDirectorySync(operationDir)
+  }
+
+  clearAssetPurgePreviews(): void {
+    this.assetPurgePreviews.clear()
   }
 
   cancelAssetPurge(operationId: string): void {

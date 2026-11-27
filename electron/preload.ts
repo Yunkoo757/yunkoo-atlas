@@ -177,7 +177,7 @@ const bridge: JournalBridge = {
   getAssetBytes: (id) => ipcRenderer.invoke('storage:getAssetBytes', id),
   getAssetStats: (ids) => ipcRenderer.invoke('storage:getAssetStats', ids),
   listAssetRecords: () => ipcRenderer.invoke('storage:listAssetRecords'),
-  previewAssetPurge: () => ipcRenderer.invoke('storage:previewAssetPurge'),
+  previewAssetPurge: () => ipcRenderer.invoke('storage:previewAssetPurge', writers.require().token),
   prepareAssetPurgeRecovery: (preview) => ipcRenderer.invoke('storage:prepareAssetPurgeRecovery', {
     preview,
     writerToken: writers.require().token,

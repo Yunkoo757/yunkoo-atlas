@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { EventEmitter } from 'node:events'
+import { onRendererDocumentEnd, type RendererDocumentEvents } from './rendererDocument'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -9,7 +9,7 @@ import { importJournalZipToPath } from './journalZip'
 import { capturePreparedImportSource, stagePreparedJournalArchive, type PreparedImportSource, type PreparedJournalArchiveStaging } from './preparedImportSource'
 import { LibraryStorage } from './storage'
 
-type Owner = Pick<EventEmitter, 'once' | 'removeListener'> & { id: number }
+type Owner = RendererDocumentEvents & { id: number }
 type CancelResult = Awaited<ReturnType<JournalBridge['cancelPreparedJournalImport']>>
 interface Request {
   ownerId: number
@@ -68,9 +68,7 @@ export class JournalImportPreviews {
 
     const release = () => {
       clearTimeout(timer)
-      owner.removeListener('destroyed', abandon)
-      owner.removeListener('render-process-gone', abandon)
-      owner.removeListener('did-navigate', abandon)
+      detach()
       this.prepared.delete(token)
       if (stagingRoot) {
         try { fs.rmSync(stagingRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 }) } catch { /* 临时目录可能正被文件系统占用。 */ }
@@ -92,9 +90,7 @@ export class JournalImportPreviews {
       },
     }
     this.pending.set(requestId, request)
-    owner.once('destroyed', abandon)
-    owner.once('render-process-gone', abandon)
-    owner.once('did-navigate', abandon)
+    const detach = onRendererDocumentEnd(owner, abandon)
     try {
       const selected = await selectArchive()
       if (!selected || cancelled) return { ok: false, canceled: true }

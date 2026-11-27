@@ -783,7 +783,10 @@ export function registerLibraryIpc(): void {
 
   ipcMain.handle('storage:listAssetRecords', async () => withStorage((lib) => lib.listAssetRecords()))
 
-  ipcMain.handle('storage:previewAssetPurge', async () => withStorage((lib) => lib.previewAssetPurge()))
+  ipcMain.handle('storage:previewAssetPurge', (event, writerToken) => withStorage(lib => {
+    writers.assert(event, writerToken, lib)
+    return lib.previewAssetPurge()
+  }))
 
   ipcMain.handle('storage:prepareAssetPurgeRecovery', async (event, payload) => operationGate.runExclusive(async () => {
     const preview = payload.preview
@@ -792,7 +795,7 @@ export function registerLibraryIpc(): void {
     let operation: OperationLogHandle | undefined
     try {
       const recovery = await lib.prepareAssetPurgeRecovery(preview, async () => {
-        const win = BrowserWindow.getFocusedWindow()
+        const win = BrowserWindow.fromWebContents(event.sender)
         const date = new Date().toISOString().slice(0, 10)
         const options = {
           title: '导出永久清理恢复归档',
@@ -800,12 +803,13 @@ export function registerLibraryIpc(): void {
           filters: [{ name: 'Journal Archive', extensions: ['journal.zip', 'zip'] }],
         }
         const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
-        if (result.canceled || !result.filePath) return null
+        return result.canceled ? null : result.filePath ?? null
+      }, destination => {
         operation = beginOperation('archive', {
           operationId: preview.operationId, actionId: preview.operationId,
           stage: 'export-recovery', revisionBefore: preview.revision,
         })
-        return exportVerifiedPurgeArchive(lib, result.filePath)
+        return exportVerifiedPurgeArchive(lib, destination)
       })
       operation?.success({ stage: 'verified', revisionAfter: preview.revision })
       return recovery
@@ -839,12 +843,13 @@ export function registerLibraryIpc(): void {
     }
   })
 
-  ipcMain.handle('storage:cancelAssetPurge', async (event, payload) => withStorage((lib) => {
-    writers.assert(event, payload.writerToken, lib)
-    const operationId = payload.operationId as string
-    lib.cancelAssetPurge(operationId)
+  ipcMain.handle('storage:cancelAssetPurge', (event, payload) => {
+    // 只撤销内存中的预览，连文件选择器持有独占写锁时也必须能退出。
+    if (!storage) return false
+    writers.assert(event, payload.writerToken, storage)
+    storage.cancelAssetPurge(payload.operationId)
     return true
-  }))
+  })
 
   ipcMain.handle('storage:importAssets', async (event, payload: { assets: { id: string; mime: string; data: string }[]; writerToken: string }) => withStorage((lib) => {
     writers.assert(event, payload.writerToken, lib)

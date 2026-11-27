@@ -681,19 +681,27 @@ export async function testRecoveryArchiveOnlyBelongsToAnActivePreviewAndItsVerif
   try {
     const canceled = storage.previewAssetPurge()
     storage.cancelAssetPurge(canceled.operationId)
-    await strict.rejects(storage.prepareAssetPurgeRecovery(canceled, exportArchive), /预览无效/)
+    await strict.rejects(storage.prepareAssetPurgeRecovery(canceled, async () => archive, exportArchive), /预览无效/)
+    strict.equal(exports, 0)
+    strict.equal(fs.existsSync(archive), false)
+
+    const choosing = storage.previewAssetPurge()
+    await strict.rejects(storage.prepareAssetPurgeRecovery(choosing, async () => {
+      storage.cancelAssetPurge(choosing.operationId)
+      return archive
+    }, exportArchive), /预览无效/)
     strict.equal(exports, 0)
     strict.equal(fs.existsSync(archive), false)
 
     const oldSession = storage.previewAssetPurge()
     storage.release()
     await storage.open()
-    await strict.rejects(storage.prepareAssetPurgeRecovery(oldSession, exportArchive), /预览无效/)
+    await strict.rejects(storage.prepareAssetPurgeRecovery(oldSession, async () => archive, exportArchive), /预览无效/)
     strict.equal(exports, 0)
 
     for (const change of ['modify', 'remove'] as const) {
       const preview = storage.previewAssetPurge()
-      const recovery = await storage.prepareAssetPurgeRecovery(preview, exportArchive)
+      const recovery = await storage.prepareAssetPurgeRecovery(preview, async () => archive, exportArchive)
       strict.ok(recovery)
       if (change === 'remove') fs.unlinkSync(archive)
       else fs.appendFileSync(archive, 'changed')
@@ -703,7 +711,7 @@ export async function testRecoveryArchiveOnlyBelongsToAnActivePreviewAndItsVerif
     }
 
     const preview = storage.previewAssetPurge()
-    const recovery = await storage.prepareAssetPurgeRecovery(preview, exportArchive)
+    const recovery = await storage.prepareAssetPurgeRecovery(preview, async () => archive, exportArchive)
     strict.ok(recovery)
     const result = await storage.commitAssetPurge(preview, recovery.authorization)
     strict.deepEqual(result.deletedIds, preview.candidateIds)
