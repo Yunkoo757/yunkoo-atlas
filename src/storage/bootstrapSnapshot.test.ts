@@ -1,3 +1,5 @@
+import { rejects } from 'node:assert/strict'
+import { externalizeNoteImages } from '@/storage/assets'
 import type { StorageAdapter } from '@/storage/adapter'
 import { loadBootstrapSnapshot } from '@/storage/bootstrap'
 import { ElectronStorageAdapter } from '@/storage/electronAdapter'
@@ -118,4 +120,39 @@ export async function testFreshWebBootstrapReloadsPersistedSeedAndMigrationFailu
     if (previousLocalStorage) Object.defineProperty(globalThis, 'localStorage', previousLocalStorage)
     else Reflect.deleteProperty(globalThis, 'localStorage')
   }
+}
+
+export async function testRecoveryDuringLegacySavePreservesSourceAndStopsFurtherInitialization() {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+  const stop = new AbortController()
+  const reason = new Error('isolated recovery')
+  let removed = false
+  const original = JSON.stringify({ state: { trades: [], strategies: [] } })
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true, value: { getItem: () => original, removeItem: () => { removed = true } },
+  })
+  try {
+    const target = new MemoryAdapter(null)
+    target.onSave = snapshot => { stop.abort(reason); return snapshot }
+    await rejects(loadBootstrapSnapshot(target, 'web-editable', undefined, stop.signal), error => error === reason)
+    assert(target.saves === 1 && target.loads === 2 && !removed, '正在提交的写入可以结束，随后不得删除旧来源或重新载入')
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'localStorage', previous)
+    else Reflect.deleteProperty(globalThis, 'localStorage')
+  }
+}
+
+export async function testRecoveryBetweenInlineImagesPreventsNextAssetWrite() {
+  const stop = new AbortController()
+  const reason = new Error('isolated recovery')
+  const target = new MemoryAdapter(null)
+  let writes = 0
+  target.saveAsset = async () => {
+    writes++
+    stop.abort(reason)
+    return 'already-saved'
+  }
+  const image = '<img src="data:image/png;base64,AQID">'
+  await rejects(externalizeNoteImages(image + image, target, stop.signal), error => error === reason)
+  assert(writes === 1, '已经开始的图片可以写完，下一张图不得再提交')
 }

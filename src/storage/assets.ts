@@ -33,6 +33,7 @@ function dataUrlToBlob(dataUrl: string): { blob: Blob; mime: string } | null {
 export async function externalizeNoteImages(
   html: string,
   adapter: StorageAdapter,
+  signal?: AbortSignal,
 ): Promise<string> {
   if (!html.includes('data:image/')) return html
 
@@ -46,6 +47,7 @@ export async function externalizeNoteImages(
     parts.push(html.slice(last, match.index))
     const parsed = dataUrlToBlob(match[2])
     if (parsed) {
+      signal?.throwIfAborted()
       const id = await adapter.saveAsset(parsed.blob, parsed.mime)
       parts.push(`<img${match[1]} src="${assetUrl(id)}"${match[3]}>`)
     } else {

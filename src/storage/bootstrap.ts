@@ -5,9 +5,9 @@ import {
   migrateFromLocalStorageIfNeeded,
 } from '@/storage/migrate'
 import { pickPersisted } from '@/storage/snapshotProjection'
-import { enablePersistWrites, schedulePersist } from '@/storage/persist'
+import { disablePersistWrites, enablePersistWrites, schedulePersist } from '@/storage/persist'
 import { useShortcutStore } from '@/store/shortcutStore'
-import { isElectron } from '@/storage/runtime'
+import { getJournalBridge } from '@/storage/runtime'
 import { useStore } from '@/store/useStore'
 import { useSaveStatus } from '@/store/saveStatus'
 
@@ -22,12 +22,19 @@ import {
   initializeWebWriterOwnership,
 } from '@/storage/webWriteGuard'
 
+// 发生存储恢复后只能从新文档启动；原文档的在途初始化不得再次开启写入。
+const startup = new AbortController()
 let hydrated = false
 let bootstrapPromise: Promise<void> | null = null
 let persistedSnapshotCoordinator: PersistedSnapshotCoordinator | null = null
 
 export function isStorageHydrated(): boolean {
-  return hydrated
+  return hydrated && !startup.signal.aborted
+}
+
+export function stopStorageForRecovery(message: string): void {
+  startup.abort(new Error(message))
+  disablePersistWrites()
 }
 
 /** 在完整权威快照刷新期间抑制订阅回写，并把刷新后的 Store 设为新耐久基线。 */
@@ -41,43 +48,51 @@ export async function loadBootstrapSnapshot(
   adapter: StorageAdapter,
   mode: 'electron' | 'web-editable' | 'web-readonly',
   indexedDbAdapter?: StorageAdapter,
+  signal?: AbortSignal,
 ): Promise<PersistedSnapshot | null> {
+  signal?.throwIfAborted()
   const existing = await adapter.loadSnapshot()
+  signal?.throwIfAborted()
   if (existing || mode === 'web-readonly') return existing
-  if (mode === 'electron') await migrateElectronLibraryIfNeeded(adapter, indexedDbAdapter)
-  else await migrateFromLocalStorageIfNeeded(adapter)
+  if (mode === 'electron') await migrateElectronLibraryIfNeeded(adapter, indexedDbAdapter, signal)
+  else await migrateFromLocalStorageIfNeeded(adapter, signal)
+  signal?.throwIfAborted()
   return adapter.loadSnapshot()
 }
 
 async function runBootstrapStorage(): Promise<void> {
   const adapter = getStorage()
   await adapter.open()
+  const { signal } = startup
+  signal.throwIfAborted()
 
-  if (isElectron()) {
+  const bridge = getJournalBridge()
+  if (bridge) {
+    let hotkey = null
     try {
-      const state = await window.journalBridge?.getWindowHotkey()
-      useShortcutStore.getState().setWindowHotkeyState(state ?? null)
-    } catch {
-      useShortcutStore.getState().setWindowHotkeyState(null)
-    }
-  }
-
-  if (!isElectron()) {
+      hotkey = await bridge.getWindowHotkey()
+    } catch { /* 窗口快捷键不可读时仍可打开资料库。 */ }
+    signal.throwIfAborted()
+    useShortcutStore.getState().setWindowHotkeyState(hotkey)
+  } else {
     const manifest = await adapter.getManifest()
+    signal.throwIfAborted()
     await initializeWebWriterOwnership(manifest.libraryId)
   }
 
-  const snapshot = await loadBootstrapSnapshot(adapter, isElectron()
-    ? 'electron'
-    : getWebWriteGuardState().phase === 'editable' ? 'web-editable' : 'web-readonly')
+  const mode = bridge ? 'electron' : getWebWriteGuardState().phase === 'editable' ? 'web-editable' : 'web-readonly'
+  const snapshot = await loadBootstrapSnapshot(adapter, mode, undefined, signal)
+  signal.throwIfAborted()
   let reconciledWindowHotkeyConflict = false
   if (snapshot) {
     // 阶段图是全部运行时写入的归属根；无效快照必须在开启持久化前终止启动。
     useStore.setState(snapshotToRuntimeState(snapshot, useStore.getState().profile))
+    signal.throwIfAborted()
     reconciledWindowHotkeyConflict =
       useShortcutStore.getState().hydrateBindings(snapshot.shortcuts).length > 0
   }
 
+  signal.throwIfAborted()
   hydrated = true
   enablePersistWrites()
   // 启动后保持 idle，避免顶栏立刻插入「已保存」把视图按钮挤一下
@@ -98,6 +113,7 @@ async function runBootstrapStorage(): Promise<void> {
 }
 
 export function bootstrapStorage(): Promise<void> {
+  if (startup.signal.aborted) return Promise.reject(startup.signal.reason)
   if (hydrated) return Promise.resolve()
   if (!bootstrapPromise) {
     bootstrapPromise = runBootstrapStorage().catch((error) => {

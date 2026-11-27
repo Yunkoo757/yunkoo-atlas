@@ -14,7 +14,7 @@ import {
 import { Suspense, lazy, useEffect, useRef, useState, useCallback } from 'react'
 import { useStore } from './store/useStore'
 import { useShortcutStore } from './store/shortcutStore'
-import { bootstrapStorage, isStorageHydrated, publishDurableStoreRefresh } from './storage/bootstrap'
+import { isStorageHydrated, publishDurableStoreRefresh } from './storage/bootstrap'
 import { getStorage } from './storage/provider'
 import { disablePersistWrites, flushPersistNow, hasPendingChanges, setPreFlushCallback, suspendPersist } from './storage/persist'
 import { flushNoteDraftsToStore, hasPendingNoteDrafts } from './storage/noteDrafts'
@@ -38,7 +38,7 @@ import { Button } from './components/ui/Button'
 import { ErrorDetails } from './components/ui/ErrorDetails'
 import { InlineStatus, type InlineStatusTone } from './components/ui/InlineStatus'
 import { ModalShell } from './components/ui/ModalShell'
-import type { JournalBridge, WindowsCloseChoice } from './types/journalBridge'
+import type { WindowsCloseChoice } from './types/journalBridge'
 import { toast, toastStore } from './lib/toast'
 import { AsyncGeneration } from './lib/asyncGeneration'
 import { WebStorageGuard } from './components/WebStorageGuard'
@@ -73,9 +73,9 @@ import {
   reconcileCommittedStageRollover,
   STAGE_MANAGEMENT_OPEN_EVENT,
 } from './lib/stageRolloverCommit'
-import { STORAGE_RECOVERY_REQUIRED_EVENT, notifyStorageRecoveryRequired } from './lib/storageRecovery'
+import { notifyStorageRecoveryRequired } from './lib/storageRecovery'
 import { createForegroundStageRolloverScheduler } from './lib/stageRolloverScheduler'
-import { runStartupTrashCleanup } from './lib/trashCleanup'
+import { useWorkspaceStartup } from './hooks/useWorkspaceStartup'
 import './App.css'
 
 const CLOSE_SAVE_RECEIPT_MS = 560
@@ -473,25 +473,6 @@ function TradeHomeRedirect() {
   return <Navigate to={tradeHomeHref(rememberedSearch)} replace />
 }
 
-function storageBootstrapErrorMessage(error: unknown): string {
-  if (error instanceof DOMException && error.name === 'VersionError') {
-    return '本地数据版本不兼容，请刷新页面或更新应用后重试。'
-  }
-  if (error instanceof Error && /invalid display|sidebar|snapshot/i.test(error.message)) {
-    return '本地显示配置无法识别（可能来自旧版侧栏项），请重试；若仍失败请从备份恢复。'
-  }
-  return '本地资料库暂时无法打开，请重试。'
-}
-
-async function waitForUiFonts(): Promise<void> {
-  if (typeof document !== 'undefined' && document.fonts?.ready) {
-    await Promise.race([
-      document.fonts.ready,
-      new Promise((resolve) => window.setTimeout(resolve, 1200)),
-    ])
-  }
-}
-
 function Shell() {
   const desktop = getDesktopPlatform()
   const [pageToolbarHost, setPageToolbarHost] = useState<HTMLDivElement | null>(null)
@@ -623,12 +604,7 @@ function Shell() {
 }
 
 export function App() {
-  const [ready, setReady] = useState(false)
-  const [welcomeBridge, setWelcomeBridge] = useState<JournalBridge | null>(null)
-  const [storageError, setStorageError] = useState<string | null>(null)
-  const [storageRecoveryRequired, setStorageRecoveryRequired] = useState(false)
-  const [retryingStorage, setRetryingStorage] = useState(false)
-  const [recoveringStorage, setRecoveringStorage] = useState(false)
+  const { screen, start, selectAnotherLibrary, recover, reloadAuthorized } = useWorkspaceStartup(checkDueStageRollover)
   const [closeSaveState, setCloseSaveState] = useState<CloseSaveState>({ phase: 'idle' })
   const [windowsClosePromptOpen, setWindowsClosePromptOpen] = useState(false)
   const [rememberWindowsClose, setRememberWindowsClose] = useState(false)
@@ -642,154 +618,10 @@ export function App() {
     drain: waitForPendingStorageOperations,
     flush: flushPersistNow,
   }))
-  const storageRecoveryReloadAuthorized = useRef(false)
 
   useEffect(() => {
     toastStore.setSuspended(closeSaveState.phase !== 'idle')
   }, [closeSaveState.phase])
-
-  useEffect(() => {
-    const enterRecoveryRequired = (message: string) => {
-      disablePersistWrites()
-      setStorageRecoveryRequired(true)
-      setStorageError(message)
-      setReady(false)
-      document.documentElement.dataset.uiSettled = '1'
-    }
-    const onRecoveryRequired = (event: Event) => {
-      enterRecoveryRequired(
-        event instanceof CustomEvent && typeof event.detail === 'string'
-          ? event.detail
-          : '阶段切换结果无法安全确认，已停止继续保存。',
-      )
-    }
-    const unsubscribeStorageRecovery = window.journalBridge?.onStorageRecoveryRequired?.((state) => {
-      enterRecoveryRequired(state.message)
-    })
-    window.addEventListener(STORAGE_RECOVERY_REQUIRED_EVENT, onRecoveryRequired)
-    return () => {
-      window.removeEventListener(STORAGE_RECOVERY_REQUIRED_EVENT, onRecoveryRequired)
-      unsubscribeStorageRecovery?.()
-    }
-  }, [])
-
-  useEffect(() => {
-    const init = async () => {
-      // Electron: check if library needs initialization
-      const bridge = getJournalBridge()
-      if (bridge) {
-        try {
-          const status = await bridge.getLibraryStatus()
-          if (status.kind === 'unset') {
-            setWelcomeBridge(bridge)
-            setReady(true) // show UI (welcome screen) but don't bootstrap yet
-            return
-          }
-          if (status.kind !== 'ready') {
-            setStorageError(`${status.reason}（${status.configuredPath}）`)
-            setReady(false)
-            document.documentElement.dataset.uiSettled = '1'
-            return
-          }
-        } catch (e) {
-          console.error('Library status check failed', e)
-          setStorageError(storageBootstrapErrorMessage(e))
-          setReady(false)
-          document.documentElement.dataset.uiSettled = '1'
-          return
-        }
-      }
-      // Normal bootstrap
-      await bootstrapStorage()
-      await checkDueStageRollover()
-      await runStartupTrashCleanup()
-
-      // 等字体就绪再亮屏，避免 Inter swap 导致列表从左到右重排
-      await waitForUiFonts()
-
-      setReady(true)
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          document.documentElement.dataset.uiSettled = '1'
-        })
-      })
-    }
-
-    init().catch((e) => {
-      console.error('Storage bootstrap failed', e)
-      setStorageError(storageBootstrapErrorMessage(e))
-      setReady(false)
-      document.documentElement.dataset.uiSettled = '1'
-    })
-  }, [])
-
-  const handleWelcomeReady = async () => {
-    setWelcomeBridge(null)
-    setReady(false)
-    document.documentElement.removeAttribute('data-ui-settled')
-    try {
-      await bootstrapStorage()
-      await checkDueStageRollover()
-      await runStartupTrashCleanup()
-      await waitForUiFonts()
-    } catch (e) {
-      console.error('Storage bootstrap failed after welcome', e)
-      setStorageError(storageBootstrapErrorMessage(e))
-      setReady(false)
-      document.documentElement.dataset.uiSettled = '1'
-      return
-    }
-    setReady(true)
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        document.documentElement.dataset.uiSettled = '1'
-      })
-    })
-  }
-
-  const handleStorageRetry = async () => {
-    setRetryingStorage(true)
-    setStorageError(null)
-    document.documentElement.removeAttribute('data-ui-settled')
-    try {
-      await bootstrapStorage()
-      await checkDueStageRollover()
-      await runStartupTrashCleanup()
-      setReady(true)
-      requestAnimationFrame(() => {
-        document.documentElement.dataset.uiSettled = '1'
-      })
-    } catch (error) {
-      console.error('Storage bootstrap retry failed', error)
-      setStorageError(storageBootstrapErrorMessage(error))
-      document.documentElement.dataset.uiSettled = '1'
-    } finally {
-      setRetryingStorage(false)
-    }
-  }
-
-  const handleStorageRecovery = async () => {
-    const bridge = window.journalBridge
-    if (!bridge?.recoverStorage) {
-      setStorageError('当前桌面运行时无法启动资料库恢复')
-      return
-    }
-    setRecoveringStorage(true)
-    storageRecoveryReloadAuthorized.current = true
-    try {
-      const result = await bridge.recoverStorage()
-      if (!result.ok) {
-        storageRecoveryReloadAuthorized.current = false
-        setStorageError(result.message)
-      }
-      // 成功时由主进程在 fresh storage 激活后刷新 renderer；当前页面不得自行 reload。
-    } catch (error) {
-      storageRecoveryReloadAuthorized.current = false
-      setStorageError(storageBootstrapErrorMessage(error))
-    } finally {
-      setRecoveringStorage(false)
-    }
-  }
 
   useEffect(() => {
     setPreFlushCallback(async () => {
@@ -827,7 +659,7 @@ export function App() {
     let lastVisibleBusinessWeek = currentBusinessWeek()
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (
-        !storageRecoveryReloadAuthorized.current &&
+        !reloadAuthorized.current &&
         shouldPreventAppUnload(hasPendingChanges(), hasPendingNoteDrafts())
       ) {
         e.preventDefault()
@@ -835,7 +667,7 @@ export function App() {
       }
       // 恢复路径已经锁住旧 storage；主进程激活 fresh disk 实例后发起的 reload
       // 既不能被 beforeunload 拦住，也不能再从旧 renderer 排队一次 flush。
-      if (!storageRecoveryReloadAuthorized.current) safeFlush()
+      if (!reloadAuthorized.current) safeFlush()
     }
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
@@ -978,7 +810,9 @@ export function App() {
     </>
   )
 
-  if (storageError) {
+  if (screen.kind === 'error' || screen.kind === 'recovery') {
+    const storageRecoveryRequired = screen.kind === 'recovery'
+    const recoveringStorage = screen.kind === 'recovery' && screen.reopening
     const bridge = getJournalBridge()
     return (
       <div className="app-storage-error">
@@ -995,7 +829,7 @@ export function App() {
           )}
           detail={(
             <>
-              <span>{storageError}</span>
+              <span>{screen.message}</span>
               <small>
                 {storageRecoveryRequired
                   ? '主进程将从磁盘重新建立资料库实例；软件不会用当前界面的旧状态继续保存。'
@@ -1009,7 +843,7 @@ export function App() {
                 <Button
                   size="lg"
                   variant="primary"
-                  onClick={() => void handleStorageRecovery()}
+                  onClick={() => void recover()}
                   disabled={recoveringStorage}
                 >
                   {recoveringStorage ? '正在重新打开…' : '重新打开资料库'}
@@ -1018,21 +852,16 @@ export function App() {
                 <Button
                   size="lg"
                   variant="primary"
-                  onClick={() => void handleStorageRetry()}
-                  disabled={retryingStorage}
+                  onClick={() => void start('location')}
                 >
-                  {retryingStorage ? '正在重试…' : '重试打开'}
+                  重试打开
                 </Button>
               )}
               {bridge && !storageRecoveryRequired && (
                 <Button
                   size="lg"
                   variant="bordered"
-                  onClick={() => {
-                    setStorageError(null)
-                    setWelcomeBridge(bridge)
-                    setReady(true)
-                  }}
+                  onClick={() => selectAnotherLibrary(bridge)}
                 >
                   选择其他资料库
                 </Button>
@@ -1045,16 +874,16 @@ export function App() {
     )
   }
 
-  if (welcomeBridge) {
+  if (screen.kind === 'welcome') {
     return <>
       <Suspense fallback={<DelayedRouteFallback />}>
-        <WelcomeScreen bridge={welcomeBridge} onReady={handleWelcomeReady} />
+        <WelcomeScreen bridge={screen.bridge} onReady={() => void start('selection')} />
       </Suspense>
       {closingUi}
     </>
   }
 
-  if (!ready) {
+  if (screen.kind === 'loading') {
     return (
       <div className="app-loading" role="status" aria-live="polite">
         <LoadingIndicator size={ICON_XL} aria-hidden />

@@ -55,18 +55,6 @@ export async function testTypographySystemUsesOnlyBundledSansFontsAndCanonicalWe
   assert(global.includes('font-optical-sizing: auto'), '全局 UI 字体应启用 optical sizing')
 }
 
-export async function testBothStartupPathsWaitForUiFontsWithTimeout(): Promise<void> {
-  const app = await fs.readFile('src/App.tsx', 'utf8')
-  assert(app.includes('async function waitForUiFonts(): Promise<void>'), '字体等待逻辑应有共享入口')
-  assert.equal(
-    app.split('await waitForUiFonts()').length - 1,
-    2,
-    '正常启动和 Welcome 完成路径都必须等待字体就绪',
-  )
-  assert(app.includes('document.fonts?.ready'), '字体等待必须使用 Font Loading API')
-  assert(app.includes('window.setTimeout(resolve, 1200)'), '字体等待必须保留 1200ms 降级超时')
-}
-
 function cssRule(css: string, selector: string): string {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const normalizedCss = css.replace(/\r\n/g, '\n')

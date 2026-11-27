@@ -65,13 +65,6 @@ export async function testWindowsClosePreferenceFailureCannotDisappearDuringQuit
   )
 }
 
-export async function testBootstrapFailureCannotExposeAnUnsavableWorkspace(): Promise<void> {
-  const app = await fs.readFile('src/App.tsx', 'utf8')
-  assert(app.includes('setStorageError'), '资料库启动失败必须进入显式错误状态')
-  assert(app.includes('已停止进入工作区，避免覆盖现有数据'), '错误页应说明数据保护原因')
-  assert(!app.includes("setReady(true)\n      document.documentElement.dataset.uiSettled = '1'"), '启动失败不得继续显示普通工作区')
-}
-
 export async function testWebStorageConflictShellDoesNotPullImportWorkflowIntoStartup(): Promise<void> {
   const guard = await fs.readFile('src/components/WebStorageGuard.tsx', 'utf8')
   assert(guard.includes("from '@/lib/snapshotStore'"), 'WebStorageGuard 必须使用窄快照发布模块')

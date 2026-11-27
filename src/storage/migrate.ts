@@ -46,26 +46,28 @@ function parseLegacyLocalStorage(): PersistedSnapshot | null {
 async function externalizeAllNotes(
   snapshot: PersistedSnapshot,
   adapter: StorageAdapter,
+  signal?: AbortSignal,
 ): Promise<PersistedSnapshot> {
+  const convert = (html: string) => externalizeNoteImages(html, adapter, signal)
   const trades = await Promise.all(
     snapshot.trades.map(async (t) => ({
       ...t,
-      note: await externalizeNoteImages(t.note, adapter),
+      note: await convert(t.note),
       ...(t.sourceNoteHtml === undefined
         ? {}
-        : { sourceNoteHtml: await externalizeNoteImages(t.sourceNoteHtml, adapter) }),
+        : { sourceNoteHtml: await convert(t.sourceNoteHtml) }),
     })),
   )
   const weeklyReviews = await Promise.all(
     (snapshot.weeklyReviews ?? []).map(async (review) => ({
       ...review,
-      contentHtml: await externalizeNoteImages(review.contentHtml, adapter),
+      contentHtml: await convert(review.contentHtml),
     })),
   )
   const quickNotes = await Promise.all(
     (snapshot.quickNotes ?? []).map(async (note) => ({
       ...note,
-      contentHtml: await externalizeNoteImages(note.contentHtml, adapter),
+      contentHtml: await convert(note.contentHtml),
     })),
   )
   return { ...snapshot, trades, weeklyReviews, quickNotes }
@@ -73,8 +75,11 @@ async function externalizeAllNotes(
 
 export async function migrateFromLocalStorageIfNeeded(
   adapter: StorageAdapter,
+  signal?: AbortSignal,
 ): Promise<boolean> {
+  signal?.throwIfAborted()
   const existing = await adapter.loadSnapshot()
+  signal?.throwIfAborted()
   if (existing) return false
 
   let snapshot = parseLegacyLocalStorage()
@@ -82,8 +87,10 @@ export async function migrateFromLocalStorageIfNeeded(
     snapshot = createNewLibrarySnapshot()
   }
 
-  snapshot = await externalizeAllNotes(snapshot, adapter)
+  snapshot = await externalizeAllNotes(snapshot, adapter, signal)
+  signal?.throwIfAborted()
   await adapter.saveSnapshot(snapshot)
+  signal?.throwIfAborted()
 
   try {
     localStorage.removeItem(LEGACY_LOCAL_STORAGE_KEY)
@@ -98,13 +105,16 @@ export async function migrateFromLocalStorageIfNeeded(
 export async function migrateElectronLibraryIfNeeded(
   adapter: StorageAdapter,
   indexedDbAdapter: StorageAdapter = getIndexedDbAdapter(),
+  signal?: AbortSignal,
 ): Promise<boolean> {
+  signal?.throwIfAborted()
   const existing = await adapter.loadSnapshot()
+  signal?.throwIfAborted()
   if (existing) return false
 
   const idb = indexedDbAdapter
   await idb.open()
-  await migrateFromLocalStorageIfNeeded(idb)
+  await migrateFromLocalStorageIfNeeded(idb, signal)
 
   let snapshot = await idb.loadSnapshot()
   // 零交易是有效资料库状态；只有快照真正缺失时才生成新库默认。
@@ -115,14 +125,17 @@ export async function migrateElectronLibraryIfNeeded(
   const assetIds = collectAssetIdsFromSnapshot(snapshot)
   const assets = []
   for (const id of assetIds) {
+    signal?.throwIfAborted()
     const rec = await idb.getAssetForExport(id)
     if (rec) assets.push(rec)
   }
   if (assets.length > 0) {
+    signal?.throwIfAborted()
     await adapter.importAssets(assets)
   }
 
-  snapshot = await externalizeAllNotes(snapshot, adapter)
+  snapshot = await externalizeAllNotes(snapshot, adapter, signal)
+  signal?.throwIfAborted()
   await adapter.saveSnapshot(snapshot)
   return true
 }
