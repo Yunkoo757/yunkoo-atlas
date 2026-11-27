@@ -27,7 +27,6 @@ import {
   deleteBackupAtPath,
   getBackupStatsAtPath,
   listBackupsAtPath,
-  restoreBackupAtPath,
   rotateBackups,
   startAutoBackup,
   stopAutoBackup,
@@ -45,7 +44,7 @@ import {
 } from './libraryActivation'
 import { randomUUID } from 'node:crypto'
 import { assertExitWithinDeadline, releaseThenFinalizeWithRollback } from '../quitCoordinator'
-import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
+import { createVerifiedRestorePoint, restoreLibraryBackup } from './backupRestore'
 import { beginOperation } from '../operationLogger'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
 import type {
@@ -368,6 +367,13 @@ function bufferFromPayload(data: ArrayBuffer | Uint8Array | number[]): Buffer {
 
 function toErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
+}
+
+function closeStorageForRestore(current: LibraryStorage): void {
+  stopAutoBackup()
+  autoBackupStarted = false
+  current.close()
+  storage = null
 }
 
 async function reopenStorageWithAutoBackup(): Promise<LibraryStorage> {
@@ -1069,67 +1075,22 @@ export function registerLibraryIpc(): void {
     return verifyBackupAtPath(lib.getLibraryPath(), fileName)
   }))
 
-  ipcMain.handle('backup:restore', async (event, payload: { fileName: string; writerToken: string }) => {
-    const { fileName } = payload
-    let replacementCommitted = false
-    try {
-      return await withStorageRecoveryNotification(
-        () => operationGate.runExclusive(async () => {
-          const current = await ensureStorage()
-          assertWriterSession(event, payload.writerToken, current)
-          const libraryPath = current.getLibraryPath()
-          const verification = await verifyBackupAtPath(libraryPath, fileName)
-          if (verification.status !== 'verified') {
-            return { ok: false as const, committed: false, error: verification.error }
-          }
-          // 在覆盖资料库前创建一个包含原图的完整恢复点。
-          const safetyBackup = createBackup(current)
-          if (!safetyBackup) {
-            return { ok: false as const, committed: false, error: '无法创建恢复前安全备份' }
-          }
-          const safetyVerification = await verifyBackupAtPath(libraryPath, path.basename(safetyBackup))
-          if (safetyVerification.status !== 'verified') {
-            return { ok: false as const, committed: false, error: safetyVerification.error ?? '恢复前安全备份验证失败' }
-          }
-          stopAutoBackup()
-          autoBackupStarted = false
-          const cleanRestoredDatabase = current.createSnapshotDatabaseCleaner()
-          current.close()
-          storage = null
-
-          const ok = restoreBackupAtPath(libraryPath, fileName, cleanRestoredDatabase)
-          replacementCommitted = ok
-          // 无论恢复是否成功，都重新打开资料库并重建自动备份计时器。
-          const reopened = await reopenAfterRestoreFailure()
-          adoptWriterSessionLifecycle(event.sender.id, reopened)
-          rotateBackups(ensureLibraryDirs(libraryPath).backups)
-          if (!ok) return { ok: false as const, committed: false, error: '恢复操作未提交' }
-          const restoredSnapshot = reopened.loadSnapshot()
-          if (restoredSnapshot) return { ok: true as const, committed: true as const, snapshot: restoredSnapshot }
-          if (!verification.emptyLibrary) {
-            return { ok: false as const, committed: true, error: '恢复后的快照无法读取' }
-          }
-          const emptySnapshot = createEmptyPersistedSnapshot()
-          reopened.saveSnapshot(emptySnapshot)
-          return { ok: true as const, committed: true as const, snapshot: emptySnapshot }
-        }),
-        notifyStorageRecoveryRequired,
-      )
-    } catch (error) {
-      safeConsoleError('backup-restore-failed', error)
-      const cutoverMayHaveStarted = replacementCommitted || storage === null
-      try {
-        if (!storage) await reopenAfterRestoreFailure()
-      } catch (reopenError) {
-        safeConsoleError('backup-reopen-after-restore-failed', reopenError)
-      }
-      return {
-        ok: false as const,
-        committed: cutoverMayHaveStarted,
-        error: toErrorMessage(error),
-      }
-    }
-  })
+  ipcMain.handle('backup:restore', (event, payload: { fileName: string; writerToken: string }) =>
+    restoreLibraryBackup(payload.fileName, {
+      withExclusiveWriter: work => operationGate.runExclusive(async () => {
+        const current = await ensureStorage()
+        assertWriterSession(event, payload.writerToken, current)
+        return work(current)
+      }),
+      close: closeStorageForRestore,
+      reopenForWriter: async () => {
+        const reopened = await reopenAfterRestoreFailure()
+        adoptWriterSessionLifecycle(event.sender.id, reopened)
+        return reopened
+      },
+      notifyRecoveryRequired: notifyStorageRecoveryRequired,
+    }),
+  )
 
   ipcMain.handle('backup:delete', async (event, payload: { fileName: string; writerToken: string }) => {
     return operationGate.tryRunExclusive(async () => {
@@ -1200,21 +1161,13 @@ export function registerLibraryIpc(): void {
           return { ok: false as const, committed: false, error: '当前资料库已切换或重新打开，请重新检查归档', code: 'SOURCE_CHANGED' as const }
         }
         const libraryPath = current.getLibraryPath()
-        const safetyBackup = createBackup(current)
-        if (!safetyBackup) {
+        const safety = await createVerifiedRestorePoint(current)
+        if (!safety.ok) {
           entry.retry()
-          return { ok: false as const, committed: false, error: '无法创建恢复前安全备份' }
+          return { ok: false as const, committed: false, error: safety.error }
         }
-        const safetyVerification = await verifyBackupAtPath(libraryPath, safetyBackup)
-        if (safetyVerification.status !== 'verified') {
-          entry.retry()
-          return { ok: false as const, committed: false, error: safetyVerification.error ?? '恢复前安全备份验证失败' }
-        }
-        stopAutoBackup()
-        autoBackupStarted = false
         entry.state = 'consumed'
-        current.close()
-        storage = null
+        closeStorageForRestore(current)
         try {
           await installPreparedLibraryAtPath(libraryPath, entry.stagedLibraryRoot)
           replacementCommitted = true

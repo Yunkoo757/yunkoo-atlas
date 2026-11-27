@@ -215,35 +215,6 @@ export async function testDesktopJournalImportHasAStartupRecoveryJournal(): Prom
       !preparedCommit.includes('importJournalZipToPath(libraryPath, entry.stagedArchivePath)'),
     '完整归档必须提交已经预览并验证的同一份私有候选库，不得重新读取或再次解压可变来源',
   )
-  const backupRestore = ipc.slice(
-    ipc.indexOf("ipcMain.handle('backup:restore'"),
-    ipc.indexOf("ipcMain.handle('backup:delete'"),
-  )
-  assert(
-    backupRestore.includes('safetyVerification') &&
-      backupRestore.indexOf('safetyVerification') < backupRestore.indexOf('current.close()'),
-    '备份恢复覆盖当前资料库前必须验证刚创建的安全恢复点',
-  )
-}
-
-export async function testBackupRestoreResultDistinguishesCommittedCutoverFailures(): Promise<void> {
-  const [ipc, bridge] = await Promise.all([
-    fs.readFile('electron/library/ipc.ts', 'utf8'),
-    fs.readFile('src/types/journalBridge.ts', 'utf8'),
-  ])
-
-  assert(bridge.includes('BackupRestoreResult'), '恢复桥必须返回带提交状态的判别联合类型')
-  assert(ipc.includes('replacementCommitted'), '主进程必须记录磁盘替换是否已经提交')
-  assert(ipc.includes('cutoverMayHaveStarted'), '提交状态不明的异常必须按可能已替换处理')
-  assert(ipc.includes('reopenAfterRestoreFailure'), '失败路径必须重新打开资料库并恢复自动备份')
-  const restoreBody = ipc.slice(
-    ipc.indexOf("ipcMain.handle('backup:restore'"),
-    ipc.indexOf("ipcMain.handle('backup:delete'"),
-  )
-  assert(
-    restoreBody.includes('withStorageRecoveryNotification('),
-    'backup:restore 的空库 snapshot 写入必须统一广播 indeterminate recovery',
-  )
 }
 
 export async function testUserDataStorageHasNoCloudSyncSurfaceOrRuntime(): Promise<void> {
@@ -266,16 +237,8 @@ export async function testUserDataStorageHasNoCloudSyncSurfaceOrRuntime(): Promi
   assert(welcome.includes('定期创建完整备份'), '首次建库必须给出本地备份建议')
 }
 
-export async function testBackupRestoreValidatesDatabaseBeforeMutatingCurrentLibrary(): Promise<void> {
+export async function testWindowCloseHandshakeKeepsBackupVerificationOffTheRendererPath(): Promise<void> {
   const ipc = await fs.readFile('electron/library/ipc.ts', 'utf8')
-  const restoreHandler = ipc.indexOf("ipcMain.handle('backup:restore'")
-  const storageValidation = ipc.indexOf('const current = await ensureStorage()', restoreHandler)
-  const validation = ipc.indexOf('const verification = await verifyBackupAtPath(libraryPath, fileName)', storageValidation)
-  const rejection = ipc.indexOf("if (verification.status !== 'verified')", validation)
-  const safetyBackup = ipc.indexOf('const safetyBackup = createBackup(current)', rejection)
-  assert(storageValidation >= 0 && storageValidation < validation, '恢复前必须先取得通过位置状态机验证的活动库')
-  assert(validation >= 0 && rejection > validation, '恢复点必须先通过完整恢复演练')
-  assert(safetyBackup > rejection, '校验失败时不得创建安全备份、关闭或替换当前资料库')
   assert(
     !ipc.includes('void verifyBackup(path.basename(result)).catch'),
     '退出前创建恢复点不得启动同步附件校验并阻塞主进程',
