@@ -11,7 +11,6 @@ import { validateDesktopLibrary, validateLibraryDatabaseFile } from './journalZi
 import { safeConsoleError } from '../diagnosticSanitizer'
 import { removeDirectManagedDirectory } from './managedPaths'
 
-const DEFAULT_INTERVAL_MS = 15 * 60 * 1000 // 15 分钟
 const DEFAULT_MAX_BACKUPS = 7
 const DEFAULT_MAX_TOTAL_SIZE = 500 * 1024 * 1024 // 500 MB 备份总容量上限
 
@@ -31,8 +30,6 @@ interface BackupMeta {
   emptyLibrary?: true
 }
 
-let intervalTimer: ReturnType<typeof setInterval> | null = null
-let storageRef: LibraryStorage | null = null
 const BACKUP_RESTORE_MARKER = '.backup-restore.json'
 const BACKUP_RESTORE_RECOVERY_PREFIX = '.backup-restore-recovery-'
 
@@ -340,6 +337,12 @@ export function createBackup(
     safeConsoleError('backup-create-failed', err)
     return null
   }
+}
+
+export function createRotatedBackup(storage: LibraryStorage): string | null {
+  const backup = createBackup(storage)
+  if (backup) rotateBackups(ensureLibraryDirs(storage.getLibraryPath()).backups)
+  return backup
 }
 
 export function getBackupStatsAtPath(libraryPath: string): { count: number; totalSize: number } {
@@ -750,44 +753,4 @@ export function rotateBackups(
   } catch (err) {
     safeConsoleError('backup-rotate-failed', err)
   }
-}
-
-export function startAutoBackup(
-  storage: LibraryStorage,
-  intervalMs: number = DEFAULT_INTERVAL_MS,
-  maxBackups: number = DEFAULT_MAX_BACKUPS,
-  onBackupFailure?: () => void,
-  guardedBackup?: (storage: LibraryStorage) => Promise<'created' | 'skipped' | 'failed'>,
-): void {
-  stopAutoBackup()
-  storageRef = storage
-  const libraryPath = storage.getLibraryPath()
-  rotateBackups(ensureLibraryDirs(libraryPath).backups, maxBackups)
-
-  // 定时备份
-  intervalTimer = setInterval(() => {
-    if (!storageRef) return
-    if (guardedBackup) {
-      void guardedBackup(storageRef).then((outcome) => {
-        if (outcome === 'failed') onBackupFailure?.()
-      }).catch(() => onBackupFailure?.())
-      return
-    }
-    const result = createBackup(storageRef)
-    if (result) {
-      const { backups } = ensureLibraryDirs(storageRef.getLibraryPath())
-      rotateBackups(backups, maxBackups)
-    } else {
-      onBackupFailure?.()
-    }
-  }, intervalMs)
-
-}
-
-export function stopAutoBackup(): void {
-  if (intervalTimer) {
-    clearInterval(intervalTimer)
-    intervalTimer = null
-  }
-  storageRef = null
 }

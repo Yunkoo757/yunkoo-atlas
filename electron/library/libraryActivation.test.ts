@@ -176,7 +176,6 @@ export function testIpcDoesNotPersistOrActivateCandidateBeforeValidation(): void
   assert(source.includes('prepared.ownerWebContentsId !== event.sender.id'), '令牌不得被其他 renderer 激活')
   assert(source.includes('PREPARED_LIBRARY_TTL_MS'), '遗弃令牌必须自动过期')
   assert(source.includes("sender.once('render-process-gone', expire)"), 'renderer 崩溃时必须回收令牌')
-  assert(source.includes('const rollbackError = restorePreviousBackup()'), '候选启动或配置失败必须恢复旧库自动备份')
 }
 
 export async function testRecoveryReplacesIndeterminateStorageBeforeRendererReload(): Promise<void> {

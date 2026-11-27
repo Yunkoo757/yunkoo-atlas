@@ -85,7 +85,55 @@ function verifyOperationRevisions(userData, kind, startStage, status, before, af
     pair[1].revisionBefore === before && pair[1].revisionAfter === after, `${kind} 日志与实际操作版本不符`)
 }
 
-async function verifyCutoverReceipts(application, page, libraryPath, candidatePath) {
+async function verifyRejectedSwitchPreservesBackups(page, libraryPath, candidatePath, userDataPath, candidateBackup) {
+  const activeBackup = await page.evaluate(() => window.journalBridge.createBackup())
+  assert(activeBackup && candidateBackup, '隔离库必须各有一份原生备份样本')
+  function seedRetentionHistory(sample) {
+    const dir = path.dirname(sample)
+    const names = new Set(fs.readdirSync(dir).filter(name => /^journal-.*\.db$/.test(name)))
+    for (let day = 1; names.size < 9; day++) {
+      const name = `journal-2025-01-${String(day).padStart(2, '0')}-00-00-00-000Z.db`
+      if (names.has(name)) continue
+      for (const suffix of ['', '.meta.json', '.manifest.json']) {
+        fs.copyFileSync(sample + suffix, path.join(dir, name + suffix), fs.constants.COPYFILE_EXCL)
+      }
+      names.add(name)
+    }
+    return [...names].sort()
+  }
+  const oldNames = seedRetentionHistory(activeBackup)
+  const candidateNames = seedRetentionHistory(candidateBackup)
+  const list = sample => fs.readdirSync(path.dirname(sample)).filter(name => /^journal-.*\.db$/.test(name)).sort()
+  const prepare = () => page.evaluate(root => window.journalBridge.prepareLibrarySwitch(root, 'open'), candidatePath)
+  const activate = token => page.evaluate(id => window.journalBridge.activatePreparedLibrary(id), token)
+  const prepared = await prepare()
+  assert(prepared.ok, '必须先通过候选库准备')
+  const config = path.join(userDataPath, 'library-config.json')
+  const saved = config + '.isolated-fixture'
+  fs.renameSync(config, saved)
+  let rejected
+  try {
+    fs.mkdirSync(config)
+    try { rejected = await activate(prepared.token) }
+    finally { fs.rmdirSync(config) }
+  } finally {
+    fs.renameSync(saved, config)
+  }
+  assert(!rejected.ok && rejected.error.includes('无法保存交易库位置'), '配置提交失败必须保留原库')
+  assert(await page.evaluate(() => window.journalBridge.getLibraryPath()) === libraryPath, '失败后活动资料库发生变化')
+  await page.evaluate(async () => { const bridge = window.journalBridge; return bridge.saveSnapshot(await bridge.loadSnapshot()) })
+  const remainingOld = list(activeBackup)
+  const remainingCandidate = list(candidateBackup)
+  assert(JSON.stringify(oldNames) === JSON.stringify(remainingOld) &&
+    JSON.stringify(candidateNames) === JSON.stringify(remainingCandidate),
+    `拒绝切库后两库备份应全部保留，实际为 ${remainingOld.length}/${oldNames.length} 与 ${remainingCandidate.length}/${candidateNames.length}`)
+  const retry = await prepare()
+  assert(retry.ok && (await activate(retry.token)).ok, '恢复配置后应能激活同一候选')
+  assert(list(candidateBackup).length === 7 && list(activeBackup).length === oldNames.length, '成功切库后仅轮换新库')
+  return { sourceRetained: oldNames.length, candidateRetained: candidateNames.length, candidateAfterActivation: 7 }
+}
+
+async function verifyCutoverReceipts(application, page, libraryPath, candidatePath, userDataPath) {
   // 替换已提交后，单独查询版本可能被下一次独占操作拒绝。
   // 本阶段只保留普通快照读取，禁止通过第二条版本 IPC 补齐写入回执。
   await application.evaluate(({ ipcMain }) => {
@@ -94,7 +142,7 @@ async function verifyCutoverReceipts(application, page, libraryPath, candidatePa
   })
   const backup = await page.evaluate(() => window.journalBridge.createBackup())
   assert(backup, '无法创建隔离备份')
-  return page.evaluate(async ({ libraryPath, candidatePath, backupName }) => {
+  const { candidateBackup, ...receipts } = await page.evaluate(async ({ libraryPath, candidatePath, backupName }) => {
     const bridge = window.journalBridge
     const previous = await bridge.loadSnapshot()
     const stale = await bridge.commitStageRollover({
@@ -122,11 +170,14 @@ async function verifyCutoverReceipts(application, page, libraryPath, candidatePa
     }
     if (await activate(candidatePath, 'create') !== null) throw new Error('新建目标应为空')
     await bridge.saveSnapshot({ ...previous, tagPresets: ['isolated-second-library'] })
+    const candidateBackup = await bridge.createBackup()
     const original = await activate(libraryPath, 'open')
     if (original?.tagPresets[0] !== 'post-recovery-follow-up') throw new Error('切回原库后必须读到原快照')
     await bridge.saveSnapshot(original)
-    return { staleStage: stale.reason, backup: true, archive: true, create: true, reopen: true }
+    return { candidateBackup, staleStage: stale.reason, backup: true, archive: true, create: true, reopen: true }
   }, { libraryPath, candidatePath, backupName: path.basename(backup) })
+  const retention = await verifyRejectedSwitchPreservesBackups(page, libraryPath, candidatePath, userDataPath, candidateBackup)
+  return { ...receipts, retention }
 }
 
 function waitForMainFrameNavigation(page, timeoutMs = 15_000) {
@@ -442,7 +493,7 @@ try {
   )
   assert(recovered.followUp === 'post-recovery-follow-up', 'fresh storage 必须接受后续耐久写入')
 
-  const cutoverReceipts = await verifyCutoverReceipts(application, page, libraryPath, path.join(temporaryRoot, 'isolated-second-library'))
+  const cutoverReceipts = await verifyCutoverReceipts(application, page, libraryPath, path.join(temporaryRoot, 'isolated-second-library'), userDataPath)
   evidence = {
     cutoverReceipts,
     version: 1,

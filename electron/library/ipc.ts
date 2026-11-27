@@ -25,17 +25,16 @@ import {
 } from './libraryLocation'
 import {
   createBackup,
+  createRotatedBackup,
   deleteBackupAtPath,
   getBackupStatsAtPath,
   listBackupsAtPath,
-  rotateBackups,
-  startAutoBackup,
-  stopAutoBackup,
   verifyBackupAtPath,
 } from './backup'
 import { assertSafeAssetId } from '../../src/storage/assetId'
 import { OperationalError } from '../../src/lib/operationalError'
 import { LibraryBusyError, LibraryOperationGate } from './sessionGate'
+import { LibraryAutoBackup } from './autoBackup'
 import { LibraryWriterSessions, type WriterGrant } from './writerSession'
 import {
   areSameLibrary,
@@ -68,7 +67,6 @@ import {
 
 let storage: LibraryStorage | null = null
 let openingStorage: Promise<LibraryStorage> | null = null
-let autoBackupStarted = false
 const assetPurgeAuthorizations = new Map<string, {
   token: string
   signature: string
@@ -78,29 +76,15 @@ const assetPurgeAuthorizations = new Map<string, {
 }>()
 let exitPreparedStorage: LibraryStorage | null = null
 const operationGate = new LibraryOperationGate()
-let writers = new LibraryWriterSessions()
+const writers = new LibraryWriterSessions()
 
 const journalImportPreviews = new JournalImportPreviews()
 
-function startLibraryAutoBackup(target: LibraryStorage): void {
-  startAutoBackup(target, undefined, undefined, () => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed()) window.webContents.send('backup:auto-failed')
-    }
-  }, async (activeStorage) => {
-    try {
-      return await operationGate.tryRunExclusive(async () => {
-        const result = createBackup(activeStorage)
-        if (!result) return 'failed' as const
-        rotateBackups(ensureLibraryDirs(activeStorage.getLibraryPath()).backups)
-        return 'created' as const
-      })
-    } catch (error) {
-      if (error instanceof LibraryBusyError) return 'skipped' as const
-      return 'failed' as const
-    }
-  })
-}
+const autoBackup = new LibraryAutoBackup(operationGate, () => {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) window.webContents.send('backup:auto-failed')
+  }
+})
 
 type LibrarySwitchMode = 'create' | 'open'
 
@@ -266,11 +250,10 @@ export async function commitStorageExit(
       await finalize()
       return
     }
-    const restartAutoBackup = autoBackupStarted
+    let restartAutoBackup = false
     await releaseThenFinalizeWithRollback(
       () => {
-        stopAutoBackup()
-        autoBackupStarted = false
+        restartAutoBackup = autoBackup.stop()
         if (storage === current) storage = null
         exitPreparedStorage = null
         current.release()
@@ -279,10 +262,7 @@ export async function commitStorageExit(
       async () => {
         await current.open()
         storage = current
-        if (restartAutoBackup) {
-          startLibraryAutoBackup(current)
-          autoBackupStarted = true
-        }
+        if (restartAutoBackup) autoBackup.start(current)
       },
     )
   }, signal)
@@ -344,8 +324,7 @@ function toErrorMessage(err: unknown): string {
 }
 
 function closeStorageForRestore(current: LibraryStorage): void {
-  stopAutoBackup()
-  autoBackupStarted = false
+  autoBackup.stop()
   current.close()
   storage = null
 }
@@ -358,10 +337,7 @@ async function openConfiguredStorage(mode: 'startup' | 'restore'): Promise<Libra
   await openValidatedLibraryCandidate(candidate, location.verifiedLibraryId)
   try {
     ensureLibraryDirs(location.resolvedPath)
-    if (mode === 'restore') {
-      startLibraryAutoBackup(candidate)
-      autoBackupStarted = true
-    }
+    if (mode === 'restore') autoBackup.start(candidate)
     storage = candidate
     return candidate
   } catch (error) {
@@ -428,34 +404,12 @@ function activateLibraryCandidate(
   }
 
   const previous = storage
-  const restorePreviousBackup = (): string | null => {
-    stopAutoBackup()
-    autoBackupStarted = false
-    if (!previous) return null
-    try {
-      startLibraryAutoBackup(previous)
-      autoBackupStarted = true
-      return null
-    } catch (error) {
-      return toErrorMessage(error)
-    }
-  }
-
+  let startBackup: () => void
   try {
-    // 打开已有库时，只有完整校验通过后才补齐运行期目录。
-    ensureLibraryDirs(resolvedPath)
-    // 先确认候选库的备份目录可用；此时旧库仍保持打开，可完整回滚。
-    startLibraryAutoBackup(candidate)
-    autoBackupStarted = true
+    startBackup = autoBackup.prepare(candidate)
   } catch (error) {
-    const rollbackError = restorePreviousBackup()
     candidate.release()
-    return {
-      ok: false,
-      error: rollbackError
-        ? `候选交易库不可用：${toErrorMessage(error)}；自动备份恢复失败：${rollbackError}`
-        : `候选交易库不可用：${toErrorMessage(error)}`,
-    }
+    return { ok: false, error: `候选交易库不可用：${toErrorMessage(error)}` }
   }
 
   try {
@@ -464,18 +418,12 @@ function activateLibraryCandidate(
       libraryId: candidate.readManifest().libraryId,
     })
   } catch (error) {
-    const rollbackError = restorePreviousBackup()
     candidate.release()
-    return {
-      ok: false,
-      error: rollbackError
-        ? `无法保存交易库位置：${toErrorMessage(error)}；自动备份恢复失败：${rollbackError}`
-        : `无法保存交易库位置：${toErrorMessage(error)}`,
-    }
+    return { ok: false, error: `无法保存交易库位置：${toErrorMessage(error)}` }
   }
 
   storage = candidate
-  autoBackupStarted = true
+  startBackup()
   try {
     previous?.release()
   } catch (error) {
@@ -648,10 +596,8 @@ async function recoverActiveStorageLifecycle(
     return await operationGate.runExclusive(async () => {
       const current = storage ?? (openingStorage ? await openingStorage : null)
 
-      // 自动备份不经过 operation gate；必须在任何异步定位/校验前停止旧 timer，
-      // 避免它在 fresh open 期间继续访问已锁定的 sql.js 实例。
-      stopAutoBackup()
-      autoBackupStarted = false
+      // 恢复失败时旧实例可能仍被锁定，只有成功激活的实例可重新备份。
+      autoBackup.stop()
       const location = await getValidatedLibraryLocation()
       if (location.kind === 'unset') throw new Error('尚未配置交易库')
       if (location.kind !== 'ready') throw libraryLocationError(location)
@@ -668,10 +614,9 @@ async function recoverActiveStorageLifecycle(
           allowCreate: false,
         }),
         activateCandidate: (candidate) => {
-          startLibraryAutoBackup(candidate)
+          autoBackup.start(candidate)
           storage = candidate
           assetPurgeAuthorizations.clear()
-          autoBackupStarted = true
           storageActivated = true
         },
         reloadRenderer: async () => {
@@ -760,11 +705,7 @@ export function registerLibraryIpc(): void {
   ipcMain.handle('library:getPath', async () => withStorage((lib) => lib.getLibraryPath()))
 
   ipcMain.handle('storage:open', async (event) => withStorage(async (lib) => {
-    // 首次打开时启动自动备份（幂等防护）
-    if (!autoBackupStarted) {
-      startLibraryAutoBackup(lib)
-      autoBackupStarted = true
-    }
+    autoBackup.start(lib)
     return {
       ok: true,
       revision: lib.getSnapshotRevision(),
@@ -1016,9 +957,7 @@ export function registerLibraryIpc(): void {
   ipcMain.handle('backup:create', async (event, writerToken: string) => operationGate.tryRunExclusive(async () => {
     const lib = await ensureStorage()
     writers.assert(event, writerToken, lib)
-    const result = createBackup(lib)
-    if (result) rotateBackups(ensureLibraryDirs(lib.getLibraryPath()).backups)
-    return result
+    return createRotatedBackup(lib)
   }))
 
   ipcMain.handle('backup:list', async () => withStorage((lib) => {
@@ -1059,12 +998,6 @@ export function registerLibraryIpc(): void {
 
   ipcMain.handle('backup:stats', async () => withStorage((lib) => {
     return getBackupStatsAtPath(lib.getLibraryPath())
-  }))
-
-  // 启动自动备份（15 分钟 + 退出前）
-  ipcMain.handle('backup:startAuto', async () => withStorage((lib) => {
-    startLibraryAutoBackup(lib)
-    return true
   }))
 
   ipcMain.handle('journal:prepareImport', (event, requestId: string) =>
@@ -1149,15 +1082,4 @@ export function registerLibraryIpc(): void {
     throw error
   }))
 
-}
-
-export function resetStorageForTests(): void {
-  journalImportPreviews.clear()
-  clearPreparedLibrarySwitch()
-  preparingLibrarySwitch = false
-  activatingLibrarySwitch = false
-  if (storage) storage.close()
-  storage = null
-  openingStorage = null
-  writers = new LibraryWriterSessions()
 }

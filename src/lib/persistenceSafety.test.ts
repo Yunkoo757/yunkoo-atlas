@@ -138,15 +138,13 @@ export async function testDesktopAttachmentWritesUseTheAtomicFileBoundary(): Pro
 }
 
 export async function testAutomaticBackupFailuresReachTheVisibleWorkspace(): Promise<void> {
-  const [backup, ipc, preload, bridge, app] = await Promise.all([
-    fs.readFile('electron/library/backup.ts', 'utf8'),
+  const [ipc, preload, bridge, app] = await Promise.all([
     fs.readFile('electron/library/ipc.ts', 'utf8'),
     fs.readFile('electron/preload.ts', 'utf8'),
     fs.readFile('src/types/journalBridge.ts', 'utf8'),
     fs.readFile('src/App.tsx', 'utf8'),
   ])
 
-  assert(backup.includes('onBackupFailure?.()'), '自动备份失败必须触发主进程通知回调')
   assert(ipc.includes("webContents.send('backup:auto-failed')"), '自动备份失败必须广播到仍存活的工作台')
   assert(preload.includes("ipcRenderer.on('backup:auto-failed'"), '预加载桥必须安全转发自动备份失败事件')
   assert(bridge.includes('onAutoBackupFailure(callback:'), '类型桥必须声明自动备份失败订阅')
