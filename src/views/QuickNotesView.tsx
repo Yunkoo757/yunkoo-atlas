@@ -38,6 +38,7 @@ import { Button } from '@/components/ui/Button'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { useSaveStatus } from '@/store/saveStatus'
 import { toast } from '@/lib/toast'
+import { withLibrarySession } from './withLibrarySession'
 import './QuickNotesView.css'
 
 const NOTE_IDLE_COMMIT_MS = 500
@@ -53,7 +54,9 @@ function formatNoteTime(value: string): string {
   return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(date)
 }
 
-export function QuickNotesView() {
+export const QuickNotesView = withLibrarySession<object>(QuickNotesWorkspace)
+
+function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -104,8 +107,9 @@ export function QuickNotesView() {
 
   const reportDraftFailure = useCallback((draftId: NoteDraftKey) => {
     const retry = () => {
+      if (useStore.getState().librarySession !== librarySession) return
       void flushNoteDraftToStore(draftId).then((ok) => {
-        if (!ok) reportDraftFailure(draftId)
+        if (!ok && useStore.getState().librarySession === librarySession) reportDraftFailure(draftId)
       })
     }
     useSaveStatus.getState().setError('随记正文仍保留在本次会话草稿中，尚未写入资料库')
@@ -115,13 +119,15 @@ export function QuickNotesView() {
       onAction: retry,
       dedupeKey: `quick-note-save:${draftId}`,
     })
-  }, [])
+  }, [librarySession])
 
   const flushDraft = useCallback(async (draftId: NoteDraftKey): Promise<boolean> => {
+    if (useStore.getState().librarySession !== librarySession) return false
     const ok = await flushNoteDraftToStore(draftId)
+    if (useStore.getState().librarySession !== librarySession) return false
     if (!ok) reportDraftFailure(draftId)
     return ok
-  }, [reportDraftFailure])
+  }, [reportDraftFailure, librarySession])
 
   useLayoutEffect(() => () => { navigationIntent.current++ }, [id])
 
@@ -330,6 +336,7 @@ export function QuickNotesView() {
         const draftId = noteDraftKey('quickNote', selectedNote.id)
         if (!await flushDraft(draftId)) return
         const store = useStore.getState()
+        if (store.librarySession !== librarySession) return
         const latest = store.quickNotes.find((note) => note.id === selectedNote.id)
         if (!latest) return
         const created = buildQuickNoteRecord({

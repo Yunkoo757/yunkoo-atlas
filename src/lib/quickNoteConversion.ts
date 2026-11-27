@@ -1,24 +1,31 @@
+import { useStore } from '@/store/useStore'
+
 type Conversion = { succeeded: boolean }
 const convertingNotes = new Map<string, Conversion>()
 const noteViews = new Map<string, Set<symbol>>()
 const listeners = new Set<() => void>()
 
-function releaseConversion(noteId: string, conversion: Conversion) {
-  if (convertingNotes.get(noteId) !== conversion) return
-  convertingNotes.delete(noteId)
+function currentNoteKey(noteId: string): string {
+  return `${useStore.getState().librarySession}:${noteId}`
+}
+
+function releaseConversion(key: string, conversion: Conversion) {
+  if (convertingNotes.get(key) !== conversion) return
+  convertingNotes.delete(key)
   listeners.forEach(listener => listener())
 }
 
 export function registerQuickNoteConversionView(noteId: string): () => void {
+  const key = currentNoteKey(noteId)
   const token = Symbol(noteId)
-  const views = noteViews.get(noteId) ?? new Set<symbol>()
-  noteViews.set(noteId, views)
+  const views = noteViews.get(key) ?? new Set<symbol>()
+  noteViews.set(key, views)
   views.add(token)
   return () => {
     if (!views.delete(token) || views.size > 0) return
-    noteViews.delete(noteId)
-    const conversion = convertingNotes.get(noteId)
-    if (conversion?.succeeded) releaseConversion(noteId, conversion)
+    noteViews.delete(key)
+    const conversion = convertingNotes.get(key)
+    if (conversion?.succeeded) releaseConversion(key, conversion)
   }
 }
 
@@ -28,18 +35,19 @@ export function subscribeQuickNoteConversions(listener: () => void): () => void 
 }
 
 export function isQuickNoteViewOpen(noteId: string): boolean {
-  return noteViews.has(noteId)
+  return noteViews.has(currentNoteKey(noteId))
 }
 
 export function isQuickNoteConverting(noteId: string): boolean {
-  return convertingNotes.has(noteId)
+  return convertingNotes.has(currentNoteKey(noteId))
 }
 
 /** A pending flush can outlive its view; case/live conversions share the same note lease. */
 export function acquireQuickNoteConversion(noteId: string): ((succeeded?: boolean) => void) | null {
-  if (convertingNotes.has(noteId)) return null
+  const key = currentNoteKey(noteId)
+  if (convertingNotes.has(key)) return null
   const conversion = { succeeded: false }
-  convertingNotes.set(noteId, conversion)
+  convertingNotes.set(key, conversion)
   listeners.forEach(listener => listener())
   let released = false
   return (succeeded = false) => {
@@ -47,6 +55,6 @@ export function acquireQuickNoteConversion(noteId: string): ((succeeded?: boolea
     released = true
     conversion.succeeded = succeeded
     // A successful conversion stays locked until the old editor leaves the screen.
-    if (!succeeded || !noteViews.has(noteId)) releaseConversion(noteId, conversion)
+    if (!succeeded || !noteViews.has(key)) releaseConversion(key, conversion)
   }
 }

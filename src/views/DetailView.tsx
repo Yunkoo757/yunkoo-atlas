@@ -118,6 +118,7 @@ import { buildPerformanceSelection } from '@/lib/performanceSelection'
 import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { useTradeNote } from './useTradeNote'
+import { withLibrarySession } from './withLibrarySession'
 import './DetailView.css'
 
 const FEED_VISIBLE = 8
@@ -136,10 +137,7 @@ const MASTERY_OPTS: MasteryState[] = ['new', 'recheck', 'mastered']
 
 type DetailViewProps = { toolbarHost?: HTMLElement | null }
 
-export function DetailView(props: DetailViewProps = {}) {
-  const librarySession = useStore(state => state.librarySession)
-  return <TradeDetail key={librarySession} librarySession={librarySession} {...props} />
-}
+export const DetailView = withLibrarySession<DetailViewProps>(TradeDetail)
 
 function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librarySession: number }) {
   const { id: routeParam } = useParams()

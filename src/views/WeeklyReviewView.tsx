@@ -93,10 +93,13 @@ import {
   getWeeklyVisualIssues,
   type WeeklyVisualIssue,
 } from '@/lib/weeklyReviewVisualState'
+import { withLibrarySession } from './withLibrarySession'
 import './WeeklyReviewView.css'
 
-async function flushWeeklyDraft(draftId: NoteDraftKey): Promise<boolean> {
+async function flushWeeklyDraft(draftId: NoteDraftKey, librarySession: number): Promise<boolean> {
+  if (useStore.getState().librarySession !== librarySession) return false
   const saved = await flushNoteDraftToStore(draftId)
+  if (useStore.getState().librarySession !== librarySession) return false
   if (!saved) useSaveStatus.getState().setError('周复盘正文仍保留在本次会话，可重试保存')
   return saved
 }
@@ -272,7 +275,11 @@ function TradeEvidence({
   )
 }
 
-export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
+type WeeklyReviewProps = { header?: ReactNode }
+
+export const WeeklyReviewView = withLibrarySession<WeeklyReviewProps>(WeeklyReviewWorkspace)
+
+function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & { librarySession: number }) {
   const windowToolbar = useContext(WindowToolbarHost)
   const trades = useStore((state) => state.trades)
   const privacyMode = useStore((state) => state.display.privacyMode)
@@ -667,8 +674,8 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
   useEffect(() => () => {
     if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
     noteTimerRef.current = null
-    void flushWeeklyDraft(draftId)
-  }, [draftId])
+    void flushWeeklyDraft(draftId, librarySession)
+  }, [draftId, librarySession])
 
   const visibleNoteStatus = noteLoad?.id === review.id ? noteLoad.status : 'loading'
   const onEditorChange = useCallback((html: string) => {
@@ -683,9 +690,9 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
     noteTimerRef.current = setTimeout(() => {
       noteTimerRef.current = null
-      void flushWeeklyDraft(noteDraftKey('weeklyReview', review.id))
+      void flushWeeklyDraft(noteDraftKey('weeklyReview', review.id), librarySession)
     }, 500)
-  }, [review.id, reviewLiveStageId, selectedWeek, upsertReview, visibleNoteStatus])
+  }, [review.id, reviewLiveStageId, selectedWeek, upsertReview, visibleNoteStatus, librarySession])
 
   const replaceRouteState = useCallback((
     nextWeek: string,
@@ -744,8 +751,8 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
       item.week === selectedWeek &&
       item.liveStageId === reviewLiveStageId
     ) { closeHistoryPicker(); return }
-    const draftSaved = await flushWeeklyDraft(draftId)
-    if (intentGeneration !== routeIntentGenerationRef.current) return
+    const draftSaved = await flushWeeklyDraft(draftId, librarySession)
+    if (useStore.getState().librarySession !== librarySession || intentGeneration !== routeIntentGenerationRef.current) return
     if (!draftSaved) {
       toast('正文尚未保存，请重试', { tone: 'error' })
       return
@@ -768,7 +775,8 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
   }
 
   const completeReview = async () => {
-    const draftSaved = await flushWeeklyDraft(draftId)
+    const draftSaved = await flushWeeklyDraft(draftId, librarySession)
+    if (useStore.getState().librarySession !== librarySession) return
     const latest = useStore.getState().weeklyReviews.find((item) =>
       item.weekStart === selectedWeek && item.liveStageId === reviewLiveStageId,
     ) ?? review
