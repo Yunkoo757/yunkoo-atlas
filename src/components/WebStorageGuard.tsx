@@ -4,7 +4,6 @@ import { replaceLibraryInStore } from '@/lib/snapshotStore'
 import { useSaveStatus } from '@/store/saveStatus'
 import { publishDurableStoreRefresh } from '@/storage/bootstrap'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
-import { discardAllNoteDrafts } from '@/storage/noteDrafts'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
 import {
   suspendPersist,
@@ -32,7 +31,6 @@ export function WebStorageGuard() {
     try {
       await waitForPendingStorageOperations()
       const envelope = await getIndexedDbAdapter().loadSnapshotEnvelope()
-      discardAllNoteDrafts()
       publishDurableStoreRefresh(() => {
         replaceLibraryInStore(envelope.snapshot)
       })

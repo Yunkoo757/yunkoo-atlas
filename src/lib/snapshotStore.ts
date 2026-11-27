@@ -1,3 +1,4 @@
+import { discardAllNoteDrafts } from '@/storage/noteDrafts'
 import { snapshotToRuntimeState } from '@/storage/snapshotToRuntimeState'
 import { createDefaultUserProfile } from '@/config/defaultProfile'
 import { useToast } from '@/lib/toast'
@@ -9,7 +10,6 @@ import type { PersistedSnapshot } from '@/storage/types'
 
 function publishSnapshot(snapshot: PersistedSnapshot, fields: Partial<ReturnType<typeof useStore.getState>>): void {
   useStore.setState({
-    ...snapshotToRuntimeState(snapshot),
     ...fields,
     undoStack: [],
     redoStack: [],
@@ -19,7 +19,7 @@ function publishSnapshot(snapshot: PersistedSnapshot, fields: Partial<ReturnType
 }
 
 export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
-  publishSnapshot(snapshot, {})
+  publishSnapshot(snapshot, snapshotToRuntimeState(snapshot))
 }
 
 /** 整库切换、恢复或重载时，旧记录的选择与交易指令和数据在同一次 store 更新中交接。 */
@@ -30,8 +30,12 @@ export function replaceLibraryInStore(snapshot: PersistedSnapshot | null): void 
     tagPresets: source.tagPresets ?? [],
     mistakeTagPresets: source.mistakeTagPresets ?? [],
   }
+  const data = snapshotToRuntimeState(source)
+  discardAllNoteDrafts()
   publishSnapshot(source, {
+    ...data,
     ...initialTags,
+    librarySession: useStore.getState().librarySession + 1,
     selectedId: null,
     composerOpen: false,
     composerTrade: null,

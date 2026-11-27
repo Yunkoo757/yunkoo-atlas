@@ -8,6 +8,8 @@ import { useShortcutStore } from '@/store/shortcutStore'
 import { DetailView } from '@/views/DetailView'
 import { getStorage } from '@/storage/bootstrap'
 import { useToast } from '@/lib/toast'
+import { replaceLibraryInStore } from '@/lib/snapshotStore'
+import { pickPersisted } from '@/storage/persist'
 import { ToastHost } from '@/components/Toast'
 import {
   noteDraftKey,
@@ -297,12 +299,38 @@ async function run(): Promise<void> {
       '保存等待期间被清空的笔记不能继续标记为已复盘',
     )
     assert(!useToast.getState().items.some(item => item.tone === 'success'), '复盘未完成时不应推送成功通知')
+
+    const html = document.querySelector<HTMLElement & { editor: TiptapEditor }>(editorSelector)!.editor
+    html.commands.setContent('<p>整库替换前的结论</p>', true)
+    await waitFor(() => findButton('完成复盘')?.disabled === false, '替换前完成入口未就绪')
+    const started = deferred<void>()
+    const resumed = deferred<string>()
+    let saveCalls = 0
+    storage.saveAsset = async () => { saveCalls++; started.resolve(); return resumed.promise }
+    const key = noteDraftKey('trade', raceTrade.id)
+    setNoteDraft(key, '<p>旧库尚未提交的结论</p><img src="data:image/png;base64,Qg=="><img src="data:image/png;base64,Qw==">')
+    findButton('完成复盘')!.click()
+    await started.promise
+    const replacement = { ...raceTrade, note: '<p>新库正文</p>' }
+    replaceLibraryInStore({ ...pickPersisted(useStore.getState()), trades: [replacement] })
+    resumed.resolve('old-library-image')
+    await waitForFrame()
+    await waitForFrame()
+    assert(saveCalls === 1, '旧库草稿不能在整库替换后继续保存第二张图片')
+    const current = useStore.getState().trades[0]!
+    assert(current.reviewStatus === 'unreviewed' && current.note === replacement.note,
+      `旧库完成操作写进同 ID 的新记录：${current.reviewStatus}，${current.note}`)
+    await waitFor(() => document.querySelector(editorSelector)?.textContent === '新库正文',
+      '整库替换后详情必须显示新库正文')
+    assert(!useToast.getState().items.some(item => item.tone === 'success'), '新库不应收到旧操作的成功通知')
+    findButton('完成复盘')!.click()
+    await waitFor(() => useStore.getState().trades[0]?.reviewStatus === 'reviewed', '新库应能独立完成自己的复盘')
   } finally {
     root.unmount()
     useToast.setState(previousToasts)
     storage.saveAsset = originalSaveAsset
     resetNoteDraftsForTests()
-    useStore.setState({ trades: previous.trades, strategies: previous.strategies, display: previous.display })
+    useStore.setState(previous, true)
     useShortcutStore.setState(previousShortcuts, true)
   }
 }

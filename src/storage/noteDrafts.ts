@@ -1,4 +1,4 @@
-import { getStorage } from '@/storage/bootstrap'
+import { getStorage } from '@/storage/provider'
 import { syncReviewCaseSourceNotes } from '@/lib/reviewCaseSources'
 import {
   assetUrl,
@@ -19,7 +19,7 @@ export function noteDraftKey(domain: NoteDomain, id: string): NoteDraftKey {
 const drafts = new Map<NoteDraftKey, string>()
 const MAX_DRAFT_FLUSH_PASSES = 8
 const activeFlushes = new Map<NoteDraftKey, Promise<boolean>>()
-let draftGeneration = 0
+let draftLifetime = new AbortController()
 
 function storedNote(key: NoteDraftKey) {
   const separator = key.indexOf(':')
@@ -75,13 +75,13 @@ export async function flushNoteDraftsToStore(): Promise<boolean> {
 }
 
 async function flushSingleNoteDraft(key: NoteDraftKey): Promise<boolean> {
-  const generation = draftGeneration
+  const { signal } = draftLifetime
   for (let pass = 0; pass < MAX_DRAFT_FLUSH_PASSES; pass++) {
     const html = drafts.get(key)
     if (html === undefined) return true
     try {
-      const normalized = await normalizeNoteForStorage(html, getStorage())
-      if (generation !== draftGeneration) return true
+      const normalized = await normalizeNoteForStorage(html, getStorage(), signal)
+      if (signal.aborted) return true
       // 归一化让出执行权后，只发布仍属于本次扫描的正文。
       if (drafts.get(key) !== html) continue
       const target = storedNote(key)
@@ -89,8 +89,8 @@ async function flushSingleNoteDraft(key: NoteDraftKey): Promise<boolean> {
       // 归一化期间若继续输入，则继续冲洗新值；只有当前值稳定后才能报告成功。
       if (drafts.get(key) === html) drafts.delete(key)
     } catch {
-      /* 保留草稿 */
-      return false
+      // 已撤销的草稿没有待保存内容；其他失败保留草稿供重试。
+      return signal.aborted
     }
   }
   return !drafts.has(key)
@@ -124,7 +124,8 @@ export function applyNoteDraftsToSnapshot(snapshot: PersistedSnapshot): Persiste
 
 /** 加载资料库最新版前使全部草稿及在途异步归一化失效，防止旧内容延迟写回。 */
 export function discardAllNoteDrafts(): void {
-  draftGeneration += 1
+  draftLifetime.abort()
+  draftLifetime = new AbortController()
   activeFlushes.clear()
   drafts.clear()
 }

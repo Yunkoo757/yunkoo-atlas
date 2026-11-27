@@ -130,6 +130,7 @@ export async function resolveNoteForDisplay(
 export async function normalizeNoteForStorage(
   html: string,
   adapter: StorageAdapter,
+  signal?: AbortSignal,
 ): Promise<string> {
   if (!html.includes('<img')) return html
 
@@ -157,6 +158,7 @@ export async function normalizeNoteForStorage(
     if (src.startsWith('data:image/')) {
       const parsed = dataUrlToBlob(src)
       if (parsed) {
+        signal?.throwIfAborted()
         const id = await adapter.saveAsset(parsed.blob, parsed.mime)
         img.setAttribute('src', assetUrl(id))
         img.removeAttribute('data-asset-id')
@@ -173,14 +175,16 @@ export async function normalizeNoteForStorage(
         changed = true
       } else {
         try {
-          const res = await fetch(src)
+          const res = await fetch(src, { signal })
           const blob = await res.blob()
+          signal?.throwIfAborted()
           const mime = blob.type || 'image/png'
           const id = await adapter.saveAsset(blob, mime)
           img.setAttribute('src', assetUrl(id))
           img.removeAttribute('data-asset-id')
           changed = true
         } catch {
+          signal?.throwIfAborted()
           const placeholder = doc.createElement('img')
           placeholder.setAttribute('src', '')
           placeholder.setAttribute('alt', '图片未能保存')

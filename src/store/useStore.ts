@@ -219,6 +219,8 @@ interface State {
   riskOverrideEvents: RiskOverrideEvent[]
   quickNotes: QuickNote[]
   strategies: Strategy[]
+  /** 仅用于识别当前发布到工作台的整库会话，不写入快照。 */
+  librarySession: number
   selectedId: string | null
   composerOpen: boolean
   composerTrade: Trade | null
@@ -534,6 +536,7 @@ export const useStore = create<State>()((set, get) => ({
       riskOverrideEvents: [],
       quickNotes: [],
       strategies: [],
+      librarySession: 0,
       selectedId: null,
       composerOpen: false,
       composerTrade: null,

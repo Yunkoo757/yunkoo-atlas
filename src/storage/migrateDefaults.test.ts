@@ -169,10 +169,15 @@ export function testLibraryRestoreClearsEphemeralEditingAndNavigationState(): vo
       },
     })
 
-    replaceLibraryInStore(createEmptyPersistedSnapshot())
+    const session = useStore.getState().librarySession
+    const snapshot = createEmptyPersistedSnapshot()
+    applySnapshotToStore(snapshot)
+    assert(useStore.getState().librarySession === session, '同库刷新应保留会话身份')
+    replaceLibraryInStore(snapshot)
 
     const state = useStore.getState()
     const shortcuts = useShortcutStore.getState()
+    assert(state.librarySession !== session, '整库恢复必须在发布数据时移交会话身份')
     assert(state.selectedId === null, '整库恢复后不得保留旧记录选择')
     assert(!state.composerOpen && state.composerKind === null, '整库恢复后必须关闭旧编辑器')
     assert(state.closeTradeRequest === null, '整库恢复后必须清除旧平仓请求')

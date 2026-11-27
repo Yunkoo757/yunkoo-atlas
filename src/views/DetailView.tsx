@@ -110,6 +110,7 @@ import { resolveTradeTruth } from '@/lib/tradeTruth'
 import { tradeMetricTone } from '@/lib/tradeRowPresentation'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { prepareTradeResultEdit, type TradeResultEdit } from '@/lib/tradeResult'
+import { completeTradeReview } from '@/lib/completeTradeReview'
 import { evaluateReviewCompletion } from '@/lib/reviewCompletion'
 import { addDaysToCurrentTradingDay } from '@/lib/periods'
 import { TradeDetailLayout } from '@/components/trades/TradeDetailLayout'
@@ -141,7 +142,14 @@ const MISS_OPTS: MissReason[] = ['hesitation', 'missed_setup', 'no_alert', 'rule
 const CASE_TYPE_OPTS: CaseType[] = ['exemplar', 'mistake', 'ambiguous', 'missed']
 const MASTERY_OPTS: MasteryState[] = ['new', 'recheck', 'mastered']
 
-export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null } = {}) {
+type DetailViewProps = { toolbarHost?: HTMLElement | null }
+
+export function DetailView(props: DetailViewProps = {}) {
+  const librarySession = useStore(state => state.librarySession)
+  return <TradeDetail key={librarySession} librarySession={librarySession} {...props} />
+}
+
+function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librarySession: number }) {
   const { id: routeParam } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -635,6 +643,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
     }
     const ownsCurrentTrade = () =>
       detailMountedRef.current &&
+      useStore.getState().librarySession === librarySession &&
       caseCreationOwnerRef.current === operation &&
       caseCreationGenerationRef.current === operation.generation &&
       activeTradeIdRef.current === operation.tradeId
@@ -700,27 +709,16 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
     setReviewSubmitting(true)
     setReviewIssue(null)
     try {
-      const noteSaved = await flushNoteDraftToStore(noteDraftKey('trade', trade.id))
-      if (!noteSaved) {
-        const message = '笔记图片尚未保存，复盘状态未变更'
+      const result = await completeTradeReview(trade.id, librarySession)
+      if (result === 'superseded' || useStore.getState().librarySession !== librarySession) return
+      if (result !== 'completed') {
+        const message = result === 'draft-failed'
+          ? '笔记图片尚未保存，复盘状态未变更'
+          : '笔记已变为空白，请补充复盘内容后重试'
         if (ownsView()) setReviewIssue(message)
-        toast(`${trade.ref} · ${message}`, { tone: 'error' })
+        toast(`${trade.ref} · ${message}`, { tone: result === 'draft-failed' ? 'error' : 'warning' })
         return
       }
-
-      const latest = useStore.getState().trades.find((item) => item.id === trade.id)
-      if (!latest || !isPendingReviewTrade(latest)) return
-      const latestReadiness = evaluateReviewCompletion(latest.note)
-      if (!latestReadiness.ready) {
-        const message = latestReadiness.reason === 'empty'
-          ? '笔记已变为空白，请补充复盘内容后重试'
-          : '请补充复盘结论、勾选检查项或加入截图证据'
-        if (ownsView()) setReviewIssue(message)
-        toast(`${trade.ref} · ${message}`, { tone: 'warning' })
-        return
-      }
-
-      updateTradeData(trade.id, { reviewStatus: 'reviewed' })
       toast(`已完成 ${trade.ref} 的复盘`, { tone: 'success' })
       if (continueKeyboardFlow) requestAnimationFrame(() => {
         if (ownsView()) restoreFocusIfUnclaimed(nextReviewButtonRef.current ?? completedReviewRef.current)
