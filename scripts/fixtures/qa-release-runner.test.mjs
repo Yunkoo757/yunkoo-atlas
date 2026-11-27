@@ -16,13 +16,25 @@ function checkout(parent, name) {
   fs.symlinkSync(fileURLToPath(new URL('../../node_modules/vite', import.meta.url)), file('node_modules/vite'), 'junction')
   fs.writeFileSync(file('.gitignore'), 'node_modules\ntest-results/\n')
   fs.writeFileSync(file('index.html'), '<html><head></head><body>QA checkout ' + name + '</body></html>')
-  fs.writeFileSync(file('vite.config.mjs'), "export default {cacheDir:'test-results/cache',optimizeDeps:{noDiscovery:true}}")
+  fs.writeFileSync(file('vite.config.mjs'), `
+    import { writeFileSync } from 'node:fs'
+    export default {
+      optimizeDeps: { noDiscovery: true },
+      plugins: [{
+        name: 'record-listener-close',
+        configureServer({ httpServer }) {
+          httpServer.once('close', () => writeFileSync('test-results/listener-closed', 'closed'))
+        },
+      }],
+    }
+  `)
   const step = [
     '#!/usr/bin/env node',
     "const fs = require('node:fs')",
     "const path = require('node:path')",
     'async function run() {',
     "  const step = process.argv[2] || 'qa:dashboard-10k'",
+    "  if (step === 'build:app' && !fs.existsSync('test-results/listener-closed')) throw Error('本工作树的监听器尚未关闭')",
     "  fs.appendFileSync('test-results/commands', step + '\\n')",
     "  if (step === 'qa' || step === 'qa:core') {",
     "    if (process.env.QA_WORKBENCH_PROBE_URL) throw Error('验收不应使用独立探针页面')",
@@ -90,8 +102,7 @@ test('并行验收只访问各自工作树，完整与冒烟报告记录实际�
     assert.equal(result.code, 0, result.output)
   }
   for (const [repo, mode] of [[first, 'smoke'], [second, 'full']]) {
-    const url = fs.readFileSync(repo.file('test-results/address'), 'utf8')
-    await assert.rejects(fetch(url))
+    assert.equal(fs.readFileSync(repo.file('test-results/listener-closed'), 'utf8'), 'closed')
     const report = JSON.parse(fs.readFileSync(repo.file('test-results/qa-release-' + mode + '.json'), 'utf8'))
     const executed = fs.readFileSync(repo.file('test-results/commands'), 'utf8').trim().split('\n')
     assert.deepEqual(executed, [

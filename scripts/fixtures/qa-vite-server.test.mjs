@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -18,7 +18,19 @@ async function serveDependency(root, name) {
   await writeFile(path.join(dependency, 'index.cjs'), `module.exports = 'QA_MARKER_${name}'`)
   await writeFile(path.join(root, `${name}.js`), `import value from '${name}'; export { value }`)
   const configFile = path.join(root, `${name}.config.mjs`)
-  await writeFile(configFile, `export default { optimizeDeps: { noDiscovery: true, include: ['${name}'] } }`)
+  const receipt = JSON.stringify(path.join(root, name + '.closed'))
+  await writeFile(configFile, `
+    import { writeFileSync } from 'node:fs'
+    export default {
+      optimizeDeps: { noDiscovery: true, include: ['${name}'] },
+      plugins: [{
+        name: 'record-listener-close',
+        configureServer({ httpServer }) {
+          httpServer.once('close', () => writeFileSync(${receipt}, 'closed'))
+        },
+      }],
+    }
+  `)
   return startQaServer({ root, configFile, restrictToRoot: true })
 }
 
@@ -51,13 +63,13 @@ test('同一工作树的两台验收服务分别持有端口与依赖字节，�
     } finally {
       await second.close()
     }
-    await assert.rejects(fetch(second.baseUrl))
+    assert.equal(await readFile(path.join(root, 'qa-second.closed'), 'utf8'), 'closed')
     assert.equal((await readdir(path.join(root, 'test-results'))).length, 1)
     await verifyDependency(original, 'qa-first')
   } finally {
     await first.close()
   }
-  await assert.rejects(fetch(first.baseUrl))
+  assert.equal(await readFile(path.join(root, 'qa-first.closed'), 'utf8'), 'closed')
   assert.deepEqual(await readdir(path.join(root, 'test-results')), [])
 })
 
