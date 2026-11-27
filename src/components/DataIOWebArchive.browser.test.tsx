@@ -18,6 +18,7 @@ import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
 import { SCHEMA_VERSION, type PersistedSnapshot } from '@/storage/types'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import { useStore } from '@/store/useStore'
+import { useShortcutStore } from '@/store/shortcutStore'
 import { MAX_JSON_FILE_BYTES } from '@/lib/importLimits'
 import { toastStore } from '@/lib/toast'
 import { downloadExport, downloadWebJournalZip } from '@/lib/importExport'
@@ -200,8 +201,34 @@ async function verifyExportOperationLogging(
   }
 }
 
+function verifyUiChangesSkipSnapshotCapture(): void {
+  const { bindings } = useShortcutStore.getState()
+  const { selectedId, profile } = useStore.getState()
+  let reads = 0
+  const observed = {
+    ...bindings,
+    get 'nav.list'() {
+      reads++
+      return bindings['nav.list']
+    },
+  }
+  try {
+    useShortcutStore.setState({ bindings: observed })
+    reads = 0
+    useStore.setState({ selectedId: 'fixture-selection' })
+    useStore.setState({ selectedId })
+    assert(reads === 0, `两次界面选择触发了 ${reads} 次快照快捷键读取`)
+    useStore.setState({ profile: { ...profile, displayName: '捕获验证' } })
+    assert(Number(reads) === 1, '业务编辑应读取一次完整快照')
+  } finally {
+    useShortcutStore.setState({ bindings })
+    useStore.setState({ profile, selectedId })
+  }
+}
+
 async function run(): Promise<void> {
   await bootstrapStorage()
+  verifyUiChangesSkipSnapshotCapture()
   const adapter = getIndexedDbAdapter()
   const manifest = await adapter.getManifest()
   saveReviewSession(manifest.libraryId, {

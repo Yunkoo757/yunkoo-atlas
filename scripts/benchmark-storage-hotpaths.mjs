@@ -98,15 +98,22 @@ try {
   }
 
   let state = mod.useStore.getState()
-  const capture = () => mod.pickPersisted(state, {})
+  let captures = 0
+  const capture = () => {
+    captures++
+    return mod.pickPersisted(state, {})
+  }
   const coordinator = mod.createPersistedSnapshotCoordinator(capture(), {
     capture,
     schedule() { results.scheduledNonPersistentChanges++ },
   })
   for (let index = 0; index < 100; index++) {
     state = { ...state }
-    coordinator.observe(capture(), { source: 'store' })
+    coordinator.observeStore(state)
   }
+  results.capturesDuringNonPersistentChanges = captures - 1
+  assert.equal(results.capturesDuringNonPersistentChanges, 0)
+  assert.equal(results.scheduledNonPersistentChanges, 0)
   await fs.mkdir(path.dirname(output), { recursive: true })
   await fs.writeFile(output, `${JSON.stringify(results, null, 2)}\n`, 'utf8')
   console.log(JSON.stringify(results, null, 2))

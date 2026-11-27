@@ -80,23 +80,27 @@ export function testUnchangedStoreCapturesDoNotScheduleFullSnapshotWrites(): voi
   const original = useStore.getState()
   let state = original
   const scheduled: PersistedSnapshot[] = []
-  const capture = () => pickPersisted(state, {})
+  let captures = 0
+  const capture = () => {
+    captures++
+    return pickPersisted(state, {})
+  }
   const coordinator = createPersistedSnapshotCoordinator(capture(), {
     capture,
     schedule: (snapshot) => { scheduled.push(snapshot) },
   })
   for (let index = 0; index < 100; index += 1) {
     state = { ...state }
-    coordinator.observe(capture(), { source: 'store' })
+    coordinator.observeStore(state)
   }
-  assert(scheduled.length === 0, '非持久化 Store 更新不得触发全量快照保存')
+  assert(captures === 1 && scheduled.length === 0, '100 次界面更新只需启动时的基线快照')
 
   state = { ...state, liveStages: state.liveStages.map((stage) => ({ ...stage, name: `${stage.name} 修改` })) }
-  coordinator.observe(capture(), { source: 'store' })
+  coordinator.observeStore(state)
   assert(Number(scheduled.length) === 1, '真实阶段编辑必须调度保存')
   const persistedStages = scheduled[0]!.liveStages
   state = { ...state, liveStages: state.liveStages.map((stage) => ({ ...stage, name: `${stage.name} 再次修改` })) }
-  coordinator.observe(capture(), { source: 'store' })
+  coordinator.observeStore(state)
   assert(Number(scheduled.length) === 2, '后续不可变编辑必须生成新快照')
   assert(persistedStages !== state.liveStages, '后续编辑不得改变待保存快照的阶段数组')
 
@@ -106,8 +110,8 @@ export function testUnchangedStoreCapturesDoNotScheduleFullSnapshotWrites(): voi
     requestedAt: '2026-09-24T00:00:00.000Z',
     postponedCount: 0,
   } }
-  coordinator.observe(capture(), { source: 'store' })
-  coordinator.observe(capture(), { source: 'store' })
+  coordinator.observeStore(state)
+  coordinator.observeStore(state)
   assert(Number(scheduled.length) === 3, '预约修改仅保存一次，后续相同引用不得重复调度')
 }
 

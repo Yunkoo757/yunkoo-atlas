@@ -8,13 +8,10 @@ export interface PersistedSnapshotCoordinatorDependencies {
 }
 
 export interface PersistedSnapshotCoordinator {
-  observe(snapshot: PersistedSnapshot, observation: PersistedSnapshotObservation): void
+  observeStore(state: PersistedSnapshot): void
+  observeShortcuts(): void
   publishDurable(publish: () => void): void
 }
-
-export type PersistedSnapshotObservation =
-  | { source: 'store' }
-  | { source: 'shortcuts' }
 
 export function haveSamePersistedReferences(previous: PersistedSnapshot, next: PersistedSnapshot): boolean {
   return PERSISTED_STATE_REFERENCE_KEYS.every((key) => previous[key] === next[key])
@@ -39,21 +36,22 @@ export function createPersistedSnapshotCoordinator(
   dependencies: PersistedSnapshotCoordinatorDependencies,
 ): PersistedSnapshotCoordinator {
   let lastPersisted = initial
-  let lastShortcuts = initial.shortcuts
   let durablePublishDepth = 0
 
+  function schedule(snapshot: PersistedSnapshot): void {
+    dependencies.schedule(snapshot)
+    lastPersisted = snapshot
+  }
+
   return {
-    observe(snapshot, observation) {
+    observeStore(state) {
+      if (durablePublishDepth > 0 || haveSamePersistedReferences(lastPersisted, state)) return
+      schedule(dependencies.capture())
+    },
+    observeShortcuts() {
       if (durablePublishDepth > 0) return
-      if (observation.source === 'shortcuts') {
-        if (haveSameShortcuts(lastShortcuts, snapshot.shortcuts)) return
-        dependencies.schedule(snapshot)
-        lastShortcuts = snapshot.shortcuts
-      } else {
-        if (haveSamePersistedReferences(lastPersisted, snapshot)) return
-        dependencies.schedule(snapshot)
-        lastPersisted = snapshot
-      }
+      const snapshot = dependencies.capture()
+      if (!haveSameShortcuts(lastPersisted.shortcuts, snapshot.shortcuts)) schedule(snapshot)
     },
     publishDurable(publish) {
       const outermost = durablePublishDepth === 0
@@ -62,10 +60,7 @@ export function createPersistedSnapshotCoordinator(
         publish()
       } finally {
         durablePublishDepth = Math.max(0, durablePublishDepth - 1)
-        if (outermost) {
-          lastPersisted = dependencies.capture()
-          lastShortcuts = lastPersisted.shortcuts
-        }
+        if (outermost) lastPersisted = dependencies.capture()
       }
     },
   }

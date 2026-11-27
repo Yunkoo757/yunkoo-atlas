@@ -90,19 +90,9 @@ async function runBootstrapStorage(): Promise<void> {
     schedule: schedulePersist,
   })
   persistedSnapshotCoordinator = coordinator
-  useStore.subscribe((state) => {
-    if (!hydrated) return
-    const nextPersisted = pickPersisted(state, useShortcutStore.getState().bindings)
-    coordinator.observe(nextPersisted, { source: 'store' })
-  })
-
-  useShortcutStore.subscribe((state, prev) => {
-    if (!hydrated) return
-    if (state.bindings === prev.bindings) return
-    coordinator.observe(
-      pickPersisted(useStore.getState(), state.bindings),
-      { source: 'shortcuts' },
-    )
+  useStore.subscribe(coordinator.observeStore)
+  useShortcutStore.subscribe((state, previous) => {
+    if (state.bindings !== previous.bindings) coordinator.observeShortcuts()
   })
   if (reconciledWindowHotkeyConflict) schedulePersist(capturePersisted())
 }

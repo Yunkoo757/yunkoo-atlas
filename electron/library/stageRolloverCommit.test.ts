@@ -347,8 +347,10 @@ export async function testCommittedReloadReconcilesStoreWithoutStaleAutosave(): 
       capture,
       schedule: (snapshot) => { scheduledAutosaves.push(structuredClone(snapshot)) },
     })
-    unsubscribeStore = useStore.subscribe(() => coordinator.observe(capture(), { source: 'store' }))
-    unsubscribeShortcuts = useShortcutStore.subscribe(() => coordinator.observe(capture(), { source: 'shortcuts' }))
+    unsubscribeStore = useStore.subscribe(coordinator.observeStore)
+    unsubscribeShortcuts = useShortcutStore.subscribe((state, previous) => {
+      if (state.bindings !== previous.bindings) coordinator.observeShortcuts()
+    })
 
     await reconcileCommittedStageRollover(result.publish, {
       reloadAuthoritativeSnapshot: async () => structuredClone(durable),

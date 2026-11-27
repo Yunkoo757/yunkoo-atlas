@@ -1,8 +1,5 @@
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
-import {
-  createPersistedSnapshotCoordinator,
-  type PersistedSnapshotCoordinator,
-} from '@/storage/persistedSnapshotCoordinator'
+import { createPersistedSnapshotCoordinator } from '@/storage/persistedSnapshotCoordinator'
 import type { PersistedSnapshot } from '@/storage/types'
 import type { ShortcutBinding } from '@/shortcuts/types'
 
@@ -12,22 +9,6 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function bindingKey(binding: ShortcutBinding | null | undefined): string | null {
   return binding && !Array.isArray(binding) ? binding.key : null
-}
-
-type Observation =
-  | { source: 'store' }
-  | { source: 'shortcuts' }
-
-function observe(
-  coordinator: PersistedSnapshotCoordinator,
-  snapshot: PersistedSnapshot,
-  observation: Observation,
-): void {
-  const observeWithSource = coordinator.observe as unknown as (
-    value: PersistedSnapshot,
-    source: Observation,
-  ) => void
-  observeWithSource(snapshot, observation)
 }
 
 function initialSnapshot(): PersistedSnapshot {
@@ -50,7 +31,14 @@ function createHarness(initial = initialSnapshot()) {
     coordinator,
     scheduled,
     current: () => current,
-    replace: (snapshot: PersistedSnapshot) => { current = snapshot },
+    observeStore(snapshot: PersistedSnapshot) {
+      current = snapshot
+      coordinator.observeStore(snapshot)
+    },
+    observeShortcuts(snapshot: PersistedSnapshot) {
+      current = snapshot
+      coordinator.observeShortcuts()
+    },
   }
 }
 
@@ -62,26 +50,21 @@ export function testDurableRefreshSuppressesStoreAndShortcutAutosaves(): void {
     shortcuts: { 'global.newTrade': { key: 'n', mod: true } },
   }
   harness.coordinator.publishDurable(() => {
-    harness.replace(refreshed)
-    observe(harness.coordinator, refreshed, { source: 'store' })
-    observe(harness.coordinator, refreshed, { source: 'shortcuts' })
+    harness.observeStore(refreshed)
+    harness.observeShortcuts(refreshed)
   })
-  observe(harness.coordinator, refreshed, { source: 'store' })
-  observe(
-    harness.coordinator,
-    { ...refreshed, shortcuts: structuredClone(refreshed.shortcuts) },
-    { source: 'shortcuts' },
-  )
+  harness.observeStore(refreshed)
+  harness.observeShortcuts({ ...refreshed, shortcuts: structuredClone(refreshed.shortcuts) })
   assert(harness.scheduled.length === 0, 'authoritative Store and shortcuts refresh must not autosave')
 }
 
 export function testEquivalentModifiersDoNotWriteAndSequenceOrderStillMatters(): void {
   const first = initialSnapshot()
   first.shortcuts = { 'nav.list': [{ key: 'a' }, { key: 'b' }] }
-  const { coordinator, scheduled } = createHarness(first)
-  const observeBinding = (binding: ShortcutBinding | null) => coordinator.observe(
-    { ...first, shortcuts: { 'nav.list': binding } }, { source: 'shortcuts' },
-  )
+  const { observeShortcuts, scheduled } = createHarness(first)
+  const observeBinding = (binding: ShortcutBinding | null) => observeShortcuts({
+    ...first, shortcuts: { 'nav.list': binding },
+  })
   observeBinding([{ alt: false, key: 'a' }, { key: 'b', shift: false }])
   assert(scheduled.length === 0, '省略和关闭修饰键含义相同，不应触发自动保存')
   observeBinding([{ key: 'b' }, { key: 'a' }])
@@ -96,10 +79,10 @@ export function testShortcutExtensionOnlyEditsArePersisted(): void {
   const first = initialSnapshot()
   const original = { key: 'a', extension: { label: '旧数据' } }
   first.shortcuts = { 'nav.list': original }
-  const { coordinator, scheduled } = createHarness(first)
+  const { observeShortcuts, scheduled } = createHarness(first)
   for (const label of ['旧数据', '新数据']) {
     const chord = { key: 'a', extension: { label } }
-    coordinator.observe({ ...first, shortcuts: { 'nav.list': chord } }, { source: 'shortcuts' })
+    observeShortcuts({ ...first, shortcuts: { 'nav.list': chord } })
   }
   assert(scheduled.length === 1, '扩展字段未变时跳过，扩展值变化时保留用户数据')
 }
@@ -110,13 +93,8 @@ export function testShortcutOnlyEditSchedulesOneFullAuthoritativeSnapshot(): voi
     ...harness.current(),
     shortcuts: { 'global.newTrade': { key: 'n', mod: true } },
   }
-  harness.replace(changed)
-  observe(harness.coordinator, changed, { source: 'shortcuts' })
-  observe(
-    harness.coordinator,
-    { ...changed, shortcuts: structuredClone(changed.shortcuts) },
-    { source: 'shortcuts' },
-  )
+  harness.observeShortcuts(changed)
+  harness.observeShortcuts({ ...changed, shortcuts: structuredClone(changed.shortcuts) })
   assert(harness.scheduled.length === 1, 'shortcut-only edit must schedule exactly once')
   assert(harness.scheduled[0]?.tagPresets?.[0] === '权威标签', 'shortcut save must include the full Store baseline')
   assert(
@@ -128,8 +106,7 @@ export function testShortcutOnlyEditSchedulesOneFullAuthoritativeSnapshot(): voi
 export function testStoreOnlyEditStillSchedulesWithoutShortcutDuplication(): void {
   const harness = createHarness()
   const changed = { ...harness.current(), starredIds: ['trade-later'] }
-  harness.replace(changed)
-  observe(harness.coordinator, changed, { source: 'store' })
+  harness.observeStore(changed)
   assert(harness.scheduled.length === 1, 'Store-only edit must schedule exactly once')
   assert(harness.scheduled[0]?.starredIds[0] === 'trade-later', 'scheduled snapshot must include the Store edit')
   assert(
@@ -145,12 +122,10 @@ export function testNestedOrThrowingDurableRefreshNeverLeavesPermanentSilence():
     harness.coordinator.publishDurable(() => {
       harness.coordinator.publishDurable(() => {
         const nested = { ...harness.current(), tagPresets: ['嵌套刷新'] }
-        harness.replace(nested)
-        observe(harness.coordinator, nested, { source: 'store' })
+        harness.observeStore(nested)
       })
       const stillOuter = { ...harness.current(), starredIds: ['刷新期间'] }
-      harness.replace(stillOuter)
-      observe(harness.coordinator, stillOuter, { source: 'store' })
+      harness.observeStore(stillOuter)
       throw new Error('injected publish failure')
     })
   } catch {
@@ -163,12 +138,28 @@ export function testNestedOrThrowingDurableRefreshNeverLeavesPermanentSilence():
     ...harness.current(),
     shortcuts: { 'global.newTrade': { key: 'r', shift: true } },
   }
-  harness.replace(shortcutEdit)
-  observe(harness.coordinator, shortcutEdit, { source: 'shortcuts' })
+  harness.observeShortcuts(shortcutEdit)
   const storeEdit = { ...shortcutEdit, subscribedIds: ['strategy-later'] }
-  harness.replace(storeEdit)
-  observe(harness.coordinator, storeEdit, { source: 'store' })
+  harness.observeStore(storeEdit)
   assert(Number(harness.scheduled.length) === 2, 'shortcut and Store edits after an exception must both resume persistence')
+}
+
+export function testOneFullCaptureCoversChangesFromBothSubscriptions(): void {
+  for (const first of ['store', 'shortcuts'] as const) {
+    const harness = createHarness()
+    const changed = {
+      ...harness.current(),
+      tagPresets: ['同时修改'],
+      shortcuts: { 'nav.list': { key: 'q' } },
+    }
+    const notifications = first === 'store'
+      ? [harness.observeStore, harness.observeShortcuts]
+      : [harness.observeShortcuts, harness.observeStore]
+    for (const notify of notifications) notify(changed)
+    assert(harness.scheduled.length === 1, `两处变更都在首份快照中，${first} 先通知时实际调度 ${harness.scheduled.length} 次`)
+    assert(harness.scheduled[0]?.tagPresets?.[0] === '同时修改', '首份保存包含最新标签')
+    assert(bindingKey(harness.scheduled[0]?.shortcuts?.['nav.list']) === 'q', '首份保存包含最新快捷键')
+  }
 }
 
 export function testScheduleFailureDoesNotAdvanceStoreOrShortcutBaseline(): void {
@@ -185,8 +176,9 @@ export function testScheduleFailureDoesNotAdvanceStoreOrShortcutBaseline(): void
         if (attempts === 1) throw new Error('injected schedule failure')
       },
     })
-    try { observe(coordinator, changed, { source }) } catch { /* retry below */ }
-    observe(coordinator, changed, { source })
+    const notify = source === 'store' ? () => coordinator.observeStore(changed) : coordinator.observeShortcuts
+    try { notify() } catch { /* retry below */ }
+    notify()
     assert(attempts === 2, `${source} observation must retry after a schedule exception`)
   }
 }
@@ -201,8 +193,7 @@ export function testThrowingPartialRefreshRebasesBeforeShortcutRevert(): void {
 
   try {
     harness.coordinator.publishDurable(() => {
-      harness.replace(partiallyRefreshed)
-      observe(harness.coordinator, partiallyRefreshed, { source: 'shortcuts' })
+      harness.observeShortcuts(partiallyRefreshed)
       throw new Error('injected partial refresh failure')
     })
   } catch { /* user may continue editing the in-memory state */ }
@@ -212,8 +203,7 @@ export function testThrowingPartialRefreshRebasesBeforeShortcutRevert(): void {
     ...partiallyRefreshed,
     shortcuts: structuredClone(initial.shortcuts),
   }
-  harness.replace(reverted)
-  observe(harness.coordinator, reverted, { source: 'shortcuts' })
+  harness.observeShortcuts(reverted)
   assert(
     Number(harness.scheduled.length) === 1,
     'reverting a partially refreshed shortcut to the pre-refresh value must persist',
