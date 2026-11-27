@@ -75,7 +75,8 @@ async function run(): Promise<void> {
       },
     }
   }
-  storage.cancelAssetPurge = async () => { cancelCalls += 1 }
+  const canceledIds = new Set<string>()
+  storage.cancelAssetPurge = async id => { cancelCalls += 1; canceledIds.add(id) }
   storage.commitAssetPurge = async (_preview, authorization) => {
     commitAuthorizations.push(authorization)
     commitCalls += 1
@@ -139,6 +140,7 @@ async function run(): Promise<void> {
     assert(Number(prepareCalls) === 1 && !findAction('确认永久清理')?.disabled, '导出成功后不应额外要求勾选确认')
     findAction('取消')!.click()
     await waitFor(() => !document.body.textContent?.includes('数据版本：7'), '取消后必须关闭弹窗')
+    await waitFor(() => document.activeElement === reopenPreview, '关闭清理弹窗后焦点必须回到扫描入口')
     assert(Number(commitCalls) === 2 && cancelCalls >= cancelCallsBefore + 2, '取消只消费预览，不执行清理')
 
     const successfulPrepare = storage.prepareAssetPurgeRecovery
@@ -180,6 +182,68 @@ async function run(): Promise<void> {
     assert(dryRunClose, '未开闸弹窗须提供关闭')
     dryRunClose.click()
     await waitFor(() => !document.body.textContent?.includes('当前永久清理已关闭'), '关闭预览后弹窗未消失')
+    // 模拟从设置页离开。卸载发生在扫描或导出等待时，迟到的结果也不能成为新页面的预览。
+    const renderSettings = () => root.render(<MemoryRouter><DataSettingsPanel /></MemoryRouter>)
+    const leave = async () => {
+      root.render(<div>其他页面</div>)
+      await waitFor(() => container.textContent === '其他页面', '未离开数据设置')
+    }
+    const scanFromSettings = async () => {
+      renderSettings()
+      await waitFor(() => Boolean(findAction('清理孤立附件')), '重进设置后没有清理入口')
+      findAction('清理孤立附件')!.click()
+    }
+    const scan = storage.previewAssetPurge!
+    const originalClick = HTMLAnchorElement.prototype.click
+    let downloads = 0
+    try {
+      await scanFromSettings()
+      await waitFor(() => Boolean(findAction('确认永久清理')), '离页前没有显示预览')
+      const displayedId = `dry-run-operation-${previewCalls}`
+      await leave()
+      await waitFor(() => canceledIds.has(displayedId), '设置页卸载后显示中的预览仍被保留')
+
+      let releaseScan: (() => void) | undefined
+      storage.previewAssetPurge = async () => {
+        await new Promise<void>(resolve => { releaseScan = resolve })
+        return scan()
+      }
+      await scanFromSettings()
+      await waitFor(() => !!releaseScan, '没有进入等待中的扫描')
+      await leave()
+      const lateId = `dry-run-operation-${previewCalls + 1}`
+      releaseScan!()
+      await waitFor(() => canceledIds.has(lateId), '页面离开后返回的预览没有被撤销')
+      storage.previewAssetPurge = scan
+
+      HTMLAnchorElement.prototype.click = () => { downloads++ }
+      let returned = false
+      let releaseExport: (() => void) | undefined
+      storage.prepareAssetPurgeRecovery = async preview => {
+        await new Promise<void>(resolve => { releaseExport = resolve })
+        try { return await successfulPrepare(preview) } finally { returned = true }
+      }
+      await scanFromSettings()
+      await waitFor(() => Boolean(findAction('导出恢复归档（可选）')), '导出等待场景未打开')
+      const originalId = `dry-run-operation-${previewCalls}`
+      findAction('导出恢复归档（可选）')!.click()
+      await waitFor(() => !!releaseExport, '没有进入等待中的导出')
+      const refreshedId = `dry-run-operation-${previewCalls}`
+      assert(originalId !== refreshedId, '导出必须持有自己的重新扫描结果')
+      await leave()
+      await waitFor(() => canceledIds.has(originalId) && canceledIds.has(refreshedId), '卸载必须释放显示中及导出中的预览')
+      // 让旧导出在新页面已挂载后返回，验证下载及弹窗都属于原页面。
+      renderSettings()
+      await waitFor(() => Boolean(findAction('清理孤立附件')), '新设置页未挂载')
+      releaseExport!()
+      await waitFor(() => returned, '后台导出未回到调用方')
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      assert(downloads === 0 && !findAction('恢复归档已导出'), '已离开的页面不得下载迟到的恢复归档')
+    } finally {
+      HTMLAnchorElement.prototype.click = originalClick
+      storage.previewAssetPurge = scan
+      storage.prepareAssetPurgeRecovery = successfulPrepare
+    }
     storage.listAssetRecords = async () => { throw new Error('inventory unavailable') }
     const refresh = [...container.querySelectorAll('button')]
       .find((button) => button.textContent?.trim() === '刷新')

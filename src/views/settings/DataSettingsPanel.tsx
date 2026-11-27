@@ -1,7 +1,6 @@
 import { fmtBytes } from '@/lib/format'
 import { BackupRestoreFlushError, restoreLibraryBackup } from '@/lib/libraryRestore'
 import { flushPersistNow } from '@/storage/persist'
-import { rendererAllowsAssetPurge } from '@/config/assetPurge'
 import { ICON_LG, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
@@ -10,6 +9,7 @@ import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import { DataIOContent } from '@/components/DataIOContent'
 import { LivePerformanceCycleControl } from '@/components/LivePerformanceCycleControl'
 import { LiveStageManager } from '@/components/LiveStageManager'
+import { AssetPurgeControl } from './AssetPurgeControl'
 import { DataOrganizationPanel } from './DataOrganizationPanel'
 import { StageOwnershipAutoRepair } from '@/components/StageOwnershipAutoRepair'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
@@ -17,13 +17,10 @@ import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { BackupInfo } from '@/types/journal-bridge'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
-import { getStorage } from '@/storage'
-import type { AssetPurgePreview } from '@/storage/adapter'
 import { checkStorageHealth, type StorageHealth } from '@/lib/storageHealth'
 import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database, CheckCircle, AlertCircle } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { ModalShell } from '@/components/ui/ModalShell'
-import { buildWebJournalArchiveBlob } from '@/lib/webJournalArchiveWriter'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
 import { listPendingStageOwnership } from '@/lib/stageOwnershipRepair'
 import {
@@ -96,7 +93,7 @@ export function StageOwnershipHealthEntry() {
 }
 
 export function DataSettingsPanel({
-  assetPurgeCommitEnabled = rendererAllowsAssetPurge(),
+  assetPurgeCommitEnabled,
 }: { assetPurgeCommitEnabled?: boolean } = {}) {
   const currentTradingDayKey = useLocalDateKey()
   const electron = isElectron()
@@ -115,11 +112,6 @@ export function DataSettingsPanel({
     backupTotalSize: number
   } | null>(null)
   const [healthError, setHealthError] = useState<string | null>(null)
-  const [purgePreview, setPurgePreview] = useState<AssetPurgePreview | null>(null)
-  const [purgeBusy, setPurgeBusy] = useState(false)
-  const [purgeArchiveReady, setPurgeArchiveReady] = useState(false)
-  const [purgeRecoveryError, setPurgeRecoveryError] = useState<string | null>(null)
-  const [purgeAuthorization, setPurgeAuthorization] = useState<string | null>(null)
   const [stageManagerOpen, setStageManagerOpen] = useState(false)
   const automaticVerificationAttempts = useRef(new Set<string>())
   const trades = useStore((s) => s.trades)
@@ -287,108 +279,6 @@ export function DataSettingsPanel({
     } catch (error) {
       reportDataSettingsFailure('删除备份失败', error)
       toast('删除失败', { tone: 'error', persistent: false })
-    }
-  }
-
-  const discardPurge = (preview = purgePreview) => {
-    if (preview) void getStorage().cancelAssetPurge?.(preview.operationId)
-    setPurgePreview(null)
-    setPurgeArchiveReady(false)
-    setPurgeAuthorization(null)
-  }
-
-  const handlePreviewAssetPurge = async () => {
-    setPurgeRecoveryError(null)
-    setPurgeBusy(true)
-    try {
-      await flushPersistNow()
-      const preview = await getStorage().previewAssetPurge?.()
-      if (!preview) throw new Error('当前存储后端不支持附件清理预览')
-      if (preview.candidateIds.length === 0) {
-        await getStorage().cancelAssetPurge?.(preview.operationId)
-        toast('当前库没有可永久清理的孤立附件')
-        await refreshHealth()
-        return
-      }
-      setPurgeArchiveReady(false)
-      setPurgeAuthorization(null)
-      setPurgePreview(preview)
-    } catch (error) {
-      reportDataSettingsFailure('预览附件清理失败', error)
-      toast(userFacingErrorMessage(error, '附件清理预览失败'), { tone: 'error', persistent: false })
-    } finally {
-      setPurgeBusy(false)
-    }
-  }
-
-  const handleCreatePurgeRecoveryArchive = async () => {
-    setPurgeRecoveryError(null)
-    if (!purgePreview) return
-    setPurgeBusy(true)
-    let refreshedPreview: AssetPurgePreview | null = null
-    try {
-      await flushPersistNow()
-      refreshedPreview = await getStorage().previewAssetPurge?.() ?? null
-      if (!refreshedPreview) throw new Error('恢复归档已导出，但无法重新生成附件清理预览')
-      const recovery = await getStorage().prepareAssetPurgeRecovery?.(refreshedPreview)
-      if (!recovery) {
-        if (refreshedPreview.operationId !== purgePreview.operationId) await getStorage().cancelAssetPurge?.(refreshedPreview.operationId)
-        return
-      }
-      if (recovery.webArchive) {
-        const blob = buildWebJournalArchiveBlob(
-          recovery.webArchive.snapshot,
-          recovery.webArchive.assets,
-          { recoveryOrphanAssetIds: recovery.webArchive.recoveryOrphanAssetIds },
-        )
-        const url = URL.createObjectURL(blob)
-        const anchor = document.createElement('a')
-        anchor.href = url
-        anchor.download = `trader-atlas-before-cleanup-${new Date().toISOString().slice(0, 10)}.journal.zip`
-        document.body.appendChild(anchor)
-        anchor.click()
-        anchor.remove()
-        URL.revokeObjectURL(url)
-      }
-      if (purgePreview.operationId !== refreshedPreview.operationId) {
-        await getStorage().cancelAssetPurge?.(purgePreview.operationId)
-      }
-      setPurgePreview(refreshedPreview)
-      setPurgeAuthorization(recovery.authorization)
-      setPurgeArchiveReady(true)
-      toast('当前资料库恢复归档已导出', { tone: 'success' })
-    } catch (error) {
-      const canceled = error instanceof Error && error.message === '恢复归档导出已取消'
-      if (!canceled) reportDataSettingsFailure('导出清理恢复归档失败', error)
-      if (refreshedPreview && refreshedPreview.operationId !== purgePreview.operationId) {
-        await getStorage().cancelAssetPurge?.(refreshedPreview.operationId)
-      }
-      setPurgeArchiveReady(false)
-      setPurgeAuthorization(null)
-      if (!canceled) setPurgeRecoveryError(userFacingErrorMessage(error, '恢复归档导出失败'))
-    } finally {
-      setPurgeBusy(false)
-    }
-  }
-
-  const handleCommitAssetPurge = async () => {
-    if (!purgePreview || !assetPurgeCommitEnabled) return
-    setPurgeBusy(true)
-    try {
-      const commit = getStorage().commitAssetPurge
-      if (!commit) throw new Error('当前存储后端不支持永久清理')
-      const result = await commit.call(getStorage(), purgePreview, purgeAuthorization ?? undefined)
-      setPurgePreview(null)
-      setPurgeArchiveReady(false)
-      setPurgeAuthorization(null)
-      await refreshHealth()
-      toast(`已从当前库永久清理 ${result.deletedIds.length} 个孤立附件；历史备份未改变`, { tone: 'success' })
-    } catch (error) {
-      reportDataSettingsFailure('永久清理附件失败', error)
-      discardPurge()
-      toast(`${userFacingErrorMessage(error, '永久清理失败')}；请重新预览后再确认`, { tone: 'error' })
-    } finally {
-      setPurgeBusy(false)
     }
   }
 
@@ -585,24 +475,11 @@ export function DataSettingsPanel({
         >
           刷新
         </button>
-        {health && health.storage.inventory.orphan.length > 0 ? (
-          <div className="data-actions-row is-top">
-            <button
-              type="button"
-              className="dio-btn dio-btn-warn"
-              disabled={purgeBusy}
-              onClick={() => void handlePreviewAssetPurge()}
-            >
-              <Trash2 size={ICON_SM} />
-              <span>{purgeBusy ? '扫描中…' : '清理孤立附件'}</span>
-            </button>
-            <p className="data-support-note">
-              {assetPurgeCommitEnabled
-                ? '只处理当前资料库中未被任何内容引用的附件；恢复归档可按需导出。'
-                : '当前已关闭永久清理，只提供候选预览和恢复归档导出。'}
-            </p>
-          </div>
-        ) : null}
+        <AssetPurgeControl
+          hasOrphans={Boolean(health?.storage.inventory.orphan.length)}
+          commitEnabled={assetPurgeCommitEnabled}
+          refreshHealth={refreshHealth}
+        />
       </section>
 
       {confirmRequest ? (
@@ -655,77 +532,6 @@ export function DataSettingsPanel({
             <div><dt>附件</dt><dd>{confirmRequest.backup.attachmentCount ?? '—'}</dd></div>
             <div><dt>验证状态</dt><dd>{confirmRequest.backup.verification?.status === 'verified' ? `已验证 · ${fmtBackupTime(confirmRequest.backup.verification.checkedAt)}` : '未通过验证'}</dd></div>
           </dl>
-        </ModalShell>
-      ) : null}
-      {purgePreview ? (
-        <ModalShell
-          title={assetPurgeCommitEnabled ? '清理孤立附件' : '预览孤立附件'}
-          bodyClassName="data-purge-body"
-          description={
-            assetPurgeCommitEnabled
-              ? '只清理当前资料库中已无引用的附件。历史备份不会被扫描或修改。'
-              : '此预览仅统计当前资料库中已无引用的附件。'
-          }
-          size="compact"
-          busy={purgeBusy}
-          onClose={() => {
-            if (purgeBusy) return
-            discardPurge()
-          }}
-          footer={(
-            <>
-              <button
-                type="button"
-                className={!assetPurgeCommitEnabled && !purgeArchiveReady ? 'ui-btn ui-btn-primary' : 'ui-btn ui-btn-bordered'}
-                disabled={purgeBusy || purgeArchiveReady}
-                onClick={() => void handleCreatePurgeRecoveryArchive()}
-              >
-                {purgeArchiveReady
-                  ? '恢复归档已导出'
-                  : assetPurgeCommitEnabled
-                    ? '导出恢复归档（可选）'
-                    : '导出恢复归档'}
-              </button>
-              <button
-                type="button"
-                className="ui-btn ui-btn-bordered"
-                data-autofocus={assetPurgeCommitEnabled ? true : undefined}
-                disabled={purgeBusy}
-                onClick={() => discardPurge()}
-              >
-                {assetPurgeCommitEnabled ? '取消' : '关闭'}
-              </button>
-              {assetPurgeCommitEnabled ? (
-                <button
-                  type="button"
-                  className="ui-btn ui-btn-danger-solid"
-                  disabled={purgeBusy}
-                  onClick={() => void handleCommitAssetPurge()}
-                >
-                  确认永久清理
-                </button>
-              ) : null}
-            </>
-          )}
-        >
-          {purgeRecoveryError ? <div role="alert">
-            <p>{assetPurgeCommitEnabled ? '恢复归档导出失败，您仍可直接清理，或选择其他保存位置重试。' : '恢复归档导出失败，请选择其他保存位置重试。'}</p>
-            <details><DisclosureSummary>查看失败详情</DisclosureSummary><p>{purgeRecoveryError}</p></details>
-          </div> : null}
-          <div className="data-purge-summary">
-            <span>{assetPurgeCommitEnabled ? '待清理' : '扫描结果'}</span>
-            <strong>{purgePreview.candidateIds.length} 个 · {fmtBytes(purgePreview.totalBytes)}</strong>
-            <small>{assetPurgeCommitEnabled ? '永久清理后无法从当前资料库恢复。' : '当前永久清理已关闭。'}</small>
-          </div>
-          <details className="data-purge-details">
-            <DisclosureSummary>安全校验信息</DisclosureSummary>
-            <p>
-              数据版本：{purgePreview.revision}。
-              {assetPurgeCommitEnabled
-                ? '预览后若数据变化，提交会被拒绝并要求重新扫描。'
-                : '重新扫描可刷新候选列表。'}
-            </p>
-          </details>
         </ModalShell>
       ) : null}
     </div>
