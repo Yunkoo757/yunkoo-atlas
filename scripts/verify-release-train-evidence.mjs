@@ -4,12 +4,10 @@ import path from 'node:path'
 
 import { readGitProvenance } from './git-provenance.mjs'
 import {
-  assetLifecyclePassed,
   APPROVED_BLOB_BRIDGE,
   blobBridgeContractPassed,
   blobBridgeCoveragePassed,
   detectBlobReleaseMode,
-  electronSafetyPassed,
   forcedKillPassed,
   fullQaPassed,
   generationDecisionPassed,
@@ -18,6 +16,7 @@ import {
   persistenceReleaseGatePassed,
   releaseTrainDrillsPassed,
 } from './release-evidence-validation.mjs'
+import { assetLifecyclePassed, electronSafetyPassed } from './platform-regression.mjs'
 
 const root = process.cwd()
 const evidenceIndex = process.argv.indexOf('--evidence-root')

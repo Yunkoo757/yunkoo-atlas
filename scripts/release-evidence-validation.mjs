@@ -193,33 +193,6 @@ export function forcedKillPassed(value, platform, fileSystem) {
     value.schemaMigration.every((item) => item?.status === 'pass' && item?.recoveredSchemaVersion === 12)
 }
 
-export function assetLifecyclePassed(value, platform, fileSystem) {
-  const expectedEntries = ['electron/library/assetGc.test.ts', 'electron/library/assetInventory.test.ts']
-  return value?.status === 'pass' && value.exitCode === 0 &&
-    value.platform === platform && value.fileSystem === fileSystem &&
-    Array.isArray(value.entries) &&
-    value.entries.length === expectedEntries.length &&
-    expectedEntries.every((entry) => value.entries.includes(entry))
-}
-
-export function electronSafetyPassed(value, platform, fileSystem) {
-  const expected = [
-    {
-      id: 'E-PATH-PERM',
-      testId: 'electron/platformSafety.test.ts#testPlatformPathFileFailsClosedWithoutCreatingDefaultLibrary',
-    },
-    {
-      id: 'E-QUIT-BACKUP-FAIL',
-      testId: 'electron/platformSafety.test.ts#testPlatformBackupVerificationFailureKeepsStorageAndRestorePointUsable',
-    },
-  ]
-  return value?.version === 1 && value.status === 'pass' && value.exitCode === 0 &&
-    value.platform === platform && value.fileSystem === fileSystem &&
-    Array.isArray(value.scenarios) && value.scenarios.length === expected.length &&
-    expected.every((scenario, index) => value.scenarios[index]?.id === scenario.id &&
-      value.scenarios[index]?.pass === true && value.scenarios[index]?.testId === scenario.testId)
-}
-
 export function jsonCompatibilityPassed(value) {
   const expectedCorpus = [
     'dense-1k', 'dense-10k', 'dense-20k', 'shared-self-reference', 'max-declared-attachment',

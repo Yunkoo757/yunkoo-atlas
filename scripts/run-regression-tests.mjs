@@ -101,3 +101,7 @@ if (failed > 0) {
     [...passedTests, ...browserResult.passedTests],
   )
 }
+
+if (process.send && requestedEntries.length > 0) {
+  process.send({ type: 'unit-regression-result', passedEntries, passedTests })
+}

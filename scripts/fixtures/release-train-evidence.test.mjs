@@ -6,11 +6,9 @@ import test from 'node:test'
 
 import {
   APPROVED_BLOB_BRIDGE,
-  assetLifecyclePassed,
   blobBridgeContractPassed,
   blobBridgeCoveragePassed,
   detectBlobReleaseMode,
-  electronSafetyPassed,
   EXPECTED_FINAL_CHECK_NAMES,
   finalQualityManifestPassed,
   forcedKillPassed,
@@ -21,6 +19,7 @@ import {
   persistenceReleaseGatePassed,
   releaseTrainDrillsPassed,
 } from '../release-evidence-validation.mjs'
+import { assetLifecyclePassed, electronSafetyPassed } from '../platform-regression.mjs'
 import { PERSISTENCE_BASELINE_METRICS } from '../persistence-baseline.mjs'
 import { CUTOVER_FAULT_POINTS, MiB } from '../spikes/electron-generation/generation-prototype.mjs'
 
