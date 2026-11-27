@@ -209,8 +209,8 @@ export async function testDesktopJournalImportHasAStartupRecoveryJournal(): Prom
     '恢复令牌失效后必须关闭旧预览，避免再次提交同一失效令牌',
   )
   assert(
-    ipc.includes('stagedArchivePath') &&
-      ipc.includes('importJournalZipToPath(entry.stagedLibraryRoot, entry.stagedArchivePath)') &&
+    ipc.includes('journalImportPreviews.prepare(event.sender, requestId') &&
+      preparedCommit.includes('journalImportPreviews.resolve(token, event.sender.id)') &&
       preparedCommit.includes('installPreparedLibraryAtPath(libraryPath, entry.stagedLibraryRoot)') &&
       !preparedCommit.includes('importJournalZipToPath(libraryPath, entry.stagedArchivePath)'),
     '完整归档必须提交已经预览并验证的同一份私有候选库，不得重新读取或再次解压可变来源',
