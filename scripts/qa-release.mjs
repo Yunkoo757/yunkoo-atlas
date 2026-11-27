@@ -1,99 +1,53 @@
-import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { resolveCommand } from './release-command.mjs'
-import { readGitProvenance } from './git-provenance.mjs'
+import { createServer } from 'vite'
 
-// 交易日边界与真值门禁按业务时区冻结，避免 UTC runner 误伤 06:00 口径。
-process.env.TZ ||= 'Asia/Shanghai'
+import { assertLocalSourceUnchanged, readGitProvenance } from './git-provenance.mjs'
+import { runCommand } from './release-command.mjs'
 
-const PORT = 5181
-const BASE = `http://127.0.0.1:${PORT}`
+const root = process.cwd()
 const full = process.argv.includes('--full')
-const reportPath = path.join(process.cwd(), 'test-results', full ? 'qa-release-full.json' : 'qa-release-smoke.json')
-
+const reportPath = path.join(root, 'test-results', full ? 'qa-release-full.json' : 'qa-release-smoke.json')
 await fs.rm(reportPath, { force: true })
+const provenance = await readGitProvenance(root)
 
-function run(name, args, env = process.env) {
-  const invocation = resolveCommand(name, args)
-  const result = spawnSync(invocation.file, invocation.args, {
-    cwd: process.cwd(),
-    env,
-    stdio: 'inherit',
-  })
-  if (result.status !== 0 || result.error) {
-    if (result.error) console.error(result.error.message)
-    throw new Error(`命令执行失败：${name} ${args.join(' ')}`)
-  }
+// Preserve the caller's build environment across Vite's development-mode setup.
+const environment = { ...process.env, TZ: process.env.TZ || 'Asia/Shanghai' }
+// Standalone probes can choose a URL. Release checks must serve this checkout's development and production builds.
+delete environment.QA_BASE_URL
+delete environment.QA_WORKBENCH_PROBE_URL
+const commands = []
+async function pnpm(script, env = environment) {
+  await runCommand('pnpm', [script], env)
+  commands.push(script)
 }
 
-function startVite() {
-  return spawn(
-    process.execPath,
-    [
-      'node_modules/vite/bin/vite.js',
-      '--host',
-      '127.0.0.1',
-      '--port',
-      String(PORT),
-      '--strictPort',
-    ],
-    { cwd: process.cwd(), stdio: 'ignore' },
-  )
-}
-
-async function waitForVite(child) {
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    if (child.exitCode !== null) {
-      throw new Error(`Vite 在就绪前退出，退出码 ${child.exitCode}。`)
-    }
-    try {
-      const response = await fetch(BASE)
-      if (response.ok && (await response.text()).includes('/@vite/client')) return
-    } catch {
-      // 服务仍在启动。
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200))
-  }
-  throw new Error('Vite 在 12 秒内未就绪。')
-}
-
-async function stopVite(child) {
-  if (child.exitCode !== null) return
-  const stopped = new Promise((resolve) => child.once('exit', resolve))
-  child.kill()
-  await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, 1500))])
-}
-
-run('pnpm', ['qa:ci'])
-
-const vite = startVite()
+await pnpm('qa:ci')
+const server = await createServer({ root, logLevel: 'error', server: { host: '127.0.0.1', port: 0, open: false } })
 try {
-  await waitForVite(vite)
-  const qaEnv = { ...process.env, QA_BASE_URL: BASE }
-  run('pnpm', [full ? 'qa' : 'qa:core'], qaEnv)
+  await server.listen()
+  const url = server.resolvedUrls?.local[0]
+  if (!url) throw new Error('发布验收服务未提供本地地址')
+  await pnpm(full ? 'qa' : 'qa:core', { ...environment, QA_BASE_URL: new URL(url).origin })
 } finally {
-  await stopVite(vite)
+  await server.close()
 }
 
-run('pnpm', ['build:app'])
-run('pnpm', ['test:storage-recovery:electron'])
-if (full) run(process.execPath, ['scripts/qa-dashboard-10k.mjs'])
-run('pnpm', ['qa:electron'])
+await pnpm('build:app')
+await pnpm('test:storage-recovery:electron')
+if (full) {
+  await runCommand(process.execPath, ['scripts/qa-dashboard-10k.mjs'], environment)
+  commands.push('qa:dashboard-10k')
+}
+await pnpm('qa:electron')
 
-const provenance = await readGitProvenance(process.cwd())
 await fs.mkdir(path.dirname(reportPath), { recursive: true })
-await fs.writeFile(reportPath, `${JSON.stringify({
+assertLocalSourceUnchanged(provenance, await readGitProvenance(root))
+await fs.writeFile(reportPath, JSON.stringify({
   version: 1,
   generatedAt: new Date().toISOString(),
   mode: full ? 'full' : 'smoke',
   status: 'pass',
-  gitCommit: provenance.gitCommit,
-  gitTree: provenance.gitTree,
-  workingTreeDirty: provenance.workingTreeDirty,
-  sourceFingerprint: provenance.sourceFingerprint,
-  sourceIdentity: provenance.sourceIdentity,
-  commands: full
-    ? ['qa:ci', 'qa', 'build:app', 'test:storage-recovery:electron', 'qa:dashboard-10k', 'qa:electron']
-    : ['qa:ci', 'qa:core', 'build:app', 'test:storage-recovery:electron', 'qa:electron'],
-}, null, 2)}\n`, 'utf8')
+  ...provenance,
+  commands,
+}, null, 2) + '\n', 'utf8')

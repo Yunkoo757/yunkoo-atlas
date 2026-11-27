@@ -1,3 +1,5 @@
+import { spawn } from 'node:child_process'
+import { once } from 'node:events'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 
@@ -28,4 +30,11 @@ export function resolveCommand(
   }
 
   return { file: name, args }
+}
+
+export async function runCommand(name, args, env = process.env) {
+  const invocation = resolveCommand(name, args)
+  const child = spawn(invocation.file, invocation.args, { env, stdio: 'inherit' })
+  const [code, signal] = await once(child, 'close')
+  if (code !== 0) throw new Error(`命令执行失败（${signal ?? code}）：${name} ${args.join(' ')}`)
 }

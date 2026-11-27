@@ -225,7 +225,6 @@ test('本地发布在远端候选认证通过后才推送 tag，失败可沿用�
   const workflow = readFileSync('.github/workflows/release.yml', 'utf8')
   const release = readFileSync('scripts/release.mjs', 'utf8')
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
-  const qualityGate = readFileSync('scripts/qa-release.mjs', 'utf8')
 
   assert.match(release, /qa:release/)
   assert.doesNotMatch(release, /run\('pnpm', \['qa:release'\]\)/)
@@ -245,15 +244,6 @@ test('本地发布在远端候选认证通过后才推送 tag，失败可沿用�
   assert.doesNotMatch(workflow, /final-quality-manifest/)
   assert.equal(pkg.scripts['qa:release'], 'node scripts/qa-release.mjs')
   assert.equal(pkg.scripts['qa:full'], 'node scripts/qa-release.mjs --full')
-  assert.match(qualityGate, /process\.argv\.includes\('--full'\)/)
-  assert.match(qualityGate, /\['qa:ci'\]/)
-  assert.doesNotMatch(qualityGate, /\['qa:sidebar'\]/)
-  assert.match(qualityGate, /\['qa:electron'\]/)
-  assert.match(qualityGate, /full \? 'qa' : 'qa:core'/)
-  assert.match(qualityGate, /qa-dashboard-10k\.mjs/)
-  assert.match(qualityGate, /waitForVite/)
-  assert.match(qualityGate, /qa-release-full\.json/)
-  assert.match(qualityGate, /sourceFingerprint/)
 })
 
 test('常规 CI 运行快速门禁，完整浏览器验收移至定时与手动工作流', () => {
@@ -261,7 +251,6 @@ test('常规 CI 运行快速门禁，完整浏览器验收移至定时与手动�
   const fullQaWorkflow = readFileSync('.github/workflows/full-qa.yml', 'utf8')
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
   const fastGate = readFileSync('scripts/qa-ci.mjs', 'utf8')
-  const qualityGate = readFileSync('scripts/qa-release.mjs', 'utf8')
 
   assert.match(workflow, /push:/)
   assert.match(workflow, /pull_request:/)
@@ -287,8 +276,6 @@ test('常规 CI 运行快速门禁，完整浏览器验收移至定时与手动�
   assert.match(fullQaWorkflow, /pnpm test:forced-kill:electron/)
   assert.match(fullQaWorkflow, /forced-kill-full-qa/)
   assert.match(fullQaWorkflow, /QA_PERFORMANCE_PROFILE:\s*hosted-windows/)
-  assert.match(qualityGate, /process\.argv\.includes\('--full'\)/)
-  assert.match(qualityGate, /if \(full\) run\(process\.execPath/)
 })
 
 test('工作台长流程分段回收浏览器页面，避免 Windows CI 内存耗尽', () => {

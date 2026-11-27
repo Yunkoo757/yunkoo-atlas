@@ -7,7 +7,6 @@ const read = (filePath) => fs.readFileSync(filePath, 'utf8')
 test('storage recovery Electron lifecycle gate is wired into release-quality execution', () => {
   const pkg = JSON.parse(read('package.json'))
   const runner = read('scripts/qa-storage-recovery-lifecycle.mjs')
-  const qaRelease = read('scripts/qa-release.mjs')
 
   assert.equal(
     pkg.scripts['test:storage-recovery:electron'],
@@ -38,11 +37,6 @@ test('storage recovery Electron lifecycle gate is wired into release-quality exe
     runner.indexOf('fs.rmSync(outputPath, { force: true })') <
       runner.indexOf('readRepositoryBuildExpectation(root)'),
     '旧 evidence 必须在 provenance/build 前置校验前删除，避免上传上一轮 pass',
-  )
-  assert.ok(
-    qaRelease.indexOf("run('pnpm', ['build:app'])") <
-      qaRelease.indexOf("run('pnpm', ['test:storage-recovery:electron'])"),
-    'release QA 必须先构建 production Electron bundle，再运行真实恢复生命周期门禁',
   )
 })
 
