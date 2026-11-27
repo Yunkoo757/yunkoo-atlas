@@ -1,5 +1,5 @@
 import { isAssetPurgeCommitEnabled } from '../../src/config/assetPurge'
-import type { LibraryActivationResult } from '../../src/types/journalBridge'
+import type { LibraryActivationResult, LibrarySwitchMode } from '../../src/types/journalBridge'
 import { exportVerifiedPurgeArchive } from './assetPurgeRecovery'
 import {
   ipcMain,
@@ -37,12 +37,12 @@ import { LibraryBusyError, LibraryOperationGate } from './sessionGate'
 import { LibraryAutoBackup } from './autoBackup'
 import { LibraryWriterSessions, type WriterGrant } from './writerSession'
 import {
-  areSameLibrary,
   isSameLibraryPath,
   openValidatedLibraryCandidate,
   reloadRendererAfterStorageRecovery,
   recoverLibraryStorageLifecycle,
 } from './libraryActivation'
+import { LibrarySwitchTargets, type PreparedLibraryTarget } from './librarySwitchTargets'
 import { randomUUID } from 'node:crypto'
 import { assertExitWithinDeadline, releaseThenFinalizeWithRollback } from '../quitCoordinator'
 import { createVerifiedRestorePoint, restoreLibraryBackup } from './backupRestore'
@@ -79,13 +79,12 @@ const autoBackup = new LibraryAutoBackup(operationGate, () => {
   }
 })
 
-type LibrarySwitchMode = 'create' | 'open'
+const switchTargets = new LibrarySwitchTargets(createRuntimeLibraryStorage)
 
 interface PreparedLibrarySwitch {
   token: string
   sourceStorage: LibraryStorage
-  resolvedPath: string
-  mode: LibrarySwitchMode
+  target: PreparedLibraryTarget
   ownerWebContentsId: number
   expiresAt: number
   disposeLease?: () => void
@@ -348,54 +347,10 @@ async function reopenAfterRestoreFailure(): Promise<LibraryStorage> {
   }
 }
 
-function resolveLibrarySwitchPath(libPath: string, mode: LibrarySwitchMode): string {
-  if (!libPath.trim()) throw new Error('请选择有效的交易库目录')
-  const resolvedPath = path.resolve(libPath)
-  const manifestFile = path.join(resolvedPath, 'manifest.json')
-  const dbFile = path.join(resolvedPath, 'journal.db')
-
-  if (mode === 'create' && fs.existsSync(resolvedPath)) {
-    const stat = fs.lstatSync(resolvedPath)
-    if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error('新交易库位置必须是普通目录')
-    if (fs.readdirSync(resolvedPath).length > 0) {
-      throw new Error('新交易库只能创建在空目录中，请选择空目录或新文件夹')
-    }
-  }
-  if (mode === 'open' && !fs.existsSync(manifestFile)) {
-    throw new Error('所选目录中没有找到交易库 (manifest.json)')
-  }
-  return resolvedPath
-}
-
-async function openLibrarySwitchCandidate(
-  libPath: string,
-  mode: LibrarySwitchMode,
-): Promise<{
-  candidate: LibraryStorage
-  resolvedPath: string
-  snapshot: ReturnType<LibraryStorage['loadSnapshot']>
-  revision: number
-}> {
-  const resolvedPath = resolveLibrarySwitchPath(libPath, mode)
-
-  const candidate = createRuntimeLibraryStorage(resolvedPath, {
-    ensureDirectories: mode === 'create',
-    allowCreate: mode === 'create',
-  })
-  const envelope = await openValidatedLibraryCandidate(candidate)
-  return { candidate, resolvedPath, ...envelope }
-}
-
 function activateLibraryCandidate(
-  prepared: Awaited<ReturnType<typeof openLibrarySwitchCandidate>>,
+  prepared: Awaited<ReturnType<typeof switchTargets.open>>,
 ): LibraryActivationResult {
-  const { candidate, resolvedPath, snapshot } = prepared
-
-  if (storage && areSameLibrary(storage, candidate)) {
-    candidate.release()
-    return { ok: false, error: '所选目录已经是当前交易库' }
-  }
-
+  const { candidate, libraryId, snapshot } = prepared
   const previous = storage
   let startBackup: () => void
   try {
@@ -407,8 +362,8 @@ function activateLibraryCandidate(
 
   try {
     saveLibraryConfig({
-      libraryPath: resolvedPath,
-      libraryId: candidate.readManifest().libraryId,
+      libraryPath: candidate.getLibraryPath(),
+      libraryId,
     })
   } catch (error) {
     candidate.release()
@@ -438,7 +393,7 @@ async function switchActiveLibrary(
   mode: LibrarySwitchMode,
 ): Promise<LibraryActivationResult> {
   try {
-    return activateLibraryCandidate(await openLibrarySwitchCandidate(libPath, mode))
+    return activateLibraryCandidate(await switchTargets.open({ path: libPath, mode }, storage))
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) }
   }
@@ -481,27 +436,12 @@ async function prepareActiveLibrarySwitch(
   try {
     // 准备期间不占用 exclusive gate，旧库仍可正常保存。
     return await withStorage(async sourceStorage => {
-      const resolvedPath = resolveLibrarySwitchPath(libPath, mode)
-      if (isSameLibraryPath(sourceStorage, resolvedPath)) {
-        return { ok: false as const, error: '所选目录已经是当前交易库' }
-      }
-
-      // “打开”先做一次完整校验，但不长期缓存 DB；激活时重新打开，读取磁盘最新版本。
-      if (mode === 'open') {
-        const validated = await openLibrarySwitchCandidate(resolvedPath, mode)
-        if (areSameLibrary(sourceStorage, validated.candidate)) {
-          validated.candidate.release()
-          return { ok: false as const, error: '所选目录已经是当前交易库' }
-        }
-        validated.candidate.release()
-      }
-
+      const target = await switchTargets.prepare({ path: libPath, mode }, sourceStorage)
       const token = randomUUID()
       const prepared: PreparedLibrarySwitch = {
         token,
         sourceStorage,
-        resolvedPath,
-        mode,
+        target,
         ownerWebContentsId: event.sender.id,
         expiresAt: Date.now() + PREPARED_LIBRARY_TTL_MS,
       }
@@ -546,11 +486,7 @@ async function activatePreparedLibrarySwitch(
         return { ok: false as const, error: '当前交易库已变化，请重新执行切换' }
       }
       writers.assert(event, writerToken, current)
-      const fresh = await openLibrarySwitchCandidate(prepared.resolvedPath, prepared.mode)
-      if (areSameLibrary(current, fresh.candidate)) {
-        fresh.candidate.release()
-        return { ok: false as const, error: '所选目录已经是当前交易库' }
-      }
+      const fresh = await switchTargets.open(prepared.target, current)
       const result = activateLibraryCandidate(fresh)
       if (!result.ok) return result
       return { ...result, revision: fresh.revision, writerGrant: writers.grant(event, fresh.candidate) }

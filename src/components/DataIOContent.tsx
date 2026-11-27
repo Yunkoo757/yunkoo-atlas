@@ -49,7 +49,7 @@ import { ModalShell } from '@/components/ui/ModalShell'
 import { readJsonImportFile } from '@/lib/importLimits'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
 import './DataIOContent.css'
-import type { PreparedJournalImportPreview } from '@/types/journal-bridge'
+import type { LibrarySwitchMode, PreparedJournalImportPreview } from '@/types/journalBridge'
 
 export function DataIOContent({
   onDone,
@@ -78,7 +78,7 @@ export function DataIOContent({
   const [archivePreparing, setArchivePreparing] = useState(false)
   const archiveSelectionRef = useRef<string | null>(null)
   const [pendingLibrarySwitch, setPendingLibrarySwitch] = useState<{
-    mode: 'open' | 'create'
+    mode: LibrarySwitchMode
     picked: string
   } | null>(null)
   const duplicateScanTradesRef = useRef<typeof trades | null>(null)
@@ -101,7 +101,7 @@ export function DataIOContent({
     }
   }, [electron])
 
-  const onSwitchLibrary = async (mode: 'open' | 'create') => {
+  const onSwitchLibrary = async (mode: LibrarySwitchMode) => {
     if (!electron || dataBusy) return
     const bridge = getJournalBridge()
     if (!bridge) {

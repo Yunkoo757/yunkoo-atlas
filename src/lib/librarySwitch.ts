@@ -1,3 +1,4 @@
+import type { LibrarySwitchMode } from '@/types/journalBridge'
 import { replaceLibraryInStore } from '@/lib/snapshotStore'
 import { haltPersistAfterCutover, lockStorageCutoverInteraction } from '@/storage/cutover'
 import { getElectronAdapter } from '@/storage/electronAdapter'
@@ -27,7 +28,7 @@ async function flushCurrentLibraryAtStableRevision(): Promise<PersistedStateRevi
  * @param libPath 已选目录；省略则弹出系统文件夹选择器。
  */
 export async function switchActiveLibrary(
-  mode: 'open' | 'create',
+  mode: LibrarySwitchMode,
   libPath?: string,
 ): Promise<{ ok: boolean; canceled?: boolean; path?: string; error?: string }> {
   const bridge = getJournalBridge()

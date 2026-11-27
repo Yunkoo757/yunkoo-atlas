@@ -104,6 +104,8 @@ export type AutoLaunchState = {
   error?: string
 }
 
+export type LibrarySwitchMode = 'create' | 'open'
+
 export type LibraryActivationResult =
   | { ok: true; snapshot: PersistedSnapshot | null }
   | { ok: false; error?: string; requiresReload?: true }
@@ -148,7 +150,7 @@ export interface JournalBridge {
   pickLibraryFolder(): Promise<string | null>
   createNewLibrary(libPath: string): Promise<LibraryActivationResult>
   openExistingLibrary(libPath: string): Promise<LibraryActivationResult>
-  prepareLibrarySwitch(libPath: string, mode: 'create' | 'open'): Promise<
+  prepareLibrarySwitch(libPath: string, mode: LibrarySwitchMode): Promise<
     { ok: true; token: string } | { ok: false; error?: string }
   >
   activatePreparedLibrary(token: string): Promise<LibraryActivationResult>

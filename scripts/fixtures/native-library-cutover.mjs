@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 
 async function verifyRejectedSwitchPreservesBackups(page, libraryPath, candidatePath, userDataPath, candidateBackup) {
@@ -23,9 +24,24 @@ async function verifyRejectedSwitchPreservesBackups(page, libraryPath, candidate
   const list = sample => fs.readdirSync(path.dirname(sample)).filter(name => /^journal-.*\.db$/.test(name)).sort()
   const prepare = () => page.evaluate(root => window.journalBridge.prepareLibrarySwitch(root, 'open'), candidatePath)
   const activate = token => page.evaluate(id => window.journalBridge.activatePreparedLibrary(id), token)
-  const prepared = await prepare()
-  assert(prepared.ok, '必须先通过候选库准备')
   const config = path.join(userDataPath, 'library-config.json')
+  const originalConfig = fs.readFileSync(config)
+  const beforeReplacement = await prepare()
+  assert.ok(beforeReplacement.ok)
+  const manifest = path.join(candidatePath, 'manifest.json')
+  const originalManifest = fs.readFileSync(manifest)
+  try {
+    fs.writeFileSync(manifest, JSON.stringify({ ...JSON.parse(originalManifest), libraryId: randomUUID() }), 'utf8')
+    const replaced = await activate(beforeReplacement.token)
+    assert.equal(replaced.ok, false)
+    assert.match(replaced.error, /交易库已变化/)
+    assert.equal(await page.evaluate(() => window.journalBridge.getLibraryPath()), libraryPath)
+    assert.deepEqual(fs.readFileSync(config), originalConfig)
+  } finally {
+    fs.writeFileSync(manifest, originalManifest)
+  }
+  const prepared = await prepare()
+  assert(prepared.ok, '重新选择后必须能再次准备')
   const saved = config + '.isolated-fixture'
   fs.renameSync(config, saved)
   let rejected
