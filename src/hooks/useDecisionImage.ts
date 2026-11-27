@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { decodeReviewImage } from '@/lib/reviewImageReadiness'
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
-import { getStorage } from '@/storage/bootstrap'
+import { getStorage } from '@/storage/provider'
 
 export function useDecisionImage(id: string | null) {
   const [attempt, setAttempt] = useState(0)

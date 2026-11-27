@@ -5,7 +5,7 @@ import { useStore } from '@/store/useStore'
 import { handleShortcutKeydown } from '@/shortcuts/engine'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { DetailView } from '@/views/DetailView'
-import { getStorage } from '@/storage/bootstrap'
+import { getStorage } from '@/storage/provider'
 import { useToast } from '@/lib/toast'
 import {
   noteDraftKey,

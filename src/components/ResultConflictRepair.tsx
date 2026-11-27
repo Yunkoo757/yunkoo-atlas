@@ -14,7 +14,8 @@ import { groupResultRepairs, type ResultRepairGroup, type ResultRepairRow } from
 import { toast } from '@/lib/toast'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
 import { useStore } from '@/store/useStore'
-import { getStorage, isElectron } from '@/storage'
+import { getStorage } from '@/storage/provider'
+import { isElectron } from '@/storage/runtime'
 import './ResultConflictRepair.css'
 
 const sections = [

@@ -1,5 +1,5 @@
 import { downloadBlob } from '@/lib/downloadBlob'
-import { getStorage } from '@/storage'
+import { getStorage } from '@/storage/provider'
 import type { AssetPurgePreview } from '@/storage/adapter'
 import { flushPersistNow } from '@/storage/persist'
 import { buildWebJournalArchiveBlob } from '@/lib/webJournalArchiveWriter'

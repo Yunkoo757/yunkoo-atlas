@@ -21,7 +21,7 @@ import {
 } from '@/hooks/useTradeReturnAnchor'
 import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import type { TradeDetailLocationState } from '@/lib/tradeRoute'
-import { getStorage } from '@/storage/bootstrap'
+import { getStorage } from '@/storage/provider'
 import {
   noteDraftKey,
   hasNoteDraft,

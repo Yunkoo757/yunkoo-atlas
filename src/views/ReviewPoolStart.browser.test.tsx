@@ -6,7 +6,8 @@ import {
   loadReviewSession,
   saveReviewSession,
 } from '@/lib/reviewSession'
-import { bootstrapStorage, getStorage } from '@/storage'
+import { bootstrapStorage } from '@/storage/bootstrap'
+import { getStorage } from '@/storage/provider'
 import { useStore } from '@/store/useStore'
 import { ReviewSessionView } from '@/views/ReviewSessionView'
 

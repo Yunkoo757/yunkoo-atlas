@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
-import { bootstrapStorage, getStorage } from '@/storage/bootstrap'
+import { bootstrapStorage } from '@/storage/bootstrap'
+import { getStorage } from '@/storage/provider'
 import { collectAssetIdsFromHtml } from '@/storage/snapshotRichText'
 import { useStore } from '@/store/useStore'
 import type { JournalBridge } from '@/types/journalBridge'

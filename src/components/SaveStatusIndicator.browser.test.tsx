@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
-import { getStorage } from '@/storage'
+import { getStorage } from '@/storage/provider'
 import {
   disablePersistWrites,
   enablePersistWrites,

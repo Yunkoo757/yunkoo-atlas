@@ -124,7 +124,6 @@ async function main() {
 
   const architectureContracts = [
     ['src/store/useStore.ts', 'src/lib/importExport', 'Store 不得反向依赖 importExport workflow'],
-    ['src/storage/persist.ts', 'src/storage/index', 'persist 不得导入 storage barrel'],
     ['src/storage/provider.ts', 'src/storage/bootstrap', 'provider 不得反向依赖 bootstrap'],
     ['src/storage/provider.ts', 'src/storage/persist', 'provider 不得反向依赖 persist'],
     ['src/store/shortcutStore.ts', 'src/shortcuts/engine', 'shortcutStore 不得反向依赖有状态 engine'],
@@ -180,6 +179,16 @@ async function main() {
   const graph = {
     ...runtimeDependencyGraph(files, root, [...desktopModules, editor, ...trainer]),
     ...websiteDependencyGraph(root, files),
+  }
+  for (const consumer of [
+    'src/storage/provider.ts', 'src/storage/persist.ts', 'src/storage/noteDrafts.ts',
+    'src/editor/Editor.tsx', 'src/views/DetailView.tsx', 'src/views/QuickNotesView.tsx',
+    'src/views/WeeklyReviewView.tsx', 'src/views/ReviewSessionView.tsx',
+    'src/lib/importExport.ts', 'src/lib/storageHealth.ts', 'src/views/settings/assetPurgeSession.ts',
+    'src/components/CaseSourceReference.tsx',
+  ]) {
+    const violation = firstForbiddenPath(graph, consumer, ['src/storage/bootstrap'])
+    if (violation) failures.push(`存储调用方引入启动流程：${violation.join(' → ')}`)
   }
   for (const cycle of findEagerCycles(graph)) failures.push(`运行时循环依赖：${cycle.join(' → ')}`)
   for (const entry of [editor, ...trainer]) {

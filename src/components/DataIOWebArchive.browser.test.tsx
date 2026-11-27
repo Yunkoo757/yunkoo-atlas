@@ -13,7 +13,7 @@ import {
   saveReviewSession,
 } from '@/lib/reviewSession'
 import { flushPersistNow, getPersistSuspendDepth } from '@/storage/persist'
-import { bootstrapStorage } from '@/storage'
+import { bootstrapStorage } from '@/storage/bootstrap'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
 import { SCHEMA_VERSION, type PersistedSnapshot } from '@/storage/types'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'

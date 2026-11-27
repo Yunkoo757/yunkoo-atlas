@@ -25,7 +25,7 @@ import {
   findObviousDuplicateIndexed,
   type DuplicateMatch,
 } from '@/lib/tradeDuplicates'
-import { getStorage } from '@/storage'
+import { getStorage } from '@/storage/provider'
 import { toast } from '@/lib/toast'
 import { flushPersistNow, withPersistSuspended } from '@/storage/persist'
 import { Select } from '@/components/ui/Select'

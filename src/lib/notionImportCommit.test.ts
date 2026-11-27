@@ -9,7 +9,7 @@ import {
   MAX_NOTION_IMPORT_IMAGE_BYTES,
   prepareNotionAssetsForCommit,
 } from '@/lib/notionImportCommit'
-import { getStorage } from '@/storage'
+import { getStorage } from '@/storage/provider'
 import type { StorageAdapter } from '@/storage/adapter'
 import {
   disablePersistWrites,

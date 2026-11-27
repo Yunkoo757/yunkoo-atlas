@@ -1,4 +1,4 @@
-import { getStorage } from '@/storage'
+import { getStorage } from '@/storage/provider'
 import {
   disablePersistWrites,
   enablePersistWrites,

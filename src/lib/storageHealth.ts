@@ -1,6 +1,6 @@
 import { fmtBytes } from '@/lib/format'
 import { useStore } from '@/store/useStore'
-import { getStorage } from '@/storage'
+import { getStorage } from '@/storage/provider'
 import { buildAssetInventory, type AssetInventory } from '@/storage/assetInventory'
 
 export interface AssetStats {

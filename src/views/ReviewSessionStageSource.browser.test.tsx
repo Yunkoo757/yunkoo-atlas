@@ -7,7 +7,8 @@ import {
   clearReviewSessionStorage,
   loadReviewSession,
 } from '@/lib/reviewSession'
-import { bootstrapStorage, getStorage } from '@/storage'
+import { bootstrapStorage } from '@/storage/bootstrap'
+import { getStorage } from '@/storage/provider'
 import { useShortcutHost } from '@/shortcuts/ShortcutHost'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'

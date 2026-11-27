@@ -13,12 +13,8 @@ import {
 import { Suspense, lazy, useEffect, useRef, useState, useCallback } from 'react'
 import { useStore } from './store/useStore'
 import { useShortcutStore } from './store/shortcutStore'
-import {
-  bootstrapStorage,
-  getStorage,
-  isStorageHydrated,
-  publishDurableStoreRefresh,
-} from './storage'
+import { bootstrapStorage, isStorageHydrated, publishDurableStoreRefresh } from './storage/bootstrap'
+import { getStorage } from './storage/provider'
 import { disablePersistWrites, flushPersistNow, hasPendingChanges, setPreFlushCallback, suspendPersist } from './storage/persist'
 import { flushNoteDraftsToStore, hasPendingNoteDrafts } from './storage/noteDrafts'
 import { flushStorageBeforeCutover, lockStorageCutoverInteraction } from './storage/cutover'

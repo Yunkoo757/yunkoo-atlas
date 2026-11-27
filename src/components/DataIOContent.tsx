@@ -39,7 +39,7 @@ import {
   groupObviousDuplicates,
   type DuplicateGroup,
 } from '@/lib/tradeDuplicates'
-import { getStorage } from '@/storage'
+import { getStorage } from '@/storage/provider'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'

@@ -27,16 +27,6 @@ export function testFoundationImportAndPersistenceEdgesStayAcyclic(): void {
     'new Image',
   ])
   assertExcludes('src/lib/importTypes.ts', ["from '@/store/", "from '@/lib/importExport'"])
-  for (const path of [
-    'src/storage/persist.ts',
-    'src/storage/noteDrafts.ts',
-    'src/editor/Editor.tsx',
-    'src/editor/insertEditorImage.ts',
-    'src/views/DetailView.tsx',
-    'src/views/useTradeNote.ts',
-  ]) {
-    assertExcludes(path, ["from '@/storage/index'", "from '@/storage/bootstrap'"])
-  }
   assertExcludes('src/storage/provider.ts', [
     "from '@/storage/bootstrap'",
     "from '@/storage/persist'",

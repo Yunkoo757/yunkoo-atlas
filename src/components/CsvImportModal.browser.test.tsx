@@ -1,6 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import { CsvImportModal } from './CsvImportModal'
-import { getStorage } from '@/storage'
+import { getStorage } from '@/storage/provider'
 import { disablePersistWrites, enablePersistWrites } from '@/storage/persist'
 import { useToast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'

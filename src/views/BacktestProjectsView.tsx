@@ -24,7 +24,7 @@ import { getProjectTrades, isBacktestProject, projectPath, summarizeBacktest, su
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { useWorkbenchListKeyboard, useWorkbenchRowFocus } from '@/hooks/useWorkbenchListKeyboard'
-import { getStorage } from '@/storage'
+import { getStorage } from '@/storage/provider'
 import { flushNoteDraftsToStore } from '@/storage/noteDrafts'
 import { getTradingDayKey } from '@/lib/periods'
 import { toast } from '@/lib/toast'

@@ -24,7 +24,8 @@ import {
   hashImageFiles,
   type DuplicateMatch,
 } from '@/lib/tradeDuplicates'
-import { collectAssetIdsFromNotes, getStorage } from '@/storage'
+import { collectAssetIdsFromNotes } from '@/storage/assets'
+import { getStorage } from '@/storage/provider'
 import { toast } from '@/lib/toast'
 import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { ImportPreviewList, ImportPreviewRecord } from './ImportPreviewList'

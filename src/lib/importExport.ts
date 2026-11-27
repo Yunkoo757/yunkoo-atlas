@@ -31,10 +31,8 @@ import {
 import { normalizeTrades } from '@/lib/tradeKind'
 import { useStore } from '@/store/useStore'
 import { bindingsForPersist, useShortcutStore } from '@/store/shortcutStore'
-import {
-  collectAssetIdsFromSnapshot,
-  getStorage,
-} from '@/storage'
+import { collectAssetIdsFromSnapshot } from '@/storage/snapshotRichText'
+import { getStorage } from '@/storage/provider'
 import type { ExportAssetRecord } from '@/storage/types'
 import {
   flushPersistNow,

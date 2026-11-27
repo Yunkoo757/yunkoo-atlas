@@ -79,7 +79,7 @@ import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { tradeHomeHref } from '@/lib/tradeWorkspaceQuery'
 import { toast } from '@/lib/toast'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
-import { getStorage } from '@/storage/bootstrap'
+import { getStorage } from '@/storage/provider'
 import { useShortcutStore } from '@/store/shortcutStore'
 import {
   registerShortcutHandlers,

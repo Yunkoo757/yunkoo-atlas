@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '@/store/useStore'
-import { getStorage } from '@/storage'
+import { getStorage } from '@/storage/provider'
 import { isElectron } from '@/storage/runtime'
 import { Button } from '@/components/ui/Button'
 import { ModalShell } from '@/components/ui/ModalShell'

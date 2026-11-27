@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import JSZip from 'jszip'
 import { NotionImportModal } from './NotionImportModal'
-import { getStorage } from '@/storage'
+import { getStorage } from '@/storage/provider'
 import { disablePersistWrites, enablePersistWrites } from '@/storage/persist'
 import { useToast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'

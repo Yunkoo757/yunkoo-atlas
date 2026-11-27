@@ -15,7 +15,8 @@ import {
   loadReviewSession,
 } from '@/lib/reviewSession'
 import { useShortcutHost } from '@/shortcuts/ShortcutHost'
-import { bootstrapStorage, getStorage } from '@/storage'
+import { bootstrapStorage } from '@/storage/bootstrap'
+import { getStorage } from '@/storage/provider'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
 import { ReviewSessionView } from '@/views/ReviewSessionView'

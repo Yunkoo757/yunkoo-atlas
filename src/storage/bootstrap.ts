@@ -1,6 +1,5 @@
 import { snapshotToRuntimeState } from '@/storage/snapshotToRuntimeState'
 import { getStorage } from '@/storage/provider'
-export { getStorage } from '@/storage/provider'
 import {
   migrateElectronLibraryIfNeeded,
   migrateFromLocalStorageIfNeeded,

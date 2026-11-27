@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import JSZip from 'jszip'
 import type { Trade } from '@/data/trades'
-import { getStorage } from '@/storage'
+import { getStorage } from '@/storage/provider'
 import { useStore } from '@/store/useStore'
 import { CsvImportModal } from './CsvImportModal'
 import {
