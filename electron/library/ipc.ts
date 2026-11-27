@@ -34,6 +34,7 @@ import {
   verifyBackupAtPath,
 } from './backup'
 import { assertSafeAssetId } from '../../src/storage/assetId'
+import { OperationalError } from '../../src/lib/operationalError'
 import { LibraryBusyError, LibraryOperationGate } from './sessionGate'
 import {
   areSameLibrary,
@@ -873,6 +874,7 @@ export function registerLibraryIpc(): void {
     const preview = payload.preview
     const lib = await ensureStorage()
     assertWriterSession(event, payload.writerToken, lib)
+    if (lib.getSnapshotRevision() !== preview.revision) throw new OperationalError('asset-gc-stale-revision', '资料库在预览后已变化，请重新扫描附件')
     const win = BrowserWindow.getFocusedWindow()
     const date = new Date().toISOString().slice(0, 10)
     const options = {
@@ -955,7 +957,7 @@ export function registerLibraryIpc(): void {
             throw new Error('附件清理恢复归档在导出后发生变化，请重新导出')
           }
         }
-        return lib.commitAssetPurge(payload.preview)
+        return withStorageRecoveryNotification(() => lib.commitAssetPurge(payload.preview), notifyStorageRecoveryRequired)
       })
       operation.success({ stage: 'committed', revisionAfter: result.revision })
       return result

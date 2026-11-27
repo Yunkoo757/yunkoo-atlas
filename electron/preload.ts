@@ -177,11 +177,15 @@ const bridge: JournalBridge = {
     operationId,
     writerToken: requireStorageWriterToken(),
   }),
-  commitAssetPurge: (preview, authorization) => ipcRenderer.invoke('storage:commitAssetPurge', {
-    preview,
-    authorization,
-    writerToken: requireStorageWriterToken(),
-  }),
+  commitAssetPurge: async (preview, authorization) => {
+    const result = await ipcRenderer.invoke('storage:commitAssetPurge', {
+      preview,
+      authorization,
+      writerToken: requireStorageWriterToken(),
+    })
+    if (storageSnapshotRevision === preview.revision) storageSnapshotRevision = result.revision
+    return result
+  },
   importAssets: (assets) => ipcRenderer.invoke('storage:importAssets', {
     assets,
     writerToken: requireStorageWriterToken(),

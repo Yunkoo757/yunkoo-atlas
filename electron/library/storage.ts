@@ -66,7 +66,7 @@ export type SnapshotSaveResult =
   | { kind: 'committed' }
   | { kind: 'committed-after-write-error' }
 
-export type StorageWriteOperation = 'snapshot' | 'save-asset' | 'import-asset'
+export type StorageWriteOperation = 'snapshot' | 'save-asset' | 'import-asset' | 'asset-purge'
 
 /**
  * 原子替换抛错后的磁盘真相。indeterminate 会锁住当前实例，避免自动保存
@@ -125,6 +125,34 @@ function resolveAttachmentWritePath(attachmentsRoot: string, fileName: string): 
     throw new Error('附件写入路径越界')
   }
   return resolvedTarget
+}
+
+function readDatabaseMeta(db: Database, key: string): string | null {
+  const stmt = db.prepare('SELECT value FROM meta WHERE key = ?')
+  try {
+    stmt.bind([key])
+    return stmt.step() ? String(stmt.getAsObject().value) : null
+  } finally { stmt.free() }
+}
+
+function readSnapshotRevision(db: Database): number {
+  const value = readDatabaseMeta(db, SNAPSHOT_REVISION_KEY)
+  const revision = value === null ? 0 : Number(value)
+  if (!Number.isSafeInteger(revision) || revision < 0) throw new Error('journal.db 的 snapshotRevision 无效')
+  return revision
+}
+
+function advanceSnapshotRevision(db: Database, expected?: number): void {
+  const current = readSnapshotRevision(db)
+  if (expected !== undefined && expected !== current) {
+    throw new OperationalError('storage-revision-conflict', `资料库已被更新（预期版本 ${expected}，实际版本 ${current}），已阻止旧快照覆盖`)
+  }
+  const next = current + 1
+  if (!Number.isSafeInteger(next)) throw new Error('journal.db 的 snapshotRevision 已达上限')
+  db.run(
+    'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    [SNAPSHOT_REVISION_KEY, String(next)],
+  )
 }
 
 function readAssetFileName(db: Database, id: string): string | null {
@@ -337,7 +365,7 @@ export class LibraryStorage {
   private readonly now: () => Date
   private storageWriteRecoveryError: SnapshotSaveError | null = null
   private assetPurgePreviews = new Map<string, {
-    snapshotJson: string
+    revision: number
     candidateIds: string[]
     totalBytes: number
   }>()
@@ -817,66 +845,24 @@ export class LibraryStorage {
     )
   }
 
-  private readSnapshotJson(): string | null {
-    const db = this.requireDb()
-    const stmt = db.prepare('SELECT value FROM meta WHERE key = ?')
-    stmt.bind([SNAPSHOT_KEY])
-    if (!stmt.step()) {
-      stmt.free()
-      return null
-    }
-    const value = String(stmt.getAsObject().value)
-    stmt.free()
-    return value
-  }
-
   getSnapshotRevision(): number {
-    const db = this.requireDb()
-    const stmt = db.prepare('SELECT value FROM meta WHERE key = ?')
-    try {
-      stmt.bind([SNAPSHOT_REVISION_KEY])
-      if (!stmt.step()) return 0
-      const revision = Number(stmt.getAsObject().value)
-      if (!Number.isSafeInteger(revision) || revision < 0) throw new Error('journal.db 的 snapshotRevision 无效')
-      return revision
-    } finally {
-      stmt.free()
-    }
-  }
-
-  private assertSnapshotRevision(expectedRevision?: number): number {
-    const actualRevision = this.getSnapshotRevision()
-    if (expectedRevision !== undefined && expectedRevision !== actualRevision) {
-      throw new OperationalError(
-        'storage-revision-conflict',
-        `资料库已被更新（预期版本 ${expectedRevision}，实际版本 ${actualRevision}），已阻止旧快照覆盖`,
-      )
-    }
-    return actualRevision
-  }
-
-  private readDatabaseSchemaVersion(): number | null {
-    const db = this.requireDb()
-    const stmt = db.prepare('SELECT value FROM meta WHERE key = ?')
-    try {
-      stmt.bind([DATABASE_SCHEMA_KEY])
-      if (!stmt.step()) return null
-      const version = Number(stmt.getAsObject().value)
-      if (!Number.isInteger(version) || version < 1) {
-        throw new Error('journal.db 的 schemaVersion 无效')
-      }
-      return version
-    } finally {
-      stmt.free()
-    }
+    return readSnapshotRevision(this.requireDb())
   }
 
   loadSnapshot(): PersistedSnapshot | null {
-    const value = this.readSnapshotJson()
+    return this.loadDatabaseSnapshot(this.requireDb())
+  }
+
+  private loadDatabaseSnapshot(db: Database): PersistedSnapshot | null {
+    const value = readDatabaseMeta(db, SNAPSHOT_KEY)
     if (value === null) return null
     const snapshot: unknown = JSON.parse(value)
     const manifestVersion = this.readManifest().schemaVersion
-    const databaseVersion = this.readDatabaseSchemaVersion()
+    const schema = readDatabaseMeta(db, DATABASE_SCHEMA_KEY)
+    const databaseVersion = schema === null ? null : Number(schema)
+    if (databaseVersion !== null && (!Number.isInteger(databaseVersion) || databaseVersion < 1)) {
+      throw new Error('journal.db 的 schemaVersion 无效')
+    }
     // v1-v7 资料库历史上只更新 snapshot，而未同步提升 manifest。只要快照已经
     // 具备 v12 引入的显式阶段合同，就不得再次按旧 schema 迁移，否则人工保存的
     // liveStageId 会在每次重启时重新变回待整理。下一次保存会写入明确的 DB 版本。
@@ -890,8 +876,8 @@ export class LibraryStorage {
   saveSnapshot(snapshot: PersistedSnapshot, expectedRevision?: number): SnapshotSaveResult {
     snapshot = stripRetiredSnapshotDomains(snapshot)
     assertValidPersistedSnapshot(snapshot, 'Library snapshot')
-    const nextRevision = this.assertSnapshotRevision(expectedRevision) + 1
     const prepared = this.prepareDatabaseCandidate((candidateDb) => {
+      advanceSnapshotRevision(candidateDb, expectedRevision)
       candidateDb.run(
         `INSERT INTO meta (key, value) VALUES (?, ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
@@ -901,11 +887,6 @@ export class LibraryStorage {
         `INSERT INTO meta (key, value) VALUES (?, ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
         [DATABASE_SCHEMA_KEY, String(SCHEMA_VERSION)],
-      )
-      candidateDb.run(
-        `INSERT INTO meta (key, value) VALUES (?, ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-        [SNAPSHOT_REVISION_KEY, String(nextRevision)],
       )
     })
     return this.commitDatabaseCandidate('snapshot', prepared, {
@@ -1278,9 +1259,9 @@ export class LibraryStorage {
   previewAssetPurge(): AssetPurgePreview {
     const db = this.requireDb()
     assertPortableAssetDatabaseIntegrity(db)
-    const snapshotJson = this.readSnapshotJson()
-    if (snapshotJson === null) throw new Error('当前资料库尚无可校验的持久化快照')
-    const snapshot = this.loadSnapshot()!
+    const revision = readSnapshotRevision(db)
+    const snapshot = this.loadDatabaseSnapshot(db)
+    if (!snapshot) throw new Error('当前资料库尚无可校验的持久化快照')
     assertPortableSnapshotAssetReferences(snapshot, db)
     const inventory = buildAssetInventory(snapshot, this.listAssetRecords())
     const candidateIds = inventory.orphan.map((record) => record.id).sort()
@@ -1289,59 +1270,64 @@ export class LibraryStorage {
       0,
     )
     const operationId = randomUUID()
-    this.assetPurgePreviews.set(operationId, { snapshotJson, candidateIds, totalBytes })
-    return { operationId, revision: 0, candidateIds: [...candidateIds], totalBytes }
+    this.assetPurgePreviews.set(operationId, { revision, candidateIds, totalBytes })
+    return { operationId, revision, candidateIds: [...candidateIds], totalBytes }
   }
 
   async commitAssetPurge(preview: AssetPurgePreview): Promise<AssetPurgeResult> {
-    // sql.js 初始化是本流程唯一会让出事件循环的步骤，必须发生在读取一次性
-    // preview、快照 CAS、活动数据库与附件状态之前。此后保持同步临界区，
-    // 避免 saveSnapshot 在 await 间隙替换并关闭已捕获的数据库，也避免新快照
-    // 重新引用候选附件后仍按旧引用集合删除。
-    const SQL = await getSql()
     const prepared = this.assetPurgePreviews.get(preview.operationId)
     this.assetPurgePreviews.delete(preview.operationId)
     if (
       !prepared ||
-      preview.revision !== 0 ||
+      preview.revision !== prepared.revision ||
       prepared.candidateIds.join('\0') !== preview.candidateIds.join('\0') ||
       prepared.totalBytes !== preview.totalBytes
     ) {
       throw new OperationalError('asset-gc-stale-revision', '附件清理预览无效或已使用，请重新扫描')
     }
-    if (this.readSnapshotJson() !== prepared.snapshotJson) {
-      throw new OperationalError('asset-gc-stale-revision', '资料库在预览后已变化，请重新扫描附件')
-    }
-    const currentSnapshot = this.loadSnapshot()!
-    const currentDb = this.requireDb()
-    assertPortableAssetDatabaseIntegrity(currentDb)
-    assertPortableSnapshotAssetReferences(currentSnapshot, currentDb)
-    const liveIds = new Set(
-      buildAssetInventory(currentSnapshot, []).referenced.map((item) => item.id),
-    )
-    if (prepared.candidateIds.some((id) => liveIds.has(id))) {
-      throw new OperationalError('asset-reference-missing', '清理候选已重新被笔记引用，请重新扫描')
-    }
-
-    const attachmentsStat = fs.lstatSync(this.paths.attachments)
-    if (attachmentsStat.isSymbolicLink() || !attachmentsStat.isDirectory()) {
-      throw new Error('attachments 路径不是当前库内的普通目录')
-    }
-
-    const files = prepared.candidateIds.map((id) => {
-      const fileName = readAssetFileName(currentDb, id)
-      if (!fileName || !isPortableAssetFileName(id, fileName)) {
-        throw new Error(`清理候选缺少安全数据库路径：${id}`)
+    assertPortableAssetDatabaseIntegrity(this.requireDb())
+    const files: { id: string; fileName: string; source: string }[] = []
+    const candidate = this.prepareDatabaseCandidate(db => {
+      if (readSnapshotRevision(db) !== prepared.revision) {
+        throw new OperationalError('asset-gc-stale-revision', '资料库在预览后已变化，请重新扫描附件')
       }
-      const source = this.inspectPortableAttachment(id, fileName)
-      if (!source) throw new Error(`清理候选物理附件缺失：${id}`)
-      const stat = assertRegularFile(source, `清理候选 ${id}`)
-      return { id, fileName, bytes: stat.size, source }
+      const snapshot = this.loadDatabaseSnapshot(db)
+      if (!snapshot) throw new Error('当前资料库尚无可校验的持久化快照')
+      assertPortableAssetDatabaseIntegrity(db)
+      assertPortableSnapshotAssetReferences(snapshot, db)
+      const liveIds = new Set(buildAssetInventory(snapshot, []).referenced.map(item => item.id))
+      let bytes = 0
+      for (const id of prepared.candidateIds) {
+        if (liveIds.has(id)) throw new OperationalError('asset-reference-missing', '清理候选已重新被笔记引用，请重新扫描')
+        const fileName = readAssetFileName(db, id)
+        if (!fileName || !isPortableAssetFileName(id, fileName)) throw new Error(`清理候选缺少安全数据库路径：${id}`)
+        const source = this.inspectPortableAttachment(id, fileName)
+        if (!source) throw new Error(`清理候选物理附件缺失：${id}`)
+        bytes += assertRegularFile(source, `清理候选 ${id}`).size
+        files.push({ id, fileName, source })
+        db.run('DELETE FROM assets WHERE id = ?', [id])
+        if (db.getRowsModified() !== 1) throw new Error(`清理候选数据库行已变化：${id}`)
+      }
+      if (bytes !== prepared.totalBytes) throw new Error('清理候选尺寸在预览后发生变化，请重新扫描')
+      advanceSnapshotRevision(db, prepared.revision)
     })
-    if (files.reduce((sum, file) => sum + file.bytes, 0) !== prepared.totalBytes) {
-      throw new Error('清理候选尺寸在预览后发生变化，请重新扫描')
+    try {
+      this.stagePurgeFiles(preview.operationId, files)
+    } catch (error) {
+      this.closeDetachedDatabaseBestEffort(candidate.candidateDb)
+      throw error
     }
+    this.commitDatabaseCandidate('asset-purge', candidate, {
+      beforeReplace: this.beforeAssetAtomicReplace ?? this.beforeAtomicReplace,
+      afterReplace: this.afterAssetAtomicReplace,
+    })
+    // 数据库决定哪些文件应删除。提交成功与重启共用清单校验及物理收尾。
+    try { this.recoverAssetTrash() } catch { /* 保留清单供重新打开时继续。 */ }
+    return { revision: this.getSnapshotRevision(), deletedIds: [...prepared.candidateIds] }
+  }
 
+  private stagePurgeFiles(operationId: string, files: { id: string; fileName: string; source: string }[]): void {
+    this.assertAttachmentsDirectorySafe()
     const trashRoot = path.join(this.paths.root, '.trash')
     if (fs.existsSync(trashRoot)) {
       const stat = fs.lstatSync(trashRoot)
@@ -1350,12 +1336,12 @@ export class LibraryStorage {
       fs.mkdirSync(trashRoot)
       fsyncDirectorySync(this.paths.root)
     }
-    const operationDir = path.join(trashRoot, preview.operationId)
+    const operationDir = path.join(trashRoot, operationId)
     fs.mkdirSync(operationDir)
     fsyncDirectorySync(trashRoot)
     const manifest: AssetTrashManifest = {
       version: 1,
-      operationId: preview.operationId,
+      operationId,
       files: files.map(({ id, fileName }) => ({ id, fileName })),
     }
     writeFileAtomicallySync(
@@ -1364,86 +1350,12 @@ export class LibraryStorage {
       'utf8',
     )
 
-    const staged: typeof files = []
-    // 仅当 DB 已原子落盘但本轮物理收尾无法完成时才延迟；不再因 Windows 一律跳过，
-    // 否则同一会话内备份会把仍留在 attachments/ 的孤儿文件打进去并验证失败。
-    let cleanupDeferred = false
-    let nextDb: Database | null = null
-    try {
-      for (const file of files) {
-        const target = path.join(operationDir, file.fileName)
-        fs.copyFileSync(file.source, target, fs.constants.COPYFILE_EXCL)
-        fsyncFileSync(target)
-        staged.push(file)
-      }
-      fsyncDirectorySync(operationDir)
-      nextDb = new SQL.Database(currentDb.export())
-      nextDb.run('BEGIN TRANSACTION')
-      for (const id of prepared.candidateIds) {
-        nextDb.run('DELETE FROM assets WHERE id = ?', [id])
-        if (nextDb.getRowsModified() !== 1) throw new Error(`清理候选数据库行已变化：${id}`)
-      }
-      nextDb.run('COMMIT')
-      const nextDbBytes = Buffer.from(nextDb.export())
-      try {
-        writeFileAtomicallySync(this.paths.dbFile, nextDbBytes)
-      } catch (error) {
-        // 目录屏障发生在原子替换之后；此时抛错不代表磁盘仍是旧库。
-        // 若目标文件已经完整等于新库，则必须按已提交处理，避免把附件搬回
-        // 一个已删除对应 assets 行的数据库。trash 会保留给启动恢复收尾。
-        let replaced = false
-        try { replaced = fs.readFileSync(this.paths.dbFile).equals(nextDbBytes) } catch { /* 未替换 */ }
-        if (!replaced) throw error
-        cleanupDeferred = true
-      }
-      this.db = nextDb
-      nextDb = null
-      try { currentDb.close() } catch { /* 新数据库已经耐久落盘。 */ }
-    } catch (error) {
-      try { nextDb?.run('ROLLBACK') } catch { /* transaction may already be closed */ }
-      try { nextDb?.close() } catch { /* ignore */ }
-      // DB 前失败时活动原件从未移动。保留完整 manifest + staged 副本，
-      // 由启动恢复按旧 DB 行安全清理，避免递归删除中断留下无 journal 文件。
-      throw error
+    for (const file of files) {
+      const target = path.join(operationDir, file.fileName)
+      fs.copyFileSync(file.source, target, fs.constants.COPYFILE_EXCL)
+      fsyncFileSync(target)
     }
-
-    if (!cleanupDeferred) {
-      try {
-        writeFileAtomicallySync(
-          path.join(operationDir, ASSET_TRASH_CLEANUP),
-          JSON.stringify(manifest, null, 2),
-          'utf8',
-        )
-        for (const file of staged) fs.rmSync(file.source)
-        fsyncDirectorySync(this.paths.attachments)
-        for (const file of staged) {
-          const stagedPath = path.join(operationDir, file.fileName)
-          if (fs.existsSync(stagedPath)) fs.rmSync(stagedPath)
-        }
-        fsyncDirectorySync(operationDir)
-        const manifestPath = path.join(operationDir, ASSET_TRASH_MANIFEST)
-        if (fs.existsSync(manifestPath)) fs.rmSync(manifestPath)
-        fsyncDirectorySync(operationDir)
-        fs.rmSync(path.join(operationDir, ASSET_TRASH_CLEANUP))
-        fsyncDirectorySync(operationDir)
-        fs.rmdirSync(operationDir)
-        fsyncDirectorySync(trashRoot)
-      } catch {
-        cleanupDeferred = true /* 启动恢复会完成已提交清理。 */
-      }
-    }
-    if (cleanupDeferred) {
-      try {
-        this.recoverAssetTrash()
-      } catch { /* 保留 trash；下次打开资料库再收敛。 */ }
-    }
-    try {
-      if (fs.existsSync(trashRoot) && fs.readdirSync(trashRoot).length === 0) {
-        fs.rmdirSync(trashRoot)
-        fsyncDirectorySync(this.paths.root)
-      }
-    } catch { /* 保留空目录不影响正确性。 */ }
-    return { revision: 0, deletedIds: [...prepared.candidateIds] }
+    fsyncDirectorySync(operationDir)
   }
 
   cancelAssetPurge(operationId: string): void {
@@ -1549,7 +1461,6 @@ export class LibraryStorage {
     // 建 candidate，绝不持有 await 前的 active DB，也不 export 内存分叉状态。
     await getSql()
     // 初始化 SQL 会让出执行权；CAS 必须与候选创建位于同一个同步提交区间。
-    const nextRevision = this.assertSnapshotRevision(options?.expectedSnapshotRevision) + 1
     type AttachmentPlan = {
       fileName: string
       filePath: string
@@ -1563,6 +1474,7 @@ export class LibraryStorage {
       assertPortableAssetDatabaseIntegrity(candidateDb)
       candidateDb.run('BEGIN TRANSACTION')
       try {
+        advanceSnapshotRevision(candidateDb, options?.expectedSnapshotRevision)
         for (const asset of assets) {
           assertSafeAssetId(asset.id)
           const fileName = attachmentFileName(
@@ -1623,11 +1535,6 @@ export class LibraryStorage {
           `INSERT INTO meta (key, value) VALUES (?, ?)
            ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
           [SNAPSHOT_KEY, JSON.stringify(snapshot)],
-        )
-        candidateDb.run(
-          `INSERT INTO meta (key, value) VALUES (?, ?)
-           ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-          [SNAPSHOT_REVISION_KEY, String(nextRevision)],
         )
         candidateDb.run('COMMIT')
       } catch (error) {

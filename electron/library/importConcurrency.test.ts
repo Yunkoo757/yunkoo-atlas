@@ -46,3 +46,20 @@ export async function testConcurrentUnconditionalImportsStillAdvanceTheAuthorita
     assert.equal(storage.getSnapshotRevision(), 2, '每个成功批次必须基于实际提交时的 revision 递增')
   })
 }
+
+export async function testSnapshotWritersCompareTheRevisionOfTheDurableCandidate() {
+  await isolated(async writer => {
+    writer.saveSnapshot(snapshot('initial'), 0)
+    const stale = new LibraryStorage(writer.getLibraryPath(), { allowCreate: false })
+    try {
+      await stale.open()
+      writer.saveSnapshot(snapshot('winner'), 1)
+      const previous = fs.readFileSync(writer.getPaths().dbFile)
+      assert.throws(() => stale.saveSnapshot(snapshot('old snapshot'), 1), /版本/)
+      await assert.rejects(stale.commitImport(snapshot('old import'), [], { expectedSnapshotRevision: 1 }), /版本/)
+      assert.deepEqual(fs.readFileSync(writer.getPaths().dbFile), previous)
+      await stale.commitImport(snapshot('new import'), [])
+      assert.equal(stale.getSnapshotRevision(), 3)
+    } finally { stale.release() }
+  })
+}

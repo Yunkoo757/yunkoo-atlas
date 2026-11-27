@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import initSqlJs, { type Database } from 'sql.js'
 import { createFullPersistedSnapshotFixture } from '../../src/storage/fixtures/fullPersistedSnapshot'
-import { LibraryStorage } from './storage'
+import { LibraryStorage, SnapshotSaveError } from './storage'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -606,3 +606,82 @@ export async function testLegacyTrashRecoveryPreservesSnapshotCaseAliasAfterData
 // Quality-Scenario: A-ELEC-DBFAIL
 // Quality-Scenario: A-ELEC-POSTDB-CRASH
 // Quality-Scenario: A-ELEC-PATH
+
+export async function testPurgeRejectsPreviewAfterSnapshotChangedAndChangedBack(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-gc-revision-'))
+  const storage = await createFixture(root)
+  try {
+    const preview = storage.previewAssetPurge()
+    storage.saveSnapshot(snapshot('shared-live', 'edited'))
+    storage.saveSnapshot(snapshot('shared-live'))
+    let rejected = false
+    try { await storage.commitAssetPurge(preview) } catch (error) {
+      rejected = (error as { code?: string }).code === 'asset-gc-stale-revision'
+    }
+    assert(rejected && storage.getAssetBytes('orphan-a'), '返回同样内容也不能让旧预览取得删除权')
+    assert(!fs.existsSync(path.join(root, '.trash')), '版本冲突应在写入 trash 前拒绝')
+  } finally { storage.release(); fs.rmSync(root, { recursive: true, force: true }) }
+}
+
+export async function testPurgeCommitsRevisionWithDeletionAndPreservesDurableDatabase(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-gc-durable-'))
+  const storage = await createFixture(root)
+  const reopened = new LibraryStorage(root, { allowCreate: false })
+  try {
+    const before = storage.getSnapshotRevision()
+    const preview = storage.previewAssetPurge()
+    assert(before > 0 && preview.revision === before, '预览版本必须来自当前数据库')
+    await mutateDurableDatabase(root, db => db.run("INSERT INTO meta VALUES ('isolated-marker', 'preserve')"))
+    const result = await storage.commitAssetPurge(preview)
+    assert(result.revision === before + 1 && storage.getSnapshotRevision() === result.revision, '删除和版本号应同时提交')
+    await reopened.open()
+    assert(reopened.getSnapshotRevision() === result.revision && !reopened.getAssetBytes('orphan-a'), '新实例须看到同一次删除和版本推进')
+    await mutateDurableDatabase(root, db => {
+      assert(db.exec("SELECT value FROM meta WHERE key = 'isolated-marker'")[0]?.values[0][0] === 'preserve', '清理必须从耐久数据库建立候选')
+    })
+  } finally { reopened.release(); storage.release(); fs.rmSync(root, { recursive: true, force: true }) }
+}
+
+export async function testPurgeRechecksDurableReferencesBeforeDeleting(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-gc-references-'))
+  const storage = await createFixture(root)
+  try {
+    const preview = storage.previewAssetPurge()
+    await mutateDurableDatabase(root, db => db.run("UPDATE meta SET value = ? WHERE key = 'snapshot'", [JSON.stringify(snapshot('orphan-a'))]))
+    const original = fs.readFileSync(storage.getPaths().dbFile)
+    let rejected = false
+    try { await storage.commitAssetPurge(preview) } catch { rejected = true }
+    assert(rejected && original.equals(fs.readFileSync(storage.getPaths().dbFile)), '实际磁盘已引用候选时须保留完整数据库')
+    assert(fs.existsSync(path.join(root, 'attachments', 'orphan-a.png')), '必须保留仍被磁盘快照引用的原件')
+    assert(!fs.existsSync(path.join(root, '.trash')), '预检失败不得产生待恢复操作')
+  } finally { storage.release(); fs.rmSync(root, { recursive: true, force: true }) }
+}
+
+export async function testPurgeRecoversCommittedDeletionAfterAnUnreadableReceipt(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-gc-reconcile-'))
+  const seed = await createFixture(root)
+  seed.release()
+  let unreadable = false
+  const storage = new LibraryStorage(root, {
+    afterAssetAtomicReplace() { unreadable = true; throw new Error('isolated post-rename failure') },
+    readDatabaseFile(file) {
+      if (unreadable) throw new Error('isolated reconciliation read failure')
+      return fs.readFileSync(file)
+    },
+  })
+  const reopened = new LibraryStorage(root, { allowCreate: false })
+  try {
+    await storage.open()
+    const preview = storage.previewAssetPurge()
+    let failure: unknown
+    try { await storage.commitAssetPurge(preview) } catch (error) { failure = error }
+    assert(failure instanceof SnapshotSaveError && failure.outcome === 'indeterminate' && failure.operation === 'asset-purge', '不可判定的删除须锁定写入，留下恢复清单')
+    let blocked = false
+    try { storage.loadSnapshot() } catch (error) { blocked = error === failure }
+    assert(blocked && fs.existsSync(path.join(root, '.trash', preview.operationId)), '重开前应保留锁和原件')
+    storage.release()
+    await reopened.open()
+    assert(reopened.getSnapshotRevision() === preview.revision + 1 && !reopened.getAssetBytes('orphan-a'), '重开应以已提交数据库完成物理删除')
+    assert(reopened.getAssetBytes('shared-live') && !fs.existsSync(path.join(root, '.trash')), '有引用的原图须完好，清单须收尾')
+  } finally { storage.release(); reopened.release(); fs.rmSync(root, { recursive: true, force: true }) }
+}
