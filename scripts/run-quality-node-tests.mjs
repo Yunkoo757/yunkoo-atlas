@@ -4,11 +4,13 @@ import { run } from 'node:test'
 import { tap } from 'node:test/reporters'
 import { pipeline } from 'node:stream/promises'
 
+import { readGitProvenance } from './git-provenance.mjs'
 import { discoverQualityNodeTests } from './test-discovery.mjs'
 import { executionReportPath, writeExecutionReport } from './quality-execution.mjs'
 
 const root = process.cwd()
 await fs.rm(executionReportPath(root), { force: true })
+const provenance = await readGitProvenance(root)
 const files = await discoverQualityNodeTests(root)
 const selected = new Set(files)
 const passed = new Set()
@@ -34,4 +36,4 @@ await pipeline(run({ files, concurrency: true }), recordResults, tap, process.st
 if (failed) {
   throw new Error('关键 Node 场景存在失败、跳过或待办，拒绝生成 PASS 执行报告')
 }
-await writeExecutionReport(root, [...passed], tests)
+await writeExecutionReport(root, provenance, [...passed], tests)

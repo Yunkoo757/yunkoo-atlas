@@ -1,6 +1,6 @@
 import { rmSync } from 'node:fs'
 
-import { readGitProvenance } from './git-provenance.mjs'
+import { assertLocalSourceUnchanged, readGitProvenance } from './git-provenance.mjs'
 
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/
 
@@ -35,17 +35,14 @@ export async function readRepositoryBuildExpectation(root = process.cwd(), envir
 }
 
 export function assertRepositoryProvenanceUnchanged(expectation, provenance) {
-  const repository = expectation?.repository
-  const unchanged = (
-    provenance?.gitCommit?.toLowerCase?.() === repository?.head &&
-    provenance?.gitTree === repository?.tree &&
-    provenance?.workingTreeDirty === repository?.dirty &&
-    provenance?.sourceFingerprint === repository?.sourceFingerprint &&
-    provenance?.sourceIdentity === repository?.sourceIdentity
-  )
-  if (!unchanged) {
-    throw new Error('Repository source changed during evidence collection; refusing to publish pass evidence')
-  }
+  const { repository } = expectation
+  assertLocalSourceUnchanged({
+    gitCommit: repository.head,
+    gitTree: repository.tree,
+    workingTreeDirty: repository.dirty,
+    sourceFingerprint: repository.sourceFingerprint,
+    sourceIdentity: repository.sourceIdentity,
+  }, { ...provenance, gitCommit: provenance?.gitCommit?.toLowerCase() })
 }
 
 /** Pass evidence is only publishable after every temporary resource is durably released. */

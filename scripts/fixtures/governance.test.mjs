@@ -129,7 +129,6 @@ test('全仓文本判定保留未知文本与二进制边界，并严格解码�
 
 test('治理门冻结最小依赖边界与执行报告来源', () => {
   const checker = readFileSync('scripts/check-governance.mjs', 'utf8')
-  const execution = readFileSync('scripts/quality-execution.mjs', 'utf8')
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
 
   for (const contract of [
@@ -147,7 +146,6 @@ test('治理门冻结最小依赖边界与执行报告来源', () => {
   assert.match(checker, /executedContractScenarioIds/)
   assert.match(checker, /declaredReleaseGateScenarioIds/)
   assert.doesNotMatch(checker, /pendingReleaseGateScenarioIds/)
-  assert.match(execution, /sourceIdentity: provenance\.sourceIdentity/)
   assert.equal(pkg.scripts['check:governance'], 'node scripts/check-governance.mjs')
   assert.match(pkg.scripts.test, /check-governance\.mjs/)
 })

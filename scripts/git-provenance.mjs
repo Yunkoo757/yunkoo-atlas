@@ -9,6 +9,21 @@ export function selectSourceIdentity({ workingTreeDirty, gitTree, sourceFingerpr
     : `git-tree:${gitTree}`
 }
 
+export function hasSameLocalSource(expected, current) {
+  return Boolean(expected?.gitCommit && current &&
+    expected.gitCommit === current.gitCommit &&
+    expected.gitTree === current.gitTree &&
+    expected.workingTreeDirty === current.workingTreeDirty &&
+    expected.sourceFingerprint === current.sourceFingerprint &&
+    expected.sourceIdentity === current.sourceIdentity)
+}
+
+export function assertLocalSourceUnchanged(expected, current) {
+  if (!hasSameLocalSource(expected, current)) {
+    throw new Error('Repository source changed during evidence collection; refusing to publish pass evidence')
+  }
+}
+
 export async function readGitProvenance(root = process.cwd()) {
   const gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
   const gitTree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: root, encoding: 'utf8' }).trim()

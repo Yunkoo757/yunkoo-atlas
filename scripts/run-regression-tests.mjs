@@ -7,6 +7,7 @@ import {
   discoverUnitTestEntries,
 } from './test-discovery.mjs'
 import { runBrowserRegressionTests } from './run-browser-tests.mjs'
+import { readGitProvenance } from './git-provenance.mjs'
 import { writeExecutionReport } from './quality-execution.mjs'
 
 const root = process.cwd()
@@ -17,9 +18,10 @@ function restoreNodeEnv() {
   else process.env.NODE_ENV = originalNodeEnv
 }
 
-const discoveredEntries = await discoverUnitTestEntries(root)
 const unitOnly = process.argv.includes('--unit-only')
 const requestedEntries = process.argv.slice(2).filter((argument) => !argument.startsWith('--'))
+const provenance = requestedEntries.length === 0 ? await readGitProvenance(root) : null
+const discoveredEntries = await discoverUnitTestEntries(root)
 for (const entry of requestedEntries) {
   if (!discoveredEntries.includes(entry)) throw new Error(`requested unit test is not discoverable: ${entry}`)
 }
@@ -91,11 +93,10 @@ failed += browserResult.failed
 
 if (failed > 0) {
   process.exitCode = 1
-} else if (requestedEntries.length === 0) {
-  // The report writer retains prior evidence only when its source fingerprint matches.
-  // Reusing old paths here revives retired tests and can attest tests not run on this source.
+} else if (provenance) {
   await writeExecutionReport(
     root,
+    provenance,
     [...passedEntries, ...browserResult.passedEntries],
     [...passedTests, ...browserResult.passedTests],
   )

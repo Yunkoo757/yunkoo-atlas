@@ -5,8 +5,9 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { readGitProvenance } from '../git-provenance.mjs'
 
-test('Node 质量证据只登记实际执行的测试，失败或跳过后移除旧报告', () => {
+test('Node 质量证据只登记实际执行的测试，失败或跳过后移除旧报告', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-node-evidence-'))
   const runner = fileURLToPath(new URL('../run-quality-node-tests.mjs', import.meta.url))
   const report = path.join(root, 'test-results', 'quality-execution.json')
@@ -30,6 +31,8 @@ test('Node 质量证据只登记实际执行的测试，失败或跳过后移除
     const result = execute()
     assert.equal(result.status, 0, result.stdout + result.stderr)
     const evidence = JSON.parse(fs.readFileSync(report, 'utf8'))
+    const expectedSource = await readGitProvenance(root)
+    for (const [key, value] of Object.entries(expectedSource)) assert.equal(evidence[key], value, key)
     assert.deepEqual(Object.keys(evidence.executedTests).filter(id => id.startsWith(fixture)), [
       fixture + '#first', fixture + '#second',
     ])
