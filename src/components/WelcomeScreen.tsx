@@ -4,6 +4,7 @@ import type { JournalBridge, LibrarySwitchMode } from '@/types/journalBridge'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
 import { FolderOpen, Plus, HardDrive } from '@/icons/appIcons'
 import { Button } from '@/components/ui/Button'
+import { OverflowTooltip } from '@/components/ui/Tooltip'
 import './WelcomeScreen.css'
 
 interface Props {
@@ -44,6 +45,7 @@ export function WelcomeScreen({ pickFolder, activateSelection }: Props) {
     }
   }
 
+  const pathLabel = pickedPath || '点击选择目录…'
   return (
     <div className="welcome-overlay">
       <div className="welcome-card">
@@ -56,15 +58,17 @@ export function WelcomeScreen({ pickFolder, activateSelection }: Props) {
         </p>
 
         <div className="welcome-path-row">
-          <button
-            className="welcome-path-btn"
-            onClick={selectFolder}
-            disabled={busy}
-            type="button"
-          >
-            <FolderOpen size={ICON_MD} />
-            <span>{pickedPath || '点击选择目录…'}</span>
-          </button>
+          <OverflowTooltip text={pathLabel}>
+            <button
+              className="welcome-path-btn"
+              onClick={selectFolder}
+              disabled={busy}
+              type="button"
+            >
+              <FolderOpen size={ICON_MD} />
+              <span>{pathLabel}</span>
+            </button>
+          </OverflowTooltip>
         </div>
 
         {pickedPath && (

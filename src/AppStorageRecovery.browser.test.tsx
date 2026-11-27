@@ -85,7 +85,7 @@ async function verifyWelcomeReceipts(mode: 'open' | 'create', interrupt = false)
   const host = document.getElementById('root')!
   const root = createRoot(host)
   const originalBridge = window.journalBridge
-  const path = '/isolated/selected-library'
+  const path = '/isolated/' + 'long-folder-name/'.repeat(12) + 'selected-library'
   const message = '新交易库只能创建在空目录中，请选择空目录或新文件夹'
   let uncertain = false
   let release!: () => void
@@ -118,6 +118,13 @@ async function verifyWelcomeReceipts(mode: 'open' | 'create', interrupt = false)
     button('点击选择目录…')!.click()
     const label = mode === 'create' ? '在此创建新资料库' : '打开已有资料库'
     await waitFor(() => button(label) !== null, '应允许操作所选目录')
+    const picker = button(path)!
+    await waitFor(() => picker.dataset.textOverflow === 'true', '超长目录应采用公共溢出提示')
+    assert(getComputedStyle(picker).overflowX === 'hidden' && getComputedStyle(picker).textOverflow === 'ellipsis',
+      '目录内容必须在控件边界内截断')
+    picker.focus()
+    await waitFor(() => document.querySelector('[role="tooltip"]')?.textContent === path, '键盘聚焦应能读取完整所选路径')
+    picker.blur()
     const action = button(label)!
     action.click()
     action.click()
