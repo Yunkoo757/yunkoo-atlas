@@ -21,11 +21,11 @@ import {
 } from '../../src/storage/types'
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { collectRetiredSnapshotAssetIds } from '../../src/storage/retiredSnapshotDomains'
-import { isSafeAssetId } from '../../src/storage/assetId'
-import { collectAssetIdsFromSnapshot, htmlAssetIds, snapshotRichTextRecords } from '../../src/storage/snapshotRichText'
+import { collectAssetIdsFromSnapshot } from '../../src/storage/snapshotRichText'
 import {
-  WEB_JOURNAL_EXPORT_VERSION,
-  normalizeWebJournalImageMime,
+  readWebJournalAssetDeclarations,
+  readWebJournalVersions,
+  validateWebJournalAssetReferences,
   webJournalExtensionsForMime,
 } from '../../src/lib/webJournalArchiveContract'
 
@@ -410,36 +410,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function validateWebArchiveVersions(raw: Record<string, unknown>): void {
-  if (!Number.isInteger(raw.version) || Number(raw.version) < 1) {
-    throw new Error('Invalid .journal.zip: data.json is missing a valid export version')
-  }
-  if (Number(raw.version) > WEB_JOURNAL_EXPORT_VERSION) {
-    throw new Error(
-      `该 Web 归档来自更新版本（v${raw.version}），当前仅支持至 v${WEB_JOURNAL_EXPORT_VERSION}`,
-    )
-  }
-
-  if (raw.schemaVersion === undefined) return
-  if (!Number.isInteger(raw.schemaVersion) || Number(raw.schemaVersion) < 1) {
-    throw new Error('Invalid .journal.zip: data.json contains an invalid schema version')
-  }
-  if (Number(raw.schemaVersion) > SCHEMA_VERSION) {
-    throw new Error(
-      `该 Web 归档的资料库来自更新版本（v${raw.schemaVersion}），当前仅支持至 v${SCHEMA_VERSION}`,
-    )
-  }
-}
-
 interface WebAssetImport {
   id: string
   mime: string
   fileName: string
   sourcePath: string
-}
-
-function isCompatibleWebAssetExtension(mime: string, extension: string): boolean {
-  return webJournalExtensionsForMime(mime).has(extension)
 }
 
 function validateWebAssets(
@@ -448,44 +423,8 @@ function validateWebAssets(
   assetsDir: string,
   retiredIds: ReadonlySet<string> = new Set(),
 ): WebAssetImport[] {
-  if (value !== undefined && !Array.isArray(value)) {
-    throw new Error('Invalid .journal.zip: data.json assets must be an array')
-  }
-
-  const declarations = new Map<string, { id: string; mime: string }>()
-  for (const item of value ?? []) {
-    if (!isRecord(item) || !isSafeAssetId(item.id)) {
-      throw new Error('Invalid .journal.zip: data.json contains an invalid asset id')
-    }
-    const mime = normalizeWebJournalImageMime(item.mime)
-    if (!mime) {
-      throw new Error(`Invalid .journal.zip: asset ${item.id} has an invalid image MIME type`)
-    }
-    if (declarations.has(item.id)) {
-      throw new Error(`Invalid .journal.zip: duplicate asset declaration (${item.id})`)
-    }
-    declarations.set(item.id, { id: item.id, mime })
-  }
-
-  const referencedIds = new Set<string>()
-  for (const source of snapshotRichTextRecords(snapshot)) {
-    for (const id of htmlAssetIds(source.html)) {
-      const valid = isSafeAssetId(id)
-      if (!valid || !declarations.has(id)) {
-        const label = source.domain === 'trade' ? `trade ${source.record.ref || source.record.id}`
-          : source.domain === 'weeklyReview' ? `weekly review ${source.record.weekStart}` : `quick note ${source.record.id}`
-        if (!valid) throw new Error(`Invalid .journal.zip: ${label} references an invalid asset`)
-        const problem = source.domain === 'trade' ? `an undeclared asset (${id})` : `missing asset ${id}`
-        throw new Error(`Invalid .journal.zip: ${label} references ${problem}`)
-      }
-      referencedIds.add(id)
-    }
-  }
-  for (const id of declarations.keys()) {
-    if (!referencedIds.has(id) && !retiredIds.has(id)) {
-      throw new Error(`Invalid .journal.zip: asset ${id} 未被任何交易正文引用`)
-    }
-  }
+  const declarations = readWebJournalAssetDeclarations(value, 'desktop')
+  const referencedIds = validateWebJournalAssetReferences(snapshot, declarations, retiredIds, 'desktop')
 
   const files = new Map<string, WebAssetImport>()
   if (fs.existsSync(assetsDir)) {
@@ -500,22 +439,19 @@ function validateWebAssets(
         throw new Error(`Invalid .journal.zip: assets contains an invalid file name (${entry.name})`)
       }
       const [, id, extension] = match
-      const declaration = declarations.get(id)
-      if (!declaration) {
+      const mime = declarations.get(id)
+      if (!mime) {
         throw new Error(`Invalid .journal.zip: asset file is not declared (${id})`)
       }
       if (files.has(id)) {
         throw new Error(`Invalid .journal.zip: duplicate asset file (${id})`)
       }
-      const normalizedExtension = extension.toLowerCase()
-      if (
-        extension !== normalizedExtension ||
-        !isCompatibleWebAssetExtension(declaration.mime, normalizedExtension)
-      ) {
+      if (!webJournalExtensionsForMime(mime).has(extension)) {
         throw new Error(`Invalid .journal.zip: asset ${id} extension does not match its MIME type`)
       }
       files.set(id, {
-        ...declaration,
+        id,
+        mime,
         fileName: entry.name,
         sourcePath: path.join(assetsDir, entry.name),
       })
@@ -542,10 +478,10 @@ function readWebSnapshot(dataFile: string, assetsDir: string): {
   if (!isRecord(parsed)) {
     throw new Error('Invalid .journal.zip: data.json must contain an object')
   }
-  const raw = parsed as Partial<PersistedSnapshot> & Record<string, unknown>
-  validateWebArchiveVersions(raw)
+  const raw = parsed
+  const { exportVersion, schemaVersion } = readWebJournalVersions(raw, 'desktop')
   const snapshot = decodeCanonicalSnapshot(raw, {
-    version: Number(raw.schemaVersion ?? raw.version),
+    version: schemaVersion ?? exportVersion,
     label: 'Invalid .journal.zip: data.json snapshot',
   })
   return { snapshot, assets: validateWebAssets(raw.assets, snapshot, assetsDir, collectRetiredSnapshotAssetIds(raw)) }

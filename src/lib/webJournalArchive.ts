@@ -4,9 +4,7 @@ import JSZip from 'jszip'
 import { isSafeAssetId } from '@/storage/assetId'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
 import { collectRetiredSnapshotAssetIds } from '@/storage/retiredSnapshotDomains'
-import { htmlAssetIds, snapshotRichTextRecords } from '@/storage/snapshotRichText'
 import {
-  SCHEMA_VERSION,
   type ExportAssetRecord,
   type PersistedSnapshot,
 } from '@/storage/types'
@@ -14,33 +12,15 @@ import {
   MAX_WEB_JOURNAL_ARCHIVE_BYTES,
   MAX_WEB_JOURNAL_ENTRY_COUNT,
   MAX_WEB_JOURNAL_EXPANDED_BYTES,
-  WEB_JOURNAL_EXPORT_VERSION,
   MAX_WEB_JOURNAL_ENTRY_BYTES,
-  normalizeWebJournalImageMime,
+  readWebJournalAssetDeclarations,
+  readWebJournalVersions,
+  validateWebJournalAssetReferences,
+  WebJournalArchiveError,
+  type WebJournalArchiveErrorCode,
   webJournalExtensionsForMime,
 } from '@/lib/webJournalArchiveContract'
-export type WebJournalArchiveErrorCode =
-  | 'not-zip'
-  | 'archive-too-large'
-  | 'too-many-entries'
-  | 'entry-too-large'
-  | 'expanded-too-large'
-  | 'desktop-format-not-supported-on-web'
-  | 'unsafe-path'
-  | 'unsupported-entry'
-  | 'incompatible-version'
-  | 'invalid-snapshot'
-  | 'invalid-asset'
-
-export class WebJournalArchiveError extends Error {
-  readonly code: WebJournalArchiveErrorCode
-
-  constructor(code: WebJournalArchiveErrorCode, message: string) {
-    super(message)
-    this.name = 'WebJournalArchiveError'
-    this.code = code
-  }
-}
+export { WebJournalArchiveError, type WebJournalArchiveErrorCode } from './webJournalArchiveContract'
 
 export interface WebJournalArchivePreview {
   exportVersion: number
@@ -81,11 +61,6 @@ interface CentralDirectoryEntry {
   compressedSize: number
   uncompressedSize: number
   crc32: number
-}
-
-interface DeclaredAsset {
-  id: string
-  mime: string
 }
 
 const EOCD_SIGNATURE = 0x06054b50
@@ -500,38 +475,11 @@ function buildNormalizedSnapshot(raw: RecordValue, version: number): PersistedSn
   return normalized
 }
 
-function parseDeclaredAssets(value: unknown): DeclaredAsset[] {
-  if (value === undefined) return []
-  if (!Array.isArray(value)) {
-    throw archiveError('invalid-asset', 'data.json 中的附件声明必须是数组')
-  }
-  const ids = new Set<string>()
-  return value.map((item): DeclaredAsset => {
-    if (!isRecord(item) || !isSafeAssetId(item.id)) {
-      throw archiveError('invalid-asset', 'data.json 中存在非法附件 ID')
-    }
-    const mime = normalizeWebJournalImageMime(item.mime)
-    if (!mime) {
-      throw archiveError('invalid-asset', `附件 ${item.id} 使用了不支持的图片类型`)
-    }
-    if (ids.has(item.id)) {
-      throw archiveError('invalid-asset', `data.json 中存在重复附件声明：${item.id}`)
-    }
-    ids.add(item.id)
-    return { id: item.id, mime }
-  })
-}
-
 function parseAssetFiles(
   entries: CentralDirectoryEntry[],
-  declarations: DeclaredAsset[],
-): Map<string, { entry: CentralDirectoryEntry; extension: string; mime: string }> {
-  const declaredById = new Map(declarations.map((asset) => [asset.id, asset]))
-  const files = new Map<
-    string,
-    { entry: CentralDirectoryEntry; extension: string; mime: string }
-  >()
-
+  declarations: ReadonlyMap<string, string>,
+): Map<string, CentralDirectoryEntry> {
+  const files = new Map<string, CentralDirectoryEntry>()
   for (const entry of entries) {
     if (entry.path === 'data.json' || entry.path === 'assets/') continue
     const match = /^assets\/([^/]+)\.([A-Za-z0-9]+)$/.exec(entry.path)
@@ -545,92 +493,22 @@ function parseAssetFiles(
     if (files.has(id)) {
       throw archiveError('invalid-asset', `归档中存在重复附件文件：${id}`)
     }
-    const declaration = declaredById.get(id)
-    if (!declaration) {
+    const mime = declarations.get(id)
+    if (!mime) {
       throw archiveError('invalid-asset', `附件文件 ${id} 未在 data.json 中声明`)
     }
-    const normalizedExtension = extension.toLowerCase()
-    const supportedExtensions = webJournalExtensionsForMime(declaration.mime)
-    if (
-      extension !== normalizedExtension ||
-      !supportedExtensions.has(normalizedExtension)
-    ) {
+    if (!webJournalExtensionsForMime(mime).has(extension)) {
       throw archiveError(
         'invalid-asset',
         `附件 ${id} 的文件扩展名与 MIME 类型不匹配`,
       )
     }
-    files.set(id, {
-      entry,
-      extension: normalizedExtension,
-      mime: declaration.mime,
-    })
+    files.set(id, entry)
   }
-
-  for (const declaration of declarations) {
-    if (!files.has(declaration.id)) {
-      throw archiveError('invalid-asset', `附件 ${declaration.id} 已声明但文件缺失`)
-    }
+  for (const id of declarations.keys()) {
+    if (!files.has(id)) throw archiveError('invalid-asset', `附件 ${id} 已声明但文件缺失`)
   }
   return files
-}
-
-function validateNoteAssetReferences(
-  snapshot: PersistedSnapshot,
-  declaredIds: ReadonlySet<string>,
-  allowedUnreferencedIds: ReadonlySet<string> = new Set(),
-): Set<string> {
-  const referencedIds = new Set<string>()
-  for (const source of snapshotRichTextRecords(snapshot)) {
-    for (const id of htmlAssetIds(source.html)) {
-      const valid = isSafeAssetId(id)
-      if (!valid || !declaredIds.has(id)) {
-        const label = source.domain === 'trade' ? `记录 ${source.record.ref || source.record.id}`
-          : source.domain === 'weeklyReview' ? `周复盘 ${source.record.weekStart}` : `随记「${source.record.title}」`
-        if (!valid) throw archiveError('invalid-asset', `${label} 引用了非法附件`)
-        const problem = source.domain === 'trade' ? '未声明或缺失' : '缺失'
-        throw archiveError('invalid-asset', `${label} 引用了${problem}的附件：${id}`)
-      }
-      referencedIds.add(id)
-    }
-  }
-  for (const id of declaredIds) {
-    if (!referencedIds.has(id) && !allowedUnreferencedIds.has(id)) {
-      throw archiveError('invalid-asset', `附件 ${id} 已声明但未被任何正文引用`)
-    }
-  }
-  for (const id of allowedUnreferencedIds) {
-    if (!declaredIds.has(id)) throw archiveError('invalid-asset', `恢复附件 ${id} 缺少声明或文件`)
-  }
-  return referencedIds
-}
-
-function parseVersion(raw: RecordValue): { exportVersion: number; schemaVersion: number | null } {
-  if (!Number.isInteger(raw.version) || Number(raw.version) < 1) {
-    throw archiveError('incompatible-version', 'data.json 缺少有效的导出版本')
-  }
-  const exportVersion = Number(raw.version)
-  if (exportVersion > WEB_JOURNAL_EXPORT_VERSION) {
-    throw archiveError(
-      'incompatible-version',
-      `该归档来自更新版本（v${exportVersion}），当前仅支持至 v${WEB_JOURNAL_EXPORT_VERSION}`,
-    )
-  }
-
-  if (raw.schemaVersion === undefined) {
-    return { exportVersion, schemaVersion: null }
-  }
-  if (!Number.isInteger(raw.schemaVersion) || Number(raw.schemaVersion) < 1) {
-    throw archiveError('incompatible-version', 'data.json 中的交易库版本无效')
-  }
-  const schemaVersion = Number(raw.schemaVersion)
-  if (schemaVersion > SCHEMA_VERSION) {
-    throw archiveError(
-      'incompatible-version',
-      `该交易库来自更新版本（v${schemaVersion}），当前仅支持至 v${SCHEMA_VERSION}`,
-    )
-  }
-  return { exportVersion, schemaVersion }
 }
 
 async function loadZip(bytes: Uint8Array): Promise<JSZip> {
@@ -772,9 +650,9 @@ export async function parseWebJournalArchive(
     throw archiveError('entry-too-large', 'data.json 超过单文件容量限制')
   }
   const raw = dataJson.raw
-  const { exportVersion, schemaVersion } = parseVersion(raw)
+  const { exportVersion, schemaVersion } = readWebJournalVersions(raw, 'web')
   const snapshot = buildNormalizedSnapshot(raw, schemaVersion ?? exportVersion)
-  const declarations = parseDeclaredAssets(raw.assets)
+  const declarations = readWebJournalAssetDeclarations(raw.assets, 'web')
   if (raw.recoveryOrphanAssetIds !== undefined && !Array.isArray(raw.recoveryOrphanAssetIds)) {
     throw archiveError('invalid-asset', '恢复附件 ID 清单必须是数组')
   }
@@ -790,33 +668,37 @@ export async function parseWebJournalArchive(
     throw archiveError('invalid-asset', '恢复附件 ID 重复')
   }
   const assetFiles = parseAssetFiles(entries, declarations)
-  const declaredIds = new Set(declarations.map((asset) => asset.id))
-  const retiredIds = new Set([...collectRetiredSnapshotAssetIds(raw)].filter(id => declaredIds.has(id)))
-  const referencedIds = validateNoteAssetReferences(snapshot, declaredIds, new Set([...recoveryOrphanAssetIds, ...retiredIds]))
-  const retiredOnlyIds = new Set([...retiredIds].filter(id => !referencedIds.has(id)))
+  const retiredIds = collectRetiredSnapshotAssetIds(raw)
+  const referencedIds = validateWebJournalAssetReferences(
+    snapshot, declarations, new Set([...recoveryOrphanAssetIds, ...retiredIds]), 'web',
+  )
+  for (const id of recoveryOrphanAssetIds) {
+    if (!declarations.has(id)) throw archiveError('invalid-asset', `恢复附件 ${id} 缺少声明或文件`)
+  }
+  const isRetiredOnly = (id: string) => retiredIds.has(id) && !referencedIds.has(id)
 
   const assets: ExportAssetRecord[] = []
   let expandedBytes = dataJson.byteLength
   let assetBytes = 0
-  for (const declaration of declarations) {
-    const assetFile = assetFiles.get(declaration.id)!
-    const zipEntry = zip.file(assetFile.entry.path)
+  for (const [id, mime] of declarations) {
+    const assetFile = assetFiles.get(id)!
+    const zipEntry = zip.file(assetFile.path)
     if (!zipEntry) {
-      throw archiveError('invalid-asset', `附件 ${declaration.id} 无法从归档读取`)
+      throw archiveError('invalid-asset', `附件 ${id} 无法从归档读取`)
     }
     let assetData: Uint8Array
     try {
       assetData = await readZipEntryBytesBounded(
         zipEntry,
-        assetFile.entry,
+        assetFile,
         expandedBytes,
       )
     } catch (error) {
       if (error instanceof WebJournalArchiveError) throw error
-      throw archiveError('invalid-asset', `附件 ${declaration.id} 已损坏，无法解压`)
+      throw archiveError('invalid-asset', `附件 ${id} 已损坏，无法解压`)
     }
     if (assetData.byteLength > MAX_WEB_JOURNAL_ENTRY_BYTES) {
-      throw archiveError('entry-too-large', `附件 ${declaration.id} 超过单文件容量限制`)
+      throw archiveError('entry-too-large', `附件 ${id} 超过单文件容量限制`)
     }
     expandedBytes += assetData.byteLength
     if (expandedBytes > MAX_WEB_JOURNAL_EXPANDED_BYTES) {
@@ -825,11 +707,11 @@ export async function parseWebJournalArchive(
         `归档实际解压后超过 ${MAX_WEB_JOURNAL_EXPANDED_BYTES / 1024 / 1024} MB，请减少附件后重试`,
       )
     }
-    if (retiredOnlyIds.has(declaration.id)) continue
+    if (isRetiredOnly(id)) continue
     assetBytes += assetData.byteLength
     assets.push({
-      id: declaration.id,
-      mime: declaration.mime,
+      id,
+      mime,
       data: bytesToBase64(assetData),
     })
   }
@@ -837,7 +719,7 @@ export async function parseWebJournalArchive(
   return {
     snapshot,
     assets,
-    recoveryOrphanAssetIds: recoveryOrphanAssetIds.filter(id => !retiredOnlyIds.has(id)),
+    recoveryOrphanAssetIds: recoveryOrphanAssetIds.filter(id => !isRetiredOnly(id)),
     preview: {
       exportVersion,
       schemaVersion,

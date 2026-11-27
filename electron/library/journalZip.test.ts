@@ -167,6 +167,43 @@ export async function testElectronWebImportRejectsFutureSchemaVersion(): Promise
   assert(error.includes('更新版本'), 'Electron 必须在替换资料库前拒绝未来 Web 资料库版本')
 }
 
+export async function testWebAndDesktopReadersShareVersionRulesAndPreserveRecoveryPolicy(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-archive-policy-'))
+  const archive = path.join(root, 'sample.journal.zip')
+  const raw = { version: WEB_JOURNAL_EXPORT_VERSION, ...emptySnapshot() }
+  const read = () => parseWebJournalArchive(Uint8Array.from(fs.readFileSync(archive)).buffer)
+  const desktopRoot = path.join(root, 'isolated-library')
+  try {
+    await writeWebArchive(archive, raw)
+    assert((await read()).preview.schemaVersion === null, '缺失 schemaVersion 必须保留为历史导出')
+    await importJournalZipToPath(desktopRoot, archive)
+    const paths = new LibraryStorage(desktopRoot).getPaths()
+    const databaseBefore = fs.readFileSync(paths.dbFile)
+
+    await writeWebArchive(archive, { ...raw, schemaVersion: null })
+    const invalidVersion = await read().then(() => null, (error: unknown) => error)
+    assert(invalidVersion instanceof WebJournalArchiveError && invalidVersion.code === 'incompatible-version',
+      '显式 null 须由 Web 返回版本错误')
+    const desktopVersion = await importJournalZipToPath(desktopRoot, archive).then(() => null, (error: unknown) => error)
+    assert(desktopVersion instanceof Error && desktopVersion.message.includes('invalid schema version'),
+      '同一归档须由桌面拒绝无效资料库版本')
+
+    await writeWebArchive(archive, {
+      ...raw, schemaVersion: SCHEMA_VERSION, recoveryOrphanAssetIds: ['draft'],
+      assets: [{ id: 'draft', mime: ' Image/PNG ' }],
+    }, { 'assets/draft.png': new Uint8Array([1, 2, 3]) })
+    const recovery = await read()
+    assert(recovery.recoveryOrphanAssetIds?.join() === 'draft' && recovery.assets[0]?.data === 'AQID'
+      && recovery.assets[0]?.mime === 'image/png', 'Web 恢复必须保留白名单原字节且规范化 MIME')
+    const desktopRecovery = await importJournalZipToPath(desktopRoot, archive).then(() => null, (error: unknown) => error)
+    assert(desktopRecovery instanceof Error && desktopRecovery.message.includes('未被任何交易正文引用'),
+      '桌面 Web 归档只接受现行正文或已知退役引用')
+    assert(databaseBefore.equals(fs.readFileSync(paths.dbFile)), '两次拒绝都必须保留原资料库字节')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export async function testElectronWebImportRejectsMalformedTradeHistoryBeforeCommit(): Promise<void> {
   const snapshot = snapshotWithAsset('unused')
   snapshot.trades[0] = {
