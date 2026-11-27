@@ -23,11 +23,15 @@ interface BackupRestoreSession {
   notifyRecoveryRequired(state: StorageRecoveryRequiredState): void
 }
 
-export async function restoreLibraryBackup(fileName: string, session: BackupRestoreSession): Promise<BackupRestoreResult> {
+type RestoreReceipt =
+  | Extract<BackupRestoreResult, { ok: false }>
+  | (Extract<BackupRestoreResult, { ok: true }> & { revision: number })
+
+export async function restoreLibraryBackup(fileName: string, session: BackupRestoreSession): Promise<RestoreReceipt> {
   // 仅本请求实际关闭旧实例后，renderer 才需要按可能已替换处理。
   let diskMayHaveChanged = false
   try {
-    return await withStorageRecoveryNotification(() => session.withExclusiveWriter(async (current): Promise<BackupRestoreResult> => {
+    return await withStorageRecoveryNotification(() => session.withExclusiveWriter(async (current): Promise<RestoreReceipt> => {
       const libraryPath = current.getLibraryPath()
       const verification = await verifyBackupAtPath(libraryPath, fileName)
       if (verification.status !== 'verified') return { ok: false, committed: false, error: verification.error }
@@ -44,13 +48,13 @@ export async function restoreLibraryBackup(fileName: string, session: BackupRest
         diskMayHaveChanged = installed
         rotateBackups(getLibraryPaths(libraryPath).backups)
         if (!installed) return { ok: false, committed: false, error: '恢复操作未提交' }
-        let snapshot = reopened.loadSnapshot()
-        if (!snapshot && verification.emptyLibrary) {
+        let envelope = reopened.loadSnapshotEnvelope()
+        if (!envelope.snapshot && verification.emptyLibrary) {
           reopened.saveSnapshot(createEmptyPersistedSnapshot())
-          snapshot = reopened.loadSnapshot()
+          envelope = reopened.loadSnapshotEnvelope()
         }
-        if (!snapshot) return { ok: false, committed: true, error: '恢复后的快照无法读取' }
-        return { ok: true, committed: true, snapshot }
+        if (!envelope.snapshot) return { ok: false, committed: true, error: '恢复后的快照无法读取' }
+        return { ok: true, committed: true, snapshot: envelope.snapshot, revision: envelope.revision }
       } finally {
         if (!reopened) {
           // 持锁恢复本请求关闭的实例，重建自动备份并接管原窗口的写入会话。

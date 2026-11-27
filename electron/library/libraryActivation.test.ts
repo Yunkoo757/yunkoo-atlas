@@ -81,7 +81,7 @@ export async function testCandidateLibraryAllowsNewEmptyLibrary(): Promise<void>
   const candidate = new LibraryStorage(root)
   try {
     const loaded = await openValidatedLibraryCandidate(candidate)
-    assert(loaded === null, '新建空库没有快照时应保持兼容')
+    assert(loaded.snapshot === null && loaded.revision === 0, '新建空库应在同一份回执返回空快照与零版本')
   } finally {
     candidate.release()
     fs.rmSync(root, { recursive: true, force: true })

@@ -69,6 +69,7 @@ export async function testBusyBackupRestoreCannotAdoptAnotherRequestsWriterOrCla
     }
     const result = await restoreLibraryBackup(selected, f.session)
     assert.ok(result.ok)
+    assert.equal(result.revision, f.active()?.getSnapshotRevision())
     assert.deepEqual(result.snapshot.tagPresets, ['backup'])
     assert.deepEqual(f.events, ['close', 'reopen'])
     const active = f.active()
@@ -155,7 +156,7 @@ export async function testVerifiedEmptyBackupReturnsTheSnapshotPersistedForTheNe
     f.active()?.release()
     nextLaunch = new LibraryStorage(f.root, { allowCreate: false })
     await nextLaunch.open()
-    assert.deepEqual(nextLaunch.loadSnapshot(), restored.snapshot)
+    assert.deepEqual(nextLaunch.loadSnapshotEnvelope(), { snapshot: restored.snapshot, revision: restored.revision })
   } finally {
     nextLaunch?.release()
     f.dispose()

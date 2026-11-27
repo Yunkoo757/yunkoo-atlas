@@ -13,6 +13,7 @@ import type {
   AssetPurgePreview,
   AssetPurgeResult,
   PhysicalAssetRecord,
+  SnapshotEnvelope,
 } from '../../src/storage/adapter'
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
@@ -847,6 +848,11 @@ export class LibraryStorage {
 
   getSnapshotRevision(): number {
     return readSnapshotRevision(this.requireDb())
+  }
+
+  loadSnapshotEnvelope(): SnapshotEnvelope {
+    const db = this.requireDb()
+    return { snapshot: this.loadDatabaseSnapshot(db), revision: readSnapshotRevision(db) }
   }
 
   loadSnapshot(): PersistedSnapshot | null {

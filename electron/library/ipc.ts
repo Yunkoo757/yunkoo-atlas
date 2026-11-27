@@ -48,6 +48,7 @@ import { assertExitWithinDeadline, releaseThenFinalizeWithRollback } from '../qu
 import { createVerifiedRestorePoint, restoreLibraryBackup } from './backupRestore'
 import { beginOperation, type OperationLogHandle } from '../operationLogger'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
+import type { SnapshotEnvelope } from '../../src/storage/adapter'
 import type {
   StageRolloverCommitInput,
   StageRolloverCommitResult,
@@ -433,6 +434,7 @@ async function openLibrarySwitchCandidate(
   candidate: LibraryStorage
   resolvedPath: string
   snapshot: ReturnType<LibraryStorage['loadSnapshot']>
+  revision: number
 }> {
   const resolvedPath = resolveLibrarySwitchPath(libPath, mode)
 
@@ -440,8 +442,8 @@ async function openLibrarySwitchCandidate(
     ensureDirectories: mode === 'create',
     allowCreate: mode === 'create',
   })
-  const snapshot = await openValidatedLibraryCandidate(candidate)
-  return { candidate, resolvedPath, snapshot }
+  const envelope = await openValidatedLibraryCandidate(candidate)
+  return { candidate, resolvedPath, ...envelope }
 }
 
 function activateLibraryCandidate(
@@ -601,7 +603,7 @@ async function activatePreparedLibrarySwitch(
   token: string,
   event: IpcMainInvokeEvent,
 ): Promise<
-  | { ok: true; snapshot: ReturnType<LibraryStorage['loadSnapshot']> }
+  | ({ ok: true } & SnapshotEnvelope)
   | { ok: false; error: string }
 > {
   const prepared = preparedLibrarySwitch
@@ -631,8 +633,9 @@ async function activatePreparedLibrarySwitch(
         return { ok: false as const, error: '所选目录已经是当前交易库' }
       }
       const result = activateLibraryCandidate(fresh)
-      if (result.ok && storage) adoptWriterSessionLifecycle(event.sender.id, storage)
-      return result
+      if (!result.ok) return result
+      adoptWriterSessionLifecycle(event.sender.id, fresh.candidate)
+      return { ...result, revision: fresh.revision }
     })
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) }
@@ -799,10 +802,7 @@ export function registerLibraryIpc(): void {
 
   ipcMain.handle('storage:getManifest', async () => withStorage((lib) => lib.readManifest()))
 
-  ipcMain.handle('storage:loadSnapshot', async () => withStorage((lib) => ({
-    snapshot: lib.loadSnapshot(),
-    revision: lib.getSnapshotRevision(),
-  })))
+  ipcMain.handle('storage:loadSnapshot', async () => withStorage(lib => lib.loadSnapshotEnvelope()))
 
   ipcMain.handle('storage:getSnapshotRevision', async () => withStorage((lib) => lib.getSnapshotRevision()))
 
@@ -817,12 +817,13 @@ export function registerLibraryIpc(): void {
   ipcMain.handle('stage:commitRollover', async (
     event,
     payload: { input: StageRolloverCommitInput; writerToken: string },
-  ): Promise<StageRolloverCommitResult> => {
+  ) => {
     return operationGate.runExclusive(async () => {
       const active = await ensureStorage()
       assertWriterSession(event, payload?.writerToken, active)
       const input = payload.input
-      const operation = beginOperation('stage-rollover', { stage: 'reload', revisionBefore: readLogRevision(active) })
+      const revisionBefore = readLogRevision(active)
+      const operation = beginOperation('stage-rollover', { stage: 'reload', revisionBefore })
       let result: StageRolloverCommitResult
       try {
         result = await commitDueStageRollover(input, {
@@ -844,8 +845,12 @@ export function registerLibraryIpc(): void {
         result = { ok: false, reason: 'write-failed', message: '阶段切换提交失败' }
       }
 
-      if (result.ok) operation.success({ stage: 'committed', code: 'stage-rollover-committed', revisionAfter: readLogRevision(active) })
-      else operation.failure(
+      if (result.ok) {
+        const revision = active.getSnapshotRevision()
+        operation.success({ stage: 'committed', code: 'stage-rollover-committed', revisionAfter: revision })
+        return { ...result, revisionBefore, revision }
+      }
+      operation.failure(
         { code: `stage-rollover-${result.reason}` },
         { stage: result.reason, code: `stage-rollover-${result.reason}` },
       )
@@ -1144,10 +1149,10 @@ export function registerLibraryIpc(): void {
       replacementCommitted = true
       const reopened = await openConfiguredStorage('restore')
       adoptWriterSessionLifecycle(event.sender.id, reopened)
-      const snapshot = reopened.loadSnapshot()
+      const envelope = reopened.loadSnapshotEnvelope()
       entry.dispose()
-      operation.success({ stage: 'committed', revisionAfter: readLogRevision(reopened) })
-      return { ok: true as const, committed: true as const, snapshot }
+      operation.success({ stage: 'committed', revisionAfter: envelope.revision })
+      return { ok: true as const, committed: true as const, ...envelope }
     } catch (error) {
       operation.failure(error, { stage: 'commit' })
       if (entry.state === 'consumed') {

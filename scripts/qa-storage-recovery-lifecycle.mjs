@@ -85,6 +85,50 @@ function verifyOperationRevisions(userData, kind, startStage, status, before, af
     pair[1].revisionBefore === before && pair[1].revisionAfter === after, `${kind} 日志与实际操作版本不符`)
 }
 
+async function verifyCutoverReceipts(application, page, libraryPath, candidatePath) {
+  // 替换已提交后，单独查询版本可能被下一次独占操作拒绝。
+  // 本阶段只保留普通快照读取，禁止通过第二条版本 IPC 补齐写入回执。
+  await application.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler('storage:getSnapshotRevision')
+    ipcMain.handle('storage:getSnapshotRevision', () => { throw new Error('isolated revision query unavailable') })
+  })
+  const backup = await page.evaluate(() => window.journalBridge.createBackup())
+  assert(backup, '无法创建隔离备份')
+  return page.evaluate(async ({ libraryPath, candidatePath, backupName }) => {
+    const bridge = window.journalBridge
+    const previous = await bridge.loadSnapshot()
+    const stale = await bridge.commitStageRollover({
+      expectedCurrentStageId: 'obsolete',
+      expectedRollover: { id: 'obsolete', requestedAt: '2026-08-30', effectiveWeekStart: '2026-08-31', postponedCount: 0 },
+    })
+    if (stale.ok || stale.reason !== 'stale') throw new Error('旧阶段请求须返回原有的拒绝原因')
+    await bridge.saveSnapshot({ ...previous, tagPresets: ['before-backup-cutover'] })
+    const restored = await bridge.restoreBackup(backupName)
+    if (!restored.ok || restored.snapshot.tagPresets[0] !== 'post-recovery-follow-up') throw new Error('备份恢复回执与快照不符')
+    await bridge.saveSnapshot(restored.snapshot)
+
+    const prepared = await bridge.prepareJournalImport('receipt-check')
+    if (!prepared.ok) throw new Error('隔离恢复归档应可预检')
+    const journal = await bridge.commitPreparedJournalImport(prepared.preview.token)
+    if (!journal.ok || journal.snapshot.tagPresets[0] !== 'before-storage-recovery') throw new Error('归档恢复回执与快照不符')
+    await bridge.saveSnapshot(previous)
+
+    const activate = async (root, mode) => {
+      const candidate = await bridge.prepareLibrarySwitch(root, mode)
+      if (!candidate.ok) throw new Error('无法准备隔离资料库')
+      const activated = await bridge.activatePreparedLibrary(candidate.token)
+      if (!activated.ok) throw new Error('无法激活隔离资料库')
+      return activated.snapshot
+    }
+    if (await activate(candidatePath, 'create') !== null) throw new Error('新建目标应为空')
+    await bridge.saveSnapshot({ ...previous, tagPresets: ['isolated-second-library'] })
+    const original = await activate(libraryPath, 'open')
+    if (original?.tagPresets[0] !== 'post-recovery-follow-up') throw new Error('切回原库后必须读到原快照')
+    await bridge.saveSnapshot(original)
+    return { staleStage: stale.reason, backup: true, archive: true, create: true, reopen: true }
+  }, { libraryPath, candidatePath, backupName: path.basename(backup) })
+}
+
 function waitForMainFrameNavigation(page, timeoutMs = 15_000) {
   return new Promise((resolve, reject) => {
     const cleanup = () => {
@@ -398,7 +442,9 @@ try {
   )
   assert(recovered.followUp === 'post-recovery-follow-up', 'fresh storage 必须接受后续耐久写入')
 
+  const cutoverReceipts = await verifyCutoverReceipts(application, page, libraryPath, path.join(temporaryRoot, 'isolated-second-library'))
   evidence = {
+    cutoverReceipts,
     version: 1,
     generatedAt: new Date().toISOString(),
     platform: process.platform,

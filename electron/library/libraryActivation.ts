@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { EventEmitter } from 'node:events'
+import type { SnapshotEnvelope } from '../../src/storage/adapter'
 import type { PersistedSnapshot } from '../../src/storage/types'
 import { LibraryStorage } from './storage'
 
@@ -47,11 +48,11 @@ export function areSameLibrary(left: LibraryStorage, right: LibraryStorage): boo
 export async function openValidatedLibraryCandidate(
   candidate: LibraryStorage,
   expectedLibraryId?: string,
-): Promise<PersistedSnapshot | null> {
+): Promise<SnapshotEnvelope> {
   try {
     await candidate.open(expectedLibraryId)
     candidate.readManifest(expectedLibraryId)
-    return candidate.loadSnapshot()
+    return candidate.loadSnapshotEnvelope()
   } catch (error) {
     candidate.release()
     throw error
@@ -173,7 +174,7 @@ export async function recoverLibraryStorageLifecycle(input: {
     throw new Error('资料库恢复必须创建新的主进程 storage 实例')
   }
 
-  const snapshot = await openValidatedLibraryCandidate(candidate, expectedLibraryId)
+  const { snapshot } = await openValidatedLibraryCandidate(candidate, expectedLibraryId)
   let activated = false
   try {
     input.activateCandidate(candidate)

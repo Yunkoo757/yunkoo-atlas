@@ -21,6 +21,13 @@ function requireStorageWriterToken(): string {
   return storageWriterToken
 }
 
+// 完整快照与版本来自同一回执。向 renderer 继续返回原有业务结果。
+function adoptSnapshotReceipt<T extends { revision: number }>(receipt: T): Omit<T, 'revision'> {
+  const { revision, ...result } = receipt
+  storageSnapshotRevision = revision
+  return result
+}
+
 export type {
   BackupInfo,
   BackupVerificationResult,
@@ -124,8 +131,7 @@ const bridge: JournalBridge = {
   prepareLibrarySwitch: (libPath, mode) => ipcRenderer.invoke('library:prepareSwitch', { libPath, mode }),
   activatePreparedLibrary: async (token) => {
     const result = await ipcRenderer.invoke('library:activatePrepared', token)
-    if (result?.ok) storageSnapshotRevision = await ipcRenderer.invoke('storage:getSnapshotRevision')
-    return result
+    return result.ok ? adoptSnapshotReceipt(result) : result
   },
   cancelPreparedLibrary: (token) => ipcRenderer.invoke('library:cancelPrepared', token),
   getLibraryPath: () => ipcRenderer.invoke('library:getPath'),
@@ -160,8 +166,11 @@ const bridge: JournalBridge = {
       input,
       writerToken: requireStorageWriterToken(),
     })
-    storageSnapshotRevision = await ipcRenderer.invoke('storage:getSnapshotRevision')
-    return result
+    if (!result.ok) return result
+    const { revisionBefore, revision, ...committed } = result
+    // 阶段回包只含阶段字段。陈旧窗口必须先读取完整快照才能取得新的写入版本。
+    if (storageSnapshotRevision === revisionBefore) storageSnapshotRevision = revision
+    return committed
   },
   saveAsset: (data, mime) =>
     ipcRenderer.invoke('storage:saveAsset', { data, mime, writerToken: requireStorageWriterToken() }),
@@ -209,8 +218,7 @@ const bridge: JournalBridge = {
       token,
       writerToken: requireStorageWriterToken(),
     })
-    if (result?.ok) storageSnapshotRevision = await ipcRenderer.invoke('storage:getSnapshotRevision')
-    return result
+    return result.ok ? adoptSnapshotReceipt(result) : result
   },
   createBackup: () => ipcRenderer.invoke('backup:create', requireStorageWriterToken()),
   listBackups: () => ipcRenderer.invoke('backup:list'),
@@ -220,8 +228,7 @@ const bridge: JournalBridge = {
       fileName,
       writerToken: requireStorageWriterToken(),
     })
-    if (result?.ok) storageSnapshotRevision = await ipcRenderer.invoke('storage:getSnapshotRevision')
-    return result
+    return result.ok ? adoptSnapshotReceipt(result) : result
   },
   deleteBackup: (fileName) => ipcRenderer.invoke('backup:delete', {
     fileName,
