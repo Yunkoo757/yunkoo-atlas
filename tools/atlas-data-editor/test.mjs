@@ -82,8 +82,51 @@ try{
  const page=await browser.newPage({viewport:{width:1500,height:960}});const errors=[];page.on('pageerror',e=>errors.push(e.message))
  await page.addInitScript(({files})=>{
   const sourceFiles=new Map(Object.entries(files).map(([k,v])=>[k,new Uint8Array(v)])),output=new Map();window.testOutput=output;window.testSource=sourceFiles
-  function handle(map,prefix='',readOnly=false){return {name:readOnly?'测试源资料库':'测试输出',kind:'directory',async isSameEntry(other){return other._map===map&&other._prefix===prefix},_map:map,_prefix:prefix,async resolve(other){return other._map===map?[]:null},async *values(){for(const key of map.keys())yield {name:key}},async getDirectoryHandle(name){return handle(map,prefix+name+'/',readOnly)},async getFileHandle(name,{create=false}={}){const key=prefix+name;if(create&&readOnly)throw Error('Forbidden source write');if(!map.has(key)&&!create)throw Error('Missing '+key);return {async getFile(){return new File([map.get(key)],name)},async createWritable(){if(readOnly)throw Error('Forbidden source write');let bytes;return {async write(value){if(window.testFailCopy && key.startsWith('attachments/'))throw Error('模拟附件写入失败');bytes=value instanceof Blob?new Uint8Array(await value.arrayBuffer()):typeof value==='string'?new TextEncoder().encode(value):new Uint8Array(value)},async close(){map.set(key,bytes)},async abort(){}}}}}}}
-  window.showDirectoryPicker=async({mode})=>mode==='read'?handle(sourceFiles,'',true):handle(output)
+  function handle(map, prefix = '', readOnly = false) {
+    return {
+      name: readOnly ? '测试源资料库' : '测试输出',
+      kind: 'directory',
+      _map: map,
+      _prefix: prefix,
+      async isSameEntry(other) { return other._map === map && other._prefix === prefix },
+      async resolve(other) { return other._map === map && other._prefix.startsWith(prefix) ? [] : null },
+      async *values() { for (const key of map.keys()) if (key.startsWith(prefix)) yield { name: key } },
+      async getDirectoryHandle(name) {
+        if (!readOnly && name === 'attachments' && window.testForeignAttachment) {
+          map.set('attachments/fixture.png', new Uint8Array([3, 1, 4]))
+        }
+        return handle(map, prefix + name + '/', readOnly)
+      },
+      async getFileHandle(name, { create = false } = {}) {
+        const key = prefix + name
+        if (create && readOnly) throw Error('Forbidden source write')
+        if (!map.has(key)) {
+          if (!create) throw new DOMException('Missing ' + key, 'NotFoundError')
+          map.set(key, new Uint8Array())
+        }
+        return {
+          async getFile() { return new File([map.get(key)], name) },
+          async createWritable() {
+            if (readOnly) throw Error('Forbidden source write')
+            let bytes
+            return {
+              async write(value) {
+                if (window.testFailCopy && key.startsWith('attachments/')) throw Error('模拟附件写入失败')
+                if (value instanceof Blob) bytes = new Uint8Array(await value.arrayBuffer())
+                else if (typeof value === 'string') bytes = new TextEncoder().encode(value)
+                else bytes = new Uint8Array(value)
+              },
+              async close() {
+                map.set(key, key === 'journal.db' && window.testSubstituteDb ? window.testSubstituteDb : bytes)
+              },
+              async abort() {},
+            }
+          },
+        }
+      },
+    }
+  }
+  window.showDirectoryPicker=async({mode})=>mode==='read'&&!window.testReadOutput?handle(sourceFiles,'',true):handle(output)
  },{files})
  await page.goto(pathToFileURL(path.join(editorOutput,'index.html')).href)
  await page.locator('#open').click();await page.waitForFunction(()=>document.querySelector('#source').textContent.includes('测试源'))
@@ -149,6 +192,12 @@ try{
  await page.waitForFunction(()=>document.querySelector('#message').textContent.includes('已重置实盘阶段'))
  await page.screenshot({path:path.join(out,'editor.png'),fullPage:true})
  await page.evaluate(()=>{const bytes=window.testSource.get('journal.db').slice();bytes[24]^=1;window.testSource.set('journal.db',bytes)})
+ await page.evaluate(bytes=>{window.testSubstituteDb=new Uint8Array(bytes)},files['journal.db'])
+ await page.locator('#export').click()
+ await page.waitForFunction(()=>!document.querySelector('#export').disabled)
+ assert.match(await page.locator('#message').innerText(),/数据库回读与本次导出不一致/)
+ assert.equal(await page.evaluate(()=>window.testOutput.has('manifest.json')),false)
+ await page.evaluate(()=>{window.testSubstituteDb=null;window.testOutput.clear()})
  await page.locator('#export').click();await page.waitForFunction(()=>document.querySelector('#message').textContent.includes('导出完成：'))
  await page.locator('#export').click();await page.waitForFunction(()=>document.querySelector('#message').textContent.includes('导出目录必须为空'))
  const result=await page.evaluate(()=>Object.fromEntries([...window.testOutput].map(([k,v])=>[k,Array.from(v)])))
@@ -164,10 +213,82 @@ try{
    assert.equal(loaded.trades.filter(t=>t.tradeKind==='live').length,0)
    assert.deepEqual(JSON.parse(JSON.stringify(loaded.trades.filter(t=>t.tradeKind==='case'))),fixture.trades.filter(t=>t.tradeKind==='case').map(t=>({...t,liveStageId:null})))
  }finally{desktop.close()}
+ // A target file can appear after the initial empty-directory check.
+ await page.evaluate(()=>{window.testOutput.clear();window.testForeignAttachment=true})
+ await page.locator('#export').click()
+ await page.waitForFunction(()=>!document.querySelector('#export').disabled)
+ assert.match(await page.locator('#message').innerText(),/导出目标已存在/)
+ assert.deepEqual(await page.evaluate(()=>Array.from(window.testOutput.get('attachments/fixture.png'))),[3,1,4])
+ assert.equal(await page.evaluate(()=>window.testOutput.has('manifest.json')),false)
+ await page.evaluate(()=>{window.testForeignAttachment=false})
  await page.evaluate(()=>{window.testOutput.clear();window.testFailCopy=true})
  await page.locator('#export').click();await page.waitForFunction(()=>document.querySelector('#message').textContent.includes('导出未完成'))
  const failed=await page.evaluate(()=>({db:window.testOutput.has('journal.db'),state:window.testOutput.has('editor-export-state.json'),manifest:window.testOutput.has('manifest.json')}))
  assert.deepEqual(failed,{db:true,state:true,manifest:false})
+ // A failed copy keeps its edited SQLite snapshot readable through its recovery record.
+ await page.evaluate(()=>{window.testReadOutput=true;window.testFailCopy=false})
+ await page.locator('#open').click()
+ await page.locator('#confirm').click()
+ await page.waitForFunction(()=>document.querySelector('#source').textContent.includes('测试输出'))
+ await page.locator('#check').click()
+ await page.waitForFunction(()=>!document.querySelector('#check').disabled)
+ assert.match(await page.locator('#message').innerText(),/附件尺寸不符/)
+ await page.evaluate(()=>window.testOutput.set('attachments/fixture.png',window.testSource.get('attachments/fixture.png')))
+ await page.locator('#check').click()
+ await page.waitForFunction(()=>document.querySelector('#message').textContent.includes('校验通过'))
+
+ // Exercise the shipped picker flow with Chromium's real directory and writable handles.
+ const fsPage=await browser.newPage()
+ // OPFS requires a non-opaque secure origin; the picker test above uses the shipped file URL.
+ await fsPage.route('http://localhost/**', route => {
+   const name=path.basename(new URL(route.request().url()).pathname)
+   return route.fulfill({path:path.join(editorOutput,name)})
+ })
+ await fsPage.goto('http://localhost/index.html')
+ await fsPage.evaluate(async files=>{
+   const root=await navigator.storage.getDirectory()
+   const source=await root.getDirectoryHandle('source',{create:true})
+   const destination=await root.getDirectoryHandle('copy',{create:true})
+   const child=await source.getDirectoryHandle('child',{create:true})
+   const attachments=await source.getDirectoryHandle('attachments',{create:true})
+   for(const [key,data] of Object.entries(files)){
+     const dir=key.startsWith('attachments/')?attachments:source
+     const handle=await dir.getFileHandle(key.split('/').at(-1),{create:true})
+     const writer=await handle.createWritable()
+     await writer.write(new Uint8Array(data))
+     await writer.close()
+   }
+   window.testChoices={source,destination,child,root}
+   window.testTarget='destination'
+   window.showDirectoryPicker=async({mode})=>mode==='read'?source:window.testChoices[window.testTarget]
+ },files)
+ await fsPage.locator('#open').click()
+ await fsPage.waitForFunction(()=>document.querySelector('#source').textContent.includes('source'))
+ for(const target of ['source','child','root']){
+   await fsPage.evaluate(key=>{window.testTarget=key},target)
+   await fsPage.locator('#export').click()
+   await fsPage.waitForFunction(()=>!document.querySelector('#export').disabled)
+   assert.match(await fsPage.locator('#message').innerText(),/独立空目录/)
+ }
+ await fsPage.evaluate(()=>{window.testTarget='destination'})
+ await fsPage.locator('#export').click()
+ await fsPage.waitForFunction(()=>document.querySelector('#message').textContent.includes('导出完成'))
+ const realCopy=await fsPage.evaluate(async()=>{
+   const {source,destination}=window.testChoices
+   const backup=await destination.getFileHandle('journal.db')
+   const attachment=await (await destination.getDirectoryHandle('attachments')).getFileHandle('fixture.png')
+   const original=await source.getFileHandle('journal.db')
+   const bytes=async handle=>Array.from(new Uint8Array(await (await handle.getFile()).arrayBuffer()))
+   return {database:await bytes(backup),png:await bytes(attachment),source:await bytes(original)}
+ })
+ assert.deepEqual(realCopy.source,files['journal.db'])
+ assert.deepEqual(Buffer.from(realCopy.png),png)
+ const nativeCopy=new SQL.Database(realCopy.database)
+ try {
+   const data=JSON.parse(nativeCopy.exec("SELECT value FROM meta WHERE key='snapshot'")[0].values[0][0])
+   assert.deepEqual(decode(data,SCHEMA_VERSION),decode(fixture,SCHEMA_VERSION))
+ }finally{nativeCopy.close()}
+ await fsPage.close()
  assert.equal(errors.length,0,errors.join('\n'))
  assert.deepEqual(await fs.readFile(path.join(sourcePath,'journal.db')),original,'Source remains untouched')
  console.log('PASS: actual schema, paper migration, reset, invalid references, file:// UI, undo, invalid JSON, offline SQLite, export roundtrip, Atlas desktop LibraryStorage.open/loadSnapshot, attachment bytes, source unchanged')

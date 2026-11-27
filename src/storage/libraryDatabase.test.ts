@@ -1,5 +1,5 @@
-import { SCHEMA_VERSION } from '../../src/storage/types'
-import { resolveSnapshotVersion } from './snapshotVersion'
+import { SCHEMA_VERSION } from './types'
+import { resolveSnapshotVersion } from './libraryDatabase'
 
 export function testSnapshotVersionUsesPersistedVersionAndRejectsInvalidMetadata() {
   if (resolveSnapshotVersion({}, SCHEMA_VERSION, 5) !== SCHEMA_VERSION) throw new Error('旧清单覆盖了数据库版本')

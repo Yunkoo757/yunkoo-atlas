@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 import { build } from 'vite'
+import { buildDataEditor } from '../../tools/atlas-data-editor/build.mjs'
 import initSqlJs from 'sql.js'
 import { chromium } from 'playwright'
 
@@ -32,15 +33,7 @@ test('offline editor ignores late previews and revokes object URLs when selectio
       for (const id of ['asset-a', 'asset-b']) db.run('INSERT INTO assets VALUES (?,?,?,?,?)', [id, 'image/png', `${id}.png`, png.length, '2026-01-01T00:00:00.000Z'])
       files = { 'journal.db': [...db.export()], 'manifest.json': [...Buffer.from(JSON.stringify({ schemaVersion: SCHEMA_VERSION }))], 'attachments/asset-a.png': [...png], 'attachments/asset-b.png': [...png] }
     } finally { db.close() }
-    const editorOutput = path.join(output, 'editor')
-    await mkdir(editorOutput)
-    await build({ configFile: false, logLevel: 'error', resolve: { alias: { '@': path.join(project, 'src') } }, define: { 'process.env.NODE_ENV': '"production"' }, build: { outDir: editorOutput, lib: { entry: path.join(project, 'tools/atlas-data-editor/app.ts'), name: 'AtlasDataEditor', formats: ['iife'], fileName: () => 'editor.js' } } })
-    for (const name of ['index.html', 'editor.css']) await copyFile(path.join(project, 'tools/atlas-data-editor', name), path.join(editorOutput, name))
-    await copyFile(path.join(project, 'src/styles/tokens.css'), path.join(editorOutput, 'tokens.css'))
-    await copyFile(path.join(project, 'node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2'), path.join(editorOutput, 'inter.woff2'))
-    await copyFile(path.join(project, 'node_modules/sql.js/dist/sql-wasm.js'), path.join(editorOutput, 'sqlite.js'))
-    const wasm = await readFile(path.join(project, 'node_modules/sql.js/dist/sql-wasm.wasm'))
-    await writeFile(path.join(editorOutput, 'sqlite-bytes.js'), `window.ATLAS_SQLITE_BYTES=${JSON.stringify(wasm.toString('base64'))};`, 'utf8')
+    const editorOutput = await buildDataEditor(path.join(output, 'editor'))
     browser = await chromium.launch({ headless: true })
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
     const errors = []

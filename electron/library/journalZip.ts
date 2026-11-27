@@ -1,7 +1,6 @@
-import { CREATE_LIBRARY_TABLES_SQL, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
+import { CREATE_LIBRARY_TABLES_SQL, resolveSnapshotVersion, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import { sha256File } from './fileChecksum'
 import { crc32 } from '../../src/lib/crc32'
-import { resolveSnapshotVersion } from './snapshotVersion'
 import { retiredSnapshotDatabaseBytes } from './retiredSnapshotDatabase'
 import fs from 'node:fs'
 import path from 'node:path'

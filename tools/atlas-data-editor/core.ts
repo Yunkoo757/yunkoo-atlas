@@ -8,7 +8,7 @@ import { formatYmd } from '../../src/lib/periods'
 
 export { SCHEMA_VERSION }
 
-type EditorSnapshot = CanonicalSnapshot & Record<string, unknown>
+export type EditorSnapshot = CanonicalSnapshot & Record<string, unknown>
 
 export function addTagPresets(snapshot: EditorSnapshot, key: 'tagPresets' | 'mistakeTagPresets', text: string) {
   const tags = text.split(/[,，\n]/).map(tag => tag.trim()).filter(Boolean)

@@ -1,7 +1,6 @@
-import { CREATE_LIBRARY_TABLES_SQL, isPortableAssetFileName, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
+import { CREATE_LIBRARY_TABLES_SQL, resolveSnapshotVersion, isPortableAssetFileName, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import { stripRetiredSnapshotDomains } from '../../src/storage/retiredSnapshotDomains'
 import { retiredSnapshotDatabaseBytes, stripRetiredSnapshotDomainsInDatabase } from './retiredSnapshotDatabase'
-import { resolveSnapshotVersion } from './snapshotVersion'
 import fs from 'node:fs'
 import path from 'node:path'
 import electronRuntime from 'electron'
