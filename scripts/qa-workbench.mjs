@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
+import { receivesKeyboardFocus } from './qa-keyboard-focus.mjs'
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -418,22 +419,13 @@ try {
   const lastDrawerControl = drawerFocusables.last()
   await lastDrawerControl.focus()
   await page.keyboard.press('Tab')
-  const tabWrapsForward = await firstDrawerControl.evaluate(
-    (element) => element === document.activeElement,
-  )
+  const tabWrapsForward = await receivesKeyboardFocus(firstDrawerControl)
   await firstDrawerControl.focus()
   await page.keyboard.press('Shift+Tab')
-  const tabWrapsBackward = await lastDrawerControl.evaluate(
-    (element) => element === document.activeElement,
-  )
+  const tabWrapsBackward = await receivesKeyboardFocus(lastDrawerControl)
   await page.keyboard.press('Escape')
   await page.locator('.dv-props.is-properties-open').waitFor({ state: 'hidden' })
-  await page.waitForFunction(() =>
-    document.activeElement?.getAttribute('aria-label')?.includes('打开案例属性') === true,
-  )
-  const drawerFocusReturned = await propertiesToggle.evaluate(
-    (element) => element === document.activeElement,
-  )
+  const drawerFocusReturned = await receivesKeyboardFocus(propertiesToggle)
   record(
     '窄屏案例属性抽屉可用',
     drawerRect.left >= 0 &&
@@ -549,24 +541,17 @@ try {
   await closeDialog.waitFor({ state: 'visible', timeout: 10000 })
   const closeDialogDismiss = closeDialog.getByRole('button', { name: '关闭', exact: true })
   const closeDialogLastFocusable = closeDialog.locator('button:not(:disabled):visible, input:not(:disabled):visible').last()
-  const initialFocusInside = await closeDialog.evaluate((element) =>
-    element.contains(document.activeElement),
+  const initialFocusInside = await receivesKeyboardFocus(
+    closeDialog.getByRole('textbox', { name: '盈亏金额', exact: true }),
   )
   await closeDialogDismiss.focus()
   await page.keyboard.press('Shift+Tab')
-  const wrapsBackward = await closeDialogLastFocusable.evaluate(
-    (element) => element === document.activeElement,
-  )
+  const wrapsBackward = await receivesKeyboardFocus(closeDialogLastFocusable)
   await page.keyboard.press('Tab')
-  const wrapsForward = await closeDialogDismiss.evaluate(
-    (element) => element === document.activeElement,
-  )
+  const wrapsForward = await receivesKeyboardFocus(closeDialogDismiss)
   await page.keyboard.press('Escape')
   await closeDialog.waitFor({ state: 'hidden', timeout: 10000 })
-  await page.waitForTimeout(50)
-  const focusReturned = await closeStatusTrigger.evaluate(
-    (element) => element === document.activeElement,
-  )
+  const focusReturned = await receivesKeyboardFocus(closeStatusTrigger)
   const activeAfterClose = await page.evaluate(() => {
     const active = document.activeElement
     return active instanceof HTMLElement
@@ -1093,15 +1078,7 @@ try {
   await page.getByRole('dialog', { name: '交易筛选' }).waitFor({ state: 'visible' })
   await page.keyboard.press('Escape')
   await page.getByRole('dialog', { name: '交易筛选' }).waitFor({ state: 'hidden' })
-  const filterTriggerHandle = await filterTrigger.elementHandle()
-  if (!filterTriggerHandle) throw new Error('筛选器触发按钮不存在')
-  await page.waitForFunction(
-    (element) => element === document.activeElement,
-    filterTriggerHandle,
-  )
-  const triggerFocused = await filterTrigger.evaluate(
-    (element) => element === document.activeElement,
-  )
+  const triggerFocused = await receivesKeyboardFocus(filterTrigger)
   record('筛选器 Escape 关闭并返还焦点', triggerFocused)
 
   await page.getByRole('button', { name: '筛选交易' }).click()

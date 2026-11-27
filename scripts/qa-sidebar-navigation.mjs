@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { chromium } from 'playwright'
+import { receivesKeyboardFocus } from './qa-keyboard-focus.mjs'
 
 const PORT = 41713
 const BASE = `http://127.0.0.1:${PORT}`
@@ -192,11 +193,7 @@ async function expectCount(locator, expected) {
 }
 
 async function expectFocused(locator) {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    if (await locator.evaluate((element) => element === document.activeElement)) return
-    await new Promise((resolve) => setTimeout(resolve, 25))
-  }
-  throw new Error('Expected element to be focused')
+  if (!await receivesKeyboardFocus(locator)) throw new Error(`Expected keyboard focus on ${locator}`)
 }
 
 async function expectFocusInside(locator) {
