@@ -113,17 +113,31 @@ async function verifyConfigPublication(application, page, libraryPath, candidate
   return { recoveredAfterWriteError: true, unconfirmedWriteBlocked: blocked, reopenedCandidate: true }
 }
 
-export async function verifyCutoverReceipts({ application, page, libraryPath, candidatePath, userDataPath }) {
-  // 前一阶段已在真实界面完成恢复和接续保存。保留同一窗口、受信入口和生产 preload，
-  // 直接测试 IPC 时仅运行这一个写入者，避免 UI 自动保存与测试快照竞争。
-  const trustedUrl = page.url()
+export async function verifyCutoverReceipts({ application, page: workspace, libraryPath, candidatePath, userDataPath }) {
+  // 界面阶段已完成真实恢复和接续保存。创建同一主进程的专用窗口，使旧界面的
+  // beforeunload 自动保存与直接 IPC 验收相互独立。窗口仍加载相同受信入口与生产 preload。
+  const trustedUrl = workspace.url()
+  const nextWindow = application.waitForEvent('window')
+  const { workspaceId, bridgeId } = await application.evaluate(({ BrowserWindow }, { url, preload }) => {
+    const original = BrowserWindow.getAllWindows().find(win => win.webContents.getURL() === url)
+    if (!original) throw new Error('无法定位已完成恢复的隔离工作台')
+    const { sandbox, contextIsolation, nodeIntegration } = original.webContents.getLastWebPreferences()
+    const bridge = new BrowserWindow({ show: false, webPreferences: { preload, sandbox, contextIsolation, nodeIntegration } })
+    void bridge.loadURL('about:blank')
+    return { workspaceId: original.id, bridgeId: bridge.id }
+  }, { url: trustedUrl, preload: path.resolve('dist-electron/preload.cjs') })
+  const page = await nextWindow
   let blockedRendererScripts = 0
   await page.route('**/*', route => {
     if (route.request().resourceType() !== 'script') return route.continue()
     blockedRendererScripts++
     return route.abort()
   })
-  await page.reload({ waitUntil: 'load' })
+  await application.evaluate(async ({ BrowserWindow }, { workspaceId, bridgeId, trustedUrl }) => {
+    BrowserWindow.fromId(workspaceId).destroy()
+    await BrowserWindow.fromId(bridgeId).loadURL(trustedUrl)
+  }, { workspaceId, bridgeId, trustedUrl })
+  await page.waitForURL(trustedUrl)
   assert.equal(page.url(), trustedUrl)
   assert.ok(blockedRendererScripts > 0)
   const savedTag = await page.evaluate(async () => {
