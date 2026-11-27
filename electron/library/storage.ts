@@ -1,3 +1,5 @@
+import { assertCompatibleManifest } from '../../src/storage/manifestCompatibility'
+import { assertLibraryIdentity } from './libraryIdentity'
 import { CREATE_LIBRARY_TABLES_SQL, resolveSnapshotVersion, isPortableAssetFileName, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import { stripRetiredSnapshotDomains } from '../../src/storage/retiredSnapshotDomains'
 import { retiredSnapshotDatabaseBytes, stripRetiredSnapshotDomainsInDatabase } from './retiredSnapshotDatabase'
@@ -408,14 +410,17 @@ export class LibraryStorage {
     return this.paths
   }
 
-  async open(): Promise<void> {
+  async open(expectedLibraryId?: string): Promise<void> {
     if (this.storageWriteRecoveryError) throw this.storageWriteRecoveryError
-    if (this.db) return
+    if (this.db) {
+      if (expectedLibraryId !== undefined) this.readManifest(expectedLibraryId)
+      return
+    }
     try {
-      recoverInterruptedJournalImport(this.paths)
-      recoverInterruptedBackupRestore(this.paths)
-      const schemaRecovery = recoverInterruptedSchemaMigrationFiles(this.paths)
-      if (!this.allowCreate && !fs.existsSync(this.paths.manifestFile)) {
+      recoverInterruptedJournalImport(this.paths, expectedLibraryId)
+      recoverInterruptedBackupRestore(this.paths, expectedLibraryId)
+      const schemaRecovery = recoverInterruptedSchemaMigrationFiles(this.paths, expectedLibraryId)
+      if ((!this.allowCreate || expectedLibraryId !== undefined) && !fs.existsSync(this.paths.manifestFile)) {
         throw new Error('manifest.json 不存在，已阻止生成新的资料库身份')
       }
       const SQL = await getSql()
@@ -426,20 +431,21 @@ export class LibraryStorage {
         try {
           if (!fs.existsSync(this.paths.dbFile)) throw new Error('正式 v9 journal.db 不存在')
           this.db = this.createDatabase(SQL.Database, this.readDatabaseFile(this.paths.dbFile))
-          assertOpenedPairVersion(this.db, this.readManifest(), SCHEMA_VERSION, {
+          const manifest = this.readManifest(expectedLibraryId)
+          assertOpenedPairVersion(this.db, manifest, SCHEMA_VERSION, {
             requireSnapshot: true,
           })
         } catch {
           this.closeDatabaseBestEffort()
-          restoreVerifiedV8Pair(this.paths, schemaRecovery.marker)
+          restoreVerifiedV8Pair(this.paths, schemaRecovery.marker, expectedLibraryId)
           this.db = this.createDatabase(SQL.Database, this.readDatabaseFile(this.paths.dbFile))
-          assertOpenedPairVersion(this.db, this.readManifest(), schemaRecovery.marker.fromVersion, { requireSnapshot: true })
+          assertOpenedPairVersion(this.db, this.readManifest(expectedLibraryId), schemaRecovery.marker.fromVersion, { requireSnapshot: true })
         }
         removeMigrationRecovery(this.paths, schemaRecovery.marker)
         created = false
       } else {
         created = !fs.existsSync(this.paths.dbFile)
-        if (created && !this.allowCreate) {
+        if (created && (!this.allowCreate || expectedLibraryId !== undefined)) {
           throw new Error('journal.db 不存在，已阻止创建空交易库')
         }
         if (created && fs.existsSync(this.paths.manifestFile)) {
@@ -471,7 +477,7 @@ export class LibraryStorage {
         this.persistDb()
       }
 
-      const manifest = this.readManifest()
+      const manifest = this.readManifest(expectedLibraryId)
       if (manifest.schemaVersion >= 8 && manifest.schemaVersion < SCHEMA_VERSION) {
         migrateOpenedLibraryV8ToV9({
           db: this.db,
@@ -484,8 +490,9 @@ export class LibraryStorage {
       }
       // v1-v7 exact archives retain their manifest-driven compatibility decoder.
       // The recoverable file-pair protocol is intentionally scoped to v8 -> v9.
-      if (this.readManifest().schemaVersion >= 8) {
-        assertOpenedPairVersion(this.db, this.readManifest(), SCHEMA_VERSION)
+      const openedManifest = this.readManifest(expectedLibraryId)
+      if (openedManifest.schemaVersion >= 8) {
+        assertOpenedPairVersion(this.db, openedManifest, SCHEMA_VERSION)
       }
       // 启动恢复会移动或删除附件，必须先拒绝 Windows/macOS 上会共享
       // 同一物理路径的 legacy 大小写碰撞。
@@ -786,9 +793,9 @@ export class LibraryStorage {
     writeFileAtomicallySync(this.paths.dbFile, Buffer.from(data), undefined, this.beforeAtomicReplace)
   }
 
-  readManifest(): LibraryManifest {
+  readManifest(expectedLibraryId?: string): LibraryManifest {
     if (!fs.existsSync(this.paths.manifestFile)) {
-      if (!this.allowCreate) {
+      if (!this.allowCreate || expectedLibraryId !== undefined) {
         throw new Error('manifest.json 不存在，已阻止生成新的资料库身份')
       }
       const manifest: LibraryManifest = {
@@ -800,7 +807,10 @@ export class LibraryStorage {
       this.writeManifest(manifest)
       return manifest
     }
-    return JSON.parse(fs.readFileSync(this.paths.manifestFile, 'utf8')) as LibraryManifest
+    const manifest = JSON.parse(fs.readFileSync(this.paths.manifestFile, 'utf8')) as LibraryManifest
+    assertCompatibleManifest(manifest)
+    assertLibraryIdentity(manifest.libraryId, expectedLibraryId)
+    return manifest
   }
 
   writeManifest(manifest: LibraryManifest): void {

@@ -166,3 +166,42 @@ export async function testPreparedNativeCommitCopyFailureRollsBackOriginalsAndFr
     fs.rmSync(root, { recursive: true, force: true })
   }
 }
+
+export async function testInterruptedRestoreUsesTheVerifiedRecoveryIdentityBeforeReplacingFiles(): Promise<void> {
+  for (const kind of ['journal', 'backup']) {
+    const { root, source, target } = await fixture()
+    const targetRoot = target.getLibraryPath()
+    const originalId = target.readManifest().libraryId
+    const recoveryDir = kind === 'journal' ? '.pre-import-identity-test' : '.backup-restore-recovery-identity-test'
+    const recovery = path.join(targetRoot, recoveryDir)
+    const marker = path.join(targetRoot, kind === 'journal' ? '.journal-import.json' : '.backup-restore.json')
+    try {
+      target.release()
+      fs.mkdirSync(recovery)
+      for (const name of ['journal.db', 'manifest.json', 'attachments']) {
+        fs.cpSync(path.join(targetRoot, name), path.join(recovery, name), { recursive: true })
+      }
+      const saved = libraryBytes(recovery)
+      fs.writeFileSync(marker, JSON.stringify({
+        version: 1, recoveryDir, hadManifest: true, hadDatabase: true,
+        manifestSha256: hash(fs.readFileSync(path.join(recovery, 'manifest.json'))),
+        databaseSha256: hash(fs.readFileSync(path.join(recovery, 'journal.db'))),
+        attachmentEntries: fs.readdirSync(path.join(recovery, 'attachments')).map(fileName => ({
+          fileName, sha256: hash(fs.readFileSync(path.join(recovery, 'attachments', fileName))),
+        })),
+      }))
+      fs.copyFileSync(path.join(source.getLibraryPath(), 'manifest.json'), path.join(targetRoot, 'manifest.json'))
+      const partial = libraryBytes(targetRoot)
+      let rejected = false
+      try { await target.open(source.readManifest().libraryId) }
+      catch (error) { rejected = String(error).includes('身份') }
+      assert(rejected && fs.existsSync(marker) && libraryBytes(targetRoot) === partial && libraryBytes(recovery) === saved,
+        kind + ' 不得以暂时落盘的来源清单代替已校验的恢复副本身份')
+      await target.open(originalId)
+      assert(!fs.existsSync(marker) && libraryBytes(targetRoot) === saved, kind + ' 身份匹配后应能完整恢复')
+    } finally {
+      source.release(); target.release()
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  }
+}

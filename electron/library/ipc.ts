@@ -36,7 +36,6 @@ import { assertSafeAssetId } from '../../src/storage/assetId'
 import { LibraryBusyError, LibraryOperationGate } from './sessionGate'
 import {
   areSameLibrary,
-  assertCompatibleManifest,
   isSameLibraryPath,
   openValidatedLibraryCandidate,
   reloadRendererAfterStorageRecovery,
@@ -250,32 +249,7 @@ async function ensureStorage(): Promise<LibraryStorage> {
   if (exitPreparedStorage) throw new Error('应用正在安全退出，交易库已停止接受新操作')
   if (storage) return storage
   if (!openingStorage) {
-    openingStorage = (async () => {
-      const location = await getValidatedLibraryLocation()
-      if (location.kind === 'unset') {
-        throw new Error('尚未配置交易库，请先选择或创建交易库目录')
-      }
-      if (location.kind !== 'ready') throw libraryLocationError(location)
-      const candidate = createRuntimeLibraryStorage(location.resolvedPath, {
-        ensureDirectories: false,
-        allowCreate: false,
-      })
-      try {
-        await candidate.open()
-        const manifest = candidate.readManifest()
-        assertCompatibleManifest(manifest)
-        if (manifest.libraryId !== location.verifiedLibraryId) {
-          throw new Error('资料库身份在打开期间发生变化，已阻止进入工作区')
-        }
-        candidate.loadSnapshot()
-        ensureLibraryDirs(location.resolvedPath)
-        storage = candidate
-        return candidate
-      } catch (error) {
-        candidate.release()
-        throw error
-      }
-    })().finally(() => {
+    openingStorage = openConfiguredStorage('startup').finally(() => {
       openingStorage = null
     })
   }
@@ -376,39 +350,32 @@ function closeStorageForRestore(current: LibraryStorage): void {
   storage = null
 }
 
-async function reopenStorageWithAutoBackup(): Promise<LibraryStorage> {
+async function openConfiguredStorage(mode: 'startup' | 'restore'): Promise<LibraryStorage> {
   const location = await getValidatedLibraryLocation()
-  if (location.kind === 'unset') throw new Error('尚未配置交易库')
+  if (location.kind === 'unset') throw new Error('尚未配置交易库，请先选择或创建交易库目录')
   if (location.kind !== 'ready') throw libraryLocationError(location)
-  const reopened = createRuntimeLibraryStorage(location.resolvedPath, {
-    ensureDirectories: false,
-    allowCreate: false,
-  })
+  const candidate = createRuntimeLibraryStorage(location.resolvedPath, { ensureDirectories: false, allowCreate: false })
+  await openValidatedLibraryCandidate(candidate, location.verifiedLibraryId)
   try {
-    await reopened.open()
-    const manifest = reopened.readManifest()
-    assertCompatibleManifest(manifest)
-    if (manifest.libraryId !== location.verifiedLibraryId) {
-      throw new Error('资料库身份在重新打开期间发生变化，已阻止继续写入')
-    }
-    reopened.loadSnapshot()
     ensureLibraryDirs(location.resolvedPath)
-    startLibraryAutoBackup(reopened)
+    if (mode === 'restore') {
+      startLibraryAutoBackup(candidate)
+      autoBackupStarted = true
+    }
+    storage = candidate
+    return candidate
   } catch (error) {
-    reopened.release()
+    candidate.release()
     throw error
   }
-  storage = reopened
-  autoBackupStarted = true
-  return reopened
 }
 
 async function reopenAfterRestoreFailure(): Promise<LibraryStorage> {
   try {
-    return await reopenStorageWithAutoBackup()
+    return await openConfiguredStorage('restore')
   } catch (firstError) {
     safeConsoleError('backup-reopen-first-attempt-failed', firstError)
-    return reopenStorageWithAutoBackup()
+    return openConfiguredStorage('restore')
   }
 }
 
@@ -445,13 +412,8 @@ async function openLibrarySwitchCandidate(
     ensureDirectories: mode === 'create',
     allowCreate: mode === 'create',
   })
-  try {
-    const snapshot = await openValidatedLibraryCandidate(candidate)
-    return { candidate, resolvedPath, snapshot }
-  } catch (err) {
-    candidate.release()
-    throw err
-  }
+  const snapshot = await openValidatedLibraryCandidate(candidate)
+  return { candidate, resolvedPath, snapshot }
 }
 
 function activateLibraryCandidate(
@@ -1164,7 +1126,7 @@ export function registerLibraryIpc(): void {
       closeStorageForRestore(activeStorage)
       await installPreparedLibraryAtPath(libraryPath, entry.stagedLibraryRoot)
       replacementCommitted = true
-      const reopened = await reopenStorageWithAutoBackup()
+      const reopened = await openConfiguredStorage('restore')
       adoptWriterSessionLifecycle(event.sender.id, reopened)
       const snapshot = reopened.loadSnapshot()
       entry.dispose()

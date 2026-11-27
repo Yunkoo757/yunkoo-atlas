@@ -1,3 +1,4 @@
+import { assertRecoveryManifestIdentity } from './libraryIdentity'
 import { CREATE_LIBRARY_TABLES_SQL, resolveSnapshotVersion, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import { sha256File } from './fileChecksum'
 import { crc32 } from '../../src/lib/crc32'
@@ -858,6 +859,7 @@ function restoreCurrentLibrary(
 
 export function recoverInterruptedJournalImport(
   paths: ReturnType<typeof ensureLibraryDirs>,
+  expectedLibraryId?: string,
 ): void {
   const markerPath = path.join(paths.root, JOURNAL_IMPORT_MARKER)
   if (!fs.existsSync(markerPath)) return
@@ -868,6 +870,7 @@ export function recoverInterruptedJournalImport(
     throw new Error('导入恢复标记无法读取，已停止打开资料库')
   }
   const backupDir = validateJournalImportRecovery(paths, marker)
+  assertRecoveryManifestIdentity(marker.hadManifest ? path.join(backupDir, 'manifest.json') : null, expectedLibraryId)
   restoreCurrentLibrary(paths, backupDir, marker)
   fsyncDirectorySync(paths.root)
   fs.rmSync(markerPath, { force: true })

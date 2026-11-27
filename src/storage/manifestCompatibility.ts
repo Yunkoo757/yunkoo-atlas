@@ -4,6 +4,7 @@ import { SCHEMA_VERSION, type LibraryManifest } from '@/storage/types'
 export function assertCompatibleManifest(value: LibraryManifest): void {
   const manifest = value as unknown as Record<string, unknown>
   if (
+    typeof manifest !== 'object' || manifest === null ||
     !Number.isInteger(manifest.schemaVersion) ||
     Number(manifest.schemaVersion) < 1 ||
     typeof manifest.libraryId !== 'string' ||

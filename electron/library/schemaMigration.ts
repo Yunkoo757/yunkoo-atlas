@@ -1,3 +1,4 @@
+import { assertLibraryIdentity } from './libraryIdentity'
 import { sha256File } from './fileChecksum'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -159,7 +160,7 @@ function copyRecoveryPair(
   return marker
 }
 
-function recoveryFiles(paths: LibraryPaths, marker: SchemaMigrationMarker) {
+function recoveryFiles(paths: LibraryPaths, marker: SchemaMigrationMarker, expectedLibraryId?: string) {
   if (marker.recoveryDirectory !== SCHEMA_MIGRATION_RECOVERY_DIRECTORY) {
     throw new Error('Schema 迁移恢复目录无效')
   }
@@ -175,12 +176,13 @@ function recoveryFiles(paths: LibraryPaths, marker: SchemaMigrationMarker) {
     throw new Error('Schema 迁移恢复文件 checksum 无效，已停止恢复')
   }
   const recoveryManifest = JSON.parse(fs.readFileSync(manifest, 'utf8')) as LibraryManifest
+  assertLibraryIdentity(recoveryManifest.libraryId, expectedLibraryId)
   if (recoveryManifest.schemaVersion !== marker.fromVersion) throw new Error('Schema 迁移恢复 manifest 版本不匹配')
   return { database, manifest }
 }
 
-export function restoreVerifiedV8Pair(paths: LibraryPaths, marker: SchemaMigrationMarker): void {
-  const recovery = recoveryFiles(paths, marker)
+export function restoreVerifiedV8Pair(paths: LibraryPaths, marker: SchemaMigrationMarker, expectedLibraryId?: string): void {
+  const recovery = recoveryFiles(paths, marker, expectedLibraryId)
   writeFileAtomicallySync(paths.dbFile, fs.readFileSync(recovery.database))
   writeFileAtomicallySync(paths.manifestFile, fs.readFileSync(recovery.manifest))
   if (
@@ -242,7 +244,7 @@ function activeFilesAreTheVerifiedV8Pair(
   }
 }
 
-export function recoverInterruptedSchemaMigrationFiles(paths: LibraryPaths): RecoveryResult {
+export function recoverInterruptedSchemaMigrationFiles(paths: LibraryPaths, expectedLibraryId?: string): RecoveryResult {
   const marker = readMigrationMarker(paths)
   if (!marker) return { kind: 'none' }
 
@@ -257,11 +259,12 @@ export function recoverInterruptedSchemaMigrationFiles(paths: LibraryPaths): Rec
   }
 
   if (activeFilesAreTheVerifiedV8Pair(paths, marker)) {
+    assertLibraryIdentity(readManifestFile(paths).libraryId, expectedLibraryId)
     removeMigrationRecovery(paths, marker)
     return { kind: 'restored-v8' }
   }
 
-  restoreVerifiedV8Pair(paths, marker)
+  restoreVerifiedV8Pair(paths, marker, expectedLibraryId)
   removeMigrationRecovery(paths, marker)
   return { kind: 'restored-v8' }
 }

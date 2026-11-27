@@ -47,7 +47,8 @@ function dependencies(options: {
         throw Object.assign(new Error('denied'), { code: 'EACCES' })
       }
     },
-    async validateExistingLibrary(filePath) {
+    async validateExistingLibrary(filePath, expectedLibraryId) {
+      options.probes?.push(`validate:${expectedLibraryId ?? 'legacy'}`)
       const result = options.validation?.[filePath]
       if (result instanceof Error) throw result
       if (!result) throw new Error('manifest or database is incomplete')
@@ -125,12 +126,14 @@ export async function testValidationTargetDisappearanceIsUnavailable(): Promise<
 
 export async function testConfiguredLibraryIdentityMismatchIsInvalid(): Promise<void> {
   const libraryPath = fixturePath('other-library')
+  const probes: string[] = []
   const state = await resolveLibraryLocation(dependencies({
     config: JSON.stringify({ libraryPath, libraryId: 'expected-library' }),
     entries: { [libraryPath]: 'directory' },
-    validation: { [libraryPath]: { libraryId: 'actual-library' } },
+    validation: { [libraryPath]: { libraryId: 'actual-library' } }, probes,
   }))
   assert(state.kind === 'invalid', '配置身份与 manifest 不符时必须返回 invalid')
+  assert(probes.includes('validate:expected-library'), '校验器打开数据库前就必须拿到配置中的身份')
 }
 
 export async function testValidLegacyAndDefaultLibrariesAreReady(): Promise<void> {

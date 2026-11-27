@@ -1,3 +1,4 @@
+import { assertRecoveryManifestIdentity } from './libraryIdentity'
 import { sha256File } from './fileChecksum'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -116,7 +117,7 @@ function validateBackupRestoreRecovery(marker: BackupRestoreMarker, recoveryRoot
   }
 }
 
-export function recoverInterruptedBackupRestore(paths: ReturnType<typeof getLibraryPaths>): void {
+export function recoverInterruptedBackupRestore(paths: ReturnType<typeof getLibraryPaths>, expectedLibraryId?: string): void {
   const markerPath = backupRestoreMarkerPath(paths.root)
   if (!fs.existsSync(markerPath)) return
 
@@ -140,6 +141,7 @@ export function recoverInterruptedBackupRestore(paths: ReturnType<typeof getLibr
   const recoveryManifest = path.join(recoveryRoot, 'manifest.json')
   const recoveryAttachments = path.join(recoveryRoot, 'attachments')
   validateBackupRestoreRecovery(marker as BackupRestoreMarker, recoveryRoot)
+  assertRecoveryManifestIdentity(marker.hadManifest ? recoveryManifest : null, expectedLibraryId)
 
   if (marker.hadDatabase) writeFileAtomicallySync(paths.dbFile, fs.readFileSync(recoveryDb))
   else fs.rmSync(paths.dbFile, { force: true })

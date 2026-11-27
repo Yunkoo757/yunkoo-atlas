@@ -6,7 +6,6 @@ import { DEFAULT_DISPLAY } from '../../src/lib/tradeFilters'
 import { SCHEMA_VERSION, type PersistedSnapshot } from '../../src/storage/types'
 import {
   areSameLibrary,
-  assertCompatibleManifest,
   openValidatedLibraryCandidate,
   reloadRendererAfterStorageRecovery,
   recoverLibraryStorageLifecycle,
@@ -133,7 +132,6 @@ export async function testDefaultLibraryOpenRejectsFutureSchema(): Promise<void>
     let rejected = false
     try {
       await candidate.open()
-      assertCompatibleManifest(candidate.readManifest())
     } catch {
       rejected = true
     } finally {
@@ -144,31 +142,6 @@ export async function testDefaultLibraryOpenRejectsFutureSchema(): Promise<void>
     writer.release()
     fs.rmSync(root, { recursive: true, force: true })
   }
-}
-
-export function testEnsureStorageRejectsFutureSchemaBeforeActivation(): void {
-  const source = fs.readFileSync(path.resolve('electron/library/ipc.ts'), 'utf8')
-  const ensureStart = source.indexOf('async function ensureStorage(')
-  const ensureEnd = source.indexOf('function withStorage', ensureStart)
-  const body = source.slice(ensureStart, ensureEnd)
-  assert(ensureStart >= 0 && ensureEnd > ensureStart, 'ensureStorage 实现必须存在')
-  assert(
-    body.includes('const manifest = candidate.readManifest()') &&
-      body.includes('assertCompatibleManifest(manifest)'),
-    '默认 storage:open 路径必须复用未来 schema 拒写',
-  )
-  assert(
-    body.indexOf('await candidate.open()') < body.indexOf('assertCompatibleManifest'),
-    '必须先 open 再校验清单，且校验失败不得激活 storage',
-  )
-  assert(
-    body.indexOf('assertCompatibleManifest') < body.indexOf('storage = candidate'),
-    '未来 schema 校验通过前不得把候选库赋给全局 storage',
-  )
-  assert(
-    body.indexOf('manifest.libraryId !== location.verifiedLibraryId') < body.indexOf('storage = candidate'),
-    '位置验证与正式打开之间必须再次核对资料库 identity',
-  )
 }
 
 export function testIpcDoesNotPersistOrActivateCandidateBeforeValidation(): void {

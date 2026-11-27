@@ -348,6 +348,7 @@ async function assertV11CrashBoundaryRecovers(boundary: Extract<CrashBoundary, '
   const library = await createV11LibraryFixture()
   try {
     await assertInjectedCrash(library, boundary)
+    await assertWrongIdentityPreservesFiles(library.path)
     const reopened = new LibraryStorage(library.path, { allowCreate: false })
     await reopened.open()
     const pair = await readAndDecodePair(library.path)
@@ -382,7 +383,7 @@ export async function testV11ManifestReplacementRecoversDamagedOrMissingDatabase
         allowCreate: false,
         now: () => new Date('2026-08-22T10:00:00.000Z'),
       })
-      await reopened.open()
+      await reopened.open(JSON.parse(library.originalManifest.toString('utf8')).libraryId)
       const pair = await readAndDecodePair(library.path)
       assert(pair.manifest.schemaVersion === SCHEMA_VERSION, `${damage} 当前 DB 恢复后必须重新迁移 manifest`)
       assert(pair.decodedSchemaVersion === SCHEMA_VERSION, `${damage} 当前 DB 恢复后必须重新迁移数据库`)
@@ -513,10 +514,34 @@ async function assertInjectedCrash(
   )
 }
 
+async function assertWrongIdentityPreservesFiles(libraryPath: string) {
+  const files = [SCHEMA_MIGRATION_MARKER_FILE, 'journal.db', 'manifest.json']
+    .map(name => path.join(libraryPath, name)).filter(file => fs.existsSync(file))
+  const before = files.map(file => fs.readFileSync(file))
+  const candidate = new LibraryStorage(libraryPath, { ensureDirectories: false, allowCreate: false })
+  try {
+    let error = ''
+    try { await candidate.open('wrong-isolated-library') }
+    catch (cause) { error = String(cause) }
+    assert(files.every((file, i) => fs.existsSync(file) && fs.readFileSync(file).equals(before[i]!)),
+      '配置身份错误时不得迁移、回滚或清理其他库的文件')
+    assert(error.includes('身份'), '必须明确报告资料库身份不匹配')
+  } finally { candidate.release() }
+}
+
+export async function testForeignV8LibraryIsRejectedBeforeWritingMigrationFiles(): Promise<void> {
+  const library = await createV8LibraryFixture()
+  try {
+    await assertWrongIdentityPreservesFiles(library.path)
+    assert(!fs.existsSync(path.join(library.path, SCHEMA_MIGRATION_RECOVERY_DIRECTORY)), '不得遗留其他库的迁移副本')
+  } finally { fs.rmSync(library.path, { recursive: true, force: true }) }
+}
+
 async function assertCrashBoundaryRecovers(boundary: CrashBoundary): Promise<void> {
   const library = await createV8LibraryFixture()
   try {
     await assertInjectedCrash(library, boundary)
+    await assertWrongIdentityPreservesFiles(library.path)
     const reopened = new LibraryStorage(library.path, { allowCreate: false })
     try {
       await reopened.open()

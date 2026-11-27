@@ -1,11 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { EventEmitter } from 'node:events'
-import { assertCompatibleManifest } from '../../src/storage/manifestCompatibility'
 import type { PersistedSnapshot } from '../../src/storage/types'
 import { LibraryStorage } from './storage'
-
-export { assertCompatibleManifest }
 
 function canonicalLibraryPath(libraryPath: string): string {
   const resolved = path.resolve(libraryPath)
@@ -32,8 +29,7 @@ export function areSameLibrary(left: LibraryStorage, right: LibraryStorage): boo
 
   const readLibraryId = (storage: LibraryStorage): string | null => {
     try {
-      const id = storage.readManifest().libraryId
-      return typeof id === 'string' && id.length > 0 ? id : null
+      return storage.readManifest().libraryId
     } catch {
       // 当前库清单损坏时仍允许用户切往其他有效库；真实路径相同已在上方拦截。
       return null
@@ -50,10 +46,11 @@ export function areSameLibrary(left: LibraryStorage, right: LibraryStorage): boo
  */
 export async function openValidatedLibraryCandidate(
   candidate: LibraryStorage,
+  expectedLibraryId?: string,
 ): Promise<PersistedSnapshot | null> {
   try {
-    await candidate.open()
-    assertCompatibleManifest(candidate.readManifest())
+    await candidate.open(expectedLibraryId)
+    candidate.readManifest(expectedLibraryId)
     return candidate.loadSnapshot()
   } catch (error) {
     candidate.release()
@@ -176,12 +173,9 @@ export async function recoverLibraryStorageLifecycle(input: {
     throw new Error('资料库恢复必须创建新的主进程 storage 实例')
   }
 
+  const snapshot = await openValidatedLibraryCandidate(candidate, expectedLibraryId)
   let activated = false
   try {
-    const snapshot = await openValidatedLibraryCandidate(candidate)
-    if (candidate.readManifest().libraryId !== expectedLibraryId) {
-      throw new Error('资料库身份在恢复期间发生变化，已阻止替换当前 storage')
-    }
     input.activateCandidate(candidate)
     activated = true
     input.current?.release()

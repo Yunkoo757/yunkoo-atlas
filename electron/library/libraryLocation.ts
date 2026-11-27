@@ -1,7 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { assertCompatibleManifest } from '../../src/storage/manifestCompatibility'
-import type { LibraryManifest } from '../../src/storage/types'
+import { assertLibraryIdentity, LibraryIdentityMismatchError } from './libraryIdentity'
 import { LibraryStorage } from './storage'
 import { getConfigPath, getDefaultLibraryPath, getLibraryPaths } from './paths'
 import { OperationalError } from '../../src/lib/operationalError'
@@ -29,7 +28,7 @@ export interface LibraryLocationResolverDependencies {
   readTextFile(filePath: string): string
   inspectPath(filePath: string): 'missing' | 'file' | 'directory'
   assertReadableWritable(filePath: string): void
-  validateExistingLibrary(filePath: string): Promise<{ libraryId: string }>
+  validateExistingLibrary(filePath: string, expectedLibraryId?: string): Promise<{ libraryId: string }>
 }
 
 type SelectedLocation = {
@@ -153,19 +152,16 @@ export async function resolveLibraryLocation(
 
   let manifest: { libraryId: string }
   try {
-    manifest = await dependencies.validateExistingLibrary(selected.resolvedPath)
+    manifest = await dependencies.validateExistingLibrary(selected.resolvedPath, selected.expectedLibraryId)
+    assertLibraryIdentity(manifest.libraryId, selected.expectedLibraryId)
   } catch (error) {
+    if (error instanceof LibraryIdentityMismatchError) {
+      return { kind: 'invalid', configuredPath: selected.configuredPath, reason: error.message }
+    }
     return {
       kind: isUnavailableError(error) ? 'unavailable' : 'needs-recovery',
       configuredPath: selected.configuredPath,
       reason: userFacingReason(error, '资料库内容无法读取，请从备份恢复或选择其他资料库'),
-    }
-  }
-  if (selected.expectedLibraryId && selected.expectedLibraryId !== manifest.libraryId) {
-    return {
-      kind: 'invalid',
-      configuredPath: selected.configuredPath,
-      reason: '资料库身份与已保存配置不一致，请明确选择正确的资料库',
     }
   }
   return {
@@ -189,7 +185,7 @@ function inspectPath(filePath: string): 'missing' | 'file' | 'directory' {
   }
 }
 
-async function validateExistingLibrary(libraryPath: string): Promise<{ libraryId: string }> {
+async function validateExistingLibrary(libraryPath: string, expectedLibraryId?: string): Promise<{ libraryId: string }> {
   const paths = getLibraryPaths(libraryPath)
   if (!fs.existsSync(paths.manifestFile)) {
     throw new Error('资料库缺少 manifest.json')
@@ -202,14 +198,9 @@ async function validateExistingLibrary(libraryPath: string): Promise<{ libraryId
     allowCreate: false,
   })
   try {
-    await candidate.open()
-    const manifest: LibraryManifest = candidate.readManifest()
-    assertCompatibleManifest(manifest)
+    await candidate.open(expectedLibraryId)
     candidate.loadSnapshot()
-    if (typeof manifest.libraryId !== 'string' || manifest.libraryId.length === 0) {
-      throw new Error('manifest.json 缺少有效的 libraryId')
-    }
-    return { libraryId: manifest.libraryId }
+    return { libraryId: candidate.readManifest(expectedLibraryId).libraryId }
   } finally {
     candidate.release()
   }
