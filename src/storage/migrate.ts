@@ -1,5 +1,6 @@
 import { collectAssetIdsFromSnapshot } from '@/storage/snapshotRichText'
-import { externalizeNoteImages } from '@/storage/assets'
+import { externalizeNoteImages, mayContainInlineImage } from '@/storage/assets'
+import { tradeRichTextEntries } from '@/storage/tradeRichText'
 import type { StorageAdapter } from '@/storage/adapter'
 import type { PersistedSnapshot } from '@/storage/types'
 import { LEGACY_LOCAL_STORAGE_KEY } from '@/storage/legacyIdentity'
@@ -43,34 +44,38 @@ function parseLegacyLocalStorage(): PersistedSnapshot | null {
   }
 }
 
-async function externalizeAllNotes(
+/** 迁移返回前收齐本次附件写入。某条正文失败时，后续记录仍可从原快照重试。 */
+export async function externalizeSnapshotNotes(
   snapshot: PersistedSnapshot,
   adapter: StorageAdapter,
   signal?: AbortSignal,
 ): Promise<PersistedSnapshot> {
   const convert = (html: string) => externalizeNoteImages(html, adapter, signal)
-  const trades = await Promise.all(
-    snapshot.trades.map(async (t) => ({
-      ...t,
-      note: await convert(t.note),
-      ...(t.sourceNoteHtml === undefined
-        ? {}
-        : { sourceNoteHtml: await convert(t.sourceNoteHtml) }),
-    })),
-  )
-  const weeklyReviews = await Promise.all(
-    (snapshot.weeklyReviews ?? []).map(async (review) => ({
-      ...review,
-      contentHtml: await convert(review.contentHtml),
-    })),
-  )
-  const quickNotes = await Promise.all(
-    (snapshot.quickNotes ?? []).map(async (note) => ({
-      ...note,
-      contentHtml: await convert(note.contentHtml),
-    })),
-  )
-  return { ...snapshot, trades, weeklyReviews, quickNotes }
+  const trades = snapshot.trades.slice()
+  for (const [index, trade] of trades.entries()) {
+    if (!tradeRichTextEntries(trade).some(mayContainInlineImage)) continue
+    trades[index] = {
+      ...trade,
+      note: await convert(trade.note),
+      ...(trade.sourceNoteHtml === undefined ? {} : { sourceNoteHtml: await convert(trade.sourceNoteHtml) }),
+    }
+  }
+
+  async function convertDocuments<T extends { contentHtml: string }>(source: readonly T[] = []): Promise<T[]> {
+    const documents = source.slice()
+    for (const [index, record] of documents.entries()) {
+      if (mayContainInlineImage(record.contentHtml)) {
+        documents[index] = { ...record, contentHtml: await convert(record.contentHtml) }
+      }
+    }
+    return documents
+  }
+
+  return {
+    ...snapshot, trades,
+    weeklyReviews: await convertDocuments(snapshot.weeklyReviews),
+    quickNotes: await convertDocuments(snapshot.quickNotes),
+  }
 }
 
 export async function migrateFromLocalStorageIfNeeded(
@@ -87,7 +92,7 @@ export async function migrateFromLocalStorageIfNeeded(
     snapshot = createNewLibrarySnapshot()
   }
 
-  snapshot = await externalizeAllNotes(snapshot, adapter, signal)
+  snapshot = await externalizeSnapshotNotes(snapshot, adapter, signal)
   signal?.throwIfAborted()
   await adapter.saveSnapshot(snapshot)
   signal?.throwIfAborted()
@@ -134,15 +139,8 @@ export async function migrateElectronLibraryIfNeeded(
     await adapter.importAssets(assets)
   }
 
-  snapshot = await externalizeAllNotes(snapshot, adapter, signal)
+  snapshot = await externalizeSnapshotNotes(snapshot, adapter, signal)
   signal?.throwIfAborted()
   await adapter.saveSnapshot(snapshot)
   return true
-}
-
-export async function externalizeSnapshotNotes(
-  snapshot: PersistedSnapshot,
-  adapter: StorageAdapter,
-): Promise<PersistedSnapshot> {
-  return externalizeAllNotes(snapshot, adapter)
 }

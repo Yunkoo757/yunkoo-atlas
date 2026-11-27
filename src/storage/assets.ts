@@ -29,13 +29,17 @@ function dataUrlToBlob(dataUrl: string): { blob: Blob; mime: string } | null {
   return { blob: new Blob([bytes], { type: mime }), mime }
 }
 
+export function mayContainInlineImage(html: string): boolean {
+  return html.includes('data:image/')
+}
+
 /** 将 note 内 base64 图片外置为 asset 引用 */
 export async function externalizeNoteImages(
   html: string,
   adapter: StorageAdapter,
   signal?: AbortSignal,
 ): Promise<string> {
-  if (!html.includes('data:image/')) return html
+  if (!mayContainInlineImage(html)) return html
 
   // saveAsset 会让出执行权；每份正文独立持有游标，避免并发迁移时重复或漏扫图片。
   const imagePattern = /<img([^>]*)\ssrc=["'](data:image\/[^"']+)["']([^>]*)>/gi

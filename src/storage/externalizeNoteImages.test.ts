@@ -126,3 +126,35 @@ export async function testSnapshotMigrationKeepsConcurrentImagesIndependentAcros
   assert.equal(new Set(usedIds).size, 13, '每张图应有独立且被正确引用的保存结果')
   assert.equal(JSON.stringify(snapshot), before, '迁移不得直接修改输入快照')
 }
+
+export async function testFailedSnapshotConversionLeavesNoSiblingImageWriteRunning() {
+  const snapshot = createFullPersistedSnapshotFixture()
+  const base = snapshot.trades[0]
+  snapshot.trades = [
+    { ...base, note: inlineImage('first') },
+    { ...base, id: 'another-trade', note: inlineImage('second') + inlineImage('third') },
+  ]
+  const sibling = deferred()
+  const failure = new Error('isolated image write failed')
+  const memory = memoryAdapter(async index => {
+    if (index === 1) throw failure
+    await sibling.promise
+  })
+  const before = JSON.stringify(snapshot)
+  try {
+    await assert.rejects(externalizeSnapshotNotes(snapshot, memory.adapter), error => error === failure)
+    const started = await memory.savedBytes()
+    sibling.resolve()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    const final = await memory.savedBytes()
+    assert.deepEqual({ started: started.map(image => image.bytes), final: final.map(image => image.bytes) },
+      { started: ['first'], final: ['first'] }, '第一次写入失败后，不得继续从其他记录提交附件')
+    assert.equal(JSON.stringify(snapshot), before)
+    const retry = memoryAdapter()
+    const converted = await externalizeSnapshotNotes(snapshot, retry.adapter)
+    assert.deepEqual((await retry.savedBytes()).map(image => image.bytes), ['first', 'second', 'third'])
+    assert.equal(converted.trades[1].note, savedImage('second', 2) + savedImage('third', 3))
+  } finally {
+    sibling.resolve()
+  }
+}
