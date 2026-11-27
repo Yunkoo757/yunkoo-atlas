@@ -2,6 +2,8 @@ import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { applyImport } from '@/lib/importExport'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
+import { isStorageCutoverInteractionLocked } from '@/storage/cutover'
 import { enablePersistWrites, disablePersistWrites } from '@/storage/persist'
 import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
 import { useStore } from '@/store/useStore'
@@ -972,4 +974,34 @@ export async function testConcurrentStableImportedIdPreemptionCompensatesAndReje
     disablePersistWrites()
     Reflect.deleteProperty(globalThis, 'window')
   }
+}
+
+export async function testJsonImportUnlocksWhenFinalSaveRejects(): Promise<void> {
+  const previous = useStore.getState()
+  const fixture = createEmptyPersistedSnapshot()
+  let committed = false
+  let finalSaveFailed = false
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { journalBridge: {
+      isElectron: true,
+      commitImport: async () => { committed = true; return true },
+      saveSnapshot: async () => {
+        if (committed) { finalSaveFailed = true; throw new Error('disk unavailable after import') }
+        return true
+      },
+    } },
+  })
+  useStore.setState(fixture)
+  enablePersistWrites()
+  let caught: unknown
+  try {
+    await applyImport({ ...fixture, version: 9, trades: [], assets: [] })
+  } catch (error) { caught = error } finally {
+    disablePersistWrites()
+    useStore.setState(previous)
+    Reflect.deleteProperty(globalThis, 'window')
+  }
+  assert(finalSaveFailed && caught instanceof Error, `应当从实际导入入口传播末次写盘失败 (committed=${committed}, error=${String(caught)})`)
+  assert(!isStorageCutoverInteractionLocked(), '末次保存失败后界面仍须可以操作')
 }

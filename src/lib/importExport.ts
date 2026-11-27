@@ -1154,8 +1154,11 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
     parts.push('保留当前实盘阶段与历史阶段')
     return { summary: `已导入 ${parts.join('、')}` }
   } finally {
-    if (suspended) await resumePersistAndFlush()
-    unlockInteraction()
+    try {
+      if (suspended) await resumePersistAndFlush()
+    } finally {
+      unlockInteraction()
+    }
   }
 }
 

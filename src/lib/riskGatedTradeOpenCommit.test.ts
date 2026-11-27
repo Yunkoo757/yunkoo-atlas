@@ -5,6 +5,7 @@ import type {
 } from '@/storage/adapter'
 import { StorageRevisionConflictError } from '@/storage/adapter'
 import { isStorageCutoverInteractionLocked } from '@/storage/cutover'
+import { useSaveStatus } from '@/store/saveStatus'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 import {
   disablePersistWrites,
@@ -558,4 +559,26 @@ export async function testTradingDayRolloverAndCasConflictPublishNothing(): Prom
   assert(publishes === 0, 'CAS 冲突不得发布 Store')
   assert(getPersistSuspendDepth() === 0, 'CAS 冲突后必须恢复 autosave')
   assert(!isStorageCutoverInteractionLocked(), 'CAS 冲突后必须释放交互锁')
+}
+
+export async function testRiskCommitUnlocksAfterSaveStatusResetThrows(): Promise<void> {
+  const original = baseline()
+  const initial = useSaveStatus.getState()
+  const failure = new Error('save status listener failed')
+  let caught: unknown
+  let published = false
+  try {
+    await commitRiskGatedTradeOpen({
+      request: pending(original),
+      reason: '测试风险确认完成后的保存状态更新失败',
+      storage: electronAdapter(async () => {}),
+      captureLatestState: () => ({ state: original, snapshot: original, currentTradingDayKey: '2026-07-27' }),
+      publish: () => {
+        published = true
+        useSaveStatus.setState({ reset: () => { throw failure } })
+      },
+    })
+  } catch (error) { caught = error } finally { useSaveStatus.setState(initial) }
+  assert(published && caught === failure, '应保留已提交后的保存状态异常')
+  assert(!isStorageCutoverInteractionLocked() && getPersistSuspendDepth() === 0, '保存状态异常不得冻结整个应用')
 }

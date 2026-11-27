@@ -304,10 +304,13 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
     }
     return { kind: 'committed' }
   } finally {
-    if (suspended) {
-      if (durablyCommitted) discardPendingAndResumePersist()
-      else resumePersist()
+    try {
+      if (suspended) {
+        if (durablyCommitted) discardPendingAndResumePersist()
+        else resumePersist()
+      }
+    } finally {
+      unlockInteraction()
     }
-    unlockInteraction()
   }
 }

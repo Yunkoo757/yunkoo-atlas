@@ -409,3 +409,28 @@ export async function testPublishFailureRecoveryPreservesHistoryAndKeepsCleanupD
     useStore.setState(previous)
   }
 }
+
+export async function testCleanupUnlocksAndReleasesOnceWhenPersistenceResumeThrows(): Promise<void> {
+  for (const valid of [true, false]) {
+    const events: string[] = []
+    const source = trade('resume-failure', { tags: ['notion-import'] })
+    const failure = new Error('save listener failed')
+    const failResume = () => { events.push('release'); throw failure }
+    let caught: unknown
+    try {
+      await commitCopiedCloseDateCleanupThroughBoundary({
+        cleanup: {
+          tradeIds: valid ? [source.id] : [],
+          tradingDayStartHour: 6,
+          captureLatest: () => ({ trades: [source], snapshot: snapshot([source]) }),
+          persistSnapshot: async () => { events.push('persist') },
+          publish: () => { events.push('publish') },
+        },
+        boundary: { ...successfulStoreBoundary(events), resumePersist: failResume, discardPendingAndResumePersist: failResume },
+      })
+    } catch (error) { caught = error }
+    assert(caught === failure, '恢复持久化的异常必须保留')
+    assert(events.slice(-2).join(',') === 'release,unlock' && events.filter(e => e === 'release').length === 1,
+      '监听器抛错也必须只恢复一次并解锁界面')
+  }
+}

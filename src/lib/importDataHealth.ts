@@ -148,32 +148,24 @@ async function commitThroughPersistenceBoundary<Result, Context extends unknown[
   boundary: CopiedCloseDatePersistenceBoundary
 }): Promise<Result> {
   const unlockInteraction = input.boundary.lockInteraction()
-  let suspended = false
-  let durableSnapshot: PersistedSnapshot | null = null
   try {
     await input.boundary.flushBeforeCommit()
     await input.boundary.createVerifiedBackup()
     input.boundary.suspendPersist()
-    suspended = true
-    let result: Result
+    let durableSnapshot: PersistedSnapshot | null = null
     try {
-      result = await input.commit(async (snapshot, ...context) => {
+      return await input.commit(async (snapshot, ...context) => {
         await input.persistSnapshot(snapshot, ...context)
         durableSnapshot = snapshot
       })
     } catch (error) {
       if (durableSnapshot) await input.boundary.recoverDurableSnapshot(durableSnapshot)
       throw error
-    }
-    if (durableSnapshot) input.boundary.discardPendingAndResumePersist()
-    else input.boundary.resumePersist()
-    suspended = false
-    return result
-  } finally {
-    if (suspended) {
+    } finally {
       if (durableSnapshot) input.boundary.discardPendingAndResumePersist()
       else input.boundary.resumePersist()
     }
+  } finally {
     unlockInteraction()
   }
 }
