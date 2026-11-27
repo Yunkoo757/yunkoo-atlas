@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { discoverBrowserTests, discoverQualityNodeTests, discoverUnitTestEntries } from './test-discovery.mjs'
 import { executionReportPath, hashFile } from './quality-execution.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
-import { runtimeDependencyGraph, findEagerCycles, firstForbiddenPath, importsTarget, importsWithinTarget } from './governance-imports.mjs'
+import { runtimeDependencyGraph, websiteDependencyGraph, findEagerCycles, firstForbiddenPath, importsTarget, importsWithinTarget } from './governance-imports.mjs'
 import {
   findForbiddenLegacyRuntimeMatches,
   isExecutableProductionSource,
@@ -176,7 +176,10 @@ async function main() {
     .filter(file => /^(src|electron)\/.*\.[jt]sx?$/.test(file) && !file.endsWith('.d.ts'))
   const editor = 'tools/atlas-data-editor/app.ts'
   const trainer = ['execution-trainer/main.cjs', 'execution-trainer/preload.cjs', 'execution-trainer/renderer.js']
-  const graph = runtimeDependencyGraph(files, root, [...desktopModules, editor, ...trainer])
+  const graph = {
+    ...runtimeDependencyGraph(files, root, [...desktopModules, editor, ...trainer]),
+    ...websiteDependencyGraph(root, files),
+  }
   for (const cycle of findEagerCycles(graph)) failures.push(`运行时循环依赖：${cycle.join(' → ')}`)
   for (const entry of [editor, ...trainer]) {
     const violation = firstForbiddenPath(graph, entry, forbiddenPureTargets)

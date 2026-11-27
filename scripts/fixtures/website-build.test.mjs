@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import ts from 'typescript'
+import { moduleReferences, websiteDependencyGraph } from '../governance-imports.mjs'
 import { execFileSync, spawnSync } from 'node:child_process'
 
 const root = process.cwd()
@@ -20,7 +20,7 @@ function sourceFixture(t) {
     fs.mkdirSync(path.dirname(target), { recursive: true })
     fs.copyFileSync(source, target)
   }
-  return { temporary, output: path.join(temporary, 'atlas-website/dist'), run: () => spawnSync(process.execPath, [path.join(temporary, 'atlas-website/build.mjs')], { cwd: temporary, encoding: 'utf8' }) }
+  return { temporary, files, output: path.join(temporary, 'atlas-website/dist'), run: () => spawnSync(process.execPath, [path.join(temporary, 'atlas-website/build.mjs')], { cwd: temporary, encoding: 'utf8' }) }
 }
 
 function localAsset(output, referring, reference) {
@@ -37,18 +37,13 @@ function inspectResources(output, directory = output) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const file = path.join(directory, entry.name)
     if (entry.isDirectory()) { inspectResources(output, file); continue }
-    if (!/\.(?:html|css|js)$/.test(file) || file.includes(`${path.sep}vendor${path.sep}`)) continue
+    if (!/\.(?:html|css|js)$/.test(file)) continue
     const source = fs.readFileSync(file, 'utf8')
     if (file.endsWith('.html')) for (const match of source.matchAll(/\b(?:src|href)=["']([^"']+)["']/g)) localAsset(output, file, match[1])
     if (file.endsWith('.css')) for (const match of source.matchAll(/url\(\s*["']?([^\s"')]+)["']?\s*\)/g)) localAsset(output, file, match[1])
     if (file.endsWith('.js')) {
-      const module = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)
-      function visit(node) {
-        if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) localAsset(output, file, node.moduleSpecifier.text)
-        if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments[0] && ts.isStringLiteral(node.arguments[0])) localAsset(output, file, node.arguments[0].text)
-        ts.forEachChild(node, visit)
-      }
-      visit(module)
+      const { eager, lazy } = moduleReferences(source, file)
+      for (const reference of [...eager, ...lazy]) localAsset(output, file, reference)
     }
   }
 }
@@ -73,4 +68,28 @@ test('a missing required website source fails before deleting the previous built
   const result = fixture.run()
   assert.notEqual(result.status, 0, 'Missing required guide source must fail')
   assert.equal(fs.readFileSync(sentinel, 'utf8'), 'existing complete build', 'Input validation must precede output deletion')
+})
+
+test('官网缺少延迟加载的 Three.js 内核时保留既有构建', (t) => {
+  const fixture = sourceFixture(t)
+  fs.mkdirSync(fixture.output, { recursive: true })
+  const marker = path.join(fixture.output, 'previous.txt')
+  fs.writeFileSync(marker, 'previous')
+  fs.unlinkSync(path.join(fixture.temporary, 'atlas-website/vendor/three.core.js'))
+  assert.notEqual(fixture.run().status, 0)
+  assert.equal(fs.readFileSync(marker, 'utf8'), 'previous')
+})
+
+test('官网模块按发布 URL 解析指南与延迟引用，拒绝仅源码可见的路径', (t) => {
+  const fixture = sourceFixture(t)
+  const entry = path.join(fixture.temporary, 'atlas-website/app.js')
+  fs.appendFileSync(entry, "\nexport const loader = () => import('/guide/icons.js?v=x#section');")
+  const graph = websiteDependencyGraph(fixture.temporary, fixture.files)
+  assert.deepEqual(graph['atlas-website/app.js'].eager, ['atlas-docs-site/icons.js', 'atlas-website/fluid-loader.js'])
+  assert.deepEqual(graph['atlas-website/app.js'].lazy, ['atlas-docs-site/icons.js'])
+  assert.deepEqual(graph['atlas-website/fluid-loader.js'].lazy, ['atlas-website/vendor/liquid-ether.js'])
+  assert.deepEqual(graph['atlas-website/vendor/three.module.js'].eager, ['atlas-website/vendor/three.core.js'])
+  fs.writeFileSync(path.join(fixture.temporary, 'atlas-docs-site/source-only.js'), 'export const value = 1;')
+  fs.appendFileSync(entry, "\nimport '/guide/source-only.js';")
+  assert.throws(() => websiteDependencyGraph(fixture.temporary, fixture.files), /官网模块未发布.*source-only/)
 })

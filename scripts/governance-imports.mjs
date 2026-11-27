@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
+import { websiteCopyPlan } from '../atlas-website/public-files.mjs'
 
-function moduleReferences(source, file) {
+export function moduleReferences(source, file) {
   const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest)
   const eager = new Set()
   const lazy = new Set()
@@ -53,6 +54,43 @@ export function importsTarget(source, importer, target) {
 
 export function importsWithinTarget(source, importer, target) {
   return importsMatching(source, importer, target, true)
+}
+
+/** 已发布的浏览器模块按构建产物的 URL 解析，根路径和 /guide/ 可能来自不同源码目录。 */
+export function websiteDependencyGraph(root, files) {
+  const scripts = files.filter(file => /\.m?js$/.test(file))
+  const byUrl = new Map()
+  for (const { source, relative, directory } of websiteCopyPlan(path.join(root, 'atlas-website'))) {
+    const local = path.relative(root, source).split(path.sep).join('/')
+    if (directory) {
+      for (const file of scripts) {
+        if (file.startsWith(local + '/')) byUrl.set('/' + relative + file.slice(local.length), file)
+      }
+    } else if (/\.m?js$/.test(relative)) {
+      byUrl.set('/' + relative, local)
+    }
+  }
+  const graph = {}
+  for (const [url, file] of byUrl) {
+    const { eager, lazy } = moduleReferences(readFileSync(path.join(root, file), 'utf8'), file)
+    const parent = new URL(url, 'https://atlas.invalid')
+    function resolveUrls(specifiers) {
+      const paths = new Set()
+      for (const specifier of specifiers) {
+        if (!/^(?:\.{1,2}\/|\/|[a-z][a-z\d+.-]*:)/i.test(specifier)) {
+          throw new Error(`官网模块无法解析裸导入：${file} → ${specifier}`)
+        }
+        const next = new URL(specifier, parent)
+        if (next.origin !== parent.origin) continue
+        const target = byUrl.get(decodeURIComponent(next.pathname))
+        if (!target) throw new Error(`官网模块未发布：${file} → ${specifier}`)
+        paths.add(target)
+      }
+      return [...paths].sort()
+    }
+    graph[file] = { eager: resolveUrls(eager), lazy: resolveUrls(lazy) }
+  }
+  return graph
 }
 
 /** 从入口追踪仓库内的运行时引用；即使中间文件位于其他交付物或工具目录也继续追踪。 */
