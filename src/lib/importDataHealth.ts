@@ -82,21 +82,21 @@ export function buildCopiedCloseDateCandidates(
     })
 }
 
+interface CopiedCloseDateChanges {
+  before: PersistedTrade[]
+  after: PersistedTrade[]
+}
+
 export interface CommitCopiedCloseDateCleanupInput {
   tradeIds: readonly string[]
   tradingDayStartHour: number
   captureLatest: () => { trades: readonly PersistedTrade[]; snapshot: PersistedSnapshot }
-  persistSnapshot: (snapshot: PersistedSnapshot) => Promise<void>
+  persistSnapshot: (snapshot: PersistedSnapshot, changes: CopiedCloseDateChanges) => Promise<void>
   publish: (trades: PersistedTrade[]) => void
 }
 
 export type CommitCopiedCloseDateCleanupResult =
-  | {
-      kind: 'committed'
-      before: PersistedTrade[]
-      after: PersistedTrade[]
-      trades: PersistedTrade[]
-    }
+  | ({ kind: 'committed'; trades: PersistedTrade[] } & CopiedCloseDateChanges)
   | { kind: 'stale-selection' }
 
 /**
@@ -125,7 +125,7 @@ export async function commitCopiedCloseDateCleanup(
   const trades = baseline.trades.map((trade) => afterById.get(trade.id) ?? trade)
   const nextSnapshot: PersistedSnapshot = { ...baseline.snapshot, trades }
 
-  await input.persistSnapshot(nextSnapshot)
+  await input.persistSnapshot(nextSnapshot, { before, after })
   input.publish(trades)
   return { kind: 'committed', before, after, trades }
 }
@@ -140,9 +140,11 @@ export interface CopiedCloseDatePersistenceBoundary {
   recoverDurableSnapshot: (snapshot: PersistedSnapshot) => void | Promise<void>
 }
 
-async function commitThroughPersistenceBoundary<Result>(input: {
-  persistSnapshot: (snapshot: PersistedSnapshot) => Promise<void>
-  commit: (persistSnapshot: (snapshot: PersistedSnapshot) => Promise<void>) => Promise<Result>
+type PersistSnapshot<Context extends unknown[]> = (snapshot: PersistedSnapshot, ...context: Context) => Promise<void>
+
+async function commitThroughPersistenceBoundary<Result, Context extends unknown[]>(input: {
+  persistSnapshot: PersistSnapshot<Context>
+  commit: (persistSnapshot: PersistSnapshot<Context>) => Promise<Result>
   boundary: CopiedCloseDatePersistenceBoundary
 }): Promise<Result> {
   const unlockInteraction = input.boundary.lockInteraction()
@@ -155,8 +157,8 @@ async function commitThroughPersistenceBoundary<Result>(input: {
     suspended = true
     let result: Result
     try {
-      result = await input.commit(async (snapshot) => {
-        await input.persistSnapshot(snapshot)
+      result = await input.commit(async (snapshot, ...context) => {
+        await input.persistSnapshot(snapshot, ...context)
         durableSnapshot = snapshot
       })
     } catch (error) {

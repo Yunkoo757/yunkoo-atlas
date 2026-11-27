@@ -20,7 +20,7 @@ import {
   normalizeDisplay,
   type DisplayPrefs,
 } from '@/lib/tradeFilters'
-import type { PersistedSnapshot, UserProfile } from '@/storage/types'
+import type { UserProfile } from '@/storage/types'
 import {
   DEFAULT_REVIEW_POOL_LAYOUT,
   normalizeReviewPoolLayout,
@@ -96,7 +96,6 @@ import {
 
 import {
   applyUndoAction,
-  buildUndoAction,
   type UndoAction,
 } from '@/lib/tradeUndo'
 import { transitionTradeKind as applyTradeKindTransition } from '@/lib/tradeKind'
@@ -126,10 +125,11 @@ import {
   applyCaseClassificationMutation,
   containsCaseClassificationMutation,
 } from '@/lib/reviewCaseClassification'
+import { appendBoundedHistory, createStoreUndoAction } from './tradeHistory'
+import type { ImportDataHealthStoreDependencies } from './copiedCloseDateCleanup'
 import type {
   CommitCopiedCloseDateCleanupResult,
   CommitCopiedCloseDateUndoResult,
-  CopiedCloseDatePersistenceBoundary,
 } from '@/lib/importDataHealth'
 
 export interface StorePendingTradeOpenRequest extends PendingTradeOpenRequest {
@@ -141,11 +141,6 @@ export type SetTradeStatusResult = TradeOpenRequestResult | 'updated' | 'unchang
 export type CreateReviewCaseResult =
   | { status: 'created'; reviewCase: Trade }
   | { status: 'missing-source' | 'source-is-case' }
-
-export interface ImportDataHealthStoreDependencies {
-  boundary: CopiedCloseDatePersistenceBoundary
-  persistSnapshot: (snapshot: import('@/storage/types').PersistedSnapshot) => Promise<void>
-}
 
 function sameRiskPolicyDraft(left: RiskPolicyDraft, right: RiskPolicyDraft): boolean {
   return left.capitalBase === right.capitalBase &&
@@ -215,31 +210,6 @@ function reconcileExistingExecutionEdit(previous: Trade, next: Trade): Trade {
   }
 }
 
-function appendBoundedHistory(stack: readonly UndoAction[], action: UndoAction): UndoAction[] {
-  return [...stack.slice(-49), action]
-}
-
-let undoActionSequence = 0
-
-function nextUndoActionId(): string {
-  undoActionSequence += 1
-  return `undo-${Date.now().toString(36)}-${undoActionSequence.toString(36)}`
-}
-
-function createStoreUndoAction(
-  label: string,
-  before: readonly Trade[],
-  after: readonly Trade[],
-): UndoAction | null {
-  return buildUndoAction({
-    actionId: nextUndoActionId(),
-    label,
-    createdAt: new Date().toISOString(),
-    before,
-    after,
-  })
-}
-
 function changeTrashMembership(set: StoreApi<State>['setState'], ids: string[], operation: 'remove' | 'restore'): UndoAction | null {
   if (!ids.length) return null
   const targets = new Set(ids)
@@ -264,34 +234,6 @@ function changeTrashMembership(set: StoreApi<State>['setState'], ids: string[], 
     return { trades, undoStack: appendBoundedHistory(state.undoStack, action), redoStack: [] }
   })
   return receipt
-}
-
-/** 发布失败时只同步本流程已经耐久提交的交易，并保留会话内其他撤销历史。 */
-export function recoverCopiedCloseDateCleanupToStore(
-  snapshot: PersistedSnapshot,
-  action: UndoAction,
-): void {
-  useStore.setState((state) => ({
-    trades: [...snapshot.trades],
-    undoStack: state.undoStack.some((candidate) => candidate.actionId === action.actionId)
-      ? state.undoStack
-      : appendBoundedHistory(state.undoStack, action),
-    redoStack: state.redoStack,
-  }))
-}
-
-/** 撤销发布失败时按耐久结果完成同一 action 的栈迁移，不执行整库切换 reset。 */
-export function recoverCopiedCloseDateUndoToStore(
-  snapshot: PersistedSnapshot,
-  action: UndoAction,
-): void {
-  useStore.setState((state) => ({
-    trades: [...snapshot.trades],
-    undoStack: state.undoStack.filter((candidate) => candidate.actionId !== action.actionId),
-    redoStack: state.redoStack.some((candidate) => candidate.actionId === action.actionId)
-      ? state.redoStack
-      : appendBoundedHistory(state.redoStack, action),
-  }))
 }
 
 function freezeUpsertedClosedTradingDay(
@@ -889,145 +831,14 @@ export const useStore = create<State>()((set, get) => ({
         return succeeded
       },
       cleanupCopiedCloseDates: async (tradeIds, dependencies) => {
-        let cleanupAction: UndoAction | null = null
-        let cleanupActionId: string | undefined
-        let cleanupBefore: Trade[] = []
-        const [healthModule, persistModule, shortcutModule] = await Promise.all([
-          import('@/lib/importDataHealth'),
-          import('@/storage/persist'),
-          import('@/store/shortcutStore'),
-        ])
-        let resolvedDependencies = dependencies
-        if (!resolvedDependencies) {
-          const [cutoverModule, storageModule] = await Promise.all([
-            import('@/storage/cutover'),
-            import('@/storage'),
-          ])
-          resolvedDependencies = {
-            persistSnapshot: (snapshot) => storageModule.getStorage().commitImport(snapshot, []),
-            boundary: {
-              lockInteraction: cutoverModule.lockStorageCutoverInteraction,
-              flushBeforeCommit: cutoverModule.flushStorageBeforeCutover,
-              createVerifiedBackup: async () => {
-                const bridge = storageModule.getJournalBridge()
-                if (!bridge) throw new Error('历史日期清理只能在 Windows 或 macOS 客户端执行')
-                const backupName = await bridge.createBackup()
-                if (!backupName) throw new Error('无法创建清理前备份')
-                const verification = await bridge.verifyBackup(backupName)
-                if (verification.status !== 'verified') {
-                  throw new Error(verification.error ?? '清理前备份验证失败')
-                }
-              },
-              suspendPersist: persistModule.suspendPersist,
-              resumePersist: persistModule.resumePersist,
-              discardPendingAndResumePersist: persistModule.discardPendingAndResumePersist,
-              recoverDurableSnapshot: (snapshot) => {
-                if (!cleanupAction) throw new Error('耐久清理缺少可撤销 action')
-                recoverCopiedCloseDateCleanupToStore(snapshot, cleanupAction)
-              },
-            },
-          }
-        }
-        const result = await healthModule.commitCopiedCloseDateCleanupThroughBoundary({
-          cleanup: {
-            tradeIds,
-            tradingDayStartHour: get().display.tradingDayStartHour,
-            captureLatest: () => {
-              const state = get()
-              const selectedIds = new Set(tradeIds)
-              cleanupBefore = state.trades.filter((trade) => selectedIds.has(trade.id))
-              return {
-                trades: state.trades,
-                snapshot: persistModule.pickPersisted(
-                  state,
-                  shortcutModule.useShortcutStore.getState().bindings,
-                ),
-              }
-            },
-            persistSnapshot: async (snapshot) => {
-              const selectedIds = new Set(tradeIds)
-              const after = snapshot.trades.filter((trade) => selectedIds.has(trade.id))
-              cleanupAction = createStoreUndoAction('清空污染平仓日', cleanupBefore, after)
-              if (!cleanupAction) throw new Error('清理候选没有产生可撤销字段变化')
-              cleanupActionId = cleanupAction.actionId
-              await resolvedDependencies.persistSnapshot(snapshot)
-            },
-            publish: (trades) => {
-              const action = cleanupAction
-              if (!action) throw new Error('清理候选缺少已提交的可撤销 action')
-              set((state) => ({
-                trades,
-                undoStack: appendBoundedHistory(state.undoStack, action),
-                redoStack: [],
-              }))
-            },
-          },
-          boundary: resolvedDependencies.boundary,
-        })
-        return result.kind === 'committed'
-          ? { ...result, actionId: cleanupActionId }
-          : result
+        const maintenance = await import('./copiedCloseDateCleanup')
+        return maintenance.cleanupCopiedCloseDates(tradeIds, dependencies)
       },
       undoCopiedCloseDateCleanup: async (actionId, dependencies) => {
-        const action = get().undoStack.find((candidate) =>
-          candidate.actionId === actionId && candidate.label === '清空污染平仓日',
-        )
+        const action = get().undoStack.find(candidate => candidate.actionId === actionId)
         if (!action) return { kind: 'stale-action' }
-        const [healthModule, persistModule, shortcutModule] = await Promise.all([
-          import('@/lib/importDataHealth'),
-          import('@/storage/persist'),
-          import('@/store/shortcutStore'),
-        ])
-        let resolvedDependencies = dependencies
-        if (!resolvedDependencies) {
-          const [cutoverModule, storageModule] = await Promise.all([
-            import('@/storage/cutover'),
-            import('@/storage'),
-          ])
-          resolvedDependencies = {
-            persistSnapshot: (snapshot) => storageModule.getStorage().commitImport(snapshot, []),
-            boundary: {
-              lockInteraction: cutoverModule.lockStorageCutoverInteraction,
-              flushBeforeCommit: cutoverModule.flushStorageBeforeCutover,
-              createVerifiedBackup: async () => {
-                const bridge = storageModule.getJournalBridge()
-                if (!bridge) throw new Error('历史日期撤销只能在 Windows 或 macOS 客户端执行')
-                const backupName = await bridge.createBackup()
-                if (!backupName) throw new Error('无法创建撤销前备份')
-                const verification = await bridge.verifyBackup(backupName)
-                if (verification.status !== 'verified') {
-                  throw new Error(verification.error ?? '撤销前备份验证失败')
-                }
-              },
-              suspendPersist: persistModule.suspendPersist,
-              resumePersist: persistModule.resumePersist,
-              discardPendingAndResumePersist: persistModule.discardPendingAndResumePersist,
-              recoverDurableSnapshot: (snapshot) => recoverCopiedCloseDateUndoToStore(snapshot, action),
-            },
-          }
-        }
-        return healthModule.commitCopiedCloseDateUndoThroughBoundary({
-          undo: {
-            action,
-            captureLatest: () => {
-              const state = get()
-              return {
-                trades: state.trades,
-                snapshot: persistModule.pickPersisted(
-                  state,
-                  shortcutModule.useShortcutStore.getState().bindings,
-                ),
-              }
-            },
-            persistSnapshot: resolvedDependencies.persistSnapshot,
-            publish: (trades) => set((state) => ({
-              trades,
-              undoStack: state.undoStack.filter((candidate) => candidate.actionId !== actionId),
-              redoStack: appendBoundedHistory(state.redoStack, action),
-            })),
-          },
-          boundary: resolvedDependencies.boundary,
-        })
+        const maintenance = await import('./copiedCloseDateCleanup')
+        return maintenance.undoCopiedCloseDateCleanup(action, dependencies)
       },
       starredIds: [],
       subscribedIds: [],

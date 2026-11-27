@@ -7,10 +7,8 @@ import {
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import type { PersistedSnapshot, PersistedTrade } from '@/storage/types'
 import { applyUndoAction, buildUndoAction, undoValuesEqual } from '@/lib/tradeUndo'
-import {
-  recoverCopiedCloseDateCleanupToStore,
-  useStore,
-} from '@/store/useStore'
+import { recoverCopiedCloseDateCleanupToStore } from '@/store/copiedCloseDateCleanup'
+import { useStore } from '@/store/useStore'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -367,14 +365,14 @@ export async function testPublishFailureRecoveryPreservesHistoryAndKeepsCleanupD
             trades: useStore.getState().trades,
             snapshot: snapshot(useStore.getState().trades),
           }),
-          persistSnapshot: async (next) => {
-            const cleaned = next.trades.find((item) => item.id === original.id)!
+          persistSnapshot: async (next, changes) => {
+            assert(changes.before.length === 1 && changes.before[0]?.id === original.id, '恢复凭据必须只包含本次选中的记录')
             cleanupAction = buildUndoAction({
               actionId: 'recovered-cleanup-action',
               label: '清空污染平仓日',
               createdAt: '2026-08-09T00:00:00.000Z',
-              before: [original],
-              after: [cleaned],
+              before: changes.before,
+              after: changes.after,
             })
             durable = next
           },
