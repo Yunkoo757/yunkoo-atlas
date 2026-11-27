@@ -17,7 +17,7 @@ import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidati
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { ensureLibraryDirs, getLibraryPath, getLibraryPaths } from './paths'
 import { isImageMime, processImageBuffer } from './images'
-import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
+import { fsyncDirectorySync, fsyncFileSync, writeFileAtomicallySync } from './atomicFile'
 import { assertSafeAssetId, isSafeAssetId } from '../../src/storage/assetId'
 import { buildAssetInventory } from '../../src/storage/assetInventory'
 import { OperationalError } from '../../src/lib/operationalError'
@@ -1404,8 +1404,7 @@ export class LibraryStorage {
       for (const file of files) {
         const target = path.join(operationDir, file.fileName)
         fs.copyFileSync(file.source, target, fs.constants.COPYFILE_EXCL)
-        const descriptor = fs.openSync(target, 'r+')
-        try { fs.fsyncSync(descriptor) } finally { fs.closeSync(descriptor) }
+        fsyncFileSync(target)
         staged.push(file)
       }
       fsyncDirectorySync(operationDir)

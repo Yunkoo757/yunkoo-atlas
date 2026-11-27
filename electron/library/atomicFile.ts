@@ -38,6 +38,11 @@ export function renameFileWithRetrySync(
   }
 }
 
+export function fsyncFileSync(filePath: string): void {
+  const descriptor = fs.openSync(filePath, 'r+')
+  try { fs.fsyncSync(descriptor) } finally { fs.closeSync(descriptor) }
+}
+
 /**
  * 返回平台是否提供了真实的目录 durability barrier。
  * Node 在 Windows 上无法用 fsync 刷新目录句柄；调用方必须采用不依赖

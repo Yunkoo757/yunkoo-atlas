@@ -1,3 +1,4 @@
+import { sha256File } from './fileChecksum'
 import {
   ipcMain,
   dialog,
@@ -41,7 +42,7 @@ import {
   reloadRendererAfterStorageRecovery,
   recoverLibraryStorageLifecycle,
 } from './libraryActivation'
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { assertExitWithinDeadline, releaseThenFinalizeWithRollback } from '../quitCoordinator'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import { beginOperation } from '../operationLogger'
@@ -401,10 +402,6 @@ function bufferFromPayload(data: ArrayBuffer | Uint8Array | number[]): Buffer {
   if (data instanceof ArrayBuffer) return Buffer.from(data)
   if (data instanceof Uint8Array) return Buffer.from(data)
   return Buffer.from(data)
-}
-
-function sha256File(filePath: string): string {
-  return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')
 }
 
 function toErrorMessage(err: unknown): string {

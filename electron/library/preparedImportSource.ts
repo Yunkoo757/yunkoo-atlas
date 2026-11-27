@@ -1,4 +1,5 @@
-import { createHash } from 'node:crypto'
+import { fsyncFileSync } from './atomicFile'
+import { sha256File } from './fileChecksum'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -78,22 +79,6 @@ export interface PreparedJournalArchiveStaging {
   stagedLibraryRoot: string
 }
 
-function sha256File(filePath: string): string {
-  const hash = createHash('sha256')
-  const descriptor = fs.openSync(filePath, 'r')
-  const chunk = Buffer.allocUnsafe(1024 * 1024)
-  try {
-    let bytesRead = 0
-    do {
-      bytesRead = fs.readSync(descriptor, chunk, 0, chunk.length, null)
-      if (bytesRead > 0) hash.update(chunk.subarray(0, bytesRead))
-    } while (bytesRead > 0)
-  } finally {
-    fs.closeSync(descriptor)
-  }
-  return hash.digest('hex')
-}
-
 /** 复制并锁定用户选择的归档字节；预览和最终恢复必须消费这一份私有副本。 */
 export function stagePreparedJournalArchive(
   sourceArchivePath: string,
@@ -106,8 +91,7 @@ export function stagePreparedJournalArchive(
   const stagedArchivePath = path.join(stagingRoot, 'source.journal.zip')
   const stagedLibraryRoot = path.join(stagingRoot, 'library')
   fs.copyFileSync(sourceArchivePath, stagedArchivePath, fs.constants.COPYFILE_EXCL)
-  const descriptor = fs.openSync(stagedArchivePath, 'r+')
-  try { fs.fsyncSync(descriptor) } finally { fs.closeSync(descriptor) }
+  fsyncFileSync(stagedArchivePath)
   fs.mkdirSync(stagedLibraryRoot)
   return {
     stagedArchivePath,

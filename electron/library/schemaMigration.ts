@@ -1,12 +1,12 @@
+import { sha256File } from './fileChecksum'
 import fs from 'node:fs'
 import path from 'node:path'
-import { createHash } from 'node:crypto'
 import type { Database } from 'sql.js'
 import type { LibraryManifest } from '../../src/storage/types'
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { createLegacyStageMigrationOptions } from '../../src/lib/stageMigration'
-import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
+import { fsyncDirectorySync, fsyncFileSync, writeFileAtomicallySync } from './atomicFile'
 import type { getLibraryPaths } from './paths'
 
 type LibraryPaths = ReturnType<typeof getLibraryPaths>
@@ -62,7 +62,7 @@ function assertRegularFile(filePath: string, label: string): void {
 
 function checksum(filePath: string): string {
   assertRegularFile(filePath, 'Schema 迁移文件')
-  return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')
+  return sha256File(filePath)
 }
 
 function readManifestFile(paths: LibraryPaths): LibraryManifest {
@@ -110,15 +110,6 @@ function writeMigrationMarker(paths: LibraryPaths, marker: SchemaMigrationMarker
   writeFileAtomicallySync(filePath, JSON.stringify(marker, null, 2), 'utf8')
 }
 
-function fsyncFile(filePath: string): void {
-  const descriptor = fs.openSync(filePath, 'r+')
-  try {
-    fs.fsyncSync(descriptor)
-  } finally {
-    fs.closeSync(descriptor)
-  }
-}
-
 function copyRecoveryPair(
   paths: LibraryPaths,
   DatabaseClass: DatabaseConstructor,
@@ -137,8 +128,8 @@ function copyRecoveryPair(
   const recoveryManifest = path.join(directory, 'manifest.json')
   fs.copyFileSync(paths.dbFile, recoveryDatabase, fs.constants.COPYFILE_EXCL)
   fs.copyFileSync(paths.manifestFile, recoveryManifest, fs.constants.COPYFILE_EXCL)
-  fsyncFile(recoveryDatabase)
-  fsyncFile(recoveryManifest)
+  fsyncFileSync(recoveryDatabase)
+  fsyncFileSync(recoveryManifest)
   fsyncDirectorySync(directory)
 
   const marker: SchemaMigrationMarker = {

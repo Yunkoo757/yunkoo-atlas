@@ -1,9 +1,10 @@
+import { sha256File } from './fileChecksum'
 import fs from 'node:fs'
 import path from 'node:path'
 import { createHash, randomUUID } from 'node:crypto'
 import type { LibraryStorage } from './storage'
 import { getLibraryPath, ensureLibraryDirs, getLibraryPaths } from './paths'
-import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
+import { fsyncDirectorySync, fsyncFileSync, writeFileAtomicallySync } from './atomicFile'
 import { validateDesktopLibrary, validateLibraryDatabaseFile } from './journalZip'
 import { safeConsoleError } from '../diagnosticSanitizer'
 import { removeDirectManagedDirectory } from './managedPaths'
@@ -57,11 +58,6 @@ interface BackupRestoreMarker {
 
 function backupRestoreMarkerPath(libraryRoot: string): string {
   return path.join(libraryRoot, BACKUP_RESTORE_MARKER)
-}
-
-function fsyncFileSync(filePath: string): void {
-  const descriptor = fs.openSync(filePath, 'r+')
-  try { fs.fsyncSync(descriptor) } finally { fs.closeSync(descriptor) }
 }
 
 function copyRestoreAttachments(
@@ -229,10 +225,6 @@ function storeBackupAttachment(source: string, vault: string): string {
   const destination = path.join(vault, vaultName)
   if (!fs.existsSync(destination)) fs.copyFileSync(source, destination)
   return vaultName
-}
-
-function sha256File(filePath: string): string {
-  return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')
 }
 
 function sha256Bytes(bytes: Buffer): string {

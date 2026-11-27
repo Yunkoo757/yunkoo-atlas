@@ -56,3 +56,4 @@ flowchart LR
 - 风控指纹已迁移。开仓判断、耐久提交与风险导入共用 `riskFingerprint`，周期结果的快照副本由 `riskManagement` 创建。先在旧实现采集含中文和代理对字符的开仓指纹、导入 ID，再以固定字面值通过旧版和新版。保留导入载荷自己的 JSON replacer（会调用对象的 toJSON）和性能基准自己的排序与 SHA-256。迁移后风险、store 集成与导入并发 67 项通过。
 - 附件字节转换已迁移。8 个模块统一使用 `src/lib/base64.ts` 进行字节编解码；MIME 解析、输入预算及 IndexedDB 的 Blob/FileReader 读取继续由各自边界处理。以 Node Buffer 作独立对照，覆盖空输入、子视图、分块边界和非法编码。98 项附件与导入定向测试及两套类型检查通过。
 - 归档 CRC-32 已迁移。Web 写包、Web 分块读取与 Electron 流式解包原有三种实现。现在都以 `crc32(bytes, previous)` 更新同一标准校验值；各自独立检查大小、路径、超时与原子提交。标准向量、每个切分点、空块及两个归档实现的定向测试共 97 项通过。
+- 文件完整性检查已迁移。备份、ZIP、IPC、预备归档及 schema 恢复统一调用 `electron/library/fileChecksum.ts`，分块计算 SHA-256。普通文件的读写打开与 fsync 由 `atomicFile` 负责。目录刷新、写入中持有的描述符及 schema 迁移的普通文件校验继续由原调用点负责。迁移前后相同 107 项回归通过，新增空文件、短文件和跨 1 MiB 两次边界的独立对照测试通过。

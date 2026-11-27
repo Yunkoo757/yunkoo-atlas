@@ -1,10 +1,11 @@
+import { sha256File } from './fileChecksum'
 import { crc32 } from '../../src/lib/crc32'
 import { resolveSnapshotVersion } from './snapshotVersion'
 import { retiredSnapshotDatabaseBytes } from './retiredSnapshotDatabase'
 import fs from 'node:fs'
 import path from 'node:path'
 import { clearManagedFlatDirectory } from './managedPaths'
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import type { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { ZipArchive } from 'archiver'
@@ -12,7 +13,7 @@ import initSqlJs from 'sql.js'
 import * as yauzl from 'yauzl'
 import type { LibraryStorage } from './storage'
 import { ensureLibraryDirs, getLibraryPaths } from './paths'
-import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
+import { fsyncDirectorySync, fsyncFileSync, writeFileAtomicallySync } from './atomicFile'
 import {
   SCHEMA_VERSION,
   type LibraryManifest,
@@ -121,15 +122,6 @@ interface JournalImportMarker {
   databaseSha256?: string
   manifestSha256?: string
   attachmentEntries: Array<{ fileName: string; sha256: string }>
-}
-
-function fsyncFileSync(filePath: string): void {
-  const descriptor = fs.openSync(filePath, 'r+')
-  try { fs.fsyncSync(descriptor) } finally { fs.closeSync(descriptor) }
-}
-
-function sha256File(filePath: string): string {
-  return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')
 }
 
 export interface JournalZipEntryLimits {
