@@ -83,11 +83,31 @@ try{
  await page.addInitScript(({files})=>{
   const sourceFiles=new Map(Object.entries(files).map(([k,v])=>[k,new Uint8Array(v)])),output=new Map();window.testOutput=output;window.testSource=sourceFiles
   function handle(map,prefix='',readOnly=false){return {name:readOnly?'测试源资料库':'测试输出',kind:'directory',async isSameEntry(other){return other._map===map&&other._prefix===prefix},_map:map,_prefix:prefix,async resolve(other){return other._map===map?[]:null},async *values(){for(const key of map.keys())yield {name:key}},async getDirectoryHandle(name){return handle(map,prefix+name+'/',readOnly)},async getFileHandle(name,{create=false}={}){const key=prefix+name;if(create&&readOnly)throw Error('Forbidden source write');if(!map.has(key)&&!create)throw Error('Missing '+key);return {async getFile(){return new File([map.get(key)],name)},async createWritable(){if(readOnly)throw Error('Forbidden source write');let bytes;return {async write(value){if(window.testFailCopy && key.startsWith('attachments/'))throw Error('模拟附件写入失败');bytes=value instanceof Blob?new Uint8Array(await value.arrayBuffer()):typeof value==='string'?new TextEncoder().encode(value):new Uint8Array(value)},async close(){map.set(key,bytes)},async abort(){}}}}}}}
-  let calls=0;window.showDirectoryPicker=async()=>++calls===1?handle(sourceFiles,'',true):handle(output)
+  window.showDirectoryPicker=async({mode})=>mode==='read'?handle(sourceFiles,'',true):handle(output)
  },{files})
  await page.goto(pathToFileURL(path.join(editorOutput,'index.html')).href)
  await page.locator('#open').click();await page.waitForFunction(()=>document.querySelector('#source').textContent.includes('测试源'))
  await page.locator('#check').click();await page.waitForFunction(()=>document.querySelector('#message').textContent.includes('校验通过'))
+ // A copy that Desktop cannot open must never be advertised as a completed library.
+ for (const [id, name] of [['Fixture','Fixture.jpg'], ['second','second.图片']]) {
+   const invalid = new SQL.Database(files['journal.db'])
+   invalid.run('INSERT INTO assets VALUES (?,?,?,?,?)',[id,'image/png',name,png.length,new Date().toISOString()])
+   const bytes = Array.from(invalid.export())
+   invalid.close()
+   await page.evaluate(({bytes,name}) => {
+     window.testSource.set('journal.db',new Uint8Array(bytes))
+     window.testSource.set('attachments/'+name,window.testSource.get('attachments/fixture.png'))
+   },{bytes,name})
+   await page.locator('#open').click()
+   await page.waitForFunction(()=>!document.querySelector('#open').disabled)
+   await page.locator('#export').click()
+   await page.waitForFunction(()=>!document.querySelector('#export').disabled)
+   assert.match(await page.locator('#message').innerText(),/不可移植/, 'export must apply desktop attachment index rules')
+   assert.equal(await page.evaluate(()=>window.testOutput.size),0)
+ }
+ await page.evaluate(bytes=>window.testSource.set('journal.db',new Uint8Array(bytes)),files['journal.db'])
+ await page.locator('#open').click()
+ await page.waitForFunction(()=>!document.querySelector('#open').disabled)
  await page.evaluate(()=>{window.testAsset=window.testSource.get('attachments/fixture.png');window.testSource.delete('attachments/fixture.png')})
  await page.locator('#check').click();await page.waitForFunction(()=>document.querySelector('#message').textContent.includes('Missing attachments/fixture.png'))
  await page.evaluate(()=>window.testSource.set('attachments/fixture.png',window.testAsset))

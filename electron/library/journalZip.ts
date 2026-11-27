@@ -1,3 +1,4 @@
+import { CREATE_LIBRARY_TABLES_SQL, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import { sha256File } from './fileChecksum'
 import { crc32 } from '../../src/lib/crc32'
 import { resolveSnapshotVersion } from './snapshotVersion'
@@ -556,9 +557,11 @@ function validateWebAssets(
       throw new Error(`Invalid .journal.zip: declared asset is missing (${id})`)
     }
   }
-  return [...declarations.keys()]
+  const retained = [...declarations.keys()]
     .filter(id => referencedIds.has(id) || !retiredIds.has(id))
     .map((id) => files.get(id)!)
+  validateLibraryAssetIndex(retained)
+  return retained
 }
 
 function readWebSnapshot(dataFile: string, assetsDir: string): {
@@ -680,24 +683,14 @@ export async function validateLibraryDatabaseFile(
       fileName: String(row[2] ?? ''),
       byteSize: Number(row[3]),
     }))
-    const assetIds = new Set<string>()
-    const assetFileNames = new Set<string>()
+    const assetIds = validateLibraryAssetIndex(assets)
     if (!snapshot && assets.length > 0) {
       throw new Error('empty database contains orphaned assets')
     }
     for (const asset of assets) {
-      const { fileName } = asset
-      if (!fileName || path.basename(fileName) !== fileName) {
-        throw new Error('asset metadata contains an unsafe file path')
-      }
-      if (!isSafeAssetId(asset.id) || !asset.mime || !Number.isFinite(asset.byteSize) || asset.byteSize < 0) {
+      if (!asset.mime || !Number.isFinite(asset.byteSize) || asset.byteSize < 0) {
         throw new Error('asset metadata is invalid')
       }
-      if (assetIds.has(asset.id) || assetFileNames.has(asset.fileName)) {
-        throw new Error('asset metadata contains duplicate identifiers or files')
-      }
-      assetIds.add(asset.id)
-      assetFileNames.add(asset.fileName)
     }
     for (const referencedId of referencedAssetIds) {
       if (!assetIds.has(referencedId)) {
@@ -796,19 +789,7 @@ async function importWebJournalZip(
   const SQL = await initSqlJs({ locateFile: locateSqlWasm })
   const db = new SQL.Database()
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS meta (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS assets (
-      id TEXT PRIMARY KEY,
-      mime TEXT NOT NULL,
-      file_name TEXT NOT NULL,
-      byte_size INTEGER NOT NULL,
-      created_at TEXT NOT NULL
-    );
-  `)
+  db.run(CREATE_LIBRARY_TABLES_SQL)
   db.run('INSERT INTO meta (key, value) VALUES (?, ?)', [
     'snapshot',
     JSON.stringify(snapshot),

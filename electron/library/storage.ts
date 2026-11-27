@@ -1,3 +1,4 @@
+import { CREATE_LIBRARY_TABLES_SQL, isPortableAssetFileName, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import { stripRetiredSnapshotDomains } from '../../src/storage/retiredSnapshotDomains'
 import { retiredSnapshotDatabaseBytes, stripRetiredSnapshotDomainsInDatabase } from './retiredSnapshotDatabase'
 import { resolveSnapshotVersion } from './snapshotVersion'
@@ -39,7 +40,6 @@ const SNAPSHOT_REVISION_KEY = 'snapshotRevision'
 const DATABASE_SCHEMA_KEY = 'schemaVersion'
 const ASSET_TRASH_MANIFEST = 'manifest.json'
 const ASSET_TRASH_CLEANUP = 'cleanup.json'
-const WINDOWS_RESERVED_BASENAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
 type SqlDatabaseConstructor = new (data?: ArrayLike<number> | null) => Database
 
 interface PreparedDatabaseCandidate {
@@ -112,14 +112,6 @@ function isPortableFileBasename(fileName: string): boolean {
     !/[\u0000-\u001f<>:"/\\|?*]/.test(fileName) &&
     !/[. ]$/.test(fileName)
   )
-}
-
-function isPortableAssetFileName(id: string, fileName: string): boolean {
-  if (!isSafeAssetId(id) || !isPortableFileBasename(fileName)) return false
-  const separator = fileName.indexOf('.')
-  if (separator <= 0 || fileName.slice(0, separator) !== id) return false
-  if (WINDOWS_RESERVED_BASENAME.test(id)) return false
-  return /^[A-Za-z0-9][A-Za-z0-9!#$&^._+-]{0,127}$/.test(fileName.slice(separator + 1))
 }
 
 function resolveAttachmentWritePath(attachmentsRoot: string, fileName: string): string {
@@ -242,24 +234,8 @@ function readPortableAssetRecords(
 
 function assertPortableAssetDatabaseIntegrity(db: Database): void {
   const result = db.exec('SELECT id, file_name FROM assets ORDER BY id, file_name')
-  const portableIds = new Set<string>()
-  const portableFileNames = new Set<string>()
-  for (const row of result[0]?.values ?? []) {
-    const id = String(row[0])
-    const fileName = String(row[1])
-    const portableId = id.toLowerCase()
-    const portableFileName = fileName.toLowerCase()
-    if (
-      !isSafeAssetId(id) ||
-      !isPortableAssetFileName(id, fileName) ||
-      portableIds.has(portableId) ||
-      portableFileNames.has(portableFileName)
-    ) {
-      throw new Error('资料库附件索引存在不可移植的 ID 或文件名碰撞，已停止附件操作')
-    }
-    portableIds.add(portableId)
-    portableFileNames.add(portableFileName)
-  }
+  const records = result[0]?.values ?? []
+  validateLibraryAssetIndex(records.map(([id, fileName]) => ({ id: String(id), fileName: String(fileName) })))
 }
 
 function assertPortableSnapshotAssetReferences(
@@ -480,19 +456,7 @@ export class LibraryStorage {
       }
 
       if (created) {
-        this.db.run(`
-          CREATE TABLE meta (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-          );
-          CREATE TABLE assets (
-            id TEXT PRIMARY KEY,
-            mime TEXT NOT NULL,
-            file_name TEXT NOT NULL,
-            byte_size INTEGER NOT NULL,
-            created_at TEXT NOT NULL
-          );
-        `)
+        this.db.run(CREATE_LIBRARY_TABLES_SQL)
         if (this.allowCreate && !fs.existsSync(this.paths.manifestFile)) {
           this.writeManifest({
             schemaVersion: SCHEMA_VERSION,

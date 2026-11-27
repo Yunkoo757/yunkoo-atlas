@@ -133,6 +133,18 @@ async function captureImportError(
   }
 }
 
+export async function testElectronWebArchiveRejectsDesktopAssetIdCollisionsAcrossExtensions(): Promise<void> {
+  const snapshot = snapshotWithAsset('Fixture')
+  snapshot.trades[0]!.note += '<img src="journal-asset://fixture">'
+  const error = await captureImportError({
+    version: WEB_JOURNAL_EXPORT_VERSION,
+    schemaVersion: SCHEMA_VERSION,
+    ...snapshot,
+    assets: [{ id: 'Fixture', mime: 'image/png' }, { id: 'fixture', mime: 'image/jpeg' }],
+  }, { 'assets/Fixture.png': 'first', 'assets/fixture.jpg': 'second' })
+  assert(error.includes('不可移植'), '同一桌面 ID 的两种大小写在写入前必须被拒绝')
+}
+
 export async function testElectronWebImportRejectsFutureExportVersion(): Promise<void> {
   const error = await captureImportError({
     version: WEB_JOURNAL_EXPORT_VERSION + 1,

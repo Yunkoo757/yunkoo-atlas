@@ -1,5 +1,5 @@
 import { decode, validate, migrateToPaper, resetLive, addTagPresets, assignStrategy, SCHEMA_VERSION } from './core'
-import { assertSafeAssetId } from '../../src/storage/assetId'
+import { CREATE_LIBRARY_TABLES_SQL, isPortableAssetFileName, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 declare const initSqlJs: any
 declare global { interface Window { ATLAS_SQLITE_BYTES: string } }
 const $ = (id: string) => document.getElementById(id)!
@@ -112,8 +112,8 @@ async function inspect(row:any,index:number,panel:HTMLElement){
 function rowsOf(db:any,sql:string){const r=db.exec(sql)[0];return r?r.values.map((v:any[])=>Object.fromEntries(r.columns.map((k:string,i:number)=>[k,v[i]]))):[]}
 async function readBytes(dir:any,name:string){return new Uint8Array(await (await (await dir.getFileHandle(name)).getFile()).arrayBuffer())}
 function equal(a:Uint8Array,b:Uint8Array){return a.length===b.length&&a.every((v,i)=>v===b[i])}
-async function assetFile(a:any){assertSafeAssetId(a.id);if(!a.file_name?.startsWith(`${a.id}.`)||/[\x00-\x1f<>:"/\\|?*]/.test(a.file_name)||/[. ]$/.test(a.file_name)||/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(a.id))throw Error('附件文件名不兼容桌面资料库');const dir=await source.getDirectoryHandle('attachments');const file=await (await dir.getFileHandle(a.file_name)).getFile();if(file.size!==a.byte_size)throw Error(`附件尺寸不符：${a.file_name}`);return file}
-async function check(){validate(snapshot);const ids=new Set(assets.map(a=>a.id));const text=JSON.stringify(snapshot);for(const match of text.matchAll(/journal-asset:\/\/([^"'\s<>\\]+)/g)){if(!ids.has(match[1]))throw Error(`缺失附件登记：${match[1]}`)}for(const a of assets)await assetFile(a);message(`校验通过 · ${snapshot.trades.length} 条交易 · ${assets.length} 个附件`)}
+async function assetFile(a:any){if(!isPortableAssetFileName(a.id,a.file_name))throw Error('附件文件名不兼容桌面资料库');const dir=await source.getDirectoryHandle('attachments');const file=await (await dir.getFileHandle(a.file_name)).getFile();if(file.size!==a.byte_size)throw Error(`附件尺寸不符：${a.file_name}`);return file}
+async function check(){validate(snapshot);const ids=validateLibraryAssetIndex(assets.map(a=>({id:a.id,fileName:a.file_name})));const text=JSON.stringify(snapshot);for(const match of text.matchAll(/journal-asset:\/\/([^"'\s<>\\]+)/g)){if(!ids.has(match[1]))throw Error(`缺失附件登记：${match[1]}`)}for(const a of assets)await assetFile(a);message(`校验通过 · ${snapshot.trades.length} 条交易 · ${assets.length} 个附件`)}
 $('open').onclick=()=>run(async()=>{if(!await canLeave())return;if(history.length&&!await ask('打开另一份资料库','将丢弃本页尚未导出的修改。'))return;if(!('showDirectoryPicker' in window))throw Error('请使用桌面 Chrome / Edge 打开此文件。');const dir=await (window as any).showDirectoryPicker({mode:'read'});const bytes=await readBytes(dir,'journal.db');const db=new (await SQL).Database(bytes);try{const meta=Object.fromEntries(rowsOf(db,'SELECT key,value FROM meta').map((r:any)=>[r.key,r.value]));let manifest;try{manifest=JSON.parse(new TextDecoder().decode(await readBytes(dir,'manifest.json')))}catch(error){if(!(error instanceof DOMException && error.name==='NotFoundError') && !(error instanceof Error && error.message.startsWith('Missing ')))throw error;const recovery=JSON.parse(new TextDecoder().decode(await readBytes(dir,'editor-export-state.json')));if(recovery.format!=='atlas-editor-export-v1')throw Error('未找到有效的导出恢复记录');manifest=recovery.manifest;}const loaded=decode(JSON.parse(meta.snapshot),Number(meta.schemaVersion??manifest.schemaVersion));validate(loaded);const loadedAssets=rowsOf(db,'SELECT * FROM assets');source=dir;snapshot=loaded;assets=loadedAssets;history=[];selected.clear();draftDirty=false;render();$('source').textContent=`${dir.name} · 只读源目录`;message('已打开。选择分类开始整理；原目录不会被修改。')}finally{db.close()}})
 $('undo').onclick=()=>run(async()=>{if(!await canLeave())return;snapshot=history.pop();draftDirty=false;selected.clear();render();message('已撤销上一次修改')})
 $('check').onclick=()=>run(async()=>{if(draftDirty)throw Error('请先应用右侧草稿，再校验。');await check()})
@@ -127,7 +127,7 @@ $('export').onclick=()=>run(async()=>{
   let phase='保存编辑副本',n=0
   const state=()=>JSON.stringify({format:'atlas-editor-export-v1',status:'incomplete',phase,copiedAssets:n,totalAssets:assets.length,manifest},null,2)
   try{
-    db.run('CREATE TABLE meta (key TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE assets (id TEXT PRIMARY KEY,mime TEXT NOT NULL,file_name TEXT NOT NULL,byte_size INTEGER NOT NULL,created_at TEXT NOT NULL);')
+    db.run(CREATE_LIBRARY_TABLES_SQL)
     for(const [key,value]of Object.entries({schemaVersion:String(SCHEMA_VERSION),snapshot:JSON.stringify(snapshot),snapshotRevision:'1'}))db.run('INSERT INTO meta VALUES (?,?)',[key,value])
     for(const a of assets)db.run('INSERT INTO assets VALUES (?,?,?,?,?)',[a.id,a.mime,a.file_name,a.byte_size,a.created_at])
     // Save the edited snapshot before the longer asset copy. No valid manifest until complete.
