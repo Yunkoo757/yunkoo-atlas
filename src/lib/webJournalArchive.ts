@@ -1,3 +1,4 @@
+import { crc32 } from '@/lib/crc32'
 import { bytesToBase64 } from '@/lib/base64'
 import JSZip from 'jszip'
 import { isSafeAssetId } from '@/storage/assetId'
@@ -101,16 +102,6 @@ const CENTRAL_ENTRY_SIGNATURE = 0x02014b50
 const LOCAL_ENTRY_SIGNATURE = 0x04034b50
 const MAX_ZIP_COMMENT_BYTES = 0xffff
 const MAX_WEB_JOURNAL_ENTRY_DECODE_MS = 30_000
-const CRC32_TABLE = new Uint32Array(256)
-
-for (let index = 0; index < CRC32_TABLE.length; index += 1) {
-  let value = index
-  for (let bit = 0; bit < 8; bit += 1) {
-    value = (value & 1) !== 0 ? 0xedb88320 ^ (value >>> 1) : value >>> 1
-  }
-  CRC32_TABLE[index] = value >>> 0
-}
-
 function archiveError(
   code: WebJournalArchiveErrorCode,
   message: string,
@@ -180,14 +171,6 @@ function inspectPath(path: string): { canonicalPath: string; unsafe: boolean } {
   }
   const canonicalPath = `${canonicalSegments.join('/')}${isDirectory ? '/' : ''}`
   return { canonicalPath, unsafe: canonicalPath !== path }
-}
-
-function updateCrc32(crc: number, bytes: Uint8Array): number {
-  let next = crc
-  for (const byte of bytes) {
-    next = CRC32_TABLE[(next ^ byte) & 0xff]! ^ (next >>> 8)
-  }
-  return next >>> 0
 }
 
 function validateLocalEntryHeader(
@@ -716,7 +699,7 @@ async function readZipEntryBytesBounded(
 
     let settled = false
     let byteLength = 0
-    let crc = 0xffffffff
+    let crc = 0
     const chunks: Uint8Array[] = []
     const timeout = setTimeout(() => {
       fail(archiveError('not-zip', `归档条目 ${metadata.path} 解压超时`))
@@ -744,7 +727,7 @@ async function readZipEntryBytesBounded(
         ))
         return
       }
-      crc = updateCrc32(crc, chunk)
+      crc = crc32(chunk, crc)
       chunks.push(chunk.slice())
     })
     stream.on('error', () => {
@@ -756,7 +739,7 @@ async function readZipEntryBytesBounded(
         fail(archiveError('not-zip', `归档条目 ${metadata.path} 的实际解压大小与 ZIP 目录不一致`))
         return
       }
-      if (((crc ^ 0xffffffff) >>> 0) !== metadata.crc32) {
+      if (crc !== metadata.crc32) {
         fail(archiveError('not-zip', `归档条目 ${metadata.path} 的校验和不匹配`))
         return
       }

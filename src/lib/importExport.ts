@@ -1,3 +1,4 @@
+import { crc32 } from '@/lib/crc32'
 import { base64ToBytes } from '@/lib/base64'
 import { collectRetiredSnapshotAssetIds, stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
 import { DEFAULT_STRATEGIES, type Strategy } from '@/data/strategies'
@@ -699,18 +700,6 @@ function buildZipBlob(entries: { name: string; data: Uint8Array }[]): Blob {
     pos += p.length
   }
   return new Blob([result], { type: 'application/zip' })
-}
-
-/** CRC32 查表法实现 */
-function crc32(data: Uint8Array): number {
-  let crc = 0xffffffff
-  for (let i = 0; i < data.length; i++) {
-    crc ^= data[i]!
-    for (let j = 0; j < 8; j++) {
-      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0)
-    }
-  }
-  return (crc ^ 0xffffffff) >>> 0
 }
 
 export function parseImportJson(

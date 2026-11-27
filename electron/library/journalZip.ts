@@ -1,3 +1,4 @@
+import { crc32 } from '../../src/lib/crc32'
 import { resolveSnapshotVersion } from './snapshotVersion'
 import { retiredSnapshotDatabaseBytes } from './retiredSnapshotDatabase'
 import fs from 'node:fs'
@@ -112,18 +113,6 @@ export const MAX_DESKTOP_JOURNAL_ENTRY_BYTES = 256 * 1024 * 1024
 export const MAX_DESKTOP_JOURNAL_EXPANDED_BYTES = 2 * 1024 * 1024 * 1024
 const DESKTOP_JOURNAL_EXTRACTION_TIMEOUT_MS = 5 * 60_000
 const JOURNAL_IMPORT_MARKER = '.journal-import.json'
-const CRC32_TABLE = Array.from({ length: 256 }, (_, value) => {
-  let crc = value
-  for (let bit = 0; bit < 8; bit += 1) crc = (crc & 1) ? (0xedb88320 ^ (crc >>> 1)) : (crc >>> 1)
-  return crc >>> 0
-})
-
-function updateCrc32(crc: number, chunk: Buffer): number {
-  let value = crc
-  for (const byte of chunk) value = CRC32_TABLE[(value ^ byte) & 0xff]! ^ (value >>> 8)
-  return value >>> 0
-}
-
 interface JournalImportMarker {
   version: 1
   recoveryDir: string
@@ -336,11 +325,11 @@ async function extractZipToDir(zipFilePath: string, destinationDir: string): Pro
         currentReadStream = readStream
         currentWriteStream = writeStream
         let actualEntryBytes = 0
-        let entryCrc32 = 0xffffffff
+        let entryCrc32 = 0
         readStream.on('data', (chunk: Buffer) => {
           actualEntryBytes += chunk.byteLength
           actualExpandedBytes += chunk.byteLength
-          entryCrc32 = updateCrc32(entryCrc32, chunk)
+          entryCrc32 = crc32(chunk, entryCrc32)
           if (actualEntryBytes > MAX_DESKTOP_JOURNAL_ENTRY_BYTES) {
             readStream.destroy(archiveLimitError(`entry exceeds ${MAX_DESKTOP_JOURNAL_ENTRY_BYTES / 1024 / 1024} MB (${entry.fileName})`))
           } else if (actualExpandedBytes > MAX_DESKTOP_JOURNAL_EXPANDED_BYTES) {
@@ -351,7 +340,7 @@ async function extractZipToDir(zipFilePath: string, destinationDir: string): Pro
         if (actualEntryBytes !== entry.uncompressedSize) {
           throw archiveLimitError(`entry size does not match ZIP directory (${entry.fileName})`)
         }
-        if (((entryCrc32 ^ 0xffffffff) >>> 0) !== (entry.crc32 >>> 0)) {
+        if (entryCrc32 !== (entry.crc32 >>> 0)) {
           throw archiveLimitError(`entry CRC does not match ZIP directory (${entry.fileName})`)
         }
         currentReadStream = null
