@@ -4,7 +4,7 @@ import path from 'node:path'
 import { assertLibraryIdentity, LibraryIdentityMismatchError } from './libraryIdentity'
 import { LibraryStorage } from './storage'
 import electronRuntime from 'electron'
-import { writeFileAtomicallySync } from './atomicFile'
+import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
 import { getLibraryPaths } from './paths'
 import { OperationalError } from '../../src/lib/operationalError'
 
@@ -23,10 +23,29 @@ function getConfigPath(): string {
   return path.join(requireAppPath('userData'), CONFIG_FILE)
 }
 
+export class UnconfirmedLibraryConfigError extends Error {
+  constructor(readonly cause: unknown) {
+    super('资料库位置写入结果未确认，请重新打开资料库核对')
+  }
+}
+
 export function saveLibraryConfig(cfg: { libraryPath: string; libraryId: string }): void {
   const configFile = getConfigPath()
-  fs.mkdirSync(path.dirname(configFile), { recursive: true })
-  writeFileAtomicallySync(configFile, JSON.stringify(cfg, null, 2), 'utf8')
+  const bytes = Buffer.from(JSON.stringify(cfg, null, 2), 'utf8')
+  let replaced = false
+  try {
+    writeFileAtomicallySync(configFile, bytes, undefined, undefined, () => { replaced = true })
+  } catch (error) {
+    if (!replaced) throw error
+    // rename 已完成。独立确认目录同步及已发布内容，避免把新位置误报为旧位置。
+    try {
+      fsyncDirectorySync(path.dirname(configFile))
+      if (fs.readFileSync(configFile).equals(bytes)) return
+    } catch (verificationError) {
+      throw new UnconfirmedLibraryConfigError(verificationError)
+    }
+    throw new UnconfirmedLibraryConfigError(error)
+  }
 }
 
 export type ValidatedLibraryLocation =

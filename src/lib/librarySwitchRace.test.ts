@@ -11,7 +11,7 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
-async function verifyFailedSwitch(observerFails: boolean): Promise<void> {
+async function verifyFailedSwitch(observerFails: boolean, requiresReload = false): Promise<void> {
   const previousStatus = useSaveStatus.getState()
   const failure = new Error('failed save status observer')
   let reloads = 0
@@ -27,6 +27,7 @@ async function verifyFailedSwitch(observerFails: boolean): Promise<void> {
         getLibraryPath: async () => activePath,
         prepareLibrarySwitch: async () => ({ ok: true, token: 'failed-switch' }),
         activatePreparedLibrary: async () => {
+          if (requiresReload) return { ok: false, requiresReload: true, error: '位置未能确认' }
           // 模拟旧版/异常主进程：路径已改变，但 IPC 最终返回失败。
           activePath = 'D:\\uncertain-library'
           return { ok: false, error: '候选库损坏' }
@@ -65,6 +66,10 @@ async function verifyFailedSwitch(observerFails: boolean): Promise<void> {
 
 export async function testFailedLibrarySwitchNeverWritesOldStoreToChangedPath(): Promise<void> {
   await verifyFailedSwitch(false)
+}
+
+export async function testUnconfirmedConfigRequiresReloadEvenWhenPreviousPathIsStillVisible(): Promise<void> {
+  await verifyFailedSwitch(false, true)
 }
 
 export async function testFailedLibrarySwitchDoesNotResumeWritesWhenStatusObserverFails(): Promise<void> {

@@ -1,0 +1,162 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+
+async function verifyRejectedSwitchPreservesBackups(page, libraryPath, candidatePath, userDataPath, candidateBackup) {
+  const activeBackup = await page.evaluate(() => window.journalBridge.createBackup())
+  assert(activeBackup && candidateBackup, '隔离库必须各有一份原生备份样本')
+  function seedRetentionHistory(sample) {
+    const dir = path.dirname(sample)
+    const names = new Set(fs.readdirSync(dir).filter(name => /^journal-.*\.db$/.test(name)))
+    for (let day = 1; names.size < 9; day++) {
+      const name = `journal-2025-01-${String(day).padStart(2, '0')}-00-00-00-000Z.db`
+      if (names.has(name)) continue
+      for (const suffix of ['', '.meta.json', '.manifest.json']) {
+        fs.copyFileSync(sample + suffix, path.join(dir, name + suffix), fs.constants.COPYFILE_EXCL)
+      }
+      names.add(name)
+    }
+    return [...names].sort()
+  }
+  const oldNames = seedRetentionHistory(activeBackup)
+  const candidateNames = seedRetentionHistory(candidateBackup)
+  const list = sample => fs.readdirSync(path.dirname(sample)).filter(name => /^journal-.*\.db$/.test(name)).sort()
+  const prepare = () => page.evaluate(root => window.journalBridge.prepareLibrarySwitch(root, 'open'), candidatePath)
+  const activate = token => page.evaluate(id => window.journalBridge.activatePreparedLibrary(id), token)
+  const prepared = await prepare()
+  assert(prepared.ok, '必须先通过候选库准备')
+  const config = path.join(userDataPath, 'library-config.json')
+  const saved = config + '.isolated-fixture'
+  fs.renameSync(config, saved)
+  let rejected
+  try {
+    fs.mkdirSync(config)
+    try { rejected = await activate(prepared.token) }
+    finally { fs.rmdirSync(config) }
+  } finally {
+    fs.renameSync(saved, config)
+  }
+  assert(!rejected.ok && rejected.error.includes('无法保存交易库位置'), '配置提交失败必须保留原库')
+  assert(await page.evaluate(() => window.journalBridge.getLibraryPath()) === libraryPath, '失败后活动资料库发生变化')
+  await page.evaluate(async () => { const bridge = window.journalBridge; return bridge.saveSnapshot(await bridge.loadSnapshot()) })
+  const remainingOld = list(activeBackup)
+  const remainingCandidate = list(candidateBackup)
+  assert(JSON.stringify(oldNames) === JSON.stringify(remainingOld) &&
+    JSON.stringify(candidateNames) === JSON.stringify(remainingCandidate),
+    `拒绝切库后两库备份应全部保留，实际为 ${remainingOld.length}/${oldNames.length} 与 ${remainingCandidate.length}/${candidateNames.length}`)
+  const retry = await prepare()
+  assert(retry.ok && (await activate(retry.token)).ok, '恢复配置后应能激活同一候选')
+  assert(list(candidateBackup).length === 7 && list(activeBackup).length === oldNames.length, '成功切库后仅轮换新库')
+  return { sourceRetained: oldNames.length, candidateRetained: candidateNames.length, candidateAfterActivation: 7 }
+}
+
+async function verifyConfigPublication(application, page, libraryPath, candidatePath, userDataPath) {
+  // 只干预隔离 userData 中、已经 rename 的临时配置文件。Windows 同样执行这条收尾路径。
+  async function activateWithFinalizationFault(target, denyReadback) {
+    const prepared = await page.evaluate(dir => window.journalBridge.prepareLibrarySwitch(dir, 'open'), target)
+    assert(prepared.ok, '隔离位置配置用例必须先取得切库候选')
+    await application.evaluate(({ app }, input) => {
+      const fs = process.getBuiltinModule('fs')
+      const path = process.getBuiltinModule('path')
+      if (fs.realpathSync(app.getPath('userData')) !== fs.realpathSync(input.userData)) throw new Error('隔离配置路径不符')
+      const config = path.join(app.getPath('userData'), 'library-config.json')
+      const remove = fs.rmSync
+      const read = fs.readFileSync
+      let injected = false
+      fs.rmSync = function (file, ...args) {
+        if (!injected && typeof file === 'string' && path.dirname(file) === path.dirname(config) &&
+          path.basename(file).startsWith('.library-config.json.' + process.pid + '.') &&
+          file.endsWith('.tmp') && !fs.existsSync(file)) {
+          injected = true
+          throw new Error('isolated failure after publishing config')
+        }
+        return remove.call(this, file, ...args)
+      }
+      fs.readFileSync = function (file, ...args) {
+        if (injected && input.denyReadback && file === config) throw new Error('isolated config readback failure')
+        return read.call(this, file, ...args)
+      }
+      globalThis.restoreConfigFault = () => {
+        fs.rmSync = remove
+        fs.readFileSync = read
+        delete globalThis.restoreConfigFault
+        return injected
+      }
+    }, { userData: userDataPath, denyReadback })
+    try {
+      return await page.evaluate(token => window.journalBridge.activatePreparedLibrary(token), prepared.token)
+    } finally {
+      const injected = await application.evaluate(() => globalThis.restoreConfigFault())
+      assert(injected, '必须在配置替换后触发隔离故障')
+    }
+  }
+
+  const confirmed = await activateWithFinalizationFault(libraryPath, false)
+  assert(confirmed.ok && confirmed.snapshot?.tagPresets[0] === 'post-recovery-follow-up', '已独立核对的位置应完成切换')
+  await page.evaluate(snap => window.journalBridge.saveSnapshot(snap), confirmed.snapshot)
+  const unconfirmed = await activateWithFinalizationFault(candidatePath, true)
+  assert(!unconfirmed.ok && unconfirmed.requiresReload, '配置已替换但无法确认时必须要求重新打开')
+  const selected = JSON.parse(fs.readFileSync(path.join(userDataPath, 'library-config.json'), 'utf8'))
+  assert(selected.libraryPath === candidatePath, '故障时实际配置应已替换')
+  const blocked = await page.evaluate(async snap => {
+    try { await window.journalBridge.saveSnapshot(snap); return false } catch { return true }
+  }, confirmed.snapshot)
+  assert(blocked, '配置结果未确认后必须拒绝旧窗口保存')
+  const reopened = await page.evaluate(async () => {
+    const bridge = window.journalBridge
+    await bridge.storageOpen()
+    const snapshot = await bridge.loadSnapshot()
+    await bridge.saveSnapshot(snapshot)
+    return { path: await bridge.getLibraryPath(), tag: snapshot.tagPresets[0] }
+  })
+  assert(reopened.path === candidatePath && reopened.tag === 'isolated-second-library', '重开必须读取配置指出的库及原快照')
+  return { recoveredAfterWriteError: true, unconfirmedWriteBlocked: blocked, reopenedCandidate: true }
+}
+
+export async function verifyCutoverReceipts({ application, page, libraryPath, candidatePath, userDataPath }) {
+  // 替换已提交后，单独查询版本可能被下一次独占操作拒绝。
+  // 本阶段只保留普通快照读取，禁止通过第二条版本 IPC 补齐写入回执。
+  await application.evaluate(({ ipcMain }) => {
+    ipcMain.removeHandler('storage:getSnapshotRevision')
+    ipcMain.handle('storage:getSnapshotRevision', () => { throw new Error('isolated revision query unavailable') })
+  })
+  const backup = await page.evaluate(() => window.journalBridge.createBackup())
+  assert(backup, '无法创建隔离备份')
+  const { candidateBackup, ...receipts } = await page.evaluate(async ({ libraryPath, candidatePath, backupName }) => {
+    const bridge = window.journalBridge
+    const previous = await bridge.loadSnapshot()
+    const stale = await bridge.commitStageRollover({
+      expectedCurrentStageId: 'obsolete',
+      expectedRollover: { id: 'obsolete', requestedAt: '2026-08-30', effectiveWeekStart: '2026-08-31', postponedCount: 0 },
+    })
+    if (stale.ok || stale.reason !== 'stale') throw new Error('旧阶段请求须返回原有的拒绝原因')
+    await bridge.saveSnapshot({ ...previous, tagPresets: ['before-backup-cutover'] })
+    const restored = await bridge.restoreBackup(backupName)
+    if (!restored.ok || restored.snapshot.tagPresets[0] !== 'post-recovery-follow-up') throw new Error('备份恢复回执与快照不符')
+    await bridge.saveSnapshot(restored.snapshot)
+
+    const prepared = await bridge.prepareJournalImport('receipt-check')
+    if (!prepared.ok) throw new Error('隔离恢复归档应可预检')
+    const journal = await bridge.commitPreparedJournalImport(prepared.preview.token)
+    if (!journal.ok || journal.snapshot.tagPresets[0] !== 'before-storage-recovery') throw new Error('归档恢复回执与快照不符')
+    await bridge.saveSnapshot(previous)
+
+    const activate = async (root, mode) => {
+      const candidate = await bridge.prepareLibrarySwitch(root, mode)
+      if (!candidate.ok) throw new Error('无法准备隔离资料库')
+      const activated = await bridge.activatePreparedLibrary(candidate.token)
+      if (!activated.ok) throw new Error('无法激活隔离资料库')
+      return activated.snapshot
+    }
+    if (await activate(candidatePath, 'create') !== null) throw new Error('新建目标应为空')
+    await bridge.saveSnapshot({ ...previous, tagPresets: ['isolated-second-library'] })
+    const candidateBackup = await bridge.createBackup()
+    const original = await activate(libraryPath, 'open')
+    if (original?.tagPresets[0] !== 'post-recovery-follow-up') throw new Error('切回原库后必须读到原快照')
+    await bridge.saveSnapshot(original)
+    return { candidateBackup, staleStage: stale.reason, backup: true, archive: true, create: true, reopen: true }
+  }, { libraryPath, candidatePath, backupName: path.basename(backup) })
+  const retention = await verifyRejectedSwitchPreservesBackups(page, libraryPath, candidatePath, userDataPath, candidateBackup)
+  const location = await verifyConfigPublication(application, page, libraryPath, candidatePath, userDataPath)
+  return { ...receipts, retention, location }
+}

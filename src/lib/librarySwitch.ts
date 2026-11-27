@@ -58,7 +58,7 @@ export async function switchActiveLibrary(
     const stableRevision = await flushCurrentLibraryAtStableRevision()
     const result = await bridge.activatePreparedLibrary(prepared.token)
     if (!result.ok) {
-      safeToFlush = await bridge.getLibraryPath().then(
+      safeToFlush = !result.requiresReload && await bridge.getLibraryPath().then(
         (activePath) => activePath === previousPath,
         () => false,
       )

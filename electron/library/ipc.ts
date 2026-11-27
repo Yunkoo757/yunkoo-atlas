@@ -1,4 +1,5 @@
 import { isAssetPurgeCommitEnabled } from '../../src/config/assetPurge'
+import type { LibraryActivationResult } from '../../src/types/journalBridge'
 import { sha256File } from './fileChecksum'
 import {
   ipcMain,
@@ -22,6 +23,7 @@ import {
   getValidatedLibraryLocation,
   libraryLocationError,
   saveLibraryConfig,
+  UnconfirmedLibraryConfigError,
 } from './libraryLocation'
 import {
   createBackup,
@@ -395,7 +397,7 @@ async function openLibrarySwitchCandidate(
 
 function activateLibraryCandidate(
   prepared: Awaited<ReturnType<typeof openLibrarySwitchCandidate>>,
-): { ok: true; snapshot: ReturnType<LibraryStorage['loadSnapshot']> } | { ok: false; error: string } {
+): LibraryActivationResult {
   const { candidate, resolvedPath, snapshot } = prepared
 
   if (storage && areSameLibrary(storage, candidate)) {
@@ -419,6 +421,14 @@ function activateLibraryCandidate(
     })
   } catch (error) {
     candidate.release()
+    if (error instanceof UnconfirmedLibraryConfigError) {
+      // 旧凭据只认原实例。下一次开库必须从当前配置重新验证位置与身份。
+      autoBackup.stop()
+      storage = null
+      previous?.release()
+      safeConsoleError('library-location-commit-unconfirmed', error.cause)
+      return { ok: false, requiresReload: true, error: error.message }
+    }
     return { ok: false, error: `无法保存交易库位置：${toErrorMessage(error)}` }
   }
 
@@ -435,10 +445,7 @@ function activateLibraryCandidate(
 async function switchActiveLibrary(
   libPath: string,
   mode: LibrarySwitchMode,
-): Promise<
-  | { ok: true; snapshot: ReturnType<LibraryStorage['loadSnapshot']> }
-  | { ok: false; error: string }
-> {
+): Promise<LibraryActivationResult> {
   try {
     return activateLibraryCandidate(await openLibrarySwitchCandidate(libPath, mode))
   } catch (error) {
@@ -524,7 +531,7 @@ async function activatePreparedLibrarySwitch(
   event: IpcMainInvokeEvent,
 ): Promise<
   | ({ ok: true; writerGrant: WriterGrant } & SnapshotEnvelope)
-  | { ok: false; error: string }
+  | Extract<LibraryActivationResult, { ok: false }>
 > {
   const prepared = preparedLibrarySwitch
   if (

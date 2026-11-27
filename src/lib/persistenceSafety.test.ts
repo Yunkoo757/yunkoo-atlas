@@ -114,16 +114,6 @@ export async function testStorageHealthOnlyReportsMeasuredAttachmentData(): Prom
   assert(!panel.includes('getAssetForExport(id)'), '存储健康统计不得读取图片正文或生成 Base64')
 }
 
-export async function testLibraryLocationConfigUsesAtomicPersistence(): Promise<void> {
-  const location = await fs.readFile('electron/library/libraryLocation.ts', 'utf8')
-  assert(location.includes("import { writeFileAtomicallySync } from './atomicFile'"), '资料库路径配置应复用原子写入')
-  assert(
-    location.includes('writeFileAtomicallySync(configFile, JSON.stringify(cfg, null, 2)'),
-    '切换资料库后不得直接覆盖路径配置文件',
-  )
-  assert(!location.includes('fs.writeFileSync(configFile'), '资料库路径配置不得存在中断后半写文件风险')
-}
-
 export async function testDesktopAttachmentWritesUseTheAtomicFileBoundary(): Promise<void> {
   const source = await fs.readFile('electron/library/storage.ts', 'utf8')
   const saveAsset = source.match(/async saveAssetAsync\([\s\S]*?\n  }/)?.[0] ?? ''

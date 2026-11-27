@@ -104,6 +104,10 @@ export type AutoLaunchState = {
   error?: string
 }
 
+export type LibraryActivationResult =
+  | { ok: true; snapshot: PersistedSnapshot | null }
+  | { ok: false; error?: string; requiresReload?: true }
+
 export type LibraryLocationState =
   | { kind: 'unset' }
   | {
@@ -142,18 +146,12 @@ export interface JournalBridge {
   resetWindowHotkey(): Promise<WindowHotkeyUpdateResult>
   getLibraryStatus(): Promise<LibraryLocationState>
   pickLibraryFolder(): Promise<string | null>
-  createNewLibrary(libPath: string): Promise<
-    { ok: true; snapshot: PersistedSnapshot | null } | { ok: false; error?: string }
-  >
-  openExistingLibrary(libPath: string): Promise<
-    { ok: true; snapshot: PersistedSnapshot | null } | { ok: false; error?: string }
-  >
+  createNewLibrary(libPath: string): Promise<LibraryActivationResult>
+  openExistingLibrary(libPath: string): Promise<LibraryActivationResult>
   prepareLibrarySwitch(libPath: string, mode: 'create' | 'open'): Promise<
     { ok: true; token: string } | { ok: false; error?: string }
   >
-  activatePreparedLibrary(token: string): Promise<
-    { ok: true; snapshot: PersistedSnapshot | null } | { ok: false; error?: string }
-  >
+  activatePreparedLibrary(token: string): Promise<LibraryActivationResult>
   cancelPreparedLibrary(token: string): Promise<boolean>
   getLibraryPath(): Promise<string>
   storageOpen(): Promise<boolean>
