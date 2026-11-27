@@ -2,11 +2,12 @@ import { validateBundleBuildIdentityEvidence } from './bundle-build-identity.mjs
 
 async function runVerifiedElectronEvidence(dependencies, requiredBundles, label) {
   let primaryError
+  let library
   let capturedEvidence
   try {
     const bundleIdentity = await dependencies.readBundleIdentity()
     validateBundleBuildIdentityEvidence(bundleIdentity, requiredBundles)
-    const library = await dependencies.createLibrary(bundleIdentity)
+    library = await dependencies.createLibrary(bundleIdentity)
     const seed = await dependencies.seedLibrary({ bundleIdentity, library })
     capturedEvidence = await dependencies.captureEvidence({ bundleIdentity, library, seed })
   } catch (error) {
@@ -15,7 +16,7 @@ async function runVerifiedElectronEvidence(dependencies, requiredBundles, label)
 
   let cleanupError
   try {
-    await dependencies.cleanupEvidence()
+    await dependencies.cleanupEvidence(library)
   } catch (error) {
     cleanupError = error
   }

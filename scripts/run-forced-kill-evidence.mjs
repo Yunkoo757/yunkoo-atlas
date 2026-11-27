@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -10,6 +9,7 @@ import { SCHEMA_VERSION } from '../src/storage/types.ts'
 import { readRepositoryBuildExpectation } from './bundle-build-identity.mjs'
 import { runForcedKillEvidenceRunner } from './electron-evidence-runner.mjs'
 import { detectFileSystem } from './file-system-type.mjs'
+import { runHeadlessElectron } from './headless-electron.mjs'
 
 export { runForcedKillEvidenceRunner } from './electron-evidence-runner.mjs'
 
@@ -18,40 +18,19 @@ const electronExecutable = require('electron')
 const root = process.cwd()
 const outputIndex = process.argv.indexOf('--output')
 const explicitOutput = outputIndex >= 0 ? process.argv[outputIndex + 1] : null
-let libraryRoot = null
 
-function runElectronMain(mode, onSpawn, extraEnv = {}, targetLibraryRoot = libraryRoot) {
-  if (typeof targetLibraryRoot !== 'string' || !targetLibraryRoot) {
-    throw new Error(`Electron ${mode} run requires an explicit isolated library path`)
-  }
-  return new Promise((resolve, reject) => {
-    const env = {
-      ...process.env,
-      TRADER_ATLAS_FORCED_KILL_MODE: mode,
-      TRADER_ATLAS_LIBRARY: targetLibraryRoot,
-      VITE_DEV_SERVER_URL: '',
-      ...extraEnv,
-    }
-    delete env.ELECTRON_RUN_AS_NODE
-    const child = spawn(electronExecutable, ['.'], {
-      cwd: root,
-      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-      env,
-    })
-    let stderr = ''
-    child.stderr?.on('data', (chunk) => { stderr += chunk.toString() })
-    const messages = []
-    child.on('message', (message) => {
-      messages.push(message)
-      if (message?.type === 'error') reject(new Error(message.message))
-    })
-    child.on('error', reject)
-    child.on('exit', (code, signal) => resolve({ code, signal, messages, stderr, pid: child.pid }))
-    onSpawn?.(child, messages)
+function runElectronMain(mode, library, { onSpawn, extraEnv, timeoutMs } = {}) {
+  return runHeadlessElectron({
+    executable: electronExecutable,
+    root,
+    library,
+    environment: { ...extraEnv, TRADER_ATLAS_FORCED_KILL_MODE: mode },
+    onSpawn,
+    timeoutMs,
   })
 }
 
-async function rewriteLibraryAsV8() {
+async function rewriteLibraryAsV8(libraryRoot) {
   const SQL = await initSqlJs({
     locateFile: (file) => path.join(root, 'node_modules', 'sql.js', 'dist', file),
   })
@@ -76,7 +55,7 @@ async function rewriteLibraryAsV8() {
   fs.writeFileSync(manifestFile, JSON.stringify({ ...manifest, schemaVersion: 8 }, null, 2), 'utf8')
 }
 
-function readMigrationPhase() {
+function readMigrationPhase(libraryRoot) {
   try {
     return JSON.parse(fs.readFileSync(path.join(libraryRoot, 'v8-to-v9.migration'), 'utf8')).phase
   } catch {
@@ -84,34 +63,33 @@ function readMigrationPhase() {
   }
 }
 
-async function forceKillMigrationAt(boundary) {
-  await rewriteLibraryAsV8()
+async function forceKillMigrationAt(libraryRoot, boundary) {
+  await rewriteLibraryAsV8(libraryRoot)
   let killSignalSent = false
   let boundaryObserved = false
-  const run = runElectronMain('verify', (child) => {
-    const poll = setInterval(() => {
-      const phase = readMigrationPhase()
-      const observed = boundary === 'before-database-replace'
-        ? phase === 'prepared' && fs.existsSync(path.join(libraryRoot, '.v8-to-v9-journal.db.candidate'))
-        : boundary === 'after-database-replace'
-          ? phase === 'database-replaced'
-          : phase === 'manifest-replaced'
-      if (!observed || child.exitCode !== null) return
-      clearInterval(poll)
-      boundaryObserved = true
-      killSignalSent = child.kill('SIGKILL')
-    }, 1)
-    child.once('exit', () => clearInterval(poll))
-  }, { ATLAS_SCHEMA_MIGRATION_PAUSE_BOUNDARY: boundary })
-  const timeout = new Promise((_, reject) => {
-    const timer = setTimeout(() => reject(new Error(`等待 ${boundary} 迁移边界超时`)), 30_000)
-    run.finally(() => clearTimeout(timer)).catch(() => {})
+  const crashed = await runElectronMain('verify', libraryRoot, {
+    timeoutMs: 30_000,
+    extraEnv: { ATLAS_SCHEMA_MIGRATION_PAUSE_BOUNDARY: boundary },
+    onSpawn(child) {
+      const poll = setInterval(() => {
+        const phase = readMigrationPhase(libraryRoot)
+        const observed = boundary === 'before-database-replace'
+          ? phase === 'prepared' && fs.existsSync(path.join(libraryRoot, '.v8-to-v9-journal.db.candidate'))
+          : boundary === 'after-database-replace'
+            ? phase === 'database-replaced'
+            : phase === 'manifest-replaced'
+        if (!observed || child.exitCode !== null) return
+        clearInterval(poll)
+        boundaryObserved = true
+        killSignalSent = child.kill('SIGKILL')
+      }, 1)
+      child.once('exit', () => clearInterval(poll))
+    },
   })
-  const crashed = await Promise.race([run, timeout])
   if (!boundaryObserved || !killSignalSent || crashed.signal !== 'SIGKILL' || crashed.code !== null) {
     throw new Error(`未能在 ${boundary} 真实强杀 Electron 主进程`)
   }
-  const reopened = await runElectronMain('verify')
+  const reopened = await runElectronMain('verify', libraryRoot)
   const verified = reopened.messages.find((message) => message?.type === 'verified')
   const manifest = JSON.parse(fs.readFileSync(path.join(libraryRoot, 'manifest.json'), 'utf8'))
   const markerAbsent = !fs.existsSync(path.join(libraryRoot, 'v8-to-v9.migration'))
@@ -138,7 +116,7 @@ async function readMainBundleIdentity() {
   }
   const buildExpectation = await readRepositoryBuildExpectation(root)
   const identityProbePath = path.join(os.tmpdir(), `atlas-forced-kill-identity-probe-${process.pid}`)
-  const identityRun = await runElectronMain('identity', undefined, {}, identityProbePath)
+  const identityRun = await runElectronMain('identity', identityProbePath)
   const identityMessage = identityRun.messages.find((message) => message?.type === 'identity')
   if (identityRun.code !== 0 || !identityMessage?.buildIdentity) {
     throw new Error(`无法读取实际 Electron main bundle identity：${identityRun.stderr}`)
@@ -150,8 +128,8 @@ async function readMainBundleIdentity() {
   }
 }
 
-async function seedForcedKillLibrary() {
-  const seed = await runElectronMain('seed')
+async function seedForcedKillLibrary({ library }) {
+  const seed = await runElectronMain('seed', library)
   if (seed.code !== 0 || !seed.messages.some((message) => message?.type === 'seeded')) {
     throw new Error(`无法建立最后确认 revision：${seed.stderr}`)
   }
@@ -162,7 +140,7 @@ async function seedForcedKillLibrary() {
   }
 }
 
-async function captureForcedKillEvidence({ bundleIdentity, seed }) {
+async function captureForcedKillEvidence({ bundleIdentity, library: libraryRoot, seed }) {
   const expectedLiveStageIds = seed.expectedLiveStageIds
   const expectedSnapshotRevision = seed.expectedSnapshotRevision
   let tempFileObserved = null
@@ -177,28 +155,27 @@ async function captureForcedKillEvidence({ bundleIdentity, seed }) {
     tempFileObserved = name
     killRequestedAt = new Date().toISOString()
   })
-  const crashPromise = runElectronMain('crash-save', (child) => {
-    childPid = child.pid ?? null
-    child.on('message', (message) => {
-      if (message?.type === 'save-starting') {
-        saveStartingObserved = true
-        saveStartingMessage = message
-      }
-    })
-    const poll = setInterval(() => {
-      if (!tempFileObserved || child.exitCode !== null) return
-      clearInterval(poll)
-      killSignalSent = child.kill('SIGKILL')
-    }, 1)
-    child.once('exit', () => clearInterval(poll))
-  })
-  const crashTimeout = new Promise((_, reject) => {
-    const timer = setTimeout(() => reject(new Error('等待原子临时文件或强杀退出超时')), 30_000)
-    crashPromise.finally(() => clearTimeout(timer)).catch(() => {})
+  const crashPromise = runElectronMain('crash-save', libraryRoot, {
+    timeoutMs: 30_000,
+    onSpawn(child) {
+      childPid = child.pid ?? null
+      child.on('message', (message) => {
+        if (message?.type === 'save-starting') {
+          saveStartingObserved = true
+          saveStartingMessage = message
+        }
+      })
+      const poll = setInterval(() => {
+        if (!tempFileObserved || child.exitCode !== null) return
+        clearInterval(poll)
+        killSignalSent = child.kill('SIGKILL')
+      }, 1)
+      child.once('exit', () => clearInterval(poll))
+    },
   })
   let crash
   try {
-    crash = await Promise.race([crashPromise, crashTimeout])
+    crash = await crashPromise
   } finally {
     watcher.close()
   }
@@ -212,7 +189,7 @@ async function captureForcedKillEvidence({ bundleIdentity, seed }) {
     throw new Error('强杀前保存已经完成，证据无效')
   }
 
-  const verify = await runElectronMain('verify')
+  const verify = await runElectronMain('verify', libraryRoot)
   const verified = verify.messages.find((message) => message?.type === 'verified')
   if (verify.code !== 0 || !verified) throw new Error(`强杀后无法重新打开资料库：${verify.stderr}`)
   const lastConfirmedRecovered = verified.displayName === 'confirmed-revision-1'
@@ -227,7 +204,7 @@ async function captureForcedKillEvidence({ bundleIdentity, seed }) {
     'after-database-replace',
     'after-manifest-replace',
   ]) {
-    schemaMigration.push(await forceKillMigrationAt(boundary))
+    schemaMigration.push(await forceKillMigrationAt(libraryRoot, boundary))
   }
   const schemaMigrationRecovered = schemaMigration.every((result) => result.status === 'pass')
   const fileSystem = detectFileSystem(libraryRoot)
@@ -309,17 +286,11 @@ async function writeForcedKillReport(report) {
 export async function runForcedKillEvidence() {
   return runForcedKillEvidenceRunner({
     readBundleIdentity: readMainBundleIdentity,
-    createLibrary: async () => {
-      libraryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-forced-kill-library-'))
-      return libraryRoot
-    },
+    createLibrary: () => fs.promises.mkdtemp(path.join(os.tmpdir(), 'atlas-forced-kill-library-')),
     seedLibrary: seedForcedKillLibrary,
     captureEvidence: captureForcedKillEvidence,
-    cleanupEvidence: async () => {
-      if (!libraryRoot) return
-      const cleanupRoot = libraryRoot
-      libraryRoot = null
-      await fs.promises.rm(cleanupRoot, { recursive: true, force: true })
+    cleanupEvidence: async library => {
+      if (library) await fs.promises.rm(library, { recursive: true, force: true })
     },
     writeReport: writeForcedKillReport,
   })

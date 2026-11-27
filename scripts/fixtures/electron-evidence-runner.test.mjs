@@ -27,7 +27,8 @@ function runnerDependencies(bundleIdentity, { cleanupError } = {}) {
       createLibrary: async () => { calls.push('create-library'); return 'library' },
       seedLibrary: async () => { calls.push('seed-library'); return 'seed' },
       captureEvidence: async () => { calls.push('capture'); return { status: 'pass' } },
-      cleanupEvidence: async () => {
+      cleanupEvidence: async library => {
+        assert.equal(library, calls.includes('create-library') ? 'library' : undefined)
         calls.push('cleanup')
         if (cleanupError) throw cleanupError
       },

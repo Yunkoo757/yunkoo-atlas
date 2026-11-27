@@ -32,6 +32,8 @@ on:
       - 'scripts/git-provenance.mjs'
       - 'scripts/git-worktree.mjs'
       - 'scripts/run-forced-kill-evidence.mjs'
+      - 'scripts/headless-electron.mjs'
+      - 'scripts/fixtures/headless-electron.test.mjs'
       - 'scripts/run-asset-lifecycle-platform.mjs'
       - 'scripts/run-electron-safety-platform.mjs'
       - 'scripts/platform-regression.mjs'
