@@ -1,19 +1,23 @@
 import { ICON_HERO, ICON_LG, ICON_MD } from '@/icons/iconSize'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import type { JournalBridge, LibrarySwitchMode } from '@/types/journalBridge'
+import { userFacingErrorMessage } from '@/lib/userFacingError'
+import { notifyStorageRecoveryRequired } from '@/lib/storageRecovery'
 import { FolderOpen, Plus, HardDrive } from '@/icons/appIcons'
 import { Button } from '@/components/ui/Button'
 import './WelcomeScreen.css'
 
 interface Props {
+  bridge: JournalBridge
   onReady: () => void
 }
 
-export function WelcomeScreen({ onReady }: Props) {
+export function WelcomeScreen({ bridge, onReady }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [pickedPath, setPickedPath] = useState('')
 
-  const bridge = (window as any).journalBridge
+  const activating = useRef(false)
 
   const pickFolder = async () => {
     setError('')
@@ -25,38 +29,27 @@ export function WelcomeScreen({ onReady }: Props) {
     }
   }
 
-  const createNew = async () => {
-    if (!pickedPath) return
+  const activate = async (mode: LibrarySwitchMode) => {
+    if (!pickedPath || activating.current) return
+    activating.current = true
     setBusy(true)
     setError('')
+    const fallback = mode === 'create' ? '创建库失败，请重试' : '无法打开所选库'
     try {
-      const result = await bridge.createNewLibrary(pickedPath)
+      const result = mode === 'create'
+        ? await bridge.createNewLibrary(pickedPath)
+        : await bridge.openExistingLibrary(pickedPath)
       if (result.ok) {
         onReady()
+      } else if (result.requiresReload) {
+        notifyStorageRecoveryRequired(userFacingErrorMessage(result.error, '资料库位置需要重新确认，请重新打开资料库'))
       } else {
-        setError('创建库失败，请重试')
+        setError(userFacingErrorMessage(result.error, fallback))
       }
-    } catch {
-      setError('创建库时发生错误')
+    } catch (error) {
+      setError(userFacingErrorMessage(error, fallback))
     } finally {
-      setBusy(false)
-    }
-  }
-
-  const openExisting = async () => {
-    if (!pickedPath) return
-    setBusy(true)
-    setError('')
-    try {
-      const result = await bridge.openExistingLibrary(pickedPath)
-      if (result.ok) {
-        onReady()
-      } else {
-        setError(result.error ?? '无法打开所选库')
-      }
-    } catch {
-      setError('打开库时发生错误')
-    } finally {
+      activating.current = false
       setBusy(false)
     }
   }
@@ -90,7 +83,7 @@ export function WelcomeScreen({ onReady }: Props) {
               className="welcome-btn"
               variant="primary"
               size="lg"
-              onClick={createNew}
+              onClick={() => void activate('create')}
               disabled={busy}
               type="button"
             >
@@ -101,7 +94,7 @@ export function WelcomeScreen({ onReady }: Props) {
               className="welcome-btn"
               variant="bordered"
               size="lg"
-              onClick={openExisting}
+              onClick={() => void activate('open')}
               disabled={busy}
               type="button"
             >
@@ -111,7 +104,7 @@ export function WelcomeScreen({ onReady }: Props) {
           </div>
         )}
 
-        {error && <p className="welcome-error">{error}</p>}
+        {error && <p className="welcome-error" role="alert">{error}</p>}
 
         <p className="welcome-hint">
           资料库目录中会存储交易数据（journal.db）和附件文件。

@@ -23,7 +23,7 @@ import { waitForPendingStorageOperations } from './storage/pendingOperations'
 import { RendererCloseBarrier } from './storage/closeBarrier'
 import { assertTradeComposerDraftCanClose, UnsavedTradeComposerDraftError } from './lib/tradeComposerDraftGuard'
 import { shouldPreventAppUnload } from './storage/unloadGuard'
-import { getDesktopPlatform, isElectron } from './storage/runtime'
+import { getDesktopPlatform, getJournalBridge, isElectron } from './storage/runtime'
 import { Sidebar } from './components/Sidebar'
 import { WindowTitlebar } from './components/WindowTitlebar'
 import { TradeWorkspaceContext } from './components/TradeWorkspaceContext'
@@ -38,7 +38,7 @@ import { Button } from './components/ui/Button'
 import { ErrorDetails } from './components/ui/ErrorDetails'
 import { InlineStatus, type InlineStatusTone } from './components/ui/InlineStatus'
 import { ModalShell } from './components/ui/ModalShell'
-import type { WindowsCloseChoice } from './types/journalBridge'
+import type { JournalBridge, WindowsCloseChoice } from './types/journalBridge'
 import { toast, toastStore } from './lib/toast'
 import { AsyncGeneration } from './lib/asyncGeneration'
 import { WebStorageGuard } from './components/WebStorageGuard'
@@ -624,7 +624,7 @@ function Shell() {
 
 export function App() {
   const [ready, setReady] = useState(false)
-  const [needsWelcome, setNeedsWelcome] = useState(false)
+  const [welcomeBridge, setWelcomeBridge] = useState<JournalBridge | null>(null)
   const [storageError, setStorageError] = useState<string | null>(null)
   const [storageRecoveryRequired, setStorageRecoveryRequired] = useState(false)
   const [retryingStorage, setRetryingStorage] = useState(false)
@@ -676,12 +676,12 @@ export function App() {
   useEffect(() => {
     const init = async () => {
       // Electron: check if library needs initialization
-      if (isElectron()) {
+      const bridge = getJournalBridge()
+      if (bridge) {
         try {
-          const bridge = (window as any).journalBridge
           const status = await bridge.getLibraryStatus()
           if (status.kind === 'unset') {
-            setNeedsWelcome(true)
+            setWelcomeBridge(bridge)
             setReady(true) // show UI (welcome screen) but don't bootstrap yet
             return
           }
@@ -724,7 +724,7 @@ export function App() {
   }, [])
 
   const handleWelcomeReady = async () => {
-    setNeedsWelcome(false)
+    setWelcomeBridge(null)
     setReady(false)
     document.documentElement.removeAttribute('data-ui-settled')
     try {
@@ -857,14 +857,14 @@ export function App() {
     window.addEventListener(STAGE_MANAGEMENT_OPEN_EVENT, onStageManagementOpen)
 
     // Electron 主进程关闭前触发 flush
-    if (isElectron()) {
+    const bridge = getJournalBridge()
+    if (bridge) {
       let unsubscribeBeforeClose: (() => void) | undefined
       let unsubscribeCloseError: (() => void) | undefined
       let unsubscribeAutoBackupFailure: (() => void) | undefined
       let unsubscribeWindowsCloseExplanation: (() => void) | undefined
       let unsubscribeWindowsClosePreferenceError: (() => void) | undefined
       try {
-        const bridge = (window as any).journalBridge
         if (bridge?.onBeforeClose) {
           unsubscribeBeforeClose = bridge.onBeforeClose(async () => {
             const generation = closeSaveGeneration.current.begin()
@@ -979,6 +979,7 @@ export function App() {
   )
 
   if (storageError) {
+    const bridge = getJournalBridge()
     return (
       <div className="app-storage-error">
         <InlineStatus
@@ -1023,13 +1024,13 @@ export function App() {
                   {retryingStorage ? '正在重试…' : '重试打开'}
                 </Button>
               )}
-              {isElectron() && !storageRecoveryRequired && (
+              {bridge && !storageRecoveryRequired && (
                 <Button
                   size="lg"
                   variant="bordered"
                   onClick={() => {
                     setStorageError(null)
-                    setNeedsWelcome(true)
+                    setWelcomeBridge(bridge)
                     setReady(true)
                   }}
                 >
@@ -1044,10 +1045,10 @@ export function App() {
     )
   }
 
-  if (needsWelcome) {
+  if (welcomeBridge) {
     return <>
       <Suspense fallback={<DelayedRouteFallback />}>
-        <WelcomeScreen onReady={handleWelcomeReady} />
+        <WelcomeScreen bridge={welcomeBridge} onReady={handleWelcomeReady} />
       </Suspense>
       {closingUi}
     </>

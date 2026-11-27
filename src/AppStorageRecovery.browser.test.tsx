@@ -81,4 +81,55 @@ async function run(): Promise<void> {
   }
 }
 
-window.__appStorageRecoveryTest = run()
+async function verifyWelcomeReceipts(mode: 'open' | 'create') {
+  const host = document.getElementById('root')!
+  const root = createRoot(host)
+  const originalBridge = window.journalBridge
+  const path = '/isolated/selected-library'
+  const message = '新交易库只能创建在空目录中，请选择空目录或新文件夹'
+  let uncertain = false
+  let activations = 0
+  let recoveries = 0
+  const activate = async (selected: string) => {
+    assert(selected === path, '欢迎页应提交用户选择的原始目录')
+    activations++
+    return uncertain
+      ? { ok: false, requiresReload: true, error: '配置已写入但回读未确认' } as const
+      : { ok: false, error: message } as const
+  }
+  const bridge = {
+    isElectron: true, platform: 'darwin',
+    getLibraryStatus: async () => ({ kind: 'unset' } as const),
+    pickLibraryFolder: async () => path,
+    createNewLibrary: activate,
+    openExistingLibrary: activate,
+    recoverStorage: async () => { recoveries++; return { ok: false, code: 'reopen-failed', message: '隔离重开失败' } as const },
+  } satisfies Partial<JournalBridge>
+  try {
+    Object.defineProperty(window, 'journalBridge', { configurable: true, value: bridge })
+    root.render(<App />)
+    await waitFor(() => button('点击选择目录…') !== null, '未选库时应显示欢迎页')
+    button('点击选择目录…')!.click()
+    const label = mode === 'create' ? '在此创建新资料库' : '打开已有资料库'
+    await waitFor(() => button(label) !== null, '应允许操作所选目录')
+    const action = button(label)!
+    action.click()
+    action.click()
+    await waitFor(() => document.querySelector('.welcome-error')?.textContent === message, '普通拒绝应保留实际原因')
+    assert(activations === 1 && button(path), '同一次提交只激活一次，拒绝后应保留目录')
+    uncertain = true
+    action.click()
+    await waitFor(() => button('重新打开资料库') !== null, '配置结果未确认时应进入恢复页')
+    assert(!button(label) && !button('选择其他资料库') && !document.querySelector('.sb-primary'), '未确认配置前不得继续选库或进入工作区')
+    button('重新打开资料库')!.click()
+    await waitFor(() => recoveries === 1 && document.body.textContent?.includes('隔离重开失败') === true, '恢复应经过桌面主进程')
+  } finally {
+    root.unmount()
+    Object.defineProperty(window, 'journalBridge', { configurable: true, value: originalBridge })
+  }
+}
+
+window.__appStorageRecoveryTest = run().then(async () => {
+  await verifyWelcomeReceipts('create')
+  await verifyWelcomeReceipts('open')
+})
