@@ -124,6 +124,16 @@ export const performanceTruthFixture = {
   } satisfies PerformanceDateBounds,
   trades: [...auditSeeds, ...edgeCases],
   expected: {
+    dashboard: {
+      pnlCount: 26,
+      totalPnl: 6100,
+      curveTradeIds: [
+        'tr-1011', 'tr-1012', 'tr-1013', 'tr-1014', 'tr-1015', 'tr-1016', 'tr-1017',
+        'tr-1018', 'tr-1019', 'tr-1020', 'tr-1021', 'tr-1022', 'tr-1023', 'tr-1024',
+        'tr-1025', 'tr-1026', 'tr-1027', 'tr-1028', 'tr-1029', 'paper-1', 'tr-1031',
+        'paper-2', 'FX-CLOSE-0559', 'FX-CLOSE-0600', 'FX-PNL-ONLY', 'FX-USD',
+      ],
+    },
     futureCloseDayIds: ['FX-CLOSE-FUTURE'],
     missingCloseDayIds: ['FX-CLOSE-MISSING', 'FX-PAPER-MISSING'],
     invalidCloseDayIds: ['FX-CLOSE-INVALID'],

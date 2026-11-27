@@ -8,7 +8,8 @@ import test from 'node:test'
 import {
   ACCEPTANCE_TESTS,
   BROWSER_TEST_IDS,
-  createCanonicalStatisticsTruthEvidence,
+  assembleStatisticsEvidence, buildGoldenEvidence,
+  STATISTICS_TRUTH_UNIT_COMMAND, STATISTICS_TRUTH_BROWSER_COMMAND, UNIT_REQUIRED_TEST_IDS,
   STATISTICS_TRUTH_UNIT_ENTRIES,
 } from '../qa-statistics-truth.mjs'
 
@@ -34,6 +35,7 @@ test('statistics truth canonical gate covers the final truth surfaces', () => {
   assert(canonicalIds.has('src/views/StatisticsTruthSurfaces.browser.test.html#__statisticsTruthSurfacesTest'))
 })
 
+let goldenPromise
 async function validEvidence() {
   const candidate = spawnSync('git', ['rev-parse', 'HEAD'], {
     cwd: process.cwd(), encoding: 'utf8',
@@ -43,7 +45,14 @@ async function validEvidence() {
     ['show', `${candidate}:src/test/fixtures/performanceTruthFixture.ts`],
     { cwd: process.cwd(), encoding: null },
   ).stdout
-  return createCanonicalStatisticsTruthEvidence({
+  goldenPromise ??= buildGoldenEvidence(process.cwd())
+  const commands = [[STATISTICS_TRUTH_UNIT_COMMAND, UNIT_REQUIRED_TEST_IDS], [STATISTICS_TRUTH_BROWSER_COMMAND, BROWSER_TEST_IDS]]
+    .map(([command, ids]) => ({
+      command, expectedTestIds: [...ids], actualTestIds: [...ids], missingTestIds: [], skippedTestIds: [], todoTestIds: [],
+      exitCode: 0, durationMs: 0, outputSummary: 'synthetic command execution for validator test',
+    }))
+  return assembleStatisticsEvidence({
+    golden: structuredClone(await goldenPromise), commands,
     candidateSha: candidate,
     fixtureChecksumSha256: crypto.createHash('sha256').update(fixtureSource).digest('hex'),
   })
@@ -113,6 +122,15 @@ const invalidCases = [
   ['missing test', (evidence) => {
     evidence.commands[0].actualTestIds = []
     evidence.commands[0].missingTestIds = [...evidence.commands[0].expectedTestIds]
+  }],
+  ['empty metrics disguised as matching collections', (evidence) => {
+    for (const key of ['eligibleMetricIds', 'pnlIds']) {
+      evidence.golden.collections[key].expectedIds = []
+      evidence.golden.collections[key].actualIds = []
+    }
+  }],
+  ['missing currency evidence for an included record', (evidence) => {
+    evidence.kpiTruth.usdTradeFacts = evidence.kpiTruth.usdTradeFacts.filter(fact => fact.id !== 'FX-USD')
   }],
   ['empty sample', (evidence) => { evidence.fixture.sampleCount = 0 }],
   ['skipped test', (evidence) => { evidence.commands[0].skippedTestIds = ['unit#skipped'] }],

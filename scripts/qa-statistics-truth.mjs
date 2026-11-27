@@ -97,7 +97,7 @@ export const ACCEPTANCE_TESTS = {
     BROWSER_TEST_IDS[4],
   ],
   'T-DRILL-001': [
-    UNIT_TEST('src/lib/performanceSelection.test.ts', 'testPerformanceSelectionDrilldownReproducesArchiveScope'),
+    UNIT_TEST('src/lib/performanceSelection.test.ts', 'testPerformanceSelectionSupportsExplicitHistoricalDateBounds'),
     BROWSER_TEST_IDS[0],
   ],
 }
@@ -131,6 +131,24 @@ function pushDifferenceErrors(errors, label, expected, actual) {
     errors.push(`${label} ID 差集：missing=${diff.missingIds.join(',') || '[]'} unexpected=${diff.unexpectedIds.join(',') || '[]'}`)
   }
   return diff
+}
+
+function kpiContamination(kpi) {
+  const eligible = new Set(kpi.actual?.eligibleMetricIds ?? [])
+  const factById = new Map((kpi.usdTradeFacts ?? []).map((fact) => [fact.id, fact]))
+  return {
+    futureInKpiIds: (kpi.futureCloseDayIds ?? []).filter((id) => eligible.has(id)),
+    missingInKpiIds: (kpi.missingCloseDayIds ?? []).filter((id) => eligible.has(id)),
+    invalidInKpiIds: (kpi.invalidCloseDayIds ?? []).filter((id) => eligible.has(id)),
+    nonUsdInUsdTotalIds: (kpi.actual?.pnlIds ?? []).filter((id) => {
+      const currency = factById.get(id)?.currency
+      return currency !== undefined && currency !== null && currency !== 'USD'
+    }),
+    unknownCurrencyInUsdTotalIds: (kpi.actual?.pnlIds ?? []).filter((id) => {
+      const fact = factById.get(id)
+      return !fact || fact.currency === undefined || fact.currency === null
+    }),
+  }
 }
 
 export function validateStatisticsTruthEvidence(evidence) {
@@ -201,7 +219,9 @@ export function validateStatisticsTruthEvidence(evidence) {
   }
 
   const collections = evidence?.golden?.collections ?? {}
-  if (Object.keys(collections).length === 0) errors.push('golden ID 集合不得为空')
+  if (!collections.eligibleMetricIds?.expectedIds?.length || !collections.pnlIds?.expectedIds?.length) {
+    errors.push('固定样本必须包含有效绩效记录和美元盈亏记录')
+  }
   for (const [name, collection] of Object.entries(collections)) {
     const diff = pushDifferenceErrors(errors, `golden.${name}`, collection.expectedIds ?? [], collection.actualIds ?? [])
     if (!sameArray(diff.missingIds, collection.missingIds ?? []) || !sameArray(diff.unexpectedIds, collection.unexpectedIds ?? [])) {
@@ -220,29 +240,13 @@ export function validateStatisticsTruthEvidence(evidence) {
     if (kpi.expected?.pnlCount !== kpi.actual?.pnlCount) errors.push(`KPI pnlCount 不一致：${kpi.actual?.pnlCount}`)
     if (kpi.expected?.totalPnl !== kpi.actual?.totalPnl) errors.push(`KPI totalPnl 不一致：${kpi.actual?.totalPnl}`)
 
-    const eligible = new Set(kpi.actual?.eligibleMetricIds ?? [])
-    const futureInKpiIds = (kpi.futureCloseDayIds ?? []).filter((id) => eligible.has(id))
-    const missingInKpiIds = (kpi.missingCloseDayIds ?? []).filter((id) => eligible.has(id))
-    const invalidInKpiIds = (kpi.invalidCloseDayIds ?? []).filter((id) => eligible.has(id))
-    if (futureInKpiIds.length > 0) errors.push(`未来日期进入 KPI：${futureInKpiIds.join(',')}`)
-    if (missingInKpiIds.length > 0) errors.push(`缺失日期进入 KPI：${missingInKpiIds.join(',')}`)
-    if (invalidInKpiIds.length > 0) errors.push(`非法日期进入 KPI：${invalidInKpiIds.join(',')}`)
-
-    const factById = new Map((kpi.usdTradeFacts ?? []).map((fact) => [fact.id, fact]))
-    const pnlIds = kpi.actual?.pnlIds ?? []
-    const nonUsdInUsdTotalIds = pnlIds.filter((id) => {
-      const currency = factById.get(id)?.currency
-      return currency !== undefined && currency !== null && currency !== 'USD'
-    })
-    const unknownCurrencyInUsdTotalIds = pnlIds.filter((id) => {
-      const fact = factById.get(id)
-      return !fact || fact.currency === undefined || fact.currency === null
-    })
-    if (nonUsdInUsdTotalIds.length > 0) errors.push(`非 USD 进入 USD 总计：${nonUsdInUsdTotalIds.join(',')}`)
-    if (unknownCurrencyInUsdTotalIds.length > 0) errors.push(`未知币种进入 USD 总计：${unknownCurrencyInUsdTotalIds.join(',')}`)
-
-    const derivedContamination = { futureInKpiIds, missingInKpiIds, invalidInKpiIds, nonUsdInUsdTotalIds, unknownCurrencyInUsdTotalIds }
+    const derivedContamination = kpiContamination(kpi)
+    const reasons = {
+      futureInKpiIds: '未来日期进入 KPI', missingInKpiIds: '缺失日期进入 KPI', invalidInKpiIds: '非法日期进入 KPI',
+      nonUsdInUsdTotalIds: '非 USD 进入 USD 总计', unknownCurrencyInUsdTotalIds: '未知币种进入 USD 总计',
+    }
     for (const [name, ids] of Object.entries(derivedContamination)) {
+      if (ids.length > 0) errors.push(`${reasons[name]}：${ids.join(',')}`)
       if (!sameArray(ids, kpi.contamination?.[name] ?? [])) errors.push(`KPI contamination.${name} 声明与实际不一致`)
     }
   }
@@ -308,70 +312,11 @@ async function gitSha(root) {
   return result.stdout.trim()
 }
 
-async function buildGoldenEvidence(root) {
-  const probeRoot = path.join(root, 'test-results', 'statistics-truth')
-  const entryPath = path.join(probeRoot, '.probe-entry.ts')
-  const outDir = path.join(probeRoot, '.probe-dist')
-  await fs.rm(outDir, { recursive: true, force: true })
-  await fs.writeFile(entryPath, `
-    import { buildDashboardStats } from '@/lib/dashboardStats'
-    import { buildPerformanceSelection } from '@/lib/performanceSelection'
-    import { createBusinessDateAnchor } from '@/lib/periods'
-    import { performanceTruthFixture as fixture } from '@/test/fixtures/performanceTruthFixture'
-
-    const selection = buildPerformanceSelection(fixture.trades, {
-      scope: { kind: 'all', range: 'all' },
-      liveScope: fixture.currentLiveScope,
-      anchor: createBusinessDateAnchor(fixture.now, fixture.tradingDayStartHour),
-      legacyCashCurrencyAssumption: null,
-    })
-    const stats = buildDashboardStats(
-      [...fixture.trades],
-      [],
-      selection.eligibleMetricIds,
-      fixture.tradingDayStartHour,
-      selection.pnlIds,
-    )
-    const collectionNames = [
-      'futureCloseDayIds', 'missingCloseDayIds', 'invalidCloseDayIds',
-      'completeResultIds', 'conflictResultIds', 'missingResultIds',
-      'eligibleMetricIds', 'pnlIds', 'rIds', 'unknownCurrencyIds',
-    ]
-    export const goldenEvidence = {
-      sampleCount: fixture.trades.length,
-      collections: Object.fromEntries(collectionNames.map((name) => [name, {
-        expectedIds: [...fixture.expected[name]],
-        actualIds: [...selection[name]],
-      }])),
-      drilldownTarget: { expected: '?kind=all&range=all', actual: selection.drilldownTarget },
-      kpiTruth: {
-        futureCloseDayIds: [...selection.futureCloseDayIds],
-        missingCloseDayIds: [...selection.missingCloseDayIds],
-        invalidCloseDayIds: [...selection.invalidCloseDayIds],
-        usdTradeFacts: fixture.trades
-          .filter((trade) => typeof trade.pnl === 'number' && Number.isFinite(trade.pnl))
-          .map((trade) => ({
-            id: trade.id,
-            currency: Object.prototype.hasOwnProperty.call(trade, 'cashCurrency') ? trade.cashCurrency : null,
-            pnl: trade.pnl,
-          })),
-        expected: {
-          eligibleMetricIds: [...fixture.expected.eligibleMetricIds],
-          pnlIds: [...fixture.expected.pnlIds],
-          pnlCount: 1,
-          totalPnl: 100,
-          curveTradeIds: ['FX-USD'],
-        },
-        actual: {
-          eligibleMetricIds: [...selection.eligibleMetricIds],
-          pnlIds: [...selection.pnlIds],
-          pnlCount: stats.pnlCount,
-          totalPnl: stats.totalPnl,
-          curveTradeIds: stats.curve.map((point) => point.tradeId),
-        },
-      },
-    }
-  `, 'utf8')
+export async function buildGoldenEvidence(root) {
+  const resultDir = path.join(root, 'test-results', 'statistics-truth')
+  await fs.mkdir(resultDir, { recursive: true })
+  const outDir = await fs.mkdtemp(path.join(resultDir, '.probe-dist-'))
+  const entryPath = path.join(root, 'src/test/fixtures/statisticsTruthProbe.ts')
   try {
     await build({
       configFile: path.join(root, 'vite.config.ts'),
@@ -384,11 +329,9 @@ async function buildGoldenEvidence(root) {
       },
     })
     const moduleUrl = pathToFileURL(path.join(outDir, 'probe.mjs'))
-    moduleUrl.searchParams.set('run', String(Date.now()))
     return (await import(moduleUrl.href)).goldenEvidence
   } finally {
     await fs.rm(outDir, { recursive: true, force: true })
-    await fs.rm(entryPath, { force: true })
   }
 }
 
@@ -432,93 +375,32 @@ function makeAcceptance(passedTestIds) {
   })
 }
 
-export function createCanonicalStatisticsTruthEvidence({ candidateSha, fixtureChecksumSha256 }) {
-  const unitActualIds = [...UNIT_REQUIRED_TEST_IDS]
-  const browserActualIds = [...BROWSER_TEST_IDS]
-  const passedTestIds = new Set([...unitActualIds, ...browserActualIds])
+export function assembleStatisticsEvidence({ candidateSha, fixtureChecksumSha256, golden, commands }) {
+  const passedTestIds = new Set(commands.filter(command => command.exitCode === 0).flatMap(command => command.actualTestIds))
   const acceptanceActual = makeAcceptance(passedTestIds)
+  const acceptanceDiff = difference(STATISTICS_TRUTH_ACCEPTANCE_IDS, acceptanceActual.map((item) => item.id))
+
   return {
     schemaVersion: 1,
     candidateSha,
     fixture: {
       path: STATISTICS_TRUTH_FIXTURE_PATH,
       checksumSha256: fixtureChecksumSha256,
-      sampleCount: STATISTICS_TRUTH_FIXTURE_SAMPLE_COUNT,
+      sampleCount: golden.sampleCount,
     },
-    commands: [
-      {
-        command: STATISTICS_TRUTH_UNIT_COMMAND,
-        exitCode: 0,
-        durationMs: 0,
-        expectedTestIds: [...UNIT_REQUIRED_TEST_IDS],
-        actualTestIds: unitActualIds,
-        missingTestIds: [],
-        skippedTestIds: [],
-        todoTestIds: [],
-        outputSummary: 'canonical contract evidence',
-      },
-      {
-        command: STATISTICS_TRUTH_BROWSER_COMMAND,
-        exitCode: 0,
-        durationMs: 0,
-        expectedTestIds: [...BROWSER_TEST_IDS],
-        actualTestIds: browserActualIds,
-        missingTestIds: [],
-        skippedTestIds: [],
-        todoTestIds: [],
-        outputSummary: 'canonical contract evidence',
-      },
-    ],
+    commands,
     acceptance: {
-      expectedIds: [...STATISTICS_TRUTH_ACCEPTANCE_IDS],
+      expectedIds: STATISTICS_TRUTH_ACCEPTANCE_IDS,
       actual: acceptanceActual,
-      missingIds: [],
-      unexpectedIds: [],
+      missingIds: acceptanceDiff.missingIds,
+      unexpectedIds: acceptanceDiff.unexpectedIds,
     },
     golden: {
-      collections: {
-        eligibleMetricIds: {
-          expectedIds: [],
-          actualIds: [],
-          missingIds: [],
-          unexpectedIds: [],
-        },
-        pnlIds: {
-          expectedIds: [],
-          actualIds: [],
-          missingIds: [],
-          unexpectedIds: [],
-        },
-      },
-      drilldownTarget: { expected: '', actual: '' },
+      collections: Object.fromEntries(Object.entries(golden.collections).map(([name, collection]) =>
+        [name, { ...collection, ...difference(collection.expectedIds, collection.actualIds) }])),
+      drilldownTarget: golden.drilldownTarget,
     },
-    kpiTruth: {
-      futureCloseDayIds: [],
-      missingCloseDayIds: [],
-      invalidCloseDayIds: [],
-      usdTradeFacts: [],
-      expected: {
-        eligibleMetricIds: [],
-        pnlIds: [],
-        curveTradeIds: [],
-        pnlCount: 0,
-        totalPnl: 0,
-      },
-      actual: {
-        eligibleMetricIds: [],
-        pnlIds: [],
-        curveTradeIds: [],
-        pnlCount: 0,
-        totalPnl: 0,
-      },
-      contamination: {
-        futureInKpiIds: [],
-        missingInKpiIds: [],
-        invalidInKpiIds: [],
-        nonUsdInUsdTotalIds: [],
-        unknownCurrencyInUsdTotalIds: [],
-      },
-    },
+    kpiTruth: { ...golden.kpiTruth, contamination: kpiContamination(golden.kpiTruth) },
     failureReasons: [],
   }
 }
@@ -545,7 +427,7 @@ function renderReport(evidence, jsonPath) {
 
 async function runGate(root) {
   const resultDir = path.join(root, 'test-results', 'statistics-truth')
-  const fixturePath = path.join(root, 'src', 'test', 'fixtures', 'performanceTruthFixture.ts')
+  const fixturePath = path.join(root, STATISTICS_TRUTH_FIXTURE_PATH)
   const jsonRelativePath = 'test-results/statistics-truth/statistics-truth-gate.json'
   const reportRelativePath = 'test-results/statistics-truth/statistics-truth-gate-result.md'
   await fs.mkdir(resultDir, { recursive: true })
@@ -553,7 +435,6 @@ async function runGate(root) {
   const candidateSha = await gitSha(root)
   const fixtureSource = await fs.readFile(fixturePath)
   const golden = await buildGoldenEvidence(root)
-  for (const collection of Object.values(golden.collections)) Object.assign(collection, difference(collection.expectedIds, collection.actualIds))
 
   const unitArgs = ['scripts/run-regression-tests.mjs', '--unit-only', ...STATISTICS_TRUTH_UNIT_ENTRIES]
   const unitCommand = `node ${unitArgs.join(' ')}`
@@ -586,45 +467,11 @@ async function runGate(root) {
     browserResult.passedTests,
   )
 
-  const passedTestIds = new Set([...unitActualIds, ...browserResult.passedTests])
-  const acceptanceActual = makeAcceptance(passedTestIds)
-  const acceptanceDiff = difference(STATISTICS_TRUTH_ACCEPTANCE_IDS, acceptanceActual.map((item) => item.id))
-  const eligible = new Set(golden.kpiTruth.actual.eligibleMetricIds)
-  const factById = new Map(golden.kpiTruth.usdTradeFacts.map((fact) => [fact.id, fact]))
-  const contamination = {
-    futureInKpiIds: golden.kpiTruth.futureCloseDayIds.filter((id) => eligible.has(id)),
-    missingInKpiIds: golden.kpiTruth.missingCloseDayIds.filter((id) => eligible.has(id)),
-    invalidInKpiIds: golden.kpiTruth.invalidCloseDayIds.filter((id) => eligible.has(id)),
-    nonUsdInUsdTotalIds: golden.kpiTruth.actual.pnlIds.filter((id) => {
-      const currency = factById.get(id)?.currency
-      return currency !== undefined && currency !== null && currency !== 'USD'
-    }),
-    unknownCurrencyInUsdTotalIds: golden.kpiTruth.actual.pnlIds.filter((id) => {
-      const fact = factById.get(id)
-      return !fact || fact.currency === undefined || fact.currency === null
-    }),
-  }
-  golden.kpiTruth.contamination = contamination
-
-  const evidence = {
-    schemaVersion: 1,
+  const evidence = assembleStatisticsEvidence({
     candidateSha,
-    fixture: {
-      path: STATISTICS_TRUTH_FIXTURE_PATH,
-      checksumSha256: crypto.createHash('sha256').update(fixtureSource).digest('hex'),
-      sampleCount: golden.sampleCount,
-    },
-    commands: [unitEvidence, browserEvidence],
-    acceptance: {
-      expectedIds: STATISTICS_TRUTH_ACCEPTANCE_IDS,
-      actual: acceptanceActual,
-      missingIds: acceptanceDiff.missingIds,
-      unexpectedIds: acceptanceDiff.unexpectedIds,
-    },
-    golden: { collections: golden.collections, drilldownTarget: golden.drilldownTarget },
-    kpiTruth: golden.kpiTruth,
-    failureReasons: [],
-  }
+    fixtureChecksumSha256: crypto.createHash('sha256').update(fixtureSource).digest('hex'),
+    golden, commands: [unitEvidence, browserEvidence],
+  })
   const errors = [
     ...validateStatisticsTruthEvidence(evidence),
     ...await validateCandidateFixture(root, evidence),
