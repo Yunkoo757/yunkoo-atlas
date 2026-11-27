@@ -414,12 +414,6 @@ export function testAllElectronExitEntrypointsUseTheSingleCoordinator(): void {
     libraryIpc.indexOf('export async function commitStorageExit'),
   )
   assert(exitBackupImplementation.includes('}, signal)'), '退出备份等待独占锁时必须响应同一 AbortSignal')
-  assert(
-    libraryIpc.includes('if (!verification.emptyLibrary)') &&
-      libraryIpc.includes('reopened.saveSnapshot(emptySnapshot)') &&
-      libraryIpc.includes('snapshot: emptySnapshot'),
-    '空库恢复点必须经普通验证后规范化为 renderer 可用的空快照',
-  )
   assert(preload.includes('requestId') && preload.includes('webContentsId'), 'renderer ACK 必须回传请求与窗口身份')
   assert(main.includes('new WindowPresenceController'), '主进程必须组装窗口常驻控制器')
   assert(main.includes('new WindowHotkeyService'), '主进程必须组装系统热键服务')

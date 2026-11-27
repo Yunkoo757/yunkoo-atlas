@@ -44,12 +44,13 @@ export async function restoreLibraryBackup(fileName: string, session: BackupRest
         diskMayHaveChanged = installed
         rotateBackups(getLibraryPaths(libraryPath).backups)
         if (!installed) return { ok: false, committed: false, error: '恢复操作未提交' }
-        const snapshot = reopened.loadSnapshot()
-        if (snapshot) return { ok: true, committed: true, snapshot }
-        if (!verification.emptyLibrary) return { ok: false, committed: true, error: '恢复后的快照无法读取' }
-        const empty = createEmptyPersistedSnapshot()
-        reopened.saveSnapshot(empty)
-        return { ok: true, committed: true, snapshot: empty }
+        let snapshot = reopened.loadSnapshot()
+        if (!snapshot && verification.emptyLibrary) {
+          reopened.saveSnapshot(createEmptyPersistedSnapshot())
+          snapshot = reopened.loadSnapshot()
+        }
+        if (!snapshot) return { ok: false, committed: true, error: '恢复后的快照无法读取' }
+        return { ok: true, committed: true, snapshot }
       } finally {
         if (!reopened) {
           // 持锁恢复本请求关闭的实例，重建自动备份并接管原窗口的写入会话。

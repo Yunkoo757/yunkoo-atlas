@@ -137,3 +137,25 @@ export async function testRestoringAnEmptyBackupBroadcastsIndeterminateSnapshotW
     assert.deepEqual(f.events, ['close', 'reopen', 'storage-write-indeterminate'])
   } finally { f.dispose() }
 }
+
+export async function testVerifiedEmptyBackupReturnsTheSnapshotPersistedForTheNextLaunch(): Promise<void> {
+  const f = await isolatedSession()
+  let nextLaunch: LibraryStorage | undefined
+  try {
+    const selected = createBackupAtPath(f.first, f.root, Date.now(), { emptyLibrary: true })
+    assert.ok(selected)
+    f.first.saveSnapshot({ ...createEmptyPersistedSnapshot(), tagPresets: ['discarded by restore'] })
+    const restored = await restoreLibraryBackup(selected, f.session)
+    assert.ok(restored.ok)
+    assert.deepEqual(restored.snapshot.trades, [])
+    assert.deepEqual(restored.snapshot.tagPresets ?? [], [])
+    assert.deepEqual(f.active()?.loadSnapshot(), restored.snapshot)
+    f.active()?.release()
+    nextLaunch = new LibraryStorage(f.root, { allowCreate: false })
+    await nextLaunch.open()
+    assert.deepEqual(nextLaunch.loadSnapshot(), restored.snapshot)
+  } finally {
+    nextLaunch?.release()
+    f.dispose()
+  }
+}
