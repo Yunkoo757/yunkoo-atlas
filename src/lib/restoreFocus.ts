@@ -6,3 +6,7 @@ export function restoreFocusIfUnclaimed(target: HTMLElement | null | undefined):
   const modal = Array.from(document.querySelectorAll<HTMLElement>('[data-modal-shell-id]')).at(-1)
   if (!modal || modal.contains(target)) target.focus({ preventScroll: true })
 }
+
+export function restoreFocusAfterClose(opener: HTMLElement | null): void {
+  requestAnimationFrame(() => restoreFocusIfUnclaimed(opener))
+}

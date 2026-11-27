@@ -1,4 +1,4 @@
-import { restoreFocusIfUnclaimed } from '@/lib/restoreFocus'
+import { restoreFocusAfterClose } from '@/lib/restoreFocus'
 import { ICON_SM } from '@/icons/iconSize'
 import {
   useEffect,
@@ -70,9 +70,7 @@ export function ContextMenu({
   const closeAndRestore = () => {
     const target = focusOrigin()
     onClose()
-    requestAnimationFrame(() => {
-      restoreFocusIfUnclaimed(target)
-    })
+    restoreFocusAfterClose(target)
   }
 
   const focusableItems = () => [

@@ -1,3 +1,4 @@
+import { restoreFocusAfterClose } from '@/lib/restoreFocus'
 import { ICON_MD } from '@/icons/iconSize'
 import {
   forwardRef,
@@ -220,7 +221,7 @@ export const DatePicker = forwardRef<
   const selectDate = (next: string) => {
     onValueChange(next)
     changeOpen(false)
-    requestAnimationFrame(() => triggerRef.current?.focus())
+    restoreFocusAfterClose(triggerRef.current)
   }
 
   useEffect(() => {
@@ -265,7 +266,7 @@ export const DatePicker = forwardRef<
       event.preventDefault()
       event.stopPropagation()
       changeOpen(false)
-      triggerRef.current?.focus()
+      restoreFocusAfterClose(triggerRef.current)
     }
     const onViewportChange = () => updatePosition()
     document.addEventListener('pointerdown', onPointerDown)

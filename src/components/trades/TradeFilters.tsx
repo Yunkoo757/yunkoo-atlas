@@ -1,3 +1,4 @@
+import { restoreFocusAfterClose } from '@/lib/restoreFocus'
 import { isComposingKey } from '@/lib/keyboardComposition'
 import { ICON_SM } from '@/icons/iconSize'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -296,15 +297,13 @@ export function TradeFilters({
 
   const closeFilters = useCallback(() => {
     setOpen(false)
-    requestAnimationFrame(() => triggerRef.current?.focus())
+    restoreFocusAfterClose(triggerRef.current)
   }, [])
 
   const toggleFilters = useCallback(() => {
-    setOpen((current) => {
-      if (current) requestAnimationFrame(() => triggerRef.current?.focus())
-      return !current
-    })
-  }, [])
+    if (open) closeFilters()
+    else setOpen(true)
+  }, [open, closeFilters])
 
   useLayoutEffect(() => {
     if (!open || !triggerRef.current) return

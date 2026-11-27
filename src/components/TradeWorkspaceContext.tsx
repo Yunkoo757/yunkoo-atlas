@@ -1,3 +1,4 @@
+import { restoreFocusAfterClose } from '@/lib/restoreFocus'
 import { useExitClone } from '@/components/ui/useExitClone'
 import {
   lazy,
@@ -220,7 +221,7 @@ function TradeWorkspaceScopeMenu({
       if (event.key !== 'Escape') return
       event.preventDefault()
       setOpen(false)
-      requestAnimationFrame(() => triggerRef.current?.focus())
+      restoreFocusAfterClose(triggerRef.current)
     }
     document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('keydown', onKeyDown)

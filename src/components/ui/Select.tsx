@@ -1,3 +1,4 @@
+import { restoreFocusAfterClose } from '@/lib/restoreFocus'
 import { isComposingKey } from '@/lib/keyboardComposition'
 import { ICON_SM } from '@/icons/iconSize'
 import { DisclosureIcon } from '@/icons/StateIcons'
@@ -143,7 +144,7 @@ export const Select = forwardRef<
     if (!option || option.disabled) return
     onValueChange(option.value)
     setOpen(false)
-    requestAnimationFrame(() => triggerRef.current?.focus())
+    restoreFocusAfterClose(triggerRef.current)
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
@@ -163,7 +164,7 @@ export const Select = forwardRef<
       event.preventDefault()
       event.stopPropagation()
       setOpen(false)
-      requestAnimationFrame(() => triggerRef.current?.focus())
+      restoreFocusAfterClose(triggerRef.current)
       return
     }
     if (event.key === 'Tab') {

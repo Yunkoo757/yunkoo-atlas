@@ -188,6 +188,33 @@ async function run(): Promise<void> {
     await waitFor(() => document.activeElement === dateTrigger, '关闭年份页应归还焦点')
     assert(dateTrigger.textContent?.includes('1988-02-29'), '取消年份选择不能改变日期')
 
+    const select = document.querySelector<HTMLButtonElement>('[role="combobox"][aria-label="交易类型"]')
+    assert(select, '交易类型选择器不存在')
+    const openSelect = async () => {
+      select.focus()
+      press(select, 'ArrowDown')
+      await waitFor(() => select.getAttribute('aria-expanded') === 'true', '交易类型选择器未打开')
+    }
+    const verifyNextFocus = async (action: string) => {
+      contextTrigger.focus()
+      await waitForFrame()
+      await waitForFrame()
+      assert(document.activeElement === contextTrigger, action + '后夺走了下一控件的焦点')
+    }
+
+    await openSelect()
+    document.querySelector<HTMLButtonElement>('[role="option"][data-value="two"]')!.click()
+    await verifyNextFocus('选择交易类型')
+
+    await openSelect()
+    press(select, 'Escape')
+    await verifyNextFocus('取消选择交易类型')
+
+    dateTrigger.click()
+    await waitFor(() => document.activeElement?.getAttribute('data-day-key') === '1988-02-29', '日历未定位当前日期')
+    document.querySelector<HTMLButtonElement>('[data-day-key="1988-02-29"]')!.click()
+    await verifyNextFocus('选择日期')
+
     assert(document.querySelector('.ui-select-trigger.ui-field-trigger'), 'Select 未消费 FieldTrigger')
     assert(document.querySelector('.ui-date-trigger.ui-field-trigger'), 'DatePicker 未消费 FieldTrigger')
   } finally {

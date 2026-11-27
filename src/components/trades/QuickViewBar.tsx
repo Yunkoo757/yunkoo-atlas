@@ -1,3 +1,4 @@
+import { restoreFocusAfterClose } from '@/lib/restoreFocus'
 import { Button } from '@/components/ui/Button'
 import { useExitClone } from '@/components/ui/useExitClone'
 import { isComposingKey } from '@/lib/keyboardComposition'
@@ -152,7 +153,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
         event.preventDefault()
         event.stopPropagation()
         setPanel(null)
-        requestAnimationFrame(() => overflowButtonRef.current?.focus())
+        restoreFocusAfterClose(overflowButtonRef.current)
       }
     }
     document.addEventListener('pointerdown', onPointerDown)
@@ -242,7 +243,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
       })
     }
     setPanel(null)
-    requestAnimationFrame(() => overflowButtonRef.current?.focus())
+    restoreFocusAfterClose(overflowButtonRef.current)
     toast(pinnedAtTop ? '视图已固定到顶部' : `视图已保存，可在「${moreName}」中打开`, { tone: 'success' })
   }
 
