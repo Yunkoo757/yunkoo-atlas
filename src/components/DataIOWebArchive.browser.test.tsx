@@ -160,6 +160,23 @@ async function verifyExportOperationLogging(
       assert(!failureLogs.some((record) => record.status === 'success'), `${name} export 失败不得误报 success`)
       await flushPersistNow()
 
+      const revoked: string[] = []
+      const revoke = URL.revokeObjectURL
+      let offered = ''
+      const click = HTMLAnchorElement.prototype.click
+      URL.revokeObjectURL = url => { revoked.push(url); revoke.call(URL, url) }
+      HTMLAnchorElement.prototype.click = function () {
+        offered = this.href
+        throw new Error('isolated download handoff failure')
+      }
+      let handoffError: unknown
+      try { await exporter() } catch (error) { handoffError = error }
+      finally { URL.revokeObjectURL = revoke; HTMLAnchorElement.prototype.click = click }
+      assert(handoffError instanceof Error && handoffError.message === 'isolated download handoff failure', `${name} 下载交接异常必须传回导出方`)
+      assert(offered.startsWith('blob:') && revoked.includes(offered) &&
+        !Array.from(document.querySelectorAll('a[download]')).some(link => link.getAttribute('href') === offered),
+        `${name} 下载未交接时必须释放对象 URL 并移除临时链接`)
+
       const readRevision = adapter.getSnapshotRevision
       adapter.getSnapshotRevision = async () => {
         adapter.getSnapshotRevision = readRevision

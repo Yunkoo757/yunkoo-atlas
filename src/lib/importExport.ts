@@ -1,3 +1,4 @@
+import { downloadBlob } from './downloadBlob'
 import { sha256Hex } from '@/lib/sha256'
 import type { PersistencePause } from '@/storage/persistenceController'
 import { collectRetiredSnapshotAssetIds, stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
@@ -413,15 +414,8 @@ export async function downloadExport(): Promise<void> {
     const payload = await buildExportPayload()
     const json = serializeJsonExportPayload(payload)
     const blob = new Blob([json], { type: 'application/json;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
     const date = new Date().toISOString().slice(0, 10)
-    a.href = url
-    a.download = `trader-atlas-backup-${date}.json`
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+    downloadBlob(blob, `trader-atlas-backup-${date}.json`)
     operation.success({ stage: 'downloaded', revisionAfter })
   } catch (error) {
     operation.failure(error, { stage: 'export-json' })
@@ -480,15 +474,8 @@ export async function downloadWebJournalZip(): Promise<void> {
     )
 
     const zipBlob = buildWebJournalArchiveBlob(portableSnapshot, assets)
-    const url = URL.createObjectURL(zipBlob)
-    const a = document.createElement('a')
     const date = new Date().toISOString().slice(0, 10)
-    a.href = url
-    a.download = `trader-atlas-${date}.journal.zip`
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+    downloadBlob(zipBlob, `trader-atlas-${date}.journal.zip`)
     operation.success({ stage: 'downloaded', revisionAfter })
   } catch (error) {
     operation.failure(error, { stage: 'export-zip' })
@@ -669,14 +656,7 @@ export async function downloadWebConflictRecoveryCopy(): Promise<WebConflictReco
   const suffix = complete ? 'recovery' : 'recovery-incomplete'
   const filename = `trader-atlas-${suffix}-${new Date().toISOString().slice(0, 10)}.json`
   const blob = new Blob([serializeJsonDocumentWithinFileBudget(payload)], { type: 'application/json;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
-  URL.revokeObjectURL(url)
+  downloadBlob(blob, filename)
   return { missingAssetIds, filename }
 }
 

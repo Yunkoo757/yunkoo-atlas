@@ -1,3 +1,4 @@
+import { downloadBlob } from '@/lib/downloadBlob'
 import { EmptyState } from '@/components/EmptyState'
 import { Menu } from '@/components/Menu'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
@@ -175,14 +176,7 @@ export function BacktestProjectsView() {
       const latestProject = state.backtestProjects.find(item => item.id === project.id)!
       const { buildBacktestAnalysisPackage } = await import('@/lib/backtestExport')
       const blob = await buildBacktestAnalysisPackage(latestProject, state.trades, assetId => getStorage().getAssetForExport(assetId), state.strategies)
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = `atlas-backtest-${project.symbol}-${project.startedAt}.zip`
-      document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
-      setTimeout(() => URL.revokeObjectURL(url), 60000)
+      downloadBlob(blob, `atlas-backtest-${project.symbol}-${project.startedAt}.zip`, 60_000)
       toast('已导出分析包：项目说明、JSON、CSV 和截图', { tone: 'success' })
     } catch (error) { toast(`导出失败：${error instanceof Error ? error.message : '请重试'}`, { tone: 'error' }) }
     finally { setExporting(false) }

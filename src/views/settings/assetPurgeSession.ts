@@ -1,3 +1,4 @@
+import { downloadBlob } from '@/lib/downloadBlob'
 import { getStorage } from '@/storage'
 import type { AssetPurgePreview } from '@/storage/adapter'
 import { flushPersistNow } from '@/storage/persist'
@@ -39,17 +40,8 @@ export class AssetPurgeSession {
       if (recovery.webArchive) {
         const { snapshot, assets, recoveryOrphanAssetIds } = recovery.webArchive
         const blob = buildWebJournalArchiveBlob(snapshot, assets, { recoveryOrphanAssetIds })
-        const anchor = document.createElement('a')
-        const url = URL.createObjectURL(blob)
-        try {
-          anchor.href = url
-          anchor.download = `trader-atlas-before-cleanup-${new Date().toISOString().slice(0, 10)}.journal.zip`
-          document.body.appendChild(anchor)
-          anchor.click()
-        } finally {
-          anchor.remove()
-          URL.revokeObjectURL(url)
-        }
+        const date = new Date().toISOString().slice(0, 10)
+        downloadBlob(blob, `trader-atlas-before-cleanup-${date}.journal.zip`)
       }
       if (displayed.operationId !== candidate.operationId) this.cancel(displayed.operationId)
       adopted = true
