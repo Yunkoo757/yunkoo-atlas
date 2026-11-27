@@ -37,7 +37,7 @@
     }
   ],
   "shortcuts": {
-    "global.commandPalette": { "key": "w" },
+    "global.commandPalette": { "mod": true, "key": "k" },
     "global.commandPaletteMod": { "key": "t" },
     "global.newTrade": { "key": "n" },
     "global.newCase": { "shift": true, "key": "n" },

@@ -28,6 +28,7 @@ import {
   getSessionSelectValue,
   normalizeSession,
 } from '@/lib/tradeView'
+import { getJournalViewState } from '@/lib/journalQuickViews'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { composerDefaultsForWorkspace } from '@/lib/createRecordAction'
 import { getNextTradeRef } from '@/lib/quickNoteRecordDraft'
@@ -40,6 +41,7 @@ import { MAX_WEB_JOURNAL_ENTRY_BYTES } from '@/lib/webJournalArchiveContract'
 import { toast } from '@/lib/toast'
 import { revokeObjectUrlAfterExit } from '@/lib/objectUrl'
 import { registerTradeComposerDraftGuard } from '@/lib/tradeComposerDraftGuard'
+import { DialogSaveButton } from '@/components/ui/DialogSaveButton'
 import { Button } from '@/components/ui/Button'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { OverflowTooltip } from '@/components/ui/Tooltip'
@@ -452,6 +454,7 @@ export function TradeComposer() {
           state: tradeDetailNavState({
             pathname: location.pathname,
             search: location.search,
+            ...getJournalViewState(location.state),
           }),
         })
         toast(trade.tradeKind === 'case' ? '已创建案例' : '已记录', { tone: 'success' })
@@ -533,15 +536,13 @@ export function TradeComposer() {
             <Button variant="bordered" size="lg" onClick={requestClose} disabled={submitting}>
               取消
             </Button>
-            <Button
-              variant="primary"
-              size="lg"
+            <DialogSaveButton
               className={activeKind === 'backtest' ? undefined : 'composer-btn-primary'}
               onClick={() => handleQuickCreate()}
               disabled={!symbol.trim() || !openedAt || submitting}
             >
               {submitting ? '保存中…' : editing ? '保存' : isTradeQuickNew ? '保存记录' : `创建${recordLabel}`}
-            </Button>
+            </DialogSaveButton>
           </div>
         </>
       )}

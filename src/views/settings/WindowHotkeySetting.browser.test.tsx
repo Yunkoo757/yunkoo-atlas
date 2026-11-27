@@ -296,7 +296,8 @@ async function run(): Promise<void> {
       () => useShortcutStore.getState().bindings['global.commandPaletteMod'] === undefined,
       '恢复默认必须回到原厂 T，不再与 Ctrl+K 系统键冲突',
     )
-    assert(useToast.getState().message === '已恢复全部默认快捷键', '无冲突时恢复默认不得误报系统热键占用')
+    assert(useShortcutStore.getState().bindings['global.commandPalette'] === null, '已用作系统热键的 Ctrl+K 应继续禁用应用内搜索组合键')
+    assert(useToast.getState().message?.includes('因系统快捷键占用') === true, '恢复全部后应说明主搜索按键仍由系统占用')
 
     useShortcutStore.setState({ bindings: { 'global.commandPaletteMod': { mod: true, key: 'k' } } })
     const callCountBeforeCancel = calls.length

@@ -21,17 +21,15 @@ import {
   isBoardPath,
   isDetailPath,
   listPathFromPathname,
-  pathWithWorkbenchMode,
-  workbenchModeFromPathname,
 } from '@/lib/routeContext'
 import { tradeDetailPath, resolveTradeDetailReturn, findTradeByRouteParam } from '@/lib/tradeRoute'
 import { routeWithSearch } from '@/lib/tradeView'
 import {
   resolveShortcutWorkspaceHref,
+  tradeWorkspaceCommandHref,
   resolveSidebarStrategyShortcutHref,
   SIDEBAR_STRATEGY_SHORTCUT_LIMIT,
 } from '@/shortcuts/workspaceActions'
-import { syncPrimaryWorkspaceMode } from '@/lib/workspaceViews'
 import { getActionMeta } from '@/shortcuts/actions'
 import { requestLightboxClose, requestLightboxReset } from '@/lib/lightboxView'
 import { createAndOpenQuickNote, resolveCreateRecordAction } from '@/lib/createRecordAction'
@@ -69,16 +67,8 @@ export function useShortcutHost({
       rememberedTradeSearch,
     )
     const journalViewState = getJournalViewState(locationState) ?? getJournalViewState(locationState?.from)
-    const preferredWorkbenchMode = workbenchModeFromPathname(
-      useStore.getState().display.workspaceMemory?.trade?.pathname ?? pathname,
-    )
-    const sharedTradePath = pathWithWorkbenchMode('/list', preferredWorkbenchMode)
-    const sharedTradeParams = () => new URLSearchParams(sharedTradeSearch)
-    const sharedTradeViewHref = (view: 'active' | 'starred' | 'missed') => {
-      const params = sharedTradeParams()
-      params.set('view', view)
-      return `${sharedTradePath}?${params.toString()}`
-    }
+    const tradeCommandHref = (target: 'active' | 'starred' | 'missed' | 'paper') =>
+      tradeWorkspaceCommandHref(target, { pathname, search }, useStore.getState().display.workspaceMemory?.trade)
     const strategySlotHandlers = Object.fromEntries(
       Array.from({ length: SIDEBAR_STRATEGY_SHORTCUT_LIMIT }, (_, index) => [
         `nav.strategySlot${index + 1}`,
@@ -146,14 +136,10 @@ export function useShortcutHost({
 
       'nav.quickNotes': () => navigate('/notes'),
       'nav.backtests': () => navigate('/backtests'),
-      'nav.active': () => navigate(sharedTradeViewHref('active')),
-      'nav.favorites': () => navigate(sharedTradeViewHref('starred')),
-      'nav.missed': () => navigate(sharedTradeViewHref('missed')),
-      'nav.sim': () => {
-        const params = sharedTradeParams()
-        params.set('kind', 'paper')
-        navigate(`${sharedTradePath}?${params.toString()}`)
-      },
+      'nav.active': () => navigate(tradeCommandHref('active')),
+      'nav.favorites': () => navigate(tradeCommandHref('starred')),
+      'nav.missed': () => navigate(tradeCommandHref('missed')),
+      'nav.sim': () => navigate(tradeCommandHref('paper')),
       'nav.list': () => {
         const state = useStore.getState()
         const listContext = useShortcutStore.getState().listContext
@@ -181,24 +167,6 @@ export function useShortcutHost({
       'nav.strategies': () => navigate('/settings/strategies'),
       ...strategySlotHandlers,
 
-      'view.list': () => {
-        const state = useStore.getState()
-        state.setDisplay({
-          workspaceMemory: syncPrimaryWorkspaceMode(state.display.workspaceMemory, 'list'),
-        })
-        const listContext = useShortcutStore.getState().listContext
-        const listPath = listPathFromPathname(pathname) ?? listContext?.listPath ?? '/list'
-        navigate(routeWithSearch(listPath, search || listContext?.listSearch || ''), { state: journalViewState })
-      },
-      'view.board': () => {
-        const state = useStore.getState()
-        state.setDisplay({
-          workspaceMemory: syncPrimaryWorkspaceMode(state.display.workspaceMemory, 'board'),
-        })
-        const listContext = useShortcutStore.getState().listContext
-        const listPath = listPathFromPathname(pathname) ?? listContext?.listPath ?? '/list'
-        navigate(routeWithSearch(boardPathFromListPath(listPath), search || listContext?.listSearch || ''), { state: journalViewState })
-      },
       'list.toggleFilters': () => {
         if (listPathFromPathname(pathname)) {
           window.dispatchEvent(new CustomEvent('atlas:toggle-trade-filters'))

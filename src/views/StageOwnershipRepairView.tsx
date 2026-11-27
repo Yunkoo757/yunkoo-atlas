@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import { getJournalViewState } from '@/lib/journalQuickViews'
+import { rememberableWorkspaceKind } from '@/lib/workspaceViews'
 import { AlertCircle, CheckCircle, Database } from '@/icons/appIcons'
 import { ICON_MD } from '@/icons/iconSize'
 import {
@@ -116,6 +118,10 @@ function itemDraftKey(item: PendingStageOwnershipItem): string {
 }
 
 export function StageOwnershipRepairView() {
+  const origin = useLocation().state?.ownershipOrigin
+  const fromWorkspace = typeof origin?.pathname === 'string' && origin.pathname.startsWith('/') &&
+    !origin.pathname.startsWith('//') && rememberableWorkspaceKind(origin.pathname) === 'trade'
+
   const pending = usePendingOwnership()
   const liveStages = useStore((state) => state.liveStages)
   const assignOwnership = useStore((state) => state.assignPendingStageOwnership)
@@ -342,7 +348,14 @@ export function StageOwnershipRepairView() {
     <div className="settings-page settings-page--standard stage-ownership-repair" data-stage-ownership-repair-view>
       <header className="settings-page-head stage-ownership-repair-hero">
         <div>
-          <Link className="stage-ownership-back" to="/settings/data">返回数据设置</Link>
+          <Link
+            className="stage-ownership-back"
+            to={fromWorkspace ? { pathname: origin.pathname, search: origin.search } : '/settings/data'}
+            state={fromWorkspace ? getJournalViewState(origin) : undefined}
+            replace
+          >
+            {fromWorkspace ? `返回${origin.title || '交易日志'}` : '返回数据设置'}
+          </Link>
           <h1 className="settings-page-title" tabIndex={-1}>待归属记录</h1>
           <p className="settings-page-desc">
             核对记录所属的实盘阶段。

@@ -32,22 +32,6 @@ export function buildOrderedTradeIds(
   }).map((t) => t.id)
 }
 
-export function buildListNavigationContext(
-  trades: Trade[],
-  filter: ListFilter,
-  display: DisplayPrefs,
-  starredIds: string[],
-  listPath: string,
-  listSearch = '',
-): ListNavigationContext {
-  return {
-    filter,
-    listPath,
-    listSearch,
-    orderedIds: buildOrderedTradeIds(trades, filter, display, starredIds, listSearch),
-  }
-}
-
 export function findAdjacentTradeId(
   ctx: ListNavigationContext | null,
   currentTradeId: string | undefined,
@@ -69,18 +53,15 @@ export function getDetailNavigation(
 ): DetailNavigation | null {
   if (!currentTrade) return null
 
-  const activeById = new Map(
-    trades
-      .filter((trade) => !trade.deletedAt && trade.tradeKind === currentTrade.tradeKind && (currentTrade.tradeKind !== 'backtest' || trade.backtestProjectId === currentTrade.backtestProjectId))
-      .map((trade) => [trade.id, trade]),
-  )
-  const contextIds = ctx?.orderedIds.filter((id) => activeById.has(id)) ?? []
+  const activeTrades = trades.filter((trade) => !trade.deletedAt)
+  const activeIds = new Set(activeTrades.map((trade) => trade.id))
+  const contextIds = ctx?.orderedIds.filter((id) => activeIds.has(id)) ?? []
   const orderedIds = contextIds.includes(currentTrade.id)
     ? contextIds
     : currentTrade.tradeKind === 'backtest'
-      ? [...activeById.values()].sort((a, b) => a.openedAt.localeCompare(b.openedAt) || a.ref.localeCompare(b.ref, undefined, { numeric: true })).map(trade => trade.id)
+      ? activeTrades.filter(trade => trade.tradeKind === 'backtest' && trade.backtestProjectId === currentTrade.backtestProjectId).sort((a, b) => a.openedAt.localeCompare(b.openedAt) || a.ref.localeCompare(b.ref, undefined, { numeric: true })).map(trade => trade.id)
       : currentTrade.tradeKind === 'case'
-      ? sortReviewCasesByRecentActivity([...activeById.values()]).map((trade) => trade.id)
+      ? sortReviewCasesByRecentActivity(activeTrades.filter(trade => trade.tradeKind === 'case')).map((trade) => trade.id)
       : buildOrderedTradeIds(
           trades,
           { type: 'all', tradeKind: currentTrade.tradeKind },

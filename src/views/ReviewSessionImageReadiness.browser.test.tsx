@@ -134,6 +134,7 @@ async function run(): Promise<void> {
   const slowGate = deferred<void>()
   const staleGate = deferred<void>()
   let staleDecodeStarted = false
+  let brokenImageAvailable = false
   const originalDecode = HTMLImageElement.prototype.decode
   HTMLImageElement.prototype.decode = function () {
     if (this.src.includes('slow-second')) return slowGate.promise
@@ -141,7 +142,7 @@ async function run(): Promise<void> {
       staleDecodeStarted = true
       return staleGate.promise
     }
-    if (this.src.includes('broken-image')) return Promise.reject(new Error('decode failed'))
+    if (this.src.includes('broken-image') && !brokenImageAvailable) return Promise.reject(new Error('decode failed'))
     return Promise.resolve()
   }
 
@@ -243,6 +244,14 @@ async function run(): Promise<void> {
       '灯箱不得包含解码失败的图片来源')
     assert(useShortcutStore.getState().lightbox?.index === 0,
       '失败槽位前后的灯箱索引映射不正确')
+    useShortcutStore.getState().closeLightbox()
+    brokenImageAvailable = true
+    const retry = findButton('重新载入')
+    assert(retry, '图片失败须能在同一记录重试')
+    retry.click()
+    await waitFor(() => document.querySelectorAll('.review-session-gallery img').length === 2, '重试应恢复失败图片')
+    assert(!findButton('重新载入') && document.querySelector('.review-session-card-ref')?.textContent === 'CAS-IMG-4',
+      '恢复后应收起错误并保留当前记录')
   } finally {
     root.unmount()
     HTMLImageElement.prototype.decode = originalDecode

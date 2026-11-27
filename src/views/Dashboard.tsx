@@ -212,6 +212,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
     scopedRecordCount: scopedTrades.filter((trade) => !trade.deletedAt && isAccountTrade(trade) && (scope.kind === 'all' || trade.tradeKind === scope.kind)).length,
     eligibleClosedCount: scopedClosedCount,
     activeRecordCount: activeTrades.length,
+    dateRangeLimited: scope.range !== 'all',
   })
   const weekCardEmpty = weekMetrics.tradeCount === 0 && weekMetrics.missedCount === 0
   const missedReasonSummary = Object.entries(weekMetrics.missedReasonCounts)
@@ -231,6 +232,12 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
 
   const updateScope = (patch: Partial<AnalysisScope>) => {
     setSearchParams(writeAnalysisScope(searchParams, { ...scope, ...patch }), { replace: true })
+  }
+
+  const showAllData = () => {
+    const next = writeAnalysisScope(searchParams, { kind: 'all', range: 'all' })
+    next.set('liveStage', 'all')
+    setSearchParams(next, { replace: true })
   }
 
   const selectedStage = workspaceQuery.stage === 'current'
@@ -362,8 +369,12 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                 hint={dashboardEmptyState?.hint}
                 action={dashboardEmptyState?.primary === 'view-active' ? (
                   <Button variant="bordered" onClick={() => navigate(activeListHref)}>查看进行中交易</Button>
-                ) : dashboardEmptyState?.primary === 'adjust-scope' ? (
-                  <Button variant="bordered" onClick={() => updateScope({ kind: 'all', range: 'all' })}>调整分析范围</Button>
+                ) : dashboardEmptyState?.primary === 'all-data' ? (
+                  <Button variant="bordered" onClick={showAllData}>{dashboardEmptyState.primaryLabel}</Button>
+                ) : dashboardEmptyState?.primary === 'all-dates' ? (
+                  <Button variant="bordered" onClick={() => updateScope({ range: 'all' })}>{dashboardEmptyState.primaryLabel}</Button>
+                ) : dashboardEmptyState?.primary === 'view-records' ? (
+                  <Link className="ui-btn ui-btn-bordered ui-btn-md" to={`/list${sharedTradeWorkspaceSearch(location.search)}`}>{dashboardEmptyState.primaryLabel}</Link>
                 ) : (
                   <Button variant="primary" onClick={() => createRecordForContext(location.pathname, location.search, navigate)}>
                     <Plus size={ICON_MD} aria-hidden />

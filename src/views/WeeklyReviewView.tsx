@@ -17,6 +17,8 @@ import {
   useNavigate,
 } from 'react-router-dom'
 import { Editor } from '@/editor/Editor'
+import { NoteLoadRecovery } from '@/components/NoteLoadRecovery'
+import { loadDetailNote } from '@/views/detailNoteLoad'
 import {
   Check,
   ChevronLeft,
@@ -73,10 +75,12 @@ import { resolveNoteForDisplayResult } from '@/storage/assets'
 import { getStorage } from '@/storage/bootstrap'
 import {
   flushNoteDraftToStore,
+  getNoteDraft,
   setNoteDraft,
   WEEKLY_REVIEW_DRAFT_PREFIX,
 } from '@/storage/noteDrafts'
 import { useStore } from '@/store/useStore'
+import { useSaveStatus } from '@/store/saveStatus'
 import { parseTradeWorkspaceQuery } from '@/lib/tradeWorkspaceQuery'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import {
@@ -90,6 +94,12 @@ import {
   type WeeklyVisualIssue,
 } from '@/lib/weeklyReviewVisualState'
 import './WeeklyReviewView.css'
+
+async function flushWeeklyDraft(draftId: string): Promise<boolean> {
+  const saved = await flushNoteDraftToStore(draftId)
+  if (!saved) useSaveStatus.getState().setError('周复盘正文仍保留在本次会话，可重试保存')
+  return saved
+}
 
 const WeeklyReviewScoreChart = lazy(() =>
   import('./WeeklyReviewScoreChart').then((module) => ({ default: module.WeeklyReviewScoreChart })),
@@ -386,7 +396,8 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
   useEffect(() => setTrendLiveStageId(allStages ? undefined : selectedReviewStageId), [allStages, selectedReviewStageId])
   const [visualIssues, setVisualIssues] = useState<WeeklyVisualIssue[]>([])
   const pendingIssueFocusRef = useRef<WeeklyVisualIssue | null>(null)
-  const editorReadyRef = useRef(false)
+  const [noteLoad, setNoteLoad] = useState<{ id: string; status: 'ready' | 'missing' | 'error' } | null>(null)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const noteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const routeIntentGenerationRef = useRef(0)
   const dataRouterContext = useContext(UNSAFE_DataRouterContext)
@@ -638,28 +649,32 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
 
   const draftId = `${WEEKLY_REVIEW_DRAFT_PREFIX}${review.id}`
   useEffect(() => {
-    editorReadyRef.current = false
-    setEditorHtml('')
+    setNoteLoad(null)
     let cancelled = false
     const imageScope = new AssetObjectUrlScope()
-    void resolveNoteForDisplayResult(review.contentHtml, getStorage(), imageScope).then((result) => {
+    const source = getNoteDraft(draftId) ?? review.contentHtml
+    void loadDetailNote(source, html => resolveNoteForDisplayResult(html, getStorage(), imageScope)).then(result => {
       if (cancelled) return
-      setEditorHtml(result.html)
-      editorReadyRef.current = result.editable
-      if (!result.editable) toast('周复盘中有图片附件缺失，正文已切换为只读', { tone: 'warning' })
+      setEditorHtml(result.status === 'ready' ? result.html : result.fallbackHtml)
+      setNoteLoad({ id: review.id, status: result.status === 'ready' ? 'ready' : result.reason === 'incomplete' ? 'missing' : 'error' })
     })
     return () => {
       cancelled = true
       imageScope.release()
-      if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
-      noteTimerRef.current = null
-      void flushNoteDraftToStore(draftId)
     }
-  }, [review.id])
+  }, [review.id, loadAttempt])
 
+  useEffect(() => () => {
+    if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
+    noteTimerRef.current = null
+    void flushWeeklyDraft(draftId)
+  }, [draftId])
+
+  const visibleNoteStatus = noteLoad?.id === review.id ? noteLoad.status : 'loading'
   const onEditorChange = useCallback((html: string) => {
+    if (visibleNoteStatus !== 'ready') return
     setEditorHtml(html)
-    if (!editorReadyRef.current) return
+    useSaveStatus.getState().setDirty()
     const existing = useStore.getState().weeklyReviews.find((item) =>
       item.weekStart === selectedWeek && item.liveStageId === reviewLiveStageId,
     )
@@ -668,9 +683,9 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
     if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
     noteTimerRef.current = setTimeout(() => {
       noteTimerRef.current = null
-      void flushNoteDraftToStore(`${WEEKLY_REVIEW_DRAFT_PREFIX}${review.id}`)
+      void flushWeeklyDraft(`${WEEKLY_REVIEW_DRAFT_PREFIX}${review.id}`)
     }, 500)
-  }, [review.id, reviewLiveStageId, selectedWeek, upsertReview])
+  }, [review.id, reviewLiveStageId, selectedWeek, upsertReview, visibleNoteStatus])
 
   const replaceRouteState = useCallback((
     nextWeek: string,
@@ -729,7 +744,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
       item.week === selectedWeek &&
       item.liveStageId === reviewLiveStageId
     ) { closeHistoryPicker(); return }
-    const draftSaved = await flushNoteDraftToStore(draftId)
+    const draftSaved = await flushWeeklyDraft(draftId)
     if (intentGeneration !== routeIntentGenerationRef.current) return
     if (!draftSaved) {
       toast('正文尚未保存，请重试', { tone: 'error' })
@@ -753,7 +768,7 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
   }
 
   const completeReview = async () => {
-    const draftSaved = await flushNoteDraftToStore(draftId)
+    const draftSaved = await flushWeeklyDraft(draftId)
     const latest = useStore.getState().weeklyReviews.find((item) =>
       item.weekStart === selectedWeek && item.liveStageId === reviewLiveStageId,
     ) ?? review
@@ -923,14 +938,21 @@ export function WeeklyReviewView({ header }: { header?: ReactNode } = {}) {
                 <div className="wr-writing">
                   <section data-weekly-section="judgment" aria-label="本周判断">
                     <div className="wr-editor-wrap" data-weekly-field="review-content" data-invalid={sectionHasIssue('judgment')}>
-                      <Editor
-                        content={editorHtml}
-                        onChange={onEditorChange}
-                        noteDraftId={storedReview ? draftId : undefined}
-                        readOnly={!editorReadyRef.current && Boolean(review.contentHtml)}
-                        ariaLabel="周复盘正文"
-                        placeholder="写下本周判断，或粘贴截图…"
-                      />
+                      {visibleNoteStatus === 'loading' ? <InlineStatus tone="progress" title="正在载入周复盘" compact /> : <>
+                        {visibleNoteStatus !== 'ready' && <NoteLoadRecovery
+                          missingImages={visibleNoteStatus === 'missing'}
+                          onRetry={() => setLoadAttempt(value => value + 1)}
+                        />}
+                        <Editor
+                          key={review.id}
+                          content={editorHtml}
+                          onChange={onEditorChange}
+                          noteDraftId={storedReview ? draftId : undefined}
+                          readOnly={visibleNoteStatus !== 'ready'}
+                          ariaLabel="周复盘正文"
+                          placeholder="写下本周判断，或粘贴截图…"
+                        />
+                      </>}
                     </div>
                   </section>
 

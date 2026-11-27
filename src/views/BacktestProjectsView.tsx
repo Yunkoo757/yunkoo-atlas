@@ -22,8 +22,7 @@ import { TradeRow } from '@/components/trades/TradeRow'
 import { getProjectTrades, isBacktestProject, projectPath, summarizeBacktest, summarizeBacktestProjects, type BacktestProject } from '@/lib/backtestProjects'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
 import { rememberTradeReturnAnchor, useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
-import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
-import { requestScrollToTrade } from '@/lib/tradeScrollTargets'
+import { useWorkbenchListKeyboard, useWorkbenchRowFocus } from '@/hooks/useWorkbenchListKeyboard'
 import { getStorage } from '@/storage'
 import { flushNoteDraftsToStore } from '@/storage/noteDrafts'
 import { getTradingDayKey } from '@/lib/periods'
@@ -67,7 +66,6 @@ export function BacktestProjectsView() {
   const [editing, setEditing] = useState<BacktestProject | 'new' | null>(null)
   const [panel, setPanel] = useState<'statistics' | 'info' | null>(null)
   const [exporting, setExporting] = useState(false)
-  const [focusIndex, setFocusIndex] = useState(-1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
   const [copyCandidateIds, setCopyCandidateIds] = useState<string[] | null>(null)
@@ -78,6 +76,7 @@ export function BacktestProjectsView() {
   const stats = useMemo(() => summarizeBacktest(records), [records])
   const projectSummaries = useMemo(() => id ? null : summarizeBacktestProjects(trades, scopedProjects.map(item => item.id)), [trades, id, scopedProjects])
   const visible = useMemo(() => records.filter(trade => recordScope === 'all' || (recordScope === 'missed' ? trade.status === 'missed' : trade.status !== 'missed' && !resolveTradeTruth(trade).isResultComplete)), [records, recordScope])
+  const { focusedId, focusIndex, setFocusIndex } = useWorkbenchRowFocus(visible)
   const groups = useMemo(() => [{ key: id ?? 'backtest', items: visible }], [id, visible])
   const openRecord = useCallback((trade: Trade) => {
     const from = { pathname: location.pathname, search: location.search, anchorTradeId: trade.id }
@@ -90,7 +89,6 @@ export function BacktestProjectsView() {
     if (!id) return
     useShortcutStore.getState().setListContext({ filter: { type: 'all', tradeKind: 'backtest' }, listPath: projectPath(id), listSearch: location.search, orderedIds: visible.map(trade => trade.id) })
   }, [id, visible, location.search])
-  useEffect(() => { setFocusIndex(-1) }, [id, recordScope])
   useEffect(() => { setPanel(null) }, [id])
   useEffect(() => {
     setSelectedIds(current => {
@@ -100,7 +98,6 @@ export function BacktestProjectsView() {
     setContextMenu(null)
   }, [visible])
   useEffect(() => { setCopyCandidateIds(null) }, [id, recordScope])
-  useEffect(() => { const trade = visible[focusIndex]; if (trade) requestScrollToTrade(trade.id) }, [focusIndex, visible])
   const toggleSelection = useCallback((trade: Trade) => {
     setSelectedIds(current => {
       const next = new Set(current)
@@ -226,7 +223,7 @@ export function BacktestProjectsView() {
         </div>
       </div>
       <div className="list-scroll backtest-records" ref={scrollRef}>
-        {visible.length ? <TradeList groups={groups} strategies={strategies} focusedId={visible[focusIndex]?.id ?? null} selectedIds={selectedIds} starredIds={starredIds} scrollParentRef={scrollRef} onOpen={openRecord} onSelect={toggleSelection} onClearSelection={() => setSelectedIds(new Set())} onToggleStar={trade => useStore.getState().toggleStar(trade.id)} onContextMenu={openContextMenu} onCreate={createRecord} recordLabel="回测记录"
+        {visible.length ? <TradeList groups={groups} strategies={strategies} focusedId={focusedId} selectedIds={selectedIds} starredIds={starredIds} scrollParentRef={scrollRef} onOpen={openRecord} onSelect={toggleSelection} onClearSelection={() => setSelectedIds(new Set())} onToggleStar={trade => useStore.getState().toggleStar(trade.id)} onContextMenu={openContextMenu} onCreate={createRecord} recordLabel="回测记录"
           renderRow={(trade, context) => <TradeRow trade={trade} strategies={strategies} {...context} strategyStats={null} selected={selectedIds.has(trade.id)} starred={starredIds.includes(trade.id)} onOpen={openRecord} onSelect={toggleSelection} onContextMenu={openContextMenu} onToggleStar={item => useStore.getState().toggleStar(item.id)} />} /> : <EmptyState
             variant={recordScope === 'all' && !project.archivedAt ? 'first-use' : 'filtered'}
             title={recordScope === 'pending' ? '没有待确认记录' : recordScope === 'missed' ? '没有未参与记录' : '还没有回测记录'}

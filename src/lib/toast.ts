@@ -36,6 +36,8 @@ export type ToastState = {
 }
 
 export type ToastStore = {
+  readonly suspended: boolean
+  setSuspended: (suspended: boolean) => void
   hold: (id: number, reason: 'pointer' | 'focus', active: boolean) => void
   push: (message: string, options?: ToastOptions) => number | null
   dismiss: (id?: number) => void
@@ -46,6 +48,10 @@ export type ToastStore = {
 
 const MAX_TOASTS = 3
 
+function needsAttention(item: Pick<ToastItem, 'persistent' | 'onAction' | 'tone'>): boolean {
+  return item.persistent || Boolean(item.onAction) || item.tone === 'error'
+}
+
 function releaseTimer(timer: ReturnType<typeof setTimeout>): void {
   const maybeNodeTimer = timer as ReturnType<typeof setTimeout> & { unref?: () => void }
   maybeNodeTimer.unref?.()
@@ -55,6 +61,8 @@ export function createToastStore(options: { canPush?: () => boolean } = {}): Toa
   const listeners = new Set<() => void>()
   const timers = new Map<number, ReturnType<typeof setTimeout>>()
   const holds = new Map<number, Set<'pointer' | 'focus'>>()
+  let queue: ToastItem[] = []
+  let suspended = false
   let nextId = 1
   let state: ToastState
 
@@ -92,7 +100,33 @@ export function createToastStore(options: { canPush?: () => boolean } = {}): Toa
     timers.set(item.id, timer)
   }
 
+  // 计时从通知真正可见时开始。等待展示的撤销和错误仍可以按 id 更新或撤回。
+  const publish = (refreshedId?: number) => {
+    const visible = suspended ? [] : queue.slice(0, MAX_TOASTS)
+    const previous = state.items
+    for (const item of previous) {
+      if (!visible.some(next => next.id === item.id)) {
+        cancelTimer(item.id)
+        holds.delete(item.id)
+      }
+    }
+    state = makeState(visible)
+    for (const item of visible) {
+      if (item.id === refreshedId || !previous.some(old => old.id === item.id)) scheduleDismiss(item)
+    }
+    emit()
+  }
+
+  const replaceable = (item: ToastItem) => !needsAttention(item) && !holds.has(item.id)
+
   const store: ToastStore = {
+    get suspended() { return suspended },
+    setSuspended(next) {
+      if (next === suspended) return
+      suspended = next
+      if (suspended) queue = queue.filter(needsAttention)
+      publish()
+    },
     hold(id, reason, active) {
       const item = state.items.find(candidate => candidate.id === id)
       if (!item || item.persistent) return
@@ -112,16 +146,17 @@ export function createToastStore(options: { canPush?: () => boolean } = {}): Toa
       const actionLabel = toastOptions.actionLabel ?? toastOptions.label ?? null
       const onAction = toastOptions.onAction ?? toastOptions.onClick ?? null
       const persistent = toastOptions.persistent ?? tone === 'error'
+      if (suspended && !needsAttention({ tone, onAction, persistent })) return null
       const dedupeKey = toastOptions.dedupeKey ?? null
       const existingIndex = dedupeKey
-        ? state.items.findIndex((item) => item.dedupeKey === dedupeKey)
-        : state.items.findIndex((item) =>
+        ? queue.findIndex((item) => item.dedupeKey === dedupeKey)
+        : queue.findIndex((item) =>
             item.onAction === onAction &&
             item.message === message &&
             item.actionLabel === actionLabel &&
             item.tone === tone,
           )
-      const id = existingIndex >= 0 ? state.items[existingIndex]!.id : nextId++
+      const id = existingIndex >= 0 ? queue[existingIndex]!.id : nextId++
       const item: ToastItem = {
         id,
         message,
@@ -131,28 +166,23 @@ export function createToastStore(options: { canPush?: () => boolean } = {}): Toa
         persistent,
         dedupeKey,
       }
-      const nextItems = [...state.items]
-      if (existingIndex >= 0) nextItems[existingIndex] = item
-      else nextItems.push(item)
-      while (nextItems.length > MAX_TOASTS) {
-        const removableIndex = nextItems.findIndex((candidate) => !candidate.persistent)
-        const [removed] = nextItems.splice(removableIndex >= 0 ? removableIndex : 0, 1)
-        if (removed) { cancelTimer(removed.id); holds.delete(removed.id) }
+      if (existingIndex >= 0) {
+        queue[existingIndex] = item
+      } else {
+        if (queue.length >= MAX_TOASTS) {
+          const firstRoutine = queue.findIndex(replaceable)
+          if (firstRoutine >= 0) queue.splice(firstRoutine, 1)
+        }
+        queue.push(item)
       }
-      state = makeState(nextItems)
-      scheduleDismiss(item)
-      emit()
+      publish(id)
       return id
     },
     dismiss(id) {
-      const removed = id === undefined ? state.items : state.items.filter((item) => item.id === id)
-      for (const item of removed) { cancelTimer(item.id); holds.delete(item.id) }
-      const nextItems = id === undefined
-        ? []
-        : state.items.filter((item) => item.id !== id)
-      if (nextItems.length === state.items.length) return
-      state = makeState(nextItems)
-      emit()
+      const remaining = id === undefined ? [] : queue.filter(item => item.id !== id)
+      if (remaining.length === queue.length) return
+      queue = remaining
+      publish()
     },
     getState: () => state,
     subscribe(listener) {
@@ -164,10 +194,10 @@ export function createToastStore(options: { canPush?: () => boolean } = {}): Toa
       if (explicitItems) {
         for (const item of state.items) cancelTimer(item.id)
         holds.clear()
-        state = makeState([...explicitItems])
+        queue = suspended ? explicitItems.filter(needsAttention) : [...explicitItems]
+        state = makeState([])
         nextId = Math.max(1, ...explicitItems.map((item) => item.id + 1))
-        for (const item of explicitItems) scheduleDismiss(item)
-        emit()
+        publish()
         return
       }
       if (next.message === null) {
@@ -181,9 +211,7 @@ export function createToastStore(options: { canPush?: () => boolean } = {}): Toa
   return store
 }
 
-/** 关闭保存回执等占用底部中心时，禁止再弹 toast，避免双条重叠。 */
-let bottomChromeLocked = false
-const toastStore = createToastStore({ canPush: () => !bottomChromeLocked })
+const toastStore = createToastStore()
 
 type ToastHook = {
   <T>(selector: (state: ToastState) => T): T
@@ -210,16 +238,15 @@ export const useToast: ToastHook = Object.assign(
 )
 
 export function lockBottomChrome(): void {
-  bottomChromeLocked = true
-  toastStore.dismiss()
+  toastStore.setSuspended(true)
 }
 
 export function unlockBottomChrome(): void {
-  bottomChromeLocked = false
+  toastStore.setSuspended(false)
 }
 
 export function isBottomChromeLocked(): boolean {
-  return bottomChromeLocked
+  return toastStore.suspended
 }
 
 export function toast(message: string, options?: ToastOptions): number | null {

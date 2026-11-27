@@ -179,6 +179,22 @@ async function run(): Promise<void> {
     assert(document.body.textContent?.includes('+$100'), 'Dashboard 净盈亏只能合并 USD')
     assert(!document.body.textContent?.includes('+$1,050'), 'Dashboard 不得把不同币种相加')
 
+    root.unmount()
+    useStore.setState({ trades: [usdLive] })
+    root = createRoot(element)
+    root.render(
+      <MemoryRouter initialEntries={['/dashboard?kind=paper&range=this-week&liveStage=stage-old']}>
+        <Routes><Route path="/dashboard" element={<><Dashboard /><LocationProbe /></>} /></Routes>
+      </MemoryRouter>,
+    )
+    const allData = () => [...document.querySelectorAll<HTMLButtonElement>('.db-empty button')]
+      .find(button => button.textContent === '查看全部数据')
+    await waitFor(() => Boolean(allData()), '空阶段须有可用的数据入口')
+    allData()!.click()
+    await waitFor(() => Boolean(document.querySelector('[data-kpi-drilldown]')), '展开所有范围后应能看到其他阶段的交易')
+    const allDataUrl = document.querySelector('[data-testid="location"]')?.textContent ?? ''
+    assert(['liveStage=all', 'kind=all', 'range=all'].every(query => allDataUrl.includes(query)), '恢复动作须同时放开三个限制')
+
     const openLive = {
       ...liveTrade('open-current', 'stage-current', 0, currentDay),
       status: 'open',

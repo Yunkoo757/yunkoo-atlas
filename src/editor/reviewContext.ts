@@ -65,7 +65,7 @@ export function toggleReviewContextDocument(doc: JSONContent, templateContent?: 
     ? content.slice(0, leadingCount)
     : reviewTemplateParagraphs(templateContent)
   let remainder = content.slice(leadingCount)
-  if (leadingCount === 0 && remainder.length === 1 && !nodeText(remainder[0]!).trim()) {
+  if (leadingCount === 0 && remainder.length === 1 && remainder[0]?.type === 'paragraph' && !remainder[0].content?.length) {
     remainder = []
   }
   if (remainder.length === 0) remainder = [{ type: 'paragraph' }]

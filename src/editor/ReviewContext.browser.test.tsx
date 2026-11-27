@@ -253,7 +253,16 @@ async function run(): Promise<void> {
 
   const editable = host.querySelector<HTMLElement>('.ProseMirror')
   const tiptapEditor = (editable as (HTMLElement & { editor?: TiptapEditor }) | null)?.editor
-  tiptapEditor?.destroy()
+  const templateItem = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+    .find(button => button.textContent?.trim() === '测试模板')
+  assert(templateItem && tiptapEditor, '必须能选择模板并接续输入')
+  templateItem.click()
+  await waitFor(() => document.activeElement === editable, '应用模板后应聚焦复盘正文')
+  tiptapEditor.commands.insertContent('继续写作')
+  assert(host.querySelector('section[data-review-context] p')?.textContent === '背景：继续写作', '光标应落在模板第一行')
+  assert(host.querySelector('section[data-review-context] strong')?.textContent === '背景：', '填写内容应延续正常正文字重')
+  assert(host.querySelector('.ProseMirror img[src*="image-first"]'), '插入模板必须保留原有的唯一一张截图')
+  tiptapEditor.destroy()
   host.remove()
 }
 

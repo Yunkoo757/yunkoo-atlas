@@ -315,12 +315,37 @@ async function run(): Promise<void> {
   const secondTiptap = (secondEditorDom as HTMLElement & { editor?: TiptapEditor }).editor
   assert(firstTiptap && secondTiptap, '双 Editor DOM 必须暴露各自 TipTap 实例')
 
+  firstTiptap.commands.setTextSelection(3)
+  firstEditorDom.focus()
   dispatchImagePaste(firstEditorDom)
+  // 在附件落盘前继续编辑、改换光标并转去另一段正文。
+  firstTiptap.commands.insertContentAt(1, '新增')
+  firstTiptap.commands.setTextSelection(firstTiptap.state.doc.content.size - 1)
+  secondEditorDom.focus()
   await waitForPendingStorageOperations()
+  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+  assert(document.activeElement === secondEditorDom, '截图落盘不得抢走另一编辑区域的焦点')
+  assert(firstEditorDom.firstElementChild?.textContent === '新增第一', '截图应跟随原粘贴段落随文字编辑移动')
+  assert(firstTiptap.state.doc.child(1).type.name === 'image' && firstTiptap.state.doc.child(2).textContent === '编辑器', '截图不得跟随后来移动的光标')
+  assert(firstTiptap.state.selection.$from.parent.textContent === '编辑器', '应保留用户后移的编辑光标')
   assert(firstEditorDom.querySelectorAll('img').length === 1, '第一 Editor 的粘贴必须写回第一 Editor')
   assert(secondEditorDom.querySelectorAll('img').length === 0, '模块级 bridge 不得把粘贴串写到第二 Editor')
   assert(firstChanges.length > 0, '第一 Editor 必须为自己的图片插入发出 onChange')
   assert(secondChanges.length === 0, '第二 Editor 不得因第一 Editor 粘贴而发出 onChange')
+  secondTiptap.commands.setContent('<p>原光标</p><p>实际拖入位置</p>', false)
+  secondTiptap.commands.setTextSelection(1)
+  const dropAt = secondTiptap.state.doc.firstChild!.nodeSize + 3
+  secondEditorDom.scrollIntoView()
+  const rect = secondTiptap.view.coordsAtPos(dropAt)
+  const droppedFile = new DataTransfer()
+  droppedFile.items.add(new File([new Uint8Array([1, 2, 3])], 'drop.png', { type: 'image/png' }))
+  secondEditorDom.dispatchEvent(new DragEvent('drop', {
+    bubbles: true, cancelable: true, clientX: rect.left, clientY: (rect.top + rect.bottom) / 2,
+    dataTransfer: droppedFile,
+  }))
+  await waitForPendingStorageOperations()
+  assert(secondTiptap.state.doc.childCount === 4 && secondTiptap.state.doc.child(1).textContent === '实际' && secondTiptap.state.doc.child(2).type.name === 'image', '拖入附件应插在指针下的段落')
+  assert(secondTiptap.state.selection.$from.parent.textContent === '原光标', '拖图不应打断其他段落的当前输入位置')
   firstTiptap.destroy()
   secondTiptap.destroy()
   twoEditorContainer.remove()

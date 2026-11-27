@@ -1,11 +1,12 @@
 import { useMemo, useRef, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { DisplayMenu, type WorkbenchMenuAction } from '@/components/DisplayMenu'
 import { ResultConflictRepair } from '@/components/ResultConflictRepair'
 import { WorkbenchViewSwitch, type WorkbenchView } from '@/components/Topbar'
 import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
 import { useResultRepairReturn } from '@/hooks/useResultRepairReturn'
+import { getJournalViewState } from '@/lib/journalQuickViews'
 import { filterStageTrades } from '@/lib/stageArchive'
 import type { ListFilter } from '@/lib/tradeFilters'
 import { collectWorkbenchResultRepairIds } from '@/lib/workbenchResultHealth'
@@ -34,6 +35,7 @@ export function TradeWorkbenchHeader({
   const repairEntry = useResultRepairReturn()
   const menuTrigger = useRef<HTMLButtonElement>(null)
   const navigate = useNavigate()
+  const location = useLocation()
   const storedTrades = useStore(state => state.trades)
   const pendingCount = useMemo(
     () => filter.tradeKind === 'live'
@@ -49,7 +51,12 @@ export function TradeWorkbenchHeader({
   })
   if (pendingCount > 0) actions.push({
     label: '处理待归属记录', count: `${pendingCount} 条`,
-    onSelect: () => navigate('/settings/data/stage-ownership-repair'),
+    onSelect: () => navigate('/settings/data/stage-ownership-repair', {
+      state: { ownershipOrigin: {
+        pathname: location.pathname, search: location.search, title,
+        ...getJournalViewState(location.state),
+      } },
+    }),
   })
 
   return <>

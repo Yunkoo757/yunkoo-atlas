@@ -25,6 +25,10 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function press(target: HTMLElement, key: string, isComposing = false) {
+  return target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, isComposing }))
+}
+
 function pressUndo(target: HTMLElement): void {
   target.dispatchEvent(new KeyboardEvent('keydown', {
     key: 'z',
@@ -84,6 +88,7 @@ async function run(): Promise<void> {
     root.render(
       <MemoryRouter initialEntries={['/notes/previous-note']}>
         <Routes>
+          <Route path="/notes" element={<QuickNotesView />} />
           <Route path="/notes/:id" element={<QuickNotesView />} />
         </Routes>
       </MemoryRouter>,
@@ -106,7 +111,16 @@ async function run(): Promise<void> {
     const currentButton = [...document.querySelectorAll<HTMLButtonElement>('.quick-notes-list-item')]
       .find((button) => button.textContent?.includes('当前随记'))
     assert(currentButton, '随记列表缺少待切换条目')
-    currentButton.click()
+    assert(press(search, 'ArrowDown', true) && document.activeElement === search, '中文选词不能移走搜索焦点')
+    press(search, 'ArrowDown')
+    const firstResult = document.activeElement as HTMLElement
+    assert(firstResult.classList.contains('quick-notes-list-item'), '搜索向下应聚焦首个结果')
+    press(firstResult, 'ArrowUp')
+    assert(document.activeElement === search, '首项向上应回到原搜索框')
+    press(search, 'ArrowDown')
+    press(firstResult, 'ArrowDown')
+    assert(document.activeElement === currentButton && firstResult.getAttribute('aria-current') === 'true', '浏览候选时应保留当前正文')
+    press(currentButton, 'Enter')
     await waitFor(
       () => document.querySelector('[aria-label="随记正文"]')?.textContent === '不能丢失的当前正文',
       '切换后的随记正文没有加载完成',
@@ -116,7 +130,12 @@ async function run(): Promise<void> {
     assert(editable, '无法取得随记正文编辑区')
     const editor = (editable as HTMLElement & { editor?: TiptapEditor }).editor
     assert(editor, '无法取得随记编辑器实例')
-    editable.focus()
+    await waitFor(() => document.activeElement === editable, '打开搜索结果后应直接续写该条正文')
+    const title = document.querySelector<HTMLInputElement>('[aria-label="随记标题"]')!
+    title.focus()
+    assert(press(title, 'Enter', true) && document.activeElement === title, '输入法确认标题候选不能移走焦点')
+    press(title, 'Enter')
+    assert(document.activeElement === editable, '确认标题后应该接着写正文')
     pressUndo(editable)
     await frame()
     assert(
@@ -161,6 +180,24 @@ async function run(): Promise<void> {
       () => returnedEditable.textContent === '不能丢失的当前正文',
       '切走再返回后 Ctrl+Z 必须恢复切换前的正文版本',
     )
+
+    const query = await waitForSearch()
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(query, '当前随记')
+    query.dispatchEvent(new Event('input', { bubbles: true }))
+    await waitFor(() => document.querySelectorAll('.quick-notes-list-item').length === 1, '搜索应过滤到当前随记')
+    query.focus()
+    press(query, 'Enter')
+    await waitFor(() => document.activeElement === returnedEditable, '回车应直接打开当前搜索的首项，即使已选中该条')
+    assert(query.value === '当前随记', '键盘打开结果应保留搜索')
+    document.querySelector<HTMLButtonElement>('[aria-label="删除随记"]')!.click()
+    await waitFor(() => Boolean(document.querySelector('[role="dialog"]')), '应出现随记删除确认')
+    const confirm = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(button => button.textContent === '删除随记')
+    assert(confirm, '缺少确认删除')
+    confirm.click()
+    await waitFor(() => document.querySelector('.quick-notes-list-empty') !== null && !document.querySelector('[aria-label="随记正文"]'),
+      '删除最后一条匹配后应保留搜索，不能打开不匹配的其他随记')
+    document.querySelector<HTMLButtonElement>('[aria-label="清除搜索"]')!.click()
+    await waitFor(() => document.querySelector('[aria-label="随记正文"]')?.textContent === '上一条正文', '清除筛选后应能继续查看余下随记')
   } finally {
     root.unmount()
     useStore.setState(previous)

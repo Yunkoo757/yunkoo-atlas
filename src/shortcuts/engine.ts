@@ -79,16 +79,19 @@ function armSequenceTimer(): void {
   sequenceTimer = setTimeout(clearSequence, SEQUENCE_TIMEOUT_MS)
 }
 
-function getActiveScopes(pathname?: string): Set<ShortcutScope> {
+function getActiveActions(pathname?: string) {
   const { lightbox, cmdkOpen, modalOverlayCount } = useShortcutStore.getState()
   const { composerOpen, closeTradeRequest } = useStore.getState()
   const modalOpen = modalOverlayCount > 0
   const p = pathname ?? (typeof window !== 'undefined' ? window.location.pathname : undefined)
 
-  if (lightbox && p === '/review-session') return new Set<ShortcutScope>(['lightbox'])
+  if (lightbox) {
+    // 详情灯箱可连续翻看相邻记录的截图；其余背景操作均让位于图片查看器。
+    return SHORTCUT_ACTIONS.filter(action => action.scope === 'lightbox' ||
+      (p?.startsWith('/trade/') && (action.id === 'trade.prev' || action.id === 'trade.next')))
+  }
 
   const scopes = new Set<ShortcutScope>(['global', 'navigation'])
-  if (lightbox) scopes.add('lightbox')
   if (cmdkOpen || modalOpen || composerOpen || closeTradeRequest) scopes.add('overlay')
 
   if (p) {
@@ -98,7 +101,7 @@ function getActiveScopes(pathname?: string): Set<ShortcutScope> {
     if (p === '/review-session') scopes.add('reviewSession')
   }
 
-  return scopes
+  return SHORTCUT_ACTIONS.filter(action => scopes.has(action.scope))
 }
 
 function bindingMatchesSequence(binding: ShortcutBinding, buffer: string[]): boolean {
@@ -110,10 +113,8 @@ function bindingMatchesSequence(binding: ShortcutBinding, buffer: string[]): boo
 function hasSequencePrefix(buffer: string[], pathname?: string): boolean {
   if (buffer.length === 0) return false
   const { bindings } = useShortcutStore.getState()
-  const scopes = getActiveScopes(pathname)
 
-  for (const action of SHORTCUT_ACTIONS) {
-    if (!scopes.has(action.scope)) continue
+  for (const action of getActiveActions(pathname)) {
     const binding = resolveBinding(action.id, bindings)
     if (!binding || !isSequence(binding)) continue
     if (buffer.length > binding.length) continue
@@ -127,10 +128,8 @@ function hasSequencePrefix(buffer: string[], pathname?: string): boolean {
 
 function findSequenceMatch(buffer: string[], pathname?: string): string | null {
   const { bindings } = useShortcutStore.getState()
-  const scopes = getActiveScopes(pathname)
 
-  for (const action of SHORTCUT_ACTIONS) {
-    if (!scopes.has(action.scope)) continue
+  for (const action of getActiveActions(pathname)) {
     const binding = resolveBinding(action.id, bindings)
     if (!binding || !isSequence(binding)) continue
     if (bindingMatchesSequence(binding, buffer)) return action.id
@@ -143,12 +142,10 @@ function findChordMatch(e: KeyboardEvent, pathname?: string): string | null {
   const { composerOpen, closeTradeRequest } = useStore.getState()
   const modalOpen = modalOverlayCount > 0
   const typing = isTypingTarget(e.target)
-  const scopes = getActiveScopes(pathname)
 
   const candidates: { id: string; priority: number }[] = []
 
-  for (const action of SHORTCUT_ACTIONS) {
-    if (!scopes.has(action.scope)) continue
+  for (const action of getActiveActions(pathname)) {
     const meta = action
     const binding = resolveBinding(action.id, bindings)
     if (!binding || isSequence(binding)) continue
@@ -158,6 +155,7 @@ function findChordMatch(e: KeyboardEvent, pathname?: string): string | null {
       '[role="dialog"], [role="menu"], [role="listbox"], [role="combobox"], select',
     ))) continue
     if (meta.id === 'trade.editNote' && (lightbox || shouldYieldEnterToControl(e.target))) continue
+    if (meta.id === 'list.openFocused' && e.key === 'Enter' && shouldYieldEnterToControl(e.target)) continue
 
     if (meta.id === 'global.closeOverlay') {
       if (!lightbox && !cmdkOpen && !modalOpen && !composerOpen && !closeTradeRequest) continue

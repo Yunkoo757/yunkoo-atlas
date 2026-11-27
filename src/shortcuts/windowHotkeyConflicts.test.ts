@@ -18,7 +18,7 @@ export function testSystemHotkeyConflictsAcrossAllShortcutScopes(): void {
 }
 
 export function testWindowHotkeyFindsAndDisablesEveryCrossScopeConflict(): void {
-  const bindings = { 'global.newTrade': { key: 'n' } }
+  const bindings = { 'global.newTrade': { key: 'n' }, 'global.commandPalette': { key: 'w' } }
   const conflicts = findWindowHotkeyConflicts({ key: 'w' }, bindings)
   const result = disableWindowHotkeyConflicts({ key: 'w' }, bindings)
 

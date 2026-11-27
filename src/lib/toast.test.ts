@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { mock } from 'node:test'
 import {
   isBottomChromeLocked,
   lockBottomChrome,
@@ -39,6 +40,48 @@ export function testToastDismissClearsVisibleMessage(): void {
   useToast.getState().dismiss()
   assert.equal(useToast.getState().message, null)
   resetToast()
+}
+
+export function testCloseCancelledRestoresQueuedActionsAndErrors(): void {
+  resetToast()
+  mock.timers.enable({ apis: ['setTimeout'] })
+  try {
+    let undone = false
+    const undo = toast('已移入回收站', { actionLabel: '撤销', onAction: () => { undone = true } })
+    const backup = toast('备份失败', { tone: 'error' })!
+    const retry = toast('图片加载失败', { actionLabel: '重试', onAction: () => {} })
+    const waiting = toast('保存失败', { tone: 'error', dedupeKey: 'save' })
+    assert.deepEqual(useToast.getState().items.map(item => item.id), [undo, backup, retry])
+
+    lockBottomChrome()
+    const lateError = toast('更新失败', { tone: 'error' })
+    assert.equal(toast('保存仍需重试', { tone: 'error', dedupeKey: 'save' }), waiting)
+    assert.equal(toast('链接已复制'), null)
+    lockBottomChrome()
+    mock.timers.tick(10_000)
+    assert.deepEqual(useToast.getState().items, [])
+    useToast.getState().dismiss(backup)
+
+    unlockBottomChrome()
+    mock.timers.tick(4_999)
+    unlockBottomChrome()
+    const restored = useToast.getState().items
+    assert.deepEqual(restored.map(item => item.id), [undo, retry, waiting])
+    assert.equal(restored[2].message, '保存仍需重试')
+    restored[0].onAction?.()
+    assert(undone, '取消关闭后原来的撤销仍须可用')
+    mock.timers.tick(1)
+    assert.deepEqual(useToast.getState().items.map(item => item.id), [waiting, lateError],
+      '重新显示的操作从恢复时开始计时，重复解锁不能延长展示时间')
+
+    lockBottomChrome()
+    useToast.getState().dismiss()
+    unlockBottomChrome()
+    assert.deepEqual(useToast.getState().items, [], '真正清除队列后不得复活旧错误')
+  } finally {
+    resetToast()
+    mock.timers.reset()
+  }
 }
 
 export function testBottomChromeLockSuppressesToastOverlap(): void {

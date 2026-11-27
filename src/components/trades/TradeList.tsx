@@ -157,6 +157,7 @@ function GroupLeadingIcon({
 
 export function TradeList({
   groups,
+  disclosure,
   strategies,
   focusedId,
   selectedIds,
@@ -176,6 +177,7 @@ export function TradeList({
   strategyStageScope,
 }: {
   groups: TradeListGroup[]
+  disclosure?: { collapsed: ReadonlySet<string>; onChange: (next: ReadonlySet<string>) => void }
   strategies: Strategy[]
   focusedId: string | null
   selectedIds: Set<string>
@@ -210,7 +212,9 @@ export function TradeList({
   const legacyCashCurrencyAssumption = useStore((state) => state.profile.legacyCashCurrencyAssumption)
   const businessDateAnchor = useBusinessDateAnchor()
   const rowHeight = ROW_HEIGHTS[density]
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
+  const [localCollapsed, setLocalCollapsed] = useState<ReadonlySet<string>>(() => new Set())
+  const collapsedGroups = disclosure?.collapsed ?? localCollapsed
+  const setCollapsedGroups = disclosure?.onChange ?? setLocalCollapsed
   const previousPositions = useRef<Map<string, number> | null>(null)
   const toggleGroup = (key: string, count: number) => {
     const list = listRef.current
@@ -223,12 +227,10 @@ export function TradeList({
       }
       previousPositions.current = positions
     }
-    setCollapsedGroups(current => {
-      const next = new Set(current)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
+    const next = new Set(collapsedGroups)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    setCollapsedGroups(next)
   }
 
   const flatItems = useMemo(() => flattenGroups(groups, collapsedGroups), [groups, collapsedGroups])
@@ -332,13 +334,11 @@ export function TradeList({
     if (!collapsedGroups.size) return false
     const group = groups.find(item => collapsedGroups.has(item.key) && item.items.some(trade => trade.id === tradeId))
     if (!group) return false
-    setCollapsedGroups(current => {
-      const next = new Set(current)
-      next.delete(group.key)
-      return next
-    })
+    const next = new Set(collapsedGroups)
+    next.delete(group.key)
+    setCollapsedGroups(next)
     return true
-  }, [groups, collapsedGroups])
+  }, [groups, collapsedGroups, setCollapsedGroups])
 
   useEffect(() => {
     return registerTradeScrollTarget((tradeId) => {
@@ -368,15 +368,8 @@ export function TradeList({
     virtualizer.scrollToIndex(index, { align: 'center' })
   }, [flatItems, virtualizer])
 
-  const previousFocus = useRef<string | null>(null)
   useEffect(() => {
-    const changed = previousFocus.current !== focusedId
-    previousFocus.current = focusedId
     if (!focusedId) return
-    if (changed && ensureGroupExpandedForTrade(focusedId)) {
-      pendingScrollTradeIdRef.current = focusedId
-      return
-    }
     const index = flatItems.findIndex(
       (item) => item.kind === 'row' && item.trade.id === focusedId,
     )
@@ -387,7 +380,8 @@ export function TradeList({
       row?.querySelector<HTMLButtonElement>('.trade-row-open')?.focus({ preventScroll: true })
     })
     return () => cancelAnimationFrame(frame)
-  }, [focusedId, flatItems, ensureGroupExpandedForTrade, virtualizer])
+    // 数据刷新不代表新的键盘定位意图，保留用户后来移到的控件焦点。
+  }, [focusedId, virtualizer])
 
   const virtualItems = virtualizer.getVirtualItems()
 

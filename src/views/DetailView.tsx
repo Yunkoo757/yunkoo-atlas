@@ -1,6 +1,7 @@
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { createPortal } from 'react-dom'
 import { isComposingKey } from '@/lib/keyboardComposition'
+import { restoreFocusIfUnclaimed } from '@/lib/restoreFocus'
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { ICON_2XL, ICON_MD, ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
@@ -72,12 +73,13 @@ import { prepareCaseClipboard } from '@/lib/caseClipboard'
 import { getTradeActivities, partitionDisplayActivities, type DisplayActivityEvent } from '@/lib/activities'
 import {
   findTradeByRouteParam,
+  relatedTradeDetailState,
   resolveTradeDetailReturn,
   tradeDetailPath,
   type TradeDetailLocationState,
 } from '@/lib/tradeRoute'
 import { resolveTradeDetailSourceCopy } from '@/views/detailSourceCopy'
-import { tradeReturnLocationState } from '@/hooks/useTradeReturnAnchor'
+import { rememberTradeReturnAnchor, tradeReturnLocationState } from '@/hooks/useTradeReturnAnchor'
 import {
   SESSION_PRESETS,
   PSYCHOLOGY_PRESETS,
@@ -96,7 +98,6 @@ import { STATUS_ORDER, isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
 import { getStorage } from '@/storage/bootstrap'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
 import {
-  flushNoteDraftsToStore,
   flushNoteDraftToStore,
   getNoteDraft,
   setNoteDraft,
@@ -155,8 +156,8 @@ function findNextPendingReviewId(
   const byId = new Map(trades.map((item) => [item.id, item]))
   const start = orderedIds.indexOf(fromId)
   if (start < 0) return null
-  for (let index = start + 1; index < orderedIds.length; index += 1) {
-    const candidate = byId.get(orderedIds[index]!)
+  for (let offset = 1; offset < orderedIds.length; offset += 1) {
+    const candidate = byId.get(orderedIds[(start + offset) % orderedIds.length]!)
     if (candidate && isPendingReviewTrade(candidate)) return candidate.id
   }
   return null
@@ -235,6 +236,10 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
   const [noteLoadAttempt, setNoteLoadAttempt] = useState(0)
   const [noteRetrying, setNoteRetrying] = useState(false)
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const pendingReviewsRef = useRef(new Set<string>())
+  const completionButtonRef = useRef<HTMLButtonElement>(null)
+  const nextReviewButtonRef = useRef<HTMLButtonElement>(null)
+  const completedReviewRef = useRef<HTMLSpanElement>(null)
   const [caseCreating, setCaseCreating] = useState(false)
   const [decisionImageCaseId, setDecisionImageCaseId] = useState<string | null>(null)
   const [contentCopying, setContentCopying] = useState(false)
@@ -309,9 +314,9 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
     })
   }, [trade?.id, noteReady])
 
-  const from = (location.state as TradeDetailLocationState | null)?.from
-  const commandSearch = (location.state as TradeDetailLocationState | null)?.commandSearch
-  const focusField = (location.state as TradeDetailLocationState | null)?.focusField
+  const routeState = location.state as TradeDetailLocationState | null
+  const { from, commandSearch, focusField, parentRecord } = routeState ?? {}
+  const parentTrade = parentRecord && parentRecord.id !== trade?.id ? trades.find(item => item.id === parentRecord.id) : undefined
   const resultActionRef = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     if (focusField !== 'result') return
@@ -321,25 +326,35 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
     })
     return () => cancelAnimationFrame(frame)
   }, [focusField, trade?.id])
-  const detailReturnState = commandSearch
-    ? { restoreCommandSearch: commandSearch }
-    : tradeReturnLocationState(from)
+  const returnState = useCallback(() => {
+    if (parentTrade && parentRecord) return parentRecord.state
+    return commandSearch ? { restoreCommandSearch: commandSearch } : tradeReturnLocationState(from)
+  }, [parentTrade, parentRecord, commandSearch, from])
+  const rememberReturnRow = () => {
+    if (from && !parentTrade && !commandSearch) rememberTradeReturnAnchor(from)
+  }
   const detailKind = trade?.tradeKind ?? deletedTrade?.tradeKind
+  const originKind = detailKind === 'case' && sourceTrade && sourceTrade.id === from?.anchorTradeId
+    ? sourceTrade.tradeKind : detailKind
   const detailReturn = useMemo(() => {
+    if (parentTrade) return { pathname: tradeDetailPath(parentTrade), search: '' }
     if (commandSearch) return commandSearch.origin
     return resolveTradeDetailReturn({
       from,
       listPath: listContext?.listPath,
       listSearch: listContext?.listSearch,
-      tradeKind: detailKind,
+      tradeKind: originKind,
       backtestProjectId: trade?.backtestProjectId,
     })
-  }, [commandSearch, from, listContext?.listPath, listContext?.listSearch, detailKind, trade?.backtestProjectId])
-  const {
-    backAriaLabel: sourceBackLabel,
-    returnDestinationLabel,
-  } = resolveTradeDetailSourceCopy(detailReturn.pathname)
-  const backAriaLabel = commandSearch ? '返回搜索结果' : sourceBackLabel
+  }, [parentTrade, commandSearch, from, listContext?.listPath, listContext?.listSearch, originKind, trade?.backtestProjectId])
+  const returnDestinationLabel = parentTrade
+    ? (parentTrade.tradeKind === 'case' ? '来源案例' : '来源交易')
+    : commandSearch ? '搜索结果' : resolveTradeDetailSourceCopy(detailReturn.pathname).returnDestinationLabel
+  const backAriaLabel = `返回${returnDestinationLabel}`
+
+  useEffect(() => registerShortcutHandlers({
+    'trade.backToList': () => navigate(detailReturn, { state: returnState() }),
+  }), [navigate, detailReturn, returnState])
 
   const persistEditorNote = useCallback((html: string, tradeId: string) => {
     pendingHtmlRef.current = html
@@ -367,7 +382,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       if (cancelled) return html
       return resolveNoteForDisplayResult(html, getStorage(), imageScope)
     }, async () => {
-      if (!(await flushNoteDraftsToStore())) return false
+      if (!(await flushNoteDraftToStore(trade.id))) return false
       return useStore.getState().trades.find((item) => item.id === trade.id)?.note ?? trade.note
     }).then((result) => {
       if (cancelled) return
@@ -424,16 +439,6 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
     syncLightboxForOwner,
   ])
 
-  useEffect(() => {
-    return () => {
-      if (noteSaveTimer.current) {
-        clearTimeout(noteSaveTimer.current)
-        noteSaveTimer.current = null
-      }
-      void flushNoteDraftsToStore()
-    }
-  }, [])
-
   useLayoutEffect(() => {
     detailMountedRef.current = true
     return () => {
@@ -479,7 +484,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
     setActivityOpen(false)
     setFeedExpanded(false)
     setReviewIssue(null)
-    setReviewSubmitting(false)
+    setReviewSubmitting(trade ? pendingReviewsRef.current.has(trade.id) : false)
     setCaseCreating(false)
   }, [trade?.id])
 
@@ -513,12 +518,13 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
   const sourceLink = (
     <Link
       to={detailReturn}
-      state={detailReturnState}
+      state={returnState()}
+      onClick={rememberReturnRow}
       className="ui-btn ui-btn-ghost ui-btn-sm dv-back"
       aria-label={backAriaLabel}
     >
       <ArrowLeft size={ICON_SM} aria-hidden />
-      <span>{commandSearch ? '搜索结果' : returnDestinationLabel}</span>
+      <span>{returnDestinationLabel}</span>
     </Link>
   )
 
@@ -540,10 +546,11 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
             <div className="dv-empty-actions">
               <Link
                 to={detailReturn}
-                state={detailReturnState}
+                state={returnState()}
+                onClick={rememberReturnRow}
                 className="ui-btn ui-btn-bordered ui-btn-md"
               >
-                {commandSearch ? '返回搜索结果' : `返回${returnDestinationLabel}`}
+                {backAriaLabel}
               </Link>
               {deletedTrade && (
                 <Link to="/trade-trash" className="ui-btn ui-btn-bordered ui-btn-md">
@@ -639,7 +646,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
 
   const onDelete = () => {
     moveRecordsToTrash(trade.id)
-    navigate(detailReturn, { state: detailReturnState })
+    navigate(detailReturn, { state: returnState() })
   }
 
   const createCaseFromCurrentTrade = async () => {
@@ -671,7 +678,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
       }
       if (!ownsCurrentTrade()) return
       toast('已提炼为案例', { tone: 'success' })
-      navigate(tradeDetailPath(result.reviewCase), { state: location.state })
+      navigate(tradeDetailPath(result.reviewCase), { state: relatedTradeDetailState(trade.id, result.reviewCase.id, routeState) })
     } finally {
       if (caseCreationOwnerRef.current === operation) {
         caseCreationOwnerRef.current = null
@@ -711,34 +718,42 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
     )
     : null
   const completeReview = async () => {
-    if (reviewSubmitting || activeNoteLoad.status !== 'ready' || !reviewReadiness.ready) return
+    if (pendingReviewsRef.current.has(trade.id) || activeNoteLoad.status !== 'ready' || !reviewReadiness.ready) return
 
+    const ownsView = () => detailMountedRef.current && activeTradeIdRef.current === trade.id
+    const continueKeyboardFlow = completionButtonRef.current === document.activeElement
+    pendingReviewsRef.current.add(trade.id)
     setReviewSubmitting(true)
     setReviewIssue(null)
     try {
       const noteSaved = await flushNoteDraftToStore(trade.id)
       if (!noteSaved) {
         const message = '笔记图片尚未保存，复盘状态未变更'
-        setReviewIssue(message)
-        toast(message, { tone: 'error' })
+        if (ownsView()) setReviewIssue(message)
+        toast(`${trade.ref} · ${message}`, { tone: 'error' })
         return
       }
 
-      const latestNote = useStore.getState().trades.find((item) => item.id === trade.id)?.note ?? ''
-      const latestReadiness = evaluateReviewCompletion(latestNote)
+      const latest = useStore.getState().trades.find((item) => item.id === trade.id)
+      if (!latest || !isPendingReviewTrade(latest)) return
+      const latestReadiness = evaluateReviewCompletion(latest.note)
       if (!latestReadiness.ready) {
         const message = latestReadiness.reason === 'empty'
           ? '笔记已变为空白，请补充复盘内容后重试'
           : '请补充复盘结论、勾选检查项或加入截图证据'
-        setReviewIssue(message)
-        toast(message, { tone: 'warning' })
+        if (ownsView()) setReviewIssue(message)
+        toast(`${trade.ref} · ${message}`, { tone: 'warning' })
         return
       }
 
       updateTradeData(trade.id, { reviewStatus: 'reviewed' })
       toast(`已完成 ${trade.ref} 的复盘`, { tone: 'success' })
+      if (continueKeyboardFlow) requestAnimationFrame(() => {
+        if (ownsView()) restoreFocusIfUnclaimed(nextReviewButtonRef.current ?? completedReviewRef.current)
+      })
     } finally {
-      setReviewSubmitting(false)
+      pendingReviewsRef.current.delete(trade.id)
+      if (ownsView()) setReviewSubmitting(false)
     }
   }
 
@@ -960,6 +975,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
     <Button
       variant="ghost"
       size="sm"
+      ref={completionButtonRef}
       className="dv-review-complete-action"
       busy={reviewSubmitting}
       disabled={activeNoteLoad.status !== 'ready' || !reviewReadiness.ready}
@@ -1103,7 +1119,7 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
                       <strong>复盘笔记未完整载入</strong>
                       <span>
                         {activeNoteLoad.reason === 'prepare'
-                          ? '上一份笔记草稿尚未安全保存，当前内容已锁定；请重试载入。'
+                          ? '这篇笔记的草稿尚未保存，请重新载入后继续编辑。'
                           : '图片附件读取失败，正文已安全保留；当前为只读模式。'}
                       </span>
                     </div>
@@ -1172,14 +1188,14 @@ export function DetailView({ toolbarHost }: { toolbarHost?: HTMLElement | null }
                       content={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
                       label={trade.reviewedAt ? `复盘完成于 ${fmtDateTime(trade.reviewedAt)}` : '复盘已完成'}
                     >
-                      <span className="dv-review-complete-meta">
+                      <span ref={completedReviewRef} className="dv-review-complete-meta" tabIndex={-1}>
                         <CheckCircle size={ICON_SM} aria-hidden />
                         <span>已复盘</span>
                       </span>
                     </Tooltip>
                   )}
                   {nextPendingReviewId && (
-                    <Button variant="ghost" size="sm" onClick={() => navigateDetail(nextPendingReviewId)}>
+                    <Button ref={nextReviewButtonRef} variant="ghost" size="sm" onClick={() => navigateDetail(nextPendingReviewId)}>
                       下一条待复盘
                       <ArrowRight size={ICON_SM} aria-hidden />
                     </Button>

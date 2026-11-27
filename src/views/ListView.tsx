@@ -1,8 +1,5 @@
-import { Button } from '@/components/ui/Button'
-import { ICON_SM } from '@/icons/iconSize'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Copy, Trash2 } from '@/icons/appIcons'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import type { WorkbenchView } from '@/components/Topbar'
 import { TradeWorkbenchHeader } from '@/components/trades/TradeWorkbenchHeader'
@@ -12,28 +9,27 @@ import type { Trade } from '@/data/trades'
 import type { ListFilter } from '@/lib/tradeFilters'
 import { getStrategyName } from '@/lib/strategies'
 import { createRecordForContext } from '@/lib/createRecordAction'
-import { getBatchCopyActionLabel } from '@/lib/tradeActionContract'
-import { buildSafeTradeCopies } from '@/lib/tradeCopy'
 import { toast } from '@/lib/toast'
 import { moveRecordsToTrash } from '@/lib/tradeTrashAction'
 import { buildTradeCtxItems } from '@/lib/tradeMenu'
-import { tradeDetailPath, tradeDetailNavState, type TradeDetailLocationState } from '@/lib/tradeRoute'
+import { tradeDetailPath, tradeDetailNavState, workbenchDetailFrom } from '@/lib/tradeRoute'
 import {
   groupTradesByMonth,
   intersectSelectedTradeIds,
 } from '@/lib/tradeView'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { useWorkbenchEmptyState } from '@/hooks/useWorkbenchEmptyState'
-import { getJournalViewState } from '@/lib/journalQuickViews'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import { rememberTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { resultRepairAnchor } from '@/hooks/useResultRepairReturn'
-import { BatchActionBar } from '@/components/ui/BatchActionBar'
-import { ModalShell } from '@/components/ui/ModalShell'
-import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
+import { TradeBatchActions } from '@/components/trades/TradeBatchActions'
+import { useWorkbenchListKeyboard, useWorkbenchRowFocus } from '@/hooks/useWorkbenchListKeyboard'
 import { useStore } from '@/store/useStore'
+import { useShortcutStore } from '@/store/shortcutStore'
 import './ListView.css'
+
+const expandedGroups: ReadonlySet<string> = new Set()
 
 export function ListView({
   title = '交易',
@@ -57,39 +53,37 @@ export function ListView({
   const setStatus = useStore((state) => state.setStatus)
   const requestTradeClose = useStore((state) => state.requestTradeClose)
   const requestTradeOpen = useStore((state) => state.requestTradeOpen)
-  const upsertTrades = useStore((state) => state.upsertTrades)
   const toggleStar = useStore((state) => state.toggleStar)
   const isStarred = useStore((state) => state.isStarred)
   const toggleCaseFocus = useStore((state) => state.toggleCaseFocus)
   const isCaseFocused = useStore((state) => state.isCaseFocused)
   const [contextMenu, setContextMenu] = useState<CtxState | null>(null)
-  const [focusIndex, setFocusIndex] = useState(-1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [copyCandidateIds, setCopyCandidateIds] = useState<string[] | null>(null)
   const listScrollRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const location = useLocation()
+  const pathname = location.pathname
+  const [disclosure, setDisclosure] = useState(() => {
+    const last = useShortcutStore.getState().listContext
+    const restored = last?.listPath === pathname && last.listSearch === location.search
+      ? last.collapsedGroups : undefined
+    return { pathname, groups: restored ?? expandedGroups }
+  })
+  const collapsedGroups = disclosure.pathname === pathname ? disclosure.groups : expandedGroups
+  const changeCollapsedGroups = useCallback((groups: ReadonlySet<string>) => {
+    setDisclosure({ pathname, groups })
+  }, [pathname])
   const createRecord = () => createRecordForContext(location.pathname, location.search, navigate)
-  useListContextSync(filter)
   const workspace = useWorkbenchVisibleTrades(filter)
   const { trades, visible, stageScope } = workspace
 
-  const openTrade = useCallback((trade: Trade, focusField?: 'result') => {
-    const inheritedFrom = (location.state as TradeDetailLocationState | null)?.from
-    const inheritedArchive = inheritedFrom?.pathname === '/live-history'
-      || inheritedFrom?.pathname === '/live-archive'
-      || inheritedFrom?.pathname.startsWith('/live-archive/')
-    const from = {
-      pathname: inheritedArchive ? inheritedFrom!.pathname : location.pathname,
-      search: inheritedArchive ? inheritedFrom!.search ?? '' : location.search,
-      ...getJournalViewState(location.state),
-      anchorTradeId: focusField ? resultRepairAnchor(trade.id) : trade.id,
-    }
+  const openTrade = useCallback((trade: Trade, focusField?: 'result', anchorId = trade.id) => {
+    const from = workbenchDetailFrom(location, focusField ? resultRepairAnchor(anchorId) : anchorId)
     rememberTradeReturnAnchor(from)
     navigate(tradeDetailPath(trade), {
       state: tradeDetailNavState(from, { focusField }),
     })
-  }, [location.pathname, location.search, navigate])
+  }, [location, navigate])
 
   const groups = useMemo<TradeListGroup[]>(() => {
     if (filter.type === 'period' && filter.period === 'today') {
@@ -121,20 +115,16 @@ export function ListView({
   }, [visible, filter.type, filter.period, filter.tradeKind, display.groupByStrategy, display.groupByDate, display.sortDirection, strategies])
 
   const orderedItems = useMemo(
-    () => groups.flatMap((group) => group.items),
-    [groups],
+    () => groups.flatMap((group) => collapsedGroups.has(group.key) ? [] : group.items),
+    [groups, collapsedGroups],
   )
+  useListContextSync(filter, orderedItems, collapsedGroups)
   const orderedIdsKey = useMemo(
     () => orderedItems.map((trade) => trade.id).join('\u0000'),
     [orderedItems],
   )
 
-  const focusedId =
-    focusIndex >= 0 && focusIndex < orderedItems.length ? orderedItems[focusIndex].id : null
-  const visibleIdsKey = useMemo(
-    () => visible.map((trade) => trade.id).join('\u0000'),
-    [visible],
-  )
+  const { focusedId, focusIndex, setFocusIndex } = useWorkbenchRowFocus(orderedItems)
 
   useWorkbenchListKeyboard({
     items: orderedItems,
@@ -146,15 +136,14 @@ export function ListView({
     enableNav: true,
   })
 
-  useEffect(() => setFocusIndex(-1), [orderedIdsKey])
-
   useEffect(() => {
     setSelectedIds((current) => {
-      const next = intersectSelectedTradeIds(current, visible)
-      if (next.size === current.size && [...next].every((id) => current.has(id))) return current
+      if (!current.size) return current
+      const next = intersectSelectedTradeIds(current, orderedItems)
+      if (next.size === current.size) return current
       return next
     })
-  }, [visibleIdsKey])
+  }, [orderedIdsKey])
 
   const toggleSelection = useCallback((trade: Trade) => {
     setSelectedIds((current) => {
@@ -169,71 +158,6 @@ export function ListView({
     if (trade.tradeKind === 'case') toggleCaseFocus(trade.id)
     else toggleStar(trade.id)
   }, [toggleCaseFocus, toggleStar])
-
-  const batchDelete = () => {
-    const actionableIds = intersectSelectedTradeIds(selectedIds, visible)
-    moveRecordsToTrash([...actionableIds])
-    setSelectedIds(new Set())
-  }
-
-  const requestBatchCopy = () => {
-    const actionableIds = intersectSelectedTradeIds(selectedIds, visible)
-    if (actionableIds.size === 0) {
-      toast('当前没有可复制的记录')
-      return
-    }
-    setCopyCandidateIds([...actionableIds])
-  }
-
-  const confirmBatchCopy = () => {
-    if (!copyCandidateIds) return
-    const sourceById = new Map(trades.map((trade) => [trade.id, trade]))
-    const sources = copyCandidateIds
-      .map((id) => sourceById.get(id))
-      .filter((trade): trade is Trade => Boolean(trade && !trade.deletedAt))
-    if (sources.length !== copyCandidateIds.length) {
-      toast('部分源记录已变化，请重新选择后再复制', { tone: 'warning' })
-      setCopyCandidateIds(null)
-      return
-    }
-
-    try {
-      const copies = buildSafeTradeCopies(sources, trades, {
-        now: new Date(),
-        tradingDayStartHour: useStore.getState().display.tradingDayStartHour,
-        createId: () => crypto.randomUUID(),
-      })
-      if (upsertTrades(copies) !== 'updated') throw new Error('复制失败，请重试')
-
-      const hasCases = sources.some((trade) => trade.tradeKind === 'case')
-      const hasAccountTrades = sources.some((trade) => trade.tradeKind !== 'case')
-      toast(
-        hasCases && hasAccountTrades
-          ? `已复制 ${copies.length} 条记录`
-          : hasCases
-            ? `已复制 ${copies.length} 个案例`
-            : `已将 ${copies.length} 笔交易复制为新计划`,
-        { tone: 'success' },
-      )
-      setSelectedIds(new Set())
-      setCopyCandidateIds(null)
-    } catch (error) {
-      toast(error instanceof Error ? error.message : '复制失败，源记录未改变', { tone: 'error' })
-      setCopyCandidateIds(null)
-    }
-  }
-
-  const selectedSources = visible.filter((trade) => selectedIds.has(trade.id))
-  const copyActionLabel = getBatchCopyActionLabel(selectedSources)
-  const copyCandidateSet = new Set(copyCandidateIds ?? [])
-  const copyCandidates = trades.filter((trade) => copyCandidateSet.has(trade.id))
-  const copyAccountCount = copyCandidates.filter((trade) => trade.tradeKind !== 'case').length
-  const copyCaseCount = copyCandidates.length - copyAccountCount
-  const copyConfirmLabel = copyAccountCount > 0 && copyCaseCount > 0
-    ? `复制 ${copyCandidates.length} 条记录`
-    : copyCaseCount > 0
-      ? `复制 ${copyCaseCount} 个案例`
-      : `创建 ${copyAccountCount} 笔新计划`
 
   const openContextMenu = useCallback((event: React.MouseEvent, trade: Trade) => {
     event.preventDefault()
@@ -255,7 +179,7 @@ export function ListView({
             return
           }
           toast('已提炼为案例', { tone: 'success' })
-          openTrade(result.reviewCase)
+          openTrade(result.reviewCase, undefined, source.id)
         },
         toggleStar,
         isStarred,
@@ -304,6 +228,7 @@ export function ListView({
         ) : (
           <TradeList
             groups={groups}
+            disclosure={{ collapsed: collapsedGroups, onChange: changeCollapsedGroups }}
             strategies={strategies}
             focusedId={focusedId}
             selectedIds={selectedIds}
@@ -324,83 +249,7 @@ export function ListView({
         )}
       </div>
       <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
-      <BatchActionBar count={selectedIds.size}>
-        <Button size="sm" onClick={requestBatchCopy}>
-          <Copy size={ICON_SM} />
-          <span>{copyActionLabel}</span>
-        </Button>
-        <Button size="sm" variant="danger" onClick={batchDelete}>
-          <Trash2 size={ICON_SM} />
-          <span>删除</span>
-        </Button>
-      </BatchActionBar>
-      {copyCandidateIds ? (
-        <ModalShell
-          title="确认复制所选记录"
-          size="compact"
-          panelClassName="copy-confirm-modal"
-          onClose={() => setCopyCandidateIds(null)}
-          footer={(
-            <>
-              <Button
-                type="button"
-                size="lg" variant="bordered"
-                data-autofocus
-                onClick={() => setCopyCandidateIds(null)}
-              >
-                取消
-              </Button>
-              <Button
-                type="button"
-                size="lg" variant="primary"
-                disabled={copyCandidates.length !== copyCandidateIds.length}
-                onClick={confirmBatchCopy}
-              >
-                {copyConfirmLabel}
-              </Button>
-            </>
-          )}
-        >
-          <div className="copy-preview">
-            {copyAccountCount > 0 ? (
-              <section className="copy-preview-section">
-                <div className="copy-preview-heading">
-                  <strong>{copyAccountCount} 笔实盘/模拟记录</strong>
-                  <span>复制为新计划</span>
-                </div>
-                <dl className="copy-preview-list">
-                  <div>
-                    <dt>保留</dt>
-                    <dd>品种、方向、策略、周期、标签、止损、仓位与交易上下文</dd>
-                  </div>
-                  <div>
-                    <dt>清空</dt>
-                    <dd>成交与平仓结果、盈亏/R、复盘正文与状态、错误标签、评论、活动、删除及案例字段</dd>
-                  </div>
-                </dl>
-              </section>
-            ) : null}
-            {copyCaseCount > 0 ? (
-              <section className="copy-preview-section">
-                <div className="copy-preview-heading">
-                  <strong>{copyCaseCount} 个案例</strong>
-                  <span>复制为新案例</span>
-                </div>
-                <dl className="copy-preview-list">
-                  <div>
-                    <dt>保留</dt>
-                    <dd>案例正文、分类、标签、错误标签与来源追溯</dd>
-                  </div>
-                  <div>
-                    <dt>重置</dt>
-                    <dd>掌握状态、复看进度、复盘完成时间、评论、活动与删除状态</dd>
-                  </div>
-                </dl>
-              </section>
-            ) : null}
-          </div>
-        </ModalShell>
-      ) : null}
+      <TradeBatchActions selectedIds={selectedIds} trades={trades} visible={orderedItems} onClear={() => setSelectedIds(new Set())} />
     </>
   )
 }

@@ -1,6 +1,8 @@
+import { TradeBatchActions } from '@/components/trades/TradeBatchActions'
+import { intersectSelectedTradeIds } from '@/lib/tradeView'
 import { BoardCardTags } from '@/components/trades/BoardCardTags'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
-import React, { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { createRecordForContext, resolveCreateRecordAction } from '@/lib/createRecordAction'
@@ -30,7 +32,7 @@ import { toast } from '@/lib/toast'
 import { transitionTradeStatus } from '@/lib/tradeTransition'
 import { STATUS_ORDER } from '@/lib/tradeStatus'
 import { useListContextSync } from '@/shortcuts/useListContextSync'
-import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
+import { useWorkbenchListKeyboard, useWorkbenchRowFocus } from '@/hooks/useWorkbenchListKeyboard'
 import { useWorkbenchVisibleTrades } from '@/hooks/useWorkbenchVisibleTrades'
 import { registerTradeScrollTarget } from '@/lib/tradeScrollTargets'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -55,7 +57,7 @@ export function BoardView({
   title?: string
   view: WorkbenchView
   onView: (v: WorkbenchView) => void
-  onOpen: (id: string, focusField?: 'result') => void
+  onOpen: (id: string, focusField?: 'result', anchorId?: string) => void
   filter?: ListFilter
   header?: ReactNode
   journal?: boolean
@@ -75,12 +77,10 @@ export function BoardView({
   const [dragId, setDragId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<TradeStatus | null>(null)
   const [ctx, setCtx] = useState<CtxState | null>(null)
-  const [focusIndex, setFocusIndex] = useState(-1)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const navigate = useNavigate()
   const location = useLocation()
   const createRecord = () => createRecordForContext(location.pathname, location.search, navigate)
-  useListContextSync(filter)
   const workspace = useWorkbenchVisibleTrades(filter)
   const { trades, visible } = workspace
 
@@ -96,13 +96,12 @@ export function BoardView({
     )
   }, [visible, display.showEmptyGroups])
   const orderedItems = useMemo(() => cols.flatMap((column) => column.items), [cols])
+  useListContextSync(filter, orderedItems)
   const orderedIdsKey = useMemo(
     () => orderedItems.map((item) => item.id).join('\u0000'),
     [orderedItems],
   )
-  const focusedId = focusIndex >= 0 && focusIndex < orderedItems.length
-    ? orderedItems[focusIndex].id
-    : null
+  const { focusedId, focusIndex, setFocusIndex } = useWorkbenchRowFocus(orderedItems)
 
   useWorkbenchListKeyboard({
     items: orderedItems,
@@ -114,7 +113,20 @@ export function BoardView({
     enableNav: true,
   })
 
-  useEffect(() => setFocusIndex(-1), [orderedIdsKey])
+  useEffect(() => {
+    setSelectedIds(current => {
+      if (!current.size) return current
+      const next = intersectSelectedTradeIds(current, orderedItems)
+      return next.size === current.size ? current : next
+    })
+  }, [orderedIdsKey])
+
+  const toggleSelection = (id: string) => setSelectedIds(current => {
+    const next = new Set(current)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
 
   const isReviewCaseView = filter.tradeKind === 'case'
   const createLabel = resolveCreateRecordAction(location.pathname, location.search).label
@@ -193,35 +205,39 @@ export function BoardView({
                 overCol={overCol}
                 focusedId={focusedId}
                 selectedIds={selectedIds}
+                onToggleSelection={toggleSelection}
                 setDragId={setDragId}
                 setOverCol={setOverCol}
                 onOpen={onOpen}
-                onContextMenu={(e, trade) => {
-                  e.preventDefault()
+                onContextMenu={(trade, originElement, x, y) => {
                   setCtx({
-                    x: e.clientX,
-                    y: e.clientY,
-                    originElement: e.currentTarget as HTMLElement,
-                    items: buildTradeCtxItems(trade, {
-                      setStatus,
-                      requestTradeOpen,
-                      changeStatus: (s) => transitionTradeStatus(trade, s, transition),
-                      openComposer,
-                      removeTrade: moveRecordsToTrash,
-                      createReviewCase: (source) => {
-                        const result = useStore.getState().createReviewCaseFromTrade(source.id)
-                        if (result.status !== 'created') {
-                          toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在', { tone: 'warning' })
-                          return
-                        }
-                        toast('已提炼为案例', { tone: 'success' })
-                        onOpen(result.reviewCase.id)
-                      },
-                      toggleStar,
-                      isStarred,
-                      toggleCaseFocus,
-                      isCaseFocused,
-                    }),
+                    x,
+                    y,
+                    originElement,
+                    items: [
+                      { type: 'item', label: selectedIds.has(trade.id) ? '取消选择' : '选择这条记录', onClick: () => toggleSelection(trade.id) },
+                      { type: 'divider' },
+                      ...buildTradeCtxItems(trade, {
+                        setStatus,
+                        requestTradeOpen,
+                        changeStatus: (s) => transitionTradeStatus(trade, s, transition),
+                        openComposer,
+                        removeTrade: moveRecordsToTrash,
+                        createReviewCase: (source) => {
+                          const result = useStore.getState().createReviewCaseFromTrade(source.id)
+                          if (result.status !== 'created') {
+                            toast(result.status === 'source-is-case' ? '案例不能再次提炼' : '原交易已不存在', { tone: 'warning' })
+                            return
+                          }
+                          toast('已提炼为案例', { tone: 'success' })
+                          onOpen(result.reviewCase.id, undefined, source.id)
+                        },
+                        toggleStar,
+                        isStarred,
+                        toggleCaseFocus,
+                        isCaseFocused,
+                      }),
+                    ],
                   })
                 }}
               />
@@ -229,6 +245,7 @@ export function BoardView({
           ))
         )}
       </div>
+      <TradeBatchActions selectedIds={selectedIds} trades={trades} visible={visible} onClear={() => setSelectedIds(new Set())} />
       <ContextMenu state={ctx} onClose={() => setCtx(null)} />
     </>
   )
@@ -246,6 +263,7 @@ function BoardColumnBody({
   overCol,
   focusedId,
   selectedIds,
+  onToggleSelection,
   setDragId,
   setOverCol,
   onOpen,
@@ -262,10 +280,11 @@ function BoardColumnBody({
   overCol: TradeStatus | null
   focusedId: string | null
   selectedIds: Set<string>
+  onToggleSelection: (id: string) => void
   setDragId: (id: string | null) => void
   setOverCol: (status: TradeStatus | null) => void
   onOpen: (id: string) => void
-  onContextMenu: (event: React.MouseEvent, trade: Trade) => void
+  onContextMenu: (trade: Trade, originElement: HTMLElement, x: number, y: number) => void
 }) {
   const bodyRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
@@ -284,6 +303,20 @@ function BoardColumnBody({
       return true
     })
   }, [items, virtualizer])
+
+  useEffect(() => {
+    if (!focusedId) return
+    const index = items.findIndex(trade => trade.id === focusedId)
+    if (index < 0) return
+    virtualizer.scrollToIndex(index, { align: 'auto' })
+    const frame = requestAnimationFrame(() => {
+      const card = bodyRef.current?.querySelector<HTMLElement>(`[data-trade-id="${CSS.escape(focusedId)}"]`)
+      card?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      card?.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(frame)
+    // 数据刷新不代表新的键盘定位意图，保留用户后来移到的控件焦点。
+  }, [focusedId, virtualizer])
 
   const virtualItems = virtualizer.getVirtualItems()
 
@@ -322,7 +355,7 @@ function BoardColumnBody({
                   + (focusedId === t.id ? ' is-focused' : '')
                   + (selectedIds.has(t.id) ? ' is-selected' : '')
                 }
-                draggable
+                draggable={selectedIds.size === 0}
                 onDragStart={(e) => {
                   setDragId(t.id)
                   const el = e.currentTarget as HTMLElement
@@ -341,14 +374,28 @@ function BoardColumnBody({
                   setDragId(null)
                   setOverCol(null)
                 }}
-                onClick={() => onOpen(t.id)}
+                onClick={event => {
+                  if (event.metaKey || event.ctrlKey) onToggleSelection(t.id)
+                  else onOpen(t.id)
+                }}
                 onKeyDown={(event) => {
                   if (event.target !== event.currentTarget) return
+                  if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+                    event.preventDefault()
+                    const card = event.currentTarget
+                    const rect = card.getBoundingClientRect()
+                    onContextMenu(t, card, rect.left, rect.bottom)
+                    return
+                  }
                   if (event.key !== 'Enter' && event.key !== ' ') return
                   event.preventDefault()
                   onOpen(t.id)
                 }}
-                onContextMenu={(e) => onContextMenu(e, t)}
+                aria-description={selectedIds.has(t.id) ? '已选择' : undefined}
+                onContextMenu={event => {
+                  event.preventDefault()
+                  onContextMenu(t, event.currentTarget, event.clientX, event.clientY)
+                }}
                 role="button"
                 tabIndex={0}
               >

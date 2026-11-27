@@ -1320,9 +1320,13 @@ async function run(): Promise<void> {
       () => document.querySelector('[data-trade-id="weekly-trade:rollover-source"]') !== null,
       '跨周返回夹具没有渲染来源周证据',
     )
-    document.querySelector<HTMLAnchorElement>(
-      '[data-trade-id="weekly-trade:rollover-source"] [data-trade-primary-action]',
-    )?.click()
+    const rolloverSelector = '[data-trade-id="weekly-trade:rollover-source"] [data-trade-primary-action]'
+    const openRolloverTrade = async () => {
+      clickButton('查看 1 笔交易')
+      await waitFor(() => document.querySelector(rolloverSelector)?.closest('details')?.open === true, '跨周来源交易应在展开后可操作')
+      document.querySelector<HTMLAnchorElement>(rolloverSelector)!.click()
+    }
+    await openRolloverTrade()
     await waitFor(() => document.querySelector('[data-testid="weekly-detail"]') !== null, '跨周返回夹具没有进入详情')
     currentDateControl?.set(rolloverBoundary + 10_000)
     clickLink('返回复盘')
@@ -1364,10 +1368,7 @@ async function run(): Promise<void> {
       ),
       '浏览器返回跨周夹具没有渲染来源周证据',
     )
-    await waitForFrame()
-    document.querySelector<HTMLAnchorElement>(
-      '[data-trade-id="weekly-trade:rollover-source"] [data-trade-primary-action]',
-    )?.click()
+    await openRolloverTrade()
     await waitFor(() => document.querySelector('[data-testid="weekly-detail"]') !== null, '浏览器返回跨周夹具没有进入详情')
     currentDateControl?.set(rolloverBoundary + 10_000)
     clickButton('浏览器返回')

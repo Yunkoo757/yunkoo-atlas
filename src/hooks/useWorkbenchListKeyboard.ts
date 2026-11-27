@@ -1,10 +1,26 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   registerShortcutHandlers,
   type ShortcutHandlerMap,
 } from '@/shortcuts/engine'
 
 type Item = { id: string }
+
+/** 分组、排序或筛选变化时只跟踪原记录，避免焦点滑到恰好占用原位置的另一条。 */
+export function useWorkbenchRowFocus(items: Item[]) {
+  const [id, setId] = useState<string | null>(null)
+  const focusIndex = useMemo(() => id === null ? -1 : items.findIndex(item => item.id === id), [items, id])
+  useEffect(() => {
+    if (id !== null && focusIndex < 0) setId(null)
+  }, [focusIndex, id])
+  const setFocusIndex = useCallback((move: (index: number) => number) => {
+    setId(current => {
+      const index = current === null ? -1 : items.findIndex(item => item.id === current)
+      return items[move(index)]?.id ?? null
+    })
+  }, [items])
+  return { focusedId: focusIndex < 0 ? null : id, focusIndex, setFocusIndex }
+}
 
 type Options = {
   items: Item[]
@@ -42,11 +58,17 @@ export function createWorkbenchListShortcutHandlers({
   }
 
   if (enableNav && setFocusIndex && items.length > 0) {
+    const moveFocus = (direction: 1 | -1) => {
+      const activeId = typeof document === 'undefined' ? undefined
+        : document.activeElement?.closest<HTMLElement>('[data-trade-id]')?.dataset.tradeId
+      const activeIndex = activeId ? items.findIndex(item => item.id === activeId) : -1
+      setFocusIndex(index => Math.min(Math.max((activeIndex >= 0 ? activeIndex : index) + direction, 0), items.length - 1))
+    }
     handlers['list.focusNext'] = () => {
-      setFocusIndex((index) => Math.min(Math.max(index, -1) + 1, items.length - 1))
+      moveFocus(1)
     }
     handlers['list.focusPrev'] = () => {
-      setFocusIndex((index) => Math.max(index - 1, 0))
+      moveFocus(-1)
     }
   }
 

@@ -557,7 +557,7 @@ export function testEmptyLibraryUsesApprovedDefaultProfile(): void {
 
 export function testApprovedShortcutDefaultsMatchProfile(): void {
   const expected: Record<string, string | null> = {
-    'global.commandPalette': 'w',
+    'global.commandPalette': 'mod+k',
     'global.commandPaletteMod': 't',
     'global.newTrade': 'n',
     'global.newCase': 'shift+n',
@@ -2151,7 +2151,7 @@ export async function testTradeDetailSourceCopyNamesRiskRepairCenter(): Promise<
   const detailView = await fs.readFile('src/views/DetailView.tsx', 'utf8')
   const missingSurface = detailView.slice(detailView.indexOf('if (!trade) {'), detailView.indexOf('const activeNoteLoad'))
   assert(missingSurface.includes('{sourceLink}') && detailView.includes('aria-label={backAriaLabel}'), '缺失或已删除详情的返回链接应指向来源')
-  assert(missingSurface.includes('returnDestinationLabel') && missingSurface.includes('返回搜索结果'), '缺失记录的返回操作应指向实际入口')
+  assert(missingSurface.includes('{backAriaLabel}') && detailView.includes("commandSearch ? '搜索结果'") && detailView.includes('返回${returnDestinationLabel}'), '缺失记录的返回操作应指向实际入口')
 }
 
 export async function testWeeklyReviewDetailSourceUsesDedicatedReturnCopy(): Promise<void> {
@@ -3793,7 +3793,9 @@ export function testBatchTradeLifecycleCommitsOnceAndUndoesAsOneAction(): void {
     state = useStore.getState()
     assert(commits === 1, '批量恢复必须只提交一次 store 更新')
     assert(state.trades.every((item) => !item.deletedAt), '批量恢复必须恢复全部有效记录')
-    assert(state.undoStack.length === 0, '批量恢复必须保持现有的不可撤销语义')
+    assert(state.undoStack.length === 1 && state.undoStack[0]?.trades.length === 2, '批量恢复必须共用一次撤销')
+    assert(state.undo(state.undoStack[0].actionId), '批量恢复的回执必须可撤销')
+    assert(useStore.getState().trades.filter(item => item.deletedAt).length === 2, '撤销只还原本次恢复的两笔记录')
 
     useStore.setState({
       trades: [

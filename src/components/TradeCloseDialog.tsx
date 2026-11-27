@@ -15,6 +15,7 @@ import { useStore } from '@/store/useStore'
 import { getTradingDayKey } from '@/lib/periods'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { parseYmd } from '@/components/ui/datePickerCalendar'
+import { DialogSaveButton } from '@/components/ui/DialogSaveButton'
 import { Button } from '@/components/ui/Button'
 import { ModalShell } from '@/components/ui/ModalShell'
 import './TradeCloseDialog.css'
@@ -168,7 +169,7 @@ export function TradeCloseDialog() {
       footer={(
         <>
           <Button variant="ghost" size="lg" onClick={cancelTradeClose}>取消</Button>
-          <Button type="submit" form="trade-close-form" variant="primary" size="lg" disabled={!preview}>保存并待复盘</Button>
+          <DialogSaveButton type="submit" form="trade-close-form" disabled={!preview}>保存并待复盘</DialogSaveButton>
         </>
       )}
     >

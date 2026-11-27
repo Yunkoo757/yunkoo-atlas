@@ -52,7 +52,7 @@ export function testWorkbenchDerivationReusesTheActiveTradeCollection(): void {
 export function testSelectionIdentityOnlyScansWhenVisibleRowsChange(): void {
   for (const file of ['src/views/ListView.tsx']) {
     const source = read(file)
-    if (!source.includes("const visibleIdsKey = useMemo(\n    () => visible.map((trade) => trade.id).join('\\u0000'),\n    [visible],\n  )")) {
+    if (!source.includes("const orderedIdsKey = useMemo(\n    () => orderedItems.map((trade) => trade.id).join('\\u0000'),\n    [orderedItems],\n  )")) {
       throw new Error(`${path.basename(file)} must memoize its visible row identity`)
     }
   }

@@ -50,7 +50,7 @@ async function run(): Promise<void> {
   ] }], { initialEntries: [`/backtests/${project.id}`] })
   try {
     useStore.setState({ trades: [...Array.from({ length: 100 }, (_, index) => record(index + 1)), record(101, secondProject.id)], backtestProjects: [project, secondProject], starredIds: [] })
-    useShortcutStore.setState({ bindings: { 'list.selectAll': { key: 'a', mod: true } }, modalOverlayCount: 0, cmdkOpen: false, lightbox: null })
+    useShortcutStore.setState({ bindings: { 'list.selectAll': { key: 'a', mod: true }, 'list.focusNext': { key: 'j' } }, modalOverlayCount: 0, cmdkOpen: false, lightbox: null })
     root.render(<RouterProvider router={router} />)
     await waitFor(() => Boolean(document.querySelector('.trade-row')), '记录列表未渲染')
     assert(!document.querySelector('.backtest-stats') && !document.querySelector('.backtest-project-meta'), '默认列表不能常驻统计概览与项目说明')
@@ -58,7 +58,17 @@ async function run(): Promise<void> {
     const toolbar = document.querySelector('.ui-toolbar')!.getBoundingClientRect()
     const filters = document.querySelector('.backtest-filter-bar')!.getBoundingClientRect()
     assert(filters.bottom - toolbar.top <= 90, '记录列表前只能保留公共标题栏和筛选栏')
-    button('项目统计').click()
+    assert(handleShortcutKeydown(new KeyboardEvent('keydown', { key: 'j' }), router.state.location.pathname), '项目记录应接受行定位')
+    await waitFor(() => document.activeElement?.classList.contains('trade-row-open') === true, '行定位未进入回测记录')
+    const statsButton = button('项目统计')
+    statsButton.focus()
+    const scrollHost = document.querySelector<HTMLElement>('.backtest-records')!
+    scrollHost.scrollTop = 850
+    const position = scrollHost.scrollTop
+    useStore.setState(state => ({ trades: state.trades.map(trade => ({ ...trade })) }))
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    assert(document.activeElement === statsButton && scrollHost.scrollTop === position, '回测数据更新应保留工具栏焦点和滚动位置')
+    statsButton.click()
     await waitFor(() => Boolean(document.querySelector('.backtest-stats')), '完整统计应按需打开')
     assert(document.querySelector('.backtest-stats')?.textContent?.includes('100 / 100'), '统计应保留全部项目口径')
     escape()

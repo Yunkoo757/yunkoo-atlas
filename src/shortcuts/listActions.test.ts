@@ -196,3 +196,25 @@ export function testBacktestDetailSupportsListSelectionWithoutCapturingProjectIn
     useShortcutStore.setState({ bindings: previousBindings })
   }
 }
+
+export function testModeShortcutsOnlyReachMountedListAndBoard() {
+  const originalBindings = useShortcutStore.getState().bindings
+  useShortcutStore.setState({ bindings: {} })
+  const modes: string[] = []
+  const unregister = registerShortcutHandlers({
+    'view.list': () => modes.push('list'),
+    'view.board': () => modes.push('board'),
+  })
+  try {
+    for (const path of ['/notes/example', '/settings/profile', '/dashboard', '/weekly-review', '/review-session', '/trade/example']) {
+      assert(!handleShortcutKeydown(keyboardEvent('b'), path), path + ' 不应响应看板切换')
+      assert(!handleShortcutKeydown(keyboardEvent('l'), path), path + ' 不应响应列表切换')
+    }
+    assert(handleShortcutKeydown(keyboardEvent('b'), '/list'), '交易日志应能切到看板')
+    assert(handleShortcutKeydown(keyboardEvent('l'), '/review-cases/board'), '案例库应能切回列表')
+    assert(modes.join() === 'board,list', '视图切换只应对当前工作台生效')
+  } finally {
+    unregister()
+    useShortcutStore.setState({ bindings: originalBindings })
+  }
+}

@@ -2,10 +2,8 @@ export type DashboardEmptyState = Readonly<{
   kind: 'library' | 'scope' | 'ineligible'
   title: string
   hint: string
-  primary: 'create' | 'view-active' | 'adjust-scope'
+  primary: 'create' | 'view-active' | 'all-data' | 'all-dates' | 'view-records'
   primaryLabel: string
-  secondary?: 'create' | 'adjust-scope'
-  secondaryLabel?: string
 }>
 
 /** 只消费 Dashboard 已经计算好的数量，不重新解释交易领域规则。 */
@@ -14,6 +12,7 @@ export function resolveDashboardEmptyState(input: {
   scopedRecordCount: number
   eligibleClosedCount: number
   activeRecordCount: number
+  dateRangeLimited?: boolean
 }): DashboardEmptyState | null {
   if (input.eligibleClosedCount > 0) return null
   if (input.totalRecordCount === 0) {
@@ -29,11 +28,9 @@ export function resolveDashboardEmptyState(input: {
     return {
       kind: 'scope',
       title: '当前分析范围暂无交易',
-      hint: '切换阶段、盘型或周期查看已有交易。',
-      primary: 'adjust-scope',
-      primaryLabel: '调整分析范围',
-      secondary: 'create',
-      secondaryLabel: '新建交易',
+      hint: '其他阶段或记录类型中有交易。',
+      primary: 'all-data',
+      primaryLabel: '查看全部数据',
     }
   }
   return {
@@ -41,10 +38,8 @@ export function resolveDashboardEmptyState(input: {
     title: '当前范围暂无可统计结果',
     hint: input.activeRecordCount > 0
       ? '当前仍有进行中或待完善交易；平仓并补全结果后会进入统计。'
-      : '当前记录尚未形成可靠的已平仓结果，可以调整范围或补全交易。',
-    primary: input.activeRecordCount > 0 ? 'view-active' : 'adjust-scope',
-    primaryLabel: input.activeRecordCount > 0 ? '查看进行中交易' : '调整分析范围',
-    secondary: 'create',
-    secondaryLabel: '新建交易',
+      : '当前范围内没有可计入统计的已平仓结果。',
+    primary: input.activeRecordCount > 0 ? 'view-active' : input.dateRangeLimited ? 'all-dates' : 'view-records',
+    primaryLabel: input.activeRecordCount > 0 ? '查看进行中交易' : input.dateRangeLimited ? '查看全部周期' : '查看范围内交易',
   }
 }

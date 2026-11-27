@@ -1,12 +1,15 @@
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { ICON_MD, ICON_SM } from '@/icons/iconSize'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Editor } from '@/editor/Editor'
+import { NoteLoadRecovery } from '@/components/NoteLoadRecovery'
+import { loadDetailNote } from '@/views/detailNoteLoad'
 import {
   textFromQuickNoteHtml,
   titleFromQuickNoteHtml,
 } from '@/data/quickNotes'
+import { isComposingKey } from '@/lib/keyboardComposition'
 import { createAndOpenQuickNote } from '@/lib/createRecordAction'
 import { currentLiveStageIdForWrite, useStore } from '@/store/useStore'
 import { tradeDetailNavState, tradeDetailPath } from '@/lib/tradeRoute'
@@ -58,7 +61,14 @@ export function QuickNotesView() {
   const updateNote = useStore((state) => state.updateQuickNote)
   const removeNote = useStore((state) => state.removeQuickNote)
   const upsertTrade = useStore((state) => state.upsertTrade)
-  const [query, setQuery] = useState('')
+  const query = new URLSearchParams(location.search).get('q') ?? ''
+  const setQuery = (value: string) => {
+    navigationIntent.current++
+    const next = new URLSearchParams(location.search)
+    if (value) next.set('q', value)
+    else next.delete('q')
+    navigate({ pathname: location.pathname, search: next.toString() }, { replace: true, state: location.state })
+  }
   const [editingTitle, setEditingTitle] = useState<{ id: string; value: string } | null>(null)
   const editorPane = useRef<HTMLElement>(null)
   const navigationIntent = useRef(0)
@@ -124,31 +134,59 @@ export function QuickNotesView() {
     if (intent === navigationIntent.current) createAndOpenQuickNote(navigate, location.pathname)
   }, [flushDraft, location.pathname, navigate, selectedNote])
 
-  const openNote = useCallback(async (noteId: string) => {
+  const openNote = useCallback(async (noteId: string, focusFrom?: HTMLElement) => {
     const intent = ++navigationIntent.current
-    if (selectedNote?.id === noteId) return
-    if (selectedNote) {
+    const sameNote = selectedNote?.id === noteId
+    if (sameNote && !focusFrom) return
+    if (selectedNote && !sameNote) {
       const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
       if (!await flushDraft(draftId)) return
     }
-    if (intent === navigationIntent.current) navigate(`/notes/${encodeURIComponent(noteId)}`)
-  }, [flushDraft, navigate, selectedNote])
+    if (intent !== navigationIntent.current || (focusFrom && document.activeElement !== focusFrom)) return
+    navigate({ pathname: `/notes/${encodeURIComponent(noteId)}`, search: location.search }, {
+      replace: sameNote,
+      state: focusFrom ? { focusNoteEditor: noteId } : null,
+    })
+  }, [flushDraft, location.search, navigate, selectedNote])
+
+  function handleListKeys(event: ReactKeyboardEvent<HTMLElement>) {
+    if (isComposingKey(event.nativeEvent) || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+    if (!['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) return
+    const pane = event.currentTarget
+    const search = pane.querySelector<HTMLInputElement>('input[type="search"]')
+    const rows = Array.from(pane.querySelectorAll<HTMLButtonElement>('.quick-notes-list-item'))
+    const index = rows.indexOf(event.target as HTMLButtonElement)
+    if (!rows.length || (index < 0 && event.target !== search)) return
+    if (index < 0 && event.key === 'ArrowUp') return
+    event.preventDefault()
+    event.stopPropagation()
+    if (event.key === 'Enter') {
+      if (event.repeat) return
+      const row = rows[Math.max(index, 0)]
+      row.focus()
+      void openNote(filteredNotes[Math.max(index, 0)].id, row)
+    } else if (event.key === 'ArrowUp' && index === 0) {
+      search?.focus()
+    } else {
+      rows[Math.min(rows.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1))].focus()
+    }
+  }
 
   // 只选进入列表时已有的随记，等路由完成订阅再跳转。
   useLayoutEffect(() => {
     if (id) return
-    const first = useStore.getState().quickNotes[0]
+    const first = filteredNotes[0]
     if (!first) return
     const intent = navigationIntent.current
     queueMicrotask(() => {
-      if (intent === navigationIntent.current) navigate(`/notes/${encodeURIComponent(first.id)}`, { replace: true })
+      if (intent === navigationIntent.current) navigate({ pathname: `/notes/${encodeURIComponent(first.id)}`, search: location.search }, { replace: true })
     })
-  }, [id, navigate])
+  }, [filteredNotes, id, location.search, navigate])
 
+  const editorFocusRequested = Boolean(id && (location.state?.focusNewNote === id || location.state?.focusNoteEditor === id))
   useLayoutEffect(() => {
-    if (!id || location.state?.focusNewNote !== id) return
+    if (!editorFocusRequested) return
     skipFocus.current = false
-    setQuery('')
     const userMoved = () => { skipFocus.current = true }
     document.addEventListener('pointerdown', userMoved, true)
     document.addEventListener('keydown', userMoved, true)
@@ -158,10 +196,10 @@ export function QuickNotesView() {
       document.removeEventListener('keydown', userMoved, true)
       document.removeEventListener('focusin', userMoved, true)
     }
-  }, [id, location.key, location.state])
+  }, [editorFocusRequested, location.key])
 
   useLayoutEffect(() => {
-    if (!id || location.state?.focusNewNote !== id || loadedNoteId !== id) return
+    if (!editorFocusRequested || loadedNoteId !== id) return
     const pane = editorPane.current
     if (!pane) return
     const focusWhenReady = () => {
@@ -171,14 +209,14 @@ export function QuickNotesView() {
       if (body && !skipFocus.current && !document.activeElement?.matches('input, textarea, [contenteditable="true"]')) {
         body.focus()
       }
-      const { focusNewNote: _consumed, ...rest } = location.state
+      const { focusNewNote: _newNote, focusNoteEditor: _keyboard, ...rest } = location.state
       navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: rest })
     }
     const observer = new MutationObserver(focusWhenReady)
     observer.observe(pane, { childList: true, subtree: true })
     focusWhenReady()
     return () => observer.disconnect()
-  }, [editorReady, id, loadedNoteId, location.pathname, location.search, location.state, navigate])
+  }, [editorFocusRequested, editorReady, id, loadedNoteId, location.pathname, location.search, location.state, navigate])
 
   useEffect(() => {
     setEditorReady(false)
@@ -190,30 +228,32 @@ export function QuickNotesView() {
     const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
     let cancelled = false
     const imageScope = new AssetObjectUrlScope()
-    void resolveNoteForDisplayResult(selectedNote.contentHtml, getStorage(), imageScope)
-      .then((result) => {
-        if (cancelled) return
-        setEditorHtml(result.html)
-        editSessionRef.current = { noteId: selectedNote.id, baseline: result.html, recorded: false }
-        setEditorReady(result.editable)
-        setLoadState(result.editable ? 'ready' : 'readonly')
-        setLoadedNoteId(selectedNote.id)
-        if (!result.editable) toast('随记中有图片附件缺失，正文已切换为只读', { tone: 'warning' })
-      })
-      .catch((error) => {
-        if (cancelled) return
-        console.error('Quick note display resolution failed', error)
-        setLoadState('error')
-        setLoadedNoteId(null)
-      })
+    const source = getNoteDraft(draftId) ?? selectedNote.contentHtml
+    void loadDetailNote(source, html => resolveNoteForDisplayResult(html, getStorage(), imageScope)).then(result => {
+      if (cancelled) return
+      const ready = result.status === 'ready'
+      const html = ready ? result.html : result.fallbackHtml
+      setEditorHtml(html)
+      editSessionRef.current = { noteId: selectedNote.id, baseline: html, recorded: false }
+      setEditorReady(ready)
+      setLoadState(ready ? 'ready' : result.reason === 'incomplete' ? 'readonly' : 'error')
+      setLoadedNoteId(selectedNote.id)
+    })
     return () => {
       cancelled = true
       imageScope.release()
+    }
+  }, [reloadNonce, selectedNote?.id])
+
+  useEffect(() => {
+    if (!selectedNote) return
+    const draftId = `${QUICK_NOTE_DRAFT_PREFIX}${selectedNote.id}`
+    return () => {
       if (noteTimerRef.current) clearTimeout(noteTimerRef.current)
       noteTimerRef.current = null
       void flushDraft(draftId)
     }
-  }, [flushDraft, reloadNonce, selectedNote?.id])
+  }, [flushDraft, selectedNote?.id])
 
   const onEditorChange = useCallback((html: string) => {
     if (!selectedNote || !editorReady) return
@@ -268,14 +308,14 @@ export function QuickNotesView() {
       toast('这条随记已不存在，未执行删除')
       return
     }
-    const currentIndex = notes.findIndex((note) => note.id === target.id)
-    const next = notes[currentIndex + 1] ?? notes[currentIndex - 1] ?? null
+    const currentIndex = filteredNotes.findIndex((note) => note.id === target.id)
+    const next = filteredNotes[currentIndex + 1] ?? filteredNotes[currentIndex - 1]
     clearNoteDraft(`${QUICK_NOTE_DRAFT_PREFIX}${target.id}`)
     noteHistoriesRef.current.delete(target.id)
     removeNote(target.id)
     setDeleteTarget(null)
     if (selectedNote?.id === target.id) {
-      navigate(next ? `/notes/${encodeURIComponent(next.id)}` : '/notes', { replace: true })
+      navigate({ pathname: next ? `/notes/${encodeURIComponent(next.id)}` : '/notes', search: location.search }, { replace: true })
     }
     toast('随记已删除')
   }
@@ -305,7 +345,7 @@ export function QuickNotesView() {
         if (upsertTrade(created) !== 'updated') throw new Error(kind === 'case' ? '案例未写入' : '交易未写入')
         succeeded = true
         const openCreated = () => navigate(tradeDetailPath(created), {
-          state: tradeDetailNavState({ pathname: `/notes/${encodeURIComponent(latest.id)}` }),
+          state: tradeDetailNavState({ pathname: `/notes/${encodeURIComponent(latest.id)}`, search: location.search }),
         })
         const message = kind === 'case' ? '已写入案例草稿' : '已写入交易草稿'
         if (isQuickNoteViewOpen(latest.id)) {
@@ -339,7 +379,7 @@ export function QuickNotesView() {
       />
 
       <div className={`quick-notes-workspace${notes.length === 0 ? ' is-empty' : ''}`}>
-        {notes.length > 0 ? <aside className="quick-notes-list-pane" aria-label="随记列表">
+        {notes.length > 0 ? <aside className="quick-notes-list-pane" aria-label="随记列表" onKeyDown={handleListKeys}>
           <SearchField label="搜索随记" value={query} onChange={setQuery} size="sm" className="quick-notes-search" />
           <div className="quick-notes-list">
             {filteredNotes.map((note) => {
@@ -377,6 +417,14 @@ export function QuickNotesView() {
                   maxLength={80}
                   aria-label="随记标题"
                   onFocus={(event) => event.currentTarget.select()}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' || isComposingKey(event.nativeEvent) || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+                    const body = editorPane.current?.querySelector<HTMLElement>('[contenteditable="true"]')
+                    if (body) {
+                      event.preventDefault()
+                      body.focus()
+                    }
+                  }}
                   onBlur={() => setEditingTitle(null)}
                   onChange={(event) => {
                     const title = event.target.value.slice(0, 80)
@@ -433,18 +481,11 @@ export function QuickNotesView() {
               <div className="quick-notes-editor-body">
                 {loadState === 'loading' ? (
                   <InlineStatus tone="progress" title="正在载入随记" />
-                ) : loadState === 'error' ? (
-                  <InlineStatus
-                    tone="error"
-                    title="随记载入失败"
-                    detail="正文与附件没有被修改，请重试。"
-                    action={(
-                      <Button size="sm" variant="ghost" onClick={() => setReloadNonce((value) => value + 1)}>
-                        重试
-                      </Button>
-                    )}
-                  />
-                ) : loadedNoteId === selectedNote.id ? (
+                ) : null}
+                {loadedNoteId === selectedNote.id && (loadState === 'error' || loadState === 'readonly') && (
+                  <NoteLoadRecovery missingImages={loadState === 'readonly'} onRetry={() => setReloadNonce(value => value + 1)} />
+                )}
+                {loadedNoteId === selectedNote.id ? (
                   <Editor
                     key={selectedNote.id}
                     content={editorHtml}
@@ -460,9 +501,9 @@ export function QuickNotesView() {
             </>
           ) : id ? (
             <EmptyState variant="missing" title="找不到这条随记" action={
-              <Button variant="bordered" onClick={() => { setQuery(''); navigate('/notes', { replace: true }) }}>返回随记列表</Button>
+              <Button variant="bordered" onClick={() => navigate({ pathname: '/notes', search: location.search }, { replace: true })}>返回随记列表</Button>
             } />
-          ) : (
+          ) : notes.length > 0 ? null : (
             <EmptyState
               className="quick-notes-empty"
               title="留下一条随记"

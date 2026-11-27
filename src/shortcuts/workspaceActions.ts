@@ -14,10 +14,28 @@ import {
   pathWithWorkbenchMode,
   workbenchModeFromPathname,
 } from '@/lib/routeContext'
-import { tradeHomeSearch } from '@/lib/tradeWorkspaceQuery'
+import { isSharedTradeWorkspacePath, tradeHomeSearch } from '@/lib/tradeWorkspaceQuery'
 import { strategyNavigationSearch } from '@/lib/strategyNavigation'
 
 export const SIDEBAR_STRATEGY_SHORTCUT_LIMIT = 9
+
+/** 命令面板和快捷键共享日志的浏览方式。切换快捷视图保留长期范围，切换策略只替换策略筛选。 */
+export function tradeWorkspaceCommandHref(
+  target: 'active' | 'starred' | 'missed' | 'paper' | { strategyId: string },
+  route: WorkspaceRouteMemory,
+  memory?: WorkspaceRouteMemory,
+): string {
+  const source = isSharedTradeWorkspacePath(route.pathname) ? route : memory
+  const workspace = rememberableWorkspaceKind(route.pathname)
+  const mode = workbenchModeFromPathname(workspace === 'trade' || workspace === 'case'
+    ? route.pathname : memory?.pathname ?? '/list')
+  const pathname = pathWithWorkbenchMode('/list', mode)
+  if (typeof target === 'object') return pathname + strategyNavigationSearch(target.strategyId, source?.search ?? '')
+  const params = new URLSearchParams(tradeHomeSearch(source?.search ?? ''))
+  if (target === 'paper') params.set('kind', 'paper')
+  else params.set('view', target)
+  return `${pathname}?${params.toString()}`
+}
 
 /**
  * 按侧栏当前显示顺序解析策略快捷键目标。快捷键跟随位置，而不是绑定策略 id，

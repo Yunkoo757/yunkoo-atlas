@@ -87,6 +87,22 @@ export function testTouchedFieldConflictLeavesStoreAndHistoryUntouched(): void {
   })
 }
 
+export function testRestoreReceiptPreservesOriginalTrashDeadlinesAndIgnoresIneligibleRecords(): void {
+  const deletedAt = '2026-07-10T09:00:00.000Z'
+  withTrades([trade('a', { deletedAt, deletionId: 'old-a' }), trade('b', { deletedAt }), trade('c')], () => {
+    const { restoreTrades, undo, redo } = useStore.getState()
+    const receipt = restoreTrades(['a', 'b', 'c', 'absent', 'a'])
+    assert(receipt?.trades.length === 2, '回执必须只包含本次实际恢复的记录')
+    assert(!restoreTrades(['a', 'b']), '重复恢复不应生成撤销项')
+    assert(undo(receipt!.actionId), '应能一起撤销同一次批量恢复')
+    const [a, b, c] = useStore.getState().trades
+    assert(a.deletedAt === deletedAt && a.deletionId === 'old-a' && b.deletedAt === deletedAt && !b.deletionId,
+      '撤销恢复必须保留原删除时间，以及旧版记录原有的删除标识')
+    assert(!c.deletedAt && redo(receipt!.actionId), '撤销和重做必须保持未选记录不变')
+    assert(useStore.getState().trades.every(t => !t.deletedAt), '重做必须重新恢复原批次')
+  })
+}
+
 export function testBatchUndoConflictIsAllOrNothing(): void {
   withTrades([trade('a'), trade('b')], () => {
     useStore.getState().removeTrades(['a', 'b'])

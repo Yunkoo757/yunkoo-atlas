@@ -4,6 +4,8 @@ import { HashRouter, Link, MemoryRouter } from 'react-router-dom'
 import '../styles/tokens.css'
 import '../styles/global.css'
 import { Sidebar } from './Sidebar'
+import { CommandPalette } from './CommandPalette'
+import { useShortcutStore } from '../store/shortcutStore'
 import { WindowTitlebar } from './WindowTitlebar'
 import { WINDOW_TITLEBAR_HEIGHT } from '../lib/windowBounds'
 import { useStore } from '../store/useStore'
@@ -28,10 +30,15 @@ function nextFrame(): Promise<void> {
 function DesktopFixture({ onSearch }: { onSearch: (button: HTMLElement) => void }) {
   const [host, setHost] = useState<HTMLDivElement | null>(null)
   const collapsed = useStore(state => state.display.sidebarCollapsed === true)
-  useShortcutHost({ onToggleCmdk: () => {} })
+  const searchOpen = useShortcutStore(state => state.cmdkOpen)
+  const setSearchOpen = useShortcutStore(state => state.setCmdkOpen)
+  useShortcutHost({ onToggleCmdk: () => setSearchOpen(!searchOpen) })
   return (
     <AppFrame
-      titlebar={<WindowTitlebar pageToolbarRef={setHost} onOpenSearch={onSearch} searchOpen={false} sidebarCollapsed={collapsed} />}
+      titlebar={<WindowTitlebar pageToolbarRef={setHost} onOpenSearch={button => {
+        onSearch(button)
+        setSearchOpen(true)
+      }} searchOpen={searchOpen} sidebarCollapsed={collapsed} />}
       sidebarCollapsed={collapsed}
       sidebar={<Sidebar showSearch={false} />}
     >
@@ -41,6 +48,7 @@ function DesktopFixture({ onSearch }: { onSearch: (button: HTMLElement) => void 
       <Link to="/review-cases/mistakes" data-window-case>错题</Link>
       <Link to="/settings/risk" data-window-settings>风险管理</Link>
       <input aria-label="测试编辑" />
+      <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
     </AppFrame>
   )
 }
@@ -147,8 +155,23 @@ async function run(): Promise<void> {
   assert(document.querySelectorAll('[data-command-palette-trigger]').length === 1, '桌面只保留一个搜索入口')
   assert(title.textContent?.includes('交易日志') && forward.disabled, '日志标题应稳定，前进状态应匹配真实历史')
   assert(!titlebar.querySelector('[data-workspace-page="log"]'), '数据范围属于日志工具栏')
+  async function verifySearchDialogAndDismiss() {
+    await nextFrame()
+    const input = document.querySelector<HTMLInputElement>('[role="dialog"][aria-label="搜索与命令"] [role="combobox"]')
+    assert(input && search.getAttribute('aria-expanded') === 'true', '搜索应打开真实的命令面板并同步窗口工具栏状态')
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await nextFrame()
+    assert(!document.querySelector('[role="dialog"][aria-label="搜索与命令"]'), 'Esc 应关闭搜索')
+  }
   search.click()
-  assert(opener === search, '搜索入口必须传递焦点返回目标')
+  assert(Object.is(opener, search), '搜索入口必须传递焦点返回目标')
+  await verifySearchDialogAndDismiss()
+  const mac = /Mac/.test(navigator.platform)
+  assert(search.getAttribute('aria-keyshortcuts') === (mac ? '⌘K' : 'Ctrl+K'), '窗口搜索入口必须提示当前平台的默认组合键')
+  search.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: mac, ctrlKey: !mac, bubbles: true, cancelable: true }))
+  await verifySearchDialogAndDismiss()
+  search.dispatchEvent(new KeyboardEvent('keydown', { key: 't', bubbles: true, cancelable: true }))
+  await verifySearchDialogAndDismiss()
   async function expectTitle(label: string, native = label) {
     for (let i = 0; i < 60 && document.title !== native + ' — Trader Atlas'; i++) await nextFrame()
     assert(document.title === native + ' — Trader Atlas' && title.textContent?.includes(label), '位置应同步到窗口及工具栏：' + label)
@@ -183,6 +206,10 @@ async function run(): Promise<void> {
   toggle.click()
   await nextFrame()
   assert(!nav.inert && title.textContent === '设置', '展开应恢复原导航并保留当前页面')
+
+  search.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', bubbles: true, cancelable: true }))
+  await expectTitle('周期复盘')
+  assert(search.getAttribute('aria-expanded') === 'false', 'W 应进入周期复盘并保持搜索关闭')
 
   root.unmount()
   document.documentElement.style.removeProperty('--window-titlebar-height')

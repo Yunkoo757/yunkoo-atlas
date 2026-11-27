@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { InlineStatus } from '@/components/ui/InlineStatus'
 import { Button } from '@/components/ui/Button'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Select } from '@/components/ui/Select'
@@ -16,7 +17,7 @@ export function CaseDecisionImageModal({ trade, onSave, onClose }: {
   const [selected, setSelected] = useState(trade.decisionImageId ?? '')
   const options = matchesReviewCaseScope(trade, 'mistakes', new Set()) ? getDecisionImageOptions(trade) : []
   const assetId = options.some((option) => option.value === selected) ? selected : null
-  const image = useDecisionImage(assetId)
+  const { image, retry } = useDecisionImage(assetId)
 
   return (
     <ModalShell
@@ -37,7 +38,7 @@ export function CaseDecisionImageModal({ trade, onSave, onClose }: {
       {assetId && (
         <div className="case-decision-image-preview">
           {image?.src ? <img src={image.src} alt="决策时点截图预览" />
-            : image ? <p role="status">此图无法打开，请选择另一张。</p>
+            : image ? <InlineStatus compact tone="warning" title="截图暂时无法打开" action={<Button size="sm" onClick={retry}>重新载入</Button>} />
             : <p role="status">正在载入截图…</p>}
         </div>
       )}

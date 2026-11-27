@@ -5,6 +5,7 @@ import '@/components/ui/PopoverSurface.css'
 import { Button } from '@/components/ui/Button'
 import { useEditor, EditorContent, BubbleMenu, type Editor as TiptapEditor } from '@tiptap/react'
 import type { Content } from '@tiptap/core'
+import type { Transaction } from '@tiptap/pm/state'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
@@ -202,13 +203,14 @@ export function Editor({
         }
         return false
       },
-      handleDrop(_view, event) {
+      handleDrop(view, event) {
         if (!allowImagesRef.current || !editorRef.current?.isEditable) return false
         const files = (event as DragEvent).dataTransfer?.files
         if (files && files.length && files[0].type.startsWith('image/')) {
           if (editorRef.current) {
             void trackPendingStorageOperation(
-              insertImageFile(editorRef.current, files[0], noteDraftIdRef.current),
+              insertImageFile(editorRef.current, files[0], noteDraftIdRef.current,
+                view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos),
             )
             event.preventDefault()
             return true
@@ -309,7 +311,10 @@ export function Editor({
     let next = toggleReviewContextDocument(editor.getJSON(), templateContent)
     if (!reviewContextPinned) next = toggleReviewContextDocument(next)
     editor.commands.setContent(next, true)
-    editor.commands.focus('end')
+    const firstLine = editor.state.doc.resolve(1)
+    // 可固定的摘要比普通段落多一层。起稿后在第一行提示词后直接续写。
+    const lineStart = firstLine.parent.isTextblock ? 1 : 2
+    editor.chain().focus(editor.state.doc.resolve(lineStart).end()).unsetBold().run()
   }
 
   const showReviewStarter = reviewContextTools && reviewTemplates.length > 0 && !reviewContextActive && !leadingReviewText
@@ -482,12 +487,24 @@ async function insertImageFile(
   editor: TiptapEditor,
   file: File,
   noteDraftId?: string,
+  dropPosition?: number,
   existingAssetId?: string,
 ) {
   if (file.size > MAX_WEB_JOURNAL_ENTRY_BYTES) {
     toast('单张原图超过 32 MB，无法加入资料库；请缩小图片后重试')
     return
   }
+  // 落盘期间可以继续输入、移动光标或离开正文。只跟踪原插入位置。
+  let from = dropPosition ?? editor.state.selection.from
+  let to = dropPosition ?? editor.state.selection.to
+  const replacedContent = editor.state.doc.slice(from, to)
+  const mapInsertion = ({ transaction }: { transaction: Transaction }) => {
+    if (!transaction.docChanged) return
+    const wasEmpty = from === to
+    from = transaction.mapping.map(from, -1)
+    to = wasEmpty ? from : Math.max(from, transaction.mapping.map(to, -1))
+  }
+  editor.on('transaction', mapInsertion)
   let savedAssetId: string | null = existingAssetId ?? null
   try {
     const storage = getStorage()
@@ -504,14 +521,16 @@ async function insertImageFile(
       return
     }
 
-    editor
-      .chain()
-      .focus()
-      .setImage({ src: displayUrl })
-      .updateAttributes('image', { 'data-asset-id': savedAssetId })
-      .createParagraphNear()
-      .focus()
-      .run()
+    // 选中文字已被用户改写时，保留其新内容。只有光标仍停在原处才推进到图后。
+    if (!editor.state.doc.slice(from, to).eq(replacedContent)) to = from
+    const selection = editor.state.selection
+    const advanceCaret = editor.view.hasFocus() && selection.from === from && selection.to === to
+    const insertion = editor.chain().insertContentAt({ from, to }, {
+      type: 'image',
+      attrs: { src: displayUrl, 'data-asset-id': savedAssetId },
+    }, { updateSelection: advanceCaret })
+    if (advanceCaret) insertion.createParagraphNear()
+    insertion.run()
   } catch (e) {
     if (editor.isDestroyed) {
       if (savedAssetId && noteDraftId) {
@@ -532,10 +551,12 @@ async function insertImageFile(
       onAction: () => {
         if (editor.isDestroyed) return
         void trackPendingStorageOperation(
-          insertImageFile(editor, file, noteDraftId, savedAssetId ?? undefined),
+          insertImageFile(editor, file, noteDraftId, undefined, savedAssetId ?? undefined),
         )
       },
       dedupeKey: 'editor-image-persist-failed',
     })
+  } finally {
+    editor.off('transaction', mapInsertion)
   }
 }

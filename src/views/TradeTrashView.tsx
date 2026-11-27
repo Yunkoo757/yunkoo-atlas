@@ -97,7 +97,6 @@ export function TradeTrashView() {
   const strategies = useStore((s) => s.strategies)
   const privacyMode = useStore((s) => s.display.privacyMode)
   const legacyCashCurrencyAssumption = useStore((s) => s.profile.legacyCashCurrencyAssumption)
-  const restoreTrade = useStore((s) => s.restoreTrade)
   const restoreTrades = useStore((s) => s.restoreTrades)
   const purgeTrades = useStore((s) => s.purgeTrades)
   const [selection, setSelected] = useState<Set<string>>(new Set())
@@ -134,14 +133,27 @@ export function TradeTrashView() {
     if (selection.size !== selected.size) setSelected(selected)
   }, [selection, selected])
 
-  const handleRestore = (id: string) => {
-    restoreTrade(id)
-    setSelected((prev) => {
-      const next = new Set(prev)
-      next.delete(id)
+  const handleRestore = (ids: string[]) => {
+    const action = restoreTrades(ids)
+    if (!action) {
+      toast('这些记录已移出回收站', { tone: 'info' })
+      return
+    }
+    const restored = action.trades
+    setSelected(previous => {
+      const next = new Set(previous)
+      for (const { id } of restored) next.delete(id)
       return next
     })
-    toast('已恢复交易', { tone: 'success' })
+    const single = restored.length === 1 ? trashTrades.find(trade => trade.id === restored[0].id) : null
+    toast(single ? `已恢复 ${single.ref}` : `已恢复 ${restored.length} 笔记录`, {
+      tone: 'success',
+      actionLabel: '撤销',
+      onAction: () => {
+        if (useStore.getState().undo(action.actionId)) toast('已移回回收站', { tone: 'success' })
+        else toast('记录状态已变化，无法撤销这次恢复', { tone: 'warning' })
+      },
+    })
   }
 
   const requestPurge = (trade: Trade) => {
@@ -202,14 +214,6 @@ export function TradeTrashView() {
     }
   }
 
-  const handleBatchRestore = () => {
-    if (selected.size === 0) return
-    const count = selected.size
-    restoreTrades([...selected])
-    setSelected(new Set())
-    toast(`已恢复 ${count} 笔交易`, { tone: 'success' })
-  }
-
   const handleBatchPurge = () => {
     if (selected.size === 0) return
     const targets = trashTrades
@@ -236,7 +240,7 @@ export function TradeTrashView() {
           type: 'item',
           icon: <RotateCcw size={ICON_MD} />,
           label: '恢复记录',
-          onClick: () => handleRestore(trade.id),
+          onClick: () => handleRestore([trade.id]),
         },
         { type: 'divider' },
         {
@@ -323,7 +327,7 @@ export function TradeTrashView() {
                 </span>
               )}
               <BatchActionBar count={selected.size} placement="inline">
-                <Button size="sm" onClick={handleBatchRestore}>
+                <Button size="sm" onClick={() => handleRestore([...selected])}>
                   <RotateCcw size={ICON_SM} />
                   <span>恢复</span>
                 </Button>
@@ -406,7 +410,7 @@ export function TradeTrashView() {
                               type="button"
                               className="trash-btn-restore" size="sm" variant="ghost"
                               aria-label={`恢复 ${trade.ref}`}
-                              onClick={() => handleRestore(trade.id)}
+                              onClick={() => handleRestore([trade.id])}
                             >
                               <RotateCcw size={ICON_SM} />
                             </Button>

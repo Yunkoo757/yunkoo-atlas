@@ -2,6 +2,8 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
+import { ToastHost } from '@/components/Toast'
+import { useToast } from '@/lib/toast'
 import { TradeTrashView } from './TradeTrashView'
 
 declare global { interface Window { __trashSelectionTest: Promise<void> } }
@@ -34,7 +36,7 @@ async function run() {
   }
   try {
     useStore.setState({ trades: [record('TRD-A', 'XAUUSD'), record('TRD-B', 'EURUSD')] })
-    root.render(<MemoryRouter><TradeTrashView /></MemoryRouter>)
+    root.render(<MemoryRouter><TradeTrashView /><ToastHost /></MemoryRouter>)
     await waitFor(() => !!control('.trash-select-all-label'), '回收站未就绪')
     search(' XAUUSD ')
     await waitFor(() => document.querySelectorAll('.trash-item').length === 1, '粘贴的空格影响匹配')
@@ -51,8 +53,13 @@ async function run() {
     control('.batch-action-bar .ui-btn-ghost')!.click()
     await waitFor(() => !useStore.getState().trades.find(t => t.id === 'TRD-B')?.deletedAt, '未恢复选中的记录')
     if (!useStore.getState().trades.find(t => t.id === 'TRD-A')?.deletedAt) throw new Error('隐藏记录被恢复')
+    await waitFor(() => Boolean(control('.toast-action')), '恢复通知必须提供撤销')
+    control('.toast-action')!.click()
+    await waitFor(() => document.querySelector('.trash-item-id')?.textContent === 'TRD-B', '撤销后须回到原筛选内')
+    if (useStore.getState().trades.find(t => t.id === 'TRD-B')?.deletionId !== 'deleted-TRD-B') throw new Error('原删除标识丢失')
   } finally {
     root.unmount()
+    useToast.getState().dismiss()
     useStore.setState(previous, true)
   }
 }

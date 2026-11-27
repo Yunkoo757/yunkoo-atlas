@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useStore } from '@/store/useStore'
 import { useShortcutStore } from '@/store/shortcutStore'
-import { buildListNavigationContext } from '@/shortcuts/listNav'
+import type { Trade } from '@/data/trades'
 import { listPathFromPathname, workbenchModeFromPathname } from '@/lib/routeContext'
 import {
   rememberableWorkspaceKind,
@@ -76,29 +76,20 @@ function isResolvedMemory(
   return resolved.pathname === memory.pathname && resolved.search === (memory.search ?? '')
 }
 
-export function useListContextSync(filter: ListFilter) {
+export function useListContextSync(filter: ListFilter, orderedItems: readonly Trade[], collapsedGroups?: ReadonlySet<string>) {
   useWorkspaceMemorySync()
-
-  const { pathname, search } = useLocation()
-  const trades = useStore((s) => s.trades)
-  const display = useStore((s) => s.display)
-  const starredIds = useStore((s) => s.starredIds)
   const filterKey = JSON.stringify(filter)
+  const { pathname, search } = useLocation()
 
   useLayoutEffect(() => {
     const listPath = listPathFromPathname(pathname)
     if (!listPath) return
-    useShortcutStore
-      .getState()
-      .setListContext(
-        buildListNavigationContext(
-          trades,
-          filter,
-          display,
-          starredIds,
-          listPath,
-          search,
-        ),
-      )
-  }, [pathname, search, trades, display, starredIds, filterKey])
+    useShortcutStore.getState().setListContext({
+      filter,
+      listPath,
+      listSearch: search,
+      orderedIds: orderedItems.map((trade) => trade.id),
+      collapsedGroups,
+    })
+  }, [pathname, search, filterKey, orderedItems, collapsedGroups])
 }

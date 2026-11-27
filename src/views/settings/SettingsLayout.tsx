@@ -8,8 +8,10 @@ import './SettingsLayout.css'
 export function SettingsLayout() {
   const { pathname } = useLocation()
   const panelRef = useRef<HTMLDivElement>(null)
+  const scrollByPage = useRef(new Map<string, number>())
   useLayoutEffect(() => {
-    if (panelRef.current) panelRef.current.scrollTop = 0
+    const panel = panelRef.current
+    if (panel) panel.scrollTop = scrollByPage.current.get(pathname) ?? 0
   }, [pathname])
 
   return (
@@ -30,7 +32,9 @@ export function SettingsLayout() {
             </NavLink>
           ))}
         </nav>
-        <div ref={panelRef} className="settings-panel">
+        <div ref={panelRef} className="settings-panel" onScroll={event => {
+          scrollByPage.current.set(pathname, event.currentTarget.scrollTop)
+        }}>
           <Outlet />
         </div>
       </div>

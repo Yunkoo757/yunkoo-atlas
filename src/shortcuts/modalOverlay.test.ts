@@ -63,3 +63,24 @@ export function testModalOverlayBlocksGlobalSingleKeyShortcuts(): void {
     setShortcutHandlers({})
   }
 }
+
+export function testImageViewerBlocksBackgroundShortcutsOnEveryPage() {
+  const previous = useShortcutStore.getState()
+  useShortcutStore.setState({ lightbox: { images: ['one', 'two'], index: 0 }, bindings: {}, cmdkOpen: false })
+  let newCount = 0
+  let moves = 0
+  setShortcutHandlers({
+    'global.newTrade': () => { newCount += 1 },
+    'image.next': () => { moves += 1 },
+  })
+  try {
+    for (const path of ['/list', '/trade/one', '/notes/one', '/weekly-review']) {
+      assert(!handleShortcutKeydown(keyEvent('n'), path), '灯箱打开时不能在背景新建交易')
+      assert(handleShortcutKeydown(keyEvent('s'), path), '换图键应继续操作灯箱')
+    }
+    assert(newCount === 0 && moves === 4, '所有来源页面应共享同一灯箱键盘行为')
+  } finally {
+    useShortcutStore.setState(previous)
+    setShortcutHandlers({})
+  }
+}

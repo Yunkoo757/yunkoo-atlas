@@ -127,6 +127,7 @@ export const useShortcutStore = create<ShortcutState>()((set, get) => ({
         prev &&
         prev.listPath === ctx.listPath &&
         prev.listSearch === ctx.listSearch &&
+        prev.collapsedGroups === ctx.collapsedGroups &&
         prev.orderedIds.length === ctx.orderedIds.length &&
         prev.orderedIds.every((id, i) => id === ctx.orderedIds[i]) &&
         prev.filter.type === ctx.filter.type &&

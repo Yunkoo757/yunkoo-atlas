@@ -175,10 +175,11 @@ async function run(): Promise<void> {
 
     root.unmount()
     resetNoteDraftsForTests()
-    useStore.setState({ trades: [filledTrade, raceTrade] })
+    const earlierTrade = { ...trade, id: 'review-earlier', ref: 'TRD-EARLIER', note: '<p>先前待复盘</p>' }
+    useStore.setState({ trades: [filledTrade, earlierTrade, raceTrade] })
     useShortcutStore.getState().setListContext({
       listPath: '/list', listSearch: '', filter: { type: 'all', tradeKind: 'live' },
-      orderedIds: [filledTrade.id, raceTrade.id],
+      orderedIds: [earlierTrade.id, filledTrade.id, raceTrade.id],
     })
     root = createRoot(rootElement)
     root.render(
@@ -203,6 +204,7 @@ async function run(): Promise<void> {
       return notices.length === 1 && notices[0]?.textContent === expectedReceipt
     }
     assert(successNotifications().length === 0, '进入待复盘记录时不应弹出成功通知')
+    findButton('完成复盘')?.focus()
     findButton('完成复盘')?.click()
     await waitFor(
       () => useStore.getState().trades[0]?.reviewStatus === 'reviewed',
@@ -221,6 +223,7 @@ async function run(): Promise<void> {
     await waitFor(() => successNotifications().length === 0, '正文的成功通知未结束')
     const nextPending = findButton('下一条待复盘')
     assert(nextPending && document.querySelector('.dv-document .dv-review-actions')?.contains(nextPending), '完成后应在正文末尾直接进入下一条待复盘')
+    await waitFor(() => document.activeElement === nextPending, '键盘完成复盘后应能直接继续下一条')
     const reviewActions = document.querySelector('.dv-review-actions')!
     assert(reviewActions.contains(nextPending) && reviewActions.firstElementChild?.classList.contains('dv-review-complete-meta'), '复盘状态应位于同组推进动作之前')
     document.querySelector<HTMLButtonElement>('button[aria-label="更多"]')?.click()
@@ -247,6 +250,14 @@ async function run(): Promise<void> {
     findButton('上一个交易')?.click()
     await waitFor(() => document.querySelector('.dv-record-ref')?.textContent === filledTrade.ref, '未能返回已经复盘的交易')
     assert(successNotifications().length === 0, '打开历史已复盘记录时不应弹出成功通知')
+    const nextInDocument = () => document.querySelector<HTMLButtonElement>('.dv-review-actions button')
+    nextInDocument()!.click()
+    await waitFor(() => document.querySelector('.dv-record-ref')?.textContent === raceTrade.ref && findButton('完成复盘')?.disabled === false, '末条复盘尚未就绪')
+    findButton('完成复盘')!.click()
+    await waitFor(() => nextInDocument()?.textContent?.trim() === '下一条待复盘', '到队尾应能继续本范围内尚未完成的较早记录')
+    nextInDocument()!.click()
+    await waitFor(() => document.querySelector('.dv-record-ref')?.textContent === earlierTrade.ref, '待复盘队列应回到当前范围的第一条未完成记录')
+    useToast.getState().dismiss()
 
     root.unmount()
     resetNoteDraftsForTests()

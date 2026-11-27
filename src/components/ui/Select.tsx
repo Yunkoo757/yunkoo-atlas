@@ -1,3 +1,4 @@
+import { isComposingKey } from '@/lib/keyboardComposition'
 import { ICON_SM } from '@/icons/iconSize'
 import { DisclosureIcon } from '@/icons/StateIcons'
 import {
@@ -146,7 +147,11 @@ export const Select = forwardRef<
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (disabled) return
+    if (disabled || isComposingKey(event.nativeEvent)) return
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault()
+      return
+    }
     if (!open && ['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) {
       event.preventDefault()
       openMenu()

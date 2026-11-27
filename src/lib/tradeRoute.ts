@@ -1,5 +1,5 @@
 import type { Trade } from '@/data/trades'
-import type { JournalViewState } from '@/lib/journalQuickViews'
+import { getJournalViewState, type JournalViewState } from '@/lib/journalQuickViews'
 import type { CommandSearchSession } from '@/lib/commandDateSearch'
 import { routeWithSearch } from '@/lib/tradeView'
 import {
@@ -19,6 +19,7 @@ export type TradeDetailFocusField = 'closedAt' | 'result'
 
 export type TradeDetailLocationState = {
   from?: TradeDetailFrom
+  parentRecord?: { id: string; state: TradeDetailLocationState | null }
   commandSearch?: CommandSearchSession
   focusField?: TradeDetailFocusField
 }
@@ -37,6 +38,31 @@ export function findTradeByRouteParam(
 
 export function tradeDetailPath(trade: Pick<Trade, 'ref'>): string {
   return `/trade/${trade.ref}`
+}
+
+export function workbenchDetailFrom(
+  location: { pathname: string; search: string; state: TradeDetailLocationState | null },
+  anchorTradeId: string,
+): TradeDetailFrom {
+  const inherited = location.state?.from
+  const archive = inherited && (inherited.pathname === '/live-history' ||
+    inherited.pathname === '/live-archive' || inherited.pathname.startsWith('/live-archive/'))
+  return {
+    pathname: archive ? inherited.pathname : location.pathname,
+    search: archive ? inherited.search ?? '' : location.search,
+    ...getJournalViewState(location.state),
+    anchorTradeId,
+  }
+}
+
+/** 从详情打开关联记录时保留上一级的入口；反向打开原记录可直接还原。 */
+export function relatedTradeDetailState(
+  parentId: string,
+  targetId: string,
+  current: TradeDetailLocationState | null,
+): TradeDetailLocationState | null {
+  if (current?.parentRecord?.id === targetId) return current.parentRecord.state
+  return { parentRecord: { id: parentId, state: current }, from: current?.from, commandSearch: current?.commandSearch }
 }
 
 export function tradeDetailNavState(

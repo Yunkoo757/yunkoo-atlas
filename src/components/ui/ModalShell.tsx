@@ -227,6 +227,14 @@ export function ModalShell({
             size === 'wide' ? 'is-wide' : '',
             panelClassName ?? '',
           ].filter(Boolean).join(' ')}
+          onKeyDownCapture={event => {
+            if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey) return
+            if (event.defaultPrevented || isComposingKey(event.nativeEvent) || !isTopmostModal() || portalRootsRef.current.size) return
+            const save = event.currentTarget.querySelector<HTMLButtonElement>('button[data-dialog-save]')
+            event.preventDefault()
+            event.stopPropagation()
+            if (save && !event.repeat && !busy && !save.disabled) save.click()
+          }}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}

@@ -18,9 +18,12 @@ export function migrateShortcutBindings(
   delete next['nav.board']
   delete next['view.table']
   // 老资料库可能已把新增动作的出厂按键分给别的动作，优先沿用用户的绑定。
-  const sidebarKey = getActionMeta('global.toggleSidebar')?.defaultBinding
-  if (!('global.toggleSidebar' in next) && sidebarKey && findBindingConflicts('global.toggleSidebar', sidebarKey, next).length > 0) {
-    next['global.toggleSidebar'] = null
+  for (const id of ['global.toggleSidebar', 'global.commandPalette', 'nav.weeklyReview']) {
+    if (id in next) continue
+    const defaultKey = getActionMeta(id)?.defaultBinding
+    if (defaultKey && findBindingConflicts(id, defaultKey, next).some(conflict => conflict.id in next)) {
+      next[id] = null
+    }
   }
   const activeIds = new Set(SHORTCUT_ACTIONS.map(action => action.id))
   return Object.fromEntries(Object.entries(next).filter(([id]) => activeIds.has(id)))

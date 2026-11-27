@@ -1,5 +1,7 @@
 import { tradeMetricTone } from '@/lib/tradeRowPresentation'
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
+import { InlineStatus } from '@/components/ui/InlineStatus'
+import { loadDetailNote } from '@/views/detailNoteLoad'
 import { CaseLibraryNavIcon, JournalNavIcon } from '@/icons/NavigationIcons'
 import { ICON_2XL, ICON_LG, ICON_MD, ICON_SM, ICON_XL } from '@/icons/iconSize'
 import { Toolbar } from '@/components/ui/Toolbar'
@@ -91,7 +93,7 @@ import './ReviewSessionView.css'
 type RestoreStatus = 'loading' | 'ready' | 'unavailable'
 type ResolvedNoteState = {
   tradeId: string | null
-  status: 'idle' | 'loading' | 'ready' | 'error'
+  status: 'idle' | 'loading' | 'ready' | 'missing' | 'error'
   html: string
 }
 type ReviewNotePresentation = { bodyHtml: string; images: ReviewImageCandidate[] }
@@ -272,6 +274,7 @@ export function ReviewSessionView() {
   const [restoreStatus, setRestoreStatus] = useState<RestoreStatus>('loading')
   const [persistenceWarning, setPersistenceWarning] = useState(false)
   const [resolvedNote, setResolvedNote] = useState<ResolvedNoteState>(EMPTY_NOTE_STATE)
+  const [noteLoadAttempt, setNoteLoadAttempt] = useState(0)
   const latestTradesRef = useRef(trades)
   const latestStarredRef = useRef(starred)
   const focusAfterTransitionRef = useRef(false)
@@ -429,13 +432,14 @@ export function ReviewSessionView() {
     let cancelled = false
     const imageScope = new AssetObjectUrlScope()
     setResolvedNote({ tradeId: current.id, status: 'loading', html: '' })
-    void resolveNoteForDisplayResult(content, getStorage(), imageScope).then((result) => {
-      if (!cancelled) setResolvedNote({ tradeId: current.id, status: 'ready', html: result.html })
-    }).catch(() => {
-      if (!cancelled) setResolvedNote({ tradeId: current.id, status: 'error', html: '' })
+    void loadDetailNote(content, html => resolveNoteForDisplayResult(html, getStorage(), imageScope)).then(result => {
+      if (cancelled) return
+      setResolvedNote(result.status === 'ready'
+        ? { tradeId: current.id, status: 'ready', html: result.html }
+        : { tradeId: current.id, status: result.reason === 'incomplete' ? 'missing' : 'error', html: result.fallbackHtml })
     })
     return () => { cancelled = true; imageScope.release() }
-  }, [current?.id, current?.note, current?.sourceNoteHtml, current?.tradeKind, decisionPending])
+  }, [current?.id, current?.note, current?.sourceNoteHtml, current?.tradeKind, decisionPending, noteLoadAttempt])
 
   const advance = useCallback(() => {
     focusAfterTransitionRef.current = true
@@ -834,6 +838,7 @@ export function ReviewSessionView() {
           trade={current}
           strategyName={getStrategyName(strategies, current.strategyId)}
           note={resolvedNote.tradeId === current.id ? resolvedNote : EMPTY_NOTE_STATE}
+          onRetryNote={() => setNoteLoadAttempt(value => value + 1)}
           onAssess={assess}
           onExtractCase={extractCurrentAsCase}
           onSkip={advance}
@@ -1258,7 +1263,7 @@ function DecisionPracticeCard({ trade, onReveal, onSkip, onBack, backLabel }: {
   backLabel: string
 }) {
   const assetId = getDecisionImageId(trade)
-  const image = useDecisionImage(assetId)
+  const { image, retry } = useDecisionImage(assetId)
   const src = image?.src
   const skipShortcut = useShortcutHint('reviewSession.skip', '跳过')
   const backShortcut = useShortcutHint('reviewSession.back', backLabel)
@@ -1276,8 +1281,11 @@ function DecisionPracticeCard({ trade, onReveal, onSkip, onBack, backLabel }: {
               <img src={src} alt="决策时点截图" />
             </button>
           ) : (
-            <div className="review-session-note-state" role="status">
-              {assetId && !image ? '正在载入决策图…' : '决策图无法打开，可以跳过这条。'}
+            <div className="review-session-note-state">
+              {assetId && image ? (
+                <InlineStatus compact tone="warning" title="决策图暂时无法打开"
+                  action={<Button size="sm" onClick={retry}>重新载入</Button>} />
+              ) : <span role="status">{assetId ? '正在载入决策图…' : '本条缺少决策图'}</span>}
             </div>
           )}
         </div>
@@ -1301,6 +1309,7 @@ function ReviewSessionItem({
   trade,
   strategyName,
   note,
+  onRetryNote,
   onAssess,
   onExtractCase,
   onSkip,
@@ -1314,6 +1323,7 @@ function ReviewSessionItem({
   trade: Trade
   strategyName: string
   note: ResolvedNoteState
+  onRetryNote: () => void
   onAssess: (assessment: ReviewSessionAssessment) => void
   onExtractCase: () => void
   onSkip: () => void
@@ -1357,7 +1367,7 @@ function ReviewSessionItem({
           </div>
         </header>
 
-        <ReviewSessionNote note={note} />
+        <ReviewSessionNote note={note} onRetry={onRetryNote} />
 
         {trade.tradeKind === 'case' ? (
           <footer className="review-session-assessment">
@@ -1420,7 +1430,7 @@ function ReviewSessionItem({
   )
 }
 
-function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
+function ReviewSessionNote({ note, onRetry }: { note: ResolvedNoteState; onRetry: () => void }) {
   const presentation = useMemo(() => splitReviewNoteHtml(note.html), [note.html])
   const [galleryLayout, setGalleryLayout] = useState<'large' | 'compare'>('compare')
   const [showNotes, setShowNotes] = useState(true)
@@ -1434,7 +1444,7 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
   const imagesReady = settledImages.tradeId === note.tradeId && settledImages.status === 'ready'
 
   useEffect(() => {
-    if (note.status !== 'ready' || presentation.images.length === 0) {
+    if ((note.status !== 'ready' && note.status !== 'missing') || presentation.images.length === 0) {
       setSettledImages({ tradeId: note.tradeId, status: 'idle', slots: [] })
       return
     }
@@ -1444,20 +1454,14 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
       if (current) setSettledImages({ tradeId: note.tradeId, status: 'ready', slots })
     })
     return () => { current = false }
-  }, [note.tradeId, note.status, presentation.images])
+  }, [note, presentation.images])
 
   if (note.status === 'loading' || note.status === 'idle') {
     return <div className="review-session-reading review-session-note-state" role="status">正在载入完整复盘…</div>
   }
-  if (note.status === 'error') {
-    return (
-      <div className="review-session-reading review-session-note-state is-error" role="alert">
-        <AlertCircle size={ICON_LG} aria-hidden />
-        <span>图文暂时无法读取</span>
-      </div>
-    )
-  }
-  if (!hasBody && presentation.images.length === 0) {
+  const loadIssue = note.status === 'error' || note.status === 'missing'
+    || (imagesReady && settledImages.slots.some(slot => slot.status === 'error'))
+  if (!loadIssue && !hasBody && presentation.images.length === 0) {
     return (
       <div className="review-session-reading review-session-note-state">
         <Image size={ICON_XL} aria-hidden />
@@ -1468,6 +1472,11 @@ function ReviewSessionNote({ note }: { note: ResolvedNoteState }) {
 
   return (
     <>
+      {loadIssue && <InlineStatus compact
+        tone={note.status === 'error' ? 'error' : 'warning'}
+        title={note.status === 'error' ? '图文暂时无法读取' : '部分图片未载入'}
+        action={<Button size="sm" onClick={onRetry}>重新载入</Button>}
+      />}
       {presentation.images.length > 0 && (presentation.images.length > 1 || hasBody) ? (
         <div className="review-session-reading-controls" aria-label="阅读布局">
           {presentation.images.length > 1 ? (

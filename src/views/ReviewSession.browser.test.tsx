@@ -549,8 +549,18 @@ async function run(): Promise<void> {
     }
     useStore.setState((state) => ({ trades: [...state.trades, decisionCase] }))
     await waitFor(() => Boolean(findButton('先判断 · 1')), '没有抽到已设置先判断图的到期错题')
-    findButton('先判断 · 1')?.click()
-    await waitFor(() => findButton('揭示原记录')?.disabled === false, '决策图没有正常解码')
+    const storage = getStorage()
+    const acquire = storage.acquireAssetObjectUrl!
+    storage.acquireAssetObjectUrl = (id) => id === decisionImageId ? Promise.resolve(null) : acquire.call(storage, id)
+    try {
+      findButton('先判断 · 1')?.click()
+      await waitFor(() => Boolean(findButton('重新载入')), '决策图暂时读不到时必须能在本题重试')
+      assert(findButton('揭示原记录')?.disabled && loadReviewSession(manifest.libraryId)?.cursor === 0, '读图失败时应保留题目并遮住答案')
+    } finally {
+      storage.acquireAssetObjectUrl = acquire
+    }
+    findButton('重新载入')?.click()
+    await waitFor(() => findButton('揭示原记录')?.disabled === false, '重试决策图后应可在原题继续判断')
     assert(!document.body.textContent?.includes(decisionCase.ref) && !document.body.textContent?.includes('先判断专用原始结论'), '揭示前不得展示编号或原始结论')
     assert(!document.querySelector('.review-session-assessment') && !findButton('打开详情'), '揭示前不得出现结果或评估入口')
     for (const key of ['1', '2', '3']) {

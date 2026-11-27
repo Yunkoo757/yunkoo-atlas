@@ -44,8 +44,8 @@ import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { getShortcutHintModel } from '@/shortcuts/hints'
-import { resolveShortcutWorkspaceHref } from '@/shortcuts/workspaceActions'
-import { SETTINGS_SECTIONS } from '@/lib/settingsNav'
+import { resolveShortcutWorkspaceHref, tradeWorkspaceCommandHref } from '@/shortcuts/workspaceActions'
+import { SETTINGS_NAV, SETTINGS_SECTIONS } from '@/lib/settingsNav'
 import { PRIMARY_NAV_ICONS } from '@/lib/sidebarNav'
 import { PRIMARY_NAV_LABELS } from '@/lib/sidebarNavContract'
 import {
@@ -102,7 +102,7 @@ export function CommandPalette({
     if (restoredKey.current === location.key) return
     restoredKey.current = location.key
     const explicit = (location.state as { restoreCommandSearch?: CommandSearchSession } | null)?.restoreCommandSearch
-    const session = explicit ?? (pendingReturn.current?.origin.key === location.key ? pendingReturn.current : undefined)
+    const session = pendingReturn.current?.origin.key === location.key ? pendingReturn.current : explicit
     if (session) {
       remembered.current = session
       pendingReturn.current = undefined
@@ -132,6 +132,7 @@ function CommandPaletteDialog({
   const exitRef = useExitClone<HTMLDivElement>()
   const requestClose = onClose
   const deferredQuery = useDeferredValue(q)
+  const pendingEnter = useRef<string | null>(null)
   const [active, setActive] = useState(0)
   const navigate = useNavigate()
   const location = useLocation()
@@ -197,7 +198,15 @@ function CommandPaletteDialog({
 
   const searchResult = useMemo(() => {
     const go = (to: string) => () => {
-      navigate(to)
+      if (to !== pathname + search) navigate(to)
+      requestClose()
+    }
+    const openResult = (id: string, to: string) => () => {
+      if (to !== pathname + search) {
+        const session = { ...sessionRef.current, activeId: id, scrollTop: listRef.current?.scrollTop ?? 0 }
+        onNavigateResult(session)
+        navigate(to, { state: { commandSearch: session } })
+      }
       requestClose()
     }
     const shortcutHint = (actionId: string) =>
@@ -207,13 +216,8 @@ function CommandPaletteDialog({
       search,
       display.workspaceMemory?.trade?.search ?? '',
     )
-    const sharedViewHref = (view: 'active' | 'starred' | 'missed') => {
-      const params = new URLSearchParams(sharedTradeSearch)
-      params.set('view', view)
-      return `/list?${params.toString()}`
-    }
-    const paperParams = new URLSearchParams(sharedTradeSearch)
-    paperParams.set('kind', 'paper')
+    const tradeCommandHref = (target: Parameters<typeof tradeWorkspaceCommandHref>[0]) =>
+      tradeWorkspaceCommandHref(target, { pathname, search }, display.workspaceMemory?.trade)
     const viewNav: Cmd[] = [
       { id: 'n-backtests', group: '导航', icon: <BacktestNavIcon size={ICON_MD} />, label: '回测项目', keywords: 'backtest 历史 固定规则 项目', hint: shortcutHint('nav.backtests'), run: go('/backtests') },
       { id: 'n-quick-notes', group: '导航', icon: <NoteNavIcon size={ICON_MD} />, label: '随记', keywords: '笔记 灵感 杂谈 notebook', hint: shortcutHint('nav.quickNotes'), run: go('/notes') },
@@ -222,10 +226,10 @@ function CommandPaletteDialog({
       { id: 'n-weekly-review', group: '导航', icon: <PRIMARY_NAV_ICONS.weeklyReview size={ICON_MD} />, label: PRIMARY_NAV_LABELS.weeklyReview, keywords: '每周 周总结 复盘', hint: shortcutHint('nav.weeklyReview'), run: go(`/weekly-review${sharedTradeSearch}`) },
       { id: 'n-review-session', group: '导航', icon: <PRIMARY_NAV_ICONS.reviewSession size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewSession, keywords: '随机 抽卡 复盘', hint: shortcutHint('nav.reviewSession'), run: go('/review-session') },
       { id: 'n-dash', group: '导航', icon: <PRIMARY_NAV_ICONS.dashboard size={ICON_MD} />, label: PRIMARY_NAV_LABELS.dashboard, hint: shortcutHint('nav.dashboard'), run: go(`/dashboard${sharedTradeSearch}`) },
-      { id: 'n-active', group: '交易日志', icon: <Clock size={ICON_MD} />, label: '显示进行中交易', hint: shortcutHint('nav.active'), run: go(sharedViewHref('active')) },
-      { id: 'n-fav', group: '交易日志', icon: <Star size={ICON_MD} />, label: '显示星标交易', hint: shortcutHint('nav.favorites'), run: go(sharedViewHref('starred')) },
-      { id: 'n-missed', group: '交易日志', icon: <Ban size={ICON_MD} />, label: '显示错过机会', hint: shortcutHint('nav.missed'), run: go(sharedViewHref('missed')) },
-      { id: 'n-sim', group: '交易日志', icon: <FlaskConical size={ICON_MD} />, label: '切换到模拟盘记录', hint: shortcutHint('nav.sim'), run: go(`/list?${paperParams.toString()}`) },
+      { id: 'n-active', group: '交易日志', icon: <Clock size={ICON_MD} />, label: '显示进行中交易', hint: shortcutHint('nav.active'), run: go(tradeCommandHref('active')) },
+      { id: 'n-fav', group: '交易日志', icon: <Star size={ICON_MD} />, label: '显示星标交易', hint: shortcutHint('nav.favorites'), run: go(tradeCommandHref('starred')) },
+      { id: 'n-missed', group: '交易日志', icon: <Ban size={ICON_MD} />, label: '显示错过机会', hint: shortcutHint('nav.missed'), run: go(tradeCommandHref('missed')) },
+      { id: 'n-sim', group: '交易日志', icon: <FlaskConical size={ICON_MD} />, label: '切换到模拟盘记录', hint: shortcutHint('nav.sim'), run: go(tradeCommandHref('paper')) },
     ]
     const periodNav: Cmd[] = CALENDAR_PERIODS.map((slug) => ({
       id: 'n-period-' + slug,
@@ -236,17 +240,24 @@ function CommandPaletteDialog({
       run: go(`/period/${slug}${tradeHomeSearch(sharedTradeSearch)}`),
     }))
     const settingsNav: Cmd[] = [
-      { id: 'n-strat', group: '设置', icon: <SETTINGS_SECTIONS.strategies.icon size={ICON_MD} aria-hidden />, label: '管理策略', run: go(SETTINGS_SECTIONS.strategies.to) },
-      { id: 'n-settings', group: '设置', icon: <SETTINGS_SECTIONS.shortcuts.icon size={ICON_MD} aria-hidden />, label: '键盘快捷键', run: go(SETTINGS_SECTIONS.shortcuts.to) },
+      { id: 'n-strat', group: '设置', icon: <SETTINGS_SECTIONS.strategies.icon size={ICON_MD} aria-hidden />, label: '管理策略', keywords: '设置', hint: shortcutHint('nav.strategies'), run: go(SETTINGS_SECTIONS.strategies.to) },
+      { id: 'n-settings', group: '设置', icon: <SETTINGS_SECTIONS.shortcuts.icon size={ICON_MD} aria-hidden />, label: '键盘快捷键', keywords: '设置', run: go(SETTINGS_SECTIONS.shortcuts.to) },
       {
         id: 'a-io',
         group: '设置',
         icon: <SETTINGS_SECTIONS.data.icon size={ICON_MD} aria-hidden />,
         label: '导入/导出数据',
-        keywords: '备份 恢复 backup export import',
-        run: () => { requestClose(); navigate(SETTINGS_SECTIONS.data.to) },
+        keywords: '设置 备份 恢复 backup export import',
+        run: go(SETTINGS_SECTIONS.data.to),
       },
     ]
+    const searchableSettings: Cmd[] = SETTINGS_NAV
+      .filter(section => section !== SETTINGS_SECTIONS.strategies &&
+        section !== SETTINGS_SECTIONS.shortcuts && section !== SETTINGS_SECTIONS.data)
+      .map(section => ({
+        id: section.to, group: '设置', icon: <section.icon size={ICON_MD} aria-hidden />,
+        label: section.label, keywords: '设置', run: go(section.to),
+      }))
     const createAction = resolveCreateRecordAction(pathname, search, trades)
     const actions: Cmd[] = [
       ...(!creationArchived ? [{ id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: createAction.label, hint: shortcutHint(createAction.actionId), run: () => { requestClose(); createRecordForContext(pathname, search, navigate) } }] : []),
@@ -311,7 +322,12 @@ function CommandPaletteDialog({
 
     const query = deferredQuery.trim()
     if (!query) {
-      const commands = [...contextActions, ...actions, ...viewNav, ...settingsNav]
+      const commands = [
+        ...contextActions.filter(command => !command.id.startsWith('a-status-')),
+        ...actions.filter(command => command.id !== 'a-fullscreen'),
+        ...viewNav.filter(command => command.group === '导航'),
+        ...settingsNav,
+      ]
       return { commands, total: commands.length }
     }
 
@@ -324,20 +340,15 @@ function CommandPaletteDialog({
       label: `${trade.symbol} · ${resolveStrategyName(trade.strategyId)}`,
       hint: trade.ref,
       date: trade.openedAt.slice(0, 10),
-      source: trade.tradeKind === 'case' ? '案例' : trade.tradeKind === 'paper' ? '模拟盘' : '日志',
-      run: () => {
-        const session = { ...sessionRef.current, activeId: 't-' + trade.id, scrollTop: listRef.current?.scrollTop ?? 0 }
-        onNavigateResult(session)
-        navigate(tradeDetailPath(trade), { state: { commandSearch: session } })
-        requestClose()
-      },
+      source: { case: '案例', paper: '模拟盘', backtest: '回测', live: '日志' }[trade.tradeKind],
+      run: openResult('t-' + trade.id, tradeDetailPath(trade)),
     })
     if (dateQuery.kind === 'incomplete' || dateQuery.kind === 'invalid') return { commands: [], total: 0 }
     if (dateQuery.kind === 'date') {
       return { commands: matchingTrades.slice(0, limit).map(tradeCommand), total: matchingTrades.length }
     }
 
-    const fixedCommands = [...contextActions, ...viewNav, ...periodNav, ...settingsNav, ...actions]
+    const fixedCommands = [...contextActions, ...viewNav, ...periodNav, ...settingsNav, ...searchableSettings, ...actions]
       .filter((command) => matchesSearchQuery(query, command.label, command.hint, command.keywords))
     const commands = fixedCommands.slice(0, limit)
     let total = fixedCommands.length
@@ -353,7 +364,7 @@ function CommandPaletteDialog({
         label: strategy.name,
         hint: `${strategyCounts.get(strategy.id) ?? 0} 笔交易`,
         keywords: `strategy ${strategy.name}`,
-        run: go(`/strategy/${strategy.id}`),
+        run: go(tradeCommandHref({ strategyId: strategy.id })),
       }),
       limit - commands.length,
     )
@@ -391,7 +402,7 @@ function CommandPaletteDialog({
         label: note.title.trim() || '未命名随记',
         hint: textFromQuickNoteHtml(note.contentHtml).slice(0, 48) || undefined,
         keywords: '随记 笔记 灵感',
-        run: go(`/notes/${note.id}`),
+        run: openResult('note-' + note.id, `/notes/${note.id}`),
       })))
     total += matchingNotes.length
 
@@ -463,9 +474,9 @@ function CommandPaletteDialog({
 
   const commands = searchResult.commands
   const hasMore = searchResult.total > commands.length
+  const showEmpty = commands.length === 0
   const queryPending = q.trim() !== deferredQuery.trim()
-  const visibleCommands = queryPending ? [] : commands
-  const activeOptionId = visibleCommands[active]
+  const activeOptionId = !queryPending && commands[active]
     ? `${listboxId}-option-${active}`
     : undefined
 
@@ -478,6 +489,7 @@ function CommandPaletteDialog({
       document.activeElement instanceof HTMLElement ? document.activeElement : null
     )
     inputRef.current?.focus({ preventScroll: true })
+    inputRef.current?.select()
     return () => {
       const target = returnFocusRef.current
       returnFocusFrameRef.current = requestAnimationFrame(() => {
@@ -490,6 +502,7 @@ function CommandPaletteDialog({
   }, [])
 
   const updateQuery = (value: string) => {
+    pendingEnter.current = null
     setQ(value)
     setActive(0)
     setLimit(MAX_SEARCH_RESULTS)
@@ -508,13 +521,17 @@ function CommandPaletteDialog({
 
   useEffect(() => {
     if (queryPending) return
-    sessionRef.current = { query: q, limit, activeId: visibleCommands[active]?.id, scrollTop: listRef.current?.scrollTop ?? 0, origin: origin.current }
+    sessionRef.current = { query: q, limit, activeId: commands[active]?.id, scrollTop: listRef.current?.scrollTop ?? 0, origin: origin.current }
     onRemember(sessionRef.current)
-  }, [q, limit, active, visibleCommands, queryPending, onRemember])
+    if (pendingEnter.current === q) {
+      pendingEnter.current = null
+      if (document.activeElement === inputRef.current) commands[active]?.run()
+    }
+  }, [q, limit, active, commands, queryPending, onRemember])
 
   useEffect(() => {
-    setActive((current) => Math.min(current, Math.max(0, visibleCommands.length - 1)))
-  }, [visibleCommands.length])
+    setActive((current) => Math.min(current, Math.max(0, commands.length - 1)))
+  }, [commands.length])
 
   // 选中项滚动可见
   useEffect(() => {
@@ -524,18 +541,23 @@ function CommandPaletteDialog({
 
   const onKey = (e: React.KeyboardEvent) => {
     if (isComposingKey(e.nativeEvent)) return
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      pendingEnter.current = null
+      if (queryPending) { e.preventDefault(); return }
+    }
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      if (!queryPending && hasMore && active === visibleCommands.length - 1) {
+      if (hasMore && active === commands.length - 1) {
         setLimit((current) => current + MAX_SEARCH_RESULTS)
         setActive(active + 1)
-      } else setActive((a) => Math.min(a + 1, Math.max(0, visibleCommands.length - 1)))
+      } else setActive((a) => Math.min(a + 1, Math.max(0, commands.length - 1)))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setActive((a) => Math.max(a - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      visibleCommands[active]?.run()
+      if (queryPending) pendingEnter.current = q
+      else commands[active]?.run()
     } else if (e.key === 'Escape') {
       e.preventDefault()
       requestClose()
@@ -597,7 +619,7 @@ function CommandPaletteDialog({
             value={q}
             onChange={(e) => updateQuery(e.target.value)}
             aria-invalid={dateQuery.kind === 'invalid' && !queryPending || undefined}
-            aria-describedby={q.trim() ? `${listboxId}-status` : undefined}
+            aria-describedby={showEmpty || hasMore ? `${listboxId}-status` : undefined}
             onKeyDown={onKey}
           />
           {q ? (
@@ -623,13 +645,13 @@ function CommandPaletteDialog({
             onRemember(sessionRef.current)
           }}
         >
-          {visibleCommands.length === 0 && !queryPending && (
+          {showEmpty && (
             <div className="cmdk-empty" id={`${listboxId}-status`} role="status">
-              {dateQuery.kind === 'incomplete' || dateQuery.kind === 'invalid' ? dateQuery.message
+              {queryPending ? '正在筛选…' : dateQuery.kind === 'incomplete' || dateQuery.kind === 'invalid' ? dateQuery.message
                 : dateQuery.kind === 'date' ? `${dateQuery.label}没有匹配的记录` : '没有匹配项'}
             </div>
           )}
-          {visibleCommands.map((c) => {
+          {commands.map((c) => {
             flatIndex++
             const idx = flatIndex
             const showHeader = c.group !== lastGroup
@@ -641,11 +663,13 @@ function CommandPaletteDialog({
                   id={`${listboxId}-option-${idx}`}
                   type="button"
                   role="option"
-                  aria-selected={idx === active}
+                  aria-selected={!queryPending && idx === active}
+                  aria-disabled={queryPending || undefined}
                   tabIndex={-1}
                   className={'cmdk-item' + (idx === active ? ' is-active' : '')}
-                  onMouseMove={() => setActive(idx)}
-                  onClick={() => c.run()}
+                  onMouseDown={event => event.preventDefault()}
+                  onMouseMove={() => { if (!queryPending) setActive(idx) }}
+                  onClick={() => { if (!queryPending) c.run() }}
                 >
                   <span className="cmdk-item-icon">{c.icon}</span>
                   {c.date && <span className="cmdk-item-date">{c.date}</span>}
@@ -666,17 +690,15 @@ function CommandPaletteDialog({
             )
           })}
         </div>
-          {(queryPending || visibleCommands.length > 0 && q.trim()) && (
+          {hasMore && (
             <div className="cmdk-result-note">
               <span id={`${listboxId}-status`} role="status">
-              {queryPending
-                ? '正在筛选…'
-                : `已显示 ${commands.length} / ${searchResult.total} 项`}
+                已显示 {commands.length} 项，共 {searchResult.total} 项
               </span>
-              {!queryPending && hasMore && <Button size="sm" onClick={() => {
+              <Button size="sm" disabled={queryPending} onClick={() => {
                 setLimit((current) => current + MAX_SEARCH_RESULTS)
                 inputRef.current?.focus()
-              }}>加载更多</Button>}
+              }}>加载更多</Button>
             </div>
           )}
       </PopoverSurface>

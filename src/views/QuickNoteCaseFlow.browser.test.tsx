@@ -23,7 +23,10 @@ async function until(check: () => unknown, message: string) {
   while (performance.now() < deadline) { if (check()) return; await new Promise(resolve => requestAnimationFrame(resolve)) }
   throw Error(message)
 }
-function DetailProbe() { return <main data-converted-case-path>{useLocation().pathname}</main> }
+function DetailProbe() {
+  const location = useLocation()
+  return <main data-converted-case-path data-source-search={location.state?.from?.search}>{location.pathname}</main>
+}
 
 async function run() {
   const previous = useStore.getState(), root = createRoot(document.getElementById('root')!)
@@ -56,8 +59,8 @@ async function run() {
   function NavigationProbe() { navigate = useNavigate(); return null }
   function TargetProbe() { if (routeGate.current) throw routeGate.current; return <DetailProbe /> }
   const openNote = () => {
-    if (navigate) navigate('/notes/case-conversion-note')
-    else root.render(<MemoryRouter future={{ v7_startTransition: true }} initialEntries={['/notes/case-conversion-note']}><NavigationProbe /><Suspense fallback={<main data-route-loading />}><Routes><Route path="/notes/:id" element={<QuickNotesView />} /><Route path="/notes" element={<QuickNotesView />} /><Route path="/trade/:id" element={<TargetProbe />} /><Route path="/elsewhere" element={<main data-conversion-away />} /></Routes></Suspense></MemoryRouter>)
+    if (navigate) navigate('/notes/case-conversion-note?q=demo')
+    else root.render(<MemoryRouter future={{ v7_startTransition: true }} initialEntries={['/notes/case-conversion-note?q=demo']}><NavigationProbe /><Suspense fallback={<main data-route-loading />}><Routes><Route path="/notes/:id" element={<QuickNotesView />} /><Route path="/notes" element={<QuickNotesView />} /><Route path="/trade/:id" element={<TargetProbe />} /><Route path="/elsewhere" element={<main data-conversion-away />} /></Routes></Suspense></MemoryRouter>)
   }
   const note = { ...createQuickNote(), id: 'case-conversion-note', title: '结构观察', contentHtml: '<p>只在结构确认后参与。</p>' }
   const strategy = { id: 'isolated-strategy', name: '隔离策略', icon: 'target' as const, color: '#5e6ad2' }
@@ -97,6 +100,7 @@ async function run() {
     const firstAssetIds = collectAssetIdsFromHtml([created.note])
     assert(firstAssetIds.length === 1 && await storage.getAssetForExport(firstAssetIds[0]), '转换必须保留实际持久化的原图')
     assert(document.querySelector('[data-converted-case-path]')!.textContent === '/trade/CAS-41', '转换后导航到新案例编号')
+    assert(document.querySelector('[data-converted-case-path]')?.getAttribute('data-source-search') === '?q=demo', '转为案例应保留随记列表搜索作为返回来源')
     assert(created.caseType === 'exemplar' && created.masteryState === 'new' && created.reviewStatus === 'unreviewed', '新案例使用正常案例分类')
     assert(useStore.getState().quickNotes[0].id === note.id && useStore.getState().quickNotes[0].contentHtml === created.note, '转换保留原随记及其最新正文')
     const filters = { ...DEFAULT_REVIEW_SESSION_FILTERS, includeLiveTrades: false, includePaperTrades: false, reviewTiming: 'all' as const }

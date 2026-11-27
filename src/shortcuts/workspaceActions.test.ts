@@ -1,5 +1,6 @@
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import {
+  tradeWorkspaceCommandHref,
   resolveShortcutWorkspaceHref,
   resolveSidebarStrategyShortcutHref,
 } from '@/shortcuts/workspaceActions'
@@ -322,6 +323,30 @@ export function testLegacyModuleShortcutMigratesToTradeWorkspace(): void {
   }
 }
 
+export function testSearchDefaultRespectsSavedShortcutChoices(): void {
+  const previous = useShortcutStore.getState()
+  const searchId = 'global.commandPalette'
+  const weeklyId = 'nav.weeklyReview'
+  try {
+    useShortcutStore.setState({ windowHotkeyState: null })
+    const hydrate = (saved: Parameters<typeof previous.hydrateBindings>[0]) => {
+      previous.hydrateBindings(saved)
+      return useShortcutStore.getState().bindings
+    }
+    const defaults = hydrate({})
+    assert(getShortcutHintModel(searchId, defaults).hint === (macHints ? '⌘K' : 'Ctrl+K'), '旧资料库未自定义时应使用系统搜索组合键')
+    assert(getShortcutHintModel(weeklyId, defaults).hint === 'W', 'W 应指向周期复盘')
+    const custom = hydrate({ [searchId]: { key: 'w' } })
+    assert(getShortcutHintModel(searchId, custom).hint === 'W' && custom[weeklyId] === null, '显式指定搜索为 W 时应优先保留用户选择')
+    assert(hydrate({ [searchId]: null })[searchId] === null, '已禁用的搜索快捷键应继续禁用')
+    const claimed = hydrate({ 'nav.backtests': { mod: true, key: 'k' } })
+    assert(claimed[searchId] === null && bindingKey(claimed['nav.backtests']!) === 'mod+k', '新默认值应让给已绑定同一组合键的用户动作')
+    assert(getShortcutHintModel('global.commandPaletteMod', claimed).hint === 'T', '保留独立的备用搜索入口')
+  } finally {
+    useShortcutStore.setState({ bindings: previous.bindings, windowHotkeyState: previous.windowHotkeyState })
+  }
+}
+
 export function testDeprecatedNavigationBindingsAreCleanedUp(): void {
   const migrated = migrateShortcutBindings({
     'nav.today': { alt: true, key: 't' },
@@ -394,4 +419,18 @@ export function testUnregisteredWindowHotkeyDoesNotDisableHydratedBindings(): vo
     useShortcutStore.getState().setWindowHotkeyState(null)
     useShortcutStore.setState({ bindings: previous })
   }
+}
+
+export function testTradeCommandsKeepDisplayModeAndUserScope() {
+  const board = { pathname: '/board', search: '?kind=paper&liveStage=archive&symbol=EURUSD&tag=first&tag=second' }
+  const list = { pathname: '/list', search: '?kind=live' }
+  assert(tradeWorkspaceCommandHref('starred', board, list) === '/board?liveStage=archive&kind=paper&view=starred',
+    '当前看板优先于过去的布局，固定视图保留阶段和类型')
+  assert(tradeWorkspaceCommandHref('paper', { pathname: '/settings/display', search: '' }, board)
+    === '/board?liveStage=archive&kind=paper', '设置里按命令切回模拟盘应恢复原浏览方式')
+  assert(tradeWorkspaceCommandHref({ strategyId: 'mean' }, board, list)
+    === '/board?strategyId=mean&kind=paper&liveStage=archive&symbol=EURUSD&tag=first&tag=second',
+    '搜索策略与点击侧栏相同，仅替换策略，保留品种及多个标签')
+  assert(tradeWorkspaceCommandHref('missed', { pathname: '/weekly-review', search: '?liveStage=current&week=2026-W40' }, board)
+    === '/board?liveStage=current&view=missed', '周期复盘使用当前阶段，但周次不是日志筛选条件')
 }

@@ -9,6 +9,7 @@ import {
 import { STRATEGY_COLOR_OPTIONS, findStrategyColorOption } from '@/data/strategyColors'
 import { StrategyIcon } from '@/components/StrategyIcon'
 import { Tooltip } from '@/components/ui/Tooltip'
+import { DialogSaveButton } from '@/components/ui/DialogSaveButton'
 import { ModalShell } from '@/components/ui/ModalShell'
 import './StrategyFormModal.css'
 
@@ -23,6 +24,7 @@ export function StrategyFormModal({
   onClose: () => void
   onSave: (data: Omit<Strategy, 'id'>, id?: string) => void
 }) {
+  const formId = useId()
   const nameErrorId = useId()
   const [name, setName] = useState(initial?.name ?? '')
   const [icon, setIcon] = useState<StrategyIconId>(initial?.icon ?? 'target')
@@ -58,30 +60,27 @@ export function StrategyFormModal({
           <button type="button" className="ui-btn ui-btn-bordered ui-btn-lg" onClick={onClose}>
             取消
           </button>
-          <button
-            type="button"
-            className="ui-btn ui-btn-primary ui-btn-lg"
-            disabled={!trimmed || !!nameTaken}
-            onClick={save}
-          >
+          <DialogSaveButton type="submit" form={formId} disabled={!trimmed || !!nameTaken}>
             {initial ? '保存' : '创建'}
-          </button>
+          </DialogSaveButton>
         </>
       )}
     >
-          <label className="sfm-field">
-            <span className="sfm-label">名称</span>
-            <input
-              className="sfm-input"
-              aria-invalid={nameTaken || undefined}
-              aria-describedby={nameTaken ? nameErrorId : undefined}
-              data-autofocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="如 Breakout、波段趋势"
-            />
-            {nameTaken && <span id={nameErrorId} className="sfm-error" role="alert">名称已存在</span>}
-          </label>
+          <form id={formId} onSubmit={event => { event.preventDefault(); save() }}>
+            <label className="sfm-field">
+              <span className="sfm-label">名称</span>
+              <input
+                className="sfm-input"
+                aria-invalid={nameTaken || undefined}
+                aria-describedby={nameTaken ? nameErrorId : undefined}
+                data-autofocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="如 Breakout、波段趋势"
+              />
+              {nameTaken && <span id={nameErrorId} className="sfm-error" role="alert">名称已存在</span>}
+            </label>
+          </form>
 
           <div className="sfm-field">
             <span className="sfm-label">图标</span>

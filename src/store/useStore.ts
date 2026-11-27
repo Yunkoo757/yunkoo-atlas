@@ -4,7 +4,7 @@ import { syncReviewCaseSourceNotes } from '@/lib/reviewCaseSources'
 import { previewHistoricalRiskBackfill, historicalRiskFingerprint, type HistoricalRiskInput, type HistoricalRiskPreview } from '@/lib/historicalRiskBackfill'
 import type { BacktestProject } from '@/lib/backtestProjects'
 import { isBacktestProject } from '@/lib/backtestProjects'
-import { create } from 'zustand'
+import { create, type StoreApi } from 'zustand'
 import {
   isReviewCompleted,
   type Trade,
@@ -238,6 +238,32 @@ function createStoreUndoAction(
     before,
     after,
   })
+}
+
+function changeTrashMembership(set: StoreApi<State>['setState'], ids: string[], operation: 'remove' | 'restore'): UndoAction | null {
+  if (!ids.length) return null
+  const targets = new Set(ids)
+  const restoring = operation === 'restore'
+  let receipt: UndoAction | null = null
+  set(state => {
+    const before: Trade[] = []
+    const after: Trade[] = []
+    const deletedAt = new Date().toISOString()
+    const trades = state.trades.map(trade => {
+      if (!targets.has(trade.id) || Boolean(trade.deletedAt) !== restoring) return trade
+      const updated = restoring
+        ? { ...trade, deletedAt: undefined, deletionId: undefined }
+        : { ...trade, deletedAt, deletionId: crypto.randomUUID() }
+      before.push(trade)
+      after.push(updated)
+      return updated
+    })
+    const action = createStoreUndoAction(restoring ? '从回收站恢复' : '批量移入回收站', before, after)
+    if (!action) return state
+    receipt = action
+    return { trades, undoStack: appendBoundedHistory(state.undoStack, action), redoStack: [] }
+  })
+  return receipt
 }
 
 /** 发布失败时只同步本流程已经耐久提交的交易，并保留会话内其他撤销历史。 */
@@ -633,7 +659,7 @@ interface State {
   removeTrade: (id: string) => void
   removeTrades: (ids: string[]) => UndoAction | null
   restoreTrade: (id: string) => void
-  restoreTrades: (ids: string[]) => void
+  restoreTrades: (ids: string[]) => UndoAction | null
   purgeTrade: (id: string) => TradePurgeResult
   purgeTrades: (targets: Array<string | TradePurgeTarget>) => TradePurgeResult
   rollbackFailedImportedTrades: (trades: Trade[]) => string[]
@@ -2072,45 +2098,9 @@ export const useStore = create<State>()((set, get) => ({
         )
         }),
       removeTrade: (id) => get().removeTrades([id]),
-      removeTrades: (ids) => {
-        let removed: UndoAction | null = null
-        set((s) => {
-          if (ids.length === 0) return s
-          const idSet = new Set(ids)
-          const deletedAt = new Date().toISOString()
-          const before: Trade[] = []
-          const after: Trade[] = []
-          const trades = s.trades.map((trade) => {
-            if (!idSet.has(trade.id) || trade.deletedAt) return trade
-            const updated = { ...trade, deletedAt, deletionId: crypto.randomUUID() }
-            before.push(trade)
-            after.push(updated)
-            return updated
-          })
-          const action = createStoreUndoAction('批量移入回收站', before, after)
-          if (!action) return s
-          removed = action
-          return {
-            undoStack: appendBoundedHistory(s.undoStack, action),
-            redoStack: [],
-            trades,
-          }
-        })
-        return removed
-      },
+      removeTrades: (ids) => changeTrashMembership(set, ids, 'remove'),
       restoreTrade: (id) => get().restoreTrades([id]),
-      restoreTrades: (ids) =>
-        set((s) => {
-          if (ids.length === 0) return s
-          const idSet = new Set(ids)
-          let changed = false
-          const trades = s.trades.map((trade) => {
-            if (!idSet.has(trade.id) || !trade.deletedAt) return trade
-            changed = true
-            return { ...trade, deletedAt: undefined, deletionId: undefined }
-          })
-          return changed ? { trades } : s
-        }),
+      restoreTrades: (ids) => changeTrashMembership(set, ids, 'restore'),
       purgeTrade: (id) => get().purgeTrades([id]),
       purgeTrades: (targets) => {
         if (targets.length === 0) {

@@ -6,7 +6,7 @@ import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
 import { DetailView } from '@/views/DetailView'
 import type { Editor as TiptapEditor } from '@tiptap/core'
-import { flushNoteDraftToStore, resetNoteDraftsForTests } from '@/storage/noteDrafts'
+import { flushNoteDraftToStore, getNoteDraft, resetNoteDraftsForTests, setNoteDraft } from '@/storage/noteDrafts'
 import '@/styles/tokens.css'
 import '@/styles/global.css'
 
@@ -90,6 +90,9 @@ async function run(): Promise<void> {
 
   try {
     useStore.setState({ trades })
+    // 另一篇带未归一化附件的草稿不属于当前记录，也不应阻塞本次阅读。
+    const unrelated = 'quick-note-draft:unrelated-draft'
+    setNoteDraft(unrelated, '<p>其他草稿</p><img src="blob:unavailable-draft-image">')
     useShortcutStore.setState({
       bindings: {
         ...previousShortcuts.bindings,
@@ -121,6 +124,7 @@ async function run(): Promise<void> {
     assert(!document.querySelector('[aria-label="完成编辑"]'), '不应保留完成编辑开关')
     assert(document.activeElement !== editor, '打开详情不得自动聚焦正文')
 
+    assert(getNoteDraft(unrelated)?.includes('其他草稿'), '打开交易不能冲洗其他页面的未保存草稿')
     const before = editor?.textContent ?? ''
     press('e')
     await waitFor(

@@ -2,6 +2,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
+import { handleShortcutKeydown } from '@/shortcuts/engine'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { DetailView } from '@/views/DetailView'
 import { getStorage } from '@/storage/bootstrap'
@@ -135,6 +136,7 @@ async function run(): Promise<void> {
       '案例未创建',
     )
     const reviewCase = useStore.getState().trades.find((trade) => trade.tradeKind === 'case')!
+    await waitFor(() => !!document.querySelector('a[aria-label="返回来源交易"]'), '从交易详情提炼新案例后应可一步返回来源交易')
     assert(
       reviewCase.sourceNoteHtml === `<p>刚补充、尚未 idle 保存的复盘</p><img src="${SOURCE_IMAGE_SRC}">`,
       '创建前必须冲洗最新草稿',
@@ -422,6 +424,9 @@ async function run(): Promise<void> {
     assert(!findButton('来源复盘'), '空来源复盘不应有展开按钮')
     document.querySelector<HTMLAnchorElement>('[aria-label="案例来源"] a')!.click()
     await waitFor(() => document.querySelector('[data-current-path]')?.textContent === '/trade/TRD-SOURCE', '来源链接没有打开原交易')
+    await waitFor(() => !!document.querySelector('a[aria-label="返回来源案例"]'), '查看原交易后应可直接回到原案例')
+    handleShortcutKeydown(new KeyboardEvent('keydown', { key: 'Escape' }), '/trade/TRD-SOURCE')
+    await waitFor(() => document.querySelector('[aria-label="案例来源"] a') !== null, 'Escape 应与详情返回按钮回到同一个案例')
   } finally {
     root?.unmount()
     storage.saveAsset = originalSaveAsset

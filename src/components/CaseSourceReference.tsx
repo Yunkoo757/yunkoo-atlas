@@ -6,7 +6,7 @@ import { Link2 } from '@/icons/appIcons'
 import { DisclosureIcon } from '@/icons/StateIcons'
 import { ICON_SM } from '@/icons/iconSize'
 import { evaluateReviewCompletion } from '@/lib/reviewCompletion'
-import { tradeDetailPath } from '@/lib/tradeRoute'
+import { relatedTradeDetailState, tradeDetailPath } from '@/lib/tradeRoute'
 import { AssetObjectUrlScope } from '@/storage/assetObjectUrls'
 import { resolveNoteForDisplayResult } from '@/storage/assets'
 import { getStorage } from '@/storage/bootstrap'
@@ -65,7 +65,7 @@ export function CaseSourceReference({ trade, sourceTrade }: { trade: Trade; sour
           </Button>
         )}
         {sourceTrade ? (
-          <Link className="ui-btn ui-btn-sm ui-btn-ghost" to={tradeDetailPath(sourceTrade)} state={location.state}
+          <Link className="ui-btn ui-btn-sm ui-btn-ghost" to={tradeDetailPath(sourceTrade)} state={relatedTradeDetailState(trade.id, sourceTrade.id, location.state)}
             aria-label={`查看原交易 ${sourceTrade.ref} · ${sourceTrade.symbol}`}>
             <Link2 size={ICON_SM} aria-hidden />
             原交易 {sourceTrade.ref}

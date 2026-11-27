@@ -27,7 +27,6 @@ import { RendererCloseBarrier } from './storage/closeBarrier'
 import { assertTradeComposerDraftCanClose, UnsavedTradeComposerDraftError } from './lib/tradeComposerDraftGuard'
 import { shouldPreventAppUnload } from './storage/unloadGuard'
 import { getDesktopPlatform, isElectron } from './storage/runtime'
-import { WelcomeScreen } from './components/WelcomeScreen'
 import { Sidebar } from './components/Sidebar'
 import { WindowTitlebar } from './components/WindowTitlebar'
 import { TradeWorkspaceContext } from './components/TradeWorkspaceContext'
@@ -50,10 +49,11 @@ import { DelayedRouteFallback, RouteContentMotion, RouteErrorBoundary, RouteNotF
 import { LoadingIndicator } from './icons/LoadingIndicator'
 import { ICON_XL } from './icons/iconSize'
 import { TradesPage } from './views/TradesPage'
-import { SettingsLayout } from './views/settings/SettingsLayout'
+const WelcomeScreen = lazy(() => import('./components/WelcomeScreen').then(module => ({ default: module.WelcomeScreen })))
+const SettingsLayout = lazy(() => import('./views/settings/SettingsLayout').then(module => ({ default: module.SettingsLayout })))
 const BacktestProjectsView = lazy(() => import('./views/BacktestProjectsView').then(m => ({ default: m.BacktestProjectsView })))
 const TradeTrashView = lazy(() => import('./views/TradeTrashView').then(m => ({ default: m.TradeTrashView })))
-import { StrategyHeader } from './components/StrategyHeader'
+const StrategyHeader = lazy(() => import('./components/StrategyHeader').then(module => ({ default: module.StrategyHeader })))
 import { getStrategyName } from './lib/strategies'
 import {
   normalizeTradeWorkspaceSearch,
@@ -1048,7 +1048,12 @@ export function App() {
   }
 
   if (needsWelcome) {
-    return <><WelcomeScreen onReady={handleWelcomeReady} />{closingUi}</>
+    return <>
+      <Suspense fallback={<DelayedRouteFallback />}>
+        <WelcomeScreen onReady={handleWelcomeReady} />
+      </Suspense>
+      {closingUi}
+    </>
   }
 
   if (!ready) {

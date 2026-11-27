@@ -173,15 +173,15 @@ export const SHORTCUT_ACTIONS: ShortcutActionMeta[] = [
   {
     id: 'view.list',
     label: '切换到列表视图',
-    category: '视图',
-    scope: 'navigation',
+    category: '列表 / 看板',
+    scope: 'list',
     defaultBinding: getDefaultShortcutBinding('view.list'),
   },
   {
     id: 'view.board',
     label: '切换到看板视图',
-    category: '视图',
-    scope: 'navigation',
+    category: '列表 / 看板',
+    scope: 'list',
     defaultBinding: getDefaultShortcutBinding('view.board'),
   },
   {
