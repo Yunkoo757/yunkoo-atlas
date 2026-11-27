@@ -37,7 +37,7 @@ import {
 import { getElectronAdapter } from '@/storage/electronAdapter'
 import { clearReviewSessionFilters, clearReviewSessionStorage } from '@/lib/reviewSession'
 import { useSaveStatus } from '@/store/saveStatus'
-import { buildWebJournalArchiveBlob } from '@/lib/importExport'
+import { buildWebJournalArchiveBlob } from '@/lib/webJournalArchiveWriter'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
 import { listPendingStageOwnership } from '@/lib/stageOwnershipRepair'
 import { notifyStorageRecoveryRequired } from '@/lib/storageRecovery'

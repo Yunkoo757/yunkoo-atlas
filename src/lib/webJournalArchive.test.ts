@@ -8,10 +8,9 @@ import {
   FULL_SNAPSHOT_ASSET_IDS,
   canonicalContractJson,
 } from '@/storage/fixtures/fullPersistedSnapshot'
-import { buildWebJournalArchiveBlob } from '@/lib/importExport'
+import { buildWebJournalArchiveBlob } from '@/lib/webJournalArchiveWriter'
+import { MAX_WEB_JOURNAL_ENTRY_BYTES, WEB_JOURNAL_EXPORT_VERSION } from '@/lib/webJournalArchiveContract'
 import {
-  MAX_WEB_JOURNAL_ENTRY_BYTES,
-  WEB_JOURNAL_EXPORT_VERSION,
   WebJournalArchiveError,
   parseWebJournalArchive,
 } from '@/lib/webJournalArchive'

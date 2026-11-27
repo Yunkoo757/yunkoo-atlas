@@ -1,5 +1,6 @@
+import { buildWebJournalArchiveBlob } from '@/lib/webJournalArchiveWriter'
 import JSZip from 'jszip'
-import { buildExportPayloadFromState, buildWebConflictRecoveryPayload, buildWebJournalArchiveBlob, parseImportJson, prepareImportPayloadForCommit, serializeJsonExportPayload } from '@/lib/importExport'
+import { buildExportPayloadFromState, buildWebConflictRecoveryPayload, parseImportJson, prepareImportPayloadForCommit, serializeJsonExportPayload } from '@/lib/importExport'
 import { mergeImportPayload } from '@/lib/importMerge'
 import { applySnapshotToStore } from '@/lib/snapshotStore'
 import { collectAssetIdsFromSnapshot } from './assets'

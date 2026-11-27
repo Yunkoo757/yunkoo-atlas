@@ -4,7 +4,7 @@ import {
 } from '@/storage/indexedDbAdapter'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 import type { PersistedSnapshot } from '@/storage/types'
-import { buildWebJournalArchiveBlob } from '@/lib/importExport'
+import { buildWebJournalArchiveBlob } from '@/lib/webJournalArchiveWriter'
 import { parseWebJournalArchive } from '@/lib/webJournalArchive'
 import { clearWebOperationLogsForTests, getWebOperationLogs } from '@/storage/webOperationLogger'
 

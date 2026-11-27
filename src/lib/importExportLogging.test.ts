@@ -14,7 +14,7 @@ function functionSource(source: string, name: string, nextName: string): string 
 export function testWebExportsPairFlushFailuresAndRecordPostFlushRevision(): void {
   const source = fs.readFileSync('src/lib/importExport.ts', 'utf8').replace(/\r\n/g, '\n')
   const jsonExport = functionSource(source, 'downloadExport', 'export function serializeJsonExportPayload')
-  const zipExport = functionSource(source, 'downloadWebJournalZip', 'export function buildWebJournalArchiveBlob')
+  const zipExport = functionSource(source, 'downloadWebJournalZip', 'export function parseImportJson')
 
   for (const [name, body] of [['JSON export', jsonExport], ['ZIP export', zipExport]] as const) {
     const begin = body.indexOf("beginWebOperation('archive'")

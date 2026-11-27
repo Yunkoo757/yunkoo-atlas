@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto'
 import initSqlJs from 'sql.js'
 import JSZip from 'jszip'
 import { DEFAULT_DISPLAY } from '../../src/lib/tradeFilters'
-import { buildWebJournalArchiveBlob } from '../../src/lib/importExport'
+import { buildWebJournalArchiveBlob } from '../../src/lib/webJournalArchiveWriter'
 import { WEB_JOURNAL_EXPORT_VERSION } from '../../src/lib/webJournalArchiveContract'
 import {
   parseWebJournalArchive,

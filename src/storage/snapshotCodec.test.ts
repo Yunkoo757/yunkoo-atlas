@@ -1,7 +1,8 @@
+import { buildWebJournalArchiveBlob } from '@/lib/webJournalArchiveWriter'
 import fs from 'node:fs'
 import { createDefaultReviewTemplates } from '@/data/reviewTemplates'
 import { createDefaultStrategies } from '@/config/defaultProfile'
-import { buildWebJournalArchiveBlob, parseImportJson } from '@/lib/importExport'
+import { parseImportJson } from '@/lib/importExport'
 import { parseWebJournalArchive } from '@/lib/webJournalArchive'
 import { PERSISTED_SNAPSHOT_FIELDS } from '@/storage/persistedKeys'
 import {

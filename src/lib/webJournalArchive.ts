@@ -11,23 +11,14 @@ import {
   type PersistedSnapshot,
 } from '@/storage/types'
 import {
+  MAX_WEB_JOURNAL_ARCHIVE_BYTES,
+  MAX_WEB_JOURNAL_ENTRY_COUNT,
+  MAX_WEB_JOURNAL_EXPANDED_BYTES,
   WEB_JOURNAL_EXPORT_VERSION,
   MAX_WEB_JOURNAL_ENTRY_BYTES,
   normalizeWebJournalImageMime,
   webJournalExtensionsForMime,
 } from '@/lib/webJournalArchiveContract'
-export {
-  WEB_JOURNAL_EXPORT_VERSION,
-  MAX_WEB_JOURNAL_ENTRY_BYTES,
-  normalizeWebJournalImageMime,
-  webJournalExtensionForMime,
-  webJournalExtensionsForMime,
-} from '@/lib/webJournalArchiveContract'
-
-export const MAX_WEB_JOURNAL_ARCHIVE_BYTES = 128 * 1024 * 1024
-export const MAX_WEB_JOURNAL_ENTRY_COUNT = 10_000
-export const MAX_WEB_JOURNAL_EXPANDED_BYTES = 256 * 1024 * 1024
-
 export type WebJournalArchiveErrorCode =
   | 'not-zip'
   | 'archive-too-large'

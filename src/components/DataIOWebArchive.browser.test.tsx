@@ -3,7 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { DataIOContent } from '@/components/DataIOContent'
 import type { Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
-import { parseWebJournalArchive, WEB_JOURNAL_EXPORT_VERSION } from '@/lib/webJournalArchive'
+import { parseWebJournalArchive } from '@/lib/webJournalArchive'
+import { WEB_JOURNAL_EXPORT_VERSION } from '@/lib/webJournalArchiveContract'
 import {
   DEFAULT_REVIEW_SESSION_FILTERS,
   loadReviewSession,
