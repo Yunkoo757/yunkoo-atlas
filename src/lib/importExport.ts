@@ -62,7 +62,6 @@ import {
 } from '@/lib/symbolIcons'
 import { mergeTagPresets } from '@/lib/tags'
 import { getElectronAdapter } from '@/storage/electronAdapter'
-import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
 import { useSaveStatus } from '@/store/saveStatus'
 import { isSafeAssetId } from '@/storage/assetId'
 import {
@@ -78,10 +77,8 @@ import {
   hasSamePersistedStateRevision,
   type PersistedStateRevision,
 } from '@/store/persistedRevision'
-import type { ParsedWebJournalArchive } from '@/lib/webJournalArchive'
 import { normalizeWebJournalImageMime } from '@/lib/webJournalArchiveContract'
 import { buildWebJournalArchiveBlob } from '@/lib/webJournalArchiveWriter'
-import { clearReviewSessionFilters, clearReviewSessionStorage } from '@/lib/reviewSession'
 import {
   assertValidPersistedSnapshot,
 } from '@/storage/snapshotValidation'
@@ -1097,104 +1094,6 @@ export async function prepareJournalArchive(prepareRequestId: string) {
   if (!isElectron()) return { ok: false as const, error: 'Electron bridge is not available' }
   await flushPersistNow()
   return getJournalBridge()!.prepareJournalImport(prepareRequestId)
-}
-
-/** 只有最终确认才暂停 renderer 持久化并进入资料库切换边界。 */
-export async function commitPreparedJournalArchive(token: string): Promise<{
-  ok: boolean
-  committed?: boolean
-  error?: string
-  code?: string
-}> {
-  if (!isElectron()) return { ok: false, error: 'Electron bridge is not available' }
-  const unlockInteraction = lockStorageCutoverInteraction()
-  let suspended = false
-  let safeToFlush = true
-  try {
-    await flushStorageBeforeCutover()
-    suspendPersist()
-    suspended = true
-    safeToFlush = false
-    const result = await getJournalBridge()!.commitPreparedJournalImport(token)
-    safeToFlush = !result.committed
-    if (!result.ok) return { ok: false, committed: result.committed, error: result.error, code: result.code }
-    if (!result.snapshot) return { ok: false, committed: true, error: '恢复后的资料库没有可读取快照' }
-    getElectronAdapter().clearObjectUrlCache()
-    const manifest = await getStorage().getManifest()
-    clearReviewSessionStorage(manifest.libraryId)
-    clearReviewSessionFilters(manifest.libraryId)
-    applySnapshotToStore(result.snapshot)
-    clearSessionUiAfterLibrarySwitch()
-    safeToFlush = true
-    return { ok: true, committed: true }
-  } finally {
-    try {
-      if (suspended) {
-        if (safeToFlush) await resumePersistAndFlush()
-        else {
-          discardPendingAndResumePersist()
-          disablePersistWrites()
-          useSaveStatus.getState().setError('完整恢复后的内存载入失败，自动保存已暂停')
-          try { window.location?.reload() } catch { /* 正式客户端会重启恢复 */ }
-        }
-      }
-    } finally {
-      unlockInteraction()
-    }
-  }
-}
-
-/** 浏览器端：用已经完整校验的 Web 归档精确替换当前交易库。 */
-export async function restoreWebJournalArchive(
-  archive: ParsedWebJournalArchive,
-): Promise<{ summary: string }> {
-  if (isElectron()) throw new Error('浏览器归档恢复仅在 Web 存储中可用')
-
-  const unlockInteraction = lockStorageCutoverInteraction()
-  let suspended = false
-  let safeToFlush = true
-  try {
-    await flushStorageBeforeCutover()
-    suspendPersist()
-    suspended = true
-
-    await getIndexedDbAdapter().replaceArchive(
-      archive.snapshot,
-      archive.assets,
-      archive.recoveryOrphanAssetIds ?? [],
-    )
-    // 从这里到内存快照完成切换前，不能让旧内存重新写回已经替换的新库。
-    safeToFlush = false
-    const manifest = await getIndexedDbAdapter().getManifest()
-    clearReviewSessionStorage(manifest.libraryId)
-    clearReviewSessionFilters(manifest.libraryId)
-    applySnapshotToStore(archive.snapshot)
-    clearSessionUiAfterLibrarySwitch()
-    safeToFlush = true
-
-    const parts = [`${archive.snapshot.trades.length} 条记录`]
-    if (archive.assets.length > 0) parts.push(`${archive.assets.length} 个附件`)
-    return { summary: `已恢复 ${parts.join('、')}` }
-  } finally {
-    try {
-      if (suspended) {
-        if (safeToFlush) {
-          await resumePersistAndFlush()
-        } else {
-          discardPendingAndResumePersist()
-          disablePersistWrites()
-          useSaveStatus.getState().setError('完整恢复后的内存载入失败，自动保存已暂停')
-          try {
-            window.location?.reload()
-          } catch {
-            /* 正式浏览器会重新载入已经原子提交的新资料库。 */
-          }
-        }
-      }
-    } finally {
-      unlockInteraction()
-    }
-  }
 }
 
 export async function getLibraryPath(): Promise<string | null> {

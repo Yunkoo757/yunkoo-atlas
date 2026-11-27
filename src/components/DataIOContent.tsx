@@ -1,3 +1,4 @@
+import { commitPreparedJournalArchive, restoreWebJournalArchive } from '@/lib/libraryRestore'
 import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import { Button } from '@/components/ui/Button'
 import { ICON_LG, ICON_MD } from '@/icons/iconSize'
@@ -25,9 +26,7 @@ import {
   exportJournalArchive,
   getLibraryPath,
   prepareJournalArchive,
-  commitPreparedJournalArchive,
   parseImportJson,
-  restoreWebJournalArchive,
   switchActiveLibrary,
 } from '@/lib/importExport'
 import {

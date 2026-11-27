@@ -1,3 +1,5 @@
+import { BackupRestoreFlushError, restoreLibraryBackup } from '@/lib/libraryRestore'
+import { flushPersistNow } from '@/storage/persist'
 import { rendererAllowsAssetPurge } from '@/config/assetPurge'
 import { ICON_LG, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
@@ -13,17 +15,6 @@ import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { BackupInfo } from '@/types/journal-bridge'
 import { toast } from '@/lib/toast'
-import {
-  applySnapshotToStore,
-  clearSessionUiAfterLibrarySwitch,
-} from '@/lib/importExport'
-import {
-  disablePersistWrites,
-  discardPendingAndResumePersist,
-  flushPersistNow,
-  resumePersistAndFlush,
-  suspendPersist,
-} from '@/storage/persist'
 import { useStore } from '@/store/useStore'
 import { getStorage } from '@/storage'
 import type { AssetPurgePreview } from '@/storage/adapter'
@@ -31,17 +22,9 @@ import { checkStorageHealth, type StorageHealth } from '@/lib/storageHealth'
 import { Save, RotateCcw, Trash2, Clock, HardDrive, Image, Database, CheckCircle, AlertCircle } from '@/icons/appIcons'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { ModalShell } from '@/components/ui/ModalShell'
-import {
-  flushStorageBeforeCutover,
-  lockStorageCutoverInteraction,
-} from '@/storage/cutover'
-import { getElectronAdapter } from '@/storage/electronAdapter'
-import { clearReviewSessionFilters, clearReviewSessionStorage } from '@/lib/reviewSession'
-import { useSaveStatus } from '@/store/saveStatus'
 import { buildWebJournalArchiveBlob } from '@/lib/webJournalArchiveWriter'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
 import { listPendingStageOwnership } from '@/lib/stageOwnershipRepair'
-import { notifyStorageRecoveryRequired } from '@/lib/storageRecovery'
 import {
   automaticVerificationTarget,
   presentBackupHealth,
@@ -231,53 +214,16 @@ export function DataSettingsPanel({
     if (!electron) return
     setConfirmRequest(null)
     setRestoring(name)
-    const unlockInteraction = lockStorageCutoverInteraction()
-    let suspended = false
-    let safeToFlush = true
-    let restored = false
     try {
-      await flushStorageBeforeCutover()
-      suspendPersist()
-      suspended = true
-      safeToFlush = false
-      const result = await getJournalBridge()!.restoreBackup(name)
-      safeToFlush = !result.committed
-      if (result.ok) {
-        // bridge 已替换磁盘内容；内存切换完成前禁止旧快照重新写回。
-        safeToFlush = false
-        getElectronAdapter().clearObjectUrlCache()
-        const manifest = await getStorage().getManifest()
-        clearReviewSessionStorage(manifest.libraryId)
-        clearReviewSessionFilters(manifest.libraryId)
-        applySnapshotToStore(result.snapshot)
-        clearSessionUiAfterLibrarySwitch()
-        safeToFlush = true
+      const result = await restoreLibraryBackup(name, async () => {
         await Promise.all([refreshBackups(), refreshHealth()])
-        restored = true
-      } else {
-        toast(result.error ?? '恢复失败', { tone: 'error' })
-      }
+      })
+      if (result.ok) toast('备份已恢复', { tone: 'success' })
+      else toast(result.error ?? '恢复失败', { tone: 'error' })
     } catch (error) {
       reportDataSettingsFailure('恢复备份失败', error)
-      toast('恢复失败', { tone: 'error' })
+      toast(error instanceof BackupRestoreFlushError ? error.message : '恢复失败', { tone: 'error' })
     } finally {
-      if (suspended) {
-        if (safeToFlush) {
-          try {
-            await resumePersistAndFlush()
-            if (restored) toast('备份已恢复', { tone: 'success' })
-          } catch {
-            toast('恢复后保存失败，请勿关闭软件', { tone: 'error' })
-          }
-        } else {
-          discardPendingAndResumePersist()
-          disablePersistWrites()
-          const message = '备份替换已开始，但界面无法安全载入磁盘状态；已停止保存，请重新打开资料库'
-          useSaveStatus.getState().setError(message)
-          notifyStorageRecoveryRequired(message)
-        }
-      }
-      unlockInteraction()
       setRestoring(null)
     }
   }

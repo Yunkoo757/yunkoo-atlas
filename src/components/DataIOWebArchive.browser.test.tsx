@@ -1,3 +1,5 @@
+import { restoreWebJournalArchive } from '@/lib/libraryRestore'
+import { isStorageCutoverInteractionLocked } from '@/storage/cutover'
 import JSZip from 'jszip'
 import { createRoot } from 'react-dom/client'
 import { DataIOContent } from '@/components/DataIOContent'
@@ -10,7 +12,7 @@ import {
   loadReviewSession,
   saveReviewSession,
 } from '@/lib/reviewSession'
-import { flushPersistNow } from '@/storage/persist'
+import { flushPersistNow, getPersistSuspendDepth } from '@/storage/persist'
 import { bootstrapStorage } from '@/storage'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
 import { SCHEMA_VERSION, type PersistedSnapshot } from '@/storage/types'
@@ -244,7 +246,21 @@ async function run(): Promise<void> {
 
     const input = document.querySelector<HTMLInputElement>('input[accept*="journal.zip"]')!
     const transfer = new DataTransfer()
-    transfer.items.add(await archiveFile(restoredSnapshot, restoredAssetId))
+    const file = await archiveFile(restoredSnapshot, restoredAssetId)
+    const parsed = await parseWebJournalArchive(file)
+    let rolledBack = false
+    try {
+      await restoreWebJournalArchive({ ...parsed, assets: [] })
+    } catch {
+      rolledBack = true
+    }
+    assert(rolledBack && useStore.getState().trades[0]?.id === 'old', '缺少附件的替换必须保留当前资料库')
+    assert(!isStorageCutoverInteractionLocked() && getPersistSuspendDepth() === 0, '事务回滚后应解除交互和保存暂停')
+    useStore.setState({ tagPresets: ['回滚后仍可编辑'] })
+    await flushPersistNow()
+    const afterRollback = await adapter.loadSnapshot()
+    assert(afterRollback?.trades[0]?.id === 'old' && afterRollback.tagPresets?.includes('回滚后仍可编辑'), 'Web 事务明确回滚后，旧库必须仍能正常保存')
+    transfer.items.add(file)
     Object.defineProperty(input, 'files', { configurable: true, value: transfer.files })
     input.dispatchEvent(new Event('change', { bubbles: true }))
 

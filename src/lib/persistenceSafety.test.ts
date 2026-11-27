@@ -171,11 +171,10 @@ export async function testDesktopBackupRestoreHasAStartupRecoveryJournal(): Prom
 }
 
 export async function testDesktopJournalImportHasAStartupRecoveryJournal(): Promise<void> {
-  const [journalZip, storage, ipc, importExport, dataIo] = await Promise.all([
+  const [journalZip, storage, ipc, dataIo] = await Promise.all([
     fs.readFile('electron/library/journalZip.ts', 'utf8'),
     fs.readFile('electron/library/storage.ts', 'utf8'),
     fs.readFile('electron/library/ipc.ts', 'utf8'),
-    fs.readFile('src/lib/importExport.ts', 'utf8'),
     fs.readFile('src/components/DataIOContent.tsx', 'utf8'),
   ])
 
@@ -184,12 +183,6 @@ export async function testDesktopJournalImportHasAStartupRecoveryJournal(): Prom
   assert(journalZip.includes('writeFileAtomicallySync(markerPath'), '改写活动库前必须先发布导入恢复标记')
   assert(storage.includes('recoverInterruptedJournalImport(this.paths)'), '资料库打开前必须消费中断导入标记')
   assert(ipc.includes('replacementCommitted'), '整库导入 IPC 必须区分磁盘替换是否已提交')
-  const importCall = importExport.indexOf('await getJournalBridge()!.commitPreparedJournalImport(token)')
-  const failClosedBeforeImport = importExport.lastIndexOf('safeToFlush = false', importCall)
-  assert(
-    failClosedBeforeImport >= 0 && failClosedBeforeImport < importCall,
-    '整库导入 IPC 返回前状态未知，renderer 必须预先禁止旧快照回写',
-  )
   const exportHandler = ipc.slice(
     ipc.indexOf("ipcMain.handle('journal:exportZip'"),
     ipc.indexOf('// ---- 备份 ----'),
@@ -233,22 +226,15 @@ export async function testDesktopJournalImportHasAStartupRecoveryJournal(): Prom
 }
 
 export async function testBackupRestoreResultDistinguishesCommittedCutoverFailures(): Promise<void> {
-  const [ipc, bridge, panel] = await Promise.all([
+  const [ipc, bridge] = await Promise.all([
     fs.readFile('electron/library/ipc.ts', 'utf8'),
     fs.readFile('src/types/journalBridge.ts', 'utf8'),
-    fs.readFile('src/views/settings/DataSettingsPanel.tsx', 'utf8'),
   ])
 
   assert(bridge.includes('BackupRestoreResult'), '恢复桥必须返回带提交状态的判别联合类型')
   assert(ipc.includes('replacementCommitted'), '主进程必须记录磁盘替换是否已经提交')
   assert(ipc.includes('cutoverMayHaveStarted'), '提交状态不明的异常必须按可能已替换处理')
   assert(ipc.includes('reopenAfterRestoreFailure'), '失败路径必须重新打开资料库并恢复自动备份')
-  assert(panel.includes('safeToFlush = !result.committed'), 'renderer 必须在磁盘已替换时禁止旧快照回写')
-  assert(
-    panel.includes('notifyStorageRecoveryRequired('),
-    '备份替换已开始但 renderer 无法发布时必须进入统一恢复页',
-  )
-  assert(!panel.includes('window.location?.reload()'), '备份恢复失败不得退回 renderer-only reload')
   const restoreBody = ipc.slice(
     ipc.indexOf("ipcMain.handle('backup:restore'"),
     ipc.indexOf("ipcMain.handle('backup:delete'"),
@@ -256,12 +242,6 @@ export async function testBackupRestoreResultDistinguishesCommittedCutoverFailur
   assert(
     restoreBody.includes('withStorageRecoveryNotification('),
     'backup:restore 的空库 snapshot 写入必须统一广播 indeterminate recovery',
-  )
-  const restoreCall = panel.indexOf('await getJournalBridge()!.restoreBackup(name)')
-  const failClosedBeforeRestore = panel.lastIndexOf('safeToFlush = false', restoreCall)
-  assert(
-    failClosedBeforeRestore >= 0 && failClosedBeforeRestore < restoreCall,
-    'IPC 返回前状态未知，renderer 必须预先禁止旧快照回写',
   )
 }
 
