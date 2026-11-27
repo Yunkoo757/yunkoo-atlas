@@ -1,10 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs'
+import { decodeRepositoryText } from './repository-text.mjs'
 import { extname, join, relative, resolve } from 'node:path'
 
 const ROOT = resolve('src')
 const TOKENS = resolve('src/styles/tokens.css')
 const TEXT_EXTENSIONS = new Set(['.css', '.ts', '.tsx'])
-const decoder = new TextDecoder('utf-8', { fatal: true })
 
 function filesUnder(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -15,10 +15,11 @@ function filesUnder(directory) {
 
 function readUtf8(file) {
   const bytes = readFileSync(file)
-  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-    throw new Error(`${relative(process.cwd(), file)}:1 UTF-8 BOM`)
+  try {
+    return decodeRepositoryText(bytes)
+  } catch (error) {
+    throw new Error(`${relative(process.cwd(), file)}:1 ${error.message}`)
   }
-  return decoder.decode(bytes)
 }
 
 function lineNumber(source, index) {

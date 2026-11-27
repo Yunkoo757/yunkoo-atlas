@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { discoverBrowserTests, discoverQualityNodeTests, discoverUnitTestEntries } from './test-discovery.mjs'
 import { executionReportPath, hashFile } from './quality-execution.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
+import { decodeRepositoryText, isRepositoryText } from './repository-text.mjs'
 import { runtimeDependencyGraph, websiteDependencyGraph, journalBridgeDeclarationOwners, findEagerCycles, firstForbiddenPath, importsTarget, importsWithinTarget } from './governance-imports.mjs'
 import {
   findForbiddenLegacyRuntimeMatches,
@@ -137,9 +138,6 @@ async function main() {
 
   files = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, encoding: 'utf8' })
     .split('\0').filter(Boolean).map(normalized)
-  const decoder = new TextDecoder('utf-8', { fatal: true })
-  const knownTextExtensions = new Set(['.ts', '.tsx', '.mjs', '.js', '.json', '.md', '.css', '.html', '.yml', '.yaml', '.svg', '.toml', '.txt', '.nsh'])
-  const knownTextNames = new Set(['.gitignore', '.gitattributes', '.npmrc', 'license'])
   const textFiles = []
   for (const file of files) {
     let bytes
@@ -149,20 +147,13 @@ async function main() {
       if (error?.code === 'ENOENT') continue
       throw error
     }
-    const knownText = knownTextExtensions.has(path.extname(file).toLowerCase()) || knownTextNames.has(path.basename(file).toLowerCase())
-    const hasUtf16Bom = (bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff)
-    if (hasUtf16Bom || (knownText && bytes.subarray(0, 8192).includes(0))) {
-      textFiles.push(file)
-      failures.push(`文件不是有效 UTF-8：${file}`)
-      continue
-    }
-    if (bytes.subarray(0, 8192).includes(0)) continue
+    if (!isRepositoryText(file, bytes)) continue
     textFiles.push(file)
-    if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-      failures.push(`UTF-8 BOM 禁止：${file}`)
-      continue
+    try {
+      decodeRepositoryText(bytes)
+    } catch (error) {
+      failures.push(`${file}：${error.message}`)
     }
-    try { decoder.decode(bytes) } catch { failures.push(`文件不是有效 UTF-8：${file}`) }
   }
   files = textFiles
 

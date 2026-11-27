@@ -50,7 +50,9 @@ function copyHook(repo) {
   mkdirSync(path.join(repo.root, 'scripts'), { recursive: true })
   const hook = path.join(repo.root, '.githooks/pre-commit')
   copyFileSync(path.join(sourceRoot, '.githooks/pre-commit'), hook)
-  copyFileSync(checker, path.join(repo.root, 'scripts/check-staged-text.mjs'))
+  for (const file of ['check-staged-text.mjs', 'repository-text.mjs']) {
+    copyFileSync(path.join(sourceRoot, 'scripts', file), path.join(repo.root, 'scripts', file))
+  }
   return hook
 }
 
@@ -101,6 +103,19 @@ test('invalid UTF-8 and BOM are rejected in supported text and configuration fil
   assert.equal(result.status, 1)
   for (const file of files) assert(result.stderr.includes(`${JSON.stringify(file)}：暂存内容带有 UTF-8 BOM`))
   assert.match(result.stderr, /invalid\.ts.*不是有效 UTF-8/)
+})
+
+test('PowerShell and extensionless license text reject NUL bytes in the Git index', t => {
+  const repo = repository(t)
+  const asciiUtf16 = Buffer.from('Write-Output Atlas', 'utf16le')
+  repo.write('工具.PS1', asciiUtf16)
+  repo.write('LICENSE', asciiUtf16)
+  repo.git('add', '--', '工具.PS1', 'LICENSE')
+  repo.write('工具.PS1', 'Write-Output 中文')
+  const result = repo.check()
+  assert.equal(result.status, 1)
+  assert.match(result.stderr, /工具\.PS1.*NUL/)
+  assert.match(result.stderr, /LICENSE.*NUL/)
 })
 
 test('binary additions and staged text deletions are skipped', (t) => {
@@ -162,6 +177,16 @@ test('installer is local, repeatable, and enables the real hook', (t) => {
   const result = repo.run('git', ['commit', '--quiet', '-m', 'must fail after installation'])
   assert.notEqual(result.status, 0)
   assert.match(result.stderr, /安装验证\.md.*UTF-8 BOM/)
+})
+
+test('installer reports a missing text checker dependency before enabling the hook', t => {
+  const repo = repository(t)
+  copyHook(repo)
+  rmSync(path.join(repo.root, 'scripts/repository-text.mjs'))
+  const result = repo.run(process.execPath, [installer])
+  assert.equal(result.status, 1)
+  assert.match(result.stderr, /缺少 scripts\/repository-text\.mjs/)
+  assert.equal(repo.run('git', ['config', '--local', '--get', 'core.hooksPath']).status, 1)
 })
 
 test('installer preserves conflicting effective hook configuration and existing hooks', (t) => {

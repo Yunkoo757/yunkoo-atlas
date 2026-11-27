@@ -62,7 +62,7 @@ TRADER_ATLAS_LIBRARY="$atlas_review_root/library" VITE_DEV_SERVER_URL='' \
 
 ## Hooks
 
-项目 Git Hook 的唯一入口是 `.githooks/pre-commit`，运行 `scripts/check-staged-text.mjs`。它只读取暂存区中新增或修改的已知文本类型，检查 UTF-8 无 BOM；不自动转换文件、不修改暂存区、不执行应用测试、不访问资料库或网络。二进制和删除项不做文本解码；具体扩展名由脚本维护。
+项目 Git Hook 的唯一入口是 `.githooks/pre-commit`，运行 `scripts/check-staged-text.mjs`。它只读取暂存区中新增或修改的已知文本类型，检查 UTF-8 无 BOM；不自动转换文件、不修改暂存区、不执行应用测试、不访问资料库或网络。二进制和删除项不做文本解码；已知文本类型和字节校验由 `scripts/repository-text.mjs` 维护。全仓治理也检查未登记扩展名的文本；桌面设计检查只读取各自的 CSS 与 TypeScript 源码。
 
 - 当前克隆安装：`pnpm hooks:install`。安装器只设置本仓库的 `core.hooksPath`，并在需要时设置执行权限；已有不同 Hook 路径或默认目录中的其他 Hook 时报告冲突，不覆盖。
 - 查看生效来源：`git config --show-origin --get core.hooksPath`。

@@ -1,17 +1,6 @@
-import path from 'node:path'
+import { decodeRepositoryText, isKnownTextPath } from './repository-text.mjs'
 import { spawnSync } from 'node:child_process'
 
-const textExtensions = new Set([
-  '.md', '.markdown', '.mdx', '.txt', '.ts', '.tsx', '.mts', '.cts',
-  '.js', '.jsx', '.mjs', '.cjs', '.json', '.jsonc', '.yml', '.yaml', '.toml',
-  '.css', '.scss', '.sass', '.less', '.html', '.htm', '.svg', '.xml', '.csv',
-  '.sh', '.bash', '.zsh', '.ps1', '.ini', '.cfg', '.conf',
-  '.py', '.sql', '.nsh', '.nsi', '.bat', '.cmd', '.lock',
-])
-const textNames = new Set([
-  '.gitignore', '.gitattributes', '.editorconfig', '.npmrc', '.nvmrc',
-  '.prettierignore', '.eslintignore', 'pre-commit', 'pre-push', 'commit-msg',
-])
 const decoder = new TextDecoder('utf-8', { fatal: true })
 
 function git(args) {
@@ -30,18 +19,13 @@ try {
   const failures = []
   let checked = 0
   for (const file of paths) {
-    const name = path.posix.basename(file).toLowerCase()
-    if (!textNames.has(name) && !textExtensions.has(path.posix.extname(name))) continue
+    if (!isKnownTextPath(file)) continue
     const bytes = git(['cat-file', 'blob', `:${file}`])
     checked += 1
-    if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-      failures.push(`${JSON.stringify(file)}：暂存内容带有 UTF-8 BOM`)
-      continue
-    }
     try {
-      decoder.decode(bytes)
-    } catch {
-      failures.push(`${JSON.stringify(file)}：暂存内容不是有效 UTF-8`)
+      decodeRepositoryText(bytes)
+    } catch (error) {
+      failures.push(`${JSON.stringify(file)}：暂存内容${error.message}`)
     }
   }
   if (failures.length > 0) {

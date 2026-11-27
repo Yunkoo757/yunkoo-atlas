@@ -47,10 +47,9 @@ try {
     }
   }
   const hook = path.join(hooksDirectory, 'pre-commit')
-  const checker = path.join(root, 'scripts/check-staged-text.mjs')
-  if (!existsSync(hook) || !existsSync(checker)) {
-    throw new Error('缺少 .githooks/pre-commit 或 scripts/check-staged-text.mjs，请在包含这两份文件的 Atlas 仓库中重试。')
-  }
+  const required = ['.githooks/pre-commit', 'scripts/check-staged-text.mjs', 'scripts/repository-text.mjs']
+  const missing = required.find(file => !existsSync(path.join(root, file)))
+  if (missing) throw new Error(`缺少 ${missing}，请在包含完整提交检查脚本的 Atlas 仓库中重试。`)
   if (process.platform !== 'win32') chmodSync(hook, 0o755)
   git(['config', '--local', 'core.hooksPath', '.githooks'])
   console.log('已启用本仓库 .githooks/pre-commit：提交前仅检查暂存文本的 UTF-8 与无 BOM。')

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
+import { decodeRepositoryText, isRepositoryText } from '../repository-text.mjs'
 import { importsTarget, importsWithinTarget, journalBridgeDeclarationOwners } from '../governance-imports.mjs'
 import {
   findForbiddenLegacyRuntimeMatches,
@@ -111,7 +112,22 @@ test('桌面桥接契约和 Window 成员各有一个声明来源，转发或注
   assert.deepEqual(observed, { contract: [canonical, duplicate], window: [canonical, duplicate] })
 })
 
-test('治理门冻结最小依赖边界、UTF-8 fatal decode 与无 BOM 规则', () => {
+test('全仓文本判定保留未知文本与二进制边界，并严格解码所有已知文本', () => {
+  const utf16 = Buffer.from('echo Atlas', 'utf16le')
+  for (const file of ['capture.ps1', 'tools/start.CJS', 'LICENSE', 'config.jsonc', '.githooks/pre-commit']) {
+    assert.ok(isRepositoryText(file, utf16), file)
+    assert.throws(() => decodeRepositoryText(utf16), /NUL/)
+  }
+  const valid = Buffer.from('交易资料\r\n🗂')
+  assert.ok(isRepositoryText('instructions', valid))
+  assert.equal(decodeRepositoryText(valid), '交易资料\r\n🗂')
+  assert.equal(isRepositoryText('diagram.png', Buffer.from([0x89, 0, 13])), false)
+  assert.ok(isRepositoryText('unknown', Buffer.from([0xff, 0xfe, 0, 0])))
+  assert.throws(() => decodeRepositoryText(Buffer.from([0xef, 0xbb, 0xbf, 65])), /UTF-8 BOM/)
+  assert.throws(() => decodeRepositoryText(Buffer.from([0xc3, 0x28])), /不是有效 UTF-8/)
+})
+
+test('治理门冻结最小依赖边界与执行报告来源', () => {
   const checker = readFileSync('scripts/check-governance.mjs', 'utf8')
   const execution = readFileSync('scripts/quality-execution.mjs', 'utf8')
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
@@ -125,8 +141,6 @@ test('治理门冻结最小依赖边界、UTF-8 fatal decode 与无 BOM 规则',
   ]) {
     assert.match(checker, new RegExp(contract.replaceAll('/', '\\/').replaceAll('.', '\\.')))
   }
-  assert.match(checker, /new TextDecoder\('utf-8', \{ fatal: true \}\)/)
-  assert.match(checker, /0xef.*0xbb.*0xbf/s)
   assert.match(checker, /discoverUnitTestEntries/)
   assert.match(checker, /discoverBrowserTests/)
   assert.match(checker, /execution\.sourceIdentity !== provenance\.sourceIdentity/)
