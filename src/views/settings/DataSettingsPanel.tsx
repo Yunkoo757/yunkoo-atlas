@@ -1,3 +1,4 @@
+import { fmtBytes } from '@/lib/format'
 import { BackupRestoreFlushError, restoreLibraryBackup } from '@/lib/libraryRestore'
 import { flushPersistNow } from '@/storage/persist'
 import { rendererAllowsAssetPurge } from '@/config/assetPurge'
@@ -44,12 +45,6 @@ function fmtBackupTime(ts: number): string {
     hour: '2-digit',
     minute: '2-digit',
   })
-}
-
-function fmtBackupSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
 export function StageOwnershipHealthEntry() {
@@ -453,7 +448,7 @@ export function DataSettingsPanel({
                     {b.strategyCount != null ? ` · ${b.strategyCount} 策略` : ''}
                     {b.attachmentCount != null ? ` · ${b.attachmentCount} 附件` : ''}
                   </span>
-                  <span className="backup-size">{fmtBackupSize(b.size)}</span>
+                  <span className="backup-size">{fmtBytes(b.size)}</span>
                   {b.verification?.status === 'verified' && (
                     <Tooltip
                       content={`最近验证：${fmtBackupTime(b.verification.checkedAt)}`}
@@ -558,7 +553,7 @@ export function DataSettingsPanel({
           <div className="storage-summary" aria-label="资料库概况">
             <span><Database size={ICON_SM} /><strong>{health.storage.tradeCount}</strong> 笔交易</span>
             <span><Image size={ICON_SM} /><strong>{health.storage.attachmentStats.count}</strong> 张图片 · {health.storage.attachmentStats.formattedSize}</span>
-            {electron ? <span><HardDrive size={ICON_SM} /><strong>{health.backupCount}</strong> 份备份 · {fmtBackupSize(health.backupTotalSize)}</span> : null}
+            {electron ? <span><HardDrive size={ICON_SM} /><strong>{health.backupCount}</strong> 份备份 · {fmtBytes(health.backupTotalSize)}</span> : null}
           </div>
         )}
 
@@ -719,7 +714,7 @@ export function DataSettingsPanel({
           </div> : null}
           <div className="data-purge-summary">
             <span>{assetPurgeCommitEnabled ? '待清理' : '扫描结果'}</span>
-            <strong>{purgePreview.candidateIds.length} 个 · {fmtBackupSize(purgePreview.totalBytes)}</strong>
+            <strong>{purgePreview.candidateIds.length} 个 · {fmtBytes(purgePreview.totalBytes)}</strong>
             <small>{assetPurgeCommitEnabled ? '永久清理后无法从当前资料库恢复。' : '当前永久清理已关闭。'}</small>
           </div>
           <details className="data-purge-details">

@@ -1,3 +1,4 @@
+import { fmtBytes } from '@/lib/format'
 import { switchActiveLibrary } from '@/lib/librarySwitch'
 import { commitPreparedJournalArchive, restoreWebJournalArchive } from '@/lib/libraryRestore'
 import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
@@ -49,12 +50,6 @@ import { readJsonImportFile } from '@/lib/importLimits'
 import { userFacingErrorMessage } from '@/lib/userFacingError'
 import './DataIOContent.css'
 import type { PreparedJournalImportPreview } from '@/types/journal-bridge'
-
-function formatArchiveBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
 
 export function DataIOContent({
   onDone,
@@ -682,7 +677,7 @@ export function DataIOContent({
           </div>
           <dl className="dio-restore-grid">
             <div><dt>交易与案例</dt><dd>{webArchive.preview.tradeCount}</dd></div>
-            <div><dt>原始附件</dt><dd>{webArchive.preview.assetCount} 个 · {formatArchiveBytes(webArchive.preview.assetBytes)}</dd></div>
+            <div><dt>原始附件</dt><dd>{webArchive.preview.assetCount} 个 · {fmtBytes(webArchive.preview.assetBytes)}</dd></div>
           </dl>
           <details className="dio-restore-details"><DisclosureSummary>查看归档明细</DisclosureSummary>
           <dl className="dio-restore-grid">
@@ -703,7 +698,7 @@ export function DataIOContent({
           </dl>
           <div className="dio-restore-meta">
             <span>导出格式 v{webArchive.preview.exportVersion}</span>
-            <span>解压后 {formatArchiveBytes(webArchive.preview.expandedBytes)}</span>
+            <span>解压后 {fmtBytes(webArchive.preview.expandedBytes)}</span>
             {webArchive.preview.profileDisplayName ? (
               <span>资料：{webArchive.preview.profileDisplayName}</span>
             ) : null}
@@ -729,7 +724,7 @@ export function DataIOContent({
             <div><dt>交易与案例</dt><dd>{preparedDesktopArchive.tradeCount}</dd></div>
             <div><dt>策略</dt><dd>{preparedDesktopArchive.strategyCount}</dd></div>
             <div><dt>原始附件</dt><dd>{preparedDesktopArchive.attachmentCount}</dd></div>
-            <div><dt>附件大小</dt><dd>{formatArchiveBytes(preparedDesktopArchive.attachmentBytes)}</dd></div>
+            <div><dt>附件大小</dt><dd>{fmtBytes(preparedDesktopArchive.attachmentBytes)}</dd></div>
           </dl>
           <p className="dio-restore-warning" role="alert">
             <AlertTriangle size={ICON_LG} aria-hidden />

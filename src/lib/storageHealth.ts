@@ -1,3 +1,4 @@
+import { fmtBytes } from '@/lib/format'
 import { useStore } from '@/store/useStore'
 import { getStorage } from '@/storage'
 import { buildAssetInventory, type AssetInventory } from '@/storage/assetInventory'
@@ -7,12 +8,6 @@ export interface AssetStats {
   totalBytes: number
   missingCount: number
   formattedSize: string
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 export interface StorageHealth {
@@ -50,7 +45,7 @@ export async function checkStorageHealth(): Promise<StorageHealth> {
     count: inventory.healthy.length,
     totalBytes,
     missingCount: inventory.missing.length,
-    formattedSize: formatBytes(totalBytes),
+    formattedSize: fmtBytes(totalBytes),
   }
 
   return {

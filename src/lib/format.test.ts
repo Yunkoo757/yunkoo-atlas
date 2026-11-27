@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
-import { fmtDate, fmtMoney, fmtPrice, fmtR } from '@/lib/format'
+import { fmtBytes, fmtDate, fmtMoney, fmtPrice, fmtR } from '@/lib/format'
 import { calcR } from '@/lib/tradeCalc'
 
 function assert(condition: unknown, message: string): void {
@@ -48,4 +48,10 @@ export function testRoundedZeroMoneyHasNoProfitSign(): void {
   assert(fmtMoney(0.1 + 0.2 - 0.3, 'USD') === '$0.00', '舍入为零的金额不得显示正号')
   assert(fmtMoney(0.004, 'USD') === '$0.00', '不足半分的正值不得显示为盈利')
   assert(fmtMoney(-0.004, 'USD') === '$0.00', '不足半分的负值不得显示为亏损负零')
+}
+
+export function testStorageSizesRetainTheirUnitsAtBinaryBoundaries(): void {
+  const bytes = [0, 1, 1023, 1024, 1536, 1048575, 1048576, 1572864, 1073741824]
+  const expected = ['0 B', '1 B', '1023 B', '1.0 KB', '1.5 KB', '1024.0 KB', '1.0 MB', '1.5 MB', '1024.0 MB']
+  bytes.forEach((size, index) => assert(fmtBytes(size) === expected[index], `unexpected storage size for ${size}`))
 }

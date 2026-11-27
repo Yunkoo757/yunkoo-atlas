@@ -69,3 +69,9 @@ export function fmtFullDateTime(iso: string): string {
   const date = new Date(iso)
   return Number.isNaN(date.getTime()) ? '—' : `${date.getFullYear()}年${fmtDateTime(iso)}`
 }
+
+export function fmtBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
