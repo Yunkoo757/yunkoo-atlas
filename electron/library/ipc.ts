@@ -571,34 +571,35 @@ async function prepareActiveLibrarySwitch(
   preparingLibrarySwitch = true
   try {
     // 准备期间不占用 exclusive gate，旧库仍可正常保存。
-    const sourceStorage = await operationGate.run(() => ensureStorage())
-    const resolvedPath = resolveLibrarySwitchPath(libPath, mode)
-    if (isSameLibraryPath(sourceStorage, resolvedPath)) {
-      return { ok: false, error: '所选目录已经是当前交易库' }
-    }
-
-    // “打开”先做一次完整校验，但不长期缓存 DB；激活时重新打开，读取磁盘最新版本。
-    if (mode === 'open') {
-      const validated = await openLibrarySwitchCandidate(resolvedPath, mode)
-      if (areSameLibrary(sourceStorage, validated.candidate)) {
-        validated.candidate.release()
-        return { ok: false, error: '所选目录已经是当前交易库' }
+    return await withStorage(async sourceStorage => {
+      const resolvedPath = resolveLibrarySwitchPath(libPath, mode)
+      if (isSameLibraryPath(sourceStorage, resolvedPath)) {
+        return { ok: false as const, error: '所选目录已经是当前交易库' }
       }
-      validated.candidate.release()
-    }
 
-    const token = randomUUID()
-    const prepared: PreparedLibrarySwitch = {
-      token,
-      sourceStorage,
-      resolvedPath,
-      mode,
-      ownerWebContentsId: event.sender.id,
-      expiresAt: Date.now() + PREPARED_LIBRARY_TTL_MS,
-    }
-    preparedLibrarySwitch = prepared
-    attachPreparedLibraryLease(prepared, event.sender)
-    return { ok: true, token }
+      // “打开”先做一次完整校验，但不长期缓存 DB；激活时重新打开，读取磁盘最新版本。
+      if (mode === 'open') {
+        const validated = await openLibrarySwitchCandidate(resolvedPath, mode)
+        if (areSameLibrary(sourceStorage, validated.candidate)) {
+          validated.candidate.release()
+          return { ok: false as const, error: '所选目录已经是当前交易库' }
+        }
+        validated.candidate.release()
+      }
+
+      const token = randomUUID()
+      const prepared: PreparedLibrarySwitch = {
+        token,
+        sourceStorage,
+        resolvedPath,
+        mode,
+        ownerWebContentsId: event.sender.id,
+        expiresAt: Date.now() + PREPARED_LIBRARY_TTL_MS,
+      }
+      preparedLibrarySwitch = prepared
+      attachPreparedLibraryLease(prepared, event.sender)
+      return { ok: true as const, token }
+    })
   } catch (error) {
     return { ok: false, error: toErrorMessage(error) }
   } finally {
@@ -746,9 +747,7 @@ async function recoverActiveStorageLifecycle(
 export function registerLibraryIpc(): void {
   registerStorageRecoveryQaController()
   // ---- 库路径引导 ----
-  ipcMain.handle('library:getStatus', async () => {
-    return getLibraryLocationState()
-  })
+  ipcMain.handle('library:getStatus', () => operationGate.run(getLibraryLocationState))
 
   ipcMain.handle('library:pickFolder', async () => {
     const win = BrowserWindow.getFocusedWindow()
@@ -829,38 +828,39 @@ export function registerLibraryIpc(): void {
     event,
     payload: { input: StageRolloverCommitInput; writerToken: string },
   ): Promise<StageRolloverCommitResult> => {
-    const active = await ensureStorage()
-    assertWriterSession(event, payload?.writerToken, active)
-    const input = payload.input
-    const operation = beginOperation('stage-rollover', { stage: 'reload', revisionBefore: 0 })
-    let result: StageRolloverCommitResult
-    try {
-      result = await commitDueStageRollover(input, {
-        runExclusive: (commit) => operationGate.runExclusive(commit),
-        loadStorage: () => ensureStorage(),
-        createBackup: (lib) => createBackup(lib as LibraryStorage),
-        verifyBackup: (lib, backupReference) => verifyBackupAtPath(
-          (lib as LibraryStorage).getLibraryPath(),
-          path.basename(backupReference),
-        ),
-        validateSnapshot: (snapshot) => {
-          assertValidPersistedSnapshot(snapshot, 'Stage rollover snapshot')
-        },
-        now: () => new Date(),
-        createStageId: () => randomUUID(),
-        reportError: (event, error) => safeConsoleError(event, error),
-      })
-    } catch (error) {
-      safeConsoleError('stage-rollover-exclusive-commit-failed', error)
-      result = { ok: false, reason: 'write-failed', message: '阶段切换提交失败' }
-    }
+    return operationGate.runExclusive(async () => {
+      const active = await ensureStorage()
+      assertWriterSession(event, payload?.writerToken, active)
+      const input = payload.input
+      const operation = beginOperation('stage-rollover', { stage: 'reload', revisionBefore: 0 })
+      let result: StageRolloverCommitResult
+      try {
+        result = await commitDueStageRollover(input, {
+          storage: active,
+          createBackup: (lib) => createBackup(lib),
+          verifyBackup: (lib, backupReference) => verifyBackupAtPath(
+            lib.getLibraryPath(),
+            path.basename(backupReference),
+          ),
+          validateSnapshot: (snapshot) => {
+            assertValidPersistedSnapshot(snapshot, 'Stage rollover snapshot')
+          },
+          now: () => new Date(),
+          createStageId: () => randomUUID(),
+          reportError: (event, error) => safeConsoleError(event, error),
+        })
+      } catch (error) {
+        safeConsoleError('stage-rollover-exclusive-commit-failed', error)
+        result = { ok: false, reason: 'write-failed', message: '阶段切换提交失败' }
+      }
 
-    if (result.ok) operation.success({ stage: 'committed', code: 'stage-rollover-committed' })
-    else operation.failure(
-      { code: `stage-rollover-${result.reason}` },
-      { stage: result.reason, code: `stage-rollover-${result.reason}` },
-    )
-    return result
+      if (result.ok) operation.success({ stage: 'committed', code: 'stage-rollover-committed' })
+      else operation.failure(
+        { code: `stage-rollover-${result.reason}` },
+        { stage: result.reason, code: `stage-rollover-${result.reason}` },
+      )
+      return result
+    })
   })
 
   ipcMain.handle('storage:saveAsset', async (event, payload: { data: ArrayBuffer; mime: string; writerToken: string }) => withStorage(async (lib) => {
@@ -882,7 +882,8 @@ export function registerLibraryIpc(): void {
 
   ipcMain.handle('storage:prepareAssetPurgeRecovery', async (event, payload) => operationGate.runExclusive(async () => {
     const preview = payload.preview
-    assertWriterSession(event, payload.writerToken, await ensureStorage())
+    const lib = await ensureStorage()
+    assertWriterSession(event, payload.writerToken, lib)
     const win = BrowserWindow.getFocusedWindow()
     const date = new Date().toISOString().slice(0, 10)
     const options = {
@@ -901,7 +902,6 @@ export function registerLibraryIpc(): void {
       revisionBefore: preview.revision,
     })
     try {
-      const lib = await ensureStorage()
       await exportJournalZip(lib, result.filePath!)
       const verificationRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-purge-recovery-'))
       try {
@@ -1120,14 +1120,14 @@ export function registerLibraryIpc(): void {
       }
       const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
       return result.canceled ? undefined : result.filePaths[0]
-    }, ensureStorage),
+    }, withStorage),
   )
   ipcMain.handle('journal:cancelPreparedImport', (event, id: string) => journalImportPreviews.cancel(id, event.sender.id))
 
   ipcMain.handle('journal:commitPreparedImport', async (
     event,
     payload: { token: string; writerToken: string },
-  ) => {
+  ) => operationGate.tryRunExclusive(async () => {
     const activeStorage = await ensureStorage()
     assertWriterSession(event, payload?.writerToken, activeStorage)
     const token = payload?.token
@@ -1140,7 +1140,7 @@ export function registerLibraryIpc(): void {
       entry.dispose()
       return { ok: false as const, committed: false, error: '恢复暂存文件已损坏，请重新选择归档', code: 'SOURCE_CHANGED' as const }
     }
-    if (!matchesPreparedImportSource(entry.source, storage)) {
+    if (!matchesPreparedImportSource(entry.source, activeStorage)) {
       entry.state = 'expired'
       entry.dispose()
       return { ok: false as const, committed: false, error: '当前资料库已切换或重新打开，请重新检查归档', code: 'SOURCE_CHANGED' as const }
@@ -1153,55 +1153,43 @@ export function registerLibraryIpc(): void {
     })
     let replacementCommitted = false
     try {
-      const outcome = await operationGate.tryRunExclusive(async () => {
-        const current = await ensureStorage()
-        if (!matchesPreparedImportSource(entry.source, current)) {
-          entry.state = 'expired'
-          entry.dispose()
-          return { ok: false as const, committed: false, error: '当前资料库已切换或重新打开，请重新检查归档', code: 'SOURCE_CHANGED' as const }
-        }
-        const libraryPath = current.getLibraryPath()
-        const safety = await createVerifiedRestorePoint(current)
-        if (!safety.ok) {
-          entry.retry()
-          return { ok: false as const, committed: false, error: safety.error }
-        }
-        entry.state = 'consumed'
-        closeStorageForRestore(current)
-        try {
-          await installPreparedLibraryAtPath(libraryPath, entry.stagedLibraryRoot)
-          replacementCommitted = true
-          const reopened = await reopenStorageWithAutoBackup()
-          adoptWriterSessionLifecycle(event.sender.id, reopened)
-          const snapshot = reopened.loadSnapshot()
-          entry.dispose()
-          return { ok: true as const, committed: true as const, snapshot }
-        } catch (error) {
-          return recoverPreparedImportCommitFailure({
-            error,
-            replacementCommitted,
-            currentStorage: () => storage,
-            reopen: reopenAfterRestoreFailure,
-            adoptWriter: reopened => adoptWriterSessionLifecycle(event.sender.id, reopened),
-            invalidatePreview: entry.dispose,
-            reportFailure: cause => safeConsoleError('journal-prepared-import-commit-failed', cause),
-          })
-        }
-      })
-      if (outcome.ok) operation.success({ stage: 'committed', revisionAfter: 0 })
-      else operation.failure(new Error(outcome.error ?? '恢复未提交'), { stage: 'commit' })
-      return outcome
+      const safety = await createVerifiedRestorePoint(activeStorage)
+      if (!safety.ok) {
+        entry.retry()
+        operation.failure(new Error(safety.error), { stage: 'commit' })
+        return { ok: false as const, committed: false, error: safety.error }
+      }
+      const libraryPath = activeStorage.getLibraryPath()
+      entry.state = 'consumed'
+      closeStorageForRestore(activeStorage)
+      await installPreparedLibraryAtPath(libraryPath, entry.stagedLibraryRoot)
+      replacementCommitted = true
+      const reopened = await reopenStorageWithAutoBackup()
+      adoptWriterSessionLifecycle(event.sender.id, reopened)
+      const snapshot = reopened.loadSnapshot()
+      entry.dispose()
+      operation.success({ stage: 'committed', revisionAfter: 0 })
+      return { ok: true as const, committed: true as const, snapshot }
     } catch (error) {
       operation.failure(error, { stage: 'commit' })
-      if (error instanceof LibraryBusyError) {
-        entry.retry()
-        return { ok: false as const, committed: false, error: error.message, code: 'LIBRARY_BUSY' as const }
+      if (entry.state === 'consumed') {
+        return recoverPreparedImportCommitFailure({
+          error,
+          replacementCommitted,
+          currentStorage: () => storage,
+          reopen: reopenAfterRestoreFailure,
+          adoptWriter: reopened => adoptWriterSessionLifecycle(event.sender.id, reopened),
+          invalidatePreview: entry.dispose,
+          reportFailure: cause => safeConsoleError('journal-prepared-import-commit-failed', cause),
+        })
       }
-      if (replacementCommitted) entry.dispose()
-      else entry.retry()
-      return { ok: false as const, committed: replacementCommitted, error: toErrorMessage(error) }
+      entry.retry()
+      return { ok: false as const, committed: false, error: toErrorMessage(error) }
     }
-  })
+  }).catch(error => {
+    if (error instanceof LibraryBusyError) return { ok: false as const, committed: false, error: error.message, code: 'LIBRARY_BUSY' as const }
+    throw error
+  }))
 
 }
 

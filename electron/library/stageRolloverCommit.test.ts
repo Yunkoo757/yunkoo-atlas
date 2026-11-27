@@ -131,14 +131,7 @@ function createHarness(
     },
   }
   const deps: StageRolloverCommitDependencies = {
-    runExclusive: async (operation) => {
-      events.push('exclusive')
-      return operation()
-    },
-    loadStorage: async () => {
-      events.push('storage')
-      return storage
-    },
+    storage,
     createBackup: (received) => {
       events.push('backup')
       assert(received === storage, 'backup must use the same storage reloaded inside the exclusive gate')
@@ -321,7 +314,7 @@ export async function testSuccessfulCommitOrderAndAuthoritativePublishState(): P
   const result = await commitDueStageRollover(commitInput(), harness.deps)
   assert(result.ok, 'eligible commit must succeed')
   assert(
-    harness.events.join(',') === 'exclusive,storage,reload,backup,reload,verify,validate,save',
+    harness.events.join(',') === 'reload,backup,reload,verify,validate,save',
     'commit order must be exclusive, reload, backup, verify, validate, save',
   )
   const saved = harness.saved[0]!

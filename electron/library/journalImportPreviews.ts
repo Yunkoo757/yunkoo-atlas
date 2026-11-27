@@ -56,7 +56,7 @@ export class JournalImportPreviews {
 
   async prepare(
     owner: Owner, requestId: string,
-    selectArchive: () => Promise<string | undefined>, openStorage: () => Promise<LibraryStorage>,
+    selectArchive: () => Promise<string | undefined>, withStorage: <T>(read: (storage: LibraryStorage) => T) => Promise<T>,
   ): Promise<PrepareJournalImportResult> {
     if (typeof requestId !== 'string' || !requestId.trim()) return { ok: false, error: '检查请求无效' }
     if (this.pending.has(requestId)) return { ok: false, error: '检查请求已存在' }
@@ -101,13 +101,15 @@ export class JournalImportPreviews {
       const archive = path.resolve(selected)
       stagingRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'trader-atlas-journal-import-'))
       const staged = stagePreparedJournalArchive(archive, stagingRoot)
-      const storage = await openStorage()
+      const { source, libraryId } = await withStorage(storage => ({
+        source: capturePreparedImportSource(storage),
+        libraryId: storage.readManifest().libraryId,
+      }))
       if (cancelled) return { ok: false, canceled: true }
-      const source = capturePreparedImportSource(storage)
       const expiresAt = Date.now() + this.ttlMs
       await importJournalZipToPath(staged.stagedLibraryRoot, staged.stagedArchivePath)
       if (cancelled) return { ok: false, canceled: true }
-      const counts = await inspectStagedLibrary(staged.stagedLibraryRoot, storage.readManifest().libraryId)
+      const counts = await inspectStagedLibrary(staged.stagedLibraryRoot, libraryId)
       if (cancelled) return { ok: false, canceled: true }
       const preview: PreparedJournalImportPreview = {
         token, fileName: path.basename(archive), modifiedAt: staged.archiveModifiedAt, expiresAt, verification: 'verified', ...counts,

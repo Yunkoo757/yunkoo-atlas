@@ -227,6 +227,20 @@ try {
   })
   assert(seeded.tagPresets?.[0] === 'before-storage-recovery', '恢复故障前基线快照保存失败')
 
+  const archivePath = path.join(temporaryRoot, 'isolated-recovery.journal.zip')
+  await application.evaluate(({ dialog }, archive) => {
+    dialog.showSaveDialog = async () => ({ canceled: false, filePath: archive })
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [archive] })
+  }, archivePath)
+  const previewToken = await page.evaluate(async () => {
+    const bridge = window.journalBridge
+    const exported = await bridge.exportJournalZip()
+    if (!exported.ok) throw new Error('隔离库导出失败')
+    const prepared = await bridge.prepareJournalImport('before-recovery')
+    if (!prepared.ok) throw new Error('隔离归档必须通过真实预检')
+    return prepared.preview.token
+  })
+
   const mainProcessId = await application.evaluate(() => process.pid)
   const before = await readQaState(application)
   assert(typeof before.lifecycleId === 'string', '故障前必须存在活动 LibraryStorage lifecycle')
@@ -289,6 +303,29 @@ try {
     staleRendererWrite.message.includes('交易库正在切换、导入或恢复'),
     '旧 renderer 尾部写必须由 exclusive gate 返回明确 busy 错误',
   )
+  // 这些入口也会打开数据库。持锁期间只允许恢复请求自己消费磁盘上的事务标记。
+  const competing = await page.evaluate(async token => {
+    const bridge = window.journalBridge
+    const message = async work => {
+      try { await work(); return '' }
+      catch (error) { return error instanceof Error ? error.message : String(error) }
+    }
+    const [status, stage, prepare, commit] = await Promise.all([
+      message(() => bridge.getLibraryStatus()),
+      message(() => bridge.commitStageRollover({
+        expectedCurrentStageId: 'previous',
+        expectedRollover: { id: 'previous-schedule', requestedAt: '2026-08-30', effectiveWeekStart: '2026-08-31', postponedCount: 0 },
+      })),
+      bridge.prepareJournalImport('during-recovery'),
+      bridge.commitPreparedJournalImport(token),
+    ])
+    return { status, stage, prepare, commit }
+  }, previewToken)
+  assert(competing.status.includes('交易库正在切换'), '状态查询也必须由独占门拒绝')
+  assert(competing.stage.includes('stage:commitRollover') && competing.stage.includes('交易库正在切换'), '阶段重置必须在验证写入会话之前取得独占权')
+  assert(!competing.prepare.ok && competing.prepare.error?.includes('交易库正在切换'), '预检不得在恢复期间捕获活动库')
+  assert(!competing.commit.ok && competing.commit.code === 'LIBRARY_BUSY' && competing.commit.committed === false,
+    '已准备的归档必须返回可辨别的忙状态，不能抢先打开活动库')
   await application.evaluate(() => {
     const controller = globalThis.__TRADER_ATLAS_STORAGE_RECOVERY_QA__
     if (!controller) throw new Error('主进程 QA controller 不可用')
@@ -352,6 +389,7 @@ try {
     exclusiveHeldBeforeMainFrameCommit: held.rendererReloadHeld,
     staleRendererWriteRejected: staleRendererWrite.rejected,
     staleRendererWriteMessage: staleRendererWrite.message,
+    competingRequests: competing,
     mainFrameNavigationStarted: after.mainFrameNavigationStarted,
     mainFrameNavigationCommitted: after.mainFrameNavigationCommitted,
     exclusiveAtNavigationStart: after.exclusiveAtNavigationStart,

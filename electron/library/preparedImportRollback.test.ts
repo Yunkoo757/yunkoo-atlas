@@ -52,7 +52,7 @@ async function fixture() {
 
 async function prepare(previews: JournalImportPreviews, archive: string, storage: LibraryStorage) {
   const owner = Object.assign(new EventEmitter(), { id: 1 })
-  const result = await previews.prepare(owner, 'select', async () => archive, async () => storage)
+  const result = await previews.prepare(owner, 'select', async () => archive, async read => read(storage))
   assert(result.ok, '完整测试归档应通过生产预览')
   const entry = previews.resolve(result.preview.token, owner.id)
   assert(entry, '有效预览必须能取回已检查的候选库')
@@ -73,7 +73,7 @@ export async function testPreparedNativeArchivePreflightFailurePreservesSourceAn
     fs.writeFileSync(damaged, await zip.generateAsync({ type: 'nodebuffer' }))
     const damagedBefore = fs.readFileSync(damaged)
     const owner = Object.assign(new EventEmitter(), { id: 1 })
-    const result = await previews.prepare(owner, 'damaged', async () => damaged, async () => target)
+    const result = await previews.prepare(owner, 'damaged', async () => damaged, async read => read(target))
     assert(!result.ok && result.error, '缺少原图的原生归档必须在私有预检拒绝')
     assert(libraryBytes(target.getLibraryPath()) === targetBefore && target.getSnapshotRevision() === revisionBefore, '预检失败不得改活动库DB、清单、原图或revision')
     assert(libraryBytes(source.getLibraryPath()) === sourceBefore && fs.readFileSync(archive).equals(archiveBefore), '预检失败不得改来源库及原归档')

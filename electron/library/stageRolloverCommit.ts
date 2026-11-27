@@ -20,12 +20,11 @@ export interface StageRolloverCommitStorage {
   }
 }
 
-export interface StageRolloverCommitDependencies {
-  runExclusive<T>(operation: () => Promise<T> | T): Promise<T>
-  loadStorage(): Promise<StageRolloverCommitStorage>
-  createBackup(storage: StageRolloverCommitStorage): string | null
+export interface StageRolloverCommitDependencies<TStorage extends StageRolloverCommitStorage = StageRolloverCommitStorage> {
+  storage: TStorage
+  createBackup(storage: TStorage): string | null
   verifyBackup(
-    storage: StageRolloverCommitStorage,
+    storage: TStorage,
     backupReference: string,
   ): Promise<BackupVerificationResult>
   validateSnapshot(snapshot: PersistedSnapshot): void
@@ -113,123 +112,115 @@ function publishState(snapshot: PersistedSnapshot): StageRolloverPublishState {
  * 在现有资料库独占门内重新加载并重新判定；renderer 只提供 stale 预期，
  * 候选、时钟、阶段 ID、备份和保存全部由主进程掌握。
  */
-export async function commitDueStageRollover(
+export async function commitDueStageRollover<TStorage extends StageRolloverCommitStorage>(
   input: StageRolloverCommitInput,
-  dependencies: StageRolloverCommitDependencies,
+  dependencies: StageRolloverCommitDependencies<TStorage>,
 ): Promise<StageRolloverCommitResult> {
   if (!isCommitInput(input)) return failure('stale', '阶段切换请求无效')
 
+  const { storage } = dependencies
+  let current: PersistedSnapshot | null
   try {
-    return await dependencies.runExclusive(async () => {
-      let storage: StageRolloverCommitStorage
-      let current: PersistedSnapshot | null
-      try {
-        storage = await dependencies.loadStorage()
-        current = storage.loadSnapshot()
-      } catch (error) {
-        dependencies.reportError('stage-rollover-reload-failed', error)
-        return failure('write-failed', '无法读取当前阶段状态')
-      }
-
-      if (
-        !current ||
-        current.currentLiveStageId !== input.expectedCurrentStageId ||
-        !sameSchedule(current.scheduledStageRollover, input.expectedRollover)
-      ) {
-        return failure('stale', '资料库中的阶段状态已经变化')
-      }
-
-      const committedAt = dependencies.now()
-      let inspection
-      try {
-        const currentTradingDayKey = getTradingDayKey(
-          committedAt,
-          current.display.tradingDayStartHour,
-        )
-        inspection = inspectDueStageRollover(stageState(current), currentTradingDayKey)
-      } catch (error) {
-        dependencies.reportError('stage-rollover-inspection-failed', error)
-        return failure('validation-failed', '当前阶段状态无法通过切换检查')
-      }
-      if (inspection.kind === 'not-due') {
-        return failure('stale', '阶段切换尚未到期')
-      }
-      if (inspection.kind === 'blocked') {
-        return failure('stale', '阶段切换条件已经变化')
-      }
-
-      let backupReference: string | null
-      try {
-        backupReference = dependencies.createBackup(storage)
-      } catch (error) {
-        dependencies.reportError('stage-rollover-backup-create-failed', error)
-        return failure('backup-failed', '无法创建重置前备份')
-      }
-      if (!backupReference) return failure('backup-failed', '无法创建重置前备份')
-
-      try {
-        const verification = await dependencies.verifyBackup(storage, backupReference)
-        if (verification.status !== 'verified') {
-          return failure('backup-failed', '重置前备份验证失败')
-        }
-      } catch (error) {
-        dependencies.reportError('stage-rollover-backup-verification-failed', error)
-        return failure('backup-failed', '重置前备份验证失败')
-      }
-
-      let candidate: PersistedSnapshot
-      try {
-        const rollover = buildStageRolloverCandidate(stageState(current), {
-          effectiveWeekStart: inspection.scheduled.effectiveWeekStart,
-          now: committedAt.toISOString(),
-          nextStageId: dependencies.createStageId(),
-        })
-        candidate = {
-          ...current,
-          liveStages: rollover.liveStages,
-          currentLiveStageId: rollover.currentLiveStageId,
-          scheduledStageRollover: null,
-        }
-        dependencies.validateSnapshot(candidate)
-      } catch (error) {
-        dependencies.reportError('stage-rollover-candidate-validation-failed', error)
-        return failure('validation-failed', '阶段切换候选验证失败')
-      }
-
-      try {
-        const receipt = storage.saveSnapshot(candidate)
-        if (receipt?.kind === 'committed-after-write-error') {
-          let authoritative: PersistedSnapshot | null
-          try {
-            authoritative = storage.loadSnapshot()
-            if (!authoritative) throw new Error('committed snapshot missing after atomic recovery')
-            dependencies.validateSnapshot(authoritative)
-            if (!sameSnapshot(authoritative, candidate)) {
-              throw new Error('committed snapshot differs from rollover candidate')
-            }
-          } catch (error) {
-            dependencies.reportError('stage-rollover-committed-reload-failed', error)
-            return failure(
-              'recovery-required',
-              '阶段已写入但权威状态无法确认，请重新打开应用检查资料库',
-            )
-          }
-          candidate = authoritative
-        }
-      } catch (error) {
-        dependencies.reportError('stage-rollover-write-failed', error)
-        if (snapshotSaveErrorOutcome(error) === 'indeterminate') {
-          return failure(
-            'recovery-required',
-            '阶段写入结果无法确认，已停止继续保存，请重新打开应用检查资料库',
-          )
-        }
-        return failure('write-failed', '阶段切换写入失败')
-      }
-      return { ok: true, publish: publishState(candidate) }
-    })
+    current = storage.loadSnapshot()
   } catch (error) {
-    dependencies.reportError('stage-rollover-exclusive-commit-failed', error)
-    return failure('write-failed', '阶段切换提交失败')
+    dependencies.reportError('stage-rollover-reload-failed', error)
+    return failure('write-failed', '无法读取当前阶段状态')
   }
+
+  if (
+    !current ||
+    current.currentLiveStageId !== input.expectedCurrentStageId ||
+    !sameSchedule(current.scheduledStageRollover, input.expectedRollover)
+  ) {
+    return failure('stale', '资料库中的阶段状态已经变化')
+  }
+
+  const committedAt = dependencies.now()
+  let inspection
+  try {
+    const currentTradingDayKey = getTradingDayKey(
+      committedAt,
+      current.display.tradingDayStartHour,
+    )
+    inspection = inspectDueStageRollover(stageState(current), currentTradingDayKey)
+  } catch (error) {
+    dependencies.reportError('stage-rollover-inspection-failed', error)
+    return failure('validation-failed', '当前阶段状态无法通过切换检查')
+  }
+  if (inspection.kind === 'not-due') {
+    return failure('stale', '阶段切换尚未到期')
+  }
+  if (inspection.kind === 'blocked') {
+    return failure('stale', '阶段切换条件已经变化')
+  }
+
+  let backupReference: string | null
+  try {
+    backupReference = dependencies.createBackup(storage)
+  } catch (error) {
+    dependencies.reportError('stage-rollover-backup-create-failed', error)
+    return failure('backup-failed', '无法创建重置前备份')
+  }
+  if (!backupReference) return failure('backup-failed', '无法创建重置前备份')
+
+  try {
+    const verification = await dependencies.verifyBackup(storage, backupReference)
+    if (verification.status !== 'verified') {
+      return failure('backup-failed', '重置前备份验证失败')
+    }
+  } catch (error) {
+    dependencies.reportError('stage-rollover-backup-verification-failed', error)
+    return failure('backup-failed', '重置前备份验证失败')
+  }
+
+  let candidate: PersistedSnapshot
+  try {
+    const rollover = buildStageRolloverCandidate(stageState(current), {
+      effectiveWeekStart: inspection.scheduled.effectiveWeekStart,
+      now: committedAt.toISOString(),
+      nextStageId: dependencies.createStageId(),
+    })
+    candidate = {
+      ...current,
+      liveStages: rollover.liveStages,
+      currentLiveStageId: rollover.currentLiveStageId,
+      scheduledStageRollover: null,
+    }
+    dependencies.validateSnapshot(candidate)
+  } catch (error) {
+    dependencies.reportError('stage-rollover-candidate-validation-failed', error)
+    return failure('validation-failed', '阶段切换候选验证失败')
+  }
+
+  try {
+    const receipt = storage.saveSnapshot(candidate)
+    if (receipt?.kind === 'committed-after-write-error') {
+      let authoritative: PersistedSnapshot | null
+      try {
+        authoritative = storage.loadSnapshot()
+        if (!authoritative) throw new Error('committed snapshot missing after atomic recovery')
+        dependencies.validateSnapshot(authoritative)
+        if (!sameSnapshot(authoritative, candidate)) {
+          throw new Error('committed snapshot differs from rollover candidate')
+        }
+      } catch (error) {
+        dependencies.reportError('stage-rollover-committed-reload-failed', error)
+        return failure(
+          'recovery-required',
+          '阶段已写入但权威状态无法确认，请重新打开应用检查资料库',
+        )
+      }
+      candidate = authoritative
+    }
+  } catch (error) {
+    dependencies.reportError('stage-rollover-write-failed', error)
+    if (snapshotSaveErrorOutcome(error) === 'indeterminate') {
+      return failure(
+        'recovery-required',
+        '阶段写入结果无法确认，已停止继续保存，请重新打开应用检查资料库',
+      )
+    }
+    return failure('write-failed', '阶段切换写入失败')
+  }
+  return { ok: true, publish: publishState(candidate) }
 }

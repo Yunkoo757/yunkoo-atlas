@@ -41,7 +41,7 @@ export async function testArchivePreviewsReleaseStagingAndWindowListenersAfterUs
     const archive = path.join(root, 'sample.journal.zip')
     fs.writeFileSync(archive, await zip.generateAsync({ type: 'nodebuffer' }))
     for (const action of ['cancel', 'did-navigate', 'finish-commit', 'retry-after-owner-close']) {
-      const result = await previews.prepare(owner, 'request', async () => archive, async () => storage)
+      const result = await previews.prepare(owner, 'request', async () => archive, async read => read(storage))
       assert.ok(result.ok)
       const entry = previews.resolve(result.preview.token, owner.id)
       assert.ok(entry)
@@ -68,9 +68,9 @@ export async function testArchivePreviewsReleaseStagingAndWindowListenersAfterUs
     const opened = new Promise<void>(resolve => { signalOpened = resolve })
     let releaseStorage!: (store: LibraryStorage) => void
     const pausedStorage = new Promise<LibraryStorage>(resolve => { releaseStorage = resolve })
-    const preparing = previews.prepare(owner, 'awaiting-storage', async () => archive, () => {
+    const preparing = previews.prepare(owner, 'awaiting-storage', async () => archive, async read => {
       signalOpened()
-      return pausedStorage
+      return read(await pausedStorage)
     })
     await opened
     owner.emit('render-process-gone')
@@ -79,7 +79,7 @@ export async function testArchivePreviewsReleaseStagingAndWindowListenersAfterUs
     assert.equal(owner.listenerCount('destroyed'), 0)
 
     const shortLived = new JournalImportPreviews(1)
-    const expiring = await shortLived.prepare(owner, 'ttl', async () => archive, async () => storage)
+    const expiring = await shortLived.prepare(owner, 'ttl', async () => archive, async read => read(storage))
     assert.ok(expiring.ok)
     await new Promise(resolve => setTimeout(resolve, 25))
     assert.equal(owner.listenerCount('destroyed'), 0, '未经再次访问的过期预览也必须释放')
