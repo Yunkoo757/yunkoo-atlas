@@ -9,6 +9,7 @@ import {
 } from '@/config/defaultProfile'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
+import { snapshotToRuntimeState } from '@/storage/snapshotToRuntimeState'
 import type { StorageAdapter } from '@/storage/adapter'
 import {
   migrateElectronLibraryIfNeeded,
@@ -124,10 +125,42 @@ export function testProfileFallbacksUseTheNeutralDisplayNameConstant(): void {
   try {
     useStore.getState().setDisplayName('   ')
     assert(useStore.getState().profile.displayName === DEFAULT_USER_DISPLAY_NAME, '空名称保存必须回退中性名称')
-    useStore.getState().hydrateProfile({ avatarId: null, displayName: '', legacyCashCurrencyAssumption: null })
-    assert(useStore.getState().profile.displayName === DEFAULT_USER_DISPLAY_NAME, '空快照名称必须回退中性名称')
+    const snapshot = snapshotWithEmptyTrades([], '')
+    assert(snapshotToRuntimeState(snapshot).profile.displayName === DEFAULT_USER_DISPLAY_NAME, '空快照名称必须回退中性名称')
+    delete snapshot.profile
+    assert(snapshotToRuntimeState(snapshot, previous).profile === previous, '启动加载缺少资料的旧快照时保留当前资料')
   } finally {
     useStore.setState({ profile: previous })
+  }
+}
+
+export function testRefreshAndReplacementPublishProfileWithItsLibrary(): void {
+  const previousStore = useStore.getState()
+  const previousShortcuts = useShortcutStore.getState()
+  const source = snapshotWithEmptyTrades([], '当前资料')
+  source.profile!.legacyCashCurrencyAssumption = { currency: 'USD', confirmedAt: '2026-11-27' }
+  const restored = snapshotWithEmptyTrades([], '恢复资料')
+  restored.tagPresets = ['恢复标签']
+  const samples: string[] = []
+  try {
+    for (const publish of [applySnapshotToStore, replaceLibraryInStore]) {
+      applySnapshotToStore(source)
+      samples.length = 0
+      const unsubscribe = useStore.subscribe(({ profile, tagPresets }) => {
+        if (tagPresets.includes('恢复标签')) {
+          samples.push(profile.displayName + '/' + (profile.legacyCashCurrencyAssumption?.currency ?? '无'))
+        }
+      })
+      try {
+        publish(restored)
+      } finally {
+        unsubscribe()
+      }
+      assert(samples.join(',') === '恢复资料/无', `恢复标签与用户资料必须一次发布，实际读取 ${samples.join(',')}`)
+    }
+  } finally {
+    useStore.setState(previousStore)
+    useShortcutStore.setState(previousShortcuts)
   }
 }
 

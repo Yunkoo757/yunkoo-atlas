@@ -72,8 +72,7 @@ async function runBootstrapStorage(): Promise<void> {
   let reconciledWindowHotkeyConflict = false
   if (snapshot) {
     // 阶段图是全部运行时写入的归属根；无效快照必须在开启持久化前终止启动。
-    useStore.setState(snapshotToRuntimeState(snapshot))
-    useStore.getState().hydrateProfile(snapshot.profile)
+    useStore.setState(snapshotToRuntimeState(snapshot, useStore.getState().profile))
     reconciledWindowHotkeyConflict =
       useShortcutStore.getState().hydrateBindings(snapshot.shortcuts).length > 0
   }

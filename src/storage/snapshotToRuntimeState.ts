@@ -10,14 +10,25 @@ import { assertValidLiveStageState } from '@/lib/liveStages'
 import { normalizeTrades } from '@/lib/tradeKind'
 import { syncReviewCaseSourceNotes } from '@/lib/reviewCaseSources'
 import { normalizeReviewPoolLayout } from '@/lib/reviewPools'
-import type { PersistedSnapshot } from '@/storage/types'
+import { createDefaultUserProfile, DEFAULT_USER_DISPLAY_NAME } from '@/config/defaultProfile'
+import type { CanonicalSnapshot } from '@/storage/snapshotCodec'
+import type { PersistedSnapshot, UserProfile } from '@/storage/types'
 
 /** Pure runtime projection; archive decoding and persistence ownership remain at their boundaries. */
-export function snapshotToRuntimeState(snapshot: PersistedSnapshot) {
+export function snapshotToRuntimeState(snapshot: PersistedSnapshot, missingProfile?: UserProfile) {
   assertValidLiveStageState(snapshot)
   const normalized = normalizeTradeStrategyReferences(snapshot.trades, snapshot.strategies)
   const trades = syncReviewCaseSourceNotes(normalizeTrades(normalized.trades))
+  const profile = snapshot.profile
   return {
+    profile: profile ? {
+      avatarId: profile.avatarId ?? null,
+      displayName: profile.displayName || DEFAULT_USER_DISPLAY_NAME,
+      customAvatarDataUrl: profile.customAvatarDataUrl ?? null,
+      legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption
+        ? { ...profile.legacyCashCurrencyAssumption }
+        : null,
+    } : missingProfile ?? createDefaultUserProfile(),
     trades,
     backtestProjects: snapshot.backtestProjects ?? [],
     liveStages: snapshot.liveStages.map((stage) => ({ ...stage })),
@@ -52,5 +63,5 @@ export function snapshotToRuntimeState(snapshot: PersistedSnapshot) {
       snapshot.reviewPoolLayout,
       (snapshot.reviewPoolPresets ?? []).map((preset) => preset.id),
     ),
-  }
+  } satisfies Omit<CanonicalSnapshot, 'shortcuts'>
 }

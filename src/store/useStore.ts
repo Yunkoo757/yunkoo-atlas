@@ -283,7 +283,6 @@ interface State {
   setAvatar: (avatarId: string | null) => void
   setCustomAvatar: (dataUrl: string | null) => void
   setDisplayName: (name: string) => void
-  hydrateProfile: (profile?: UserProfile) => void
   saveWeeklyRiskDraft: (weekStart: string, draft: RiskPolicyDraft, updatedAt: string) => void
   confirmWeeklyRiskPreparation: (
     input: Omit<ConfirmWeeklyRiskPreparationInput, 'hasClosedLiveTradeOnDay'>,
@@ -1028,19 +1027,6 @@ export const useStore = create<State>()((set, get) => ({
             ...s.profile,
             displayName: displayName.trim() || DEFAULT_USER_DISPLAY_NAME,
           },
-        })),
-      hydrateProfile: (profile) =>
-        set((s) => ({
-          profile: profile
-            ? {
-                avatarId: profile.avatarId ?? null,
-                displayName: profile.displayName || DEFAULT_USER_DISPLAY_NAME,
-                customAvatarDataUrl: profile.customAvatarDataUrl ?? null,
-                legacyCashCurrencyAssumption: profile.legacyCashCurrencyAssumption
-                  ? { ...profile.legacyCashCurrencyAssumption }
-                  : null,
-              }
-            : s.profile,
         })),
       saveWeeklyRiskDraft: (weekStart, draft, updatedAt) =>
         set((s) => {

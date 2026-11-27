@@ -217,8 +217,8 @@ async function run(): Promise<void> {
   useStore.setState({
     trades: [trade('old', useStore.getState().currentLiveStageId, `<img src="journal-asset://${oldAssetId}">`)],
     strategies: [{ id: 'strategy-1', name: '旧策略', icon: 'target', color: '#5e6ad2' }],
+    profile: { avatarId: null, displayName: '旧资料', legacyCashCurrencyAssumption: null },
   })
-  useStore.getState().hydrateProfile({ avatarId: null, displayName: '旧资料', legacyCashCurrencyAssumption: null })
   await flushPersistNow()
   await verifyExportOperationLogging(adapter)
 

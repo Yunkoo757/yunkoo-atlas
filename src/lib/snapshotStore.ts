@@ -1,6 +1,5 @@
 import { discardAllNoteDrafts } from '@/storage/noteDrafts'
 import { snapshotToRuntimeState } from '@/storage/snapshotToRuntimeState'
-import { createDefaultUserProfile } from '@/config/defaultProfile'
 import { toastStore } from '@/lib/toast'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useShortcutStore } from '@/store/shortcutStore'
@@ -14,7 +13,6 @@ function publishSnapshot(snapshot: PersistedSnapshot, fields: Partial<ReturnType
     undoStack: [],
     redoStack: [],
   })
-  useStore.getState().hydrateProfile(snapshot.profile ?? createDefaultUserProfile())
   useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
 }
 
