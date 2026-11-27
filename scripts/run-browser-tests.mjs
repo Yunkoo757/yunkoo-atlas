@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { chromium } from 'playwright'
-import { createServer } from 'vite'
+import { startQaServer } from './qa-vite-server.mjs'
 import {
   discoverBrowserTests,
   settleBrowserDiagnostics,
@@ -69,22 +69,11 @@ export async function runBrowserRegressionTests(root, options = {}) {
   const browserTests = requestedTestIds === null
     ? discoveredTests
     : requestedTestIds.map((testId) => testById.get(testId))
-  const server = await createServer({
-    root,
-    configFile: options.configFile ?? false,
-    logLevel: 'error',
-    server: {
-      host: '127.0.0.1',
-      port: 0,
-      open: false,
-      fs: { allow: [root] },
-    },
-  })
+  let server
   let browser
   try {
-    await server.listen()
-    const baseUrl = server.resolvedUrls?.local[0]
-    if (!baseUrl) throw new Error('Vite test server did not expose a local URL')
+    server = await startQaServer({ root, configFile: options.configFile ?? false, restrictToRoot: true })
+    const baseUrl = server.baseUrl
     browser = await chromium.launch({ headless: true })
 
     for (const browserTest of browserTests) {
@@ -168,7 +157,7 @@ export async function runBrowserRegressionTests(root, options = {}) {
     onEvent({ type: 'harness-fail', reason: error instanceof Error ? error.message : String(error) })
   } finally {
     await browser?.close()
-    await server.close()
+    await server?.close()
   }
   return {
     failed,

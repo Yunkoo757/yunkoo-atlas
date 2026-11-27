@@ -1,10 +1,7 @@
-import { spawn } from 'node:child_process'
+import { startQaServer } from './qa-vite-server.mjs'
 import { chromium } from 'playwright'
 import { receivesKeyboardFocus } from './qa-keyboard-focus.mjs'
 
-const PORT = 41713
-const BASE = `http://127.0.0.1:${PORT}`
-const stripAnsi = (value) => value.replace(/\x1b\[[0-9;]*m/g, '')
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const qaProfileName = 'QA 父级重渲染'
 const qaStrategies = [
@@ -15,88 +12,6 @@ const qaStrategies = [
 const [primaryStrategy, secondaryStrategy, overflowStrategy] = qaStrategies.map(
   (strategy) => strategy.name,
 )
-
-function startVite() {
-  const child = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(PORT), '--strictPort'], {
-    cwd: process.cwd(),
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  let output = ''
-  child.stdout.on('data', (chunk) => { output += chunk.toString() })
-  child.stderr.on('data', (chunk) => { output += chunk.toString() })
-  return {
-    child,
-    output: () => output,
-    hasReadySignal: () => /Local:\s+http:\/\/127\.0\.0\.1:\d+\//.test(stripAnsi(output)),
-  }
-}
-
-async function waitForVite(vite) {
-  let earlyExit = null
-  const handleExit = (code, signal) => { earlyExit = { code, signal } }
-  vite.child.once('exit', handleExit)
-  for (let attempt = 0; attempt < 150; attempt += 1) {
-    if (earlyExit) {
-      throw new Error(`Vite exited before ready (${earlyExit.signal ?? `code ${earlyExit.code}`}): ${vite.output().trim()}`)
-    }
-    if (!vite.hasReadySignal()) {
-      await new Promise((resolve) => setTimeout(resolve, 100))
-      continue
-    }
-    try {
-      const response = await fetch(BASE)
-      const body = response.ok ? await response.text() : ''
-      if (body.includes('/@vite/client')) {
-        vite.child.off('exit', handleExit)
-        return
-      }
-    } catch {
-      // Vite is still starting.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200))
-  }
-  throw new Error('Vite did not start in time')
-}
-
-async function stopVite(vite) {
-  if (vite.child.exitCode !== null) return
-  const stopped = new Promise((resolve) => vite.child.once('exit', resolve))
-  await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, 100))])
-  if (vite.child.exitCode === null) vite.child.kill()
-  await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, 1000))])
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    try {
-      await fetch(BASE)
-    } catch {
-      return
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error(`Vite stopped but port ${PORT} remained occupied`)
-}
-
-async function verifyExistingViteConflict() {
-  const existing = startVite()
-  let contender
-  try {
-    await waitForVite(existing)
-    contender = startVite()
-    let conflictError = null
-    try {
-      await waitForVite(contender)
-    } catch (error) {
-      conflictError = error
-    }
-    if (!conflictError) throw new Error('QA incorrectly treated the existing Vite as the contender process')
-    const message = String(conflictError)
-    if (!message.includes('Vite exited before ready') || !message.includes('already in use')) {
-      throw conflictError
-    }
-  } finally {
-    if (contender) await stopVite(contender)
-    await stopVite(existing)
-  }
-}
 
 async function expectVisible(locator) {
   await locator.waitFor({ state: 'visible', timeout: 5000 })
@@ -276,12 +191,11 @@ async function expectTradeInScrollViewport(page, tradeId, scrollContract) {
   }
 }
 
-await verifyExistingViteConflict()
-const vite = startVite()
+const server = await startQaServer()
+const BASE = new URL(server.baseUrl).origin
 let browser
 
 try {
-  await waitForVite(vite)
   browser = await chromium.launch({ headless: true })
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
   // 本脚本用 page.goto 反复创建新文档来检查深链接，不是在验证多标签所有权。
@@ -990,5 +904,5 @@ try {
   console.log('PASS: desktop sidebar workflows, detail return anchors, and 1920/1440/900 layout contract')
 } finally {
   await browser?.close()
-  await stopVite(vite)
+  await server.close()
 }

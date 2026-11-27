@@ -14,7 +14,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { _electron as electron, chromium } from 'playwright'
-import { createServer } from 'vite'
+import { startQaServer } from './qa-vite-server.mjs'
 
 import {
   THEME_COLOR_MIX_ALLOWLIST,
@@ -239,40 +239,43 @@ function writeInventory(outputRoot, inventory, metadata) {
 }
 
 async function createRendererHarness(root) {
-  const server = await createServer({
-    root,
-    configFile: resolve(root, 'vite.config.ts'),
-    logLevel: 'error',
-    server: { host: '127.0.0.1', port: 0, open: false, fs: { allow: [root] } },
-  })
-  await server.listen()
-  const baseUrl = server.resolvedUrls?.local?.[0]
-  if (!baseUrl) throw new Error('Theme luminance Vite server did not expose a local URL')
-  const browser = await chromium.launch({ headless: true })
-  const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 })
-  const page = await context.newPage()
-  await page.goto(new URL('/favicon.svg', baseUrl).href, { waitUntil: 'domcontentloaded', timeout: 30_000 })
-  await seedBrowserDatabase(page, createDesktopVisualSeedEnvelope())
-  let started = false
-  return {
-    page,
-    navigate: async (path, ready) => {
-      if (!started) {
-        await page.goto(new URL(path, baseUrl).href, { waitUntil: 'domcontentloaded', timeout: 30_000 })
-        started = true
-      } else {
-        await page.evaluate((nextPath) => {
-          history.pushState({}, '', nextPath)
-          dispatchEvent(new PopStateEvent('popstate'))
-        }, path)
-      }
-      await waitForVisualSettlement(page, ready)
-    },
-    close: async () => {
-      await context.close().catch(() => {})
-      await browser.close().catch(() => {})
-      await server.close().catch(() => {})
-    },
+  const server = await startQaServer({ root, configFile: resolve(root, 'vite.config.ts'), restrictToRoot: true })
+  const baseUrl = server.baseUrl
+  let browser
+  async function close() {
+    try {
+      await browser?.close()
+    } finally {
+      await server.close()
+    }
+  }
+
+  try {
+    browser = await chromium.launch({ headless: true })
+    const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 })
+    const page = await context.newPage()
+    await page.goto(new URL('/favicon.svg', baseUrl).href, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+    await seedBrowserDatabase(page, createDesktopVisualSeedEnvelope())
+    let started = false
+    return {
+      page,
+      navigate: async (path, ready) => {
+        if (!started) {
+          await page.goto(new URL(path, baseUrl).href, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+          started = true
+        } else {
+          await page.evaluate((nextPath) => {
+            history.pushState({}, '', nextPath)
+            dispatchEvent(new PopStateEvent('popstate'))
+          }, path)
+        }
+        await waitForVisualSettlement(page, ready)
+      },
+      close,
+    }
+  } catch (error) {
+    await close()
+    throw error
   }
 }
 

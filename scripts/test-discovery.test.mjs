@@ -340,7 +340,7 @@ test('real browser runner exits nonzero when a page errors after its promise res
 
 test('browser runner explicitly allows its isolated fixture root', async () => {
   const source = await fs.readFile(path.resolve('scripts/run-browser-tests.mjs'), 'utf8')
-  assert.match(source, /fs:\s*\{\s*allow:\s*\[root\]\s*\}/)
+  assert.match(source, /startQaServer\(\{[^}]*restrictToRoot: true/)
 })
 
 test('browser runner retries only the transient Windows socket exhaustion error', async () => {

@@ -14,7 +14,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { pathToFileURL } from 'node:url'
 
 import { _electron as electron, chromium } from 'playwright'
-import { createServer } from 'vite'
+import { startQaServer } from './qa-vite-server.mjs'
 
 import {
   DESKTOP_VISUAL_SCENARIOS,
@@ -472,24 +472,12 @@ function bindDiagnostics(page) {
 }
 
 async function runRendererQa({ root, runtimeRoot, build, seed, scenarios, viewports }) {
-  const server = await createServer({
-    root,
-    configFile: resolve(root, 'vite.config.ts'),
-    logLevel: 'error',
-    server: {
-      host: '127.0.0.1',
-      port: 0,
-      open: false,
-      fs: { allow: [root] },
-    },
-  })
+  const server = await startQaServer({ root, configFile: resolve(root, 'vite.config.ts'), restrictToRoot: true })
   let browser
   const captures = []
   let typography = null
   try {
-    await server.listen()
-    const baseUrl = server.resolvedUrls?.local?.[0]
-    if (!baseUrl) throw new Error('Desktop visual Vite server did not expose a local URL')
+    const baseUrl = server.baseUrl
     browser = await chromium.launch({ headless: true })
     for (const viewport of viewports) {
       const context = await browser.newContext({ viewport, deviceScaleFactor: 1 })

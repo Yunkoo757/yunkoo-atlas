@@ -3,7 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { chromium } from 'playwright'
-import { build, createServer } from 'vite'
+import { build } from 'vite'
+import { startQaServer } from './qa-vite-server.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
 import { checkPersistenceTiming } from './persistence-gate-policy.mjs'
 
@@ -125,17 +126,10 @@ function createDataset(count) {
 }
 
 async function runWebBenchmarks(datasets) {
-  const server = await createServer({
-    root,
-    configFile: path.join(root, 'vite.config.ts'),
-    logLevel: 'error',
-    server: { host: '127.0.0.1', port: 0, open: false },
-  })
+  const server = await startQaServer({ root, configFile: path.join(root, 'vite.config.ts') })
   let browser
   try {
-    await server.listen()
-    const baseUrl = server.resolvedUrls?.local[0]
-    if (!baseUrl) throw new Error('Vite 性能服务器未返回本地地址')
+    const baseUrl = server.baseUrl
     browser = await chromium.launch({
       headless: true,
       args: ['--enable-precise-memory-info'],

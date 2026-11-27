@@ -1,7 +1,7 @@
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { chromium } from 'playwright'
-import { createServer } from 'vite'
+import { startQaServer } from './qa-vite-server.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
 
 const root = process.cwd()
@@ -11,14 +11,12 @@ const assetSizes = release
   ? [32, 32, 32, 32, 32, 32, 32, 31].map((size) => size * MiB)
   : [4, 4].map((size) => size * MiB)
 const limitBytes = 512 * MiB
-const server = await createServer({ root, configFile: path.join(root, 'vite.config.ts'), logLevel: 'error', server: { host: '127.0.0.1', port: 0 } })
+const server = await startQaServer({ root, configFile: path.join(root, 'vite.config.ts') })
 let browser
 let context
 let pageCrashed = false
 try {
-  await server.listen()
-  const baseUrl = server.resolvedUrls?.local[0]
-  if (!baseUrl) throw new Error('Web ZIP benchmark Vite URL unavailable')
+  const baseUrl = server.baseUrl
   browser = await chromium.launch({ headless: true, args: ['--enable-precise-memory-info', '--js-flags=--expose-gc'] })
   context = await browser.newContext()
   let page = await context.newPage()

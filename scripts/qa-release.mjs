@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { createServer } from 'vite'
+import { startQaServer } from './qa-vite-server.mjs'
 
 import { assertLocalSourceUnchanged, readGitProvenance } from './git-provenance.mjs'
 import { runCommand } from './release-command.mjs'
@@ -23,12 +23,9 @@ async function pnpm(script, env = environment) {
 }
 
 await pnpm('qa:ci')
-const server = await createServer({ root, logLevel: 'error', server: { host: '127.0.0.1', port: 0, open: false } })
+const server = await startQaServer({ root })
 try {
-  await server.listen()
-  const url = server.resolvedUrls?.local[0]
-  if (!url) throw new Error('发布验收服务未提供本地地址')
-  await pnpm(full ? 'qa' : 'qa:core', { ...environment, QA_BASE_URL: new URL(url).origin })
+  await pnpm(full ? 'qa' : 'qa:core', { ...environment, QA_BASE_URL: new URL(server.baseUrl).origin })
 } finally {
   await server.close()
 }

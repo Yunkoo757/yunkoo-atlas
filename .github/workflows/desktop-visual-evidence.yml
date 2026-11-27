@@ -13,6 +13,7 @@ on:
       - 'scripts/desktop-visual-scenarios.mjs'
       - 'scripts/packaged-desktop-visual-contract.mjs'
       - 'scripts/qa-desktop-visual.mjs'
+      - 'scripts/qa-vite-server.mjs'
       - 'scripts/qa-theme-luminance.mjs'
       - 'scripts/theme-luminance-contract.mjs'
       - 'scripts/qa-packaged-desktop-visual.mjs'

@@ -1,14 +1,14 @@
-import { createServer } from 'vite'
+import { startQaServer } from './qa-vite-server.mjs'
 import { chromium } from 'playwright'
 import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
-const server=await createServer({server:{host:'127.0.0.1',port:0,open:false},logLevel:'error'})
-await server.listen()
-const browser=await chromium.launch({headless:true})
-try{
+const server = await startQaServer()
+let browser
+try {
+ browser = await chromium.launch({headless: true})
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[]
  page.on('pageerror',e=>errors.push(e.message))
- await page.goto(server.resolvedUrls.local[0]+'src/views/settings/DataOrganization.browser.test.html')
+ await page.goto(new URL('/src/views/settings/DataOrganization.browser.test.html', server.baseUrl).href)
  await page.getByRole('button',{name:'整理数据',exact:true}).click()
  await page.getByRole('button',{name:'重新开始实盘记录',exact:true}).click()
  await page.getByRole('button',{name:'预览影响',exact:true}).click()
@@ -36,4 +36,4 @@ try{
  assert.equal(await page.evaluate(()=>window.__dataOrganizationTest.commits),2)
  assert.deepEqual(errors,[])
  console.log('PASS: preview, verified-backup gating, native bridge commit, completion, interaction unlock')
-}finally{await browser.close();await server.close()}
+}finally{await browser?.close();await server.close()}

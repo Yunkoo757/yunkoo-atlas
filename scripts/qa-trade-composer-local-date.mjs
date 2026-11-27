@@ -1,18 +1,12 @@
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
-import { createServer } from 'vite'
+import { startQaServer } from './qa-vite-server.mjs'
 
-const server = await createServer({
-  configFile: 'vite.config.ts',
-  logLevel: 'error',
-  server: { host: '127.0.0.1', port: 0, open: false },
-})
+const server = await startQaServer({ configFile: 'vite.config.ts' })
 
 let browser
 try {
-  await server.listen()
-  const baseUrl = server.resolvedUrls?.local[0]
-  assert.ok(baseUrl, 'Vite test server did not expose a local URL')
+  const baseUrl = server.baseUrl
 
   browser = await chromium.launch({ headless: true })
   const context = await browser.newContext({ timezoneId: 'Asia/Hong_Kong' })
