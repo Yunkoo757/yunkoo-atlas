@@ -9,6 +9,10 @@ import { getStorage } from '@/storage/provider'
 import type { PersistedSnapshot } from '@/storage/types'
 import { pickPersisted } from '@/storage/snapshotProjection'
 
+// 恢复由主进程重新建立文档。原文档的启动与写入型操作共享同一份撤销信号。
+const recovery = new AbortController()
+export const storageDocumentSignal = recovery.signal
+
 const controller = new PersistenceController({
   async saveSnapshot(snapshot) {
     try {
@@ -46,11 +50,17 @@ export function setPreFlushCallback(callback: (() => Promise<void>) | null): voi
 }
 
 export function enablePersistWrites(): void {
+  storageDocumentSignal.throwIfAborted()
   controller.enableWrites()
 }
 
 export function disablePersistWrites(): void {
   controller.disableWrites()
+}
+
+export function stopStorageForRecovery(message: string): void {
+  controller.disableWrites()
+  recovery.abort(new Error(message))
 }
 
 export function hasPendingChanges(): boolean {

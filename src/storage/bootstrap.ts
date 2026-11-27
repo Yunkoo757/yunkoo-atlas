@@ -5,7 +5,7 @@ import {
   migrateFromLocalStorageIfNeeded,
 } from '@/storage/migrate'
 import { pickPersisted } from '@/storage/snapshotProjection'
-import { disablePersistWrites, enablePersistWrites, schedulePersist } from '@/storage/persist'
+import { enablePersistWrites, schedulePersist, storageDocumentSignal } from '@/storage/persist'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { getJournalBridge } from '@/storage/runtime'
 import { useStore } from '@/store/useStore'
@@ -22,19 +22,12 @@ import {
   initializeWebWriterOwnership,
 } from '@/storage/webWriteGuard'
 
-// 发生存储恢复后只能从新文档启动；原文档的在途初始化不得再次开启写入。
-const startup = new AbortController()
 let hydrated = false
 let bootstrapPromise: Promise<void> | null = null
 let persistedSnapshotCoordinator: PersistedSnapshotCoordinator | null = null
 
 export function isStorageHydrated(): boolean {
-  return hydrated && !startup.signal.aborted
-}
-
-export function stopStorageForRecovery(message: string): void {
-  startup.abort(new Error(message))
-  disablePersistWrites()
+  return hydrated && !storageDocumentSignal.aborted
 }
 
 /** 在完整权威快照刷新期间抑制订阅回写，并把刷新后的 Store 设为新耐久基线。 */
@@ -63,7 +56,7 @@ export async function loadBootstrapSnapshot(
 async function runBootstrapStorage(): Promise<void> {
   const adapter = getStorage()
   await adapter.open()
-  const { signal } = startup
+  const signal = storageDocumentSignal
   signal.throwIfAborted()
 
   const bridge = getJournalBridge()
@@ -113,7 +106,7 @@ async function runBootstrapStorage(): Promise<void> {
 }
 
 export function bootstrapStorage(): Promise<void> {
-  if (startup.signal.aborted) return Promise.reject(startup.signal.reason)
+  if (storageDocumentSignal.aborted) return Promise.reject(storageDocumentSignal.reason)
   if (hydrated) return Promise.resolve()
   if (!bootstrapPromise) {
     bootstrapPromise = runBootstrapStorage().catch((error) => {

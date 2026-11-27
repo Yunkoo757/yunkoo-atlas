@@ -129,12 +129,11 @@ export function DataIOContent({
     setLibraryBusy(true)
     try {
       const result = await switchActiveLibrary(request.mode, request.picked)
-      if (result.canceled) return
       if (!result.ok) {
         toast(userFacingErrorMessage(result.error, '切换资料库失败，请重试'), { tone: 'error' })
         return
       }
-      setLibraryPath(result.path ?? null)
+      setLibraryPath(result.path)
       setDupGroups(null)
       toast(request.mode === 'create' ? '已切换到新资料库' : '已切换资料库', { tone: 'success' })
       onLibraryChanged?.()

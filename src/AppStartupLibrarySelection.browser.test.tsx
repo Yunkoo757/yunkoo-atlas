@@ -1,9 +1,11 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { switchActiveLibrary } from './lib/librarySwitch'
+import { notifyStorageRecoveryRequired } from './lib/storageRecovery'
 import { isStorageHydrated } from './storage/bootstrap'
 import { createNewLibrarySnapshot } from './storage/emptySnapshot'
-import { flushPersistNow } from './storage/persist'
+import { flushPersistNow, getPersistSuspendDepth } from './storage/persist'
 import type { PersistedSnapshot } from './storage/types'
 import { useStore } from './store/useStore'
 import type { JournalBridge, LibrarySwitchMode } from './types/journalBridge'
@@ -33,6 +35,8 @@ async function run() {
   let active = '/source'
   let writer: string | null = null
   let target: LibrarySwitchMode = 'open'
+  let holdSave: (() => Promise<void>) | undefined
+  let canceled = 0
   const direct = async (path: string) => {
     active = path
     return { ok: true as const, snapshot: libraries.get(path) ?? null }
@@ -46,6 +50,7 @@ async function run() {
     saveSnapshot: async (snapshot: PersistedSnapshot) => {
       if (writer !== active) throw new Error('writer belongs to previous library')
       libraries.set(active, structuredClone(snapshot))
+      await holdSave?.()
       return true
     },
     pickLibraryFolder: async () => '/' + target,
@@ -58,7 +63,7 @@ async function run() {
       writer = path
       return direct(path)
     },
-    cancelPreparedLibrary: async () => true,
+    cancelPreparedLibrary: async () => { canceled++; return true },
   } satisfies Partial<JournalBridge>
   try {
     Object.defineProperty(window, 'journalBridge', { configurable: true, value: bridge })
@@ -93,6 +98,31 @@ async function run() {
           JSON.stringify(libraries.get(source)?.tagPresets) !== JSON.stringify(oldTags)) throw new Error('修改仅能写入所选库')
       } finally { root.unmount() }
     }
+
+    const root = createRoot(document.getElementById('root')!)
+    target = 'open'
+    let release!: () => void
+    const waiting = new Promise<void>(resolve => { release = resolve })
+    let saving!: () => void
+    const started = new Promise<void>(resolve => { saving = resolve })
+    try {
+      root.render(<App />)
+      await until(() => Boolean(document.querySelector('.sb-primary')), '中断用例必须先进入已载入的工作区')
+      holdSave = () => { saving(); return waiting }
+      const switching = switchActiveLibrary(target, '/' + target)
+      await started
+      notifyStorageRecoveryRequired('隔离切库写回期间进入恢复')
+      await until(() => Boolean(button('重新打开资料库')), '恢复应接管在途切换')
+      const usableDuringSave = !button('重新打开资料库')?.closest('[inert]')
+      const canceledDuringSave = canceled
+      release()
+      const result = await switching
+      if (result.ok || active !== '/create' || !usableDuringSave || canceledDuringSave !== 1 || canceled !== 1 ||
+          getPersistSuspendDepth() !== 0 || !document.body.textContent?.includes('隔离切库写回期间进入恢复')) {
+        throw new Error('恢复须释放候选与交互锁，过期保存不能激活目标库。位置=' + active +
+          ' 已取消=' + canceledDuringSave + '/' + canceled + ' 恢复可用=' + usableDuringSave)
+      }
+    } finally { release(); root.unmount() }
   } finally {
     if (fontOverride) Object.defineProperty(document.fonts, 'ready', fontOverride)
     else Reflect.deleteProperty(document.fonts, 'ready')

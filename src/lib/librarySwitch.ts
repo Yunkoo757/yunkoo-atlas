@@ -3,7 +3,7 @@ import { replaceLibraryInStore } from '@/lib/snapshotStore'
 import { haltPersistAfterCutover, lockStorageCutoverInteraction } from '@/storage/cutover'
 import { getElectronAdapter } from '@/storage/electronAdapter'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
-import { flushPersistNow, suspendPersist } from '@/storage/persist'
+import { flushPersistNow, storageDocumentSignal, suspendPersist } from '@/storage/persist'
 import { getJournalBridge } from '@/storage/runtime'
 import {
   capturePersistedStateRevision,
@@ -14,6 +14,7 @@ import {
 async function flushCurrentLibraryAtStableRevision(): Promise<PersistedStateRevision> {
   for (let attempt = 0; attempt < 8; attempt += 1) {
     await waitForPendingStorageOperations()
+    storageDocumentSignal.throwIfAborted()
     const before = capturePersistedStateRevision()
     await flushPersistNow()
     const after = capturePersistedStateRevision()
@@ -22,25 +23,18 @@ async function flushCurrentLibraryAtStableRevision(): Promise<PersistedStateRevi
   throw new Error('切换期间内容持续变化，请停止编辑后重试')
 }
 
-/**
- * 设置内切换活跃库：先保存当前库，再打开/新建目录，最后重载快照到 store。
- * 挂起 persist，避免切换瞬间把旧内存写入新路径。
- * @param libPath 已选目录；省略则弹出系统文件夹选择器。
- */
-export async function switchActiveLibrary(
-  mode: LibrarySwitchMode,
-  libPath?: string,
-): Promise<{ ok: boolean; canceled?: boolean; path?: string; error?: string }> {
+type SwitchResult = { ok: true; path: string } | { ok: false; error: string }
+
+/** 只切换已选好的目录。旧库先保存，原子激活回执携带目标快照和写入资格。 */
+export async function switchActiveLibrary(mode: LibrarySwitchMode, path: string): Promise<SwitchResult> {
   const bridge = getJournalBridge()
   if (!bridge) return { ok: false, error: '仅桌面端支持切换库目录' }
-
-  const picked = libPath ?? (await bridge.pickLibraryFolder())
-  if (!picked) return { ok: false, canceled: true }
 
   const previousPath = await bridge.getLibraryPath()
   let prepared: Awaited<ReturnType<typeof bridge.prepareLibrarySwitch>>
   try {
-    prepared = await bridge.prepareLibrarySwitch(picked, mode)
+    storageDocumentSignal.throwIfAborted()
+    prepared = await bridge.prepareLibrarySwitch(path, mode)
   } catch (error) {
     return {
       ok: false,
@@ -51,22 +45,36 @@ export async function switchActiveLibrary(
     return { ok: false, error: prepared.error ?? '候选交易库准备失败' }
   }
 
+  let cancellation: Promise<boolean> | undefined
+  const token = prepared.token
+  const cancel = () => cancellation ??= bridge.cancelPreparedLibrary(token).catch(() => false)
+  const interrupted: SwitchResult = { ok: false, error: '资料库需要重新打开，切换已中断' }
+  if (storageDocumentSignal.aborted) {
+    await cancel()
+    return interrupted
+  }
+
   const unlockInteraction = lockStorageCutoverInteraction()
   const pause = suspendPersist()
+  const interrupt = () => {
+    void cancel()
+    pause.resume({ flushNow: false })
+    unlockInteraction()
+  }
+  storageDocumentSignal.addEventListener('abort', interrupt, { once: true })
+
+  const sourceIsCurrent = () => bridge.getLibraryPath().then(activePath => activePath === previousPath, () => false)
   let safeToFlush = false
   let candidateActivated = false
   try {
     const stableRevision = await flushCurrentLibraryAtStableRevision()
-    const result = await bridge.activatePreparedLibrary(prepared.token)
+    storageDocumentSignal.throwIfAborted()
+    const result = await bridge.activatePreparedLibrary(token)
+    candidateActivated = result.ok
+    if (storageDocumentSignal.aborted) return interrupted
     if (!result.ok) {
-      safeToFlush = !result.requiresReload && await bridge.getLibraryPath().then(
-        (activePath) => activePath === previousPath,
-        () => false,
-      )
-      const message =
-        mode === 'open' && 'error' in result && typeof result.error === 'string' && result.error
-          ? result.error
-          : '切换库失败'
+      safeToFlush = !result.requiresReload && await sourceIsCurrent()
+      const message = result.error || '切换库失败'
       return {
         ok: false,
         error: safeToFlush
@@ -75,7 +83,6 @@ export async function switchActiveLibrary(
       }
     }
 
-    candidateActivated = true
     if (!hasSamePersistedStateRevision(stableRevision, capturePersistedStateRevision())) {
       throw new Error('切库激活期间内容发生变化')
     }
@@ -86,12 +93,8 @@ export async function switchActiveLibrary(
     safeToFlush = true
     return { ok: true, path: await bridge.getLibraryPath() }
   } catch (err) {
-    safeToFlush = candidateActivated
-      ? false
-      : await bridge.getLibraryPath().then(
-          (activePath) => activePath === previousPath,
-          () => false,
-        )
+    if (storageDocumentSignal.aborted) return interrupted
+    safeToFlush = !candidateActivated && await sourceIsCurrent()
     return {
       ok: false,
       error: safeToFlush
@@ -99,11 +102,12 @@ export async function switchActiveLibrary(
         : '新交易库载入失败；为保护数据已暂停自动保存，请重新启动应用',
     }
   } finally {
-    if (!candidateActivated) {
-      await bridge.cancelPreparedLibrary(prepared.token).catch(() => false)
-    }
+    if (!candidateActivated) await cancel()
+    storageDocumentSignal.removeEventListener('abort', interrupt)
     unlockInteraction()
-    if (safeToFlush) {
+    if (storageDocumentSignal.aborted) {
+      pause.resume({ flushNow: false })
+    } else if (safeToFlush) {
       await pause.resumeAndFlush()
     } else {
       haltPersistAfterCutover(pause, '新交易库载入失败，自动保存已暂停', 'reload')
