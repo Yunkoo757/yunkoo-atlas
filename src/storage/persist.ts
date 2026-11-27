@@ -1,6 +1,4 @@
-import { bindingsForPersist } from '@/shortcuts/bindingRules'
 import { useShortcutStore } from '@/store/shortcutStore'
-import type { ShortcutBinding } from '@/shortcuts/types'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useStore } from '@/store/useStore'
 import {
@@ -8,48 +6,8 @@ import {
   type PersistenceDiagnostics,
 } from '@/storage/persistenceController'
 import { getStorage } from '@/storage/provider'
-import type { CanonicalSnapshot } from '@/storage/snapshotCodec'
 import type { PersistedSnapshot } from '@/storage/types'
-import { getCurrentLiveStage } from '@/lib/liveStages'
-
-type PersistableState = Omit<CanonicalSnapshot, 'shortcuts'>
-
-export function pickPersisted(
-  state: PersistableState,
-  shortcutBindings?: Record<string, ShortcutBinding | null>,
-): CanonicalSnapshot {
-  const shortcuts = bindingsForPersist(shortcutBindings ?? {})
-  const currentStage = getCurrentLiveStage(state.liveStages, state.currentLiveStageId)
-  return {
-    backtestProjects: state.backtestProjects,
-    trades: state.trades,
-    // Store 持久化字段使用不可变更新；保留引用才能让订阅区分 UI 更新与真实编辑。
-    liveStages: state.liveStages,
-    currentLiveStageId: currentStage.id,
-    scheduledStageRollover: state.scheduledStageRollover,
-    weeklyRiskPreparations: state.weeklyRiskPreparations,
-    riskPolicyVersions: state.riskPolicyVersions,
-    monthlyRiskLimits: state.monthlyRiskLimits,
-    riskOverrideEvents: state.riskOverrideEvents,
-    weeklyReviews: state.weeklyReviews,
-    quickNotes: state.quickNotes,
-    strategies: state.strategies,
-    starredIds: state.starredIds,
-    subscribedIds: state.subscribedIds,
-    pinnedStrategyIds: state.pinnedStrategyIds,
-    display: state.display,
-    shortcuts,
-    tagPresets: state.tagPresets,
-    mistakeTagPresets: state.mistakeTagPresets,
-    profile: state.profile,
-    savedTradeViews: state.savedTradeViews,
-    symbolIcons: state.symbolIcons,
-    symbolCatalog: state.symbolCatalog,
-    reviewTemplates: state.reviewTemplates,
-    reviewPoolPresets: state.reviewPoolPresets,
-    reviewPoolLayout: state.reviewPoolLayout,
-  }
-}
+import { pickPersisted } from '@/storage/snapshotProjection'
 
 const controller = new PersistenceController({
   async saveSnapshot(snapshot) {

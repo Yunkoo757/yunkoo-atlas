@@ -2,10 +2,10 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { getStorage } from '@/storage/provider'
+import { pickPersisted } from '@/storage/snapshotProjection'
 import {
   disablePersistWrites,
   enablePersistWrites,
-  pickPersisted,
   schedulePersist,
   setPreFlushCallback,
 } from '@/storage/persist'

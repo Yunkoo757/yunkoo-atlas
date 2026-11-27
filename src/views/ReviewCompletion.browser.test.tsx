@@ -10,7 +10,7 @@ import { DetailView } from '@/views/DetailView'
 import { getStorage } from '@/storage/provider'
 import { toastStore } from '@/lib/toast'
 import { replaceLibraryInStore } from '@/lib/snapshotStore'
-import { pickPersisted } from '@/storage/persist'
+import { pickPersisted } from '@/storage/snapshotProjection'
 import { ToastHost } from '@/components/Toast'
 import {
   noteDraftKey,

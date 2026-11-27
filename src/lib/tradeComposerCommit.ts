@@ -4,10 +4,8 @@ import type { Trade } from '@/data/trades'
 import { isSafeAssetId } from '@/storage/assetId'
 import type { StorageAdapter } from '@/storage/adapter'
 import { getStorage } from '@/storage/provider'
-import {
-  flushPersistNow,
-  pickPersisted,
-} from '@/storage/persist'
+import { pickPersisted } from '@/storage/snapshotProjection'
+import { flushPersistNow } from '@/storage/persist'
 import type { ExportAssetRecord } from '@/storage/types'
 import {
   capturePersistedStateRevision,

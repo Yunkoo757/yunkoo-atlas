@@ -2,35 +2,8 @@ import { downloadBlob } from './downloadBlob'
 import { sha256Hex } from '@/lib/sha256'
 import type { PersistencePause } from '@/storage/persistenceController'
 import { collectRetiredSnapshotAssetIds, stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
-import { DEFAULT_STRATEGIES, type Strategy } from '@/data/strategies'
-import {
-  createDefaultUserProfile,
-  createDefaultMistakeTagPresets,
-  createDefaultTagPresets,
-} from '@/config/defaultProfile'
-import type { Trade } from '@/data/trades'
-import {
-  normalizeWeeklyReviews,
-  type WeeklyReview,
-} from '@/data/weeklyReviews'
-import {
-  createDefaultReviewTemplates,
-  normalizeReviewTemplates,
-  type ReviewTemplate,
-} from '@/data/reviewTemplates'
-import {
-  mergeQuickNotes,
-  normalizeQuickNotes,
-  type QuickNote,
-} from '@/data/quickNotes'
-import { DEFAULT_DISPLAY, normalizeDisplay, type DisplayPrefs } from '@/lib/tradeFilters'
-import {
-  ensureStrategies,
-  normalizeTradeStrategyReferences,
-} from '@/lib/strategies'
-import { normalizeTrades } from '@/lib/tradeKind'
 import { useStore } from '@/store/useStore'
-import { bindingsForPersist } from '@/shortcuts/bindingRules'
+import { buildPortableSnapshotFromState, type PortableSnapshotState } from '@/storage/snapshotProjection'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { collectAssetIdsFromSnapshot } from '@/storage/snapshotRichText'
 import { getStorage } from '@/storage/provider'
@@ -44,20 +17,6 @@ import type { PersistedSnapshot } from '@/storage/types'
 import { beginWebOperation } from '@/storage/webOperationLogger'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
 import { SCHEMA_VERSION } from '@/storage/types'
-import {
-  mergeSavedTradeViews,
-  normalizeSavedTradeViews,
-  type SavedTradeView,
-} from '@/lib/savedTradeViews'
-import {
-  mergeSymbolIcons,
-  normalizeSymbolIcons,
-  mergeSymbolCatalog,
-  normalizeSymbolCatalog,
-  DEFAULT_SYMBOL_CATALOG,
-  type SymbolIconsMap,
-} from '@/lib/symbolIcons'
-import { mergeTagPresets } from '@/lib/tags'
 import { isSafeAssetId } from '@/storage/assetId'
 import {
   flushStorageBeforeCutover,
@@ -93,99 +52,15 @@ import {
   createLegacyStageMigrationOptions,
   type LegacyStageMigrationOptions,
 } from '@/lib/stageMigration'
-import { assertValidLiveStageState } from '@/lib/liveStages'
 
 export const EXPORT_VERSION = SCHEMA_VERSION
 import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
 import { canonicalImportValue, mergeImportPayload } from '@/lib/importMerge'
-import { normalizeReviewPoolLayout } from '@/lib/reviewPools'
 import { isSameTradeIdentity, stableImportedTradeId } from '@/lib/riskImportMerge'
 import { applySnapshotToStore } from '@/lib/snapshotStore'
 
 export type { ExportPayload, PersistedSlice } from '@/lib/importTypes'
 export { mergeImportPayload } from '@/lib/importMerge'
-
-interface ExportState extends PersistedSlice {
-  shortcuts?: PersistedSnapshot['shortcuts']
-  tagPresets?: string[]
-  mistakeTagPresets?: string[]
-  profile?: PersistedSnapshot['profile']
-  savedTradeViews?: SavedTradeView[]
-  symbolIcons?: SymbolIconsMap
-  symbolCatalog?: string[]
-  reviewTemplates?: ReviewTemplate[]
-  backtestProjects?: PersistedSnapshot['backtestProjects']
-  reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
-  reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
-}
-
-interface PortableSnapshotState {
-  trades: PersistedSnapshot['trades']
-  liveStages: PersistedSnapshot['liveStages']
-  currentLiveStageId: PersistedSnapshot['currentLiveStageId']
-  scheduledStageRollover: PersistedSnapshot['scheduledStageRollover']
-  weeklyRiskPreparations?: PersistedSnapshot['weeklyRiskPreparations']
-  riskPolicyVersions?: PersistedSnapshot['riskPolicyVersions']
-  monthlyRiskLimits?: PersistedSnapshot['monthlyRiskLimits']
-  riskOverrideEvents?: PersistedSnapshot['riskOverrideEvents']
-  weeklyReviews?: PersistedSnapshot['weeklyReviews']
-  quickNotes?: PersistedSnapshot['quickNotes']
-  strategies: PersistedSnapshot['strategies']
-  starredIds: string[]
-  subscribedIds: string[]
-  pinnedStrategyIds: string[]
-  display: PersistedSnapshot['display']
-  tagPresets?: string[]
-  mistakeTagPresets?: string[]
-  profile?: PersistedSnapshot['profile']
-  savedTradeViews?: PersistedSnapshot['savedTradeViews']
-  symbolIcons?: PersistedSnapshot['symbolIcons']
-  symbolCatalog?: PersistedSnapshot['symbolCatalog']
-  reviewTemplates?: PersistedSnapshot['reviewTemplates']
-  backtestProjects?: PersistedSnapshot['backtestProjects']
-  reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
-  reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
-}
-
-export function buildPortableSnapshotFromState(
-  state: PortableSnapshotState,
-  shortcutBindings: Parameters<typeof bindingsForPersist>[0],
-): PersistedSnapshot {
-  const shortcuts = bindingsForPersist(shortcutBindings)
-  return {
-    trades: state.trades,
-    liveStages: state.liveStages.map((stage) => ({ ...stage })),
-    currentLiveStageId: state.currentLiveStageId,
-    scheduledStageRollover: state.scheduledStageRollover
-      ? { ...state.scheduledStageRollover }
-      : null,
-    weeklyRiskPreparations: state.weeklyRiskPreparations ?? [],
-    riskPolicyVersions: state.riskPolicyVersions ?? [],
-    monthlyRiskLimits: state.monthlyRiskLimits ?? [],
-    riskOverrideEvents: state.riskOverrideEvents ?? [],
-    weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews),
-    quickNotes: normalizeQuickNotes(state.quickNotes),
-    strategies: state.strategies,
-    starredIds: state.starredIds,
-    subscribedIds: state.subscribedIds,
-    pinnedStrategyIds: state.pinnedStrategyIds,
-    display: normalizeDisplay(state.display),
-    tagPresets: state.tagPresets ?? [],
-    mistakeTagPresets: state.mistakeTagPresets ?? [],
-    profile: state.profile ?? createDefaultUserProfile(),
-    savedTradeViews: normalizeSavedTradeViews(state.savedTradeViews),
-    symbolIcons: normalizeSymbolIcons(state.symbolIcons),
-    symbolCatalog: normalizeSymbolCatalog(state.symbolCatalog),
-    reviewTemplates: normalizeReviewTemplates(state.reviewTemplates),
-    backtestProjects: state.backtestProjects ?? [],
-    reviewPoolPresets: state.reviewPoolPresets ?? [],
-    reviewPoolLayout: normalizeReviewPoolLayout(
-      state.reviewPoolLayout,
-      (state.reviewPoolPresets ?? []).map((preset) => preset.id),
-    ),
-    shortcuts,
-  }
-}
 
 export type ImportResult =
   | { ok: true; data: ExportPayload }
@@ -201,11 +76,6 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 function isStringArray(v: unknown): v is string[] {
   return Array.isArray(v) && v.every((x) => typeof x === 'string')
-}
-
-function parseDisplay(v: unknown): DisplayPrefs {
-  if (!isRecord(v)) return { ...DEFAULT_DISPLAY }
-  return normalizeDisplay(v as Partial<DisplayPrefs>)
 }
 
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
@@ -312,12 +182,13 @@ function normalizeAndValidateImportAssets(
 }
 
 export async function buildExportPayloadFromState(
-  state: ExportState,
+  state: PortableSnapshotState,
   getAssetForExport: (id: string) => Promise<ExportAssetRecord | null>,
+  shortcutBindings = state.shortcuts ?? {},
 ): Promise<ExportPayload> {
   const assetIds = new Set(collectAssetIdsFromSnapshot(state))
   const assets = await loadReferencedAssetsForExport(assetIds, getAssetForExport)
-  const portable = buildPortableSnapshotFromState(state, state.shortcuts ?? {})
+  const portable = buildPortableSnapshotFromState(state, shortcutBindings)
   return {
     version: EXPORT_VERSION,
     ...portable,
@@ -359,39 +230,11 @@ export async function loadReferencedAssetsForExport(
 }
 
 export async function buildExportPayload(): Promise<ExportPayload> {
-  const { trades, liveStages, currentLiveStageId, scheduledStageRollover, weeklyRiskPreparations, riskPolicyVersions, monthlyRiskLimits, riskOverrideEvents, weeklyReviews, quickNotes, strategies, starredIds, subscribedIds, pinnedStrategyIds, display, tagPresets, mistakeTagPresets, profile, savedTradeViews, symbolIcons, symbolCatalog, reviewTemplates, backtestProjects, reviewPoolPresets, reviewPoolLayout } =
-    useStore.getState()
   const storage = getStorage()
   return buildExportPayloadFromState(
-    {
-      trades,
-      liveStages,
-      currentLiveStageId,
-      scheduledStageRollover,
-      weeklyRiskPreparations,
-      riskPolicyVersions,
-      monthlyRiskLimits,
-      riskOverrideEvents,
-      weeklyReviews,
-      quickNotes,
-      strategies,
-      starredIds,
-      subscribedIds,
-      pinnedStrategyIds,
-      display,
-      shortcuts: useShortcutStore.getState().bindings,
-      tagPresets,
-      mistakeTagPresets,
-      profile,
-      savedTradeViews,
-      symbolIcons,
-      symbolCatalog,
-      reviewTemplates,
-      backtestProjects,
-      reviewPoolPresets,
-      reviewPoolLayout,
-    },
+    useStore.getState(),
     (id) => storage.getAssetForExport(id),
+    useShortcutStore.getState().bindings,
   )
 }
 

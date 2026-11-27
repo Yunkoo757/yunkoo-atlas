@@ -1,79 +1,22 @@
-import type { QuickNote } from '@/data/quickNotes'
-import type { ReviewTemplate } from '@/data/reviewTemplates'
-import type { Strategy } from '@/data/strategies'
 import type { Trade } from '@/data/trades'
-import type { WeeklyReview } from '@/data/weeklyReviews'
-import type {
-  MonthlyRiskLimit,
-  RiskOverrideEvent,
-  RiskPolicyVersion,
-  WeeklyRiskPreparation,
-} from '@/data/riskManagement'
-import type { SavedTradeView } from '@/lib/savedTradeViews'
-import type { SymbolIconsMap } from '@/lib/symbolIconCodec'
-import type { DisplayPrefs } from '@/lib/tradeFilters'
+import type { ActivePersistedSnapshotKey } from '@/storage/persistedKeys'
+import type { PortableSnapshotState } from '@/storage/snapshotProjection'
 import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
 
-export interface ExportPayload {
-  version: number
-  /** 解析器会补齐；手工构造的 merge 输入不以导入阶段图作为本机归属真值。 */
-  liveStages?: PersistedSnapshot['liveStages']
-  currentLiveStageId?: PersistedSnapshot['currentLiveStageId']
-  scheduledStageRollover?: PersistedSnapshot['scheduledStageRollover']
-  trades: (Trade & { strategy?: string })[]
-  weeklyRiskPreparations: WeeklyRiskPreparation[]
-  riskPolicyVersions: RiskPolicyVersion[]
-  monthlyRiskLimits: MonthlyRiskLimit[]
-  riskOverrideEvents: RiskOverrideEvent[]
-  weeklyReviews?: WeeklyReview[]
-  quickNotes?: QuickNote[]
-  strategies: Strategy[]
-  starredIds: string[]
-  subscribedIds: string[]
-  pinnedStrategyIds: string[]
-  display: DisplayPrefs
-  shortcuts?: PersistedSnapshot['shortcuts']
-  tagPresets?: string[]
-  mistakeTagPresets?: string[]
-  profile?: PersistedSnapshot['profile']
-  savedTradeViews?: SavedTradeView[]
-  symbolIcons?: SymbolIconsMap
-  symbolCatalog?: string[]
-  reviewTemplates?: ReviewTemplate[]
-  backtestProjects?: PersistedSnapshot['backtestProjects']
-  reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
-  reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
-  assets?: ExportAssetRecord[]
-}
+type StageField = 'liveStages' | 'currentLiveStageId' | 'scheduledStageRollover'
+
+/** 解析器会补全阶段；合并时按本机阶段归属处理手工构造的历史载荷。 */
+export type ExportPayload = Pick<PersistedSnapshot, Exclude<ActivePersistedSnapshotKey, 'trades' | StageField>>
+  & Partial<Pick<PersistedSnapshot, StageField>>
+  & {
+    version: number
+    trades: (Trade & { strategy?: string })[]
+    assets?: ExportAssetRecord[]
+  }
 
 /** 随机重编号附件前保留的、已经通过结构校验的交易身份来源。 */
 export interface ImportIdentityPayload {
   trades: ExportPayload['trades']
 }
 
-export interface PersistedSlice {
-  trades: Trade[]
-  liveStages: PersistedSnapshot['liveStages']
-  currentLiveStageId: PersistedSnapshot['currentLiveStageId']
-  scheduledStageRollover: PersistedSnapshot['scheduledStageRollover']
-  weeklyRiskPreparations?: WeeklyRiskPreparation[]
-  riskPolicyVersions?: RiskPolicyVersion[]
-  monthlyRiskLimits?: MonthlyRiskLimit[]
-  riskOverrideEvents?: RiskOverrideEvent[]
-  weeklyReviews?: WeeklyReview[]
-  quickNotes?: QuickNote[]
-  strategies: Strategy[]
-  starredIds: string[]
-  subscribedIds: string[]
-  pinnedStrategyIds: string[]
-  display: DisplayPrefs
-  tagPresets?: string[]
-  mistakeTagPresets?: string[]
-  savedTradeViews?: SavedTradeView[]
-  symbolIcons?: SymbolIconsMap
-  symbolCatalog?: string[]
-  reviewTemplates?: ReviewTemplate[]
-  backtestProjects?: PersistedSnapshot['backtestProjects']
-  reviewPoolPresets?: PersistedSnapshot['reviewPoolPresets']
-  reviewPoolLayout?: PersistedSnapshot['reviewPoolLayout']
-}
+export type PersistedSlice = Omit<PortableSnapshotState, 'profile' | 'shortcuts'>

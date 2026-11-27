@@ -1238,9 +1238,9 @@ export const useStore = create<State>()((set, get) => ({
         }
         const request = get().pendingTradeOpenRequest
         if (!request) return { kind: 'cancelled', reason: 'target-missing' }
-        const [commitModule, persistModule, shortcutModule] = await Promise.all([
+        const [commitModule, { pickPersisted }, shortcutModule] = await Promise.all([
           import('@/lib/riskGatedTradeOpenCommit'),
-          import('@/storage/persist'),
+          import('@/storage/snapshotProjection'),
           import('@/store/shortcutStore'),
         ])
         const result = await commitModule.commitRiskGatedTradeOpen({
@@ -1250,7 +1250,7 @@ export const useStore = create<State>()((set, get) => ({
             const state = get()
             return {
               state,
-              snapshot: persistModule.pickPersisted(
+              snapshot: pickPersisted(
                 state,
                 shortcutModule.useShortcutStore.getState().bindings,
               ),

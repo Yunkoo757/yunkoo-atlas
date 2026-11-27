@@ -5,7 +5,7 @@ import type { StageRolloverPublishState } from '@/types/journalBridge'
 import { applySnapshotToStore } from '@/lib/snapshotStore'
 import { haveSamePersistedReferences } from '@/storage/persistedSnapshotCoordinator'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
-import { pickPersisted } from '@/storage/persist'
+import { pickPersisted } from '@/storage/snapshotProjection'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
 import { SCHEMA_VERSION } from '@/storage/types'
 import {

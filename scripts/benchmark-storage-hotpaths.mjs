@@ -20,7 +20,8 @@ const median = (values) => [...values].sort((left, right) => left - right)[Math.
 const sourceFiles = [
   'src/store/useStore.ts',
   'src/lib/tradeUpsert.ts',
-  'src/storage/persist.ts',
+  'src/storage/snapshotProjection.ts',
+  'src/storage/persistedKeys.ts',
   'src/storage/persistedSnapshotCoordinator.ts',
   'src/storage/snapshotValidation.ts',
   'src/storage/fixtures/fullPersistedSnapshot.ts',
@@ -46,7 +47,7 @@ try {
   await fs.writeFile(entry, [
     "export { applyTradeUpsertsToSlice } from '@/lib/tradeUpsert'",
     "export { useStore } from '@/store/useStore'",
-    "export { pickPersisted } from '@/storage/persist'",
+    "export { pickPersisted } from '@/storage/snapshotProjection'",
     "export { createPersistedSnapshotCoordinator } from '@/storage/persistedSnapshotCoordinator'",
     "export { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'",
     "export { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'",

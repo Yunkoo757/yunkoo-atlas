@@ -1,11 +1,11 @@
 import { getStorage } from '@/storage/provider'
+import { pickPersisted } from '@/storage/snapshotProjection'
 import {
   disablePersistWrites,
   enablePersistWrites,
   flushPersistNow,
   getPersistSuspendDepth,
   hasPendingChanges,
-  pickPersisted,
   schedulePersist,
   setPreFlushCallback,
   suspendPersist,
@@ -54,7 +54,14 @@ function snapshotWithName(displayName: string): PersistedSnapshot {
 
 export function testPickPersistedAlwaysWritesEveryCanonicalField(): void {
   const state = useStore.getState()
-  const empty = pickPersisted(state, {})
+  const withUi = Object.defineProperty({ ...state }, 'transientView', {
+    enumerable: true,
+    get: () => { throw new Error('保存快照不应读取 UI 状态') },
+  })
+  const empty = pickPersisted(withUi, {})
+  for (const field of PERSISTED_SNAPSHOT_FIELDS) {
+    if (field !== 'shortcuts') assert(empty[field] === state[field], `自动保存必须保留 ${field} 的引用`)
+  }
   assert(
     JSON.stringify(Object.keys(empty).sort()) === JSON.stringify([...PERSISTED_SNAPSHOT_FIELDS].sort()),
     'autosave writer 的字段集合必须始终与规范字段注册表完全一致',

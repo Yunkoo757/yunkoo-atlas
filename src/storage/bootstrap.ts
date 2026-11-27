@@ -4,7 +4,8 @@ import {
   migrateElectronLibraryIfNeeded,
   migrateFromLocalStorageIfNeeded,
 } from '@/storage/migrate'
-import { enablePersistWrites, pickPersisted, schedulePersist } from '@/storage/persist'
+import { pickPersisted } from '@/storage/snapshotProjection'
+import { enablePersistWrites, schedulePersist } from '@/storage/persist'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { isElectron } from '@/storage/runtime'
 import { useStore } from '@/store/useStore'

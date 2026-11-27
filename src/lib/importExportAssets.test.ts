@@ -3,6 +3,7 @@ import type { Strategy } from '@/data/strategies'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { createWeeklyReview } from '@/data/weeklyReviews'
 import { createQuickNote } from '@/data/quickNotes'
+import { buildPortableSnapshotFromState } from '@/storage/snapshotProjection'
 import { PERSISTED_SNAPSHOT_FIELDS } from '@/storage/persistedKeys'
 import {
   createFullPersistedSnapshotFixture,
@@ -12,7 +13,6 @@ import {
 import {
   buildExportPayloadFromState,
   buildWebConflictRecoveryPayload,
-  buildPortableSnapshotFromState,
   loadReferencedAssetsForExport,
   mergeImportPayload,
   parseImportJson,
@@ -520,6 +520,10 @@ export async function testPathAWriterSerializesAllFieldsFromSparseRuntimeState()
     mistakeTagPresets: undefined,
     profile: undefined,
   }
+  Object.defineProperty(sparse, 'transientView', {
+    enumerable: true,
+    get: () => { throw new Error('导出不得读取临时 UI 状态') },
+  })
   const payload = await buildExportPayloadFromState(
     sparse,
     async (id) => ({ id, mime: 'image/png', data: 'aW1hZ2U=' }),

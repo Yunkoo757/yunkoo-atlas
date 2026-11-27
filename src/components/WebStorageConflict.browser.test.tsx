@@ -9,7 +9,8 @@ import {
   type WebLockManagerLike,
 } from '@/storage/webWriteGuard'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
-import { getPersistSuspendDepth, pickPersisted, suspendPersist } from '@/storage/persist'
+import { pickPersisted } from '@/storage/snapshotProjection'
+import { getPersistSuspendDepth, suspendPersist } from '@/storage/persist'
 import { useSaveStatus } from '@/store/saveStatus'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'

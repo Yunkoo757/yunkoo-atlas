@@ -6,7 +6,7 @@ import { bootstrapStorage } from '@/storage/bootstrap'
 import { getStorage } from '@/storage/provider'
 import { useStore } from '@/store/useStore'
 import { useShortcutStore } from '@/store/shortcutStore'
-import { pickPersisted } from '@/storage/persist'
+import { pickPersisted } from '@/storage/snapshotProjection'
 import { StorageRevisionConflictError } from '@/storage/adapter'
 
 declare global {

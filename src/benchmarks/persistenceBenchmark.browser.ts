@@ -4,10 +4,10 @@ import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
 import { StorageRevisionConflictError } from '@/storage/adapter'
 import { bootstrapStorage } from '@/storage/bootstrap'
 import { IndexedDbStorageAdapter } from '@/storage/indexedDbAdapter'
+import { pickPersisted } from '@/storage/snapshotProjection'
 import {
   disablePersistWrites,
   getPersistenceDiagnostics,
-  pickPersisted,
   resetPersistenceDiagnostics,
 } from '@/storage/persist'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'

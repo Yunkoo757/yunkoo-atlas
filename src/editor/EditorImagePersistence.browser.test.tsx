@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
 import { replaceLibraryInStore } from '@/lib/snapshotStore'
-import { pickPersisted } from '@/storage/persist'
+import { pickPersisted } from '@/storage/snapshotProjection'
 import {
   noteDraftKey,
   getNoteDraft,

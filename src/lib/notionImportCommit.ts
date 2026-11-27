@@ -12,7 +12,7 @@ import {
 import { isSafeAssetId } from '@/storage/assetId'
 import type { StorageAdapter } from '@/storage/adapter'
 import { getStorage } from '@/storage/provider'
-import { pickPersisted } from '@/storage/persist'
+import { pickPersisted } from '@/storage/snapshotProjection'
 import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
 import { useStore } from '@/store/useStore'
 import { flushStorageBeforeCutover } from '@/storage/cutover'

@@ -1,5 +1,5 @@
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
-import { pickPersisted } from '@/storage/persist'
+import { pickPersisted } from '@/storage/snapshotProjection'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
 import { useStore } from '@/store/useStore'
 import type { WeeklyReview } from '@/data/weeklyReviews'
