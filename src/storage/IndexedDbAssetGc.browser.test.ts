@@ -112,6 +112,9 @@ async function testStalePreviewDeletesNothing(): Promise<void> {
       reason: 'autosave',
     })
     const before = await fingerprint(storage)
+    let archivedStale = true
+    try { await storage.prepareAssetPurgeRecovery(preview) } catch { archivedStale = false }
+    assert(!archivedStale, '另一窗口已提交后不能再签发旧预览的恢复归档')
     let error: unknown
     try { await storage.commitAssetPurge(preview, recovery.authorization) } catch (caught) { error = caught }
     assert(error instanceof StorageRevisionConflictError, '过期预览必须返回 typed revision conflict')
@@ -153,6 +156,17 @@ async function testDeleteFailureRollsBackAndSuccessRevokesCache(): Promise<void>
     try { await storage.commitAssetPurge(canceled, canceledRecovery.authorization) } catch { canceledRejected = true }
     assert(canceledRejected, '取消后旧 preview 与恢复授权必须立即失效')
     assert(await fingerprint(storage) === before, '取消旧授权必须零删除')
+    const pending = await storage.previewAssetPurge()
+    const originalExport = storage.getAssetForExport.bind(storage)
+    storage.getAssetForExport = async id => {
+      await storage.cancelAssetPurge(pending.operationId)
+      return originalExport(id)
+    }
+    let lateExport
+    try { lateExport = await storage.prepareAssetPurgeRecovery(pending) }
+    catch (error) { assert(String(error).includes('预览无效'), '取消的在途导出应报告预览已失效') }
+    finally { storage.getAssetForExport = originalExport }
+    assert(!lateExport, '导出途中取消不应重建归档授权')
     const invalidAuthorization = await storage.previewAssetPurge()
     let invalidAuthorizationRejected = false
     try { await storage.commitAssetPurge(invalidAuthorization, 'invalid-authorization') } catch { invalidAuthorizationRejected = true }

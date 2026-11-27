@@ -1,3 +1,4 @@
+import { AssetPurgePreviews } from './assetPurgePreviews'
 import { rendererAllowsAssetPurge } from '@/config/assetPurge'
 import { base64ToBytes } from '@/lib/base64'
 import { stripRetiredSnapshotDomains } from './retiredSnapshotDomains'
@@ -260,15 +261,9 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   private mutationTail: Promise<void> = Promise.resolve()
   private currentRevision: number | null = null
   private referencedAssetIdsAtRevision: { revision: number; ids: Set<string> } | null = null
-  private assetPurgePreviews = new Map<string, {
-    revision: number
-    snapshot: PersistedSnapshot
-    candidateIds: string[]
-    totalBytes: number
-  }>()
+  private readonly assetPurgePreviews = new AssetPurgePreviews<PersistedSnapshot>()
   private purgingAssetIds = new Set<string>()
   private readonly assetPurgeCommitEnabled: boolean
-  private assetPurgeAuthorizations = new Map<string, { token: string; createdAt: number }>()
 
   constructor(
     private readonly databaseName = BROWSER_DATABASE_NAME,
@@ -313,7 +308,6 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     this.currentRevision = null
     this.referencedAssetIdsAtRevision = null
     this.assetPurgePreviews.clear()
-    this.assetPurgeAuthorizations.clear()
     this.purgingAssetIds.clear()
     this.db?.close()
     this.db = null
@@ -690,24 +684,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     const envelope = await this.loadSnapshotEnvelope()
     if (!envelope.snapshot) throw new Error('当前资料库尚无可校验的持久化快照')
     const inventory = buildAssetInventory(envelope.snapshot, await this.listAssetRecords())
-    const candidateIds = inventory.orphan.map((record) => record.id).sort()
-    const operationId = crypto.randomUUID()
-    const totalBytes = inventory.orphan.reduce(
-      (sum, record) => sum + (record.actualBytes ?? 0),
-      0,
-    )
-    this.assetPurgePreviews.set(operationId, {
-      revision: envelope.revision,
-      snapshot: envelope.snapshot,
-      candidateIds,
-      totalBytes,
-    })
-    return {
-      operationId,
-      revision: envelope.revision,
-      candidateIds: [...candidateIds],
-      totalBytes,
-    }
+    return this.assetPurgePreviews.create(envelope.revision, inventory.orphan, envelope.snapshot)
   }
 
   async prepareAssetPurgeRecovery(preview: AssetPurgePreview) {
@@ -718,18 +695,10 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       revisionBefore: preview.revision,
     })
     try {
-      const prepared = this.assetPurgePreviews.get(preview.operationId)
-      if (
-        !prepared ||
-        prepared.revision !== preview.revision ||
-        prepared.candidateIds.join('\0') !== preview.candidateIds.join('\0') ||
-        prepared.totalBytes !== preview.totalBytes
-      ) {
-        throw new OperationalError('asset-gc-stale-revision', '附件清理预览无效或已使用，请重新扫描')
-      }
+      const prepared = this.assetPurgePreviews.read(preview)
       const assets: ExportAssetRecord[] = []
       const recoveryIds = [...new Set([
-        ...collectAssetIdsFromSnapshot(prepared.snapshot),
+        ...collectAssetIdsFromSnapshot(prepared.context),
         ...prepared.candidateIds,
       ])]
       for (const id of recoveryIds) {
@@ -739,13 +708,12 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
         }
         assets.push(asset)
       }
-      const authorization = crypto.randomUUID()
-      this.assetPurgeAuthorizations.set(preview.operationId, { token: authorization, createdAt: Date.now() })
+      const authorization = this.assetPurgePreviews.authorize(preview, await this.getSnapshotRevision())
       operation.success({ stage: 'verified', revisionAfter: preview.revision })
       return {
         authorization,
         webArchive: {
-          snapshot: prepared.snapshot,
+          snapshot: prepared.context,
           assets,
           recoveryOrphanAssetIds: [...prepared.candidateIds],
         },
@@ -767,25 +735,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       if (!this.assetPurgeCommitEnabled) {
         throw new Error('附件永久清理已在存储边界关闭')
       }
-      const expectedAuthorization = this.assetPurgeAuthorizations.get(preview.operationId)
-      this.assetPurgeAuthorizations.delete(preview.operationId)
-      if (authorization !== undefined && (
-        !authorization ||
-        authorization !== expectedAuthorization?.token ||
-        Date.now() - (expectedAuthorization?.createdAt ?? 0) > 15 * 60_000
-      )) {
-        throw new Error('附件清理缺少与本次预览绑定的恢复归档授权')
-      }
-      const prepared = this.assetPurgePreviews.get(preview.operationId)
-      this.assetPurgePreviews.delete(preview.operationId)
-      if (
-        !prepared ||
-        prepared.revision !== preview.revision ||
-        prepared.candidateIds.join('\0') !== preview.candidateIds.join('\0') ||
-        prepared.totalBytes !== preview.totalBytes
-      ) {
-        throw new OperationalError('asset-gc-stale-revision', '附件清理预览无效或已使用，请重新扫描')
-      }
+      const prepared = this.assetPurgePreviews.take(preview, authorization)
       if (prepared.candidateIds.some((id) => this.preparedAssets.has(id))) {
         throw new OperationalError('asset-gc-stale-revision', '清理候选在预览后出现新的待提交附件，请重新扫描')
       }
@@ -796,7 +746,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       try {
         const result = await this.commitLibraryMutation({
           expectedRevision: prepared.revision,
-          snapshot: prepared.snapshot,
+          snapshot: prepared.context,
           assetDeletes: prepared.candidateIds,
           reason: 'purge',
         })
@@ -812,8 +762,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   async cancelAssetPurge(operationId: string): Promise<void> {
-    this.assetPurgeAuthorizations.delete(operationId)
-    this.assetPurgePreviews.delete(operationId)
+    this.assetPurgePreviews.cancel(operationId)
   }
 
   async importAssets(assets: ExportAssetRecord[]): Promise<void> {

@@ -3,6 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import initSqlJs, { type Database } from 'sql.js'
 import { createFullPersistedSnapshotFixture } from '../../src/storage/fixtures/fullPersistedSnapshot'
+import strict from 'node:assert/strict'
+import { exportVerifiedPurgeArchive } from './assetPurgeRecovery'
 import { LibraryStorage, SnapshotSaveError } from './storage'
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -342,26 +344,10 @@ export async function testElectronAssetGcIpcUsesTheExclusiveLibraryGate(): Promi
   const recoveryHandler = source.slice(recoveryStart, start)
   assert(start >= 0 && handler.includes('operationGate.runExclusive'), 'Electron purge IPC 必须使用 exclusive gate')
   assert(handler.includes("!isAssetPurgeCommitEnabled(process.env.ATLAS_ENABLE_ASSET_PURGE_COMMIT)"), 'Electron 主进程必须保留显式关闭实际删除的边界')
-  assert(
-    handler.includes('assetPurgeAuthorizations') &&
-      handler.includes('!payload.authorization') &&
-      handler.includes('payload.authorization !== undefined'),
-    'Electron 应允许省略归档，但主动提供授权时必须校验其绑定',
-  )
-  assert(
-    recoveryStart >= 0 &&
-    recoveryHandler.includes('operationGate.runExclusive') &&
-    recoveryHandler.includes('exportJournalZip') &&
-    recoveryHandler.includes('importJournalZipToPath') &&
-    recoveryHandler.indexOf('importJournalZipToPath') < recoveryHandler.indexOf('randomUUID'),
-    'Electron 必须独占导出并验证恢复归档后才能签发授权',
-  )
-  assert(
-    recoveryHandler.includes('archiveSha256') &&
-      handler.includes('prepared.archiveSha256') &&
-      handler.includes('sha256File(prepared.archivePath)'),
-    '永久清理授权必须绑定已验证恢复归档的路径与字节，提交时重新核对',
-  )
+  assert(recoveryStart >= 0 && recoveryHandler.includes('operationGate.runExclusive') &&
+    recoveryHandler.includes('lib.prepareAssetPurgeRecovery(preview') && recoveryHandler.includes('exportVerifiedPurgeArchive'),
+    '恢复归档必须绑定持锁资料库的活跃预览')
+  assert(handler.includes('lib.commitAssetPurge(payload.preview, payload.authorization)'), '提交必须透传可选的恢复归档授权')
   assert(
     handler.includes('writers.assert(event, payload.writerToken, lib)') &&
       handler.indexOf('writers.assert') < handler.indexOf('lib.commitAssetPurge') &&
@@ -684,4 +670,46 @@ export async function testPurgeRecoversCommittedDeletionAfterAnUnreadableReceipt
     assert(reopened.getSnapshotRevision() === preview.revision + 1 && !reopened.getAssetBytes('orphan-a'), '重开应以已提交数据库完成物理删除')
     assert(reopened.getAssetBytes('shared-live') && !fs.existsSync(path.join(root, '.trash')), '有引用的原图须完好，清单须收尾')
   } finally { storage.release(); reopened.release(); fs.rmSync(root, { recursive: true, force: true }) }
+}
+
+export async function testRecoveryArchiveOnlyBelongsToAnActivePreviewAndItsVerifiedBytes(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-isolated-purge-export-'))
+  const storage = await createFixture(path.join(root, 'library'))
+  const archive = path.join(root, 'recovery.journal.zip')
+  let exports = 0
+  const exportArchive = () => { exports++; return exportVerifiedPurgeArchive(storage, archive) }
+  try {
+    const canceled = storage.previewAssetPurge()
+    storage.cancelAssetPurge(canceled.operationId)
+    await strict.rejects(storage.prepareAssetPurgeRecovery(canceled, exportArchive), /预览无效/)
+    strict.equal(exports, 0)
+    strict.equal(fs.existsSync(archive), false)
+
+    const oldSession = storage.previewAssetPurge()
+    storage.release()
+    await storage.open()
+    await strict.rejects(storage.prepareAssetPurgeRecovery(oldSession, exportArchive), /预览无效/)
+    strict.equal(exports, 0)
+
+    for (const change of ['modify', 'remove'] as const) {
+      const preview = storage.previewAssetPurge()
+      const recovery = await storage.prepareAssetPurgeRecovery(preview, exportArchive)
+      strict.ok(recovery)
+      if (change === 'remove') fs.unlinkSync(archive)
+      else fs.appendFileSync(archive, 'changed')
+      await strict.rejects(storage.commitAssetPurge(preview, recovery.authorization), /请重新导出/)
+      strict.ok(storage.getAssetBytes('orphan-a'))
+      strict.equal(storage.getSnapshotRevision(), preview.revision)
+    }
+
+    const preview = storage.previewAssetPurge()
+    const recovery = await storage.prepareAssetPurgeRecovery(preview, exportArchive)
+    strict.ok(recovery)
+    const result = await storage.commitAssetPurge(preview, recovery.authorization)
+    strict.deepEqual(result.deletedIds, preview.candidateIds)
+    strict.ok(storage.getAssetBytes('shared-live'))
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
 }

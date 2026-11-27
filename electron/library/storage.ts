@@ -1,3 +1,4 @@
+import { AssetPurgePreviews } from '../../src/storage/assetPurgePreviews'
 import { assertCompatibleManifest } from '../../src/storage/manifestCompatibility'
 import { assertLibraryIdentity } from './libraryIdentity'
 import { CREATE_LIBRARY_TABLES_SQL, resolveSnapshotVersion, isPortableAssetFileName, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
@@ -365,11 +366,7 @@ export class LibraryStorage {
   ) => Database
   private readonly now: () => Date
   private storageWriteRecoveryError: SnapshotSaveError | null = null
-  private assetPurgePreviews = new Map<string, {
-    revision: number
-    candidateIds: string[]
-    totalBytes: number
-  }>()
+  private readonly assetPurgePreviews = new AssetPurgePreviews<void>()
 
   constructor(
     libraryPath: string,
@@ -1270,27 +1267,25 @@ export class LibraryStorage {
     if (!snapshot) throw new Error('当前资料库尚无可校验的持久化快照')
     assertPortableSnapshotAssetReferences(snapshot, db)
     const inventory = buildAssetInventory(snapshot, this.listAssetRecords())
-    const candidateIds = inventory.orphan.map((record) => record.id).sort()
-    const totalBytes = inventory.orphan.reduce(
-      (sum, record) => sum + (record.actualBytes ?? 0),
-      0,
-    )
-    const operationId = randomUUID()
-    this.assetPurgePreviews.set(operationId, { revision, candidateIds, totalBytes })
-    return { operationId, revision, candidateIds: [...candidateIds], totalBytes }
+    return this.assetPurgePreviews.create(revision, inventory.orphan, undefined)
   }
 
-  async commitAssetPurge(preview: AssetPurgePreview): Promise<AssetPurgeResult> {
-    const prepared = this.assetPurgePreviews.get(preview.operationId)
-    this.assetPurgePreviews.delete(preview.operationId)
-    if (
-      !prepared ||
-      preview.revision !== prepared.revision ||
-      prepared.candidateIds.join('\0') !== preview.candidateIds.join('\0') ||
-      prepared.totalBytes !== preview.totalBytes
-    ) {
-      throw new OperationalError('asset-gc-stale-revision', '附件清理预览无效或已使用，请重新扫描')
-    }
+  async prepareAssetPurgeRecovery(preview: AssetPurgePreview, exportArchive: () => Promise<{
+    path: string; verify: () => void
+  } | null>) {
+    this.assetPurgePreviews.read(preview, this.getSnapshotRevision())
+    const signature = JSON.stringify(preview)
+    const archive = await exportArchive()
+    if (!archive) return null
+    const authorization = this.assetPurgePreviews.authorize(preview, this.getSnapshotRevision(), submitted => {
+      if (JSON.stringify(submitted) !== signature) throw new Error('附件清理缺少与本次预览绑定的恢复归档授权')
+      archive.verify()
+    })
+    return { authorization, path: archive.path }
+  }
+
+  async commitAssetPurge(preview: AssetPurgePreview, authorization?: string): Promise<AssetPurgeResult> {
+    const prepared = this.assetPurgePreviews.take(preview, authorization)
     assertPortableAssetDatabaseIntegrity(this.requireDb())
     const files: { id: string; fileName: string; source: string }[] = []
     const candidate = this.prepareDatabaseCandidate(db => {
@@ -1365,7 +1360,7 @@ export class LibraryStorage {
   }
 
   cancelAssetPurge(operationId: string): void {
-    this.assetPurgePreviews.delete(operationId)
+    this.assetPurgePreviews.cancel(operationId)
   }
 
   importAsset(id: string, mime: string, buffer: Buffer): void {

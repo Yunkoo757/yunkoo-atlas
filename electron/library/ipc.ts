@@ -1,6 +1,6 @@
 import { isAssetPurgeCommitEnabled } from '../../src/config/assetPurge'
 import type { LibraryActivationResult } from '../../src/types/journalBridge'
-import { sha256File } from './fileChecksum'
+import { exportVerifiedPurgeArchive } from './assetPurgeRecovery'
 import {
   ipcMain,
   dialog,
@@ -12,11 +12,10 @@ import {
 } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
-import os from 'node:os'
 import { safeConsoleError } from '../diagnosticSanitizer'
 import { JournalImportPreviews } from './journalImportPreviews'
 import { LibraryStorage } from './storage'
-import { exportJournalZip, importJournalZipToPath, installPreparedLibraryAtPath } from './journalZip'
+import { exportJournalZip, installPreparedLibraryAtPath } from './journalZip'
 import { ensureLibraryDirs } from './paths'
 import {
   getLibraryLocationState,
@@ -34,7 +33,6 @@ import {
   verifyBackupAtPath,
 } from './backup'
 import { assertSafeAssetId } from '../../src/storage/assetId'
-import { OperationalError } from '../../src/lib/operationalError'
 import { LibraryBusyError, LibraryOperationGate } from './sessionGate'
 import { LibraryAutoBackup } from './autoBackup'
 import { LibraryWriterSessions, type WriterGrant } from './writerSession'
@@ -69,13 +67,6 @@ import {
 
 let storage: LibraryStorage | null = null
 let openingStorage: Promise<LibraryStorage> | null = null
-const assetPurgeAuthorizations = new Map<string, {
-  token: string
-  signature: string
-  archivePath: string
-  archiveSha256: string
-  createdAt: number
-}>()
 let exitPreparedStorage: LibraryStorage | null = null
 const operationGate = new LibraryOperationGate()
 const writers = new LibraryWriterSessions()
@@ -623,7 +614,6 @@ async function recoverActiveStorageLifecycle(
         activateCandidate: (candidate) => {
           autoBackup.start(candidate)
           storage = candidate
-          assetPurgeAuthorizations.clear()
           storageActivated = true
         },
         reloadRenderer: async () => {
@@ -799,44 +789,28 @@ export function registerLibraryIpc(): void {
     const preview = payload.preview
     const lib = await ensureStorage()
     writers.assert(event, payload.writerToken, lib)
-    if (lib.getSnapshotRevision() !== preview.revision) throw new OperationalError('asset-gc-stale-revision', '资料库在预览后已变化，请重新扫描附件')
-    const win = BrowserWindow.getFocusedWindow()
-    const date = new Date().toISOString().slice(0, 10)
-    const options = {
-      title: '导出永久清理恢复归档',
-      defaultPath: path.join(app.getPath('documents'), `trader-atlas-before-cleanup-${date}.journal.zip`),
-      filters: [{ name: 'Journal Archive', extensions: ['journal.zip', 'zip'] }],
-    }
-    const result = win
-      ? await dialog.showSaveDialog(win, options)
-      : await dialog.showSaveDialog(options)
-    if (result.canceled || !result.filePath) return null
-    const operation = beginOperation('archive', {
-      operationId: preview.operationId,
-      actionId: preview.operationId,
-      stage: 'export-recovery',
-      revisionBefore: preview.revision,
-    })
+    let operation: OperationLogHandle | undefined
     try {
-      await exportJournalZip(lib, result.filePath!)
-      const verificationRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-purge-recovery-'))
-      try {
-        await importJournalZipToPath(verificationRoot, result.filePath!)
-      } finally {
-        fs.rmSync(verificationRoot, { recursive: true, force: true })
-      }
-      const token = randomUUID()
-      assetPurgeAuthorizations.set(preview.operationId, {
-        token,
-        signature: JSON.stringify(preview),
-        archivePath: path.resolve(result.filePath!),
-        archiveSha256: sha256File(result.filePath!),
-        createdAt: Date.now(),
+      const recovery = await lib.prepareAssetPurgeRecovery(preview, async () => {
+        const win = BrowserWindow.getFocusedWindow()
+        const date = new Date().toISOString().slice(0, 10)
+        const options = {
+          title: '导出永久清理恢复归档',
+          defaultPath: path.join(app.getPath('documents'), `trader-atlas-before-cleanup-${date}.journal.zip`),
+          filters: [{ name: 'Journal Archive', extensions: ['journal.zip', 'zip'] }],
+        }
+        const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
+        if (result.canceled || !result.filePath) return null
+        operation = beginOperation('archive', {
+          operationId: preview.operationId, actionId: preview.operationId,
+          stage: 'export-recovery', revisionBefore: preview.revision,
+        })
+        return exportVerifiedPurgeArchive(lib, result.filePath)
       })
-      operation.success({ stage: 'verified', revisionAfter: preview.revision })
-      return { authorization: token, path: result.filePath }
+      operation?.success({ stage: 'verified', revisionAfter: preview.revision })
+      return recovery
     } catch (error) {
-      operation.failure(error, { stage: 'export-recovery' })
+      operation?.failure(error, { stage: 'export-recovery' })
       throw error
     }
   }))
@@ -855,34 +829,7 @@ export function registerLibraryIpc(): void {
         }
         const lib = await ensureStorage()
         writers.assert(event, payload.writerToken, lib)
-        const prepared = assetPurgeAuthorizations.get(payload.preview.operationId)
-        assetPurgeAuthorizations.delete(payload.preview.operationId)
-        // 归档可选；主动提供授权时，仍校验它与预览、文件的绑定。
-        if (payload.authorization !== undefined) {
-          if (
-            !payload.authorization ||
-            !prepared ||
-            prepared.token !== payload.authorization ||
-            prepared.signature !== JSON.stringify(payload.preview) ||
-            Date.now() - prepared.createdAt > 15 * 60_000
-          ) {
-            throw new Error('附件清理缺少与本次预览绑定的恢复归档授权')
-          }
-          let recoveryArchiveStat: fs.Stats
-          try {
-            recoveryArchiveStat = fs.lstatSync(prepared.archivePath)
-          } catch {
-            throw new Error('附件清理恢复归档已移动或删除，请重新导出')
-          }
-          if (
-            !recoveryArchiveStat.isFile() ||
-            recoveryArchiveStat.isSymbolicLink() ||
-            sha256File(prepared.archivePath) !== prepared.archiveSha256
-          ) {
-            throw new Error('附件清理恢复归档在导出后发生变化，请重新导出')
-          }
-        }
-        return withStorageRecoveryNotification(() => lib.commitAssetPurge(payload.preview), notifyStorageRecoveryRequired)
+        return withStorageRecoveryNotification(() => lib.commitAssetPurge(payload.preview, payload.authorization), notifyStorageRecoveryRequired)
       })
       operation.success({ stage: 'committed', revisionAfter: result.revision })
       return result
@@ -895,7 +842,6 @@ export function registerLibraryIpc(): void {
   ipcMain.handle('storage:cancelAssetPurge', async (event, payload) => withStorage((lib) => {
     writers.assert(event, payload.writerToken, lib)
     const operationId = payload.operationId as string
-    assetPurgeAuthorizations.delete(operationId)
     lib.cancelAssetPurge(operationId)
     return true
   }))
