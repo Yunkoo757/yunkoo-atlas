@@ -233,7 +233,7 @@ console.log(
 )
 
 const assetTests = await page.evaluate(async () => {
-  const mod = await import('/src/storage/assets.test.ts')
+  const mod = await import('/src/storage/assets.browser.test.ts')
   const results = []
   for (const name of [
     'testMissingAssetRendersDiagnosticPlaceholder',

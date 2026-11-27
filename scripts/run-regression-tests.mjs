@@ -17,10 +17,7 @@ function restoreNodeEnv() {
   else process.env.NODE_ENV = originalNodeEnv
 }
 
-const discoveredEntries = await discoverUnitTestEntries(root, {
-  // 该文件依赖真实 DOM，通过 assets.browser.test.html 执行。
-  excluded: ['src/storage/assets.test.ts'],
-})
+const discoveredEntries = await discoverUnitTestEntries(root)
 const unitOnly = process.argv.includes('--unit-only')
 const requestedEntries = process.argv.slice(2).filter((argument) => !argument.startsWith('--'))
 for (const entry of requestedEntries) {

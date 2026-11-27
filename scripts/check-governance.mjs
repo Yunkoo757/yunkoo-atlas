@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 
-import { discoverBrowserTests, discoverUnitTestEntries } from './test-discovery.mjs'
+import { discoverBrowserTests, discoverQualityNodeTests, discoverUnitTestEntries } from './test-discovery.mjs'
 import { executionReportPath, hashFile } from './quality-execution.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
 import { desktopDependencyGraph, findEagerCycles, firstForbiddenPath, importsTarget, importsWithinTarget } from './governance-imports.mjs'
@@ -23,14 +23,9 @@ const provenance = await readGitProvenance(root)
 
 async function main() {
   scenarios = JSON.parse(await fs.readFile(path.join(root, 'scripts/quality-scenarios.json'), 'utf8'))
-  const unitEntries = new Set((await discoverUnitTestEntries(root, {
-    excluded: ['src/storage/assets.test.ts'],
-  })).map(normalized))
+  const unitEntries = new Set((await discoverUnitTestEntries(root)).map(normalized))
   const browserEntries = new Set((await discoverBrowserTests(root)).map((entry) => normalized(entry.label)))
-  const nodeTestPatterns = [
-    /^scripts\/fixtures\/.*\.test\.mjs$/,
-    /^scripts\/(test-discovery|release-command|release-artifacts)\.test\.mjs$/,
-  ]
+  const nodeEntries = new Set(await discoverQualityNodeTests(root))
   let execution = null
   if (requireExecution) {
     try {
@@ -81,8 +76,8 @@ async function main() {
       if (scenario.mode === 'manual') continue
       const relative = normalized(evidence)
       const isBrowser = relative.endsWith('.browser.test.html') && browserEntries.has(relative)
-      const isUnit = relative.endsWith('.test.ts') && unitEntries.has(relative)
-      const isNode = nodeTestPatterns.some((pattern) => pattern.test(relative))
+      const isUnit = unitEntries.has(relative)
+      const isNode = nodeEntries.has(relative)
       if (!isBrowser && !isUnit && !isNode) {
         failures.push(`自动场景证据不在测试发现链：${scenario.id} → ${evidence}`)
         scenarioVerified = false

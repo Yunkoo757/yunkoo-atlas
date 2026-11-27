@@ -44,11 +44,9 @@ test('unit discovery includes new tests without a runner allowlist', async () =>
     await write(root, 'src/domain/newRule.test.ts')
     await write(root, 'src/domain/browserOnly.browser.test.ts')
     await write(root, 'electron/library/storage.test.ts')
-    await write(root, 'src/storage/assets.test.ts')
+    await write(root, 'src/storage/assets.browser.test.ts')
 
-    const entries = await discoverUnitTestEntries(root, {
-      excluded: ['src/storage/assets.test.ts'],
-    })
+    const entries = await discoverUnitTestEntries(root)
 
     assert.deepEqual(entries, [
       'electron/library/storage.test.ts',

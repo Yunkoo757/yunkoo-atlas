@@ -27,8 +27,7 @@ async function walkFiles(root, relativeDirectory) {
   return files
 }
 
-export async function discoverUnitTestEntries(root, options = {}) {
-  const excluded = new Set(options.excluded ?? [])
+export async function discoverUnitTestEntries(root) {
   const files = [
     ...await walkFiles(root, 'src'),
     ...await walkFiles(root, 'electron'),
@@ -36,8 +35,18 @@ export async function discoverUnitTestEntries(root, options = {}) {
   return files
     .filter((file) => /\.test\.tsx?$/.test(file))
     .filter((file) => !/\.browser\.test\.tsx?$/.test(file))
-    .filter((file) => !excluded.has(file))
     .sort()
+}
+
+export async function discoverQualityNodeTests(root) {
+  const fixtures = await fs.readdir(path.join(root, 'scripts/fixtures'), { withFileTypes: true })
+  return [
+    'scripts/release-command.test.mjs',
+    'scripts/release-artifacts.test.mjs',
+    'scripts/test-discovery.test.mjs',
+    ...fixtures.filter(file => file.isFile() && file.name.endsWith('.test.mjs'))
+      .map(file => `scripts/fixtures/${file.name}`).sort(),
+  ]
 }
 
 function collectPromiseKeys(source, target) {
