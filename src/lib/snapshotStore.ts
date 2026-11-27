@@ -7,9 +7,10 @@ import { useStore } from '@/store/useStore'
 import { createNewLibrarySnapshot } from '@/storage/emptySnapshot'
 import type { PersistedSnapshot } from '@/storage/types'
 
-export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
+function publishSnapshot(snapshot: PersistedSnapshot, fields: Partial<ReturnType<typeof useStore.getState>>): void {
   useStore.setState({
     ...snapshotToRuntimeState(snapshot),
+    ...fields,
     undoStack: [],
     redoStack: [],
   })
@@ -17,31 +18,20 @@ export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
   useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
 }
 
-export function resetEmptyLibraryIntoStore(): void {
-  useToast.getState().dismiss()
-  const initial = createNewLibrarySnapshot()
-  useStore.setState({
-    ...snapshotToRuntimeState(initial),
-    // 新库首次展示使用批准的预设顺序，已保存的标签在读取时按名称归一。
-    tagPresets: initial.tagPresets,
-    mistakeTagPresets: initial.mistakeTagPresets,
-    undoStack: [],
-    redoStack: [],
-    selectedId: null,
-    composerOpen: false,
-    composerTrade: null,
-    composerKind: null,
-    composerProjectId: null,
-    composerGroup: null,
-    closeTradeRequest: null,
-  })
-  useStore.getState().hydrateProfile(initial.profile)
-  useShortcutStore.getState().hydrateBindings(initial.shortcuts)
+export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
+  publishSnapshot(snapshot, {})
 }
 
-export function clearSessionUiAfterLibrarySwitch(): void {
-  useToast.getState().dismiss()
-  useStore.setState({
+/** 整库切换、恢复或重载时，旧记录的选择与交易指令和数据在同一次 store 更新中交接。 */
+export function replaceLibraryInStore(snapshot: PersistedSnapshot | null): void {
+  const source = snapshot ?? createNewLibrarySnapshot()
+  // 新库首次展示采用配置中的预设顺序，已有库的标签按读取规则归一。
+  const initialTags = snapshot ? {} : {
+    tagPresets: source.tagPresets ?? [],
+    mistakeTagPresets: source.mistakeTagPresets ?? [],
+  }
+  publishSnapshot(source, {
+    ...initialTags,
     selectedId: null,
     composerOpen: false,
     composerTrade: null,
@@ -49,9 +39,10 @@ export function clearSessionUiAfterLibrarySwitch(): void {
     composerProjectId: null,
     composerGroup: null,
     closeTradeRequest: null,
-    undoStack: [],
-    redoStack: [],
+    pendingTradeOpenRequest: null,
+    riskSetupTradeOpenRequest: null,
   })
   useShortcutStore.setState({ listContext: null, lightbox: null })
+  useToast.getState().dismiss()
   useSaveStatus.getState().reset()
 }

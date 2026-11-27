@@ -1,6 +1,6 @@
 import type { PersistencePause } from '@/storage/persistenceController'
 import { clearReviewSessionFilters, clearReviewSessionStorage } from '@/lib/reviewSession'
-import { applySnapshotToStore, clearSessionUiAfterLibrarySwitch } from '@/lib/snapshotStore'
+import { replaceLibraryInStore } from '@/lib/snapshotStore'
 import type { ParsedWebJournalArchive } from '@/lib/webJournalArchive'
 import { flushStorageBeforeCutover, haltPersistAfterCutover, lockStorageCutoverInteraction } from '@/storage/cutover'
 import { getElectronAdapter } from '@/storage/electronAdapter'
@@ -48,8 +48,7 @@ async function restoreCurrentLibrary(
       const manifest = await storage.getManifest()
       clearReviewSessionStorage(manifest.libraryId)
       clearReviewSessionFilters(manifest.libraryId)
-      applySnapshotToStore(result.snapshot)
-      clearSessionUiAfterLibrarySwitch()
+      replaceLibraryInStore(result.snapshot)
       safeToFlush = true
       await afterPublish?.()
       return { ok: true, committed: true }

@@ -23,7 +23,7 @@ import type {
 import { useStore } from '@/store/useStore'
 import {
   applySnapshotToStore,
-  clearSessionUiAfterLibrarySwitch,
+  replaceLibraryInStore,
 } from '@/lib/snapshotStore'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
@@ -169,7 +169,7 @@ export function testLibraryRestoreClearsEphemeralEditingAndNavigationState(): vo
       },
     })
 
-    clearSessionUiAfterLibrarySwitch()
+    replaceLibraryInStore(createEmptyPersistedSnapshot())
 
     const state = useStore.getState()
     const shortcuts = useShortcutStore.getState()

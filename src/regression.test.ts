@@ -1,4 +1,4 @@
-import { resetEmptyLibraryIntoStore } from '@/lib/snapshotStore'
+import { replaceLibraryInStore } from '@/lib/snapshotStore'
 import type { Strategy } from '@/data/strategies'
 import { getTradeRemainingDays, isTradeExpired, type Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY, filterTrades, applyDisplayPrefs, type DisplayPrefs } from '@/lib/tradeFilters'
@@ -506,7 +506,7 @@ export function testEmptyLibraryUsesApprovedDefaultProfile(): void {
   const previous = useStore.getState()
   const previousBindings = useShortcutStore.getState().bindings
   try {
-    resetEmptyLibraryIntoStore()
+    replaceLibraryInStore(null)
     const state = useStore.getState()
     assert(
       state.strategies.map((strategy) => `${strategy.id}:${strategy.name}`).join(',') ===

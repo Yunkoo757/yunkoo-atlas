@@ -1,4 +1,4 @@
-import { applySnapshotToStore, clearSessionUiAfterLibrarySwitch, resetEmptyLibraryIntoStore } from '@/lib/snapshotStore'
+import { replaceLibraryInStore } from '@/lib/snapshotStore'
 import { haltPersistAfterCutover, lockStorageCutoverInteraction } from '@/storage/cutover'
 import { getElectronAdapter } from '@/storage/electronAdapter'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
@@ -9,7 +9,6 @@ import {
   hasSamePersistedStateRevision,
   type PersistedStateRevision,
 } from '@/store/persistedRevision'
-import { useSaveStatus } from '@/store/saveStatus'
 
 async function flushCurrentLibraryAtStableRevision(): Promise<PersistedStateRevision> {
   for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -81,14 +80,7 @@ export async function switchActiveLibrary(
     }
     getElectronAdapter().clearObjectUrlCache()
 
-    const snapshot = result.snapshot
-    if (snapshot) {
-      applySnapshotToStore(snapshot)
-      clearSessionUiAfterLibrarySwitch()
-    } else {
-      resetEmptyLibraryIntoStore()
-      useSaveStatus.getState().reset()
-    }
+    replaceLibraryInStore(result.snapshot)
 
     safeToFlush = true
     return { ok: true, path: await bridge.getLibraryPath() }

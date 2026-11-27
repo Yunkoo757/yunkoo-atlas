@@ -10,7 +10,7 @@ import { pickPersisted, suspendPersist, disablePersistWrites } from '@/storage/p
 import { useStore } from '@/store/useStore'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useSaveStatus } from '@/store/saveStatus'
-import { applySnapshotToStore, clearSessionUiAfterLibrarySwitch } from '@/lib/snapshotStore'
+import { replaceLibraryInStore } from '@/lib/snapshotStore'
 import { notifyStorageRecoveryRequired } from '@/lib/storageRecovery'
 import { clearReviewSessionFilters, clearReviewSessionStorage } from '@/lib/reviewSession'
 
@@ -71,8 +71,7 @@ async function commitLibraryOrganization(expected: string, makeCandidate: (befor
         },
         persist: snapshot => storage.commitImport(snapshot, [], { pruneUnreferenced: false }),
         publish: snapshot => {
-          applySnapshotToStore(snapshot)
-          clearSessionUiAfterLibrarySwitch()
+          replaceLibraryInStore(snapshot)
           clearReviewSessionStorage(manifest.libraryId)
           clearReviewSessionFilters(manifest.libraryId)
           published = true

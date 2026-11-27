@@ -1,3 +1,7 @@
+import { replaceLibraryInStore } from '@/lib/snapshotStore'
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
+import { useShortcutStore } from '@/store/shortcutStore'
+import { useSaveStatus } from '@/store/saveStatus'
 import type { MonthlyRiskLimit, RiskPolicyVersion } from '@/data/riskManagement'
 import type { Trade, TradeStatus } from '@/data/trades'
 import { getTradingDayKey } from '@/lib/periods'
@@ -303,5 +307,43 @@ export function testDeletedPublicUpsertCannotDeferFirstOpenUntilRestore(): void 
     assert(!useStore.getState().trades.some((item) => item.id === newDeletedOpen.id), '被拒绝的新建 deleted open 不得写入 Store')
   } finally {
     restore(previous)
+  }
+}
+
+export function testReplacingLibraryNeverPublishesOldOpeningRequestsAgainstNewTrades(): void {
+  const before = useStore.getState()
+  const shortcuts = useShortcutStore.getState()
+  const saveStatus = useSaveStatus.getState()
+  const leaks: string[] = []
+  try {
+    for (const risk of ['confirmation', 'setup'] as const) {
+      for (const destination of ['existing', 'new'] as const) {
+        const currentStage = useStore.getState().currentLiveStageId
+        const source = { ...trade('id-in-both-libraries', 'planned'), tradeKind: 'live' as const, liveStageId: risk === 'setup' ? null : currentStage }
+        useStore.setState({
+          trades: [source], riskPolicyVersions: [], monthlyRiskLimits: [], weeklyRiskPreparations: [],
+          pendingTradeOpenRequest: null, riskSetupTradeOpenRequest: null,
+        })
+        const result = useStore.getState().requestTradeOpen(source.id)
+        assert(result === (risk === 'setup' ? 'not-current-stage' : 'pending-confirmation'), '源库需建立真实待处理请求')
+        const target = createEmptyPersistedSnapshot()
+        target.trades = [{ ...source, symbol: 'EURUSD', liveStageId: target.currentLiveStageId }]
+        const unsubscribe = useStore.subscribe((state, previous) => {
+          if (state.trades !== previous.trades && (state.pendingTradeOpenRequest || state.riskSetupTradeOpenRequest)) {
+            leaks.push(destination + '/' + risk)
+          }
+        })
+        try {
+          replaceLibraryInStore(destination === 'new' ? null : target)
+        } finally { unsubscribe() }
+        const next = useStore.getState()
+        if (next.pendingTradeOpenRequest || next.riskSetupTradeOpenRequest) leaks.push(destination + '/' + risk + '/after')
+      }
+    }
+    assert(leaks.length === 0, '目标库收到来源库的开仓请求：' + leaks.join(','))
+  } finally {
+    useStore.setState(before, true)
+    useShortcutStore.setState(shortcuts, true)
+    useSaveStatus.setState(saveStatus, true)
   }
 }

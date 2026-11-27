@@ -1,10 +1,6 @@
 import { useCallback, useState, useSyncExternalStore } from 'react'
 import { ModalShell } from '@/components/ui/ModalShell'
-import {
-  applySnapshotToStore,
-  clearSessionUiAfterLibrarySwitch,
-  resetEmptyLibraryIntoStore,
-} from '@/lib/snapshotStore'
+import { replaceLibraryInStore } from '@/lib/snapshotStore'
 import { useSaveStatus } from '@/store/saveStatus'
 import { publishDurableStoreRefresh } from '@/storage/bootstrap'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
@@ -38,9 +34,7 @@ export function WebStorageGuard() {
       const envelope = await getIndexedDbAdapter().loadSnapshotEnvelope()
       discardAllNoteDrafts()
       publishDurableStoreRefresh(() => {
-        if (envelope.snapshot) applySnapshotToStore(envelope.snapshot)
-        else resetEmptyLibraryIntoStore()
-        clearSessionUiAfterLibrarySwitch()
+        replaceLibraryInStore(envelope.snapshot)
       })
       pause.discardAndResume()
       clearWebWriteConflictAfterReload(envelope.revision)
