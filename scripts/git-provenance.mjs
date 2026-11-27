@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { repositoryEntries } from './git-worktree.mjs'
 
 export function selectSourceIdentity({ workingTreeDirty, gitTree, sourceFingerprint }) {
   return workingTreeDirty
@@ -26,26 +27,23 @@ export function assertLocalSourceUnchanged(expected, current) {
 
 export async function readGitProvenance(root = process.cwd()) {
   const gitCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
-  const gitTree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: root, encoding: 'utf8' }).trim()
-  const listed = execFileSync(
-    'git',
-    ['ls-files', '-co', '--exclude-standard', '-z'],
-    { cwd: root, encoding: 'buffer', maxBuffer: 64 * 1024 * 1024 },
-  )
-  const files = listed.toString('utf8').split('\0').filter(Boolean).sort()
+  const gitTree = execFileSync('git', ['rev-parse', `${gitCommit}^{tree}`], { cwd: root, encoding: 'utf8' }).trim()
   const hash = createHash('sha256').update(`commit\0${gitCommit}\0`)
-  let workingTreeDirty = false
-
-  for (const relativePath of files) {
-    hash.update(`path\0${relativePath}\0`)
-    try {
-      const bytes = await fs.readFile(path.join(root, relativePath))
-      hash.update(`bytes\0${bytes.length}\0`)
-      hash.update(bytes)
-    } catch (error) {
-      if (error?.code !== 'ENOENT') throw error
-      hash.update('missing\0')
+  for (const entry of repositoryEntries(root)) {
+    hash.update(`path\0${entry.name}\0`)
+    if (entry.nestedRepository) throw new Error(`Cannot fingerprint nested Git repository: ${entry.name}`)
+    if (entry.linkTarget) {
+      hash.update(`link\0${entry.linkTarget.length}\0`)
+      hash.update(entry.linkTarget)
     }
+    if (!entry.isFile) {
+      hash.update('missing\0')
+      continue
+    }
+    if (entry.executable) hash.update('executable\0')
+    const bytes = await fs.readFile(path.join(root, entry.name))
+    hash.update(`bytes\0${bytes.length}\0`)
+    hash.update(bytes)
   }
 
   const sourceStatus = execFileSync(
@@ -53,7 +51,7 @@ export async function readGitProvenance(root = process.cwd()) {
     ['status', '--porcelain=v1', '--untracked-files=all'],
     { cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
   )
-  workingTreeDirty = sourceStatus.trim().length > 0
+  const workingTreeDirty = sourceStatus.trim().length > 0
 
   const sourceFingerprint = hash.digest('hex')
   return {

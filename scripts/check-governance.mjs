@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { execFileSync } from 'node:child_process'
 
+import { listRepositoryFiles } from './git-worktree.mjs'
 import { discoverBrowserTests, discoverQualityNodeTests, discoverUnitTestEntries } from './test-discovery.mjs'
 import { executionReportPath, hashFile } from './quality-execution.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
@@ -15,7 +15,7 @@ import {
 const root = process.cwd()
 const failures = []
 let scenarios = []
-let files = []
+const files = []
 let pureModules = []
 const verifiedScenarioIds = new Set()
 const requireExecution = process.argv.includes('--require-execution')
@@ -136,30 +136,17 @@ async function main() {
   const preload = await fs.readFile(path.join(root, 'electron/preload.ts'), 'utf8')
   if (!importsTarget(preload, 'electron/preload.ts', 'src/types/journalBridge')) failures.push('Electron preload 未使用统一 JournalBridge 类型源')
 
-  files = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: root, encoding: 'utf8' })
-    .split('\0').filter(Boolean).map(normalized)
-  const textFiles = []
-  for (const file of files) {
-    let bytes
-    try {
-      bytes = await fs.readFile(path.join(root, file))
-    } catch (error) {
-      if (error?.code === 'ENOENT') continue
-      throw error
-    }
+  const executableSources = []
+  for (const file of listRepositoryFiles(root)) {
+    const bytes = await fs.readFile(path.join(root, file))
     if (!isRepositoryText(file, bytes)) continue
-    textFiles.push(file)
+    files.push(file)
     try {
-      decodeRepositoryText(bytes)
+      const source = decodeRepositoryText(bytes)
+      if (isExecutableProductionSource(file)) executableSources.push({ path: file, source })
     } catch (error) {
       failures.push(`${file}：${error.message}`)
     }
-  }
-  files = textFiles
-
-  const executableSources = []
-  for (const file of files.filter(isExecutableProductionSource)) {
-    executableSources.push({ path: file, source: await fs.readFile(path.join(root, file), 'utf8') })
   }
   const bridgeOwners = journalBridgeDeclarationOwners(executableSources)
   for (const [role, owners] of Object.entries(bridgeOwners)) {
@@ -168,7 +155,7 @@ async function main() {
     }
   }
   const desktopModules = executableSources.map(file => file.path)
-    .filter(file => /^(src|electron)\/.*\.[jt]sx?$/.test(file) && !file.endsWith('.d.ts'))
+    .filter(file => /^(src|electron)\/.*\.[jt]sx?$/s.test(file) && !file.endsWith('.d.ts'))
   const editor = 'tools/atlas-data-editor/app.ts'
   const trainer = ['execution-trainer/main.cjs', 'execution-trainer/preload.cjs', 'execution-trainer/renderer.js']
   const graph = {

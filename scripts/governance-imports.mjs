@@ -26,7 +26,7 @@ export function moduleReferences(source, file) {
 export function journalBridgeDeclarationOwners(files) {
   const owners = { contract: [], window: [] }
   for (const { path, source } of files) {
-    if (!/^(?:src|electron)\/.*\.tsx?$/.test(path) || !/\b[Jj]ournalBridge\b/.test(source)) continue
+    if (!/^(?:src|electron)\/.*\.tsx?$/s.test(path) || !/\b[Jj]ournalBridge\b/.test(source)) continue
     const tree = ts.createSourceFile(path, source, ts.ScriptTarget.Latest)
     function visit(node) {
       if ((ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) && node.name.text === 'JournalBridge') {

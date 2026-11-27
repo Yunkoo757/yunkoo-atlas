@@ -11,7 +11,12 @@ const textNames = new Set([
   '.gitignore', '.gitattributes', '.editorconfig', '.npmrc', '.nvmrc',
   'license', '.prettierignore', '.eslintignore', 'pre-commit', 'pre-push', 'commit-msg',
 ])
-const decoder = new TextDecoder('utf-8', { fatal: true })
+const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true })
+
+// Git -z emits path bytes. A leading U+FEFF is part of the first name.
+export function decodeGitPaths(bytes) {
+  return decoder.decode(bytes).split('\0').filter(Boolean)
+}
 
 export function isKnownTextPath(file) {
   const name = path.posix.basename(file).toLowerCase()

@@ -1,7 +1,5 @@
-import { decodeRepositoryText, isKnownTextPath } from './repository-text.mjs'
+import { decodeGitPaths, decodeRepositoryText, isKnownTextPath } from './repository-text.mjs'
 import { spawnSync } from 'node:child_process'
-
-const decoder = new TextDecoder('utf-8', { fatal: true })
 
 function git(args) {
   const result = spawnSync('git', args, { maxBuffer: 64 * 1024 * 1024 })
@@ -13,9 +11,9 @@ function git(args) {
 }
 
 try {
-  const paths = decoder.decode(git([
+  const paths = decodeGitPaths(git([
     'diff', '--cached', '--no-ext-diff', '--name-only', '--diff-filter=ACMR', '-z', '--',
-  ])).split('\0').filter(Boolean)
+  ]))
   const failures = []
   let checked = 0
   for (const file of paths) {

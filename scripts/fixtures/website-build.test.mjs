@@ -4,18 +4,17 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { moduleReferences, websiteDependencyGraph } from '../governance-imports.mjs'
-import { execFileSync, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
+import { listRepositoryFiles } from '../git-worktree.mjs'
 
 const root = process.cwd()
 
 function sourceFixture(t) {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-website-build-'))
   t.after(() => fs.rmSync(temporary, { recursive: true, force: true }))
-  // Includes pending deliverable files, but never files hidden by a developer's local exclude rules.
-  const files = execFileSync('git', ['ls-files', '-co', '--exclude-standard', '-z', '--', 'atlas-website', 'atlas-docs-site'], { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean)
-  for (const file of new Set(files)) {
+  const files = listRepositoryFiles(root, { paths: ['atlas-website', 'atlas-docs-site'] })
+  for (const file of files) {
     const source = path.join(root, file)
-    if (!fs.existsSync(source) || !fs.statSync(source).isFile()) continue
     const target = path.join(temporary, file)
     fs.mkdirSync(path.dirname(target), { recursive: true })
     fs.copyFileSync(source, target)

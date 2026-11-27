@@ -30,6 +30,7 @@ on:
       - 'electron/platformSafety.test.ts'
       - 'scripts/bundle-build-identity.mjs'
       - 'scripts/git-provenance.mjs'
+      - 'scripts/git-worktree.mjs'
       - 'scripts/run-forced-kill-evidence.mjs'
       - 'scripts/run-asset-lifecycle-platform.mjs'
       - 'scripts/run-electron-safety-platform.mjs'

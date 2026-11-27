@@ -71,6 +71,16 @@ test('empty index and Chinese paths pass without changing staged or working cont
   assert.deepEqual(readFileSync(path.join(repo.root, '目录/中文 空格.md')), contentsBefore)
 })
 
+test('a leading U+FEFF belongs to the staged filename', t => {
+  const repo = repository(t)
+  const name = '\uFEFF暂存.md'
+  repo.write(name, '有效中文\n')
+  repo.git('add', '--', name)
+  const result = repo.check()
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /1 个文本文件/)
+})
+
 test('partial staging checks index bytes rather than newer working-tree bytes', (t) => {
   const repo = repository(t)
   repo.write('部分 暂存.md', '有效中文\n')

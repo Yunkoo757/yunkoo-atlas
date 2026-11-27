@@ -1,13 +1,9 @@
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
+import { listRepositoryFiles } from './git-worktree.mjs'
 import test from 'node:test'
 
-const trackedPaths = execFileSync('git', ['ls-files'], { encoding: 'utf8' })
-  .trim()
-  .split(/\r?\n/)
-  .filter(Boolean)
-  .filter((filePath) => existsSync(filePath))
+const trackedPaths = listRepositoryFiles(process.cwd(), { trackedOnly: true })
 
 const compatibilityFiles = new Set([
   'scripts/vendor-neutral-contract.test.mjs',
@@ -29,7 +25,7 @@ test('project-owned paths are vendor neutral', () => {
 test('active project text is vendor neutral', () => {
   const violations = []
   for (const filePath of trackedPaths) {
-    if (!existsSync(filePath) || compatibilityFiles.has(filePath) || binaryExtensions.test(filePath)) continue
+    if (compatibilityFiles.has(filePath) || binaryExtensions.test(filePath)) continue
     const source = readFileSync(filePath, 'utf8')
     // Bundled graphics libraries use Linear* for interpolation and color math.
     // Continue checking literal branding there; identifier naming is project-owned.

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
+import { listRepositoryFiles } from '../git-worktree.mjs'
 import test from 'node:test'
 import { decodeRepositoryText, isRepositoryText } from '../repository-text.mjs'
 import { importsTarget, importsWithinTarget, journalBridgeDeclarationOwners } from '../governance-imports.mjs'
@@ -171,14 +171,7 @@ test('旧阶段字段只允许存在于逐文件逐字段的 v11 解码边界', 
 })
 
 test('全部可执行生产源码不再消费旧阶段真值或展示旧重置文案', () => {
-  const paths = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {
-    encoding: 'utf8',
-  })
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .map((path) => path.replaceAll('\\', '/'))
-    .filter(existsSync)
-    .filter(isExecutableProductionSource)
+  const paths = listRepositoryFiles(process.cwd()).filter(isExecutableProductionSource)
   const files = paths.map((path) => ({ path, source: readFileSync(path, 'utf8') }))
   assert.deepEqual(findForbiddenLegacyRuntimeMatches(files), [])
 })
