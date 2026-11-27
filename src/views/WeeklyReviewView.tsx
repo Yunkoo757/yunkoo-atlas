@@ -51,7 +51,7 @@ import { tradeMetricTone } from '@/lib/tradeRowPresentation'
 import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 import { parseLocalDate, formatYmd } from '@/lib/periods'
 import { toast } from '@/lib/toast'
-import { getWeeklyReviewCompletionIssue } from '@/lib/weeklyReviewCompletion'
+import { submitWeeklyReview } from '@/lib/submitWeeklyReview'
 import {
   buildWeeklyReviewReturnSearch,
   buildWeeklyReviewSearch,
@@ -282,7 +282,6 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
   )
   const upsertReview = useStore((state) => state.upsertWeeklyReview)
   const updateReview = useStore((state) => state.updateWeeklyReview)
-  const completeWeeklyReview = useStore((state) => state.completeWeeklyReview)
   const reopenWeeklyReview = useStore((state) => state.reopenWeeklyReview)
   const businessDateAnchor = useBusinessDateAnchor()
   const currentWeek = weekStartFor(parseLocalDate(businessDateAnchor.currentTradingDayKey))
@@ -431,7 +430,7 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
     }
   }, [dataRouterContext, navigationContext.navigator])
 
-  useEffect(() => () => {
+  useLayoutEffect(() => () => {
     routeIntentGenerationRef.current += 1
   }, [])
 
@@ -729,22 +728,19 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
   }
 
   const completeReview = async () => {
-    const draftSaved = await flushDraft()
-    if (useStore.getState().librarySession !== librarySession) return
-    const latest = useStore.getState().weeklyReviews.find((item) =>
-      item.weekStart === selectedWeek && item.liveStageId === reviewLiveStageId,
-    ) ?? review
-    const issue = getWeeklyReviewCompletionIssue(latest, draftSaved)
-    if (issue) {
-      const nextIssues = draftSaved
-        ? getWeeklyVisualIssues(latest)
-        : [UNSAVED_CONTENT_ISSUE, ...getWeeklyVisualIssues(latest)]
-      pendingIssueFocusRef.current = nextIssues[0] ?? null
-      setVisualIssues(nextIssues)
+    const intent = routeIntentGenerationRef.current
+    const result = await submitWeeklyReview(review, librarySession)
+    if (useStore.getState().librarySession !== librarySession || result.status === 'superseded') return
+    if (result.status === 'blocked' && !result.draftSaved) reportWeeklyDraftFailure()
+    if (intent !== routeIntentGenerationRef.current) return
+    if (result.status === 'blocked') {
+      const issues = getWeeklyVisualIssues(result.review)
+      if (!result.draftSaved) issues.unshift(UNSAVED_CONTENT_ISSUE)
+      pendingIssueFocusRef.current = issues[0] ?? null
+      setVisualIssues(issues)
       return
     }
     setVisualIssues([])
-    completeWeeklyReview(latest.id)
     toast('本周复盘已完成，指标已冻结', { tone: 'success' })
   }
 

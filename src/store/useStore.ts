@@ -54,7 +54,6 @@ import { DEFAULT_TRADING_DAY_START_HOUR, getTradingDayKey } from '@/lib/periods'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import type { TradeClosePatch } from '@/lib/tradeClose'
 import {
-  completeWeeklyReviewCandidate,
   normalizeWeeklyReviews,
   reopenCompletedReview,
   type WeeklyReview,
@@ -417,7 +416,6 @@ interface State {
       | 'completedAt'
     >>,
   ) => void
-  completeWeeklyReview: (id: string) => void
   reopenWeeklyReview: (id: string) => void
   upsertQuickNote: (note: QuickNote) => void
   updateQuickNote: (id: string, patch: Partial<Pick<QuickNote, 'title' | 'titleMode' | 'contentHtml' | 'pinned'>>) => void
@@ -796,10 +794,6 @@ export const useStore = create<State>()((set, get) => ({
             )),
           }
         }),
-      completeWeeklyReview: (id) =>
-        set((state) => ({
-          weeklyReviews: completeWeeklyReviewCandidate(state, id).weeklyReviews,
-        })),
       reopenWeeklyReview: (id) =>
         set((state) => ({
           weeklyReviews: normalizeWeeklyReviews(state.weeklyReviews.map((review) =>

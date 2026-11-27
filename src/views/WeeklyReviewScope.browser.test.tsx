@@ -5,6 +5,7 @@ import type { Trade } from '@/data/trades'
 import { getTradingDayKey, parseLocalDate, formatYmd } from '@/lib/periods'
 import { TradeWorkspaceContext } from '@/components/TradeWorkspaceContext'
 import { useStore } from '@/store/useStore'
+import { submitWeeklyReview } from '@/lib/submitWeeklyReview'
 import { useShortcutHost } from '@/shortcuts/ShortcutHost'
 import { WeeklyReviewView } from './WeeklyReviewView'
 import '@/styles/tokens.css'
@@ -28,7 +29,8 @@ async function run(){
     const shell=document.querySelector('.wr-shell')!, rail=document.querySelector('.wr-history')!, left=document.querySelector('.wr-main')!.getBoundingClientRect().left, columns=getComputedStyle(shell).gridTemplateColumns
     assert(!document.querySelector<HTMLDetailsElement>('.wr-record-picker')!.open,'记录默认收起，正文保持完整阅读轨道')
     const currentReview={...createWeeklyReview(week,current),executionScore:4,riskScore:4,emotionScore:4,contentHtml:'<p>当前阶段完成快照</p>',commitmentText:'保持等待',commitmentCriteria:'遵循确认条件'}
-    useStore.setState({weeklyReviews:[currentReview]});useStore.getState().completeWeeklyReview(currentReview.id)
+    useStore.setState({weeklyReviews:[currentReview]})
+    await submitWeeklyReview(currentReview,useStore.getState().librarySession)
     const frozen=JSON.stringify(useStore.getState().weeklyReviews[0])
     const oldReview={...createWeeklyReview(week,old),contentHtml:'<p>历史阶段独立草稿</p>'}
     useStore.setState(state=>({weeklyReviews:[...state.weeklyReviews,oldReview],trades:[pendingTrade]}))
