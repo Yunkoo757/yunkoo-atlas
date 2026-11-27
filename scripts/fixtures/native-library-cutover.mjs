@@ -114,6 +114,25 @@ async function verifyConfigPublication(application, page, libraryPath, candidate
 }
 
 export async function verifyCutoverReceipts({ application, page, libraryPath, candidatePath, userDataPath }) {
+  // 前一阶段已在真实界面完成恢复和接续保存。保留同一窗口、受信入口和生产 preload，
+  // 直接测试 IPC 时仅运行这一个写入者，避免 UI 自动保存与测试快照竞争。
+  const trustedUrl = page.url()
+  let blockedRendererScripts = 0
+  await page.route('**/*', route => {
+    if (route.request().resourceType() !== 'script') return route.continue()
+    blockedRendererScripts++
+    return route.abort()
+  })
+  await page.reload({ waitUntil: 'load' })
+  assert.equal(page.url(), trustedUrl)
+  assert.ok(blockedRendererScripts > 0)
+  const savedTag = await page.evaluate(async () => {
+    const bridge = window.journalBridge
+    if (!bridge || document.querySelector('#root')?.childElementCount !== 0) throw new Error('桥接验收需要原生 preload 和空的界面挂载点')
+    await bridge.storageOpen()
+    return (await bridge.loadSnapshot())?.tagPresets[0]
+  })
+  assert.equal(savedTag, 'post-recovery-follow-up', '实际恢复界面的后续保存应能由新的窗口会话读回')
   // 替换已提交后，单独查询版本可能被下一次独占操作拒绝。
   // 本阶段只保留普通快照读取，禁止通过第二条版本 IPC 补齐写入回执。
   await application.evaluate(({ ipcMain }) => {
