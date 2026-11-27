@@ -73,6 +73,7 @@ assert.throws(()=>validate({...snapshot,currentLiveStageId:'missing'}))
 db.close()
 // Synthetic export fixture, retaining actual field shapes but replacing image bytes.
 const fixture=JSON.parse(JSON.stringify(snapshot).replace(/journal-asset:\/\/[^"'\s<>\\]+/g,'journal-asset://fixture'))
+fixture.editorTestExtension = { annotation: 'journal-asset://fixture', preserved: true }
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jWZkAAAAASUVORK5CYII=','base64')
 const fdb=new SQL.Database();fdb.run('CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT);CREATE TABLE assets(id TEXT PRIMARY KEY,mime TEXT,file_name TEXT,byte_size INTEGER,created_at TEXT);')
 for(const [k,v]of Object.entries({schemaVersion:String(SCHEMA_VERSION),snapshot:JSON.stringify(fixture)}))fdb.run('INSERT INTO meta VALUES (?,?)',[k,v])
@@ -149,6 +150,26 @@ try{
    assert.match(await page.locator('#message').innerText(),/不可移植/, 'export must apply desktop attachment index rules')
    assert.equal(await page.evaluate(()=>window.testOutput.size),0)
  }
+ for (const [field, value, missing] of [
+   ['note', 'journal-asset://fixture<suffix', 'fixture<suffix'],
+   ['extension', 'journal-asset://not-in-index', 'not-in-index'],
+ ]) {
+   const altered = structuredClone(fixture)
+   if (field === 'note') altered.trades[0].note = value
+   else altered.retainedExtension = { annotation: value }
+   const candidate = new SQL.Database(files['journal.db'])
+   candidate.run("UPDATE meta SET value=? WHERE key='snapshot'", [JSON.stringify(altered)])
+   const bytes = Array.from(candidate.export())
+   candidate.close()
+   await page.evaluate(bytes => window.testSource.set('journal.db', new Uint8Array(bytes)), bytes)
+   await page.locator('#open').click()
+   await page.waitForFunction(() => !document.querySelector('#open').disabled)
+   await page.locator('#export').click()
+   await page.waitForFunction(() => !document.querySelector('#export').disabled)
+   assert.ok((await page.locator('#message').innerText()).includes('缺失附件登记：' + missing),
+     '导出必须拒绝缺失的原始引用：' + missing + '；实际结果：' + await page.locator('#message').innerText())
+   assert.equal(await page.evaluate(() => window.testOutput.size), 0)
+ }
  await page.evaluate(bytes=>window.testSource.set('journal.db',new Uint8Array(bytes)),files['journal.db'])
  await page.locator('#open').click()
  await page.waitForFunction(()=>!document.querySelector('#open').disabled)
@@ -213,7 +234,11 @@ try{
  for(const [key,bytes]of Object.entries(result)){const target=path.join(out,'export',key);await fs.mkdir(path.dirname(target),{recursive:true});await fs.writeFile(target,new Uint8Array(bytes))}
  const recovery=JSON.parse(Buffer.from(result['editor-export-state.json']).toString('utf8'))
  assert.equal(recovery.databaseSha256,createHash('sha256').update(Buffer.from(result['journal.db'])).digest('hex'))
- const reopened=new SQL.Database(new Uint8Array(result['journal.db']));validate(decode(JSON.parse(reopened.exec("SELECT value FROM meta WHERE key='snapshot'")[0].values[0][0]),SCHEMA_VERSION));reopened.close()
+ const reopened = new SQL.Database(new Uint8Array(result['journal.db']))
+ const storedSnapshot = JSON.parse(reopened.exec("SELECT value FROM meta WHERE key='snapshot'")[0].values[0][0])
+ validate(decode(storedSnapshot, SCHEMA_VERSION))
+ assert.deepEqual(storedSnapshot.editorTestExtension, fixture.editorTestExtension)
+ reopened.close()
  assert.deepEqual(Buffer.from(result['attachments/fixture.png']),png)
  await build({configFile:false,resolve:{alias:{'@':path.resolve('src')}},build:{ssr:path.resolve('electron/library/storage.ts'),outDir:path.join(out,'desktop-reader'),emptyOutDir:false,rollupOptions:{output:{entryFileNames:'storage.mjs'}}}})
  const {LibraryStorage}=await import(pathToFileURL(path.join(out,'desktop-reader/storage.mjs')))

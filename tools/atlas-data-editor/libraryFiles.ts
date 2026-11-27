@@ -1,3 +1,4 @@
+import { collectAssetIdsFromSnapshot } from '../../src/storage/snapshotRichText'
 import { sha256Hex } from '../../src/lib/sha256'
 import type { Database, SqlJsStatic } from 'sql.js'
 import { CREATE_LIBRARY_TABLES_SQL, isPortableAssetFileName, resolveSnapshotVersion, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
@@ -86,9 +87,13 @@ export async function readEditorAsset(source: EditorSource, asset: EditorAsset):
 export async function checkEditorLibrary(source: EditorSource, snapshot: EditorSnapshot) {
   validate(snapshot)
   const ids = validateLibraryAssetIndex(source.assets.map(asset => ({ id: asset.id, fileName: asset.file_name })))
-  // The offline editor also retains extension fields outside the known rich-text records.
+  const referencedIds = new Set(collectAssetIdsFromSnapshot(snapshot))
+  // 保留旧版对扩展字段的检查。序列化文本中的转义和分隔符与原始 HTML 不同。
   for (const match of JSON.stringify(snapshot).matchAll(/journal-asset:\/\/([^"'\s<>\\]+)/g)) {
-    if (!ids.has(match[1])) throw new Error(`缺失附件登记：${match[1]}`)
+    referencedIds.add(match[1])
+  }
+  for (const id of referencedIds) {
+    if (!ids.has(id)) throw new Error(`缺失附件登记：${id}`)
   }
   for (const asset of source.assets) await readEditorAsset(source, asset)
 }
