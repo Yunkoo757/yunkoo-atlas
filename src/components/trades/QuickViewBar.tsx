@@ -252,16 +252,14 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
     setEditingId(null)
   }
 
-  const deleteSavedView = (view: SavedTradeView) => {
-    removeTradeView(view.id)
-    toast(`已删除视图「${view.name}」`, {
+  const deleteSavedView = (id: string) => {
+    const removed = removeTradeView(id)
+    if (!removed) return
+    toast(`已删除视图「${removed.name}」`, {
       tone: 'success',
       actionLabel: '撤销',
       onAction: () => {
-        const state = useStore.getState()
-        if (state.savedTradeViews.some(item => item.id === view.id)) return
-        state.saveTradeView(view)
-        toast('视图已恢复', { tone: 'success' })
+        if (removed.undo()) toast('视图已恢复', { tone: 'success' })
       },
     })
   }
@@ -428,7 +426,7 @@ export function QuickViewBar({ kind, journal = false }: { kind: WorkspaceKind; j
                       </button>
                     </Tooltip>
                     <Tooltip content="删除" label={`删除 ${view.name}`}>
-                      <button type="button" className="quick-view-icon is-danger" onClick={() => deleteSavedView(view)} aria-label={`删除 ${view.name}`}>
+                      <button type="button" className="quick-view-icon is-danger" onClick={() => deleteSavedView(view.id)} aria-label={`删除 ${view.name}`}>
                         <Trash2 size={ICON_SM} />
                       </button>
                     </Tooltip>

@@ -37,6 +37,7 @@ import {
   workspaceKindFromPath,
   type SidebarCapabilityId,
   type SidebarQuickWorkspace,
+  captureSidebarItemRestore,
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
 import { resolveWorkspaceNavTarget, workspaceRouteHref } from '@/lib/workspaceViews'
@@ -344,17 +345,14 @@ export function Sidebar({ onOpenSearch, showSearch = true }: { onOpenSearch?: ()
       )
       if (!stillPresent) {
         setCapabilityMenu(null)
+        const restore = captureSidebarItemRestore(previous, previous.findIndex(entry => entry.target.kind === 'system' && entry.target.id === id))
         toast(`已从侧栏移除「${label}」`, {
           tone: 'success',
           actionLabel: '撤销',
           onAction: () => {
             const current = useStore.getState().display.sidebarWorkspaceItems
-            const index = previous.findIndex(entry => entry.target.kind === 'system' && entry.target.id === id)
-            const removed = previous[index]
-            if (!removed || current.some(entry => entry.target.kind === 'system' && entry.target.id === id)) return
-            const following = current.findIndex(entry => entry.id === previous[index + 1]?.id)
-            const position = following < 0 ? Math.min(index, current.length) : following
-            replaceSidebarWorkspaceItems([...current.slice(0, position), removed, ...current.slice(position)])
+            const nextItems = restore(current)
+            if (nextItems !== current) replaceSidebarWorkspaceItems(nextItems)
           },
         })
         return

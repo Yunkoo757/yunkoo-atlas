@@ -474,6 +474,21 @@ export function normalizeSidebarWorkspaceItems(value: unknown): SidebarWorkspace
   })
 }
 
+/** 撤销移除时保留此后新增或重排的入口，尽量放回原来的后继项之前。 */
+export function captureSidebarItemRestore(previous: SidebarWorkspaceItem[], index: number) {
+  const removed = previous[index]
+  const followingId = previous[index + 1]?.id
+  return (current: SidebarWorkspaceItem[]): SidebarWorkspaceItem[] => {
+    if (!removed || current.some(item => item.id === removed.id)) return current
+    const following = current.findIndex(item => item.id === followingId)
+    const position = following < 0 ? Math.min(index, current.length) : following
+    const atCapacity = current.filter(item => item.placement === 'pinned').length >= MAX_PINNED_SIDEBAR_ITEMS
+    const restored = removed.placement === 'pinned' && atCapacity ? { ...removed, placement: 'overflow' as const } : removed
+    const items = [...current.slice(0, position), restored, ...current.slice(position)]
+    return normalizeSidebarWorkspaceItems(items.map((item, order) => ({ ...item, order })))
+  }
+}
+
 /** 同 placement 组内重排；跨组或找不到则原样返回 */
 export function reorderSidebarWorkspaceItem(
   items: SidebarWorkspaceItem[],

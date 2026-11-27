@@ -1,4 +1,4 @@
-import { canonicalizeTradeViewSearch, normalizeSavedViewPath } from '@/lib/savedTradeViews'
+import { canonicalizeTradeViewSearch, normalizeSavedTradeViews, normalizeSavedViewPath, type SavedTradeView } from '@/lib/savedTradeViews'
 import type { Strategy } from '@/data/strategies'
 import { isValidPeriodSlug } from '@/lib/periods'
 import {
@@ -223,6 +223,12 @@ export function canPinWorkspaceView(
   const workspace = savedViewWorkspace(target)
   const pins = views.filter(view => view.pinned && savedViewWorkspace(view) === workspace)
   return pins.some(view => view.id === target.id) || pins.length < MAX_PINNED_WORKSPACE_VIEWS
+}
+
+export function saveWorkspaceView(views: SavedTradeView[], view: SavedTradeView) {
+  const pinned = view.pinned && canPinWorkspaceView(views, view)
+  const savedTradeViews = normalizeSavedTradeViews([...views.filter(item => item.id !== view.id), { ...view, pinned }])
+  return { savedTradeViews, pinned }
 }
 
 export function isTodayWorkspaceEntryPath(pathname: string): boolean {

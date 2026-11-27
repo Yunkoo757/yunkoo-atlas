@@ -38,11 +38,8 @@ import {
 import { mergeImportPayload } from '@/lib/importMerge'
 import { appendActivity } from '@/lib/activities'
 import { isActive, isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
-import {
-  normalizeSavedTradeViews,
-  type SavedTradeView,
-} from '@/lib/savedTradeViews'
-import { canPinWorkspaceView } from '@/lib/workspaceViews'
+import type { SavedTradeView } from '@/lib/savedTradeViews'
+import { canPinWorkspaceView, saveWorkspaceView } from '@/lib/workspaceViews'
 import {
   normalizeSymbol,
   type SymbolIconsMap,
@@ -60,6 +57,7 @@ import {
 } from '@/data/weeklyReviews'
 import { reconcileExistingExecutionEdit, reopenReviewAfterResultChange } from '@/lib/tradeResult'
 import {
+  captureSidebarItemRestore,
   normalizeSidebarWorkspaceItems,
   type SidebarWorkspaceItem,
 } from '@/lib/sidebarWorkspace'
@@ -270,7 +268,7 @@ interface State {
   setReviewPoolLayout: (layout: ReviewPoolLayout) => void
   saveTradeView: (view: SavedTradeView) => boolean
   renameTradeView: (id: string, name: string) => void
-  removeTradeView: (id: string) => void
+  removeTradeView: (id: string) => { name: string; undo: () => boolean } | null
   togglePinTradeView: (id: string) => 'full' | void
   setSymbolIconPreset: (symbol: string, presetId: string | null) => void
   setSymbolIconCustom: (symbol: string, dataUrl: string | null) => void
@@ -801,11 +799,8 @@ export const useStore = create<State>()((set, get) => ({
           )),
         })),
       saveTradeView: (view) => {
-        const views = get().savedTradeViews
-        const pinned = view.pinned && canPinWorkspaceView(views, view)
-        set({ savedTradeViews: normalizeSavedTradeViews([
-          ...views.filter(item => item.id !== view.id), { ...view, pinned },
-        ]) })
+        const { savedTradeViews, pinned } = saveWorkspaceView(get().savedTradeViews, view)
+        set({ savedTradeViews })
         return pinned
       },
       renameTradeView: (id, name) => {
@@ -819,18 +814,40 @@ export const useStore = create<State>()((set, get) => ({
           ),
         }))
       },
-      removeTradeView: (id) =>
-        set((s) => ({
-          savedTradeViews: s.savedTradeViews.filter((view) => view.id !== id),
-          display: {
-            ...s.display,
-            sidebarWorkspaceItems: normalizeSidebarWorkspaceItems(
-              s.display.sidebarWorkspaceItems.filter((item) => (
-                item.target.kind !== 'saved-view' || item.target.viewId !== id
-              )),
-            ),
+      removeTradeView: (id) => {
+        const source = get()
+        const view = source.savedTradeViews.find(item => item.id === id)
+        if (!view) return null
+        const sidebar = source.display.sidebarWorkspaceItems
+        const index = sidebar.findIndex(item => item.target.kind === 'saved-view' && item.target.viewId === id)
+        const restoreSidebar = captureSidebarItemRestore(sidebar, index)
+        const librarySession = source.librarySession
+        set({
+          savedTradeViews: source.savedTradeViews.filter(item => item.id !== id),
+          display: index < 0 ? source.display : {
+            ...source.display,
+            sidebarWorkspaceItems: normalizeSidebarWorkspaceItems(sidebar.filter((_, i) => i !== index)),
           },
-        })),
+        })
+        let restored = false
+        return {
+          name: view.name,
+          undo() {
+            const current = get()
+            if (restored) return false
+            restored = true
+            if (current.librarySession !== librarySession || current.savedTradeViews.some(item => item.id === id)) return false
+            const { savedTradeViews } = saveWorkspaceView(current.savedTradeViews, view)
+            const sidebarWorkspaceItems = restoreSidebar(current.display.sidebarWorkspaceItems)
+            set({
+              savedTradeViews,
+              display: sidebarWorkspaceItems === current.display.sidebarWorkspaceItems
+                ? current.display : { ...current.display, sidebarWorkspaceItems },
+            })
+            return true
+          },
+        }
+      },
       togglePinTradeView: (id) => {
         const views = get().savedTradeViews
         const target = views.find(view => view.id === id)

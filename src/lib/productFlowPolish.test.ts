@@ -331,14 +331,13 @@ export async function testResultConflictsAndReviewShortcutsHaveDedicatedRecovery
 
 export async function testDesktopShellDashboardAndSavedViewsRemainOperable(): Promise<void> {
   const fs = await import('node:fs/promises')
-  const [sidebar, batchCss, toolbar, dashboard, segmentedControl, quickView, toastSource, toastCss, emptyState] = await Promise.all([
+  const [sidebar, batchCss, toolbar, dashboard, segmentedControl, quickView, toastCss, emptyState] = await Promise.all([
     fs.readFile('src/components/Sidebar.tsx', 'utf8'),
     fs.readFile('src/components/ui/BatchActionBar.css', 'utf8'),
     fs.readFile('src/components/ui/Toolbar.tsx', 'utf8'),
     fs.readFile('src/views/Dashboard.tsx', 'utf8'),
     fs.readFile('src/components/ui/SegmentedControl.tsx', 'utf8'),
     fs.readFile('src/components/trades/QuickViewBar.tsx', 'utf8'),
-    fs.readFile('src/lib/toast.ts', 'utf8'),
     fs.readFile('src/components/Toast.css', 'utf8'),
     fs.readFile('src/components/EmptyState.tsx', 'utf8'),
   ])
@@ -370,12 +369,6 @@ export async function testDesktopShellDashboardAndSavedViewsRemainOperable(): Pr
       dashboard.includes('label="胜率"') &&
       dashboard.includes('label="平均 R"'),
     '仪表盘核心指标应保持精简，不得重新加入可由胜率推导的盈利笔数卡片',
-  )
-  assert(
-    quickView.includes("label: '撤销'") &&
-      quickView.includes('saveTradeView(view)') &&
-      toastSource.includes('actionLabel'),
-    '删除保存视图必须提供可操作的撤销反馈',
   )
   assert(
     toastCss.includes('.toast-host') &&

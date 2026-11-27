@@ -1,6 +1,7 @@
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, useLocation } from 'react-router-dom'
+import { ToastHost } from '@/components/Toast'
 import { QuickViewBar } from './QuickViewBar'
 import { useStore } from '@/store/useStore'
 import { toastStore } from '@/lib/toast'
@@ -117,7 +118,7 @@ async function run() {
     })
     for (let index = 1; index <= 5; index++) store.saveTradeView(live(index))
     flushSync(() => root.render(
-      <MemoryRouter key="pin-quota" initialEntries={['/list']}><QuickViewBar kind="trade" journal /></MemoryRouter>,
+      <MemoryRouter key="pin-quota" initialEntries={['/list']}><QuickViewBar kind="trade" journal /><ToastHost /></MemoryRouter>,
     ))
     mount.querySelector<HTMLButtonElement>('.quick-view-overflow')!.click()
     await waitFor(() => !!mount.querySelector('.quick-view-menu'), '实盘保存视图管理未展开')
@@ -136,6 +137,26 @@ async function run() {
     store.togglePinTradeView('live-1')
     pin(5)
     if (!isPinned('live-5')) throw new Error('释放一个名额后应能立即固定')
+
+    const original = useStore.getState().savedTradeViews.find(view => view.id === 'live-5')!
+    const sidebar = useStore.getState().display.sidebarWorkspaceItems
+    store.replaceSidebarWorkspaceItems([...sidebar, { id: 'saved-view:live-5', placement: 'pinned', order: sidebar.length, target: { kind: 'saved-view', viewId: original.id } }])
+    const beforeDelete = useStore.getState().display.sidebarWorkspaceItems
+    const sidebarEntry = beforeDelete.find(item => item.target.kind === 'saved-view' && item.target.viewId === original.id)!
+
+    mount.querySelector<HTMLButtonElement>('[aria-label="删除 实盘视图5"]')!.click()
+    await waitFor(() => !useStore.getState().savedTradeViews.some(view => view.id === original.id), '删除后保存视图仍在列表中')
+    if (useStore.getState().display.sidebarWorkspaceItems.some(item => item.id === sidebarEntry.id)) throw Error('删除保存视图后侧栏仍有失效入口')
+    const undo = () => Array.from(document.querySelectorAll<HTMLElement>('.toast-panel[data-state="active"]'))
+      .find(panel => panel.textContent?.includes('已删除视图「实盘视图5」'))?.querySelector<HTMLButtonElement>('.toast-action')
+    await waitFor(() => undo()?.textContent === '撤销', '删除视图后缺少可点击的撤销通知')
+    undo()!.click()
+    await waitFor(() => useStore.getState().savedTradeViews.some(view =>
+      view.id === original.id && view.name === original.name && view.pinned === original.pinned &&
+      view.pathname === original.pathname && view.search.symbol === original.search.symbol
+    ), '撤销后未恢复原保存视图及其筛选与固定状态')
+    const restoredSidebar = useStore.getState().display.sidebarWorkspaceItems
+    if (JSON.stringify(restoredSidebar) !== JSON.stringify(beforeDelete)) throw Error('撤销后侧栏入口、位置或其他入口发生变化')
   } finally {
     root.unmount()
   }
