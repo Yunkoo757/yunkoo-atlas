@@ -572,3 +572,11 @@ export function testChangingTradingDayStartHourInvalidatesPendingConfirmation():
 
   assert(validation.kind === 'needs-reconfirmation', '交易日起始小时变化必须使既有确认失效')
 }
+
+export function testStoredRiskFingerprintCompatibility(): void {
+  const state = triggeredState('planned')
+  state.trades[0] = { ...state.trades[0]!, note: '交易📈' }
+  const result = requestTradeOpenCandidate(state, 'target')
+  assert(result.kind === 'confirmation-required', '历史样例应触发风控确认')
+  assert(result.request.fingerprint === 'fnv1a64:2612f93982c4326f', result.request.fingerprint)
+}

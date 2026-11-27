@@ -323,3 +323,8 @@ export function testCanonicalImportValueUsesLocaleIndependentCodePointOrder(): v
     '相同 payload 的摘要输入不得受对象插入顺序影响',
   )
 }
+
+export function testStoredImportedTradeIdCompatibility(): void {
+  const id = stableImportedTradeId('sha256-a', '交易📈')
+  assert(id === 'imported:fnv1a64:68eff98cee4e1516', id)
+}

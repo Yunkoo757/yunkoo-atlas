@@ -1,3 +1,4 @@
+import { canonicalRiskJson, stableRiskHash } from '@/lib/riskFingerprint'
 import { stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
 import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 import type { RiskOverrideEvent } from '@/data/riskManagement'
@@ -5,37 +6,8 @@ import type { Trade } from '@/data/trades'
 import type { PersistedSlice } from '@/lib/importTypes'
 import { OperationalError } from '@/lib/operationalError'
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function canonicalJson(value: unknown): string {
-  const canonicalize = (nested: unknown): unknown => {
-    if (Array.isArray(nested)) return nested.map(canonicalize)
-    if (!isRecord(nested)) return nested
-    return Object.fromEntries(
-      Object.keys(nested)
-        .sort((left, right) => left < right ? -1 : left > right ? 1 : 0)
-        .filter((key) => nested[key] !== undefined)
-        .map((key) => [key, canonicalize(nested[key])]),
-    )
-  }
-  return JSON.stringify(canonicalize(value))
-}
-
-function stableHash(value: string): string {
-  let hash = 0xcbf29ce484222325n
-  const prime = 0x100000001b3n
-  const mask = 0xffffffffffffffffn
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= BigInt(value.charCodeAt(index))
-    hash = (hash * prime) & mask
-  }
-  return `fnv1a64:${hash.toString(16).padStart(16, '0')}`
-}
-
 export function stableImportedTradeId(payloadDigest: string, tradeId: string): string {
-  return `imported:${stableHash(`${payloadDigest}:${tradeId}`)}`
+  return `imported:${stableRiskHash(`${payloadDigest}:${tradeId}`)}`
 }
 
 function stableTradeIdentity(trade: Trade): Record<string, string> | null {
@@ -61,8 +33,8 @@ export function isSameTradeIdentity(left: Trade, right: Trade): boolean {
   if (left.backtestProjectId !== right.backtestProjectId) return false
   const leftIdentity = stableTradeIdentity(left)
   const rightIdentity = stableTradeIdentity(right)
-  if (leftIdentity && rightIdentity) return canonicalJson(leftIdentity) === canonicalJson(rightIdentity)
-  return canonicalJson(left) === canonicalJson(right)
+  if (leftIdentity && rightIdentity) return canonicalRiskJson(leftIdentity) === canonicalRiskJson(rightIdentity)
+  return canonicalRiskJson(left) === canonicalRiskJson(right)
 }
 
 function mergeImmutableById<T extends { id: string }>(
@@ -77,7 +49,7 @@ function mergeImmutableById<T extends { id: string }>(
       byId.set(item.id, item)
       continue
     }
-    if (canonicalJson(local) !== canonicalJson(item)) {
+    if (canonicalRiskJson(local) !== canonicalRiskJson(item)) {
       throw new OperationalError(
         'import-immutable-entity-conflict',
         `导入冲突：${label} ${item.id} 与当前资料库中的同 ID 记录内容不同。`,
@@ -133,7 +105,7 @@ function mergeWeeklyReviews(
     if (local.status === 'completed') {
       if (
         importedReview.status === 'completed' &&
-        canonicalJson(completedReviewFrozenTuple(local)) !== canonicalJson(completedReviewFrozenTuple(importedReview))
+        canonicalRiskJson(completedReviewFrozenTuple(local)) !== canonicalRiskJson(completedReviewFrozenTuple(importedReview))
       ) {
         throw new OperationalError(
           'import-immutable-entity-conflict',
@@ -179,7 +151,7 @@ function rewriteEvent(
   const target = tradesById.get(mappedId ?? event.tradeId)
   const targetIdentity = target && identitySummary(target)
   const canResolveUnmapped = !mappedId && targetIdentity &&
-    canonicalJson(targetIdentity) === canonicalJson(event.tradeIdentityAtDecision)
+    canonicalRiskJson(targetIdentity) === canonicalRiskJson(event.tradeIdentityAtDecision)
   if (!targetIdentity || (!mappedId && !canResolveUnmapped)) {
     return { ...event, linkState: 'unresolved' }
   }

@@ -1,3 +1,5 @@
+import { canonicalRiskJson, stableRiskHash } from '@/lib/riskFingerprint'
+import { cloneRiskOutcome } from '@/data/riskManagement'
 import type {
   MonthlyRiskLimit,
   RiskDecisionType,
@@ -146,32 +148,6 @@ export function requiresFirstOpenGate(trade: Trade): boolean {
     !hasTrustedOpenActivity(trade.activities, trade.status)
 }
 
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalize)
-  if (!isRecord(value)) return value
-  return Object.fromEntries(
-    Object.keys(value)
-      .sort((left, right) => left < right ? -1 : left > right ? 1 : 0)
-      .filter((key) => value[key] !== undefined)
-      .map((key) => [key, canonicalize(value[key])]),
-  )
-}
-
-function canonicalJson(value: unknown): string {
-  return JSON.stringify(canonicalize(value))
-}
-
-function stableHash(value: string): string {
-  let hash = 0xcbf29ce484222325n
-  const prime = 0x100000001b3n
-  const mask = 0xffffffffffffffffn
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= BigInt(value.charCodeAt(index))
-    hash = (hash * prime) & mask
-  }
-  return `fnv1a64:${hash.toString(16).padStart(16, '0')}`
-}
-
 function selectTargetIdentity(trade: Trade): Record<string, unknown> {
   return {
     id: trade.id,
@@ -182,12 +158,12 @@ function selectTargetIdentity(trade: Trade): Record<string, unknown> {
     deletedAt: trade.deletedAt ?? null,
     closedTradingDayKey: trade.closedTradingDayKey ?? null,
     hasTrustedOpenActivity: hasTrustedOpenActivity(trade.activities, trade.status),
-    stableSummary: stableHash(canonicalJson(trade)),
+    stableSummary: stableRiskHash(canonicalRiskJson(trade)),
   }
 }
 
 export function buildRiskGateFingerprint(input: RiskGateFingerprintInput): string {
-  return stableHash(canonicalJson({
+  return stableRiskHash(canonicalRiskJson({
     target: selectTargetIdentity(input.trade),
     liveStageId: input.liveStageId,
     liveStageStartsOn: input.liveStageStartsOn,
@@ -239,10 +215,6 @@ function riskResultRefs(
 
 export function reachesRiskLimit(outcome: RiskPeriodOutcomeSnapshot): boolean {
   return outcome.limitR > 0 && outcome.netBudgetR <= -outcome.limitR
-}
-
-function cloneRiskOutcome(outcome: RiskPeriodOutcomeSnapshot): RiskPeriodOutcomeSnapshot {
-  return { ...outcome, unknownReasons: [...outcome.unknownReasons] }
 }
 
 function freezePendingRequest(request: PendingTradeOpenRequest): PendingTradeOpenRequest {

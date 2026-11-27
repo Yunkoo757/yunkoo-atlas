@@ -55,6 +55,10 @@ export interface RiskPeriodOutcomeSnapshot {
   unknownReasons: RiskUnknownReason[]
 }
 
+export function cloneRiskOutcome(outcome: RiskPeriodOutcomeSnapshot): RiskPeriodOutcomeSnapshot {
+  return { ...outcome, unknownReasons: [...outcome.unknownReasons] }
+}
+
 export interface WeeklyRiskPreparation {
   id: string
   /** v12 stage ownership; undefined is accepted only while decoding v1-v11. */

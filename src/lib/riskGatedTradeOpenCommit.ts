@@ -1,7 +1,8 @@
+import { canonicalRiskJson } from '@/lib/riskFingerprint'
+import { cloneRiskOutcome } from '@/data/riskManagement'
 import type {
   MonthlyRiskLimit,
   RiskOverrideEvent,
-  RiskPeriodOutcomeSnapshot,
   RiskPolicyVersion,
 } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
@@ -77,20 +78,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function canonicalJson(value: unknown): string {
-  const canonicalize = (nested: unknown): unknown => {
-    if (Array.isArray(nested)) return nested.map(canonicalize)
-    if (!isRecord(nested)) return nested
-    return Object.fromEntries(
-      Object.keys(nested)
-        .sort((left, right) => left < right ? -1 : left > right ? 1 : 0)
-        .filter((key) => nested[key] !== undefined)
-        .map((key) => [key, canonicalize(nested[key])]),
-    )
-  }
-  return JSON.stringify(canonicalize(value))
-}
-
 function clonePlainData<T>(value: T): T {
   if (
     value === null ||
@@ -139,18 +126,18 @@ function sameCanonicalSnapshot(
   left: PersistedSnapshot | null,
   right: PersistedSnapshot,
 ): boolean {
-  return left !== null && canonicalJson(left) === canonicalJson(right)
+  return left !== null && canonicalRiskJson(left) === canonicalRiskJson(right)
 }
 
 function stateMatchesSnapshot(state: RiskGateCommitState, snapshot: PersistedSnapshot): boolean {
-  return canonicalJson({
+  return canonicalRiskJson({
     trades: state.trades,
     currentLiveStageId: state.currentLiveStageId,
     riskPolicyVersions: state.riskPolicyVersions,
     monthlyRiskLimits: state.monthlyRiskLimits,
     riskOverrideEvents: state.riskOverrideEvents,
     tradingDayStartHour: state.display.tradingDayStartHour,
-  }) === canonicalJson({
+  }) === canonicalRiskJson({
     trades: snapshot.trades,
     currentLiveStageId: snapshot.currentLiveStageId,
     riskPolicyVersions: snapshot.riskPolicyVersions,
@@ -158,10 +145,6 @@ function stateMatchesSnapshot(state: RiskGateCommitState, snapshot: PersistedSna
     riskOverrideEvents: snapshot.riskOverrideEvents,
     tradingDayStartHour: snapshot.display.tradingDayStartHour,
   })
-}
-
-function cloneRiskOutcome(outcome: RiskPeriodOutcomeSnapshot): RiskPeriodOutcomeSnapshot {
-  return { ...outcome, unknownReasons: [...outcome.unknownReasons] }
 }
 
 function freezeRiskOverrideEvent(event: RiskOverrideEvent): RiskOverrideEvent {
