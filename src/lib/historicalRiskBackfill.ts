@@ -1,3 +1,4 @@
+import { isCalendarDay } from '@/lib/calendarDay'
 import type { RiskPolicyDraft, RiskPolicyVersion, MonthlyRiskLimit } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
 import type { LiveStage } from '@/lib/liveStages'
@@ -27,10 +28,6 @@ export interface HistoricalRiskInput {
   policyVersionId: string
 }
 
-function validDay(day: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(day) && formatYmd(parseLocalDate(day)) === day
-}
-
 export function historicalRiskFingerprint(state: HistoricalRiskState): string {
   return JSON.stringify([state.currentLiveStageId, state.liveStages, state.trades,
     state.riskPolicyVersions, state.monthlyRiskLimits, state.display.tradingDayStartHour])
@@ -39,7 +36,7 @@ export function historicalRiskFingerprint(state: HistoricalRiskState): string {
 export function previewHistoricalRiskBackfill(state: HistoricalRiskState, input: HistoricalRiskInput) {
   const stage = state.liveStages.find((item) => item.id === state.currentLiveStageId && item.status === 'current')
   if (!stage) throw new Error('当前实盘阶段已变化，请重新打开补录。')
-  if (!validDay(input.startsOn) || !validDay(input.today)) throw new Error('请选择有效的历史起始日期。')
+  if (!isCalendarDay(input.startsOn) || !isCalendarDay(input.today)) throw new Error('请选择有效的历史起始日期。')
   if (!isCanonicalIsoInstant(input.confirmedAt) || !input.policyVersionId.trim()) throw new Error('补录时间或标识无效。')
   if (state.riskPolicyVersions.some((item) => item.id === input.policyVersionId)) throw new Error('此补录已保存，请刷新查看结果。')
   const source = state.riskPolicyVersions.find((item) => item.id === input.sourcePolicyVersionId &&

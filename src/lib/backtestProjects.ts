@@ -1,4 +1,4 @@
-import { formatYmd, parseLocalDate } from '@/lib/periods'
+import { isCalendarDay } from '@/lib/calendarDay'
 import type { Trade } from '@/data/trades'
 import { TradeResultAccumulator, resolveTradeTruth } from '@/lib/tradeTruth'
 
@@ -96,7 +96,7 @@ export function isBacktestProject(value: unknown): value is BacktestProject {
   return typeof p.id === 'string' && p.id.length > 0 &&
     typeof p.name === 'string' && p.name.trim().length > 0 && p.name.length <= 100 &&
     typeof p.symbol === 'string' && p.symbol.trim().length > 0 &&
-    typeof p.startedAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(p.startedAt) && formatYmd(parseLocalDate(p.startedAt)) === p.startedAt &&
+    isCalendarDay(p.startedAt) &&
     Number.isInteger(p.targetCount) && p.targetCount > 0 && p.targetCount <= 100000 &&
     (p.defaultStrategyId === null || typeof p.defaultStrategyId === 'string') &&
     typeof p.rules === 'string' && p.rules.length <= 20000 &&

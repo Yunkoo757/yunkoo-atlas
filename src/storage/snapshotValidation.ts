@@ -1,3 +1,4 @@
+import { isCalendarDay, parseCalendarDay } from '@/lib/calendarDay'
 import { WEEKLY_TRADE_MARK_FIELDS, weeklyReviewTradeReferences } from '@/data/weeklyReviewTradeReferences'
 import { hasLegacyStageFields } from '@/lib/stageMigration'
 import { isBacktestProject } from '@/lib/backtestProjects'
@@ -46,15 +47,9 @@ function isNullableFiniteNumber(value: unknown): boolean {
   return value === null || (typeof value === 'number' && Number.isFinite(value))
 }
 
-function isCanonicalDate(value: unknown): value is string {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const parsed = new Date(`${value}T00:00:00.000Z`)
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
-}
-
 function isCanonicalMonth(value: unknown): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}$/.test(value) &&
-    isCanonicalDate(`${value}-01`)
+    isCalendarDay(`${value}-01`)
 }
 
 function isTimestamp(value: unknown): value is string {
@@ -287,13 +282,13 @@ export function isValidPersistedTrade(
   if (value.resultSource !== undefined && !isEnumMember(RESULT_SOURCES, value.resultSource)) return false
   if (!isTradeResultAuthorityConsistent(value)) return false
   if (value.closedAt !== null && typeof value.closedAt !== 'string') return false
-  if (value.closedTradingDayKey !== undefined && !isCanonicalDate(value.closedTradingDayKey)) return false
+  if (value.closedTradingDayKey !== undefined && !isCalendarDay(value.closedTradingDayKey)) return false
   if (
     value.tradeKind === 'live' &&
     isExecutedClosed(value.status) &&
     typeof value.closedAt === 'string' &&
     closedTradingDayKeyFromClosedAt(value.closedAt, 0) !== null &&
-    !isCanonicalDate(value.closedTradingDayKey)
+    !isCalendarDay(value.closedTradingDayKey)
   ) return false
   if (value.reviewedAt !== undefined && value.reviewedAt !== null && typeof value.reviewedAt !== 'string') return false
   if (value.comments !== undefined && (
@@ -466,7 +461,7 @@ function isWeeklyReviewEvidenceSnapshot(value: unknown): boolean {
 
 function isWeeklyPreviousCommitment(value: unknown): boolean {
   return isRecord(value) &&
-    isCanonicalDate(value.weekStart) &&
+    isCalendarDay(value.weekStart) &&
     typeof value.text === 'string' && !!value.text.trim() &&
     typeof value.criteria === 'string' &&
     Array.isArray(value.evidence) && !hasDuplicateStringId(value.evidence) &&
@@ -528,8 +523,7 @@ function isScheduledStageRollover(value: unknown): boolean {
     isRecord(value) &&
     isNonEmptyString(value.id) &&
     isCanonicalIsoInstant(value.requestedAt) &&
-    isCanonicalDate(value.effectiveWeekStart) &&
-    new Date(`${String(value.effectiveWeekStart)}T00:00:00.000Z`).getUTCDay() === 1 &&
+    parseCalendarDay(value.effectiveWeekStart)?.getUTCDay() === 1 &&
     Number.isInteger(value.postponedCount) && Number(value.postponedCount) >= 0
   )
 }
@@ -579,7 +573,7 @@ function isStableStagePeriodId(
 
 function isWeeklyRiskPreparation(value: unknown): boolean {
   return isRecord(value) &&
-    isCanonicalDate(value.weekStart) &&
+    isCalendarDay(value.weekStart) &&
     isStableStagePeriodId(value.id, 'weekly-risk-preparation', value.liveStageId, value.weekStart) &&
     isRiskPolicyDraft(value.draft) &&
     (value.reviewedAt === null || isTimestamp(value.reviewedAt)) &&
@@ -591,12 +585,12 @@ function isWeeklyRiskPreparation(value: unknown): boolean {
 function isRiskPolicyVersion(value: unknown): boolean {
   return isRecord(value) &&
     isNonEmptyString(value.id) &&
-    isCanonicalDate(value.sourceWeekStart) &&
-    isCanonicalDate(value.effectiveTradingDay) &&
+    isCalendarDay(value.sourceWeekStart) &&
+    isCalendarDay(value.effectiveTradingDay) &&
     (value.historicalBackfill === undefined || (
       isRecord(value.historicalBackfill) &&
       value.historicalBackfill.confirmedHistorical === true &&
-      isCanonicalDate(value.historicalBackfill.throughTradingDay) &&
+      isCalendarDay(value.historicalBackfill.throughTradingDay) &&
       value.historicalBackfill.throughTradingDay >= value.effectiveTradingDay &&
       isNonEmptyString(value.historicalBackfill.sourcePolicyVersionId) &&
       isNonEmptyString(value.historicalBackfill.note)
@@ -654,7 +648,7 @@ function isRiskOverrideEvent(value: unknown): boolean {
     identity.tradeKind === 'live' &&
     (value.linkState === 'resolved' || value.linkState === 'unresolved') &&
     (value.decisionType === 'triggered' || value.decisionType === 'unknown') &&
-    isCanonicalDate(value.tradingDayKeyAtDecision) &&
+    isCalendarDay(value.tradingDayKeyAtDecision) &&
     (value.policyVersionId === null || isNonEmptyString(value.policyVersionId)) &&
     isTimestamp(value.createdAt) &&
     typeof value.reason === 'string' &&
@@ -680,7 +674,7 @@ function isWeeklyRiskReviewSnapshot(value: unknown): value is Record<string, unk
   ) return false
   const dates = new Set<string>()
   for (const outcome of value.dailyOutcomes) {
-    if (!isRecord(outcome) || !isCanonicalDate(outcome.date) || !isRiskPeriodOutcomeSnapshot(outcome)) return false
+    if (!isRecord(outcome) || !isCalendarDay(outcome.date) || !isRiskPeriodOutcomeSnapshot(outcome)) return false
     if (dates.has(outcome.date)) return false
     dates.add(outcome.date)
   }

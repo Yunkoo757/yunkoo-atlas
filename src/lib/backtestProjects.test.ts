@@ -1,3 +1,4 @@
+import { createDefaultUserProfile } from '@/config/defaultProfile'
 import { prepareTradeClose } from '@/lib/tradeClose'
 import { listPendingStageOwnership } from '@/lib/stageOwnershipRepair'
 import { buildReviewPoolCandidateIndex } from '@/lib/reviewPools'
@@ -44,6 +45,24 @@ export function testBacktestSnapshotRoundTripAndOwnershipGuards(): void {
   }
   const legacy = decodeCanonicalSnapshot(createEmptyPersistedSnapshot(), { version: 14 })
   assert(legacy.backtestProjects.length === 0, '旧资料库应补齐空项目')
+}
+
+export function testPortableCalendarDayAndInstantSurviveSnapshotRoundTrip(): void {
+  const previousZone = process.env.TZ
+  try {
+    for (const zone of ['Asia/Shanghai', 'Pacific/Apia', 'America/Los_Angeles']) {
+      process.env.TZ = zone
+      const data = snapshot()
+      data.backtestProjects[0]!.startedAt = '2011-12-30'
+      data.profile = { ...createDefaultUserProfile(), legacyCashCurrencyAssumption: { currency: 'USD', confirmedAt: '2011-12-30T12:00:00.000Z' } }
+      const restored = decodeCanonicalSnapshot(data, { version: SCHEMA_VERSION })
+      assert(restored.backtestProjects[0]?.startedAt === '2011-12-30', `${zone} 应保留来源项目的公历日期`)
+      assert(restored.profile.legacyCashCurrencyAssumption?.confirmedAt === '2011-12-30T12:00:00.000Z', `${zone} 应保留绝对时间`)
+    }
+  } finally {
+    if (previousZone === undefined) delete process.env.TZ
+    else process.env.TZ = previousZone
+  }
 }
 
 export function testBacktestCaseIsIndependentAndDoesNotChangeProjectCount(): void {

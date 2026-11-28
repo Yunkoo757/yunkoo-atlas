@@ -1,3 +1,4 @@
+import { isCalendarDay } from '@/lib/calendarDay'
 import type {
   MonthlyRiskLimit,
   RiskOverrideEvent,
@@ -35,7 +36,7 @@ function nextTradingDay(day: string): string {
 }
 
 function requireCanonicalDay(value: string, label: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || formatYmd(parseLocalDate(value)) !== value) {
+  if (!isCalendarDay(value)) {
     throw new Error(`${label}必须是 canonical YYYY-MM-DD`)
   }
   return value

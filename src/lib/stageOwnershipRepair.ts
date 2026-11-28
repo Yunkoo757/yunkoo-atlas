@@ -1,3 +1,4 @@
+import { isCalendarDay } from '@/lib/calendarDay'
 import { weeklyReviewTradeReferences } from '@/data/weeklyReviewTradeReferences'
 import type { Trade } from '@/data/trades'
 import type {
@@ -7,7 +8,7 @@ import type {
   WeeklyRiskPreparation,
 } from '@/data/riskManagement'
 import type { WeeklyReview } from '@/data/weeklyReviews'
-import { isValidLiveCycleDayKey, openedTradingDayKey } from '@/lib/liveCycle'
+import { openedTradingDayKey } from '@/lib/liveCycle'
 import { assertValidLiveStageState, type LiveStage } from '@/lib/liveStages'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { assignTradeStage } from '@/lib/tradeKind'
@@ -186,10 +187,10 @@ function reliableTradeDay(
     return openedTradingDayKey(trade, startHour)
   }
   if (trade.closedTradingDayKey !== undefined) {
-    return isValidLiveCycleDayKey(trade.closedTradingDayKey) ? trade.closedTradingDayKey : null
+    return isCalendarDay(trade.closedTradingDayKey) ? trade.closedTradingDayKey : null
   }
   const day = closedTradingDayKeyFromClosedAt(trade.closedAt, startHour)
-  return day !== null && isValidLiveCycleDayKey(day) ? day : null
+  return day !== null && isCalendarDay(day) ? day : null
 }
 
 function affectedTradesForBoundaryShift(

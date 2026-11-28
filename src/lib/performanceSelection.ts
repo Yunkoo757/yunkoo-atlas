@@ -6,7 +6,7 @@ import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
-import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
+import { isCalendarDay } from '@/lib/calendarDay'
 import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 import { resolveTradeCashCurrencyFact } from '@/lib/cashCurrency'
 
@@ -54,7 +54,7 @@ export type PerformanceSelection = {
 function resolveCloseDay(trade: Trade, tradingDayStartHour: number): CloseDayResolution {
   // 已冻结字段是历史事实；无论是否有效，都不得再以 closedAt/openedAt 改写归属。
   if (trade.closedTradingDayKey !== undefined) {
-    return isValidLiveCycleDayKey(trade.closedTradingDayKey)
+    return isCalendarDay(trade.closedTradingDayKey)
       ? { kind: 'valid', day: trade.closedTradingDayKey }
       : { kind: 'invalid' }
   }

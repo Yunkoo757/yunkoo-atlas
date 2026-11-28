@@ -1,3 +1,4 @@
+import { isCalendarDay } from '@/lib/calendarDay'
 import { type Trade } from '@/data/trades'
 import {
   addDaysToCurrentTradingDay,
@@ -360,39 +361,23 @@ function isReviewCaseDue(
   tradingDayStartHour: number,
 ): boolean {
   if (!nextReviewAt) return true
-  const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(nextReviewAt)
-  if (ymd) {
-    const year = Number(ymd[1])
-    const month = Number(ymd[2])
-    const day = Number(ymd[3])
-    if (!isValidCalendarDate(year, month, day)) return true
-    return nextReviewAt <= currentTradingDayKey
-  }
+  if (isCalendarDay(nextReviewAt)) return nextReviewAt <= currentTradingDayKey
   const legacyDate = parseStrictLegacyIsoDate(nextReviewAt)
   if (!legacyDate) return true
   return getTradingDayKey(legacyDate, tradingDayStartHour) <= currentTradingDayKey
-}
-
-function isValidCalendarDate(year: number, month: number, day: number): boolean {
-  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
-  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-  return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth[month - 1]!
 }
 
 function parseStrictLegacyIsoDate(value: string): Date | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(?:Z|[+-](\d{2}):(\d{2}))?$/.exec(value)
   if (!match) return null
 
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
   const hour = Number(match[4])
   const minute = Number(match[5])
   const second = Number(match[6])
   const offsetHour = match[7] === undefined ? 0 : Number(match[7])
   const offsetMinute = match[8] === undefined ? 0 : Number(match[8])
   if (
-    !isValidCalendarDate(year, month, day) ||
+    !isCalendarDay(value.slice(0, 10)) ||
     hour > 23 ||
     minute > 59 ||
     second > 59 ||

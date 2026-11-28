@@ -15,7 +15,7 @@ import { normalizeTrades } from '@/lib/tradeKind'
 import { migrateLegacyCasePriority } from '@/lib/reviewCaseClassification'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { normalizeTradingDayStartHour } from '@/lib/periods'
-import { isValidLiveCycleDayKey } from '@/lib/liveCycle'
+import { isCalendarDay } from '@/lib/calendarDay'
 import { isCanonicalWeeklyReviewPeriod } from '@/lib/weeklyReviewPeriod'
 import {
   collectReliableLegacyStageRecordDays,
@@ -141,7 +141,7 @@ function decodeVersionedArray(
 function decodeLiveCycleStart(raw: Record<string, unknown>): string | null {
   const value = raw.liveStatsStartTradingDayKey
   if (value === undefined || value === null) return null
-  if (isValidLiveCycleDayKey(value)) return value
+  if (isCalendarDay(value)) return value
   throw new Error('liveStatsStartTradingDayKey 必须是有效交易日或 null')
 }
 
@@ -170,9 +170,9 @@ function defaultStageMigrationOptions(raw: Record<string, unknown>): LegacyStage
     ? raw.livePerformanceCycles.filter(isRecord)
     : []
   const latest = cycles.at(-1)
-  const explicitBoundary = isValidLiveCycleDayKey(latest?.startTradingDayKey)
+  const explicitBoundary = isCalendarDay(latest?.startTradingDayKey)
     ? latest.startTradingDayKey
-    : isValidLiveCycleDayKey(raw.liveStatsStartTradingDayKey)
+    : isCalendarDay(raw.liveStatsStartTradingDayKey)
       ? raw.liveStatsStartTradingDayKey
       : null
   const recordDays = collectReliableLegacyStageRecordDays(raw).sort()

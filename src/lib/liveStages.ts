@@ -1,3 +1,4 @@
+import { isCalendarDay } from '@/lib/calendarDay'
 export interface LiveStage {
   id: string
   sequence: number
@@ -37,12 +38,6 @@ export function normalizeLiveStageName(name: string): string {
   return name.normalize('NFKC').trim().toLowerCase()
 }
 
-function isCanonicalYmd(value: unknown): value is string {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  const [year, month, day] = value.split('-').map(Number)
-  return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth(year, month)
-}
-
 function isIsoInstant(value: unknown): value is string {
   if (typeof value !== 'string') return false
   const timestamp = Date.parse(value)
@@ -55,7 +50,7 @@ function daysInMonth(year: number, month: number): number {
 }
 
 function previousDay(date: string): string {
-  if (!isCanonicalYmd(date)) fail('阶段日期必须是有效的 YYYY-MM-DD')
+  if (!isCalendarDay(date)) fail('阶段日期必须是有效的 YYYY-MM-DD')
   let [year, month, day] = date.split('-').map(Number)
   if (day > 1) day -= 1
   else if (month > 1) {
@@ -75,7 +70,7 @@ function assertValidLiveStage(value: unknown): asserts value is LiveStage {
   if (!Number.isInteger(value.sequence) || (value.sequence as number) <= 0) fail('阶段序号必须是正整数')
   if (!isNonEmptyString(value.name)) fail('阶段名称不能为空')
   if (value.status !== 'current' && value.status !== 'archived') fail('阶段状态不合法')
-  if (!isCanonicalYmd(value.startsOn)) fail('阶段开始日期必须是有效的 YYYY-MM-DD')
+  if (!isCalendarDay(value.startsOn)) fail('阶段开始日期必须是有效的 YYYY-MM-DD')
   if (!isIsoInstant(value.createdAt)) fail('阶段创建时间必须是 ISO 时间点')
 
   if (value.status === 'current') {
@@ -83,7 +78,7 @@ function assertValidLiveStage(value: unknown): asserts value is LiveStage {
     return
   }
 
-  if (!isCanonicalYmd(value.endsOn) || value.endsOn < value.startsOn) fail('已归档阶段的结束日期无效')
+  if (!isCalendarDay(value.endsOn) || value.endsOn < value.startsOn) fail('已归档阶段的结束日期无效')
   if (!isIsoInstant(value.archivedAt)) fail('已归档阶段必须有 ISO 归档时间')
 }
 
@@ -164,7 +159,7 @@ export function createNextLiveStage(
   existingStages: readonly LiveStage[] = [previous],
 ): { archived: LiveStage; current: LiveStage } {
   assertValidLiveStageState({ liveStages: [previous], currentLiveStageId: previous.id })
-  if (!isCanonicalYmd(startsOn) || startsOn <= previous.startsOn) fail('新阶段必须晚于当前阶段开始日期')
+  if (!isCalendarDay(startsOn) || startsOn <= previous.startsOn) fail('新阶段必须晚于当前阶段开始日期')
   if (id === previous.id) fail('新阶段 ID 必须不同于当前阶段')
   const nextSequence = existingStages.reduce(
     (maximum, stage) => Math.max(maximum, stage.sequence),

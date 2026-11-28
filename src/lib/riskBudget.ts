@@ -1,3 +1,4 @@
+import { isCalendarDay } from '@/lib/calendarDay'
 import type {
   MonthlyRiskLimit,
   RiskCoverage,
@@ -50,10 +51,7 @@ export function closedTradingDayKeyFromClosedAt(
   tradingDayStartHour: number,
 ): string | null {
   if (!closedAt) return null
-  if (/^\d{4}-\d{2}-\d{2}$/.test(closedAt)) {
-    const parsed = parseLocalDate(closedAt)
-    return formatYmd(parsed) === closedAt ? closedAt : null
-  }
+  if (isCalendarDay(closedAt)) return closedAt
   if (!isCanonicalIsoInstant(closedAt)) return null
   const timestamp = new Date(closedAt)
   return Number.isNaN(timestamp.getTime()) ? null : getTradingDayKey(timestamp, tradingDayStartHour)
@@ -91,14 +89,9 @@ type RiskCandidateEvaluation = {
   globalReasons: RiskUnknownReason[]
 }
 
-function validDayKey(value: string | undefined): value is string {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-  return formatYmd(parseLocalDate(value)) === value
-}
-
 export function closedTradingDayKey(trade: Trade, tradingDayStartHour = 0): string | null {
   if (trade.closedTradingDayKey !== undefined) {
-    return validDayKey(trade.closedTradingDayKey) ? trade.closedTradingDayKey : null
+    return isCalendarDay(trade.closedTradingDayKey) ? trade.closedTradingDayKey : null
   }
   return closedTradingDayKeyFromClosedAt(trade.closedAt, tradingDayStartHour)
 }

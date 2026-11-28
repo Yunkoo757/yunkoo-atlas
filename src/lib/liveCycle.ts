@@ -1,6 +1,7 @@
+import { isCalendarDay } from '@/lib/calendarDay'
 import type { RiskPolicyVersion } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
-import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
+import { getTradingDayKey } from '@/lib/periods'
 
 export type LiveCycleScope = 'current' | 'pre-cycle' | 'all'
 export type LiveCycleClassification = 'current' | 'pre-cycle' | 'unresolved' | 'not-live'
@@ -17,11 +18,6 @@ export function parseLiveCycleScope(input: string | URLSearchParams): LiveCycleS
   return value === 'pre-cycle' || value === 'all' ? value : 'current'
 }
 
-export function isValidLiveCycleDayKey(value: unknown): value is string {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
-    formatYmd(parseLocalDate(value)) === value
-}
-
 export function openedTradingDayKey(
   trade: Pick<Trade, 'openedAt' | 'activities'>,
   tradingDayStartHour: number,
@@ -33,7 +29,7 @@ export function openedTradingDayKey(
     if (Number.isFinite(timestamp) && timestamp < firstOpenAt) firstOpenAt = timestamp
   }
   if (Number.isFinite(firstOpenAt)) return getTradingDayKey(new Date(firstOpenAt), tradingDayStartHour)
-  if (isValidLiveCycleDayKey(trade.openedAt)) return trade.openedAt
+  if (isCalendarDay(trade.openedAt)) return trade.openedAt
   const timestamp = new Date(trade.openedAt)
   if (Number.isNaN(timestamp.getTime())) return null
   return getTradingDayKey(timestamp, tradingDayStartHour)
@@ -90,6 +86,6 @@ export function suggestLiveCycleStartTradingDayKey(
 ): string | null {
   return policies
     .map((policy) => policy.effectiveTradingDay)
-    .filter(isValidLiveCycleDayKey)
+    .filter(isCalendarDay)
     .sort((left, right) => left.localeCompare(right))[0] ?? null
 }

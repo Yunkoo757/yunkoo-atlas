@@ -1,3 +1,4 @@
+import { isCalendarDay } from '@/lib/calendarDay'
 import { normalizeCashCurrency } from '@/data/trades'
 
 export function fmtMoney(
@@ -42,13 +43,8 @@ export function fmtDate(iso: string): string {
   if (!iso) return '—'
   const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
   if (dateOnly) {
-    const [, year, month, day] = dateOnly
-    const candidate = new Date(Number(year), Number(month) - 1, Number(day))
-    if (
-      candidate.getFullYear() !== Number(year) ||
-      candidate.getMonth() !== Number(month) - 1 ||
-      candidate.getDate() !== Number(day)
-    ) return '—'
+    const [, , month, day] = dateOnly
+    if (!isCalendarDay(iso)) return '—'
     return `${Number(month)}月${Number(day)}日`
   }
   const d = new Date(iso)

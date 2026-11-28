@@ -1,7 +1,8 @@
+import { isCalendarDay } from '@/lib/calendarDay'
 import { weeklyReviewTradeReferences } from '@/data/weeklyReviewTradeReferences'
 import type { Trade } from '@/data/trades'
 import type { WeeklyReview } from '@/data/weeklyReviews'
-import { isValidLiveCycleDayKey, openedTradingDayKey } from '@/lib/liveCycle'
+import { openedTradingDayKey } from '@/lib/liveCycle'
 import type { LiveStage } from '@/lib/liveStages'
 import { assertValidLiveStageState, normalizeLiveStageName } from '@/lib/liveStages'
 import { isExecutedClosed, isMissed } from '@/lib/tradeStatus'
@@ -77,7 +78,7 @@ function legacyCycles(raw: LegacyStageSnapshot): LegacyPerformanceCycle[] {
     if (
       typeof cycle?.id !== 'string' || !cycle.id.trim() ||
       typeof cycle.name !== 'string' || !cycle.name.trim() ||
-      !isValidLiveCycleDayKey(cycle.startTradingDayKey) ||
+      !isCalendarDay(cycle.startTradingDayKey) ||
       typeof cycle.createdAt !== 'string' || new Date(cycle.createdAt).toISOString() !== cycle.createdAt ||
       (previousStart !== null && cycle.startTradingDayKey <= previousStart)
     ) throw new Error('旧实盘周期无效')
@@ -103,10 +104,10 @@ function reliableTradeDay(trade: Trade, startHour: number): string | null {
     return openedTradingDayKey(trade, startHour)
   }
   if (trade.closedTradingDayKey !== undefined) {
-    return isValidLiveCycleDayKey(trade.closedTradingDayKey) ? trade.closedTradingDayKey : null
+    return isCalendarDay(trade.closedTradingDayKey) ? trade.closedTradingDayKey : null
   }
   const day = closedTradingDayKeyFromClosedAt(trade.closedAt, startHour)
-  return day !== null && isValidLiveCycleDayKey(day) ? day : null
+  return day !== null && isCalendarDay(day) ? day : null
 }
 
 export function collectReliableLegacyStageRecordDays(
@@ -157,7 +158,7 @@ function buildStages(
 ): { liveStages: LiveStage[]; currentLiveStageId: string } {
   const cycles = legacyCycles(raw)
   const firstStart = cycles[0]?.startTradingDayKey ?? (
-    isValidLiveCycleDayKey(raw.liveStatsStartTradingDayKey)
+    isCalendarDay(raw.liveStatsStartTradingDayKey)
       ? raw.liveStatsStartTradingDayKey
       : options.currentTradingDayKey
   )
@@ -283,7 +284,7 @@ export function migrateLegacyStageSnapshot(
   raw: LegacyStageSnapshot,
   options: LegacyStageMigrationOptions,
 ): PersistedSnapshot {
-  if (!isValidLiveCycleDayKey(options.currentTradingDayKey)) throw new Error('当前交易日无效')
+  if (!isCalendarDay(options.currentTradingDayKey)) throw new Error('当前交易日无效')
   if (new Date(options.now).toISOString() !== options.now) throw new Error('迁移时间必须是 ISO 时间点')
   for (const field of [
     'trades',
