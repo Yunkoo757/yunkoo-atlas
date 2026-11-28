@@ -1,6 +1,7 @@
 import { collectAssetIdsFromSnapshot } from '../../src/storage/snapshotRichText'
 import { sha256Hex } from '../../src/lib/sha256'
 import type { Database, SqlJsStatic } from 'sql.js'
+import { SNAPSHOT_REVISION_KEY } from '../../src/storage/snapshotRevision'
 import { CREATE_LIBRARY_TABLES_SQL, isPortableAssetFileName, resolveSnapshotVersion, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import type { LibraryManifest } from '../../src/storage/types'
 import { decode, SCHEMA_VERSION, validate, type EditorSnapshot } from './core'
@@ -130,7 +131,7 @@ function encodeDatabase(sql: SqlJsStatic, snapshot: EditorSnapshot, assets: Edit
   try {
     db.run(CREATE_LIBRARY_TABLES_SQL)
     for (const [key, value] of Object.entries({
-      schemaVersion: String(SCHEMA_VERSION), snapshot: JSON.stringify(snapshot), snapshotRevision: '1',
+      schemaVersion: String(SCHEMA_VERSION), snapshot: JSON.stringify(snapshot), [SNAPSHOT_REVISION_KEY]: '1',
     })) db.run('INSERT INTO meta (key, value) VALUES (?, ?)', [key, value])
     for (const asset of assets) {
       db.run('INSERT INTO assets (id, mime, file_name, byte_size, created_at) VALUES (?,?,?,?,?)',

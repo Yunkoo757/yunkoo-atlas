@@ -123,15 +123,14 @@ async function seedCurrentCorruptSnapshot(): Promise<void> {
   })
 }
 
-async function mutateRawRevision(operation: 'delete' | 'corrupt' | 'one'): Promise<void> {
+async function writeRawRevision(value: number | string | undefined): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME)
     request.onsuccess = () => {
       const db = request.result
       const tx = db.transaction('meta', 'readwrite')
       const store = tx.objectStore('meta')
-      if (operation === 'delete') store.delete('snapshotRevision')
-      else store.put(operation === 'one' ? 1 : 'corrupt-revision', 'snapshotRevision')
+      store.put(value, 'snapshotRevision')
       tx.oncomplete = () => {
         db.close()
         resolve()
@@ -399,7 +398,7 @@ async function run(): Promise<void> {
   assert(legacy.snapshot?.profile?.displayName === 'legacy', 'revision 初始化不得重置旧快照')
   assert((await first.getManifest()).schemaVersion === SCHEMA_VERSION, '旧库成功迁移后必须原子记录当前 schema')
 
-  await mutateRawRevision('corrupt')
+  await writeRawRevision('corrupt-revision')
   let corruptLoadRejected = false
   try {
     await first.loadSnapshotEnvelope()
@@ -424,7 +423,13 @@ async function run(): Promise<void> {
     ? JSON.parse(await rawSnapshotValue.text()) as PersistedSnapshot
     : rawSnapshotValue as PersistedSnapshot
   assert(rawSnapshot.profile?.displayName === 'legacy', '非法 revision 拒绝后不得覆盖旧快照')
-  await mutateRawRevision('one')
+  await writeRawRevision(undefined)
+  let invalid: unknown
+  try {
+    await first.commitLibraryMutation({ expectedRevision: 0, snapshot: snapshot('unexpected reset'), reason: 'autosave' })
+  } catch (error) { invalid = error }
+  assert(invalid instanceof Error, '已存的 undefined 与旧库缺少修订键须可区分')
+  await writeRawRevision(1)
 
   const firstCommit = await first.commitLibraryMutation({
     expectedRevision: 1,
@@ -569,6 +574,31 @@ async function run(): Promise<void> {
     assetDeletes: [orphanAssetId],
     reason: 'purge',
   }, observedAssets)
+
+  await writeRawRevision(Number.MAX_SAFE_INTEGER - 1)
+  const last = await first.commitLibraryMutation({
+    expectedRevision: Number.MAX_SAFE_INTEGER - 1,
+    snapshot: snapshot('last readable revision', 'replacement-asset'),
+    reason: 'autosave',
+  })
+  assert(last.revision === Number.MAX_SAFE_INTEGER, '最后一个合法修订仍可提交')
+  const durableIds = ['replacement-asset', 'fault-asset']
+  const before = await storageFingerprint(first, durableIds)
+  let exhausted: unknown
+  try {
+    await first.commitLibraryMutation({
+      expectedRevision: last.revision,
+      snapshot: snapshot('overflow must not replace the library'),
+      assetMode: 'replace',
+      reason: 'restore',
+    })
+  } catch (error) { exhausted = error }
+  assert(exhausted instanceof Error, '超过安全整数范围的修订不能提交成功')
+  first.close()
+  await first.open()
+  assert(await storageFingerprint(first, durableIds) === before, '溢出后重开须保留最后一个修订及其快照和附件')
+  first.close()
+  second.close()
 }
 
 window.__indexedDbRevisionTest = run()

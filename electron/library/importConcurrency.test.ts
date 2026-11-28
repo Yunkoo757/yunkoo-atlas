@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import initSqlJs from 'sql.js'
 import { LibraryStorage } from './storage'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 
@@ -76,5 +77,47 @@ export async function testInitializationPreservesSnapshotEvenWhenTheWriterKnowsI
     assert.deepEqual(fs.readFileSync(file), before)
     assert.equal(storage.getAssetBytes('should-not-appear'), null)
     assert.deepEqual(fs.readdirSync(storage.getPaths().attachments), [])
+  })
+}
+
+export async function testImportOnlyInitializesAnAbsentRevisionAndNeverOverwritesAnInvalidOne() {
+  const SQL = await initSqlJs({ locateFile: () => path.resolve('node_modules/sql.js/dist/sql-wasm.wasm') })
+  await isolated(async storage => {
+    storage.saveSnapshot(snapshot('original'), 0)
+    const file = storage.getPaths().dbFile
+    const original = fs.readFileSync(file)
+    for (const value of ['', '  ', 'invalid', '9007199254740992', '9007199254740990.9', new Uint8Array([49])]) {
+      const candidate = new SQL.Database(original)
+      try {
+        candidate.run("UPDATE meta SET value = ? WHERE key='snapshotRevision'", [value])
+        fs.writeFileSync(file, candidate.export())
+      } finally { candidate.close() }
+      const previous = fs.readFileSync(file)
+      await assert.rejects(storage.commitImport(snapshot('unreadable revision'), [{
+        id: 'not-committed', mime: 'image/png', buffer: Buffer.from('new image'),
+      }]), /修订|revision/i)
+      assert.deepEqual(fs.readFileSync(file), previous)
+      assert.deepEqual(fs.readdirSync(storage.getPaths().attachments), [])
+    }
+
+    const padded = new SQL.Database(original)
+    try {
+      padded.run("UPDATE meta SET value = ? WHERE key='snapshotRevision'", [' 09007199254740990 '])
+      fs.writeFileSync(file, padded.export())
+    } finally { padded.close() }
+    storage.saveSnapshot(snapshot('last valid revision'), Number.MAX_SAFE_INTEGER - 1)
+    assert.equal(storage.getSnapshotRevision(), Number.MAX_SAFE_INTEGER)
+    const lastValid = fs.readFileSync(file)
+    assert.throws(() => storage.saveSnapshot(snapshot('overflow'), Number.MAX_SAFE_INTEGER), /上限/)
+    assert.deepEqual(fs.readFileSync(file), lastValid)
+
+    const legacy = new SQL.Database(original)
+    try {
+      legacy.run("DELETE FROM meta WHERE key='snapshotRevision'")
+      fs.writeFileSync(file, legacy.export())
+    } finally { legacy.close() }
+    await storage.commitImport(snapshot('legacy write'), [], { expectedSnapshotRevision: 0 })
+    assert.equal(storage.getSnapshotRevision(), 1)
+    assert.deepEqual(storage.loadSnapshot()?.tagPresets, ['legacy write'])
   })
 }

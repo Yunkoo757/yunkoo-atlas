@@ -2,7 +2,8 @@ import { assertEmptyMigrationTarget, type LibraryImportOptions } from '../../src
 import { AssetPurgePreviews } from '../../src/storage/assetPurgePreviews'
 import { assertCompatibleManifest } from '../../src/storage/manifestCompatibility'
 import { assertLibraryIdentity } from './libraryIdentity'
-import { CREATE_LIBRARY_TABLES_SQL, resolveSnapshotVersion, isPortableAssetFileName, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
+import { nextSnapshotRevision, SNAPSHOT_REVISION_KEY } from '../../src/storage/snapshotRevision'
+import { CREATE_LIBRARY_TABLES_SQL, readDatabaseSnapshotRevision, resolveSnapshotVersion, isPortableAssetFileName, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import { stripRetiredSnapshotDomains } from '../../src/storage/retiredSnapshotDomains'
 import { retiredSnapshotDatabaseBytes, stripRetiredSnapshotDomainsInDatabase } from './retiredSnapshotDatabase'
 import fs from 'node:fs'
@@ -38,7 +39,6 @@ import { recoverInterruptedBackupRestore } from './backup'
 import { recoverInterruptedJournalImport } from './journalZip'
 
 const SNAPSHOT_KEY = 'snapshot'
-const SNAPSHOT_REVISION_KEY = 'snapshotRevision'
 const DATABASE_SCHEMA_KEY = 'schemaVersion'
 const ASSET_TRASH_MANIFEST = 'manifest.json'
 const ASSET_TRASH_CLEANUP = 'cleanup.json'
@@ -139,23 +139,14 @@ function readDatabaseMeta(db: Database, key: string): string | null {
   } finally { stmt.free() }
 }
 
-function readSnapshotRevision(db: Database): number {
-  const value = readDatabaseMeta(db, SNAPSHOT_REVISION_KEY)
-  const revision = value === null ? 0 : Number(value)
-  if (!Number.isSafeInteger(revision) || revision < 0) throw new Error('journal.db 的 snapshotRevision 无效')
-  return revision
-}
-
 function advanceSnapshotRevision(db: Database, expected?: number): void {
-  const current = readSnapshotRevision(db)
+  const current = readDatabaseSnapshotRevision(db)
   if (expected !== undefined && expected !== current) {
     throw new OperationalError('storage-revision-conflict', `资料库已被更新（预期版本 ${expected}，实际版本 ${current}），已阻止旧快照覆盖`)
   }
-  const next = current + 1
-  if (!Number.isSafeInteger(next)) throw new Error('journal.db 的 snapshotRevision 已达上限')
   db.run(
     'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-    [SNAPSHOT_REVISION_KEY, String(next)],
+    [SNAPSHOT_REVISION_KEY, String(nextSnapshotRevision(current))],
   )
 }
 
@@ -855,12 +846,12 @@ export class LibraryStorage {
   }
 
   getSnapshotRevision(): number {
-    return readSnapshotRevision(this.requireDb())
+    return readDatabaseSnapshotRevision(this.requireDb())
   }
 
   loadSnapshotEnvelope(): SnapshotEnvelope {
     const db = this.requireDb()
-    return { snapshot: this.loadDatabaseSnapshot(db), revision: readSnapshotRevision(db) }
+    return { snapshot: this.loadDatabaseSnapshot(db), revision: readDatabaseSnapshotRevision(db) }
   }
 
   loadSnapshot(): PersistedSnapshot | null {
@@ -1261,7 +1252,7 @@ export class LibraryStorage {
   previewAssetPurge(): AssetPurgePreview {
     const db = this.requireDb()
     assertPortableAssetDatabaseIntegrity(db)
-    const revision = readSnapshotRevision(db)
+    const revision = readDatabaseSnapshotRevision(db)
     const snapshot = this.loadDatabaseSnapshot(db)
     if (!snapshot) throw new Error('当前资料库尚无可校验的持久化快照')
     assertPortableSnapshotAssetReferences(snapshot, db)
@@ -1292,7 +1283,7 @@ export class LibraryStorage {
     assertPortableAssetDatabaseIntegrity(this.requireDb())
     const files: { id: string; fileName: string; source: string }[] = []
     const candidate = this.prepareDatabaseCandidate(db => {
-      if (readSnapshotRevision(db) !== prepared.revision) {
+      if (readDatabaseSnapshotRevision(db) !== prepared.revision) {
         throw new OperationalError('asset-gc-stale-revision', '资料库在预览后已变化，请重新扫描附件')
       }
       const snapshot = this.loadDatabaseSnapshot(db)

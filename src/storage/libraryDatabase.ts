@@ -1,3 +1,5 @@
+import type { Database } from 'sql.js'
+import { decodeSnapshotRevision, SNAPSHOT_REVISION_KEY } from './snapshotRevision'
 import { SCHEMA_VERSION } from './types'
 import { isSafeAssetId } from './assetId'
 
@@ -15,6 +17,17 @@ export const CREATE_LIBRARY_TABLES_SQL = `
     created_at TEXT NOT NULL
   );
 `
+
+export function readDatabaseSnapshotRevision(db: Database): number {
+  const result = db.exec('SELECT value FROM meta WHERE key = ?', [SNAPSHOT_REVISION_KEY])
+  const row = result[0]?.values[0] ?? []
+  const value = row[0]
+  // SQLite 写为十进制文本，允许旧库带前导零；空白、浮点和二进制不能当作修订。
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    return decodeSnapshotRevision([Number(value)])
+  }
+  return decodeSnapshotRevision(row)
+}
 
 const reservedDevice = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
 const portableExtension = /^[A-Za-z0-9][A-Za-z0-9!#$&^._+-]{0,127}$/

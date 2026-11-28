@@ -42,8 +42,8 @@ import { beginWebOperation } from '@/storage/webOperationLogger'
 import { migrateLegacyBrowserIdentity } from '@/storage/legacyIdentity'
 import { openJournalDatabase, STORE_ASSETS, STORE_META, STORE_SNAPSHOT } from './indexedDbSchema'
 import { BROWSER_DATABASE_NAME } from '@/storage/storageIdentity'
+import { decodeSnapshotRevision, nextSnapshotRevision, SNAPSHOT_REVISION_KEY } from './snapshotRevision'
 
-const SNAPSHOT_REVISION_KEY = 'snapshotRevision'
 const SNAPSHOT_VALIDATION_BATCH_SIZE = 1_000
 
 type AssetRecord = IndexedDbAssetRecord
@@ -134,9 +134,6 @@ async function prepareIndexedDbMutation(
   input = { ...input, snapshot: stripRetiredSnapshotDomains(input.snapshot) }
   await yieldMainThread()
   await assertValidPersistedSnapshotCooperatively(input.snapshot, 'Revisioned browser snapshot')
-  if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0) {
-    throw new Error('expectedRevision must be a non-negative safe integer')
-  }
 
   await yieldMainThread()
   const referencedIds = await collectAssetIdsFromSnapshotCooperatively(input.snapshot)
@@ -179,12 +176,6 @@ async function prepareIndexedDbMutation(
 }
 
 export { StorageRevisionConflictError } from '@/storage/adapter'
-
-function normalizeSnapshotRevision(value: unknown): number {
-  if (value === undefined) return 0
-  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return value
-  throw new Error('Invalid snapshot revision metadata')
-}
 
 function idbGet<T>(db: IDBDatabase, store: string, key: string): Promise<T | undefined> {
   return new Promise((resolve, reject) => {
@@ -290,15 +281,15 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
 
   /** Release 0 兼容读取：旧库尚无 revision 时稳定视为 0；WEB1 再引入递增/CAS。 */
   async getSnapshotRevision(): Promise<number> {
-    const value = await idbGet<unknown>(this.requireDb(), STORE_META, SNAPSHOT_REVISION_KEY)
-    return normalizeSnapshotRevision(value)
+    const values = await idbGetAll<unknown>(this.requireDb(), STORE_META, SNAPSHOT_REVISION_KEY)
+    return decodeSnapshotRevision(values)
   }
 
   private async readStoredSnapshot(db: IDBDatabase) {
     const tx = db.transaction([STORE_SNAPSHOT, STORE_META], 'readonly')
     const snapshotRequest = tx.objectStore(STORE_SNAPSHOT).get('main')
     const meta = tx.objectStore(STORE_META)
-    const revisionRequest = meta.get(SNAPSHOT_REVISION_KEY)
+    const revisionRequest = meta.getAll(SNAPSHOT_REVISION_KEY)
     const manifestRequest = meta.get('manifest')
     await new Promise<void>((resolve, reject) => {
       tx.oncomplete = () => resolve()
@@ -308,7 +299,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
 
     const manifest = manifestRequest.result as LibraryManifest
     assertCompatibleManifest(manifest)
-    const revision = normalizeSnapshotRevision(revisionRequest.result)
+    const revision = decodeSnapshotRevision(revisionRequest.result)
     const snapshot = snapshotRequest.result === undefined
       ? null
       : await decodeStoredSnapshot(snapshotRequest.result, manifest)
@@ -397,7 +388,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       const metaStore = tx.objectStore(STORE_META)
       const manifestRequest = metaStore.get('manifest')
       const existingSnapshot = input.reason === 'initialize' ? snapshotStore.getKey('main') : undefined
-      const revisionRequest = metaStore.get(SNAPSHOT_REVISION_KEY)
+      const revisionRequest = metaStore.getAll(SNAPSHOT_REVISION_KEY)
       let failure: unknown = null
       let nextRevision = input.expectedRevision
       let stopped = false
@@ -436,7 +427,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       revisionRequest.onsuccess = () => {
         let actualRevision: number
         try {
-          actualRevision = normalizeSnapshotRevision(revisionRequest.result)
+          actualRevision = decodeSnapshotRevision(revisionRequest.result)
         } catch (error) {
           abort(error)
           return
@@ -448,7 +439,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
 
         try {
           if (existingSnapshot) assertEmptyMigrationTarget(existingSnapshot.result !== undefined)
-          nextRevision = actualRevision + 1
+          nextRevision = nextSnapshotRevision(actualRevision)
           if (input.assetMode === 'replace') {
             applyMutation(prepared.records)
             return
@@ -832,10 +823,10 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 }
 
-function idbGetAll<T>(db: IDBDatabase, store: string): Promise<T[]> {
+function idbGetAll<T>(db: IDBDatabase, store: string, key?: IDBValidKey): Promise<T[]> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readonly')
-    const req = tx.objectStore(store).getAll()
+    const req = tx.objectStore(store).getAll(key)
     req.onsuccess = () => resolve(req.result as T[])
     req.onerror = () => reject(req.error)
   })
