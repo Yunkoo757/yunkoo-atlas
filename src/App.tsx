@@ -118,8 +118,7 @@ const checkDueStageRollover = createStageRolloverCheck(async () => {
       await reconcileCommittedStageRollover(authoritative, {
         reloadAuthoritativeSnapshot: () => getStorage().loadSnapshot(),
         publishDurableSnapshot: (snapshot, publish) => publishDurableStoreRefresh(() => {
-          applySnapshotToStore(snapshot)
-          useStore.getState().publishCommittedStageRollover(publish)
+          applySnapshotToStore(snapshot, publish)
         }),
       })
     },

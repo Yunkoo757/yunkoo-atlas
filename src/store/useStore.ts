@@ -78,7 +78,6 @@ import {
 } from '@/lib/liveStages'
 import { scheduleStageRollover } from '@/lib/stageRollover'
 import { stageContainsWeeklyReviewPeriod } from '@/lib/weeklyReviewPeriod'
-import type { StageRolloverPublishState } from '@/types/journalBridge'
 import {
   assignPendingStageOwnership as applyPendingStageOwnership,
   rollbackAssignedStageOwnership as applyOwnershipRollback,
@@ -296,7 +295,6 @@ interface State {
   cancelLiveStageRollover: () => void
   renameLiveStage: (id: string, name: string) => boolean
   publishPostponedRollover: (scheduled: ScheduledStageRollover) => void
-  publishCommittedStageRollover: (publish: StageRolloverPublishState) => void
   assignPendingStageOwnership: (
     request: AssignPendingStageOwnershipRequest,
   ) => RollbackAssignedStageOwnershipRequest & AssignPendingStageOwnershipRequest
@@ -646,13 +644,6 @@ export const useStore: UseBoundStore<StoreApi<State>> = create<State>()((set, ge
         return renamed
       },
       publishPostponedRollover: (scheduled) => set({ scheduledStageRollover: scheduled }),
-      publishCommittedStageRollover: (publish) => set({
-        liveStages: publish.liveStages,
-        currentLiveStageId: publish.currentLiveStageId,
-        scheduledStageRollover: publish.scheduledStageRollover,
-        pendingTradeOpenRequest: null,
-        riskSetupTradeOpenRequest: null,
-      }),
       assignPendingStageOwnership: (request) => {
         let rollbackRequest: RollbackAssignedStageOwnershipRequest & AssignPendingStageOwnershipRequest = {
           ...request,

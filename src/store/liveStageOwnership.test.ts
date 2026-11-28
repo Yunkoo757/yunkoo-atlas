@@ -198,7 +198,7 @@ export function testStorePublishesEveryAuthoritativeDurableStageFieldTogether():
       currentLiveStageId: 'stage-next',
       scheduledStageRollover: null,
     }
-    useStore.getState().publishCommittedStageRollover(publish)
+    applySnapshotToStore({ ...pickPersisted(useStore.getState(), {}), ...publish }, publish)
     const state = useStore.getState()
     assert(state.liveStages === publish.liveStages, 'Store must publish authoritative stages')
     assert(state.currentLiveStageId === publish.currentLiveStageId, 'Store must publish authoritative stage pointer')

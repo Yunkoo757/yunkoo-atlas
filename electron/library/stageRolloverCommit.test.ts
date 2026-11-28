@@ -347,7 +347,11 @@ export async function testCommittedReloadReconcilesStoreWithoutStaleAutosave(): 
       capture,
       schedule: (snapshot) => { scheduledAutosaves.push(structuredClone(snapshot)) },
     })
-    unsubscribeStore = useStore.subscribe(coordinator.observeStore)
+    let stagePublications = 0
+    unsubscribeStore = useStore.subscribe(state => {
+      if (state.currentLiveStageId === result.publish.currentLiveStageId) stagePublications++
+      coordinator.observeStore(state)
+    })
     unsubscribeShortcuts = useShortcutStore.subscribe((state, previous) => {
       if (state.bindings !== previous.bindings) coordinator.observeShortcuts()
     })
@@ -355,11 +359,11 @@ export async function testCommittedReloadReconcilesStoreWithoutStaleAutosave(): 
     await reconcileCommittedStageRollover(result.publish, {
       reloadAuthoritativeSnapshot: async () => structuredClone(durable),
       publishDurableSnapshot: (snapshot, publish) => coordinator.publishDurable(() => {
-        applySnapshotToStore(snapshot)
-        useStore.getState().publishCommittedStageRollover(publish)
+        applySnapshotToStore(snapshot, publish)
       }),
     })
 
+    assert(stagePublications === 1, '同一份耐久阶段快照只能发布一次，实际发布 ' + stagePublications + ' 次')
     assert(useStore.getState().tagPresets.includes('主进程并发新增'), 'renderer store must adopt reloaded non-stage fields')
     assert(!useStore.getState().tagPresets.includes('renderer 陈旧值'), 'renderer stale non-stage fields must be replaced')
     const refreshedBinding = useShortcutStore.getState().bindings['global.newTrade']

@@ -6,6 +6,9 @@ import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
 import { createNewLibrarySnapshot } from '@/storage/emptySnapshot'
 import type { PersistedSnapshot } from '@/storage/types'
+import type { StageRolloverPublishState } from '@/types/journalBridge'
+
+const clearedTradeOpenRequests = { pendingTradeOpenRequest: null, riskSetupTradeOpenRequest: null }
 
 function publishSnapshot(snapshot: PersistedSnapshot, fields: Partial<ReturnType<typeof useStore.getState>>): void {
   useStore.setState({
@@ -16,8 +19,12 @@ function publishSnapshot(snapshot: PersistedSnapshot, fields: Partial<ReturnType
   useShortcutStore.getState().hydrateBindings(snapshot.shortcuts)
 }
 
-export function applySnapshotToStore(snapshot: PersistedSnapshot): void {
-  publishSnapshot(snapshot, snapshotToRuntimeState(snapshot))
+export function applySnapshotToStore(snapshot: PersistedSnapshot, committedRollover?: StageRolloverPublishState): void {
+  const data = snapshotToRuntimeState(snapshot)
+  // 阶段回执已经与快照核对，同时发布其阶段列表并清除上一阶段的待确认操作。
+  publishSnapshot(snapshot, committedRollover
+    ? { ...data, liveStages: committedRollover.liveStages, ...clearedTradeOpenRequests }
+    : data)
 }
 
 /** 整库切换、恢复或重载时，旧记录的选择与交易指令和数据在同一次 store 更新中交接。 */
@@ -42,8 +49,7 @@ export function replaceLibraryInStore(snapshot: PersistedSnapshot | null): void 
     composerProjectId: null,
     composerGroup: null,
     closeTradeRequest: null,
-    pendingTradeOpenRequest: null,
-    riskSetupTradeOpenRequest: null,
+    ...clearedTradeOpenRequests,
   })
   useShortcutStore.setState({ listContext: null, lightbox: null })
   toastStore.dismiss()
