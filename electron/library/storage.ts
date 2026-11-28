@@ -45,6 +45,11 @@ type SqlDatabaseConstructor = new (data?: ArrayLike<number> | null) => Database
 type ImportedAsset = Omit<LibraryImportAsset, 'data'> & { buffer: Buffer }
 type SnapshotImportOptions = LibraryImportOptions & { expectedSnapshotRevision?: number }
 
+interface LibraryExport {
+  databaseBytes: Buffer
+  attachments: Array<{ fileName: string; byteSize: number }>
+}
+
 interface PreparedDatabaseCandidate {
   candidateDb: Database
   previousDiskBytes: Buffer
@@ -558,12 +563,20 @@ export class LibraryStorage {
     }
   }
 
-  /** Read-only backup/export candidate; the active database and its revision are never committed. */
-  exportSnapshotDatabaseBytes(): Buffer {
+  /** 数据库、附件索引及备份统计均取自同一磁盘候选。读取不会推进活动库的修订。 */
+  captureLibraryExport(format: 'backup'): LibraryExport & { tradeCount: number; strategyCount: number }
+  captureLibraryExport(format: 'archive'): LibraryExport
+  captureLibraryExport(format: 'backup' | 'archive') {
     let changed = false
     const prepared = this.prepareDatabaseCandidate(candidate => { changed = stripRetiredSnapshotDomainsInDatabase(candidate) })
     try {
-      return changed ? prepared.candidateBytes : prepared.previousDiskBytes
+      const data = {
+        databaseBytes: changed ? prepared.candidateBytes : prepared.previousDiskBytes,
+        attachments: this.readCommittedAttachmentRows(prepared.candidateDb),
+      }
+      if (format === 'archive') return data
+      const snapshot = this.loadDatabaseSnapshot(prepared.candidateDb)
+      return { ...data, tradeCount: snapshot?.trades.length ?? 0, strategyCount: snapshot?.strategies.length ?? 0 }
     } finally {
       this.closeDetachedDatabaseBestEffort(prepared.candidateDb)
     }
@@ -939,10 +952,8 @@ export class LibraryStorage {
     return { id, mime: record.mime, bytes: new Uint8Array(bytes) }
   }
 
-  /** 返回交易数 / 策略数 / 附件数，供备份元数据使用 */
-  /** 备份与校验只认数据库已声明附件，忽略磁盘上尚未收尾的孤儿文件。 */
-  private readCommittedAttachmentRows(): Array<{ fileName: string; byteSize: number }> {
-    const db = this.requireDb()
+  /** 只收录候选数据库已声明的附件，忽略磁盘上尚未收尾的孤儿文件。 */
+  private readCommittedAttachmentRows(db: Database): LibraryExport['attachments'] {
     this.assertAttachmentsDirectorySafe()
     assertPortableAssetDatabaseIntegrity(db)
     // 本次同步盘点共享一个目录索引；不缓存跨操作的文件系统事实。
@@ -973,32 +984,6 @@ export class LibraryStorage {
       throw new Error('附件目录在盘点期间发生变化，请重试')
     }
     return rows
-  }
-
-  listCommittedAttachmentFileNames(): string[] {
-    return this.readCommittedAttachmentRows().map(({ fileName }) => fileName)
-  }
-
-  listCommittedAttachmentFiles(): Array<{ fileName: string; byteSize: number }> {
-    return this.readCommittedAttachmentRows()
-  }
-
-  getCounts(): { tradeCount: number; strategyCount: number; assetCount: number } {
-    const snapshot = this.loadSnapshot()
-    const db = this.requireDb()
-    let assetCount = 0
-    try {
-      const stmt = db.prepare('SELECT COUNT(*) as cnt FROM assets')
-      if (stmt.step()) {
-        assetCount = (stmt.getAsObject() as { cnt: number }).cnt
-      }
-      stmt.free()
-    } catch { /* 忽略 */ }
-    return {
-      tradeCount: snapshot?.trades.length ?? 0,
-      strategyCount: snapshot?.strategies.length ?? 0,
-      assetCount,
-    }
   }
 
   getAssetStats(ids: string[]): { count: number; totalBytes: number; missingCount: number } {

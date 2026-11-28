@@ -119,7 +119,7 @@ function deleteBackupFiles(dbPath: string): void {
 }
 
 export function writeLibraryBackup(
-  storage: Pick<LibraryStorage, 'getLibraryPath' | 'getCounts' | 'listCommittedAttachmentFileNames' | 'exportSnapshotDatabaseBytes'>,
+  storage: Pick<LibraryStorage, 'getLibraryPath' | 'captureLibraryExport'>,
   now: number = Date.now(),
   options: { emptyLibrary?: boolean } = {},
 ): string | null {
@@ -133,7 +133,8 @@ export function writeLibraryBackup(
     dest = path.join(backups, backupFileName(timestamp))
   }
   try {
-    writeFileAtomicallySync(dest, storage.exportSnapshotDatabaseBytes())
+    const data = storage.captureLibraryExport('backup')
+    writeFileAtomicallySync(dest, data.databaseBytes)
     if (fs.existsSync(manifestFile)) {
       fs.copyFileSync(manifestFile, backupManifestPath(dest))
     }
@@ -141,7 +142,7 @@ export function writeLibraryBackup(
     // 只打包 assets 表声明的文件；Windows 延迟 GC 残留的孤儿不得进入恢复点。
     const attachmentFiles = listDeclaredAttachmentFiles(
       attachments,
-      storage.listCommittedAttachmentFileNames(),
+      data.attachments.map(({ fileName }) => fileName),
     )
     const vault = backupAssetVault(backups)
     fs.mkdirSync(vault, { recursive: true })
@@ -150,20 +151,13 @@ export function writeLibraryBackup(
       vaultName: storeBackupAttachment(path.join(attachments, fileName), vault),
     }))
 
-    const counts = storage.getCounts()
-    if (
-      options.emptyLibrary &&
-      (counts.tradeCount !== 0 || counts.strategyCount !== 0 || counts.assetCount !== 0 || attachmentEntries.length !== 0)
-    ) {
+    if (options.emptyLibrary && (data.tradeCount !== 0 || data.strategyCount !== 0 || attachmentEntries.length !== 0)) {
       throw new Error('只有零交易、零策略、零附件的资料库才能标记为空库恢复点')
     }
-    if (counts.assetCount !== attachmentEntries.length) {
-      throw new Error('备份附件清单与数据库附件计数不一致')
-    }
     const meta: BackupMeta = {
-      tradeCount: counts.tradeCount,
-      strategyCount: counts.strategyCount,
-      attachmentCount: counts.assetCount,
+      tradeCount: data.tradeCount,
+      strategyCount: data.strategyCount,
+      attachmentCount: attachmentEntries.length,
       librarySizeBytes: fs.statSync(dest).size,
       databaseSha256: sha256File(dest),
       ...(fs.existsSync(backupManifestPath(dest))

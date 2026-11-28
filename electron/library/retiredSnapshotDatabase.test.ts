@@ -92,7 +92,8 @@ export async function testNewBackupAndHistoricalRestoreRetireStateWithoutEditing
     storage = fixture.storage
     const original = fs.readFileSync(storage.getPaths().dbFile)
     const originalManifest = fs.readFileSync(storage.getPaths().manifestFile)
-    const exported = storage.exportSnapshotDatabaseBytes()
+    const captured = storage.captureLibraryExport('backup')
+    const exported = captured.databaseBytes
     assert(fs.readFileSync(storage.getPaths().dbFile).equals(original) && storage.getSnapshotRevision() === 17, '只读候选不得写源库或推进revision')
     assert(!('judgmentDesk' in (await inspect(exported)).snapshot), '只读导出候选必须剥离退役状态')
     const backup = writeLibraryBackup(storage, Date.UTC(2026, 10, 12, 12))!
@@ -104,8 +105,7 @@ export async function testNewBackupAndHistoricalRestoreRetireStateWithoutEditing
     assert(fs.readFileSync(storage.getPaths().dbFile).equals(original), '备份创建与验证不得改来源DB')
     const historical = writeLibraryBackup({
       getLibraryPath: () => root,
-      getCounts: () => storage!.getCounts(), listCommittedAttachmentFileNames: () => storage!.listCommittedAttachmentFileNames(),
-      exportSnapshotDatabaseBytes: () => original,
+      captureLibraryExport: () => ({ ...captured, databaseBytes: original }),
     }, Date.UTC(2026, 10, 12, 11))!
     const historicalMeta = fs.readFileSync(historical + '.meta.json')
     const cleaner = storage.createSnapshotDatabaseCleaner()

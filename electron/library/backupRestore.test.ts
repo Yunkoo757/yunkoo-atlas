@@ -100,7 +100,8 @@ export async function testBackupRestoreRequiresValidSourceAndVerifiedSafetyCopyB
     assert.deepEqual(fs.readdirSync(path.join(f.root, 'backups')).filter(name => name.endsWith('.db')), [])
     const selected = writeLibraryBackup(f.first)
     assert.ok(selected)
-    f.first.exportSnapshotDatabaseBytes = () => Buffer.from('unreadable safety copy')
+    const captured = f.first.captureLibraryExport('backup')
+    f.first.captureLibraryExport = () => ({ ...captured, databaseBytes: Buffer.from('unreadable safety copy') })
     const invalid = await restoreLibraryBackup(selected, f.session)
     assert.equal(invalid.ok, false)
     assert.equal(invalid.committed, false)
@@ -236,15 +237,14 @@ export async function testBackupWithMatchingChecksumAndUnreadableRevisionCannotR
   try {
     f.first.saveSnapshot({ ...createEmptyPersistedSnapshot(), tagPresets: ['backup'] })
     const SQL = await initSqlJs({ locateFile: () => path.resolve('node_modules/sql.js/dist/sql-wasm.wasm') })
-    const source = new SQL.Database(f.first.exportSnapshotDatabaseBytes())
+    const captured = f.first.captureLibraryExport('backup')
+    const source = new SQL.Database(captured.databaseBytes)
     let selected: string | null
     try {
       source.run("UPDATE meta SET value='invalid' WHERE key='snapshotRevision'")
       selected = writeLibraryBackup({
         getLibraryPath: () => f.root,
-        getCounts: () => f.first.getCounts(),
-        listCommittedAttachmentFileNames: () => f.first.listCommittedAttachmentFileNames(),
-        exportSnapshotDatabaseBytes: () => Buffer.from(source.export()),
+        captureLibraryExport: () => ({ ...captured, databaseBytes: Buffer.from(source.export()) }),
       }, Date.UTC(2024, 0, 1))
     } finally { source.close() }
     assert.ok(selected)
@@ -342,11 +342,12 @@ export async function testCreatedBackupReportsItsOwnDiskVerificationAndPreserves
     assert.equal(verification.status, 'verified')
     assert.equal(names().length, 7)
     assert.deepEqual(JSON.parse(fs.readFileSync(file + '.meta.json', 'utf8')).verification, verification)
-    f.first.exportSnapshotDatabaseBytes = () => Buffer.from('unreadable snapshot')
+    const captured = f.first.captureLibraryExport('backup')
+    f.first.captureLibraryExport = () => ({ ...captured, databaseBytes: Buffer.from('unreadable snapshot') })
     const invalid = await createVerifiedBackup(f.first)
     assert.equal(invalid?.status, 'invalid', '备份已写出时，必须返回实际校验失败')
     assert.ok(invalid?.error && fs.existsSync(invalid.path))
-    f.first.exportSnapshotDatabaseBytes = () => { throw new Error('cannot create snapshot') }
+    f.first.captureLibraryExport = () => { throw new Error('cannot create snapshot') }
     assert.equal(await createVerifiedBackup(f.first), null, '创建失败须与校验失败区分')
   } finally { f.dispose() }
 }

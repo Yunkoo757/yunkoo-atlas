@@ -913,8 +913,8 @@ export async function testAllAttachmentEntryPointsRejectDirectoryJunctionBeforeO
 
     for (const [label, operation] of [
       ['read', () => storage.getAssetBytes(assetId)],
-      ['backup-name-list', () => storage.listCommittedAttachmentFileNames()],
-      ['archive-file-list', () => storage.listCommittedAttachmentFiles()],
+      ['backup-candidate', () => storage.captureLibraryExport('backup')],
+      ['archive-candidate', () => storage.captureLibraryExport('archive')],
       ['import', () => storage.importAsset('junction-import', 'application/octet-stream', Buffer.from('blocked-import'))],
       ['save', () => storage.saveAssetAsync(Buffer.from('blocked-save'), 'application/octet-stream')],
     ] as const) {

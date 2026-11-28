@@ -52,8 +52,8 @@ export async function exportJournalZip(
   if (databaseStat.isSymbolicLink() || !databaseStat.isFile()) {
     throw new Error('当前资料库数据库不是普通文件，无法安全导出')
   }
-  const committedAttachments = storage.listCommittedAttachmentFiles()
-  const archiveAttachments = committedAttachments.map(({ fileName, byteSize }) => {
+  const data = storage.captureLibraryExport('archive')
+  const archiveAttachments = data.attachments.map(({ fileName, byteSize }) => {
     if (!fileName || path.basename(fileName) !== fileName) {
       throw new Error(`附件元数据包含不安全路径（${fileName}）`)
     }
@@ -70,7 +70,7 @@ export async function exportJournalZip(
     const completed = pipeline(archive, output)
 
     archive.file(paths.manifestFile, { name: 'manifest.json' })
-    archive.append(storage.exportSnapshotDatabaseBytes(), { name: 'journal.db' })
+    archive.append(data.databaseBytes, { name: 'journal.db' })
 
     for (const { fileName, attachmentFile } of archiveAttachments) {
       archive.file(attachmentFile, {

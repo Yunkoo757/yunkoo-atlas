@@ -1148,6 +1148,41 @@ export async function testCorruptJournalImportRecoveryFailsClosedBeforeLibraryMu
   }
 }
 
+export async function testBackupAndArchiveCaptureAnotherWritersCommittedAttachmentAndSnapshotTogether(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-export-durable-index-'))
+  const source = new LibraryStorage(path.join(root, 'source'))
+  const writer = new LibraryStorage(source.getLibraryPath())
+  const restored = new LibraryStorage(path.join(root, 'restored'))
+  try {
+    await source.open()
+    source.saveSnapshot(emptySnapshot())
+    await writer.open()
+    const id = 'separate-writer'
+    const bytes = Buffer.from('isolated attachment')
+    await writer.commitImport(snapshotWithAsset(id), [{ id, mime: 'image/png', buffer: bytes }])
+    assert(source.getAssetBytes(id) === null, '基线必须是仍持有旧索引的来源实例')
+    const previous = fs.readFileSync(source.getPaths().dbFile)
+    const backup = writeLibraryBackup(source)
+    assert(backup, '备份必须写出')
+    const verification = await verifyBackupAtPath(source.getLibraryPath(), backup)
+    assert(verification.status === 'verified' && verification.tradeCount === 1 && verification.attachmentCount === 1,
+      '备份的交易数及附件必须与备份数据库匹配')
+    const archive = path.join(root, 'captured.journal.zip')
+    await exportJournalZip(source, archive)
+    await importJournalZipToPath(restored.getLibraryPath(), archive)
+    await restored.open()
+    assert(restored.loadSnapshot()?.trades.length === 1, '归档必须恢复外部提交的交易')
+    assert(Buffer.from(restored.getAssetBytes(id)?.bytes ?? []).equals(bytes), '归档必须恢复该交易引用的原始附件')
+    assert(source.getAssetBytes(id) === null && fs.readFileSync(source.getPaths().dbFile).equals(previous),
+      '只读导出必须保留来源实例状态和来源数据库原始字节')
+  } finally {
+    source.release()
+    writer.release()
+    restored.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export async function testDesktopExportOmitsUncommittedAttachmentFiles(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-export-orphan-'))
   const sourceRoot = path.join(root, 'source')
@@ -1382,7 +1417,7 @@ export async function testExactArchiveRejectsUnreadableRevisionBeforeReplacingAn
     target.saveSnapshot({ ...emptySnapshot(), tagPresets: ['current'] })
     const original = libraryChecksum(target.getLibraryPath())
     const SQL = await initSqlJs({ locateFile: () => path.resolve('node_modules/sql.js/dist/sql-wasm.wasm') })
-    const db = new SQL.Database(target.exportSnapshotDatabaseBytes())
+    const db = new SQL.Database(target.captureLibraryExport('archive').databaseBytes)
     const zip = new JSZip()
     try {
       db.run("UPDATE meta SET value='invalid' WHERE key='snapshotRevision'")

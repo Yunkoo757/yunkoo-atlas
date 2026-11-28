@@ -26,7 +26,7 @@ export async function testCommittedAttachmentInventoryScansTheDirectoryTwiceRega
         if (String(directory) === path.join(root, 'attachments')) scans++
         return (original as (...args: unknown[]) => unknown)(directory, ...args)
       }) as typeof fs.readdirSync
-      const rows = storage.listCommittedAttachmentFiles()
+      const rows = storage.captureLibraryExport('archive').attachments
       assert.equal(rows.length, 32)
       assert.equal(scans, 2, '目录应一次建索引、一次确认未变化，而不是每张图重扫')
     } finally { fs.readdirSync = original }
@@ -37,10 +37,10 @@ export async function testBatchAttachmentInspectionStillRejectsPortableNameColli
   await library((storage, root) => {
     const collision = path.join(root, 'attachments', 'SCAN-0.jpg')
     fs.writeFileSync(collision, 'synthetic collision')
-    assert.throws(() => storage.listCommittedAttachmentFiles(), /多个物理文件|冲突/)
+    assert.throws(() => storage.captureLibraryExport('archive').attachments, /多个物理文件|冲突/)
     fs.rmSync(collision)
     fs.rmSync(path.join(root, 'attachments', 'scan-0.png'))
-    assert.throws(() => storage.listCommittedAttachmentFiles(), /缺失/)
+    assert.throws(() => storage.captureLibraryExport('archive').attachments, /缺失/)
   })
 }
 
@@ -55,7 +55,7 @@ export async function testBatchAttachmentInspectionRejectsDirectoryChangesDuring
         }
         return (original as (...args: unknown[]) => unknown)(directory, ...args)
       }) as typeof fs.readdirSync
-      assert.throws(() => storage.listCommittedAttachmentFiles(), /目录.*变化|多个物理文件|冲突/)
+      assert.throws(() => storage.captureLibraryExport('archive').attachments, /目录.*变化|多个物理文件|冲突/)
     } finally { fs.readdirSync = original }
   })
 }
