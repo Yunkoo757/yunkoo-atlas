@@ -34,23 +34,23 @@ export const DEFAULT_ANALYSIS_SCOPE: AnalysisScope = {
 const ANALYSIS_KINDS: AnalysisKind[] = ['live', 'paper', 'all']
 const ANALYSIS_RANGES: AnalysisRange[] = ['all', 'this-week', 'this-month', '30d', '90d', 'ytd']
 
+export function parseAnalysisKind(value: string | null): AnalysisKind | null {
+  return ANALYSIS_KINDS.find(kind => kind === value) ?? null
+}
+
+export function parseAnalysisRange(value: string | null): AnalysisRange | null {
+  return ANALYSIS_RANGES.find(range => range === value) ?? null
+}
+
 export function parseAnalysisScope(
   input: string | URLSearchParams,
 ): ParsedAnalysisScope {
   const params = typeof input === 'string' ? new URLSearchParams(input) : input
-  const rawKind = params.get('kind')
-  const rawRange = params.get('range')
-  const kind = ANALYSIS_KINDS.includes(rawKind as AnalysisKind)
-    ? rawKind as AnalysisKind
-    : DEFAULT_ANALYSIS_SCOPE.kind
-  const range = ANALYSIS_RANGES.includes(rawRange as AnalysisRange)
-    ? rawRange as AnalysisRange
-    : DEFAULT_ANALYSIS_SCOPE.range
+  const kind = parseAnalysisKind(params.get('kind'))
+  const range = parseAnalysisRange(params.get('range'))
   return {
-    scope: { kind, range },
-    explicit:
-      ANALYSIS_KINDS.includes(rawKind as AnalysisKind) ||
-      ANALYSIS_RANGES.includes(rawRange as AnalysisRange),
+    scope: { kind: kind ?? DEFAULT_ANALYSIS_SCOPE.kind, range: range ?? DEFAULT_ANALYSIS_SCOPE.range },
+    explicit: kind !== null || range !== null,
   }
 }
 

@@ -5,7 +5,7 @@ import {
   parseTradeWorkspaceQuery,
   mergeSharedTradeWorkspaceSearch,
   resolveSharedTradeWorkspaceSearch,
-  resolveTradeWorkspaceListFilter,
+  resolveTradeLogFilter,
   sharedTradeWorkspaceSearch,
   tradeHomeHref,
   tradeHomeSearch,
@@ -62,11 +62,11 @@ export function testTradeWorkspaceStageScopeSurvivesKindSwitch(): void {
     { stage: 'all', kind: 'paper', view: 'all' },
   )
   assert.deepEqual(
-    resolveTradeWorkspaceListFilter({ stage: 'all', kind: 'paper', view: 'all' }),
+    resolveTradeLogFilter('?liveStage=all&kind=paper&view=all'),
     { type: 'all', tradeKind: 'paper' },
   )
   assert.deepEqual(
-    resolveTradeWorkspaceListFilter({ stage: 'all', kind: 'all', view: 'all' }),
+    resolveTradeLogFilter('?liveStage=all&kind=all&view=all'),
     { type: 'all' },
   )
   assert.equal(
@@ -77,11 +77,11 @@ export function testTradeWorkspaceStageScopeSurvivesKindSwitch(): void {
 
 export function testTradeWorkspaceListFilterUsesOneQuery(): void {
   assert.deepEqual(
-    resolveTradeWorkspaceListFilter({ stage: 'stage-old', kind: 'live', view: 'active' }),
+    resolveTradeLogFilter('?liveStage=stage-old&kind=live&view=active'),
     { type: 'active', tradeKind: 'live' },
   )
   assert.deepEqual(
-    resolveTradeWorkspaceListFilter({ stage: 'current', kind: 'all', view: 'all' }),
+    resolveTradeLogFilter('?liveStage=current&kind=all&view=all'),
     { type: 'all' },
   )
 }

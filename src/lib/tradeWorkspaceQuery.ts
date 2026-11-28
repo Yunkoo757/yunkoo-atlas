@@ -1,9 +1,10 @@
 import type { LiveStage } from '@/lib/liveStages'
-import type { ListFilter, ListFilterType } from '@/lib/tradeFilters'
+import { parseAnalysisKind, parseAnalysisRange, type AnalysisKind } from '@/lib/analysisScope'
+import type { ListFilter } from '@/lib/tradeFilters'
 import { isKnownTradeViewParam } from '@/lib/tradeViewParams'
 
 export type TradeWorkspacePage = 'log' | 'stats' | 'review'
-export type TradeWorkspaceKind = 'all' | 'live' | 'paper'
+export type TradeWorkspaceKind = AnalysisKind
 export type TradeWorkspaceView = 'all' | 'active' | 'starred' | 'missed' | 'incomplete'
 
 export type TradeWorkspaceQuery = {
@@ -13,7 +14,6 @@ export type TradeWorkspaceQuery = {
 }
 
 const VIEWS = new Set<TradeWorkspaceView>(['all', 'active', 'starred', 'missed', 'incomplete'])
-const KINDS = new Set<TradeWorkspaceKind>(['all', 'live', 'paper'])
 const LEGACY_PAGE: Record<string, TradeWorkspacePage | undefined> = {
   stats: 'stats',
   reviews: 'review',
@@ -22,6 +22,14 @@ const LEGACY_PAGE: Record<string, TradeWorkspacePage | undefined> = {
 export function tradeWorkspacePageFromSearch(search: string | URLSearchParams): TradeWorkspacePage | null {
   const params = typeof search === 'string' ? new URLSearchParams(search) : search
   return LEGACY_PAGE[params.get('section') ?? ''] ?? null
+}
+
+function listContext(params: URLSearchParams) {
+  const requestedView = params.get('view')
+  const view = VIEWS.has(requestedView as TradeWorkspaceView)
+    ? requestedView as TradeWorkspaceView
+    : 'all'
+  return { view, kind: parseAnalysisKind(params.get('kind')) ?? 'live' }
 }
 
 export function parseTradeWorkspaceQuery(
@@ -37,15 +45,7 @@ export function parseTradeWorkspaceQuery(
     : requestedStage === 'all' || (requestedStage && archivedIds.has(requestedStage))
       ? requestedStage
       : 'current'
-  const requestedKind = params.get('kind')
-  const kind = KINDS.has(requestedKind as TradeWorkspaceKind)
-    ? requestedKind as TradeWorkspaceKind
-    : 'live'
-  const requestedView = params.get('view')
-  const view = VIEWS.has(requestedView as TradeWorkspaceView)
-    ? requestedView as TradeWorkspaceView
-    : 'all'
-  return { stage, kind, view }
+  return { stage, ...listContext(params) }
 }
 
 /** 将旧入口与无效参数收敛为统一工作台查询；返回值可安全写回 URL。 */
@@ -86,10 +86,13 @@ export function normalizeTradeWorkspaceSearch(
   return next
 }
 
-export function resolveTradeWorkspaceListFilter(query: TradeWorkspaceQuery): ListFilter {
-  const type: ListFilterType = query.view === 'all' ? 'all' : query.view
-  if (query.kind === 'all') return { type }
-  return { type, tradeKind: query.kind === 'paper' ? 'paper' : 'live' }
+export function resolveTradeLogFilter(search: string | URLSearchParams): ListFilter {
+  const params = typeof search === 'string' ? new URLSearchParams(search) : search
+  const { kind, view } = listContext(params)
+  const range = parseAnalysisRange(params.get('range'))
+  // kind 也由普通日志的盘型入口写入；只有显式时间范围才限定为绩效样本。
+  if (range !== null) return { type: view, analysisScope: { kind, range } }
+  return kind === 'all' ? { type: view } : { type: view, tradeKind: kind }
 }
 
 export function writeTradeWorkspaceContext(

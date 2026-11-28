@@ -14,6 +14,7 @@ import {
 import type { DisplayPrefs, ListFilter, ReviewCaseScope } from '@/lib/tradeFilters'
 import { isValidPeriodSlug, type BusinessDateAnchor } from '@/lib/periods'
 import { parseAnalysisScope } from '@/lib/analysisScope'
+import { resolveTradeLogFilter } from '@/lib/tradeWorkspaceQuery'
 import { buildMissedOpportunitySummary } from '@/lib/missedOpportunities'
 import { MISSED_OPPORTUNITY_SOURCES, type MissedOpportunitySource } from '@/lib/missedOpportunities'
 import { countWorkbenchVisibleTrades } from '@/lib/workbenchTrades'
@@ -807,7 +808,7 @@ function isPrimaryContextLocation(
 
 function listTargetForPath(pathname: string, search = ''): ListFilter | undefined {
   const path = normalizeTargetPath(pathname)
-  if (path === '/list') return { type: 'all', tradeKind: 'live' }
+  if (path === '/list') return resolveTradeLogFilter(search)
   if (path === '/active') return { type: 'active', tradeKind: 'live' }
   if (path === '/favorites') return { type: 'starred', tradeKind: 'live' }
   if (path === '/sim') return { type: 'all', tradeKind: 'paper' }
@@ -886,6 +887,7 @@ export function countSidebarRoute(
   const requestedStage = new URLSearchParams(search).get('liveStage')
   const stageScope: StageScope | undefined = context.currentLiveStageId
     && filter.tradeKind !== 'paper'
+    && filter.analysisScope?.kind !== 'paper'
     && filter.tradeKind !== 'case'
     ? resolveStageScope(requestedStage, context.liveStages ?? [], context.currentLiveStageId)
     : undefined

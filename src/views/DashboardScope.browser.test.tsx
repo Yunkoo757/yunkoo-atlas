@@ -235,7 +235,8 @@ async function run(): Promise<void> {
     assert(!document.body.textContent?.includes('查看累计盈亏数据'), 'Dashboard 不得保留重复的内联数据表入口')
 
     root.unmount()
-    useStore.setState({ trades: [usdLive] })
+    const priorYear = liveTrade('prior-year', 'stage-current', 150, '2000-01-01')
+    useStore.setState({ trades: [usdLive, openLive, priorYear] })
     root = createRoot(element)
     root.render(
       <MemoryAppRouter initialEntries={['/dashboard?kind=live&range=ytd&liveStage=current']}>
@@ -253,6 +254,7 @@ async function run(): Promise<void> {
     assert(document.querySelector('[data-trade-id="currency-usd"]'), '本年下钻必须显示同一当前 stage 交易')
 
     root.unmount()
+    useStore.setState({ trades: [usdLive] })
     root = createRoot(element)
     root.render(
       <MemoryAppRouter initialEntries={['/period/ytd']}>

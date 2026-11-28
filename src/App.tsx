@@ -54,8 +54,7 @@ const StrategyHeader = lazy(() => import('./components/StrategyHeader').then(mod
 import { getStrategyName } from './lib/strategies'
 import {
   normalizeTradeWorkspaceSearch,
-  parseTradeWorkspaceQuery,
-  resolveTradeWorkspaceListFilter,
+  resolveTradeLogFilter,
   tradeHomeHref,
   tradeWorkspacePageFromSearch,
 } from './lib/tradeWorkspaceQuery'
@@ -339,8 +338,7 @@ export function TradeLogPage() {
   if (normalizedSearch !== new URLSearchParams(search).toString()) {
     return <Navigate to={{ pathname, search: normalizedSearch ? `?${normalizedSearch}` : '' }} state={getJournalViewState(state)} replace />
   }
-  const query = parseTradeWorkspaceQuery(normalized, liveStages, currentLiveStageId)
-  const filter = resolveTradeWorkspaceListFilter(query)
+  const filter = resolveTradeLogFilter(normalized)
   return (
     <TradesPage
       title="交易日志"

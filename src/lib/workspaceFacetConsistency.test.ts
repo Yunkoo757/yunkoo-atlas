@@ -23,10 +23,8 @@ import {
   syncPrimaryWorkspaceMode,
 } from '@/lib/workspaceViews'
 import type { SidebarWorkspaceItem } from '@/lib/sidebarWorkspace'
-import {
-  describeListFilterDateField,
-  resolveTradeLogFilter,
-} from '@/lib/tradeFilters'
+import { describeListFilterDateField } from '@/lib/tradeFilters'
+import { resolveTradeLogFilter } from '@/lib/tradeWorkspaceQuery'
 import { buildPerformanceSelection } from '@/lib/performanceSelection'
 import { createBusinessDateAnchor } from '@/lib/periods'
 
@@ -184,7 +182,7 @@ export function testCrossTypeWorkspacesCanFilterAndSaveRecordType(): void {
   )
 }
 
-export function testTradeLogEnablesAnalysisOnlyForExplicitKindOrRange(): void {
+export function testTradeLogEnablesAnalysisOnlyForAnExplicitRange(): void {
   const ordinary = resolveTradeLogFilter('?symbol=BTCUSDT')
   const live = resolveTradeLogFilter('?kind=live&range=all&symbol=BTCUSDT')
   const paper = resolveTradeLogFilter('?kind=paper&range=30d')
@@ -196,8 +194,8 @@ export function testTradeLogEnablesAnalysisOnlyForExplicitKindOrRange(): void {
   assert(combined.analysisScope?.kind === 'all' && combined.analysisScope.range === 'this-week', '组合下钻必须保留自然范围')
   assert(live.tradeKind === undefined && paper.tradeKind === undefined && combined.tradeKind === undefined, '分析下钻不得被固定 live facet 截断')
 
-  const app = readFileSync(path.resolve('src/App.tsx'), 'utf8')
-  assert(app.includes('resolveTradeWorkspaceListFilter(query)'), '/list 与 /board 路由必须消费统一工作台查询解析器')
+  assert(resolveTradeLogFilter('?kind=paper').tradeKind === 'paper', '单独切换模拟盘应保留其未平仓记录')
+  assert(resolveTradeLogFilter('?kind=live&range=obsolete').analysisScope === undefined, '无效范围不得激活绩效筛选')
 }
 
 export function testCalendarPeriodsAndDashboardPerformanceKeepDifferentDateFields(): void {
