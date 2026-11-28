@@ -1,5 +1,5 @@
 import { canonicalImportValue } from '@/lib/importMerge'
-import { stableImportedTradeId } from '@/lib/riskImportMerge'
+import { stableImportedTradeId } from '@/lib/importTradeIdentity'
 import { sha256Hex } from '@/lib/sha256'
 import { createWeeklyReview, type WeeklyReview } from '@/data/weeklyReviews'
 import type { Trade } from '@/data/trades'

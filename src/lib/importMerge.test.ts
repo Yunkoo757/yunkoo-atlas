@@ -1,5 +1,5 @@
 import { OperationalError } from '@/lib/operationalError'
-import { stableImportedTradeId } from '@/lib/riskImportMerge'
+import { stableImportedTradeId } from '@/lib/importTradeIdentity'
 import type { Trade } from '@/data/trades'
 import { mergeImportPayload } from '@/lib/importMerge'
 import { riskSetupStateForStage } from '@/test/fixtures/stageRisk'

@@ -1,8 +1,8 @@
-import { matchImportedTrade, verifyImportAssets } from '@/lib/importTradeIdentity'
+import { matchImportedTrade, stableImportedTradeId, verifyImportAssets } from '@/lib/importTradeIdentity'
 import type { Trade } from '@/data/trades'
 import { canonicalImportValue } from '@/lib/importMerge'
 import type { PersistedSlice } from '@/lib/importTypes'
-import { mergeRiskImport, stableImportedTradeId } from '@/lib/riskImportMerge'
+import { mergeRiskImport } from '@/lib/riskImportMerge'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 
@@ -375,5 +375,51 @@ export async function testLegacyImageMatchPreservesHtmlAliasesSelectionAndMediaT
   for (const mime of ['image/jpeg', null]) {
     const compare = verifyImportAssets(files, async id => mime ? { id, mime, data: 'YQ==' } : null)
     assert(await matchImportedTrade(local, incoming, compare) === 'different', '编码类型不同或缺少文件时不能确认同一份证据')
+  }
+}
+
+export async function testLegacyCaseComparesItsAssignedSourceInEitherImportOrder(): Promise<void> {
+  const initial = localFixture()
+  const incoming = importedCollisionFixture()
+  const [source, originalCase] = incoming.trades
+  const child = { ...originalCase!, activities: [] }
+  const grandchild = { ...child, id: 'nested-case', ref: 'CASE-NESTED', sourceTradeId: child.id }
+  for (const sequence of [[grandchild, child, source!], [source!, child, grandchild]]) {
+    const batch = { ...incoming, trades: sequence }
+    const first = (await mergeRiskImport(initial, batch, 'legacy-sources')).state
+    const repeated = (await mergeRiskImport(first, batch, 'legacy-sources')).state
+    assert(repeated.trades.length === 4 && repeated.trades.find(t => t.id === child.id)?.sourceTradeId === stableImportedTradeId('legacy-sources', source!.id),
+      '来源被重新编号后，不论输入顺序，历史案例与其后续案例都不得增殖')
+    assert(repeated.trades.find(t => t.id === grandchild.id)?.sourceTradeId === child.id, '嵌套来源应指向同一案例')
+  }
+}
+
+export async function testLegacySourceCyclesPreserveExistingRecordsAndRemainReplayable(): Promise<void> {
+  const base = localFixture()
+  const record = (id: string, sourceTradeId: string): Trade => ({
+    ...identifiedTrade(id, 'CASE-' + id, 'BTCUSDT', 'unused'), tradeKind: 'case', activities: [], sourceTradeId,
+  })
+  const a = record('a', 'b'), b = record('b', 'a'), self = record('self', 'self')
+  const digest = 'historic-source-cycle'
+  const mappedA = stableImportedTradeId(digest, a.id)
+  const mappedB = stableImportedTradeId(digest, b.id)
+  for (const order of [[a, b, self], [self, b, a]]) {
+    const batch = { ...base, trades: order }
+    const scenarios = [
+      { local: [a, b, self], length: 3, a: 'a', b: 'b' },
+      { local: [{ ...a, note: '本地另一个案例' }], length: 4, a: mappedA, b: 'b' },
+      // A 要求原 B，B 要求重编号的 A，无法同时复用。现有两份资料均须保留。
+      { local: [a, { ...b, sourceTradeId: mappedA }], length: 5, a: mappedA, b: mappedB },
+    ]
+    for (const scenario of scenarios) {
+      const first = await mergeRiskImport({ ...base, trades: scenario.local }, batch, digest)
+      const replay = await mergeRiskImport(first.state, batch, digest)
+      assert(first.state.trades.length === scenario.length && replay.state.trades.length === scenario.length,
+        '历史循环来源的首次与再次导入应得到同一组记录')
+      assert(replay.tradeIds.get('a') === scenario.a && replay.tradeIds.get('b') === scenario.b &&
+        replay.state.trades.find(t => t.id === scenario.a)?.sourceTradeId === scenario.b &&
+        replay.state.trades.find(t => t.id === scenario.b)?.sourceTradeId === scenario.a &&
+        replay.state.trades.find(t => t.id === 'self')?.sourceTradeId === 'self', '循环与自引用不应受输入顺序影响')
+    }
   }
 }

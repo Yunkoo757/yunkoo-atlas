@@ -1,16 +1,12 @@
-import { matchImportedTrade, type VerifyImportAsset } from '@/lib/importTradeIdentity'
+import { resolveImportedTrades, type VerifyImportAsset } from '@/lib/importTradeIdentity'
 import { updateWeeklyReviewMarks } from '@/data/weeklyReviewTradeReferences'
-import { canonicalRiskJson, stableRiskHash } from '@/lib/riskFingerprint'
+import { canonicalRiskJson } from '@/lib/riskFingerprint'
 import { stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
 import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 import type { RiskOverrideEvent } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
 import type { ImportMergeResult, PersistedSlice } from '@/lib/importTypes'
 import { OperationalError } from '@/lib/operationalError'
-
-export function stableImportedTradeId(payloadDigest: string, tradeId: string): string {
-  return `imported:${stableRiskHash(`${payloadDigest}:${tradeId}`)}`
-}
 
 function mergeImmutableById<T extends { id: string }>(
   current: T[],
@@ -143,17 +139,7 @@ function rewriteTradeReferences(
   idMap: ReadonlyMap<string, string>,
   currentTrades: readonly Trade[],
 ): PersistedSlice {
-  const rewrittenTrades = imported.trades.map((trade) => {
-    const sourceTradeId = trade.sourceTradeId === undefined
-      ? undefined
-      : idMap.get(trade.sourceTradeId) ?? trade.sourceTradeId
-    return {
-      ...trade,
-      id: idMap.get(trade.id) ?? trade.id,
-      ...(trade.sourceTradeId === undefined ? {} : { sourceTradeId }),
-    }
-  })
-  const tradesById = new Map([...currentTrades, ...rewrittenTrades].map((trade) => [trade.id, trade]))
+  const tradesById = new Map([...currentTrades, ...imported.trades].map((trade) => [trade.id, trade]))
   const rewriteIds = (ids: string[]): string[] => ids.map((id) => idMap.get(id) ?? id)
   const rewriteEvidenceTrades = <T extends { id: string }>(trades: T[]): T[] =>
     trades.map((trade) => ({ ...trade, id: idMap.get(trade.id) ?? trade.id }))
@@ -161,7 +147,6 @@ function rewriteTradeReferences(
     events.map((event) => rewriteEvent(event, idMap, tradesById))
   return {
     ...imported,
-    trades: rewrittenTrades,
     riskOverrideEvents: rewriteEvents(imported.riskOverrideEvents ?? []),
     weeklyReviews: imported.weeklyReviews?.map((review) => ({
       ...updateWeeklyReviewMarks(review, rewriteIds),
@@ -190,52 +175,13 @@ export async function mergeRiskImport(
   payloadDigest: string,
   verifyAsset?: VerifyImportAsset,
 ): Promise<ImportMergeResult> {
-  const currentById = new Map(current.trades.map((trade) => [trade.id, trade]))
-  const trades: Trade[] = []
-  const idMap = new Map<string, string>()
-  const sourceByTargetId = new Map<string, string>()
-  for (const trade of imported.trades) {
-    const local = currentById.get(trade.id)
-    const match = local && await matchImportedTrade(local, trade, verifyAsset)
-    trades.push(local && match === 'identical' ? local : trade)
-    const mappedId = match === 'different'
-      ? stableImportedTradeId(payloadDigest, trade.id)
-      : trade.id
-    if (sourceByTargetId.has(mappedId)) {
-      throw new OperationalError('import-immutable-entity-conflict', `导入冲突：多笔交易映射到了同一 ID ${mappedId}。`)
-    }
-    idMap.set(trade.id, mappedId)
-    sourceByTargetId.set(mappedId, trade.id)
-  }
-
-  // 来源交易可能出现在案例之后；先建立完整映射，再校验重复导入的身份。
-  for (const trade of imported.trades) {
-    const mappedId = idMap.get(trade.id) ?? trade.id
-    if (mappedId === trade.id) continue
-    const occupant = currentById.get(mappedId)
-    if (!occupant) continue
-    const rewrittenIdentity = {
-      ...trade,
-      id: mappedId,
-      ...(trade.sourceTradeId === undefined ? {} : {
-        sourceTradeId: idMap.get(trade.sourceTradeId) ?? trade.sourceTradeId,
-      }),
-    }
-    if (await matchImportedTrade(occupant, rewrittenIdentity, verifyAsset) === 'different') {
-      throw new Error(`导入冲突：稳定导入交易 ID ${mappedId} 已被其他交易占用。`)
-    }
-  }
-
-  const rewritten = rewriteTradeReferences({ ...imported, trades }, idMap, current.trades)
-  const tradesById = new Map(current.trades.map((trade) => [trade.id, trade]))
-  for (const trade of rewritten.trades) {
-    const isStableRepeat = sourceByTargetId.get(trade.id) !== trade.id && currentById.has(trade.id)
-    if (!isStableRepeat) tradesById.set(trade.id, trade)
-  }
-
+  const { tradeIds, rewritten: importedTrades, trades } = await resolveImportedTrades(
+    current.trades, imported.trades, payloadDigest, verifyAsset,
+  )
+  const rewritten = rewriteTradeReferences({ ...imported, trades: importedTrades }, tradeIds, current.trades)
   const state = {
     ...stripRetiredSnapshotDomains(current),
-    trades: [...tradesById.values()],
+    trades,
     weeklyRiskPreparations: mergeWeeklyPreparations(
       current.weeklyRiskPreparations ?? [],
       rewritten.weeklyRiskPreparations ?? [],
@@ -262,5 +208,5 @@ export async function mergeRiskImport(
     starredIds: [...new Set([...current.starredIds, ...rewritten.starredIds])],
     subscribedIds: [...new Set([...current.subscribedIds, ...rewritten.subscribedIds])],
   }
-  return { state, tradeIds: idMap }
+  return { state, tradeIds }
 }
