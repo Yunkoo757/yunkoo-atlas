@@ -7,7 +7,7 @@ import type {
   TradeSide,
   TradeStatus,
 } from '@/data/trades'
-import { DEFAULT_TRADING_DAY_START_HOUR, tradeInPeriod, type BusinessDateAnchor, type CalendarPeriod } from '@/lib/periods'
+import { DEFAULT_TRADING_DAY_START_HOUR, recordDisplayDay, tradeInPeriod, type BusinessDateAnchor, type CalendarPeriod } from '@/lib/periods'
 import { matchesLegacyCaseReviewCategory } from '@/lib/reviewCaseScope'
 
 const EMPTY_STARRED_IDS: ReadonlySet<string> = new Set()
@@ -322,11 +322,8 @@ export function groupTradesByMonth(
   const groups = new Map<string, Trade[]>()
 
   for (const trade of trades) {
-    const date = new Date(trade.openedAt)
-    const valid = Number.isFinite(date.getTime())
-    const year = valid ? date.getFullYear() : 0
-    const month = valid ? date.getMonth() + 1 : 0
-    const key = valid ? `${year}-${String(month).padStart(2, '0')}` : 'unknown'
+    const day = recordDisplayDay(trade.openedAt)
+    const key = day === null ? 'unknown' : day.slice(0, -3)
     const items = groups.get(key) ?? []
     items.push(trade)
     groups.set(key, items)

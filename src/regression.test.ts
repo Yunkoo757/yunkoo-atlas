@@ -1788,6 +1788,27 @@ export function testReviewCasesSortByCollectionAndRecentActivity(): void {
   )
 }
 
+export function testTradeMonthGroupUsesTheSameCivilDayAsTheDisplayedRecord(): void {
+  const zone = process.env.TZ
+  try {
+    process.env.TZ = 'America/Los_Angeles'
+    const records = [
+      { ...trade, id: 'day', openedAt: '2026-07-01' },
+      { ...trade, id: 'instant', openedAt: '2026-07-01T02:00:00.000Z' },
+      { ...trade, id: 'future', openedAt: '2027-01-01' },
+      { ...trade, id: 'invalid', openedAt: '2026-02-30' },
+    ]
+    const groups = groupTradesByMonth(records, new Date('2026-07-01T12:00:00'))
+    const months = groups.map(group => [group.key, group.items.map(item => item.id)])
+    assert(JSON.stringify(months) === JSON.stringify([
+      ['2027-01', ['future']], ['2026-07', ['day']], ['2026-06', ['instant']], ['unknown', ['invalid']],
+    ]), `日期型、时间点、未来和无效记录必须按显示日期分月：${JSON.stringify(months)}`)
+  } finally {
+    if (zone === undefined) delete process.env.TZ
+    else process.env.TZ = zone
+  }
+}
+
 export function testTradeViewGroupsByMonthAndLimitsVisibleTags(): void {
   const julyEarly = { ...trade, id: 'jul-1', openedAt: '2026-07-02T08:00:00.000Z' }
   const julyLate = { ...trade, id: 'jul-2', openedAt: '2026-07-18T08:00:00.000Z' }

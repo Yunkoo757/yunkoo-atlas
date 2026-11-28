@@ -1,4 +1,4 @@
-import { isCalendarDay } from '@/lib/calendarDay'
+import { recordDisplayDay } from '@/lib/periods'
 import { normalizeCashCurrency } from '@/data/trades'
 
 export function fmtMoney(
@@ -40,16 +40,8 @@ export function fmtPrice(n: number): string {
 }
 
 export function fmtDate(iso: string): string {
-  if (!iso) return '—'
-  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
-  if (dateOnly) {
-    const [, , month, day] = dateOnly
-    if (!isCalendarDay(iso)) return '—'
-    return `${Number(month)}月${Number(day)}日`
-  }
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return '—'
-  return `${d.getMonth() + 1}月${d.getDate()}日`
+  const day = recordDisplayDay(iso)
+  return day ? `${Number(day.slice(-5, -3))}月${Number(day.slice(-2))}日` : '—'
 }
 
 export function fmtDateTime(iso: string): string {

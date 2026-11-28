@@ -1,4 +1,4 @@
-import { calendarWeekStart, formatCalendarDay, parseCalendarDay, shiftCalendarDay } from '@/lib/calendarDay'
+import { calendarWeekStart, formatCalendarDay, isCalendarDay, parseCalendarDay, shiftCalendarDay } from '@/lib/calendarDay'
 import type { Trade } from '@/data/trades'
 
 export type CalendarPeriod =
@@ -134,6 +134,13 @@ export function formatYmd(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
+/** 记录的显示日。纯日期保留原值，带时间的记录沿用设备本地日期。 */
+export function recordDisplayDay(value: string): string | null {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return isCalendarDay(value) ? value : null
+  const date = new Date(value)
+  return Number.isFinite(date.getTime()) ? formatYmd(date) : null
+}
+
 /** 从配置后的当前业务交易日起偏移日历天，用于生成规范 YYYY-MM-DD 排期。 */
 export function addDaysToCurrentTradingDay(
   now: Date,
@@ -142,35 +149,6 @@ export function addDaysToCurrentTradingDay(
 ): string {
   const currentTradingDayKey = getTradingDayKey(now, tradingDayStartHour)
   return shiftCalendarDay(currentTradingDayKey, days)
-}
-
-function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate())
-}
-
-function addDays(d: Date, n: number): Date {
-  const x = new Date(d)
-  x.setDate(x.getDate() + n)
-  return x
-}
-
-function startOfWeek(d: Date, weekStartsOn = WEEK_STARTS_ON): Date {
-  const day = d.getDay()
-  const diff = (day - weekStartsOn + 7) % 7
-  return startOfDay(addDays(d, -diff))
-}
-
-function endOfWeek(d: Date, weekStartsOn = WEEK_STARTS_ON): Date {
-  const start = startOfWeek(d, weekStartsOn)
-  return addDays(start, 6)
-}
-
-function startOfMonth(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), 1)
-}
-
-function endOfMonth(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0)
 }
 
 export function getPeriodBounds(
@@ -225,139 +203,6 @@ export function tradeInPeriod(
   return isDateInRange(raw, bounds)
 }
 
-export function formatPeriodSubtitle(
-  period: CalendarPeriod,
-  now: Date | BusinessDateAnchor = new Date(),
-  tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
-): string {
-  const bounds = getPeriodBounds(period, now, WEEK_STARTS_ON, tradingDayStartHour)
-  // 今日筛选页标题已包含「今日」，副标题不再重复范围名称
-  if (period === 'today') {
-    return `${bounds.start} · 按开仓日 · 交易日`
-  }
-  return `${PERIOD_LABELS[period]} · ${bounds.start} – ${bounds.end} · 按开仓日`
-}
-
 export function isValidPeriodSlug(slug: string): slug is CalendarPeriod {
   return (CALENDAR_PERIODS as string[]).includes(slug)
-}
-
-// ---- 智能日期分桶 (列表分组用) ----
-
-export type DateBucket =
-  | 'today'
-  | 'yesterday'
-  | 'this-week'
-  | 'last-week'
-  | 'earlier-this-month'
-  | 'last-month'
-  | { year: number; month: number } // YYYY年M月
-
-export const DATE_BUCKET_ORDER: DateBucket[] = [
-  'today',
-  'yesterday',
-  'this-week',
-  'last-week',
-  'earlier-this-month',
-  'last-month',
-]
-
-export function formatDateBucket(bucket: DateBucket): string {
-  if (typeof bucket === 'object') {
-    return `${bucket.year}年${bucket.month}月`
-  }
-  switch (bucket) {
-    case 'today':
-      return '今日'
-    case 'yesterday':
-      return '昨日'
-    case 'this-week':
-      return '本周'
-    case 'last-week':
-      return '上周'
-    case 'earlier-this-month':
-      return '本月更早'
-    case 'last-month':
-      return '上月'
-  }
-}
-
-/** 日期桶排序 key：越近越大 */
-export function dateBucketSortKey(bucket: DateBucket, ts: number): number {
-  if (typeof bucket === 'object') {
-    return bucket.year * 100 + bucket.month
-  }
-  // 用参考时间戳保证同一天的桶顺序一致
-  return ts
-}
-
-/**
- * 将 ISO 日期字符串映射到智能分桶。
- * 传入参考点 refDate (通常是当前日期) 来计算相对桶。
- */
-export function classifyDateBucket(
-  iso: string,
-  refDate: Date = new Date(),
-  weekStartsOn = WEEK_STARTS_ON,
-): DateBucket {
-  const d = parseLocalDate(iso)
-  const today = startOfDay(refDate)
-  const ymd = formatYmd(d)
-  const todayYmd = formatYmd(today)
-
-  // 今日
-  if (ymd === todayYmd) return 'today'
-
-  // 昨日
-  const yesterday = addDays(today, -1)
-  if (ymd === formatYmd(yesterday)) return 'yesterday'
-
-  // 未来计划不能因为只有本周下界而伪装成本周历史。
-  if (d > today) return { year: d.getFullYear(), month: d.getMonth() + 1 }
-
-  // 本周（排除今日和昨日）
-  const thisWeekStart = startOfWeek(today, weekStartsOn)
-  if (d >= thisWeekStart) return 'this-week'
-
-  // 上周
-  const lastWeekStart = addDays(thisWeekStart, -7)
-  const lastWeekEnd = addDays(thisWeekStart, -1)
-  if (d >= lastWeekStart && d <= lastWeekEnd) return 'last-week'
-
-  // 本月更早（排除本周和上周所在月份内更早的日期）
-  const thisMonthStart = startOfMonth(today)
-  if (d >= thisMonthStart) return 'earlier-this-month'
-
-  // 上月
-  const lastMonthStart = startOfMonth(new Date(today.getFullYear(), today.getMonth() - 1, 1))
-  const lastMonthEnd = endOfMonth(lastMonthStart)
-  if (d >= lastMonthStart && d <= lastMonthEnd) return 'last-month'
-
-  // 更早 → 按 YYYY年M月
-  return { year: d.getFullYear(), month: d.getMonth() + 1 }
-}
-
-/** 两个 DateBucket 比较，用于排序：越近越靠前 */
-export function compareDateBucket(a: DateBucket, b: DateBucket, aTs: number, bTs: number): number {
-  const order: string[] = [
-    'today',
-    'yesterday',
-    'this-week',
-    'last-week',
-    'earlier-this-month',
-    'last-month',
-  ]
-
-  const aKey =
-    typeof a === 'object' ? `${a.year}-${String(a.month).padStart(2, '0')}` : order.indexOf(a)
-  const bKey =
-    typeof b === 'object' ? `${b.year}-${String(b.month).padStart(2, '0')}` : order.indexOf(b)
-
-  if (typeof a === 'object' && typeof b === 'object') {
-    return bTs - aTs // 按月降序
-  }
-  if (typeof a === 'object') return 1 // object buckets go after named buckets
-  if (typeof b === 'object') return -1
-
-  return order.indexOf(a) - order.indexOf(b) // named buckets: later index = older = sort after
 }
