@@ -644,12 +644,18 @@ export async function validateDesktopLibrary(
   return inspection
 }
 
-/** The path belongs to this operation's private prepared library, never to the source archive. */
-async function retirePreparedSnapshotDatabase(dbFile: string): Promise<void> {
+async function validatePreparedLibrary(paths: ReturnType<typeof getLibraryPaths>): Promise<void> {
+  writeImportProgress('importZip: validate prepared library start')
+  await validateDesktopLibrary(paths)
+  const dbFile = paths.dbFile
   const SQL = await initSqlJs({ locateFile: locateSqlWasm })
   const original = fs.readFileSync(dbFile)
   const retired = retiredSnapshotDatabaseBytes(original, SQL.Database)
-  if (retired !== original) writeFileAtomicallySync(dbFile, retired)
+  if (retired !== original) {
+    writeFileAtomicallySync(dbFile, retired)
+    await validateDesktopLibrary(paths)
+  }
+  writeImportProgress('importZip: validate prepared library done')
 }
 
 function writeImportProgress(message: string): void {
@@ -879,28 +885,19 @@ export function recoverInterruptedJournalImport(
   fs.rmSync(backupDir, { recursive: true, force: true })
 }
 
-export async function importJournalZipToPath(
-  libraryRoot: string,
-  zipFile: string,
-  options: {
-    copyWebAsset?: (source: string, destination: string, index: number) => void
-  } = {},
-): Promise<void> {
-  const paths = ensureLibraryDirs(libraryRoot)
-  const operationId = randomUUID()
-  const tempDir = path.join(libraryRoot, `.import-${operationId}`)
-  const preImportBackup = path.join(libraryRoot, `.pre-import-${operationId}`)
-  const markerPath = path.join(libraryRoot, JOURNAL_IMPORT_MARKER)
-  const extractedRoot = path.join(tempDir, 'extracted')
-  const preparedRoot = path.join(tempDir, 'prepared')
-  fs.mkdirSync(tempDir, { recursive: true })
-  let mutationStarted = false
-  let keepRecoveryBackup = false
-  let recoveryMarker: JournalImportMarker | null = null
-  const existingLibraryId = fs.existsSync(paths.manifestFile)
-    ? validateManifest(paths.manifestFile).libraryId
-    : null
+interface JournalArchivePreparation {
+  libraryId?: string
+  copyWebAsset?: (source: string, destination: string, index: number) => void
+}
 
+/** 调用方持有私有暂存目录，直到预览取消或提交。只有提交入口会写入活动库。 */
+export async function prepareJournalArchive(
+  stagingRoot: string,
+  zipFile: string,
+  options: JournalArchivePreparation = {},
+) {
+  const preparedPaths = ensureLibraryDirs(fs.mkdtempSync(path.join(stagingRoot, 'library-')))
+  const extractedRoot = fs.mkdtempSync(path.join(stagingRoot, 'extracted-'))
   try {
     writeImportProgress('importZip: extract start')
     await extractZipToDir(zipFile, extractedRoot)
@@ -911,17 +908,16 @@ export async function importJournalZipToPath(
     const dbSrc = path.join(extractedRoot, 'journal.db')
     const dataSrc = path.join(extractedRoot, 'data.json')
     const attachmentsSrc = path.join(extractedRoot, 'attachments')
-    const preparedPaths = ensureLibraryDirs(preparedRoot)
 
     if (fs.existsSync(manifestSrc) && fs.existsSync(dbSrc)) {
       fs.copyFileSync(manifestSrc, preparedPaths.manifestFile)
       fs.copyFileSync(dbSrc, preparedPaths.dbFile)
       copyAttachmentFiles(attachmentsSrc, preparedPaths.attachments)
-      if (existingLibraryId) {
+      if (options.libraryId) {
         const importedManifest = validateManifest(preparedPaths.manifestFile)
         writeFileAtomicallySync(
           preparedPaths.manifestFile,
-          JSON.stringify({ ...importedManifest, libraryId: existingLibraryId }, null, 2),
+          JSON.stringify({ ...importedManifest, libraryId: options.libraryId }, null, 2),
           'utf8',
         )
       }
@@ -929,90 +925,67 @@ export async function importJournalZipToPath(
       await importWebJournalZip(
         preparedPaths,
         extractedRoot,
-        existingLibraryId ?? randomUUID(),
+        options.libraryId ?? randomUUID(),
         options.copyWebAsset ?? ((source, destination) => fs.copyFileSync(source, destination)),
       )
     } else {
       throw new Error('Invalid .journal.zip: missing manifest.json/journal.db or data.json')
     }
 
-    writeImportProgress('importZip: validate prepared library start')
-    await validateDesktopLibrary(preparedPaths)
-    await retirePreparedSnapshotDatabase(preparedPaths.dbFile)
-    writeImportProgress('importZip: validate prepared library done')
+    await validatePreparedLibrary(preparedPaths)
+    return preparedPaths
+  } finally {
+    try {
+      fs.rmSync(extractedRoot, { recursive: true, force: true, maxRetries: 6, retryDelay: 50 })
+    } catch { /* 调用方释放整个暂存目录时会再清理仍被占用的文件。 */ }
+  }
+}
 
-    fs.mkdirSync(preImportBackup, { recursive: true })
-    writeImportProgress('importZip: backup current library start')
-    recoveryMarker = backupCurrentLibrary(paths, preImportBackup)
-    writeFileAtomicallySync(markerPath, JSON.stringify(recoveryMarker, null, 2), 'utf8')
-    writeImportProgress('importZip: backup current library done')
-
-    mutationStarted = true
-    writeFileAtomicallySync(paths.manifestFile, fs.readFileSync(preparedPaths.manifestFile))
-    writeFileAtomicallySync(paths.dbFile, fs.readFileSync(preparedPaths.dbFile))
-    copyAttachmentFiles(preparedPaths.attachments, paths.attachments, { durable: true })
-    await validateDesktopLibrary(paths)
-    fsyncDirectorySync(paths.root)
-    fs.rmSync(markerPath, { force: true })
-    fsyncDirectorySync(paths.root)
-  } catch (err) {
-    writeImportProgress(`importZip: error ${err instanceof Error ? err.message : String(err)}`)
-    if (mutationStarted) {
-      try {
-        recoverInterruptedJournalImport(paths)
-      } catch (restoreErr) {
-        keepRecoveryBackup = true
-        throw new Error(
-          `${err instanceof Error ? err.message : String(err)}; ` +
-            `恢复当前交易库失败，安全副本已保留在 ${preImportBackup}: ` +
-            `${restoreErr instanceof Error ? restoreErr.message : String(restoreErr)}`,
-        )
-      }
-    }
-    throw err
+export async function importJournalZipToPath(
+  libraryRoot: string,
+  zipFile: string,
+  options: Pick<JournalArchivePreparation, 'copyWebAsset'> = {},
+): Promise<void> {
+  const paths = ensureLibraryDirs(libraryRoot)
+  const libraryId = fs.existsSync(paths.manifestFile) ? validateManifest(paths.manifestFile).libraryId : undefined
+  const stagingRoot = fs.mkdtempSync(path.join(libraryRoot, '.import-'))
+  try {
+    const prepared = await prepareJournalArchive(stagingRoot, zipFile, { ...options, libraryId })
+    await replaceLibraryFiles(paths, prepared)
+  } catch (error) {
+    writeImportProgress(`importZip: error ${error instanceof Error ? error.message : String(error)}`)
+    throw error
   } finally {
     writeImportProgress('importZip: cleanup start')
-    try {
-      fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 6, retryDelay: 50 })
-    } catch {
-      /* 提交后的临时目录清理为 best-effort，下次维护时可重试。 */
-    }
-    if (!keepRecoveryBackup && !fs.existsSync(markerPath)) {
-      try {
-        fs.rmSync(preImportBackup, { recursive: true, force: true, maxRetries: 6, retryDelay: 50 })
-      } catch {
-        /* marker 已移除，活动库已提交；遗留安全副本不应反转成功结果。 */
-      }
-    }
+    try { fs.rmSync(stagingRoot, { recursive: true, force: true, maxRetries: 6, retryDelay: 50 }) } catch { /* 保留现场。 */ }
     writeImportProgress('importZip: cleanup done')
   }
 }
 
-/** 安装已经完成解压、CRC、SQLite 与应用层校验的私有候选；不会再次读取用户归档。 */
-export async function installPreparedLibraryAtPath(
-  libraryRoot: string,
-  preparedRoot: string,
-): Promise<void> {
-  const paths = ensureLibraryDirs(libraryRoot)
+/** 用户确认后复核私有候选；原始归档可能已经改变。 */
+export async function installPreparedLibraryAtPath(libraryRoot: string, preparedRoot: string): Promise<void> {
+  const preparedStat = fs.lstatSync(preparedRoot)
+  if (preparedStat.isSymbolicLink() || !preparedStat.isDirectory()) throw new Error('恢复候选不是普通目录')
   const preparedPaths = getLibraryPaths(preparedRoot)
-  const operationId = randomUUID()
-  const preImportBackup = path.join(libraryRoot, `.pre-import-${operationId}`)
-  const markerPath = path.join(libraryRoot, JOURNAL_IMPORT_MARKER)
+  await validatePreparedLibrary(preparedPaths)
+  await replaceLibraryFiles(ensureLibraryDirs(libraryRoot), preparedPaths)
+}
+
+async function replaceLibraryFiles(
+  paths: ReturnType<typeof getLibraryPaths>,
+  preparedPaths: ReturnType<typeof getLibraryPaths>,
+): Promise<void> {
+  const preImportBackup = path.join(paths.root, `.pre-import-${randomUUID()}`)
+  const markerPath = path.join(paths.root, JOURNAL_IMPORT_MARKER)
   let mutationStarted = false
   let keepRecoveryBackup = false
-
-  const preparedStat = fs.lstatSync(preparedRoot)
-  if (preparedStat.isSymbolicLink() || !preparedStat.isDirectory()) {
-    throw new Error('恢复候选不是普通目录')
-  }
-  await validateDesktopLibrary(preparedPaths)
-  await retirePreparedSnapshotDatabase(preparedPaths.dbFile)
-
   try {
     fs.mkdirSync(preImportBackup)
+    writeImportProgress('importZip: backup current library start')
     const recoveryMarker = backupCurrentLibrary(paths, preImportBackup)
     writeFileAtomicallySync(markerPath, JSON.stringify(recoveryMarker, null, 2), 'utf8')
 
+    writeImportProgress('importZip: backup current library done')
     mutationStarted = true
     writeFileAtomicallySync(paths.manifestFile, fs.readFileSync(preparedPaths.manifestFile))
     writeFileAtomicallySync(paths.dbFile, fs.readFileSync(preparedPaths.dbFile))

@@ -4,8 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type { PrepareJournalImportResult, PreparedJournalImportPreview, JournalBridge } from '../../src/types/journalBridge'
-import { writeFileAtomicallySync } from './atomicFile'
-import { importJournalZipToPath } from './journalZip'
+import { prepareJournalArchive } from './journalZip'
 import { capturePreparedImportSource, stagePreparedJournalArchive, type PreparedImportSource, type PreparedJournalArchiveStaging } from './preparedImportSource'
 import { LibraryStorage } from './storage'
 
@@ -17,6 +16,7 @@ interface Request {
 }
 
 interface PreparedImport extends PreparedJournalArchiveStaging {
+  stagedLibraryRoot: string
   prepareRequestId: string
   source: PreparedImportSource<LibraryStorage>
   state: 'prepared' | 'committing' | 'consumed' | 'expired'
@@ -27,12 +27,9 @@ interface PreparedImport extends PreparedJournalArchiveStaging {
 }
 
 async function inspectStagedLibrary(root: string, libraryId: string) {
-  const manifestFile = path.join(root, 'manifest.json')
-  const manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8')) as Record<string, unknown>
-  writeFileAtomicallySync(manifestFile, JSON.stringify({ ...manifest, libraryId }, null, 2), 'utf8')
   const candidate = new LibraryStorage(root, { ensureDirectories: false, allowCreate: false })
   try {
-    await candidate.open()
+    await candidate.open(libraryId)
     const snapshot = candidate.loadSnapshot()
     if (!snapshot) throw new Error('归档没有可读取的数据快照')
     const assets = candidate.listAssetRecords()
@@ -103,15 +100,15 @@ export class JournalImportPreviews {
       }))
       if (cancelled) return { ok: false, canceled: true }
       const expiresAt = Date.now() + this.ttlMs
-      await importJournalZipToPath(staged.stagedLibraryRoot, staged.stagedArchivePath)
+      const candidate = await prepareJournalArchive(stagingRoot, staged.stagedArchivePath, { libraryId })
       if (cancelled) return { ok: false, canceled: true }
-      const counts = await inspectStagedLibrary(staged.stagedLibraryRoot, libraryId)
+      const counts = await inspectStagedLibrary(candidate.root, libraryId)
       if (cancelled) return { ok: false, canceled: true }
       const preview: PreparedJournalImportPreview = {
         token, fileName: path.basename(archive), modifiedAt: staged.archiveModifiedAt, expiresAt, verification: 'verified', ...counts,
       }
       entry = {
-        ...staged, source, expiresAt, request, prepareRequestId: requestId, state: 'prepared',
+        ...staged, stagedLibraryRoot: candidate.root, source, expiresAt, request, prepareRequestId: requestId, state: 'prepared',
         dispose: release,
         retry() {
           this.state = 'prepared'

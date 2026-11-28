@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { sha256File } from './fileChecksum'
-import { exportJournalZip, importJournalZipToPath } from './journalZip'
+import { exportJournalZip, prepareJournalArchive } from './journalZip'
 import type { LibraryStorage } from './storage'
 
 export async function exportVerifiedPurgeArchive(storage: LibraryStorage, destination: string) {
@@ -11,7 +11,7 @@ export async function exportVerifiedPurgeArchive(storage: LibraryStorage, destin
   const checksum = sha256File(archivePath)
   const verificationRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-purge-recovery-'))
   try {
-    await importJournalZipToPath(verificationRoot, archivePath)
+    await prepareJournalArchive(verificationRoot, archivePath)
   } finally {
     fs.rmSync(verificationRoot, { recursive: true, force: true })
   }

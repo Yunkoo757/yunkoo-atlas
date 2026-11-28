@@ -8,6 +8,7 @@ import JSZip from 'jszip'
 import { createFullPersistedSnapshotFixture } from '../../src/storage/fixtures/fullPersistedSnapshot'
 import { LibraryStorage } from './storage'
 import { exportJournalZip, installPreparedLibraryAtPath } from './journalZip'
+import { exportVerifiedPurgeArchive } from './assetPurgeRecovery'
 import { recoverPreparedImportCommitFailure } from './preparedImportSource'
 
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
@@ -203,5 +204,36 @@ export async function testInterruptedRestoreUsesTheVerifiedRecoveryIdentityBefor
       source.release(); target.release()
       fs.rmSync(root, { recursive: true, force: true })
     }
+  }
+}
+
+export async function testPreviewAndRecoveryArchiveVerificationDoNotRunAnInstallation() {
+  const { root, source, target, archive } = await fixture()
+  const previews = new JournalImportPreviews()
+  const rename = fs.renameSync
+  const installed: string[] = []
+  try {
+    const before = libraryBytes(target.getLibraryPath())
+    const identity = target.readManifest().libraryId
+    fs.renameSync = (from, to) => {
+      if (path.basename(String(to)) === '.journal-import.json') installed.push(path.dirname(String(to)))
+      rename(from, to)
+    }
+    const { entry } = await prepare(previews, archive, target)
+    const recovery = await exportVerifiedPurgeArchive(target, path.join(root, 'recovery.journal.zip'))
+    recovery.verify()
+    assert(installed.length === 0, '预览与清理恢复归档的只读验证均不应执行资料库替换事务')
+    assert(libraryBytes(target.getLibraryPath()) === before, '准备阶段不能改活动库')
+    target.release()
+    await installPreparedLibraryAtPath(target.getLibraryPath(), entry.stagedLibraryRoot)
+    assert(installed.join() === target.getLibraryPath(), '确认恢复时只为实际目标写一次恢复标记')
+    await target.open(identity)
+    assert(target.loadSnapshot()?.trades[0]?.ref === 'SOURCE-EXISTING', '安装须采用已预览资料且保留原资料库身份')
+  } finally {
+    fs.renameSync = rename
+    previews.clear()
+    source.release()
+    target.release()
+    fs.rmSync(root, { recursive: true, force: true })
   }
 }

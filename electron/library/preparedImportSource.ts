@@ -77,7 +77,6 @@ export interface PreparedJournalArchiveStaging {
   archiveModifiedAt: number
   stagedArchivePath: string
   stagedArchiveSha256: string
-  stagedLibraryRoot: string
 }
 
 /** 复制并锁定用户选择的归档字节；预览和最终恢复必须消费这一份私有副本。 */
@@ -90,15 +89,12 @@ export function stagePreparedJournalArchive(
     throw new Error('归档文件必须是普通文件')
   }
   const stagedArchivePath = path.join(stagingRoot, 'source.journal.zip')
-  const stagedLibraryRoot = path.join(stagingRoot, 'library')
   fs.copyFileSync(sourceArchivePath, stagedArchivePath, fs.constants.COPYFILE_EXCL)
   fsyncFileSync(stagedArchivePath)
-  fs.mkdirSync(stagedLibraryRoot)
   return {
     archiveModifiedAt: sourceStat.mtimeMs,
     stagedArchivePath,
     stagedArchiveSha256: sha256File(stagedArchivePath),
-    stagedLibraryRoot,
   }
 }
 
