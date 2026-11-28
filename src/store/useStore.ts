@@ -27,7 +27,6 @@ import {
   type ReviewPoolLayout,
   type ReviewPoolPreset,
 } from '@/lib/reviewPools'
-import type { ExportPayload } from '@/lib/importTypes'
 import {
   createDefaultReviewTemplates,
   createReviewTemplate,
@@ -35,7 +34,6 @@ import {
   normalizeReviewTemplates,
   type ReviewTemplate,
 } from '@/data/reviewTemplates'
-import { mergeImportPayload } from '@/lib/importMerge'
 import { appendActivity } from '@/lib/activities'
 import { isActive, isExecutedClosed, isTerminal } from '@/lib/tradeStatus'
 import type { SavedTradeView } from '@/lib/savedTradeViews'
@@ -395,7 +393,6 @@ interface State {
   isCaseFocused: (id: string) => boolean
   isSubscribed: (id: string) => boolean
   isPinnedStrategy: (id: string) => boolean
-  importData: (payload: ExportPayload) => void
   upsertWeeklyReview: (review: WeeklyReview) => void
   updateWeeklyReview: (
     id: string,
@@ -1752,5 +1749,4 @@ export const useStore = create<State>()((set, get) => ({
       )),
       isSubscribed: (id) => get().subscribedIds.includes(id),
       isPinnedStrategy: (id) => get().pinnedStrategyIds.includes(id),
-      importData: (payload) => set((s) => mergeImportPayload(s, payload)),
     }))

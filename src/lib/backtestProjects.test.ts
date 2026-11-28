@@ -67,11 +67,11 @@ export function testBacktestMergeRemapsProjectCollisionsIdempotently(): void {
   const sourceCase = { ...record(2), tradeKind: 'case' as const, liveStageId: null, sourceTradeId: 'bt-1', sourceNoteHtml: record(1).note }
   const local = { ...source, trades: [...source.trades, sourceCase] }
   const imported = { ...snapshot(), trades: [...source.trades, sourceCase], backtestProjects: [{ ...project, name: '另一个项目' }], version: SCHEMA_VERSION }
-  const merged = mergeImportPayload(local, imported, 'backtest-collision')
+  const merged = mergeImportPayload(local, imported, 'backtest-collision').state
   assert(merged.backtestProjects?.length === 2 && merged.trades.length === 4, '同ID不同项目应独立保留')
   const importedRecord = merged.trades.find(trade => trade.backtestProjectId !== 'bt')
   assert(Boolean(importedRecord), '成员必须跟随新项目ID')
-  const repeated = mergeImportPayload(merged, imported, 'backtest-collision')
+  const repeated = mergeImportPayload(merged, imported, 'backtest-collision').state
   assert(repeated.backtestProjects?.length === 2 && repeated.trades.length === 4, '重复导入不得增殖')
 }
 
@@ -81,7 +81,7 @@ export function testBacktestMergePreservesLocalEditsAndRefusesAnOccupiedTarget()
   const payload = { ...snapshot(), version: SCHEMA_VERSION, backtestProjects: [incoming] }
   const target = stableImportedTradeId(digest, 'backtest-project:' + project.id)
   const edited = { ...incoming, id: target, name: '导入后本地改名', targetCount: 180 }
-  const repeat = mergeImportPayload({ ...local, backtestProjects: [project, edited] }, payload, digest)
+  const repeat = mergeImportPayload({ ...local, backtestProjects: [project, edited] }, payload, digest).state
   assert(repeat.backtestProjects?.length === 2 && repeat.backtestProjects[1]?.name === edited.name && repeat.backtestProjects[1]?.targetCount === 180,
     '重复导入应沿用同一规则的历史副本并保留本地改名和目标')
   const assertRejected = (run: () => unknown) => {

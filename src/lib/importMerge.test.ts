@@ -97,7 +97,7 @@ export function testMergeImportAssignsUnknownLiveRecordsToCurrentStage(): void {
       weeklyRiskPreparations: [preparation], riskPolicyVersions: [policy],
       monthlyRiskLimits: [monthlyLimit], riskOverrideEvents: [overrideEvent], weeklyReviews: [weeklyReview],
       strategies: current.strategies, starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: current.display,
-    })
+    }).state
   } finally {
     console.warn = originalWarn
   }
@@ -158,7 +158,7 @@ export function testMergeImportPreservesExplicitKnownHistoricalRiskWithoutConfig
     riskOverrideEvents: [override],
     strategies: current.strategies,
     starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: current.display,
-  })
+  }).state
 
   assert(merged.riskPolicyVersions?.some((item) => item.id === policy.id && item.liveStageId === 'stage-old'), '已知本地历史阶段风险策略必须保留原归属')
   assert(merged.weeklyRiskPreparations?.some((item) => item.id === preparation.id && item.liveStageId === 'stage-old'), '已知历史草稿必须保留原归属')
@@ -193,7 +193,7 @@ export function testMergeImportDropsHistoricalOverrideWhenImportedTradeMovesToCu
     riskOverrideEvents: [override],
     strategies: current.strategies,
     starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: current.display,
-  })
+  }).state
 
   const mergedTrade = merged.trades.find((item) => item.id === trade.id)
   assert(mergedTrade?.tradeKind === 'live' && mergedTrade.liveStageId === 'stage-current', '导入 live 交易必须进入当前阶段')
@@ -227,7 +227,7 @@ export function testMergeImportDropsHistoricalDependentsWhenSourcePolicyIsSkippe
     riskOverrideEvents: [],
     strategies: current.strategies,
     starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: current.display,
-  })
+  }).state
 
   assert(!merged.riskPolicyVersions?.some((item) => item.id === skippedPolicy.id), '当前阶段导入 policy 必须跳过')
   assert(!merged.weeklyRiskPreparations?.some((item) => item.id === preparation.id), '来源 policy 被跳过时 preparation 也必须跳过')
@@ -271,7 +271,7 @@ export function testMergeImportRetainsHistoricalRiskClosedByLocalArchivedReferen
     riskOverrideEvents: [override],
     strategies: current.strategies,
     starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: current.display,
-  })
+  }).state
 
   assert(merged.weeklyRiskPreparations?.some((item) => item.id === preparation.id), '本地历史 policy 必须能闭合 preparation 引用')
   assert(merged.monthlyRiskLimits?.some((item) => item.id === monthlyLimit.id), '本地历史 policy 必须能闭合 monthly limit 引用')
@@ -320,7 +320,7 @@ export function testMergeImportRemapsReviewPoolConflictsWithoutChangingHomeLayou
     strategies: current.strategies, starredIds: [], subscribedIds: [], pinnedStrategyIds: [], display: current.display,
     reviewPoolPresets: [importedPreset],
     reviewPoolLayout: { homeOrder: [{ kind: 'system', id: 'all' }], hiddenSystemIds: [] },
-  })
+  }).state
   assert(merged.reviewPoolPresets?.length === 2, '同 ID 不同内容的导入复盘池必须稳定改写 ID 后并存')
   assert(merged.reviewPoolPresets?.some((preset) => preset.name === '导入池' && preset.id !== localPreset.id), '导入冲突池必须获得新 ID')
   assert(JSON.stringify(merged.reviewPoolLayout) === JSON.stringify(current.reviewPoolLayout), '合并导入不得打乱当前首页布局')
@@ -335,7 +335,7 @@ export function testReviewPoolCopiesRequireMatchingContentAndDistinctTargets(): 
   const copy = { ...incoming, id }
   const current = { ...currentState(), reviewPoolPresets: [local, copy] }
   const payload = { ...current, version: 15, trades: [], reviewPoolPresets: [incoming] }
-  const repeated = mergeImportPayload(current, payload, digest)
+  const repeated = mergeImportPayload(current, payload, digest).state
   assert(repeated.reviewPoolPresets?.length === 2 && repeated.reviewPoolPresets[1] === copy, '同一导入预设应复用原副本')
   const different = { ...copy, filters: { ...copy.filters, symbols: ['GBPUSD'] } }
   for (const [presets, imports] of [

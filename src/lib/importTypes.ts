@@ -20,3 +20,9 @@ export interface ImportIdentityPayload {
 }
 
 export type PersistedSlice = Omit<PortableSnapshotState, 'profile' | 'shortcuts'>
+
+/** 合并后的业务状态，以及本次引用改写和并发检查共用的来源到目标编号。 */
+export interface ImportMergeResult {
+  state: PersistedSlice
+  tradeIds: ReadonlyMap<string, string>
+}

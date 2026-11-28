@@ -141,7 +141,7 @@ export function testSameIdImportCannotChangeTradeKindButNewIdKeepsItsKind(): voi
     subscribedIds: [],
     pinnedStrategyIds: [],
     display: DEFAULT_DISPLAY,
-  })
+  }).state
   const existing = merged.trades.find((item) => item.id === original.id)!
   assert(existing.tradeKind === 'live' && existing.note === '本地原值', '同 ID 异类型导入必须保留本地整笔记录')
   assert(merged.trades.find((item) => item.id === importedCase.id)?.tradeKind === 'case', '导入新 ID 必须保留既有类型')

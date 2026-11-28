@@ -2,6 +2,7 @@ import { downloadBlob } from './downloadBlob'
 import { sha256Hex } from '@/lib/sha256'
 import { commitTradeBatch } from '@/lib/committedPublish'
 import { collectRetiredSnapshotAssetIds, stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
+import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
 import { buildPortableSnapshotFromState, type PortableSnapshotState } from '@/storage/snapshotProjection'
 import { useShortcutStore } from '@/store/shortcutStore'
@@ -24,7 +25,6 @@ import { mapTradeRichText } from '@/storage/tradeRichText'
 import {
   capturePersistedStateRevision,
   hasSamePersistedStateRevision,
-  type PersistedStateRevision,
 } from '@/store/persistedRevision'
 import { normalizeWebJournalImageMime } from '@/lib/webJournalArchiveContract'
 import { buildWebJournalArchiveBlob } from '@/lib/webJournalArchiveWriter'
@@ -48,13 +48,11 @@ import {
 } from '@/lib/stageMigration'
 
 export const EXPORT_VERSION = SCHEMA_VERSION
-import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
+import type { ExportPayload, PersistedSlice } from '@/lib/importTypes'
 import { canonicalImportValue, mergeImportPayload } from '@/lib/importMerge'
-import { isSameTradeIdentity, stableImportedTradeId } from '@/lib/riskImportMerge'
 import { applySnapshotToStore } from '@/lib/snapshotStore'
 
 export type { ExportPayload, PersistedSlice } from '@/lib/importTypes'
-export { mergeImportPayload } from '@/lib/importMerge'
 
 export type ImportResult =
   | { ok: true; data: ExportPayload }
@@ -557,47 +555,32 @@ export function prepareImportPayloadForCommit(
   }
 }
 
-interface ImportedTradeBaseline {
-  values: Map<string, string | null>
-  stableIds: Set<string>
-}
-
-function captureImportedTradeBaseline(
-  revision: PersistedStateRevision,
-  payload: ExportPayload,
-  payloadDigest: string,
-  identityPayload: ImportIdentityPayload,
-): ImportedTradeBaseline {
-  const currentById = new Map(revision.state.trades.map((trade) => [trade.id, trade]))
-  const identityById = new Map(identityPayload.trades.map((trade) => [trade.id, trade]))
-  const stableIds = new Set(payload.trades.flatMap((trade) => {
-    const current = currentById.get(trade.id)
-    const identityTrade = identityById.get(trade.id) ?? trade
-    return current && !isSameTradeIdentity(current, identityTrade)
-      ? [stableImportedTradeId(payloadDigest, trade.id)]
-      : []
-  }))
-  const ids = new Set([...payload.trades.map((trade) => trade.id), ...stableIds])
-  return {
-    values: new Map([...ids].map((id) => {
-      const current = currentById.get(id)
-      return [id, current ? JSON.stringify(current) : null]
-    })),
-    stableIds,
+function captureImportedTradeBaseline(trades: readonly Trade[], tradeIds: ReadonlyMap<string, string>) {
+  const values = new Map<string, string | null>()
+  for (const [source, target] of tradeIds) {
+    values.set(source, null)
+    values.set(target, null)
   }
+  for (const trade of trades) {
+    if (values.has(trade.id)) values.set(trade.id, JSON.stringify(trade))
+  }
+  return values
 }
 
-function findConcurrentImportedTradeConflict(
-  baseline: ImportedTradeBaseline,
-  latest: PersistedStateRevision,
-): { id: string; stableId: boolean } | null {
-  const latestById = new Map(latest.state.trades.map((trade) => [trade.id, trade]))
-  for (const [id, initialValue] of baseline.values) {
+function assertImportTradesUnchanged(
+  baseline: ReadonlyMap<string, string | null>,
+  tradeIds: ReadonlyMap<string, string>,
+  latest: readonly Trade[],
+): void {
+  const latestById = new Map(latest.map(trade => [trade.id, trade]))
+  for (const [id, original] of baseline) {
     const current = latestById.get(id)
-    const currentValue = current ? JSON.stringify(current) : null
-    if (currentValue !== initialValue) return { id, stableId: baseline.stableIds.has(id) }
+    if ((current ? JSON.stringify(current) : null) === original) continue
+    if (Array.from(tradeIds).some(([source, target]) => source !== target && target === id)) {
+      throw new Error(`导入已取消：稳定导入交易 ID ${id} 在等待期间被其他交易占用；最新本地内容已保留，请重新导入。`)
+    }
+    throw new Error('导入已取消：检测到相同交易存在等待期间的本地编辑，本地内容已保留，请重新导入。')
   }
-  return null
 }
 
 const IMMUTABLE_RISK_IMPORT_FIELDS = [
@@ -656,29 +639,6 @@ function findConcurrentImmutableRiskConflict(
   return null
 }
 
-function buildImportSnapshot(
-  current: PersistedStateRevision,
-  payload: ExportPayload,
-  payloadDigest: string,
-  identityPayload: ExportPayload,
-): PersistedSnapshot {
-  const merged = mergeImportPayload(current.state, payload, payloadDigest, identityPayload)
-  return buildPortableSnapshotFromState({
-    ...current.state,
-    ...merged,
-    tagPresets: merged.tagPresets ?? current.state.tagPresets,
-    mistakeTagPresets: merged.mistakeTagPresets ?? current.state.mistakeTagPresets,
-    savedTradeViews: merged.savedTradeViews ?? current.state.savedTradeViews,
-    symbolIcons: merged.symbolIcons ?? current.state.symbolIcons,
-    symbolCatalog: merged.symbolCatalog ?? current.state.symbolCatalog,
-    reviewTemplates: merged.reviewTemplates ?? current.state.reviewTemplates,
-    backtestProjects: merged.backtestProjects ?? current.state.backtestProjects,
-    reviewPoolPresets: merged.reviewPoolPresets ?? current.state.reviewPoolPresets,
-    reviewPoolLayout: merged.reviewPoolLayout ?? current.state.reviewPoolLayout,
-    profile: current.state.profile,
-  }, current.shortcutBindings)
-}
-
 async function sha256CanonicalImportPayload(payload: ExportPayload): Promise<string> {
   const bytes = new TextEncoder().encode(canonicalImportValue(payload))
   return `sha256:${await sha256Hex(bytes)}`
@@ -693,42 +653,30 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
   }, async writer => {
     let snapshot: PersistedSnapshot
     try {
-      let revision = capturePersistedStateRevision()
-      const importedTradeBaseline = captureImportedTradeBaseline(
-        revision,
-        prepared.payload,
-        payloadDigest,
-        payload,
-      )
+      const initial = capturePersistedStateRevision()
+      let revision = initial
       while (true) {
-        const immutableRiskBaseline = captureImmutableRiskImportBaseline(
-          revision.state,
-          prepared.payload,
-        )
-        snapshot = buildImportSnapshot(revision, prepared.payload, payloadDigest, payload)
+        const merged = mergeImportPayload(revision.state, prepared.payload, payloadDigest, payload)
+        const baseline = captureImportedTradeBaseline(initial.state.trades, merged.tradeIds)
+        // 并发阶段或项目变更可能令重算选中新的目标，也要对照导入开始时的本地内容。
+        if (revision !== initial) assertImportTradesUnchanged(baseline, merged.tradeIds, revision.state.trades)
+        const immutableRiskBaseline = captureImmutableRiskImportBaseline(revision.state, prepared.payload)
+        snapshot = buildPortableSnapshotFromState({ ...merged.state, profile: revision.state.profile }, revision.shortcutBindings)
         await writer.commit(snapshot, { pruneUnreferenced: true })
 
         const latest = capturePersistedStateRevision()
         if (hasSamePersistedStateRevision(revision, latest)) break
-        const tradeConflict = findConcurrentImportedTradeConflict(importedTradeBaseline, latest)
+        assertImportTradesUnchanged(baseline, merged.tradeIds, latest.state.trades)
         const immutableRiskConflict = findConcurrentImmutableRiskConflict(
           immutableRiskBaseline,
           latest.state,
           prepared.payload,
         )
-        if (immutableRiskConflict && !tradeConflict) {
+        if (immutableRiskConflict) {
           throw new OperationalError(
             'import-immutable-entity-conflict',
             `导入已取消：检测到${immutableRiskConflict.label} ${immutableRiskConflict.id} 在等待期间出现同 ID 异内容的本地更新；最新本地内容已保留，请重新导入。`,
           )
-        }
-        if (tradeConflict?.stableId) {
-          throw new Error(
-            `导入已取消：稳定导入交易 ID ${tradeConflict.id} 在等待期间被其他交易占用；最新本地内容已保留，请重新导入。`,
-          )
-        }
-        if (tradeConflict) {
-          throw new Error('导入已取消：检测到相同交易存在等待期间的本地编辑，本地内容已保留，请重新导入。')
         }
         revision = latest
       }

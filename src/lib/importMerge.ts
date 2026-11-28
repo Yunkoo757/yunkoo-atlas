@@ -7,7 +7,7 @@ import { mergeSymbolCatalog, mergeSymbolIcons } from '@/lib/symbolIconCodec'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeDisplay } from '@/lib/tradeFilters'
 import { assignTradeStage, normalizeTrades } from '@/lib/tradeKind'
-import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
+import type { ExportPayload, ImportIdentityPayload, ImportMergeResult, PersistedSlice } from '@/lib/importTypes'
 import { mergeRiskImport, stableImportedTradeId } from '@/lib/riskImportMerge'
 import { getCurrentLiveStage, type LiveStage } from '@/lib/liveStages'
 import { isUsableRiskPolicy } from '@/lib/activeRiskPolicy'
@@ -178,7 +178,7 @@ export function mergeImportPayload(
   payload: ExportPayload,
   payloadDigest = canonicalImportValue(payload),
   identityPayload: ImportIdentityPayload = payload,
-): PersistedSlice {
+): ImportMergeResult {
   const { items: projects, idMap: projectIdMap } = mergeImportCopies(
     current.backtestProjects ?? [], payload.backtestProjects ?? [], payloadDigest, 'backtest-project',
     (local, candidate) => local.createdAt === candidate.createdAt && hasSameBacktestRules(local, candidate),
@@ -206,7 +206,7 @@ export function mergeImportPayload(
     ownedIdentityPayload.trades,
     combinedStrategies,
   ).trades
-  const riskMerged = mergeRiskImport(
+  const { state: riskMerged, tradeIds } = mergeRiskImport(
     current,
     {
       ...ownedPayload,
@@ -232,7 +232,7 @@ export function mergeImportPayload(
     (local, candidate) => canonicalImportValue(local) === canonicalImportValue(candidate),
     id => '导入冲突：复盘池编号 ' + id + ' 已被其他预设或不同的筛选设置占用。请核对复盘池后重试。',
   )
-  return {
+  const state = {
     backtestProjects: projects,
     strategies,
     trades: normalizeTrades(riskMerged.trades),
@@ -274,4 +274,5 @@ export function mergeImportPayload(
     // 合并导入保留当前首页布局；新导入的自定义池默认进入“更多复盘池”。
     reviewPoolLayout: current.reviewPoolLayout,
   }
+  return { state, tradeIds }
 }

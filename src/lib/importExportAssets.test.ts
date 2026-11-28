@@ -1,3 +1,4 @@
+import { mergeImportPayload } from '@/lib/importMerge'
 import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
@@ -14,7 +15,6 @@ import {
   buildExportPayloadFromState,
   buildWebConflictRecoveryPayload,
   loadReferencedAssetsForExport,
-  mergeImportPayload,
   parseImportJson,
   prepareImportPayloadForCommit,
 } from '@/lib/importExport'
@@ -86,7 +86,7 @@ export function testMergeImportPreservesTheLocalCanonicalStageGraph(): void {
   const imported = createFullPersistedSnapshotFixture()
   imported.liveStages = imported.liveStages.map((stage) => ({ ...stage, name: '导入阶段名' }))
 
-  const merged = mergeImportPayload(current, { version: 10, ...imported })
+  const merged = mergeImportPayload(current, { version: 10, ...imported }).state
 
   assert(merged.liveStages[0]?.name === current.liveStages[0]?.name, '合并导入不得覆盖本机阶段图')
   assert(merged.liveStages !== current.liveStages, '本机阶段图必须通过独立数组克隆')
@@ -99,7 +99,7 @@ export function testMergeImportKeepsCurrentLibraryTradingDayStartHour(): void {
   const imported = createFullPersistedSnapshotFixture()
   imported.display = { ...imported.display, tradingDayStartHour: 0 }
 
-  const merged = mergeImportPayload(current, { version: 9, ...imported })
+  const merged = mergeImportPayload(current, { version: 9, ...imported }).state
 
   assert(
     merged.display.tradingDayStartHour === 6,
@@ -739,7 +739,7 @@ export function testLegacyJsonWithoutStrategiesCannotCreateDanglingTradeReferenc
     savedTradeViews: [],
     symbolIcons: {},
     symbolCatalog: [],
-  }, parsed.data)
+  }, parsed.data).state
 
   assert(merged.strategies.length === 1, '有交易的旧 JSON 必须补中性策略')
   assert(
@@ -773,7 +773,7 @@ export function testJsonMergeUsesUpdatedDraftAndAppendsNewImmutableRiskEntities(
         lockedAt: '2026-08-01T00:00:00.000Z',
       },
     ],
-  })
+  }).state
 
   assert(
     merged.weeklyRiskPreparations?.[0]?.draft.disciplineText === '导入的较新草稿',
@@ -790,7 +790,7 @@ export function testRiskPolicyVersionSameIdAndCanonicalContentDeduplicates(): vo
   const current = createHistoricalRiskImportFixture()
   const imported = createHistoricalRiskImportFixture()
   imported.riskPolicyVersions = [reorderedKeys(imported.riskPolicyVersions[0]!)]
-  const merged = mergeImportPayload(current, { version: 9, ...imported })
+  const merged = mergeImportPayload(current, { version: 9, ...imported }).state
   assert(merged.riskPolicyVersions?.length === 1, '相同 policy 不得重复追加')
   assert(merged.riskPolicyVersions?.[0] === current.riskPolicyVersions[0], '相同 policy 应保留本地引用')
 }
@@ -813,7 +813,7 @@ export function testMonthlyRiskLimitSameIdAndCanonicalContentDeduplicates(): voi
   const current = createHistoricalRiskImportFixture()
   const imported = createHistoricalRiskImportFixture()
   imported.monthlyRiskLimits = [reorderedKeys(imported.monthlyRiskLimits[0]!)]
-  const merged = mergeImportPayload(current, { version: 9, ...imported })
+  const merged = mergeImportPayload(current, { version: 9, ...imported }).state
   assert(merged.monthlyRiskLimits?.length === 1, '相同月限额不得重复追加')
   assert(merged.monthlyRiskLimits?.[0] === current.monthlyRiskLimits[0], '相同月限额应保留本地引用')
 }
@@ -834,7 +834,7 @@ export function testRiskOverrideEventSameIdAndCanonicalContentDeduplicates(): vo
   const imported = createHistoricalRiskImportFixture()
   imported.trades = []
   imported.riskOverrideEvents = [reorderedKeys(imported.riskOverrideEvents[0]!)]
-  const merged = mergeImportPayload(current, { version: 9, ...imported })
+  const merged = mergeImportPayload(current, { version: 9, ...imported }).state
   assert(merged.riskOverrideEvents?.length === 1, '相同 override event 不得重复追加')
   assert(merged.riskOverrideEvents?.[0] === current.riskOverrideEvents[0], '相同 override event 应保留本地引用')
 }

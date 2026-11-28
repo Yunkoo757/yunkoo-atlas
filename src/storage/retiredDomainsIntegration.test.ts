@@ -80,7 +80,7 @@ export async function testLegacyJsonImportDropsOnlyRetiredStateAndExclusiveAsset
   assert(!('judgmentDesk' in prepared.payload) && !('reviewComposer' in prepared.payload), '直接准备旧payload也不得带回退役字段')
   assert(prepared.assets.length === Object.keys(FULL_SNAPSHOT_ASSET_IDS).length, '仅保留并重映射现行业务所需附件')
   const local = decodeCanonicalSnapshot(createFullPersistedSnapshotFixture(), { version: SCHEMA_VERSION })
-  const merged = mergeImportPayload(local, prepared.payload, 'isolated-retired-domains')
+  const merged = mergeImportPayload(local, prepared.payload, 'isolated-retired-domains').state
   assert(!('judgmentDesk' in merged) && !('reviewComposer' in merged), '合并结果不得带回退役字段')
   const serialized = JSON.parse(serializeJsonExportPayload(legacy)) as Record<string, unknown>
   assert(!('judgmentDesk' in serialized) && !('reviewComposer' in serialized), '旧对象重新导出后也必须剥离专属状态')

@@ -138,7 +138,7 @@ function completedReviewMergeFixtures(): { current: PersistedSlice; imported: Pe
 export function testCompletedReviewWithSameFrozenTupleMergesEditableContent(): void {
   const { current, imported } = completedReviewMergeFixtures()
   const local = current.weeklyReviews![0]!
-  const merged = mergeRiskImport(current, imported, 'sha256-completed-same-freeze')
+  const merged = mergeRiskImport(current, imported, 'sha256-completed-same-freeze').state
   const review = merged.weeklyReviews![0]!
   assert(review.contentHtml === '<p>导入的新内容</p>', '相同冻结元组必须允许合并较新的自由内容')
   assert(review.executionScore === 5, '相同冻结元组必须允许合并评分')
@@ -178,7 +178,7 @@ export function testImportedDraftCannotDowngradeLocalCompletedReview(): void {
     completedAt: null,
     contentHtml: '<p>草稿导入内容</p>',
   }))
-  const review = mergeRiskImport(current, imported, 'sha256-completed-vs-draft').weeklyReviews![0]!
+  const review = mergeRiskImport(current, imported, 'sha256-completed-vs-draft').state.weeklyReviews![0]!
   assert(review.contentHtml === '<p>草稿导入内容</p>', '较新的草稿仍可提供自由内容')
   assert(review.status === 'completed', '导入草稿不得降级本地完成态')
   assert(review.completedAt === local.completedAt, '导入草稿不得清除本地完成时间')
@@ -188,7 +188,7 @@ export function testImportedDraftCannotDowngradeLocalCompletedReview(): void {
 }
 
 export function testSameKindDifferentIdentityRemapsEveryReference(): void {
-  const merged = mergeRiskImport(localFixture(), importedCollisionFixture(), 'sha256-a')
+  const merged = mergeRiskImport(localFixture(), importedCollisionFixture(), 'sha256-a').state
   const importedTrade = merged.trades.find((trade) => trade.ref === 'IMPORTED-1')
   assert(importedTrade?.id !== 'trade-1', '不同身份不得覆盖本地同 ID 交易')
   assert(merged.riskOverrideEvents?.[0]?.tradeId === importedTrade?.id, '顶层事件必须重映射')
@@ -212,8 +212,8 @@ export function testSameKindDifferentIdentityRemapsEveryReference(): void {
 }
 
 export function testRepeatedImportUsesStableRemap(): void {
-  const once = mergeRiskImport(localFixture(), importedCollisionFixture(), 'sha256-a')
-  const twice = mergeRiskImport(once, importedCollisionFixture(), 'sha256-a')
+  const once = mergeRiskImport(localFixture(), importedCollisionFixture(), 'sha256-a').state
+  const twice = mergeRiskImport(once, importedCollisionFixture(), 'sha256-a').state
   assert(uniqueTradeIds(twice).length === uniqueTradeIds(once).length, '重复导入不得重复克隆')
   assert(
     once.trades.find((trade) => trade.ref === 'IMPORTED-1')?.id === stableImportedTradeId('sha256-a', 'trade-1'),
@@ -278,7 +278,7 @@ export function testReferencesToExistingLocalTradeSurvivePartialImport(): void {
   imported.starredIds = [localTarget.id]
   imported.subscribedIds = [localTarget.id]
 
-  const merged = mergeRiskImport(current, imported, 'sha256-partial-import')
+  const merged = mergeRiskImport(current, imported, 'sha256-partial-import').state
   const review = merged.weeklyReviews?.find((item) => item.id === 'weekly-review:2026-07-20')
   assert(merged.trades.find((trade) => trade.id === 'imported-case')?.sourceTradeId === localTarget.id, '片段导入的案例来源本地引用必须保留')
   assert(review?.highlightTradeIds[0] === localTarget.id, '片段导入的高亮本地引用必须保留')
@@ -295,14 +295,14 @@ export function testMissingCreateEvidenceRequiresCanonicalEquality(): void {
     { ...local, trades: [withoutEvidence] },
     { ...local, trades: [{ ...withoutEvidence }], riskOverrideEvents: [], weeklyReviews: [] },
     'sha256-identical-legacy',
-  )
+  ).state
   assert(identical.trades.length === 1, '缺少创建证据时只有逐字段 canonical 相等才可合并')
   const imported = { ...withoutEvidence, symbol: 'XAUUSD' }
   const merged = mergeRiskImport(
     { ...local, trades: [withoutEvidence] },
     { ...local, trades: [imported], riskOverrideEvents: [], weeklyReviews: [] },
     'sha256-missing-evidence',
-  )
+  ).state
   assert(merged.trades.length === 2, '缺少创建证据且逐字段不同时必须保守判为不同交易')
 }
 
@@ -322,7 +322,7 @@ export function testUnresolvedEventKeepsIdentitySummaryWithoutWrongLink(): void 
   }))
   imported.starredIds = []
   imported.subscribedIds = []
-  const merged = mergeRiskImport(local, imported, 'sha256-unresolved')
+  const merged = mergeRiskImport(local, imported, 'sha256-unresolved').state
   const event = merged.riskOverrideEvents?.find((item) => item.id === 'override-imported')
   assert(event?.linkState === 'unresolved', '无法完整链接的导入事件必须标记 unresolved')
   assert(event?.tradeIdentityAtDecision.ref === 'MISSING-REF', 'unresolved 事件必须保留导入身份摘要')

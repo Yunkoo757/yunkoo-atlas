@@ -4,7 +4,7 @@ import { stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
 import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 import type { RiskOverrideEvent } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
-import type { PersistedSlice } from '@/lib/importTypes'
+import type { ImportMergeResult, PersistedSlice } from '@/lib/importTypes'
 import { OperationalError } from '@/lib/operationalError'
 
 export function stableImportedTradeId(payloadDigest: string, tradeId: string): string {
@@ -30,7 +30,7 @@ function stableTradeIdentity(trade: Trade): Record<string, string> | null {
   }
 }
 
-export function isSameTradeIdentity(left: Trade, right: Trade): boolean {
+function isSameTradeIdentity(left: Trade, right: Trade): boolean {
   if (left.backtestProjectId !== right.backtestProjectId) return false
   const leftIdentity = stableTradeIdentity(left)
   const rightIdentity = stableTradeIdentity(right)
@@ -215,7 +215,7 @@ export function mergeRiskImport(
   imported: PersistedSlice,
   payloadDigest: string,
   identityTrades: readonly Trade[] = imported.trades,
-): PersistedSlice {
+): ImportMergeResult {
   const currentById = new Map(current.trades.map((trade) => [trade.id, trade]))
   const identityById = new Map(identityTrades.map((trade) => [trade.id, trade]))
   const idMap = new Map<string, string>()
@@ -260,7 +260,7 @@ export function mergeRiskImport(
     if (!isStableRepeat) tradesById.set(trade.id, trade)
   }
 
-  return {
+  const state = {
     ...stripRetiredSnapshotDomains(current),
     trades: [...tradesById.values()],
     weeklyRiskPreparations: mergeWeeklyPreparations(
@@ -289,4 +289,5 @@ export function mergeRiskImport(
     starredIds: [...new Set([...current.starredIds, ...rewritten.starredIds])],
     subscribedIds: [...new Set([...current.subscribedIds, ...rewritten.subscribedIds])],
   }
+  return { state, tradeIds: idMap }
 }

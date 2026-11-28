@@ -1,10 +1,10 @@
+import { mergeImportPayload } from '@/lib/importMerge'
 import { replaceLibraryInStore } from '@/lib/snapshotStore'
 import type { Strategy } from '@/data/strategies'
 import { getTradeRemainingDays, isTradeExpired, type Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY, filterTrades, applyDisplayPrefs, type DisplayPrefs } from '@/lib/tradeFilters'
 import {
   buildExportPayloadFromState,
-  mergeImportPayload,
   parseImportJson,
 } from '@/lib/importExport'
 import { collectTagOptions, mergeTagPresets } from '@/lib/tags'
@@ -940,7 +940,7 @@ export async function testSidebarWorkspaceSurvivesExportImportAndNormalizesInval
     subscribedIds: [],
     pinnedStrategyIds: [],
     display: DEFAULT_DISPLAY,
-  }, parsed.data)
+  }, parsed.data).state
   const items = merged.display.sidebarWorkspaceItems
 
   assert(items.length === 9, '重复目标应在导入边界去重且不丢失失效引用')
@@ -994,7 +994,7 @@ export function testMergeImportPayloadNormalizesCorruptedDisplay(): void {
     subscribedIds: [],
     pinnedStrategyIds: [],
     display: { ...DEFAULT_DISPLAY, sidebarWorkspaceItems: corruptedItems },
-  })
+  }).state
 
   assert(merged.display.sidebarWorkspaceItems.length === 2, 'mergeImportPayload 应按目标去重损坏的工作区项目')
   assert(
@@ -2702,7 +2702,7 @@ export function testMergeImportPayloadKeepsOnlyExplicitPresetData(): void {
       tagPresets: ['导入标签'],
       mistakeTagPresets: ['导入错误'],
     },
-  )
+  ).state
 
   assert(merged.tagPresets?.includes('导入标签'), 'imports tag presets')
   assert(merged.mistakeTagPresets?.includes('导入错误'), 'imports mistake tag presets')

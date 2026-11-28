@@ -1,3 +1,6 @@
+import { canonicalImportValue } from '@/lib/importMerge'
+import { stableImportedTradeId } from '@/lib/riskImportMerge'
+import { sha256Hex } from '@/lib/sha256'
 import { createWeeklyReview, type WeeklyReview } from '@/data/weeklyReviews'
 import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
@@ -1024,4 +1027,90 @@ export async function testJsonImportUnlocksWhenFinalSaveRejects(): Promise<void>
   }
   assert(finalSaveFailed && caught instanceof Error, `应当从实际导入入口传播末次写盘失败 (committed=${committed}, error=${String(caught)})`)
   assert(!isStorageCutoverInteractionLocked(), '末次保存失败后界面仍须可以操作')
+}
+
+async function assertConcurrentProjectTradeClaimRejected(remapOnRetry: boolean): Promise<void> {
+  const previous = useStore.getState()
+  const base = createEmptyPersistedSnapshot()
+  const fixture = createFullPersistedSnapshotFixture()
+  const project = { ...fixture.backtestProjects![0]!, defaultStrategyId: strategy.id }
+  const sample: Trade = {
+    ...trade('shared-backtest', project.symbol), tradeKind: 'backtest', backtestProjectId: project.id,
+    activities: [{ id: 'shared-create', kind: 'create', timestamp: project.createdAt }],
+  }
+  const sourceProject = { ...project, rules: '导入规则' }
+  const local = { ...base, strategies: [strategy], trades: [sample], backtestProjects: [remapOnRetry ? sourceProject : project] }
+  const imported = { ...local, version: 15, backtestProjects: [sourceProject] }
+  const digest = 'sha256:' + await sha256Hex(new TextEncoder().encode(canonicalImportValue(imported)))
+  const target = stableImportedTradeId(digest, sample.id)
+  const projectCopy = { ...sourceProject, id: stableImportedTradeId(digest, 'backtest-project:' + project.id) }
+  const writes: PersistedSnapshot[] = []
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { journalBridge: {
+    isElectron: true, saveSnapshot: async () => true,
+    commitImport: async (snapshot: PersistedSnapshot) => {
+      writes.push(snapshot)
+      if (writes.length === 1) {
+        assert(snapshot.trades.length === (remapOnRetry ? 1 : 2), '首次候选的样本归属不正确')
+        useStore.setState({
+          backtestProjects: [project, projectCopy],
+          trades: [sample, { ...sample, id: target, backtestProjectId: projectCopy.id, note: '等待期间的本地记录' }],
+        })
+      }
+      return true
+    },
+  } } })
+  useStore.setState(local)
+  enablePersistWrites()
+  try {
+    let error = ''
+    try { await applyImport(imported) } catch (cause) { error = String(cause) }
+    assert(error.includes('稳定导入交易 ID') && error.includes(target), '经项目重编号的样本也须拒绝等待期间的目标占用，实际：' + error)
+    assert(writes.length === 2 && writes[1]?.trades.find(t => t.id === target)?.note === '等待期间的本地记录', '补偿必须保留目标编号上的新编辑')
+  } finally {
+    disablePersistWrites()
+    useStore.setState(previous, true)
+    Reflect.deleteProperty(globalThis, 'window')
+  }
+}
+
+export async function testConcurrentClaimOfTradeRemappedByProjectIsCompensated(): Promise<void> {
+  await assertConcurrentProjectTradeClaimRejected(false)
+}
+
+export async function testConcurrentClaimOfTargetFirstAllocatedOnRetryIsCompensated(): Promise<void> {
+  await assertConcurrentProjectTradeClaimRejected(true)
+}
+
+export async function testJsonImportIgnoresUnusedDerivedTradeIdAfterStageAssignment(): Promise<void> {
+  const previous = useStore.getState()
+  const fixture = fullFixtureWithTradeIdentity()
+  const local: Trade = { ...trade('shared-stage-trade', 'EURUSD'), tradeKind: 'live', liveStageId: fixture.currentLiveStageId }
+  const history = { ...local, liveStageId: fixture.liveStages[0]!.id }
+  const base = { ...createEmptyPersistedSnapshot(), liveStages: fixture.liveStages, currentLiveStageId: fixture.currentLiveStageId, strategies: [strategy] }
+  const incoming = { ...base, version: 15, trades: [history] }
+  const digest = 'sha256:' + await sha256Hex(new TextEncoder().encode(canonicalImportValue(incoming)))
+  const unusedId = stableImportedTradeId(digest, local.id)
+  const writes: PersistedSnapshot[] = []
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { journalBridge: {
+    isElectron: true, saveSnapshot: async () => true,
+    commitImport: async (snapshot: PersistedSnapshot) => {
+      writes.push(snapshot)
+      if (writes.length === 1) {
+        assert(snapshot.trades.length === 1 && snapshot.trades[0]?.id === local.id, '阶段归属调整后导入应直接使用来源编号')
+        useStore.setState({ trades: [local, { ...local, id: unusedId, ref: '独立本地交易' }] })
+      }
+      return true
+    },
+  } } })
+  useStore.setState({ ...base, trades: [local] })
+  enablePersistWrites()
+  try {
+    await applyImport(incoming)
+    assert(writes.length === 2 && writes[1]?.trades.length === 2 && useStore.getState().trades.some(t => t.id === unusedId),
+      '未被候选采用的派生编号属于独立交易，应允许重试并保留两笔记录')
+  } finally {
+    disablePersistWrites()
+    useStore.setState(previous, true)
+    Reflect.deleteProperty(globalThis, 'window')
+  }
 }
