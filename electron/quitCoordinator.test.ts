@@ -2,8 +2,8 @@ import {
   releaseThenFinalizeWithRollback,
   QuitCoordinator,
   RendererFlushTracker,
-  type QuitIntent,
 } from './quitCoordinator'
+import type { QuitIntent } from '../src/types/journalBridge'
 import fs from 'node:fs'
 import path from 'node:path'
 import sharp from 'sharp'
@@ -77,6 +77,25 @@ export async function testExitFailureStopsBeforeReleaseAndReportsAbort(): Promis
     const expectedCode = failureAt === 'flush' ? 'quit-flush-failed' : 'quit-backup-failed'
     assert(calls.some((entry) => entry.startsWith(`error:${expectedCode}:`)), '失败必须携带稳定阶段 code')
   }
+}
+
+export async function testFailedExitReportsThePromotedIntentForRetry(): Promise<void> {
+  let rejectFlush!: (error: Error) => void
+  let retryIntent: QuitIntent | undefined
+  const coordinator = new QuitCoordinator({
+    timeoutMs: 1_000,
+    createRequestId: () => 'promoted-failure',
+    requestRendererFlush: () => new Promise<void>((_resolve, reject) => { rejectFlush = reject }),
+    createVerifiedBackup: async () => { throw new Error('不应进入备份') },
+    commitExit: async () => { throw new Error('不应进入终态') },
+    cancelPreparation: () => {},
+    reportError: failure => { retryIntent = failure.intent },
+  })
+  const close = coordinator.request('close')
+  const install = coordinator.request('quit-and-install')
+  rejectFlush(new Error('草稿未保存'))
+  const result = await install
+  assert(close === install && !result.ok && retryIntent === 'quit-and-install', '所有窗口须能重试最终请求的更新')
 }
 
 export async function testCommitExitFailureUsesCommitCodeAndNeverReportsSuccess(): Promise<void> {

@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AppUpdateState } from '../src/lib/appUpdate'
-import type { JournalBridge, StorageRecoveryRequiredState, TrayDestination, WindowsClosePreference } from '../src/types/journalBridge'
+import type { JournalBridge, QuitIntent, StorageRecoveryRequiredState, TrayDestination, WindowsClosePreference } from '../src/types/journalBridge'
 import { AsyncGeneration } from '../src/lib/asyncGeneration'
 import { WindowWriterSessions, type WriterGrant } from './library/writerSession'
 
@@ -53,9 +53,9 @@ const bridge: NonNullable<Window['journalBridge']> = {
     return () => ipcRenderer.removeListener('app:before-close', listener)
   },
   onCloseSaveError: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, message: string) => {
+    const listener = (_event: Electron.IpcRendererEvent, message: string, intent?: QuitIntent) => {
       closeFlushGeneration.invalidate()
-      callback(message)
+      callback(message, intent)
     }
     ipcRenderer.on('app:close-save-error', listener)
     return () => ipcRenderer.removeListener('app:close-save-error', listener)
@@ -99,7 +99,7 @@ const bridge: NonNullable<Window['journalBridge']> = {
     ipcRenderer.invoke('app:set-windows-close-preference', preference),
   getAutoLaunchState: () => ipcRenderer.invoke('app:get-auto-launch-state'),
   setAutoLaunchEnabled: (enabled) => ipcRenderer.invoke('app:set-auto-launch-enabled', enabled),
-  requestClose: () => ipcRenderer.invoke('app:request-close'),
+  requestClose: (intent) => ipcRenderer.invoke('app:request-close', intent),
   toggleFullscreen: () => ipcRenderer.invoke('app:toggle-fullscreen'),
   getWindowHotkey: () => ipcRenderer.invoke('window-hotkey:get'),
   setWindowHotkey: (binding) => ipcRenderer.invoke('window-hotkey:set', binding),

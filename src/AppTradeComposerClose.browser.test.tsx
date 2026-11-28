@@ -25,14 +25,15 @@ function button(scope: ParentNode, label: string) {
 }
 const composer = () => document.querySelector<HTMLElement>('[role="dialog"].composer-modal')
 const receipt = () => [...document.querySelectorAll<HTMLElement>('[role="dialog"]')]
-  .find(panel => panel.querySelector('h2')?.textContent === '保存未完成，已取消退出')
+  .find(panel => ['保存未完成，已取消退出', '更新未完成，已取消安装'].includes(panel.querySelector('h2')?.textContent ?? ''))
 
 async function run() {
   // Bootstrap a new browser-only IndexedDB before installing the fake native close bridge.
   await bootstrapStorage()
   const previous = useStore.getState(), bridge = window.journalBridge, storage = getStorage()
   const originalCommit = storage.commitImport
-  const callbacks: { close: (() => void | Promise<void>) | null; error: ((message: string) => void) | null } = { close: null, error: null }
+  const callbacks: { close: (() => void | Promise<void>) | null; error: Parameters<JournalBridge['onCloseSaveError']>[0] | null } = { close: null, error: null }
+  const retries: string[] = []
   const commits: { gate: ReturnType<typeof deferred> | null; count: number } = { gate: null, count: 0 }
   storage.commitImport = async (...args) => {
     commits.count++
@@ -45,7 +46,9 @@ async function run() {
     getLibraryStatus: async () => ({ kind: 'ready' }),
     onTrayNavigate: () => () => {},
     onBeforeClose: (callback: () => void | Promise<void>) => { callbacks.close = callback; return () => { callbacks.close = null } },
-    onCloseSaveError: (callback: (message: string) => void) => { callbacks.error = callback; return () => { callbacks.error = null } },
+    requestClose: async (intent?: string) => { retries.push(intent ?? 'default') },
+    installUpdate: async () => { retries.push('install'); return true },
+    onCloseSaveError: (callback: Parameters<JournalBridge['onCloseSaveError']>[0]) => { callbacks.error = callback; return () => { callbacks.error = null } },
   } as unknown as JournalBridge
   const root = createRoot(document.getElementById('root')!)
   const askClose = async () => {
@@ -96,6 +99,12 @@ async function run() {
     await waitFor(() => document.activeElement === button(receipt()!, '继续使用'), '回执主按钮必须可由键盘操作')
     document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }))
     assert(receipt()!.contains(document.activeElement), '顶层回执必须保留自己的键盘焦点范围')
+    button(receipt()!, '重试退出').click()
+    assert(retries.join() === 'default', '旧格式错误回执仍可按平台默认方式重试退出')
+    callbacks.error?.('更新前仍有未保存的草稿', 'quit-and-install')
+    await waitFor(() => receipt()?.textContent?.includes('重试更新'), '安装失败的回执须提供原操作')
+    button(receipt()!, '重试更新').click()
+    assert(retries.join() === 'default,install', '重试安装必须再次走已下载更新入口')
     button(receipt()!, '继续使用').click()
     await waitFor(() => !receipt(), '继续使用必须撤回回执')
     assert(input.value === '退出检查期间保留的草稿' && preview.src === previewUrl && composer(), '拒绝退出不得重置文字或原图')
@@ -128,6 +137,10 @@ async function run() {
     const assets = collectAssetIdsFromHtml([saved.note])
     assert(saved.note.includes('退出检查期间保留的草稿') && assets.length === 1 && await storage.getAssetForExport(assets[0]), '最终保存必须保留草稿文字及可导出的原图')
     assert(document.querySelector('.app-close-save.is-saved') && !receipt(), '成功关闭沿用现有安全保存回执')
+    callbacks.error?.('隔离库退出失败', 'quit')
+    await waitFor(() => document.querySelector('.app-close-save.is-error'), '存储失败必须显示退出回执')
+    button(document.querySelector('.app-close-save.is-error')!, '重试退出').click()
+    assert(retries[retries.length - 1] === 'quit', '普通退出回执须重试其原始意图')
   } finally {
     commits.gate?.resolve()
     root.unmount()

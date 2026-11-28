@@ -38,7 +38,7 @@ import { Button } from './components/ui/Button'
 import { ErrorDetails } from './components/ui/ErrorDetails'
 import { InlineStatus, type InlineStatusTone } from './components/ui/InlineStatus'
 import { ModalShell } from './components/ui/ModalShell'
-import type { WindowsCloseChoice } from './types/journalBridge'
+import type { QuitIntent, WindowsCloseChoice } from './types/journalBridge'
 import { toast, toastStore } from './lib/toast'
 import { AsyncGeneration } from './lib/asyncGeneration'
 import { WebStorageGuard } from './components/WebStorageGuard'
@@ -147,7 +147,7 @@ type CloseSaveState =
   | { phase: 'idle' }
   | { phase: 'saving' }
   | { phase: 'saved' }
-  | { phase: 'error'; message: string; unsavedComposer?: boolean }
+  | { phase: 'error'; message: string; intent?: QuitIntent; unsavedComposer?: boolean }
 
 function waitForCloseFeedback(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
@@ -164,11 +164,13 @@ function CloseSaveReceipt({
 }) {
   if (state.phase === 'idle') return null
 
+  const retryUpdate = state.phase === 'error' && state.intent === 'quit-and-install'
+  const retryLabel = retryUpdate ? '重试更新' : '重试退出'
   const message = state.phase === 'saving'
     ? '正在安全保存…'
     : state.phase === 'saved'
       ? '已安全保存'
-      : '保存未完成，已取消退出'
+      : retryUpdate ? '更新未完成，已取消安装' : '保存未完成，已取消退出'
   const tone: InlineStatusTone = state.phase === 'saving'
     ? 'progress'
     : state.phase === 'saved'
@@ -183,7 +185,7 @@ function CloseSaveReceipt({
         size="compact"
         onClose={onDismiss}
         footer={<>
-          <Button variant="bordered" onClick={onRetry}>重试退出</Button>
+          <Button variant="bordered" onClick={onRetry}>{retryLabel}</Button>
           <Button variant="primary" data-autofocus onClick={onDismiss}>继续使用</Button>
         </>}
       />
@@ -200,7 +202,7 @@ function CloseSaveReceipt({
         action={state.phase === 'error' ? (
           <>
             <Button size="sm" onClick={onDismiss}>继续使用</Button>
-            <Button size="sm" variant="primary" onClick={onRetry}>重试退出</Button>
+            <Button size="sm" variant="primary" onClick={onRetry}>{retryLabel}</Button>
           </>
         ) : undefined}
       />
@@ -738,7 +740,7 @@ export function App() {
           })
         }
         if (bridge?.onCloseSaveError) {
-          unsubscribeCloseError = bridge.onCloseSaveError((message: string) => {
+          unsubscribeCloseError = bridge.onCloseSaveError((message, intent) => {
             closeSaveGeneration.current.invalidate()
             closeBarrier.current.cancel()
             toastStore.setSuspended(true)
@@ -746,6 +748,7 @@ export function App() {
             setCloseSaveState((state) => ({
               phase: 'error',
               message,
+              intent,
               unsavedComposer: state.phase === 'error' && state.unsavedComposer,
             }))
           })
@@ -793,7 +796,9 @@ export function App() {
         onDismiss={() => setCloseSaveState({ phase: 'idle' })}
         onRetry={() => {
           const bridge = window.journalBridge
-          if (bridge?.requestClose) void bridge.requestClose()
+          if (closeSaveState.phase !== 'error') return
+          if (closeSaveState.intent === 'quit-and-install') void bridge?.installUpdate()
+          else void bridge?.requestClose(closeSaveState.intent)
         }}
       />
       {windowsClosePromptOpen ? (

@@ -41,10 +41,10 @@ import {
   assertExitWithinDeadline,
   QuitCoordinator,
   RendererFlushTracker,
-  type QuitIntent,
   type QuitOperationalFailure,
   type QuitOperationalLifecycle,
 } from './quitCoordinator'
+import type { QuitIntent } from '../src/types/journalBridge'
 import { runElectronForcedKillMode } from './forcedKillQa'
 import {
   DEFAULT_WINDOW_HOTKEY,
@@ -465,7 +465,7 @@ function reportExitError(failure: QuitOperationalFailure): void {
   for (const window of BrowserWindow.getAllWindows()) {
     if (window.isDestroyed()) continue
     try {
-      window.webContents.send('app:close-save-error', failure.message)
+      window.webContents.send('app:close-save-error', failure.message, failure.intent)
     } catch (error) {
       logDiagnostic('error', 'exit-error-receipt-failed', error)
     }
@@ -686,7 +686,10 @@ if (!hasSingleInstanceLock) {
         reportPersistenceError: (error) => reportWindowsClosePreferenceError(error, choice),
       })
     })
-    ipcMain.handle('app:request-close', () => quitCoordinator.request(process.platform === 'darwin' ? 'quit' : 'close'))
+    ipcMain.handle('app:request-close', (_event, intent: unknown) => {
+      const fallback = process.platform === 'darwin' ? 'quit' : 'close'
+      return quitCoordinator.request(intent === 'quit' || intent === 'close' ? intent : fallback)
+    })
     ipcMain.handle('app:toggle-fullscreen', () => {
       if (!mainWindow || mainWindow.isDestroyed()) return false
       const next = !mainWindow.isFullScreen()

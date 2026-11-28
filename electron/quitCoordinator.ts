@@ -1,4 +1,4 @@
-export type QuitIntent = 'close' | 'quit' | 'quit-and-install'
+import type { QuitIntent } from '../src/types/journalBridge'
 
 export type QuitResult =
   | { ok: true; intent: QuitIntent }
@@ -11,6 +11,7 @@ export type QuitFailureCode =
   | 'quit-commit-failed'
 
 export interface QuitOperationalFailure {
+  intent: QuitIntent
   operationId: string
   stage: QuitFailureStage
   code: QuitFailureCode
@@ -169,6 +170,7 @@ export class QuitCoordinator {
           : 'quit-commit-failed'
       try {
         this.dependencies.reportError({
+          intent: this.requestedIntent,
           operationId: requestId,
           stage,
           code,

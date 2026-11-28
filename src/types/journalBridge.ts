@@ -105,6 +105,7 @@ export type WindowFrameState = {
   presetId: WindowSizePresetId | null
 }
 
+export type QuitIntent = 'close' | 'quit' | 'quit-and-install'
 export type WindowsClosePreference = 'ask' | 'tray' | 'quit'
 export type WindowsCloseChoice = Exclude<WindowsClosePreference, 'ask'>
 
@@ -140,7 +141,7 @@ export interface JournalBridge {
   isElectron: true
   platform: 'win32' | 'darwin' | 'other'
   onBeforeClose(callback: () => void | Promise<void>): () => void
-  onCloseSaveError(callback: (message: string) => void): () => void
+  onCloseSaveError(callback: (message: string, intent?: QuitIntent) => void): () => void
   onAutoBackupFailure(callback: () => void): () => void
   onStorageRecoveryRequired(callback: (state: StorageRecoveryRequiredState) => void): () => void
   onWindowsCloseExplanation(callback: () => void): () => void
@@ -151,7 +152,7 @@ export interface JournalBridge {
   setWindowsClosePreference(preference: WindowsClosePreference): Promise<WindowsClosePreference>
   getAutoLaunchState(): Promise<AutoLaunchState>
   setAutoLaunchEnabled(enabled: boolean): Promise<AutoLaunchState>
-  requestClose(): Promise<void>
+  requestClose(intent?: Exclude<QuitIntent, 'quit-and-install'>): Promise<void>
   toggleFullscreen(): Promise<boolean>
   getWindowHotkey(): Promise<WindowHotkeyState>
   setWindowHotkey(binding: KeyChord): Promise<WindowHotkeyUpdateResult>
