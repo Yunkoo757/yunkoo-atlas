@@ -1,14 +1,8 @@
-import type { Trade, TradeStatus } from '@/data/trades'
+import { STATUS_META, type Trade, type TradeStatus } from '@/data/trades'
 
 /** 列表/看板分组与菜单顺序 */
-export const STATUS_ORDER: TradeStatus[] = [
-  'planned',
-  'open',
-  'missed',
-  'win',
-  'breakeven',
-  'loss',
-]
+export const STATUS_ORDER = (Object.keys(STATUS_META) as TradeStatus[])
+  .sort((left, right) => STATUS_META[left].order - STATUS_META[right].order)
 
 /** 进行中：计划中或持仓中 */
 export function isActive(status: TradeStatus): boolean {

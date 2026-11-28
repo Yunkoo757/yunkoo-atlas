@@ -1,5 +1,5 @@
 import type { SidebarNavId } from '@/lib/sidebarNavContract'
-import type { Trade, TradeKind } from '@/data/trades'
+import { isTradeMetadataKey, TRADE_KIND_META, type Trade, type TradeKind } from '@/data/trades'
 import { normalizeReviewFields } from '@/lib/reviewAnalytics'
 import { promoteTradeNotionMeta, promoteTradeSession } from '@/lib/tradeView'
 import { normalizeTradeMetrics } from '@/lib/tradeTruth'
@@ -7,10 +7,7 @@ import { normalizeInitialStopLoss } from '@/lib/tradeResult'
 
 /** 旧版 practice 与 paper 语义相同，统一为 paper（模拟） */
 export function normalizeTradeKind(kind: string | undefined): TradeKind {
-  if (kind === 'live') return 'live'
-  if (kind === 'case') return 'case'
-  if (kind === 'backtest') return 'backtest'
-  return 'paper'
+  return isTradeMetadataKey(TRADE_KIND_META, kind) ? kind : 'paper'
 }
 
 export function defaultTradeKindForPath(pathname: string, search = ''): TradeKind {
@@ -104,7 +101,7 @@ export function normalizeTradeFields(trade: Trade): Trade {
 
 export function normalizeTrades(trades: Trade[]): Trade[] {
   return trades.map((t) => {
-    const tradeKind = normalizeTradeKind(t.tradeKind as string)
+    const tradeKind = normalizeTradeKind(t.tradeKind)
     const normalizedKind = tradeKind === t.tradeKind ? t : { ...t, tradeKind }
     return normalizeTradeFields(normalizedKind)
   })

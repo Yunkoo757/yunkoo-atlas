@@ -47,6 +47,14 @@ function minimalHistoricalSnapshot(): Record<string, unknown> {
   }
 }
 
+export function testSnapshotCodecRejectsArrayTradeKindBeforeNormalization(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const { liveStageId: _stage, ...trade } = fixture.trades[0]!
+  const snapshot = { ...fixture, trades: [{ ...trade, tradeKind: ['live'] }], weeklyReviews: [], riskOverrideEvents: [] }
+  assertThrowsMatching(() => decodeCanonicalSnapshot(snapshot, { version: SCHEMA_VERSION }), /invalid trade/,
+    '实盘类型损坏时必须在归一成模拟交易之前拒绝')
+}
+
 export function testSnapshotCodecMigratesLegacyStarredCasesToIndependentPriority(): void {
   const fixture = createFullPersistedSnapshotFixture()
   const source = fixture.trades[0]!

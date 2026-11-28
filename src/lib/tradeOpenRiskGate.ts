@@ -8,29 +8,12 @@ import type {
   RiskPolicyVersion,
   RiskUnknownReason,
 } from '@/data/riskManagement'
-import type { ActivityEvent, Trade, TradeStatus } from '@/data/trades'
+import { isActivityEvent, type ActivityEvent, type Trade, type TradeStatus } from '@/data/trades'
+import { isExecutedClosed } from '@/lib/tradeStatus'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { filterTradesForLiveCycle } from '@/lib/liveCycle'
 import { resolveRiskOutcomes } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/riskPolicy'
-
-const ACTIVITY_KINDS = new Set<ActivityEvent['kind']>([
-  'create',
-  'status',
-  'strategy',
-  'tag',
-  'comment',
-  'note',
-  'tradeKind',
-])
-const TRADE_STATUSES = new Set<TradeStatus>([
-  'planned',
-  'open',
-  'missed',
-  'win',
-  'loss',
-  'breakeven',
-])
 
 export interface TradeOpenRiskGateState {
   trades: Trade[]
@@ -97,35 +80,15 @@ export interface RequestTradeOpenCandidateOptions {
   createActivityId?: () => string
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function isStructurallyValidActivity(value: unknown): value is ActivityEvent {
-  if (!isRecord(value)) return false
-  if (typeof value.id !== 'string' || !value.id.trim()) return false
-  if (typeof value.kind !== 'string' || !ACTIVITY_KINDS.has(value.kind as ActivityEvent['kind'])) return false
-  if (!isCanonicalIsoInstant(value.timestamp)) return false
-  if (value.status !== undefined && (
-    typeof value.status !== 'string' || !TRADE_STATUSES.has(value.status as TradeStatus)
-  )) return false
-  if (value.kind === 'status' && value.status === undefined) return false
-  if (value.tagAction !== undefined && value.tagAction !== 'add' && value.tagAction !== 'remove') return false
-  if (value.fromTradeKind !== undefined && !['live', 'paper', 'case'].includes(String(value.fromTradeKind))) return false
-  if (value.toTradeKind !== undefined && !['live', 'paper', 'case'].includes(String(value.toTradeKind))) return false
-  for (const field of ['strategyId', 'fromStrategyId', 'tag', 'commentId', 'text']) {
-    if (value[field] !== undefined && typeof value[field] !== 'string') return false
-  }
-  return true
-}
-
 function hasTrustedOpenActivity(activities: Trade['activities'], currentStatus: TradeStatus): boolean {
   if (!activities?.length) return false
   const ids = new Set<string>()
   let previousTime = Number.NEGATIVE_INFINITY
   let latestStatus: ActivityEvent | null = null
   for (const activity of activities) {
-    if (!isStructurallyValidActivity(activity) || ids.has(activity.id)) return false
+    if (!isActivityEvent(activity) || ids.has(activity.id) || !isCanonicalIsoInstant(activity.timestamp)) return false
+    if (activity.kind === 'status' && activity.status === undefined) return false
+    if (activity.fromTradeKind === 'backtest' || activity.toTradeKind === 'backtest') return false
     ids.add(activity.id)
     const timestamp = Date.parse(activity.timestamp)
     if (timestamp < previousTime) return false
@@ -191,7 +154,7 @@ function riskResultRefs(
     .filter((trade) =>
       trade.tradeKind === 'live' &&
       !trade.deletedAt &&
-      (trade.status === 'win' || trade.status === 'loss' || trade.status === 'breakeven'),
+      isExecutedClosed(trade.status),
     )
     .sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
     .map((trade) => ({

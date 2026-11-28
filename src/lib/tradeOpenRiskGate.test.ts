@@ -443,6 +443,10 @@ export function testOnlyValidHistoricalOpenActivityBypassesFirstGate(): void {
     ],
   }
   assert(!requiresFirstOpenGate(historical), '可信历史 open activity 应豁免重复 Gate')
+  for (const kind of [['paper'], 'backtest']) {
+    const events = historical.activities.map((event) => ({ ...event, fromTradeKind: kind }))
+    assert(requiresFirstOpenGate({ ...target, activities: events as Trade['activities'] }), '损坏或来自回测的活动不能证明实盘首次开仓')
+  }
   const missingStageSetup = requestTradeOpenCandidate({
     ...state,
     trades: [historical],

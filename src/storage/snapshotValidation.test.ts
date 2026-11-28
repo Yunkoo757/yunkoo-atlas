@@ -338,6 +338,21 @@ export function testSnapshotValidationRejectsMalformedTradeAndSettingsData(): vo
   assert(rejectedSettings, '损坏的设置数组不得进入资料库快照')
 }
 
+export function testSnapshotRejectsWrappedEnumValues(): void {
+  const trade = valid.trades[0]!
+  const activity = { id: 'change', kind: 'tradeKind', timestamp: 'historical timestamp', fromTradeKind: 'paper', toTradeKind: 'live' }
+  assert(isValidPersistedTrade({ ...trade, activities: [activity] }), '历史时间文本应可原样载入')
+  for (const [field, value] of Object.entries({
+    tradeKind: 'live', status: 'open', side: 'long', conviction: 'medium', reviewStatus: 'reviewed',
+    reviewCategory: 'focus', caseType: 'mistake', masteryState: 'new', missReason: 'other',
+  })) {
+    assert(!isValidPersistedTrade({ ...trade, [field]: [value] }), '交易枚举必须是字符串 ' + field)
+  }
+  for (const [field, value] of Object.entries({ kind: 'status', status: 'open', fromTradeKind: 'paper', toTradeKind: 'live' })) {
+    assert(!isValidPersistedTrade({ ...trade, activities: [{ ...activity, [field]: [value] }] }), '活动枚举必须是字符串 ' + field)
+  }
+}
+
 export function testSnapshotValidationRequiresRuntimeIdCollections(): void {
   for (const field of ['starredIds', 'subscribedIds', 'pinnedStrategyIds']) {
     const candidate: Record<string, unknown> = { ...valid }
@@ -384,6 +399,11 @@ export function testSnapshotValidationRejectsMalformedDisplaySettings(): void {
   for (const display of [
     { hideClosed: 'false' },
     { sortBy: 'profit' },
+    { sortBy: ['pnl'] },
+    { sidebarWorkspaceItems: [{
+      id: 'legacy-view', target: { kind: 'quick-view', workspace: ['paper'], view: 'missed' },
+      placement: 'pinned', order: 0,
+    }] },
     { sidebarPins: ['active', 2] },
     { sidebarWorkspaceItems: [{ id: 'broken' }] },
     { workspaceMemory: { trade: { pathname: 42 } } },

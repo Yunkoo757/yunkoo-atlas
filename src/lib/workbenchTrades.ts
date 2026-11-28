@@ -1,16 +1,12 @@
-import type {
-  CaseType,
-  MasteryState,
-  ReviewCategory,
-  Trade,
-  TradeSide,
-  TradeStatus,
+import {
+  CASE_TYPE_META, MASTERY_STATE_META, REVIEW_CATEGORY_META, STATUS_META,
+  isTradeMetadataKey, isTradeSide, type Trade, type TradeStatus,
 } from '@/data/trades'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { filterTradesByAnalysisScope } from '@/lib/analysisScope'
 import type { DisplayPrefs, ListFilter } from '@/lib/tradeFilters'
 import { CALENDAR_PERIODS, DEFAULT_TRADING_DAY_START_HOUR, tradeInPeriod, type BusinessDateAnchor, type CalendarPeriod } from '@/lib/periods'
-import { isActive, isHiddenWhenClosedFilter, isMissed, STATUS_ORDER } from '@/lib/tradeStatus'
+import { isActive, isHiddenWhenClosedFilter, isMissed } from '@/lib/tradeStatus'
 import { matchesReviewCaseScope } from '@/lib/reviewCaseScope'
 import {
   filterTradesByFacets,
@@ -28,15 +24,6 @@ function shouldApplyStageScope(filter: ListFilter): boolean {
   return true
 }
 
-const REVIEW_CATEGORIES: ReviewCategory[] = [
-  'normal',
-  'mistake',
-  'focus',
-  'ambiguous',
-  'recheck',
-  'mastered',
-]
-
 const TRADE_SESSIONS: TradeSessionKind[] = [
   'london',
   'asia',
@@ -44,9 +31,6 @@ const TRADE_SESSIONS: TradeSessionKind[] = [
   'outside',
   'other',
 ]
-
-const CASE_TYPES: CaseType[] = ['exemplar', 'mistake', 'ambiguous', 'missed']
-const MASTERY_STATES: MasteryState[] = ['new', 'recheck', 'mastered']
 
 const CONVICTION_RANK: Record<Trade['conviction'], number> = {
   urgent: 4,
@@ -71,19 +55,13 @@ export function parseTradeFacets(search: string | URLSearchParams): TradeFacetFi
   return {
     tradeKind: tradeKind === 'live' || tradeKind === 'paper' ? tradeKind : undefined,
     symbol: params.get('symbol') || undefined,
-    side: side === 'long' || side === 'short' ? (side as TradeSide) : undefined,
-    status: STATUS_ORDER.includes(status as TradeStatus) ? (status as TradeStatus) : undefined,
+    side: isTradeSide(side) ? side : undefined,
+    status: isTradeMetadataKey(STATUS_META, status) ? status : undefined,
     tag: params.get('tag') || undefined,
     mistakeTag: params.get('mistakeTag') || undefined,
-    reviewCategory: REVIEW_CATEGORIES.includes(reviewCategory as ReviewCategory)
-      ? (reviewCategory as ReviewCategory)
-      : undefined,
-    caseType: CASE_TYPES.includes(caseType as CaseType)
-      ? (caseType as CaseType)
-      : undefined,
-    masteryState: MASTERY_STATES.includes(masteryState as MasteryState)
-      ? (masteryState as MasteryState)
-      : undefined,
+    reviewCategory: isTradeMetadataKey(REVIEW_CATEGORY_META, reviewCategory) ? reviewCategory : undefined,
+    caseType: isTradeMetadataKey(CASE_TYPE_META, caseType) ? caseType : undefined,
+    masteryState: isTradeMetadataKey(MASTERY_STATE_META, masteryState) ? masteryState : undefined,
     session: TRADE_SESSIONS.includes(session as TradeSessionKind)
       ? (session as TradeSessionKind)
       : undefined,

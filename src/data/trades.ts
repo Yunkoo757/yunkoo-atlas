@@ -1,14 +1,7 @@
 // 交易日志数据模型。
 
-export type TradeStatus =
-  | 'planned' // 计划中（像 Backlog）
-  | 'open' // 持仓中（像 In Progress）
-  | 'missed' // 错过机会（假设盈亏，不计入实盘 KPI）
-  | 'win' // 已平 - 盈利（像 Done）
-  | 'loss' // 已平 - 亏损（像 Canceled）
-  | 'breakeven' // 已平 - 保本
-
-export type TradeKind = 'live' | 'paper' | 'case' | 'backtest'
+export type TradeStatus = keyof typeof STATUS_META
+export type TradeKind = keyof typeof TRADE_KIND_META
 
 export type MissReason =
   | 'hesitation'
@@ -42,14 +35,8 @@ export interface TradeComment {
   createdAt: string
 }
 
-export type ActivityKind =
-  | 'create'
-  | 'status'
-  | 'strategy'
-  | 'tag'
-  | 'comment'
-  | 'note'
-  | 'tradeKind'
+const ACTIVITY_KINDS = ['create', 'status', 'strategy', 'tag', 'comment', 'note', 'tradeKind'] as const
+export type ActivityKind = (typeof ACTIVITY_KINDS)[number]
 
 export interface ActivityEvent {
   id: string
@@ -64,6 +51,32 @@ export interface ActivityEvent {
   text?: string
   fromTradeKind?: TradeKind
   toTradeKind?: TradeKind
+}
+
+/** 检查原始字段是否为该枚举的自有字符串键。 */
+export function isTradeMetadataKey<K extends string>(metadata: Record<K, unknown>, value: unknown): value is K {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(metadata, value)
+}
+
+export function isTradeSide(value: unknown): value is TradeSide {
+  return value === 'long' || value === 'short'
+}
+
+/** 持久化活动允许旧时间文本；用于证明首次开仓时另行核对时间与顺序。 */
+export function isActivityEvent(value: unknown): value is ActivityEvent {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const event = value as Record<string, unknown>
+  if (typeof event.id !== 'string' || !event.id.trim() || typeof event.timestamp !== 'string') return false
+  if (!ACTIVITY_KINDS.some(kind => kind === event.kind)) return false
+  if (event.status !== undefined && !isTradeMetadataKey(STATUS_META, event.status)) return false
+  if (event.tagAction !== undefined && event.tagAction !== 'add' && event.tagAction !== 'remove') return false
+  for (const kind of [event.fromTradeKind, event.toTradeKind]) {
+    if (kind !== undefined && !isTradeMetadataKey(TRADE_KIND_META, kind)) return false
+  }
+  for (const field of ['strategyId', 'fromStrategyId', 'tag', 'commentId', 'text']) {
+    if (event[field] !== undefined && typeof event[field] !== 'string') return false
+  }
+  return true
 }
 
 interface TradeBase {
@@ -181,10 +194,7 @@ export function normalizeCashCurrency(value: string | null | undefined): string 
   return ISO_4217_CODES.has(normalized) ? normalized : null
 }
 
-export const STATUS_META: Record<
-  TradeStatus,
-  { label: string; order: number }
-> = {
+export const STATUS_META = {
   planned: { label: '计划中', order: 0 },
   open: { label: '持仓中', order: 1 },
   missed: { label: '错过', order: 2 },
@@ -193,7 +203,7 @@ export const STATUS_META: Record<
   loss: { label: '亏损', order: 5 },
 }
 
-export const TRADE_KIND_META: Record<TradeKind, { label: string }> = {
+export const TRADE_KIND_META = {
   live: { label: '实盘' },
   paper: { label: '模拟' },
   case: { label: '案例' },

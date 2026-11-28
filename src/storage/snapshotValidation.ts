@@ -1,7 +1,11 @@
 import { hasLegacyStageFields } from '@/lib/stageMigration'
 import { isBacktestProject } from '@/lib/backtestProjects'
 import type { PersistedSnapshot } from '@/storage/types'
-import { normalizeCashCurrency } from '@/data/trades'
+import {
+  CASE_TYPE_META, CONVICTION_META, MASTERY_STATE_META, MISS_REASON_META, REVIEW_CATEGORY_META,
+  STATUS_META, TRADE_KIND_META, isActivityEvent, isTradeMetadataKey, isTradeSide, normalizeCashCurrency,
+} from '@/data/trades'
+import { isExecutedClosed } from '@/lib/tradeStatus'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { isTradeResultAuthorityConsistent } from '@/lib/tradeTruth'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
@@ -10,24 +14,14 @@ import { assertValidLiveStageState } from '@/lib/liveStages'
 import { isCanonicalWeeklyReviewPeriod, stageContainsWeeklyReviewPeriod } from '@/lib/weeklyReviewPeriod'
 import { isSafeAssetId } from '@/storage/assetId'
 
-const TRADE_SIDES = new Set(['long', 'short'])
-const TRADE_STATUSES = new Set(['planned', 'open', 'missed', 'win', 'loss', 'breakeven'])
-const TRADE_KINDS = new Set(['live', 'paper', 'case', 'backtest'])
-const CONVICTIONS = new Set(['low', 'medium', 'high', 'urgent'])
 const RESULT_SOURCES = new Set(['pnl', 'r', 'price', 'imported'])
 const REVIEW_STATUSES = new Set(['unreviewed', 'reviewed', 'focus'])
-const REVIEW_CATEGORIES = new Set(['normal', 'mistake', 'focus', 'ambiguous', 'recheck', 'mastered'])
-const ACTIVITY_KINDS = new Set(['create', 'status', 'strategy', 'tag', 'comment', 'note', 'tradeKind'])
-const CASE_TYPES = new Set(['exemplar', 'mistake', 'ambiguous', 'missed'])
-const MASTERY_STATES = new Set(['new', 'recheck', 'mastered'])
-const MISS_REASONS = new Set(['hesitation', 'missed_setup', 'no_alert', 'rule_break', 'other'])
 const DISPLAY_SORTS = new Set(['date', 'pnl', 'conviction'])
 const DISPLAY_SORT_DIRECTIONS = new Set(['asc', 'desc'])
 const SIDEBAR_SYSTEM_IDS = new Set(['active', 'favorites', 'missed', 'paper'])
 const CASE_VIEW_SCOPES = new Set(['focus', 'mistakes', 'unreviewed', 'reviewed', 'exemplar', 'missed'])
 const WEEKLY_REVIEW_STATUSES = new Set(['draft', 'completed'])
 const WEEKLY_COMMITMENT_RESULTS = new Set(['done', 'partial', 'missed', 'not-applicable'])
-const TERMINAL_TRADE_STATUSES = new Set(['win', 'loss', 'breakeven'])
 const RISK_COVERAGES = new Set(['complete', 'partial', 'unknown'])
 const RISK_UNKNOWN_REASONS = new Set([
   'missing-loss-pnl',
@@ -81,30 +75,13 @@ function isTradeComment(value: unknown): boolean {
     typeof value.createdAt === 'string'
 }
 
-function isActivityEvent(value: unknown): boolean {
-  if (
-    !isRecord(value) ||
-    typeof value.id !== 'string' || !value.id.trim() ||
-    typeof value.timestamp !== 'string' ||
-    !ACTIVITY_KINDS.has(String(value.kind))
-  ) return false
-  if (value.status !== undefined && !TRADE_STATUSES.has(String(value.status))) return false
-  if (value.tagAction !== undefined && value.tagAction !== 'add' && value.tagAction !== 'remove') return false
-  if (value.fromTradeKind !== undefined && !TRADE_KINDS.has(String(value.fromTradeKind))) return false
-  if (value.toTradeKind !== undefined && !TRADE_KINDS.has(String(value.toTradeKind))) return false
-  for (const field of ['strategyId', 'fromStrategyId', 'tag', 'commentId', 'text']) {
-    if (value[field] !== undefined && typeof value[field] !== 'string') return false
-  }
-  return true
-}
-
 function isSidebarTarget(value: unknown): boolean {
   if (!isRecord(value)) return false
   if (value.kind === 'system') {
-    if (!SIDEBAR_SYSTEM_IDS.has(String(value.id))) return false
+    if (!isEnumMember(SIDEBAR_SYSTEM_IDS, value.id)) return false
     if (value.workspaces === undefined) return true
     if (!Array.isArray(value.workspaces)) return false
-    const id = String(value.id)
+    const id = value.id
     const allowed =
       id === 'missed' ? new Set(['trade', 'paper', 'case'])
         : id === 'active' ? new Set(['trade', 'paper'])
@@ -116,11 +93,10 @@ function isSidebarTarget(value: unknown): boolean {
   }
   if (value.kind === 'saved-view') return typeof value.viewId === 'string' && Boolean(value.viewId.trim())
   if (value.kind === 'strategy') return typeof value.strategyId === 'string' && Boolean(value.strategyId.trim())
-  if (value.kind === 'case-view') return CASE_VIEW_SCOPES.has(String(value.scope))
+  if (value.kind === 'case-view') return isEnumMember(CASE_VIEW_SCOPES, value.scope)
   // 兼容短暂写入过的 quick-view 钉选：允许读入，随后由 normalizeSidebarWorkspaceItems 合并
   if (value.kind === 'quick-view') {
-    const workspace = String(value.workspace)
-    const view = String(value.view)
+    const { workspace, view } = value
     if (!(workspace === 'trade' || workspace === 'paper' || workspace === 'case')) return false
     if (!(view === 'missed' || view === 'active')) return false
     if (workspace === 'case' && view === 'active') return false
@@ -152,10 +128,10 @@ function isDisplayPrefs(value: unknown): boolean {
   for (const field of ['hideClosed', 'showEmptyGroups', 'groupByStrategy', 'groupByDate', 'privacyMode', 'reviewContextPinned']) {
     if (value[field] !== undefined && typeof value[field] !== 'boolean') return false
   }
-  if (value.sortBy !== undefined && !DISPLAY_SORTS.has(String(value.sortBy))) return false
+  if (value.sortBy !== undefined && !isEnumMember(DISPLAY_SORTS, value.sortBy)) return false
   if (
     value.sortDirection !== undefined &&
-    !DISPLAY_SORT_DIRECTIONS.has(String(value.sortDirection))
+    !isEnumMember(DISPLAY_SORT_DIRECTIONS, value.sortDirection)
   ) return false
   if (
     value.tradingDayStartHour !== undefined &&
@@ -186,12 +162,14 @@ function isDisplayPrefs(value: unknown): boolean {
 
 const REVIEW_POOL_SOURCES = new Set(['case', 'live', 'paper'])
 const REVIEW_POOL_RESULTS = new Set(['win', 'loss', 'breakeven', 'missed'])
-const REVIEW_POOL_CASE_TYPES = new Set(['exemplar', 'mistake', 'ambiguous', 'missed'])
-const REVIEW_POOL_SIDES = new Set(['long', 'short'])
 const SYSTEM_REVIEW_POOL_IDS = new Set(['all', 'cases', 'losses', 'wins', 'missed', 'boosted'])
 
+function isEnumMember(allowed: ReadonlySet<string>, value: unknown): value is string {
+  return typeof value === 'string' && allowed.has(value)
+}
+
 function isEnumArray(value: unknown, allowed: ReadonlySet<string>): boolean {
-  return Array.isArray(value) && value.every((item) => typeof item === 'string' && allowed.has(item))
+  return Array.isArray(value) && value.every((item) => isEnumMember(allowed, item))
 }
 
 function isReviewStageSourceValue(value: unknown): boolean {
@@ -212,9 +190,9 @@ function isReviewPoolPresets(value: unknown): boolean {
     const filters = preset.filters
     if (!isEnumArray(filters.sources, REVIEW_POOL_SOURCES)) return false
     if (!isEnumArray(filters.results, REVIEW_POOL_RESULTS)) return false
-    if (!isEnumArray(filters.caseTypes, REVIEW_POOL_CASE_TYPES)) return false
+    if (!Array.isArray(filters.caseTypes) || !filters.caseTypes.every(type => isTradeMetadataKey(CASE_TYPE_META, type))) return false
     if (!isStringArray(filters.strategyIds) || !isStringArray(filters.symbols)) return false
-    if (!isEnumArray(filters.sides, REVIEW_POOL_SIDES)) return false
+    if (!Array.isArray(filters.sides) || !filters.sides.every(isTradeSide)) return false
     if (!isStringArray(filters.tags) || !isStringArray(filters.mistakeTags)) return false
     if (typeof filters.requireContent !== 'boolean' || !isReviewStageSourceValue(filters.stageSource)) return false
     ids.add(preset.id)
@@ -258,23 +236,23 @@ export function isValidPersistedTrade(
     typeof value.openedAt !== 'string' ||
     !isStringArray(value.tags) ||
     typeof value.note !== 'string' ||
-    !TRADE_SIDES.has(String(value.side)) ||
-    !TRADE_STATUSES.has(String(value.status)) ||
-    !CONVICTIONS.has(String(value.conviction)) ||
+    !isTradeSide(value.side) ||
+    !isTradeMetadataKey(STATUS_META, value.status) ||
+    !isTradeMetadataKey(CONVICTION_META, value.conviction) ||
     typeof value.entry !== 'number' ||
     !Number.isFinite(value.entry) ||
     typeof value.size !== 'number' ||
     !Number.isFinite(value.size)
   ) return false
-  if (value.tradeKind !== undefined && !TRADE_KINDS.has(String(value.tradeKind))) return false
+  if (value.tradeKind !== undefined && !isTradeMetadataKey(TRADE_KIND_META, value.tradeKind)) return false
   if (value.mistakeTags !== undefined && !isStringArray(value.mistakeTags)) return false
-  if (value.reviewStatus !== undefined && !REVIEW_STATUSES.has(String(value.reviewStatus))) return false
-  if (value.reviewCategory !== undefined && !REVIEW_CATEGORIES.has(String(value.reviewCategory))) return false
+  if (value.reviewStatus !== undefined && !isEnumMember(REVIEW_STATUSES, value.reviewStatus)) return false
+  if (value.reviewCategory !== undefined && !isTradeMetadataKey(REVIEW_CATEGORY_META, value.reviewCategory)) return false
   if (value.isFocusCase !== undefined && typeof value.isFocusCase !== 'boolean') return false
-  if (value.caseType !== undefined && !CASE_TYPES.has(String(value.caseType))) return false
+  if (value.caseType !== undefined && !isTradeMetadataKey(CASE_TYPE_META, value.caseType)) return false
   if (value.decisionImageId != null && (value.tradeKind !== 'case' || !isSafeAssetId(value.decisionImageId))) return false
-  if (value.masteryState !== undefined && !MASTERY_STATES.has(String(value.masteryState))) return false
-  if (value.missReason !== undefined && !MISS_REASONS.has(String(value.missReason))) return false
+  if (value.masteryState !== undefined && !isTradeMetadataKey(MASTERY_STATE_META, value.masteryState)) return false
+  if (value.missReason !== undefined && !isTradeMetadataKey(MISS_REASON_META, value.missReason)) return false
   for (const field of [
     'session',
     'timeframe',
@@ -305,13 +283,13 @@ export function isValidPersistedTrade(
   if (!isNullableFiniteNumber(value.rMultiple)) return false
   if (value.stopLoss !== undefined && !isNullableFiniteNumber(value.stopLoss)) return false
   if (value.initialStopLoss !== undefined && !isNullableFiniteNumber(value.initialStopLoss)) return false
-  if (value.resultSource !== undefined && !RESULT_SOURCES.has(String(value.resultSource))) return false
+  if (value.resultSource !== undefined && !isEnumMember(RESULT_SOURCES, value.resultSource)) return false
   if (!isTradeResultAuthorityConsistent(value)) return false
   if (value.closedAt !== null && typeof value.closedAt !== 'string') return false
   if (value.closedTradingDayKey !== undefined && !isCanonicalDate(value.closedTradingDayKey)) return false
   if (
     value.tradeKind === 'live' &&
-    TERMINAL_TRADE_STATUSES.has(String(value.status)) &&
+    isExecutedClosed(value.status) &&
     typeof value.closedAt === 'string' &&
     closedTradingDayKeyFromClosedAt(value.closedAt, 0) !== null &&
     !isCanonicalDate(value.closedTradingDayKey)
@@ -459,7 +437,7 @@ function isWeeklyReviewEvidenceTrade(value: unknown): boolean {
     typeof value.id === 'string' && Boolean(value.id.trim()) &&
     typeof value.ref === 'string' &&
     typeof value.symbol === 'string' &&
-    TRADE_STATUSES.has(String(value.status)) &&
+    isTradeMetadataKey(STATUS_META, value.status) &&
     isNullableFiniteNumber(value.pnl) &&
     isNullableFiniteNumber(value.rMultiple) &&
     (
@@ -467,7 +445,7 @@ function isWeeklyReviewEvidenceTrade(value: unknown): boolean {
       value.cashCurrency === null ||
       (typeof value.cashCurrency === 'string' && normalizeCashCurrency(value.cashCurrency) === value.cashCurrency)
     ) &&
-    (value.missReason === undefined || MISS_REASONS.has(String(value.missReason)))
+    (value.missReason === undefined || isTradeMetadataKey(MISS_REASON_META, value.missReason))
 }
 
 function isWeeklyReviewEvidenceSnapshot(value: unknown): boolean {
@@ -511,7 +489,7 @@ function isWeeklyReview(value: unknown): boolean {
     (quarantinedPeriod && legacyStageBoundaryOverlap) ||
     (!quarantinedPeriod && !isCanonicalWeeklyReviewPeriod(value.weekStart, value.weekEnd)) ||
     (quarantinedPeriod && value.liveStageId !== null) ||
-    !WEEKLY_REVIEW_STATUSES.has(String(value.status)) ||
+    !isEnumMember(WEEKLY_REVIEW_STATUSES, value.status) ||
     typeof value.contentHtml !== 'string' ||
     typeof value.commitmentText !== 'string' ||
     typeof value.commitmentCriteria !== 'string' ||
@@ -531,7 +509,7 @@ function isWeeklyReview(value: unknown): boolean {
   }
   if (
     value.previousCommitmentResult !== null &&
-    !WEEKLY_COMMITMENT_RESULTS.has(String(value.previousCommitmentResult))
+    !isEnumMember(WEEKLY_COMMITMENT_RESULTS, value.previousCommitmentResult)
   ) return false
   if (value.previousCommitment !== undefined && !isWeeklyPreviousCommitment(value.previousCommitment)) return false
   if (value.completedAt !== null && typeof value.completedAt !== 'string') return false
@@ -655,7 +633,7 @@ function isRiskPeriodOutcomeSnapshot(value: unknown): boolean {
     Number(value.remainingR) >= 0 &&
     Number(value.progress) >= 0 &&
     Number(value.progress) <= 1 &&
-    RISK_COVERAGES.has(String(value.coverage)) &&
+    isEnumMember(RISK_COVERAGES, value.coverage) &&
     typeof value.triggered === 'boolean' &&
     Number.isInteger(value.includedTradeCount) && Number(value.includedTradeCount) >= 0 &&
     Number.isInteger(value.excludedTradeCount) && Number(value.excludedTradeCount) >= 0 &&
