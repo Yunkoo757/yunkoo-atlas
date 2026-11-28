@@ -13,11 +13,8 @@ export function testYearTrendUsesAnnualSemanticsAndCompactEmptyState(): void {
   assert(source.includes('if (completed.length === 0)'), '年度空状态必须阻止空 KPI 与空热力图继续渲染')
 }
 
-export function testYearRhythmUsesTheRealIsoWeekCount(): void {
-  const source = readFileSync(path.resolve('src/views/WeeklyReviewView.tsx'), 'utf8')
+export function testYearRhythmKeepsTheAnnualGridLayout(): void {
   const css = readFileSync(path.resolve('src/views/WeeklyReviewView.css'), 'utf8')
 
-  assert(source.includes("const weekCount = getIsoWeek(`${year}-12-28`)"), '全年节奏必须使用真实 ISO 周数')
-  assert(source.includes('Array.from({ length: weekCount }'), '热力图数量必须与年度周数一致')
   assert(css.includes('repeat(var(--week-count), minmax(8px, 1fr))'), '全年节奏应沿单行周序列展开')
 }

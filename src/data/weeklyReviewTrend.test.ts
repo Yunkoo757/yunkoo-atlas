@@ -1,3 +1,4 @@
+import { weeklyReviewYear } from '@/lib/weeklyReviewPeriod'
 import {
   aggregateWeeklyReviewScoresForWeek,
   buildWeeklyReviewTrend,
@@ -76,4 +77,21 @@ export function testWeeklyReviewTrendCanFilterOneStageWithoutMutatingReviews(): 
     throw new Error('阶段趋势只能包含所选阶段的已完成周')
   }
   if (JSON.stringify(reviews) !== before) throw new Error('切换趋势阶段不得修改周复盘实体')
+}
+
+export function testWeeklyReviewYearIncludesEveryMondayFromTheSameIsoYear(): void {
+  const cases = [
+    ['2024-12-30', '2025', '2024-12-30', '2025-12-22', 52],
+    ['2020-12-28', '2020', '2019-12-30', '2020-12-28', 53],
+    ['0001-01-01', '0001', '0001-01-01', '0001-12-24', 52],
+    ['9999-12-27', '9999', '9999-01-04', '9999-12-27', 52],
+  ] as const
+  for (const [selected, expected, first, last, count] of cases) {
+    const { year, weeks } = weeklyReviewYear(selected)
+    const keys = [...weeks]
+    if (year !== expected || weeks.size !== count || keys[0] !== first ||
+      keys.at(-1) !== last || !weeks.has(selected)) {
+      throw new Error(`${selected} 未纳入完整 ISO 周年 ${expected}`)
+    }
+  }
 }

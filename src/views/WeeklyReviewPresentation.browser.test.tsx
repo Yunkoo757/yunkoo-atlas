@@ -6,9 +6,7 @@ import type { Trade } from '@/data/trades'
 import {
   buildWeeklyReviewMetrics,
   createWeeklyReview,
-  weekStartFor,
 } from '@/data/weeklyReviews'
-import { getTradingDayKey, parseLocalDate } from '@/lib/periods'
 import { useStore } from '@/store/useStore'
 import { WeeklyReviewView } from '@/views/WeeklyReviewView'
 import '@/styles/tokens.css'
@@ -19,8 +17,6 @@ declare global {
     __weeklyReviewPresentationTest?: Promise<void>
   }
 }
-
-const activeWeekStart = weekStartFor(parseLocalDate(getTradingDayKey()))
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -60,10 +56,9 @@ async function run(): Promise<void> {
   const previous = useStore.getState()
   const root = createRoot(rootElement)
   try {
-    const weekStart = activeWeekStart
-    const priorDate = new Date(`${weekStart}T12:00:00`)
-    priorDate.setDate(priorDate.getDate() - 7)
-    const priorWeekStart = weekStartFor(priorDate)
+    // 这两周都属于 ISO 2025 年，覆盖摘要、折线与周格的共同边界。
+    const weekStart = '2025-01-06'
+    const priorWeekStart = '2024-12-30'
     const trade = makeTrade(weekStart)
     const review = {
       ...createWeeklyReview(weekStart, previous.currentLiveStageId),
@@ -84,7 +79,7 @@ async function run(): Promise<void> {
       display: { ...previous.display, privacyMode: true },
     })
     root.render(
-      <MemoryAppRouter initialEntries={['/weekly-review']}>
+      <MemoryAppRouter initialEntries={[`/weekly-review?week=${weekStart}&review=${encodeURIComponent(review.id)}`]}>
         <Routes><Route path="/weekly-review" element={<WeeklyReviewView />} /></Routes>
       </MemoryAppRouter>,
     )
@@ -175,7 +170,7 @@ async function run(): Promise<void> {
       executionScore: 3,
       riskScore: 3,
       emotionScore: 3,
-      completedAt: priorDate.toISOString(),
+      completedAt: '2025-01-06T12:00:00.000Z',
     })
     await waitFor(
       () => Boolean(document.querySelector('.wr-chart svg')),
@@ -184,6 +179,12 @@ async function run(): Promise<void> {
     const annualRail = document.querySelector<HTMLElement>('.wr-year')
     const heatmap = document.querySelector<HTMLElement>('.wr-heatmap')
     assert(annualRail && heatmap, '年度评分趋势必须保留全年周格')
+    assert(document.querySelector('#weekly-trend-title')?.textContent?.includes('2025'), '跨年折线应使用同一 ISO 周年')
+    const annualCells = [...heatmap.querySelectorAll('i')]
+    assert(annualCells.length === 52 && annualCells[0].classList.contains('is-filled') &&
+      annualCells[1].classList.contains('is-filled') && heatmap.querySelectorAll('i.is-filled').length === 2,
+      '年度节奏必须在 2025 年的前两格展示 12 月 30 日和 1 月 6 日')
+    assert(yearSummary.textContent?.includes('2周'), '年度摘要必须纳入周格中的同两周')
     const savedRailWidth = annualRail.style.width
     try {
       // Reproduce the actual content widths around the desktop shell's breakpoint.

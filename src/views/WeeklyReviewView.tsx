@@ -38,7 +38,7 @@ import {
   summarizeWeeklyMistakeDimensions,
   WEEKLY_MISTAKE_DIMENSIONS,
   weeklyReviewScoreAverage,
-  weekEndFor,
+  formatWeeklyReviewRange,
   weekStartFor,
   type WeeklyReview,
   type WeeklyReviewEvidenceTrade,
@@ -50,7 +50,7 @@ import { fmtMoney, fmtR } from '@/lib/format'
 import { formatTradeCashPnl } from '@/lib/cashCurrency'
 import { tradeMetricTone } from '@/lib/tradeRowPresentation'
 import type { LegacyCashCurrencyAssumption } from '@/storage/types'
-import { parseLocalDate, formatYmd } from '@/lib/periods'
+import { weeklyReviewYear } from '@/lib/weeklyReviewPeriod'
 import { toast } from '@/lib/toast'
 import { evaluateWeeklyReviewCompletion, WEEKLY_REQUIRED_COUNT } from '@/lib/weeklyReviewCompletion'
 import { submitWeeklyReview } from '@/lib/submitWeeklyReview'
@@ -141,19 +141,10 @@ type ReviewPatch = Partial<Pick<
   | 'previousCommitment'
 >>
 
-function formatWeekRange(start: string): string {
-  const end = weekEndFor(start)
-  const left = parseLocalDate(start)
-  const right = parseLocalDate(end)
-  return left.getMonth() === right.getMonth()
-    ? `${left.getMonth() + 1}月${left.getDate()}日 – ${right.getDate()}日`
-    : `${left.getMonth() + 1}月${left.getDate()}日 – ${right.getMonth() + 1}月${right.getDate()}日`
-}
-
 function weekLabel(start: string, currentWeek: string, isCurrentStage = false): string {
   if (isCurrentStage && start === currentWeek) return '本周'
   if (isCurrentStage && start === shiftCalendarDay(currentWeek, -7)) return '上周'
-  return `${parseLocalDate(start).getMonth() + 1}月${parseLocalDate(start).getDate()}日`
+  return `${Number(start.slice(5, 7))}月${Number(start.slice(8, 10))}日`
 }
 
 function toggleValue(values: string[], value: string): string[] {
@@ -689,9 +680,9 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
     toast('已重新打开，本周指标恢复实时更新', { tone: 'success' })
   }
 
-  const year = parseLocalDate(selectedWeek).getFullYear()
+  const period = useMemo(() => weeklyReviewYear(selectedWeek), [selectedWeek])
   const yearReviews = assignedReviews
-    .filter((item) => item.weekStart.startsWith(`${year}-`))
+    .filter((item) => period.weeks.has(item.weekStart))
     .sort((left, right) => left.weekStart.localeCompare(right.weekStart))
   const scopedYearReviews = trendLiveStageId === undefined
     ? yearReviews
@@ -703,8 +694,8 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
       <header className="wr-toolbar">
         {!windowToolbar && <span className="wr-toolbar-label">周期复盘</span>}
         <details className="wr-record-picker" ref={historyPickerRef} onKeyDown={navigateHistoryRows}>
-          <summary aria-label={`选择复盘记录：${selectedWeek.slice(0, 4)}年 · ${formatWeekRange(selectedWeek)}，${reviewStageName}`}>
-            <span>{selectedWeek.slice(0, 4)}年 · {formatWeekRange(selectedWeek)}</span>
+          <summary aria-label={`选择复盘记录：${selectedWeek.slice(0, 4)}年 · ${formatWeeklyReviewRange(selectedWeek)}，${reviewStageName}`}>
+            <span>{selectedWeek.slice(0, 4)}年 · {formatWeeklyReviewRange(selectedWeek)}</span>
             <small>{reviewStageName}</small>
             <DisclosureIcon kind="menu" size={ICON_MD} />
           </summary>
@@ -790,7 +781,7 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
                     />
                   </div>
                 </header>
-                <YearTrend year={year} reviews={scopedYearReviews} data={trendData} />
+                <YearTrend period={period} reviews={scopedYearReviews} data={trendData} />
               </div>
             </div>
           ) : (
@@ -974,7 +965,7 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
                       </summary>
                       <section className="wr-previous-content" data-weekly-section="previous-commitment">
                         <div>
-                          <small className="wr-previous-criteria">{formatWeekRange(previousCommitment.weekStart)}</small>
+                          <small className="wr-previous-criteria">{formatWeeklyReviewRange(previousCommitment.weekStart)}</small>
                           <p className="wr-previous-action">{previousCommitment.text}</p>
                           {previousCommitment.criteria && <p className="wr-previous-criteria"><span className="wr-previous-criteria-label">验收标准</span>{previousCommitment.criteria}</p>}
                         </div>
@@ -1143,13 +1134,12 @@ function TagGroup({ tone, title, options, selected, onChange, counts }: { tone: 
   )
 }
 
-function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyReview[]; data: ReturnType<typeof buildWeeklyReviewTrend> }) {
+function YearTrend({ period, reviews, data }: { period: ReturnType<typeof weeklyReviewYear>; reviews: WeeklyReview[]; data: ReturnType<typeof buildWeeklyReviewTrend> }) {
   const completed = reviews.filter((review) => review.status === 'completed')
   const averages = completed.map(weeklyReviewScoreAverage).filter((score): score is number => score !== null)
   const average = averages.length ? averages.reduce((sum, score) => sum + score, 0) / averages.length : null
   const mistakes = Object.entries(summarizeWeeklyMistakeDimensions(reviews))
-  const weekCount = getIsoWeek(`${year}-12-28`)
-  const firstWeek = weekStartFor(new Date(year, 0, 4))
+  const weekCount = period.weeks.size
 
   if (completed.length === 0) {
     return (
@@ -1170,7 +1160,7 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
         <div><dt>最常见错误</dt><dd><strong>{mistakes.sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—'}</strong></dd></div>
       </dl>
       <section className="wr-year-chart" aria-labelledby="weekly-trend-title">
-        <h2 id="weekly-trend-title" className="wr-subheading">{year} 做法评分趋势</h2>
+        <h2 id="weekly-trend-title" className="wr-subheading">{period.year} 做法评分趋势</h2>
         {data.length >= 2 ? (
           <Suspense fallback={(
             <div className="wr-chart wr-chart-loading" role="status" aria-live="polite">
@@ -1191,12 +1181,11 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
       <section aria-labelledby="weekly-rhythm-title">
         <div className="wr-section-head wr-year-rhythm-head"><h2 id="weekly-rhythm-title">全年复盘节奏</h2><small>颜色越亮，做法评分越高</small></div>
         <div className="wr-heatmap" style={{ '--week-count': weekCount, '--week-compact-columns': Math.ceil(weekCount / 2) } as CSSProperties}>
-          {Array.from({ length: weekCount }, (_, index) => {
-            const week = shiftCalendarDay(firstWeek, index * 7)
+          {Array.from(period.weeks, (week) => {
             const aggregate = aggregateWeeklyReviewScoresForWeek(reviews, week)
             const score = aggregate.averageScore
             const stageLabel = aggregate.completedCount > 1 ? ` · ${aggregate.completedCount} 个阶段聚合` : ''
-            const tip = `${formatWeekRange(week)}${score ? ` · ${score.toFixed(1)} 分${stageLabel}` : ''}`
+            const tip = `${formatWeeklyReviewRange(week)}${score ? ` · ${score.toFixed(1)} 分${stageLabel}` : ''}`
             return (
               <Tooltip key={week} content={tip} label={tip}>
                 <i
@@ -1210,13 +1199,4 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
       </section>
     </div>
   )
-}
-
-function getIsoWeek(ymd: string): number {
-  const date = parseLocalDate(ymd)
-  const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const day = utc.getUTCDay() || 7
-  utc.setUTCDate(utc.getUTCDate() + 4 - day)
-  const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1))
-  return Math.ceil((((+utc - +yearStart) / 86400000) + 1) / 7)
 }

@@ -1,3 +1,5 @@
+import { isWeeklyReviewStart } from '@/lib/weeklyReviewPeriod'
+
 export type WeeklyReviewTab = 'review' | 'year'
 
 export type WeeklyReviewRouteState = {
@@ -42,21 +44,6 @@ function toSearch(params: URLSearchParams): string {
   return value ? `?${value}` : ''
 }
 
-function isMondayWeekStart(value: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
-  if (!match) return false
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
-  const parsed = new Date(year, month - 1, day)
-  return (
-    parsed.getFullYear() === year &&
-    parsed.getMonth() === month - 1 &&
-    parsed.getDate() === day &&
-    parsed.getDay() === 1
-  )
-}
-
 export function buildWeeklyReviewSearch(
   baseSearch: string,
   state: WeeklyReviewRouteState,
@@ -98,7 +85,7 @@ export function resolveWeeklyReviewRouteState(
     : undefined
   const invalidRequestedReview = hasRequestedReviewParam && !requestedReview
   const acceptedRequestedWeek = requestedWeek &&
-    isMondayWeekStart(requestedWeek) &&
+    isWeeklyReviewStart(requestedWeek) &&
     (
       options.availableWeeks.includes(requestedWeek) ||
       options.verifiedReturnWeek === requestedWeek

@@ -39,11 +39,10 @@ import {
 import {
   buildWeeklyReviewMetrics,
   missedTradesInWeek,
-  weekEndFor,
+  formatWeeklyReviewRange,
   weekStartFor,
 } from '@/data/weeklyReviews'
 import { MISS_REASON_META, type MissReason } from '@/data/trades'
-import { parseLocalDate } from '@/lib/periods'
 import {
   buildPerformanceSelection,
   buildThisWeekPerformanceSelection,
@@ -164,7 +163,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
   )
   const missingPerformanceCloseDayCount = closeDayRepairIds.length
   const weekStart = useMemo(() => weekStartFor(localDateKey), [localDateKey])
-  const weekRangeLabel = useMemo(() => formatDashboardWeekRange(weekStart), [weekStart])
+  const weekRangeLabel = useMemo(() => formatWeeklyReviewRange(weekStart), [weekStart])
   const weekPerformanceSelection = useMemo(
     () => buildThisWeekPerformanceSelection(scopedTrades, {
       scope,
@@ -494,14 +493,4 @@ function rateLabel(value: number | null): string {
 
 function averageRLabel(value: number | null): string {
   return value === null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(2)}`
-}
-
-
-function formatDashboardWeekRange(weekStart: string): string {
-  const end = weekEndFor(weekStart)
-  const left = parseLocalDate(weekStart)
-  const right = parseLocalDate(end)
-  return left.getMonth() === right.getMonth()
-    ? `${left.getMonth() + 1}月${left.getDate()}日 – ${right.getDate()}日`
-    : `${left.getMonth() + 1}月${left.getDate()}日 – ${right.getMonth() + 1}月${right.getDate()}日`
 }

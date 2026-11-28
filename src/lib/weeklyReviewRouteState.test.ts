@@ -247,3 +247,17 @@ export function testWeeklyReviewRouteRejectsPendingOwnershipReviewIds(): void {
   assert(result.state.selectedReviewId === undefined, 'pending 复盘不得成为路由候选')
   assert(result.canonicalSearch === '', 'pending 复盘参数必须从规范地址移除')
 }
+
+export function testHistoryLinkAcceptsStoredMondaysIndependentOfMachineCalendar(): void {
+  const zone = process.env.TZ
+  try {
+    process.env.TZ = 'Pacific/Apia'
+    for (const monday of ['1892-07-04', '0099-01-05']) {
+      const result = resolveWeeklyReviewRouteState('?week=' + monday, { currentWeek, availableWeeks: [monday] })
+      assert(result.state.selectedWeek === monday, `历史周一 ${monday} 应可由深链恢复`)
+    }
+  } finally {
+    if (zone === undefined) delete process.env.TZ
+    else process.env.TZ = zone
+  }
+}

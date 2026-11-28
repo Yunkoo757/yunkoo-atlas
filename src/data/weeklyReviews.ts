@@ -157,6 +157,17 @@ export function weekEndFor(weekStart: string): string {
   return shiftCalendarDay(start, 6)
 }
 
+export function formatWeeklyReviewRange(start: string): string {
+  const end = weekEndFor(start)
+  const month = Number(start.slice(5, 7))
+  const day = Number(start.slice(8, 10))
+  const endMonth = Number(end.slice(-5, -3))
+  const endDay = Number(end.slice(-2))
+  return month === endMonth
+    ? `${month}月${day}日 – ${endDay}日`
+    : `${month}月${day}日 – ${endMonth}月${endDay}日`
+}
+
 export function createWeeklyReview(
   weekStart: string,
   liveStageId: string,
