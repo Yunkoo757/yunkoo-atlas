@@ -1,3 +1,4 @@
+import { captureStoreForPersistence } from '@/store/persistedRevision'
 import { waitFor } from '../test/browserTiming'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -282,7 +283,7 @@ async function run(): Promise<void> {
       if (!await flushNoteDraftsToStore()) throw new Error('测试草稿尚未完成')
     })
     seed()
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     root.render(<Harness />)
     await waitFor(() => document.querySelector('[data-stage-ownership-repair-view]') !== null, '阶段待整理页面没有渲染')
 
@@ -544,7 +545,7 @@ async function run(): Promise<void> {
     assert(document.documentElement.scrollWidth <= document.documentElement.clientWidth, '桌面宽度产生横向溢出')
 
     const boundaryFixture = createFullPersistedSnapshotFixture()
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     const historicalSource = trade('boundary-source', {
       liveStageId: 'stage-old',
       openedAt: '2026-06-10',

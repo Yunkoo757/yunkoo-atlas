@@ -1,13 +1,11 @@
-import { useShortcutStore } from '@/store/shortcutStore'
 import { useSaveStatus } from '@/store/saveStatus'
-import { useStore } from '@/store/useStore'
 import {
   PersistenceController,
   type PersistenceDiagnostics,
+  type PersistenceCapture,
 } from '@/storage/persistenceController'
 import { getStorage } from '@/storage/provider'
 import type { PersistedSnapshot } from '@/storage/types'
-import { pickPersisted } from '@/storage/snapshotProjection'
 
 // 恢复由主进程重新建立文档。原文档的启动与写入型操作共享同一份撤销信号。
 const recovery = new AbortController()
@@ -20,15 +18,6 @@ const controller = new PersistenceController({
     } catch (error) {
       console.error('Persist failed', error)
       throw error
-    }
-  },
-  captureSnapshot() {
-    const state = useStore.getState()
-    const shortcutBindings = useShortcutStore.getState().bindings
-    return {
-      snapshot: pickPersisted(state, shortcutBindings),
-      stateReference: state,
-      shortcutReference: shortcutBindings,
     }
   },
   status: {
@@ -49,9 +38,9 @@ export function setPreFlushCallback(callback: (() => Promise<void>) | null): voi
   controller.setPreFlushCallback(callback)
 }
 
-export function enablePersistWrites(): void {
+export function enablePersistWrites(capture: () => PersistenceCapture): void {
   storageDocumentSignal.throwIfAborted()
-  controller.enableWrites()
+  controller.enableWrites(capture)
 }
 
 export function disablePersistWrites(): void {

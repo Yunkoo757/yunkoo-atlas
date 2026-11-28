@@ -1,3 +1,4 @@
+import { captureStoreForPersistence } from '@/store/persistedRevision'
 import { createRoot } from 'react-dom/client'
 import { ProfileSettingsPanel } from './ProfileSettingsPanel'
 import { replaceLibraryInStore } from '@/lib/snapshotStore'
@@ -26,7 +27,7 @@ async function run(): Promise<void> {
     const snap = createEmptyPersistedSnapshot()
     snap.profile = { avatarId: 'mint', displayName: '原资料', legacyCashCurrencyAssumption: null }
     replaceLibraryInStore(snap)
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     setPreFlushCallback(() => {
       started = true
       return new Promise<void>((_, reject) => { fail = reject })

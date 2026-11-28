@@ -1,3 +1,4 @@
+import { captureStoreForPersistence } from '@/store/persistedRevision'
 import { canonicalImportValue } from '@/lib/importMerge'
 import { resolveImportedTrades, stableImportedTradeId, verifyImportAssets } from '@/lib/importTradeIdentity'
 import { sha256Hex } from '@/lib/sha256'
@@ -102,7 +103,7 @@ export async function testJsonImportPreservesEditsMadeWhileCommitIsPending(): Pr
     symbolCatalog: ['EURUSD'],
   })
 
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     const importing = applyImport({
       version: 6,
@@ -194,7 +195,7 @@ export async function testJsonImportAbortsWhenTheSameTradeIsEditedDuringCommit()
     symbolCatalog: ['EURUSD'],
   })
 
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     const importing = applyImport({
       version: 6,
@@ -302,7 +303,7 @@ export async function testImmutableRiskConflictRejectsBeforeCommitWithoutPartial
   const originalTrades = useStore.getState().trades
   const originalOverrides = useStore.getState().riskOverrideEvents
 
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     let code: unknown
     try {
@@ -379,7 +380,7 @@ export async function testCompletedReviewConflictRejectsBeforeCommitWithoutParti
   const originalReviews = useStore.getState().weeklyReviews
   const originalCanonical = canonicalContractJson(originalReviews)
 
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     let code: unknown
     let message = ''
@@ -463,7 +464,7 @@ async function runConcurrentImmutableRiskScenario(
   useStore.setState({ ...current })
   const imported = fullFixtureWithTradeIdentity()
 
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     const importing = applyImport({
       version: 9,
@@ -602,7 +603,7 @@ export async function testSameValueImmutableRiskReplacementRetriesWithoutConflic
   useStore.setState({ ...current })
   const imported = fullFixtureWithTradeIdentity()
 
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     const importing = applyImport({
       version: 9,
@@ -668,7 +669,7 @@ export async function testConcurrentLiveStageRenameRetriesAndKeepsLatestLocalCon
     stage.id === useStore.getState().currentLiveStageId,
   )!
 
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     const importing = applyImport({
       version: 10,
@@ -709,7 +710,7 @@ export async function testJsonImportSummaryPreservesLocalStageGraph(): Promise<v
     display: { ...DEFAULT_DISPLAY }, tagPresets: [], mistakeTagPresets: [], savedTradeViews: [],
     symbolIcons: {}, symbolCatalog: [],
   })
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     const result = await applyImport({
       version: 10,
@@ -751,7 +752,7 @@ export async function testImportedTradesUseLocalCurrentStageOwnership(): Promise
     display: { ...DEFAULT_DISPLAY, tradingDayStartHour: 0 }, tagPresets: [], mistakeTagPresets: [], savedTradeViews: [],
     symbolIcons: {}, symbolCatalog: [],
   })
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     await applyImport({
       version: 10,
@@ -864,7 +865,7 @@ export async function testRepeatedRealImportKeepsStableTradesEventsAssetsAndRefe
     assets: [{ id: 'source-asset', mime: 'image/png', data: 'aW1hZ2U=' }],
   }
 
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     await applyImport(payload)
     const once = useStore.getState()
@@ -967,7 +968,7 @@ export async function testConcurrentStableImportedIdPreemptionCompensatesAndReje
     weeklyReviews: [],
   })
 
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     let errorMessage = ''
     try {
@@ -1016,7 +1017,7 @@ export async function testJsonImportUnlocksWhenFinalSaveRejects(): Promise<void>
     } },
   })
   useStore.setState(fixture)
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   let caught: unknown
   try {
     await applyImport({ ...fixture, version: 9, trades: [], assets: [] })
@@ -1060,7 +1061,7 @@ async function assertConcurrentProjectTradeClaimRejected(remapOnRetry: boolean):
     },
   } } })
   useStore.setState(local)
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     let error = ''
     try { await applyImport(imported) } catch (cause) { error = String(cause) }
@@ -1103,7 +1104,7 @@ export async function testJsonImportIgnoresUnusedDerivedTradeIdAfterStageAssignm
     },
   } } })
   useStore.setState({ ...base, trades: [local] })
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     await applyImport(incoming)
     assert(writes.length === 2 && writes[1]?.trades.length === 2 && useStore.getState().trades.some(t => t.id === unusedId),
@@ -1143,7 +1144,7 @@ export async function testLegacyImportChecksAttachmentBytesBeforeReusingLocalIds
     },
   } } })
   useStore.setState(base)
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   const payload = { ...base, version: 15, trades: [legacy], assets: [
     { id: 'first', mime: 'image/png', data: 'YQ==' },
     { id: 'second', mime: 'image/png', data: 'Yg==' },
@@ -1192,7 +1193,7 @@ export async function testLocalEditDuringLegacyPhotoVerificationAbortsBeforeWrit
     commitImport: async () => { candidates++; return true },
   } } })
   useStore.setState({ ...base, strategies: [strategy], trades: [row] })
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     const result = applyImport(payload).then(() => '成功', error => String(error))
     await Promise.race([started.promise, result.then(message => { throw new Error('未核对本地原图：' + message) })])
@@ -1223,7 +1224,7 @@ export async function testLegacyCaseImportUsesTheCurrentSourceNoteBeforeTheFirst
     commitImport: async (snapshot: PersistedSnapshot) => { writes.push(snapshot); return true },
   } } })
   useStore.setState(base)
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     await applyImport(payload)
     await applyImport(payload)

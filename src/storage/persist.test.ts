@@ -1,3 +1,4 @@
+import { captureStoreForPersistence } from '@/store/persistedRevision'
 import { getStorage } from '@/storage/provider'
 import { pickPersisted } from '@/storage/snapshotProjection'
 import {
@@ -137,7 +138,7 @@ export async function testExplicitFlushPersistsChangesScheduledDuringAnActiveSav
   }
 
   try {
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     schedulePersist(snapshotWithName('A'))
     const flushPromise = flushPersistNow()
     await Promise.resolve()
@@ -187,7 +188,7 @@ export async function testFailedExplicitFlushStaysInErrorAndCanRetryTheLatestSto
   const originalConsoleError = console.error
   console.error = () => {}
   try {
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     snapshotWithName('A')
     await flushPersistNow().then(
       () => {
@@ -238,7 +239,7 @@ export async function testLaterPreFlushFailureCannotLeaveAFalseSavedState(): Pro
   })
 
   try {
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     await flushPersistNow().then(
       () => {
         throw new Error('后续 pre-flush 失败必须让显式 flush 拒绝')
@@ -272,7 +273,7 @@ export async function testStablePreFlushCheckDoesNotExposeSavedBeforeItFinishes(
   })
 
   try {
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     const flush = flushPersistNow()
     await waitUntil(() => preFlushCalls === 2, '写盘后未执行稳定性 pre-flush')
     assert(useSaveStatus.getState().status === 'saving', '稳定性检查未完成时不得显示已保存')
@@ -306,7 +307,7 @@ export async function testContinuouslyChangingPreFlushIsBoundedAndRemainsPending
   })
 
   try {
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     await flushPersistNow().then(
       () => {
         throw new Error('持续变化的 pre-flush 必须在边界内拒绝')
@@ -345,7 +346,7 @@ export async function testSecondExplicitFlushCapturesLatestStoreDuringAnActiveSa
   }
 
   try {
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     snapshotWithName('A')
     const firstFlush = flushPersistNow()
     await Promise.resolve()
@@ -412,7 +413,7 @@ export async function testExplicitFlushPersistsNoteDraftCreatedDuringAnActiveSav
   })
 
   try {
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     setNoteDraft(noteDraftKey('trade', tradeId), '<p>A</p>')
     const flush = flushPersistNow()
     await waitUntil(() => savedNotes.length === 1, '笔记快照 A 未开始写盘')
@@ -452,7 +453,7 @@ export async function testDiscardPendingResumeCannotWriteThePreviousLibrarySnaps
   }
 
   try {
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     const pause = suspendPersist()
     schedulePersist(snapshotWithName('旧资料库快照'))
     pause.discardAndResume()
@@ -497,7 +498,7 @@ export async function testLiveStageBoundaryFlushSerializesTheCompleteCanonicalGr
       currentLiveStageId: 'current-after',
       scheduledStageRollover: null,
     })
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     await flushPersistNow()
 
     assert(persisted !== null, '显式 flush 必须写入快照')

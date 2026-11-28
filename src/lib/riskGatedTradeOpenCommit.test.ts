@@ -1,3 +1,4 @@
+import { captureStoreForPersistence } from '@/store/persistedRevision'
 import type {
   RevisionedLibraryMutation,
   StorageAdapter,
@@ -169,7 +170,7 @@ export async function testPublishFailureAfterDurableCommitRequiresReloadAndDisca
         currentTradingDayKey: '2026-07-27',
       }),
       publish: () => {
-        enablePersistWrites()
+        enablePersistWrites(captureStoreForPersistence)
         schedulePersist(original)
         throw new Error('store publish failed')
       },

@@ -1,3 +1,4 @@
+import { captureStoreForPersistence } from '@/store/persistedRevision'
 import type { PersistencePause } from '@/storage/persistenceController'
 import assert from 'node:assert/strict'
 import { useSaveStatus } from '@/store/saveStatus'
@@ -31,7 +32,7 @@ async function publicationFailure(kind: 'notion' | 'composer' | 'composer-compen
     committed = true
     if (failStatusReset) useSaveStatus.setState({ reset: () => { throw new Error('status listener failed') } })
   }
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   const originalError = console.error
   console.error = () => {}
   try {
@@ -90,7 +91,7 @@ export async function testFailedBatchPreflushCannotReleaseAnotherOperationsSuspe
   const original = adapter.commitImport
   const failure = new Error('isolated preflush failure')
   adapter.commitImport = async () => { writes++ }
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   const outerPause = suspendPersist()
   setPreFlushCallback(async () => { throw failure })
   try {
@@ -136,7 +137,7 @@ export async function testFailedTrailingSaveRetriesWithoutConsumingANewSuspensio
           throw new Error('isolated trailing save failed')
         }
       }
-      enablePersistWrites()
+      enablePersistWrites(captureStoreForPersistence)
       const result = await commitComposerTradeBatch({
         images: [], targetTradeId: 'isolated-new', storage: adapter,
         buildTrade: () => ({ ...seed.trades[0]!, id: 'isolated-new', ref: 'TRD-ISOLATED-NEW' }),

@@ -1,3 +1,4 @@
+import { captureStoreForPersistence } from '@/store/persistedRevision'
 import { createRoot } from 'react-dom/client'
 import JSZip from 'jszip'
 import { NotionImportModal } from './NotionImportModal'
@@ -165,7 +166,7 @@ async function run(): Promise<void> {
   window.addEventListener('unhandledrejection', onUnhandledRejection)
 
   try {
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     root.render(<NotionImportModal open onClose={() => {}} />)
     const input = await waitForFileInput()
     const zip = new JSZip()

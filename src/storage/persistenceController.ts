@@ -24,7 +24,6 @@ export interface PersistenceClock {
 
 export interface PersistenceControllerDependencies {
   saveSnapshot(snapshot: PersistedSnapshot): Promise<void>
-  captureSnapshot(): PersistenceCapture
   status: PersistenceStatusSink
   clock: PersistenceClock
   debounceMs?: number
@@ -52,7 +51,7 @@ export class PersistenceController {
   private flushing: { generation: number; operation: Promise<void> } | null = null
   private explicitFlushing: Promise<void> | null = null
   private suspendDepth = 0
-  private writesEnabled = false
+  private captureSnapshot: (() => PersistenceCapture) | null = null
   private writeGeneration = 0
 
   constructor(private readonly dependencies: PersistenceControllerDependencies) {
@@ -64,12 +63,12 @@ export class PersistenceController {
     this.preFlushCallback = callback
   }
 
-  enableWrites(): void {
-    this.writesEnabled = true
+  enableWrites(captureSnapshot: () => PersistenceCapture): void {
+    this.captureSnapshot ??= captureSnapshot
   }
 
   disableWrites(): void {
-    this.writesEnabled = false
+    this.captureSnapshot = null
     this.writeGeneration += 1
     this.clearTimer()
     this.setPending(null)
@@ -81,7 +80,7 @@ export class PersistenceController {
   }
 
   schedule(snapshot: PersistedSnapshot): void {
-    if (!this.writesEnabled) return
+    if (!this.captureSnapshot) return
     this.setPending(snapshot)
     this.dependencies.status.setDirty()
     if (this.suspendDepth > 0) return
@@ -140,11 +139,12 @@ export class PersistenceController {
   }
 
   async flushNow(): Promise<void> {
-    if (!this.writesEnabled) return
+    const capture = this.captureSnapshot
+    if (!capture) return
     const generation = this.writeGeneration
     const previous = this.explicitFlushing
     const operation = (previous ? previous.catch(() => {}) : Promise.resolve()).then(
-      () => this.isCurrent(generation) ? this.runExplicitFlush(generation) : undefined,
+      () => this.isCurrent(generation) ? this.runExplicitFlush(generation, capture) : undefined,
     )
     this.explicitFlushing = operation
     void operation.then(
@@ -166,7 +166,7 @@ export class PersistenceController {
   }
 
   private isCurrent(generation: number): boolean {
-    return this.writesEnabled && generation === this.writeGeneration
+    return this.captureSnapshot !== null && generation === this.writeGeneration
   }
 
   private async flushPending(generation: number, explicit: boolean): Promise<void> {
@@ -206,7 +206,7 @@ export class PersistenceController {
     return operation
   }
 
-  private async runExplicitFlush(generation: number): Promise<void> {
+  private async runExplicitFlush(generation: number, capture: () => PersistenceCapture): Promise<void> {
     this.clearTimer()
     if (this.flushing) {
       const active = this.flushing
@@ -216,7 +216,7 @@ export class PersistenceController {
     }
     if (!this.isCurrent(generation)) return
     if (!this.preFlushCallback) {
-      this.setPending(this.dependencies.captureSnapshot().snapshot)
+      this.setPending(capture().snapshot)
       await this.startPendingFlush(generation, true)
       return
     }
@@ -224,18 +224,18 @@ export class PersistenceController {
     let writes = 0
     while (this.isCurrent(generation)) {
       if (writes > 0) this.dependencies.status.setSaving()
-      const before = this.dependencies.captureSnapshot()
+      const before = capture()
       try {
         await this.preFlushCallback()
       } catch (error) {
         if (this.isCurrent(generation)) {
-          this.setPending(this.dependencies.captureSnapshot().snapshot)
+          this.setPending(capture().snapshot)
           this.dependencies.status.setError(error)
         }
         throw error
       }
       if (!this.isCurrent(generation)) return
-      const after = this.dependencies.captureSnapshot()
+      const after = capture()
       const stable = after.stateReference === before.stateReference &&
         after.shortcutReference === before.shortcutReference
       if (writes > 0 && stable) {

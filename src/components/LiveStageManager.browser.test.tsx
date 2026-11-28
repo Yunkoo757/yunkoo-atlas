@@ -1,3 +1,4 @@
+import { captureStoreForPersistence } from '@/store/persistedRevision'
 import { waitFor } from '../test/browserTiming'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
@@ -175,7 +176,7 @@ async function run(): Promise<void> {
       monthlyRiskLimits: [{ ...snapshot.monthlyRiskLimits[0]!, liveStageId: 'stage-current' }],
       riskOverrideEvents: [{ ...snapshot.riskOverrideEvents[0]!, liveStageId: 'stage-current' }],
     })
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     root.render(<RouterProvider router={router} />)
     await waitFor(() => Boolean(document.querySelector('button')), '入口未渲染')
     button('开启新实盘阶段').click()

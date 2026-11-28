@@ -15,7 +15,6 @@ function fixture(save: (snapshot: PersistedSnapshot) => Promise<void>) {
   let tick: (() => void) | undefined
   const controller = new PersistenceController({
     saveSnapshot: save,
-    captureSnapshot: () => ({ snapshot: latest, stateReference: latest, shortcutReference: null }),
     clock: { setTimeout: callback => { tick = callback; return callback }, clearTimeout: () => { tick = undefined } },
     status: {
       getStatus: () => status,
@@ -23,7 +22,7 @@ function fixture(save: (snapshot: PersistedSnapshot) => Promise<void>) {
       setSaved: () => { status = 'saved' }, setError: () => { status = 'error' }, reset: () => { status = 'idle' },
     },
   })
-  controller.enableWrites()
+  controller.enableWrites(() => ({ snapshot: latest, stateReference: latest, shortcutReference: null }))
   return {
     controller,
     status: () => status,
@@ -52,15 +51,21 @@ export async function testLatePreflushCannotConsumeANewWriteLifecycle() {
   const old = f.controller.flushNow()
   await started.promise
   f.controller.disableWrites()
-  f.controller.enableWrites()
+  let newReads = 0
+  const reopened = { profile: { displayName: 'reopened' } } as PersistedSnapshot
+  f.controller.enableWrites(() => {
+    newReads++
+    return { snapshot: reopened, stateReference: reopened, shortcutReference: null }
+  })
   f.schedule('new-library')
   allow.resolve()
   await old
   assert.deepEqual(saved, [], '旧 preflush 完成后不得捕获或保存新生命周期的快照')
+  assert.equal(newReads, 0, '先前的保存不能读取新启用的快照源')
   assert.equal(f.status(), 'dirty')
   f.tick()
   await f.controller.flushNow()
-  assert.deepEqual(saved, ['new-library', 'new-library'])
+  assert.deepEqual(saved, ['new-library', 'reopened'])
 }
 
 export async function testLateFailedSaveCannotRequeueADiscardedSnapshot() {

@@ -47,11 +47,6 @@ export async function testPersistenceControllerUsesInjectedClockAndSavesOnlyLate
   let status = 'idle' as 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
   const controller = new PersistenceController({
     saveSnapshot: async (value) => { saved.push(value.profile?.displayName ?? '') },
-    captureSnapshot: () => ({
-      snapshot: snapshot('captured'),
-      stateReference: null,
-      shortcutReference: null,
-    }),
     status: {
       getStatus: () => status,
       setDirty: () => { status = 'dirty' },
@@ -63,7 +58,11 @@ export async function testPersistenceControllerUsesInjectedClockAndSavesOnlyLate
     clock,
   })
 
-  controller.enableWrites()
+  controller.enableWrites(() => ({
+    snapshot: snapshot('captured'),
+    stateReference: null,
+    shortcutReference: null,
+  }))
   controller.schedule(snapshot('A'))
   controller.schedule(snapshot('B'))
 
@@ -90,11 +89,6 @@ export async function testPersistenceControllerKeepsFailedSnapshotPendingForRetr
       saved.push(value.profile?.displayName ?? '')
       if (attempt === 1) throw new Error('disk full')
     },
-    captureSnapshot: () => ({
-      snapshot: snapshot('latest'),
-      stateReference: null,
-      shortcutReference: null,
-    }),
     status: {
       getStatus: () => status,
       setDirty: () => { status = 'dirty' },
@@ -106,7 +100,11 @@ export async function testPersistenceControllerKeepsFailedSnapshotPendingForRetr
     clock,
   })
 
-  controller.enableWrites()
+  controller.enableWrites(() => ({
+    snapshot: snapshot('latest'),
+    stateReference: null,
+    shortcutReference: null,
+  }))
   controller.schedule(snapshot('failed'))
   let failed = false
   try {

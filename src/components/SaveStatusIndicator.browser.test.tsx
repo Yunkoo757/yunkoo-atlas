@@ -1,3 +1,4 @@
+import { captureStoreForPersistence } from '@/store/persistedRevision'
 import { waitFor } from '../test/browserTiming'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
@@ -39,7 +40,7 @@ async function run(): Promise<void> {
   storage.saveSnapshot = async () => {}
 
   try {
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     schedulePersist(pickPersisted(useStore.getState(), useShortcutStore.getState().bindings))
     useSaveStatus.getState().setError(new Error("Error invoking remote method 'storage:saveSnapshot': Error: disk full"))
     root.render(

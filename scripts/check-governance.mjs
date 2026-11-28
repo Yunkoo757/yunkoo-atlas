@@ -172,6 +172,8 @@ async function main() {
     const violation = firstForbiddenPath(graph, consumer, ['src/storage/bootstrap'])
     if (violation) failures.push(`存储调用方引入启动流程：${violation.join(' → ')}`)
   }
+  const storeCapture = firstForbiddenPath(graph, 'src/storage/persist.ts', ['src/store/useStore', 'src/store/shortcutStore'])
+  if (storeCapture) failures.push(`持久化会话必须由调用方提供快照：${storeCapture.join(' → ')}`)
   for (const cycle of findEagerCycles(graph)) failures.push(`运行时循环依赖：${cycle.join(' → ')}`)
   for (const entry of [editor, ...trainer]) {
     const violation = firstForbiddenPath(graph, entry, forbiddenPureTargets)

@@ -1,3 +1,4 @@
+import { captureStoreForPersistence } from '@/store/persistedRevision'
 import { commitPreparedJournalArchive, restoreLibraryBackup, BackupRestoreFlushError } from '@/lib/libraryRestore'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
 import { useStore } from '@/store/useStore'
@@ -25,7 +26,7 @@ async function withDesktopRestore(
     location: { reload: () => { events.reloads++ } },
     dispatchEvent: () => { events.recoveryNotices++; return true },
   } })
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     await run(events)
   } finally {

@@ -1,3 +1,4 @@
+import { captureStoreForPersistence } from '@/store/persistedRevision'
 import { createRoot } from 'react-dom/client'
 import { CsvImportModal } from './CsvImportModal'
 import { getStorage } from '@/storage/provider'
@@ -79,7 +80,7 @@ async function run(): Promise<void> {
   window.addEventListener('unhandledrejection', onUnhandledRejection)
 
   try {
-    enablePersistWrites()
+    enablePersistWrites(captureStoreForPersistence)
     root.render(<CsvImportModal open onClose={() => {}} />)
 
     const input = await waitForFileInput()

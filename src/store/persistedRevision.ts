@@ -1,3 +1,5 @@
+import { pickPersisted } from '@/storage/snapshotProjection'
+import type { PersistenceCapture } from '@/storage/persistenceController'
 import { PERSISTED_STATE_REFERENCE_KEYS } from '@/storage/persistedKeys'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { useStore } from '@/store/useStore'
@@ -9,9 +11,21 @@ export interface PersistedStateRevision {
   references: readonly unknown[]
 }
 
+function readStoreReferences() {
+  return { state: useStore.getState(), shortcutBindings: useShortcutStore.getState().bindings }
+}
+
+export function captureStoreForPersistence(): PersistenceCapture {
+  const { state, shortcutBindings } = readStoreReferences()
+  return {
+    snapshot: pickPersisted(state, shortcutBindings),
+    stateReference: state,
+    shortcutReference: shortcutBindings,
+  }
+}
+
 export function capturePersistedStateRevision(): PersistedStateRevision {
-  const state = useStore.getState()
-  const shortcutBindings = useShortcutStore.getState().bindings
+  const { state, shortcutBindings } = readStoreReferences()
   return {
     state,
     shortcutBindings,

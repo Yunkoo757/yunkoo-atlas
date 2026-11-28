@@ -4,7 +4,7 @@ import {
   migrateElectronLibraryIfNeeded,
   migrateFromLocalStorageIfNeeded,
 } from '@/storage/migrate'
-import { pickPersisted } from '@/storage/snapshotProjection'
+import { captureStoreForPersistence } from '@/store/persistedRevision'
 import { enablePersistWrites, schedulePersist, storageDocumentSignal } from '@/storage/persist'
 import { useShortcutStore } from '@/store/shortcutStore'
 import { getJournalBridge } from '@/storage/runtime'
@@ -87,11 +87,11 @@ async function runBootstrapStorage(): Promise<void> {
 
   signal.throwIfAborted()
   hydrated = true
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   // 启动后保持 idle，避免顶栏立刻插入「已保存」把视图按钮挤一下
   useSaveStatus.getState().reset()
 
-  const capturePersisted = () => pickPersisted(useStore.getState(), useShortcutStore.getState().bindings)
+  const capturePersisted = () => captureStoreForPersistence().snapshot
   const initialPersisted = capturePersisted()
   const coordinator = createPersistedSnapshotCoordinator(initialPersisted, {
     capture: capturePersisted,

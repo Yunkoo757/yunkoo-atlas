@@ -1,3 +1,4 @@
+import { captureStoreForPersistence } from '@/store/persistedRevision'
 import { useSaveStatus } from '@/store/saveStatus'
 import { isStorageCutoverInteractionLocked } from '@/storage/cutover'
 import { enablePersistWrites, disablePersistWrites, flushPersistNow, getPersistSuspendDepth } from '@/storage/persist'
@@ -41,7 +42,7 @@ async function verifyFailedSwitch(observerFails: boolean, requiresReload = false
     },
   })
 
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     if (observerFails) useSaveStatus.setState({ reset: () => { throw failure } })
     const result = await switchActiveLibrary('open', 'D:\\broken-library').catch(error => {
@@ -114,7 +115,7 @@ export async function testSuccessfulLibrarySwitchUsesSnapshotReturnedByAtomicIpc
     },
   })
 
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     const result = await switchActiveLibrary('open', 'd:\\picked-alias')
     assert(result.ok, '已验证候选库应成功切换')
@@ -201,7 +202,7 @@ export async function testDelayedLibraryPreparationFlushesLateTradeToOldLibraryB
     },
   })
 
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     useStore.setState({ trades: [oldTrade] })
     const switching = switchActiveLibrary('open', 'D:\\new-library')

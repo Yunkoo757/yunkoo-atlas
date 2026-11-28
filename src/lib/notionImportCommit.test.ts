@@ -1,3 +1,4 @@
+import { captureStoreForPersistence } from '@/store/persistedRevision'
 import type { Strategy } from '@/data/strategies'
 import { createQuickNote } from '@/data/quickNotes'
 import { createReviewTemplate } from '@/data/reviewTemplates'
@@ -399,7 +400,7 @@ export async function testNotionImportPreservesConcurrentQuickNotesWeeklyReviews
     adapter.committedSnapshot = value
   }
 
-  enablePersistWrites()
+  enablePersistWrites(captureStoreForPersistence)
   try {
     const importing = commitNotionImportBatch([previewWithImages(1)], {
       storage: adapter,
