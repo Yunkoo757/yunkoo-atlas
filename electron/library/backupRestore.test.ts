@@ -215,3 +215,40 @@ export async function testBackupFromAnotherLibraryCannotReplaceActiveLibraryIden
     original.first.saveSnapshot({ ...createEmptyPersistedSnapshot(), tagPresets: ['still writable'] }, 1)
   } finally { other.dispose(); original.dispose() }
 }
+
+export async function testRestoreInstallsTheExactBackupThatWasVerifiedBeforeTheSafetyCopy() {
+  const f = await isolatedSession()
+  try {
+    const base = createEmptyPersistedSnapshot()
+    f.first.importAsset('chart', 'application/octet-stream', Buffer.from('selected image'))
+    f.first.saveSnapshot({ ...base, tagPresets: ['selected'] })
+    const selected = writeLibraryBackup(f.first, Date.UTC(2024, 0, 1))
+    assert.ok(selected)
+    f.first.saveSnapshot({ ...base, tagPresets: ['later version'] })
+    const later = writeLibraryBackup(f.first, Date.UTC(2024, 0, 2))
+    assert.ok(later)
+    // 历史恢复点按原文件名保存原图，其清单没有内容摘要。
+    const metadata = JSON.parse(fs.readFileSync(selected + '.meta.json', 'utf8'))
+    const image = metadata.attachmentEntries[0]
+    const vault = path.join(f.first.getPaths().backups, 'assets')
+    fs.copyFileSync(path.join(vault, image.vaultName), path.join(vault, image.fileName))
+    delete metadata.attachmentEntries
+    delete metadata.databaseSha256
+    metadata.attachmentFiles = [image.fileName]
+    fs.writeFileSync(selected + '.meta.json', JSON.stringify(metadata))
+
+    const close = f.session.close
+    f.session.close = current => {
+      close(current)
+      fs.copyFileSync(later, selected)
+      fs.writeFileSync(path.join(vault, image.fileName), 'replaced image')
+    }
+    const restored = await restoreLibraryBackup(selected, f.session)
+    assert.ok(restored.ok)
+    assert.deepEqual(restored.snapshot.tagPresets, ['selected'], '确认后必须安装预检通过的私有副本')
+    assert.equal(restored.revision, 1)
+    assert.deepEqual(Buffer.from(f.active()!.getAssetBytes('chart')!.bytes), Buffer.from('selected image'))
+    assert.deepEqual(f.events, ['close', 'reopen'])
+    assert.equal(fs.readdirSync(f.root).some(name => name.startsWith('.backup-verify-')), false)
+  } finally { f.dispose() }
+}

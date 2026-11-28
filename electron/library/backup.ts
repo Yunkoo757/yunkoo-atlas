@@ -7,7 +7,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import type { LibraryStorage } from './storage'
 import { ensureLibraryDirs, getLibraryPaths } from './paths'
 import { fsyncDirectorySync, fsyncFileSync, writeFileAtomicallySync } from './atomicFile'
-import { validateDesktopLibrary, validateLibraryDatabaseFile } from './journalZip'
+import { validateDesktopLibrary, type LibraryDatabaseInspection } from './journalZip'
 import { safeConsoleError } from '../diagnosticSanitizer'
 import { removeDirectManagedDirectory } from './managedPaths'
 
@@ -408,151 +408,98 @@ function persistBackupVerification(
   writeFileAtomicallySync(dbPath + '.meta.json', JSON.stringify(meta), 'utf8')
 }
 
-export async function verifyBackupAtPath(
+type BackupCandidate = ReturnType<typeof stageBackupFiles>
+type InstallBackup = (cleanDatabaseBytes: (bytes: Buffer) => Buffer) => void
+
+/** 复制完再校验私有文件。旧恢复点的附件名与内容寻址仓库共用此入口。 */
+function stageBackupFiles(dbPath: string, stagingRoot: string) {
+  const paths = ensureLibraryDirs(stagingRoot)
+  const meta = readBackupMeta(dbPath)
+  fs.copyFileSync(dbPath, paths.dbFile)
+  if (meta?.databaseSha256 && sha256File(paths.dbFile) !== meta.databaseSha256) {
+    throw new Error('恢复点数据库校验失败')
+  }
+  if (meta && meta.librarySizeBytes !== fileSize(paths.dbFile)) throw new Error('恢复点数据库大小与元数据不一致')
+
+  const savedManifest = backupManifestPath(dbPath)
+  if (fs.existsSync(savedManifest)) fs.copyFileSync(savedManifest, paths.manifestFile)
+  if (meta?.manifestSha256 && (!fs.existsSync(paths.manifestFile) || sha256File(paths.manifestFile) !== meta.manifestSha256)) {
+    throw new Error('恢复点清单校验失败')
+  }
+
+  const entries = meta?.attachmentEntries ?? meta?.attachmentFiles?.map(fileName => ({ fileName, vaultName: fileName }))
+  const vault = backupAssetVault(path.dirname(dbPath))
+  for (const { fileName, vaultName } of entries ?? []) {
+    if (!fileName || !vaultName || path.basename(fileName) !== fileName || path.basename(vaultName) !== vaultName) {
+      throw new Error('恢复点附件清单损坏')
+    }
+    const destination = path.join(paths.attachments, fileName)
+    fs.copyFileSync(path.join(vault, vaultName), destination, fs.constants.COPYFILE_EXCL)
+    if (/^[a-f0-9]{64}$/i.test(vaultName) && sha256File(destination) !== vaultName.toLowerCase()) {
+      throw new Error(`附件校验失败：${fileName}`)
+    }
+  }
+  return { paths, meta, entries }
+}
+
+function declaredEmptyBackup(meta: BackupMeta | null): boolean {
+  return meta?.emptyLibrary === true && meta.tradeCount === 0 && meta.strategyCount === 0 &&
+    meta.attachmentCount === 0 && (meta.attachmentEntries?.length ?? 0) === 0 &&
+    (meta.attachmentFiles?.length ?? 0) === 0
+}
+
+export function verifyBackupAtPath(
   libraryPath: string,
   fileName: string,
   expectedLibraryId?: string,
 ): Promise<BackupVerificationResult> {
-  const { backups } = getLibraryPaths(libraryPath)
-  const dbPath = path.join(backups, path.basename(fileName))
-  const checkedAt = Date.now()
-  if (!fs.existsSync(dbPath)) {
-    return { status: 'invalid', checkedAt, error: '恢复点文件不存在' }
-  }
+  return withVerifiedBackup(libraryPath, fileName, expectedLibraryId, verification => verification)
+}
 
-  let inspection: Awaited<ReturnType<typeof validateLibraryDatabaseFile>> | undefined
+export async function withVerifiedBackup<T>(
+  libraryPath: string,
+  fileName: string,
+  expectedLibraryId: string | undefined,
+  use: (verification: BackupVerificationResult, install?: InstallBackup) => T | Promise<T>,
+): Promise<T> {
+  const dbPath = path.join(getLibraryPaths(libraryPath).backups, path.basename(fileName))
+  const checkedAt = Date.now()
+  if (!fs.existsSync(dbPath)) return use({ status: 'invalid', checkedAt, error: '恢复点文件不存在' })
   const verificationRoot = fs.mkdtempSync(path.join(libraryPath, '.backup-verify-'))
   try {
+    let inspection: LibraryDatabaseInspection | undefined
+    let candidate: BackupCandidate
+    let result: BackupVerificationResult
     try {
-      const declaredMeta = readBackupMeta(dbPath)
-      const declaredEmptyLibrary = declaredMeta?.emptyLibrary === true &&
-        declaredMeta.tradeCount === 0 &&
-        declaredMeta.strategyCount === 0 &&
-        declaredMeta.attachmentCount === 0 &&
-        (declaredMeta.attachmentEntries?.length ?? 0) === 0 &&
-        (declaredMeta.attachmentFiles?.length ?? 0) === 0
-      inspection = await validateLibraryDatabaseFile(dbPath, {
-        allowEmptySnapshot: declaredEmptyLibrary,
-      })
-    } catch {
-      throw new Error('数据库或快照结构无法读取')
-    }
+      candidate = stageBackupFiles(dbPath, verificationRoot)
+      const { meta, paths } = candidate
+      const emptyLibrary = declaredEmptyBackup(meta)
+      inspection = await validateDesktopLibrary(paths, { allowEmptySnapshot: emptyLibrary })
+      if (meta && (meta.tradeCount !== inspection.tradeCount || meta.strategyCount !== inspection.strategyCount ||
+          meta.attachmentCount !== inspection.assets.length)) throw new Error('恢复点统计与数据库内容不一致')
 
-    const meta = readBackupMeta(dbPath)
-    const attachmentEntries = meta?.attachmentEntries ?? meta?.attachmentFiles?.map((name) => ({
-      fileName: name,
-      vaultName: name,
-    }))
-    if (inspection.assets.length > 0 && !attachmentEntries) {
-      throw new Error('恢复点缺少附件清单')
-    }
-    if (meta) {
-      if (meta.tradeCount !== inspection.tradeCount || meta.strategyCount !== inspection.strategyCount) {
-        throw new Error('恢复点统计与数据库内容不一致')
+      const { LibraryStorage } = await import('./storage')
+      const storage = new LibraryStorage(paths.root, { ensureDirectories: false, allowCreate: false })
+      try {
+        await storage.open(expectedLibraryId)
+        if (!storage.loadSnapshot() && !emptyLibrary) throw new Error('临时恢复库无法由正式存储层打开')
+      } finally { storage.release() }
+      result = {
+        status: 'verified', checkedAt, tradeCount: inspection.tradeCount, strategyCount: inspection.strategyCount,
+        attachmentCount: inspection.assets.length, ...(emptyLibrary ? { emptyLibrary: true } : {}),
       }
-      if (meta.attachmentCount !== inspection.assets.length) {
-        throw new Error('恢复点附件统计与数据库内容不一致')
-      }
-      if (meta.librarySizeBytes !== fileSize(dbPath)) {
-        throw new Error('恢复点数据库大小与元数据不一致')
-      }
-      if (meta.databaseSha256 && sha256File(dbPath) !== meta.databaseSha256) {
-        throw new Error('恢复点数据库校验失败')
-      }
-      const savedManifest = backupManifestPath(dbPath)
-      if (meta.manifestSha256 && (!fs.existsSync(savedManifest) || sha256File(savedManifest) !== meta.manifestSha256)) {
-        throw new Error('恢复点清单校验失败')
-      }
-    }
-
-    const staged = ensureLibraryDirs(verificationRoot)
-    fs.copyFileSync(dbPath, staged.dbFile)
-    const savedManifest = backupManifestPath(dbPath)
-    if (fs.existsSync(savedManifest)) fs.copyFileSync(savedManifest, staged.manifestFile)
-
-    const entriesByName = new Map<string, string>()
-    for (const entry of attachmentEntries ?? []) {
-      if (
-        !entry.fileName ||
-        !entry.vaultName ||
-        path.basename(entry.fileName) !== entry.fileName ||
-        path.basename(entry.vaultName) !== entry.vaultName ||
-        entriesByName.has(entry.fileName)
-      ) {
-        throw new Error('恢复点附件清单损坏')
-      }
-      const source = path.join(backupAssetVault(backups), entry.vaultName)
-      if (!fs.existsSync(source)) throw new Error(`缺少附件：${entry.fileName}`)
-      if (/^[a-f0-9]{64}$/i.test(entry.vaultName)) {
-        const digest = sha256File(source)
-        if (digest !== entry.vaultName.toLowerCase()) throw new Error(`附件校验失败：${entry.fileName}`)
-      }
-      entriesByName.set(entry.fileName, source)
-      fs.copyFileSync(source, path.join(staged.attachments, entry.fileName))
-    }
-
-    for (const asset of inspection.assets) {
-      const source = entriesByName.get(asset.fileName)
-      if (!source) throw new Error(`缺少数据库引用的附件：${asset.fileName}`)
-      if (fileSize(source) !== asset.byteSize) throw new Error(`附件大小不一致：${asset.fileName}`)
-    }
-
-    const declaredEmptyLibrary = meta?.emptyLibrary === true &&
-      meta.tradeCount === 0 &&
-      meta.strategyCount === 0 &&
-      meta.attachmentCount === 0 &&
-      (meta.attachmentEntries?.length ?? 0) === 0 &&
-      (meta.attachmentFiles?.length ?? 0) === 0
-    const stagedInspection = await validateDesktopLibrary(staged, {
-      allowEmptySnapshot: declaredEmptyLibrary,
-    })
-    const { LibraryStorage: RuntimeLibraryStorage } = await import('./storage')
-    const openedCandidate = new RuntimeLibraryStorage(verificationRoot, {
-      ensureDirectories: false,
-      allowCreate: false,
-    })
-    try {
-      await openedCandidate.open(expectedLibraryId)
-      const openedSnapshot = openedCandidate.loadSnapshot()
-      if (!openedSnapshot && !declaredEmptyLibrary) throw new Error('临时恢复库无法由正式存储层打开')
-    } finally {
-      openedCandidate.release()
-    }
-    if (
-      stagedInspection.tradeCount !== inspection.tradeCount ||
-      stagedInspection.strategyCount !== inspection.strategyCount ||
-      stagedInspection.assets.length !== inspection.assets.length
-    ) {
-      throw new Error('临时恢复后的数据统计不一致')
-    }
-
-    const result: BackupVerificationResult = {
-      status: 'verified',
-      checkedAt,
-      tradeCount: stagedInspection.tradeCount,
-      strategyCount: stagedInspection.strategyCount,
-      attachmentCount: stagedInspection.assets.length,
-      ...(declaredEmptyLibrary ? { emptyLibrary: true } : {}),
-    }
-    persistBackupVerification(dbPath, result, inspection)
-    return result
-  } catch (error) {
-    const result: BackupVerificationResult = {
-      status: 'invalid',
-      checkedAt,
-      tradeCount: inspection?.tradeCount,
-      strategyCount: inspection?.strategyCount,
-      attachmentCount: inspection?.assets.length,
-      error: error instanceof Error ? error.message : '恢复点验证失败',
-    }
-    try {
       persistBackupVerification(dbPath, result, inspection)
-    } catch {
-      /* 元数据本身不可写时仍返回验证结果 */
+    } catch (error) {
+      result = {
+        status: 'invalid', checkedAt, tradeCount: inspection?.tradeCount, strategyCount: inspection?.strategyCount,
+        attachmentCount: inspection?.assets.length, error: error instanceof Error ? error.message : '恢复点验证失败',
+      }
+      try { persistBackupVerification(dbPath, result, inspection) } catch { /* 仍返回验证结果。 */ }
+      return await use(result)
     }
-    return result
+    return await use(result, clean => installBackupCandidate(libraryPath, candidate, clean))
   } finally {
-    fs.rmSync(verificationRoot, { recursive: true, force: true })
+    fs.rmSync(verificationRoot, { recursive: true, force: true, maxRetries: 3 })
   }
 }
 
@@ -561,56 +508,29 @@ export function restoreBackupAtPath(
   fileName: string,
   cleanDatabaseBytes: (bytes: Buffer) => Buffer = bytes => bytes,
 ): boolean {
-  const { backups, dbFile, manifestFile, attachments } = ensureLibraryDirs(libraryPath)
-  const safeName = path.basename(fileName)
-  const src = path.join(backups, safeName)
-  if (!fs.existsSync(src)) return false
+  const dbPath = path.join(getLibraryPaths(libraryPath).backups, path.basename(fileName))
+  if (!fs.existsSync(dbPath)) return false
+  const stagingRoot = fs.mkdtempSync(path.join(libraryPath, '.backup-restore-staging-'))
+  try {
+    installBackupCandidate(libraryPath, stageBackupFiles(dbPath, stagingRoot), cleanDatabaseBytes)
+    return true
+  } finally {
+    fs.rmSync(stagingRoot, { recursive: true, force: true, maxRetries: 3 })
+  }
+}
 
-  const meta = readBackupMeta(src)
-  const sourceDatabaseBytes = fs.readFileSync(src)
-  if (meta?.databaseSha256 && sha256Bytes(sourceDatabaseBytes) !== meta.databaseSha256) {
-    throw new Error('备份数据库在验证后发生变化或已经损坏')
-  }
-  const savedManifest = backupManifestPath(src)
-  const sourceManifestBytes = fs.existsSync(savedManifest)
-    ? fs.readFileSync(savedManifest)
-    : null
-  if (
-    meta?.manifestSha256 &&
-    (!sourceManifestBytes || sha256Bytes(sourceManifestBytes) !== meta.manifestSha256)
-  ) {
-    throw new Error('备份清单在验证后发生变化或已经损坏')
-  }
-  const restoredDatabaseBytes = cleanDatabaseBytes(sourceDatabaseBytes)
+function installBackupCandidate(
+  libraryPath: string,
+  candidate: BackupCandidate,
+  cleanDatabaseBytes: (bytes: Buffer) => Buffer,
+): void {
+  const { dbFile, manifestFile, attachments } = ensureLibraryDirs(libraryPath)
+  const restoredDatabaseBytes = cleanDatabaseBytes(fs.readFileSync(candidate.paths.dbFile))
   const installedDatabaseSha256 = sha256Bytes(restoredDatabaseBytes)
-  const attachmentEntries = meta?.attachmentEntries ?? meta?.attachmentFiles?.map((fileName) => ({
-    fileName,
-    vaultName: fileName,
-  }))
-  let stagedAttachments: string | null = null
-  if (attachmentEntries) {
-    const vault = backupAssetVault(backups)
-    stagedAttachments = path.join(libraryPath, `.attachments-restore-${Date.now()}`)
-    fs.mkdirSync(stagedAttachments, { recursive: true })
-    try {
-      for (const entry of attachmentEntries) {
-        const fileName = path.basename(entry.fileName)
-        const vaultName = path.basename(entry.vaultName)
-        const source = path.join(vault, vaultName)
-        if (!fs.existsSync(source)) throw new Error(`Backup attachment is missing: ${fileName}`)
-        const contentAddressed = /^[a-f0-9]{64}$/i.test(vaultName)
-        if (contentAddressed && sha256File(source) !== vaultName) {
-          throw new Error(`Backup attachment checksum is invalid: ${fileName}`)
-        }
-        const destination = path.join(stagedAttachments, fileName)
-        fs.copyFileSync(source, destination)
-        fsyncFileSync(destination)
-      }
-      fsyncDirectorySync(stagedAttachments)
-    } catch (error) {
-      fs.rmSync(stagedAttachments, { recursive: true, force: true })
-      throw error
-    }
+  const sourceManifestBytes = fs.existsSync(candidate.paths.manifestFile) ? fs.readFileSync(candidate.paths.manifestFile) : null
+  if (candidate.entries) {
+    for (const { fileName } of candidate.entries) fsyncFileSync(path.join(candidate.paths.attachments, fileName))
+    fsyncDirectorySync(candidate.paths.attachments)
   }
 
   const recoveryDir = `${BACKUP_RESTORE_RECOVERY_PREFIX}${randomUUID()}`
@@ -645,10 +565,9 @@ export function restoreBackupAtPath(
   writeFileAtomicallySync(markerPath, JSON.stringify(marker, null, 2), 'utf8')
 
   try {
-    if (stagedAttachments) {
+    if (candidate.entries) {
       removeDirectManagedDirectory(libraryPath, attachments, 'attachments')
-      fs.renameSync(stagedAttachments, attachments)
-      stagedAttachments = null
+      fs.renameSync(candidate.paths.attachments, attachments)
     }
 
     writeFileAtomicallySync(dbFile, restoredDatabaseBytes)
@@ -656,10 +575,8 @@ export function restoreBackupAtPath(
     if (sourceManifestBytes) {
       writeFileAtomicallySync(manifestFile, sourceManifestBytes)
     }
-    for (const entry of attachmentEntries ?? []) {
-      const fileName = path.basename(entry.fileName)
-      const vaultName = path.basename(entry.vaultName)
-      if (/^[a-f0-9]{64}$/i.test(vaultName) && sha256File(path.join(attachments, fileName)) !== vaultName) {
+    for (const { fileName, vaultName } of candidate.entries ?? []) {
+      if (/^[a-f0-9]{64}$/i.test(vaultName) && sha256File(path.join(attachments, fileName)) !== vaultName.toLowerCase()) {
         throw new Error(`Restored attachment checksum is invalid: ${fileName}`)
       }
     }
@@ -668,12 +585,8 @@ export function restoreBackupAtPath(
     fs.rmSync(markerPath, { force: true })
     fsyncDirectorySync(libraryPath)
     removeDirectManagedDirectory(libraryPath, recoveryRoot, recoveryDir)
-    return true
   } catch (error) {
     recoverInterruptedBackupRestore(getLibraryPaths(libraryPath))
-    if (stagedAttachments) {
-      fs.rmSync(stagedAttachments, { recursive: true, force: true })
-    }
     throw error
   }
 }

@@ -231,6 +231,25 @@ export async function testBackupVerificationRejectsTamperedAttachmentBytes(): Pr
   }
 }
 
+export async function testVerificationChecksTheBytesActuallyCopiedIntoTheCandidate(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-staged-attachment-'))
+  const copy = fs.copyFileSync
+  try {
+    const backup = await createVerifiableBackup(root)
+    let copied = false
+    fs.copyFileSync = (source, destination, flags) => {
+      copy(source, destination, flags)
+      if (String(destination).includes('.backup-verify-') && path.basename(String(destination)) === 'asset-1.bin') {
+        copied = true
+        fs.writeFileSync(destination, 'different-data')
+      }
+    }
+    const result = await verifyBackupAtPath(root, backup)
+    assert(copied && result.status === 'invalid', '同长度的暂存原图字节变化必须拒绝')
+    assertVerificationWorkspaceRemoved(root)
+  } finally { fs.copyFileSync = copy; fs.rmSync(root, { recursive: true, force: true }) }
+}
+
 export async function testBackupVerificationRejectsTamperedMetadata(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-verify-meta-'))
   try {
