@@ -73,6 +73,10 @@ function importedCollisionFixture(): PersistedSlice {
       id: 'weekly-review:2026-07-20',
       weekStart: '2026-07-20',
       weekEnd: '2026-07-26',
+      previousCommitment: {
+        weekStart: '2026-07-13', text: '复核开仓', criteria: '保留当时证据',
+        evidence: [{ id: imported.id, ref: '冻结时编号', symbol: '冻结时品种', tradeKind: 'live' }],
+      },
       highlightTradeIds: [imported.id],
       mistakeTradeIds: [imported.id],
       followUpTradeIds: [imported.id],
@@ -190,6 +194,9 @@ export function testSameKindDifferentIdentityRemapsEveryReference(): void {
   assert(merged.riskOverrideEvents?.[0]?.tradeId === importedTrade?.id, '顶层事件必须重映射')
   const review = merged.weeklyReviews?.find((item) => item.id === 'weekly-review:2026-07-20')
   assert(review?.riskSnapshot?.overrideEvents[0]?.tradeId === importedTrade?.id, '冻结事件必须重映射')
+  const commitment = review?.previousCommitment?.evidence[0]
+  assert(commitment?.id === importedTrade?.id && commitment?.ref === '冻结时编号' && commitment?.symbol === '冻结时品种',
+    '上周承诺的证据应指向导入的交易并保留冻结的显示信息')
   assert(review?.highlightTradeIds[0] === importedTrade?.id, '高亮交易列表必须重映射')
   assert(review?.mistakeTradeIds[0] === importedTrade?.id, '错误交易列表必须重映射')
   assert(review?.followUpTradeIds[0] === importedTrade?.id, '跟进交易列表必须重映射')
@@ -233,6 +240,21 @@ export function testStableMappedIdOccupiedByDifferentTradeRejectsImport(): void 
   }
 
   assert(errorMessage.includes('稳定导入交易 ID'), '稳定映射 ID 被不同交易占用时必须明确拒绝整次导入')
+}
+
+export function testTwoImportedTradesCannotShareOneTargetId(): void {
+  const digest = 'mapped-and-original'
+  const reserved = stableImportedTradeId(digest, 'trade-1')
+  for (const reversed of [false, true]) {
+    const current = localFixture()
+    const incoming = importedCollisionFixture()
+    incoming.trades.push(identifiedTrade(reserved, 'OTHER-IMPORTED', 'ETHUSD', 'other-create'))
+    if (reversed) incoming.trades.reverse()
+    let error = ''
+    try { mergeRiskImport(current, incoming, digest) } catch (cause) { error = String(cause) }
+    assert(error.includes(reserved), '两个来源需要同一目标 ID 时应报告冲突，不能按遍历顺序丢失一笔')
+    assert(current.trades.length === 1 && current.trades[0]!.ref === 'LOCAL-1', '冲突不得更改本地交易')
+  }
 }
 
 export function testReferencesToExistingLocalTradeSurvivePartialImport(): void {

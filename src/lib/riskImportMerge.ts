@@ -193,6 +193,9 @@ function rewriteTradeReferences(
       highlightTradeIds: rewriteIds(review.highlightTradeIds),
       mistakeTradeIds: rewriteIds(review.mistakeTradeIds),
       followUpTradeIds: rewriteIds(review.followUpTradeIds),
+      ...(review.previousCommitment && {
+        previousCommitment: { ...review.previousCommitment, evidence: rewriteEvidenceTrades(review.previousCommitment.evidence) },
+      }),
       evidenceSnapshot: review.evidenceSnapshot
         ? {
             ...review.evidenceSnapshot,
@@ -218,13 +221,18 @@ export function mergeRiskImport(
   const currentById = new Map(current.trades.map((trade) => [trade.id, trade]))
   const identityById = new Map(identityTrades.map((trade) => [trade.id, trade]))
   const idMap = new Map<string, string>()
+  const sourceByTargetId = new Map<string, string>()
   for (const trade of imported.trades) {
     const local = currentById.get(trade.id)
     const identityTrade = identityById.get(trade.id) ?? trade
     const mappedId = local && !isSameTradeIdentity(local, identityTrade)
       ? stableImportedTradeId(payloadDigest, trade.id)
       : trade.id
+    if (sourceByTargetId.has(mappedId)) {
+      throw new OperationalError('import-immutable-entity-conflict', `导入冲突：多笔交易映射到了同一 ID ${mappedId}。`)
+    }
     idMap.set(trade.id, mappedId)
+    sourceByTargetId.set(mappedId, trade.id)
   }
 
   // 来源交易可能出现在案例之后；先建立完整映射，再校验重复导入的身份。
@@ -250,8 +258,7 @@ export function mergeRiskImport(
   const rewritten = rewriteTradeReferences(imported, idMap, current.trades)
   const tradesById = new Map(current.trades.map((trade) => [trade.id, trade]))
   for (const trade of rewritten.trades) {
-    const originalId = imported.trades.find((item) => idMap.get(item.id) === trade.id)?.id
-    const isStableRepeat = originalId !== undefined && originalId !== trade.id && tradesById.has(trade.id)
+    const isStableRepeat = sourceByTargetId.get(trade.id) !== trade.id && currentById.has(trade.id)
     if (!isStableRepeat) tradesById.set(trade.id, trade)
   }
 
