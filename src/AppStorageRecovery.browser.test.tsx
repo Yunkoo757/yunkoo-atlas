@@ -1,6 +1,9 @@
 import { nextFrame as frame, waitFor } from './test/browserTiming'
 import React from 'react'
 import { createRoot } from 'react-dom/client'
+import { restoreLibraryBackup } from './lib/libraryRestore'
+import { createNewLibrarySnapshot } from './storage/emptySnapshot'
+import { useStore } from './store/useStore'
 import { App } from './App'
 import { STORAGE_RECOVERY_REQUIRED_EVENT } from './lib/storageRecovery'
 import type { JournalBridge } from './types/journalBridge'
@@ -34,6 +37,11 @@ async function run(): Promise<void> {
       'App bootstrap must settle before recovery injection',
     )
 
+    let manifestStarted!: () => void, releaseManifest!: () => void
+    const readingManifest = new Promise<void>(resolve => { manifestStarted = resolve })
+    const manifestReady = new Promise<void>(resolve => { releaseManifest = resolve })
+    let replacements = 0, refreshes = 0
+    const beforeSession = useStore.getState().librarySession
     let recoveryCalls = 0
     const failureMessage = '主进程无法重新打开资料库：fixture'
     Object.defineProperty(window, 'journalBridge', {
@@ -41,19 +49,40 @@ async function run(): Promise<void> {
       value: {
         isElectron: true,
         platform: 'win32',
+        restoreBackup: async () => {
+          replacements++
+          return { ok: true, committed: true, snapshot: createNewLibrarySnapshot() }
+        },
+        getManifest: async () => {
+          manifestStarted()
+          await manifestReady
+          return { libraryId: 'isolated-restore' }
+        },
         recoverStorage: async () => {
           recoveryCalls += 1
           return { ok: false, code: 'reopen-failed', message: failureMessage }
         },
       } as unknown as JournalBridge,
     })
+    const restore = () => restoreLibraryBackup('isolated-backup', async () => { refreshes++ })
+    const outcome = restore().then(result => result.ok, () => false)
+    await Promise.race([readingManifest, outcome.then(() => { throw new Error('未进入恢复清单读取') })])
     window.dispatchEvent(new CustomEvent(
       STORAGE_RECOVERY_REQUIRED_EVENT,
       { detail: '磁盘提交结果不确定，已锁定旧 storage' },
     ))
 
     await waitFor(() => button('重新打开资料库') !== null, '恢复页必须提供真实主进程恢复 CTA')
-    button('重新打开资料库')!.click()
+    const reopen = button('重新打开资料库')!
+    reopen.focus()
+    const focusWhilePending = document.activeElement === reopen
+    releaseManifest()
+    const reportedSuccess = await outcome
+    await restore().catch(() => {})
+    const sessionChanges = useStore.getState().librarySession - beforeSession
+    assert(focusWhilePending && !reportedSuccess && refreshes === 0 && sessionChanges === 0 && replacements === 1,
+      `恢复页应可聚焦，旧文档不得再替换或发布。实际 ${JSON.stringify({ focusWhilePending, reportedSuccess, refreshes, sessionChanges, replacements })}`)
+    reopen.click()
     await waitFor(() => recoveryCalls === 1, '点击 CTA 必须调用主进程 storage 恢复 IPC')
     await waitFor(
       () => document.body.textContent?.includes(failureMessage) === true,

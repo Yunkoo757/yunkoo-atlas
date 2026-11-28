@@ -5,7 +5,7 @@ import type { ParsedWebJournalArchive } from '@/lib/webJournalArchive'
 import { flushStorageBeforeCutover, haltPersistAfterCutover, lockStorageCutoverInteraction } from '@/storage/cutover'
 import { getElectronAdapter } from '@/storage/electronAdapter'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
-import { suspendPersist } from '@/storage/persist'
+import { storageDocumentSignal, suspendPersist } from '@/storage/persist'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
 import type { CommitJournalImportResult } from '@/types/journalBridge'
 
@@ -31,14 +31,17 @@ async function restoreCurrentLibrary(
   replace: () => Promise<CommitJournalImportResult>,
   afterPublish?: () => Promise<void>,
 ): Promise<RestoreOutcome> {
-  const unlock = lockStorageCutoverInteraction()
+  const signal = storageDocumentSignal
+  const unlock = lockStorageCutoverInteraction(signal)
   try {
     await flushStorageBeforeCutover()
+    signal.throwIfAborted()
     const pause = suspendPersist()
     // IndexedDB 拒绝表示事务已回滚。桌面 IPC 中断时，磁盘可能已经完成替换。
     let safeToFlush = source === 'web-archive'
     try {
       const result = await replace()
+      signal.throwIfAborted()
       safeToFlush = !result.ok && result.committed === false
       if (!result.ok) return result
       if (!result.snapshot) return { ok: false, committed: true, error: '恢复后的资料库没有可读取快照' }
@@ -46,23 +49,28 @@ async function restoreCurrentLibrary(
       const storage = source === 'web-archive' ? getIndexedDbAdapter() : getElectronAdapter()
       if (source !== 'web-archive') storage.clearObjectUrlCache()
       const manifest = await storage.getManifest()
+      signal.throwIfAborted()
       clearReviewSessionStorage(manifest.libraryId)
       clearReviewSessionFilters(manifest.libraryId)
       replaceLibraryInStore(result.snapshot)
       safeToFlush = true
+      signal.throwIfAborted()
       await afterPublish?.()
-      return { ok: true, committed: true }
     } finally {
-      if (!safeToFlush) requireRecovery(source, pause)
+      if (signal.aborted) pause.resume({ flushNow: false })
+      else if (!safeToFlush) requireRecovery(source, pause)
       else {
         try {
           await pause.resumeAndFlush()
         } catch (error) {
+          signal.throwIfAborted()
           if (source === 'backup') throw new BackupRestoreFlushError()
           throw error
         }
       }
     }
+    signal.throwIfAborted()
+    return { ok: true, committed: true }
   } finally {
     unlock()
   }

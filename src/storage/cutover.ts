@@ -1,14 +1,15 @@
 import type { PersistencePause } from '@/storage/persistenceController'
 import { notifyStorageRecoveryRequired } from '@/lib/storageRecovery'
 import { useSaveStatus } from '@/store/saveStatus'
-import { disablePersistWrites, flushPersistNow } from '@/storage/persist'
+import { disablePersistWrites, flushPersistNow, storageDocumentSignal } from '@/storage/persist'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
 
 let interactionLockDepth = 0
 let releaseGlobalInteractionLock: (() => void) | null = null
 
 /** 整库替换期间冻结界面，避免用户输入落在旧库与新库的交界处。 */
-export function lockStorageCutoverInteraction(): () => void {
+export function lockStorageCutoverInteraction(signal?: AbortSignal): () => void {
+  signal?.throwIfAborted()
   interactionLockDepth += 1
   if (interactionLockDepth === 1 && typeof document !== 'undefined' && typeof window !== 'undefined') {
     const root = document.getElementById('root')
@@ -33,15 +34,18 @@ export function lockStorageCutoverInteraction(): () => void {
   }
 
   let released = false
-  return () => {
+  const unlock = () => {
     if (released) return
     released = true
+    signal?.removeEventListener('abort', unlock)
     interactionLockDepth = Math.max(0, interactionLockDepth - 1)
     if (interactionLockDepth === 0) {
       releaseGlobalInteractionLock?.()
       releaseGlobalInteractionLock = null
     }
   }
+  signal?.addEventListener('abort', unlock, { once: true })
+  return unlock
 }
 
 export function isStorageCutoverInteractionLocked(): boolean {
@@ -50,8 +54,11 @@ export function isStorageCutoverInteractionLocked(): boolean {
 
 /** 等待粘贴图片等尾随回写，再把稳定的旧库快照真正写盘。 */
 export async function flushStorageBeforeCutover(): Promise<void> {
+  storageDocumentSignal.throwIfAborted()
   await waitForPendingStorageOperations()
+  storageDocumentSignal.throwIfAborted()
   await flushPersistNow()
+  storageDocumentSignal.throwIfAborted()
 }
 
 /** 磁盘状态不再可信时停止写盘并归还调用方持有的一层暂停。 */

@@ -54,12 +54,11 @@ export async function switchActiveLibrary(mode: LibrarySwitchMode, path: string)
     return interrupted
   }
 
-  const unlockInteraction = lockStorageCutoverInteraction()
+  const unlockInteraction = lockStorageCutoverInteraction(storageDocumentSignal)
   const pause = suspendPersist()
   const interrupt = () => {
     void cancel()
     pause.resume({ flushNow: false })
-    unlockInteraction()
   }
   storageDocumentSignal.addEventListener('abort', interrupt, { once: true })
 
