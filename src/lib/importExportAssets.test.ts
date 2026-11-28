@@ -1,3 +1,4 @@
+import { getDecisionImageId } from '@/lib/reviewSession'
 import { mergeImportPayload } from '@/lib/importMerge'
 import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
@@ -1086,3 +1087,25 @@ export function testJsonImportRejectsDuplicateGeneratedAssetIds(): void {
   assert(rejected, '重编号器生成重复附件 ID 时必须中止整个导入')
 }
 // Quality-Scenario: H0-A-16
+
+export function testJsonImportKeepsTheSelectedDecisionPhotoWithItsCase(): void {
+  const base = createFullPersistedSnapshotFixture()
+  const options = [
+    { id: 'own', image: 'own-image', expected: 'new-own' },
+    { id: 'source', image: 'source-image', expected: 'new-source' },
+    { id: 'removed', image: 'new-source', expected: null },
+  ]
+  const source = options.map(({ id, image }) => ({
+    ...trade, id, tradeKind: 'case' as const, caseType: 'mistake' as const, decisionImageId: image,
+    note: '<img src="journal-asset://own-image">', sourceNoteHtml: '<img src="journal-asset://source-image">',
+  }))
+  const ids = ['new-own', 'new-source']
+  const prepared = prepareImportPayloadForCommit({
+    ...base, version: 15, trades: source, weeklyReviews: [], quickNotes: [],
+    assets: ['own-image', 'source-image'].map(id => ({ id, mime: 'image/png', data: 'aW1hZ2U=' })),
+  }, () => ids.shift()!)
+  for (const [index, item] of prepared.payload.trades.entries()) {
+    assert(getDecisionImageId(item) === options[index].expected, '先判断应选中原附件，已删除的标记不得意外指向新图：' + item.id)
+  }
+  assert(source[0].decisionImageId === 'own-image' && prepared.assets.length === 2, '保留原始身份并只暂存实际的两张图')
+}

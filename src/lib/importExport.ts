@@ -539,7 +539,12 @@ export function prepareImportPayloadForCommit(
     )
     return html
   }
-  const trades = payload.trades.map((trade) => mapTradeRichText(trade, rewriteHtml))
+  const trades = payload.trades.map(trade => {
+    const mapped = mapTradeRichText(trade, rewriteHtml)
+    if (!trade.decisionImageId) return mapped
+    // 已从正文移除的旧标记不能在目标库里碰巧指向另一张新图。
+    return { ...mapped, decisionImageId: idMap.get(trade.decisionImageId) ?? null }
+  })
   const weeklyReviews = payload.weeklyReviews?.map((review) => ({
     ...review,
     contentHtml: rewriteHtml(review.contentHtml),
