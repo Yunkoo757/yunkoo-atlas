@@ -28,7 +28,8 @@ import {
   createVerifiedBackup,
   deleteBackupAtPath,
   getBackupStatsAtPath,
-  listBackupsAtPath,
+  listBackups,
+  selectedBackupFile,
   verifyBackupAtPath,
 } from './backup'
 import { assertSafeAssetId } from '../../src/storage/assetId'
@@ -48,6 +49,7 @@ import { createVerifiedRestorePoint, restoreLibraryBackup } from './backupRestor
 import { beginOperation, type OperationLogHandle } from '../operationLogger'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
 import type {
+  BackupReference,
   LibraryActivationResult,
   LibrarySwitchMode,
   StageRolloverCommitInput,
@@ -772,15 +774,15 @@ export function registerLibraryIpc(): void {
   }))
 
   ipcMain.handle('backup:list', async () => withStorage((lib) => {
-    return listBackupsAtPath(lib.getLibraryPath())
+    return listBackups(lib)
   }))
 
-  ipcMain.handle('backup:verify', async (_e, fileName: string) => operationGate.tryRunExclusive(async () => {
+  ipcMain.handle('backup:verify', async (_e, reference: BackupReference) => operationGate.tryRunExclusive(async () => {
     const lib = await ensureStorage()
-    return verifyBackupAtPath(lib.getLibraryPath(), fileName, lib.readManifest().libraryId)
+    return verifyBackupAtPath(lib.getLibraryPath(), selectedBackupFile(lib, reference), lib.readManifest().libraryId)
   }))
 
-  ipcMain.handle('backup:restore', async (event, payload: { fileName: string; writerToken: string }) => {
+  ipcMain.handle('backup:restore', async (event, payload: { fileName: BackupReference; writerToken: string }) => {
     let writerGrant: WriterGrant | undefined
     const result = await restoreLibraryBackup(payload.fileName, {
       withExclusiveWriter: work => operationGate.runExclusive(async () => {
@@ -799,11 +801,11 @@ export function registerLibraryIpc(): void {
     return { ...result, writerGrant }
   })
 
-  ipcMain.handle('backup:delete', async (event, payload: { fileName: string; writerToken: string }) => {
+  ipcMain.handle('backup:delete', async (event, payload: { fileName: BackupReference; writerToken: string }) => {
     return operationGate.tryRunExclusive(async () => {
       const lib = await ensureStorage()
       writers.assert(event, payload.writerToken, lib)
-      return deleteBackupAtPath(lib.getLibraryPath(), payload.fileName)
+      return deleteBackupAtPath(lib.getLibraryPath(), selectedBackupFile(lib, payload.fileName))
     })
   })
 

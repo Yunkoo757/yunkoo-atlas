@@ -5,7 +5,7 @@ import path from 'node:path'
 import initSqlJs from 'sql.js'
 import { DEFAULT_SYMBOL_CATALOG } from '../../src/lib/symbolIconCodec'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
-import { createVerifiedBackup, deleteBackupAtPath, restoreBackupAtPath, verifyBackupAtPath, writeLibraryBackup } from './backup'
+import { createVerifiedBackup, deleteBackupAtPath, listBackups, restoreBackupAtPath, verifyBackupAtPath, writeLibraryBackup } from './backup'
 import { restoreLibraryBackup } from './backupRestore'
 import { LibraryOperationGate } from './sessionGate'
 import { LibraryStorage, SnapshotSaveError } from './storage'
@@ -274,6 +274,32 @@ export async function testCreatedBackupReportsItsOwnDiskVerificationAndPreserves
     assert.ok(invalid?.error && fs.existsSync(invalid.path))
     f.first.exportSnapshotDatabaseBytes = () => { throw new Error('cannot create snapshot') }
     assert.equal(await createVerifiedBackup(f.first), null, '创建失败须与校验失败区分')
+  } finally { f.dispose() }
+}
+
+export async function testBackupListSelectionExpiresWhenTheSameDirectoryIsReopened() {
+  const f = await isolatedSession()
+  try {
+    const snapshot = createEmptyPersistedSnapshot()
+    f.first.saveSnapshot({ ...snapshot, tagPresets: ['historical'] })
+    assert.ok(writeLibraryBackup(f.first))
+    const [selected] = listBackups(f.first)
+    f.first.saveSnapshot({ ...snapshot, tagPresets: ['current'] })
+    await f.gate.runExclusive(async () => {
+      f.session.close(f.first)
+      await f.session.reopen()
+    })
+    const reopened = f.active()!
+    const [fresh] = listBackups(reopened)
+    assert.equal(fresh.name, selected.name)
+    assert.notEqual(fresh.lifecycleId, selected.lifecycleId)
+    const stale = await restoreLibraryBackup(selected, f.session)
+    assert.deepEqual(stale, { ok: false, committed: false, error: '备份列表已过期，请刷新后重试' })
+    assert.deepEqual(f.events, ['close', 'reopen'])
+    assert.deepEqual(reopened.loadSnapshot()?.tagPresets, ['current'])
+    const valid = await restoreLibraryBackup(fresh, f.session)
+    assert.ok(valid.ok)
+    assert.deepEqual(valid.snapshot.tagPresets, ['historical'])
   } finally { f.dispose() }
 }
 

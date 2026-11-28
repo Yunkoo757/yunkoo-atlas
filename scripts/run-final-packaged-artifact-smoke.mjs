@@ -581,7 +581,7 @@ async function runBridgeScenarios({
       const authoritative = await window.journalBridge.loadSnapshot()
       const backups = await window.journalBridge.listBackups()
       const backupVerification = backups[0]
-        ? await window.journalBridge.verifyBackup(backups[0].name)
+        ? await window.journalBridge.verifyBackup(backups[0])
         : null
       return { result, authoritative, backups, backupVerification }
     })

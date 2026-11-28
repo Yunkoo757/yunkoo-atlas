@@ -6,7 +6,7 @@ import { mock } from 'node:test'
 import { setImmediate } from 'node:timers/promises'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import { LibraryAutoBackup } from './autoBackup'
-import { listBackupsAtPath } from './backup'
+import { listBackups } from './backup'
 import { LibraryOperationGate } from './sessionGate'
 import { LibraryStorage } from './storage'
 
@@ -14,7 +14,7 @@ export async function testAutomaticBackupKeepsOriginalDeadlineUntilCandidateIsAc
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-isolated-backup-timer-'))
   const current = new LibraryStorage(path.join(root, 'active'))
   const candidate = new LibraryStorage(path.join(root, 'candidate'))
-  const count = (storage: LibraryStorage) => listBackupsAtPath(storage.getLibraryPath()).length
+  const count = (storage: LibraryStorage) => listBackups(storage).length
   const gate = new LibraryOperationGate()
   const interval = 15 * 60 * 1000
   let failures = 0

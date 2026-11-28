@@ -129,9 +129,29 @@ async function verifyConfigPublication(application, page, libraryPath, candidate
   return { recoveredAfterWriteError: true, unconfirmedWriteBlocked: blocked, reopenedCandidate: true }
 }
 
+async function verifyStaleBackupConfirmation(page) {
+  await page.evaluate(() => { location.hash = '/list' })
+  await page.waitForFunction(() => location.hash === '#/list' && !document.querySelector('.data-settings'))
+  const created = await page.evaluate(() => window.journalBridge.createVerifiedBackup())
+  assert.equal(created?.status, 'verified')
+  await page.evaluate(() => { location.hash = '/settings/data' })
+  await page.locator('summary').filter({ hasText: '查看备份' }).click()
+  const list = await page.evaluate(() => window.journalBridge.listBackups())
+  assert.equal(list[0].name, path.basename(created.path))
+  await page.getByRole('button', { name: '删除此备份' }).first().click()
+  const confirmation = page.getByRole('dialog', { name: '删除这个备份？' })
+  await confirmation.waitFor()
+  const reopened = await page.evaluate(selected => window.journalBridge.restoreBackup(selected), list[0])
+  assert.ok(reopened.ok)
+  await confirmation.getByRole('button', { name: '删除备份', exact: true }).click()
+  await page.getByText('删除失败，请重新选择备份', { exact: true }).waitFor()
+  assert.ok(fs.existsSync(created.path), '旧确认不得删除同路径重开后的同名备份')
+}
+
 export async function verifyCutoverReceipts({ application, page: workspace, libraryPath, candidatePath, userDataPath }) {
   // 界面阶段已完成真实恢复和接续保存。创建同一主进程的专用窗口，使旧界面的
   // beforeunload 自动保存与直接 IPC 验收相互独立。窗口仍加载相同受信入口与生产 preload。
+  await verifyStaleBackupConfirmation(workspace)
   const abandonedPreview = await workspace.evaluate(() => window.journalBridge.previewAssetPurge())
   const trustedUrl = workspace.url()
   const nextWindow = application.waitForEvent('window')
@@ -198,6 +218,8 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
   assert.equal(verification.status, backup.status)
   assert.equal(verification.checkedAt, backup.checkedAt)
   const { candidateBackup, ...receipts } = await page.evaluate(async ({ libraryPath, candidatePath, backupName }) => {
+    const listed = (await window.journalBridge.listBackups()).find(item => item.name === backupName)
+    if (!listed) throw new Error('创建回执未出现在原库备份列表')
     const bridge = window.journalBridge
     const previous = await bridge.loadSnapshot()
     const stale = await bridge.commitStageRollover({
@@ -206,9 +228,17 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
     })
     if (stale.ok || stale.reason !== 'stale') throw new Error('旧阶段请求须返回原有的拒绝原因')
     await bridge.saveSnapshot({ ...previous, tagPresets: ['before-backup-cutover'] })
-    const restored = await bridge.restoreBackup(backupName)
+    const restored = await bridge.restoreBackup(listed)
     if (!restored.ok || restored.snapshot.tagPresets[0] !== 'post-recovery-follow-up') throw new Error('备份恢复回执与快照不符')
     await bridge.saveSnapshot(restored.snapshot)
+    // 同路径恢复已重开实例，旧列表中的同名项不可继续操作。
+    for (const operation of [() => bridge.deleteBackup(listed), () => bridge.verifyBackup(listed)]) {
+      try { await operation() } catch (error) {
+        if (String(error).includes('备份列表已过期')) continue
+        throw error
+      }
+      throw new Error('同目录重开后接受了旧列表的备份操作')
+    }
 
     const prepared = await bridge.prepareJournalImport('receipt-check')
     if (!prepared.ok) throw new Error('隔离恢复归档应可预检')
@@ -248,5 +278,5 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
   assert.ok(staleSourceRejected, '回到相同路径的新实例后仍须拒绝原资料库的切换请求')
   const retention = await verifyRejectedSwitchPreservesBackups(page, libraryPath, candidatePath, userDataPath, candidateBackup)
   const location = await verifyConfigPublication(application, page, libraryPath, candidatePath, userDataPath)
-  return { ...receipts, retention, location, abandonedPreviewRejected: true, staleSourceRejected, switchDocumentChecked: true }
+  return { ...receipts, retention, location, staleBackupConfirmationRejected: true, abandonedPreviewRejected: true, staleSourceRejected, switchDocumentChecked: true }
 }

@@ -196,12 +196,12 @@ export function DataSettingsPanel({
     }
   }
 
-  const handleRestore = async (name: string) => {
+  const handleRestore = async (backup: BackupInfo) => {
     if (!electron) return
     setConfirmRequest(null)
-    setRestoring(name)
+    setRestoring(backup.name)
     try {
-      const result = await restoreLibraryBackup(name, async () => {
+      const result = await restoreLibraryBackup(backup, async () => {
         await Promise.all([refreshBackups(), refreshHealth()])
       })
       if (result.ok) toast('备份已恢复', { tone: 'success' })
@@ -214,11 +214,11 @@ export function DataSettingsPanel({
     }
   }
 
-  const handleVerify = async (name: string, quiet = false) => {
+  const handleVerify = async (backup: BackupInfo, quiet = false) => {
     if (!electron) return
-    setVerifying(name)
+    setVerifying(backup.name)
     try {
-      const result = await getJournalBridge()!.verifyBackup(name)
+      const result = await getJournalBridge()!.verifyBackup(backup)
       await refreshBackups()
       if (!quiet || result.status !== 'verified') {
         toast(
@@ -237,9 +237,11 @@ export function DataSettingsPanel({
   useEffect(() => {
     if (!electron || verifying !== null || restoring !== null) return
     const target = automaticVerificationTarget(backupListState, backups)
-    if (!target || automaticVerificationAttempts.current.has(target.name)) return
-    automaticVerificationAttempts.current.add(target.name)
-    void handleVerify(target.name, true)
+    if (!target) return
+    const key = `${target.lifecycleId}/${target.name}`
+    if (automaticVerificationAttempts.current.has(key)) return
+    automaticVerificationAttempts.current.add(key)
+    void handleVerify(target, true)
   }, [backupListState, backups, electron, restoring, verifying])
 
   const handleVerifyAll = async () => {
@@ -248,7 +250,7 @@ export function DataSettingsPanel({
     let invalidCount = 0
     try {
       for (const backup of backups) {
-        const result = await getJournalBridge()!.verifyBackup(backup.name)
+        const result = await getJournalBridge()!.verifyBackup(backup)
         if (result.status !== 'verified') invalidCount++
       }
       await refreshBackups()
@@ -264,11 +266,11 @@ export function DataSettingsPanel({
     }
   }
 
-  const handleDelete = async (name: string) => {
+  const handleDelete = async (backup: BackupInfo) => {
     if (!electron) return
     setConfirmRequest(null)
     try {
-      const deleted = await getJournalBridge()!.deleteBackup(name)
+      const deleted = await getJournalBridge()!.deleteBackup(backup)
       if (!deleted) {
         toast('备份不存在或已被删除', { tone: 'warning' })
         return
@@ -277,7 +279,8 @@ export function DataSettingsPanel({
       toast('备份已删除', { tone: 'success' })
     } catch (error) {
       reportDataSettingsFailure('删除备份失败', error)
-      toast('删除失败', { tone: 'error', persistent: false })
+      await refreshBackups()
+      toast('删除失败，请重新选择备份', { tone: 'error' })
     }
   }
 
@@ -300,7 +303,7 @@ export function DataSettingsPanel({
               {backupHealth.lastVerified && backupHealth.lastVerified.name !== backupHealth.latest?.name ? <small>最后可用备份：{fmtBackupTime(backupHealth.lastVerified.timestamp)}</small> : null}
             </div>
             {backupHealth.action === 'retry-load' ? <button type="button" className="dio-btn" onClick={() => void refreshBackups()}>重试读取</button> : null}
-            {backupHealth.action === 'verify-latest' && backupHealth.latest ? <button type="button" className="dio-btn" disabled={verifying !== null} onClick={() => void handleVerify(backupHealth.latest!.name)}>验证最新备份</button> : null}
+            {backupHealth.action === 'verify-latest' && backupHealth.latest ? <button type="button" className="dio-btn" disabled={verifying !== null} onClick={() => void handleVerify(backupHealth.latest!)}>验证最新备份</button> : null}
           </div>
 
           <div className="data-actions-row">
@@ -364,7 +367,7 @@ export function DataSettingsPanel({
                   <div className="backup-actions">
                     <button
                       className="dio-btn"
-                      onClick={() => handleVerify(b.name)}
+                      onClick={() => handleVerify(b)}
                       disabled={verifying !== null || restoring !== null}
                     >
                       <CheckCircle size={ICON_SM} />
@@ -515,8 +518,7 @@ export function DataSettingsPanel({
                 disabled={backing || (confirmRequest.kind === 'restore' && restoring !== null)}
                 onClick={() => {
                   const { kind, backup } = confirmRequest
-                  const name = backup.name
-                  void (kind === 'restore' ? handleRestore(name) : handleDelete(name))
+                  void (kind === 'restore' ? handleRestore(backup) : handleDelete(backup))
                 }}
               >
                 {confirmRequest.kind === 'restore' ? '用备份替换当前资料库' : '删除备份'}

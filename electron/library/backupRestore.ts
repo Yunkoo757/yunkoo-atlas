@@ -1,7 +1,7 @@
-import type { BackupRestoreResult, StorageRecoveryRequiredState } from '../../src/types/journalBridge'
+import type { BackupReference, BackupRestoreResult, StorageRecoveryRequiredState } from '../../src/types/journalBridge'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import { safeConsoleError } from '../diagnosticSanitizer'
-import { createVerifiedBackup, rotateBackups, withVerifiedBackup } from './backup'
+import { createVerifiedBackup, rotateBackups, selectedBackupFile, withVerifiedBackup } from './backup'
 import { getLibraryPaths } from './paths'
 import type { LibraryStorage } from './storage'
 import { withStorageRecoveryNotification } from './storageRecovery'
@@ -26,12 +26,13 @@ type RestoreReceipt =
   | Extract<BackupRestoreResult, { ok: false }>
   | (Extract<BackupRestoreResult, { ok: true }> & { revision: number })
 
-export async function restoreLibraryBackup(fileName: string, session: BackupRestoreSession): Promise<RestoreReceipt> {
+export async function restoreLibraryBackup(reference: BackupReference, session: BackupRestoreSession): Promise<RestoreReceipt> {
   // 仅本请求实际关闭旧实例后，renderer 才需要按可能已替换处理。
   let diskMayHaveChanged = false
   try {
     return await withStorageRecoveryNotification(() => session.withExclusiveWriter(async (current): Promise<RestoreReceipt> => {
       const libraryPath = current.getLibraryPath()
+      const fileName = selectedBackupFile(current, reference)
       return withVerifiedBackup(libraryPath, fileName, current.readManifest().libraryId, async (verification, install): Promise<RestoreReceipt> => {
         if (!install) return { ok: false, committed: false, error: verification.error }
         const safety = await createVerifiedRestorePoint(current)

@@ -8,8 +8,14 @@ import type { AssetPurgePreview, AssetPurgeRecovery, AssetPurgeResult } from '@/
 import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
 import type { CaseClipboardContent, CaseClipboardResult } from '@/lib/caseClipboardContract'
 
-export interface BackupInfo {
+export interface ListedBackupReference {
   name: string
+  lifecycleId: string
+}
+
+export type BackupReference = string | ListedBackupReference
+
+export interface BackupInfo extends ListedBackupReference {
   timestamp: number
   size: number
   tradeCount?: number
@@ -188,9 +194,9 @@ export interface JournalBridge {
   createBackup(): Promise<string | null>
   createVerifiedBackup(): Promise<CreatedBackupVerification | null>
   listBackups(): Promise<BackupInfo[]>
-  verifyBackup(fileName: string): Promise<BackupVerificationResult>
-  restoreBackup(fileName: string): Promise<BackupRestoreResult>
-  deleteBackup(fileName: string): Promise<boolean>
+  verifyBackup(reference: BackupReference): Promise<BackupVerificationResult>
+  restoreBackup(reference: BackupReference): Promise<BackupRestoreResult>
+  deleteBackup(reference: BackupReference): Promise<boolean>
   getBackupStats(): Promise<{ count: number; totalSize: number }>
   getWindowState(): Promise<WindowFrameState | null>
   applyWindowPreset(

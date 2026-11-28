@@ -7,7 +7,7 @@ import { getElectronAdapter } from '@/storage/electronAdapter'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
 import { storageDocumentSignal, suspendPersist } from '@/storage/persist'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
-import type { CommitJournalImportResult } from '@/types/journalBridge'
+import type { BackupReference, CommitJournalImportResult } from '@/types/journalBridge'
 
 type RestoreSource = 'backup' | 'desktop-archive' | 'web-archive'
 
@@ -82,10 +82,10 @@ export async function commitPreparedJournalArchive(token: string): Promise<Resto
   return restoreCurrentLibrary('desktop-archive', () => bridge.commitPreparedJournalImport(token))
 }
 
-export async function restoreLibraryBackup(name: string, afterPublish: () => Promise<void>): Promise<RestoreOutcome> {
+export async function restoreLibraryBackup(reference: BackupReference, afterPublish: () => Promise<void>): Promise<RestoreOutcome> {
   const bridge = getJournalBridge()
   if (!bridge) return { ok: false, error: 'Electron bridge is not available' }
-  return restoreCurrentLibrary('backup', () => bridge.restoreBackup(name), afterPublish)
+  return restoreCurrentLibrary('backup', () => bridge.restoreBackup(reference), afterPublish)
 }
 
 export async function restoreWebJournalArchive(archive: ParsedWebJournalArchive): Promise<{ summary: string }> {

@@ -1,4 +1,4 @@
-import type { BackupInfo, BackupVerificationResult, CreatedBackupVerification } from '../../src/types/journalBridge'
+import type { BackupInfo, BackupReference, BackupVerificationResult, CreatedBackupVerification } from '../../src/types/journalBridge'
 import { sha256File } from './fileChecksum'
 import { backupAttachmentEntries, readBackupMetadata, recordBackupVerification, tryReadBackupMeta, type BackupMeta } from './backupMetadata'
 import fs from 'node:fs'
@@ -216,8 +216,15 @@ export function getBackupStatsAtPath(libraryPath: string): { count: number; tota
   }
 }
 
-export function listBackupsAtPath(libraryPath: string): BackupInfo[] {
-  const { backups } = getLibraryPaths(libraryPath)
+export function selectedBackupFile(storage: LibraryStorage, reference: BackupReference): string {
+  if (typeof reference === 'string') return reference
+  if (reference.lifecycleId !== storage.getLifecycleId()) throw new Error('备份列表已过期，请刷新后重试')
+  return reference.name
+}
+
+export function listBackups(storage: LibraryStorage): BackupInfo[] {
+  const { backups } = storage.getPaths()
+  const lifecycleId = storage.getLifecycleId()
   if (!fs.existsSync(backups)) return []
 
   return fs
@@ -228,6 +235,7 @@ export function listBackupsAtPath(libraryPath: string): BackupInfo[] {
       const stat = fs.statSync(fp)
       const info: BackupInfo = {
         name: f,
+        lifecycleId,
         timestamp: parseTimestampFromName(f) || stat.mtimeMs,
         size: stat.size,
       }
