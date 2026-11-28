@@ -4,8 +4,8 @@ import path from 'node:path'
 import { EventEmitter } from 'node:events'
 import { DEFAULT_DISPLAY } from '../../src/lib/tradeFilters'
 import { SCHEMA_VERSION, type PersistedSnapshot } from '../../src/storage/types'
+import { isSameDirectory } from './paths'
 import {
-  isSameLibraryPath,
   openValidatedLibraryCandidate,
   reloadRendererAfterStorageRecovery,
   recoverLibraryStorageLifecycle,
@@ -105,7 +105,7 @@ export async function testWindowsJunctionAliasIsRecognizedAsTheActiveLibrary(): 
     await openValidatedLibraryCandidate(candidate)
 
     assert(
-      isSameLibraryPath(source, candidate.getLibraryPath()),
+      isSameDirectory(source.getLibraryPath(), candidate.getLibraryPath()),
       '同一交易库的 Windows junction 别名必须被识别为当前库，不能进入切换流程',
     )
   } finally {

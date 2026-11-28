@@ -1,26 +1,7 @@
-import fs from 'node:fs'
-import path from 'node:path'
 import type { EventEmitter } from 'node:events'
 import type { SnapshotEnvelope } from '../../src/storage/adapter'
 import type { PersistedSnapshot } from '../../src/storage/types'
 import { LibraryStorage } from './storage'
-
-function canonicalLibraryPath(libraryPath: string): string {
-  const resolved = path.resolve(libraryPath)
-  const canonical = (() => {
-    try {
-      return fs.realpathSync.native(resolved)
-    } catch {
-      return resolved
-    }
-  })()
-  const normalized = path.normalize(canonical)
-  return process.platform === 'win32' ? normalized.toLowerCase() : normalized
-}
-
-export function isSameLibraryPath(storage: LibraryStorage, libraryPath: string): boolean {
-  return canonicalLibraryPath(storage.getLibraryPath()) === canonicalLibraryPath(libraryPath)
-}
 
 /**
  * 候选库只有在清单与完整快照均可读取后才能进入激活阶段。

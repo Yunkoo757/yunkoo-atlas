@@ -15,7 +15,7 @@ import { safeConsoleError } from '../diagnosticSanitizer'
 import { JournalImportPreviews } from './journalImportPreviews'
 import { LibraryStorage } from './storage'
 import { exportJournalZip, installPreparedLibraryAtPath } from './journalZip'
-import { ensureLibraryDirs } from './paths'
+import { ensureLibraryDirs, isSameDirectory } from './paths'
 import {
   getLibraryLocationState,
   getValidatedLibraryLocation,
@@ -36,7 +36,6 @@ import { LibraryBusyError, LibraryOperationGate } from './sessionGate'
 import { LibraryAutoBackup } from './autoBackup'
 import { LibraryWriterSessions, type WriterGrant } from './writerSession'
 import {
-  isSameLibraryPath,
   openValidatedLibraryCandidate,
   reloadRendererAfterStorageRecovery,
   recoverLibraryStorageLifecycle,
@@ -461,7 +460,7 @@ async function recoverActiveStorageLifecycle(
       const location = await getValidatedLibraryLocation()
       if (location.kind === 'unset') throw new Error('尚未配置交易库')
       if (location.kind !== 'ready') throw libraryLocationError(location)
-      if (current && !isSameLibraryPath(current, location.resolvedPath)) {
+      if (current && !isSameDirectory(current.getLibraryPath(), location.resolvedPath)) {
         throw new Error('活动资料库路径在恢复期间发生变化，已阻止替换 storage')
       }
 

@@ -4,7 +4,7 @@ import { backupAttachmentEntries, readBackupMetadata, recordBackupVerification, 
 import fs from 'node:fs'
 import path from 'node:path'
 import type { LibraryStorage } from './storage'
-import { ensureLibraryDirs, getLibraryPaths } from './paths'
+import { ensureLibraryDirs, getLibraryPaths, isSameDirectory } from './paths'
 import { writeFileAtomicallySync } from './atomicFile'
 import { LibraryInspectionError, validateDesktopLibrary, type LibraryDatabaseInspection } from './libraryInspection'
 import { safeConsoleError } from '../diagnosticSanitizer'
@@ -234,10 +234,20 @@ export function listBackupsAtPath(libraryPath: string): BackupInfo[] {
     .sort((a, b) => b.timestamp - a.timestamp)
 }
 
+// 列表提供本库的文件名，创建回执提供完整路径。后者必须仍属于当前库。
+function resolveBackupReference(backups: string, reference: string): string | null {
+  const name = path.basename(reference)
+  if (!name || name === '.' || name === '..') return null
+  if (reference !== name && !(path.isAbsolute(reference) && isSameDirectory(path.dirname(reference), backups))) {
+    return null
+  }
+  return path.join(backups, name)
+}
+
 export function deleteBackupAtPath(libraryPath: string, fileName: string): boolean {
   const { backups } = getLibraryPaths(libraryPath)
-  const fp = path.join(backups, path.basename(fileName))
-  if (!fs.existsSync(fp)) return false
+  const fp = resolveBackupReference(backups, fileName)
+  if (!fp || !fs.existsSync(fp)) return false
   deleteBackupFiles(fp)
   pruneBackupAssetVault(backups)
   return true
@@ -293,9 +303,9 @@ export async function withVerifiedBackup<T>(
   expectedLibraryId: string | undefined,
   use: (verification: BackupVerificationResult, install?: InstallBackup) => T | Promise<T>,
 ): Promise<T> {
-  const dbPath = path.join(getLibraryPaths(libraryPath).backups, path.basename(fileName))
+  const dbPath = resolveBackupReference(getLibraryPaths(libraryPath).backups, fileName)
   const checkedAt = Date.now()
-  if (!fs.existsSync(dbPath)) return use({ status: 'invalid', checkedAt, error: '恢复点文件不存在' })
+  if (!dbPath || !fs.existsSync(dbPath)) return use({ status: 'invalid', checkedAt, error: '恢复点文件不存在' })
   const verificationRoot = fs.mkdtempSync(path.join(libraryPath, '.backup-verify-'))
   try {
     let inspection: LibraryDatabaseInspection | undefined
@@ -346,8 +356,8 @@ export function restoreBackupAtPath(
   fileName: string,
   cleanDatabaseBytes: (bytes: Buffer) => Buffer = bytes => bytes,
 ): boolean {
-  const dbPath = path.join(getLibraryPaths(libraryPath).backups, path.basename(fileName))
-  if (!fs.existsSync(dbPath)) return false
+  const dbPath = resolveBackupReference(getLibraryPaths(libraryPath).backups, fileName)
+  if (!dbPath || !fs.existsSync(dbPath)) return false
   const stagingRoot = fs.mkdtempSync(path.join(libraryPath, '.backup-restore-staging-'))
   try {
     installBackupCandidate(libraryPath, stageBackupFiles(dbPath, stagingRoot, readBackupMetadata(dbPath).value), cleanDatabaseBytes)

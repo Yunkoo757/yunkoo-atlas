@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import type { LibrarySwitchMode } from '../../src/types/journalBridge'
-import { isSameLibraryPath, openValidatedLibraryCandidate } from './libraryActivation'
+import { isSameDirectory } from './paths'
+import { openValidatedLibraryCandidate } from './libraryActivation'
 import { LibraryIdentityMismatchError } from './libraryIdentity'
 import { getLibraryPaths } from './paths'
 import type { LibraryStorage } from './storage'
@@ -22,7 +23,7 @@ function resolveTarget(selection: Selection, source: LibraryStorage | null): str
   } else if (selection.mode !== 'open' || !fs.existsSync(manifestFile)) {
     throw new Error('所选目录中没有找到交易库 (manifest.json)')
   }
-  if (source && isSameLibraryPath(source, root)) throw new Error('所选目录已经是当前交易库')
+  if (source && isSameDirectory(source.getLibraryPath(), root)) throw new Error('所选目录已经是当前交易库')
   return root
 }
 

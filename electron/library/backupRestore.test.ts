@@ -5,7 +5,7 @@ import path from 'node:path'
 import initSqlJs from 'sql.js'
 import { DEFAULT_SYMBOL_CATALOG } from '../../src/lib/symbolIconCodec'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
-import { writeLibraryBackup } from './backup'
+import { deleteBackupAtPath, restoreBackupAtPath, verifyBackupAtPath, writeLibraryBackup } from './backup'
 import { restoreLibraryBackup } from './backupRestore'
 import { LibraryOperationGate } from './sessionGate'
 import { LibraryStorage, SnapshotSaveError } from './storage'
@@ -251,6 +251,36 @@ export async function testBackupWithMatchingChecksumAndUnreadableRevisionCannotR
     assert.equal(f.active()?.getSnapshotRevision(), 2)
     assert.deepEqual(f.active()?.loadSnapshot()?.tagPresets, ['active'])
   } finally { f.dispose() }
+}
+
+export async function testForeignBackupReferenceCannotSelectALocalBackupWithTheSameName() {
+  const source = await isolatedSession()
+  const current = await isolatedSession()
+  try {
+    const snapshot = createEmptyPersistedSnapshot()
+    const timestamp = Date.UTC(2024, 0, 1)
+    source.first.saveSnapshot({ ...snapshot, tagPresets: ['source'] })
+    current.first.saveSnapshot({ ...snapshot, tagPresets: ['earlier'] })
+    const foreign = writeLibraryBackup(source.first, timestamp)
+    const local = writeLibraryBackup(current.first, timestamp)
+    assert.ok(foreign && local)
+    assert.equal(path.basename(foreign), path.basename(local))
+    current.first.saveSnapshot({ ...snapshot, tagPresets: ['current'] })
+    const sidecar = fs.readFileSync(local + '.meta.json')
+    const verification = await verifyBackupAtPath(current.root, foreign, current.first.readManifest().libraryId)
+    const restored = await restoreLibraryBackup(foreign, current.session)
+    assert.deepEqual([verification.status, restored.ok, restored.committed], ['invalid', false, false],
+      '带库路径的回执不得验证或恢复另一库的同名备份')
+    assert.deepEqual(current.events, [])
+    assert.deepEqual(fs.readFileSync(local + '.meta.json'), sidecar)
+    assert.equal(restoreBackupAtPath(current.root, foreign), false)
+    assert.equal(deleteBackupAtPath(current.root, foreign), false)
+    assert.ok(fs.existsSync(local) && fs.existsSync(foreign))
+    assert.deepEqual(current.first.loadSnapshot()?.tagPresets, ['current'])
+    for (const reference of [path.basename(local), local]) {
+      assert.equal((await verifyBackupAtPath(current.root, reference)).status, 'verified')
+    }
+  } finally { current.dispose(); source.dispose() }
 }
 
 export async function testBackupFromAnotherLibraryCannotReplaceActiveLibraryIdentity() {

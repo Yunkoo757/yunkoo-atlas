@@ -2,6 +2,19 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { ensureManagedDirectory } from './managedPaths'
 
+function canonicalDirectory(directory: string): string {
+  const resolved = path.resolve(directory)
+  try {
+    return fs.realpathSync.native(resolved)
+  } catch {
+    return resolved
+  }
+}
+
+export function isSameDirectory(left: string, right: string): boolean {
+  return path.relative(canonicalDirectory(left), canonicalDirectory(right)) === ''
+}
+
 export function getLibraryPaths(libraryPath: string): {
   root: string
   attachments: string
