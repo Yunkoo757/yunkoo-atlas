@@ -1,5 +1,5 @@
 import type { PersistencePause } from '@/storage/persistenceController'
-import type { StorageAdapter } from '@/storage/adapter'
+import type { LibraryImportOptions, StorageAdapter } from '@/storage/adapter'
 import { lockStorageCutoverInteraction } from '@/storage/cutover'
 import {
   disablePersistWrites, flushPersistNow,
@@ -27,7 +27,8 @@ function durablePublishFailure(cause: unknown): DurableStorePublishError {
 }
 
 interface BatchWriter {
-  commit(snapshot: PersistedSnapshot): Promise<void>
+  readonly diskAhead: boolean
+  commit(snapshot: PersistedSnapshot, options?: LibraryImportOptions): Promise<void>
   compensate(snapshot: PersistedSnapshot): Promise<void>
 }
 
@@ -35,13 +36,18 @@ interface TradeBatchOptions {
   storage: Pick<StorageAdapter, 'commitImport'>
   assets: ExportAssetRecord[]
   beforeCommit: () => Promise<void>
-  source: 'NotionImport' | 'TradeComposer'
+  source: 'NotionImport' | 'TradeComposer' | 'JsonImport'
+}
+
+interface BatchOutcome<Result> {
+  result: Result
+  finalSave: 'already-persisted' | 'best-effort' | 'required'
 }
 
 /** 录入或导入一批交易与附件。提交后发布失败时，禁止旧内存覆盖已写入的数据。 */
 export async function commitTradeBatch<Result extends object>(
   options: TradeBatchOptions,
-  apply: (writer: BatchWriter) => Promise<{ result: Result; hasConcurrentChanges: boolean }>,
+  apply: (writer: BatchWriter) => Promise<BatchOutcome<Result>>,
 ): Promise<Result & { trailingSaveFailed: boolean }> {
   const unlock = lockStorageCutoverInteraction()
   const report = (message: string, error: unknown) => console.error(`[${options.source}] ${message}`, error)
@@ -72,11 +78,12 @@ export async function commitTradeBatch<Result extends object>(
     const pause = suspendPersist()
     let diskAhead = false
     let compensated = false
-    let outcome: { result: Result; hasConcurrentChanges: boolean }
+    let outcome: BatchOutcome<Result>
     try {
       outcome = await apply({
-        async commit(snapshot) {
-          await options.storage.commitImport(snapshot, options.assets)
+        get diskAhead() { return diskAhead },
+        async commit(snapshot, commitOptions) {
+          await options.storage.commitImport(snapshot, options.assets, commitOptions)
           diskAhead = true
         },
         async compensate(snapshot) {
@@ -102,7 +109,9 @@ export async function commitTradeBatch<Result extends object>(
       throw error
     }
 
-    if (outcome.hasConcurrentChanges) {
+    if (outcome.finalSave === 'required') {
+      await pause.resumeAndFlush()
+    } else if (outcome.finalSave === 'best-effort') {
       try {
         await resumeAndSave(pause)
       } catch (error) {

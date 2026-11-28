@@ -173,7 +173,7 @@ export async function commitNotionImportBatch(
 
     return {
       result: { importedTrades: committedImportedTrades, newStrategies, imageCount: prepared.assets.length },
-      hasConcurrentChanges: !unchanged,
+      finalSave: unchanged ? 'already-persisted' : 'best-effort',
     }
   })
 }

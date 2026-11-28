@@ -6,8 +6,8 @@
 
 | 工作对象 | 入口、状态所有者和修改位置 | 契约与验证 |
 | --- | --- | --- |
-| 实盘、模拟、回测、案例 | `src/data/trades.ts` 定义记录。交易真值由 `tradeTruth` 解释，生命周期见 `tradeStatus`、`tradeTransition`；回测按 `backtestProjects` 的项目边界计算 | 财务计算、风险门与回测项目各有行为测试。历史交易日取决于资料库换日设置 |
-| 阶段、风险、复盘 | `liveStages`、`riskBudget`、`tradeOpenRiskGate` 形成决策，`riskGatedTradeOpenCommit` 提交并发布；`src/data/weeklyReviews.ts`、`src/lib/reviewSession.ts` 承载周期与随机复盘 | 阶段归属、冻结证据、风险确认和周复盘测试 |
+| 实盘、模拟、回测、案例 | `src/data/trades.ts` 定义记录。元数据定义类型与状态，活动结构在同一模块校验。交易真值由 `tradeTruth` 解释，生命周期见 `tradeStatus`、`tradeTransition`；回测按 `backtestProjects` 的项目边界计算 | 财务计算、风险门与回测项目各有行为测试。历史交易日取决于资料库换日设置 |
+| 阶段、风险、复盘 | `liveStages`、`riskBudget`、`tradeOpenRiskGate` 形成决策，`riskGatedTradeOpenCommit` 提交并发布；`src/data/weeklyReviews.ts`、`src/lib/reviewSession.ts` 承载周期与随机复盘，`weeklyReviewTradeReferences` 定义本周标记与冻结来源 | 阶段归属、冻结证据、风险确认和周复盘测试 |
 | 页面和输入 | `App.tsx` 组合路由与全局交互，`views` 和 `components` 消费 store、领域规则；编辑器位于 `src/editor`，快捷键作用域与绑定规则位于 `src/shortcuts` | 设计来源依次为 tokens、global CSS、公共组件和局部布局；组件交互用 renderer 测试、Electron 实机验证 |
 | 运行状态 | Zustand `useStore` 管理业务集合及部分临时 UI；`shortcutStore` 管理快捷键，`saveStatus` 只描述写入状态。表单本地草稿、路由筛选、持久化视图偏好具有不同生存期 | `persistedKeys` 约束快照字段，`pickPersisted` 投影，`snapshotToRuntimeState` 水合 |
 | 保存与并发 | `bootstrap` 安装订阅；`persistedSnapshotCoordinator` 过滤无修改发布；`persistenceController` 排队写入；`cutover` 协调切库交互。正文草稿由 `noteDrafts` 按记录持有 | CAS 修订、批次提交、草稿刷新、恢复与失败补偿分别有测试。store 引用版本和数据库 revision 属于不同时间点 |
@@ -49,7 +49,7 @@ flowchart LR
 | 概念 | 权威实现 | 保留的边界 |
 | --- | --- | --- |
 | 交易写入与复盘 | `tradeUpsert` 处理单条及批量写入，`tradeResult` 处理结果与复盘重开，`tradeWorkflow` 判定日志待完善、详情待复盘与同序列下一条 | 工作台范围由日志筛选决定，正文是否写好和用户是否已确认复盘可以不同 |
-| 并发与恢复 | `persistedRevision` 比较状态引用，`committedPublish` 管理批次提交与补偿，`persistenceController` 按调用方一次性归还保存暂停 | 同库恢复由 `libraryRestore` 负责，切库候选激活由 `librarySwitch` 负责，二者共用切换状态不确定时的禁写与恢复处理 |
+| 并发与恢复 | `persistedRevision` 比较状态引用，`committedPublish` 管理 JSON、Notion 和交易录入的批次提交、补偿与发布失败恢复，`persistenceController` 按调用方一次性归还保存暂停 | 同库恢复由 `libraryRestore` 负责，切库候选激活由 `librarySwitch` 负责，二者共用切换状态不确定时的禁写与恢复处理 |
 | 资料库与附件 | `libraryDatabase` 负责 SQLite 建表、版本选择和附件索引可移植性，`assetPurge` 解释构建与运行开关，`libraryFiles` 负责离线副本交付 | 目录权限属于平台。离线工具保存当前编辑副本，数据库摘要只要求于带该字段的恢复记录 |
 | 快捷键覆盖 | `bindingRules` 决定哪些绑定偏离出厂值，快照调度与覆盖导出共用 `storedBindingsEqual` | 单次按键、按序列触发和显式禁用分别保存。系统热键注册仍归桌面管理，绑定中附带的扩展字段保留 |
 | 快照写入与导出 | `snapshotProjection` 按活跃字段注册表取值，自动保存和可移植快照共用字段选择 | 自动保存保持业务引用并检查当前阶段。文件导出补齐历史缺省值、复制阶段和排除界面状态。工作流负责附件读取与提交 |
@@ -151,6 +151,7 @@ flowchart LR
 | 已完成 | 合并导入先建立一对一的来源与目标交易索引，交易、案例、周复盘及上周承诺证据按同一张表改写。证据保留原始编号与品种 | 同 ID 的两笔交易曾使承诺链接打开本地另一笔交易；两个来源同落一个目标还会丢交易。正反输入顺序均拒绝冲突，重复导入使用原有稳定 ID |
 | 已完成 | 周复盘的三组标记及冻结交易引用由独立领域模块读取。阶段迁移按交易 ID 与政策 ID 索引，待归属修复、快照校验、回收站、复盘页及两个整理工具使用同一组字段 | 保留标记顺序与重复项、草稿清理及已完成复盘的保护。风险覆盖仍须独立核对冻结身份与政策；上周承诺可在来源删除后显示，不参与本周归属 |
 | 已完成 | JSON 合并导入统一按候选是否已写盘且尚未发布决定补偿。后续冲突、重新合并及再次写入失败时，整批使用最新本地快照核对本次附件 | 首次写盘期间完成同一周的不同复盘，旧实现重试报错后没有清理已写的候选附件。用真实 SQLite 分别复现复盘冲突和第二次写入失败。重开后旧版各留一份孤儿原图，新版均为零；本地冻结时间、并发标签及错误保留 |
+| 已完成 | JSON、Notion 与录入器共用 committedPublish 管理批次落盘、补偿、界面发布及暂停归还。JSON 按原合同等待末次保存，重算失败可以补偿，发布失败时保留磁盘候选 | 注入 Store 发布故障时，旧 JSON 流程会用旧快照再次提交；注入补偿故障后还会自动写盘。三种入口共用发布失败回归，JSON 的并发重算和附件恢复另经隔离 SQLite 重开核对 |
 | 待产品确认 | 新阶段从周中开始时，当周复盘写入磁盘后可能进入待归属；当前阶段页重开时显示空白 | macOS 单阶段隔离库从 2026-11-28 开始，11-23 至 11-29 的记录保留正文而 liveStageId 为 null。整周归属校验与写入端一致；首周是否允许部分归属或显式引导到待归属列表，需要产品决定 |
 | 持续审计 | IPC 的运行时参数、窗口身份、文件选择授权与独立训练器的主框架检查依赖各自运行上下文 | 逐项核对公开契约与真实调用方。缩小旧格式支持、改动数据格式或平台支持需单独确认 |
 

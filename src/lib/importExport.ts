@@ -1,6 +1,6 @@
 import { downloadBlob } from './downloadBlob'
 import { sha256Hex } from '@/lib/sha256'
-import type { PersistencePause } from '@/storage/persistenceController'
+import { commitTradeBatch } from '@/lib/committedPublish'
 import { collectRetiredSnapshotAssetIds, stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
 import { useStore } from '@/store/useStore'
 import { buildPortableSnapshotFromState, type PortableSnapshotState } from '@/storage/snapshotProjection'
@@ -8,20 +8,14 @@ import { useShortcutStore } from '@/store/shortcutStore'
 import { collectAssetIdsFromSnapshot } from '@/storage/snapshotRichText'
 import { getStorage } from '@/storage/provider'
 import type { ExportAssetRecord } from '@/storage/types'
-import {
-  flushPersistNow,
-  suspendPersist,
-} from '@/storage/persist'
+import { flushPersistNow } from '@/storage/persist'
 import { isElectron, getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
 import { beginWebOperation } from '@/storage/webOperationLogger'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
 import { SCHEMA_VERSION } from '@/storage/types'
 import { isSafeAssetId } from '@/storage/assetId'
-import {
-  flushStorageBeforeCutover,
-  lockStorageCutoverInteraction,
-} from '@/storage/cutover'
+import { flushStorageBeforeCutover } from '@/storage/cutover'
 import { waitForPendingStorageOperations } from '@/storage/pendingOperations'
 import { applyNoteDraftsToSnapshot } from '@/storage/noteDrafts'
 import { RECOVERY_MISSING_DRAFT_ASSET_PREFIX } from '@/storage/assets'
@@ -694,77 +688,65 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
   const storage = getStorage()
   const payloadDigest = await sha256CanonicalImportPayload(payload)
   const prepared = prepareImportPayloadForCommit(payload)
-  const unlockInteraction = lockStorageCutoverInteraction()
-  let pause: PersistencePause | undefined
-  let unpublishedCommit = false
-  try {
-    await flushStorageBeforeCutover()
-    pause = suspendPersist()
-    let revision = capturePersistedStateRevision()
-    const importedTradeBaseline = captureImportedTradeBaseline(
-      revision,
-      prepared.payload,
-      payloadDigest,
-      payload,
-    )
-    while (true) {
-      const immutableRiskBaseline = captureImmutableRiskImportBaseline(
-        revision.state,
+  const { summary } = await commitTradeBatch({
+    storage, assets: prepared.assets, beforeCommit: flushStorageBeforeCutover, source: 'JsonImport',
+  }, async writer => {
+    let snapshot: PersistedSnapshot
+    try {
+      let revision = capturePersistedStateRevision()
+      const importedTradeBaseline = captureImportedTradeBaseline(
+        revision,
         prepared.payload,
+        payloadDigest,
+        payload,
       )
-      const snapshot = buildImportSnapshot(revision, prepared.payload, payloadDigest, payload)
-      await storage.commitImport(snapshot, prepared.assets, { pruneUnreferenced: true })
-      unpublishedCommit = true
+      while (true) {
+        const immutableRiskBaseline = captureImmutableRiskImportBaseline(
+          revision.state,
+          prepared.payload,
+        )
+        snapshot = buildImportSnapshot(revision, prepared.payload, payloadDigest, payload)
+        await writer.commit(snapshot, { pruneUnreferenced: true })
 
-      const latest = capturePersistedStateRevision()
-      if (hasSamePersistedStateRevision(revision, latest)) {
-        // 读取、合并与 setState 之间没有 await；不会再让用户事件插入并被整体快照覆盖。
-        applySnapshotToStore(snapshot)
-        unpublishedCommit = false
-        break
-      }
-      const tradeConflict = findConcurrentImportedTradeConflict(importedTradeBaseline, latest)
-      const immutableRiskConflict = findConcurrentImmutableRiskConflict(
-        immutableRiskBaseline,
-        latest.state,
-        prepared.payload,
-      )
-      if (immutableRiskConflict && !tradeConflict) {
-        throw new OperationalError(
-          'import-immutable-entity-conflict',
-          `导入已取消：检测到${immutableRiskConflict.label} ${immutableRiskConflict.id} 在等待期间出现同 ID 异内容的本地更新；最新本地内容已保留，请重新导入。`,
+        const latest = capturePersistedStateRevision()
+        if (hasSamePersistedStateRevision(revision, latest)) break
+        const tradeConflict = findConcurrentImportedTradeConflict(importedTradeBaseline, latest)
+        const immutableRiskConflict = findConcurrentImmutableRiskConflict(
+          immutableRiskBaseline,
+          latest.state,
+          prepared.payload,
         )
+        if (immutableRiskConflict && !tradeConflict) {
+          throw new OperationalError(
+            'import-immutable-entity-conflict',
+            `导入已取消：检测到${immutableRiskConflict.label} ${immutableRiskConflict.id} 在等待期间出现同 ID 异内容的本地更新；最新本地内容已保留，请重新导入。`,
+          )
+        }
+        if (tradeConflict?.stableId) {
+          throw new Error(
+            `导入已取消：稳定导入交易 ID ${tradeConflict.id} 在等待期间被其他交易占用；最新本地内容已保留，请重新导入。`,
+          )
+        }
+        if (tradeConflict) {
+          throw new Error('导入已取消：检测到相同交易存在等待期间的本地编辑，本地内容已保留，请重新导入。')
+        }
+        revision = latest
       }
-      if (tradeConflict?.stableId) {
-        throw new Error(
-          `导入已取消：稳定导入交易 ID ${tradeConflict.id} 在等待期间被其他交易占用；最新本地内容已保留，请重新导入。`,
-        )
+    } catch (error) {
+      if (writer.diskAhead) {
+        const latest = capturePersistedStateRevision()
+        await writer.compensate(buildPortableSnapshotFromState(latest.state, latest.shortcutBindings))
       }
-      if (tradeConflict) {
-        throw new Error('导入已取消：检测到相同交易存在等待期间的本地编辑，本地内容已保留，请重新导入。')
-      }
-      revision = latest
+      throw error
     }
 
+    applySnapshotToStore(snapshot)
     const parts: string[] = [`${prepared.payload.trades.length} 笔交易`]
     if (prepared.assets.length > 0) parts.push(`${prepared.assets.length} 个附件`)
     parts.push('保留当前实盘阶段与历史阶段')
-    return { summary: `已导入 ${parts.join('、')}` }
-  } catch (error) {
-    if (unpublishedCommit) {
-      // 上次候选已写盘，冲突、重算或重试写入失败都须恢复最新本地快照与附件。
-      const latest = capturePersistedStateRevision()
-      const localSnapshot = buildPortableSnapshotFromState(latest.state, latest.shortcutBindings)
-      await storage.commitImport(localSnapshot, prepared.assets, { pruneUnreferenced: true })
-    }
-    throw error
-  } finally {
-    try {
-      await pause?.resumeAndFlush()
-    } finally {
-      unlockInteraction()
-    }
-  }
+    return { finalSave: 'required', result: { summary: `已导入 ${parts.join('、')}` } }
+  })
+  return { summary }
 }
 
 export async function exportJournalArchive(): Promise<{ ok: boolean; path?: string }> {
