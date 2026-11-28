@@ -129,7 +129,7 @@ async function verifyConfigPublication(application, page, libraryPath, candidate
   return { recoveredAfterWriteError: true, unconfirmedWriteBlocked: blocked, reopenedCandidate: true }
 }
 
-async function verifyStaleBackupConfirmation(page) {
+export async function verifyStaleBackupConfirmation(page) {
   await page.evaluate(() => { location.hash = '/list' })
   await page.waitForFunction(() => location.hash === '#/list' && !document.querySelector('.data-settings'))
   const created = await page.evaluate(() => window.journalBridge.createVerifiedBackup())
@@ -146,12 +146,13 @@ async function verifyStaleBackupConfirmation(page) {
   await confirmation.getByRole('button', { name: '删除备份', exact: true }).click()
   await page.getByText('删除失败，请重新选择备份', { exact: true }).waitFor()
   assert.ok(fs.existsSync(created.path), '旧确认不得删除同路径重开后的同名备份')
+  await page.evaluate(() => { location.hash = '/list' })
+  await page.waitForFunction(() => location.hash === '#/list' && !document.querySelector('.data-settings'))
 }
 
 export async function verifyCutoverReceipts({ application, page: workspace, libraryPath, candidatePath, userDataPath }) {
   // 界面阶段已完成真实恢复和接续保存。创建同一主进程的专用窗口，使旧界面的
   // beforeunload 自动保存与直接 IPC 验收相互独立。窗口仍加载相同受信入口与生产 preload。
-  await verifyStaleBackupConfirmation(workspace)
   const abandonedPreview = await workspace.evaluate(() => window.journalBridge.previewAssetPurge())
   const trustedUrl = workspace.url()
   const nextWindow = application.waitForEvent('window')
@@ -278,5 +279,5 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
   assert.ok(staleSourceRejected, '回到相同路径的新实例后仍须拒绝原资料库的切换请求')
   const retention = await verifyRejectedSwitchPreservesBackups(page, libraryPath, candidatePath, userDataPath, candidateBackup)
   const location = await verifyConfigPublication(application, page, libraryPath, candidatePath, userDataPath)
-  return { ...receipts, retention, location, staleBackupConfirmationRejected: true, abandonedPreviewRejected: true, staleSourceRejected, switchDocumentChecked: true }
+  return { ...receipts, retention, location, abandonedPreviewRejected: true, staleSourceRejected, switchDocumentChecked: true }
 }

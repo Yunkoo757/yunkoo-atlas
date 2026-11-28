@@ -6,7 +6,7 @@ import path from 'node:path'
 import initSqlJs from 'sql.js'
 import { _electron as electron } from 'playwright'
 
-import { verifyCutoverReceipts } from './fixtures/native-library-cutover.mjs'
+import { verifyCutoverReceipts, verifyStaleBackupConfirmation } from './fixtures/native-library-cutover.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
 import {
   assertRepositoryProvenanceUnchanged,
@@ -227,6 +227,8 @@ try {
     undefined,
     { timeout: 30_000 },
   )
+  // 先验收可见工作区。随后直写的恢复哨兵专用于检查主进程交接与原始数据库。
+  await verifyStaleBackupConfirmation(page)
   const seeded = await page.evaluate(async () => {
     const bridge = window.journalBridge
     if (!bridge) throw new Error('Electron bridge unavailable after bootstrap')
@@ -403,6 +405,7 @@ try {
     application, page, libraryPath, userDataPath, candidatePath: path.join(temporaryRoot, 'isolated-second-library'),
   })
   evidence = {
+    staleBackupConfirmationRejected: true,
     cutoverReceipts,
     version: 1,
     generatedAt: new Date().toISOString(),
