@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import ts from 'typescript'
 import { websiteCopyPlan } from '../atlas-website/public-files.mjs'
@@ -50,7 +51,9 @@ function resolveSpecifier(importer, specifier) {
   return specifier
 }
 
-const withoutExtension = value => value.replace(/\.[cm]?[jt]sx?$/, '')
+const codeExtension = /\.[cm]?[jt]sx?$/
+const declarationExtension = /\.d\.[cm]?ts$/
+const withoutExtension = value => value.replace(codeExtension, '')
 
 function matchesTarget(file, target, within) {
   const normalized = withoutExtension(target)
@@ -115,12 +118,15 @@ export function websiteDependencyGraph(root, files) {
 }
 
 /** 从入口追踪仓库内的运行时引用；即使中间文件位于其他交付物或工具目录也继续追踪。 */
-export function runtimeDependencyGraph(files, root, entryPoints) {
-  const localModules = new Set(files.filter(file => /\.[cm]?[jt]sx?$/.test(file) && !/\.d\.[cm]?ts$/.test(file)))
+export function runtimeDependencyGraph(files, directory, entryPoints) {
+  const root = realpathSync(directory)
+  const localModules = new Set(files.filter(file => codeExtension.test(file) && !declarationExtension.test(file)))
   const config = ts.readConfigFile(path.join(root, 'tsconfig.json'), ts.sys.readFile)
   if (config.error) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'))
   const { options, errors } = ts.convertCompilerOptionsFromJson(config.config.compilerOptions, root)
   if (errors.length) throw new Error(ts.flattenDiagnosticMessageText(errors[0].messageText, '\n'))
+  // 只查运行时实现，使相邻的 .d.ts 不会遮住真正加载的 JavaScript。
+  const host = { ...ts.sys, fileExists: file => !declarationExtension.test(file) && ts.sys.fileExists(file) }
   const cache = ts.createModuleResolutionCache(root, file => file, options)
   const pending = new Set(entryPoints)
   const graph = {}
@@ -132,12 +138,26 @@ export function runtimeDependencyGraph(files, root, entryPoints) {
       ? ts.transpileModule(source, { fileName: file, compilerOptions: options }).outputText
       : source
     const { eager, lazy } = moduleReferences(emitted, 'output.js')
-    function localPaths(specifiers) {
+    function localPaths(specifiers, requireFromFile) {
       const dependencies = new Set()
       for (const specifier of specifiers) {
-        const resolved = ts.resolveModuleName(specifier, absolute, options, ts.sys, cache).resolvedModule
-        if (!resolved) continue
-        const relative = path.relative(root, resolved.resolvedFileName).split(path.sep).join('/')
+        const local = /^(?:\.{1,2}(?:\/|$)|@\/)/.test(specifier)
+        let resolvedFile
+        if (requireFromFile && local) {
+          try {
+            resolvedFile = requireFromFile.resolve(specifier)
+          } catch (error) {
+            throw new Error(`无法解析本地 CommonJS 引用：${file} → ${specifier}`, { cause: error })
+          }
+        } else {
+          resolvedFile = ts.resolveModuleName(specifier, absolute, options, host, cache).resolvedModule?.resolvedFileName
+          if (!resolvedFile && local && !/[?#]/.test(specifier) &&
+              (codeExtension.test(specifier) || !path.posix.extname(specifier))) {
+            throw new Error(`无法解析本地运行时模块：${file} → ${specifier}`)
+          }
+        }
+        if (!resolvedFile) continue
+        const relative = path.relative(root, resolvedFile).split(path.sep).join('/')
         if (localModules.has(relative)) {
           dependencies.add(relative)
           pending.add(relative)
@@ -145,7 +165,8 @@ export function runtimeDependencyGraph(files, root, entryPoints) {
       }
       return [...dependencies].sort()
     }
-    graph[file] = { eager: localPaths(eager), lazy: localPaths(lazy) }
+    const requireFromFile = file.endsWith('.cjs') ? createRequire(absolute) : undefined
+    graph[file] = { eager: localPaths(eager, requireFromFile), lazy: localPaths(lazy) }
   }
   return graph
 }

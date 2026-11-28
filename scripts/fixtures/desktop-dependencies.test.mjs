@@ -64,3 +64,31 @@ test('运行时依赖图保留真实模块边并报告闭合的同步环', () =>
     fs.rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('运行时解析区分可执行源码、类型声明与资源，并报告未解析的本地代码', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-module-resolution-'))
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  fs.copyFileSync('tsconfig.json', path.join(root, 'tsconfig.json'))
+  const files = {
+    'main.cjs': "require('./paired.js'); require('node:fs')",
+    'paired.js': 'exports.value = 1',
+    'paired.ts': 'export const value = 2',
+    'view.ts': "import './style.css'; export * from './dep.js'; export const later = () => import('./later.mjs')",
+    'dep.js': 'export const value = 1',
+    'dep.d.ts': 'export declare const value: number',
+    'later.d.mts': 'export {}',
+    'later.mjs': 'export {}',
+    'broken.cjs': "require('./absent.cjs')",
+    'broken.ts': "export const later = () => import('@/absent')",
+    'declared.ts': "import './typesOnly.js'",
+    'typesOnly.d.ts': 'export {}',
+    'style.css': 'body {}',
+  }
+  for (const [file, source] of Object.entries(files)) fs.writeFileSync(path.join(root, file), source)
+  const from = entry => runtimeDependencyGraph(Object.keys(files), root, [entry])
+  assert.deepEqual(from('main.cjs')['main.cjs'], { eager: ['paired.js'], lazy: [] })
+  assert.deepEqual(from('view.ts')['view.ts'], { eager: ['dep.js'], lazy: ['later.mjs'] })
+  assert.throws(() => from('broken.cjs'), /broken\.cjs.*\.\/absent\.cjs/)
+  assert.throws(() => from('broken.ts'), /broken\.ts.*@\/absent/)
+  assert.throws(() => from('declared.ts'), /declared\.ts.*typesOnly\.js/)
+})
