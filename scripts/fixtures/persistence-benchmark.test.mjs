@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import { withQaBuildDirectory } from '../qa-build-directory.mjs'
 
 test('真实持久化门同时覆盖生产 IndexedDB、LibraryStorage 与 durable reload', () => {
   const runner = readFileSync('scripts/benchmark-persistence.mjs', 'utf8')
@@ -146,3 +150,24 @@ test('release 性能门冻结 10K/20K、5+30 采样、硬 SLO 与证据字段', 
   assert.match(runner, /maxPendingSnapshotCount > 1/)
 })
 // Quality-Scenario: P-10K/20K
+
+test('并行基准各自持有临时构建；失败收尾只清理本次文件', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'atlas-qa-build-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  const results = path.join(root, 'test-results')
+  const value = await withQaBuildDirectory(root, async first => {
+    assert.equal(path.dirname(first), results)
+    const entry = path.join(first, 'runner.mjs')
+    await writeFile(entry, 'first')
+    await assert.rejects(withQaBuildDirectory(root, async other => {
+      assert.equal(path.dirname(other), results)
+      assert.notEqual(other, first)
+      await writeFile(path.join(other, 'runner.mjs'), 'other')
+      throw new Error('fixture build failed')
+    }), /fixture build failed/)
+    assert.deepEqual(await readdir(results), [path.basename(first)])
+    return readFile(entry, 'utf8')
+  })
+  assert.equal(value, 'first')
+  assert.deepEqual(await readdir(results), [])
+})

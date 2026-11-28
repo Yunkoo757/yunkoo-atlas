@@ -4,6 +4,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { chromium } from 'playwright'
 import { build } from 'vite'
+import { withQaBuildDirectory } from './qa-build-directory.mjs'
 import { startQaServer } from './qa-vite-server.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
 import { checkPersistenceTiming } from './persistence-gate-policy.mjs'
@@ -162,23 +163,32 @@ async function runWebBenchmarks(datasets) {
   }
 }
 
-async function loadElectronBenchmarkModule() {
-  const outDir = path.join(root, '.tmp-persistence-benchmark')
-  await fs.rm(outDir, { recursive: true, force: true })
-  await build({
-    configFile: path.join(root, 'vite.config.ts'),
-    logLevel: 'error',
-    build: {
-      ssr: path.join(root, 'electron/library/persistenceBenchmark.ts'),
-      outDir,
-      emptyOutDir: true,
-      rolldownOptions: { output: { entryFileNames: 'runner.mjs' } },
-    },
+async function runElectronBenchmarks(datasets) {
+  return withQaBuildDirectory(root, async outDir => {
+    await build({
+      configFile: path.join(root, 'vite.config.ts'),
+      logLevel: 'error',
+      build: {
+        ssr: path.join(root, 'electron/library/persistenceBenchmark.ts'),
+        outDir,
+        emptyOutDir: true,
+        rolldownOptions: { output: { entryFileNames: 'runner.mjs' } },
+      },
+    })
+    const { runElectronPersistenceBenchmark } = await import(pathToFileURL(path.join(outDir, 'runner.mjs')).href)
+    const results = []
+    for (const dataset of datasets) {
+      results.push(await runElectronPersistenceBenchmark({
+        label: dataset.label,
+        snapshot: dataset.snapshot,
+        assets: dataset.assets,
+        expectedHash: dataset.expectedHash,
+        ...sampleConfig,
+        measureQuit: dataset.label === '10k',
+      }))
+    }
+    return results
   })
-  return {
-    module: await import(`${pathToFileURL(path.join(outDir, 'runner.mjs')).href}?t=${Date.now()}`),
-    cleanup: () => fs.rm(outDir, { recursive: true, force: true }),
-  }
 }
 
 const performanceWarnings = []
@@ -189,23 +199,7 @@ function checkGate(name, actual, limit, failures) {
 const datasets = [createDataset(10_000), createDataset(20_000)]
 const webRun = await runWebBenchmarks(datasets)
 const web = webRun.results
-const electronBundle = await loadElectronBenchmarkModule()
-let electron
-try {
-  electron = []
-  for (const dataset of datasets) {
-    electron.push(await electronBundle.module.runElectronPersistenceBenchmark({
-      label: dataset.label,
-      snapshot: dataset.snapshot,
-      assets: dataset.assets,
-      expectedHash: dataset.expectedHash,
-      ...sampleConfig,
-      measureQuit: dataset.label === '10k',
-    }))
-  }
-} finally {
-  await electronBundle.cleanup()
-}
+const electron = await runElectronBenchmarks(datasets)
 
 const failures = []
 const web10k = web.find((item) => item.label === '10k')

@@ -6,6 +6,7 @@ import path from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { build } from 'vite'
+import { withQaBuildDirectory } from './qa-build-directory.mjs'
 import { createAnalyticsSnapshot } from './fixtures/analytics-trades.mjs'
 
 // 全部数据均为内存夹具，不打开资料库。临时构建只位于当前仓库专用目录。
@@ -31,7 +32,6 @@ const sourceHashes = Object.fromEntries(await Promise.all(sourceFiles.map(async 
   file,
   createHash('sha256').update(await fs.readFile(path.join(root, file))).digest('hex'),
 ])))
-const temporary = await fs.mkdtemp(path.join(root, '.tmp-storage-hotpaths-'))
 const results = {
   generatedAt: new Date().toISOString(),
   runtime: { node: process.version, platform: process.platform, architecture: process.arch, cpu: os.cpus()[0]?.model },
@@ -42,7 +42,7 @@ const results = {
   scheduledNonPersistentChanges: 0,
 }
 
-try {
+await withQaBuildDirectory(root, async temporary => {
   const entry = path.join(temporary, 'entry.ts')
   await fs.writeFile(entry, [
     "export { applyTradeUpsertsToSlice } from '@/lib/tradeUpsert'",
@@ -118,11 +118,4 @@ try {
   await fs.writeFile(output, `${JSON.stringify(results, null, 2)}\n`, 'utf8')
   console.log(JSON.stringify(results, null, 2))
   console.log(`Report: ${output}`)
-} finally {
-  const resolved = path.resolve(temporary)
-  const relative = path.relative(root, resolved)
-  if (!relative.startsWith('.tmp-storage-hotpaths-') || relative.includes(path.sep) || path.isAbsolute(relative)) {
-    throw new Error(`Refusing to remove unexpected benchmark directory: ${resolved}`)
-  }
-  await fs.rm(resolved, { recursive: true, force: true })
-}
+})
