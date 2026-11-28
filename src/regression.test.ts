@@ -2414,7 +2414,7 @@ export async function testSymbolSettingsExposeOnlyTheFixedCuratedCatalog(): Prom
     '固定品种目录不得继续暴露删除入口',
   )
   assert(
-    source.includes('目录固定为 5 个品种') && source.includes('历史交易中的其他品种仍会保留'),
+    /目录固定(?:为)? 5 个品种/.test(source) && /历史交易中的其他品种(?:仍会|自动)保留/.test(source),
     '设置页必须明确说明目录收敛不会删除历史交易',
   )
 }
