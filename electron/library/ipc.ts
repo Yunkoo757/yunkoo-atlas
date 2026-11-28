@@ -65,7 +65,6 @@ import {
 } from './storageRecovery'
 import {
   matchesStagedJournalArchive,
-  matchesPreparedImportSource,
   recoverPreparedImportCommitFailure,
 } from './preparedImportSource'
 
@@ -260,6 +259,10 @@ function withStorage<T>(operation: (lib: LibraryStorage) => T | Promise<T>): Pro
     () => operationGate.run(async () => operation(await ensureStorage())),
     notifyStorageRecoveryRequired,
   )
+}
+
+function currentLibrary(): Promise<LibraryStorage> {
+  return withStorage(lib => lib)
 }
 
 // 诊断读取不能中断提交或抢在独占操作之前打开资料库。
@@ -730,8 +733,15 @@ export function registerLibraryIpc(): void {
     )
   })
 
-  ipcMain.handle('journal:exportZip', async () => {
-    const win = BrowserWindow.getFocusedWindow()
+  ipcMain.handle('journal:exportZip', async (event) => {
+    let source: LibraryStorage
+    try {
+      source = await currentLibrary()
+    } catch (error) {
+      beginOperation('archive', { stage: 'export' }).failure(error, { stage: 'export' })
+      throw error
+    }
+    const win = BrowserWindow.fromWebContents(event.sender)
     const date = new Date().toISOString().slice(0, 10)
     const options = {
       title: '导出交易库',
@@ -743,6 +753,7 @@ export function registerLibraryIpc(): void {
       : await dialog.showSaveDialog(options)
     if (result.canceled || !result.filePath) return { ok: false as const }
     return withLoggedExclusiveStorage('archive', 'export', 'export', async (lib, operation) => {
+      if (source !== lib) throw new Error('当前资料库已切换或重新打开，请重新导出')
       await exportJournalZip(lib, result.filePath!)
       operation.success({ stage: 'committed' })
       return { ok: true as const, path: result.filePath }
@@ -807,7 +818,7 @@ export function registerLibraryIpc(): void {
       }
       const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
       return result.canceled ? undefined : result.filePaths[0]
-    }, withStorage),
+    }, currentLibrary),
   )
   ipcMain.handle('journal:cancelPreparedImport', (event, id: string) => journalImportPreviews.cancel(id, event.sender.id))
 
@@ -827,7 +838,7 @@ export function registerLibraryIpc(): void {
       entry.dispose()
       return { ok: false as const, committed: false, error: '恢复暂存文件已损坏，请重新选择归档', code: 'SOURCE_CHANGED' as const }
     }
-    if (!matchesPreparedImportSource(entry.source, activeStorage)) {
+    if (entry.source !== activeStorage) {
       entry.state = 'expired'
       entry.dispose()
       return { ok: false as const, committed: false, error: '当前资料库已切换或重新打开，请重新检查归档', code: 'SOURCE_CHANGED' as const }

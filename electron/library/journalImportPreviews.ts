@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import type { PrepareJournalImportResult, PreparedJournalImportPreview, JournalBridge } from '../../src/types/journalBridge'
 import { prepareJournalArchive } from './journalZip'
-import { capturePreparedImportSource, stagePreparedJournalArchive, type PreparedImportSource, type PreparedJournalArchiveStaging } from './preparedImportSource'
+import { stagePreparedJournalArchive, type PreparedJournalArchiveStaging } from './preparedImportSource'
 import { LibraryStorage } from './storage'
 
 type Owner = RendererDocumentEvents & { id: number }
@@ -18,7 +18,7 @@ interface Request {
 interface PreparedImport extends PreparedJournalArchiveStaging {
   stagedLibraryRoot: string
   prepareRequestId: string
-  source: PreparedImportSource<LibraryStorage>
+  source: LibraryStorage
   state: 'prepared' | 'committing' | 'consumed' | 'expired'
   expiresAt: number
   request: Request
@@ -53,7 +53,7 @@ export class JournalImportPreviews {
 
   async prepare(
     owner: Owner, requestId: string,
-    selectArchive: () => Promise<string | undefined>, withStorage: <T>(read: (storage: LibraryStorage) => T) => Promise<T>,
+    selectArchive: () => Promise<string | undefined>, currentLibrary: () => Promise<LibraryStorage>,
   ): Promise<PrepareJournalImportResult> {
     if (typeof requestId !== 'string' || !requestId.trim()) return { ok: false, error: '检查请求无效' }
     if (this.pending.has(requestId)) return { ok: false, error: '检查请求已存在' }
@@ -89,20 +89,25 @@ export class JournalImportPreviews {
     this.pending.set(requestId, request)
     const detach = onRendererDocumentEnd(owner, abandon)
     try {
+      const source = await currentLibrary()
+      if (cancelled) return { ok: false, canceled: true }
       const selected = await selectArchive()
       if (!selected || cancelled) return { ok: false, canceled: true }
+      const confirmSource = async () => {
+        if (await currentLibrary() !== source) throw new Error('当前资料库已切换或重新打开，请重新检查归档')
+      }
+      await confirmSource()
+      if (cancelled) return { ok: false, canceled: true }
+      const libraryId = source.readManifest().libraryId
       const archive = path.resolve(selected)
       stagingRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'trader-atlas-journal-import-'))
       const staged = stagePreparedJournalArchive(archive, stagingRoot)
-      const { source, libraryId } = await withStorage(storage => ({
-        source: capturePreparedImportSource(storage),
-        libraryId: storage.readManifest().libraryId,
-      }))
-      if (cancelled) return { ok: false, canceled: true }
       const expiresAt = Date.now() + this.ttlMs
       const candidate = await prepareJournalArchive(stagingRoot, staged.stagedArchivePath, { libraryId })
       if (cancelled) return { ok: false, canceled: true }
       const counts = await inspectStagedLibrary(candidate.root, libraryId)
+      if (cancelled) return { ok: false, canceled: true }
+      await confirmSource()
       if (cancelled) return { ok: false, canceled: true }
       const preview: PreparedJournalImportPreview = {
         token, fileName: path.basename(archive), modifiedAt: staged.archiveModifiedAt, expiresAt, verification: 'verified', ...counts,

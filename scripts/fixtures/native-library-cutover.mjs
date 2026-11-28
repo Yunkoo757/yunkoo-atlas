@@ -341,6 +341,24 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
     await bridge.saveSnapshot(original)
     return { candidateBackup, staleStage: stale.reason, backup: true, archive: true, create: true, reopen: true }
   }, { libraryPath, candidatePath })
+  const heldExportPath = path.join(path.dirname(libraryPath), 'previous-selection.journal.zip')
+  fs.writeFileSync(heldExportPath, 'previous selection')
+  await application.evaluate(({ dialog }, destination) => {
+    const original = dialog.showSaveDialog
+    let entered
+    globalThis.archivePickerEntered = new Promise(resolve => { entered = resolve })
+    dialog.showSaveDialog = async () => {
+      dialog.showSaveDialog = original
+      entered()
+      await new Promise(resolve => { globalThis.finishArchivePicker = resolve })
+      return { canceled: false, filePath: destination }
+    }
+  }, heldExportPath)
+  const pendingExport = page.evaluate(async () => {
+    try { await window.journalBridge.exportJournalZip(); return '' }
+    catch (error) { return error instanceof Error ? error.message : String(error) }
+  })
+  await application.evaluate(() => globalThis.archivePickerEntered)
   const staleSourceRejected = await page.evaluate(async ({ libraryPath, candidatePath }) => {
     const bridge = window.journalBridge
     const ready = await bridge.prepareLibrarySwitch(candidatePath, 'open')
@@ -355,6 +373,13 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
     return !stale.ok && stale.error?.includes('当前交易库已变化') && await bridge.getLibraryPath() === libraryPath
   }, { libraryPath, candidatePath })
   assert.ok(staleSourceRejected, '回到相同路径的新实例后仍须拒绝原资料库的切换请求')
+  await application.evaluate(() => {
+    globalThis.finishArchivePicker()
+    delete globalThis.archivePickerEntered
+    delete globalThis.finishArchivePicker
+  })
+  assert.match(await pendingExport, /资料库已切换或重新打开/)
+  assert.equal(fs.readFileSync(heldExportPath, 'utf8'), 'previous selection')
   await verifyRestoreTarget(page, libraryPath, candidatePath, userDataPath)
   const retention = await verifyRejectedSwitchPreservesBackups(page, libraryPath, candidatePath, userDataPath, candidateBackup)
   const location = await verifyConfigPublication(application, page, libraryPath, candidatePath, userDataPath)

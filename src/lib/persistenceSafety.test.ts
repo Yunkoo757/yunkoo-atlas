@@ -174,7 +174,7 @@ export async function testDesktopJournalImportHasAStartupRecoveryJournal(): Prom
   const preparedCommit = ipc.slice(ipc.indexOf("ipcMain.handle('journal:commitPreparedImport'"))
   const gateEntry = preparedCommit.indexOf('operationGate.tryRunExclusive')
   const lifecycleCheckInsideGate = preparedCommit.indexOf(
-    'matchesPreparedImportSource(entry.source, activeStorage)',
+    'entry.source !== activeStorage',
     gateEntry,
   )
   assert(

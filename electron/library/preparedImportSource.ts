@@ -3,42 +3,8 @@ import { sha256File } from './fileChecksum'
 import fs from 'node:fs'
 import path from 'node:path'
 
-export interface StorageLifecycle {
-  getLibraryPath(): string
-  getLifecycleId(): string
-}
-
-export interface PreparedImportSource<TStorage extends StorageLifecycle = StorageLifecycle> {
-  storage: TStorage
-  lifecycleId: string
-  libraryPath: string
-}
-
-/**
- * 恢复预览只绑定活动资料库的生命周期，不绑定 journal.db 的时间戳。
- * 同一生命周期内的自动保存属于正常写入；真正切库或重新打开会产生新实例与 lifecycleId。
- */
-export function capturePreparedImportSource<TStorage extends StorageLifecycle>(
-  storage: TStorage,
-): PreparedImportSource<TStorage> {
-  return {
-    storage,
-    lifecycleId: storage.getLifecycleId(),
-    libraryPath: path.resolve(storage.getLibraryPath()),
-  }
-}
-
-export function matchesPreparedImportSource<TStorage extends StorageLifecycle>(
-  source: PreparedImportSource<TStorage>,
-  current: TStorage | null,
-): boolean {
-  return current === source.storage &&
-    current.getLifecycleId() === source.lifecycleId &&
-    path.resolve(current.getLibraryPath()) === source.libraryPath
-}
-
 /** A failed installation consumes its preview. Unconfirmed recovery must keep renderer writes locked. */
-export async function recoverPreparedImportCommitFailure<TStorage extends StorageLifecycle>(input: {
+export async function recoverPreparedImportCommitFailure<TStorage>(input: {
   error: unknown
   replacementCommitted: boolean
   currentStorage: () => TStorage | null
