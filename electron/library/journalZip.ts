@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto'
 import type { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { ZipArchive } from 'archiver'
-import initSqlJs from 'sql.js'
+import { getLibrarySql } from './sqliteRuntime'
 import * as yauzl from 'yauzl'
 import type { LibraryStorage } from './storage'
 import { ensureLibraryDirs, getLibraryPaths } from './paths'
@@ -84,25 +84,6 @@ export async function exportJournalZip(
   } finally {
     fs.rmSync(temporaryFile, { force: true })
   }
-}
-
-function locateSqlWasm(file: string): string {
-  const resourcesPath = typeof process.resourcesPath === 'string' ? process.resourcesPath : ''
-  const candidates = [
-    ...(resourcesPath
-      ? [
-          path.join(resourcesPath, file),
-          path.join(resourcesPath, 'app.asar', 'dist-electron', file),
-          path.join(resourcesPath, 'app', 'dist-electron', file),
-        ]
-      : []),
-    path.join(process.cwd(), 'dist-electron', file),
-    path.join(process.cwd(), 'node_modules/sql.js/dist', file),
-  ]
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate
-  }
-  return path.join(process.cwd(), 'node_modules/sql.js/dist', file)
 }
 
 function clearDirectory(dir: string): void {
@@ -526,7 +507,7 @@ export async function validateLibraryDatabaseFile(
   dbFile: string,
   options: { allowEmptySnapshot?: boolean; schemaVersion?: number } = {},
 ): Promise<LibraryDatabaseInspection> {
-  const SQL = await initSqlJs({ locateFile: locateSqlWasm })
+  const SQL = await getLibrarySql()
   let db: InstanceType<typeof SQL.Database> | null = null
   try {
     db = new SQL.Database(fs.readFileSync(dbFile))
@@ -648,7 +629,7 @@ async function validatePreparedLibrary(paths: ReturnType<typeof getLibraryPaths>
   writeImportProgress('importZip: validate prepared library start')
   await validateDesktopLibrary(paths)
   const dbFile = paths.dbFile
-  const SQL = await initSqlJs({ locateFile: locateSqlWasm })
+  const SQL = await getLibrarySql()
   const original = fs.readFileSync(dbFile)
   const retired = retiredSnapshotDatabaseBytes(original, SQL.Database)
   if (retired !== original) {
@@ -677,7 +658,7 @@ async function importWebJournalZip(
   const dataSrc = path.join(tempDir, 'data.json')
   const assetsSrc = path.join(tempDir, 'assets')
   const { snapshot, assets } = readWebSnapshot(dataSrc, assetsSrc)
-  const SQL = await initSqlJs({ locateFile: locateSqlWasm })
+  const SQL = await getLibrarySql()
   const db = new SQL.Database()
 
   db.run(CREATE_LIBRARY_TABLES_SQL)

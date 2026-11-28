@@ -8,8 +8,8 @@ import { stripRetiredSnapshotDomains } from '../../src/storage/retiredSnapshotDo
 import { retiredSnapshotDatabaseBytes, stripRetiredSnapshotDomainsInDatabase } from './retiredSnapshotDatabase'
 import fs from 'node:fs'
 import path from 'node:path'
-import electronRuntime from 'electron'
-import initSqlJs, { type Database } from 'sql.js'
+import type { Database } from 'sql.js'
+import { getLibrarySql } from './sqliteRuntime'
 import { randomUUID } from 'node:crypto'
 import type { LibraryManifest, PersistedSnapshot } from '../../src/storage/types'
 import type {
@@ -98,12 +98,6 @@ export class SnapshotSaveError extends Error {
     this.cause = cause
   }
 }
-
-let sqlPromise: ReturnType<typeof initSqlJs> | null = null
-const electronApp =
-  typeof electronRuntime === 'object' && electronRuntime !== null && 'app' in electronRuntime
-    ? (electronRuntime as { app?: { getAppPath(): string } }).app
-    : undefined
 
 function isPortableFileBasename(fileName: string): boolean {
   return (
@@ -316,33 +310,6 @@ function readAssetTrashJournal(filePath: string, operationId: string): AssetTras
   return manifest
 }
 
-async function getSql() {
-  if (!sqlPromise) {
-    sqlPromise = initSqlJs({
-      locateFile: (file) => {
-        const candidates = [
-          typeof process.resourcesPath === 'string'
-            ? path.join(process.resourcesPath, file)
-            : null,
-          typeof electronApp?.getAppPath === 'function'
-            ? path.join(electronApp.getAppPath(), 'dist-electron', file)
-            : null,
-          typeof electronApp?.getAppPath === 'function'
-            ? path.join(electronApp.getAppPath(), file)
-            : null,
-          path.join(process.cwd(), 'dist-electron', file),
-          path.join(process.cwd(), 'node_modules/sql.js/dist', file),
-        ].filter((candidate): candidate is string => candidate !== null)
-        for (const p of candidates) {
-          if (fs.existsSync(p)) return p
-        }
-        return path.join(process.cwd(), 'node_modules/sql.js/dist', file)
-      },
-    })
-  }
-  return sqlPromise
-}
-
 export class LibraryStorage {
   private readonly lifecycleId = randomUUID()
   private db: Database | null = null
@@ -448,7 +415,7 @@ export class LibraryStorage {
       if ((!this.allowCreate || expectedLibraryId !== undefined) && !fs.existsSync(this.paths.manifestFile)) {
         throw new Error('manifest.json 不存在，已阻止生成新的资料库身份')
       }
-      const SQL = await getSql()
+      const SQL = await getLibrarySql()
       this.DatabaseClass = SQL.Database
       let created = false
 
@@ -1460,7 +1427,7 @@ export class LibraryStorage {
 
     // sql.js 初始化是本方法唯一的 await。之后重新从 journal.db 权威字节
     // 建 candidate，绝不持有 await 前的 active DB，也不 export 内存分叉状态。
-    await getSql()
+    await getLibrarySql()
     // 初始化 SQL 会让出执行权；CAS 必须与候选创建位于同一个同步提交区间。
     type AttachmentPlan = {
       fileName: string
