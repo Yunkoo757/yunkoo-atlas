@@ -609,3 +609,28 @@ export async function testPrunedImportDropsRetiredStateAndPreservesSharedBusines
     }
   }
 }
+
+export async function testMigratedInlineImageKeepsItsNativeMimeAndExtension(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-isolated-inline-import-'))
+  const storage = new LibraryStorage(root)
+  try {
+    await storage.open()
+    const bytes = Buffer.from('GIF89a')
+    const image = { id: 'inline-gif', mime: 'image/GIF', buffer: bytes, inlineImage: true as const }
+    await storage.commitImport(snapshotWithAsset('legacy', image.id), [
+      image, { id: 'copied-gif', mime: 'image/GIF', buffer: bytes },
+    ])
+    const dir = storage.getPaths().attachments
+    assert(fs.readFileSync(path.join(dir, 'inline-gif.gif')).equals(bytes), '内嵌 GIF 应维持原图扩展名和字节')
+    assert(storage.getAssetBytes(image.id)?.mime === 'image/gif', '新图片 MIME 应沿用桌面保存规范')
+    assert(fs.readFileSync(path.join(dir, 'copied-gif.bin')).equals(bytes), '已有外部附件继续使用原导入命名')
+    assert(storage.getAssetBytes('copied-gif')?.mime === 'image/GIF', '复制已有附件时保持来源 MIME')
+    const previous = fs.readFileSync(storage.getPaths().dbFile)
+    const error = await storage.commitImport(snapshot('collision'), [image]).catch(cause => cause)
+    assert(error instanceof Error && error.message.includes('碰撞'), '生成的内嵌图 ID 必须全新')
+    assert(fs.readFileSync(storage.getPaths().dbFile).equals(previous), '碰撞后应保留原数据库字节')
+  } finally {
+    storage.close()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}

@@ -10,7 +10,7 @@ import {
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
 import { snapshotToRuntimeState } from '@/storage/snapshotToRuntimeState'
-import type { StorageAdapter } from '@/storage/adapter'
+import type { LibraryImportAsset, StorageAdapter } from '@/storage/adapter'
 import {
   migrateElectronLibraryIfNeeded,
   migrateFromLocalStorageIfNeeded,
@@ -68,12 +68,12 @@ class MemoryAdapter implements StorageAdapter {
   }
   async saveAsset(): Promise<string> { throw new Error('空交易快照不应写附件') }
   async getAssetObjectUrl(): Promise<string | null> { return null }
-  async getAssetForExport(): Promise<ExportAssetRecord | null> { return null }
+  async getAssetForExport(_id: string): Promise<ExportAssetRecord | null> { return null }
   async getAssetStats(): Promise<{ count: number; totalBytes: number; missingCount: number }> {
     return { count: 0, totalBytes: 0, missingCount: 0 }
   }
   async importAssets(): Promise<void> {}
-  async commitImport(): Promise<void> {}
+  async commitImport(snapshot: PersistedSnapshot, _assets: LibraryImportAsset[]): Promise<void> { await this.saveSnapshot(snapshot) }
 }
 
 export function testNewLibraryDefaultsAreNeutralAndReferenceSafe(): void {
@@ -393,4 +393,34 @@ export async function testDashboardDisclosesTheSingleUsdReportCurrency(): Promis
   const fs = await import('node:fs/promises')
   const source = await fs.readFile('src/views/Dashboard.tsx', 'utf8')
   assert(source.includes('报告币种 USD'), '统计页必须明确当前只使用 USD 报告币种')
+}
+
+export async function testDesktopLegacyMigrationRetriesOneCompleteAttachmentBatch(): Promise<void> {
+  const original = snapshotWithEmptyTrades([], '原资料')
+  original.quickNotes = [{
+    id: 'legacy-note', title: '旧随记', pinned: false, createdAt: '2026-07-16', updatedAt: '2026-07-16',
+    contentHtml: '<img src="journal-asset://shared"><img src="journal-asset://missing"><img src="data:image/GIF;base64,AQID">',
+  }]
+  const before = JSON.stringify(original)
+  const source = new MemoryAdapter(original)
+  source.getAssetForExport = async id => id === 'shared' ? { id, mime: 'image/png', data: 'BAUG' } : null
+  const target = new MemoryAdapter(null)
+  const failure = new Error('isolated commit failure')
+  let attempts = 0
+  target.commitImport = async (candidate, assets) => {
+    attempts++
+    assert(assets.length === 2, '旧附件和内嵌图应进入同一批次')
+    const [shared, image] = assets
+    assert(shared.id === 'shared' && shared.data === 'BAUG' && !shared.inlineImage, '现有附件须保留身份和字节')
+    assert(image.inlineImage && image.data === 'AQID' && image.mime === 'image/GIF', '新附件须保留内嵌图片的来源和字节')
+    assert(candidate.quickNotes?.[0].contentHtml ===
+      `<img src="journal-asset://shared"><img src="journal-asset://missing"><img src="journal-asset://${image.id}">`,
+      '正文应引用当次准备的图片并保留历史缺图引用')
+    if (attempts === 1) throw failure
+    target.snapshot = candidate
+  }
+  const first = await migrateElectronLibraryIfNeeded(target, source).catch(error => error)
+  assert(first === failure && target.snapshot === null && target.saves === 0, '首次失败应保留空目标且不执行额外的快照保存')
+  assert(await migrateElectronLibraryIfNeeded(target, source), '应能从完整原库重试')
+  assert(Number(attempts) === 2 && JSON.stringify(source.snapshot) === before, '两次尝试均不得修改来源正文')
 }

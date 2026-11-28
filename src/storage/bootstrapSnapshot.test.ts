@@ -29,7 +29,7 @@ class MemoryAdapter implements StorageAdapter {
   async getAssetForExport(): Promise<ExportAssetRecord | null> { return null }
   async getAssetStats() { return { count: 0, totalBytes: 0, missingCount: 0 } }
   async importAssets(): Promise<void> {}
-  async commitImport(): Promise<void> { throw new Error('此夹具不应提交导入') }
+  async commitImport(snapshot: PersistedSnapshot): Promise<void> { await this.saveSnapshot(snapshot) }
 }
 
 async function withElectronBridge<T>(
@@ -44,7 +44,7 @@ async function withElectronBridge<T>(
       storageOpen: () => storage.open(),
       loadSnapshot: () => storage.loadSnapshot(),
       saveSnapshot: (snapshot: PersistedSnapshot) => storage.saveSnapshot(snapshot),
-      importAssets: () => storage.importAssets(),
+      commitImport: (snapshot: PersistedSnapshot) => storage.commitImport(snapshot),
     } },
   })
   try {

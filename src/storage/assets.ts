@@ -36,7 +36,7 @@ export function mayContainInlineImage(html: string): boolean {
 /** 将 note 内 base64 图片外置为 asset 引用 */
 export async function externalizeNoteImages(
   html: string,
-  adapter: StorageAdapter,
+  adapter: Pick<StorageAdapter, 'saveAsset'>,
   signal?: AbortSignal,
 ): Promise<string> {
   if (!mayContainInlineImage(html)) return html

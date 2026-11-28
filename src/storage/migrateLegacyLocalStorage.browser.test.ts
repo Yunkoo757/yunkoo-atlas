@@ -49,6 +49,23 @@ async function run(): Promise<void> {
     closedAt: '2026-07-27T05:30:00+08:00',
     note: '',
   }
+  const failed = new IndexedDbStorageAdapter()
+  await failed.open()
+  try {
+    const original = JSON.stringify({ state: {
+      trades: [{ ...trade, note: '<img src="data:image/png;base64,AQID"><img src="data:image/png;base64,!!">' }],
+      strategies: [{ id: 'strategy-1', name: '旧策略', icon: 'target', color: '#5e6ad2' }],
+    } })
+    localStorage.setItem(LEGACY_LOCAL_STORAGE_KEY, original)
+    const failure = await migrateFromLocalStorageIfNeeded(failed).then(() => null, (error: Error) => error)
+    assert(failure?.name === 'InvalidCharacterError', '第二张无效图片应报告解码失败')
+    assert(localStorage.getItem(LEGACY_LOCAL_STORAGE_KEY) === original, '解析失败须保留原文')
+    assert(!(await failed.loadSnapshot()) && await failed.getSnapshotRevision() === 0, '解析失败不能发布快照或修订')
+    assert((await failed.listAssetRecords()).length === 0, '解析失败不能留下已准备或已提交的第一张附件')
+  } finally {
+    failed.close()
+  }
+
   localStorage.setItem(LEGACY_LOCAL_STORAGE_KEY, JSON.stringify({
     state: {
       trades: [trade],

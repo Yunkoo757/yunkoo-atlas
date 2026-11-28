@@ -40,6 +40,11 @@ export interface AssetPurgeRecovery {
   path?: string
 }
 
+export interface LibraryImportAsset extends ExportAssetRecord {
+  /** 此次从正文生成的新附件；桌面沿用保存图片时的 MIME 和扩展名规则。 */
+  inlineImage?: true
+}
+
 export interface StorageAdapter {
   open(): Promise<void>
   getManifest(): Promise<LibraryManifest>
@@ -61,7 +66,7 @@ export interface StorageAdapter {
   importAssets(assets: ExportAssetRecord[]): Promise<void>
   commitImport(
     snapshot: PersistedSnapshot,
-    assets: ExportAssetRecord[],
+    assets: LibraryImportAsset[],
     options?: { pruneUnreferenced?: boolean },
   ): Promise<void>
 }

@@ -5,6 +5,7 @@ import type {
   AssetPurgeResult,
   AssetStorageStats,
   PhysicalAssetRecord,
+  LibraryImportAsset,
   StorageAdapter,
 } from '@/storage/adapter'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
@@ -98,7 +99,7 @@ export class ElectronStorageAdapter implements StorageAdapter {
 
   async commitImport(
     snapshot: PersistedSnapshot,
-    assets: ExportAssetRecord[],
+    assets: LibraryImportAsset[],
     options?: { pruneUnreferenced?: boolean },
   ): Promise<void> {
     await getJournalBridge()!.commitImport(snapshot, assets, options)

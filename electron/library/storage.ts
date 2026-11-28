@@ -14,6 +14,7 @@ import type {
   AssetPurgePreview,
   AssetPurgeResult,
   PhysicalAssetRecord,
+  LibraryImportAsset,
   SnapshotEnvelope,
 } from '../../src/storage/adapter'
 import { SCHEMA_VERSION } from '../../src/storage/types'
@@ -1457,7 +1458,7 @@ export class LibraryStorage {
   /** 将导入附件与最终快照作为一次提交写入，失败时保持当前数据库不变。 */
   async commitImport(
     snapshot: PersistedSnapshot,
-    assets: Array<{ id: string; mime: string; buffer: Buffer }>,
+    assets: Array<Omit<LibraryImportAsset, 'data'> & { buffer: Buffer }>,
     options?: { pruneUnreferenced?: boolean; expectedSnapshotRevision?: number },
   ): Promise<void> {
     snapshot = stripRetiredSnapshotDomains(snapshot)
@@ -1486,10 +1487,11 @@ export class LibraryStorage {
         advanceSnapshotRevision(candidateDb, options?.expectedSnapshotRevision)
         for (const asset of assets) {
           assertSafeAssetId(asset.id)
-          const fileName = attachmentFileName(
-            asset.id,
-            importedAttachmentExtensionForMime(asset.mime),
-          )
+          const inlineImage = asset.inlineImage === true
+          if (inlineImage && !isImageMime(asset.mime)) throw new Error('内嵌图片 MIME 格式无效')
+          const mime = inlineImage ? asset.mime.toLowerCase() : asset.mime
+          const extension = inlineImage ? savedAttachmentExtensionForMime(mime) : importedAttachmentExtensionForMime(mime)
+          const fileName = attachmentFileName(asset.id, extension)
           const portableId = asset.id.toLowerCase()
           const portableName = fileName.toLowerCase()
           if (batchIds.has(portableId) || batchNames.has(portableName)) {
@@ -1499,6 +1501,7 @@ export class LibraryStorage {
           batchNames.add(portableName)
 
           const portableRecords = readPortableAssetRecords(candidateDb, asset.id, fileName)
+          if (inlineImage && portableRecords.length > 0) throw new Error('附件 ID 碰撞，请重试保存')
           if (
             portableRecords.length > 1 ||
             (portableRecords[0] !== undefined && (
@@ -1537,7 +1540,7 @@ export class LibraryStorage {
                mime = excluded.mime,
                file_name = excluded.file_name,
                byte_size = excluded.byte_size`,
-            [asset.id, asset.mime, fileName, expectedBytes.byteLength, this.now().toISOString()],
+            [asset.id, mime, fileName, expectedBytes.byteLength, this.now().toISOString()],
           )
         }
         candidateDb.run(

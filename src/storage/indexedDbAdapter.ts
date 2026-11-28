@@ -9,6 +9,7 @@ import {
   type AssetPurgePreview,
   type AssetPurgeResult,
   type PhysicalAssetRecord,
+  type LibraryImportAsset,
   type RevisionedLibraryMutation,
   type RevisionedStorageAdapter,
   type SnapshotEnvelope,
@@ -741,7 +742,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
 
   async commitImport(
     snapshot: PersistedSnapshot,
-    assets: ExportAssetRecord[],
+    assets: LibraryImportAsset[],
     options?: { pruneUnreferenced?: boolean },
   ): Promise<void> {
     const { signal } = this.lifetime

@@ -1,7 +1,8 @@
 import { collectAssetIdsFromSnapshot } from '@/storage/snapshotRichText'
 import { externalizeNoteImages, mayContainInlineImage } from '@/storage/assets'
 import { tradeRichTextEntries } from '@/storage/tradeRichText'
-import type { StorageAdapter } from '@/storage/adapter'
+import type { LibraryImportAsset, StorageAdapter } from '@/storage/adapter'
+import { bytesToBase64 } from '@/lib/base64'
 import type { PersistedSnapshot } from '@/storage/types'
 import { LEGACY_LOCAL_STORAGE_KEY } from '@/storage/legacyIdentity'
 import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
@@ -47,7 +48,7 @@ function parseLegacyLocalStorage(): PersistedSnapshot | null {
 /** 迁移返回前收齐本次附件写入。某条正文失败时，后续记录仍可从原快照重试。 */
 export async function externalizeSnapshotNotes(
   snapshot: PersistedSnapshot,
-  adapter: StorageAdapter,
+  adapter: Pick<StorageAdapter, 'saveAsset'>,
   signal?: AbortSignal,
 ): Promise<PersistedSnapshot> {
   const convert = (html: string) => externalizeNoteImages(html, adapter, signal)
@@ -78,6 +79,24 @@ export async function externalizeSnapshotNotes(
   }
 }
 
+async function commitLegacySnapshot(
+  adapter: StorageAdapter,
+  snapshot: PersistedSnapshot,
+  assets: LibraryImportAsset[],
+  signal?: AbortSignal,
+): Promise<void> {
+  const candidate = await externalizeSnapshotNotes(snapshot, {
+    async saveAsset(blob, mime) {
+      const id = crypto.randomUUID()
+      const data = bytesToBase64(new Uint8Array(await blob.arrayBuffer()))
+      assets.push({ id, mime, data, inlineImage: true })
+      return id
+    },
+  }, signal)
+  signal?.throwIfAborted()
+  await adapter.commitImport(candidate, assets)
+}
+
 export async function migrateFromLocalStorageIfNeeded(
   adapter: StorageAdapter,
   signal?: AbortSignal,
@@ -87,14 +106,8 @@ export async function migrateFromLocalStorageIfNeeded(
   signal?.throwIfAborted()
   if (existing) return false
 
-  let snapshot = parseLegacyLocalStorage()
-  if (!snapshot) {
-    snapshot = createNewLibrarySnapshot()
-  }
-
-  snapshot = await externalizeSnapshotNotes(snapshot, adapter, signal)
-  signal?.throwIfAborted()
-  await adapter.saveSnapshot(snapshot)
+  const snapshot = parseLegacyLocalStorage() ?? createNewLibrarySnapshot()
+  await commitLegacySnapshot(adapter, snapshot, [], signal)
   signal?.throwIfAborted()
 
   try {
@@ -128,19 +141,12 @@ export async function migrateElectronLibraryIfNeeded(
   }
 
   const assetIds = collectAssetIdsFromSnapshot(snapshot)
-  const assets = []
+  const assets: LibraryImportAsset[] = []
   for (const id of assetIds) {
     signal?.throwIfAborted()
     const rec = await idb.getAssetForExport(id)
     if (rec) assets.push(rec)
   }
-  if (assets.length > 0) {
-    signal?.throwIfAborted()
-    await adapter.importAssets(assets)
-  }
-
-  snapshot = await externalizeSnapshotNotes(snapshot, adapter, signal)
-  signal?.throwIfAborted()
-  await adapter.saveSnapshot(snapshot)
+  await commitLegacySnapshot(adapter, snapshot, assets, signal)
   return true
 }
