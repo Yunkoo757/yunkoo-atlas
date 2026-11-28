@@ -1,3 +1,4 @@
+import { deepStrictEqual, throws } from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -240,6 +241,71 @@ export async function testSaveAssetReconciliationReadFailureLocksOldInstanceAndF
     assert(committedIds.length === 1 && committedIds[0]?.state === 'healthy', 'fresh reopen 必须读取实际 candidate row')
     assert(visibleAttachmentNames(reopened).join(',') === retainedFile, 'fresh reopen 必须保留 candidate 引用的同一文件')
     reopened.release()
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testImportAssetsPreflightsTheWholeBatchAndCommitsOneIndex(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-asset-import-batch-'))
+  let replacements = 0
+  const storage = new LibraryStorage(root, { afterAssetAtomicReplace: () => { replacements++ } })
+  const asset = (id: string, text: string) => ({ id, mime: 'image/png', buffer: Buffer.from(text) })
+  const existing = asset('existing', 'old')
+  const first = asset('first', 'one')
+  const second = asset('second', 'two')
+  try {
+    await storage.open()
+    storage.saveSnapshot(snapshot('before-batch'))
+    const revision = storage.getSnapshotRevision()
+    storage.importAssets([existing])
+    const previous = fs.readFileSync(storage.getPaths().dbFile)
+    for (const conflict of [asset('existing', 'new'), asset('first', 'two'), asset('FIRST', 'one')]) {
+      throws(() => storage.importAssets([first, conflict]), /冲突|重复/)
+      deepStrictEqual(fs.readFileSync(storage.getPaths().dbFile), previous)
+      deepStrictEqual(visibleAttachmentNames(storage), ['existing.png'])
+      assert(storage.getAssetBytes(first.id) === null, '冲突后不得读到列表中先到的附件')
+    }
+
+    replacements = 0
+    storage.importAssets([first, second, { ...first, buffer: Buffer.from(first.buffer) }, existing])
+    assert(replacements === 1, '多个附件必须在同一份数据库中提交')
+    const committed = fs.readFileSync(storage.getPaths().dbFile)
+    fs.unlinkSync(path.join(storage.getPaths().attachments, 'second.png'))
+    storage.importAssets([second, first])
+    storage.importAssets([])
+    deepStrictEqual(fs.readFileSync(storage.getPaths().dbFile), committed)
+    assert(replacements === 1, '修复缺失文件、重复或空列表均应沿用原索引')
+    assert(storage.getSnapshotRevision() === revision, '只导附件必须保留快照修订')
+    for (const item of [existing, first, second]) {
+      deepStrictEqual(Buffer.from(storage.getAssetBytes(item.id)!.bytes), item.buffer)
+    }
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testImportAssetsRollsBackNewFilesWhenTheSecondFileCannotBeWritten(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-asset-batch-file-failure-'))
+  let fileWrites = 0
+  const storage = new LibraryStorage(root, {
+    beforeAttachmentAtomicReplace: () => {
+      if (++fileWrites === 2) throw new Error('injected second attachment failure')
+    },
+  })
+  try {
+    await storage.open()
+    const previous = fs.readFileSync(storage.getPaths().dbFile)
+    const items = ['first', 'second'].map(id => ({ id, mime: 'image/png', buffer: Buffer.from(id) }))
+    throws(() => storage.importAssets(items), (error) =>
+      error instanceof SnapshotSaveError && error.outcome === 'previous-unchanged')
+    deepStrictEqual(visibleAttachmentNames(storage), [])
+    deepStrictEqual(fs.readFileSync(storage.getPaths().dbFile), previous)
+    deepStrictEqual(storage.listAssetRecords(), [])
+    storage.importAssets(items)
+    deepStrictEqual(visibleAttachmentNames(storage), ['first.png', 'second.png'])
   } finally {
     storage.release()
     fs.rmSync(root, { recursive: true, force: true })

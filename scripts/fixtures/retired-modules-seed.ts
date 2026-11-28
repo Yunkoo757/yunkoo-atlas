@@ -14,7 +14,7 @@ export async function seedRetiredNativeLibrary(
   const storage = new LibraryStorage(library)
   try {
     await storage.open()
-    for (const asset of assets) storage.importAsset(asset.id, asset.mime, Buffer.from(asset.data, 'base64'))
+    storage.importAssets(assets.map(({ id, mime, data }) => ({ id, mime, buffer: Buffer.from(data, 'base64') })))
     storage.saveSnapshot(legacy)
   } finally {
     storage.release()

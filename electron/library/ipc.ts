@@ -69,6 +69,11 @@ import {
   recoverPreparedImportCommitFailure,
 } from './preparedImportSource'
 
+function decodeImportedAsset(asset: LibraryImportAsset) {
+  assertSafeAssetId(asset.id)
+  return { id: asset.id, mime: asset.mime, inlineImage: asset.inlineImage, buffer: Buffer.from(asset.data, 'base64') }
+}
+
 let storage: LibraryStorage | null = null
 let openingStorage: Promise<LibraryStorage> | null = null
 let exitPreparation: { storage: LibraryStorage; backupPath: string } | null = null
@@ -696,14 +701,9 @@ export function registerLibraryIpc(): void {
     return true
   })
 
-  ipcMain.handle('storage:importAssets', async (event, payload: { assets: { id: string; mime: string; data: string }[]; writerToken: string }) => withStorage((lib) => {
+  ipcMain.handle('storage:importAssets', async (event, payload: { assets: LibraryImportAsset[]; writerToken: string }) => withStorage((lib) => {
     writers.assert(event, payload.writerToken, lib)
-    const assets = payload.assets
-    for (const a of assets) {
-      assertSafeAssetId(a.id)
-      const bin = Buffer.from(a.data, 'base64')
-      lib.importAsset(a.id, a.mime, bin)
-    }
+    lib.importAssets(payload.assets.map(decodeImportedAsset))
     return true
   }))
 
@@ -717,15 +717,7 @@ export function registerLibraryIpc(): void {
     return withStorageRecoveryNotification(
       () => withLoggedExclusiveStorage('import', 'validate', 'commit', async (lib, operation) => {
         writers.assert(event, payload.writerToken, lib)
-        const assets = payload.assets.map((asset) => {
-          assertSafeAssetId(asset.id)
-          return {
-            id: asset.id,
-            mime: asset.mime,
-            inlineImage: asset.inlineImage,
-            buffer: Buffer.from(asset.data, 'base64'),
-          }
-        })
+        const assets = payload.assets.map(decodeImportedAsset)
         await lib.commitImport(payload.snapshot, assets, {
           ...payload.options,
           expectedSnapshotRevision: payload.expectedRevision,

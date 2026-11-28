@@ -42,6 +42,9 @@ const ASSET_TRASH_MANIFEST = 'manifest.json'
 const ASSET_TRASH_CLEANUP = 'cleanup.json'
 type SqlDatabaseConstructor = new (data?: ArrayLike<number> | null) => Database
 
+type ImportedAsset = Omit<LibraryImportAsset, 'data'> & { buffer: Buffer }
+type SnapshotImportOptions = LibraryImportOptions & { expectedSnapshotRevision?: number }
+
 interface PreparedDatabaseCandidate {
   candidateDb: Database
   previousDiskBytes: Buffer
@@ -196,25 +199,6 @@ function attachmentFileName(id: string, extension: string): string {
     throw new Error('附件文件名格式无效')
   }
   return fileName
-}
-
-function readAssetRecord(
-  db: Database,
-  id: string,
-): { mime: string; fileName: string; byteSize: number } | null {
-  const stmt = db.prepare('SELECT mime, file_name, byte_size FROM assets WHERE id = ?')
-  try {
-    stmt.bind([id])
-    if (!stmt.step()) return null
-    const row = stmt.getAsObject() as { mime: string; file_name: string; byte_size: number }
-    return {
-      mime: String(row.mime),
-      fileName: String(row.file_name),
-      byteSize: Number(row.byte_size),
-    }
-  } finally {
-    stmt.free()
-  }
 }
 
 interface PortableAssetRecord {
@@ -1345,104 +1329,33 @@ export class LibraryStorage {
   }
 
   importAsset(id: string, mime: string, buffer: Buffer): void {
-    assertSafeAssetId(id)
-    const createdAt = new Date().toISOString()
-    const fileName = attachmentFileName(id, importedAttachmentExtensionForMime(mime))
-    const filePath = resolveAttachmentWritePath(this.paths.attachments, fileName)
-    let durableRecord: ReturnType<typeof readAssetRecord> = null
-    const prepared = this.prepareDatabaseCandidate((candidateDb) => {
-      const portableRecords = readPortableAssetRecords(candidateDb, id, fileName)
-      if (
-        portableRecords.length > 1 ||
-        (portableRecords[0] !== undefined && (
-          portableRecords[0].id !== id || portableRecords[0].fileName !== fileName
-        ))
-      ) {
-        throw new Error(`导入附件 ID 或文件名存在不可移植的大小写冲突：${id}`)
-      }
-      durableRecord = portableRecords[0]
-        ? {
-            mime: portableRecords[0].mime,
-            fileName: portableRecords[0].fileName,
-            byteSize: portableRecords[0].byteSize,
-          }
-        : null
-      if (durableRecord && (
-        durableRecord.mime !== mime ||
-        durableRecord.fileName !== fileName ||
-        durableRecord.byteSize !== buffer.byteLength
-      )) {
-        throw new Error(`导入附件 ID 或元数据冲突：${id}`)
-      }
-      if (!durableRecord) {
-        candidateDb.run(
-          `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
-           VALUES (?, ?, ?, ?, ?)`,
-          [id, mime, fileName, buffer.byteLength, createdAt],
-        )
-      }
-    })
-    let candidateHandedOff = false
-    let fileOwnedByAttempt = false
-    try {
-      const existingAttachment = this.inspectPortableAttachment(id, fileName)
-      if (existingAttachment) {
-        if (!this.readAttachmentFile(existingAttachment).equals(buffer)) {
-          throw new Error(`导入附件内容冲突：${id}`)
-        }
-      } else {
-        this.materializeAttachmentCandidate('import-asset', filePath, buffer)
-        fileOwnedByAttempt = true
-      }
-
-      if (durableRecord) {
-        // 同 ID、同元数据、同字节属于幂等重试；若文件此前缺失，上方只恢复文件，
-        // durable DB 已经是权威真相，无需再次替换 journal.db。
-        this.closeDetachedDatabaseBestEffort(prepared.candidateDb)
-        return
-      }
-
-      candidateHandedOff = true
-      this.commitDatabaseCandidate('import-asset', prepared, {
-        beforeReplace: this.beforeAssetAtomicReplace ?? this.beforeAtomicReplace,
-        afterReplace: this.afterAssetAtomicReplace,
-        onPreviousUnchanged: (observedDiskBytes) => {
-          if (fileOwnedByAttempt) {
-            this.cleanupOwnedAttachment(observedDiskBytes, fileName, filePath, buffer)
-          }
-        },
-      })
-    } catch (error) {
-      if (!candidateHandedOff) {
-        this.closeDetachedDatabaseBestEffort(prepared.candidateDb)
-        try {
-          if (fileOwnedByAttempt) {
-            this.cleanupOwnedAttachment(prepared.previousDiskBytes, fileName, filePath, buffer)
-          }
-        } catch (cleanupError) {
-          throw this.enterStorageWriteRecoveryLock('import-asset', { error, cleanup: cleanupError })
-        }
-      }
-      throw error
-    }
+    this.importAssets([{ id, mime, buffer }])
   }
 
-  /** 将导入附件与最终快照作为一次提交写入，失败时保持当前数据库不变。 */
+  importAssets(assets: readonly ImportedAsset[]): void {
+    if (assets.length > 0) this.commitImportedData(assets)
+  }
+
+  /** 将导入附件与最终快照作为一次提交写入。 */
   async commitImport(
     snapshot: PersistedSnapshot,
-    assets: Array<Omit<LibraryImportAsset, 'data'> & { buffer: Buffer }>,
-    options?: LibraryImportOptions & { expectedSnapshotRevision?: number },
+    assets: readonly ImportedAsset[],
+    options?: SnapshotImportOptions,
   ): Promise<void> {
     snapshot = stripRetiredSnapshotDomains(snapshot)
     assertValidPersistedSnapshot(snapshot, 'Imported library snapshot')
-    const referencedAssetIds = new Set(
-      buildAssetInventory(snapshot, []).referenced.map(({ id }) => id.toLowerCase()),
-    )
-
-    // sql.js 初始化是本方法唯一的 await。之后重新从 journal.db 权威字节
-    // 建 candidate，绝不持有 await 前的 active DB，也不 export 内存分叉状态。
+    // SQL 初始化会让出执行权。之后从磁盘创建候选，修订校验与提交同步完成。
     await getLibrarySql()
-    // 初始化 SQL 会让出执行权；CAS 必须与候选创建位于同一个同步提交区间。
+    this.commitImportedData(assets, { ...options, snapshot })
+  }
+
+  private commitImportedData(
+    assets: readonly ImportedAsset[],
+    snapshotImport?: SnapshotImportOptions & { snapshot: PersistedSnapshot },
+  ): void {
+    const referencedAssetIds = snapshotImport?.pruneUnreferenced
+      ? new Set(buildAssetInventory(snapshotImport.snapshot, []).referenced.map(({ id }) => id.toLowerCase()))
+      : undefined
     type AttachmentPlan = {
       fileName: string
       filePath: string
@@ -1450,46 +1363,51 @@ export class LibraryStorage {
     }
     const materializePlans: AttachmentPlan[] = []
     const obsoletePlans: AttachmentPlan[] = []
-    const batchIds = new Set<string>()
-    const batchNames = new Set<string>()
+    const batchIds = new Map<string, ImportedAsset>()
+    let databaseChanged = snapshotImport !== undefined
     const prepared = this.prepareDatabaseCandidate((candidateDb) => {
-      assertPortableAssetDatabaseIntegrity(candidateDb)
+      if (snapshotImport) assertPortableAssetDatabaseIntegrity(candidateDb)
       candidateDb.run('BEGIN TRANSACTION')
       try {
-        if (options?.requireEmptySnapshot) {
+        if (snapshotImport?.requireEmptySnapshot) {
           const existing = candidateDb.exec('SELECT 1 FROM meta WHERE key = ?', [SNAPSHOT_KEY])
           assertEmptyMigrationTarget(existing.length > 0)
         }
-        writeDatabaseSnapshot(candidateDb, snapshot, options?.expectedSnapshotRevision)
+        if (snapshotImport) {
+          writeDatabaseSnapshot(candidateDb, snapshotImport.snapshot, snapshotImport.expectedSnapshotRevision)
+        }
         for (const asset of assets) {
           assertSafeAssetId(asset.id)
-          const inlineImage = asset.inlineImage === true
+          const inlineImage = snapshotImport !== undefined && asset.inlineImage === true
           if (inlineImage && !isImageMime(asset.mime)) throw new Error('内嵌图片 MIME 格式无效')
           const mime = inlineImage ? asset.mime.toLowerCase() : asset.mime
           const extension = inlineImage ? savedAttachmentExtensionForMime(mime) : importedAttachmentExtensionForMime(mime)
           const fileName = attachmentFileName(asset.id, extension)
           const portableId = asset.id.toLowerCase()
-          const portableName = fileName.toLowerCase()
-          if (batchIds.has(portableId) || batchNames.has(portableName)) {
+          // 文件名以完整安全 ID 加点起始，不同 portableId 不会映射到同一文件名。
+          const duplicate = batchIds.get(portableId)
+          if (duplicate) {
+            if (!snapshotImport && duplicate.id === asset.id &&
+                duplicate.mime === mime && duplicate.buffer.equals(asset.buffer)) {
+              continue
+            }
             throw new Error(`整批导入包含重复或不可移植的附件身份：${asset.id}`)
           }
-          batchIds.add(portableId)
-          batchNames.add(portableName)
+          batchIds.set(portableId, asset)
 
           const portableRecords = readPortableAssetRecords(candidateDb, asset.id, fileName)
-          if (inlineImage && portableRecords.length > 0) throw new Error('附件 ID 碰撞，请重试保存')
-          if (
-            portableRecords.length > 1 ||
-            (portableRecords[0] !== undefined && (
-              portableRecords[0].id !== asset.id || portableRecords[0].fileName !== fileName
-            ))
-          ) {
+          const record = portableRecords[0]
+          if (inlineImage && record) throw new Error('附件 ID 碰撞，请重试保存')
+          if (portableRecords.length > 1 || (record && (record.id !== asset.id || record.fileName !== fileName))) {
             throw new Error(`导入附件 ID 或文件名存在不可移植的大小写冲突：${asset.id}`)
           }
 
+          if (!snapshotImport && record && (record.mime !== mime || record.byteSize !== asset.buffer.byteLength)) {
+            throw new Error(`导入附件 ID 或元数据冲突：${asset.id}`)
+          }
           const target = resolveAttachmentWritePath(this.paths.attachments, fileName)
           const existing = this.inspectPortableAttachment(asset.id, fileName)
-          if (options?.pruneUnreferenced && !referencedAssetIds.has(portableId)) {
+          if (referencedAssetIds && !referencedAssetIds.has(portableId)) {
             if (existing) {
               obsoletePlans.push({
                 fileName,
@@ -1504,11 +1422,14 @@ export class LibraryStorage {
           const expectedBytes = Buffer.from(asset.buffer)
           if (existing) {
             if (!this.readAttachmentFile(existing).equals(expectedBytes)) {
-              throw new Error(`导入附件 ID 冲突：${asset.id}`)
+              throw new Error(`${snapshotImport ? '导入附件 ID 冲突' : '导入附件内容冲突'}：${asset.id}`)
             }
           } else {
             materializePlans.push({ fileName, filePath: target, expectedBytes })
           }
+          // 只导附件时，已有索引保持原样；缺失的同内容文件仍按计划修复。
+          if (!snapshotImport && record) continue
+          databaseChanged = true
           candidateDb.run(
             `INSERT INTO assets (id, mime, file_name, byte_size, created_at)
              VALUES (?, ?, ?, ?, ?)
@@ -1527,6 +1448,11 @@ export class LibraryStorage {
     })
 
     const ownedPlans: AttachmentPlan[] = []
+    const cleanupOwnedPlans = (durableBytes: Buffer) => {
+      for (const plan of ownedPlans) {
+        this.cleanupOwnedAttachment(durableBytes, plan.fileName, plan.filePath, plan.expectedBytes)
+      }
+    }
     let candidateHandedOff = false
     try {
       for (const plan of materializePlans) {
@@ -1534,35 +1460,23 @@ export class LibraryStorage {
         ownedPlans.push(plan)
       }
 
+      if (!databaseChanged) {
+        this.closeDetachedDatabaseBestEffort(prepared.candidateDb)
+        return
+      }
       candidateHandedOff = true
       this.commitDatabaseCandidate('import-asset', prepared, {
-        writeDatabase: this.writeImportDatabase,
+        writeDatabase: snapshotImport ? this.writeImportDatabase : undefined,
         beforeReplace: this.beforeAssetAtomicReplace ?? this.beforeAtomicReplace,
         afterReplace: this.afterAssetAtomicReplace,
-        onPreviousUnchanged: (observedDiskBytes) => {
-          for (const plan of ownedPlans) {
-            this.cleanupOwnedAttachment(
-              observedDiskBytes,
-              plan.fileName,
-              plan.filePath,
-              plan.expectedBytes,
-            )
-          }
-        },
+        onPreviousUnchanged: cleanupOwnedPlans,
       })
     } catch (error) {
       if (!candidateHandedOff) {
         this.closeDetachedDatabaseBestEffort(prepared.candidateDb)
         if (!(error instanceof SnapshotSaveError && error.outcome === 'indeterminate')) {
           try {
-            for (const plan of ownedPlans) {
-              this.cleanupOwnedAttachment(
-                prepared.previousDiskBytes,
-                plan.fileName,
-                plan.filePath,
-                plan.expectedBytes,
-              )
-            }
+            cleanupOwnedPlans(prepared.previousDiskBytes)
           } catch (cleanupError) {
             throw this.enterStorageWriteRecoveryLock('import-asset', { error, cleanup: cleanupError })
           }
