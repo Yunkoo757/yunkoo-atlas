@@ -150,6 +150,19 @@ export function runtimeDependencyGraph(files, root, entryPoints) {
   return graph
 }
 
+/** 按入口截取完整子图，保留同步和延迟引用经过的所有本地模块。 */
+export function reachableModuleGraph(graph, entryPoints) {
+  const result = {}
+  const pending = new Set(entryPoints)
+  for (const file of pending) {
+    const edges = graph[file]
+    if (!edges) throw new Error(`依赖图缺少模块：${file}`)
+    result[file] = edges
+    for (const next of [...edges.eager, ...edges.lazy]) pending.add(next)
+  }
+  return result
+}
+
 export function findEagerCycles(graph) {
   const done = new Set()
   const visiting = new Set()

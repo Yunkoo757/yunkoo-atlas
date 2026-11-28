@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { runtimeDependencyGraph, findEagerCycles, firstForbiddenPath, importsTarget } from '../governance-imports.mjs'
+import { runtimeDependencyGraph, reachableModuleGraph, findEagerCycles, firstForbiddenPath, importsTarget } from '../governance-imports.mjs'
 
 test('依赖门按 TypeScript 语法识别导入，忽略注释和字符串', () => {
   const importer = 'src/lib/check.ts'
@@ -40,6 +40,13 @@ test('运行时依赖图保留真实模块边并报告闭合的同步环', () =>
     const graph = runtimeDependencyGraph(Object.keys(entries), root, ['src/start.ts', 'electron/self.ts', 'tools/editor.ts', 'trainer/main.cjs'])
     assert.deepEqual(graph['trainer/main.cjs'].eager, ['trainer/model.cjs'])
     assert.equal(graph['trainer/unreferenced.js'], undefined)
+    const editor = reachableModuleGraph(graph, ['tools/editor.ts'])
+    assert.deepEqual(Object.keys(editor).sort(), ['shared/middle.ts', 'src/store/session.ts', 'tools/editor.ts'])
+    assert.deepEqual(findEagerCycles(editor), [])
+    const desktop = reachableModuleGraph(graph, ['src/start.ts', 'electron/self.ts'])
+    assert.deepEqual(Object.keys(desktop).sort(), ['electron/self.ts', 'src/folder/index.ts', 'src/lazy.ts', 'src/start.ts'])
+    assert.deepEqual(findEagerCycles(desktop), findEagerCycles(graph))
+    assert.throws(() => reachableModuleGraph({ 'tools/editor.ts': graph['tools/editor.ts'] }, ['tools/editor.ts']), /shared\/middle\.ts/)
     assert.deepEqual(firstForbiddenPath(graph, 'tools/editor.ts', ['src/store']), [
       'tools/editor.ts', 'shared/middle.ts', 'src/store/session.ts',
     ])

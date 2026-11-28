@@ -6,7 +6,7 @@ import { discoverBrowserTests, discoverQualityNodeTests, discoverUnitTestEntries
 import { executionReportPath, hashFile } from './quality-execution.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
 import { decodeRepositoryText, isRepositoryText } from './repository-text.mjs'
-import { runtimeDependencyGraph, websiteDependencyGraph, journalBridgeDeclarationOwners, findEagerCycles, firstForbiddenPath, importsTarget, importsWithinTarget } from './governance-imports.mjs'
+import { runtimeDependencyGraph, reachableModuleGraph, websiteDependencyGraph, journalBridgeDeclarationOwners, findEagerCycles, firstForbiddenPath, importsTarget, importsWithinTarget } from './governance-imports.mjs'
 import {
   findForbiddenLegacyRuntimeMatches,
   isExecutableProductionSource,
@@ -197,7 +197,7 @@ async function main() {
   if (storageWorkflow) failures.push(`资料库启动恢复不得依赖备份与归档操作入口：${storageWorkflow.join(' → ')}`)
   const graphDirectory = path.join(root, 'test-results')
   await fs.mkdir(graphDirectory, { recursive: true })
-  const desktopGraph = Object.fromEntries(desktopModules.map(file => [file, graph[file]]))
+  const desktopGraph = reachableModuleGraph(graph, desktopModules)
   await fs.writeFile(path.join(graphDirectory, 'desktop-dependencies.json'), JSON.stringify(desktopGraph, null, 2) + '\n')
   await fs.writeFile(path.join(graphDirectory, 'runtime-dependencies.json'), JSON.stringify(graph, null, 2) + '\n')
 
