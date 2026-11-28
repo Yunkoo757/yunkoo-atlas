@@ -1,11 +1,11 @@
 import type { PersistencePause } from '@/storage/persistenceController'
-import type { LibraryImportOptions, StorageAdapter } from '@/storage/adapter'
+import type { LibraryImportOptions } from '@/storage/adapter'
 import { lockStorageCutoverInteraction } from '@/storage/cutover'
 import {
   disablePersistWrites, flushPersistNow,
   getPersistSuspendDepth, suspendPersist,
 } from '@/storage/persist'
-import type { ExportAssetRecord, PersistedSnapshot } from '@/storage/types'
+import type { PersistedSnapshot } from '@/storage/types'
 import { notifyStorageRecoveryRequired } from '@/lib/storageRecovery'
 
 export class DurableStorePublishError extends Error {
@@ -32,11 +32,10 @@ interface BatchWriter {
   compensate(snapshot: PersistedSnapshot): Promise<void>
 }
 
-interface TradeBatchOptions {
-  storage: Pick<StorageAdapter, 'commitImport'>
-  assets: ExportAssetRecord[]
+interface SnapshotBatchOptions {
+  persist(snapshot: PersistedSnapshot, options?: LibraryImportOptions): Promise<void>
   beforeCommit: () => Promise<void>
-  source: 'NotionImport' | 'TradeComposer' | 'JsonImport'
+  source: 'NotionImport' | 'TradeComposer' | 'JsonImport' | 'StageBoundaryRepair'
 }
 
 interface BatchOutcome<Result> {
@@ -44,9 +43,9 @@ interface BatchOutcome<Result> {
   finalSave: 'already-persisted' | 'best-effort' | 'required'
 }
 
-/** 录入或导入一批交易与附件。提交后发布失败时，禁止旧内存覆盖已写入的数据。 */
-export async function commitTradeBatch<Result extends object>(
-  options: TradeBatchOptions,
+/** 先写入快照，再发布本批变化。提交后发布失败时，禁止旧内存覆盖已写入的数据。 */
+export async function commitSnapshotBatch<Result extends object>(
+  options: SnapshotBatchOptions,
   apply: (writer: BatchWriter) => Promise<BatchOutcome<Result>>,
 ): Promise<Result & { trailingSaveFailed: boolean }> {
   const unlock = lockStorageCutoverInteraction()
@@ -83,11 +82,11 @@ export async function commitTradeBatch<Result extends object>(
       outcome = await apply({
         get diskAhead() { return diskAhead },
         async commit(snapshot, commitOptions) {
-          await options.storage.commitImport(snapshot, options.assets, commitOptions)
+          await options.persist(snapshot, commitOptions)
           diskAhead = true
         },
         async compensate(snapshot) {
-          await options.storage.commitImport(snapshot, options.assets, { pruneUnreferenced: true })
+          await options.persist(snapshot, { pruneUnreferenced: true })
           diskAhead = false
           compensated = true
         },

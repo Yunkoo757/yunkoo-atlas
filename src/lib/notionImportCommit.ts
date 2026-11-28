@@ -1,6 +1,6 @@
 import { applyTradeUpsertsToSlice, type TradeUpsertSlice } from '@/lib/tradeUpsert'
 import { bytesToBase64 } from '@/lib/base64'
-import { commitTradeBatch } from '@/lib/committedPublish'
+import { commitSnapshotBatch } from '@/lib/committedPublish'
 import type { Strategy } from '@/data/strategies'
 import type { Trade, TradeKind } from '@/data/trades'
 import {
@@ -127,8 +127,9 @@ export async function commitNotionImportBatch(
 ): Promise<CommittedNotionImport> {
   const storage = options.storage ?? getStorage()
   const prepared = prepareNotionAssetsForCommit(previews, options.createAssetId)
-  return commitTradeBatch<Omit<CommittedNotionImport, 'trailingSaveFailed'>>({
-    storage, assets: prepared.assets, beforeCommit: flushStorageBeforeCutover, source: 'NotionImport',
+  return commitSnapshotBatch<Omit<CommittedNotionImport, 'trailingSaveFailed'>>({
+    persist: (snapshot, options) => storage.commitImport(snapshot, prepared.assets, options),
+    beforeCommit: flushStorageBeforeCutover, source: 'NotionImport',
   }, async writer => {
     const revision = capturePersistedStateRevision()
     const imported = executeNotionImport(

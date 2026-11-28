@@ -595,11 +595,57 @@ async function run(): Promise<void> {
     )
     const recommendedButton = row('boundary-review').querySelector<HTMLButtonElement>('[data-stage-ownership-apply-recommended]')
     assert(recommendedButton && !recommendedButton.disabled, '推荐修复按钮不可用')
-    saveSnapshot = async (snapshot) => { saved.push(structuredClone(snapshot)) }
+    const draft = '<p>推荐修复前尚未提交的草稿</p>'
+    setNoteDraft(noteDraftKey('trade', historicalSource.id), draft)
+    let refused = false
+    saveSnapshot = async snapshot => {
+      if (snapshot.liveStages[1]?.startsOn === '2026-06-29') {
+        refused = true
+        throw new Error('repair persistence failure')
+      }
+      saved.push(structuredClone(snapshot))
+    }
+    recommendedButton.click()
+    await waitFor(() => refused && Boolean(row('boundary-review').querySelector('[role="alert"]') ??
+      row('boundary-review').textContent?.includes('失败')), '推荐候选写入失败后应保留待归属行并显示错误')
+    assert(useStore.getState().trades.find(t => t.id === historicalSource.id)?.note === draft &&
+      saved.at(-1)?.trades.find(t => t.id === historicalSource.id)?.note === draft,
+      '推荐修复失败时内存和磁盘都必须保留预冲洗成功的草稿')
+    assert(saved.at(-1)?.liveStages[1]?.startsOn === '2026-07-01', '失败候选不得提交新的边界')
+
+    let movedDuringCommit = false
+    saveSnapshot = async snapshot => {
+      saved.push(structuredClone(snapshot))
+      if (movedDuringCommit || snapshot.liveStages[1]?.startsOn !== '2026-06-29') return
+      movedDuringCommit = true
+      assert(useStore.getState().liveStages[1]?.startsOn === '2026-07-01', '候选落盘前不能发布推荐边界')
+      useStore.setState(state => ({ trades: state.trades.map(t => t.id === 'boundary-recent'
+        ? { ...t, recordedAt: '2026-06-10T08:00:00.000Z' } : t) }))
+    }
+    recommendedButton.click()
+    await waitFor(() => movedDuringCommit && Boolean(row('boundary-review').textContent?.includes('重新核对')),
+      '写入途中日期改变必须撤回旧预览并提示重新核对')
+    const compensated = saved.at(-1)!
+    assert(compensated.liveStages[1]?.startsOn === '2026-07-01' && compensated.weeklyReviews?.[0]?.liveStageId === null &&
+      compensated.trades.find(t => t.id === 'boundary-recent')?.recordedAt === '2026-06-10T08:00:00.000Z',
+      '撤回候选须把并发编辑与原边界一同写回')
+    useStore.setState(state => ({ trades: state.trades.map(t => t.id === 'boundary-recent'
+      ? { ...t, recordedAt: '2026-06-29T08:00:00.000Z' } : t) }))
+    await waitFor(() => Boolean(row('boundary-review').textContent?.includes('同步归档 1 条')), '没有刷新恢复日期后的预览')
+    let rebased = false
+    saveSnapshot = async snapshot => {
+      saved.push(structuredClone(snapshot))
+      if (rebased || snapshot.liveStages[1]?.startsOn !== '2026-06-29') return
+      rebased = true
+      useStore.setState(state => ({ trades: state.trades.map(t => t.id === historicalSource.id
+        ? { ...t, note: '<p>写入期间的独立编辑</p>' } : t) }))
+    }
     recommendedButton.click()
     await waitFor(() => document.querySelector('[data-stage-ownership-id="boundary-review"]') === null, '推荐修复没有完成周复盘归属')
     const recommendedDurable = saved.at(-1)
     assert(recommendedDurable, '推荐修复没有生成耐久快照')
+    assert(rebased && recommendedDurable.trades.find(t => t.id === historicalSource.id)?.note === '<p>写入期间的独立编辑</p>',
+      '在途修改不影响推荐成员时，重算后才可提交并显示成功')
     assertValidPersistedSnapshot(recommendedDurable, '推荐阶段边界修复快照')
     assert(
       recommendedDurable.liveStages.find((stage) => stage.id === 'stage-old')?.endsOn === '2026-06-28' &&

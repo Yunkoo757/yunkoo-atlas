@@ -1,5 +1,5 @@
 import { bytesToBase64 } from '@/lib/base64'
-import { commitTradeBatch } from '@/lib/committedPublish'
+import { commitSnapshotBatch } from '@/lib/committedPublish'
 import type { Trade } from '@/data/trades'
 import { isSafeAssetId } from '@/storage/assetId'
 import type { StorageAdapter } from '@/storage/adapter'
@@ -105,8 +105,9 @@ export async function commitComposerTradeBatch({
   createAssetId,
 }: CommitComposerOptions): Promise<CommittedComposerTrade> {
   const prepared = await prepareComposerAssetsForCommit(images, createAssetId)
-  return commitTradeBatch<Omit<CommittedComposerTrade, 'trailingSaveFailed'>>({
-    storage, assets: prepared.assets, beforeCommit: flushPersistNow, source: 'TradeComposer',
+  return commitSnapshotBatch<Omit<CommittedComposerTrade, 'trailingSaveFailed'>>({
+    persist: (snapshot, options) => storage.commitImport(snapshot, prepared.assets, options),
+    beforeCommit: flushPersistNow, source: 'TradeComposer',
   }, async writer => {
     const revision = capturePersistedStateRevision()
     const candidate = resolveComposerCandidate(buildTrade(revision.state, prepared.imageHtml))

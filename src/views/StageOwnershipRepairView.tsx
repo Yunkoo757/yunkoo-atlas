@@ -5,7 +5,6 @@ import { rememberableWorkspaceKind } from '@/lib/workspaceViews'
 import { AlertCircle, CheckCircle, Database } from '@/icons/appIcons'
 import { ICON_MD } from '@/icons/iconSize'
 import {
-  applyRecommendedStageBoundaryRepair,
   listPendingStageOwnership,
   recommendStageBoundaryRepair,
   StageOwnershipRepairError,
@@ -15,6 +14,8 @@ import {
   type RollbackAssignedStageOwnershipRequest,
   type StageOwnershipRepairState,
 } from '@/lib/stageOwnershipRepair'
+import { saveRecommendedStageBoundaryRepair } from '@/lib/stageBoundaryCommit'
+import { DurableStorePublishError } from '@/lib/committedPublish'
 import { StorageRevisionConflictError } from '@/storage/adapter'
 import { flushPersistNow } from '@/storage/persist'
 import { useStore } from '@/store/useStore'
@@ -270,26 +271,8 @@ export function StageOwnershipRepairView() {
     setPageStatus(null)
     setFeedback((current) => ({ ...current, [key]: { kind: 'progress', message: '正在按推荐设置修复…' } }))
 
-    const before = useStore.getState()
-    let candidate: ReturnType<typeof useStore.getState> | null = null
     try {
-      await flushPersistNow()
-      const latest = useStore.getState()
-      const refreshed = recommendStageBoundaryRepair(latest, item.entityId)
-      if (!refreshed || JSON.stringify(refreshed) !== JSON.stringify(recommendation)) {
-        throw new StageOwnershipRepairError('recommended-repair-unavailable', '推荐设置已经变化')
-      }
-      candidate = applyRecommendedStageBoundaryRepair(latest, refreshed)
-      useStore.setState({
-        liveStages: candidate.liveStages,
-        trades: candidate.trades,
-        weeklyReviews: candidate.weeklyReviews,
-        weeklyRiskPreparations: candidate.weeklyRiskPreparations,
-        riskPolicyVersions: candidate.riskPolicyVersions,
-        monthlyRiskLimits: candidate.monthlyRiskLimits,
-        riskOverrideEvents: candidate.riskOverrideEvents,
-      })
-      await flushPersistNow()
+      await saveRecommendedStageBoundaryRepair(recommendation)
       setPageStatus({
         kind: 'success',
         message: `推荐修复已完成：${recommendation.targetStageName} 从 ${recommendation.targetStageStartAfter} 开始，` +
@@ -298,39 +281,17 @@ export function StageOwnershipRepairView() {
       setFeedback((current) => ({ ...current, [key]: { kind: 'success', message: '推荐修复已完成。' } }))
       clearDraft(item)
     } catch (error) {
-      if (candidate) {
-        const current = useStore.getState()
-        const candidateStillCurrent = (
-          current.liveStages === candidate.liveStages &&
-          current.trades === candidate.trades &&
-          current.weeklyReviews === candidate.weeklyReviews &&
-          current.weeklyRiskPreparations === candidate.weeklyRiskPreparations &&
-          current.riskPolicyVersions === candidate.riskPolicyVersions &&
-          current.monthlyRiskLimits === candidate.monthlyRiskLimits &&
-          current.riskOverrideEvents === candidate.riskOverrideEvents
-        )
-        if (candidateStillCurrent) {
-          useStore.setState({
-            liveStages: before.liveStages,
-            trades: before.trades,
-            weeklyReviews: before.weeklyReviews,
-            weeklyRiskPreparations: before.weeklyRiskPreparations,
-            riskPolicyVersions: before.riskPolicyVersions,
-            monthlyRiskLimits: before.monthlyRiskLimits,
-            riskOverrideEvents: before.riskOverrideEvents,
-          })
-          try { await flushPersistNow() } catch { /* 页面提示已覆盖恢复失败。 */ }
-        }
-      }
       setFeedback((current) => ({
         ...current,
         [key]: {
           kind: 'error',
           message: error instanceof StageOwnershipRepairError
             ? domainFailureMessage(error)
-            : error instanceof StorageRevisionConflictError
-              ? '推荐修复发生同步冲突，已恢复原设置；请核对后重试。'
-              : '推荐修复保存失败，已恢复原设置；请重试。',
+            : error instanceof DurableStorePublishError
+              ? error.message
+              : error instanceof StorageRevisionConflictError
+                ? '推荐修复发生同步冲突，请刷新后重新核对。'
+                : '推荐修复保存失败，请重试。',
         },
       }))
     } finally {

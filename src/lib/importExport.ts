@@ -1,7 +1,7 @@
 import { downloadBlob } from './downloadBlob'
 import { verifyImportAssets } from '@/lib/importTradeIdentity'
 import { sha256Hex } from '@/lib/sha256'
-import { commitTradeBatch } from '@/lib/committedPublish'
+import { commitSnapshotBatch } from '@/lib/committedPublish'
 import { collectRetiredSnapshotAssetIds, stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
@@ -654,8 +654,9 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
   const storage = getStorage()
   const payloadDigest = await sha256CanonicalImportPayload(payload)
   const prepared = prepareImportPayloadForCommit(payload)
-  const { summary } = await commitTradeBatch({
-    storage, assets: prepared.assets, beforeCommit: flushStorageBeforeCutover, source: 'JsonImport',
+  const { summary } = await commitSnapshotBatch({
+    persist: (snapshot, options) => storage.commitImport(snapshot, prepared.assets, options),
+    beforeCommit: flushStorageBeforeCutover, source: 'JsonImport',
   }, async writer => {
     let snapshot: PersistedSnapshot
     try {
