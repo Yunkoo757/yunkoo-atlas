@@ -129,3 +129,43 @@ export async function testCommittedOpenCannotRecreateAPurgedTradeOrPopulateAnoth
     assert.deepEqual(useStore.getState().trades, [])
   })
 }
+
+export async function testDuplicateConfirmationSharesOneDurableOpen() {
+  await withPendingOpen(async library => {
+    const confirm = useStore.getState().confirmTradeOpen
+    let started!: () => void, release!: () => void
+    const writing = new Promise<void>(resolve => { started = resolve })
+    const allowed = new Promise<void>(resolve => { release = resolve })
+    library.duringCommit(async () => { started(); await allowed })
+    const first = confirm('首次确认')
+    await writing
+    const second = confirm('重复触发')
+    await new Promise(resolve => setTimeout(resolve, 0))
+    release()
+    const results = await Promise.all([first, second])
+    assert.deepEqual(results, [{ kind: 'committed' }, { kind: 'committed' }])
+    assert.equal(library.writeCount(), 1)
+    assert.equal(library.disk().riskOverrideEvents.length, 1)
+    assert.equal(library.disk().riskOverrideEvents[0]?.reason, '首次确认')
+  })
+}
+
+export async function testOldRiskReloadCannotPublishIntoReplacementSession() {
+  await withPendingOpen(async library => {
+    let started!: () => void, release!: () => void
+    const reading = new Promise<void>(resolve => { started = resolve })
+    const allowed = new Promise<void>(resolve => { release = resolve })
+    const original = library.disk()
+    window.journalBridge!.loadSnapshot = async () => {
+      started()
+      await allowed
+      return original
+    }
+    const reloading = useStore.getState().rehydrateRiskGateFromStorage()
+    await reading
+    useStore.setState(s => ({ librarySession: s.librarySession + 1, trades: [] }))
+    release()
+    await reloading
+    assert.deepEqual(useStore.getState().trades, [])
+  })
+}

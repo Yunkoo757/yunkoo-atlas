@@ -119,6 +119,7 @@ import {
   containsCaseClassificationMutation,
 } from '@/lib/reviewCaseClassification'
 import { appendBoundedHistory, createStoreUndoAction } from './tradeHistory'
+import { createRiskGateActions } from './riskGateActions'
 import type { ImportDataHealthStoreDependencies } from './copiedCloseDateCleanup'
 import type {
   CommitCopiedCloseDateCleanupResult,
@@ -1210,72 +1211,7 @@ export const useStore: UseBoundStore<StoreApi<State>> = create<State>()((set, ge
         return result
       },
       cancelTradeOpen: () => set({ pendingTradeOpenRequest: null, riskSetupTradeOpenRequest: null }),
-      confirmTradeOpen: async (rawReason) => {
-        const reason = rawReason.trim()
-        if (reason.length > 500) {
-          throw new Error('继续开仓原因最多 500 字')
-        }
-        const { pendingTradeOpenRequest: request, librarySession } = get()
-        if (!request) return { kind: 'cancelled', reason: 'target-missing' }
-        const [commitModule, { pickPersisted }, shortcutModule] = await Promise.all([
-          import('@/lib/riskGatedTradeOpenCommit'),
-          import('@/storage/snapshotProjection'),
-          import('@/store/shortcutStore'),
-        ])
-        const result = await commitModule.commitRiskGatedTradeOpen({
-          request,
-          reason,
-          captureLatestState: () => {
-            const state = get()
-            return {
-              state,
-              snapshot: pickPersisted(
-                state,
-                shortcutModule.useShortcutStore.getState().bindings,
-              ),
-              currentTradingDayKey: getTradingDayKey(
-                new Date(),
-                state.display.tradingDayStartHour,
-              ),
-            }
-          },
-          isCurrentSession: () => get().librarySession === librarySession,
-          publish: ({ trades, riskOverrideEvents }) => {
-            set(current => ({
-              trades,
-              riskOverrideEvents,
-              pendingTradeOpenRequest: current.pendingTradeOpenRequest === request ? null : current.pendingTradeOpenRequest,
-            }))
-            return pickPersisted(get(), shortcutModule.useShortcutStore.getState().bindings)
-          },
-        })
-        if (get().pendingTradeOpenRequest !== request || get().librarySession !== librarySession) return result
-        if (result.kind === 'cancelled') {
-          set({ pendingTradeOpenRequest: null })
-        } else if (result.kind === 'needs-reconfirmation') {
-          set({ pendingTradeOpenRequest: null })
-          get().requestTradeOpen(request.tradeId, request.returnFocus)
-        }
-        return result
-      },
-      rehydrateRiskGateFromStorage: async () => {
-        const { getStorage } = await import('@/storage/provider')
-        const snapshot = await getStorage().loadSnapshot()
-        if (!snapshot) throw new Error('存储中没有可恢复的风险开仓快照')
-        assertValidLiveStageState(snapshot)
-        set({
-          trades: snapshot.trades,
-          liveStages: snapshot.liveStages,
-          currentLiveStageId: snapshot.currentLiveStageId,
-          scheduledStageRollover: snapshot.scheduledStageRollover,
-          weeklyRiskPreparations: snapshot.weeklyRiskPreparations,
-          riskPolicyVersions: snapshot.riskPolicyVersions,
-          monthlyRiskLimits: snapshot.monthlyRiskLimits,
-          riskOverrideEvents: snapshot.riskOverrideEvents,
-          pendingTradeOpenRequest: null,
-          riskSetupTradeOpenRequest: null,
-        })
-      },
+      ...createRiskGateActions(store),
       completeTradeClose: (id, status, patch) =>
         set((s) => {
           const previous = s.trades.find((trade) => trade.id === id)
