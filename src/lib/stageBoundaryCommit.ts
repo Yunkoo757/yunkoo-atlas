@@ -32,7 +32,7 @@ export async function saveRecommendedStageBoundaryRepair(recommendation: Recomme
       throw error
     }
 
-    useStore.setState({ liveStages: candidate.liveStages, trades: candidate.trades, weeklyReviews: candidate.weeklyReviews })
+    writer.publish(() => useStore.setState({ liveStages: candidate.liveStages, trades: candidate.trades, weeklyReviews: candidate.weeklyReviews }))
     return { result: {} }
   })
 }

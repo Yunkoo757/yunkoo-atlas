@@ -135,7 +135,7 @@ export async function commitComposerTradeBatch({
     const finalPatch = unchanged
       ? patch
       : buildTradePatch(latest.state, finalCandidate)
-    useStore.setState(finalPatch)
+    writer.publish(() => useStore.setState(finalPatch))
 
     return {
       result: { trade: finalTrade, imageCount: prepared.assets.length },

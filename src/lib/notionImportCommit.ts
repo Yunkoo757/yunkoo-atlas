@@ -167,7 +167,7 @@ export async function commitNotionImportBatch(
     const finalPatch = unchanged
       ? patch
       : buildStorePatch(latest.state, importedTrades, newStrategies)
-    useStore.setState(finalPatch)
+    writer.publish(() => useStore.setState(finalPatch))
     const committedImportedTrades = importedTrades.map((trade) =>
       finalPatch.trades.find((candidate) => candidate.id === trade.id) ?? trade,
     )

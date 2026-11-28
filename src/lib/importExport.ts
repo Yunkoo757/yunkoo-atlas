@@ -698,7 +698,7 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
       throw error
     }
 
-    applySnapshotToStore(snapshot)
+    writer.publish(() => applySnapshotToStore(snapshot))
     const parts: string[] = [`${prepared.payload.trades.length} 笔交易`]
     if (prepared.assets.length > 0) parts.push(`${prepared.assets.length} 个附件`)
     parts.push('保留当前实盘阶段与历史阶段')

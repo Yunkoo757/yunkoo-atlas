@@ -3,7 +3,7 @@ import type { LibraryImportOptions } from '@/storage/adapter'
 import { lockStorageCutoverInteraction } from '@/storage/cutover'
 import {
   disablePersistWrites, flushPersistNow,
-  getPersistSuspendDepth, suspendPersist,
+  getPersistSuspendDepth, storageDocumentSignal, suspendPersist,
 } from '@/storage/persist'
 import type { PersistedSnapshot } from '@/storage/types'
 import { notifyStorageRecoveryRequired } from '@/lib/storageRecovery'
@@ -30,6 +30,7 @@ interface BatchWriter {
   readonly diskAhead: boolean
   commit(snapshot: PersistedSnapshot, options?: LibraryImportOptions): Promise<void>
   compensate(snapshot: PersistedSnapshot): Promise<void>
+  publish(updateStore: () => void): void
 }
 
 interface SnapshotBatchOptions {
@@ -48,11 +49,13 @@ export async function commitSnapshotBatch<Result extends object>(
   options: SnapshotBatchOptions,
   apply: (writer: BatchWriter) => Promise<BatchOutcome<Result>>,
 ): Promise<Result & { trailingSaveFailed: boolean }> {
-  const unlock = lockStorageCutoverInteraction()
+  const signal = storageDocumentSignal
+  const unlock = lockStorageCutoverInteraction(signal)
+  let committed: PersistedSnapshot | undefined
   const report = (message: string, error: unknown) => console.error(`[${options.source}] ${message}`, error)
 
   async function retrySaveIfUnheld() {
-    if (getPersistSuspendDepth() === 0) {
+    if (!signal.aborted && getPersistSuspendDepth() === 0) {
       await flushPersistNow().catch(error => report('failed to retry persistence', error))
     }
   }
@@ -74,8 +77,8 @@ export async function commitSnapshotBatch<Result extends object>(
       await retrySaveIfUnheld()
       throw error
     }
+    signal.throwIfAborted()
     const pause = suspendPersist()
-    let committed: PersistedSnapshot | undefined
     let needsTrailingSave = false
     let compensated = false
     let outcome: BatchOutcome<Result>
@@ -83,18 +86,31 @@ export async function commitSnapshotBatch<Result extends object>(
       outcome = await apply({
         get diskAhead() { return committed !== undefined },
         async commit(snapshot, commitOptions) {
+          signal.throwIfAborted()
           await options.persist(snapshot, commitOptions)
           committed = snapshot
+          signal.throwIfAborted()
         },
         async compensate(snapshot) {
+          signal.throwIfAborted()
           await options.persist(snapshot, { pruneUnreferenced: true })
           committed = undefined
           compensated = true
+          signal.throwIfAborted()
+        },
+        publish(updateStore) {
+          signal.throwIfAborted()
+          updateStore()
         },
       })
+      signal.throwIfAborted()
       // 同步 Store 订阅和发布后的微任务也可改写内容，只有此时才能决定是否跳过补写。
       if (committed && outcome.finalSave !== 'required') needsTrailingSave = pause.hasChangesSince(committed)
     } catch (error) {
+      if (signal.aborted) {
+        pause.resume({ flushNow: false })
+        throw error
+      }
       if (committed || error instanceof DurableStorePublishError) {
         try {
           throw error instanceof DurableStorePublishError ? error : durablePublishFailure(error)
@@ -117,6 +133,7 @@ export async function commitSnapshotBatch<Result extends object>(
       try {
         await resumeAndSave(pause)
       } catch (error) {
+        signal.throwIfAborted()
         report('failed to persist concurrent changes after commit', error)
         return { ...outcome.result, trailingSaveFailed: true }
       }
@@ -129,7 +146,14 @@ export async function commitSnapshotBatch<Result extends object>(
         throw durablePublishFailure(error)
       }
     }
+    signal.throwIfAborted()
     return { ...outcome.result, trailingSaveFailed: false }
+  } catch (error) {
+    // 已进入恢复界面时保留首次恢复原因，同时告知调用方已经落盘。
+    if (signal.aborted && committed && !(error instanceof DurableStorePublishError)) {
+      throw new DurableStorePublishError(signal.reason)
+    }
+    throw error
   } finally {
     unlock()
   }
