@@ -239,6 +239,7 @@ export async function runElectronQa(): Promise<QaCheck[]> {
     // 数据库主文件缺失但 manifest 仍存在时，必须拒绝静默创建空库。
     storage.release()
     const protectedDb = fs.readFileSync(paths.dbFile)
+    const protectedManifest = fs.readFileSync(paths.manifestFile)
     fs.rmSync(paths.dbFile, { force: true })
     let missingDbError = ''
     try {
@@ -248,7 +249,9 @@ export async function runElectronQa(): Promise<QaCheck[]> {
     }
     record(
       'manifest without db blocks empty-library overwrite',
-      missingDbError.includes('已阻止写入空库'),
+      missingDbError.includes('journal.db') &&
+        !fs.existsSync(paths.dbFile) &&
+        fs.readFileSync(paths.manifestFile).equals(protectedManifest),
       missingDbError,
     )
     fs.writeFileSync(paths.dbFile, protectedDb)
