@@ -1,3 +1,4 @@
+import { updateWeeklyReviewMarks } from '../../src/data/weeklyReviewTradeReferences'
 import { decodeCanonicalSnapshot, type CanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
 import { SCHEMA_VERSION } from '../../src/storage/types'
@@ -53,10 +54,10 @@ export function migrateToPaper(snapshot: EditorSnapshot, ids: ReadonlySet<string
     Reflect.deleteProperty(trade, 'liveStageId')
   }
   // Direct weekly links require live records. Frozen historical evidence stays intact.
-  for (const review of next.weeklyReviews ?? []) {
-    for (const key of ['highlightTradeIds', 'mistakeTradeIds', 'followUpTradeIds'] as const) {
-      review[key] = review[key].filter(id => !ids.has(id))
-    }
+  if (next.weeklyReviews) {
+    next.weeklyReviews = next.weeklyReviews.map(review =>
+      updateWeeklyReviewMarks(review, marked => marked.filter(id => !ids.has(id))),
+    )
   }
   validate(next)
   return next

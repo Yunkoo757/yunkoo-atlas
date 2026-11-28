@@ -1,3 +1,4 @@
+import { WEEKLY_TRADE_MARK_FIELDS, weeklyReviewFrozenTradeIds, weeklyReviewMarkedTradeIds } from '@/data/weeklyReviewTradeReferences'
 import { hasLegacyStageFields } from '@/lib/stageMigration'
 import { isBacktestProject } from '@/lib/backtestProjects'
 import type { PersistedSnapshot } from '@/storage/types'
@@ -503,7 +504,7 @@ function isWeeklyReview(value: unknown): boolean {
     )) return false
   }
   for (const field of [
-    'strengthTags', 'mistakeTags', 'highlightTradeIds', 'mistakeTradeIds', 'followUpTradeIds',
+    'strengthTags', 'mistakeTags', ...WEEKLY_TRADE_MARK_FIELDS,
   ]) {
     if (!isStringArray(value[field])) return false
   }
@@ -809,22 +810,8 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
           )
         }
       }
-      const frozenTradeIds = new Set([
-        ...(review.evidenceSnapshot?.trades.map((trade) => trade.id) ?? []),
-        ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
-        ...(review.riskSnapshot?.overrideEvents.map((event) => event.tradeId) ?? []),
-      ])
-      const directTradeIds = new Set([
-        ...review.highlightTradeIds,
-        ...review.mistakeTradeIds,
-        ...review.followUpTradeIds,
-      ])
-      const tradeIds = new Set([
-        ...directTradeIds,
-        ...(review.evidenceSnapshot?.trades.map((trade) => trade.id) ?? []),
-        ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
-      ])
-      for (const tradeId of tradeIds) {
+      const frozenTradeIds = weeklyReviewFrozenTradeIds(review)
+      for (const tradeId of [...weeklyReviewMarkedTradeIds(review), ...frozenTradeIds]) {
         const sourceTrade = nonPaperTradesById.get(tradeId)
         if (sourceTrade) {
           assertReferenceBelongsToStage(

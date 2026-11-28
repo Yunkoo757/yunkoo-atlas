@@ -209,6 +209,33 @@ export function testPreCycleArchiveWeeklyReviewsAndRiskOwnershipAreMigrated(): v
   assert(migrated.riskOverrideEvents.every((item) => item.liveStageId === null), '缺少被引用交易时风险覆盖事件必须待修复')
 }
 
+export function testLegacyWeeklyOwnershipIncludesCurrentEvidenceAndExcludesPreviousCommitment(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const event = fixture.riskOverrideEvents[0]!
+  const review = {
+    ...fixture.weeklyReviews![0]!, highlightTradeIds: [], mistakeTradeIds: [], followUpTradeIds: [],
+    weekStart: '2026-07-20', weekEnd: '2026-07-26', evidenceSnapshot: undefined, riskSnapshot: undefined,
+    previousCommitment: { weekStart: '2026-07-13', text: '历史承诺', criteria: '', evidence: [
+      { id: 'removed', ref: 'OLD', symbol: 'EURUSD', tradeKind: 'live' },
+    ] },
+  }
+  const evidence = { id: 'removed', ref: 'OLD', symbol: 'EURUSD', status: 'missed', pnl: null, rMultiple: null }
+  const reviews = [
+    review, { ...review, evidenceSnapshot: { trades: [], missedTrades: [evidence] } },
+    { ...review, riskSnapshot: {
+      frozenAt: '2026-07-26T18:00:00.000Z', dailyOutcomes: [], weeklyOutcome: event.outcomesAtDecision.week,
+      monthlyOutcomeAtCompletion: event.outcomesAtDecision.month, policyVersions: [],
+      overrideEvents: [{ ...event, tradeId: 'removed', policyVersionId: null }],
+    } },
+  ]
+  const [previous, missed, override] = reviews.map(item => migrateLegacyStageSnapshot(v11Snapshot({
+    weeklyReviews: [item], riskOverrideEvents: [],
+    livePerformanceCycles: [{ id: 'active', name: '实盘', startTradingDayKey: '2026-07-01', createdAt: '2026-07-01T00:00:00.000Z' }],
+  }), deterministicOptions).weeklyReviews![0])
+  assert(previous?.liveStageId === 'stage-1', '自包含的上周承诺不应阻止本周归属')
+  assert(missed?.liveStageId === null && override?.liveStageId === null, '旧版迁移遇到本周缺少来源的错过和风控证据应保留待归属')
+}
+
 export function testLegacyTradeWithoutKindRemainsPaperAndHasNoStageOwnership(): void {
   const fixture = createFullPersistedSnapshotFixture()
   const { tradeKind: _tradeKind, liveStageId: _liveStageId, ...legacyTrade } = fixture.trades[0]! as Trade & { liveStageId?: unknown }

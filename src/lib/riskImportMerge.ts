@@ -1,3 +1,4 @@
+import { updateWeeklyReviewMarks } from '@/data/weeklyReviewTradeReferences'
 import { canonicalRiskJson, stableRiskHash } from '@/lib/riskFingerprint'
 import { stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
 import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
@@ -189,10 +190,7 @@ function rewriteTradeReferences(
     trades: rewrittenTrades,
     riskOverrideEvents: rewriteEvents(imported.riskOverrideEvents ?? []),
     weeklyReviews: imported.weeklyReviews?.map((review) => ({
-      ...review,
-      highlightTradeIds: rewriteIds(review.highlightTradeIds),
-      mistakeTradeIds: rewriteIds(review.mistakeTradeIds),
-      followUpTradeIds: rewriteIds(review.followUpTradeIds),
+      ...updateWeeklyReviewMarks(review, rewriteIds),
       ...(review.previousCommitment && {
         previousCommitment: { ...review.previousCommitment, evidence: rewriteEvidenceTrades(review.previousCommitment.evidence) },
       }),

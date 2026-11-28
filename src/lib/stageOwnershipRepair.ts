@@ -1,3 +1,4 @@
+import { weeklyReviewFrozenTradeIds, weeklyReviewMarkedTradeIds } from '@/data/weeklyReviewTradeReferences'
 import type { Trade } from '@/data/trades'
 import type {
   MonthlyRiskLimit,
@@ -792,6 +793,10 @@ function validateRelationshipGraph(
     case 'weekly-review':
       {
         const review = located.entity as WeeklyReview
+        const tradesById = new Map<string, Trade>()
+        for (const trade of state.trades) {
+          if (trade.tradeKind !== 'paper' && !tradesById.has(trade.id)) tradesById.set(trade.id, trade)
+        }
         const embeddedPolicies = review.riskSnapshot?.policyVersions ?? []
         for (const policy of embeddedPolicies) {
           if (policy.liveStageId !== null) requireReferenceStage(policy, targetId, '冻结风险政策')
@@ -799,7 +804,7 @@ function validateRelationshipGraph(
         for (const event of review.riskSnapshot?.overrideEvents ?? []) {
           if (event.liveStageId !== null) requireReferenceStage(event, targetId, '冻结风险覆盖记录')
           requireTradeReferenceOrFrozenIdentity(
-            state.trades.find((candidate) => candidate.id === event.tradeId && candidate.tradeKind !== 'paper'),
+            tradesById.get(event.tradeId),
             targetId,
             hasCompleteFrozenOverrideIdentity(event),
             '冻结风险覆盖关联交易',
@@ -821,23 +826,10 @@ function validateRelationshipGraph(
             }
           }
         }
-        const frozenTradeIds = new Set([
-          ...(review.evidenceSnapshot?.trades.map((trade) => trade.id) ?? []),
-          ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
-          ...(review.riskSnapshot?.overrideEvents
-            .filter(hasCompleteFrozenOverrideIdentity)
-            .map((event) => event.tradeId) ?? []),
-        ])
-        const referencedTradeIds = new Set([
-          ...review.highlightTradeIds,
-          ...review.mistakeTradeIds,
-          ...review.followUpTradeIds,
-          ...(review.evidenceSnapshot?.trades.map((trade) => trade.id) ?? []),
-          ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
-        ])
-        for (const tradeId of referencedTradeIds) {
+        const frozenTradeIds = weeklyReviewFrozenTradeIds(review)
+        for (const tradeId of [...weeklyReviewMarkedTradeIds(review), ...frozenTradeIds]) {
           requireTradeReferenceOrFrozenIdentity(
-            state.trades.find((candidate) => candidate.id === tradeId && candidate.tradeKind !== 'paper'),
+            tradesById.get(tradeId),
             targetId,
             frozenTradeIds.has(tradeId),
             '周复盘引用交易',

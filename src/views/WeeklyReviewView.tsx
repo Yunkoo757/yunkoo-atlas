@@ -1,3 +1,4 @@
+import { weeklyReviewMarkedTradeIds } from '@/data/weeklyReviewTradeReferences'
 import { useNavigationIntent } from '@/hooks/useNavigationIntent'
 import { useValueMotion } from '@/hooks/useValueMotion'
 import { buildWeeklyReviewHistory } from '@/lib/weeklyReviewHistory'
@@ -506,7 +507,7 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
     ? review.evidenceSnapshot!.missedTrades
     : weekMissedTrades
   const evidenceCount = evidenceTrades.length + evidenceMissedTrades.length
-  const markedEvidenceIds = new Set([...review.highlightTradeIds, ...review.mistakeTradeIds, ...review.followUpTradeIds])
+  const markedEvidenceIds = weeklyReviewMarkedTradeIds(review)
   const compactEvidence = evidenceCount > 6 && !showAllEvidence
   const displayedEvidenceTrades = compactEvidence ? evidenceTrades.filter((trade) => markedEvidenceIds.has(trade.id)) : evidenceTrades
   const displayedMissedTrades = compactEvidence ? evidenceMissedTrades.filter((trade) => markedEvidenceIds.has(trade.id)) : evidenceMissedTrades

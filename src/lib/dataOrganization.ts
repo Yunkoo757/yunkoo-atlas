@@ -1,3 +1,4 @@
+import { updateWeeklyReviewMarks, weeklyReviewFrozenTradeIds } from '@/data/weeklyReviewTradeReferences'
 import type { PersistedSnapshot } from '@/storage/types'
 import { assertValidPersistedSnapshot } from '@/storage/snapshotValidation'
 import { createInitialLiveStage } from '@/lib/liveStages'
@@ -54,16 +55,10 @@ export function prepareDataOrganization(
       const { liveStageId: _stage, ...fields } = trade
       return { ...fields, tradeKind: 'paper' }
     })
-    for (const review of next.weeklyReviews) {
-      const frozen = new Set([
-        ...(review.evidenceSnapshot?.trades.map(t => t.id) ?? []),
-        ...(review.evidenceSnapshot?.missedTrades.map(t => t.id) ?? []),
-        ...(review.riskSnapshot?.overrideEvents.map(t => t.tradeId) ?? []),
-      ])
-      for (const key of ['highlightTradeIds', 'mistakeTradeIds', 'followUpTradeIds'] as const) {
-        review[key] = review[key].filter(id => !liveIds.has(id) || frozen.has(id))
-      }
-    }
+    next.weeklyReviews = next.weeklyReviews.map(review => {
+      const frozen = weeklyReviewFrozenTradeIds(review)
+      return updateWeeklyReviewMarks(review, ids => ids.filter(id => !liveIds.has(id) || frozen.has(id)))
+    })
   }
   if (request.resetStages) {
     const stage = createInitialLiveStage(day, now, stageId)

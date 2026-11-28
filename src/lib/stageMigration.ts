@@ -1,3 +1,4 @@
+import { weeklyReviewFrozenTradeIds, weeklyReviewMarkedTradeIds } from '@/data/weeklyReviewTradeReferences'
 import type { Trade } from '@/data/trades'
 import type { WeeklyReview } from '@/data/weeklyReviews'
 import { isValidLiveCycleDayKey, openedTradingDayKey } from '@/lib/liveCycle'
@@ -229,8 +230,8 @@ function migrateTrades(
 function migrateWeeklyReviews(
   reviews: readonly WeeklyReview[],
   stages: readonly LiveStage[],
-  trades: readonly Trade[],
-  topLevelPolicies: readonly PersistedSnapshot['riskPolicyVersions'][number][],
+  tradesById: ReadonlyMap<string, Trade>,
+  topLevelPolicyIds: ReadonlySet<string>,
   topLevelRiskLiveStageId: string | null,
 ): WeeklyReview[] {
   return reviews.map((review) => {
@@ -239,16 +240,9 @@ function migrateWeeklyReviews(
       stageContainsWeeklyReviewPeriod(candidate, review.weekStart, review.weekEnd)
     )) ?? null
     let stage = periodStage
-    const referencedTradeIds = new Set([
-      ...review.highlightTradeIds,
-      ...review.mistakeTradeIds,
-      ...review.followUpTradeIds,
-      ...(review.evidenceSnapshot?.trades.map((trade) => trade.id) ?? []),
-      ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
-      ...(review.riskSnapshot?.overrideEvents.map((event) => event.tradeId) ?? []),
-    ])
-    if (stage && [...referencedTradeIds].some((tradeId) => {
-      const trade = trades.find((candidate) => candidate.id === tradeId)
+    const referencedTradeIds = [...weeklyReviewMarkedTradeIds(review), ...weeklyReviewFrozenTradeIds(review)]
+    if (stage && referencedTradeIds.some((tradeId) => {
+      const trade = tradesById.get(tradeId)
       return !trade || trade.tradeKind === 'paper' || trade.liveStageId !== stage?.id
     })) stage = null
     if (stage && review.riskSnapshot?.overrideEvents.some((event) => {
@@ -257,8 +251,7 @@ function migrateWeeklyReviews(
         (policy) => policy.id === event.policyVersionId,
       )
       if (embedded) return false
-      const topLevel = topLevelPolicies.some((policy) => policy.id === event.policyVersionId)
-      return !topLevel || topLevelRiskLiveStageId !== stage?.id
+      return !topLevelPolicyIds.has(event.policyVersionId) || topLevelRiskLiveStageId !== stage?.id
     })) stage = null
     const liveStageId = stage?.id ?? null
     const riskSnapshot = review.riskSnapshot
@@ -307,6 +300,10 @@ export function migrateLegacyStageSnapshot(
   const startHour = tradingDayStartHour(raw)
   const { liveStages, currentLiveStageId } = buildStages(raw, options)
   const trades = migrateTrades(raw.trades ?? [], liveStages, startHour)
+  const tradesById = new Map<string, Trade>()
+  if (raw.weeklyReviews?.length || raw.riskOverrideEvents?.length) {
+    for (const trade of trades) if (!tradesById.has(trade.id)) tradesById.set(trade.id, trade)
+  }
   const riskReferenceStages = new Set<string>()
   let riskReferencesReliable = true
   const topLevelPolicyIds = new Set((raw.riskPolicyVersions ?? []).map((policy) => policy.id))
@@ -319,7 +316,7 @@ export function migrateLegacyStageSnapshot(
     riskReferencesReliable = false
   }
   for (const event of raw.riskOverrideEvents ?? []) {
-    const trade = trades.find((candidate) => candidate.id === event.tradeId)
+    const trade = tradesById.get(event.tradeId)
     if (!trade || trade.tradeKind === 'paper' || typeof trade.liveStageId !== 'string') riskReferencesReliable = false
     else riskReferenceStages.add(trade.liveStageId)
   }
@@ -329,8 +326,8 @@ export function migrateLegacyStageSnapshot(
   const weeklyReviews = migrateWeeklyReviews(
     raw.weeklyReviews ?? [],
     liveStages,
-    trades,
-    raw.riskPolicyVersions ?? [],
+    tradesById,
+    topLevelPolicyIds,
     riskLiveStageId,
   )
 

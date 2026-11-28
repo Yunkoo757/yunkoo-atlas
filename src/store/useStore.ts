@@ -1,3 +1,4 @@
+import { updateWeeklyReviewMarks, weeklyReviewFrozenTradeIds, weeklyReviewMarkedTradeIds } from '@/data/weeklyReviewTradeReferences'
 import type { ComposerGroup } from '@/lib/createRecordAction'
 import { toast } from '@/lib/toast'
 import { syncReviewCaseSourceNotes } from '@/lib/reviewCaseSources'
@@ -433,14 +434,6 @@ export interface TradePurgeTarget {
   expectedDeletedAt: string
 }
 
-function frozenReviewEvidenceTradeIds(review: WeeklyReview): Set<string> {
-  return new Set([
-    ...(review.evidenceSnapshot?.trades.map((trade) => trade.id) ?? []),
-    ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
-    ...(review.riskSnapshot?.overrideEvents.map((event) => event.tradeId) ?? []),
-  ])
-}
-
 function tradePurgeBlockers(
   state: Pick<State, 'trades' | 'weeklyReviews' | 'riskOverrideEvents'>,
   candidateIds: ReadonlySet<string>,
@@ -460,27 +453,14 @@ function tradePurgeBlockers(
     }
   }
   for (const review of state.weeklyReviews) {
-    const directIds = [
-      ...review.highlightTradeIds,
-      ...review.mistakeTradeIds,
-      ...review.followUpTradeIds,
-    ]
-    const allReviewTradeIds = [
-      ...directIds,
-      ...(review.evidenceSnapshot?.trades.map((trade) => trade.id) ?? []),
-      ...(review.evidenceSnapshot?.missedTrades.map((trade) => trade.id) ?? []),
-      ...(review.riskSnapshot?.overrideEvents.map((event) => event.tradeId) ?? []),
-    ]
-    if (typeof review.liveStageId !== 'string') {
-      for (const id of allReviewTradeIds) {
-        if (candidateIds.has(id)) blocked.add(id)
-      }
-      continue
+    const pending = typeof review.liveStageId !== 'string'
+    if (!pending && review.status !== 'completed') continue
+    const frozen = weeklyReviewFrozenTradeIds(review)
+    if (pending) {
+      for (const id of frozen) if (candidateIds.has(id)) blocked.add(id)
     }
-    if (review.status !== 'completed') continue
-    const frozenIds = frozenReviewEvidenceTradeIds(review)
-    for (const id of directIds) {
-      if (candidateIds.has(id) && !frozenIds.has(id)) blocked.add(id)
+    for (const id of weeklyReviewMarkedTradeIds(review)) {
+      if (candidateIds.has(id) && (pending || !frozen.has(id))) blocked.add(id)
     }
   }
   return blocked
@@ -493,16 +473,9 @@ function scrubDraftReviewTradeReferences(
   let changed = false
   const next = reviews.map((review) => {
     if (review.status === 'completed') return review
-    const highlightTradeIds = review.highlightTradeIds.filter((id) => !purgedIds.has(id))
-    const mistakeTradeIds = review.mistakeTradeIds.filter((id) => !purgedIds.has(id))
-    const followUpTradeIds = review.followUpTradeIds.filter((id) => !purgedIds.has(id))
-    if (
-      highlightTradeIds.length === review.highlightTradeIds.length &&
-      mistakeTradeIds.length === review.mistakeTradeIds.length &&
-      followUpTradeIds.length === review.followUpTradeIds.length
-    ) return review
-    changed = true
-    return { ...review, highlightTradeIds, mistakeTradeIds, followUpTradeIds }
+    const updated = updateWeeklyReviewMarks(review, ids => ids.filter(id => !purgedIds.has(id)))
+    if (updated !== review) changed = true
+    return updated
   })
   return changed ? next : reviews as WeeklyReview[]
 }
