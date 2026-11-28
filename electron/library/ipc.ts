@@ -208,6 +208,7 @@ export async function createVerifiedExitBackup(signal?: AbortSignal): Promise<vo
       const verification = await verifyBackupAtPath(
         current.getLibraryPath(),
         path.basename(backupPath),
+        current.readManifest().libraryId,
       )
       if (verification.status !== 'verified') {
         throw new Error(verification.error ?? '退出前恢复点验证失败')
@@ -603,6 +604,7 @@ export function registerLibraryIpc(): void {
           verifyBackup: (lib, backupReference) => verifyBackupAtPath(
             lib.getLibraryPath(),
             path.basename(backupReference),
+            lib.readManifest().libraryId,
           ),
           validateSnapshot: (snapshot) => {
             assertValidPersistedSnapshot(snapshot, 'Stage rollover snapshot')
@@ -786,7 +788,7 @@ export function registerLibraryIpc(): void {
 
   ipcMain.handle('backup:verify', async (_e, fileName: string) => operationGate.tryRunExclusive(async () => {
     const lib = await ensureStorage()
-    return verifyBackupAtPath(lib.getLibraryPath(), fileName)
+    return verifyBackupAtPath(lib.getLibraryPath(), fileName, lib.readManifest().libraryId)
   }))
 
   ipcMain.handle('backup:restore', async (event, payload: { fileName: string; writerToken: string }) => {

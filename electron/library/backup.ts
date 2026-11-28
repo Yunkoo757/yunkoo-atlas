@@ -411,6 +411,7 @@ function persistBackupVerification(
 export async function verifyBackupAtPath(
   libraryPath: string,
   fileName: string,
+  expectedLibraryId?: string,
 ): Promise<BackupVerificationResult> {
   const { backups } = getLibraryPaths(libraryPath)
   const dbPath = path.join(backups, path.basename(fileName))
@@ -511,7 +512,7 @@ export async function verifyBackupAtPath(
       allowCreate: false,
     })
     try {
-      await openedCandidate.open()
+      await openedCandidate.open(expectedLibraryId)
       const openedSnapshot = openedCandidate.loadSnapshot()
       if (!openedSnapshot && !declaredEmptyLibrary) throw new Error('临时恢复库无法由正式存储层打开')
     } finally {

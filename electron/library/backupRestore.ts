@@ -11,7 +11,7 @@ export async function createVerifiedRestorePoint(current: LibraryStorage): Promi
 > {
   const name = createBackup(current)
   if (!name) return { ok: false, error: '无法创建恢复前安全备份' }
-  const verification = await verifyBackupAtPath(current.getLibraryPath(), name)
+  const verification = await verifyBackupAtPath(current.getLibraryPath(), name, current.readManifest().libraryId)
   if (verification.status !== 'verified') return { ok: false, error: verification.error ?? '恢复前安全备份验证失败' }
   return { ok: true }
 }
@@ -33,7 +33,7 @@ export async function restoreLibraryBackup(fileName: string, session: BackupRest
   try {
     return await withStorageRecoveryNotification(() => session.withExclusiveWriter(async (current): Promise<RestoreReceipt> => {
       const libraryPath = current.getLibraryPath()
-      const verification = await verifyBackupAtPath(libraryPath, fileName)
+      const verification = await verifyBackupAtPath(libraryPath, fileName, current.readManifest().libraryId)
       if (verification.status !== 'verified') return { ok: false, committed: false, error: verification.error }
       const safety = await createVerifiedRestorePoint(current)
       if (!safety.ok) return { ok: false, committed: false, error: safety.error }

@@ -193,3 +193,25 @@ export async function testBackupWithMatchingChecksumAndUnreadableRevisionCannotR
     assert.deepEqual(f.active()?.loadSnapshot()?.tagPresets, ['active'])
   } finally { f.dispose() }
 }
+
+export async function testBackupFromAnotherLibraryCannotReplaceActiveLibraryIdentity() {
+  const original = await isolatedSession()
+  const other = await isolatedSession()
+  try {
+    other.first.saveSnapshot({ ...createEmptyPersistedSnapshot(), tagPresets: ['other library'] })
+    const foreign = writeLibraryBackup(other.first)
+    assert.ok(foreign)
+    original.first.saveSnapshot({ ...createEmptyPersistedSnapshot(), tagPresets: ['active library'] })
+    const paths = original.first.getPaths()
+    fs.cpSync(other.first.getPaths().backups, paths.backups, { recursive: true })
+    const database = fs.readFileSync(paths.dbFile)
+    const manifest = fs.readFileSync(paths.manifestFile)
+    const restored = await restoreLibraryBackup(path.basename(foreign), original.session)
+    assert.equal(restored.ok, false, '其他资料库的有效备份必须在关闭当前库之前拒绝')
+    assert.equal(restored.committed, false)
+    assert.deepEqual(original.events, [])
+    assert.deepEqual(fs.readFileSync(paths.dbFile), database)
+    assert.deepEqual(fs.readFileSync(paths.manifestFile), manifest)
+    original.first.saveSnapshot({ ...createEmptyPersistedSnapshot(), tagPresets: ['still writable'] }, 1)
+  } finally { other.dispose(); original.dispose() }
+}
