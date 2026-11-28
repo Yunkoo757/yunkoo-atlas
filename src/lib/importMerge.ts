@@ -12,28 +12,8 @@ import { mergeRiskImport, stableImportedTradeId } from '@/lib/riskImportMerge'
 import { getCurrentLiveStage, type LiveStage } from '@/lib/liveStages'
 import { isUsableRiskPolicy } from '@/lib/activeRiskPolicy'
 import type { Trade } from '@/data/trades'
-import type { ReviewPoolPreset } from '@/lib/reviewPools'
-import { hasSameBacktestRules, type BacktestProject } from '@/lib/backtestProjects'
+import { hasSameBacktestRules } from '@/lib/backtestProjects'
 import { OperationalError } from '@/lib/operationalError'
-
-function mergeReviewPoolPresets(
-  current: readonly ReviewPoolPreset[],
-  imported: readonly ReviewPoolPreset[],
-  payloadDigest: string,
-): ReviewPoolPreset[] {
-  const merged = new Map(current.map((preset) => [preset.id, preset]))
-  for (const preset of imported) {
-    const existing = merged.get(preset.id)
-    if (!existing) {
-      merged.set(preset.id, preset)
-      continue
-    }
-    if (canonicalImportValue(existing) === canonicalImportValue(preset)) continue
-    const remappedId = stableImportedTradeId(payloadDigest, `review-pool:${preset.id}`)
-    if (!merged.has(remappedId)) merged.set(remappedId, { ...preset, id: remappedId })
-  }
-  return [...merged.values()]
-}
 
 function mergeStrategies(current: Strategy[], imported: Strategy[]): Strategy[] {
   const map = new Map(current.map((strategy) => [strategy.id, strategy]))
@@ -164,27 +144,33 @@ export function canonicalImportValue(value: unknown): string {
   })
 }
 
-function mergeBacktestProjects(current: BacktestProject[], imported: BacktestProject[], digest: string) {
-  const local = new Map(current.map(project => [project.id, project]))
-  const projects = [...current]
+/** 所有来源都按原本地集合选目标；同批的其他来源不能改变分配结果。 */
+function mergeImportCopies<T extends { id: string }>(
+  current: readonly T[],
+  incoming: readonly T[],
+  digest: string,
+  namespace: string,
+  matchesCopy: (local: T, candidate: T) => boolean,
+  conflict: (id: string) => string,
+) {
+  const local = new Map(current.map(item => [item.id, item]))
+  const items = [...current]
   const idMap = new Map<string, string>()
   const targets = new Set<string>()
-  for (const project of imported) {
-    const existing = local.get(project.id)
-    const id = existing && canonicalImportValue(existing) !== canonicalImportValue(project)
-      ? stableImportedTradeId(digest, 'backtest-project:' + project.id)
-      : project.id
+  for (const item of incoming) {
+    const existing = local.get(item.id)
+    const remap = existing && canonicalImportValue(existing) !== canonicalImportValue(item)
+    const id = remap ? stableImportedTradeId(digest, namespace + ':' + item.id) : item.id
+    const candidate = remap ? { ...item, id } : item
     const occupant = local.get(id)
-    const occupiedByOtherProject = id !== project.id && occupant &&
-      (occupant.createdAt !== project.createdAt || !hasSameBacktestRules(occupant, project))
-    if (targets.has(id) || occupiedByOtherProject) {
-      throw new OperationalError('import-immutable-entity-conflict', '导入冲突：回测项目编号 ' + id + ' 已被其他项目或不同的固定规则占用。')
+    if (targets.has(id) || (remap && occupant && !matchesCopy(occupant, candidate))) {
+      throw new OperationalError('import-immutable-entity-conflict', conflict(id))
     }
     targets.add(id)
-    idMap.set(project.id, id)
-    if (!occupant) projects.push({ ...project, id })
+    idMap.set(item.id, id)
+    if (!occupant) items.push(candidate)
   }
-  return { projects, idMap }
+  return { items, idMap }
 }
 
 export function mergeImportPayload(
@@ -193,8 +179,10 @@ export function mergeImportPayload(
   payloadDigest = canonicalImportValue(payload),
   identityPayload: ImportIdentityPayload = payload,
 ): PersistedSlice {
-  const { projects, idMap: projectIdMap } = mergeBacktestProjects(
-    current.backtestProjects ?? [], payload.backtestProjects ?? [], payloadDigest,
+  const { items: projects, idMap: projectIdMap } = mergeImportCopies(
+    current.backtestProjects ?? [], payload.backtestProjects ?? [], payloadDigest, 'backtest-project',
+    (local, candidate) => local.createdAt === candidate.createdAt && hasSameBacktestRules(local, candidate),
+    id => '导入冲突：回测项目编号 ' + id + ' 已被其他项目或不同的固定规则占用。',
   )
   const remapProjects = (trades: ExportPayload['trades']) => trades.map(trade => trade.backtestProjectId
     ? { ...trade, backtestProjectId: projectIdMap.get(trade.backtestProjectId) ?? trade.backtestProjectId } as Trade : trade)
@@ -239,10 +227,10 @@ export function mergeImportPayload(
     : normalizeReviewTemplates(ownedPayload.reviewTemplates)) {
     if (!templatesById.has(template.id)) templatesById.set(template.id, template)
   }
-  const reviewPoolPresets = mergeReviewPoolPresets(
-    current.reviewPoolPresets ?? [],
-    ownedPayload.reviewPoolPresets ?? [],
-    payloadDigest,
+  const { items: reviewPoolPresets } = mergeImportCopies(
+    current.reviewPoolPresets ?? [], ownedPayload.reviewPoolPresets ?? [], payloadDigest, 'review-pool',
+    (local, candidate) => canonicalImportValue(local) === canonicalImportValue(candidate),
+    id => '导入冲突：复盘池编号 ' + id + ' 已被其他预设或不同的筛选设置占用。请核对复盘池后重试。',
   )
   return {
     backtestProjects: projects,

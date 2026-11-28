@@ -1,3 +1,5 @@
+import { OperationalError } from '@/lib/operationalError'
+import { stableImportedTradeId } from '@/lib/riskImportMerge'
 import type { Trade } from '@/data/trades'
 import { mergeImportPayload } from '@/lib/importMerge'
 import { riskSetupStateForStage } from '@/test/fixtures/stageRisk'
@@ -322,4 +324,29 @@ export function testMergeImportRemapsReviewPoolConflictsWithoutChangingHomeLayou
   assert(merged.reviewPoolPresets?.length === 2, '同 ID 不同内容的导入复盘池必须稳定改写 ID 后并存')
   assert(merged.reviewPoolPresets?.some((preset) => preset.name === '导入池' && preset.id !== localPreset.id), '导入冲突池必须获得新 ID')
   assert(JSON.stringify(merged.reviewPoolLayout) === JSON.stringify(current.reviewPoolLayout), '合并导入不得打乱当前首页布局')
+}
+
+export function testReviewPoolCopiesRequireMatchingContentAndDistinctTargets(): void {
+  const fixture = createFullPersistedSnapshotFixture()
+  const local = fixture.reviewPoolPresets![0]!
+  const incoming = { ...local, name: '外部复盘池' }
+  const digest = 'review-pool-target'
+  const id = stableImportedTradeId(digest, 'review-pool:' + local.id)
+  const copy = { ...incoming, id }
+  const current = { ...currentState(), reviewPoolPresets: [local, copy] }
+  const payload = { ...current, version: 15, trades: [], reviewPoolPresets: [incoming] }
+  const repeated = mergeImportPayload(current, payload, digest)
+  assert(repeated.reviewPoolPresets?.length === 2 && repeated.reviewPoolPresets[1] === copy, '同一导入预设应复用原副本')
+  const different = { ...copy, filters: { ...copy.filters, symbols: ['GBPUSD'] } }
+  for (const [presets, imports] of [
+    [[local, different], [incoming]],
+    [[local], [incoming, copy]],
+    [[local], [copy, incoming]],
+  ]) {
+    let error: unknown
+    try { mergeImportPayload({ ...current, reviewPoolPresets: presets }, { ...payload, reviewPoolPresets: imports }, digest) }
+    catch (cause) { error = cause }
+    assert(error instanceof OperationalError && error.code === 'import-immutable-entity-conflict' && error.message.includes(id),
+      '复盘池的目标已被其他内容或同批另一个预设占用时，必须明确报告目标编号')
+  }
 }
