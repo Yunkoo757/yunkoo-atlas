@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import {
   registerShortcutHandlers,
   type ShortcutHandlerMap,
@@ -96,7 +96,8 @@ export function useWorkbenchListKeyboard(options: Options) {
     enableNav = false,
   } = options
 
-  useEffect(() => {
+  // 让批量工具条出现时，当前选择对应的快捷键已注册。
+  useLayoutEffect(() => {
     return registerShortcutHandlers(createWorkbenchListShortcutHandlers({
       items,
       selectedIds,
