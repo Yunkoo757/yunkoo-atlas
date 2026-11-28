@@ -5,7 +5,7 @@ import { useSaveStatus } from '@/store/saveStatus'
 import { useStore } from '@/store/useStore'
 import { getStorage } from '@/storage/provider'
 import { isStorageCutoverInteractionLocked } from '@/storage/cutover'
-import { disablePersistWrites, enablePersistWrites, getPersistSuspendDepth, setPreFlushCallback, suspendPersist } from '@/storage/persist'
+import { disablePersistWrites, enablePersistWrites, getPersistSuspendDepth, schedulePersist, setPreFlushCallback, suspendPersist } from '@/storage/persist'
 import { commitComposerTradeBatch } from '@/lib/tradeComposerCommit'
 import { applyImport } from '@/lib/importExport'
 import { SCHEMA_VERSION } from '@/storage/types'
@@ -73,6 +73,55 @@ async function publicationFailure(kind: 'notion' | 'composer' | 'composer-compen
     adapter.saveSnapshot = originalSave
     originalSet(originalState)
   }
+}
+
+async function checkComposerSubscriberEdit(displayName: string, expectedTrailingSaves: number) {
+  const seed = createFullPersistedSnapshotFixture()
+  const previous = useStore.getState(), previousStatus = useSaveStatus.getState()
+  const adapter = getStorage(), originalSave = adapter.saveSnapshot, originalCommit = adapter.commitImport
+  let disk = seed
+  let commits = 0
+  let savesAfterCommit = 0
+  useStore.setState(seed)
+  adapter.saveSnapshot = async snapshot => {
+    if (commits) savesAfterCommit++
+    disk = structuredClone(snapshot)
+  }
+  adapter.commitImport = async snapshot => { commits++; disk = structuredClone(snapshot) }
+  enablePersistWrites(captureStoreForPersistence)
+  const id = 'composer-subscriber-edit'
+  const unsubscribe = useStore.subscribe((state, prior) => {
+    schedulePersist(captureStoreForPersistence().snapshot)
+    if (state.trades !== prior.trades && state.trades.some(trade => trade.id === id)) {
+      useStore.setState({ profile: { ...state.profile, displayName } })
+    }
+  })
+  try {
+    const result = await commitComposerTradeBatch({
+      images: [], targetTradeId: id, storage: adapter,
+      buildTrade: () => ({ ...seed.trades[0]!, id, ref: 'TRD-ISOLATED-EDIT' }),
+    })
+    assert.equal(result.trailingSaveFailed, false)
+    assert.equal(commits, 1)
+    assert.equal(disk.profile?.displayName, displayName)
+    assert.equal(savesAfterCommit, expectedTrailingSaves)
+    assert.ok(disk.trades.some(trade => trade.id === id))
+  } finally {
+    unsubscribe()
+    disablePersistWrites()
+    adapter.saveSnapshot = originalSave
+    adapter.commitImport = originalCommit
+    useStore.setState(previous, true)
+    useSaveStatus.setState(previousStatus, true)
+  }
+}
+
+export async function testComposerSavesEditsFromStoreSubscribersAfterItsDurableWrite() {
+  await checkComposerSubscriberEdit('发布时编辑', 1)
+}
+
+export async function testComposerSkipsTrailingWriteWhenPublishedDataAreEquivalent() {
+  await checkComposerSubscriberEdit(createFullPersistedSnapshotFixture().profile!.displayName, 0)
 }
 
 export async function testJsonPublishFailureNeverOverwritesItsCommittedImport() { await publicationFailure('json') }

@@ -1,3 +1,4 @@
+import { plainDataEqual } from '@/lib/plainData'
 import type { PersistedSnapshot } from '@/storage/types'
 
 export type PersistenceSaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
@@ -36,6 +37,7 @@ export interface PersistenceDiagnostics {
 }
 
 export interface PersistencePause {
+  hasChangesSince(committed: PersistedSnapshot): boolean
   resume(options?: { flushNow?: boolean }): void
   discardAndResume(): void
   resumeAndFlush(): Promise<void>
@@ -98,6 +100,8 @@ export class PersistenceController {
     this.clearTimer()
     const release = () => this.pauses.delete(token)
     return {
+      hasChangesSince: committed => this.pauses.has(token) && this.captureSnapshot !== null &&
+        !plainDataEqual(this.captureSnapshot().snapshot, committed),
       resume: options => {
         if (!release() || this.pauses.size > 0) return
         if (options?.flushNow === false) {

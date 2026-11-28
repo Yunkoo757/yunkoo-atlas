@@ -33,6 +33,6 @@ export async function saveRecommendedStageBoundaryRepair(recommendation: Recomme
     }
 
     useStore.setState({ liveStages: candidate.liveStages, trades: candidate.trades, weeklyReviews: candidate.weeklyReviews })
-    return { result: {}, finalSave: 'already-persisted' }
+    return { result: {} }
   })
 }

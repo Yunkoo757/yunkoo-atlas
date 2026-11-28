@@ -40,7 +40,7 @@ interface SnapshotBatchOptions {
 
 interface BatchOutcome<Result> {
   result: Result
-  finalSave: 'already-persisted' | 'best-effort' | 'required'
+  finalSave?: 'required'
 }
 
 /** 先写入快照，再发布本批变化。提交后发布失败时，禁止旧内存覆盖已写入的数据。 */
@@ -75,24 +75,27 @@ export async function commitSnapshotBatch<Result extends object>(
       throw error
     }
     const pause = suspendPersist()
-    let diskAhead = false
+    let committed: PersistedSnapshot | undefined
+    let needsTrailingSave = false
     let compensated = false
     let outcome: BatchOutcome<Result>
     try {
       outcome = await apply({
-        get diskAhead() { return diskAhead },
+        get diskAhead() { return committed !== undefined },
         async commit(snapshot, commitOptions) {
           await options.persist(snapshot, commitOptions)
-          diskAhead = true
+          committed = snapshot
         },
         async compensate(snapshot) {
           await options.persist(snapshot, { pruneUnreferenced: true })
-          diskAhead = false
+          committed = undefined
           compensated = true
         },
       })
+      // 同步 Store 订阅和发布后的微任务也可改写内容，只有此时才能决定是否跳过补写。
+      if (committed && outcome.finalSave !== 'required') needsTrailingSave = pause.hasChangesSince(committed)
     } catch (error) {
-      if (diskAhead || error instanceof DurableStorePublishError) {
+      if (committed || error instanceof DurableStorePublishError) {
         try {
           throw error instanceof DurableStorePublishError ? error : durablePublishFailure(error)
         } finally {
@@ -110,19 +113,20 @@ export async function commitSnapshotBatch<Result extends object>(
 
     if (outcome.finalSave === 'required') {
       await pause.resumeAndFlush()
-    } else if (outcome.finalSave === 'best-effort') {
+    } else if (needsTrailingSave) {
       try {
         await resumeAndSave(pause)
       } catch (error) {
         report('failed to persist concurrent changes after commit', error)
         return { ...outcome.result, trailingSaveFailed: true }
       }
+    } else if (!committed) {
+      pause.resume({ flushNow: false })
     } else {
       try {
         pause.discardAndResume()
       } catch (error) {
-        if (diskAhead) throw durablePublishFailure(error)
-        throw error
+        throw durablePublishFailure(error)
       }
     }
     return { ...outcome.result, trailingSaveFailed: false }

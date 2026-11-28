@@ -112,7 +112,7 @@ export async function commitComposerTradeBatch({
     const revision = capturePersistedStateRevision()
     const candidate = resolveComposerCandidate(buildTrade(revision.state, prepared.imageHtml))
     if (!candidate) {
-      return { result: { trade: null, imageCount: 0 }, finalSave: 'already-persisted' }
+      return { result: { trade: null, imageCount: 0 } }
     }
     const patch = buildTradePatch(revision.state, candidate)
     const snapshot = pickPersisted({ ...revision.state, ...patch }, revision.shortcutBindings)
@@ -139,7 +139,6 @@ export async function commitComposerTradeBatch({
 
     return {
       result: { trade: finalTrade, imageCount: prepared.assets.length },
-      finalSave: unchanged ? 'already-persisted' : 'best-effort',
     }
   })
 }
