@@ -28,6 +28,9 @@ export async function startQaServer({ root = process.cwd(), configFile, restrict
         host: '127.0.0.1',
         port: 0,
         open: false,
+        // 一次验收只服务启动时的配置；配置重载可能在 close() 后重新监听。
+        watch: null,
+        hmr: false,
         ...(restrictToRoot && { fs: { allow: [directory] } }),
       },
     })

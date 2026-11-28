@@ -73,6 +73,36 @@ test('同一工作树的两台验收服务分别持有端口与依赖字节，�
   assert.deepEqual(await readdir(path.join(root, 'test-results')), [])
 })
 
+test('一次验收只服务启动配置，配置被更新后仍能关闭自己的监听器', async t => {
+  const root = await fixture(t)
+  const configFile = path.join(root, 'settings.mjs')
+  const closed = path.join(root, 'closed')
+  const config = version => `
+    import { writeFileSync } from 'node:fs'
+    export default {
+      plugins: [{
+        name: 'qa-listener-identity',
+        configureServer(server) {
+          server.httpServer.once('close', () => writeFileSync(${JSON.stringify(closed)}, '${version}'))
+          server.middlewares.use('/identity', (_, res) => res.end(JSON.stringify({
+            version: '${version}', watching: server.config.server.watch !== null, hmr: server.config.server.hmr !== false,
+          })))
+        },
+      }],
+    }
+  `
+  await writeFile(configFile, config('original'))
+  const server = await startQaServer({ root, configFile })
+  const state = async () => (await fetch(new URL('identity', server.baseUrl))).json()
+  try {
+    assert.deepEqual(await state(), { version: 'original', watching: false, hmr: false })
+    await writeFile(configFile, config('edited'))
+    assert.equal((await state()).version, 'original')
+  } finally { await server.close() }
+  assert.equal(await readFile(closed, 'utf8'), 'original')
+  assert.deepEqual(await readdir(path.join(root, 'test-results')), [])
+})
+
 test('配置加载失败后删除本次缓存并保留已有输出', async t => {
   const root = await fixture(t)
   const out = path.join(root, 'test-results')
