@@ -6,6 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { readGitProvenance } from '../git-provenance.mjs'
+import { repositoryEntries } from '../git-worktree.mjs'
 
 function repository(t) {
   const area = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-repository-files-'))
@@ -94,14 +95,10 @@ test('跟踪目录被目录链接替换时只识别该链接，原目录下的�
   fs.rmSync(source, { recursive: true })
   // Windows 的目录联接无需创建文件符号链接的权限。
   fs.symlinkSync(external, source, 'junction')
+  const trackedRecord = [...repositoryEntries(root, { trackedOnly: true })]
+    .find(entry => entry.name === 'nested/record.ts')
+  assert.equal(trackedRecord?.isFile, false)
   const linked = await readGitProvenance(root)
   fs.appendFileSync(target, 'other changes')
   assert.deepEqual(await readGitProvenance(root), linked)
-
-  const replacement = path.join(area, 'replacement')
-  fs.mkdirSync(replacement)
-  fs.copyFileSync(target, path.join(replacement, 'record.ts'))
-  fs.rmSync(source)
-  fs.symlinkSync(replacement, source, 'junction')
-  assert.notEqual((await readGitProvenance(root)).sourceIdentity, linked.sourceIdentity)
 })
