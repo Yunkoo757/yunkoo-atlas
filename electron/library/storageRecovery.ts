@@ -1,9 +1,10 @@
 import type { StorageRecoveryRequiredState } from '../../src/types/journalBridge'
-import { SnapshotSaveError } from './storage'
+import { SnapshotSaveError, StaleLibraryStorageError } from './storage'
 
 export function classifyStorageRecoveryRequired(
   error: unknown,
 ): StorageRecoveryRequiredState | null {
+  if (error instanceof StaleLibraryStorageError) return { code: 'storage-revision-conflict', message: error.message }
   if (!(error instanceof SnapshotSaveError) || error.outcome !== 'indeterminate') return null
   return {
     code: 'storage-write-indeterminate',

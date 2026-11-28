@@ -117,14 +117,13 @@ export function isRevisionedStorageAdapter(
     typeof candidate.commitLibraryMutation === 'function'
 }
 
-export class StorageRevisionConflictError extends Error {
-  readonly code = 'storage-revision-conflict'
-
+export class StorageRevisionConflictError extends OperationalError {
   constructor(
     readonly expectedRevision: number,
     readonly actualRevision: number,
+    message = `Storage revision conflict: expected ${expectedRevision}, actual ${actualRevision}`,
   ) {
-    super(`Storage revision conflict: expected ${expectedRevision}, actual ${actualRevision}`)
+    super('storage-revision-conflict', message)
     this.name = 'StorageRevisionConflictError'
   }
 }

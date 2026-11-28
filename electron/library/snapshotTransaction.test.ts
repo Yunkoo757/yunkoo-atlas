@@ -4,6 +4,8 @@ import path from 'node:path'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import type { PersistedSnapshot } from '../../src/storage/types'
 import { LibraryStorage, SnapshotSaveError } from './storage'
+import { StorageRevisionConflictError } from '../../src/storage/adapter'
+import { classifyStorageRecoveryRequired } from './storageRecovery'
 
 function assert(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message)
@@ -23,14 +25,51 @@ export async function testSnapshotRevisionCasRejectsStaleDesktopWriter(): Promis
     assert(storage.getSnapshotRevision() === 0, '新库 revision 必须从 0 开始')
     storage.saveSnapshot(snapshot('winner'), 0)
     assert(storage.getSnapshotRevision() === 1, '成功写入必须原子推进 revision')
-    let rejected = false
-    try { storage.saveSnapshot(snapshot('stale'), 0) } catch { rejected = true }
-    assert(rejected, '过期 revision 的桌面写入必须被拒绝')
+    let rejected: unknown
+    try { storage.saveSnapshot(snapshot('stale'), 0) } catch (error) { rejected = error }
+    assert(rejected instanceof StorageRevisionConflictError && rejected.expectedRevision === 0 && rejected.actualRevision === 1,
+      '过期请求要携带实际磁盘修订')
+    assert(!storage.isRecoveryRequired() && !classifyStorageRecoveryRequired(rejected), '活动库仍在最新修订时允许重新读取')
     assert(storage.loadSnapshot()?.tagPresets?.[0] === 'winner', 'CAS 冲突不得覆盖已提交快照')
     assert(storage.getSnapshotRevision() === 1, 'CAS 冲突不得推进 revision')
   } finally {
     storage.close()
     fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testExternalSnapshotAndImportConflictsRequireFreshStorage() {
+  for (const write of ['save', 'import']) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-stale-instance-'))
+    const stale = new LibraryStorage(root)
+    const editor = new LibraryStorage(root, { allowCreate: false })
+    const recovered = new LibraryStorage(root, { allowCreate: false })
+    try {
+      await stale.open()
+      stale.saveSnapshot(snapshot('initial'))
+      await editor.open()
+      editor.saveSnapshot(snapshot('winner'), 1)
+      let conflict: unknown
+      try {
+        if (write === 'save') stale.saveSnapshot(snapshot('loser'), 1)
+        else await stale.commitImport(snapshot('loser'), [], { expectedSnapshotRevision: 1 })
+      } catch (error) { conflict = error }
+      assert(conflict instanceof StorageRevisionConflictError && conflict.actualRevision === 2, '保留磁盘冲突版本')
+      assert(classifyStorageRecoveryRequired(conflict)?.code === 'storage-revision-conflict', '过期实例需要重开')
+      for (const operation of [() => stale.loadSnapshot(), () => stale.saveSnapshot(snapshot('retry'))]) {
+        let failure: unknown
+        try { operation() } catch (error) { failure = error }
+        assert(failure === conflict, '旧实例不得读回旧快照或再次写入')
+      }
+      await recovered.open(stale.getOpenedTarget().libraryId)
+      const envelope = recovered.loadSnapshotEnvelope()
+      assert(envelope.revision === 2 && envelope.snapshot?.tagPresets?.[0] === 'winner', '重开后取得外部编辑')
+    } finally {
+      stale.release()
+      editor.release()
+      recovered.release()
+      fs.rmSync(root, { recursive: true, force: true })
+    }
   }
 }
 

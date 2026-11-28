@@ -63,7 +63,7 @@ export type CommitJournalImportResult =
   | { ok: false; committed: boolean; error?: string; code?: 'LIBRARY_BUSY' | 'TOKEN_EXPIRED' | 'SOURCE_CHANGED' }
 
 export interface StorageRecoveryRequiredState {
-  code: 'storage-write-indeterminate'
+  code: 'storage-write-indeterminate' | 'storage-revision-conflict'
   message: string
 }
 

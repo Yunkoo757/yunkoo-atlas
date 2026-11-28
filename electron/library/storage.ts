@@ -1,4 +1,4 @@
-import { assertEmptyMigrationTarget, type LibraryImportOptions } from '../../src/storage/adapter'
+import { assertEmptyMigrationTarget, StorageRevisionConflictError, type LibraryImportOptions } from '../../src/storage/adapter'
 import { AssetPurgePreviews } from '../../src/storage/assetPurgePreviews'
 import { assertLibraryIdentity, readCompatibleLibraryManifest, type LibraryTarget } from './libraryIdentity'
 import { nextSnapshotRevision, SNAPSHOT_REVISION_KEY } from '../../src/storage/snapshotRevision'
@@ -58,6 +58,13 @@ export interface AssetBytes {
   id: string
   mime: string
   bytes: Uint8Array
+}
+
+export class StaleLibraryStorageError extends StorageRevisionConflictError {
+  constructor(conflict: StorageRevisionConflictError) {
+    super(conflict.expectedRevision, conflict.actualRevision, `${conflict.message}。请重新打开资料库以载入最新记录`)
+    this.name = 'StaleLibraryStorageError'
+  }
 }
 
 export type SnapshotSaveOutcome =
@@ -134,7 +141,7 @@ function readDatabaseMeta(db: Database, key: string): string | null {
 function advanceSnapshotRevision(db: Database, expected?: number): void {
   const current = readDatabaseSnapshotRevision(db)
   if (expected !== undefined && expected !== current) {
-    throw new OperationalError('storage-revision-conflict', `资料库已被更新（预期版本 ${expected}，实际版本 ${current}），已阻止旧快照覆盖`)
+    throw new StorageRevisionConflictError(expected, current, `资料库已被更新（预期版本 ${expected}，实际版本 ${current}），已阻止旧快照覆盖`)
   }
   db.run(
     'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
@@ -333,7 +340,7 @@ export class LibraryStorage {
     data?: ArrayLike<number> | null,
   ) => Database
   private readonly now: () => Date
-  private storageWriteRecoveryError: SnapshotSaveError | null = null
+  private storageWriteRecoveryError: SnapshotSaveError | StaleLibraryStorageError | null = null
   private readonly assetPurgePreviews = new AssetPurgePreviews<void>()
 
   constructor(
@@ -558,6 +565,11 @@ export class LibraryStorage {
       }
     } catch (error) {
       this.closeDetachedDatabaseBestEffort(candidateDb)
+      if (error instanceof StorageRevisionConflictError && this.getSnapshotRevision() !== error.actualRevision) {
+        this.closeDatabaseBestEffort()
+        this.storageWriteRecoveryError = new StaleLibraryStorageError(error)
+        throw this.storageWriteRecoveryError
+      }
       throw error
     }
   }
