@@ -27,15 +27,6 @@ function resolveTarget(selection: Selection, source: LibraryStorage | null): str
   return root
 }
 
-function currentLibraryId(source: LibraryStorage | null): string | undefined {
-  try {
-    return source?.readManifest().libraryId
-  } catch {
-    // 当前清单损坏时仍可切往另一目录，实际路径已单独核对。
-    return undefined
-  }
-}
-
 /** 准备时只保留所选位置和身份。激活时重新开库，读取该库当时的快照与版本。 */
 export class LibrarySwitchTargets {
   constructor(private readonly createStorage: OpenStorage) {}
@@ -61,7 +52,7 @@ export class LibrarySwitchTargets {
       }
       throw error
     })
-    if (currentLibraryId(source) === verified.libraryId) {
+    if (source?.getOpenedTarget().libraryId === verified.libraryId) {
       candidate.release()
       throw new Error('所选目录已经是当前交易库')
     }

@@ -97,5 +97,9 @@ export async function testDirectAndPreparedSelectionRejectActivePathAndCopiedIde
       await assert.rejects(targets.open(selection, source), /已经是当前交易库/)
       await assert.rejects(targets.prepare(selection, source), /已经是当前交易库/)
     }
+    fs.unlinkSync(path.join(source.getLibraryPath(), 'manifest.json'))
+    await assert.rejects(targets.prepare({ mode: 'open', path: clone }, source), /已经是当前交易库/)
+    const created = await targets.open({ mode: 'create', path: path.join(root, 'distinct') }, source)
+    created.candidate.release()
   })
 }

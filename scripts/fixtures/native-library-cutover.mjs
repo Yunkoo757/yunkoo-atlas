@@ -97,6 +97,11 @@ async function verifyRestoreTarget(page, libraryPath, candidatePath, userDataPat
   const before = [database(libraryPath), database(candidatePath)]
   try {
     fs.writeFileSync(config, JSON.stringify({ libraryPath: candidatePath, libraryId: otherId }), 'utf8')
+    const status = await page.evaluate(() => window.journalBridge.getLibraryStatus())
+    assert.equal(status.kind, 'invalid', '仍有活动库时的状态查询不得采用另一目录')
+    const reopened = await page.evaluate(() => window.journalBridge.recoverStorage())
+    assert.equal(reopened.code, 'reopen-failed')
+    assert.match(reopened.message, /资料库位置或身份已变化/)
     const results = await page.evaluate(async ([file, token]) => {
       const bridge = window.journalBridge
       return [await bridge.restoreBackup(file), await bridge.commitPreparedJournalImport(token)]

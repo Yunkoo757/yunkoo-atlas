@@ -262,6 +262,17 @@ export async function testBackupWithMatchingChecksumAndUnreadableRevisionCannotR
   } finally { f.dispose() }
 }
 
+export async function testBackupRejectsReplacementManifestBeforeWritingIntoItsDirectory() {
+  const f = await isolatedSession()
+  try {
+    const { manifestFile, backups } = f.first.getPaths()
+    const before = fs.readdirSync(backups).sort()
+    fs.writeFileSync(manifestFile, JSON.stringify({ ...f.first.readManifest(), libraryId: 'replacement-id' }))
+    assert.equal(await createVerifiedBackup(f.first, { rotate: true }), null)
+    assert.deepEqual(fs.readdirSync(backups).sort(), before)
+  } finally { f.dispose() }
+}
+
 export async function testRotatingBackupRetainsCurrentSnapshotAfterClockMovesBack() {
   const f = await isolatedSession()
   try {

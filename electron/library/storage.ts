@@ -1,6 +1,6 @@
 import { assertEmptyMigrationTarget, type LibraryImportOptions } from '../../src/storage/adapter'
 import { AssetPurgePreviews } from '../../src/storage/assetPurgePreviews'
-import { readCompatibleLibraryManifest } from './libraryIdentity'
+import { assertLibraryIdentity, readCompatibleLibraryManifest, type LibraryTarget } from './libraryIdentity'
 import { nextSnapshotRevision, SNAPSHOT_REVISION_KEY } from '../../src/storage/snapshotRevision'
 import { CREATE_LIBRARY_TABLES_SQL, readDatabaseSnapshotRevision, resolveSnapshotVersion, isPortableAssetFileName, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import { stripRetiredSnapshotDomains } from '../../src/storage/retiredSnapshotDomains'
@@ -310,6 +310,7 @@ function readAssetTrashJournal(filePath: string, operationId: string): AssetTras
 
 export class LibraryStorage {
   private readonly lifecycleId = randomUUID()
+  private openedLibraryId?: string
   private db: Database | null = null
   private DatabaseClass: SqlDatabaseConstructor | null = null
   private paths: ReturnType<typeof ensureLibraryDirs>
@@ -388,6 +389,11 @@ export class LibraryStorage {
     return this.paths.root
   }
 
+  getOpenedTarget(): LibraryTarget {
+    if (this.openedLibraryId === undefined) throw new Error('资料库尚未完成打开')
+    return { libraryPath: this.paths.root, libraryId: this.openedLibraryId }
+  }
+
   getLifecycleId(): string {
     return this.lifecycleId
   }
@@ -400,7 +406,8 @@ export class LibraryStorage {
     return this.paths
   }
 
-  async open(expectedLibraryId?: string): Promise<void> {
+  async open(expectedLibraryId = this.openedLibraryId): Promise<void> {
+    if (this.openedLibraryId !== undefined) assertLibraryIdentity(this.openedLibraryId, expectedLibraryId)
     if (this.storageWriteRecoveryError) throw this.storageWriteRecoveryError
     if (this.db) {
       if (expectedLibraryId !== undefined) this.readManifest(expectedLibraryId)
@@ -489,6 +496,7 @@ export class LibraryStorage {
       // 同一物理路径的 legacy 大小写碰撞。
       assertPortableAssetDatabaseIntegrity(this.requireDb())
       this.recoverAssetTrash()
+      this.openedLibraryId = openedManifest.libraryId
     } catch (error) {
       this.closeDatabaseBestEffort()
       throw error
@@ -783,7 +791,7 @@ export class LibraryStorage {
     writeFileAtomicallySync(this.paths.dbFile, Buffer.from(data), undefined, this.beforeAtomicReplace)
   }
 
-  readManifest(expectedLibraryId?: string): LibraryManifest {
+  readManifest(expectedLibraryId = this.openedLibraryId): LibraryManifest {
     if (!fs.existsSync(this.paths.manifestFile)) {
       if (!this.allowCreate || expectedLibraryId !== undefined) {
         throw new Error('manifest.json 不存在，已阻止生成新的资料库身份')

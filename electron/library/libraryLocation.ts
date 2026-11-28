@@ -273,8 +273,8 @@ export function getValidatedLibraryLocation(expected?: LibraryTarget): Promise<V
   return resolveLibraryLocation(runtimeLocationDependencies(), expected)
 }
 
-export async function getLibraryLocationState(): Promise<LibraryLocationState> {
-  const location = await getValidatedLibraryLocation()
+export async function getLibraryLocationState(expected?: LibraryTarget): Promise<LibraryLocationState> {
+  const location = await getValidatedLibraryLocation(expected)
   if (location.kind !== 'ready') return location
   const { verifiedLibraryId: _verifiedLibraryId, ...publicState } = location
   return publicState

@@ -15,7 +15,7 @@ import { safeConsoleError } from '../diagnosticSanitizer'
 import { JournalImportPreviews } from './journalImportPreviews'
 import { LibraryStorage } from './storage'
 import { exportJournalZip, installPreparedLibraryAtPath } from './journalZip'
-import { ensureLibraryDirs, isSameDirectory } from './paths'
+import { ensureLibraryDirs } from './paths'
 import {
   assertConfiguredLibraryTarget,
   getLibraryLocationState,
@@ -454,12 +454,9 @@ async function recoverActiveStorageLifecycle(
 
       // 恢复失败时旧实例可能仍被锁定，只有成功激活的实例可重新备份。
       autoBackup.stop()
-      const location = await getValidatedLibraryLocation()
+      const location = await getValidatedLibraryLocation(current?.getOpenedTarget())
       if (location.kind === 'unset') throw new Error('尚未配置交易库')
       if (location.kind !== 'ready') throw libraryLocationError(location)
-      if (current && !isSameDirectory(current.getLibraryPath(), location.resolvedPath)) {
-        throw new Error('活动资料库路径在恢复期间发生变化，已阻止替换 storage')
-      }
 
       const recovered = await recoverLibraryStorageLifecycle({
         current,
@@ -512,7 +509,7 @@ async function recoverActiveStorageLifecycle(
 export function registerLibraryIpc(): void {
   registerStorageRecoveryQaController()
   // ---- 库路径引导 ----
-  ipcMain.handle('library:getStatus', () => operationGate.run(getLibraryLocationState))
+  ipcMain.handle('library:getStatus', () => operationGate.run(() => getLibraryLocationState(storage?.getOpenedTarget())))
 
   ipcMain.handle('library:pickFolder', async () => {
     const win = BrowserWindow.getFocusedWindow()

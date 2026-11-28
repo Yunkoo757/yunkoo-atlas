@@ -14,7 +14,7 @@ export async function createVerifiedRestorePoint(
   current: LibraryStorage,
   assertTarget: (target: LibraryTarget) => void,
 ): Promise<{ ok: true; point: RestorePoint } | { ok: false; error: string }> {
-  const target = { libraryPath: current.getLibraryPath(), libraryId: current.readManifest().libraryId }
+  const target = current.getOpenedTarget()
   assertTarget(target)
   const backup = await createVerifiedBackup(current)
   if (!backup) return { ok: false, error: '无法创建恢复前安全备份' }

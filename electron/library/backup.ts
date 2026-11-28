@@ -189,6 +189,7 @@ interface BackupOptions {
 export function createBackup(storage: LibraryStorage, options: BackupOptions = {}): string | null {
   let backup: string | null
   try {
+    storage.readManifest()
     backup = writeLibraryBackup(storage, Date.now(), options)
   } catch (err) {
     safeConsoleError('backup-create-failed', err)

@@ -127,7 +127,7 @@ export async function recoverLibraryStorageLifecycle(input: {
   activateCandidate: (candidate: LibraryStorage) => void
   reloadRenderer: () => void | Promise<void>
 }): Promise<{ snapshot: PersistedSnapshot | null; storage: LibraryStorage }> {
-  const expectedLibraryId = input.expectedLibraryId ?? input.current?.readManifest().libraryId
+  const expectedLibraryId = input.expectedLibraryId ?? input.current?.getOpenedTarget().libraryId
   if (!expectedLibraryId) throw new Error('资料库恢复缺少可验证的身份')
   const libraryPath = input.current?.getLibraryPath() ?? input.libraryPath
   if (!libraryPath) throw new Error('资料库恢复缺少可重新打开的路径')

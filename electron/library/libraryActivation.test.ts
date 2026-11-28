@@ -201,6 +201,34 @@ export async function testRecoveryReplacesIndeterminateStorageBeforeRendererRelo
   }
 }
 
+export async function testRecoveryRejectsAReplacementIdentityAtTheActivePath(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-library-recovery-identity-'))
+  const current = new LibraryStorage(root)
+  try {
+    await current.open()
+    const manifestFile = path.join(root, 'manifest.json')
+    const manifest = current.readManifest()
+    fs.writeFileSync(manifestFile, JSON.stringify({ ...manifest, libraryId: 'replacement-library-id' }))
+    const database = fs.readFileSync(path.join(root, 'journal.db'))
+    let activated = false
+    let failure: unknown
+    try {
+      await recoverLibraryStorageLifecycle({
+        current,
+        createCandidate: dir => new LibraryStorage(dir, { ensureDirectories: false, allowCreate: false }),
+        activateCandidate: candidate => { activated = true; candidate.release() },
+        reloadRenderer: () => {},
+      })
+    } catch (error) { failure = error }
+    assert(failure instanceof Error && failure.message.includes('身份'), '同路径重开必须依据原实例已确认的身份')
+    assert(!activated, '另一身份不得成为活动实例')
+    assert(fs.readFileSync(path.join(root, 'journal.db')).equals(database), '拒绝时保留替换库原始数据库')
+  } finally {
+    current.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export async function testRecoveryCanBootstrapFreshStorageWhenBackupCutoverLeftNoActiveInstance(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-library-null-lifecycle-recovery-'))
   const writer = new LibraryStorage(root)
