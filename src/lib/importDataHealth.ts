@@ -132,6 +132,7 @@ export async function commitCopiedCloseDateCleanup(
 }
 
 export interface CopiedCloseDatePersistenceBoundary {
+  signal: AbortSignal
   lockInteraction: () => () => void
   flushBeforeCommit: () => Promise<void>
   createVerifiedBackup: () => Promise<void>
@@ -139,29 +140,47 @@ export interface CopiedCloseDatePersistenceBoundary {
   recoverDurableSnapshot: (snapshot: PersistedSnapshot) => void | Promise<void>
 }
 
-type PersistSnapshot<Context extends unknown[]> = (snapshot: PersistedSnapshot, ...context: Context) => Promise<void>
+interface CloseDateWriter<Context extends unknown[]> {
+  persistSnapshot(snapshot: PersistedSnapshot, ...context: Context): Promise<void>
+  publish(trades: PersistedTrade[]): void
+}
 
-async function commitThroughPersistenceBoundary<Result, Context extends unknown[]>(input: {
-  persistSnapshot: PersistSnapshot<Context>
-  commit: (persistSnapshot: PersistSnapshot<Context>) => Promise<Result>
-  boundary: CopiedCloseDatePersistenceBoundary
-}): Promise<Result> {
-  const unlockInteraction = input.boundary.lockInteraction()
+async function commitThroughPersistenceBoundary<Result, Context extends unknown[]>(
+  boundary: CopiedCloseDatePersistenceBoundary,
+  writer: CloseDateWriter<Context>,
+  commit: (guarded: CloseDateWriter<Context>) => Promise<Result>,
+): Promise<Result> {
+  const { signal } = boundary
+  const unlockInteraction = boundary.lockInteraction()
   try {
-    await input.boundary.flushBeforeCommit()
-    await input.boundary.createVerifiedBackup()
-    const pause = input.boundary.suspendPersist()
-    let durableSnapshot: PersistedSnapshot | null = null
+    signal.throwIfAborted()
+    await boundary.flushBeforeCommit()
+    signal.throwIfAborted()
+    await boundary.createVerifiedBackup()
+    signal.throwIfAborted()
+    const pause = boundary.suspendPersist()
+    let durableSnapshot: PersistedSnapshot | undefined
     try {
-      return await input.commit(async (snapshot, ...context) => {
-        await input.persistSnapshot(snapshot, ...context)
-        durableSnapshot = snapshot
+      const result = await commit({
+        async persistSnapshot(snapshot, ...context) {
+          signal.throwIfAborted()
+          await writer.persistSnapshot(snapshot, ...context)
+          durableSnapshot = snapshot
+        },
+        publish(trades) {
+          signal.throwIfAborted()
+          writer.publish(trades)
+        },
       })
+      signal.throwIfAborted()
+      return result
     } catch (error) {
-      if (durableSnapshot) await input.boundary.recoverDurableSnapshot(durableSnapshot)
+      signal.throwIfAborted()
+      if (durableSnapshot) await boundary.recoverDurableSnapshot(durableSnapshot)
       throw error
     } finally {
-      if (durableSnapshot) pause.discardAndResume()
+      if (signal.aborted) pause.resume({ flushNow: false })
+      else if (durableSnapshot) pause.discardAndResume()
       else pause.resume()
     }
   } finally {
@@ -173,14 +192,9 @@ export async function commitCopiedCloseDateCleanupThroughBoundary(input: {
   cleanup: CommitCopiedCloseDateCleanupInput
   boundary: CopiedCloseDatePersistenceBoundary
 }): Promise<CommitCopiedCloseDateCleanupResult> {
-  return commitThroughPersistenceBoundary({
-    persistSnapshot: input.cleanup.persistSnapshot,
-    boundary: input.boundary,
-    commit: (persistSnapshot) => commitCopiedCloseDateCleanup({
-      ...input.cleanup,
-      persistSnapshot,
-    }),
-  })
+  return commitThroughPersistenceBoundary(input.boundary, input.cleanup, writer =>
+    commitCopiedCloseDateCleanup({ ...input.cleanup, ...writer }),
+  )
 }
 
 export interface CommitCopiedCloseDateUndoInput {
@@ -210,12 +224,7 @@ export async function commitCopiedCloseDateUndoThroughBoundary(input: {
   undo: CommitCopiedCloseDateUndoInput
   boundary: CopiedCloseDatePersistenceBoundary
 }): Promise<CommitCopiedCloseDateUndoResult> {
-  return commitThroughPersistenceBoundary({
-    persistSnapshot: input.undo.persistSnapshot,
-    boundary: input.boundary,
-    commit: (persistSnapshot) => commitCopiedCloseDateUndo({
-      ...input.undo,
-      persistSnapshot,
-    }),
-  })
+  return commitThroughPersistenceBoundary(input.boundary, input.undo, writer =>
+    commitCopiedCloseDateUndo({ ...input.undo, ...writer }),
+  )
 }

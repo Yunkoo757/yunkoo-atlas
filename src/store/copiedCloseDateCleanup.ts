@@ -8,7 +8,7 @@ import {
 import type { UndoAction } from '@/lib/tradeUndo'
 import { flushStorageBeforeCutover, lockStorageCutoverInteraction } from '@/storage/cutover'
 import { pickPersisted } from '@/storage/snapshotProjection'
-import { suspendPersist } from '@/storage/persist'
+import { storageDocumentSignal, suspendPersist } from '@/storage/persist'
 import { getStorage } from '@/storage/provider'
 import { getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
@@ -32,13 +32,15 @@ function desktopDependencies(
   return {
     persistSnapshot: snapshot => getStorage().commitImport(snapshot, []),
     boundary: {
-      lockInteraction: lockStorageCutoverInteraction,
+      signal: storageDocumentSignal,
+      lockInteraction: () => lockStorageCutoverInteraction(storageDocumentSignal),
       flushBeforeCommit: flushStorageBeforeCutover,
       createVerifiedBackup: async () => {
         const bridge = getJournalBridge()
         if (!bridge) throw new Error(`历史日期${operation}只能在 Windows 或 macOS 客户端执行`)
         const backupName = await bridge.createBackup()
         if (!backupName) throw new Error(`无法创建${operation}前备份`)
+        storageDocumentSignal.throwIfAborted()
         const verification = await bridge.verifyBackup(backupName)
         if (verification.status !== 'verified') throw new Error(verification.error ?? `${operation}前备份验证失败`)
       },

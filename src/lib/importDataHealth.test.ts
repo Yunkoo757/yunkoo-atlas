@@ -198,6 +198,7 @@ export async function testBoundaryDiscardsOldAutosaveIfPublishFailsAfterDurableC
         publish: () => { events.push('publish'); throw new Error('publish failed') },
       },
       boundary: {
+        signal: new AbortController().signal,
         lockInteraction: () => { events.push('lock'); return () => { events.push('unlock') } },
         flushBeforeCommit: async () => { events.push('flush') },
         createVerifiedBackup: async () => { events.push('backup') },
@@ -241,6 +242,7 @@ export async function testVerifiedBackupFailurePreventsCommitAndPublish(): Promi
         publish: () => { published = true },
       },
       boundary: {
+        signal: new AbortController().signal,
         lockInteraction: () => { events.push('lock'); return () => { events.push('unlock') } },
         flushBeforeCommit: async () => { events.push('flush') },
         createVerifiedBackup: async () => { events.push('backup'); throw new Error('backup invalid') },
@@ -262,6 +264,7 @@ export async function testVerifiedBackupFailurePreventsCommitAndPublish(): Promi
 
 function successfulStoreBoundary(events: string[]) {
   return {
+    signal: new AbortController().signal,
     lockInteraction: () => { events.push('lock'); return () => { events.push('unlock') } },
     flushBeforeCommit: async () => { events.push('flush') },
     createVerifiedBackup: async () => { events.push('backup') },
@@ -436,5 +439,51 @@ export async function testCleanupUnlocksAndReleasesOnceWhenPersistenceResumeThro
     assert(caught === failure, '恢复持久化的异常必须保留')
     assert(events.slice(-2).join(',') === 'release,unlock' && events.filter(e => e === 'release').length === 1,
       '监听器抛错也必须只恢复一次并解锁界面')
+  }
+}
+
+export async function testRetiredCloseDateMaintenanceCannotChangeTradesOrUndoHistory() {
+  const previous = useStore.getState()
+  try {
+    for (const operation of ['cleanup', 'undo'] as const) {
+      for (const phase of ['backup', 'persist'] as const) {
+        const original = trade('interrupted', { tags: ['notion-import'] })
+        useStore.setState({ trades: [original], undoStack: [], redoStack: [] })
+        let actionId: string | undefined
+        if (operation === 'undo') {
+          const cleaned = await useStore.getState().cleanupCopiedCloseDates([original.id], {
+            boundary: successfulStoreBoundary([]), persistSnapshot: async () => {},
+          })
+          assert(cleaned.kind === 'committed' && cleaned.actionId, '先完成可撤销清理')
+          actionId = cleaned.actionId
+        }
+        const before = useStore.getState()
+        const controller = new AbortController()
+        const reason = new Error('资料库文档已失效')
+        const writes: PersistedSnapshot[] = []
+        const events: string[] = []
+        const dependencies = {
+          boundary: {
+            ...successfulStoreBoundary(events), signal: controller.signal,
+            createVerifiedBackup: async () => { if (phase === 'backup') controller.abort(reason) },
+          },
+          persistSnapshot: async (candidate: PersistedSnapshot) => {
+            writes.push(candidate)
+            if (phase === 'persist') controller.abort(reason)
+          },
+        }
+        const result = actionId
+          ? before.undoCopiedCloseDateCleanup(actionId, dependencies)
+          : before.cleanupCopiedCloseDates([original.id], dependencies)
+        const error = await result.then(() => undefined, cause => cause)
+        assert(error === reason, '旧操作必须返回首次恢复原因')
+        assert(writes.length === Number(phase === 'persist'), '撤销文档后不得再写盘')
+        assert(!events.includes('recover'), '旧文档不得回填已耐久的候选')
+        const current = useStore.getState()
+        assert(current.trades === before.trades && current.undoStack === before.undoStack && current.redoStack === before.redoStack, '旧记录和撤销历史必须保持原样')
+      }
+    }
+  } finally {
+    useStore.setState(previous, true)
   }
 }
