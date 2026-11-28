@@ -78,13 +78,13 @@ async function holdDatabaseOpenBriefly(): Promise<void> {
   })
 }
 
-async function seedLegacySnapshotWithoutRevision(): Promise<void> {
+async function seedLegacySnapshotWithoutRevision(assetId?: string): Promise<void> {
   await deleteDatabase()
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, 1)
     request.onupgradeneeded = () => {
       const db = request.result
-      db.createObjectStore('snapshot').put(snapshot('legacy'), 'main')
+      db.createObjectStore('snapshot').put(snapshot('legacy', assetId), 'main')
       db.createObjectStore('assets', { keyPath: 'id' })
       db.createObjectStore('meta')
     }
@@ -277,7 +277,67 @@ async function verifyConcurrentManifestCreation(schemaVersion: number): Promise<
   await openAndVerify()
 }
 
+async function verifyCachedWritePreflight(adapter: IndexedDbStorageAdapter, revision: number): Promise<void> {
+  const get = IDBObjectStore.prototype.get
+  let snapshotReads = 0
+  IDBObjectStore.prototype.get = function countSnapshotReads(key) {
+    if (this.name === 'snapshot' && key === 'main') snapshotReads += 1
+    return get.call(this, key)
+  }
+  try {
+    await adapter.saveSnapshot(snapshot('cached'))
+    await expectConflict(adapter.commitLibraryMutation({
+      expectedRevision: revision, snapshot: snapshot('stale'), reason: 'autosave',
+    }), revision, revision + 1)
+    assert(snapshotReads === 0, '已知修订的保存和过期写入应避免重读完整快照')
+  } finally {
+    IDBObjectStore.prototype.get = get
+  }
+}
+
+async function verifyFirstLegacyWrite(entry: 'commit' | 'save' | 'import' | 'restore'): Promise<void> {
+  const historicalId = 'legacy-missing-image'
+  await seedLegacySnapshotWithoutRevision(historicalId)
+  const adapter = new IndexedDbStorageAdapter()
+  await adapter.open()
+  try {
+    const original = await adapter.getManifest()
+    const asset = { id: 'first-write-image', mime: 'image/png', data: 'aW1hZ2U=' }
+    const updated = snapshot(entry, entry === 'restore' || entry === 'import' ? asset.id : historicalId)
+    if (entry === 'commit') {
+      const invalid = await adapter.commitLibraryMutation({
+        expectedRevision: 0, snapshot: snapshot('invalid', 'new-missing-image'), reason: 'autosave',
+      }).then(() => null, (error: Error) => error)
+      assert(invalid?.message.includes('new-missing-image'), '旧库首次写入仍须拒绝新增缺失附件')
+      assert(JSON.stringify(await adapter.getManifest()) === JSON.stringify(original), '拒绝写入不得提前升级清单')
+      assert(await readRawValue('meta', 'snapshotRevision') === undefined, '拒绝写入应保留缺失的修订元数据')
+      const raw = await readRawValue('snapshot', 'main') as PersistedSnapshot
+      assert(raw.profile?.displayName === 'legacy', '拒绝写入须保留旧快照')
+      const result = await adapter.commitLibraryMutation({ expectedRevision: 0, snapshot: updated, reason: 'autosave' })
+      assert(result.revision === 1, '首次显式提交应仅推进一次修订')
+    } else if (entry === 'save') {
+      await adapter.saveSnapshot(updated)
+    } else if (entry === 'import') {
+      await adapter.commitImport(updated, [asset])
+    } else {
+      await adapter.replaceArchive(updated, [asset])
+    }
+    const manifest = await adapter.getManifest()
+    assert(manifest.schemaVersion === SCHEMA_VERSION && manifest.libraryId === original.libraryId, '首次写入应在原资料库升级清单')
+    assert(await readRawValue('meta', 'snapshotRevision') === 1, '首次写入与升级应在一次提交内完成')
+    const stored = await adapter.loadSnapshotEnvelope()
+    assert(stored.revision === 1 && stored.snapshot?.profile?.displayName === entry, '重读应返回首次写入的快照')
+    if (entry === 'commit') await verifyCachedWritePreflight(adapter, stored.revision)
+    if (entry === 'import' || entry === 'restore') {
+      assert((await adapter.getAssetForExport(asset.id))?.data === asset.data, '首次导入或恢复须完整写入附件字节')
+    }
+  } finally {
+    adapter.close()
+  }
+}
+
 async function run(): Promise<void> {
+  for (const entry of ['commit', 'save', 'import', 'restore'] as const) await verifyFirstLegacyWrite(entry)
   await verifyConcurrentManifestCreation(SCHEMA_VERSION)
   await verifyConcurrentManifestCreation(SCHEMA_VERSION + 1)
   await holdDatabaseOpenBriefly()

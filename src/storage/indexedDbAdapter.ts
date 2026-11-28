@@ -215,7 +215,6 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   private objectUrls = new AssetObjectUrlCache()
   private preparedAssets = new Map<string, AssetRecord>()
   private mutationTail: Promise<void> = Promise.resolve()
-  private currentRevision: number | null = null
   private referencedAssetIdsAtRevision: { revision: number; ids: Set<string> } | null = null
   private readonly assetPurgePreviews = new AssetPurgePreviews<PersistedSnapshot>()
   private purgingAssetIds = new Set<string>()
@@ -265,7 +264,6 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   close(): void {
     this.clearObjectUrlCache()
     this.preparedAssets.clear()
-    this.currentRevision = null
     this.referencedAssetIdsAtRevision = null
     this.assetPurgePreviews.clear()
     this.purgingAssetIds.clear()
@@ -279,124 +277,84 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     return normalizeSnapshotRevision(value)
   }
 
-  async loadSnapshotEnvelope(): Promise<SnapshotEnvelope> {
-    const db = this.requireDb()
-    const readStored = () => new Promise<{
-      revision: number
-      snapshot: PersistedSnapshot | null
-      manifest: LibraryManifest
-    }>((resolve, reject) => {
-      const tx = db.transaction([STORE_SNAPSHOT, STORE_META], 'readonly')
-      const snapshotRequest = tx.objectStore(STORE_SNAPSHOT).get('main')
-      const revisionRequest = tx.objectStore(STORE_META).get(SNAPSHOT_REVISION_KEY)
-      const manifestRequest = tx.objectStore(STORE_META).get('manifest')
-      let failure: unknown = null
-      tx.oncomplete = async () => {
-        try {
-          const manifest = manifestRequest.result as LibraryManifest
-          assertCompatibleManifest(manifest)
-          const snapshot = snapshotRequest.result === undefined
-            ? null
-            : await decodeStoredSnapshot(snapshotRequest.result, manifest)
-          resolve({
-            revision: normalizeSnapshotRevision(revisionRequest.result),
-            snapshot,
-            manifest,
-          })
-        } catch (error) {
-          failure = error
-          reject(error)
-        }
-      }
+  private async readStoredSnapshot(db: IDBDatabase) {
+    const tx = db.transaction([STORE_SNAPSHOT, STORE_META], 'readonly')
+    const snapshotRequest = tx.objectStore(STORE_SNAPSHOT).get('main')
+    const meta = tx.objectStore(STORE_META)
+    const revisionRequest = meta.get(SNAPSHOT_REVISION_KEY)
+    const manifestRequest = meta.get('manifest')
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve()
       tx.onerror = () => reject(tx.error ?? new Error('IndexedDB snapshot envelope read failed'))
-      tx.onabort = () => reject(failure ?? tx.error ?? new Error('IndexedDB snapshot envelope read aborted'))
+      tx.onabort = () => reject(tx.error ?? new Error('IndexedDB snapshot envelope read aborted'))
     })
 
-    let stored = await readStored()
-    this.referencedAssetIdsAtRevision = {
-      revision: stored.revision,
-      ids: stored.snapshot
-        ? await collectAssetIdsFromSnapshotCooperatively(stored.snapshot)
-        : new Set<string>(),
+    const manifest = manifestRequest.result as LibraryManifest
+    assertCompatibleManifest(manifest)
+    const revision = normalizeSnapshotRevision(revisionRequest.result)
+    const snapshot = snapshotRequest.result === undefined
+      ? null
+      : await decodeStoredSnapshot(snapshotRequest.result, manifest)
+    const ids = snapshot ? await collectAssetIdsFromSnapshotCooperatively(snapshot) : new Set<string>()
+    if (db === this.db && revision >= (this.referencedAssetIdsAtRevision?.revision ?? 0)) {
+      this.referencedAssetIdsAtRevision = { revision, ids }
     }
+    return { revision, snapshot, manifest, ids }
+  }
+
+  async loadSnapshotEnvelope(): Promise<SnapshotEnvelope> {
+    const db = this.requireDb()
+    let stored = await this.readStoredSnapshot(db)
     if (stored.manifest.schemaVersion < SCHEMA_VERSION) {
-      const migrationSnapshot = stored.snapshot ?? createEmptyPersistedSnapshot()
+      const snapshot = stored.snapshot ?? createEmptyPersistedSnapshot()
       try {
-        const migration = await this.enqueueLibraryMutation(() => ({
-          expectedRevision: stored.revision,
-          snapshot: migrationSnapshot,
-          reason: 'migration',
-        }), false, false)
-        stored = {
-          ...stored,
-          revision: migration.revision,
-          snapshot: migrationSnapshot,
-          manifest: { ...stored.manifest, schemaVersion: SCHEMA_VERSION },
-        }
+        const { revision } = await this.enqueueLibraryMutation({
+          expectedRevision: stored.revision, snapshot, reason: 'migration',
+        }, true)
+        return { revision, snapshot }
       } catch (error) {
         if (!(error instanceof StorageRevisionConflictError)) throw error
-        const latest = await readStored()
-        if (latest.manifest.schemaVersion < SCHEMA_VERSION) throw error
-        stored = latest
-        this.referencedAssetIdsAtRevision = {
-          revision: latest.revision,
-          ids: latest.snapshot
-            ? await collectAssetIdsFromSnapshotCooperatively(latest.snapshot)
-            : new Set<string>(),
-        }
+        stored = await this.readStoredSnapshot(db)
+        if (stored.manifest.schemaVersion < SCHEMA_VERSION) throw error
       }
     }
-    const envelope = { revision: stored.revision, snapshot: stored.snapshot }
-    this.currentRevision = Math.max(this.currentRevision ?? 0, envelope.revision)
-    return envelope
+    return { revision: stored.revision, snapshot: stored.snapshot }
   }
 
   commitLibraryMutation(input: RevisionedLibraryMutation): Promise<{ revision: number }> {
-    return this.enqueueLibraryMutation(() => input)
+    return this.enqueueLibraryMutation(input)
   }
 
   private enqueueLibraryMutation(
-    createInput: () => RevisionedLibraryMutation | Promise<RevisionedLibraryMutation>,
-    enforceWriteGuard = true,
-    reportConflicts = true,
+    input: RevisionedLibraryMutation | Omit<RevisionedLibraryMutation, 'expectedRevision'>,
+    migratingOnRead = false,
   ): Promise<{ revision: number }> {
     const operation = this.mutationTail.then(async () => {
-      if (enforceWriteGuard) assertWebWriteAllowed()
+      if (!migratingOnRead) assertWebWriteAllowed()
       try {
-        const input = await createInput()
-        const preflightRevision = await this.getSnapshotRevision()
-        if (preflightRevision !== input.expectedRevision) {
-          throw new StorageRevisionConflictError(input.expectedRevision, preflightRevision)
+        let references = this.referencedAssetIdsAtRevision
+        const actualRevision = await this.getSnapshotRevision()
+        const expectedRevision = 'expectedRevision' in input
+          ? input.expectedRevision
+          : references?.revision ?? actualRevision
+        if (actualRevision !== expectedRevision) {
+          throw new StorageRevisionConflictError(expectedRevision, actualRevision)
         }
-        if (this.referencedAssetIdsAtRevision?.revision !== input.expectedRevision) {
-          const envelope = await this.loadSnapshotEnvelope()
-          if (envelope.revision !== input.expectedRevision) {
-            throw new StorageRevisionConflictError(input.expectedRevision, envelope.revision)
+        if (references?.revision !== expectedRevision) {
+          const stored = await this.readStoredSnapshot(this.requireDb())
+          if (stored.revision !== expectedRevision) {
+            throw new StorageRevisionConflictError(expectedRevision, stored.revision)
           }
+          references = stored
         }
-        return await this.runLibraryMutation(
-          input,
-          this.referencedAssetIdsAtRevision?.ids ?? new Set<string>(),
-        )
+        return await this.runLibraryMutation({ ...input, expectedRevision }, references.ids)
       } catch (error) {
-        if (reportConflicts && error instanceof StorageRevisionConflictError) reportWebRevisionConflict(error)
+        if (!migratingOnRead && error instanceof StorageRevisionConflictError) reportWebRevisionConflict(error)
         throw error
       }
     })
     this.mutationTail = operation.then(() => undefined, () => undefined)
     return operation
-  }
-
-  private commitAtCurrentRevision(
-    createInput: (expectedRevision: number) => Omit<RevisionedLibraryMutation, 'expectedRevision'>,
-  ): Promise<{ revision: number }> {
-    return this.enqueueLibraryMutation(async () => {
-      if (this.currentRevision === null) await this.loadSnapshotEnvelope()
-      return {
-        ...createInput(this.currentRevision ?? 0),
-        expectedRevision: this.currentRevision ?? 0,
-      }
-    })
   }
 
   private async runLibraryMutation(
@@ -503,7 +461,6 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       )
       tx.oncomplete = () => {
         stopped = true
-        this.currentRevision = nextRevision
         this.referencedAssetIdsAtRevision = {
           revision: nextRevision,
           ids: new Set(prepared.referencedIds),
@@ -534,11 +491,11 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       const referencedIds = await collectAssetIdsFromSnapshotCooperatively(snapshot)
       assetPuts = [...this.preparedAssets.values()].filter((asset) => referencedIds.has(asset.id))
     }
-    await this.commitAtCurrentRevision(() => ({
+    await this.enqueueLibraryMutation({
       snapshot,
       assetPuts,
       reason: 'autosave',
-    }))
+    })
   }
 
   async saveAsset(blob: Blob, mime: string): Promise<string> {
@@ -772,14 +729,14 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
           blob,
         }
       })
-      const result = await this.commitAtCurrentRevision(() => ({
+      const result = await this.enqueueLibraryMutation({
         snapshot,
         assetPuts: records,
         assetDeletes: options?.pruneUnreferenced
           ? assets.filter((asset) => !referencedAssetIds.has(asset.id)).map((asset) => asset.id)
           : undefined,
         reason: 'import',
-      }))
+      })
       operation.success({ stage: 'committed', revisionAfter: result.revision })
     } catch (error) {
       operation.failure(error, { stage: 'commit' })
@@ -817,13 +774,13 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
         } satisfies AssetRecord
       })
 
-      const result = await this.commitAtCurrentRevision(() => ({
+      const result = await this.enqueueLibraryMutation({
         snapshot,
         assetPuts: records,
         assetMode: 'replace',
         allowedUnreferencedAssetPuts: recoveryOrphanAssetIds,
         reason: 'restore',
-      }))
+      })
       operation.success({ stage: 'committed', revisionAfter: result.revision })
     } catch (error) {
       operation.failure(error, { stage: 'commit' })
