@@ -12,10 +12,10 @@ export function lockStorageCutoverInteraction(): () => void {
   interactionLockDepth += 1
   if (interactionLockDepth === 1 && typeof document !== 'undefined' && typeof window !== 'undefined') {
     const root = document.getElementById('root')
-    const bodyChildren = [...document.body.children] as HTMLElement[]
-    const previousInert = bodyChildren.map((element) => element.hasAttribute('inert'))
+    const body = document.body
+    const previouslyInert = body.inert
     const previousBusy = root?.getAttribute('aria-busy') ?? null
-    bodyChildren.forEach((element) => element.setAttribute('inert', ''))
+    body.inert = true
     root?.setAttribute('aria-busy', 'true')
 
     const blockInteraction = (event: Event) => {
@@ -26,9 +26,7 @@ export function lockStorageCutoverInteraction(): () => void {
     blockedEvents.forEach((name) => window.addEventListener(name, blockInteraction, true))
     releaseGlobalInteractionLock = () => {
       blockedEvents.forEach((name) => window.removeEventListener(name, blockInteraction, true))
-      bodyChildren.forEach((element, index) => {
-        if (!previousInert[index]) element.removeAttribute('inert')
-      })
+      body.inert = previouslyInert
       if (previousBusy === null) root?.removeAttribute('aria-busy')
       else root?.setAttribute('aria-busy', previousBusy)
     }
