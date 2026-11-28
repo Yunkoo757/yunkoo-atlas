@@ -1,3 +1,4 @@
+import { matchImportedTrade, type VerifyImportAsset } from '@/lib/importTradeIdentity'
 import { updateWeeklyReviewMarks } from '@/data/weeklyReviewTradeReferences'
 import { canonicalRiskJson, stableRiskHash } from '@/lib/riskFingerprint'
 import { stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
@@ -9,33 +10,6 @@ import { OperationalError } from '@/lib/operationalError'
 
 export function stableImportedTradeId(payloadDigest: string, tradeId: string): string {
   return `imported:${stableRiskHash(`${payloadDigest}:${tradeId}`)}`
-}
-
-function stableTradeIdentity(trade: Trade): Record<string, string> | null {
-  const create = trade.activities
-    ?.filter((activity) =>
-      activity.kind === 'create' && activity.id && Number.isFinite(Date.parse(activity.timestamp)),
-    )
-    .sort((left, right) => {
-      const timestampOrder = Date.parse(left.timestamp) - Date.parse(right.timestamp)
-      return timestampOrder || left.id.localeCompare(right.id)
-    })[0]
-  if (!trade.id || !trade.ref || !trade.tradeKind || !create) return null
-  return {
-    id: trade.id,
-    ref: trade.ref,
-    tradeKind: trade.tradeKind,
-    earliestCreateActivityId: create.id,
-    earliestCreateActivityTimestamp: create.timestamp,
-  }
-}
-
-function isSameTradeIdentity(left: Trade, right: Trade): boolean {
-  if (left.backtestProjectId !== right.backtestProjectId) return false
-  const leftIdentity = stableTradeIdentity(left)
-  const rightIdentity = stableTradeIdentity(right)
-  if (leftIdentity && rightIdentity) return canonicalRiskJson(leftIdentity) === canonicalRiskJson(rightIdentity)
-  return canonicalRiskJson(left) === canonicalRiskJson(right)
 }
 
 function mergeImmutableById<T extends { id: string }>(
@@ -210,20 +184,21 @@ function rewriteTradeReferences(
   }
 }
 
-export function mergeRiskImport(
+export async function mergeRiskImport(
   current: PersistedSlice,
   imported: PersistedSlice,
   payloadDigest: string,
-  identityTrades: readonly Trade[] = imported.trades,
-): ImportMergeResult {
+  verifyAsset?: VerifyImportAsset,
+): Promise<ImportMergeResult> {
   const currentById = new Map(current.trades.map((trade) => [trade.id, trade]))
-  const identityById = new Map(identityTrades.map((trade) => [trade.id, trade]))
+  const trades: Trade[] = []
   const idMap = new Map<string, string>()
   const sourceByTargetId = new Map<string, string>()
   for (const trade of imported.trades) {
     const local = currentById.get(trade.id)
-    const identityTrade = identityById.get(trade.id) ?? trade
-    const mappedId = local && !isSameTradeIdentity(local, identityTrade)
+    const match = local && await matchImportedTrade(local, trade, verifyAsset)
+    trades.push(local && match === 'identical' ? local : trade)
+    const mappedId = match === 'different'
       ? stableImportedTradeId(payloadDigest, trade.id)
       : trade.id
     if (sourceByTargetId.has(mappedId)) {
@@ -236,24 +211,22 @@ export function mergeRiskImport(
   // 来源交易可能出现在案例之后；先建立完整映射，再校验重复导入的身份。
   for (const trade of imported.trades) {
     const mappedId = idMap.get(trade.id) ?? trade.id
-    const identityTrade = identityById.get(trade.id) ?? trade
-    const mappedOccupant = mappedId === trade.id ? undefined : currentById.get(mappedId)
+    if (mappedId === trade.id) continue
+    const occupant = currentById.get(mappedId)
+    if (!occupant) continue
     const rewrittenIdentity = {
-      ...identityTrade,
+      ...trade,
       id: mappedId,
-      ...(identityTrade.sourceTradeId === undefined ? {} : {
-        sourceTradeId: idMap.get(identityTrade.sourceTradeId) ?? identityTrade.sourceTradeId,
+      ...(trade.sourceTradeId === undefined ? {} : {
+        sourceTradeId: idMap.get(trade.sourceTradeId) ?? trade.sourceTradeId,
       }),
     }
-    if (
-      mappedOccupant &&
-      !isSameTradeIdentity(mappedOccupant, rewrittenIdentity)
-    ) {
+    if (await matchImportedTrade(occupant, rewrittenIdentity, verifyAsset) === 'different') {
       throw new Error(`导入冲突：稳定导入交易 ID ${mappedId} 已被其他交易占用。`)
     }
   }
 
-  const rewritten = rewriteTradeReferences(imported, idMap, current.trades)
+  const rewritten = rewriteTradeReferences({ ...imported, trades }, idMap, current.trades)
   const tradesById = new Map(current.trades.map((trade) => [trade.id, trade]))
   for (const trade of rewritten.trades) {
     const isStableRepeat = sourceByTargetId.get(trade.id) !== trade.id && currentById.has(trade.id)

@@ -1114,3 +1114,96 @@ export async function testJsonImportIgnoresUnusedDerivedTradeIdAfterStageAssignm
     Reflect.deleteProperty(globalThis, 'window')
   }
 }
+
+export async function testLegacyImportChecksAttachmentBytesBeforeReusingLocalIds(): Promise<void> {
+  const previous = useStore.getState()
+  const fixture = createFullPersistedSnapshotFixture()
+  const base = { ...createEmptyPersistedSnapshot(), strategies: fixture.strategies }
+  const legacy: Trade = {
+    ...fixture.trades[0]!, id: 'legacy-photo', ref: 'LEGACY-PHOTO', tradeKind: 'case', caseType: 'mistake',
+    liveStageId: base.currentLiveStageId, activities: undefined, note: '<img src="journal-asset://first">',
+    sourceNoteHtml: '<img src="journal-asset://first"><img src="journal-asset://second">', decisionImageId: 'second',
+  }
+  const assets = new Map<string, ExportAssetRecord>()
+  let reads = 0
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { journalBridge: {
+    isElectron: true, saveSnapshot: async () => true,
+    getAssetBytes: async (id: string) => {
+      reads++
+      const file = assets.get(id)
+      return file ? { id, mime: file.mime, bytes: Uint8Array.from(atob(file.data), c => c.charCodeAt(0)) } : null
+    },
+    commitImport: async (snap: PersistedSnapshot, batch: ExportAssetRecord[]) => {
+      const text = JSON.stringify(snap)
+      for (const file of batch) {
+        if (text.includes('journal-asset://' + file.id)) assets.set(file.id, file)
+        else assets.delete(file.id)
+      }
+      return true
+    },
+  } } })
+  useStore.setState(base)
+  enablePersistWrites()
+  const payload = { ...base, version: 15, trades: [legacy], assets: [
+    { id: 'first', mime: 'image/png', data: 'YQ==' },
+    { id: 'second', mime: 'image/png', data: 'Yg==' },
+  ] }
+  try {
+    await applyImport(payload)
+    const first = useStore.getState().trades[0]!
+    assert(reads === 0 && assets.size === 2, '新记录无需读取本地原图')
+    await applyImport(payload)
+    await applyImport(payload)
+    assert(useStore.getState().trades.length === 1 && assets.size === 2 &&
+      useStore.getState().trades[0]!.decisionImageId === first.decisionImageId, '重复导入必须保留同一历史交易和两张已有原图')
+    const changed = { ...payload, assets: [payload.assets[0]!, { ...payload.assets[1]!, data: 'Yw==' }] }
+    await applyImport(changed)
+    await applyImport(changed)
+    const distinct = useStore.getState().trades
+    assert(distinct.length === 2 && assets.size === 4 && distinct[0]!.sourceNoteHtml === first.sourceNoteHtml &&
+      assets.get(distinct[1]!.decisionImageId!)?.data === 'Yw==', '其他字段完全相同但题图字节不同时，两份证据应独立且都可重放')
+  } finally {
+    disablePersistWrites()
+    useStore.setState(previous, true)
+    Reflect.deleteProperty(globalThis, 'window')
+  }
+}
+
+export async function testLocalEditDuringLegacyPhotoVerificationAbortsBeforeWritingCandidate(): Promise<void> {
+  const previous = useStore.getState()
+  const base = createEmptyPersistedSnapshot()
+  const row: Trade = {
+    ...trade('legacy-read', 'EURUSD'), tradeKind: 'live', liveStageId: base.currentLiveStageId,
+    note: '<img src="journal-asset://local-photo">',
+  }
+  const payload = { ...base, strategies: [strategy], version: 15,
+    trades: [{ ...row, note: '<img src="journal-asset://incoming-photo">' }],
+    assets: [{ id: 'incoming-photo', mime: 'image/png', data: 'YQ==' }],
+  }
+  const started = deferred(), release = deferred()
+  let candidates = 0
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { journalBridge: {
+    isElectron: true, saveSnapshot: async () => true,
+    getAssetBytes: async (id: string) => {
+      started.resolve()
+      await release.promise
+      return { id, mime: 'image/png', bytes: new Uint8Array([97]) }
+    },
+    commitImport: async () => { candidates++; return true },
+  } } })
+  useStore.setState({ ...base, strategies: [strategy], trades: [row] })
+  enablePersistWrites()
+  try {
+    const result = applyImport(payload).then(() => '成功', error => String(error))
+    await Promise.race([started.promise, result.then(message => { throw new Error('未核对本地原图：' + message) })])
+    useStore.setState({ trades: [{ ...row, note: '核对原图期间的编辑' }] })
+    release.resolve()
+    assert((await result).includes('等待期间的本地编辑') && candidates === 0, '原图读取期间发生编辑，应在首次候选写入前中止')
+    assert(useStore.getState().trades[0]?.note === '核对原图期间的编辑', '并发编辑必须保留')
+  } finally {
+    release.resolve()
+    disablePersistWrites()
+    useStore.setState(previous, true)
+    Reflect.deleteProperty(globalThis, 'window')
+  }
+}

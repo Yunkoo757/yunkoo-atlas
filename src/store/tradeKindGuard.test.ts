@@ -105,12 +105,12 @@ export function testNewIdCaseCreationDoesNotMutateItsSourceTrade(): void {
   })
 }
 
-export function testSameIdImportCannotChangeTradeKindButNewIdKeepsItsKind(): void {
+export async function testSameIdImportCannotChangeTradeKindButNewIdKeepsItsKind(): Promise<void> {
   const original = trade('same-id', { note: '本地原值' })
   const importedConflict = { ...original, tradeKind: 'paper' as const, note: '导入覆盖值' }
   const importedCase = trade('new-case', { tradeKind: 'case', sourceTradeId: original.id })
   const strategy = { id: 'strategy-1', name: '策略', icon: 'target' as const, color: '#000000' }
-  const merged = mergeImportPayload({
+  const merged = (await mergeImportPayload({
     liveStages: [{
       id: 'stage-current',
       sequence: 1,
@@ -141,7 +141,7 @@ export function testSameIdImportCannotChangeTradeKindButNewIdKeepsItsKind(): voi
     subscribedIds: [],
     pinnedStrategyIds: [],
     display: DEFAULT_DISPLAY,
-  }).state
+  })).state
   const existing = merged.trades.find((item) => item.id === original.id)!
   assert(existing.tradeKind === 'live' && existing.note === '本地原值', '同 ID 异类型导入必须保留本地整笔记录')
   assert(merged.trades.find((item) => item.id === importedCase.id)?.tradeKind === 'case', '导入新 ID 必须保留既有类型')

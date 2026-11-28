@@ -932,7 +932,7 @@ export async function testSidebarWorkspaceSurvivesExportImportAndNormalizesInval
   assert(parsed.ok, '导出的完整 display 应可重新导入')
   if (!parsed.ok) return
 
-  const merged = mergeImportPayload({
+  const merged = (await mergeImportPayload({
     ...nativeStageState(),
     trades: [],
     strategies: [],
@@ -940,7 +940,7 @@ export async function testSidebarWorkspaceSurvivesExportImportAndNormalizesInval
     subscribedIds: [],
     pinnedStrategyIds: [],
     display: DEFAULT_DISPLAY,
-  }, parsed.data).state
+  }, parsed.data)).state
   const items = merged.display.sidebarWorkspaceItems
 
   assert(items.length === 9, '重复目标应在导入边界去重且不丢失失效引用')
@@ -968,13 +968,13 @@ export async function testSidebarWorkspaceSurvivesExportImportAndNormalizesInval
   assert(paper.pathname === '/sim', '旧 paper 别名最终应解析到 /sim')
 }
 
-export function testMergeImportPayloadNormalizesCorruptedDisplay(): void {
+export async function testMergeImportPayloadNormalizesCorruptedDisplay(): Promise<void> {
   const corruptedItems = [
     { id: 'active', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 99 },
     { id: 'active-copy', target: { kind: 'system', id: 'active' }, placement: 'pinned', order: 100 },
     { id: 'active', target: { kind: 'system', id: 'favorites' }, placement: 'pinned', order: 101 },
   ] as SidebarWorkspaceItem[]
-  const merged = mergeImportPayload({
+  const merged = (await mergeImportPayload({
     ...nativeStageState(),
     trades: [],
     strategies: [],
@@ -994,7 +994,7 @@ export function testMergeImportPayloadNormalizesCorruptedDisplay(): void {
     subscribedIds: [],
     pinnedStrategyIds: [],
     display: { ...DEFAULT_DISPLAY, sidebarWorkspaceItems: corruptedItems },
-  }).state
+  })).state
 
   assert(merged.display.sidebarWorkspaceItems.length === 2, 'mergeImportPayload 应按目标去重损坏的工作区项目')
   assert(
@@ -2668,14 +2668,14 @@ function image(name: string): ImageFile {
   }
 }
 
-export function testMergeImportPayloadKeepsOnlyExplicitPresetData(): void {
+export async function testMergeImportPayloadKeepsOnlyExplicitPresetData(): Promise<void> {
   const importedTrade: Trade = {
     ...trade,
     id: 'import-with-tags',
     tags: ['交易标签'],
     mistakeTags: ['追单'],
   }
-  const merged = mergeImportPayload(
+  const merged = (await mergeImportPayload(
     {
       ...nativeStageState(),
       trades: [],
@@ -2702,7 +2702,7 @@ export function testMergeImportPayloadKeepsOnlyExplicitPresetData(): void {
       tagPresets: ['导入标签'],
       mistakeTagPresets: ['导入错误'],
     },
-  ).state
+  )).state
 
   assert(merged.tagPresets?.includes('导入标签'), 'imports tag presets')
   assert(merged.mistakeTagPresets?.includes('导入错误'), 'imports mistake tag presets')

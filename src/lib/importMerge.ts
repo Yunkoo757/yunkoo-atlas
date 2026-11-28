@@ -1,3 +1,4 @@
+import type { VerifyImportAsset } from '@/lib/importTradeIdentity'
 import { mergeQuickNotes } from '@/data/quickNotes'
 import { normalizeReviewTemplates } from '@/data/reviewTemplates'
 import type { Strategy } from '@/data/strategies'
@@ -7,7 +8,7 @@ import { mergeSymbolCatalog, mergeSymbolIcons } from '@/lib/symbolIconCodec'
 import { mergeTagPresets } from '@/lib/tags'
 import { normalizeDisplay } from '@/lib/tradeFilters'
 import { assignTradeStage, normalizeTrades } from '@/lib/tradeKind'
-import type { ExportPayload, ImportIdentityPayload, ImportMergeResult, PersistedSlice } from '@/lib/importTypes'
+import type { ExportPayload, ImportMergeResult, PersistedSlice } from '@/lib/importTypes'
 import { mergeRiskImport, stableImportedTradeId } from '@/lib/riskImportMerge'
 import { getCurrentLiveStage, type LiveStage } from '@/lib/liveStages'
 import { isUsableRiskPolicy } from '@/lib/activeRiskPolicy'
@@ -173,12 +174,12 @@ function mergeImportCopies<T extends { id: string }>(
   return { items, idMap }
 }
 
-export function mergeImportPayload(
+export async function mergeImportPayload(
   current: PersistedSlice,
   payload: ExportPayload,
   payloadDigest = canonicalImportValue(payload),
-  identityPayload: ImportIdentityPayload = payload,
-): ImportMergeResult {
+  verifyAsset?: VerifyImportAsset,
+): Promise<ImportMergeResult> {
   const { items: projects, idMap: projectIdMap } = mergeImportCopies(
     current.backtestProjects ?? [], payload.backtestProjects ?? [], payloadDigest, 'backtest-project',
     (local, candidate) => local.createdAt === candidate.createdAt && hasSameBacktestRules(local, candidate),
@@ -187,37 +188,24 @@ export function mergeImportPayload(
   const remapProjects = (trades: ExportPayload['trades']) => trades.map(trade => trade.backtestProjectId
     ? { ...trade, backtestProjectId: projectIdMap.get(trade.backtestProjectId) ?? trade.backtestProjectId } as Trade : trade)
   payload = { ...payload, trades: remapProjects(payload.trades) }
-  identityPayload = { ...identityPayload, trades: remapProjects(identityPayload.trades) }
   const ownedPayload = assignImportOwnership(current, payload)
-  const ownedIdentityPayload = assignImportOwnership(current, {
-    ...payload,
-    trades: identityPayload.trades,
-    weeklyRiskPreparations: [],
-    riskPolicyVersions: [],
-    monthlyRiskLimits: [],
-    riskOverrideEvents: [],
-  })
   const combinedStrategies = mergeStrategies(current.strategies, ensureStrategies(ownedPayload.strategies))
   const { strategies, trades: migrated } = normalizeTradeStrategyReferences(
     ownedPayload.trades,
     combinedStrategies,
   )
-  const identityTrades = normalizeTradeStrategyReferences(
-    ownedIdentityPayload.trades,
-    combinedStrategies,
-  ).trades
-  const { state: riskMerged, tradeIds } = mergeRiskImport(
-    current,
+  const { state: riskMerged, tradeIds } = await mergeRiskImport(
+    { ...current, trades: normalizeTrades(current.trades) },
     {
       ...ownedPayload,
-      trades: migrated.map(trade => trade.backtestProjectId ? normalizeTrades([trade])[0]! : trade),
+      trades: normalizeTrades(migrated),
       strategies,
       liveStages: current.liveStages,
       currentLiveStageId: current.currentLiveStageId,
       scheduledStageRollover: current.scheduledStageRollover,
     },
     payloadDigest,
-    identityTrades.map(trade => trade.backtestProjectId ? normalizeTrades([trade])[0]! : trade),
+    verifyAsset,
   )
   const templatesById = new Map(
     normalizeReviewTemplates(current.reviewTemplates ?? []).map((template) => [template.id, template]),
@@ -235,7 +223,7 @@ export function mergeImportPayload(
   const state = {
     backtestProjects: projects,
     strategies,
-    trades: normalizeTrades(riskMerged.trades),
+    trades: riskMerged.trades,
     liveStages: current.liveStages.map((stage) => ({ ...stage })),
     currentLiveStageId: current.currentLiveStageId,
     scheduledStageRollover: current.scheduledStageRollover

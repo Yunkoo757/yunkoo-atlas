@@ -62,41 +62,41 @@ export function testBacktestCaseIsIndependentAndDoesNotChangeProjectCount(): voi
   } finally { useStore.setState(original, true) }
 }
 
-export function testBacktestMergeRemapsProjectCollisionsIdempotently(): void {
+export async function testBacktestMergeRemapsProjectCollisionsIdempotently(): Promise<void> {
   const source = snapshot()
   const sourceCase = { ...record(2), tradeKind: 'case' as const, liveStageId: null, sourceTradeId: 'bt-1', sourceNoteHtml: record(1).note }
   const local = { ...source, trades: [...source.trades, sourceCase] }
   const imported = { ...snapshot(), trades: [...source.trades, sourceCase], backtestProjects: [{ ...project, name: '另一个项目' }], version: SCHEMA_VERSION }
-  const merged = mergeImportPayload(local, imported, 'backtest-collision').state
+  const merged = (await mergeImportPayload(local, imported, 'backtest-collision')).state
   assert(merged.backtestProjects?.length === 2 && merged.trades.length === 4, '同ID不同项目应独立保留')
   const importedRecord = merged.trades.find(trade => trade.backtestProjectId !== 'bt')
   assert(Boolean(importedRecord), '成员必须跟随新项目ID')
-  const repeated = mergeImportPayload(merged, imported, 'backtest-collision').state
+  const repeated = (await mergeImportPayload(merged, imported, 'backtest-collision')).state
   assert(repeated.backtestProjects?.length === 2 && repeated.trades.length === 4, '重复导入不得增殖')
 }
 
-export function testBacktestMergePreservesLocalEditsAndRefusesAnOccupiedTarget(): void {
+export async function testBacktestMergePreservesLocalEditsAndRefusesAnOccupiedTarget(): Promise<void> {
   const local = snapshot(), digest = 'project-ownership'
   const incoming = { ...project, name: '导入项目', rules: '导入的固定规则' }
   const payload = { ...snapshot(), version: SCHEMA_VERSION, backtestProjects: [incoming] }
   const target = stableImportedTradeId(digest, 'backtest-project:' + project.id)
   const edited = { ...incoming, id: target, name: '导入后本地改名', targetCount: 180 }
-  const repeat = mergeImportPayload({ ...local, backtestProjects: [project, edited] }, payload, digest).state
+  const repeat = (await mergeImportPayload({ ...local, backtestProjects: [project, edited] }, payload, digest)).state
   assert(repeat.backtestProjects?.length === 2 && repeat.backtestProjects[1]?.name === edited.name && repeat.backtestProjects[1]?.targetCount === 180,
     '重复导入应沿用同一规则的历史副本并保留本地改名和目标')
-  const assertRejected = (run: () => unknown) => {
+  const assertRejected = async (run: () => Promise<unknown>) => {
     let error = ''
-    try { run() } catch (cause) { error = String(cause) }
+    try { await run() } catch (cause) { error = String(cause) }
     assert(error.includes(target), '导入候选不得把样本交给其他项目，应报告有冲突的目标 ID')
   }
   for (const different of [
     { ...edited, rules: '另一套规则' }, { ...edited, symbol: 'EURUSD' },
     { ...edited, startedAt: '2025-01-02' }, { ...edited, createdAt: '2026-11-01T00:00:00.000Z' },
   ]) {
-    assertRejected(() => mergeImportPayload({ ...local, backtestProjects: [project, different] }, payload, digest))
+    await assertRejected(() => mergeImportPayload({ ...local, backtestProjects: [project, different] }, payload, digest))
   }
   for (const backtestProjects of [[incoming, edited], [edited, incoming]]) {
-    assertRejected(() => mergeImportPayload(local, { ...payload, backtestProjects }, digest))
+    await assertRejected(() => mergeImportPayload(local, { ...payload, backtestProjects }, digest))
   }
 }
 

@@ -1,3 +1,4 @@
+import { matchImportedTrade, verifyImportAssets } from '@/lib/importTradeIdentity'
 import type { Trade } from '@/data/trades'
 import { canonicalImportValue } from '@/lib/importMerge'
 import type { PersistedSlice } from '@/lib/importTypes'
@@ -135,10 +136,10 @@ function completedReviewMergeFixtures(): { current: PersistedSlice; imported: Pe
   return { current, imported }
 }
 
-export function testCompletedReviewWithSameFrozenTupleMergesEditableContent(): void {
+export async function testCompletedReviewWithSameFrozenTupleMergesEditableContent(): Promise<void> {
   const { current, imported } = completedReviewMergeFixtures()
   const local = current.weeklyReviews![0]!
-  const merged = mergeRiskImport(current, imported, 'sha256-completed-same-freeze').state
+  const merged = (await mergeRiskImport(current, imported, 'sha256-completed-same-freeze')).state
   const review = merged.weeklyReviews![0]!
   assert(review.contentHtml === '<p>导入的新内容</p>', '相同冻结元组必须允许合并较新的自由内容')
   assert(review.executionScore === 5, '相同冻结元组必须允许合并评分')
@@ -149,7 +150,7 @@ export function testCompletedReviewWithSameFrozenTupleMergesEditableContent(): v
   assert(canonicalImportValue(review.riskSnapshot) === canonicalImportValue(local.riskSnapshot), '内容合并不得改变风险快照')
 }
 
-export function testCompletedReviewWithDifferentFrozenTupleRejectsAtomically(): void {
+export async function testCompletedReviewWithDifferentFrozenTupleRejectsAtomically(): Promise<void> {
   const { current, imported } = completedReviewMergeFixtures()
   imported.weeklyReviews = imported.weeklyReviews!.map((review) => ({
     ...review,
@@ -158,7 +159,7 @@ export function testCompletedReviewWithDifferentFrozenTupleRejectsAtomically(): 
   const before = canonicalImportValue(current)
   let code = ''
   try {
-    mergeRiskImport(current, imported, 'sha256-completed-conflict')
+    await mergeRiskImport(current, imported, 'sha256-completed-conflict')
   } catch (error) {
     code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : ''
   }
@@ -166,7 +167,7 @@ export function testCompletedReviewWithDifferentFrozenTupleRejectsAtomically(): 
   assert(canonicalImportValue(current) === before, '冲突拒绝必须保持原输入原子不变')
 }
 
-export function testImportedDraftCannotDowngradeLocalCompletedReview(): void {
+export async function testImportedDraftCannotDowngradeLocalCompletedReview(): Promise<void> {
   const { current, imported } = completedReviewMergeFixtures()
   const local = current.weeklyReviews![0]!
   imported.weeklyReviews = imported.weeklyReviews!.map((review) => ({
@@ -178,7 +179,7 @@ export function testImportedDraftCannotDowngradeLocalCompletedReview(): void {
     completedAt: null,
     contentHtml: '<p>草稿导入内容</p>',
   }))
-  const review = mergeRiskImport(current, imported, 'sha256-completed-vs-draft').state.weeklyReviews![0]!
+  const review = (await mergeRiskImport(current, imported, 'sha256-completed-vs-draft')).state.weeklyReviews![0]!
   assert(review.contentHtml === '<p>草稿导入内容</p>', '较新的草稿仍可提供自由内容')
   assert(review.status === 'completed', '导入草稿不得降级本地完成态')
   assert(review.completedAt === local.completedAt, '导入草稿不得清除本地完成时间')
@@ -187,8 +188,8 @@ export function testImportedDraftCannotDowngradeLocalCompletedReview(): void {
   assert(canonicalImportValue(review.riskSnapshot) === canonicalImportValue(local.riskSnapshot), '导入草稿不得清除风险快照')
 }
 
-export function testSameKindDifferentIdentityRemapsEveryReference(): void {
-  const merged = mergeRiskImport(localFixture(), importedCollisionFixture(), 'sha256-a').state
+export async function testSameKindDifferentIdentityRemapsEveryReference(): Promise<void> {
+  const merged = (await mergeRiskImport(localFixture(), importedCollisionFixture(), 'sha256-a')).state
   const importedTrade = merged.trades.find((trade) => trade.ref === 'IMPORTED-1')
   assert(importedTrade?.id !== 'trade-1', '不同身份不得覆盖本地同 ID 交易')
   assert(merged.riskOverrideEvents?.[0]?.tradeId === importedTrade?.id, '顶层事件必须重映射')
@@ -211,9 +212,9 @@ export function testSameKindDifferentIdentityRemapsEveryReference(): void {
   assert(merged.trades.find((trade) => trade.id === 'case-1')?.sourceTradeId === importedTrade?.id, '案例来源必须重映射')
 }
 
-export function testRepeatedImportUsesStableRemap(): void {
-  const once = mergeRiskImport(localFixture(), importedCollisionFixture(), 'sha256-a').state
-  const twice = mergeRiskImport(once, importedCollisionFixture(), 'sha256-a').state
+export async function testRepeatedImportUsesStableRemap(): Promise<void> {
+  const once = (await mergeRiskImport(localFixture(), importedCollisionFixture(), 'sha256-a')).state
+  const twice = (await mergeRiskImport(once, importedCollisionFixture(), 'sha256-a')).state
   assert(uniqueTradeIds(twice).length === uniqueTradeIds(once).length, '重复导入不得重复克隆')
   assert(
     once.trades.find((trade) => trade.ref === 'IMPORTED-1')?.id === stableImportedTradeId('sha256-a', 'trade-1'),
@@ -222,7 +223,7 @@ export function testRepeatedImportUsesStableRemap(): void {
   assert(twice.riskOverrideEvents?.length === once.riskOverrideEvents?.length, '重复导入不得重复 override event')
 }
 
-export function testStableMappedIdOccupiedByDifferentTradeRejectsImport(): void {
+export async function testStableMappedIdOccupiedByDifferentTradeRejectsImport(): Promise<void> {
   const digest = 'sha256-preoccupied'
   const current = localFixture()
   current.trades.push(identifiedTrade(
@@ -234,7 +235,7 @@ export function testStableMappedIdOccupiedByDifferentTradeRejectsImport(): void 
 
   let errorMessage = ''
   try {
-    mergeRiskImport(current, importedCollisionFixture(), digest)
+    await mergeRiskImport(current, importedCollisionFixture(), digest)
   } catch (error) {
     errorMessage = error instanceof Error ? error.message : String(error)
   }
@@ -242,7 +243,7 @@ export function testStableMappedIdOccupiedByDifferentTradeRejectsImport(): void 
   assert(errorMessage.includes('稳定导入交易 ID'), '稳定映射 ID 被不同交易占用时必须明确拒绝整次导入')
 }
 
-export function testTwoImportedTradesCannotShareOneTargetId(): void {
+export async function testTwoImportedTradesCannotShareOneTargetId(): Promise<void> {
   const digest = 'mapped-and-original'
   const reserved = stableImportedTradeId(digest, 'trade-1')
   for (const reversed of [false, true]) {
@@ -251,13 +252,13 @@ export function testTwoImportedTradesCannotShareOneTargetId(): void {
     incoming.trades.push(identifiedTrade(reserved, 'OTHER-IMPORTED', 'ETHUSD', 'other-create'))
     if (reversed) incoming.trades.reverse()
     let error = ''
-    try { mergeRiskImport(current, incoming, digest) } catch (cause) { error = String(cause) }
+    try { await mergeRiskImport(current, incoming, digest) } catch (cause) { error = String(cause) }
     assert(error.includes(reserved), '两个来源需要同一目标 ID 时应报告冲突，不能按遍历顺序丢失一笔')
     assert(current.trades.length === 1 && current.trades[0]!.ref === 'LOCAL-1', '冲突不得更改本地交易')
   }
 }
 
-export function testReferencesToExistingLocalTradeSurvivePartialImport(): void {
+export async function testReferencesToExistingLocalTradeSurvivePartialImport(): Promise<void> {
   const current = localFixture()
   const localTarget = identifiedTrade('existing-local-target', 'LOCAL-TARGET', 'GBPUSD', 'create-target')
   current.trades.push(localTarget)
@@ -278,7 +279,7 @@ export function testReferencesToExistingLocalTradeSurvivePartialImport(): void {
   imported.starredIds = [localTarget.id]
   imported.subscribedIds = [localTarget.id]
 
-  const merged = mergeRiskImport(current, imported, 'sha256-partial-import').state
+  const merged = (await mergeRiskImport(current, imported, 'sha256-partial-import')).state
   const review = merged.weeklyReviews?.find((item) => item.id === 'weekly-review:2026-07-20')
   assert(merged.trades.find((trade) => trade.id === 'imported-case')?.sourceTradeId === localTarget.id, '片段导入的案例来源本地引用必须保留')
   assert(review?.highlightTradeIds[0] === localTarget.id, '片段导入的高亮本地引用必须保留')
@@ -288,25 +289,25 @@ export function testReferencesToExistingLocalTradeSurvivePartialImport(): void {
   assert(merged.subscribedIds.includes(localTarget.id), '片段导入的订阅本地引用必须保留')
 }
 
-export function testMissingCreateEvidenceRequiresCanonicalEquality(): void {
+export async function testMissingCreateEvidenceRequiresCanonicalEquality(): Promise<void> {
   const local = localFixture()
   const withoutEvidence = { ...local.trades[0]!, activities: undefined }
-  const identical = mergeRiskImport(
+  const identical = (await mergeRiskImport(
     { ...local, trades: [withoutEvidence] },
     { ...local, trades: [{ ...withoutEvidence }], riskOverrideEvents: [], weeklyReviews: [] },
     'sha256-identical-legacy',
-  ).state
+  )).state
   assert(identical.trades.length === 1, '缺少创建证据时只有逐字段 canonical 相等才可合并')
   const imported = { ...withoutEvidence, symbol: 'XAUUSD' }
-  const merged = mergeRiskImport(
+  const merged = (await mergeRiskImport(
     { ...local, trades: [withoutEvidence] },
     { ...local, trades: [imported], riskOverrideEvents: [], weeklyReviews: [] },
     'sha256-missing-evidence',
-  ).state
+  )).state
   assert(merged.trades.length === 2, '缺少创建证据且逐字段不同时必须保守判为不同交易')
 }
 
-export function testUnresolvedEventKeepsIdentitySummaryWithoutWrongLink(): void {
+export async function testUnresolvedEventKeepsIdentitySummaryWithoutWrongLink(): Promise<void> {
   const local = localFixture()
   const imported = importedCollisionFixture()
   imported.trades = imported.trades.filter((trade) => trade.id !== 'trade-1')
@@ -322,7 +323,7 @@ export function testUnresolvedEventKeepsIdentitySummaryWithoutWrongLink(): void 
   }))
   imported.starredIds = []
   imported.subscribedIds = []
-  const merged = mergeRiskImport(local, imported, 'sha256-unresolved').state
+  const merged = (await mergeRiskImport(local, imported, 'sha256-unresolved')).state
   const event = merged.riskOverrideEvents?.find((item) => item.id === 'override-imported')
   assert(event?.linkState === 'unresolved', '无法完整链接的导入事件必须标记 unresolved')
   assert(event?.tradeIdentityAtDecision.ref === 'MISSING-REF', 'unresolved 事件必须保留导入身份摘要')
@@ -349,4 +350,30 @@ export function testCanonicalImportValueUsesLocaleIndependentCodePointOrder(): v
 export function testStoredImportedTradeIdCompatibility(): void {
   const id = stableImportedTradeId('sha256-a', '交易📈')
   assert(id === 'imported:fnv1a64:68eff98cee4e1516', id)
+}
+
+export async function testLegacyImageMatchPreservesHtmlAliasesSelectionAndMediaType(): Promise<void> {
+  const base = { ...identifiedTrade('legacy', 'OLD', 'BTCUSDT', 'unused'), activities: undefined, tradeKind: 'case' as const }
+  const img = (id: string) => '<img src="journal-asset://' + id + '">'
+  const local = { ...base, note: img('a') + img('b'), sourceNoteHtml: img('a'), decisionImageId: 'a' }
+  const incoming = { ...base, note: img('x') + img('y'), sourceNoteHtml: img('x'), decisionImageId: 'x' }
+  let reads = 0
+  const files = ['x', 'y'].map(id => ({ id, mime: 'image/png', data: 'YQ==' }))
+  const verify = verifyImportAssets(files, async id => {
+    reads++
+    return { id, mime: 'image/png', data: 'YQ==' }
+  })
+  for (const other of [
+    { ...incoming, sourceNoteHtml: img('y') }, { ...incoming, decisionImageId: 'y' },
+    { ...incoming, note: '<p>另一段正文</p>' + incoming.note }, { ...incoming, symbol: 'ETHUSD' },
+  ]) {
+    assert(await matchImportedTrade(local, other, verify) === 'different', '图片关系、标记、正文或其他字段有变化时不得复用原交易')
+  }
+  assert(reads === 0, '字段足以排除的交易不必读取附件')
+  assert(await matchImportedTrade(local, incoming, verify) === 'identical', '可验证的一对一图片重编号应匹配')
+  assert(await matchImportedTrade(local, incoming, verify) === 'identical' && reads === 2, '同次候选的一对附件只读取一次')
+  for (const mime of ['image/jpeg', null]) {
+    const compare = verifyImportAssets(files, async id => mime ? { id, mime, data: 'YQ==' } : null)
+    assert(await matchImportedTrade(local, incoming, compare) === 'different', '编码类型不同或缺少文件时不能确认同一份证据')
+  }
 }

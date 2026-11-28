@@ -82,25 +82,25 @@ function createHistoricalRiskImportFixture(): PersistedSnapshot {
   }
 }
 
-export function testMergeImportPreservesTheLocalCanonicalStageGraph(): void {
+export async function testMergeImportPreservesTheLocalCanonicalStageGraph(): Promise<void> {
   const current = createFullPersistedSnapshotFixture()
   const imported = createFullPersistedSnapshotFixture()
   imported.liveStages = imported.liveStages.map((stage) => ({ ...stage, name: '导入阶段名' }))
 
-  const merged = mergeImportPayload(current, { version: 10, ...imported }).state
+  const merged = (await mergeImportPayload(current, { version: 10, ...imported })).state
 
   assert(merged.liveStages[0]?.name === current.liveStages[0]?.name, '合并导入不得覆盖本机阶段图')
   assert(merged.liveStages !== current.liveStages, '本机阶段图必须通过独立数组克隆')
   assert(merged.currentLiveStageId === current.currentLiveStageId, '合并导入不得覆盖本机当前阶段指针')
 }
 
-export function testMergeImportKeepsCurrentLibraryTradingDayStartHour(): void {
+export async function testMergeImportKeepsCurrentLibraryTradingDayStartHour(): Promise<void> {
   const current = createFullPersistedSnapshotFixture()
   current.display = { ...current.display, tradingDayStartHour: 6 }
   const imported = createFullPersistedSnapshotFixture()
   imported.display = { ...imported.display, tradingDayStartHour: 0 }
 
-  const merged = mergeImportPayload(current, { version: 9, ...imported }).state
+  const merged = (await mergeImportPayload(current, { version: 9, ...imported })).state
 
   assert(
     merged.display.tradingDayStartHour === 6,
@@ -108,9 +108,9 @@ export function testMergeImportKeepsCurrentLibraryTradingDayStartHour(): void {
   )
 }
 
-function captureImmutableImportConflict(run: () => unknown): { code: unknown; message: string } {
+async function captureImmutableImportConflict(run: () => Promise<unknown>): Promise<{ code: unknown; message: string }> {
   try {
-    run()
+    await run()
   } catch (error) {
     return {
       code: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
@@ -715,7 +715,7 @@ export function testJsonImportAcceptsOpenTradesWithoutResults(): void {
   assert(parsed.data.trades[0]?.rMultiple === null, '未填写 R 倍数应保持 null')
 }
 
-export function testLegacyJsonWithoutStrategiesCannotCreateDanglingTradeReferences(): void {
+export async function testLegacyJsonWithoutStrategiesCannotCreateDanglingTradeReferences(): Promise<void> {
   const parsed = parseImportJson(JSON.stringify({
     version: 6,
     trades: [{ ...trade, note: '', strategyId: 'missing-strategy' }],
@@ -727,7 +727,7 @@ export function testLegacyJsonWithoutStrategiesCannotCreateDanglingTradeReferenc
   assert(parsed.ok, '缺少 strategies 的旧 JSON 仍应兼容导入')
   if (!parsed.ok) return
 
-  const merged = mergeImportPayload({
+  const merged = (await mergeImportPayload({
     ...nativeStageState(),
     trades: [],
     strategies: [],
@@ -740,7 +740,7 @@ export function testLegacyJsonWithoutStrategiesCannotCreateDanglingTradeReferenc
     savedTradeViews: [],
     symbolIcons: {},
     symbolCatalog: [],
-  }, parsed.data).state
+  }, parsed.data)).state
 
   assert(merged.strategies.length === 1, '有交易的旧 JSON 必须补中性策略')
   assert(
@@ -749,12 +749,12 @@ export function testLegacyJsonWithoutStrategiesCannotCreateDanglingTradeReferenc
   )
 }
 
-export function testJsonMergeUsesUpdatedDraftAndAppendsNewImmutableRiskEntities(): void {
+export async function testJsonMergeUsesUpdatedDraftAndAppendsNewImmutableRiskEntities(): Promise<void> {
   const current = createHistoricalRiskImportFixture()
   const imported = createHistoricalRiskImportFixture()
   const currentPreparation = current.weeklyRiskPreparations[0]!
   const currentPolicy = current.riskPolicyVersions[0]!
-  const merged = mergeImportPayload(current, {
+  const merged = (await mergeImportPayload(current, {
     version: 9,
     ...imported,
     weeklyRiskPreparations: [{
@@ -774,7 +774,7 @@ export function testJsonMergeUsesUpdatedDraftAndAppendsNewImmutableRiskEntities(
         lockedAt: '2026-08-01T00:00:00.000Z',
       },
     ],
-  }).state
+  })).state
 
   assert(
     merged.weeklyRiskPreparations?.[0]?.draft.disciplineText === '导入的较新草稿',
@@ -787,60 +787,60 @@ export function testJsonMergeUsesUpdatedDraftAndAppendsNewImmutableRiskEntities(
   assert(merged.monthlyRiskLimits?.length === 2, '新 ID 的不可变月限额必须追加')
 }
 
-export function testRiskPolicyVersionSameIdAndCanonicalContentDeduplicates(): void {
+export async function testRiskPolicyVersionSameIdAndCanonicalContentDeduplicates(): Promise<void> {
   const current = createHistoricalRiskImportFixture()
   const imported = createHistoricalRiskImportFixture()
   imported.riskPolicyVersions = [reorderedKeys(imported.riskPolicyVersions[0]!)]
-  const merged = mergeImportPayload(current, { version: 9, ...imported }).state
+  const merged = (await mergeImportPayload(current, { version: 9, ...imported })).state
   assert(merged.riskPolicyVersions?.length === 1, '相同 policy 不得重复追加')
   assert(merged.riskPolicyVersions?.[0] === current.riskPolicyVersions[0], '相同 policy 应保留本地引用')
 }
 
-export function testRiskPolicyVersionSameIdWithDifferentContentRejectsImport(): void {
+export async function testRiskPolicyVersionSameIdWithDifferentContentRejectsImport(): Promise<void> {
   const current = createHistoricalRiskImportFixture()
   const imported = createHistoricalRiskImportFixture()
   imported.riskPolicyVersions = [{
     ...imported.riskPolicyVersions[0]!,
     disciplineText: '冲突的纪律内容',
   }]
-  const conflict = captureImmutableImportConflict(
+  const conflict = await captureImmutableImportConflict(
     () => mergeImportPayload(current, { version: 9, ...imported }),
   )
   assert(conflict.code === 'import-immutable-entity-conflict', 'policy 冲突必须暴露稳定错误码')
   assert(conflict.message.includes(current.riskPolicyVersions[0]!.id), 'policy 冲突消息必须包含实体 ID')
 }
 
-export function testMonthlyRiskLimitSameIdAndCanonicalContentDeduplicates(): void {
+export async function testMonthlyRiskLimitSameIdAndCanonicalContentDeduplicates(): Promise<void> {
   const current = createHistoricalRiskImportFixture()
   const imported = createHistoricalRiskImportFixture()
   imported.monthlyRiskLimits = [reorderedKeys(imported.monthlyRiskLimits[0]!)]
-  const merged = mergeImportPayload(current, { version: 9, ...imported }).state
+  const merged = (await mergeImportPayload(current, { version: 9, ...imported })).state
   assert(merged.monthlyRiskLimits?.length === 1, '相同月限额不得重复追加')
   assert(merged.monthlyRiskLimits?.[0] === current.monthlyRiskLimits[0], '相同月限额应保留本地引用')
 }
 
-export function testMonthlyRiskLimitSameIdWithDifferentContentRejectsImport(): void {
+export async function testMonthlyRiskLimitSameIdWithDifferentContentRejectsImport(): Promise<void> {
   const current = createHistoricalRiskImportFixture()
   const imported = createHistoricalRiskImportFixture()
   imported.monthlyRiskLimits = [{ ...imported.monthlyRiskLimits[0]!, limitR: 8.5 }]
-  const conflict = captureImmutableImportConflict(
+  const conflict = await captureImmutableImportConflict(
     () => mergeImportPayload(current, { version: 9, ...imported }),
   )
   assert(conflict.code === 'import-immutable-entity-conflict', '月限额冲突必须暴露稳定错误码')
   assert(conflict.message.includes(current.monthlyRiskLimits[0]!.id), '月限额冲突消息必须包含实体 ID')
 }
 
-export function testRiskOverrideEventSameIdAndCanonicalContentDeduplicates(): void {
+export async function testRiskOverrideEventSameIdAndCanonicalContentDeduplicates(): Promise<void> {
   const current = createHistoricalRiskImportFixture()
   const imported = createHistoricalRiskImportFixture()
   imported.trades = []
   imported.riskOverrideEvents = [reorderedKeys(imported.riskOverrideEvents[0]!)]
-  const merged = mergeImportPayload(current, { version: 9, ...imported }).state
+  const merged = (await mergeImportPayload(current, { version: 9, ...imported })).state
   assert(merged.riskOverrideEvents?.length === 1, '相同 override event 不得重复追加')
   assert(merged.riskOverrideEvents?.[0] === current.riskOverrideEvents[0], '相同 override event 应保留本地引用')
 }
 
-export function testRiskOverrideEventSameIdWithDifferentContentRejectsImport(): void {
+export async function testRiskOverrideEventSameIdWithDifferentContentRejectsImport(): Promise<void> {
   const current = createHistoricalRiskImportFixture()
   const imported = createHistoricalRiskImportFixture()
   imported.trades = []
@@ -848,7 +848,7 @@ export function testRiskOverrideEventSameIdWithDifferentContentRejectsImport(): 
     ...imported.riskOverrideEvents[0]!,
     reason: '冲突的覆盖原因',
   }]
-  const conflict = captureImmutableImportConflict(
+  const conflict = await captureImmutableImportConflict(
     () => mergeImportPayload(current, { version: 9, ...imported }),
   )
   assert(conflict.code === 'import-immutable-entity-conflict', 'override event 冲突必须暴露稳定错误码')

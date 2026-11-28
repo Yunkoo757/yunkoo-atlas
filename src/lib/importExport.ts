@@ -1,4 +1,5 @@
 import { downloadBlob } from './downloadBlob'
+import { verifyImportAssets } from '@/lib/importTradeIdentity'
 import { sha256Hex } from '@/lib/sha256'
 import { commitTradeBatch } from '@/lib/committedPublish'
 import { collectRetiredSnapshotAssetIds, stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
@@ -661,16 +662,19 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
       const initial = capturePersistedStateRevision()
       let revision = initial
       while (true) {
-        const merged = mergeImportPayload(revision.state, prepared.payload, payloadDigest, payload)
+        const verifyAsset = verifyImportAssets(prepared.assets, id => storage.getAssetForExport(id))
+        const merged = await mergeImportPayload(revision.state, prepared.payload, payloadDigest, verifyAsset)
         const baseline = captureImportedTradeBaseline(initial.state.trades, merged.tradeIds)
         // 并发阶段或项目变更可能令重算选中新的目标，也要对照导入开始时的本地内容。
         if (revision !== initial) assertImportTradesUnchanged(baseline, merged.tradeIds, revision.state.trades)
         const immutableRiskBaseline = captureImmutableRiskImportBaseline(revision.state, prepared.payload)
-        snapshot = buildPortableSnapshotFromState({ ...merged.state, profile: revision.state.profile }, revision.shortcutBindings)
-        await writer.commit(snapshot, { pruneUnreferenced: true })
-
-        const latest = capturePersistedStateRevision()
-        if (hasSamePersistedStateRevision(revision, latest)) break
+        let latest = capturePersistedStateRevision()
+        if (hasSamePersistedStateRevision(revision, latest)) {
+          snapshot = buildPortableSnapshotFromState({ ...merged.state, profile: revision.state.profile }, revision.shortcutBindings)
+          await writer.commit(snapshot, { pruneUnreferenced: true })
+          latest = capturePersistedStateRevision()
+          if (hasSamePersistedStateRevision(revision, latest)) break
+        }
         assertImportTradesUnchanged(baseline, merged.tradeIds, latest.state.trades)
         const immutableRiskConflict = findConcurrentImmutableRiskConflict(
           immutableRiskBaseline,
