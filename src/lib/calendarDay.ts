@@ -26,9 +26,9 @@ export function shiftCalendarDay(value: string, days: number): string {
   return formatCalendarDay(date)
 }
 
-export function calendarWeekStart(value: string): string {
+export function calendarWeekStart(value: string, weekStartsOn = 1): string {
   const date = requireDay(value)
-  const daysSinceMonday = (date.getUTCDay() + 6) % 7
-  date.setUTCDate(date.getUTCDate() - daysSinceMonday)
+  const distance = (date.getUTCDay() - weekStartsOn + 7) % 7
+  date.setUTCDate(date.getUTCDate() - distance)
   return formatCalendarDay(date)
 }

@@ -1,12 +1,12 @@
 import type { Trade } from '@/data/trades'
 import type { AnalysisRange, AnalysisScope } from '@/lib/analysisScope'
 import { writeAnalysisScope } from '@/lib/analysisScopeQuery'
-import { formatYmd, getPeriodBounds, parseLocalDate, type BusinessDateAnchor } from '@/lib/periods'
+import { getPeriodBounds, type BusinessDateAnchor } from '@/lib/periods'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import { resolveTradeTruth } from '@/lib/tradeTruth'
-import { isCalendarDay } from '@/lib/calendarDay'
+import { isCalendarDay, shiftCalendarDay } from '@/lib/calendarDay'
 import type { LegacyCashCurrencyAssumption } from '@/storage/types'
 import { resolveTradeCashCurrencyFact } from '@/lib/cashCurrency'
 
@@ -65,14 +65,10 @@ function resolveCloseDay(trade: Trade, tradingDayStartHour: number): CloseDayRes
 
 function naturalRangeStart(range: AnalysisRange, anchor: BusinessDateAnchor): string | null {
   if (range === 'all') return null
-  const today = parseLocalDate(anchor.currentTradingDayKey)
-  if (range === 'this-week') return getPeriodBounds('this-week', anchor).start
-  if (range === 'this-month') return formatYmd(new Date(today.getFullYear(), today.getMonth(), 1))
-  if (range === 'ytd') return formatYmd(new Date(today.getFullYear(), 0, 1))
-  const days = range === '30d' ? 30 : 90
-  const start = new Date(today)
-  start.setDate(start.getDate() - (days - 1))
-  return formatYmd(start)
+  if (range === '30d' || range === '90d') {
+    return shiftCalendarDay(anchor.currentTradingDayKey, range === '30d' ? -29 : -89)
+  }
+  return getPeriodBounds(range, anchor).start
 }
 
 function matchesKind(trade: Trade, scope: AnalysisScope): boolean {

@@ -1,7 +1,6 @@
 import type { Trade } from '@/data/trades'
 import {
   filterTradesByAnalysisScope,
-  intersectPerformanceDateBoundsWithNaturalRange,
   parseAnalysisScope,
   strategyAnalysisHref,
   writeAnalysisScope,
@@ -326,11 +325,13 @@ export function testPerformanceBoundsApplyOnlyToLiveAnalysis(): void {
 export function testNaturalRangesIntersectExplicitPerformanceDateBounds(): void {
   const bounds = { startInclusive: '2026-07-10', endExclusive: null }
   const anchor = createBusinessDateAnchor(new Date(2026, 6, 16, 12), 4)
-  const week = intersectPerformanceDateBoundsWithNaturalRange(bounds, 'this-week', anchor)
-  const month = intersectPerformanceDateBoundsWithNaturalRange(bounds, 'this-month', anchor)
-
-  assert(week?.startInclusive === '2026-07-13' && week?.endExclusive === '2026-07-17', '本周必须与当前范围求交集')
-  assert(month?.startInclusive === '2026-07-10' && month?.endExclusive === '2026-07-17', '本月必须与当前范围求交集')
+  const records = ['09', '10', '12', '13', '16', '17'].map(day => ({
+    ...closedLiveTrade, id: day, closedAt: '2026-07-' + day,
+  }))
+  const ids = (range: 'this-month' | 'this-week') =>
+    filterTradesByAnalysisScope(records, { kind: 'live', range }, anchor, 4, bounds).map(trade => trade.id).join()
+  assert(ids('this-week') === '13,16', '本周必须与阶段范围求交集并截止当日')
+  assert(ids('this-month') === '10,12,13,16', '本月必须与阶段范围求交集并截止当日')
 }
 
 export function testPerformanceBoundsIntersectRelativeRanges(): void {
@@ -491,3 +492,21 @@ export function testAnalysisScopeCannotUseEditedDatesToCrossLiveStages(): void {
   assert(result.map((trade) => trade.id).join() === 'current-with-historical-dates', 'Dashboard 实盘分析必须先按显式 stage ID 投影')
 }
 // Quality-Scenario: B-CALENDAR
+
+export function testRollingPerformanceRangePreservesTheFrozenCloseDayAtItsLowerBound(): void {
+  const zone = process.env.TZ
+  try {
+    process.env.TZ = 'Pacific/Apia'
+    const records = ['2011-12-29', '2011-12-30', '2011-12-31'].map(day => ({
+      ...closedLiveTrade, id: day, openedAt: day, closedAt: day, closedTradingDayKey: day,
+    }))
+    for (const [range, today] of [['30d', '2012-01-28'], ['90d', '2012-03-28']] as const) {
+      const result = filterTradesByAnalysisScope(records, { kind: 'live', range }, new Date(today + 'T12:00:00'))
+      assert(result.map(trade => trade.id).join() === '2011-12-30,2011-12-31',
+        `${range} 应纳入冻结在首日的交易，实际为 ${result.map(trade => trade.id)}`)
+    }
+  } finally {
+    if (zone === undefined) delete process.env.TZ
+    else process.env.TZ = zone
+  }
+}

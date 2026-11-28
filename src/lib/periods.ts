@@ -1,3 +1,4 @@
+import { calendarWeekStart, formatCalendarDay, parseCalendarDay, shiftCalendarDay } from '@/lib/calendarDay'
 import type { Trade } from '@/data/trades'
 
 export type CalendarPeriod =
@@ -61,7 +62,8 @@ export function getTradingDayKey(
   startHour = DEFAULT_TRADING_DAY_START_HOUR,
 ): string {
   const hour = normalizeTradingDayStartHour(startHour)
-  const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const cursor = new Date(now)
+  cursor.setHours(0, 0, 0, 0)
   if (now.getHours() < hour) {
     cursor.setDate(cursor.getDate() - 1)
   }
@@ -74,7 +76,8 @@ export function msUntilNextTradingDayBoundary(
   startHour = DEFAULT_TRADING_DAY_START_HOUR,
 ): number {
   const hour = normalizeTradingDayStartHour(startHour)
-  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, 0, 0, 25)
+  const next = new Date(now)
+  next.setHours(hour, 0, 0, 25)
   if (next.getTime() <= now.getTime()) {
     next.setDate(next.getDate() + 1)
   }
@@ -119,11 +122,13 @@ export function parseLocalDate(iso: string): Date {
   if (!iso || iso.length < 10) return new Date()
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
   if (isNaN(y) || isNaN(m) || isNaN(d)) return new Date()
-  return new Date(y, m - 1, d)
+  const local = new Date(2000, 0, 1)
+  local.setFullYear(y, m - 1, d)
+  return local
 }
 
 export function formatYmd(d: Date): string {
-  const y = d.getFullYear()
+  const y = String(d.getFullYear()).padStart(4, '0')
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
@@ -136,9 +141,7 @@ export function addDaysToCurrentTradingDay(
   days: number,
 ): string {
   const currentTradingDayKey = getTradingDayKey(now, tradingDayStartHour)
-  const target = parseLocalDate(currentTradingDayKey)
-  target.setDate(target.getDate() + days)
-  return formatYmd(target)
+  return shiftCalendarDay(currentTradingDayKey, days)
 }
 
 function startOfDay(d: Date): Date {
@@ -177,42 +180,25 @@ export function getPeriodBounds(
   tradingDayStartHour = DEFAULT_TRADING_DAY_START_HOUR,
 ): DateBounds {
   const anchor = resolveBusinessDateAnchor(now, tradingDayStartHour)
-  const today = parseLocalDate(anchor.currentTradingDayKey)
-
+  const today = anchor.currentTradingDayKey
   switch (period) {
-    case 'today': {
-      const key = anchor.currentTradingDayKey
-      return { start: key, end: key }
-    }
-    case 'this-week': {
-      const s = startOfWeek(today, weekStartsOn)
-      const e = endOfWeek(today, weekStartsOn)
-      return { start: formatYmd(s), end: formatYmd(e) }
-    }
+    case 'today':
+      return { start: today, end: today }
+    case 'this-week':
     case 'last-week': {
-      const thisStart = startOfWeek(today, weekStartsOn)
-      const s = addDays(thisStart, -7)
-      const e = addDays(thisStart, -1)
-      return { start: formatYmd(s), end: formatYmd(e) }
+      const thisWeek = calendarWeekStart(today, weekStartsOn)
+      const start = period === 'this-week' ? thisWeek : shiftCalendarDay(thisWeek, -7)
+      return { start, end: shiftCalendarDay(start, 6) }
     }
-    case 'this-month': {
-      const s = startOfMonth(today)
-      const e = endOfMonth(today)
-      return { start: formatYmd(s), end: formatYmd(e) }
-    }
+    case 'this-month':
     case 'last-month': {
-      const prev = new Date(today.getFullYear(), today.getMonth() - 1, 1)
-      return {
-        start: formatYmd(startOfMonth(prev)),
-        end: formatYmd(endOfMonth(prev)),
-      }
+      const lastDay = parseCalendarDay(today)!
+      lastDay.setUTCMonth(lastDay.getUTCMonth() + (period === 'this-month' ? 1 : 0), 0)
+      const end = formatCalendarDay(lastDay)
+      return { start: end.slice(0, -2) + '01', end }
     }
     case 'ytd':
-      return {
-        start: formatYmd(new Date(today.getFullYear(), 0, 1)),
-        // CalendarPeriod 是日志范围：上界必须是当前业务交易日，不能借用整月/未来日期语义。
-        end: anchor.currentTradingDayKey,
-      }
+      return { start: today.slice(0, 4) + '-01-01', end: today }
   }
 }
 

@@ -1,9 +1,6 @@
 import type { Trade } from '@/data/trades'
 import {
   createBusinessDateAnchor,
-  formatYmd,
-  getPeriodBounds,
-  parseLocalDate,
   DEFAULT_TRADING_DAY_START_HOUR,
   type BusinessDateAnchor,
 } from '@/lib/periods'
@@ -76,34 +73,6 @@ export function filterTradesByAnalysisScope(
     legacyCashCurrencyAssumption: null,
   }).eligibleMetricIds)
   return stageTrades.filter((trade) => eligibleIds.has(trade.id))
-}
-
-export function intersectPerformanceDateBoundsWithNaturalRange(
-  bounds: PerformanceDateBounds | null,
-  range: AnalysisRange,
-  anchor: BusinessDateAnchor,
-): PerformanceDateBounds | null {
-  if (bounds === null || range === 'all') return bounds
-  const end = parseLocalDate(anchor.currentTradingDayKey)
-  const today = anchor.currentTradingDayKey
-  let start: string
-  if (range === 'this-week') start = getPeriodBounds('this-week', anchor).start
-  else if (range === 'this-month') start = formatYmd(new Date(end.getFullYear(), end.getMonth(), 1))
-  else if (range === 'ytd') start = formatYmd(new Date(end.getFullYear(), 0, 1))
-  else {
-    const count = range === '30d' ? 30 : range === '90d' ? 90 : 1
-    const date = new Date(end)
-    date.setDate(date.getDate() - (count - 1))
-    start = formatYmd(date)
-  }
-  const tomorrow = new Date(end)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const endExclusive = formatYmd(tomorrow)
-  const intersectedStart = bounds.startInclusive && bounds.startInclusive > start
-    ? bounds.startInclusive : start
-  const intersectedEnd = bounds.endExclusive && bounds.endExclusive < endExclusive
-    ? bounds.endExclusive : endExclusive
-  return intersectedStart >= intersectedEnd ? null : { startInclusive: intersectedStart, endExclusive: intersectedEnd }
 }
 
 export function strategyAnalysisHref(

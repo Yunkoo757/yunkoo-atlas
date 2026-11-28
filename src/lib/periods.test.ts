@@ -7,6 +7,8 @@ import {
   getTradingDayKey,
   msUntilNextTradingDayBoundary,
   normalizeTradingDayStartHour,
+  parseLocalDate,
+  formatYmd,
 } from '@/lib/periods'
 
 function assert(condition: unknown, message: string): void {
@@ -106,4 +108,34 @@ export function testFutureDateNeverFallsIntoThisWeekBucket(): void {
   assert(bucket !== 'this-week', '未来日期不得因为缺少本周上界而被归入本周')
   assert(typeof bucket === 'object' && bucket.year === 2027 && bucket.month === 1, '未来日期应保持自身年月')
 }
+
+export function testPersistedRangeBoundariesSurviveSkippedDeviceDays(): void {
+  const zone = process.env.TZ
+  try {
+    process.env.TZ = 'Pacific/Kiritimati'
+    const january = new Date(1995, 0, 12, 12)
+    const previous = getPeriodBounds('last-month', january)
+    assert(previous.start === '1994-12-01' && previous.end === '1994-12-31',
+      `上月应止于已保存的 12 月 31 日，实际为 ${previous.end}`)
+
+    process.env.TZ = 'Pacific/Apia'
+    const thursday = new Date(2011, 11, 29, 12)
+    assert(addDaysToCurrentTradingDay(thursday, 6, 1) === '2011-12-30', '排期 +1 应保留相邻公历日')
+    const week = getPeriodBounds('this-week', thursday, 6)
+    assert(week.start === '2011-12-24' && week.end === '2011-12-30', '自选周六起始也应保留完整七个日期')
+  } finally {
+    if (zone === undefined) delete process.env.TZ
+    else process.env.TZ = zone
+  }
+}
+
+export function testBusinessDatePreservesFourDigitHistoricalYears(): void {
+  const day = '0099-01-05'
+  const local = parseLocalDate(day)
+  local.setHours(12)
+  assert(formatYmd(local) === day && getTradingDayKey(local) === day, '四位历史年份不得变成 1999')
+  assert(getPeriodBounds('this-week', local).start === day, '历史交易日应保持所属周一')
+  assert(getPeriodBounds('last-month', local).end === '0098-12-31', '历史年边界也使用四位年份')
+}
+
 // Quality-Scenario: B-CALENDAR
