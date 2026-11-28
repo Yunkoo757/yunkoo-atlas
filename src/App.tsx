@@ -60,7 +60,7 @@ import {
   tradeWorkspacePageFromSearch,
 } from './lib/tradeWorkspaceQuery'
 import { normalizeReviewCaseScope } from './lib/reviewCaseScope'
-import { getTradingDayKey, isValidPeriodSlug, parseLocalDate, PERIOD_LABELS } from './lib/periods'
+import { getTradingDayKey, isValidPeriodSlug, PERIOD_LABELS } from './lib/periods'
 import { routeWithSearch } from './lib/tradeView'
 import { listPathFromLegacyTablePath } from './lib/routeContext'
 import { useShortcutHost } from './shortcuts/ShortcutHost'
@@ -140,7 +140,7 @@ const checkDueStageRollover = createStageRolloverCheck(async () => {
 function currentBusinessWeek(): string {
   const state = useStore.getState()
   const tradingDayKey = getTradingDayKey(new Date(), state.display.tradingDayStartHour)
-  return weekStartFor(parseLocalDate(tradingDayKey))
+  return weekStartFor(tradingDayKey)
 }
 
 type CloseSaveState =

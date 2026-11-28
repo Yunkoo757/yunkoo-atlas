@@ -10,5 +10,25 @@ export function isCalendarDay(value: unknown): value is string {
 }
 
 export function formatCalendarDay(utcDate: Date): string {
-  return utcDate.toISOString().split('T')[0]!
+  const iso = utcDate.toISOString()
+  return iso.slice(0, iso.indexOf('T'))
+}
+
+function requireDay(value: string): Date {
+  const date = parseCalendarDay(value)
+  if (!date) throw new RangeError('公历日期必须是有效的 YYYY-MM-DD')
+  return date
+}
+
+export function shiftCalendarDay(value: string, days: number): string {
+  const date = requireDay(value)
+  date.setUTCDate(date.getUTCDate() + days)
+  return formatCalendarDay(date)
+}
+
+export function calendarWeekStart(value: string): string {
+  const date = requireDay(value)
+  const daysSinceMonday = (date.getUTCDay() + 6) % 7
+  date.setUTCDate(date.getUTCDate() - daysSinceMonday)
+  return formatCalendarDay(date)
 }

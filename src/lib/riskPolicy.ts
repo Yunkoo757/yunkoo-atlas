@@ -1,4 +1,4 @@
-import { isCalendarDay } from '@/lib/calendarDay'
+import { calendarWeekStart, isCalendarDay, shiftCalendarDay } from '@/lib/calendarDay'
 import type {
   MonthlyRiskLimit,
   RiskOverrideEvent,
@@ -9,8 +9,6 @@ import type {
 import { toMoneyCents } from '@/lib/riskBudget'
 import { activeRiskPolicy } from '@/lib/activeRiskPolicy'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
-import { formatYmd, parseLocalDate } from '@/lib/periods'
-import { weekStartFor } from '@/data/weeklyReviews'
 
 export interface RiskPolicyState {
   currentLiveStageId: string
@@ -27,12 +25,6 @@ export interface ConfirmWeeklyRiskPreparationInput {
   draft: RiskPolicyDraft
   confirmedAt: string
   policyVersionId: string
-}
-
-function nextTradingDay(day: string): string {
-  const date = parseLocalDate(day)
-  date.setDate(date.getDate() + 1)
-  return formatYmd(date)
 }
 
 function requireCanonicalDay(value: string, label: string): string {
@@ -52,7 +44,7 @@ function requireIsoTimestamp(value: string): string {
 function validateConfirmationInput(input: ConfirmWeeklyRiskPreparationInput): void {
   const currentTradingDayKey = requireCanonicalDay(input.currentTradingDayKey, 'currentTradingDayKey')
   const weekStart = requireCanonicalDay(input.weekStart, 'weekStart')
-  if (weekStartFor(parseLocalDate(currentTradingDayKey)) !== weekStart) {
+  if (calendarWeekStart(currentTradingDayKey) !== weekStart) {
     throw new Error('weekStart 必须是当前业务日所属周的周一')
   }
   requireIsoTimestamp(input.confirmedAt)
@@ -102,7 +94,7 @@ export function confirmWeeklyRiskPreparation(
   )
   const effectiveTradingDay = firstConfirmationForWeek && !input.hasClosedLiveTradeOnDay
     ? input.currentTradingDayKey
-    : nextTradingDay(input.currentTradingDayKey)
+    : shiftCalendarDay(input.currentTradingDayKey, 1)
   const policy: RiskPolicyVersion = {
     id: input.policyVersionId,
     liveStageId: state.currentLiveStageId,
@@ -172,7 +164,7 @@ export function previewRiskPolicyBaseline(
     sourceWeekStart: input.weekStart,
     effectiveTradingDay: firstPolicyForStage
       ? input.currentTradingDayKey
-      : nextTradingDay(input.currentTradingDayKey),
+      : shiftCalendarDay(input.currentTradingDayKey, 1),
     ...canonicalDraft(input.draft),
     confirmedAt: input.confirmedAt,
   }

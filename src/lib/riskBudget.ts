@@ -1,4 +1,4 @@
-import { isCalendarDay } from '@/lib/calendarDay'
+import { calendarWeekStart, isCalendarDay } from '@/lib/calendarDay'
 import type {
   MonthlyRiskLimit,
   RiskCoverage,
@@ -10,7 +10,7 @@ import type {
 } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
 import { activeRiskPolicy } from '@/lib/activeRiskPolicy'
-import { formatYmd, getTradingDayKey, parseLocalDate } from '@/lib/periods'
+import { getTradingDayKey } from '@/lib/periods'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 import { isExecutedClosed } from '@/lib/tradeStatus'
 import {
@@ -108,13 +108,6 @@ export function resolveTrustedBudgetPnl(trade: Trade): number | null {
     isTradeResultAuthorityConsistent(trade)
   ) return trade.pnl
   return null
-}
-
-function weekStart(day: string): string {
-  const date = parseLocalDate(day)
-  const distance = (date.getDay() + 6) % 7
-  date.setDate(date.getDate() - distance)
-  return formatYmd(date)
 }
 
 function stableReasons(reasons: Iterable<RiskUnknownReason>): RiskUnknownReason[] {
@@ -229,7 +222,7 @@ function evaluateRiskCandidates(input: ResolveRiskOutcomesInput): RiskCandidateE
 
 function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRiskOutcomes {
   const currentPolicy = activeRiskPolicy(input.policies, input.currentTradingDayKey, input.liveStageId)
-  const currentWeekStart = weekStart(input.currentTradingDayKey)
+  const currentWeekStart = calendarWeekStart(input.currentTradingDayKey)
   const currentMonth = input.currentTradingDayKey.slice(0, 7)
   const monthlyLimit = input.monthlyLimits.find((limit) =>
     limit.liveStageId === input.liveStageId && limit.monthKey === currentMonth,
@@ -258,7 +251,7 @@ function calculateCanonicalOutcomes(input: ResolveRiskOutcomesInput): ResolvedRi
   const results = evaluation.results
 
   const isCurrentDay = (result: CandidateResult) => result.date === input.currentTradingDayKey
-  const isCurrentWeek = (result: CandidateResult) => result.date !== null && weekStart(result.date) === currentWeekStart
+  const isCurrentWeek = (result: CandidateResult) => result.date !== null && calendarWeekStart(result.date) === currentWeekStart
   const isCurrentMonth = (result: CandidateResult) => result.date?.slice(0, 7) === currentMonth
   const resultsFor = (matches: (result: CandidateResult) => boolean) => results.filter((result) =>
     matches(result) || (result.date === null && (result.partialReasons.length > 0 || result.unknownReasons.length > 0)),

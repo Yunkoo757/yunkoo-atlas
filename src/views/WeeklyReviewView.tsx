@@ -1,3 +1,4 @@
+import { shiftCalendarDay } from '@/lib/calendarDay'
 import { weeklyReviewMarkedTradeIds } from '@/data/weeklyReviewTradeReferences'
 import { useNavigationIntent } from '@/hooks/useNavigationIntent'
 import { useValueMotion } from '@/hooks/useValueMotion'
@@ -140,12 +141,6 @@ type ReviewPatch = Partial<Pick<
   | 'previousCommitment'
 >>
 
-function addDays(ymd: string, days: number): string {
-  const next = parseLocalDate(ymd)
-  next.setDate(next.getDate() + days)
-  return formatYmd(next)
-}
-
 function formatWeekRange(start: string): string {
   const end = weekEndFor(start)
   const left = parseLocalDate(start)
@@ -157,7 +152,7 @@ function formatWeekRange(start: string): string {
 
 function weekLabel(start: string, currentWeek: string, isCurrentStage = false): string {
   if (isCurrentStage && start === currentWeek) return '本周'
-  if (isCurrentStage && start === addDays(currentWeek, -7)) return '上周'
+  if (isCurrentStage && start === shiftCalendarDay(currentWeek, -7)) return '上周'
   return `${parseLocalDate(start).getMonth() + 1}月${parseLocalDate(start).getDate()}日`
 }
 
@@ -279,7 +274,7 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
   const updateReview = useStore((state) => state.updateWeeklyReview)
   const reopenWeeklyReview = useStore((state) => state.reopenWeeklyReview)
   const businessDateAnchor = useBusinessDateAnchor()
-  const currentWeek = weekStartFor(parseLocalDate(businessDateAnchor.currentTradingDayKey))
+  const currentWeek = weekStartFor(businessDateAnchor.currentTradingDayKey)
   const location = useLocation()
   const navigate = useNavigate()
   const workspaceQuery = useMemo(
@@ -1197,7 +1192,7 @@ function YearTrend({ year, reviews, data }: { year: number; reviews: WeeklyRevie
         <div className="wr-section-head wr-year-rhythm-head"><h2 id="weekly-rhythm-title">全年复盘节奏</h2><small>颜色越亮，做法评分越高</small></div>
         <div className="wr-heatmap" style={{ '--week-count': weekCount, '--week-compact-columns': Math.ceil(weekCount / 2) } as CSSProperties}>
           {Array.from({ length: weekCount }, (_, index) => {
-            const week = addDays(firstWeek, index * 7)
+            const week = shiftCalendarDay(firstWeek, index * 7)
             const aggregate = aggregateWeeklyReviewScoresForWeek(reviews, week)
             const score = aggregate.averageScore
             const stageLabel = aggregate.completedCount > 1 ? ` · ${aggregate.completedCount} 个阶段聚合` : ''

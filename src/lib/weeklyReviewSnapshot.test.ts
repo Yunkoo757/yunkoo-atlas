@@ -131,6 +131,37 @@ function stateAtRevision(revision: number): CompleteWeeklyReviewState {
   }
 }
 
+export function testWeeklyRiskSnapshotIncludesTradeOnEveryStoredCalendarDay(): void {
+  const originalZone = process.env.TZ
+  try {
+    const start = '2011-12-26', day = '2011-12-30'
+    for (const zone of ['Pacific/Apia', 'Asia/Shanghai']) {
+      process.env.TZ = zone
+      const state = stateAtRevision(7)
+      const review = createWeeklyReview(start, 'stage-current')
+      state.weeklyReviews = [review]
+      state.liveStages[0]!.startsOn = start
+      const record = state.trades[0]!
+      record.openedAt = day
+      record.closedAt = day
+      record.closedTradingDayKey = day
+      const policy = state.riskPolicyVersions[0]!
+      policy.sourceWeekStart = start
+      policy.effectiveTradingDay = start
+      policy.confirmedAt = start + 'T00:00:00.000Z'
+      state.monthlyRiskLimits[0]!.monthKey = '2011-12'
+      state.riskOverrideEvents = []
+      const completed = completeWeeklyReviewCandidate(state, review.id, new Date('2012-01-04T12:00:00Z')).review
+      const days = completed.riskSnapshot?.dailyOutcomes
+      assert(days?.length === 7, `${zone} 应冻结七个公历日，实际为 ${days?.map(d => d.date).join(',')}`)
+      assert(days[4]?.date === day && days[4].netBudgetR === -1, '已冻结平仓日的损失须保留在对应日期')
+    }
+  } finally {
+    if (originalZone === undefined) delete process.env.TZ
+    else process.env.TZ = originalZone
+  }
+}
+
 function completedFixture() {
   return completeWeeklyReviewCandidate(stateAtRevision(7), 'review-1').review
 }

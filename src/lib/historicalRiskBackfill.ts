@@ -1,12 +1,10 @@
-import { isCalendarDay } from '@/lib/calendarDay'
+import { calendarWeekStart, formatCalendarDay, isCalendarDay, parseCalendarDay, shiftCalendarDay } from '@/lib/calendarDay'
 import type { RiskPolicyDraft, RiskPolicyVersion, MonthlyRiskLimit } from '@/data/riskManagement'
 import type { Trade } from '@/data/trades'
 import type { LiveStage } from '@/lib/liveStages'
 import { activeRiskPolicy, isUsableRiskPolicy } from '@/lib/activeRiskPolicy'
 import { canonicalDraft } from '@/lib/riskPolicy'
 import { resolveRiskDataIssues, resolveRiskOutcomes } from '@/lib/riskBudget'
-import { formatYmd, parseLocalDate } from '@/lib/periods'
-import { weekStartFor } from '@/data/weeklyReviews'
 import { isCanonicalIsoInstant } from '@/lib/isoInstant'
 
 export interface HistoricalRiskState {
@@ -47,12 +45,10 @@ export function previewHistoricalRiskBackfill(state: HistoricalRiskState, input:
   if (input.startsOn < stage.startsOn || input.startsOn >= first.effectiveTradingDay || first.effectiveTradingDay > input.today) {
     throw new Error('补录须在当前阶段内，且早于首个已有规则；请先让当前规则生效。')
   }
-  const end = parseLocalDate(first.effectiveTradingDay)
-  end.setDate(end.getDate() - 1)
-  const throughTradingDay = formatYmd(end)
+  const throughTradingDay = shiftCalendarDay(first.effectiveTradingDay, -1)
   const policy: RiskPolicyVersion = {
     ...canonicalDraft(input.draft), id: input.policyVersionId, liveStageId: stage.id,
-    sourceWeekStart: weekStartFor(parseLocalDate(input.startsOn)), effectiveTradingDay: input.startsOn,
+    sourceWeekStart: calendarWeekStart(input.startsOn), effectiveTradingDay: input.startsOn,
     confirmedAt: input.confirmedAt,
     historicalBackfill: { confirmedHistorical: true, throughTradingDay,
       sourcePolicyVersionId: source.id, note: input.note.trim() },
@@ -61,16 +57,17 @@ export function previewHistoricalRiskBackfill(state: HistoricalRiskState, input:
   const monthlyLimits = [...state.monthlyRiskLimits]
   const newMonthlyLimits: MonthlyRiskLimit[] = []
   // 已锁定月份保持不变；只补齐历史区间内缺失的月上限。
-  const month = parseLocalDate(input.startsOn.slice(0, 7) + '-01')
-  while (formatYmd(month).slice(0, 7) <= throughTradingDay.slice(0, 7)) {
-    const monthKey = formatYmd(month).slice(0, 7)
+  const month = parseCalendarDay(input.startsOn.slice(0, 7) + '-01')!
+  while (formatCalendarDay(month).slice(0, 7) <= throughTradingDay.slice(0, 7)) {
+    const monthKey = formatCalendarDay(month).slice(0, 7)
     if (!monthlyLimits.some((item) => item.liveStageId === stage.id && item.monthKey === monthKey)) {
       const limit: MonthlyRiskLimit = { id: `monthly-risk-limit:${stage.id}:${monthKey}`, liveStageId: stage.id,
         monthKey, limitR: policy.monthlyLossLimitRDefault, sourcePolicyVersionId: policy.id, lockedAt: input.confirmedAt }
       monthlyLimits.push(limit)
       newMonthlyLimits.push(limit)
     }
-    month.setMonth(month.getMonth() + 1)
+    if (monthKey === throughTradingDay.slice(0, 7)) break
+    month.setUTCMonth(month.getUTCMonth() + 1)
   }
   const base = { trades: state.trades, policies: state.riskPolicyVersions, monthlyLimits: state.monthlyRiskLimits,
     liveStageId: stage.id, liveStageStartsOn: stage.startsOn, currentTradingDayKey: input.today,

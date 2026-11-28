@@ -1,3 +1,4 @@
+import { shiftCalendarDay } from '@/lib/calendarDay'
 import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
 import {
   inspectDueStageRollover,
@@ -78,12 +79,6 @@ function snapshotMatchesPublish(
     snapshot.liveStages.every((stage, index) => sameStage(stage, publish.liveStages[index]!))
 }
 
-function previousCalendarDay(day: string): string {
-  const instant = new Date(`${day}T00:00:00.000Z`)
-  instant.setUTCDate(instant.getUTCDate() - 1)
-  return instant.toISOString().slice(0, 10)
-}
-
 /**
  * IPC 回包丢失时只接受两种完整磁盘真相：原预约完全未变（可重试），或
  * 原阶段已按预约边界归档且新 current 已落盘（可发布）。其他组合必须停写恢复。
@@ -115,7 +110,7 @@ export function classifyUncertainStageRolloverSnapshot(
   if (
     scheduled === null
     && previous?.status === 'archived'
-    && previous.endsOn === previousCalendarDay(input.expectedRollover.effectiveWeekStart)
+    && previous.endsOn === shiftCalendarDay(input.expectedRollover.effectiveWeekStart, -1)
     && current?.status === 'current'
     && current.id !== input.expectedCurrentStageId
     && current.startsOn === input.expectedRollover.effectiveWeekStart

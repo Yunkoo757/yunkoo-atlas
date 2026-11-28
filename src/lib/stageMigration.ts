@@ -1,4 +1,4 @@
-import { isCalendarDay } from '@/lib/calendarDay'
+import { isCalendarDay, shiftCalendarDay } from '@/lib/calendarDay'
 import { weeklyReviewTradeReferences } from '@/data/weeklyReviewTradeReferences'
 import type { Trade } from '@/data/trades'
 import type { WeeklyReview } from '@/data/weeklyReviews'
@@ -55,12 +55,6 @@ export function createLegacyStageMigrationOptions(
     currentTradingDayKey: anchor.currentTradingDayKey,
     idFactory,
   }
-}
-
-function previousDay(day: string): string {
-  const date = new Date(`${day}T00:00:00.000Z`)
-  date.setUTCDate(date.getUTCDate() - 1)
-  return date.toISOString().slice(0, 10)
 }
 
 function tradingDayStartHour(raw: LegacyStageSnapshot): number {
@@ -192,7 +186,7 @@ function buildStages(
       name: definition.name,
       status: next ? 'archived' : 'current',
       startsOn: definition.startsOn,
-      endsOn: next ? previousDay(next.startsOn) : null,
+      endsOn: next ? shiftCalendarDay(next.startsOn, -1) : null,
       createdAt: definition.createdAt,
       archivedAt: next ? next.createdAt : null,
     }

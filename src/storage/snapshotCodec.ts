@@ -15,7 +15,7 @@ import { normalizeTrades } from '@/lib/tradeKind'
 import { migrateLegacyCasePriority } from '@/lib/reviewCaseClassification'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
 import { normalizeTradingDayStartHour } from '@/lib/periods'
-import { isCalendarDay } from '@/lib/calendarDay'
+import { isCalendarDay, shiftCalendarDay } from '@/lib/calendarDay'
 import { isCanonicalWeeklyReviewPeriod } from '@/lib/weeklyReviewPeriod'
 import {
   collectReliableLegacyStageRecordDays,
@@ -179,11 +179,7 @@ function defaultStageMigrationOptions(raw: Record<string, unknown>): LegacyStage
   const latestRecordDay = recordDays.at(-1)
   const inferredCurrentDay = latestRecordDay === undefined
     ? '2000-01-03'
-    : (() => {
-        const date = new Date(`${latestRecordDay}T00:00:00.000Z`)
-        date.setUTCDate(date.getUTCDate() + 1)
-        return date.toISOString().slice(0, 10)
-      })()
+    : shiftCalendarDay(latestRecordDay, 1)
   const currentTradingDayKey = explicitBoundary ?? inferredCurrentDay
   const now = typeof latest?.createdAt === 'string' && !Number.isNaN(Date.parse(latest.createdAt))
     ? new Date(latest.createdAt).toISOString()

@@ -1,3 +1,4 @@
+import { calendarWeekStart, shiftCalendarDay } from '@/lib/calendarDay'
 import type { LiveTrade, Trade } from '@/data/trades'
 import type { RiskPolicyVersion } from '@/data/riskManagement'
 import type { WeeklyReview } from '@/data/weeklyReviews'
@@ -51,33 +52,10 @@ export interface BuildStageRolloverCandidateOptions {
   nextStageId: string
 }
 
-function parseYmd(value: string): { year: number; month: number; day: number } {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('实盘阶段切换日期必须是 YYYY-MM-DD')
-  const [year, month, day] = value.split('-').map(Number)
-  const date = new Date(Date.UTC(year, month - 1, day))
-  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
-    throw new Error('实盘阶段切换日期必须是有效日期')
-  }
-  return { year, month, day }
-}
-
-function addDays(date: string, offset: number): string {
-  const { year, month, day } = parseYmd(date)
-  const next = new Date(Date.UTC(year, month - 1, day + offset))
-  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`
-}
-
-function followingMonday(currentTradingDayKey: string): string {
-  const { year, month, day } = parseYmd(currentTradingDayKey)
-  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay()
-  const daysUntilFollowingMonday = weekday === 1 ? 7 : (8 - weekday) % 7
-  return addDays(currentTradingDayKey, daysUntilFollowingMonday)
-}
-
 function precedingWeek(effectiveWeekStart: string): { weekStart: string; weekEnd: string } {
   return {
-    weekStart: addDays(effectiveWeekStart, -7),
-    weekEnd: addDays(effectiveWeekStart, -1),
+    weekStart: shiftCalendarDay(effectiveWeekStart, -7),
+    weekEnd: shiftCalendarDay(effectiveWeekStart, -1),
   }
 }
 
@@ -130,7 +108,7 @@ export function scheduleStageRollover(
   return {
     id,
     requestedAt,
-    effectiveWeekStart: followingMonday(currentTradingDayKey),
+    effectiveWeekStart: shiftCalendarDay(calendarWeekStart(currentTradingDayKey), 7),
     postponedCount: 0,
   }
 }
@@ -165,7 +143,7 @@ export function postponeStageRollover(
 ): ScheduledStageRollover {
   return {
     ...scheduled,
-    effectiveWeekStart: followingMonday(currentTradingDayKey),
+    effectiveWeekStart: shiftCalendarDay(calendarWeekStart(currentTradingDayKey), 7),
     postponedCount: scheduled.postponedCount + 1,
   }
 }

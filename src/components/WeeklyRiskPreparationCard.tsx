@@ -3,7 +3,6 @@ import type { RiskPolicyDraft, RiskPolicyVersion } from '@/data/riskManagement'
 import { weekStartFor } from '@/data/weeklyReviews'
 import { fmtMoney, fmtR } from '@/lib/format'
 import { toMoneyCents } from '@/lib/riskBudget'
-import { parseLocalDate } from '@/lib/periods'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useStore } from '@/store/useStore'
 import { getCurrentLiveStage } from '@/lib/liveStages'
@@ -70,7 +69,7 @@ export function WeeklyRiskPreparationCard({
 }) {
   const liveTradingDay = useLocalDateKey()
   const tradingDay = currentTradingDayKey ?? liveTradingDay
-  const weekStart = weekStartFor(parseLocalDate(tradingDay))
+  const weekStart = weekStartFor(tradingDay)
   const policies = useStore((state) => state.riskPolicyVersions)
   const monthlyLimits = useStore((state) => state.monthlyRiskLimits)
   const liveStages = useStore((state) => state.liveStages)

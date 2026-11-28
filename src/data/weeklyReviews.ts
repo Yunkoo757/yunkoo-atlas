@@ -1,3 +1,4 @@
+import { calendarWeekStart, isCalendarDay, shiftCalendarDay } from '@/lib/calendarDay'
 import { isReviewCompleted, type Trade } from '@/data/trades'
 import type {
   MonthlyRiskLimit,
@@ -146,20 +147,14 @@ export interface WeeklyReviewTrendPoint {
   stageCount: number
 }
 
-function addDays(date: Date, days: number): Date {
-  const next = new Date(date)
-  next.setDate(next.getDate() + days)
-  return next
-}
-
-export function weekStartFor(date = new Date()): string {
-  const local = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  const distance = (local.getDay() + 6) % 7
-  return formatYmd(addDays(local, -distance))
+export function weekStartFor(date: Date | string = new Date()): string {
+  return calendarWeekStart(typeof date === 'string' ? date : formatYmd(date))
 }
 
 export function weekEndFor(weekStart: string): string {
-  return formatYmd(addDays(parseLocalDate(weekStart), 6))
+  // 隔离的历史复盘保留原始日期；旧入口允许按本地规则归一后显示其范围。
+  const start = isCalendarDay(weekStart) ? weekStart : formatYmd(parseLocalDate(weekStart))
+  return shiftCalendarDay(start, 6)
 }
 
 export function createWeeklyReview(
@@ -312,7 +307,7 @@ function reviewActivityWeek(
   if (isExecutedClosed(trade.status) && !evidenceIds.has(trade.id)) return null
   const day = closedTradingDayKey(trade, tradingDayStartHour)
   if (day !== null && day > currentTradingDayKey) return null
-  return day ? weekStartFor(parseLocalDate(day)) : null
+  return day ? calendarWeekStart(day) : null
 }
 
 export function deriveWeeklyReviewWeeks(
@@ -435,7 +430,10 @@ function toWeeklyReviewEvidenceTrade(trade: WeeklyReviewEvidenceTrade): WeeklyRe
 
 function daysThrough(start: string, end: string): string[] {
   const days: string[] = []
-  for (let day = start; day <= end; day = formatYmd(addDays(parseLocalDate(day), 1))) days.push(day)
+  for (let day = start; day <= end; day = shiftCalendarDay(day, 1)) {
+    days.push(day)
+    if (day === end) break
+  }
   return days
 }
 

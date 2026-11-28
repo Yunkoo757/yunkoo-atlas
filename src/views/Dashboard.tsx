@@ -163,7 +163,7 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
     [scope.kind, scopedTrades, performanceSelection.invalidCloseDayIds, performanceSelection.missingCloseDayIds],
   )
   const missingPerformanceCloseDayCount = closeDayRepairIds.length
-  const weekStart = useMemo(() => weekStartFor(new Date(`${localDateKey}T12:00:00`)), [localDateKey])
+  const weekStart = useMemo(() => weekStartFor(localDateKey), [localDateKey])
   const weekRangeLabel = useMemo(() => formatDashboardWeekRange(weekStart), [weekStart])
   const weekPerformanceSelection = useMemo(
     () => buildThisWeekPerformanceSelection(scopedTrades, {

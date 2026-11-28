@@ -1,4 +1,4 @@
-import { isCalendarDay } from '@/lib/calendarDay'
+import { isCalendarDay, shiftCalendarDay } from '@/lib/calendarDay'
 import { weeklyReviewTradeReferences } from '@/data/weeklyReviewTradeReferences'
 import type { Trade } from '@/data/trades'
 import type {
@@ -164,12 +164,6 @@ function fingerprint(entity: StageOwnedEntity, source?: PendingStageOwnershipSou
   return JSON.stringify(source === undefined ? entity : { entity, source })
 }
 
-function previousDay(day: string): string {
-  const date = new Date(`${day}T00:00:00.000Z`)
-  date.setUTCDate(date.getUTCDate() - 1)
-  return date.toISOString().slice(0, 10)
-}
-
 function reliableTradeDay(
   state: StageOwnershipRepairState,
   trade: Exclude<Trade, { tradeKind: 'paper' }>,
@@ -270,7 +264,7 @@ function planStageBoundaryRepair<T extends StageOwnershipRepairState>(state: T, 
   const target = chronological[targetIndex]!
   const previous = chronological[targetIndex - 1]!
   if (
-    previous.endsOn !== previousDay(target.startsOn) ||
+    previous.endsOn !== shiftCalendarDay(target.startsOn, -1) ||
     review.weekStart <= previous.startsOn ||
     chronological.some((stage, index) => (
       index !== targetIndex && index !== targetIndex - 1 &&
@@ -287,7 +281,7 @@ function planStageBoundaryRepair<T extends StageOwnershipRepairState>(state: T, 
     previousStageId: previous.id,
     previousStageName: previous.name,
     previousStageEndBefore: previous.endsOn,
-    previousStageEndAfter: previousDay(review.weekStart),
+    previousStageEndAfter: shiftCalendarDay(review.weekStart, -1),
     targetStageStartBefore: target.startsOn,
     targetStageStartAfter: review.weekStart,
     affectedTradeIds: affectedTradesForBoundaryShift(

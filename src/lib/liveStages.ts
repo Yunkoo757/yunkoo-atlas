@@ -1,4 +1,4 @@
-import { isCalendarDay } from '@/lib/calendarDay'
+import { isCalendarDay, shiftCalendarDay } from '@/lib/calendarDay'
 export interface LiveStage {
   id: string
   sequence: number
@@ -42,26 +42,6 @@ function isIsoInstant(value: unknown): value is string {
   if (typeof value !== 'string') return false
   const timestamp = Date.parse(value)
   return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value
-}
-
-function daysInMonth(year: number, month: number): number {
-  if (month === 2) return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28
-  return [4, 6, 9, 11].includes(month) ? 30 : 31
-}
-
-function previousDay(date: string): string {
-  if (!isCalendarDay(date)) fail('阶段日期必须是有效的 YYYY-MM-DD')
-  let [year, month, day] = date.split('-').map(Number)
-  if (day > 1) day -= 1
-  else if (month > 1) {
-    month -= 1
-    day = daysInMonth(year, month)
-  } else {
-    year -= 1
-    month = 12
-    day = 31
-  }
-  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
 function assertValidLiveStage(value: unknown): asserts value is LiveStage {
@@ -169,7 +149,7 @@ export function createNextLiveStage(
   const archived: LiveStage = {
     ...previous,
     status: 'archived',
-    endsOn: previousDay(startsOn),
+    endsOn: shiftCalendarDay(startsOn, -1),
     archivedAt: createdAt,
   }
   const baseName = `实盘阶段 ${nextSequence}`
