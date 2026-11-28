@@ -26,54 +26,34 @@ function openExistingDatabase(factory: IDBFactory, name: string): Promise<IDBDat
   })
 }
 
-function requestValue<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
-}
-
 function transactionDone(transaction: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve()
-    transaction.onerror = () => reject(transaction.error ?? new Error('Identity migration failed'))
-    transaction.onabort = () => reject(transaction.error ?? new Error('Identity migration aborted'))
-  })
-}
-
-function readEntries(store: IDBObjectStore): Promise<StoredEntry[]> {
-  return new Promise((resolve, reject) => {
-    const entries: StoredEntry[] = []
-    const request = store.openCursor()
-    request.onerror = () => reject(request.error)
-    request.onsuccess = () => {
-      const cursor = request.result
-      if (!cursor) {
-        resolve(entries)
-        return
-      }
-      entries.push({ key: cursor.primaryKey, value: cursor.value })
-      cursor.continue()
-    }
+    transaction.onabort = () => reject(transaction.error ?? new DOMException('Identity migration aborted', 'AbortError'))
   })
 }
 
 async function readSourceEntries(database: IDBDatabase): Promise<Record<StoreName, StoredEntry[]>> {
   const transaction = database.transaction([...REQUIRED_STORES], 'readonly')
-  const done = transactionDone(transaction)
-  const [snapshot, assets, meta] = await Promise.all(
-    REQUIRED_STORES.map((storeName) => readEntries(transaction.objectStore(storeName))),
-  )
-  await done
-  return { snapshot, assets, meta }
+  const entries: Record<StoreName, StoredEntry[]> = { snapshot: [], assets: [], meta: [] }
+  for (const storeName of REQUIRED_STORES) {
+    const request = transaction.objectStore(storeName).openCursor()
+    request.onsuccess = () => {
+      const cursor = request.result
+      if (!cursor) return
+      entries[storeName].push({ key: cursor.primaryKey, value: cursor.value })
+      cursor.continue()
+    }
+  }
+  await transactionDone(transaction)
+  return entries
 }
 
 async function readMainSnapshot(database: IDBDatabase): Promise<unknown> {
   const transaction = database.transaction('snapshot', 'readonly')
-  const done = transactionDone(transaction)
-  const snapshot = await requestValue(transaction.objectStore('snapshot').get('main'))
-  await done
-  return snapshot
+  const snapshot = transaction.objectStore('snapshot').get('main')
+  await transactionDone(transaction)
+  return snapshot.result
 }
 
 async function copyToEmptyTarget(

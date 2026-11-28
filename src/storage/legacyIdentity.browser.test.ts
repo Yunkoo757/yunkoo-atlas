@@ -152,7 +152,39 @@ async function verifyBlockedRepair(entry: 'adapter' | 'migration'): Promise<void
   await deleteDatabase(BROWSER_DATABASE_NAME)
 }
 
+async function verifyAbortedSourceRead(allStores: boolean): Promise<void> {
+  await resetDatabases()
+  await seedDatabase(LEGACY_DATABASE_NAME, 'legacy')
+  const original = IDBDatabase.prototype.transaction
+  let injected = false
+  IDBDatabase.prototype.transaction = function abortSourceRead(stores, mode, options) {
+    const tx = original.call(this, stores, mode, options)
+    if (!injected && this.name === LEGACY_DATABASE_NAME && mode === 'readonly' && Array.isArray(stores) === allStores) {
+      injected = true
+      queueMicrotask(() => tx.abort())
+    }
+    return tx
+  }
+  let failure: unknown
+  try {
+    await migrateLegacyBrowserIdentity(indexedDB)
+  } catch (error) {
+    failure = error
+  } finally {
+    IDBDatabase.prototype.transaction = original
+  }
+  assert(injected && failure instanceof DOMException && failure.name === 'AbortError', '中断旧库读取应向调用方报告 AbortError')
+  const asset = await readValue<{ blob: Blob }>(LEGACY_DATABASE_NAME, 'assets', 'asset-1')
+  assert(await asset?.blob.text() === 'x', '中断后源附件字节须保留')
+  assert(await migrateLegacyBrowserIdentity(indexedDB) === 'copied', '读取中断后重试应能完整迁移')
+  const copied = await readValue<{ blob: Blob }>(BROWSER_DATABASE_NAME, 'assets', 'asset-1')
+  assert(await copied?.blob.text() === 'x' && await readValue(BROWSER_DATABASE_NAME, 'meta', 'snapshotRevision') === 3,
+    '重试后目标附件和版本应与来源一致')
+}
+
 async function run(): Promise<void> {
+  await verifyAbortedSourceRead(false)
+  await verifyAbortedSourceRead(true)
   await resetDatabases()
   await seedDatabase(LEGACY_DATABASE_NAME, 'legacy')
 
