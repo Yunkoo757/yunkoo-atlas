@@ -5,7 +5,7 @@ import path from 'node:path'
 import initSqlJs from 'sql.js'
 import { DEFAULT_SYMBOL_CATALOG } from '../../src/lib/symbolIconCodec'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
-import { deleteBackupAtPath, restoreBackupAtPath, verifyBackupAtPath, writeLibraryBackup } from './backup'
+import { createVerifiedBackup, deleteBackupAtPath, restoreBackupAtPath, verifyBackupAtPath, writeLibraryBackup } from './backup'
 import { restoreLibraryBackup } from './backupRestore'
 import { LibraryOperationGate } from './sessionGate'
 import { LibraryStorage, SnapshotSaveError } from './storage'
@@ -250,6 +250,30 @@ export async function testBackupWithMatchingChecksumAndUnreadableRevisionCannotR
     assert.deepEqual(fs.readFileSync(file), before)
     assert.equal(f.active()?.getSnapshotRevision(), 2)
     assert.deepEqual(f.active()?.loadSnapshot()?.tagPresets, ['active'])
+  } finally { f.dispose() }
+}
+
+export async function testCreatedBackupReportsItsOwnDiskVerificationAndPreservesRetentionPolicy() {
+  const f = await isolatedSession()
+  try {
+    f.first.saveSnapshot(createEmptyPersistedSnapshot())
+    for (let day = 1; day <= 7; day++) writeLibraryBackup(f.first, Date.UTC(2024, 0, day))
+    const names = () => fs.readdirSync(f.first.getPaths().backups).filter(name => name.endsWith('.db'))
+    const safety = await createVerifiedBackup(f.first)
+    assert.equal(safety?.status, 'verified')
+    assert.equal(names().length, 8, '恢复事务在完成前必须保留现有备份')
+    const manual = await createVerifiedBackup(f.first, { rotate: true })
+    assert.ok(manual)
+    const { path: file, ...verification } = manual
+    assert.equal(verification.status, 'verified')
+    assert.equal(names().length, 7)
+    assert.deepEqual(JSON.parse(fs.readFileSync(file + '.meta.json', 'utf8')).verification, verification)
+    f.first.exportSnapshotDatabaseBytes = () => Buffer.from('unreadable snapshot')
+    const invalid = await createVerifiedBackup(f.first)
+    assert.equal(invalid?.status, 'invalid', '备份已写出时，必须返回实际校验失败')
+    assert.ok(invalid?.error && fs.existsSync(invalid.path))
+    f.first.exportSnapshotDatabaseBytes = () => { throw new Error('cannot create snapshot') }
+    assert.equal(await createVerifiedBackup(f.first), null, '创建失败须与校验失败区分')
   } finally { f.dispose() }
 }
 

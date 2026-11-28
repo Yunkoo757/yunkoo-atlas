@@ -28,6 +28,10 @@ export interface BackupVerificationResult {
   emptyLibrary?: boolean
 }
 
+export interface CreatedBackupVerification extends BackupVerificationResult {
+  path: string
+}
+
 export type BackupRestoreResult =
   | { ok: true; committed: true; snapshot: PersistedSnapshot }
   | { ok: false; committed: boolean; error?: string }
@@ -182,6 +186,7 @@ export interface JournalBridge {
   cancelPreparedJournalImport(tokenOrRequestId: string): Promise<{ ok: boolean; state: 'cancelled' | 'committing' | 'terminal' | 'missing' }>
   commitPreparedJournalImport(token: string): Promise<CommitJournalImportResult>
   createBackup(): Promise<string | null>
+  createVerifiedBackup(): Promise<CreatedBackupVerification | null>
   listBackups(): Promise<BackupInfo[]>
   verifyBackup(fileName: string): Promise<BackupVerificationResult>
   restoreBackup(fileName: string): Promise<BackupRestoreResult>

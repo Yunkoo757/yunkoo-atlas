@@ -63,12 +63,11 @@ async function commitLibraryOrganization(expected: string, makeCandidate: (befor
     backup: async () => {
       await checkLibrary()
       signal.throwIfAborted()
-      const name = await bridge.createBackup()
+      const backup = await bridge.createVerifiedBackup()
       signal.throwIfAborted()
-      if (!name) throw new Error('整理前备份未创建，已取消操作。')
-      const verification = await bridge.verifyBackup(name)
-      if (verification.status !== 'verified') throw new Error(verification.error ?? '整理前备份校验失败，已取消操作。')
-      return name
+      if (!backup) throw new Error('整理前备份未创建，已取消操作。')
+      if (backup.status !== 'verified') throw new Error(backup.error ?? '整理前备份校验失败，已取消操作。')
+      return backup.path
     },
     persist: snapshot => storage.commitImport(snapshot, [], { pruneUnreferenced: false }),
     publish: snapshot => {

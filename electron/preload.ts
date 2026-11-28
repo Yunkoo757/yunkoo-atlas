@@ -209,6 +209,7 @@ const bridge: NonNullable<Window['journalBridge']> = {
     return adoptSnapshotReceipt(result, session)
   },
   createBackup: () => ipcRenderer.invoke('backup:create', writers.require().token),
+  createVerifiedBackup: () => ipcRenderer.invoke('backup:create', writers.require().token, true),
   listBackups: () => ipcRenderer.invoke('backup:list'),
   verifyBackup: (fileName) => ipcRenderer.invoke('backup:verify', fileName),
   restoreBackup: async (fileName) => {

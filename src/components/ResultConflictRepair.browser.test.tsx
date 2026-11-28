@@ -50,7 +50,7 @@ window.__resultConflictRepairTest = (async () => {
         if (unavailable) throw new Error('暂时无法读取资料库')
         return { libraryId }
       },
-      createBackup: async () => { backupCalls++; return 'test-backup' },
+      createVerifiedBackup: async () => { backupCalls++; return { path: 'test-backup', status: 'verified', checkedAt: 1 } },
     } as NonNullable<Window['journalBridge']>
     useStore.setState({ trades: [pending], display: { ...original.display, privacyMode: false } })
     const entry = createRef<{ reopen: (id?: string) => void }>()

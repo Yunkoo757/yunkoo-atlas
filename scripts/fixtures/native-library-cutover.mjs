@@ -192,8 +192,11 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
     ipcMain.removeHandler('storage:getSnapshotRevision')
     ipcMain.handle('storage:getSnapshotRevision', () => { throw new Error('isolated revision query unavailable') })
   })
-  const backup = await page.evaluate(() => window.journalBridge.createBackup())
-  assert(backup, '无法创建隔离备份')
+  const backup = await page.evaluate(() => window.journalBridge.createVerifiedBackup())
+  assert.equal(backup?.status, 'verified', '同一写入请求须返回原生校验结果')
+  const { verification } = JSON.parse(fs.readFileSync(backup.path + '.meta.json', 'utf8'))
+  assert.equal(verification.status, backup.status)
+  assert.equal(verification.checkedAt, backup.checkedAt)
   const { candidateBackup, ...receipts } = await page.evaluate(async ({ libraryPath, candidatePath, backupName }) => {
     const bridge = window.journalBridge
     const previous = await bridge.loadSnapshot()
@@ -228,7 +231,7 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
     if (original?.tagPresets[0] !== 'post-recovery-follow-up') throw new Error('切回原库后必须读到原快照')
     await bridge.saveSnapshot(original)
     return { candidateBackup, staleStage: stale.reason, backup: true, archive: true, create: true, reopen: true }
-  }, { libraryPath, candidatePath, backupName: path.basename(backup) })
+  }, { libraryPath, candidatePath, backupName: path.basename(backup.path) })
   const staleSourceRejected = await page.evaluate(async ({ libraryPath, candidatePath }) => {
     const bridge = window.journalBridge
     const ready = await bridge.prepareLibrarySwitch(candidatePath, 'open')

@@ -21,8 +21,11 @@ const bridge: Partial<NonNullable<Window['journalBridge']>> = {
   getManifest:async()=>manifest,
   saveSnapshot:async snapshot=>{disk=snapshot;return true},
   loadSnapshot:async()=>disk,
-  createBackup:async()=>{test.backups++;return 'before-organization.db'},
-  verifyBackup:async()=>({status:test.failBackup?'invalid':'verified',checkedAt:Date.now(),error:test.failBackup?'模拟备份验证失败':undefined}),
+  createVerifiedBackup: async () => {
+    test.backups++
+    return { path: 'before-organization.db', status: test.failBackup ? 'invalid' : 'verified',
+      checkedAt: Date.now(), error: test.failBackup ? '模拟备份验证失败' : undefined }
+  },
   commitImport:async snapshot=>{test.commits++;disk=structuredClone(snapshot);return true},
 }
 window.journalBridge = bridge as NonNullable<Window['journalBridge']>

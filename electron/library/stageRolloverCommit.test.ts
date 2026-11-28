@@ -132,17 +132,13 @@ function createHarness(
   }
   const deps: StageRolloverCommitDependencies = {
     storage,
-    createBackup: (received) => {
+    createVerifiedBackup: async (received) => {
       events.push('backup')
       assert(received === storage, 'backup must use the same storage reloaded inside the exclusive gate')
       const snapshot = received.loadSnapshot()
       if (snapshot) backupSnapshots.push(structuredClone(snapshot))
-      return failures.backup ? null : 'opaque-backup-reference'
-    },
-    verifyBackup: async (received, reference) => {
+      if (failures.backup) return null
       events.push('verify')
-      assert(received === storage, 'verification must remain bound to the reloaded storage')
-      assert(reference === 'opaque-backup-reference', 'verification must receive only the backup adapter reference')
       if (failures['verify-throw']) throw new Error('D:\\private\\backups\\secret.zip')
       return failures['verify-invalid']
         ? { status: 'invalid', checkedAt: 1, error: 'D:\\private\\backups\\secret.zip' }

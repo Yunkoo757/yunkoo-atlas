@@ -6,11 +6,7 @@ import { performance } from 'node:perf_hooks'
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { SCHEMA_VERSION, type ExportAssetRecord, type PersistedSnapshot } from '../../src/storage/types'
 import { QuitCoordinator, releaseThenFinalizeWithRollback } from '../quitCoordinator'
-import {
-  writeLibraryBackup,
-  deleteBackupAtPath,
-  verifyBackupAtPath,
-} from './backup'
+import { createVerifiedBackup, deleteBackupAtPath } from './backup'
 import { LibraryStorage } from './storage'
 
 export interface ElectronPersistenceBenchmarkInput {
@@ -93,19 +89,16 @@ export async function runElectronPersistenceBenchmark(
     const quitSamplesMs: number[] = []
     if (input.measureQuit) {
       for (let index = 0; index < input.warmups + input.samples; index += 1) {
-        let backupName: string | null = null
+        let backupPath: string | null = null
         const coordinator = new QuitCoordinator({
           timeoutMs: 15_000,
           createRequestId: () => `benchmark-quit-${index}`,
           requestRendererFlush: async () => { storage.saveSnapshot(input.snapshot) },
           createVerifiedBackup: async () => {
-            const backupPath = writeLibraryBackup(storage, Date.now() + index)
-            if (!backupPath) throw new Error('退出性能基准未生成恢复点')
-            backupName = path.basename(backupPath)
-            const verification = await verifyBackupAtPath(root, backupName)
-            if (verification.status !== 'verified') {
-              throw new Error(verification.error ?? '退出性能基准恢复点验证失败')
-            }
+            const backup = await createVerifiedBackup(storage)
+            if (!backup) throw new Error('退出性能基准未生成恢复点')
+            if (backup.status !== 'verified') throw new Error(backup.error ?? '退出性能基准恢复点验证失败')
+            backupPath = backup.path
           },
           commitExit: async () => {
             await releaseThenFinalizeWithRollback(
@@ -130,7 +123,7 @@ export async function runElectronPersistenceBenchmark(
         if (!result.ok) throw new Error(result.error)
         await storage.open()
         assertReloadedState()
-        if (backupName) deleteBackupAtPath(root, backupName)
+        if (backupPath) deleteBackupAtPath(root, backupPath)
         if (index >= input.warmups) quitSamplesMs.push(elapsed)
       }
     }

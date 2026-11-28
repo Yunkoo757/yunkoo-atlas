@@ -22,11 +22,7 @@ export interface StageRolloverCommitStorage {
 
 export interface StageRolloverCommitDependencies<TStorage extends StageRolloverCommitStorage = StageRolloverCommitStorage> {
   storage: TStorage
-  createBackup(storage: TStorage): string | null
-  verifyBackup(
-    storage: TStorage,
-    backupReference: string,
-  ): Promise<BackupVerificationResult>
+  createVerifiedBackup(storage: TStorage): Promise<BackupVerificationResult | null>
   validateSnapshot(snapshot: PersistedSnapshot): void
   now(): Date
   createStageId(): string
@@ -154,18 +150,10 @@ export async function commitDueStageRollover<TStorage extends StageRolloverCommi
     return failure('stale', '阶段切换条件已经变化')
   }
 
-  let backupReference: string | null
   try {
-    backupReference = dependencies.createBackup(storage)
-  } catch (error) {
-    dependencies.reportError('stage-rollover-backup-create-failed', error)
-    return failure('backup-failed', '无法创建重置前备份')
-  }
-  if (!backupReference) return failure('backup-failed', '无法创建重置前备份')
-
-  try {
-    const verification = await dependencies.verifyBackup(storage, backupReference)
-    if (verification.status !== 'verified') {
+    const backup = await dependencies.createVerifiedBackup(storage)
+    if (!backup) return failure('backup-failed', '无法创建重置前备份')
+    if (backup.status !== 'verified') {
       return failure('backup-failed', '重置前备份验证失败')
     }
   } catch (error) {

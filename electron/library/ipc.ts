@@ -25,7 +25,7 @@ import {
 } from './libraryLocation'
 import {
   createBackup,
-  createRotatedBackup,
+  createVerifiedBackup,
   deleteBackupAtPath,
   getBackupStatsAtPath,
   listBackupsAtPath,
@@ -202,15 +202,10 @@ export async function createVerifiedExitBackup(signal?: AbortSignal): Promise<vo
     exitPreparedStorage = current
     try {
       const allowEmptySnapshot = current.loadSnapshot() === null
-      const backupPath = createBackup(current, { emptyLibrary: allowEmptySnapshot })
-      if (!backupPath) throw new Error('无法创建退出前恢复点')
-      const verification = await verifyBackupAtPath(
-        current.getLibraryPath(),
-        path.basename(backupPath),
-        current.readManifest().libraryId,
-      )
-      if (verification.status !== 'verified') {
-        throw new Error(verification.error ?? '退出前恢复点验证失败')
+      const backup = await createVerifiedBackup(current, { emptyLibrary: allowEmptySnapshot })
+      if (!backup) throw new Error('无法创建退出前恢复点')
+      if (backup.status !== 'verified') {
+        throw new Error(backup.error ?? '退出前恢复点验证失败')
       }
     } catch (error) {
       exitPreparedStorage = null
@@ -599,12 +594,7 @@ export function registerLibraryIpc(): void {
       try {
         result = await commitDueStageRollover(input, {
           storage: active,
-          createBackup: (lib) => createBackup(lib),
-          verifyBackup: (lib, backupReference) => verifyBackupAtPath(
-            lib.getLibraryPath(),
-            path.basename(backupReference),
-            lib.readManifest().libraryId,
-          ),
+          createVerifiedBackup,
           validateSnapshot: (snapshot) => {
             assertValidPersistedSnapshot(snapshot, 'Stage rollover snapshot')
           },
@@ -775,10 +765,10 @@ export function registerLibraryIpc(): void {
   })
 
   // ---- 备份 ----
-  ipcMain.handle('backup:create', async (event, writerToken: string) => operationGate.tryRunExclusive(async () => {
+  ipcMain.handle('backup:create', async (event, writerToken: string, verify?: boolean) => operationGate.tryRunExclusive(async () => {
     const lib = await ensureStorage()
     writers.assert(event, writerToken, lib)
-    return createRotatedBackup(lib)
+    return verify === true ? createVerifiedBackup(lib, { rotate: true }) : createBackup(lib, { rotate: true })
   }))
 
   ipcMain.handle('backup:list', async () => withStorage((lib) => {

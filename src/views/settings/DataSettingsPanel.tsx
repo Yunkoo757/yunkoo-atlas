@@ -176,9 +176,8 @@ export function DataSettingsPanel({
     try {
       await flushPersistNow()
       const bridge = getJournalBridge()!
-      const result = await bridge.createBackup()
-      if (result) {
-        const verification = await bridge.verifyBackup(result)
+      const verification = await bridge.createVerifiedBackup()
+      if (verification) {
         toast(
           verification.status === 'verified'
             ? '备份已创建并验证'

@@ -1,7 +1,7 @@
 import type { BackupRestoreResult, StorageRecoveryRequiredState } from '../../src/types/journalBridge'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import { safeConsoleError } from '../diagnosticSanitizer'
-import { createBackup, rotateBackups, verifyBackupAtPath, withVerifiedBackup } from './backup'
+import { createVerifiedBackup, rotateBackups, withVerifiedBackup } from './backup'
 import { getLibraryPaths } from './paths'
 import type { LibraryStorage } from './storage'
 import { withStorageRecoveryNotification } from './storageRecovery'
@@ -9,10 +9,9 @@ import { withStorageRecoveryNotification } from './storageRecovery'
 export async function createVerifiedRestorePoint(current: LibraryStorage): Promise<
   { ok: true } | { ok: false; error: string }
 > {
-  const name = createBackup(current)
-  if (!name) return { ok: false, error: '无法创建恢复前安全备份' }
-  const verification = await verifyBackupAtPath(current.getLibraryPath(), name, current.readManifest().libraryId)
-  if (verification.status !== 'verified') return { ok: false, error: verification.error ?? '恢复前安全备份验证失败' }
+  const backup = await createVerifiedBackup(current)
+  if (!backup) return { ok: false, error: '无法创建恢复前安全备份' }
+  if (backup.status !== 'verified') return { ok: false, error: backup.error ?? '恢复前安全备份验证失败' }
   return { ok: true }
 }
 

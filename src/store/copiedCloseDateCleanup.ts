@@ -38,11 +38,10 @@ function desktopDependencies(
       createVerifiedBackup: async () => {
         const bridge = getJournalBridge()
         if (!bridge) throw new Error(`历史日期${operation}只能在 Windows 或 macOS 客户端执行`)
-        const backupName = await bridge.createBackup()
-        if (!backupName) throw new Error(`无法创建${operation}前备份`)
+        const backup = await bridge.createVerifiedBackup()
         storageDocumentSignal.throwIfAborted()
-        const verification = await bridge.verifyBackup(backupName)
-        if (verification.status !== 'verified') throw new Error(verification.error ?? `${operation}前备份验证失败`)
+        if (!backup) throw new Error(`无法创建${operation}前备份`)
+        if (backup.status !== 'verified') throw new Error(backup.error ?? `${operation}前备份验证失败`)
       },
       suspendPersist,
       recoverDurableSnapshot,

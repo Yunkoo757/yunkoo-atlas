@@ -31,11 +31,10 @@ async function checkLibraryReplacementDuringPurge() {
   const previous = Object.getOwnPropertyDescriptor(window, 'journalBridge')
   Object.defineProperty(window, 'journalBridge', { configurable: true, value: {
     isElectron: true,
-    createBackup: async () => 'isolated-backup',
-    verifyBackup: async () => {
+    createVerifiedBackup: async () => {
       reached()
       await receipt
-      return { status: 'verified', checkedAt: Date.now() }
+      return { path: 'isolated-backup', status: 'verified', checkedAt: Date.now() }
     },
   } })
   const button = (selector: string) => document.querySelector<HTMLButtonElement>(selector)

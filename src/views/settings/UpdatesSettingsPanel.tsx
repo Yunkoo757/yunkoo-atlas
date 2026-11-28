@@ -60,18 +60,18 @@ export function UpdatesSettingsPanel() {
   const installUpdate = async () => {
     if (!electron) return
     await flushPersistNow()
-    const backup = await getJournalBridge()!.createBackup()
+    const bridge = getJournalBridge()!
+    const backup = await bridge.createVerifiedBackup()
     if (!backup) {
       toast('无法创建更新前备份，已取消安装', { tone: 'error' })
       return
     }
-    const verification = await getJournalBridge()!.verifyBackup(backup)
-    if (verification.status !== 'verified') {
-      toast(verification.error ?? '更新前备份验证失败，已取消安装', { tone: 'error' })
+    if (backup.status !== 'verified') {
+      toast(backup.error ?? '更新前备份验证失败，已取消安装', { tone: 'error' })
       return
     }
     // 安装会走关闭保存回执（正在安全保存 / 已安全保存），不再弹 toast，避免底部双条重叠
-    await getJournalBridge()!.installUpdate()
+    await bridge.installUpdate()
   }
 
   return (

@@ -1,4 +1,4 @@
-import { createRotatedBackup, rotateBackups } from './backup'
+import { createBackup, rotateBackups } from './backup'
 import { ensureLibraryDirs } from './paths'
 import { LibraryBusyError, type LibraryOperationGate } from './sessionGate'
 import type { LibraryStorage } from './storage'
@@ -37,7 +37,7 @@ export class LibraryAutoBackup {
 
   private async tick(storage: LibraryStorage): Promise<void> {
     try {
-      const backup = await this.gate.tryRunExclusive(() => createRotatedBackup(storage))
+      const backup = await this.gate.tryRunExclusive(() => createBackup(storage, { rotate: true }))
       if (backup) return
     } catch (error) {
       if (error instanceof LibraryBusyError) return

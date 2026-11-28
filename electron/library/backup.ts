@@ -1,4 +1,4 @@
-import type { BackupInfo, BackupVerificationResult } from '../../src/types/journalBridge'
+import type { BackupInfo, BackupVerificationResult, CreatedBackupVerification } from '../../src/types/journalBridge'
 import { sha256File } from './fileChecksum'
 import { backupAttachmentEntries, readBackupMetadata, recordBackupVerification, tryReadBackupMeta, type BackupMeta } from './backupMetadata'
 import fs from 'node:fs'
@@ -181,22 +181,31 @@ export function writeLibraryBackup(
   }
 }
 
-export function createBackup(
-  storage: LibraryStorage,
-  options: { emptyLibrary?: boolean } = {},
-): string | null {
+interface BackupOptions {
+  emptyLibrary?: boolean
+  rotate?: boolean
+}
+
+export function createBackup(storage: LibraryStorage, options: BackupOptions = {}): string | null {
+  let backup: string | null
   try {
-    return writeLibraryBackup(storage, Date.now(), options)
+    backup = writeLibraryBackup(storage, Date.now(), options)
   } catch (err) {
     safeConsoleError('backup-create-failed', err)
     return null
   }
+  if (backup && options.rotate) rotateBackups(storage.getPaths().backups)
+  return backup
 }
 
-export function createRotatedBackup(storage: LibraryStorage): string | null {
-  const backup = createBackup(storage)
-  if (backup) rotateBackups(ensureLibraryDirs(storage.getLibraryPath()).backups)
-  return backup
+export async function createVerifiedBackup(
+  storage: LibraryStorage,
+  options: BackupOptions = {},
+): Promise<CreatedBackupVerification | null> {
+  const file = createBackup(storage, options)
+  if (!file) return null
+  const verification = await verifyBackupAtPath(storage.getLibraryPath(), file, storage.readManifest().libraryId)
+  return { ...verification, path: file }
 }
 
 export function getBackupStatsAtPath(libraryPath: string): { count: number; totalSize: number } {

@@ -177,12 +177,11 @@ function TradeTrashWorkspace({ librarySession }: { librarySession: number }) {
         try {
           await flushPersistNow()
           if (!isCurrent()) return
-          const recoveryPoint = await bridge.createBackup()
-          if (!recoveryPoint) throw new Error('无法创建删除前恢复点')
+          const backup = await bridge.createVerifiedBackup()
           if (!isCurrent()) return
-          const verification = await bridge.verifyBackup(recoveryPoint)
-          if (verification.status !== 'verified') {
-            throw new Error(verification.error ?? '删除前恢复点校验失败')
+          if (!backup) throw new Error('无法创建删除前恢复点')
+          if (backup.status !== 'verified') {
+            throw new Error(backup.error ?? '删除前恢复点校验失败')
           }
         } catch (error) {
           setPurgeError(error instanceof Error ? error.message : '无法验证删除前恢复点')
