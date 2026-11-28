@@ -7,9 +7,42 @@ import { assertLocalSourceUnchanged, hasSameLocalSource, readGitProvenance } fro
 
 export const executionReportPath = (root) => path.join(root, 'test-results', 'quality-execution.json')
 
-export async function hashFile(root, file) {
+async function hashFile(root, file) {
   const bytes = await fs.readFile(path.join(root, file))
   return createHash('sha256').update(bytes).digest('hex')
+}
+
+export async function scenarioExecutionFailures(root, scenario, execution) {
+  const failures = []
+  if (!Array.isArray(scenario.evidence) || !scenario.evidence.length ||
+      !scenario.evidence.every(file => typeof file === 'string' && file.length > 0)) {
+    return [`场景缺少证据：${scenario.id}`]
+  }
+  const files = scenario.evidence.map(file => file.replaceAll('\\', '/'))
+  const id = scenario.testId
+  const separator = typeof id === 'string' ? id.indexOf('#') : -1
+  const testFile = separator > 0 ? id.slice(0, separator).replaceAll('\\', '/') : undefined
+  if (!testFile || separator === id.length - 1) {
+    failures.push(`自动场景缺少具体测试 ID：${scenario.id}`)
+  } else if (!files.includes(testFile)) {
+    failures.push(`场景测试 ID 不属于其证据文件：${scenario.id} → ${id}`)
+  }
+  if (!execution) return failures
+
+  for (const file of files) {
+    try {
+      const hash = await hashFile(root, file)
+      if (execution.executedFiles?.[file] !== hash) {
+        failures.push(`场景证据未以当前内容执行并通过：${scenario.id} → ${file}`)
+      }
+      if (file === testFile && execution.executedTests?.[id] !== hash) {
+        failures.push(`场景的具体测试未以当前内容执行并通过：${scenario.id} → ${id}`)
+      }
+    } catch (error) {
+      failures.push(`场景证据无法读取：${scenario.id} → ${file} (${error.message})`)
+    }
+  }
+  return failures
 }
 
 async function withReportLock(root, publish) {

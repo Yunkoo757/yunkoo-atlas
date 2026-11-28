@@ -13,8 +13,8 @@ import {
   forcedKillPassed,
   jsonCompatibilityPassed,
   persistenceReleaseGatePassed,
-  releaseTrainDrillsPassed,
 } from './release-evidence-validation.mjs'
+import { releaseTrainDrillsPassed } from './release-train-drills.mjs'
 import { generationDecisionPassed, generationRawPassed } from './spikes/electron-generation/evidence.mjs'
 import { fullQaPassed } from './release-qa-plan.mjs'
 import { assetLifecyclePassed, electronSafetyPassed } from './platform-regression.mjs'

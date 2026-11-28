@@ -61,10 +61,33 @@ export const RELEASE_TRAIN_DRILLS = [
   },
 ]
 
+const phaseNames = ['stop', 'rollback', 'userRecovery']
+
+export function requiredDrillScenarioIds() {
+  return new Set(RELEASE_TRAIN_DRILLS.flatMap(train => phaseNames.flatMap(phase => train[phase].scenarioIds)))
+}
+
+export function releaseTrainDrillsPassed(report) {
+  if (report?.version !== 1 || report.status !== 'pass' ||
+      !Array.isArray(report.failures) || report.failures.length ||
+      !Array.isArray(report.trains) || report.trains.length !== RELEASE_TRAIN_DRILLS.length) return false
+  return RELEASE_TRAIN_DRILLS.every((definition, index) => {
+    const train = report.trains[index]
+    return train?.id === definition.id && train.status === 'pass' && phaseNames.every(name => {
+      const phase = train.phases?.[name]
+      const expected = definition[name].scenarioIds
+      return phase?.status === 'pass' &&
+        Array.isArray(phase.missingScenarioIds) && phase.missingScenarioIds.length === 0 &&
+        Array.isArray(phase.scenarioIds) && expected.length === phase.scenarioIds.length &&
+        expected.every((id, index) => phase.scenarioIds[index] === id)
+    })
+  })
+}
+
 export function evaluateReleaseTrainDrills(executedContractScenarioIds) {
   const executed = new Set(executedContractScenarioIds)
   return RELEASE_TRAIN_DRILLS.map((definition) => {
-    const phases = Object.fromEntries(['stop', 'rollback', 'userRecovery'].map((phase) => {
+    const phases = Object.fromEntries(phaseNames.map((phase) => {
       const expected = definition[phase].scenarioIds
       const missingScenarioIds = expected.filter((id) => !executed.has(id))
       return [phase, {

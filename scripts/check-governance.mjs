@@ -3,7 +3,7 @@ import path from 'node:path'
 
 import { listRepositoryFiles } from './git-worktree.mjs'
 import { discoverBrowserTests, discoverQualityNodeTests, discoverUnitTestEntries } from './test-discovery.mjs'
-import { executionReportPath, hashFile } from './quality-execution.mjs'
+import { executionReportPath, scenarioExecutionFailures } from './quality-execution.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
 import { decodeRepositoryText, isRepositoryText } from './repository-text.mjs'
 import { runtimeDependencyGraph, reachableModuleGraph, websiteDependencyGraph, journalBridgeDeclarationOwners, findRuntimeCycles, firstForbiddenPath, importsTarget, importsWithinTarget } from './governance-imports.mjs'
@@ -54,15 +54,10 @@ async function main() {
       failures.push(`场景缺少证据：${scenario.id}`)
       continue
     }
-    if (isQualityExecutionScenario && (typeof scenario.testId !== 'string' || !scenario.testId.includes('#'))) {
-      failures.push(`自动场景缺少具体测试 ID：${scenario.id}`)
-      scenarioVerified = false
-    } else if (isQualityExecutionScenario) {
-      const testFile = normalized(scenario.testId.slice(0, scenario.testId.indexOf('#')))
-      if (!scenario.evidence.map(normalized).includes(testFile)) {
-        failures.push(`场景测试 ID 不属于其证据文件：${scenario.id} → ${scenario.testId}`)
-        scenarioVerified = false
-      }
+    if (isQualityExecutionScenario) {
+      const problems = await scenarioExecutionFailures(root, scenario, execution)
+      failures.push(...problems)
+      if (problems.length) scenarioVerified = false
     }
     for (const evidence of scenario.evidence) {
       const absolute = path.join(root, evidence)
@@ -85,21 +80,6 @@ async function main() {
       }
       if (!source.includes(`Quality-Scenario: ${scenario.id}`)) {
         failures.push(`场景证据缺少精确标记：${scenario.id} → ${evidence}`)
-        scenarioVerified = false
-      }
-      if (requireExecution && execution && isQualityExecutionScenario) {
-        const actualHash = await hashFile(root, relative)
-        if (execution.executedFiles?.[relative] !== actualHash) {
-          failures.push(`场景证据未以当前内容执行并通过：${scenario.id} → ${evidence}`)
-          scenarioVerified = false
-        }
-      }
-    }
-    if (requireExecution && execution && isQualityExecutionScenario && typeof scenario.testId === 'string') {
-      const testFile = normalized(scenario.testId.slice(0, scenario.testId.indexOf('#')))
-      const actualHash = await hashFile(root, testFile)
-      if (execution.executedTests?.[scenario.testId] !== actualHash) {
-        failures.push(`场景的具体测试未以当前内容执行并通过：${scenario.id} → ${scenario.testId}`)
         scenarioVerified = false
       }
     }

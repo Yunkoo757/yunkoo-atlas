@@ -7,12 +7,12 @@ import {
   validatePersistenceMetrics,
 } from './persistence-baseline.mjs'
 import { MiB } from './spikes/electron-generation/generation-prototype.mjs'
+import { RELEASE_TRAIN_DRILLS } from './release-train-drills.mjs'
 
 const JSON_COMPATIBILITY_SCRIPT_SHA256 = createHash('sha256')
   .update(readFileSync(new URL('./measure-json-import-compatibility.mjs', import.meta.url)))
   .digest('hex')
 
-export const EXPECTED_DRILL_TRAIN_IDS = ['release-0', 'release-1', 'release-2', 'release-3']
 export const EXPECTED_FINAL_CHECK_NAMES = [
   'full-qa',
   'json-compatibility',
@@ -126,18 +126,8 @@ export function finalQualityManifestPassed(value, provenance) {
     Array.isArray(value.checks) && value.checks.length === EXPECTED_FINAL_CHECK_NAMES.length &&
     value.checks.every((check, index) => check.name === EXPECTED_FINAL_CHECK_NAMES[index]) &&
     value.checks.slice(0, -2).every((check) => check.pass === true) && targetCheck &&
-    Array.isArray(value.trains) && value.trains.length === EXPECTED_DRILL_TRAIN_IDS.length &&
-    value.trains.every((train, index) => train.id === EXPECTED_DRILL_TRAIN_IDS[index] && train.status === 'pass')
-}
-
-export function releaseTrainDrillsPassed(value) {
-  return value?.status === 'pass' &&
-    Array.isArray(value.trains) && value.trains.length === EXPECTED_DRILL_TRAIN_IDS.length &&
-    value.trains.every((train, index) => (
-      train.id === EXPECTED_DRILL_TRAIN_IDS[index] &&
-      train.status === 'pass' &&
-      ['stop', 'rollback', 'userRecovery'].every((phase) => train.phases?.[phase]?.status === 'pass')
-    ))
+    Array.isArray(value.trains) && value.trains.length === RELEASE_TRAIN_DRILLS.length &&
+    value.trains.every((train, index) => train?.id === RELEASE_TRAIN_DRILLS[index].id && train.status === 'pass')
 }
 
 export function forcedKillPassed(value, platform, fileSystem, expectedSchemaVersion) {

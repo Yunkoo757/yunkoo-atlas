@@ -2,8 +2,8 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 
 import { readGitProvenance } from './git-provenance.mjs'
-import { hashFile } from './quality-execution.mjs'
-import { evaluateReleaseTrainDrills } from './release-train-drills.mjs'
+import { scenarioExecutionFailures } from './quality-execution.mjs'
+import { evaluateReleaseTrainDrills, requiredDrillScenarioIds } from './release-train-drills.mjs'
 
 const root = process.cwd()
 const requireComplete = process.argv.includes('--require-complete')
@@ -21,44 +21,35 @@ try {
   if (qualityContract.status !== 'pass' || qualityContract.executionRequired !== true) {
     failures.push('quality contract was not produced by a passing execution-required gate')
   }
+  if (!Array.isArray(qualityContract.executedContractScenarioIds)) failures.push('quality contract scenario list is missing')
 } catch (error) {
   failures.push(`quality contract missing or invalid: ${error.message}`)
 }
 try {
   qualityExecution = await readJson('test-results/quality-execution.json')
   if (qualityExecution.status !== 'pass') failures.push('quality execution status is not pass')
-  scenarios = await readJson('scripts/quality-scenarios.json')
+  const registry = await readJson('scripts/quality-scenarios.json')
+  if (!Array.isArray(registry)) throw new Error('expected a scenario list')
+  scenarios = registry
 } catch (error) {
   failures.push(`quality execution or scenario registry missing or invalid: ${error.message}`)
 }
 
-const trains = evaluateReleaseTrainDrills(qualityContract?.executedContractScenarioIds ?? [])
-const requiredScenarioIds = new Set(trains.flatMap((train) => (
-  Object.values(train.phases).flatMap((phase) => phase.scenarioIds)
-)))
-for (const scenarioId of requiredScenarioIds) {
-  const scenario = scenarios.find((candidate) => candidate.id === scenarioId)
+const contracted = new Set(Array.isArray(qualityContract?.executedContractScenarioIds) ? qualityContract.executedContractScenarioIds : [])
+const scenarioFailures = []
+const verified = []
+for (const scenarioId of requiredDrillScenarioIds()) {
+  const scenario = scenarios.find(candidate => candidate.id === scenarioId)
   if (!scenario) {
-    failures.push(`drill scenario is not registered: ${scenarioId}`)
+    scenarioFailures.push(`drill scenario is not registered: ${scenarioId}`)
     continue
   }
-  for (const file of scenario.evidence) {
-    try {
-      const currentHash = await hashFile(root, file)
-      if (qualityExecution?.executedFiles?.[file] !== currentHash) {
-        failures.push(`drill evidence was not executed with current content: ${scenarioId} -> ${file}`)
-      }
-    } catch (error) {
-      failures.push(`drill evidence is unavailable: ${scenarioId} -> ${file}: ${error.message}`)
-    }
+  const problems = await scenarioExecutionFailures(root, scenario, qualityExecution)
+  scenarioFailures.push(...problems)
+  if (contracted.has(scenarioId) && !problems.length) {
+    verified.push(scenarioId)
   }
 }
-for (const train of trains) {
-  for (const [phase, value] of Object.entries(train.phases)) {
-    if (value.status !== 'pass') failures.push(`${train.id} ${phase} evidence missing: ${value.missingScenarioIds.join(', ')}`)
-  }
-}
-
 const provenance = await readGitProvenance(root)
 for (const [name, evidence] of [
   ['quality contract', qualityContract],
@@ -69,6 +60,14 @@ for (const [name, evidence] of [
   if (evidence?.sourceIdentity !== provenance.sourceIdentity) failures.push(`${name} source identity mismatch`)
 }
 if (requireComplete && provenance.workingTreeDirty) failures.push('current release working tree is dirty')
+
+const trains = evaluateReleaseTrainDrills(failures.length ? [] : verified)
+failures.push(...scenarioFailures)
+for (const train of trains) {
+  for (const [phase, value] of Object.entries(train.phases)) {
+    if (value.status !== 'pass') failures.push(`${train.id} ${phase} evidence missing: ${value.missingScenarioIds.join(', ')}`)
+  }
+}
 
 const report = {
   version: 1,

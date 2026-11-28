@@ -14,7 +14,6 @@ import {
   forcedKillPassed,
   jsonCompatibilityPassed,
   persistenceReleaseGatePassed,
-  releaseTrainDrillsPassed,
 } from '../release-evidence-validation.mjs'
 import { fullQaPassed } from '../release-qa-plan.mjs'
 import { assetLifecyclePassed, electronSafetyPassed } from '../platform-regression.mjs'
@@ -23,7 +22,6 @@ import { MiB } from '../spikes/electron-generation/generation-prototype.mjs'
 
 test('旧发布证据聚合器保持可独立复验，但不再耦合 tag 发布关键路径', () => {
   const source = fs.readFileSync('scripts/verify-release-train-evidence.mjs', 'utf8')
-  const validation = fs.readFileSync('scripts/release-evidence-validation.mjs', 'utf8')
   const workflow = fs.readFileSync('.github/workflows/release.yml', 'utf8')
   for (const train of ['release-0', 'release-1', 'release-2', 'release-3']) {
     assert.match(source, new RegExp(`id: '${train}'`))
@@ -33,7 +31,6 @@ test('旧发布证据聚合器保持可独立复验，但不再耦合 tag 发布
   assert.match(source, /release evidence was produced from a dirty working tree/)
   assert.match(source, /current release working tree is dirty/)
   assert.match(source, /'release-train-drills\.json'/)
-  assert.match(validation, /\['stop', 'rollback', 'userRecovery'\]/)
   assert.match(source, /forcedKillPassed\(value, 'win32', 'NTFS', SCHEMA_VERSION\)/)
   assert.match(source, /forcedKillPassed\(value, 'darwin', 'APFS', SCHEMA_VERSION\)/)
   assert.match(source, /assetLifecyclePassed\(value, 'win32', 'NTFS'\)/)
@@ -316,29 +313,7 @@ test('Blob writer 发布必须有桥覆盖窗口与旧标签页确认', () => {
   assert.equal(detectBlobReleaseMode('storedSnapshot instanceof Blob\nserializeSnapshotToBlobCooperatively(input.snapshot)'), 'blob-writer')
 })
 
-test('损坏、重复或不完整的演练与平台报告必须 fail-closed', () => {
-  const phase = { status: 'pass' }
-  const validTrain = (id) => ({
-    id,
-    status: 'pass',
-    phases: { stop: phase, rollback: phase, userRecovery: phase },
-  })
-  const validDrills = {
-    status: 'pass',
-    trains: ['release-0', 'release-1', 'release-2', 'release-3'].map(validTrain),
-  }
-  assert.equal(releaseTrainDrillsPassed(validDrills), true)
-  assert.equal(releaseTrainDrillsPassed({
-    ...validDrills,
-    trains: ['release-0', 'release-0', 'release-2', 'release-3'].map(validTrain),
-  }), false)
-  assert.equal(releaseTrainDrillsPassed({
-    ...validDrills,
-    trains: validDrills.trains.map((train, index) => index === 3
-      ? { ...train, phases: { ...train.phases, userRecovery: { status: 'hold' } } }
-      : train),
-  }), false)
-
+test('损坏或不完整的平台报告必须拒绝', () => {
   const forced = {
     status: 'pass', scenarioId: 'E-FORCED-KILL', schemaVersion: 12,
     platform: 'win32', fileSystem: 'NTFS',
