@@ -973,6 +973,16 @@ export function testWeeklyRiskReviewSnapshotSurvivesCodecAndJsonAndRejectsMalfor
   assert(json.ok, 'JSON reader 必须接受合法周复盘风险快照')
   assert(json.data.weeklyReviews?.[0]?.riskSnapshot?.frozenAt === fixture.weeklyReviews[0]!.completedAt, 'JSON 重载必须保留冻结时间')
 
+  for (const reason of ['', '旧'.repeat(501)]) {
+    const persisted = structuredClone(fixture)
+    persisted.riskOverrideEvents[0]!.reason = reason
+    persisted.weeklyReviews[0]!.riskSnapshot!.overrideEvents[0]!.reason = reason
+    const imported = parseImportJson(JSON.stringify({ version: SCHEMA_VERSION, ...persisted, assets }))
+    assert(imported.ok, 'JSON reader 必须接受未填写的原因和历史长文本')
+    assert(imported.data.riskOverrideEvents?.[0]?.reason === reason, '实时事件的原因必须原样保留')
+    assert(imported.data.weeklyReviews?.[0]?.riskSnapshot?.overrideEvents[0]?.reason === reason, '冻结事件的原因必须原样保留')
+  }
+
   const malformed = structuredClone(fixture)
   malformed.weeklyReviews[0]!.riskSnapshot!.weeklyOutcome.coverage = 'safe' as 'complete'
   assertThrows(

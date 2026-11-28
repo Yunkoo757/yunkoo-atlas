@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertCircle } from '@/icons/appIcons'
 import { RiskNavIcon } from '@/icons/SettingsIcons'
-import type { RiskPeriodScope } from '@/data/riskManagement'
+import { RISK_OVERRIDE_REASON_LIMIT, riskOverrideReasonLength, type RiskPeriodScope } from '@/data/riskManagement'
 import { fmtMoney, fmtR } from '@/lib/format'
 import { RiskGatePublishAfterCommitError } from '@/lib/riskGatedTradeOpenCommit'
 import { reachesRiskLimit } from '@/lib/tradeOpenRiskGate'
@@ -148,17 +148,10 @@ export function TradeOpenRiskDialog() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
-    const trimmed = reason.trim()
-    const length = Array.from(trimmed).length
-    if (length > 500) {
-      setCommitState('error')
-      setError('继续开仓原因最多 500 字。')
-      return
-    }
     setCommitState('committing')
     setError('')
     try {
-      const result = await confirmTradeOpen(trimmed)
+      const result = await confirmTradeOpen(reason)
       if (result.kind === 'needs-reconfirmation') {
         setCommitState('error')
         setError('风险数据已变化，请重新核对最新预算后再次确认。')
@@ -385,11 +378,10 @@ export function TradeOpenRiskDialog() {
         </section>
 
         <label className="trade-open-risk-reason">
-          <span>继续开仓原因 <small>可选</small><small className="trade-open-risk-count">{reason.length}/500</small></span>
+          <span>继续开仓原因 <small>可选</small><small className="trade-open-risk-count">{riskOverrideReasonLength(reason)}/{RISK_OVERRIDE_REASON_LIMIT}</small></span>
           <textarea
             aria-label="继续开仓原因"
             value={reason}
-            maxLength={500}
             rows={2}
             disabled={commitState === 'committing' || reloadRequired}
             onChange={(event) => {

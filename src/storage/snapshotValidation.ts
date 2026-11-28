@@ -657,7 +657,7 @@ function isRiskOverrideEvent(value: unknown): boolean {
     isCanonicalDate(value.tradingDayKeyAtDecision) &&
     (value.policyVersionId === null || isNonEmptyString(value.policyVersionId)) &&
     isTimestamp(value.createdAt) &&
-    isNonEmptyString(value.reason) &&
+    typeof value.reason === 'string' &&
     isNonEmptyString(value.fingerprint) &&
     isRiskPeriodOutcomeSnapshot(outcomes.day) &&
     isRiskPeriodOutcomeSnapshot(outcomes.week) &&

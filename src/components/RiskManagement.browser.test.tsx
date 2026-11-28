@@ -276,7 +276,9 @@ async function run(): Promise<void> {
     const reason = document.querySelector<HTMLTextAreaElement>('[aria-label="继续开仓原因"]')
     assert(reason, '确认框缺少原因输入')
 
-    setText(reason, 'x'.repeat(501))
+    setText(reason, '📓'.repeat(500) + ' ')
+    await waitFor(() => document.querySelector('.trade-open-risk-count')?.textContent === '500/500', '计数应与实际保存的 Unicode 字数一致')
+    setText(reason, '📓'.repeat(501))
     click('确认继续开仓')
     await waitFor(() => document.querySelector('[role="alert"]')?.textContent?.includes('最多 500 字') ?? false, '501 字原因没有被拒绝')
     const validationAlert = document.querySelector<HTMLElement>('[role="alert"]')

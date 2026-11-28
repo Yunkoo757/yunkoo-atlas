@@ -30,6 +30,7 @@ async function withPendingOpen(run: (library: {
   Object.defineProperty(globalThis, 'window', { configurable: true, value: { journalBridge: {
     isElectron: true,
     async commitImport(snapshot: PersistedSnapshot) {
+      assertValidPersistedSnapshot(snapshot, '风险确认测试资料库')
       writes++
       disk = structuredClone(snapshot)
       await edit?.()
@@ -54,6 +55,26 @@ async function withPendingOpen(run: (library: {
     if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow)
     else Reflect.deleteProperty(globalThis, 'window')
   }
+}
+
+export async function testConfirmedOpenPersistsAnOptionalReason() {
+  await withPendingOpen(async library => {
+    assert.equal((await useStore.getState().confirmTradeOpen('  ')).kind, 'committed')
+    assert.equal(library.writeCount(), 1)
+    assert.deepEqual(library.disk().riskOverrideEvents.map(event => event.reason), [''])
+  })
+}
+
+export async function testConfirmedOpenMeasuresTheTrimmedReasonInUnicodeCodePoints() {
+  await withPendingOpen(async library => {
+    const confirm = useStore.getState().confirmTradeOpen
+    const limit = '📓'.repeat(500)
+    await assert.rejects(confirm(limit + '字'), /最多 500 字/)
+    assert.equal(library.writeCount(), 0)
+    assert.equal(useStore.getState().pendingTradeOpenRequest?.tradeId, library.targetId)
+    assert.equal((await confirm('  ' + limit + '  ')).kind, 'committed')
+    assert.deepEqual(library.disk().riskOverrideEvents.map(event => event.reason), [limit])
+  })
 }
 
 export async function testConfirmedOpenPreservesConcurrentJournalAndSelection() {

@@ -654,7 +654,7 @@ function snapshotWithWeeklyRiskReview() {
         dailyOutcomes: [{ ...event.outcomesAtDecision.day, date: '2026-07-17' }],
         weeklyOutcome: event.outcomesAtDecision.week,
         monthlyOutcomeAtCompletion: event.outcomesAtDecision.month,
-        overrideEvents: fixture.riskOverrideEvents,
+        overrideEvents: structuredClone(fixture.riskOverrideEvents),
         frozenAt: review.completedAt!,
       },
     }],
@@ -664,6 +664,9 @@ function snapshotWithWeeklyRiskReview() {
 export function testSnapshotValidationStrictlyValidatesWeeklyRiskReviewSnapshots(): void {
   const complete = snapshotWithWeeklyRiskReview()
   assertValidPersistedSnapshot(complete)
+  const optional = structuredClone(complete)
+  optional.weeklyReviews[0]!.riskSnapshot!.overrideEvents[0]!.reason = ''
+  assertValidPersistedSnapshot(optional)
   const legacy = structuredClone(complete)
   delete (legacy.weeklyReviews[0]! as { riskSnapshot?: unknown }).riskSnapshot
   assertValidPersistedSnapshot(legacy)
@@ -673,7 +676,7 @@ export function testSnapshotValidationStrictlyValidatesWeeklyRiskReviewSnapshots
     (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.dailyOutcomes[0]!.date = '2026-02-30' },
     (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.weeklyOutcome.coverage = 'safe' as 'complete' },
     (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.monthlyOutcomeAtCompletion.progress = 2 },
-    (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.overrideEvents[0]!.reason = '' },
+    (candidate) => { Reflect.deleteProperty(candidate.weeklyReviews[0]!.riskSnapshot!.overrideEvents[0]!, 'reason') },
     (candidate) => { candidate.weeklyReviews[0]!.riskSnapshot!.frozenAt = 'not-a-timestamp' },
   ]
   for (const corrupt of corruptions) {

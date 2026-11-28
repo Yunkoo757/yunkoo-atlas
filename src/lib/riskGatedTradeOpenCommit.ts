@@ -1,7 +1,7 @@
 import type { PersistencePause } from '@/storage/persistenceController'
 import { canonicalRiskJson } from '@/lib/riskFingerprint'
 import { plainDataEqual } from '@/lib/plainData'
-import { cloneRiskOutcome } from '@/data/riskManagement'
+import { cloneRiskOutcome, normalizeRiskOverrideReason } from '@/data/riskManagement'
 import type {
   MonthlyRiskLimit,
   RiskOverrideEvent,
@@ -266,8 +266,7 @@ function publishCommittedOpen<State extends RiskGateCommitState>(
 export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState>(
   input: CommitRiskGatedTradeOpenInput<State>,
 ): Promise<RiskGatedTradeOpenCommitResult> {
-  const reason = input.reason.trim()
-  if (Array.from(reason).length > 500) throw new Error('风险覆盖原因最多 500 字')
+  const reason = normalizeRiskOverrideReason(input.reason)
   const unlockInteraction = lockStorageCutoverInteraction()
   let pause: PersistencePause | undefined
   let durablyCommitted = false

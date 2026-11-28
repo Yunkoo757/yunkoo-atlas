@@ -1,3 +1,4 @@
+import { normalizeRiskOverrideReason } from '@/data/riskManagement'
 import { assertValidLiveStageState } from '@/lib/liveStages'
 import { getTradingDayKey } from '@/lib/periods'
 import type { RiskGatedTradeOpenCommitResult } from '@/lib/riskGatedTradeOpenCommit'
@@ -60,8 +61,7 @@ export function createRiskGateActions(store: Pick<typeof useStore, 'getState' | 
 
   return {
     async confirmTradeOpen(rawReason: string): Promise<RiskGatedTradeOpenCommitResult> {
-      const reason = rawReason.trim()
-      if (reason.length > 500) throw new Error('继续开仓原因最多 500 字')
+      const reason = normalizeRiskOverrideReason(rawReason)
       const { pendingTradeOpenRequest: request, librarySession } = get()
       if (!request) return { kind: 'cancelled', reason: 'target-missing' }
       const active = confirmations.get(request)

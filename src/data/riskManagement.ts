@@ -108,6 +108,19 @@ export interface MonthlyRiskLimit {
 
 export type RiskDecisionType = 'triggered' | 'unknown'
 
+export const RISK_OVERRIDE_REASON_LIMIT = 500
+
+export function riskOverrideReasonLength(reason: string): number {
+  return Array.from(reason.trim()).length
+}
+
+export function normalizeRiskOverrideReason(reason: string): string {
+  if (riskOverrideReasonLength(reason) > RISK_OVERRIDE_REASON_LIMIT) {
+    throw new Error(`继续开仓原因最多 ${RISK_OVERRIDE_REASON_LIMIT} 字。`)
+  }
+  return reason.trim()
+}
+
 export interface RiskOverrideEvent {
   id: string
   /** v12 stage ownership; undefined is accepted only while decoding v1-v11. */
