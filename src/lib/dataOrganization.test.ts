@@ -69,16 +69,29 @@ export function testOrganizationIndependentOperationsAndNoLiveGateForCases() {
 }
 function boundary() {
   const s=fixture(),events:string[]=[]
-  const b:OrganizationBoundary={lock:()=>{events.push('lock');return()=>{events.push('unlock')}},flush:async()=>{events.push('flush')},capture:()=>s,suspend:()=>{events.push('suspend');return()=>{events.push('resume')}},backup:async()=>{events.push('backup');return 'verified.zip'},persist:async()=>{events.push('persist')},publish:()=>{events.push('publish')},halt:()=>{events.push('halt')}}
-  return {s,events,b}
+  const controller = new AbortController()
+  const b: OrganizationBoundary = {
+    signal: controller.signal,
+    lock: () => { events.push('lock'); return () => { events.push('unlock') } },
+    flush: async () => { events.push('flush') },
+    capture: () => s,
+    suspend: () => {
+      events.push('suspend')
+      return outcome => { events.push(controller.signal.aborted ? 'retired' : outcome) }
+    },
+    backup: async () => { events.push('backup'); return 'verified.zip' },
+    persist: async () => { events.push('persist') },
+    publish: () => { events.push('publish') },
+  }
+  return {s,events,b,controller}
 }
 export async function testOrganizationRequiresVerifiedBackupBeforePersistence() {
   const {s,events,b}=boundary()
   await commitDataOrganization(JSON.stringify(s),prepare,b)
-  assert.deepEqual(events,['lock','flush','suspend','backup','persist','publish','resume','unlock'])
+  assert.deepEqual(events,['lock','flush','suspend','backup','persist','publish','published','unlock'])
   const failed=boundary();failed.b.backup=async()=>{throw Error('backup failed')}
   await assert.rejects(commitDataOrganization(JSON.stringify(failed.s),prepare,failed.b),/backup/)
-  assert(!failed.events.includes('persist'));assert(!failed.events.includes('publish'));assert(!failed.events.includes('halt'))
+  assert(!failed.events.includes('persist'));assert(!failed.events.includes('publish'));assert(!failed.events.includes('uncertain'))
   assert.equal(failed.events.at(-1),'unlock')
 }
 export async function testOrganizationRejectsConcurrentChanges() {
@@ -92,7 +105,7 @@ export async function testOrganizationCommitOrPublishFailureStopsOldAutosave() {
   for(const phase of ['persist','publish'] as const){
     const {s,events,b}=boundary();b[phase]=()=>{throw Error('failed')}
     await assert.rejects(commitDataOrganization(JSON.stringify(s),prepare,b),/failed/)
-    assert(events.includes('halt'));assert.equal(events.at(-1),'unlock')
+    assert(events.includes('uncertain'));assert.equal(events.at(-1),'unlock')
     assert.equal(s.trades[0].tradeKind,'live')
   }
 }
@@ -106,4 +119,25 @@ export function testDuplicateWeeklyReviewWeeksKeepOnePerWeek(): void {
     { weekStart: '2026-08-03', ids: ['a', 'c'] },
   ])
   assert.deepEqual(extraDuplicateWeeklyReviewIds(reviews), ['c'])
+}
+
+export async function testRetiredOrganizationCannotWritePublishOrReplaceTheRecoveryReason() {
+  for (const phase of ['backup', 'persist'] as const) {
+    const { s, events, b, controller } = boundary()
+    const reason = new Error('资料库文档已进入恢复')
+    let writes = 0
+    b.backup = async () => {
+      if (phase === 'backup') controller.abort(reason)
+      return 'verified.db'
+    }
+    b.persist = async () => {
+      writes++
+      if (phase === 'persist') controller.abort(reason)
+    }
+    await assert.rejects(commitDataOrganization(JSON.stringify(s), prepare, b), error => error === reason)
+    assert.equal(writes, phase === 'persist' ? 1 : 0)
+    assert.ok(!events.includes('publish'))
+    assert.ok(!events.includes('uncertain'))
+    assert.deepEqual(events.slice(-2), ['retired', 'unlock'])
+  }
 }

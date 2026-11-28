@@ -85,15 +85,17 @@ export function prepareDataOrganization(
   return next
 }
 
+type OrganizationOutcome = 'unchanged' | 'uncertain' | 'published'
+
 export interface OrganizationBoundary {
+  signal: AbortSignal
   lock(): () => void
   flush(): Promise<void>
   capture(): PersistedSnapshot
-  suspend(): () => void
+  suspend(): (outcome: OrganizationOutcome) => void
   backup(): Promise<string>
   persist(snapshot: PersistedSnapshot): Promise<void>
   publish(snapshot: PersistedSnapshot): void
-  halt(message: string): void
 }
 
 /** Publish only after durable commit. A failed/uncertain commit must never autosave the old state. */
@@ -103,27 +105,30 @@ export async function commitDataOrganization(
   boundary: OrganizationBoundary,
 ): Promise<string> {
   const unlock = boundary.lock()
-  let resume: (() => void) | undefined
-  let commitStarted = false
+  const { signal } = boundary
+  let finish: ReturnType<OrganizationBoundary['suspend']> | undefined
+  let outcome: OrganizationOutcome = 'unchanged'
   try {
+    signal.throwIfAborted()
     await boundary.flush()
+    signal.throwIfAborted()
     const before = boundary.capture()
     if (JSON.stringify(before) !== expected) throw new Error('资料已变化，请重新预览后确认，尚未执行整理。')
     const candidate = makeCandidate(before)
     if (JSON.stringify(candidate) === expected) throw new Error('没有需要整理的数据。')
-    resume = boundary.suspend()
+    finish = boundary.suspend()
     const backup = await boundary.backup()
+    signal.throwIfAborted()
     if (JSON.stringify(boundary.capture()) !== expected) throw new Error('备份期间资料已变化，已取消整理。')
-    commitStarted = true
+    outcome = 'uncertain'
     await boundary.persist(candidate)
+    signal.throwIfAborted()
     if (JSON.stringify(boundary.capture()) !== expected) throw new Error('提交期间内存资料发生变化，已停止保存，请重新打开资料库确认。')
     boundary.publish(candidate)
-    commitStarted = false
+    outcome = 'published'
+    signal.throwIfAborted()
     return backup
-  } catch (error) {
-    if (commitStarted) boundary.halt('数据整理提交未能安全完成，已停止自动保存。请重新打开资料库确认状态，必要时从整理前备份恢复。')
-    throw error
   } finally {
-    try { resume?.() } finally { unlock() }
+    try { finish?.(outcome) } finally { unlock() }
   }
 }
