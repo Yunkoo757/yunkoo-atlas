@@ -1,3 +1,4 @@
+import { OperationalError } from '@/lib/operationalError'
 import type { AssetObjectUrlLease } from './assetObjectUrls'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
 
@@ -40,6 +41,17 @@ export interface AssetPurgeRecovery {
   path?: string
 }
 
+export interface LibraryImportOptions {
+  pruneUnreferenced?: boolean
+  requireEmptySnapshot?: boolean
+}
+
+export function assertEmptyMigrationTarget(hasSnapshot: boolean): void {
+  if (hasSnapshot) {
+    throw new OperationalError('storage-revision-conflict', '目标资料库已有快照，已停止旧资料迁移。请重新打开资料库。')
+  }
+}
+
 export interface LibraryImportAsset extends ExportAssetRecord {
   /** 此次从正文生成的新附件；桌面沿用保存图片时的 MIME 和扩展名规则。 */
   inlineImage?: true
@@ -67,7 +79,7 @@ export interface StorageAdapter {
   commitImport(
     snapshot: PersistedSnapshot,
     assets: LibraryImportAsset[],
-    options?: { pruneUnreferenced?: boolean },
+    options?: LibraryImportOptions,
   ): Promise<void>
 }
 
@@ -89,7 +101,7 @@ export interface RevisionedLibraryMutation {
   assetDeletes?: readonly string[]
   assetMode?: 'merge' | 'replace'
   allowedUnreferencedAssetPuts?: readonly string[]
-  reason: 'autosave' | 'import' | 'restore' | 'migration' | 'purge' | 'attachment' | 'risk-gate'
+  reason: 'autosave' | 'import' | 'initialize' | 'restore' | 'migration' | 'purge' | 'attachment' | 'risk-gate'
 }
 
 export interface RevisionedStorageAdapter extends StorageAdapter {

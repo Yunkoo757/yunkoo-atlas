@@ -10,6 +10,8 @@ import {
   type AssetPurgeResult,
   type PhysicalAssetRecord,
   type LibraryImportAsset,
+  type LibraryImportOptions,
+  assertEmptyMigrationTarget,
   type RevisionedLibraryMutation,
   type RevisionedStorageAdapter,
   type SnapshotEnvelope,
@@ -394,6 +396,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       const assetStore = tx.objectStore(STORE_ASSETS)
       const metaStore = tx.objectStore(STORE_META)
       const manifestRequest = metaStore.get('manifest')
+      const existingSnapshot = input.reason === 'initialize' ? snapshotStore.getKey('main') : undefined
       const revisionRequest = metaStore.get(SNAPSHOT_REVISION_KEY)
       let failure: unknown = null
       let nextRevision = input.expectedRevision
@@ -444,6 +447,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
         }
 
         try {
+          if (existingSnapshot) assertEmptyMigrationTarget(existingSnapshot.result !== undefined)
           nextRevision = actualRevision + 1
           if (input.assetMode === 'replace') {
             applyMutation(prepared.records)
@@ -743,7 +747,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   async commitImport(
     snapshot: PersistedSnapshot,
     assets: LibraryImportAsset[],
-    options?: { pruneUnreferenced?: boolean },
+    options?: LibraryImportOptions,
   ): Promise<void> {
     const { signal } = this.lifetime
     snapshot = stripRetiredSnapshotDomains(snapshot)
@@ -773,7 +777,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
         assetDeletes: options?.pruneUnreferenced
           ? assets.filter((asset) => !referencedAssetIds.has(asset.id)).map((asset) => asset.id)
           : undefined,
-        reason: 'import',
+        reason: options?.requireEmptySnapshot ? 'initialize' : 'import',
       }, signal)
       operation.success({ stage: 'committed', revisionAfter: result.revision })
     } catch (error) {

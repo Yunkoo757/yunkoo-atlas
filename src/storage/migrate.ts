@@ -94,7 +94,7 @@ async function commitLegacySnapshot(
     },
   }, signal)
   signal?.throwIfAborted()
-  await adapter.commitImport(candidate, assets)
+  await adapter.commitImport(candidate, assets, { requireEmptySnapshot: true })
 }
 
 export async function migrateFromLocalStorageIfNeeded(

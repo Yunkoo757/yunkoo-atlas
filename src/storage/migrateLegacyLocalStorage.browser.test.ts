@@ -1,3 +1,4 @@
+import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import type { Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { IndexedDbStorageAdapter } from '@/storage/indexedDbAdapter'
@@ -24,7 +25,34 @@ async function deleteDatabase(): Promise<void> {
   })
 }
 
+async function verifyInitializationCannotReplaceAnExistingSnapshot(): Promise<void> {
+  await deleteDatabase()
+  const target = new IndexedDbStorageAdapter()
+  const peer = new IndexedDbStorageAdapter()
+  const source = JSON.stringify({ state: { trades: [], strategies: [] } })
+  localStorage.setItem(LEGACY_LOCAL_STORAGE_KEY, source)
+  try {
+    await target.open()
+    await peer.open()
+    const commit = target.commitImport.bind(target)
+    target.commitImport = async (...args) => {
+      await peer.saveSnapshot({ ...createEmptyPersistedSnapshot(), tagPresets: ['赢家'] })
+      await target.loadSnapshotEnvelope()
+      return commit(...args)
+    }
+    await migrateFromLocalStorageIfNeeded(target).catch(() => {})
+    const winner = await peer.loadSnapshotEnvelope()
+    assert(winner.revision === 1 && winner.snapshot?.tagPresets?.[0] === '赢家', '迁移准备期间出现的快照必须原样保留')
+    assert(localStorage.getItem(LEGACY_LOCAL_STORAGE_KEY) === source, '目标已被初始化时不能消费旧资料')
+  } finally {
+    peer.close()
+    target.close()
+    localStorage.removeItem(LEGACY_LOCAL_STORAGE_KEY)
+  }
+}
+
 async function run(): Promise<void> {
+  await verifyInitializationCannotReplaceAnExistingSnapshot()
   await deleteDatabase()
   const trade: Trade = {
     id: 'legacy-terminal-live',

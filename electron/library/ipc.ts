@@ -1,4 +1,4 @@
-import type { LibraryImportAsset } from '../../src/storage/adapter'
+import type { LibraryImportAsset, LibraryImportOptions } from '../../src/storage/adapter'
 import { isAssetPurgeCommitEnabled } from '../../src/config/assetPurge'
 import { exportVerifiedPurgeArchive } from './assetPurgeRecovery'
 import {
@@ -726,7 +726,7 @@ export function registerLibraryIpc(): void {
   ipcMain.handle('storage:commitImport', async (event, payload: {
     snapshot: Parameters<LibraryStorage['saveSnapshot']>[0]
     assets: LibraryImportAsset[]
-    options?: { pruneUnreferenced?: boolean }
+    options?: LibraryImportOptions
     expectedRevision: number
     writerToken: string
   }) => {

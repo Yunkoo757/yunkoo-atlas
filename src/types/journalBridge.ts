@@ -3,7 +3,7 @@ import type { WindowHotkeyState, WindowHotkeyUpdateResult } from '@/lib/windowHo
 import type { KeyChord } from '@/shortcuts/types'
 import type { WindowSizePresetId } from '@/lib/windowBounds'
 import type { ExportAssetRecord, LibraryManifest, PersistedSnapshot } from '@/storage/types'
-import type { LibraryImportAsset, PhysicalAssetRecord } from '@/storage/adapter'
+import type { LibraryImportAsset, LibraryImportOptions, PhysicalAssetRecord } from '@/storage/adapter'
 import type { AssetPurgePreview, AssetPurgeRecovery, AssetPurgeResult } from '@/storage/adapter'
 import type { LiveStage, ScheduledStageRollover } from '@/lib/liveStages'
 import type { CaseClipboardContent, CaseClipboardResult } from '@/lib/caseClipboardContract'
@@ -175,7 +175,7 @@ export interface JournalBridge {
   commitImport(
     snapshot: PersistedSnapshot,
     assets: LibraryImportAsset[],
-    options?: { pruneUnreferenced?: boolean },
+    options?: LibraryImportOptions,
   ): Promise<boolean>
   exportJournalZip(): Promise<{ ok: true; path: string } | { ok: false }>
   prepareJournalImport(prepareRequestId: string): Promise<PrepareJournalImportResult>

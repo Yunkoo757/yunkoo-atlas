@@ -1,3 +1,4 @@
+import { assertEmptyMigrationTarget, type LibraryImportOptions } from '../../src/storage/adapter'
 import { AssetPurgePreviews } from '../../src/storage/assetPurgePreviews'
 import { assertCompatibleManifest } from '../../src/storage/manifestCompatibility'
 import { assertLibraryIdentity } from './libraryIdentity'
@@ -1459,7 +1460,7 @@ export class LibraryStorage {
   async commitImport(
     snapshot: PersistedSnapshot,
     assets: Array<Omit<LibraryImportAsset, 'data'> & { buffer: Buffer }>,
-    options?: { pruneUnreferenced?: boolean; expectedSnapshotRevision?: number },
+    options?: LibraryImportOptions & { expectedSnapshotRevision?: number },
   ): Promise<void> {
     snapshot = stripRetiredSnapshotDomains(snapshot)
     assertValidPersistedSnapshot(snapshot, 'Imported library snapshot')
@@ -1484,6 +1485,10 @@ export class LibraryStorage {
       assertPortableAssetDatabaseIntegrity(candidateDb)
       candidateDb.run('BEGIN TRANSACTION')
       try {
+        if (options?.requireEmptySnapshot) {
+          const existing = candidateDb.exec('SELECT 1 FROM meta WHERE key = ?', [SNAPSHOT_KEY])
+          assertEmptyMigrationTarget(existing.length > 0)
+        }
         advanceSnapshotRevision(candidateDb, options?.expectedSnapshotRevision)
         for (const asset of assets) {
           assertSafeAssetId(asset.id)

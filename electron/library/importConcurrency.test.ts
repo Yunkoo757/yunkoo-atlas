@@ -63,3 +63,18 @@ export async function testSnapshotWritersCompareTheRevisionOfTheDurableCandidate
     } finally { stale.release() }
   })
 }
+
+export async function testInitializationPreservesSnapshotEvenWhenTheWriterKnowsItsRevision() {
+  await isolated(async storage => {
+    storage.saveSnapshot(snapshot('winner'), 0)
+    const file = storage.getPaths().dbFile
+    const before = fs.readFileSync(file)
+    const result = await storage.commitImport(snapshot('stale initialization'), [{
+      id: 'should-not-appear', mime: 'image/png', buffer: Buffer.from('candidate'),
+    }], { requireEmptySnapshot: true, expectedSnapshotRevision: 1 }).then(() => 'committed', () => 'rejected')
+    assert.equal(result, 'rejected', '首次初始化在已知最新版本时仍须检查快照不存在')
+    assert.deepEqual(fs.readFileSync(file), before)
+    assert.equal(storage.getAssetBytes('should-not-appear'), null)
+    assert.deepEqual(fs.readdirSync(storage.getPaths().attachments), [])
+  })
+}
