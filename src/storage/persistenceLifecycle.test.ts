@@ -68,6 +68,39 @@ export async function testLatePreflushCannotConsumeANewWriteLifecycle() {
   assert.deepEqual(saved, ['new-library', 'reopened'])
 }
 
+export async function testRetiredPausesCannotBlockANewSessionsAutosave() {
+  const saved: string[] = []
+  const f = fixture(async value => { saved.push(value.profile!.displayName) })
+  const stale = f.controller.suspend()
+  f.controller.disableWrites()
+  const current = { profile: { displayName: '新资料库' } } as PersistedSnapshot
+  f.controller.enableWrites(() => ({ snapshot: current, stateReference: current, shortcutReference: null }))
+  f.schedule('新库首笔编辑')
+  f.tick()
+  assert.deepEqual(saved, ['新库首笔编辑'], '旧暂停不能阻止新库独立防抖写入')
+  await stale.resumeAndFlush()
+  assert.equal(f.controller.getSuspendDepth(), 0)
+  assert.deepEqual(saved, ['新库首笔编辑'], '旧调用不能补写新库')
+}
+
+export async function testRetiredPauseCannotDiscardAnotherSessionsPendingChanges() {
+  const saved: string[] = []
+  const f = fixture(async value => { saved.push(value.profile!.displayName) })
+  const stale = f.controller.suspend()
+  f.controller.disableWrites()
+  const current = { profile: { displayName: '新资料库' } } as PersistedSnapshot
+  f.controller.enableWrites(() => ({ snapshot: current, stateReference: current, shortcutReference: null }))
+  const active = f.controller.suspend()
+  f.schedule('新资料库')
+  stale.discardAndResume()
+  assert.equal(f.controller.getSuspendDepth(), 1)
+  assert.equal(f.controller.getDiagnostics().pendingSnapshotCount, 1)
+  assert.equal(f.status(), 'dirty')
+  assert.deepEqual(saved, [])
+  await active.resumeAndFlush()
+  assert.deepEqual(saved, ['新资料库'])
+}
+
 export async function testLateFailedSaveCannotRequeueADiscardedSnapshot() {
   const started = deferred(), allow = deferred()
   const f = fixture(async () => { started.resolve(); await allow.promise })

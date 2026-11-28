@@ -50,7 +50,7 @@ export class PersistenceController {
   private maxPendingSnapshotCount: 0 | 1 = 0
   private flushing: { generation: number; operation: Promise<void> } | null = null
   private explicitFlushing: Promise<void> | null = null
-  private suspendDepth = 0
+  private readonly pauses = new Set<symbol>()
   private captureSnapshot: (() => PersistenceCapture) | null = null
   private writeGeneration = 0
 
@@ -69,6 +69,7 @@ export class PersistenceController {
 
   disableWrites(): void {
     this.captureSnapshot = null
+    this.pauses.clear()
     this.writeGeneration += 1
     this.clearTimer()
     this.setPending(null)
@@ -83,7 +84,7 @@ export class PersistenceController {
     if (!this.captureSnapshot) return
     this.setPending(snapshot)
     this.dependencies.status.setDirty()
-    if (this.suspendDepth > 0) return
+    if (this.pauses.size > 0) return
     this.clearTimer()
     this.timer = this.dependencies.clock.setTimeout(() => {
       this.timer = null
@@ -92,18 +93,13 @@ export class PersistenceController {
   }
 
   suspend(): PersistencePause {
-    this.suspendDepth += 1
+    const token = Symbol()
+    this.pauses.add(token)
     this.clearTimer()
-    let held = true
-    const release = () => {
-      if (!held) return false
-      held = false
-      this.suspendDepth -= 1
-      return true
-    }
+    const release = () => this.pauses.delete(token)
     return {
       resume: options => {
-        if (!release() || this.suspendDepth > 0) return
+        if (!release() || this.pauses.size > 0) return
         if (options?.flushNow === false) {
           if (this.pending) this.schedule(this.pending)
         } else {
@@ -118,13 +114,13 @@ export class PersistenceController {
         this.dependencies.status.reset()
       },
       resumeAndFlush: async () => {
-        if (release() && this.suspendDepth === 0) await this.flushNow()
+        if (release() && this.pauses.size === 0) await this.flushNow()
       },
     }
   }
 
   getSuspendDepth(): number {
-    return this.suspendDepth
+    return this.pauses.size
   }
 
   getDiagnostics(): PersistenceDiagnostics {
@@ -170,7 +166,7 @@ export class PersistenceController {
   }
 
   private async flushPending(generation: number, explicit: boolean): Promise<void> {
-    while (this.isCurrent(generation) && this.pending && (explicit || this.suspendDepth === 0)) {
+    while (this.isCurrent(generation) && this.pending && (explicit || this.pauses.size === 0)) {
       const snapshot = this.pending
       this.setPending(null)
       this.dependencies.status.setSaving()
@@ -197,7 +193,7 @@ export class PersistenceController {
         if (active.generation === generation) throw error
       }).then(() => this.startPendingFlush(generation, explicit))
     }
-    if (!this.pending || (!explicit && this.suspendDepth > 0)) return Promise.resolve()
+    if (!this.pending || (!explicit && this.pauses.size > 0)) return Promise.resolve()
     this.clearTimer()
     const operation = this.flushPending(generation, explicit).finally(() => {
       if (this.flushing?.operation === operation) this.flushing = null
