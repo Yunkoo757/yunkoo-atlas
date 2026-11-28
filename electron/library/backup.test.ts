@@ -792,6 +792,26 @@ export function testInterruptedBackupRestoreRejectsCorruptRecoveryBeforeTouching
   }
 }
 
+export async function testBackupAcceptsReadOnlyOriginalWithoutChangingItsPermissions(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-readonly-backup-'))
+  const storage = new LibraryStorage(root)
+  const file = path.join(storage.getPaths().attachments, 'readonly.png')
+  try {
+    await storage.open()
+    storage.saveSnapshot(createEmptyPersistedSnapshot())
+    storage.importAsset('readonly', 'image/png', Buffer.from('read-only original'))
+    fs.chmodSync(file, 0o444)
+    const mode = fs.statSync(file).mode
+    const backup = writeLibraryBackup(storage)
+    assert(backup && (await verifyBackupAtPath(root, backup)).status === 'verified', '只读原图应生成可校验备份')
+    assert(fs.statSync(file).mode === mode, '备份不得更改来源权限')
+  } finally {
+    storage.release()
+    if (fs.existsSync(file)) fs.chmodSync(file, 0o600)
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export async function testLaterBackupRepairsSharedContentOnlyAfterProvingTheReplacementBytes(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-vault-repair-'))
   const storage = new LibraryStorage(root)

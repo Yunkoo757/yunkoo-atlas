@@ -59,9 +59,12 @@ function storeBackupAttachment(
   const pending = path.join(vault, `.${randomUUID()}.tmp`)
   try {
     fs.copyFileSync(sourceFile, pending, fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE)
-    if (fs.statSync(pending).size !== byteSize || sha256File(pending) !== vaultName) {
+    const copied = fs.statSync(pending)
+    if (copied.size !== byteSize || sha256File(pending) !== vaultName) {
       throw new Error(`备份期间附件内容已变化，请重试：${fileName}`)
     }
+    // copyFile 会继承原图的只读标记。仅对本次副本取得刷盘需要的写权限。
+    if (!(copied.mode & fs.constants.S_IWUSR)) fs.chmodSync(pending, (copied.mode & 0o777) | fs.constants.S_IWUSR)
     fsyncFileSync(pending)
     renameFileWithRetrySync(pending, destination)
     fsyncDirectorySync(vault)
