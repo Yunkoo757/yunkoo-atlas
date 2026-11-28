@@ -1,6 +1,7 @@
 import type { BackupInfo, BackupVerificationResult } from '../../src/types/journalBridge'
 import { assertRecoveryManifestIdentity } from './libraryIdentity'
 import { sha256File } from './fileChecksum'
+import { backupAttachmentEntries, readBackupMetadata, recordBackupVerification, tryReadBackupMeta, type BackupMeta } from './backupMetadata'
 import fs from 'node:fs'
 import path from 'node:path'
 import { createHash, randomUUID } from 'node:crypto'
@@ -13,22 +14,6 @@ import { removeDirectManagedDirectory } from './managedPaths'
 
 const DEFAULT_MAX_BACKUPS = 7
 const DEFAULT_MAX_TOTAL_SIZE = 500 * 1024 * 1024 // 500 MB 备份总容量上限
-
-interface BackupMeta {
-  tradeCount: number
-  strategyCount: number
-  attachmentCount: number
-  librarySizeBytes: number
-  databaseSha256?: string
-  manifestSha256?: string
-  /** 该恢复点引用的原始附件文件；旧版元数据没有此字段。 */
-  attachmentFiles?: string[]
-  /** 原文件名与内容寻址仓库文件的映射。 */
-  attachmentEntries?: { fileName: string; vaultName: string }[]
-  verification?: BackupVerificationResult
-  /** 仅退出协调器可写：源库尚未产生 snapshot，且交易、策略、附件计数均为零。 */
-  emptyLibrary?: true
-}
 
 const BACKUP_RESTORE_MARKER = '.backup-restore.json'
 const BACKUP_RESTORE_RECOVERY_PREFIX = '.backup-restore-recovery-'
@@ -157,27 +142,6 @@ function parseTimestampFromName(name: string): number | null {
   return isNaN(ts) ? null : ts
 }
 
-function readBackupTradeCount(dbPath: string): number {
-  try {
-    const metaPath = dbPath + '.meta.json'
-    if (!fs.existsSync(metaPath)) return -1
-    const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as BackupMeta
-    return typeof meta.tradeCount === 'number' ? meta.tradeCount : -1
-  } catch {
-    return -1
-  }
-}
-
-function readBackupMeta(dbPath: string): BackupMeta | null {
-  try {
-    const metaPath = dbPath + '.meta.json'
-    if (!fs.existsSync(metaPath)) return null
-    return JSON.parse(fs.readFileSync(metaPath, 'utf8')) as BackupMeta
-  } catch {
-    return null
-  }
-}
-
 function backupAssetVault(backupsDir: string): string {
   return path.join(backupsDir, 'assets')
 }
@@ -224,10 +188,12 @@ function backupDbFiles(backupsDir: string): string[] {
 function pruneBackupAssetVault(backupsDir: string): void {
   const referenced = new Set<string>()
   for (const name of backupDbFiles(backupsDir)) {
-    const meta = readBackupMeta(path.join(backupsDir, name))
-    if (!meta) return
-    for (const attachment of meta.attachmentFiles ?? []) referenced.add(attachment)
-    for (const attachment of meta.attachmentEntries ?? []) referenced.add(attachment.vaultName)
+    const meta = tryReadBackupMeta(path.join(backupsDir, name))
+    if (!meta || meta.verification?.status === 'invalid') return
+    try {
+      for (const entry of backupAttachmentEntries(meta) ?? []) referenced.add(entry.vaultName)
+      for (const name of meta.attachmentFiles ?? []) referenced.add(name)
+    } catch { return }
   }
   const vault = backupAssetVault(backupsDir)
   if (!fs.existsSync(vault)) return
@@ -368,16 +334,13 @@ export function listBackupsAtPath(libraryPath: string): BackupInfo[] {
         timestamp: parseTimestampFromName(f) || stat.mtimeMs,
         size: stat.size,
       }
-      const metaPath = fp + '.meta.json'
-      try {
-        if (fs.existsSync(metaPath)) {
-          const meta: BackupMeta = JSON.parse(fs.readFileSync(metaPath, 'utf8'))
-          info.tradeCount = meta.tradeCount
-          info.strategyCount = meta.strategyCount
-          info.attachmentCount = meta.attachmentCount
-          info.verification = meta.verification
-        }
-      } catch { /* 元数据读取失败不影响列表 */ }
+      const meta = tryReadBackupMeta(fp)
+      if (meta) {
+        info.tradeCount = meta.tradeCount
+        info.strategyCount = meta.strategyCount
+        info.attachmentCount = meta.attachmentCount
+        info.verification = meta.verification
+      }
       return info
     })
     .sort((a, b) => b.timestamp - a.timestamp)
@@ -392,29 +355,12 @@ export function deleteBackupAtPath(libraryPath: string, fileName: string): boole
   return true
 }
 
-function persistBackupVerification(
-  dbPath: string,
-  result: BackupVerificationResult,
-  inspection?: { tradeCount: number; strategyCount: number; assets: unknown[] },
-): void {
-  const current = readBackupMeta(dbPath)
-  const meta: BackupMeta = current ?? {
-    tradeCount: inspection?.tradeCount ?? -1,
-    strategyCount: inspection?.strategyCount ?? -1,
-    attachmentCount: inspection?.assets.length ?? -1,
-    librarySizeBytes: fileSize(dbPath),
-  }
-  meta.verification = result
-  writeFileAtomicallySync(dbPath + '.meta.json', JSON.stringify(meta), 'utf8')
-}
-
 type BackupCandidate = ReturnType<typeof stageBackupFiles>
 type InstallBackup = (cleanDatabaseBytes: (bytes: Buffer) => Buffer) => void
 
 /** 复制完再校验私有文件。旧恢复点的附件名与内容寻址仓库共用此入口。 */
-function stageBackupFiles(dbPath: string, stagingRoot: string) {
+function stageBackupFiles(dbPath: string, stagingRoot: string, meta: BackupMeta | null) {
   const paths = ensureLibraryDirs(stagingRoot)
-  const meta = readBackupMeta(dbPath)
   fs.copyFileSync(dbPath, paths.dbFile)
   if (meta?.databaseSha256 && sha256File(paths.dbFile) !== meta.databaseSha256) {
     throw new Error('恢复点数据库校验失败')
@@ -427,12 +373,9 @@ function stageBackupFiles(dbPath: string, stagingRoot: string) {
     throw new Error('恢复点清单校验失败')
   }
 
-  const entries = meta?.attachmentEntries ?? meta?.attachmentFiles?.map(fileName => ({ fileName, vaultName: fileName }))
+  const entries = backupAttachmentEntries(meta)
   const vault = backupAssetVault(path.dirname(dbPath))
   for (const { fileName, vaultName } of entries ?? []) {
-    if (!fileName || !vaultName || path.basename(fileName) !== fileName || path.basename(vaultName) !== vaultName) {
-      throw new Error('恢复点附件清单损坏')
-    }
     const destination = path.join(paths.attachments, fileName)
     fs.copyFileSync(path.join(vault, vaultName), destination, fs.constants.COPYFILE_EXCL)
     if (/^[a-f0-9]{64}$/i.test(vaultName) && sha256File(destination) !== vaultName.toLowerCase()) {
@@ -468,10 +411,12 @@ export async function withVerifiedBackup<T>(
   const verificationRoot = fs.mkdtempSync(path.join(libraryPath, '.backup-verify-'))
   try {
     let inspection: LibraryDatabaseInspection | undefined
+    let metadata: ReturnType<typeof readBackupMetadata> | undefined
     let candidate: BackupCandidate
     let result: BackupVerificationResult
     try {
-      candidate = stageBackupFiles(dbPath, verificationRoot)
+      metadata = readBackupMetadata(dbPath)
+      candidate = stageBackupFiles(dbPath, verificationRoot, metadata.value)
       const { meta, paths } = candidate
       const emptyLibrary = declaredEmptyBackup(meta)
       inspection = await validateDesktopLibrary(paths, { allowEmptySnapshot: emptyLibrary })
@@ -488,13 +433,15 @@ export async function withVerifiedBackup<T>(
         status: 'verified', checkedAt, tradeCount: inspection.tradeCount, strategyCount: inspection.strategyCount,
         attachmentCount: inspection.assets.length, ...(emptyLibrary ? { emptyLibrary: true } : {}),
       }
-      persistBackupVerification(dbPath, result, inspection)
+      recordBackupVerification(dbPath, metadata, result)
     } catch (error) {
       result = {
         status: 'invalid', checkedAt, tradeCount: inspection?.tradeCount, strategyCount: inspection?.strategyCount,
         attachmentCount: inspection?.assets.length, error: error instanceof Error ? error.message : '恢复点验证失败',
       }
-      try { persistBackupVerification(dbPath, result, inspection) } catch { /* 仍返回验证结果。 */ }
+      try {
+        if (metadata) recordBackupVerification(dbPath, metadata, result)
+      } catch { /* 验证期间说明已变或不可写时仍返回失败。 */ }
       return await use(result)
     }
     return await use(result, clean => installBackupCandidate(libraryPath, candidate, clean))
@@ -512,7 +459,7 @@ export function restoreBackupAtPath(
   if (!fs.existsSync(dbPath)) return false
   const stagingRoot = fs.mkdtempSync(path.join(libraryPath, '.backup-restore-staging-'))
   try {
-    installBackupCandidate(libraryPath, stageBackupFiles(dbPath, stagingRoot), cleanDatabaseBytes)
+    installBackupCandidate(libraryPath, stageBackupFiles(dbPath, stagingRoot, readBackupMetadata(dbPath).value), cleanDatabaseBytes)
     return true
   } finally {
     fs.rmSync(stagingRoot, { recursive: true, force: true, maxRetries: 3 })
@@ -603,12 +550,12 @@ export function rotateBackups(
       .filter((f) => f.startsWith('journal-') && f.endsWith('.db'))
       .map((f) => {
         const fp = path.join(backupsDir, f)
-        const meta = readBackupMeta(fp)
+        const meta = tryReadBackupMeta(fp)
         return {
           name: f,
           path: fp,
           timestamp: parseTimestampFromName(f) || 0,
-          tradeCount: readBackupTradeCount(fp),
+          tradeCount: typeof meta?.tradeCount === 'number' ? meta.tradeCount : -1,
           verified: meta?.verification?.status === 'verified',
         }
       })

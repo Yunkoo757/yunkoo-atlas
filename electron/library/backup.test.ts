@@ -250,6 +250,59 @@ export async function testVerificationChecksTheBytesActuallyCopiedIntoTheCandida
   } finally { fs.copyFileSync = copy; fs.rmSync(root, { recursive: true, force: true }) }
 }
 
+export async function testVerificationPreservesDamagedSidecarsAndStillSupportsMissingLegacyMetadata() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-metadata-evidence-'))
+  try {
+    const file = await createVerifiableBackup(root, { includeAsset: false })
+    const sidecar = file + '.meta.json'
+    for (const raw of ['{incomplete', 'null', '[]']) {
+      fs.writeFileSync(sidecar, raw)
+      const result = await verifyBackupAtPath(root, file)
+      assert(result.status === 'invalid', '损坏或非对象的恢复点说明必须被拒绝')
+      assert(fs.readFileSync(sidecar, 'utf8') === raw, '验证失败不得用新的统计覆盖损坏原文')
+    }
+    fs.rmSync(sidecar)
+    assert((await verifyBackupAtPath(root, file)).status === 'verified', '真正缺少说明且无附件的历史恢复点仍可验证')
+  } finally { fs.rmSync(root, { recursive: true, force: true }) }
+}
+
+export async function testPruningKeepsOriginalImagesWhenSurvivingBackupMetadataIsIncomplete() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-incomplete-asset-map-'))
+  try {
+    const file = await createVerifiableBackup(root)
+    const metadata = JSON.parse(fs.readFileSync(file + '.meta.json', 'utf8'))
+    const original = path.join(root, 'backups', 'assets', metadata.attachmentEntries[0].vaultName)
+    const other = path.join(root, 'backups', 'journal-2023-01-01-00-00-00-000Z.db')
+    fs.writeFileSync(other, 'old')
+    metadata.attachmentEntries = []
+    fs.writeFileSync(file + '.meta.json', JSON.stringify(metadata))
+    assert(deleteBackupAtPath(root, other), '删除另一个恢复点应成功')
+    assert(fs.existsSync(original), '附件数与映射不符时不能回收仍被数据库引用的原图')
+    metadata.attachmentCount = 0
+    fs.writeFileSync(file + '.meta.json', JSON.stringify(metadata))
+    assert((await verifyBackupAtPath(root, file)).status === 'invalid', '快照中实际仍有一张原图')
+    fs.writeFileSync(other, 'another restore point')
+    assert(deleteBackupAtPath(root, other) && fs.existsSync(original), '已验证损坏的零附件清单不能授权回收')
+  } finally { fs.rmSync(root, { recursive: true, force: true }) }
+}
+
+export async function testVerificationCannotWriteItsReceiptIntoAReplacedMetadataFile() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-metadata-replaced-'))
+  const open = LibraryStorage.prototype.open
+  try {
+    const file = await createVerifiableBackup(root)
+    const sidecar = file + '.meta.json'
+    const replacement = JSON.stringify({ ...JSON.parse(fs.readFileSync(sidecar, 'utf8')), tradeCount: 77 })
+    LibraryStorage.prototype.open = async function (expectedId) {
+      await open.call(this, expectedId)
+      if (this.getLibraryPath().includes('.backup-verify-')) fs.writeFileSync(sidecar, replacement)
+    }
+    const result = await verifyBackupAtPath(root, file)
+    assert(result.status === 'invalid', '验证期间恢复点说明变化时必须重新验证')
+    assert(fs.readFileSync(sidecar, 'utf8') === replacement, '旧回执不能写进后来的恢复点说明')
+  } finally { LibraryStorage.prototype.open = open; fs.rmSync(root, { recursive: true, force: true }) }
+}
+
 export async function testBackupVerificationRejectsTamperedMetadata(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-verify-meta-'))
   try {
