@@ -212,7 +212,7 @@ try {
     { timeout: 30_000 },
   )
   // 先验收可见工作区。随后直写的恢复哨兵专用于检查主进程交接与原始数据库。
-  await verifyStaleBackupConfirmation(page)
+  await verifyStaleBackupConfirmation(page, libraryPath)
   const seeded = await page.evaluate(async () => {
     const bridge = window.journalBridge
     if (!bridge) throw new Error('Electron bridge unavailable after bootstrap')

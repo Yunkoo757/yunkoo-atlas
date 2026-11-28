@@ -146,15 +146,14 @@ async function verifyConfigPublication(application, page, libraryPath, candidate
   return { recoveredAfterWriteError: true, unconfirmedWriteBlocked: blocked, reopenedCandidate: true }
 }
 
-export async function verifyStaleBackupConfirmation(page) {
-  await page.evaluate(() => { location.hash = '/list' })
-  await page.waitForFunction(() => location.hash === '#/list' && !document.querySelector('.data-settings'))
-  const created = await page.evaluate(() => window.journalBridge.createVerifiedBackup())
-  assert.equal(created?.status, 'verified')
+export async function verifyStaleBackupConfirmation(page, libraryPath) {
   await page.evaluate(() => { location.hash = '/settings/data' })
+  const initial = new Set(await page.evaluate(async () => (await window.journalBridge.listBackups()).map(row => row.name)))
+  await page.getByRole('button', { name: /^(立即备份|创建并验证备份|重新备份并验证)$/ }).click()
+  await page.getByText('备份已创建并验证', { exact: true }).waitFor()
   await page.locator('summary').filter({ hasText: '查看备份' }).click()
   const list = await page.evaluate(() => window.journalBridge.listBackups())
-  assert.equal(list[0].name, path.basename(created.path))
+  assert.ok(!initial.has(list[0].name) && list[0].verification?.status === 'verified')
   await page.getByRole('button', { name: '删除此备份' }).first().click()
   const confirmation = page.getByRole('dialog', { name: '删除这个备份？' })
   await confirmation.waitFor()
@@ -162,9 +161,7 @@ export async function verifyStaleBackupConfirmation(page) {
   assert.ok(reopened.ok)
   await confirmation.getByRole('button', { name: '删除备份', exact: true }).click()
   await page.getByText('删除失败，请重新选择备份', { exact: true }).waitFor()
-  assert.ok(fs.existsSync(created.path), '旧确认不得删除同路径重开后的同名备份')
-  await page.evaluate(() => { location.hash = '/list' })
-  await page.waitForFunction(() => location.hash === '#/list' && !document.querySelector('.data-settings'))
+  assert.ok(fs.existsSync(path.join(libraryPath, 'backups', list[0].name)), '旧确认不得删除同路径重开后的同名备份')
 }
 
 async function verifyRestoreSafetyCopies(page, sample) {
