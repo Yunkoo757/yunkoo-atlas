@@ -34,7 +34,8 @@ import { ModalShell } from '@/components/ui/ModalShell'
 import { ContextMenu, type CtxState } from '@/components/ContextMenu'
 import { useWorkbenchListKeyboard } from '@/hooks/useWorkbenchListKeyboard'
 import './TrashView.css'
-import { flushPersistNow } from '@/storage/persist'
+import { flushPersistNow, storageDocumentSignal } from '@/storage/persist'
+import { withLibrarySession } from './withLibrarySession'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
 
 type TrashGroup = { label: string; items: Trade[]; priority: number }
@@ -90,7 +91,9 @@ function groupTrash(trades: Trade[]): TrashGroup[] {
     .sort((a, b) => a.priority - b.priority)
 }
 
-export function TradeTrashView() {
+export const TradeTrashView = withLibrarySession<object>(TradeTrashWorkspace)
+
+function TradeTrashWorkspace({ librarySession }: { librarySession: number }) {
   const windowToolbar = useContext(WindowToolbarHost)
   const navigate = useNavigate()
   const allTrades = useStore((s) => s.trades)
@@ -164,17 +167,20 @@ export function TradeTrashView() {
   }
 
   const confirmPurge = async () => {
-    if (!purgeRequest || purgeBusy) return
+    const isCurrent = () => !storageDocumentSignal.aborted && useStore.getState().librarySession === librarySession
+    if (!purgeRequest || purgeBusy || !isCurrent()) return
     setPurgeError(null)
     setPurgeBusy(true)
     try {
-      if (isElectron()) {
+      const bridge = getJournalBridge()
+      if (bridge) {
         try {
           await flushPersistNow()
-          const bridge = getJournalBridge()
-          const recoveryPoint = await bridge!.createBackup()
+          if (!isCurrent()) return
+          const recoveryPoint = await bridge.createBackup()
           if (!recoveryPoint) throw new Error('无法创建删除前恢复点')
-          const verification = await bridge!.verifyBackup(recoveryPoint)
+          if (!isCurrent()) return
+          const verification = await bridge.verifyBackup(recoveryPoint)
           if (verification.status !== 'verified') {
             throw new Error(verification.error ?? '删除前恢复点校验失败')
           }
@@ -183,6 +189,7 @@ export function TradeTrashView() {
           return
         }
       }
+      if (!isCurrent()) return
       const result = purgeTrades(purgeRequest.targets)
       setSelected((prev) => {
         const next = new Set(prev)

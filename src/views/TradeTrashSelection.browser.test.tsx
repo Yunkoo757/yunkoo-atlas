@@ -2,6 +2,9 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import type { Trade } from '@/data/trades'
 import { useStore } from '@/store/useStore'
+import { replaceLibraryInStore } from '@/lib/snapshotStore'
+import { createNewLibrarySnapshot } from '@/storage/emptySnapshot'
+import { nextFrame, waitFor } from '@/test/browserTiming'
 import { ToastHost } from '@/components/Toast'
 import { toastStore } from '@/lib/toast'
 import { TradeTrashView } from './TradeTrashView'
@@ -17,12 +20,46 @@ function record(id: string, symbol: string): Trade {
   }
 }
 
-async function waitFor(check: () => boolean, message: string) {
-  for (let n = 0; n < 90; n++) {
-    if (check()) return
-    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+async function checkLibraryReplacementDuringPurge() {
+  const source = record('same-id', 'EURUSD')
+  const replacement = { ...source, symbol: 'GBPUSD' }
+  const snapshot = createNewLibrarySnapshot()
+  replaceLibraryInStore({ ...snapshot, trades: [source] })
+  let reached!: () => void, release!: () => void
+  const verifying = new Promise<void>(resolve => { reached = resolve })
+  const receipt = new Promise<void>(resolve => { release = resolve })
+  const previous = Object.getOwnPropertyDescriptor(window, 'journalBridge')
+  Object.defineProperty(window, 'journalBridge', { configurable: true, value: {
+    isElectron: true,
+    createBackup: async () => 'isolated-backup',
+    verifyBackup: async () => {
+      reached()
+      await receipt
+      return { status: 'verified', checkedAt: Date.now() }
+    },
+  } })
+  const button = (selector: string) => document.querySelector<HTMLButtonElement>(selector)
+  try {
+    await waitFor(() => document.querySelector('.trash-item-id')?.textContent === source.ref, '原库记录未出现')
+    button('.trash-select-all-label')!.click()
+    await waitFor(() => !!button('[role="toolbar"][aria-label="批量操作"] .ui-btn-danger'), '原库记录未选中')
+    button('[role="toolbar"][aria-label="批量操作"] .ui-btn-danger')!.click()
+    await waitFor(() => !!button('[role="dialog"] .ui-btn-danger-solid'), '待确认删除未打开')
+    button('[role="dialog"] .ui-btn-danger-solid')!.click()
+    await verifying
+    // 同一备份的副本可以保留完全相同的交易 ID、删除 ID 与删除时间。
+    replaceLibraryInStore({ ...snapshot, trades: [replacement] })
+    release()
+    // 验证回执触发的微任务先结束，再核对新库内容。
+    await nextFrame()
+    await waitFor(() => !button('[role="dialog"]'), '新库仍显示原库的删除确认')
+    if (useStore.getState().trades[0]?.symbol !== 'GBPUSD') throw new Error('旧库的备份回执删除了新库的同标识交易')
+    if (button('[role="toolbar"][aria-label="批量操作"] .ui-btn-danger')) throw new Error('切库后仍继承原库的选择')
+  } finally {
+    release()
+    if (previous) Object.defineProperty(window, 'journalBridge', previous)
+    else Reflect.deleteProperty(window, 'journalBridge')
   }
-  throw new Error(message)
 }
 
 async function run() {
@@ -41,22 +78,23 @@ async function run() {
     search(' XAUUSD ')
     await waitFor(() => document.querySelectorAll('.trash-item').length === 1, '粘贴的空格影响匹配')
     control('.trash-select-all-label')!.click()
-    await waitFor(() => !!control('.batch-action-bar .ui-btn-danger'), '应可批量操作当前品种')
+    await waitFor(() => !!control('[role="toolbar"][aria-label="批量操作"] .ui-btn-danger'), '应可批量操作当前品种')
     search('EURUSD')
-    await waitFor(() => document.querySelector('.trash-item-id')?.textContent === 'TRD-B' && !control('.batch-action-bar .ui-btn-danger'), '不可见记录仍被选中')
+    await waitFor(() => document.querySelector('.trash-item-id')?.textContent === 'TRD-B' && !control('[role="toolbar"][aria-label="批量操作"] .ui-btn-danger'), '不可见记录仍被选中')
     control('.trash-select-all-label')!.click()
-    await waitFor(() => !!control('.batch-action-bar .ui-btn-danger'), '未选中当前匹配记录')
-    control('.batch-action-bar .ui-btn-danger')!.click()
+    await waitFor(() => !!control('[role="toolbar"][aria-label="批量操作"] .ui-btn-danger'), '未选中当前匹配记录')
+    control('[role="toolbar"][aria-label="批量操作"] .ui-btn-danger')!.click()
     await waitFor(() => document.querySelector('[role="dialog"] h2')?.textContent === '彻底删除 1 笔交易？', '确认数量须等于当前范围')
     control('[data-autofocus]')!.click()
     await waitFor(() => !document.querySelector('[role="dialog"]'), '取消须关闭确认')
-    control('.batch-action-bar .ui-btn-ghost')!.click()
+    control('[role="toolbar"][aria-label="批量操作"] .ui-btn-ghost')!.click()
     await waitFor(() => !useStore.getState().trades.find(t => t.id === 'TRD-B')?.deletedAt, '未恢复选中的记录')
     if (!useStore.getState().trades.find(t => t.id === 'TRD-A')?.deletedAt) throw new Error('隐藏记录被恢复')
     await waitFor(() => Boolean(control('.toast-action')), '恢复通知必须提供撤销')
     control('.toast-action')!.click()
     await waitFor(() => document.querySelector('.trash-item-id')?.textContent === 'TRD-B', '撤销后须回到原筛选内')
     if (useStore.getState().trades.find(t => t.id === 'TRD-B')?.deletionId !== 'deleted-TRD-B') throw new Error('原删除标识丢失')
+    await checkLibraryReplacementDuringPurge()
   } finally {
     root.unmount()
     toastStore.dismiss()

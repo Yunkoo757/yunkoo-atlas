@@ -9,12 +9,10 @@ import { flushPersistNow } from '@/storage/persist'
 import { InlineStatus } from '@/components/ui/InlineStatus'
 import { Button } from '@/components/ui/Button'
 import { LoadingIndicator } from '@/icons/LoadingIndicator'
+import { withLibrarySession } from '../withLibrarySession'
 import './ProfileSettingsPanel.css'
 
-export function ProfileSettingsPanel() {
-  const librarySession = useStore((s) => s.librarySession)
-  return <ProfileSettingsForm key={librarySession} librarySession={librarySession} />
-}
+export const ProfileSettingsPanel = withLibrarySession<object>(ProfileSettingsForm)
 
 function ProfileSettingsForm({ librarySession }: { librarySession: number }) {
   const profile = useStore((s) => s.profile)
