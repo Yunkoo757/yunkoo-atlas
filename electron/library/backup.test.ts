@@ -792,6 +792,49 @@ export function testInterruptedBackupRestoreRejectsCorruptRecoveryBeforeTouching
   }
 }
 
+export async function testLaterBackupRepairsSharedContentOnlyAfterProvingTheReplacementBytes(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-vault-repair-'))
+  const storage = new LibraryStorage(root)
+  const copy = fs.copyFileSync
+  try {
+    await storage.open()
+    storage.saveSnapshot(createEmptyPersistedSnapshot())
+    const original = Buffer.from('original')
+    storage.importAsset('chart', 'image/png', original)
+    const first = writeLibraryBackup(storage)!
+    const paths = storage.getPaths()
+    const source = path.join(paths.attachments, 'chart.png')
+    const name = createHash('sha256').update(original).digest('hex')
+    const vault = path.join(paths.backups, 'assets', name)
+    const previousMetadata = fs.readFileSync(first + '.meta.json')
+    const damaged = Buffer.from('damaged!')
+    fs.writeFileSync(vault, damaged)
+    fs.copyFileSync = (from, to, flags) => {
+      copy(from, to, flags)
+      if (from === source) fs.writeFileSync(to, 'bad copy')
+    }
+    let failed = false
+    try { writeLibraryBackup(storage) } catch { failed = true } finally { fs.copyFileSync = copy }
+    assert(failed && fs.readFileSync(vault).equals(damaged), '失败的修复不得发布未经校验的同长度字节')
+    assert(fs.readdirSync(path.dirname(vault)).join(',') === name, '失败修复应清理临时文件')
+
+    const next = writeLibraryBackup(storage)!
+    assert(fs.readFileSync(vault).equals(original), '下一次备份应修复共享副本')
+    assert(fs.readFileSync(first + '.meta.json').equals(previousMetadata), '修复不得改写历史备份元数据')
+    for (const file of [first, next]) {
+      assert((await verifyBackupAtPath(root, file)).status === 'verified', '历史和新备份必须分别通过校验')
+    }
+    storage.release()
+    fs.writeFileSync(source, 'changed!')
+    assert(restoreBackupAtPath(root, path.basename(first)), '应可恢复原历史备份')
+    assert(fs.readFileSync(source).equals(original), '恢复的附件应逐字节匹配原样本')
+  } finally {
+    fs.copyFileSync = copy
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export function testBackupKeepsHistoricalBytesWhenAnAttachmentNameIsReused(): void {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-backup-history-'))
   try {

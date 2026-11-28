@@ -5,7 +5,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { LibraryStorage } from './storage'
 import { ensureLibraryDirs, getLibraryPaths, isSameDirectory } from './paths'
-import { writeFileAtomicallySync } from './atomicFile'
+import { fsyncDirectorySync, fsyncFileSync, renameFileWithRetrySync, writeFileAtomicallySync } from './atomicFile'
+import { randomUUID } from 'node:crypto'
 import { LibraryInspectionError, validateDesktopLibrary, type LibraryDatabaseInspection } from './libraryInspection'
 import { safeConsoleError } from '../diagnosticSanitizer'
 import { installBackupCandidate } from './backupRestoreFiles'
@@ -42,29 +43,36 @@ function backupManifestPath(dbBackupPath: string): string {
   return dbBackupPath + '.manifest.json'
 }
 
-function listDeclaredAttachmentFiles(
-  attachmentsDir: string,
-  declaredFileNames: readonly string[],
-): string[] {
-  const files: string[] = []
-  for (const fileName of [...declaredFileNames].sort()) {
-    if (!fileName || path.basename(fileName) !== fileName) {
-      throw new Error(`备份附件路径不安全：${fileName}`)
-    }
-    const fullPath = path.join(attachmentsDir, fileName)
-    if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) {
-      throw new Error(`备份缺少数据库声明的附件：${fileName}`)
-    }
-    files.push(fileName)
-  }
-  return files
-}
+function storeBackupAttachment(
+  attachments: string,
+  vault: string,
+  { fileName, byteSize }: { fileName: string; byteSize: number },
+): string {
+  if (!fileName || path.basename(fileName) !== fileName) throw new Error(`备份附件路径不安全：${fileName}`)
+  const source = path.join(attachments, fileName)
+  const sourceStat = fs.lstatSync(source, { throwIfNoEntry: false })
+  if (!sourceStat?.isFile() || sourceStat.size !== byteSize) throw new Error(`备份附件缺失或不完整：${fileName}`)
 
-function storeBackupAttachment(source: string, vault: string): string {
   const vaultName = sha256File(source)
   const destination = path.join(vault, vaultName)
-  if (!fs.existsSync(destination)) fs.copyFileSync(source, destination)
-  return vaultName
+  const stored = fs.lstatSync(destination, { throwIfNoEntry: false })
+  if (stored && !stored.isFile()) throw new Error(`备份附件副本不是普通文件：${fileName}`)
+  if (stored?.size === byteSize && sha256File(destination) === vaultName) return vaultName
+
+  // 多份历史备份可引用同一文件。待发布副本通过原始摘要校验后，再一次替换。
+  const pending = path.join(vault, `.${randomUUID()}.tmp`)
+  try {
+    fs.copyFileSync(source, pending, fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE)
+    if (fs.statSync(pending).size !== byteSize || sha256File(pending) !== vaultName) {
+      throw new Error(`备份期间附件内容已变化，请重试：${fileName}`)
+    }
+    fsyncFileSync(pending)
+    renameFileWithRetrySync(pending, destination)
+    fsyncDirectorySync(vault)
+    return vaultName
+  } finally {
+    fs.rmSync(pending, { force: true })
+  }
 }
 
 function backupDbFiles(backupsDir: string): string[] {
@@ -138,15 +146,11 @@ export function writeLibraryBackup(
     writeFileAtomicallySync(backupManifestPath(dest), data.manifestBytes)
 
     // 只打包 assets 表声明的文件；Windows 延迟 GC 残留的孤儿不得进入恢复点。
-    const attachmentFiles = listDeclaredAttachmentFiles(
-      attachments,
-      data.attachments.map(({ fileName }) => fileName),
-    )
     const vault = backupAssetVault(backups)
     fs.mkdirSync(vault, { recursive: true })
-    const attachmentEntries = attachmentFiles.map((fileName) => ({
-      fileName,
-      vaultName: storeBackupAttachment(path.join(attachments, fileName), vault),
+    const attachmentEntries = data.attachments.map(attachment => ({
+      fileName: attachment.fileName,
+      vaultName: storeBackupAttachment(attachments, vault, attachment),
     }))
 
     if (options.emptyLibrary && (data.tradeCount !== 0 || data.strategyCount !== 0 || attachmentEntries.length !== 0)) {
