@@ -1,6 +1,6 @@
 import { readCompatibleLibraryManifest } from './libraryIdentity'
 import { beginLibraryReplacement } from './libraryReplacement'
-import { copyLibraryAttachments } from './attachmentFiles'
+import { captureDeclaredAttachment, copyLibraryAttachments } from './attachmentFiles'
 import { LibraryInspectionError, validateDesktopLibrary } from './libraryInspection'
 import { CREATE_LIBRARY_TABLES_SQL, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import { crc32 } from '../../src/lib/crc32'
@@ -8,7 +8,8 @@ import { retiredSnapshotDatabaseBytes } from './retiredSnapshotDatabase'
 import fs from 'node:fs'
 import path from 'node:path'
 import { clearManagedFlatDirectory } from './managedPaths'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
+import { once } from 'node:events'
 import type { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { ZipArchive } from 'archiver'
@@ -16,7 +17,7 @@ import { getLibrarySql } from './sqliteRuntime'
 import * as yauzl from 'yauzl'
 import type { LibraryStorage } from './storage'
 import { ensureLibraryDirs, getLibraryPaths } from './paths'
-import { fsyncDirectorySync, fsyncFileSync, writeFileAtomicallySync } from './atomicFile'
+import { fsyncDirectorySync, fsyncFileSync, renameFileWithRetrySync, writeFileAtomicallySync } from './atomicFile'
 import {
   SCHEMA_VERSION,
   type PersistedSnapshot,
@@ -52,36 +53,63 @@ export async function exportJournalZip(
     throw new Error('当前资料库数据库不是普通文件，无法安全导出')
   }
   const data = storage.captureLibraryExport('archive')
-  const archiveAttachments = data.attachments.map(({ fileName, byteSize }) => {
-    if (!fileName || path.basename(fileName) !== fileName) {
-      throw new Error(`附件元数据包含不安全路径（${fileName}）`)
-    }
-    const attachmentFile = path.join(paths.attachments, fileName)
-    const attachmentStat = fs.lstatSync(attachmentFile)
-    if (attachmentStat.isSymbolicLink() || !attachmentStat.isFile() || attachmentStat.size !== byteSize) {
-      throw new Error(`附件缺失或不完整（${fileName}）`)
-    }
-    return { fileName, attachmentFile }
-  })
+  const attachments = data.attachments.map(file => captureDeclaredAttachment(paths.attachments, file))
   try {
-    const output = fs.createWriteStream(temporaryFile, { flags: 'wx' })
-    const archive = new ZipArchive({ zlib: { level: 9 } })
-    const completed = pipeline(archive, output)
-
-    archive.append(data.manifestBytes, { name: 'manifest.json' })
-    archive.append(data.databaseBytes, { name: 'journal.db' })
-
-    for (const { fileName, attachmentFile } of archiveAttachments) {
-      archive.file(attachmentFile, {
-        name: `attachments/${fileName}`,
-      })
-    }
-    await Promise.all([archive.finalize(), completed])
+    await writeJournalArchive(temporaryFile, data, attachments)
     fsyncFileSync(temporaryFile)
-    fs.renameSync(temporaryFile, destinationFile)
+    renameFileWithRetrySync(temporaryFile, destinationFile)
     fsyncDirectorySync(path.dirname(destinationFile))
   } finally {
     fs.rmSync(temporaryFile, { force: true })
+  }
+}
+
+async function writeJournalArchive(
+  temporaryFile: string,
+  data: { manifestBytes: Buffer; databaseBytes: Buffer },
+  attachments: ReadonlyArray<ReturnType<typeof captureDeclaredAttachment>>,
+): Promise<void> {
+  const archive = new ZipArchive({ zlib: { level: 9 } })
+  const controller = new AbortController()
+  const { signal } = controller
+  const completed = pipeline(archive, fs.createWriteStream(temporaryFile, { flags: 'wx' }), { signal })
+
+  function append(name: string, input: Buffer | Readable) {
+    signal.throwIfAborted()
+    const written = once(archive, 'entry', { signal })
+    archive.append(input, { name })
+    return written
+  }
+
+  async function writeEntries() {
+    await append('manifest.json', data.manifestBytes)
+    await append('journal.db', data.databaseBytes)
+    for (const { fileName, sourceFile, byteSize, sha256 } of attachments) {
+      // 逐项等待压缩器消费完毕；同时只打开一个原图，无需在内存或临时目录复制整库。
+      // end 包含端点，多读至多一个字节即可发现源文件已变长。
+      const input = fs.createReadStream(sourceFile, { signal, end: byteSize })
+      const hash = createHash('sha256')
+      let length = 0
+      input.on('data', chunk => {
+        length += chunk.length
+        hash.update(chunk)
+      })
+      input.on('error', error => archive.destroy(error))
+      try {
+        await append(`attachments/${fileName}`, input)
+        if (length !== byteSize || hash.digest('hex') !== sha256) {
+          throw new Error(`导出期间附件内容已变化，请重试：${fileName}`)
+        }
+      } finally { input.destroy() }
+    }
+    await archive.finalize()
+  }
+
+  try {
+    await Promise.all([completed, writeEntries()])
+  } finally {
+    controller.abort()
+    await completed.catch(() => {})
   }
 }
 

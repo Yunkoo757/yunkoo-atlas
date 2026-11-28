@@ -1213,6 +1213,37 @@ export async function testDesktopExportsOnlyTheCapturedManifestOfTheOpenedLibrar
   }
 }
 
+export async function testDesktopExportKeepsPreviousArchiveWhenAnAttachmentChangesDuringCompression(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-archive-attachment-change-'))
+  const storage = new LibraryStorage(path.join(root, 'source'))
+  const destination = path.join(root, 'export.journal.zip')
+  try {
+    await storage.open()
+    storage.saveSnapshot(emptySnapshot())
+    const bytes = Buffer.from('original')
+    const file = path.join(storage.getPaths().attachments, 'shared.png')
+    storage.importAsset('shared', 'image/png', bytes)
+    await exportJournalZip(storage, destination)
+    const previous = fs.readFileSync(destination)
+    for (const change of [() => fs.writeFileSync(file, 'replaced'), () => fs.rmSync(file)]) {
+      const exporting = exportJournalZip(storage, destination)
+      change()
+      let failure: unknown
+      try { await exporting } catch (error) { failure = error }
+      assert(failure instanceof Error, '内容变化或缺失必须结束当前导出并报告失败')
+      assert(fs.readFileSync(destination).equals(previous), '失败时原归档必须保持逐字节一致')
+      assert(fs.readdirSync(root).sort().join(',') === 'export.journal.zip,source', '失败时应移除临时归档')
+      fs.writeFileSync(file, bytes)
+    }
+    await exportJournalZip(storage, destination)
+    const zip = await JSZip.loadAsync(fs.readFileSync(destination))
+    assert((await zip.file('attachments/shared.png')!.async('nodebuffer')).equals(bytes), '恢复原文件后可成功重试')
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export async function testDesktopExportOmitsUncommittedAttachmentFiles(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-export-orphan-'))
   const sourceRoot = path.join(root, 'source')

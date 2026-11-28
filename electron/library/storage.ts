@@ -9,6 +9,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { Database } from 'sql.js'
 import { getLibrarySql } from './sqliteRuntime'
+import type { DeclaredAttachment } from './attachmentFiles'
 import { randomUUID } from 'node:crypto'
 import type { LibraryManifest, PersistedSnapshot } from '../../src/storage/types'
 import type {
@@ -48,7 +49,7 @@ type SnapshotImportOptions = LibraryImportOptions & { expectedSnapshotRevision?:
 interface LibraryExport {
   manifestBytes: Buffer
   databaseBytes: Buffer
-  attachments: Array<{ fileName: string; byteSize: number }>
+  attachments: DeclaredAttachment[]
 }
 
 interface LibraryBackupExport extends LibraryExport {

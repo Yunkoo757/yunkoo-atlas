@@ -4,6 +4,21 @@ import { fsyncDirectorySync, fsyncFileSync } from './atomicFile'
 import { sha256File } from './fileChecksum'
 import { clearManagedFlatDirectory } from './managedPaths'
 
+export interface DeclaredAttachment {
+  fileName: string
+  byteSize: number
+}
+
+/** 按同一个 SQLite 索引核实源文件。消费者按此摘要证明实际写出的内容。 */
+export function captureDeclaredAttachment(directory: string, declared: DeclaredAttachment) {
+  const { fileName, byteSize } = declared
+  if (!fileName || path.basename(fileName) !== fileName) throw new Error(`附件路径不安全：${fileName}`)
+  const sourceFile = path.join(directory, fileName)
+  const stat = fs.lstatSync(sourceFile, { throwIfNoEntry: false })
+  if (!stat?.isFile() || stat.size !== byteSize) throw new Error(`附件缺失或不完整（${fileName}）`)
+  return { fileName, byteSize, sourceFile, sha256: sha256File(sourceFile) }
+}
+
 export function copyLibraryAttachments(
   source: string,
   destination: string,
