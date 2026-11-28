@@ -253,16 +253,8 @@ function createPendingRequest(
   })
 }
 
-function openedState<State extends TradeOpenRiskGateState>(
-  state: State,
-  trade: Trade,
-  options: RequestTradeOpenCandidateOptions,
-): { state: State; trade: Trade } {
-  const timestamp = options.now?.() ?? new Date().toISOString()
-  if (!isCanonicalIsoInstant(timestamp)) throw new Error('open activity 时间必须是合法 ISO 时间')
-  const id = options.createActivityId?.() ?? `activity-open-${trade.id}-${timestamp}`
-  if (!id.trim()) throw new Error('open activity ID 不能为空')
-  const opened: Trade = {
+export function openTradeWithActivity(trade: Trade, id: string, timestamp: string): Trade {
+  return {
     ...trade,
     status: 'open',
     closedAt: null,
@@ -275,6 +267,18 @@ function openedState<State extends TradeOpenRiskGateState>(
       timestamp,
     }],
   }
+}
+
+function openedState<State extends TradeOpenRiskGateState>(
+  state: State,
+  trade: Trade,
+  options: RequestTradeOpenCandidateOptions,
+): { state: State; trade: Trade } {
+  const timestamp = options.now?.() ?? new Date().toISOString()
+  if (!isCanonicalIsoInstant(timestamp)) throw new Error('open activity 时间必须是合法 ISO 时间')
+  const id = options.createActivityId?.() ?? `activity-open-${trade.id}-${timestamp}`
+  if (!id.trim()) throw new Error('open activity ID 不能为空')
+  const opened = openTradeWithActivity(trade, id, timestamp)
   return {
     state: {
       ...state,

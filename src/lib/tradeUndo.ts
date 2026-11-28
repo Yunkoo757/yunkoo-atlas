@@ -1,3 +1,4 @@
+import { plainDataEqual } from './plainData'
 import type { Trade } from '@/data/trades'
 
 export interface UndoFieldPatch {
@@ -33,22 +34,6 @@ export type ApplyUndoResult =
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
-}
-
-export function undoValuesEqual(left: unknown, right: unknown): boolean {
-  if (Object.is(left, right)) return true
-  if (Array.isArray(left) || Array.isArray(right)) {
-    return Array.isArray(left) &&
-      Array.isArray(right) &&
-      left.length === right.length &&
-      left.every((value, index) => undoValuesEqual(value, right[index]))
-  }
-  if (!isObject(left) || !isObject(right)) return false
-  const keys = new Set([...Object.keys(left), ...Object.keys(right)])
-  for (const key of keys) {
-    if (!undoValuesEqual(left[key], right[key])) return false
-  }
-  return true
 }
 
 function cloneUndoValue<T>(value: T): T {
@@ -92,7 +77,7 @@ export function buildUndoAction(input: {
     ])
     const fields: UndoFieldPatch[] = []
     for (const key of keys) {
-      if (undoValuesEqual(before[key], after[key])) continue
+      if (plainDataEqual(before[key], after[key])) continue
       fields.push({
         key,
         before: cloneUndoValue(before[key]),
@@ -126,7 +111,7 @@ export function applyUndoAction(
       return { ok: false, code: 'undo-conflict', trades: currentTrades, reason: 'missing-trade', tradeId: patch.id }
     }
     for (const field of patch.fields) {
-      if (!undoValuesEqual(current[field.key], field[expectedSide])) {
+      if (!plainDataEqual(current[field.key], field[expectedSide])) {
         return {
           ok: false,
           code: 'undo-conflict',

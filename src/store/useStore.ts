@@ -1215,7 +1215,7 @@ export const useStore: UseBoundStore<StoreApi<State>> = create<State>()((set, ge
         if (reason.length > 500) {
           throw new Error('继续开仓原因最多 500 字')
         }
-        const request = get().pendingTradeOpenRequest
+        const { pendingTradeOpenRequest: request, librarySession } = get()
         if (!request) return { kind: 'cancelled', reason: 'target-missing' }
         const [commitModule, { pickPersisted }, shortcutModule] = await Promise.all([
           import('@/lib/riskGatedTradeOpenCommit'),
@@ -1239,8 +1239,17 @@ export const useStore: UseBoundStore<StoreApi<State>> = create<State>()((set, ge
               ),
             }
           },
-          publish: (state) => set({ ...state, pendingTradeOpenRequest: null }),
+          isCurrentSession: () => get().librarySession === librarySession,
+          publish: ({ trades, riskOverrideEvents }) => {
+            set(current => ({
+              trades,
+              riskOverrideEvents,
+              pendingTradeOpenRequest: current.pendingTradeOpenRequest === request ? null : current.pendingTradeOpenRequest,
+            }))
+            return pickPersisted(get(), shortcutModule.useShortcutStore.getState().bindings)
+          },
         })
+        if (get().pendingTradeOpenRequest !== request || get().librarySession !== librarySession) return result
         if (result.kind === 'cancelled') {
           set({ pendingTradeOpenRequest: null })
         } else if (result.kind === 'needs-reconfirmation') {

@@ -1,3 +1,4 @@
+import { plainDataEqual } from '@/lib/plainData'
 import type { Trade } from '@/data/trades'
 import {
   buildCopiedCloseDateCandidates,
@@ -6,7 +7,7 @@ import {
 } from '@/lib/importDataHealth'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import type { PersistedSnapshot, PersistedTrade } from '@/storage/types'
-import { applyUndoAction, buildUndoAction, undoValuesEqual } from '@/lib/tradeUndo'
+import { applyUndoAction, buildUndoAction } from '@/lib/tradeUndo'
 import { recoverCopiedCloseDateCleanupToStore } from '@/store/copiedCloseDateCleanup'
 import { useStore } from '@/store/useStore'
 
@@ -142,7 +143,7 @@ export async function testCleanupPersistsBeforePublishingAndUndoPatchRestoresExa
   assert(action, '清理必须生成可撤销字段 patch')
   const undone = applyUndoAction(committedTrades, action, 'undo')
   assert(undone.ok, '清理 patch 必须可以无冲突撤销')
-  assert(undoValuesEqual(undone.trades[0], original), '撤销必须逐字段、逐字节恢复原记录值')
+  assert(plainDataEqual(undone.trades[0], original), '撤销必须逐字段、逐字节恢复原记录值')
 }
 
 export async function testPersistenceFailureKeepsOriginalTradeAndDoesNotPublish(): Promise<void> {
