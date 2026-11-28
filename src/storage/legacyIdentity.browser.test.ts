@@ -1,3 +1,5 @@
+import { SCHEMA_VERSION } from './types'
+import { IndexedDbStorageAdapter } from './indexedDbAdapter'
 import { migrateLegacyBrowserIdentity } from './legacyIdentity'
 import { BROWSER_DATABASE_NAME } from './storageIdentity'
 
@@ -105,6 +107,51 @@ async function verifyChangesDuringMigration(side: 'source' | 'target'): Promise<
   }
 }
 
+async function verifyBlockedRepair(entry: 'adapter' | 'migration'): Promise<void> {
+  await resetDatabases()
+  if (entry === 'migration') await seedDatabase(LEGACY_DATABASE_NAME, 'legacy')
+  const open = indexedDB.open(BROWSER_DATABASE_NAME, 1)
+  open.onupgradeneeded = () => open.result.createObjectStore('snapshot').put('original', 'marker')
+  const blocker = await new Promise<IDBDatabase>((resolve, reject) => {
+    open.onsuccess = () => resolve(open.result)
+    open.onerror = () => reject(open.error)
+  })
+
+  const adapter = new IndexedDbStorageAdapter()
+  const attempt = () => entry === 'adapter' ? adapter.open() : migrateLegacyBrowserIdentity(indexedDB)
+  let failure: unknown
+  try {
+    await attempt()
+  } catch (error) {
+    failure = error
+  } finally {
+    blocker.close()
+  }
+  assert(failure instanceof Error && failure.message.includes('blocked'), '被其他连接占用时应立即报告受阻')
+  if (entry === 'adapter') assert(failure.name === 'InvalidStateError', '普通开库须保留原有错误类型')
+
+  const inspect = indexedDB.open(BROWSER_DATABASE_NAME)
+  const beforeRetry = await new Promise<{ version: number; stores: string[] }>((resolve, reject) => {
+    inspect.onsuccess = () => {
+      const db = inspect.result
+      resolve({ version: db.version, stores: Array.from(db.objectStoreNames) })
+      db.close()
+    }
+    inspect.onerror = () => reject(inspect.error)
+  })
+  assert(beforeRetry.version === 1 && beforeRetry.stores.join(',') === 'snapshot', '被拒绝的修复不能在占用解除后继续改库')
+
+  try {
+    const result = await attempt()
+    if (entry === 'migration') assert(result === 'copied', '显式重试后应能完成旧库复制')
+    else assert((await adapter.getManifest()).schemaVersion === SCHEMA_VERSION, '显式重试后应能初始化目标清单')
+    assert(await readValue(BROWSER_DATABASE_NAME, 'snapshot', 'marker') === 'original', '修复应保留已有数据')
+  } finally {
+    adapter.close()
+  }
+  await deleteDatabase(BROWSER_DATABASE_NAME)
+}
+
 async function run(): Promise<void> {
   await resetDatabases()
   await seedDatabase(LEGACY_DATABASE_NAME, 'legacy')
@@ -157,6 +204,8 @@ async function run(): Promise<void> {
 
   await verifyChangesDuringMigration('target')
   await verifyChangesDuringMigration('source')
+  await verifyBlockedRepair('adapter')
+  await verifyBlockedRepair('migration')
 }
 
 window.__legacyIdentityMigrationTest = run().finally(resetDatabases)

@@ -37,14 +37,11 @@ import {
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import { beginWebOperation } from '@/storage/webOperationLogger'
 import { migrateLegacyBrowserIdentity } from '@/storage/legacyIdentity'
+import { openJournalDatabase, STORE_ASSETS, STORE_META, STORE_SNAPSHOT } from './indexedDbSchema'
 import { BROWSER_DATABASE_NAME } from '@/storage/storageIdentity'
 
-const STORE_SNAPSHOT = 'snapshot'
-const STORE_ASSETS = 'assets'
-const STORE_META = 'meta'
 const SNAPSHOT_REVISION_KEY = 'snapshotRevision'
 const SNAPSHOT_VALIDATION_BATCH_SIZE = 1_000
-const REQUIRED_STORES = [STORE_SNAPSHOT, STORE_ASSETS, STORE_META] as const
 
 type AssetRecord = IndexedDbAssetRecord
 
@@ -186,47 +183,6 @@ function normalizeSnapshotRevision(value: unknown): number {
   throw new Error('Invalid snapshot revision metadata')
 }
 
-function createMissingStores(db: IDBDatabase): void {
-  if (!db.objectStoreNames.contains(STORE_SNAPSHOT)) {
-    db.createObjectStore(STORE_SNAPSHOT)
-  }
-  if (!db.objectStoreNames.contains(STORE_ASSETS)) {
-    db.createObjectStore(STORE_ASSETS, { keyPath: 'id' })
-  }
-  if (!db.objectStoreNames.contains(STORE_META)) {
-    db.createObjectStore(STORE_META)
-  }
-}
-
-function finishOpen(db: IDBDatabase, resolve: (db: IDBDatabase) => void): void {
-  db.onversionchange = () => db.close()
-  resolve(db)
-}
-
-function openDb(databaseName: string): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(databaseName)
-    req.onerror = () => reject(req.error ?? new Error('IndexedDB open failed'))
-    req.onupgradeneeded = () => createMissingStores(req.result)
-    req.onsuccess = () => {
-      const db = req.result
-      const hasEveryStore = REQUIRED_STORES.every((store) => db.objectStoreNames.contains(store))
-      if (hasEveryStore) {
-        finishOpen(db, resolve)
-        return
-      }
-
-      const repairVersion = db.version + 1
-      db.close()
-      const repair = indexedDB.open(databaseName, repairVersion)
-      repair.onerror = () => reject(repair.error ?? new Error('IndexedDB repair failed'))
-      repair.onblocked = () => reject(new DOMException('IndexedDB repair blocked by another tab', 'InvalidStateError'))
-      repair.onupgradeneeded = () => createMissingStores(repair.result)
-      repair.onsuccess = () => finishOpen(repair.result, resolve)
-    }
-  })
-}
-
 function idbGet<T>(db: IDBDatabase, store: string, key: string): Promise<T | undefined> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readonly')
@@ -281,7 +237,10 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     if (this.databaseName === BROWSER_DATABASE_NAME) {
       await migrateLegacyBrowserIdentity(indexedDB)
     }
-    this.db = await openDb(this.databaseName)
+    const db = await openJournalDatabase(indexedDB, this.databaseName, () =>
+      new DOMException('IndexedDB repair blocked by another tab', 'InvalidStateError'))
+    db.onversionchange = () => db.close()
+    this.db = db
     const manifest = await idbGet<LibraryManifest>(this.db, STORE_META, 'manifest')
     if (!manifest) {
       await initializeMissingManifest(this.db)

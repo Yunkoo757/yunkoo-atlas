@@ -1,9 +1,9 @@
+import { openJournalDatabase, REQUIRED_STORES } from './indexedDbSchema'
 import { BROWSER_DATABASE_NAME } from './storageIdentity'
 
 const LEGACY_BROWSER_DATABASE_NAME = 'linear-journal-v3'
 export const LEGACY_LOCAL_STORAGE_KEY = 'linear-journal'
 
-const REQUIRED_STORES = ['snapshot', 'assets', 'meta'] as const
 type StoreName = (typeof REQUIRED_STORES)[number]
 type MigrationResult = 'copied' | 'skipped' | 'unavailable'
 type StoredEntry = { key: IDBValidKey; value: unknown }
@@ -12,14 +12,6 @@ async function databaseExists(factory: IDBFactory, name: string): Promise<boolea
   if (typeof factory.databases !== 'function') return false
   const databases = await factory.databases()
   return databases.some((database) => database.name === name)
-}
-
-function createMissingStores(database: IDBDatabase): void {
-  if (!database.objectStoreNames.contains('snapshot')) database.createObjectStore('snapshot')
-  if (!database.objectStoreNames.contains('assets')) {
-    database.createObjectStore('assets', { keyPath: 'id' })
-  }
-  if (!database.objectStoreNames.contains('meta')) database.createObjectStore('meta')
 }
 
 function openExistingDatabase(factory: IDBFactory, name: string): Promise<IDBDatabase> {
@@ -31,32 +23,6 @@ function openExistingDatabase(factory: IDBFactory, name: string): Promise<IDBDat
     }
     request.onerror = () => reject(request.error ?? new Error(`Cannot open database: ${name}`))
     request.onsuccess = () => resolve(request.result)
-  })
-}
-
-function openTargetDatabase(factory: IDBFactory): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = factory.open(BROWSER_DATABASE_NAME)
-    request.onupgradeneeded = () => createMissingStores(request.result)
-    request.onerror = () => reject(request.error ?? new Error('Cannot open target database'))
-    request.onsuccess = () => {
-      const database = request.result
-      const missingStore = REQUIRED_STORES.some(
-        (storeName) => !database.objectStoreNames.contains(storeName),
-      )
-      if (!missingStore) {
-        resolve(database)
-        return
-      }
-
-      const nextVersion = database.version + 1
-      database.close()
-      const repair = factory.open(BROWSER_DATABASE_NAME, nextVersion)
-      repair.onupgradeneeded = () => createMissingStores(repair.result)
-      repair.onerror = () => reject(repair.error ?? new Error('Cannot repair target database'))
-      repair.onblocked = () => reject(new Error('Target database repair is blocked'))
-      repair.onsuccess = () => resolve(repair.result)
-    }
   })
 }
 
@@ -157,7 +123,7 @@ export async function migrateLegacyBrowserIdentity(
     const sourceSnapshot = await readMainSnapshot(source)
     if (sourceSnapshot === undefined) return 'unavailable'
 
-    target = await openTargetDatabase(factory)
+    target = await openJournalDatabase(factory, BROWSER_DATABASE_NAME, () => new Error('Target database repair is blocked'))
     if (await readMainSnapshot(target) !== undefined) return 'skipped'
 
     const entries = await readSourceEntries(source)
