@@ -4,18 +4,18 @@ import path from 'node:path'
 
 import { SCHEMA_VERSION } from '../src/storage/types.ts'
 import { readGitProvenance } from './git-provenance.mjs'
+import { readEvidenceReports, selectEvidenceReport } from './evidence-reports.mjs'
 import {
   APPROVED_BLOB_BRIDGE,
   blobBridgeContractPassed,
   blobBridgeCoveragePassed,
   detectBlobReleaseMode,
   forcedKillPassed,
-  generationDecisionPassed,
-  generationRawPassed,
   jsonCompatibilityPassed,
   persistenceReleaseGatePassed,
   releaseTrainDrillsPassed,
 } from './release-evidence-validation.mjs'
+import { generationDecisionPassed, generationRawPassed } from './spikes/electron-generation/evidence.mjs'
 import { fullQaPassed } from './release-qa-plan.mjs'
 import { assetLifecyclePassed, electronSafetyPassed } from './platform-regression.mjs'
 
@@ -27,46 +27,7 @@ const releaseTarget = releaseTargetIndex >= 0 ? process.argv[releaseTargetIndex 
 if (!['web', 'desktop'].includes(releaseTarget)) throw new Error(`unsupported release target: ${releaseTarget}`)
 const requireComplete = process.argv.includes('--require-complete')
 
-async function collectJson(directory, depth = 0) {
-  if (depth > 4) return []
-  let entries
-  try {
-    entries = await fs.readdir(directory, { withFileTypes: true })
-  } catch {
-    return []
-  }
-  const files = []
-  for (const entry of entries) {
-    if (entry.name === 'node_modules' || entry.name === '.git') continue
-    const entryPath = path.join(directory, entry.name)
-    if (entry.isDirectory()) files.push(...await collectJson(entryPath, depth + 1))
-    else if (entry.isFile() && entry.name.endsWith('.json')) files.push(entryPath)
-  }
-  return files
-}
-
-async function loadReports() {
-  const searchRoots = evidenceRoot === root
-    ? [path.join(root, 'test-results')]
-    : [evidenceRoot]
-  const files = (await Promise.all(searchRoots.map((directory) => collectJson(directory)))).flat()
-  const reports = []
-  for (const file of files) {
-    try {
-      const value = JSON.parse(await fs.readFile(file, 'utf8'))
-      reports.push({ file, value, parseError: null })
-    } catch (error) {
-      reports.push({ file, value: null, parseError: error.message })
-    }
-  }
-  return reports
-}
-
-function findReports(reports, predicate) {
-  return reports.filter(({ value, file }) => predicate(value, path.basename(file)))
-}
-
-const reports = await loadReports()
+const { reports, problems } = await readEvidenceReports(evidenceRoot === root ? path.join(root, 'test-results') : evidenceRoot, 4)
 const provenance = await readGitProvenance(root)
 const packageVersion = JSON.parse(fsSync.readFileSync(path.join(root, 'package.json'), 'utf8')).version
 const indexedDbSource = fsSync.readFileSync(path.join(root, 'src', 'storage', 'indexedDbAdapter.ts'), 'utf8')
@@ -74,37 +35,24 @@ const storageProviderSource = fsSync.readFileSync(path.join(root, 'src', 'storag
 const releaseMode = detectBlobReleaseMode(indexedDbSource)
 const checks = []
 
-function check(name, matchingReports, predicate = (value) => value.status === 'pass') {
-  const reasons = []
-  const report = matchingReports.length === 1 ? matchingReports[0] : null
-  if (matchingReports.length === 0) reasons.push('missing report')
-  else if (matchingReports.length > 1) reasons.push(`ambiguous reports: ${matchingReports.length}`)
-  if (report?.parseError) reasons.push(`invalid JSON: ${report.parseError}`)
-  else if (report) {
-    if (!predicate(report.value)) reasons.push(`reported status is not pass`)
-    if (report.value.gitCommit !== provenance.gitCommit) reasons.push('git commit mismatch')
-    if (report.value.gitTree !== provenance.gitTree) reasons.push('git tree mismatch')
-    if (report.value.sourceIdentity !== provenance.sourceIdentity) reasons.push('source identity mismatch')
-    if (requireComplete && report.value.workingTreeDirty !== false) reasons.push('release evidence was produced from a dirty working tree')
+function check(name, filename, predicate, { external = false } = {}) {
+  const candidates = reports.filter(({ file }) => {
+    const base = path.basename(file)
+    return typeof filename === 'string' ? base === filename : filename.test(base)
+  })
+  const { report, problem } = selectEvidenceReport(candidates)
+  const reasons = [...problems]
+  if (problem) reasons.push(problem)
+  else {
+    const { value } = report
+    if (!predicate(value)) reasons.push('reported status is not pass')
+    if (!external) {
+      if (value.gitCommit !== provenance.gitCommit) reasons.push('git commit mismatch')
+      if (value.gitTree !== provenance.gitTree) reasons.push('git tree mismatch')
+      if (value.sourceIdentity !== provenance.sourceIdentity) reasons.push('source identity mismatch')
+      if (requireComplete && value.workingTreeDirty !== false) reasons.push('release evidence was produced from a dirty working tree')
+    }
   }
-  if (requireComplete && provenance.workingTreeDirty) reasons.push('current release working tree is dirty')
-  const result = {
-    name,
-    pass: reasons.length === 0,
-    file: report ? path.relative(root, report.file).replaceAll('\\', '/') : null,
-    reasons,
-  }
-  checks.push(result)
-  return result
-}
-
-function externalCheck(name, matchingReports, predicate) {
-  const reasons = []
-  const report = matchingReports.length === 1 ? matchingReports[0] : null
-  if (matchingReports.length === 0) reasons.push('missing report')
-  else if (matchingReports.length > 1) reasons.push(`ambiguous reports: ${matchingReports.length}`)
-  if (report?.parseError) reasons.push(`invalid JSON: ${report.parseError}`)
-  else if (report && !predicate(report.value)) reasons.push('reported status is not pass')
   if (requireComplete && provenance.workingTreeDirty) reasons.push('current release working tree is dirty')
   const result = {
     name,
@@ -124,67 +72,67 @@ function internalCheck(name, pass, reasons = []) {
 
 const qa = check(
   'full-qa',
-  findReports(reports, (_value, name) => name === 'qa-release-full.json'),
+  'qa-release-full.json',
   fullQaPassed,
 )
 const jsonCompatibility = check(
   'json-compatibility',
-  findReports(reports, (_value, name) => name === 'json-compatibility.json'),
+  'json-compatibility.json',
   jsonCompatibilityPassed,
 )
 const performance = check(
   'persistence-release-gate',
-  findReports(reports, (_value, name) => name === 'persistence-release-gate.json'),
+  'persistence-release-gate.json',
   persistenceReleaseGatePassed,
 )
 const drills = check(
   'release-train-drills',
-  findReports(reports, (_value, name) => name === 'release-train-drills.json'),
+  'release-train-drills.json',
   releaseTrainDrillsPassed,
 )
 const forcedWindows = check(
   'forced-kill-windows',
-  findReports(reports, (_value, name) => /^forced-kill-windows-.*\.json$/i.test(name)),
+  /^forced-kill-windows-.*\.json$/i,
   (value) => forcedKillPassed(value, 'win32', 'NTFS', SCHEMA_VERSION),
 )
 const forcedMac = check(
   'forced-kill-macos',
-  findReports(reports, (_value, name) => /^forced-kill-macos-.*\.json$/i.test(name)),
+  /^forced-kill-macos-.*\.json$/i,
   (value) => forcedKillPassed(value, 'darwin', 'APFS', SCHEMA_VERSION),
 )
 const electronSafetyWindows = check(
   'electron-safety-windows',
-  findReports(reports, (_value, name) => /^electron-safety-windows-.*\.json$/i.test(name)),
+  /^electron-safety-windows-.*\.json$/i,
   (value) => electronSafetyPassed(value, 'win32', 'NTFS'),
 )
 const electronSafetyMac = check(
   'electron-safety-macos',
-  findReports(reports, (_value, name) => /^electron-safety-macos-.*\.json$/i.test(name)),
+  /^electron-safety-macos-.*\.json$/i,
   (value) => electronSafetyPassed(value, 'darwin', 'APFS'),
 )
 const assetWindows = check(
   'asset-lifecycle-windows',
-  findReports(reports, (_value, name) => /^asset-lifecycle-windows-.*\.json$/i.test(name)),
+  /^asset-lifecycle-windows-.*\.json$/i,
   (value) => assetLifecyclePassed(value, 'win32', 'NTFS'),
 )
 const assetMac = check(
   'asset-lifecycle-macos',
-  findReports(reports, (_value, name) => /^asset-lifecycle-macos-.*\.json$/i.test(name)),
+  /^asset-lifecycle-macos-.*\.json$/i,
   (value) => assetLifecyclePassed(value, 'darwin', 'APFS'),
 )
 const generationWindows = check(
   'generation-windows',
-  findReports(reports, (_value, name) => /^generation-spike-windows-.*\.json$/i.test(name)),
+  /^generation-spike-windows-.*\.json$/i,
   (value) => generationRawPassed(value, 'win32', 'NTFS'),
 )
 const generationMac = check(
   'generation-macos',
-  findReports(reports, (_value, name) => /^generation-spike-macos-.*\.json$/i.test(name)),
+  /^generation-spike-macos-.*\.json$/i,
   (value) => generationRawPassed(value, 'darwin', 'APFS'),
 )
 const generationDecision = check(
   'generation-decision',
-  findReports(reports, (_value, name) => name === 'generation-decision.json'),
+  'generation-decision.json',
   generationDecisionPassed,
 )
 const desktopStorageIsolation = internalCheck(
@@ -199,10 +147,11 @@ const blobBridgeContract = internalCheck(
     ? ['bridge version does not match the approved compatibility contract']
     : ['not an object-only compatibility bridge release'],
 )
-const blobBridgeCoverage = externalCheck(
+const blobBridgeCoverage = check(
   'blob-bridge-coverage',
-  findReports(reports, (_value, name) => name === 'blob-bridge-coverage.json'),
+  'blob-bridge-coverage.json',
   blobBridgeCoveragePassed,
+  { external: true },
 )
 
 const trainDefinitions = [

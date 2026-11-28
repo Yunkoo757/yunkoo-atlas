@@ -2,65 +2,39 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 
 import { readGitProvenance } from './git-provenance.mjs'
-import { generationRawPassed } from './release-evidence-validation.mjs'
+import { readEvidenceReports, selectEvidenceReport } from './evidence-reports.mjs'
+import { GENERATION_LAYOUT_POLICY, generationPlatformsMatchDecision, generationRawPassed } from './spikes/electron-generation/evidence.mjs'
 
 const root = process.cwd()
 const evidenceIndex = process.argv.indexOf('--evidence-root')
 const evidenceRoot = path.resolve(evidenceIndex >= 0 ? process.argv[evidenceIndex + 1] : path.join(root, 'test-results', 'generation-spike'))
 const requireComplete = process.argv.includes('--require-complete')
 
-async function collectJson(directory) {
-  const found = []
-  let entries = []
-  try { entries = await fs.readdir(directory, { withFileTypes: true }) } catch { return found }
-  for (const entry of entries) {
-    const entryPath = path.join(directory, entry.name)
-    if (entry.isDirectory()) found.push(...await collectJson(entryPath))
-    else if (entry.isFile() && entry.name.endsWith('.json')) found.push(entryPath)
-  }
-  return found
-}
-
-const reports = []
-for (const file of await collectJson(evidenceRoot)) {
-  try {
-    const value = JSON.parse(await fs.readFile(file, 'utf8'))
-    if (Array.isArray(value.faultMatrix) && value.disk && value.durability) reports.push({ file, value })
-  } catch {
-    // 无关 JSON 不参与 Generation 决策。
-  }
-}
+const { reports, problems } = await readEvidenceReports(evidenceRoot)
 const provenance = await readGitProvenance(root)
-const windows = reports.find(({ value }) => value.platform === 'win32' && value.fileSystem === 'NTFS') ?? null
-const macos = reports.find(({ value }) => value.platform === 'darwin' && value.fileSystem === 'APFS') ?? null
-const failures = []
+const failures = [...problems]
 
-function verifyPlatform(name, report) {
-  if (!report) {
-    failures.push(`${name} raw report missing`)
+function verifyPlatform(platform, fileSystem, artifactPlatform) {
+  const name = `${artifactPlatform} ${fileSystem}`
+  const candidates = reports.filter(({ file, value }) => {
+    const canonical = /^generation-spike-(windows|macos)-.*\.json$/i.exec(path.basename(file))
+    if (canonical) return canonical[1].toLowerCase() === artifactPlatform.toLowerCase()
+    // Historical runs can supply renamed raw files. Summary reports also live in this directory.
+    return value?.platform === platform && value.fileSystem === fileSystem && Array.isArray(value.faultMatrix)
+  })
+  const { report, problem } = selectEvidenceReport(candidates)
+  if (problem) {
+    failures.push(`${name} raw report: ${problem}`)
     return null
   }
-  const value = report.value
-  const expectedPlatform = name === 'Windows NTFS' ? 'win32' : 'darwin'
-  const expectedFileSystem = name === 'Windows NTFS' ? 'NTFS' : 'APFS'
-  if (!generationRawPassed(value, expectedPlatform, expectedFileSystem)) {
+  const { value } = report
+  if (!generationRawPassed(value, platform, fileSystem)) {
     failures.push(`${name} raw report contract invalid`)
+    return null
   }
   if (value.gitCommit !== provenance.gitCommit) failures.push(`${name} git commit mismatch`)
   if (value.gitTree !== provenance.gitTree) failures.push(`${name} git tree mismatch`)
   if (value.sourceIdentity !== provenance.sourceIdentity) failures.push(`${name} source identity mismatch`)
-  if (requireComplete && value.workingTreeDirty !== false) failures.push(`${name} report was produced from a dirty working tree`)
-  if (!value.faultMatrix.every((item) => item.pass)) failures.push(`${name} fault matrix failed`)
-  if (!value.recoveryCases.every((item) => item.pass)) failures.push(`${name} recovery matrix failed`)
-  if (!value.faultMatrix.every((item) => Number.isFinite(item.recoveryMs) && item.recoveryMs < 5_000)) {
-    failures.push(`${name} fault recovery exceeded 5 seconds or was not measured`)
-  }
-  if (!value.recoveryCases.every((item) => Number.isFinite(item.recoveryMs) && item.recoveryMs < 5_000)) {
-    failures.push(`${name} marker recovery exceeded 5 seconds or was not measured`)
-  }
-  if (!Number.isFinite(value.disk.peakErrorRatio)) failures.push(`${name} disk peak error missing`)
-  if (value.disk.peakTargetPass !== true) failures.push(`${name} disk peak target failed`)
-  if (!String(value.isolation).includes('no production import')) failures.push(`${name} isolation evidence missing`)
   return {
     file: path.relative(root, report.file).replaceAll('\\', '/'),
     decision: value.decision,
@@ -70,12 +44,13 @@ function verifyPlatform(name, report) {
 }
 
 const platforms = {
-  windows: verifyPlatform('Windows NTFS', windows),
-  macos: verifyPlatform('macOS APFS', macos),
+  windows: verifyPlatform('win32', 'NTFS', 'Windows'),
+  macos: verifyPlatform('darwin', 'APFS', 'macOS'),
 }
 if (requireComplete && provenance.workingTreeDirty) failures.push('current release working tree is dirty')
-// Generation 目录布局政策：状态：No-Go；不部分上线；不创建实施 Epic。
-const GENERATION_LAYOUT_POLICY = 'generation-layout-no-go'
+if (platforms.windows && platforms.macos && !generationPlatformsMatchDecision(platforms)) {
+  failures.push('measured platform decisions differ from the approved Generation policy')
+}
 
 const report = {
   version: 1,

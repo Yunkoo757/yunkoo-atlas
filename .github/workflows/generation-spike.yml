@@ -6,6 +6,9 @@ on:
     paths:
       - 'scripts/spikes/electron-generation/**'
       - 'scripts/fixtures/generation-spike.test.mjs'
+      - 'scripts/fixtures/generation-decision.test.mjs'
+      - 'scripts/verify-generation-decision.mjs'
+      - 'scripts/evidence-reports.mjs'
       - '.github/workflows/generation-spike.yml'
 
 permissions:

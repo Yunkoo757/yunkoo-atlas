@@ -12,8 +12,6 @@ import {
   EXPECTED_FINAL_CHECK_NAMES,
   finalQualityManifestPassed,
   forcedKillPassed,
-  generationDecisionPassed,
-  generationRawPassed,
   jsonCompatibilityPassed,
   persistenceReleaseGatePassed,
   releaseTrainDrillsPassed,
@@ -21,7 +19,7 @@ import {
 import { fullQaPassed } from '../release-qa-plan.mjs'
 import { assetLifecyclePassed, electronSafetyPassed } from '../platform-regression.mjs'
 import { PERSISTENCE_BASELINE_METRICS } from '../persistence-baseline.mjs'
-import { CUTOVER_FAULT_POINTS, MiB } from '../spikes/electron-generation/generation-prototype.mjs'
+import { MiB } from '../spikes/electron-generation/generation-prototype.mjs'
 
 test('旧发布证据聚合器保持可独立复验，但不再耦合 tag 发布关键路径', () => {
   const source = fs.readFileSync('scripts/verify-release-train-evidence.mjs', 'utf8')
@@ -34,9 +32,7 @@ test('旧发布证据聚合器保持可独立复验，但不再耦合 tag 发布
   assert.match(source, /source identity mismatch/)
   assert.match(source, /release evidence was produced from a dirty working tree/)
   assert.match(source, /current release working tree is dirty/)
-  assert.match(source, /ambiguous reports:/)
-  assert.match(source, /invalid JSON:/)
-  assert.match(source, /name === 'release-train-drills\.json'/)
+  assert.match(source, /'release-train-drills\.json'/)
   assert.match(validation, /\['stop', 'rollback', 'userRecovery'\]/)
   assert.match(source, /forcedKillPassed\(value, 'win32', 'NTFS', SCHEMA_VERSION\)/)
   assert.match(source, /forcedKillPassed\(value, 'darwin', 'APFS', SCHEMA_VERSION\)/)
@@ -463,49 +459,4 @@ test('损坏、重复或不完整的演练与平台报告必须 fail-closed', ()
   assert.equal(jsonCompatibilityPassed({ ...compatibility, generatorScriptSha256: 'b'.repeat(64) }), false)
   assert.equal(jsonCompatibilityPassed({ ...compatibility, corpus: compatibility.corpus.slice(0, 1) }), false)
 
-  const expectedFaults = [
-    ...CUTOVER_FAULT_POINTS,
-    'disk-full-initial', 'disk-full-switch', 'target-occupied', 'cross-volume-exdev',
-  ]
-  const generation = {
-    version: 1,
-    platform: 'darwin', fileSystem: 'APFS', decision: 'NO_GO_ON_THIS_PLATFORM', workingTreeDirty: false,
-    recoverySloMs: 5_000,
-    faultMatrix: expectedFaults.map((name) => ({
-      name, expectedFailure: true, observedFailure: true, neverMixed: true, pass: true, recoveryMs: 1,
-    })),
-    recoveryCases: [
-      ['marker-missing', 'old'],
-      ['marker-corrupt', 'old'],
-      ['incomplete-generation', 'old'],
-      ['incomplete-old-generation', 'new'],
-    ].map(([name, recovered]) => ({ name, recovered, pass: true, recoveryMs: 1 })),
-    disk: {
-      formula: 'requiredFree = expandedTemp + rollbackCopy + max(512 MiB, operationBytes * 10%)',
-      expandedTemp: 20, rollbackCopy: 10, operationBytes: 20,
-      safetyReserve: 512 * MiB, requiredFree: 30 + 512 * MiB,
-      predictedAdditionalPeakBytes: 30, peakErrorRatio: 0.01, peakTargetPass: true,
-    },
-    durability: { fileFsyncExercised: true, directoryFsyncSupported: false },
-    reasons: ['directory fsync durability barrier unavailable'],
-    isolation: 'scripts/spikes/electron-generation only; no production import',
-  }
-  assert.equal(generationRawPassed(generation, 'darwin', 'APFS'), true)
-  assert.equal(generationRawPassed({ ...generation, faultMatrix: [{ pass: false, recoveryMs: 1 }] }, 'darwin', 'APFS'), false)
-  assert.equal(generationRawPassed({
-    ...generation,
-    decision: 'GO_ELIGIBLE_ON_THIS_PLATFORM',
-    durability: { fileFsyncExercised: true, directoryFsyncSupported: true },
-    reasons: [],
-  }, 'darwin', 'APFS'), true)
-  const decision = {
-    version: 1, status: 'pass', decision: 'NO_GO', workingTreeDirty: false, failures: [],
-    platforms: {
-      windows: { decision: 'NO_GO_ON_THIS_PLATFORM' },
-      macos: { decision: 'GO_ELIGIBLE_ON_THIS_PLATFORM' },
-    },
-    adr: 'generation-layout-no-go',
-  }
-  assert.equal(generationDecisionPassed(decision), true)
-  assert.equal(generationDecisionPassed({ ...decision, platforms: { windows: decision.platforms.windows, macos: null } }), false)
 })
