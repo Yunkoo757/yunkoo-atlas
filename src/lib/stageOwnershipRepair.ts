@@ -10,6 +10,7 @@ import type { WeeklyReview } from '@/data/weeklyReviews'
 import { isValidLiveCycleDayKey, openedTradingDayKey } from '@/lib/liveCycle'
 import { assertValidLiveStageState, type LiveStage } from '@/lib/liveStages'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
+import { assignTradeStage } from '@/lib/tradeKind'
 import { isExecutedClosed, isMissed } from '@/lib/tradeStatus'
 import { isCanonicalWeeklyReviewPeriod, stageContainsWeeklyReviewPeriod } from '@/lib/weeklyReviewPeriod'
 
@@ -231,16 +232,14 @@ function affectedTradesForBoundaryShift(
   function keepInStage(id: string | undefined) {
     if (id && affected.delete(id)) retained.add(id)
   }
-  for (const event of state.riskOverrideEvents) {
-    if (event.liveStageId === previousStageId) keepInStage(event.tradeId)
-  }
   for (const review of state.weeklyReviews) {
     if (review.liveStageId !== previousStageId) continue
     for (const id of weeklyReviewTradeReferences(review).keys()) keepInStage(id)
   }
-  for (const trade of state.trades) {
-    if (trade.tradeKind === 'case' && typeof trade.liveStageId === 'string' &&
-        trade.liveStageId !== targetStageId && !affected.has(trade.id)) keepInStage(trade.sourceTradeId)
+  for (const { tradeId, entity } of tradeOwnershipDependents(state)) {
+    if (typeof entity.liveStageId !== 'string' || entity.liveStageId === targetStageId) continue
+    if ('tradeKind' in entity && affected.has(entity.id)) continue
+    keepInStage(tradeId)
   }
   for (const id of retained) {
     keepInStage(sourceByCase.get(id))
@@ -663,32 +662,58 @@ function weeklyReviewPeriodForAssignment(
   return period
 }
 
-/** Repair only unambiguous dates within existing boundaries; never shift a stage or guess a date. */
+/** 自动归属只考虑可靠日期和已存在的阶段。先分配交易，再用同一批结果判断周复盘。 */
 export function prepareAutomaticStageOwnership<T extends StageOwnershipRepairState>(state: T): { snapshot: T; count: number } {
-  let snapshot = state
-  let count = 0
-  for (const item of listPendingStageOwnership(state)) {
-    let candidates: LiveStage[] = []
-    if (item.entityType === 'live-trade' || item.entityType === 'missed-trade') {
-      const trade = snapshot.trades.find(trade => trade.id === item.entityId)
-      if (!trade || trade.tradeKind !== 'live') continue
-      const day = reliableTradeDay(snapshot, trade)
-      if (!day) continue
-      candidates = snapshot.liveStages.filter(stage => stage.startsOn <= day && (stage.endsOn === null || day <= stage.endsOn))
-    } else if (item.entityType === 'weekly-review' && !item.requiresWeeklyPeriodCorrection) {
-      const review = snapshot.weeklyReviews.find(review => review.id === item.entityId)
-      if (!review || !isCanonicalWeeklyReviewPeriod(review.weekStart, review.weekEnd)) continue
-      candidates = snapshot.liveStages.filter(stage => stageContainsWeeklyReviewPeriod(stage, review.weekStart, review.weekEnd))
+  const unchanged = { snapshot: state, count: 0 }
+  if (!state.trades.some(t => t.tradeKind === 'live' && t.liveStageId === null) &&
+      !state.weeklyReviews.some(r => r.liveStageId === null)) return unchanged
+  try {
+    validateTargetStage(state, state.currentLiveStageId)
+  } catch (error) {
+    if (error instanceof StageOwnershipRepairError) return unchanged
+    throw error
+  }
+
+  const targets = new Map<string, string>()
+  const seen = new Set<string>()
+  for (const trade of state.trades) {
+    // 编号有歧义时不自动分配。重复记录的出现顺序不能改变结果。
+    if (seen.has(trade.id)) {
+      targets.delete(trade.id)
+      continue
     }
-    if (candidates.length !== 1) continue
-    const latest = listPendingStageOwnership(snapshot).find(candidate => candidate.entityId === item.entityId && candidate.entityType === item.entityType)
-    if (!latest) continue
+    seen.add(trade.id)
+    if (trade.tradeKind !== 'live' || trade.liveStageId !== null || trade.backtestProjectId !== undefined) continue
+    const day = reliableTradeDay(state, trade)
+    if (!day) continue
+    const stage = state.liveStages.find(s => s.startsOn <= day && (s.endsOn === null || day <= s.endsOn))
+    if (stage) targets.set(trade.id, stage.id)
+  }
+  for (const { tradeId, entity } of tradeOwnershipDependents(state)) {
+    const target = targets.get(tradeId)
+    if (target && !compatibleDependentStage(entity, target)) targets.delete(tradeId)
+  }
+
+  let count = targets.size
+  let snapshot = state
+  if (count) {
+    const trades = state.trades.map(trade => {
+      const target = targets.get(trade.id)
+      return target ? assignTradeStage(trade, target) : trade
+    })
+    snapshot = { ...state, trades }
+  }
+  for (const review of state.weeklyReviews) {
+    if (review.liveStageId !== null || review.legacyPeriodQuarantine === true) continue
+    const stage = state.liveStages.find(s => stageContainsWeeklyReviewPeriod(s, review.weekStart, review.weekEnd))
+    if (!stage) continue
     try {
-      snapshot = assignPendingStageOwnership(snapshot, { entityType: latest.entityType, entityId: latest.entityId, liveStageId: candidates[0].id, expectedFingerprint: latest.fingerprint })
+      snapshot = assignPendingStageOwnership(snapshot, {
+        entityType: 'weekly-review', entityId: review.id, liveStageId: stage.id, expectedFingerprint: fingerprint(review),
+      })
       count++
     } catch (error) {
       if (!(error instanceof StageOwnershipRepairError)) throw error
-      // Dependencies/conflicts stay in the manual queue, without changing them.
     }
   }
   return { snapshot, count }
@@ -713,17 +738,21 @@ function requireReferenceStage(
   }
 }
 
-function requireAssignedDependentStage(
-  entity: unknown,
-  targetId: string,
-  label: string,
-): void {
-  const liveStageId = typeof entity === 'object' && entity !== null && 'liveStageId' in entity
-    ? entity.liveStageId
-    : undefined
-  // 待归属的下游实体尚未选择阶段，允许先修复来源；已有归属则必须同阶段。
-  if (liveStageId === null) return
-  if (liveStageId === undefined || liveStageId !== targetId) {
+function* tradeOwnershipDependents(state: StageOwnershipRepairState) {
+  for (const entity of state.trades) {
+    if (entity.tradeKind === 'case' && entity.sourceTradeId) yield { tradeId: entity.sourceTradeId, entity, label: '引用该交易的案例' }
+  }
+  for (const entity of state.riskOverrideEvents) {
+    yield { tradeId: entity.tradeId, entity, label: '引用该交易的风险覆盖记录' }
+  }
+}
+
+function compatibleDependentStage(entity: { liveStageId?: string | null }, targetId: string) {
+  return entity.liveStageId === null || entity.liveStageId === targetId
+}
+
+function requireAssignedDependentStage(entity: { liveStageId?: string | null }, targetId: string, label: string): void {
+  if (!compatibleDependentStage(entity, targetId)) {
     throw new StageOwnershipRepairError('relationship-conflict', `${label}已归入其他阶段，不能把其来源分配到目标阶段`)
   }
 }
@@ -860,12 +889,8 @@ function validateRelationshipGraph(
   }
 
   if (located.entityType === 'live-trade' || located.entityType === 'missed-trade' || located.entityType === 'case-trade') {
-    const id = located.entity.id
-    for (const reviewCase of state.trades.filter((candidate) => candidate.tradeKind === 'case' && candidate.sourceTradeId === id)) {
-      requireAssignedDependentStage(reviewCase, targetId, '引用该交易的案例')
-    }
-    for (const override of state.riskOverrideEvents.filter((candidate) => candidate.tradeId === id)) {
-      requireAssignedDependentStage(override, targetId, '引用该交易的风险覆盖记录')
+    for (const dependent of tradeOwnershipDependents(state)) {
+      if (dependent.tradeId === located.entity.id) requireAssignedDependentStage(dependent.entity, targetId, dependent.label)
     }
   }
 }
@@ -881,7 +906,7 @@ function replaceOwnership<T extends { id: string; liveStageId?: string | null }>
 function replaceTradeOwnership(records: Trade[], entityId: string, liveStageId: string | null): Trade[] {
   return records.map((trade) => (
     trade.id === entityId && trade.tradeKind !== 'paper'
-      ? { ...trade, liveStageId }
+      ? assignTradeStage(trade, liveStageId)
       : trade
   ))
 }

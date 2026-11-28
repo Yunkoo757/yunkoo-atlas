@@ -3,6 +3,7 @@ import {
   applyRecommendedStageBoundaryRepair,
   assignPendingStageOwnership,
   listPendingStageOwnership,
+  prepareAutomaticStageOwnership,
   recommendStageBoundaryRepair,
   rollbackAssignedStageOwnership,
   StageOwnershipRepairError,
@@ -947,4 +948,39 @@ export function testBoundaryRepairKeepsHistoricalSourcesAndStillMovesIndependent
   }
   const conflicting = { ...scenarios[0]!, weeklyReviews: [{ ...pending, followUpTradeIds: ['root'] }, ...scenarios[0]!.weeklyReviews.slice(1)] }
   assert(recommendStageBoundaryRepair(conflicting, pending.id) === null, '目标周也需要同一条受保护记录时不能推荐不可落盘的设置')
+}
+
+export function testAutomaticOwnershipReadsEachTradeBodyABoundedNumberOfTimes(): void {
+  const state = pendingState()
+  let reads = 0
+  state.trades = Array.from({ length: 120 }, (_, i) => {
+    const item = trade('pending-' + i)
+    Object.defineProperty(item, 'note', { enumerable: true, get() { reads++; return '历史正文' } })
+    return item
+  })
+  state.weeklyReviews = [{ ...state.weeklyReviews[0]!, riskSnapshot: undefined, highlightTradeIds: ['pending-1'] }]
+  const result = prepareAutomaticStageOwnership(state)
+  assert(result.count === 121 && result.snapshot.weeklyReviews[0]!.liveStageId === 'stage-old',
+    '交易先完成归属，周复盘再使用同批交易的阶段')
+  assert(reads <= state.trades.length * 5, '自动修复不应为每笔交易重新读取全部待整理正文')
+  assert(state.trades.every(t => t.tradeKind !== 'paper' && t.liveStageId === null) && state.weeklyReviews[0]!.liveStageId === null,
+    '预览不得改写原记录')
+}
+
+export function testAutomaticOwnershipRespectsAssignedDependentsAndKeepsAmbiguousRowsPending(): void {
+  const state = pendingState()
+  const shared = trade('shared', { liveStageId: null })
+  const other = trade('other')
+  state.trades = [shared, other,
+    trade('child', { tradeKind: 'case', liveStageId: 'stage-current', sourceTradeId: shared.id }),
+    trade('dup'), trade('dup'), trade('bad-day', { closedTradingDayKey: 'invalid' }),
+  ]
+  state.weeklyReviews = []
+  state.riskOverrideEvents = [{ ...state.riskOverrideEvents[0]!, tradeId: other.id, liveStageId: 'stage-current' }]
+  const original = prepareAutomaticStageOwnership(state)
+  assert(original.count === 0 && original.snapshot === state, '已有案例、风险记录、重复编号或无可靠日期不能被自动覆盖')
+  const released = { ...state, riskOverrideEvents: [] }
+  const result = prepareAutomaticStageOwnership(released)
+  assert(result.count === 1 && result.snapshot.trades[1]?.tradeKind === 'live' && result.snapshot.trades[1].liveStageId === 'stage-old',
+    '解除风险记录归属约束后只修复独立交易')
 }
