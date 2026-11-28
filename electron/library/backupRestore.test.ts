@@ -7,7 +7,7 @@ import { DEFAULT_SYMBOL_CATALOG } from '../../src/lib/symbolIconCodec'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import { createVerifiedBackup, deleteBackupAtPath, listBackups, restoreBackupAtPath, rotateBackups, verifyBackupAtPath, writeLibraryBackup } from './backup'
 import { LibraryAutoBackup } from './autoBackup'
-import { restoreLibraryBackup } from './backupRestore'
+import { restoreLibraryBackup, type RestorePoint } from './backupRestore'
 import { LibraryOperationGate } from './sessionGate'
 import { LibraryStorage, SnapshotSaveError } from './storage'
 
@@ -23,6 +23,10 @@ async function isolatedSession() {
       assert.ok(active)
       return work(active)
     }),
+    assertTarget(target) {
+      assert.equal(target.libraryPath, root)
+      assert.equal(target.libraryId, first.readManifest().libraryId)
+    },
     close(current) {
       assert.ok(gate.isExclusive())
       assert.equal(current, active)
@@ -31,12 +35,12 @@ async function isolatedSession() {
       active = null
       events.push('close')
     },
-    async reopen(safetyBackupPath?: string) {
+    async reopen(point?: RestorePoint) {
       assert.ok(gate.isExclusive(), '重开与接管写入路由都必须在原请求持锁期间完成')
       assert.equal(active, null)
       const next = new LibraryStorage(root, { allowCreate: false })
-      await next.open()
-      autoBackup.start(next, safetyBackupPath)
+      await next.open(point?.libraryId)
+      autoBackup.start(next, point?.backupPath)
       active = next
       events.push('reopen')
       return next

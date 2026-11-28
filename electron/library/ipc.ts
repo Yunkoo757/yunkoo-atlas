@@ -17,6 +17,7 @@ import { LibraryStorage } from './storage'
 import { exportJournalZip, installPreparedLibraryAtPath } from './journalZip'
 import { ensureLibraryDirs, isSameDirectory } from './paths'
 import {
+  assertConfiguredLibraryTarget,
   getLibraryLocationState,
   getValidatedLibraryLocation,
   libraryLocationError,
@@ -46,7 +47,7 @@ import { LibrarySwitchTargets } from './librarySwitchTargets'
 import { LibrarySwitchRequests } from './librarySwitchRequests'
 import { randomUUID } from 'node:crypto'
 import { assertExitWithinDeadline, releaseThenFinalizeWithRollback } from '../quitCoordinator'
-import { createVerifiedRestorePoint, restoreLibraryBackup } from './backupRestore'
+import { createVerifiedRestorePoint, restoreLibraryBackup, type RestorePoint } from './backupRestore'
 import { beginOperation, type OperationLogHandle } from '../operationLogger'
 import { assertValidPersistedSnapshot } from '../../src/storage/snapshotValidation'
 import type {
@@ -306,14 +307,14 @@ function closeStorageForRestore(current: LibraryStorage): void {
   storage = null
 }
 
-async function openConfiguredStorage(safetyBackupPath?: string): Promise<LibraryStorage> {
-  const location = await getValidatedLibraryLocation()
+async function openConfiguredStorage(restorePoint?: RestorePoint): Promise<LibraryStorage> {
+  const location = await getValidatedLibraryLocation(restorePoint)
   if (location.kind === 'unset') throw new Error('尚未配置交易库，请先选择或创建交易库目录')
   if (location.kind !== 'ready') throw libraryLocationError(location)
   const candidate = createRuntimeLibraryStorage(location.resolvedPath, { ensureDirectories: false, allowCreate: false })
   await openValidatedLibraryCandidate(candidate, location.verifiedLibraryId)
   try {
-    if (safetyBackupPath) autoBackup.start(candidate, safetyBackupPath)
+    if (restorePoint) autoBackup.start(candidate, restorePoint.backupPath)
     else ensureLibraryDirs(location.resolvedPath)
     storage = candidate
     return candidate
@@ -323,12 +324,12 @@ async function openConfiguredStorage(safetyBackupPath?: string): Promise<Library
   }
 }
 
-async function reopenAfterRestoreFailure(safetyBackupPath: string): Promise<LibraryStorage> {
+async function reopenAfterRestoreFailure(point: RestorePoint): Promise<LibraryStorage> {
   try {
-    return await openConfiguredStorage(safetyBackupPath)
+    return await openConfiguredStorage(point)
   } catch (firstError) {
     safeConsoleError('backup-reopen-first-attempt-failed', firstError)
-    return openConfiguredStorage(safetyBackupPath)
+    return openConfiguredStorage(point)
   }
 }
 
@@ -793,6 +794,7 @@ export function registerLibraryIpc(): void {
         }
         return receipt
       }),
+      assertTarget: assertConfiguredLibraryTarget,
       close: closeStorageForRestore,
       reopen: reopenAfterRestoreFailure,
       notifyRecoveryRequired: notifyStorageRecoveryRequired,
@@ -854,28 +856,28 @@ export function registerLibraryIpc(): void {
       revisionBefore: readLogRevision(activeStorage),
     })
     let replacementCommitted = false
-    let safetyBackupPath: string | undefined
+    let prepared: RestorePoint | undefined
     try {
-      const safety = await createVerifiedRestorePoint(activeStorage)
+      const safety = await createVerifiedRestorePoint(activeStorage, assertConfiguredLibraryTarget)
       if (!safety.ok) {
         entry.retry()
         operation.failure(new Error(safety.error), { stage: 'commit' })
         return { ok: false as const, committed: false, error: safety.error }
       }
       const libraryPath = activeStorage.getLibraryPath()
-      safetyBackupPath = safety.path
+      prepared = safety.point
       entry.state = 'consumed'
       closeStorageForRestore(activeStorage)
       await installPreparedLibraryAtPath(libraryPath, entry.stagedLibraryRoot)
       replacementCommitted = true
-      const reopened = await openConfiguredStorage(safety.path)
+      const reopened = await openConfiguredStorage(safety.point)
       const envelope = reopened.loadSnapshotEnvelope()
       entry.dispose()
       operation.success({ stage: 'committed', revisionAfter: envelope.revision })
       return { ok: true as const, committed: true as const, ...envelope, writerGrant: writers.grant(event, reopened) }
     } catch (error) {
       operation.failure(error, { stage: 'commit' })
-      const restorePoint = safetyBackupPath
+      const restorePoint = prepared
       if (restorePoint) {
         let writerGrant: WriterGrant | undefined
         const failure = await recoverPreparedImportCommitFailure({

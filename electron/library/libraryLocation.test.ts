@@ -57,6 +57,30 @@ function dependencies(options: {
   }
 }
 
+export async function testBoundRestoreLocationRejectsPathAndIdentityChangesBeforeOpeningAnotherDatabase() {
+  const current = { libraryPath: fixturePath('active'), libraryId: 'active-id' }
+  const other = fixturePath('other')
+  for (const config of [{ libraryPath: other, libraryId: current.libraryId }, { ...current, libraryId: 'changed' }]) {
+    const probes: string[] = []
+    const state = await resolveLibraryLocation(dependencies({
+      config: JSON.stringify(config),
+      entries: { [config.libraryPath]: 'directory' },
+      validation: { [config.libraryPath]: { libraryId: config.libraryId } },
+      probes,
+    }), current)
+    assert(state.kind === 'invalid', '活动恢复事务不得采用另一条路径或另一份配置身份')
+    assert(!probes.some(probe => probe.startsWith('validate:')), '判定位置不符时不得打开替代目录中的 SQLite')
+  }
+  const probes: string[] = []
+  const legacy = await resolveLibraryLocation(dependencies({
+    config: JSON.stringify({ libraryPath: current.libraryPath }),
+    entries: { [current.libraryPath]: 'directory' },
+    validation: { [current.libraryPath]: { libraryId: current.libraryId } },
+    probes,
+  }), current)
+  assert(legacy.kind === 'ready' && probes.includes('validate:active-id'), '旧配置缺少身份时也须按本次恢复的库身份开库')
+}
+
 export async function testMissingConfigurationAndDefaultIsUnset(): Promise<void> {
   const state = await resolveLibraryLocation(dependencies())
   assert(state.kind === 'unset', '首次运行且默认库不存在时必须返回 unset')

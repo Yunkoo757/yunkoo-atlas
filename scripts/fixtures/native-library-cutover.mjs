@@ -83,6 +83,38 @@ async function verifyRejectedSwitchPreservesBackups(page, libraryPath, candidate
   return { sourceRetained: oldNames.length, candidateRetained: candidateNames.length, candidateAfterActivation: 7 }
 }
 
+async function verifyRestoreTarget(page, libraryPath, candidatePath, userDataPath) {
+  const config = path.join(userDataPath, 'library-config.json')
+  const original = fs.readFileSync(config)
+  const configured = JSON.parse(original)
+  assert.equal(configured.libraryPath, libraryPath)
+  const otherId = JSON.parse(fs.readFileSync(path.join(candidatePath, 'manifest.json'), 'utf8')).libraryId
+  const source = await page.evaluate(() => window.journalBridge.createVerifiedBackup())
+  assert.equal(source?.status, 'verified')
+  const preview = await page.evaluate(() => window.journalBridge.prepareJournalImport('moved-restore-target'))
+  assert.ok(preview.ok)
+  const database = root => fs.readFileSync(path.join(root, 'journal.db'))
+  const before = [database(libraryPath), database(candidatePath)]
+  try {
+    fs.writeFileSync(config, JSON.stringify({ libraryPath: candidatePath, libraryId: otherId }), 'utf8')
+    const results = await page.evaluate(async ([file, token]) => {
+      const bridge = window.journalBridge
+      return [await bridge.restoreBackup(file), await bridge.commitPreparedJournalImport(token)]
+    }, [source.path, preview.preview.token])
+    for (const result of results) {
+      assert.equal(result.ok, false)
+      assert.equal(result.committed, false, '配置已在恢复前改变，两条入口都必须在关闭活动库前拒绝')
+      assert.match(result.error, /资料库位置或身份已变化/)
+    }
+    assert.deepEqual(database(libraryPath), before[0])
+    assert.deepEqual(database(candidatePath), before[1])
+    assert.equal(await page.evaluate(() => window.journalBridge.getLibraryPath()), libraryPath)
+  } finally {
+    fs.writeFileSync(config, original)
+    await page.evaluate(token => window.journalBridge.cancelPreparedJournalImport(token), preview.preview.token)
+  }
+}
+
 async function verifyConfigPublication(application, page, libraryPath, candidatePath, userDataPath) {
   // 只干预隔离 userData 中、已经 rename 的临时配置文件。Windows 同样执行这条收尾路径。
   async function activateWithFinalizationFault(target, denyReadback) {
@@ -318,7 +350,8 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
     return !stale.ok && stale.error?.includes('当前交易库已变化') && await bridge.getLibraryPath() === libraryPath
   }, { libraryPath, candidatePath })
   assert.ok(staleSourceRejected, '回到相同路径的新实例后仍须拒绝原资料库的切换请求')
+  await verifyRestoreTarget(page, libraryPath, candidatePath, userDataPath)
   const retention = await verifyRejectedSwitchPreservesBackups(page, libraryPath, candidatePath, userDataPath, candidateBackup)
   const location = await verifyConfigPublication(application, page, libraryPath, candidatePath, userDataPath)
-  return { ...receipts, retention, location, abandonedPreviewRejected: true, staleSourceRejected, switchDocumentChecked: true }
+  return { ...receipts, retention, location, restoreTargetChecked: true, abandonedPreviewRejected: true, staleSourceRejected, switchDocumentChecked: true }
 }

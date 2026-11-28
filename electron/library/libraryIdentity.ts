@@ -2,6 +2,11 @@ import fs from 'node:fs'
 import { assertCompatibleManifest } from '../../src/storage/manifestCompatibility'
 import type { LibraryManifest } from '../../src/storage/types'
 
+export interface LibraryTarget {
+  libraryPath: string
+  libraryId: string
+}
+
 export class LibraryIdentityMismatchError extends Error {
   constructor() {
     super('资料库身份与已保存配置不一致，请明确选择正确的资料库')

@@ -2,22 +2,31 @@ import type { BackupReference, BackupRestoreResult, StorageRecoveryRequiredState
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import { safeConsoleError } from '../diagnosticSanitizer'
 import { createVerifiedBackup, selectedBackupFile, withVerifiedBackup } from './backup'
+import type { LibraryTarget } from './libraryIdentity'
 import type { LibraryStorage } from './storage'
 import { withStorageRecoveryNotification } from './storageRecovery'
 
-export async function createVerifiedRestorePoint(current: LibraryStorage): Promise<
-  { ok: true; path: string } | { ok: false; error: string }
-> {
+export interface RestorePoint extends LibraryTarget {
+  backupPath: string
+}
+
+export async function createVerifiedRestorePoint(
+  current: LibraryStorage,
+  assertTarget: (target: LibraryTarget) => void,
+): Promise<{ ok: true; point: RestorePoint } | { ok: false; error: string }> {
+  const target = { libraryPath: current.getLibraryPath(), libraryId: current.readManifest().libraryId }
+  assertTarget(target)
   const backup = await createVerifiedBackup(current)
   if (!backup) return { ok: false, error: '无法创建恢复前安全备份' }
   if (backup.status !== 'verified') return { ok: false, error: backup.error ?? '恢复前安全备份验证失败' }
-  return { ok: true, path: backup.path }
+  return { ok: true, point: { ...target, backupPath: backup.path } }
 }
 
 interface BackupRestoreSession {
   withExclusiveWriter(work: (current: LibraryStorage) => Promise<RestoreReceipt>): Promise<RestoreReceipt>
+  assertTarget(target: LibraryTarget): void
   close(current: LibraryStorage): void
-  reopen(safetyBackupPath: string): Promise<LibraryStorage>
+  reopen(point: RestorePoint): Promise<LibraryStorage>
   notifyRecoveryRequired(state: StorageRecoveryRequiredState): void
 }
 
@@ -34,7 +43,7 @@ export async function restoreLibraryBackup(reference: BackupReference, session: 
       const fileName = selectedBackupFile(current, reference)
       return withVerifiedBackup(libraryPath, fileName, current.readManifest().libraryId, async (verification, install): Promise<RestoreReceipt> => {
         if (!install) return { ok: false, committed: false, error: verification.error }
-        const safety = await createVerifiedRestorePoint(current)
+        const safety = await createVerifiedRestorePoint(current, session.assertTarget)
         if (!safety.ok) return { ok: false, committed: false, error: safety.error }
 
         const clean = current.createSnapshotDatabaseCleaner()
@@ -43,7 +52,7 @@ export async function restoreLibraryBackup(reference: BackupReference, session: 
         let reopened: LibraryStorage | undefined
         try {
           install(clean)
-          reopened = await session.reopen(safety.path)
+          reopened = await session.reopen(safety.point)
           let envelope = reopened.loadSnapshotEnvelope()
           if (!envelope.snapshot && verification.emptyLibrary) {
             reopened.saveSnapshot(createEmptyPersistedSnapshot())
@@ -54,7 +63,7 @@ export async function restoreLibraryBackup(reference: BackupReference, session: 
         } finally {
           if (!reopened) {
             // 持锁重开并重建自动备份；写入资格由已确认的恢复结果决定。
-            try { await session.reopen(safety.path) }
+            try { await session.reopen(safety.point) }
             catch (error) { safeConsoleError('backup-reopen-after-restore-failed', error) }
           }
         }

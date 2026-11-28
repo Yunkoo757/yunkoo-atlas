@@ -1,11 +1,11 @@
 import type { LibraryLocationState } from '../../src/types/journalBridge'
 import fs from 'node:fs'
 import path from 'node:path'
-import { assertLibraryIdentity, LibraryIdentityMismatchError } from './libraryIdentity'
+import { assertLibraryIdentity, LibraryIdentityMismatchError, type LibraryTarget } from './libraryIdentity'
 import { LibraryStorage } from './storage'
 import electronRuntime from 'electron'
 import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
-import { getLibraryPaths } from './paths'
+import { getLibraryPaths, isSameDirectory } from './paths'
 import { OperationalError } from '../../src/lib/operationalError'
 
 const CONFIG_FILE = 'library-config.json'
@@ -29,7 +29,7 @@ export class UnconfirmedLibraryConfigError extends Error {
   }
 }
 
-export function saveLibraryConfig(cfg: { libraryPath: string; libraryId: string }): void {
+export function saveLibraryConfig(cfg: LibraryTarget): void {
   const configFile = getConfigPath()
   const bytes = Buffer.from(JSON.stringify(cfg, null, 2), 'utf8')
   let replaced = false
@@ -109,9 +109,10 @@ function parseConfig(
   }
 }
 
-export async function resolveLibraryLocation(
+function selectLibraryLocation(
   dependencies: LibraryLocationResolverDependencies,
-): Promise<ValidatedLibraryLocation> {
+  expected?: LibraryTarget,
+): SelectedLocation | Extract<LibraryLocationState, { kind: 'invalid' | 'unavailable' }> {
   let selected: SelectedLocation
   let configKind: 'missing' | 'file' | 'directory'
   try {
@@ -153,6 +154,20 @@ export async function resolveLibraryLocation(
     }
   }
 
+  if (!expected) return selected
+  if (!isSameDirectory(selected.resolvedPath, expected.libraryPath) ||
+      (selected.expectedLibraryId !== undefined && selected.expectedLibraryId !== expected.libraryId)) {
+    return { kind: 'invalid', configuredPath: selected.configuredPath, reason: '资料库位置或身份已变化，请重新打开后再恢复' }
+  }
+  return { ...selected, expectedLibraryId: expected.libraryId }
+}
+
+export async function resolveLibraryLocation(
+  dependencies: LibraryLocationResolverDependencies,
+  expected?: LibraryTarget,
+): Promise<ValidatedLibraryLocation> {
+  const selected = selectLibraryLocation(dependencies, expected)
+  if ('kind' in selected) return selected
   let targetKind: 'missing' | 'file' | 'directory'
   try {
     targetKind = dependencies.inspectPath(selected.resolvedPath)
@@ -237,8 +252,8 @@ async function validateExistingLibrary(libraryPath: string, expectedLibraryId?: 
   }
 }
 
-export function getValidatedLibraryLocation(): Promise<ValidatedLibraryLocation> {
-  return resolveLibraryLocation({
+function runtimeLocationDependencies(): LibraryLocationResolverDependencies {
+  return {
     configPath: getConfigPath(),
     environmentPath: process.env.TRADER_ATLAS_LIBRARY,
     defaultPath: path.join(requireAppPath('documents'), 'Trader Atlas'),
@@ -246,7 +261,16 @@ export function getValidatedLibraryLocation(): Promise<ValidatedLibraryLocation>
     inspectPath,
     assertReadableWritable: (filePath) => fs.accessSync(filePath, fs.constants.R_OK | fs.constants.W_OK),
     validateExistingLibrary,
-  })
+  }
+}
+
+export function assertConfiguredLibraryTarget(target: LibraryTarget): void {
+  const selected = selectLibraryLocation(runtimeLocationDependencies(), target)
+  if ('kind' in selected) throw libraryLocationError(selected)
+}
+
+export function getValidatedLibraryLocation(expected?: LibraryTarget): Promise<ValidatedLibraryLocation> {
+  return resolveLibraryLocation(runtimeLocationDependencies(), expected)
 }
 
 export async function getLibraryLocationState(): Promise<LibraryLocationState> {
