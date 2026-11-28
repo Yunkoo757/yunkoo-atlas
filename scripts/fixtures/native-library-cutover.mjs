@@ -248,6 +248,39 @@ async function verifyRestoreSafetyCopies(page, sample) {
   await page.evaluate(snapshot => window.journalBridge.saveSnapshot(snapshot), previous)
 }
 
+async function holdArchiveSelection(application, page, destination) {
+  fs.writeFileSync(destination, 'previous selection')
+  await application.evaluate(({ dialog }, filePath) => {
+    const original = dialog.showSaveDialog
+    let entered
+    globalThis.archivePickerEntered = new Promise(resolve => { entered = resolve })
+    dialog.showSaveDialog = async () => {
+      dialog.showSaveDialog = original
+      entered()
+      await new Promise(resolve => { globalThis.finishArchivePicker = resolve })
+      return { canceled: false, filePath }
+    }
+  }, destination)
+  const pending = page.evaluate(() => window.journalBridge.exportJournalZip()).catch(error => ({ error: error.message }))
+  await application.evaluate(() => globalThis.archivePickerEntered)
+  return async () => {
+    await application.evaluate(async () => {
+      globalThis.finishArchivePicker()
+      delete globalThis.archivePickerEntered
+      delete globalThis.finishArchivePicker
+      await new Promise(resolve => setImmediate(resolve))
+    })
+    const result = await pending
+    // 文档刷新会先丢弃 renderer 的 Promise。等主进程可再次读取，才检查目标文件。
+    await page.waitForFunction(async () => {
+      try { return Boolean(await window.journalBridge.getLibraryPath()) }
+      catch { return false }
+    }, undefined, { timeout: 10_000 })
+    assert.equal(fs.readFileSync(destination, 'utf8'), 'previous selection')
+    return result
+  }
+}
+
 export async function verifyCutoverReceipts({ application, page: workspace, libraryPath, candidatePath, userDataPath }) {
   // 界面阶段已完成真实恢复和接续保存。创建同一主进程的专用窗口，使旧界面的
   // beforeunload 自动保存与直接 IPC 验收相互独立。窗口仍加载相同受信入口与生产 preload。
@@ -298,8 +331,11 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
   assert.ok(await page.evaluate(token => window.journalBridge.cancelPreparedLibrary(token), inPage.token))
   const oldDocument = await prepareNew()
   assert.ok(oldDocument.ok)
+  const heldExportPath = path.join(path.dirname(libraryPath), 'previous-selection.journal.zip')
+  const finishOldDocument = await holdArchiveSelection(application, page, heldExportPath)
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.evaluate(() => window.journalBridge.storageOpen())
+  await finishOldDocument()
   assert.equal(await page.evaluate(token => window.journalBridge.cancelPreparedLibrary(token), oldDocument.token), false)
   const freshDocument = await prepareNew()
   assert.ok(freshDocument.ok)
@@ -341,24 +377,7 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
     await bridge.saveSnapshot(original)
     return { candidateBackup, staleStage: stale.reason, backup: true, archive: true, create: true, reopen: true }
   }, { libraryPath, candidatePath })
-  const heldExportPath = path.join(path.dirname(libraryPath), 'previous-selection.journal.zip')
-  fs.writeFileSync(heldExportPath, 'previous selection')
-  await application.evaluate(({ dialog }, destination) => {
-    const original = dialog.showSaveDialog
-    let entered
-    globalThis.archivePickerEntered = new Promise(resolve => { entered = resolve })
-    dialog.showSaveDialog = async () => {
-      dialog.showSaveDialog = original
-      entered()
-      await new Promise(resolve => { globalThis.finishArchivePicker = resolve })
-      return { canceled: false, filePath: destination }
-    }
-  }, heldExportPath)
-  const pendingExport = page.evaluate(async () => {
-    try { await window.journalBridge.exportJournalZip(); return '' }
-    catch (error) { return error instanceof Error ? error.message : String(error) }
-  })
-  await application.evaluate(() => globalThis.archivePickerEntered)
+  const finishOldLibrary = await holdArchiveSelection(application, page, heldExportPath)
   const staleSourceRejected = await page.evaluate(async ({ libraryPath, candidatePath }) => {
     const bridge = window.journalBridge
     const ready = await bridge.prepareLibrarySwitch(candidatePath, 'open')
@@ -373,13 +392,7 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
     return !stale.ok && stale.error?.includes('当前交易库已变化') && await bridge.getLibraryPath() === libraryPath
   }, { libraryPath, candidatePath })
   assert.ok(staleSourceRejected, '回到相同路径的新实例后仍须拒绝原资料库的切换请求')
-  await application.evaluate(() => {
-    globalThis.finishArchivePicker()
-    delete globalThis.archivePickerEntered
-    delete globalThis.finishArchivePicker
-  })
-  assert.match(await pendingExport, /资料库已切换或重新打开/)
-  assert.equal(fs.readFileSync(heldExportPath, 'utf8'), 'previous selection')
+  assert.match((await finishOldLibrary()).error, /资料库已切换或重新打开/)
   await verifyRestoreTarget(page, libraryPath, candidatePath, userDataPath)
   const retention = await verifyRejectedSwitchPreservesBackups(page, libraryPath, candidatePath, userDataPath, candidateBackup)
   const location = await verifyConfigPublication(application, page, libraryPath, candidatePath, userDataPath)

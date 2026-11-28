@@ -13,6 +13,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { safeConsoleError } from '../diagnosticSanitizer'
 import { JournalImportPreviews } from './journalImportPreviews'
+import { onRendererDocumentEnd } from './rendererDocument'
 import { LibraryStorage } from './storage'
 import type { LibraryTarget } from './libraryIdentity'
 import { exportJournalZip, installPreparedLibraryAtPath } from './journalZip'
@@ -259,6 +260,29 @@ function withStorage<T>(operation: (lib: LibraryStorage) => T | Promise<T>): Pro
     () => operationGate.run(async () => operation(await ensureStorage())),
     notifyStorageRecoveryRequired,
   )
+}
+
+async function chooseJournalFile(
+  event: IpcMainInvokeEvent,
+  purpose: 'import' | 'export' | 'purge-recovery',
+): Promise<string | undefined> {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  const filters = [{ name: 'Journal Archive', extensions: ['journal.zip', 'zip'] }]
+  if (purpose === 'import') {
+    const options: OpenDialogOptions = { title: '选择要检查的交易库归档', filters, properties: ['openFile'] }
+    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+    return result.canceled ? undefined : result.filePaths[0]
+  }
+  const recovery = purpose === 'purge-recovery'
+  const date = new Date().toISOString().slice(0, 10)
+  const prefix = recovery ? 'trader-atlas-before-cleanup' : 'trader-atlas'
+  const options = {
+    title: recovery ? '导出永久清理恢复归档' : '导出交易库',
+    defaultPath: path.join(app.getPath('documents'), `${prefix}-${date}.journal.zip`),
+    filters,
+  }
+  const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
+  return result.canceled ? undefined : result.filePath
 }
 
 function currentLibrary(): Promise<LibraryStorage> {
@@ -647,17 +671,8 @@ export function registerLibraryIpc(): void {
     writers.assert(event, payload.writerToken, lib)
     let operation: OperationLogHandle | undefined
     try {
-      const recovery = await lib.prepareAssetPurgeRecovery(preview, async () => {
-        const win = BrowserWindow.fromWebContents(event.sender)
-        const date = new Date().toISOString().slice(0, 10)
-        const options = {
-          title: '导出永久清理恢复归档',
-          defaultPath: path.join(app.getPath('documents'), `trader-atlas-before-cleanup-${date}.journal.zip`),
-          filters: [{ name: 'Journal Archive', extensions: ['journal.zip', 'zip'] }],
-        }
-        const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
-        return result.canceled ? null : result.filePath ?? null
-      }, destination => {
+      const recovery = await lib.prepareAssetPurgeRecovery(preview, async () =>
+        await chooseJournalFile(event, 'purge-recovery') ?? null, destination => {
         operation = beginOperation('archive', {
           operationId: preview.operationId, actionId: preview.operationId,
           stage: 'export-recovery', revisionBefore: preview.revision,
@@ -734,30 +749,25 @@ export function registerLibraryIpc(): void {
   })
 
   ipcMain.handle('journal:exportZip', async (event) => {
-    let source: LibraryStorage
+    let documentActive = true
+    const detach = onRendererDocumentEnd(event.sender, () => { documentActive = false })
     try {
-      source = await currentLibrary()
-    } catch (error) {
-      beginOperation('archive', { stage: 'export' }).failure(error, { stage: 'export' })
-      throw error
+      const source = await currentLibrary().catch(error => {
+        beginOperation('archive', { stage: 'export' }).failure(error, { stage: 'export' })
+        throw error
+      })
+      if (!documentActive) return { ok: false as const }
+      const destination = await chooseJournalFile(event, 'export')
+      if (!destination || !documentActive) return { ok: false as const }
+      return await withLoggedExclusiveStorage('archive', 'export', 'export', async (lib, operation) => {
+        if (!documentActive || source !== lib) throw new Error('导出窗口或资料库已切换或重新打开，请重新导出')
+        await exportJournalZip(lib, destination)
+        operation.success({ stage: 'committed' })
+        return { ok: true as const, path: destination }
+      })
+    } finally {
+      detach()
     }
-    const win = BrowserWindow.fromWebContents(event.sender)
-    const date = new Date().toISOString().slice(0, 10)
-    const options = {
-      title: '导出交易库',
-      defaultPath: path.join(app.getPath('documents'), `trader-atlas-${date}.journal.zip`),
-      filters: [{ name: 'Journal Archive', extensions: ['journal.zip', 'zip'] }],
-    }
-    const result = win
-      ? await dialog.showSaveDialog(win, options)
-      : await dialog.showSaveDialog(options)
-    if (result.canceled || !result.filePath) return { ok: false as const }
-    return withLoggedExclusiveStorage('archive', 'export', 'export', async (lib, operation) => {
-      if (source !== lib) throw new Error('当前资料库已切换或重新打开，请重新导出')
-      await exportJournalZip(lib, result.filePath!)
-      operation.success({ stage: 'committed' })
-      return { ok: true as const, path: result.filePath }
-    })
   })
 
   // ---- 备份 ----
@@ -809,16 +819,7 @@ export function registerLibraryIpc(): void {
   }))
 
   ipcMain.handle('journal:prepareImport', (event, requestId: string) =>
-    journalImportPreviews.prepare(event.sender, requestId, async () => {
-      const win = BrowserWindow.fromWebContents(event.sender)
-      const options: OpenDialogOptions = {
-        title: '选择要检查的交易库归档',
-        filters: [{ name: 'Journal Archive', extensions: ['journal.zip', 'zip'] }],
-        properties: ['openFile'],
-      }
-      const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
-      return result.canceled ? undefined : result.filePaths[0]
-    }, currentLibrary),
+    journalImportPreviews.prepare(event.sender, requestId, () => chooseJournalFile(event, 'import'), currentLibrary),
   )
   ipcMain.handle('journal:cancelPreparedImport', (event, id: string) => journalImportPreviews.cancel(id, event.sender.id))
 
