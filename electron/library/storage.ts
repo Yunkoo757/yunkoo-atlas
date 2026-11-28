@@ -1,7 +1,6 @@
 import { assertEmptyMigrationTarget, type LibraryImportOptions } from '../../src/storage/adapter'
 import { AssetPurgePreviews } from '../../src/storage/assetPurgePreviews'
-import { assertCompatibleManifest } from '../../src/storage/manifestCompatibility'
-import { assertLibraryIdentity } from './libraryIdentity'
+import { readCompatibleLibraryManifest } from './libraryIdentity'
 import { nextSnapshotRevision, SNAPSHOT_REVISION_KEY } from '../../src/storage/snapshotRevision'
 import { CREATE_LIBRARY_TABLES_SQL, readDatabaseSnapshotRevision, resolveSnapshotVersion, isPortableAssetFileName, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import { stripRetiredSnapshotDomains } from '../../src/storage/retiredSnapshotDomains'
@@ -800,10 +799,7 @@ export class LibraryStorage {
       this.writeManifest(manifest)
       return manifest
     }
-    const manifest = JSON.parse(fs.readFileSync(this.paths.manifestFile, 'utf8')) as LibraryManifest
-    assertCompatibleManifest(manifest)
-    assertLibraryIdentity(manifest.libraryId, expectedLibraryId)
-    return manifest
+    return readCompatibleLibraryManifest(this.paths.manifestFile, expectedLibraryId)
   }
 
   writeManifest(manifest: LibraryManifest): void {

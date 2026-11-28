@@ -13,7 +13,7 @@ import {
   verifyBackupAtPath,
 } from './backup'
 import { getLibraryPaths } from './paths'
-import { validateLibraryDatabaseFile } from './journalZip'
+import { validateLibraryDatabaseFile } from './libraryInspection'
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import { createHash } from 'node:crypto'
@@ -186,6 +186,7 @@ export async function testUnmarkedMissingSnapshotBackupRemainsInvalid(): Promise
     const backup = await createVerifiableBackup(root, { includeAsset: false, omitSnapshot: true })
     const result = await verifyBackupAtPath(root, path.basename(backup))
     assert(result.status === 'invalid', '缺少显式空库标记时不得放宽 snapshot 验证')
+    assert(result.error === '数据库或快照结构无法读取', '备份校验与恢复须使用数据库错误提示')
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }

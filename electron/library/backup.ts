@@ -8,7 +8,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import type { LibraryStorage } from './storage'
 import { ensureLibraryDirs, getLibraryPaths } from './paths'
 import { fsyncDirectorySync, fsyncFileSync, writeFileAtomicallySync } from './atomicFile'
-import { validateDesktopLibrary, type LibraryDatabaseInspection } from './journalZip'
+import { LibraryInspectionError, validateDesktopLibrary, type LibraryDatabaseInspection } from './libraryInspection'
 import { safeConsoleError } from '../diagnosticSanitizer'
 import { removeDirectManagedDirectory } from './managedPaths'
 
@@ -437,7 +437,10 @@ export async function withVerifiedBackup<T>(
     } catch (error) {
       result = {
         status: 'invalid', checkedAt, tradeCount: inspection?.tradeCount, strategyCount: inspection?.strategyCount,
-        attachmentCount: inspection?.assets.length, error: error instanceof Error ? error.message : '恢复点验证失败',
+        attachmentCount: inspection?.assets.length,
+        error: error instanceof LibraryInspectionError && error.part === 'database'
+          ? '数据库或快照结构无法读取'
+          : error instanceof Error ? error.message : '恢复点验证失败',
       }
       try {
         if (metadata) recordBackupVerification(dbPath, metadata, result)

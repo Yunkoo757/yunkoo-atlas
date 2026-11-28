@@ -1,5 +1,6 @@
-import { assertRecoveryManifestIdentity } from './libraryIdentity'
-import { CREATE_LIBRARY_TABLES_SQL, readDatabaseSnapshotRevision, resolveSnapshotVersion, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
+import { assertRecoveryManifestIdentity, readCompatibleLibraryManifest } from './libraryIdentity'
+import { LibraryInspectionError, validateDesktopLibrary } from './libraryInspection'
+import { CREATE_LIBRARY_TABLES_SQL, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import { sha256File } from './fileChecksum'
 import { crc32 } from '../../src/lib/crc32'
 import { retiredSnapshotDatabaseBytes } from './retiredSnapshotDatabase'
@@ -17,12 +18,10 @@ import { ensureLibraryDirs, getLibraryPaths } from './paths'
 import { fsyncDirectorySync, fsyncFileSync, writeFileAtomicallySync } from './atomicFile'
 import {
   SCHEMA_VERSION,
-  type LibraryManifest,
   type PersistedSnapshot,
 } from '../../src/storage/types'
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { collectRetiredSnapshotAssetIds } from '../../src/storage/retiredSnapshotDomains'
-import { collectAssetIdsFromSnapshot } from '../../src/storage/snapshotRichText'
 import {
   readWebJournalAssetDeclarations,
   readWebJournalVersions,
@@ -47,7 +46,7 @@ export async function exportJournalZip(
     `.${path.basename(destinationFile)}.${process.pid}.${randomUUID()}.tmp`,
   )
 
-  validateManifest(paths.manifestFile)
+  readCompatibleLibraryManifest(paths.manifestFile)
   const databaseStat = fs.lstatSync(paths.dbFile)
   if (databaseStat.isSymbolicLink() || !databaseStat.isFile()) {
     throw new Error('当前资料库数据库不是普通文件，无法安全导出')
@@ -127,7 +126,7 @@ const DEFAULT_JOURNAL_ZIP_ENTRY_LIMITS: Readonly<JournalZipEntryLimits> = {
   maxExpandedBytes: MAX_DESKTOP_JOURNAL_EXPANDED_BYTES,
 }
 
-function archiveLimitError(message: string): Error {
+function invalidArchive(message: string): Error {
   return new Error(`Invalid .journal.zip: ${message}`)
 }
 
@@ -139,16 +138,16 @@ function canonicalArchivePath(fileName: string): string {
     fileName.startsWith('/') ||
     /^[A-Za-z]:/.test(fileName)
   ) {
-    throw archiveLimitError(`unsafe archive path (${fileName || 'empty path'})`)
+    throw invalidArchive(`unsafe archive path (${fileName || 'empty path'})`)
   }
   const isDirectory = fileName.endsWith('/')
   const segments = fileName.split('/')
   if (segments.includes('..')) {
-    throw archiveLimitError(`archive path traversal (${fileName})`)
+    throw invalidArchive(`archive path traversal (${fileName})`)
   }
   const canonical = `${segments.filter((segment) => segment && segment !== '.').join('/')}${isDirectory ? '/' : ''}`
   if (canonical !== fileName) {
-    throw archiveLimitError(`non-canonical archive path (${fileName})`)
+    throw invalidArchive(`non-canonical archive path (${fileName})`)
   }
   return canonical
 }
@@ -163,39 +162,39 @@ export function createJournalZipEntryGuard(
   return (entry) => {
     entryCount += 1
     if (entryCount > limits.maxEntryCount) {
-      throw archiveLimitError(`archive contains more than ${limits.maxEntryCount} entries`)
+      throw invalidArchive(`archive contains more than ${limits.maxEntryCount} entries`)
     }
     if (!Number.isSafeInteger(entry.compressedSize) || entry.compressedSize < 0 ||
       !Number.isSafeInteger(entry.uncompressedSize) || entry.uncompressedSize < 0) {
-      throw archiveLimitError(`invalid entry size (${entry.fileName})`)
+      throw invalidArchive(`invalid entry size (${entry.fileName})`)
     }
     if ((entry.generalPurposeBitFlag & 0x0001) !== 0) {
-      throw archiveLimitError(`encrypted entries are not supported (${entry.fileName})`)
+      throw invalidArchive(`encrypted entries are not supported (${entry.fileName})`)
     }
     if (entry.compressionMethod !== 0 && entry.compressionMethod !== 8) {
-      throw archiveLimitError(`unsupported compression method (${entry.fileName})`)
+      throw invalidArchive(`unsupported compression method (${entry.fileName})`)
     }
     if (entry.uncompressedSize > limits.maxEntryBytes) {
-      throw archiveLimitError(`entry exceeds ${Math.floor(limits.maxEntryBytes / 1024 / 1024)} MB (${entry.fileName})`)
+      throw invalidArchive(`entry exceeds ${Math.floor(limits.maxEntryBytes / 1024 / 1024)} MB (${entry.fileName})`)
     }
     expandedBytes += entry.uncompressedSize
     if (expandedBytes > limits.maxExpandedBytes) {
-      throw archiveLimitError(`expanded archive exceeds ${Math.floor(limits.maxExpandedBytes / 1024 / 1024)} MB`)
+      throw invalidArchive(`expanded archive exceeds ${Math.floor(limits.maxExpandedBytes / 1024 / 1024)} MB`)
     }
 
     const mode = (entry.externalFileAttributes >>> 16) & 0xffff
     const fileType = mode & 0xf000
     if (fileType === 0xa000) {
-      throw archiveLimitError(`symbolic links are not allowed (${entry.fileName})`)
+      throw invalidArchive(`symbolic links are not allowed (${entry.fileName})`)
     }
     if (fileType !== 0 && fileType !== 0x4000 && fileType !== 0x8000) {
-      throw archiveLimitError(`non-regular archive entry (${entry.fileName})`)
+      throw invalidArchive(`non-regular archive entry (${entry.fileName})`)
     }
 
     const canonical = canonicalArchivePath(entry.fileName)
     const portableKey = canonical.toLowerCase()
     if (canonicalPaths.has(portableKey)) {
-      throw archiveLimitError(`duplicate archive path (${entry.fileName})`)
+      throw invalidArchive(`duplicate archive path (${entry.fileName})`)
     }
     canonicalPaths.add(portableKey)
   }
@@ -213,7 +212,7 @@ function openJournalZip(zipFile: string): Promise<yauzl.ZipFile> {
       },
       (error, openedZip) => {
         if (error || !openedZip) {
-          reject(error ?? archiveLimitError('unable to open archive'))
+          reject(error ?? invalidArchive('unable to open archive'))
           return
         }
         resolve(openedZip)
@@ -229,7 +228,7 @@ function openJournalZipEntry(
   return new Promise((resolve, reject) => {
     zipFile.openReadStream(entry, (error, stream) => {
       if (error || !stream) {
-        reject(error ?? archiveLimitError(`unable to read entry (${entry.fileName})`))
+        reject(error ?? invalidArchive(`unable to read entry (${entry.fileName})`))
         return
       }
       resolve(stream)
@@ -240,10 +239,10 @@ function openJournalZipEntry(
 async function extractZipToDir(zipFilePath: string, destinationDir: string): Promise<void> {
   const archiveStat = fs.statSync(zipFilePath)
   if (!archiveStat.isFile() || archiveStat.size === 0) {
-    throw archiveLimitError('archive must be a non-empty regular file')
+    throw invalidArchive('archive must be a non-empty regular file')
   }
   if (archiveStat.size > MAX_DESKTOP_JOURNAL_ARCHIVE_BYTES) {
-    throw archiveLimitError(`compressed archive exceeds ${MAX_DESKTOP_JOURNAL_ARCHIVE_BYTES / 1024 / 1024} MB`)
+    throw invalidArchive(`compressed archive exceeds ${MAX_DESKTOP_JOURNAL_ARCHIVE_BYTES / 1024 / 1024} MB`)
   }
 
   const destinationRoot = path.resolve(destinationDir)
@@ -273,7 +272,7 @@ async function extractZipToDir(zipFilePath: string, destinationDir: string): Pro
     }
 
     const timeout = setTimeout(() => {
-      finish(archiveLimitError('archive extraction timed out'))
+      finish(invalidArchive('archive extraction timed out'))
     }, DESKTOP_JOURNAL_EXTRACTION_TIMEOUT_MS)
 
     const extractEntry = async (entry: yauzl.Entry) => {
@@ -282,7 +281,7 @@ async function extractZipToDir(zipFilePath: string, destinationDir: string): Pro
         const segments = entry.fileName.split('/').filter(Boolean)
         const targetPath = path.resolve(destinationRoot, ...segments)
         if (!isPathInside(destinationRoot, targetPath)) {
-          throw archiveLimitError(`archive entry escapes extraction root (${entry.fileName})`)
+          throw invalidArchive(`archive entry escapes extraction root (${entry.fileName})`)
         }
 
         const mode = (entry.externalFileAttributes >>> 16) & 0xffff
@@ -305,17 +304,17 @@ async function extractZipToDir(zipFilePath: string, destinationDir: string): Pro
           actualExpandedBytes += chunk.byteLength
           entryCrc32 = crc32(chunk, entryCrc32)
           if (actualEntryBytes > MAX_DESKTOP_JOURNAL_ENTRY_BYTES) {
-            readStream.destroy(archiveLimitError(`entry exceeds ${MAX_DESKTOP_JOURNAL_ENTRY_BYTES / 1024 / 1024} MB (${entry.fileName})`))
+            readStream.destroy(invalidArchive(`entry exceeds ${MAX_DESKTOP_JOURNAL_ENTRY_BYTES / 1024 / 1024} MB (${entry.fileName})`))
           } else if (actualExpandedBytes > MAX_DESKTOP_JOURNAL_EXPANDED_BYTES) {
-            readStream.destroy(archiveLimitError(`expanded archive exceeds ${MAX_DESKTOP_JOURNAL_EXPANDED_BYTES / 1024 / 1024} MB`))
+            readStream.destroy(invalidArchive(`expanded archive exceeds ${MAX_DESKTOP_JOURNAL_EXPANDED_BYTES / 1024 / 1024} MB`))
           }
         })
         await pipeline(readStream, writeStream)
         if (actualEntryBytes !== entry.uncompressedSize) {
-          throw archiveLimitError(`entry size does not match ZIP directory (${entry.fileName})`)
+          throw invalidArchive(`entry size does not match ZIP directory (${entry.fileName})`)
         }
         if (entryCrc32 !== (entry.crc32 >>> 0)) {
-          throw archiveLimitError(`entry CRC does not match ZIP directory (${entry.fileName})`)
+          throw invalidArchive(`entry CRC does not match ZIP directory (${entry.fileName})`)
         }
         currentReadStream = null
         currentWriteStream = null
@@ -360,7 +359,7 @@ export function assertRegularArchiveTree(root: string): void {
       const entryStat = fs.lstatSync(entryPath)
       entryCount += 1
       if (entryCount > MAX_DESKTOP_JOURNAL_ENTRY_COUNT) {
-        throw archiveLimitError(`archive contains more than ${MAX_DESKTOP_JOURNAL_ENTRY_COUNT} entries`)
+        throw invalidArchive(`archive contains more than ${MAX_DESKTOP_JOURNAL_ENTRY_COUNT} entries`)
       }
       if (entryStat.isSymbolicLink()) {
         throw new Error(`Invalid .journal.zip: symbolic links are not allowed (${path.relative(root, entryPath)})`)
@@ -377,11 +376,11 @@ export function assertRegularArchiveTree(root: string): void {
         pending.push(entryPath)
       } else {
         if (entryStat.size > MAX_DESKTOP_JOURNAL_ENTRY_BYTES) {
-          throw archiveLimitError(`entry exceeds ${MAX_DESKTOP_JOURNAL_ENTRY_BYTES / 1024 / 1024} MB (${path.relative(root, entryPath)})`)
+          throw invalidArchive(`entry exceeds ${MAX_DESKTOP_JOURNAL_ENTRY_BYTES / 1024 / 1024} MB (${path.relative(root, entryPath)})`)
         }
         expandedBytes += entryStat.size
         if (expandedBytes > MAX_DESKTOP_JOURNAL_EXPANDED_BYTES) {
-          throw archiveLimitError(`expanded archive exceeds ${MAX_DESKTOP_JOURNAL_EXPANDED_BYTES / 1024 / 1024} MB`)
+          throw invalidArchive(`expanded archive exceeds ${MAX_DESKTOP_JOURNAL_EXPANDED_BYTES / 1024 / 1024} MB`)
         }
       }
     }
@@ -469,172 +468,25 @@ function readWebSnapshot(dataFile: string, assetsDir: string): {
   return { snapshot, assets: validateWebAssets(raw.assets, snapshot, assetsDir, collectRetiredSnapshotAssetIds(raw)) }
 }
 
-function validateManifest(manifestFile: string): LibraryManifest {
-  let manifest: unknown
+async function validateArchiveLibrary(paths: ReturnType<typeof getLibraryPaths>): Promise<void> {
   try {
-    manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'))
-  } catch {
-    throw new Error('Invalid .journal.zip: manifest.json is not valid JSON')
+    await validateDesktopLibrary(paths)
+  } catch (error) {
+    if (error instanceof LibraryInspectionError) throw invalidArchive(error.message)
+    throw error
   }
-  if (typeof manifest !== 'object' || manifest === null) {
-    throw new Error('Invalid .journal.zip: manifest.json is missing required library fields')
-  }
-  const fields = manifest as Record<string, unknown>
-  if (
-    !Number.isInteger(fields.schemaVersion) ||
-    Number(fields.schemaVersion) < 1 ||
-    typeof fields.libraryId !== 'string' ||
-    fields.libraryId.length === 0
-  ) {
-    throw new Error('Invalid .journal.zip: manifest.json is missing required library fields')
-  }
-  if (Number(fields.schemaVersion) > SCHEMA_VERSION) {
-    throw new Error(
-      `该桌面归档来自更新版本（v${fields.schemaVersion}），当前仅支持至 v${SCHEMA_VERSION}`,
-    )
-  }
-  return fields as unknown as LibraryManifest
-}
-
-export interface LibraryDatabaseInspection {
-  tradeCount: number
-  strategyCount: number
-  assets: { id: string; mime: string; fileName: string; byteSize: number }[]
-  referencedAssetIds: string[]
-}
-
-export async function validateLibraryDatabaseFile(
-  dbFile: string,
-  options: { allowEmptySnapshot?: boolean; schemaVersion?: number } = {},
-): Promise<LibraryDatabaseInspection> {
-  const SQL = await getLibrarySql()
-  let db: InstanceType<typeof SQL.Database> | null = null
-  try {
-    db = new SQL.Database(fs.readFileSync(dbFile))
-    const integrity = db.exec('PRAGMA integrity_check')
-    const integrityRows = integrity[0]?.values ?? []
-    if (integrityRows.length !== 1 || String(integrityRows[0]?.[0]).toLowerCase() !== 'ok') {
-      throw new Error('database integrity_check failed')
-    }
-    const tables = db.exec(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('meta', 'assets')",
-    )
-    const names = new Set((tables[0]?.values ?? []).map((row) => String(row[0])))
-    if (!names.has('meta') || !names.has('assets')) {
-      throw new Error('database is missing required tables')
-    }
-
-    readDatabaseSnapshotRevision(db)
-    const snapshotRows = db.exec("SELECT value FROM meta WHERE key = 'snapshot'")
-    const snapshotText = snapshotRows[0]?.values[0]?.[0]
-    let snapshot: PersistedSnapshot | null = null
-    if (snapshotText == null) {
-      if (!options.allowEmptySnapshot) throw new Error('database snapshot is missing')
-    } else {
-      const parsed: unknown = JSON.parse(String(snapshotText))
-      const versionRows = db.exec("SELECT value FROM meta WHERE key = 'schemaVersion'")
-      const storedVersion = versionRows[0]?.values[0]?.[0]
-      snapshot = decodeCanonicalSnapshot(parsed, {
-        version: resolveSnapshotVersion(parsed, storedVersion == null ? null : Number(storedVersion), options.schemaVersion ?? SCHEMA_VERSION),
-        label: 'database snapshot',
-      })
-    }
-
-    const referencedAssetIds = snapshot ? collectAssetIdsFromSnapshot(snapshot) : []
-
-    const assetRows = db.exec('SELECT id, mime, file_name, byte_size FROM assets')
-    const assets = (assetRows[0]?.values ?? []).map((row) => ({
-      id: String(row[0] ?? ''),
-      mime: String(row[1] ?? ''),
-      fileName: String(row[2] ?? ''),
-      byteSize: Number(row[3]),
-    }))
-    const assetIds = validateLibraryAssetIndex(assets)
-    if (!snapshot && assets.length > 0) {
-      throw new Error('empty database contains orphaned assets')
-    }
-    for (const asset of assets) {
-      if (!asset.mime || !Number.isFinite(asset.byteSize) || asset.byteSize < 0) {
-        throw new Error('asset metadata is invalid')
-      }
-    }
-    for (const referencedId of referencedAssetIds) {
-      if (!assetIds.has(referencedId)) {
-        throw new Error(`snapshot references a missing asset (${referencedId})`)
-      }
-    }
-    return {
-      tradeCount: snapshot?.trades.length ?? 0,
-      strategyCount: snapshot?.strategies.length ?? 0,
-      assets,
-      referencedAssetIds,
-    }
-  } catch (err) {
-    throw new Error(
-      `Invalid .journal.zip: journal.db could not be validated (${err instanceof Error ? err.message : String(err)})`,
-    )
-  } finally {
-    db?.close()
-  }
-}
-
-export async function validateDesktopLibrary(
-  paths: ReturnType<typeof ensureLibraryDirs>,
-  options: { allowEmptySnapshot?: boolean; allowUnexpectedAttachments?: boolean } = {},
-): Promise<LibraryDatabaseInspection> {
-  const manifest = validateManifest(paths.manifestFile)
-  const inspection = await validateLibraryDatabaseFile(paths.dbFile, {
-    ...options,
-    schemaVersion: manifest.schemaVersion,
-  })
-  const expectedAssets = new Map(inspection.assets.map((asset) => [asset.fileName, asset]))
-  const actualFileNames: string[] = []
-
-  if (fs.existsSync(paths.attachments)) {
-    const attachmentsStat = fs.lstatSync(paths.attachments)
-    if (attachmentsStat.isSymbolicLink() || !attachmentsStat.isDirectory()) {
-      throw new Error('Invalid .journal.zip: attachments must be a regular directory')
-    }
-    actualFileNames.push(...fs.readdirSync(paths.attachments))
-  }
-
-  for (const fileName of actualFileNames) {
-    const filePath = path.join(paths.attachments, fileName)
-    const fileStat = fs.lstatSync(filePath)
-    if (fileStat.isSymbolicLink()) {
-      throw new Error(`Invalid .journal.zip: attachment must not be a symbolic link (${fileName})`)
-    }
-    if (!fileStat.isFile()) {
-      throw new Error(`Invalid .journal.zip: attachment must be a regular file (${fileName})`)
-    }
-    const asset = expectedAssets.get(fileName)
-    if (!asset) {
-      if (options.allowUnexpectedAttachments) continue
-      throw new Error(`Invalid .journal.zip: unexpected attachment (${fileName})`)
-    }
-    if (fileStat.size !== asset.byteSize) {
-      throw new Error(`Invalid .journal.zip: attachment is missing or incomplete (${fileName})`)
-    }
-    expectedAssets.delete(fileName)
-  }
-
-  const missingFileName = expectedAssets.keys().next().value as string | undefined
-  if (missingFileName) {
-    throw new Error(`Invalid .journal.zip: attachment is missing or incomplete (${missingFileName})`)
-  }
-  return inspection
 }
 
 async function validatePreparedLibrary(paths: ReturnType<typeof getLibraryPaths>): Promise<void> {
   writeImportProgress('importZip: validate prepared library start')
-  await validateDesktopLibrary(paths)
+  await validateArchiveLibrary(paths)
   const dbFile = paths.dbFile
   const SQL = await getLibrarySql()
   const original = fs.readFileSync(dbFile)
   const retired = retiredSnapshotDatabaseBytes(original, SQL.Database)
   if (retired !== original) {
     writeFileAtomicallySync(dbFile, retired)
-    await validateDesktopLibrary(paths)
+    await validateArchiveLibrary(paths)
   }
   writeImportProgress('importZip: validate prepared library done')
 }
@@ -895,7 +747,7 @@ export async function prepareJournalArchive(
       fs.copyFileSync(dbSrc, preparedPaths.dbFile)
       copyAttachmentFiles(attachmentsSrc, preparedPaths.attachments)
       if (options.libraryId) {
-        const importedManifest = validateManifest(preparedPaths.manifestFile)
+        const importedManifest = readCompatibleLibraryManifest(preparedPaths.manifestFile)
         writeFileAtomicallySync(
           preparedPaths.manifestFile,
           JSON.stringify({ ...importedManifest, libraryId: options.libraryId }, null, 2),
@@ -928,7 +780,7 @@ export async function importJournalZipToPath(
   options: Pick<JournalArchivePreparation, 'copyWebAsset'> = {},
 ): Promise<void> {
   const paths = ensureLibraryDirs(libraryRoot)
-  const libraryId = fs.existsSync(paths.manifestFile) ? validateManifest(paths.manifestFile).libraryId : undefined
+  const libraryId = fs.existsSync(paths.manifestFile) ? readCompatibleLibraryManifest(paths.manifestFile).libraryId : undefined
   const stagingRoot = fs.mkdtempSync(path.join(libraryRoot, '.import-'))
   try {
     const prepared = await prepareJournalArchive(stagingRoot, zipFile, { ...options, libraryId })
@@ -971,7 +823,7 @@ async function replaceLibraryFiles(
     writeFileAtomicallySync(paths.manifestFile, fs.readFileSync(preparedPaths.manifestFile))
     writeFileAtomicallySync(paths.dbFile, fs.readFileSync(preparedPaths.dbFile))
     copyAttachmentFiles(preparedPaths.attachments, paths.attachments, { durable: true })
-    await validateDesktopLibrary(paths)
+    await validateArchiveLibrary(paths)
     fsyncDirectorySync(paths.root)
     fs.rmSync(markerPath, { force: true })
     fsyncDirectorySync(paths.root)

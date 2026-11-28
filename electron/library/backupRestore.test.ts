@@ -187,6 +187,7 @@ export async function testBackupWithMatchingChecksumAndUnreadableRevisionCannotR
     const result = await restoreLibraryBackup(selected, f.session)
     assert.equal(result.ok, false)
     assert.equal(result.committed, false, '修订不可读取的恢复点必须在替换活动库前拒绝')
+    assert.equal(result.error, '数据库或快照结构无法读取')
     assert.deepEqual(f.events, [])
     assert.deepEqual(fs.readFileSync(file), before)
     assert.equal(f.active()?.getSnapshotRevision(), 2)

@@ -25,9 +25,8 @@ import {
   createJournalZipEntryGuard,
   exportJournalZip,
   importJournalZipToPath,
-  validateLibraryDatabaseFile,
-  validateDesktopLibrary,
 } from './journalZip'
+import { validateDesktopLibrary, validateLibraryDatabaseFile } from './libraryInspection'
 import { LibraryStorage } from './storage'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 
