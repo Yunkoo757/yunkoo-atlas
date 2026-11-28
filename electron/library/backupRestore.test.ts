@@ -100,6 +100,64 @@ export async function testBackupRestoreRequiresValidSourceAndVerifiedSafetyCopyB
   } finally { f.dispose() }
 }
 
+export async function testFinishedBackupRestoreSurvivesLockedVerificationAndRecoveryDirectories() {
+  for (const prefix of ['.backup-verify-', '.backup-restore-recovery-']) {
+    const f = await isolatedSession()
+    const remove = fs.rmSync
+    let locked: string | undefined
+    try {
+      const snapshot = { ...createEmptyPersistedSnapshot(), tagPresets: ['恢复结果'] }
+      f.first.saveSnapshot(snapshot)
+      const selected = writeLibraryBackup(f.first)
+      assert.ok(selected)
+      f.first.saveSnapshot({ ...snapshot, tagPresets: ['被替换的版本'] })
+      fs.rmSync = (file, options) => {
+        if (typeof file === 'string' && path.dirname(file) === f.root &&
+            path.basename(file).startsWith(prefix) && f.events.includes('close')) {
+          locked = file
+          throw Object.assign(new Error('临时目录仍被占用'), { code: 'EBUSY' })
+        }
+        remove(file, options)
+      }
+      const result = await restoreLibraryBackup(selected, f.session)
+      assert.ok(locked && fs.existsSync(locked))
+      assert.deepEqual(f.active()?.loadSnapshot()?.tagPresets, ['恢复结果'])
+      assert.equal(fs.existsSync(path.join(f.root, '.backup-restore.json')), false)
+      assert.ok(result.ok, '已落盘并能重开的恢复结果应返回给 renderer')
+      assert.deepEqual(result.snapshot.tagPresets, ['恢复结果'])
+      assert.equal(result.revision, f.active()?.getSnapshotRevision())
+    } finally { fs.rmSync = remove; f.dispose() }
+  }
+}
+
+export async function testFailedBackupRollbackCopyDiscardsOnlyItsOwnUnpublishedWorkspace() {
+  const f = await isolatedSession()
+  const copy = fs.copyFileSync
+  try {
+    f.first.saveSnapshot(createEmptyPersistedSnapshot())
+    const selected = writeLibraryBackup(f.first)
+    assert.ok(selected)
+    const untouched = path.join(f.root, '.backup-restore-recovery-earlier')
+    fs.mkdirSync(untouched)
+    const dbFile = f.first.getPaths().dbFile
+    const before = fs.readFileSync(dbFile)
+    let failed: string | undefined
+    fs.copyFileSync = (from, to, mode) => {
+      if (typeof to === 'string' && from === dbFile && path.basename(path.dirname(to)).startsWith('.backup-restore-recovery-')) {
+        failed = path.dirname(to)
+        throw new Error('安全副本复制中断')
+      }
+      copy(from, to, mode)
+    }
+    const result = await restoreLibraryBackup(selected, f.session)
+    assert.equal(result.ok, false)
+    assert.ok(failed && !fs.existsSync(failed), '发布事务标记前失败时，仅移除本请求刚创建的目录')
+    assert.ok(fs.existsSync(untouched))
+    assert.deepEqual(fs.readFileSync(dbFile), before)
+    assert.equal(fs.existsSync(path.join(f.root, '.backup-restore.json')), false)
+  } finally { fs.copyFileSync = copy; f.dispose() }
+}
+
 export async function testBackupRestoreReopensUnderTheSameGateAfterCutoverFailure(): Promise<void> {
   const f = await isolatedSession()
   try {

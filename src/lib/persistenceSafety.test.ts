@@ -142,7 +142,7 @@ export async function testAutomaticBackupFailuresReachTheVisibleWorkspace(): Pro
 
 export async function testDesktopBackupRestoreHasAStartupRecoveryJournal(): Promise<void> {
   const [backup, storage] = await Promise.all([
-    fs.readFile('electron/library/backup.ts', 'utf8'),
+    fs.readFile('electron/library/backupRestoreFiles.ts', 'utf8'),
     fs.readFile('electron/library/storage.ts', 'utf8'),
   ])
 

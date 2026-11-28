@@ -34,7 +34,7 @@ import {
   removeMigrationRecovery,
   restoreVerifiedV8Pair,
 } from './schemaMigration'
-import { recoverInterruptedBackupRestore } from './backup'
+import { recoverInterruptedBackupRestore } from './backupRestoreFiles'
 import { recoverInterruptedJournalImport } from './journalZip'
 
 const SNAPSHOT_KEY = 'snapshot'

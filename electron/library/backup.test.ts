@@ -7,12 +7,12 @@ import {
   writeLibraryBackup,
   deleteBackupAtPath,
   getBackupStatsAtPath,
-  recoverInterruptedBackupRestore,
   rotateBackups,
   restoreBackupAtPath,
   verifyBackupAtPath,
 } from './backup'
 import { getLibraryPaths } from './paths'
+import { recoverInterruptedBackupRestore } from './backupRestoreFiles'
 import { validateLibraryDatabaseFile } from './libraryInspection'
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
@@ -332,6 +332,21 @@ export async function testBackupVerificationRejectsTamperedManifest(): Promise<v
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }
+}
+
+export async function testRestoreCannotOverwriteAnotherPendingRecoveryMarker() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-pending-backup-restore-'))
+  try {
+    const backup = await createVerifiableBackup(root)
+    const marker = path.join(root, '.backup-restore.json')
+    const pending = '{"version":1,"recoveryDir":".backup-restore-recovery-pending"}'
+    fs.writeFileSync(marker, pending)
+    const before = fs.readFileSync(path.join(root, 'journal.db'))
+    let refused = false
+    try { restoreBackupAtPath(root, backup) } catch { refused = true }
+    assert(refused && fs.readFileSync(marker, 'utf8') === pending, '新恢复必须保留未处理事务的原始标记')
+    assert(fs.readFileSync(path.join(root, 'journal.db')).equals(before), '拒绝前不得替换活动数据库')
+  } finally { fs.rmSync(root, { recursive: true, force: true }) }
 }
 
 export async function testBackupVerificationRejectsTamperedDatabaseBytes(): Promise<void> {

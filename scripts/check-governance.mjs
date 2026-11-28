@@ -185,6 +185,12 @@ async function main() {
     const violation = firstForbiddenPath(graph, file, forbiddenPureTargets)
     if (violation) failures.push(`纯模块经依赖链访问运行环境：${violation.join(' → ')}`)
   }
+  for (const file of ['electron/library/backupRestoreFiles.ts', 'electron/library/libraryInspection.ts']) {
+    const violation = firstForbiddenPath(graph, file, [
+      'electron/library/storage', 'electron/library/backup', 'electron/library/journalZip',
+    ])
+    if (violation) failures.push(`资料库文件检查与回滚不得反向依赖会话或归档流程：${violation.join(' → ')}`)
+  }
   const graphDirectory = path.join(root, 'test-results')
   await fs.mkdir(graphDirectory, { recursive: true })
   const desktopGraph = Object.fromEntries(desktopModules.map(file => [file, graph[file]]))
