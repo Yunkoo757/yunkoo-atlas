@@ -198,13 +198,47 @@ export async function testInterruptedRestoreUsesTheVerifiedRecoveryIdentityBefor
       catch (error) { rejected = String(error).includes('身份') }
       assert(rejected && fs.existsSync(marker) && libraryBytes(targetRoot) === partial && libraryBytes(recovery) === saved,
         kind + ' 不得以暂时落盘的来源清单代替已校验的恢复副本身份')
-      await target.open(originalId)
+      const remove = fs.rmSync
+      let locked = false
+      try {
+        fs.rmSync = (file, options) => {
+          if (file === recovery) {
+            locked = true
+            throw Object.assign(new Error('回滚目录仍被占用'), { code: 'EBUSY' })
+          }
+          remove(file, options)
+        }
+        await target.open(originalId)
+      } finally { fs.rmSync = remove }
+      assert(locked && fs.existsSync(recovery), '模拟恢复后目录仍被占用')
       assert(!fs.existsSync(marker) && libraryBytes(targetRoot) === saved, kind + ' 身份匹配后应能完整恢复')
+      assert(target.readManifest().libraryId === originalId, '恢复成功的库仍可正常使用')
     } finally {
       source.release(); target.release()
       fs.rmSync(root, { recursive: true, force: true })
     }
   }
+}
+
+export async function testArchiveInstallationPreservesAnyPendingLibraryReplacement() {
+  const { root, source, target, archive } = await fixture()
+  const previews = new JournalImportPreviews()
+  try {
+    const { entry } = await prepare(previews, archive, target)
+    const library = target.getLibraryPath()
+    const before = libraryBytes(library)
+    target.release()
+    for (const name of ['.journal-import.json', '.backup-restore.json']) {
+      const marker = path.join(library, name)
+      const pending = '{"version":1,"recoveryDir":"pending"}'
+      fs.writeFileSync(marker, pending)
+      let refused = false
+      try { await installPreparedLibraryAtPath(library, entry.stagedLibraryRoot) } catch { refused = true }
+      assert(refused && fs.readFileSync(marker, 'utf8') === pending, '确认归档不得替换已存在的恢复标记')
+      assert(libraryBytes(library) === before, '待处理事务存在时，当前数据库、清单和附件都必须保留')
+      fs.rmSync(marker)
+    }
+  } finally { previews.clear(); target.release(); source.release(); fs.rmSync(root, { recursive: true, force: true }) }
 }
 
 export async function testPreviewAndRecoveryArchiveVerificationDoNotRunAnInstallation() {

@@ -141,29 +141,31 @@ export async function testAutomaticBackupFailuresReachTheVisibleWorkspace(): Pro
 }
 
 export async function testDesktopBackupRestoreHasAStartupRecoveryJournal(): Promise<void> {
-  const [backup, storage] = await Promise.all([
+  const [backup, transaction, storage] = await Promise.all([
     fs.readFile('electron/library/backupRestoreFiles.ts', 'utf8'),
+    fs.readFile('electron/library/libraryReplacement.ts', 'utf8'),
     fs.readFile('electron/library/storage.ts', 'utf8'),
   ])
 
-  assert(backup.includes('BACKUP_RESTORE_MARKER'), '恢复流程必须使用固定可发现的恢复标记')
-  assert(backup.includes('recoverInterruptedBackupRestore'), '恢复模块必须提供启动时收敛中断状态的入口')
-  assert(backup.includes('writeFileAtomicallySync(markerPath'), '替换当前资料库前必须先耐久写入恢复标记')
-  assert(storage.includes('recoverInterruptedBackupRestore(this.paths, expectedLibraryId)'), '资料库打开前必须消费中断恢复标记')
+  assert(transaction.includes("'.backup-restore.json'"), '恢复流程必须使用固定可发现的恢复标记')
+  assert(backup.includes("beginLibraryReplacement(paths, 'backup'"), '备份安装必须先准备正式回滚事务')
+  assert(transaction.includes('writeFileAtomicallySync(markerPath'), '替换当前资料库前必须先耐久写入恢复标记')
+  assert(storage.includes('recoverInterruptedLibraryReplacement(this.paths, expectedLibraryId)'), '资料库打开前必须消费中断恢复标记')
 }
 
 export async function testDesktopJournalImportHasAStartupRecoveryJournal(): Promise<void> {
-  const [journalZip, storage, ipc, dataIo] = await Promise.all([
+  const [journalZip, transaction, storage, ipc, dataIo] = await Promise.all([
     fs.readFile('electron/library/journalZip.ts', 'utf8'),
+    fs.readFile('electron/library/libraryReplacement.ts', 'utf8'),
     fs.readFile('electron/library/storage.ts', 'utf8'),
     fs.readFile('electron/library/ipc.ts', 'utf8'),
     fs.readFile('src/components/DataIOContent.tsx', 'utf8'),
   ])
 
-  assert(journalZip.includes('JOURNAL_IMPORT_MARKER'), '整库导入必须使用固定可发现的恢复标记')
-  assert(journalZip.includes('recoverInterruptedJournalImport'), '整库导入必须提供启动恢复入口')
-  assert(journalZip.includes('writeFileAtomicallySync(markerPath'), '改写活动库前必须先发布导入恢复标记')
-  assert(storage.includes('recoverInterruptedJournalImport(this.paths, expectedLibraryId)'), '资料库打开前必须消费中断导入标记')
+  assert(transaction.includes("'.journal-import.json'"), '整库导入必须使用固定可发现的恢复标记')
+  assert(journalZip.includes("beginLibraryReplacement(paths, 'journal')"), '整库导入必须使用同一文件替换协议')
+  assert(transaction.includes('writeFileAtomicallySync(markerPath'), '改写活动库前必须先发布导入恢复标记')
+  assert(storage.includes('recoverInterruptedLibraryReplacement(this.paths, expectedLibraryId)'), '资料库打开前必须消费中断导入标记')
   assert(ipc.includes('replacementCommitted'), '整库导入 IPC 必须区分磁盘替换是否已提交')
   assert(
     !ipc.includes('librarySourceFingerprint'),

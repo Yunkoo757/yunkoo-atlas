@@ -34,8 +34,7 @@ import {
   removeMigrationRecovery,
   restoreVerifiedV8Pair,
 } from './schemaMigration'
-import { recoverInterruptedBackupRestore } from './backupRestoreFiles'
-import { recoverInterruptedJournalImport } from './journalZip'
+import { recoverInterruptedLibraryReplacement } from './libraryReplacement'
 
 const SNAPSHOT_KEY = 'snapshot'
 const DATABASE_SCHEMA_KEY = 'schemaVersion'
@@ -408,8 +407,7 @@ export class LibraryStorage {
       return
     }
     try {
-      recoverInterruptedJournalImport(this.paths, expectedLibraryId)
-      recoverInterruptedBackupRestore(this.paths, expectedLibraryId)
+      recoverInterruptedLibraryReplacement(this.paths, expectedLibraryId)
       const schemaRecovery = recoverInterruptedSchemaMigrationFiles(this.paths, expectedLibraryId)
       if ((!this.allowCreate || expectedLibraryId !== undefined) && !fs.existsSync(this.paths.manifestFile)) {
         throw new Error('manifest.json 不存在，已阻止生成新的资料库身份')

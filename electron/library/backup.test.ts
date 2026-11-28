@@ -12,7 +12,7 @@ import {
   verifyBackupAtPath,
 } from './backup'
 import { getLibraryPaths } from './paths'
-import { recoverInterruptedBackupRestore } from './backupRestoreFiles'
+import { recoverInterruptedLibraryReplacement } from './libraryReplacement'
 import { validateLibraryDatabaseFile } from './libraryInspection'
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
@@ -338,14 +338,17 @@ export async function testRestoreCannotOverwriteAnotherPendingRecoveryMarker() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-pending-backup-restore-'))
   try {
     const backup = await createVerifiableBackup(root)
-    const marker = path.join(root, '.backup-restore.json')
-    const pending = '{"version":1,"recoveryDir":".backup-restore-recovery-pending"}'
-    fs.writeFileSync(marker, pending)
-    const before = fs.readFileSync(path.join(root, 'journal.db'))
-    let refused = false
-    try { restoreBackupAtPath(root, backup) } catch { refused = true }
-    assert(refused && fs.readFileSync(marker, 'utf8') === pending, '新恢复必须保留未处理事务的原始标记')
-    assert(fs.readFileSync(path.join(root, 'journal.db')).equals(before), '拒绝前不得替换活动数据库')
+    for (const name of ['.backup-restore.json', '.journal-import.json']) {
+      const marker = path.join(root, name)
+      const pending = '{"version":1,"recoveryDir":".backup-restore-recovery-pending"}'
+      fs.writeFileSync(marker, pending)
+      const before = fs.readFileSync(path.join(root, 'journal.db'))
+      let refused = false
+      try { restoreBackupAtPath(root, backup) } catch { refused = true }
+      assert(refused && fs.readFileSync(marker, 'utf8') === pending, '新恢复必须保留未处理事务的原始标记')
+      assert(fs.readFileSync(path.join(root, 'journal.db')).equals(before), '拒绝前不得替换活动数据库')
+      fs.rmSync(marker)
+    }
   } finally { fs.rmSync(root, { recursive: true, force: true }) }
 }
 
@@ -783,7 +786,7 @@ export function testInterruptedBackupRestoreReturnsToTheCompletePreviousLibrary(
       }],
     }), 'utf8')
 
-    recoverInterruptedBackupRestore(getLibraryPaths(root))
+    recoverInterruptedLibraryReplacement(getLibraryPaths(root))
 
     assert(fs.readFileSync(path.join(root, 'journal.db'), 'utf8') === 'old-db', '中断恢复必须还原旧数据库')
     assert(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8') === 'old-manifest', '中断恢复必须还原旧清单')
@@ -819,7 +822,7 @@ export function testInterruptedBackupRestoreRejectsCorruptRecoveryBeforeTouching
 
     let error = ''
     try {
-      recoverInterruptedBackupRestore(getLibraryPaths(root))
+      recoverInterruptedLibraryReplacement(getLibraryPaths(root))
     } catch (caught) {
       error = caught instanceof Error ? caught.message : String(caught)
     }

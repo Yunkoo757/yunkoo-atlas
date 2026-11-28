@@ -185,12 +185,16 @@ async function main() {
     const violation = firstForbiddenPath(graph, file, forbiddenPureTargets)
     if (violation) failures.push(`纯模块经依赖链访问运行环境：${violation.join(' → ')}`)
   }
-  for (const file of ['electron/library/backupRestoreFiles.ts', 'electron/library/libraryInspection.ts']) {
+  for (const file of ['electron/library/libraryReplacement.ts', 'electron/library/backupRestoreFiles.ts', 'electron/library/libraryInspection.ts']) {
     const violation = firstForbiddenPath(graph, file, [
       'electron/library/storage', 'electron/library/backup', 'electron/library/journalZip',
     ])
     if (violation) failures.push(`资料库文件检查与回滚不得反向依赖会话或归档流程：${violation.join(' → ')}`)
   }
+  const storageWorkflow = firstForbiddenPath(graph, 'electron/library/storage.ts', [
+    'electron/library/backup', 'electron/library/journalZip',
+  ])
+  if (storageWorkflow) failures.push(`资料库启动恢复不得依赖备份与归档操作入口：${storageWorkflow.join(' → ')}`)
   const graphDirectory = path.join(root, 'test-results')
   await fs.mkdir(graphDirectory, { recursive: true })
   const desktopGraph = Object.fromEntries(desktopModules.map(file => [file, graph[file]]))

@@ -8,7 +8,8 @@ import { ensureLibraryDirs, getLibraryPaths } from './paths'
 import { writeFileAtomicallySync } from './atomicFile'
 import { LibraryInspectionError, validateDesktopLibrary, type LibraryDatabaseInspection } from './libraryInspection'
 import { safeConsoleError } from '../diagnosticSanitizer'
-import { discardBackupWorkspace, installBackupCandidate } from './backupRestoreFiles'
+import { installBackupCandidate } from './backupRestoreFiles'
+import { discardLibraryWorkspace } from './libraryReplacement'
 
 const DEFAULT_MAX_BACKUPS = 7
 const DEFAULT_MAX_TOTAL_SIZE = 500 * 1024 * 1024 // 500 MB 备份总容量上限
@@ -336,7 +337,7 @@ export async function withVerifiedBackup<T>(
     }
     return await use(result, clean => installBackupCandidate(libraryPath, candidate, clean))
   } finally {
-    discardBackupWorkspace(libraryPath, verificationRoot)
+    discardLibraryWorkspace(libraryPath, verificationRoot)
   }
 }
 
@@ -352,7 +353,7 @@ export function restoreBackupAtPath(
     installBackupCandidate(libraryPath, stageBackupFiles(dbPath, stagingRoot, readBackupMetadata(dbPath).value), cleanDatabaseBytes)
     return true
   } finally {
-    discardBackupWorkspace(libraryPath, stagingRoot)
+    discardLibraryWorkspace(libraryPath, stagingRoot)
   }
 }
 

@@ -26,7 +26,7 @@ const assert = (value, message) => { if (!value) throw new Error(message) }
 const checks = [], screenshots = [], errors = []
 let application, page
 const hashes = {}
-for (const file of ['src/App.tsx', 'src/storage/snapshotCodec.ts', 'src/storage/retiredSnapshotDomains.ts', 'electron/library/retiredSnapshotDatabase.ts', 'electron/library/backup.ts', 'electron/library/backupRestoreFiles.ts', 'src/store/useStore.ts', 'scripts/qa-retired-modules.mjs', 'dist-electron/main.js', 'dist/.vite/manifest.json']) hashes[file] = createHash('sha256').update(await readFile(join(root, file))).digest('hex')
+for (const file of ['src/App.tsx', 'src/storage/snapshotCodec.ts', 'src/storage/retiredSnapshotDomains.ts', 'electron/library/retiredSnapshotDatabase.ts', 'electron/library/backup.ts', 'electron/library/backupRestoreFiles.ts', 'electron/library/libraryReplacement.ts', 'src/store/useStore.ts', 'scripts/qa-retired-modules.mjs', 'dist-electron/main.js', 'dist/.vite/manifest.json']) hashes[file] = createHash('sha256').update(await readFile(join(root, file))).digest('hex')
 const report = extra => writeFile(join(output, 'desktop.json'), JSON.stringify({ runtime, library, userData, hashes, checks, screenshots, errors, ...extra }, null, 2))
 const pass = (name, detail = {}) => { checks.push({ name, ...detail }); console.log('PASS', name) }
 try {

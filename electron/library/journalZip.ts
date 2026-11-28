@@ -1,7 +1,8 @@
-import { assertRecoveryManifestIdentity, readCompatibleLibraryManifest } from './libraryIdentity'
+import { readCompatibleLibraryManifest } from './libraryIdentity'
+import { beginLibraryReplacement } from './libraryReplacement'
+import { copyLibraryAttachments } from './attachmentFiles'
 import { LibraryInspectionError, validateDesktopLibrary } from './libraryInspection'
 import { CREATE_LIBRARY_TABLES_SQL, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
-import { sha256File } from './fileChecksum'
 import { crc32 } from '../../src/lib/crc32'
 import { retiredSnapshotDatabaseBytes } from './retiredSnapshotDatabase'
 import fs from 'node:fs'
@@ -94,17 +95,6 @@ export const MAX_DESKTOP_JOURNAL_ENTRY_COUNT = 20_000
 export const MAX_DESKTOP_JOURNAL_ENTRY_BYTES = 256 * 1024 * 1024
 export const MAX_DESKTOP_JOURNAL_EXPANDED_BYTES = 2 * 1024 * 1024 * 1024
 const DESKTOP_JOURNAL_EXTRACTION_TIMEOUT_MS = 5 * 60_000
-const JOURNAL_IMPORT_MARKER = '.journal-import.json'
-interface JournalImportMarker {
-  version: 1
-  recoveryDir: string
-  hadDatabase: boolean
-  hadManifest: boolean
-  databaseSha256?: string
-  manifestSha256?: string
-  attachmentEntries: Array<{ fileName: string; sha256: string }>
-}
-
 export interface JournalZipEntryLimits {
   maxEntryCount: number
   maxEntryBytes: number
@@ -549,175 +539,6 @@ async function importWebJournalZip(
   )
 }
 
-function copyAttachmentFiles(
-  source: string,
-  destination: string,
-  options: { durable?: boolean; checksum?: boolean } = {},
-): Array<{ fileName: string; sha256: string }> {
-  const files: Array<{ name: string; sourceFile: string }> = []
-  if (fs.existsSync(source)) {
-    const sourceStat = fs.lstatSync(source)
-    if (sourceStat.isSymbolicLink() || !sourceStat.isDirectory()) {
-      throw new Error('Attachment source must be a regular directory')
-    }
-  }
-  for (const name of fs.existsSync(source) ? fs.readdirSync(source) : []) {
-    const sourceFile = path.join(source, name)
-    const fileStat = fs.lstatSync(sourceFile)
-    if (fileStat.isSymbolicLink()) {
-      throw new Error(`Attachment source must not contain symbolic links (${name})`)
-    }
-    if (!fileStat.isFile()) {
-      throw new Error(`Attachment source must contain regular files only (${name})`)
-    }
-    files.push({ name, sourceFile })
-  }
-
-  clearDirectory(destination)
-  for (const file of files) {
-    const destinationFile = path.join(destination, file.name)
-    fs.copyFileSync(file.sourceFile, destinationFile)
-    if (options.durable) fsyncFileSync(destinationFile)
-  }
-  if (options.durable) fsyncDirectorySync(destination)
-  return options.checksum
-    ? files.map(({ name }) => ({
-        fileName: name,
-        sha256: sha256File(path.join(destination, name)),
-      }))
-    : []
-}
-
-function backupCurrentLibrary(
-  paths: ReturnType<typeof ensureLibraryDirs>,
-  backupDir: string,
-): JournalImportMarker {
-  const marker: JournalImportMarker = {
-    version: 1,
-    recoveryDir: path.basename(backupDir),
-    hadDatabase: fs.existsSync(paths.dbFile),
-    hadManifest: fs.existsSync(paths.manifestFile),
-    attachmentEntries: [],
-  }
-  if (fs.existsSync(paths.manifestFile)) {
-    const destination = path.join(backupDir, 'manifest.json')
-    fs.copyFileSync(paths.manifestFile, destination)
-    fsyncFileSync(destination)
-    marker.manifestSha256 = sha256File(destination)
-  }
-  if (fs.existsSync(paths.dbFile)) {
-    const destination = path.join(backupDir, 'journal.db')
-    fs.copyFileSync(paths.dbFile, destination)
-    fsyncFileSync(destination)
-    marker.databaseSha256 = sha256File(destination)
-  }
-  if (fs.existsSync(paths.attachments)) {
-    marker.attachmentEntries = copyAttachmentFiles(
-      paths.attachments,
-      path.join(backupDir, 'attachments'),
-      { durable: true, checksum: true },
-    )
-  }
-  fsyncDirectorySync(backupDir)
-  return marker
-}
-
-function validateJournalImportRecovery(
-  paths: ReturnType<typeof ensureLibraryDirs>,
-  marker: JournalImportMarker,
-): string {
-  if (
-    marker.version !== 1 ||
-    !marker.recoveryDir.startsWith('.pre-import-') ||
-    path.basename(marker.recoveryDir) !== marker.recoveryDir ||
-    typeof marker.hadDatabase !== 'boolean' ||
-    typeof marker.hadManifest !== 'boolean' ||
-    !Array.isArray(marker.attachmentEntries)
-  ) {
-    throw new Error('导入恢复标记无效，已停止打开资料库')
-  }
-  const backupDir = path.join(paths.root, marker.recoveryDir)
-  const checks: Array<[boolean, string | undefined, string]> = [
-    [marker.hadDatabase, marker.databaseSha256, path.join(backupDir, 'journal.db')],
-    [marker.hadManifest, marker.manifestSha256, path.join(backupDir, 'manifest.json')],
-  ]
-  for (const [expected, checksum, filePath] of checks) {
-    if (expected !== fs.existsSync(filePath) || (expected && (!checksum || sha256File(filePath) !== checksum))) {
-      throw new Error('导入恢复副本不完整或已损坏，已停止打开资料库')
-    }
-  }
-  const names = new Set<string>()
-  for (const entry of marker.attachmentEntries) {
-    if (
-      !entry || typeof entry.fileName !== 'string' || path.basename(entry.fileName) !== entry.fileName ||
-      names.has(entry.fileName) || typeof entry.sha256 !== 'string'
-    ) {
-      throw new Error('导入恢复附件清单无效，已停止打开资料库')
-    }
-    names.add(entry.fileName)
-    const filePath = path.join(backupDir, 'attachments', entry.fileName)
-    if (!fs.existsSync(filePath) || sha256File(filePath) !== entry.sha256) {
-      throw new Error('导入恢复附件不完整或已损坏，已停止打开资料库')
-    }
-  }
-  const recoveryAttachments = path.join(backupDir, 'attachments')
-  const actualNames = fs.existsSync(recoveryAttachments) ? fs.readdirSync(recoveryAttachments) : []
-  if (actualNames.length !== names.size) {
-    throw new Error('导入恢复附件清单不完整，已停止打开资料库')
-  }
-  for (const name of actualNames) {
-    const filePath = path.join(recoveryAttachments, name)
-    const stat = fs.lstatSync(filePath)
-    if (!names.has(name) || !stat.isFile() || stat.isSymbolicLink()) {
-      throw new Error('导入恢复附件清单无效，已停止打开资料库')
-    }
-  }
-  return backupDir
-}
-
-function restoreCurrentLibrary(
-  paths: ReturnType<typeof ensureLibraryDirs>,
-  backupDir: string,
-  marker: JournalImportMarker,
-): void {
-  const manifestBackup = path.join(backupDir, 'manifest.json')
-  const dbBackup = path.join(backupDir, 'journal.db')
-  fs.rmSync(paths.manifestFile, { force: true })
-  fs.rmSync(paths.dbFile, { force: true })
-  if (marker.hadManifest) {
-    writeFileAtomicallySync(paths.manifestFile, fs.readFileSync(manifestBackup))
-  }
-  if (marker.hadDatabase) {
-    writeFileAtomicallySync(paths.dbFile, fs.readFileSync(dbBackup))
-  }
-  copyAttachmentFiles(
-    path.join(backupDir, 'attachments'),
-    paths.attachments,
-    { durable: true },
-  )
-}
-
-export function recoverInterruptedJournalImport(
-  paths: ReturnType<typeof ensureLibraryDirs>,
-  expectedLibraryId?: string,
-): void {
-  const markerPath = path.join(paths.root, JOURNAL_IMPORT_MARKER)
-  if (!fs.existsSync(markerPath)) return
-  let marker: JournalImportMarker
-  try {
-    marker = JSON.parse(fs.readFileSync(markerPath, 'utf8')) as JournalImportMarker
-  } catch {
-    throw new Error('导入恢复标记无法读取，已停止打开资料库')
-  }
-  const backupDir = validateJournalImportRecovery(paths, marker)
-  assertRecoveryManifestIdentity(marker.hadManifest ? path.join(backupDir, 'manifest.json') : null, expectedLibraryId)
-  restoreCurrentLibrary(paths, backupDir, marker)
-  fsyncDirectorySync(paths.root)
-  fs.rmSync(markerPath, { force: true })
-  fsyncDirectorySync(paths.root)
-  fs.rmSync(backupDir, { recursive: true, force: true })
-}
-
 interface JournalArchivePreparation {
   libraryId?: string
   copyWebAsset?: (source: string, destination: string, index: number) => void
@@ -745,7 +566,7 @@ export async function prepareJournalArchive(
     if (fs.existsSync(manifestSrc) && fs.existsSync(dbSrc)) {
       fs.copyFileSync(manifestSrc, preparedPaths.manifestFile)
       fs.copyFileSync(dbSrc, preparedPaths.dbFile)
-      copyAttachmentFiles(attachmentsSrc, preparedPaths.attachments)
+      copyLibraryAttachments(attachmentsSrc, preparedPaths.attachments)
       if (options.libraryId) {
         const importedManifest = readCompatibleLibraryManifest(preparedPaths.manifestFile)
         writeFileAtomicallySync(
@@ -808,42 +629,24 @@ async function replaceLibraryFiles(
   paths: ReturnType<typeof getLibraryPaths>,
   preparedPaths: ReturnType<typeof getLibraryPaths>,
 ): Promise<void> {
-  const preImportBackup = path.join(paths.root, `.pre-import-${randomUUID()}`)
-  const markerPath = path.join(paths.root, JOURNAL_IMPORT_MARKER)
-  let mutationStarted = false
-  let keepRecoveryBackup = false
+  writeImportProgress('importZip: backup current library start')
+  const transaction = beginLibraryReplacement(paths, 'journal')
   try {
-    fs.mkdirSync(preImportBackup)
-    writeImportProgress('importZip: backup current library start')
-    const recoveryMarker = backupCurrentLibrary(paths, preImportBackup)
-    writeFileAtomicallySync(markerPath, JSON.stringify(recoveryMarker, null, 2), 'utf8')
-
     writeImportProgress('importZip: backup current library done')
-    mutationStarted = true
     writeFileAtomicallySync(paths.manifestFile, fs.readFileSync(preparedPaths.manifestFile))
     writeFileAtomicallySync(paths.dbFile, fs.readFileSync(preparedPaths.dbFile))
-    copyAttachmentFiles(preparedPaths.attachments, paths.attachments, { durable: true })
+    copyLibraryAttachments(preparedPaths.attachments, paths.attachments, { durable: true })
     await validateArchiveLibrary(paths)
-    fsyncDirectorySync(paths.root)
-    fs.rmSync(markerPath, { force: true })
-    fsyncDirectorySync(paths.root)
+    transaction.commit()
   } catch (error) {
-    if (mutationStarted) {
-      try {
-        recoverInterruptedJournalImport(paths)
-      } catch (restoreError) {
-        keepRecoveryBackup = true
-        throw new Error(
-          `${error instanceof Error ? error.message : String(error)}; ` +
-          `恢复当前交易库失败，安全副本已保留在 ${preImportBackup}: ` +
-          `${restoreError instanceof Error ? restoreError.message : String(restoreError)}`,
-        )
-      }
+    try { transaction.rollback() }
+    catch (restoreError) {
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)}; ` +
+        `恢复当前交易库失败，安全副本已保留在 ${transaction.directory}: ` +
+        `${restoreError instanceof Error ? restoreError.message : String(restoreError)}`,
+      )
     }
     throw error
-  } finally {
-    if (!keepRecoveryBackup && !fs.existsSync(markerPath)) {
-      try { fs.rmSync(preImportBackup, { recursive: true, force: true, maxRetries: 6, retryDelay: 50 }) } catch { /* 保留现场。 */ }
-    }
   }
 }
