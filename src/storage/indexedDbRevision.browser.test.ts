@@ -246,27 +246,35 @@ async function verifyConcurrentManifestCreation(schemaVersion: number): Promise<
     }
     return original.call(this, stores, mode, options)
   }
-  const adapter = new IndexedDbStorageAdapter()
-  let failure: unknown
+  async function openAndVerify() {
+    const adapter = new IndexedDbStorageAdapter()
+    let failure: unknown
+    try {
+      try {
+        await adapter.open()
+      } catch (error) {
+        failure = error
+      }
+      assert(JSON.stringify(await readRawValue('meta', 'manifest')) === JSON.stringify(manifest), '已提交的清单身份、版本和时间必须完整保留')
+      assert(await readRawValue('meta', 'snapshotRevision') === 42, '清单初始化不能改变已有版本')
+      if (schemaVersion === SCHEMA_VERSION) {
+        assert(!failure && (await adapter.getManifest()).libraryId === manifest.libraryId, '打开方应采用已有的库身份')
+      } else {
+        assert(failure instanceof Error && failure.message.includes('更新版本'), '未来版本清单须保持原有拒绝语义')
+        const readable = await adapter.getManifest().then(() => true, () => false)
+        assert(!readable, '拒绝打开的连接不应被暴露给后续操作')
+      }
+    } finally {
+      adapter.close()
+    }
+  }
   try {
-    try { await adapter.open() } catch (error) { failure = error }
+    await openAndVerify()
+    assert(committedFirst, '清单预检后应执行独立的先行提交')
   } finally {
     IDBDatabase.prototype.transaction = original
   }
-  try {
-    assert(committedFirst, '清单预检后应执行独立的先行提交')
-    assert(JSON.stringify(await readRawValue('meta', 'manifest')) === JSON.stringify(manifest), '先提交的清单身份、版本和时间必须完整保留')
-    assert(await readRawValue('meta', 'snapshotRevision') === 42, '清单初始化不能改变已有版本')
-    if (schemaVersion === SCHEMA_VERSION) {
-      assert(!failure && (await adapter.getManifest()).libraryId === manifest.libraryId, '打开方应采用已有的库身份')
-    } else {
-      assert(failure instanceof Error && failure.message.includes('更新版本'), '未来版本的先行提交须保持原有拒绝语义')
-      const readable = await adapter.getManifest().then(() => true, () => false)
-      assert(!readable, '拒绝打开的初始连接不应被暴露给后续操作')
-    }
-  } finally {
-    adapter.close()
-  }
+  await openAndVerify()
 }
 
 async function run(): Promise<void> {
