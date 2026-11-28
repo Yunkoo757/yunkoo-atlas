@@ -1,11 +1,12 @@
 import type { LibraryLocationState } from '../../src/types/journalBridge'
 import fs from 'node:fs'
 import path from 'node:path'
-import { assertLibraryIdentity, LibraryIdentityMismatchError, type LibraryTarget } from './libraryIdentity'
+import { LibraryIdentityMismatchError, type LibraryTarget } from './libraryIdentity'
 import { LibraryStorage } from './storage'
+import { openValidatedLibraryCandidate } from './libraryActivation'
 import electronRuntime from 'electron'
 import { fsyncDirectorySync, writeFileAtomicallySync } from './atomicFile'
-import { getLibraryPaths, isSameDirectory } from './paths'
+import { isSameDirectory } from './paths'
 import { OperationalError } from '../../src/lib/operationalError'
 
 const CONFIG_FILE = 'library-config.json'
@@ -48,18 +49,21 @@ export function saveLibraryConfig(cfg: LibraryTarget): void {
   }
 }
 
-export type ValidatedLibraryLocation =
+type LibraryLocation<T> =
   | Exclude<LibraryLocationState, { kind: 'ready' }>
-  | (Extract<LibraryLocationState, { kind: 'ready' }> & { verifiedLibraryId: string })
+  | (Extract<LibraryLocationState, { kind: 'ready' }> & { opened: T })
 
-export interface LibraryLocationResolverDependencies {
+interface LocationFiles {
   configPath: string
   environmentPath?: string
   defaultPath: string
   readTextFile(filePath: string): string
   inspectPath(filePath: string): 'missing' | 'file' | 'directory'
   assertReadableWritable(filePath: string): void
-  validateExistingLibrary(filePath: string, expectedLibraryId?: string): Promise<{ libraryId: string }>
+}
+
+export interface LibraryLocationResolverDependencies<T> extends LocationFiles {
+  openLibrary(filePath: string, expectedLibraryId?: string): Promise<T>
 }
 
 type SelectedLocation = {
@@ -110,7 +114,7 @@ function parseConfig(
 }
 
 function selectLibraryLocation(
-  dependencies: LibraryLocationResolverDependencies,
+  dependencies: LocationFiles,
   expected?: LibraryTarget,
 ): SelectedLocation | Extract<LibraryLocationState, { kind: 'invalid' | 'unavailable' }> {
   let selected: SelectedLocation
@@ -162,10 +166,10 @@ function selectLibraryLocation(
   return { ...selected, expectedLibraryId: expected.libraryId }
 }
 
-export async function resolveLibraryLocation(
-  dependencies: LibraryLocationResolverDependencies,
+export async function resolveLibraryLocation<T>(
+  dependencies: LibraryLocationResolverDependencies<T>,
   expected?: LibraryTarget,
-): Promise<ValidatedLibraryLocation> {
+): Promise<LibraryLocation<T>> {
   const selected = selectLibraryLocation(dependencies, expected)
   if ('kind' in selected) return selected
   let targetKind: 'missing' | 'file' | 'directory'
@@ -196,10 +200,9 @@ export async function resolveLibraryLocation(
     }
   }
 
-  let manifest: { libraryId: string }
+  let opened: T
   try {
-    manifest = await dependencies.validateExistingLibrary(selected.resolvedPath, selected.expectedLibraryId)
-    assertLibraryIdentity(manifest.libraryId, selected.expectedLibraryId)
+    opened = await dependencies.openLibrary(selected.resolvedPath, selected.expectedLibraryId)
   } catch (error) {
     if (error instanceof LibraryIdentityMismatchError) {
       return { kind: 'invalid', configuredPath: selected.configuredPath, reason: error.message }
@@ -215,7 +218,7 @@ export async function resolveLibraryLocation(
     configuredPath: selected.configuredPath,
     resolvedPath: selected.resolvedPath,
     source: selected.source,
-    verifiedLibraryId: manifest.libraryId,
+    opened,
   }
 }
 
@@ -231,53 +234,45 @@ function inspectPath(filePath: string): 'missing' | 'file' | 'directory' {
   }
 }
 
-async function validateExistingLibrary(libraryPath: string, expectedLibraryId?: string): Promise<{ libraryId: string }> {
-  const paths = getLibraryPaths(libraryPath)
-  if (!fs.existsSync(paths.manifestFile)) {
-    throw new Error('资料库缺少 manifest.json')
-  }
-  if (!fs.existsSync(paths.dbFile)) {
-    throw new Error('资料库缺少 journal.db，请从备份恢复')
-  }
-  const candidate = new LibraryStorage(libraryPath, {
-    ensureDirectories: false,
-    allowCreate: false,
-  })
-  try {
-    await candidate.open(expectedLibraryId)
-    candidate.loadSnapshot()
-    return { libraryId: candidate.readManifest(expectedLibraryId).libraryId }
-  } finally {
-    candidate.release()
-  }
-}
+type LocationPaths = Pick<LocationFiles, 'configPath' | 'environmentPath' | 'defaultPath'>
 
-function runtimeLocationDependencies(): LibraryLocationResolverDependencies {
+function locationFiles(paths: LocationPaths = {
+  configPath: getConfigPath(),
+  environmentPath: process.env.TRADER_ATLAS_LIBRARY,
+  defaultPath: path.join(requireAppPath('documents'), 'Trader Atlas'),
+}): LocationFiles {
   return {
-    configPath: getConfigPath(),
-    environmentPath: process.env.TRADER_ATLAS_LIBRARY,
-    defaultPath: path.join(requireAppPath('documents'), 'Trader Atlas'),
+    ...paths,
     readTextFile: (filePath) => fs.readFileSync(filePath, 'utf8'),
     inspectPath,
     assertReadableWritable: (filePath) => fs.accessSync(filePath, fs.constants.R_OK | fs.constants.W_OK),
-    validateExistingLibrary,
   }
 }
 
 export function assertConfiguredLibraryTarget(target: LibraryTarget): void {
-  const selected = selectLibraryLocation(runtimeLocationDependencies(), target)
+  const selected = selectLibraryLocation(locationFiles(), target)
   if ('kind' in selected) throw libraryLocationError(selected)
 }
 
-export function getValidatedLibraryLocation(expected?: LibraryTarget): Promise<ValidatedLibraryLocation> {
-  return resolveLibraryLocation(runtimeLocationDependencies(), expected)
+export function openConfiguredLibrary(
+  createStorage: (filePath: string, options: { ensureDirectories: false; allowCreate: false }) => LibraryStorage,
+  expected?: LibraryTarget,
+  paths?: LocationPaths,
+) {
+  return resolveLibraryLocation({
+    ...locationFiles(paths),
+    openLibrary: (filePath, expectedId) => openValidatedLibraryCandidate(
+      createStorage(filePath, { ensureDirectories: false, allowCreate: false }), expectedId,
+    ),
+  }, expected)
 }
 
 export async function getLibraryLocationState(expected?: LibraryTarget): Promise<LibraryLocationState> {
-  const location = await getValidatedLibraryLocation(expected)
+  const location = await openConfiguredLibrary((filePath, options) => new LibraryStorage(filePath, options), expected)
   if (location.kind !== 'ready') return location
-  const { verifiedLibraryId: _verifiedLibraryId, ...publicState } = location
-  return publicState
+  const { opened, ...state } = location
+  opened.candidate.release()
+  return state
 }
 
 export function libraryLocationError(state: Exclude<LibraryLocationState, { kind: 'ready' | 'unset' }>): Error {

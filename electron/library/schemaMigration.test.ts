@@ -6,6 +6,7 @@ import { createFullPersistedSnapshotFixture } from '../../src/storage/fixtures/f
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { SCHEMA_VERSION } from '../../src/storage/types'
 import { LibraryStorage } from './storage'
+import { openConfiguredLibrary } from './libraryLocation'
 import {
   migrateOpenedLibraryV8ToV9,
   SCHEMA_MIGRATION_MARKER_FILE,
@@ -379,11 +380,22 @@ export async function testV11ManifestReplacementRecoversDamagedOrMissingDatabase
       if (damage === 'corrupt') fs.writeFileSync(dbFile, Buffer.from('not-a-sqlite-database'))
       else fs.rmSync(dbFile)
 
-      const reopened = new LibraryStorage(library.path, {
-        allowCreate: false,
-        now: () => new Date('2026-08-22T10:00:00.000Z'),
-      })
-      await reopened.open(JSON.parse(library.originalManifest.toString('utf8')).libraryId)
+      const libraryId = JSON.parse(library.originalManifest.toString('utf8')).libraryId
+      const configPath = path.join(library.path, 'test-config.json')
+      fs.writeFileSync(configPath, JSON.stringify({ libraryPath: library.path, libraryId }))
+      const created: LibraryStorage[] = []
+      const location = await openConfiguredLibrary((root, options) => {
+        const candidate = new LibraryStorage(root, { ...options, now: () => new Date('2026-08-22T10:00:00.000Z') })
+        created.push(candidate)
+        return candidate
+      }, undefined, { configPath, defaultPath: path.join(library.path, 'unused') })
+      assert(location.kind === 'ready', `${damage} 配置入口必须使用已有恢复副本开库`)
+      const { candidate, snapshot } = location.opened
+      try {
+        assert(created.length === 1 && candidate === created[0], '返回已经验证的同一实例')
+        const trade = snapshot?.trades[0]
+        assert(trade?.tradeKind === 'live' && trade.liveStageId === 'legacy-live-stage-2', '已打开候选须持有恢复后的原始交易')
+      } finally { candidate.release() }
       const pair = await readAndDecodePair(library.path)
       assert(pair.manifest.schemaVersion === SCHEMA_VERSION, `${damage} 当前 DB 恢复后必须重新迁移 manifest`)
       assert(pair.decodedSchemaVersion === SCHEMA_VERSION, `${damage} 当前 DB 恢复后必须重新迁移数据库`)
@@ -391,7 +403,6 @@ export async function testV11ManifestReplacementRecoversDamagedOrMissingDatabase
         pair.snapshot.trades[0]?.tradeKind === 'live' && pair.snapshot.trades[0].liveStageId === 'legacy-live-stage-2',
         `${damage} v12 DB 恢复后必须保留已知阶段归属`,
       )
-      reopened.release()
     } finally {
       fs.rmSync(library.path, { recursive: true, force: true })
     }

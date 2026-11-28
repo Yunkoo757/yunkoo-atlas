@@ -14,12 +14,13 @@ import fs from 'node:fs'
 import { safeConsoleError } from '../diagnosticSanitizer'
 import { JournalImportPreviews } from './journalImportPreviews'
 import { LibraryStorage } from './storage'
+import type { LibraryTarget } from './libraryIdentity'
 import { exportJournalZip, installPreparedLibraryAtPath } from './journalZip'
 import { ensureLibraryDirs } from './paths'
 import {
   assertConfiguredLibraryTarget,
   getLibraryLocationState,
-  getValidatedLibraryLocation,
+  openConfiguredLibrary,
   libraryLocationError,
   saveLibraryConfig,
   UnconfirmedLibraryConfigError,
@@ -39,7 +40,6 @@ import { LibraryBusyError, LibraryOperationGate } from './sessionGate'
 import { LibraryAutoBackup } from './autoBackup'
 import { LibraryWriterSessions, type WriterGrant } from './writerSession'
 import {
-  openValidatedLibraryCandidate,
   reloadRendererAfterStorageRecovery,
   recoverLibraryStorageLifecycle,
 } from './libraryActivation'
@@ -307,15 +307,18 @@ function closeStorageForRestore(current: LibraryStorage): void {
   storage = null
 }
 
-async function openConfiguredStorage(restorePoint?: RestorePoint): Promise<LibraryStorage> {
-  const location = await getValidatedLibraryLocation(restorePoint)
+async function openConfiguredCandidate(expected?: LibraryTarget) {
+  const location = await openConfiguredLibrary(createRuntimeLibraryStorage, expected)
   if (location.kind === 'unset') throw new Error('尚未配置交易库，请先选择或创建交易库目录')
   if (location.kind !== 'ready') throw libraryLocationError(location)
-  const candidate = createRuntimeLibraryStorage(location.resolvedPath, { ensureDirectories: false, allowCreate: false })
-  await openValidatedLibraryCandidate(candidate, location.verifiedLibraryId)
+  return location.opened
+}
+
+async function openConfiguredStorage(restorePoint?: RestorePoint): Promise<LibraryStorage> {
+  const { candidate } = await openConfiguredCandidate(restorePoint)
   try {
     if (restorePoint) autoBackup.start(candidate, restorePoint.backupPath)
-    else ensureLibraryDirs(location.resolvedPath)
+    else ensureLibraryDirs(candidate.getLibraryPath())
     storage = candidate
     return candidate
   } catch (error) {
@@ -454,18 +457,9 @@ async function recoverActiveStorageLifecycle(
 
       // 恢复失败时旧实例可能仍被锁定，只有成功激活的实例可重新备份。
       autoBackup.stop()
-      const location = await getValidatedLibraryLocation(current?.getOpenedTarget())
-      if (location.kind === 'unset') throw new Error('尚未配置交易库')
-      if (location.kind !== 'ready') throw libraryLocationError(location)
-
       const recovered = await recoverLibraryStorageLifecycle({
         current,
-        libraryPath: location.resolvedPath,
-        expectedLibraryId: location.verifiedLibraryId,
-        createCandidate: (libraryPath) => createRuntimeLibraryStorage(libraryPath, {
-          ensureDirectories: false,
-          allowCreate: false,
-        }),
+        openCandidate: openConfiguredCandidate,
         activateCandidate: (candidate) => {
           autoBackup.start(candidate)
           storage = candidate

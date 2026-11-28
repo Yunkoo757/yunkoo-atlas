@@ -1,5 +1,6 @@
 import type { EventEmitter } from 'node:events'
 import type { SnapshotEnvelope } from '../../src/storage/adapter'
+import type { LibraryTarget } from './libraryIdentity'
 import type { PersistedSnapshot } from '../../src/storage/types'
 import { LibraryStorage } from './storage'
 
@@ -10,11 +11,10 @@ import { LibraryStorage } from './storage'
 export async function openValidatedLibraryCandidate(
   candidate: LibraryStorage,
   expectedLibraryId?: string,
-): Promise<SnapshotEnvelope & { libraryId: string }> {
+): Promise<SnapshotEnvelope & { candidate: LibraryStorage; libraryId: string }> {
   try {
     await candidate.open(expectedLibraryId)
-    const { libraryId } = candidate.readManifest(expectedLibraryId)
-    return { ...candidate.loadSnapshotEnvelope(), libraryId }
+    return { ...candidate.loadSnapshotEnvelope(), candidate, libraryId: candidate.getOpenedTarget().libraryId }
   } catch (error) {
     candidate.release()
     throw error
@@ -121,22 +121,15 @@ export function reloadRendererAfterStorageRecovery(
  */
 export async function recoverLibraryStorageLifecycle(input: {
   current: LibraryStorage | null
-  libraryPath?: string
-  expectedLibraryId?: string
-  createCandidate: (libraryPath: string) => LibraryStorage
+  openCandidate: (expected?: LibraryTarget) => ReturnType<typeof openValidatedLibraryCandidate>
   activateCandidate: (candidate: LibraryStorage) => void
   reloadRenderer: () => void | Promise<void>
 }): Promise<{ snapshot: PersistedSnapshot | null; storage: LibraryStorage }> {
-  const expectedLibraryId = input.expectedLibraryId ?? input.current?.getOpenedTarget().libraryId
-  if (!expectedLibraryId) throw new Error('资料库恢复缺少可验证的身份')
-  const libraryPath = input.current?.getLibraryPath() ?? input.libraryPath
-  if (!libraryPath) throw new Error('资料库恢复缺少可重新打开的路径')
-  const candidate = input.createCandidate(libraryPath)
+  const { candidate, snapshot } = await input.openCandidate(input.current?.getOpenedTarget())
   if (input.current && candidate === input.current) {
     throw new Error('资料库恢复必须创建新的主进程 storage 实例')
   }
 
-  const { snapshot } = await openValidatedLibraryCandidate(candidate, expectedLibraryId)
   let activated = false
   try {
     input.activateCandidate(candidate)

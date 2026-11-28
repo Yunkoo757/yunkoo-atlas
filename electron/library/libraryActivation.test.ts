@@ -173,10 +173,10 @@ export async function testRecoveryReplacesIndeterminateStorageBeforeRendererRelo
 
     const recovered = await recoverLibraryStorageLifecycle({
       current: previous,
-      createCandidate: (libraryPath) => new LibraryStorage(libraryPath, {
-        ensureDirectories: false,
-        allowCreate: false,
-      }),
+      openCandidate: expected => {
+        if (!expected) throw new Error('活动实例必须提供恢复目标')
+        return openValidatedLibraryCandidate(new LibraryStorage(root, { allowCreate: false }), expected.libraryId)
+      },
       activateCandidate: (candidate) => { active = candidate },
       reloadRenderer: () => {
         assert(active !== previous, 'renderer reload 前必须先替换旧主进程 storage 实例')
@@ -215,7 +215,7 @@ export async function testRecoveryRejectsAReplacementIdentityAtTheActivePath(): 
     try {
       await recoverLibraryStorageLifecycle({
         current,
-        createCandidate: dir => new LibraryStorage(dir, { ensureDirectories: false, allowCreate: false }),
+        openCandidate: expected => openValidatedLibraryCandidate(new LibraryStorage(root, { allowCreate: false }), expected?.libraryId),
         activateCandidate: candidate => { activated = true; candidate.release() },
         reloadRenderer: () => {},
       })
@@ -244,12 +244,7 @@ export async function testRecoveryCanBootstrapFreshStorageWhenBackupCutoverLeftN
 
     const recovered = await recoverLibraryStorageLifecycle({
       current: null,
-      libraryPath: root,
-      expectedLibraryId: libraryId,
-      createCandidate: (libraryPath) => new LibraryStorage(libraryPath, {
-        ensureDirectories: false,
-        allowCreate: false,
-      }),
+      openCandidate: () => openValidatedLibraryCandidate(new LibraryStorage(root, { allowCreate: false }), libraryId),
       activateCandidate: (candidate) => { active = candidate },
       reloadRenderer: () => {
         assert(active !== null, '无活动实例恢复也必须先激活 fresh storage 再刷新')

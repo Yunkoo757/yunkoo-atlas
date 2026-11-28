@@ -38,7 +38,7 @@ export async function testPlatformPathFileFailsClosedWithoutCreatingDefaultLibra
       readTextFile: (filePath) => fs.readFileSync(filePath, 'utf8'),
       inspectPath: inspectRealPath,
       assertReadableWritable: (filePath) => fs.accessSync(filePath, fs.constants.R_OK | fs.constants.W_OK),
-      validateExistingLibrary: async () => {
+      openLibrary: async () => {
         throw new Error('目标是文件时不应进入资料库校验')
       },
     })

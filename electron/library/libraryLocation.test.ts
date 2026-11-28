@@ -6,6 +6,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { LibraryStorage } from './storage'
+import { assertLibraryIdentity } from './libraryIdentity'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -21,7 +22,7 @@ function dependencies(options: {
   entries?: Record<string, Entry>
   validation?: Record<string, { libraryId: string } | Error>
   probes?: string[]
-} = {}): LibraryLocationResolverDependencies {
+} = {}): LibraryLocationResolverDependencies<{ libraryId: string }> {
   const configPath = fixturePath('config.json')
   const entries = new Map(Object.entries(options.entries ?? {}))
   if (options.config !== undefined) entries.set(configPath, 'file')
@@ -47,11 +48,12 @@ function dependencies(options: {
         throw Object.assign(new Error('denied'), { code: 'EACCES' })
       }
     },
-    async validateExistingLibrary(filePath, expectedLibraryId) {
+    async openLibrary(filePath, expectedLibraryId) {
       options.probes?.push(`validate:${expectedLibraryId ?? 'legacy'}`)
       const result = options.validation?.[filePath]
       if (result instanceof Error) throw result
       if (!result) throw new Error('manifest or database is incomplete')
+      assertLibraryIdentity(result.libraryId, expectedLibraryId)
       return result
     },
   }
@@ -169,8 +171,8 @@ export async function testValidLegacyAndDefaultLibrariesAreReady(): Promise<void
   }))
   assert(configured.kind === 'ready' && configured.source === 'config', '旧版无 libraryId 配置仍应兼容')
   assert(
-    configured.kind === 'ready' && configured.verifiedLibraryId === 'legacy-id',
-    '内部验证结果必须携带 libraryId 供正式打开时二次比对',
+    configured.kind === 'ready' && configured.opened.libraryId === 'legacy-id',
+    '已打开的候选须携带这个旧版库的实际身份',
   )
 
   const defaultPath = fixturePath('default-library')

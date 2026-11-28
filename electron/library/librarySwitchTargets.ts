@@ -56,6 +56,6 @@ export class LibrarySwitchTargets {
       candidate.release()
       throw new Error('所选目录已经是当前交易库')
     }
-    return { candidate, ...verified }
+    return verified
   }
 }
