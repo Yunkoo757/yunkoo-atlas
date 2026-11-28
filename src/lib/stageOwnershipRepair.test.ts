@@ -890,3 +890,29 @@ export function testRecommendedBoundaryRepairRejectsStaleRecommendation(): void 
     applyRecommendedStageBoundaryRepair(changed, recommendation)
   ))
 }
+
+export function testBoundaryPreviewFollowsSourcesAndSurvivesAnUnrelatedListReorder(): void {
+  const state = pendingState()
+  state.weeklyReviews = [{
+    ...state.weeklyReviews[0]!, weekStart: '2026-06-29', weekEnd: '2026-07-05', riskSnapshot: undefined,
+  }]
+  const inRange = { liveStageId: 'stage-old', recordedAt: '2026-06-29T12:00:00.000Z', closedTradingDayKey: '2026-06-29' }
+  const linked = (id: string, sourceTradeId: string) => trade(id, { ...inRange, tradeKind: 'case', sourceTradeId })
+  state.trades = [
+    linked('grandchild', 'child'), linked('child', 'root'), linked('sibling', 'root'),
+    linked('already-there', 'target'), linked('dangling', 'missing'), linked('cycle-a', 'cycle-b'),
+    linked('cycle-b', 'cycle-a'), linked('from-paper', 'paper'), linked('from-pending', 'pending'),
+    trade('root', inRange), trade('other-root', inRange), trade('target', { liveStageId: 'stage-current' }),
+    trade('paper', { tradeKind: 'paper' }), trade('pending', { liveStageId: null }),
+  ]
+  const preview = recommendStageBoundaryRepair(state, 'review')!
+  assert([...preview.affectedTradeIds].sort().join() === 'already-there,child,grandchild,other-root,root,sibling',
+    '仅有可到达来源的案例随可靠交易移动，环、模拟盘与缺失来源留在原阶段')
+  const reordered = { ...state, trades: [...state.trades].reverse() }
+  const result = applyRecommendedStageBoundaryRepair(reordered, preview)
+  assert(result.trades.map(t => t.id).join() === reordered.trades.map(t => t.id).join(), '调整阶段不得改变交易展示顺序')
+  assert(result.trades.filter(t => preview.affectedTradeIds.includes(t.id)).every(t => t.tradeKind !== 'paper' && t.liveStageId === 'stage-current'),
+    '仅调整列表次序时原预览仍可应用')
+  const changed = { ...state, trades: state.trades.filter(t => t.id !== 'root') }
+  expectRepairError('recommended-repair-unavailable', () => applyRecommendedStageBoundaryRepair(changed, preview))
+}

@@ -199,33 +199,33 @@ function affectedTradesForBoundaryShift(
   previousTargetStart: string,
 ): string[] {
   const affected = new Set<string>()
-  const candidates = state.trades.filter((trade): trade is Exclude<Trade, { tradeKind: 'paper' }> => (
-    trade.tradeKind !== 'paper' &&
-    trade.liveStageId === previousStageId &&
-    reliableTradeDay(state, trade) !== null &&
-    reliableTradeDay(state, trade)! >= startsOn &&
-    reliableTradeDay(state, trade)! < previousTargetStart
-  ))
-
-  for (const trade of candidates) {
-    if (trade.tradeKind !== 'case' || !trade.sourceTradeId) affected.add(trade.id)
-  }
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const trade of candidates) {
-      if (trade.tradeKind !== 'case' || !trade.sourceTradeId || affected.has(trade.id)) continue
-      const source = state.trades.find((candidate) => candidate.id === trade.sourceTradeId)
-      if (
-        source?.tradeKind !== 'paper' &&
-        (source?.liveStageId === targetStageId || affected.has(source?.id ?? ''))
-      ) {
-        affected.add(trade.id)
-        changed = true
-      }
+  const reachable = new Set<string>()
+  const casesBySource = new Map<string, string[]>()
+  for (const trade of state.trades) {
+    if (trade.tradeKind === 'paper') continue
+    if (trade.liveStageId === targetStageId) reachable.add(trade.id)
+    if (trade.liveStageId !== previousStageId) continue
+    const day = reliableTradeDay(state, trade)
+    if (!day || day < startsOn || day >= previousTargetStart) continue
+    if (trade.tradeKind === 'case' && trade.sourceTradeId) {
+      const children = casesBySource.get(trade.sourceTradeId)
+      if (children) children.push(trade.id)
+      else casesBySource.set(trade.sourceTradeId, [trade.id])
+    } else {
+      affected.add(trade.id)
+      reachable.add(trade.id)
     }
   }
-  return [...affected]
+
+  // Set 的迭代包含途中新增的来源，每条关联最多遍历一次；没有入口的环不会进入队列。
+  for (const sourceId of reachable) {
+    for (const caseId of casesBySource.get(sourceId) ?? []) {
+      affected.add(caseId)
+      reachable.add(caseId)
+    }
+  }
+  // 预览凭据表达成员集合，交易列表的展示顺序独立保留。
+  return [...affected].sort()
 }
 
 /**
