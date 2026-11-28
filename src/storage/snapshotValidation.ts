@@ -1,4 +1,4 @@
-import { WEEKLY_TRADE_MARK_FIELDS, weeklyReviewFrozenTradeIds, weeklyReviewMarkedTradeIds } from '@/data/weeklyReviewTradeReferences'
+import { WEEKLY_TRADE_MARK_FIELDS, weeklyReviewTradeReferences } from '@/data/weeklyReviewTradeReferences'
 import { hasLegacyStageFields } from '@/lib/stageMigration'
 import { isBacktestProject } from '@/lib/backtestProjects'
 import type { PersistedSnapshot } from '@/storage/types'
@@ -810,8 +810,7 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
           )
         }
       }
-      const frozenTradeIds = weeklyReviewFrozenTradeIds(review)
-      for (const tradeId of [...weeklyReviewMarkedTradeIds(review), ...frozenTradeIds]) {
+      for (const [tradeId, evidence] of weeklyReviewTradeReferences(review)) {
         const sourceTrade = nonPaperTradesById.get(tradeId)
         if (sourceTrade) {
           assertReferenceBelongsToStage(
@@ -819,7 +818,7 @@ function assertStageOwnership(snapshot: PersistedSnapshot, label: string): void 
             review.liveStageId,
             `${label}.weeklyReviews contains a cross-stage trade reference`,
           )
-        } else if (!frozenTradeIds.has(tradeId)) {
+        } else if (evidence !== 'frozen') {
           throw new Error(`${label}.weeklyReviews contains a missing trade reference without frozen evidence`)
         }
       }

@@ -15,6 +15,14 @@ export function weeklyReviewFrozenTradeIds(review: WeeklyReview): Set<string> {
   return ids
 }
 
+/** 标记指向现存交易；同一编号还具备冻结证据时，来源删除后仍可回读。 */
+export function weeklyReviewTradeReferences(review: WeeklyReview) {
+  const references = new Map<string, 'marked' | 'frozen'>()
+  for (const id of weeklyReviewMarkedTradeIds(review)) references.set(id, 'marked')
+  for (const id of weeklyReviewFrozenTradeIds(review)) references.set(id, 'frozen')
+  return references
+}
+
 export function updateWeeklyReviewMarks(review: WeeklyReview, transform: (ids: string[]) => string[]): WeeklyReview {
   let updated = review
   for (const field of WEEKLY_TRADE_MARK_FIELDS) {

@@ -1,4 +1,4 @@
-import { weeklyReviewFrozenTradeIds, weeklyReviewMarkedTradeIds } from '@/data/weeklyReviewTradeReferences'
+import { weeklyReviewTradeReferences } from '@/data/weeklyReviewTradeReferences'
 import type { Trade } from '@/data/trades'
 import type { WeeklyReview } from '@/data/weeklyReviews'
 import { isValidLiveCycleDayKey, openedTradingDayKey } from '@/lib/liveCycle'
@@ -240,7 +240,7 @@ function migrateWeeklyReviews(
       stageContainsWeeklyReviewPeriod(candidate, review.weekStart, review.weekEnd)
     )) ?? null
     let stage = periodStage
-    const referencedTradeIds = [...weeklyReviewMarkedTradeIds(review), ...weeklyReviewFrozenTradeIds(review)]
+    const referencedTradeIds = [...weeklyReviewTradeReferences(review).keys()]
     if (stage && referencedTradeIds.some((tradeId) => {
       const trade = tradesById.get(tradeId)
       return !trade || trade.tradeKind === 'paper' || trade.liveStageId !== stage?.id

@@ -1,4 +1,4 @@
-import { updateWeeklyReviewMarks, weeklyReviewFrozenTradeIds, weeklyReviewMarkedTradeIds } from '@/data/weeklyReviewTradeReferences'
+import { updateWeeklyReviewMarks, weeklyReviewTradeReferences } from '@/data/weeklyReviewTradeReferences'
 import type { ComposerGroup } from '@/lib/createRecordAction'
 import { toast } from '@/lib/toast'
 import { syncReviewCaseSourceNotes } from '@/lib/reviewCaseSources'
@@ -451,12 +451,8 @@ function tradePurgeBlockers(
   for (const review of state.weeklyReviews) {
     const pending = typeof review.liveStageId !== 'string'
     if (!pending && review.status !== 'completed') continue
-    const frozen = weeklyReviewFrozenTradeIds(review)
-    if (pending) {
-      for (const id of frozen) if (candidateIds.has(id)) blocked.add(id)
-    }
-    for (const id of weeklyReviewMarkedTradeIds(review)) {
-      if (candidateIds.has(id) && (pending || !frozen.has(id))) blocked.add(id)
+    for (const [id, evidence] of weeklyReviewTradeReferences(review)) {
+      if (candidateIds.has(id) && (pending || evidence === 'marked')) blocked.add(id)
     }
   }
   return blocked

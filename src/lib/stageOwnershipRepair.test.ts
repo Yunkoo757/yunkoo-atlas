@@ -916,3 +916,35 @@ export function testBoundaryPreviewFollowsSourcesAndSurvivesAnUnrelatedListReord
   const changed = { ...state, trades: state.trades.filter(t => t.id !== 'root') }
   expectRepairError('recommended-repair-unavailable', () => applyRecommendedStageBoundaryRepair(changed, preview))
 }
+
+export function testBoundaryRepairKeepsHistoricalSourcesAndStillMovesIndependentTrades(): void {
+  const base = pendingState()
+  const recent = { liveStageId: 'stage-old', recordedAt: '2026-06-30T12:00:00.000Z', closedTradingDayKey: '2026-06-30' }
+  const pending = {
+    ...base.weeklyReviews[0]!, weekStart: '2026-06-29', weekEnd: '2026-07-05', riskSnapshot: undefined,
+  }
+  const archived = { ...pending, id: 'archive', weekStart: '2026-06-15', weekEnd: '2026-06-21', liveStageId: 'stage-old' }
+  const child = trade('child', { ...recent, tradeKind: 'case', sourceTradeId: 'root' })
+  const sibling = { ...child, id: 'sibling' }
+  const state = {
+    ...base, trades: [sibling, child, trade('root', recent), trade('free', recent)],
+    weeklyReviews: [pending], riskOverrideEvents: [] as typeof base.riskOverrideEvents,
+  }
+  const scenarios = [
+    { ...state, weeklyReviews: [pending, { ...archived, highlightTradeIds: ['child'] }] },
+    { ...state, weeklyReviews: [pending, { ...archived, evidenceSnapshot: {
+      trades: [child], missedTrades: [],
+    } }] },
+    { ...state, riskOverrideEvents: [{ ...base.riskOverrideEvents[0]!, liveStageId: 'stage-old', tradeId: 'root' }] },
+    { ...state, trades: [...state.trades, { ...child, id: 'early', sourceTradeId: 'child', recordedAt: '2026-06-15T12:00:00.000Z' }] },
+  ]
+  for (const snapshot of scenarios) {
+    const preview = recommendStageBoundaryRepair(snapshot, pending.id)
+    assert(preview?.affectedTradeIds.join() === 'free', '历史记录约束整条来源链，其他可迁移交易仍应保留在预览')
+    const repaired = applyRecommendedStageBoundaryRepair(snapshot, preview)
+    assert(repaired.trades.every(t => t.tradeKind !== 'paper' && t.liveStageId === (t.id === 'free' ? 'stage-current' : 'stage-old')),
+      '来源、子案例和共同依赖该来源的兄弟案例必须一起保留历史归属')
+  }
+  const conflicting = { ...scenarios[0]!, weeklyReviews: [{ ...pending, followUpTradeIds: ['root'] }, ...scenarios[0]!.weeklyReviews.slice(1)] }
+  assert(recommendStageBoundaryRepair(conflicting, pending.id) === null, '目标周也需要同一条受保护记录时不能推荐不可落盘的设置')
+}

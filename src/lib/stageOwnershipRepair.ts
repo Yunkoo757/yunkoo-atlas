@@ -1,4 +1,4 @@
-import { weeklyReviewFrozenTradeIds, weeklyReviewMarkedTradeIds } from '@/data/weeklyReviewTradeReferences'
+import { weeklyReviewTradeReferences } from '@/data/weeklyReviewTradeReferences'
 import type { Trade } from '@/data/trades'
 import type {
   MonthlyRiskLimit,
@@ -201,6 +201,7 @@ function affectedTradesForBoundaryShift(
   const affected = new Set<string>()
   const reachable = new Set<string>()
   const casesBySource = new Map<string, string[]>()
+  const sourceByCase = new Map<string, string>()
   for (const trade of state.trades) {
     if (trade.tradeKind === 'paper') continue
     if (trade.liveStageId === targetStageId) reachable.add(trade.id)
@@ -208,6 +209,7 @@ function affectedTradesForBoundaryShift(
     const day = reliableTradeDay(state, trade)
     if (!day || day < startsOn || day >= previousTargetStart) continue
     if (trade.tradeKind === 'case' && trade.sourceTradeId) {
+      sourceByCase.set(trade.id, trade.sourceTradeId)
       const children = casesBySource.get(trade.sourceTradeId)
       if (children) children.push(trade.id)
       else casesBySource.set(trade.sourceTradeId, [trade.id])
@@ -224,6 +226,26 @@ function affectedTradesForBoundaryShift(
       reachable.add(caseId)
     }
   }
+  // 历史证据不能随阶段边界改写。在同一阶段的来源与案例中，任一方留下，其余关联方也须留下。
+  const retained = new Set<string>()
+  function keepInStage(id: string | undefined) {
+    if (id && affected.delete(id)) retained.add(id)
+  }
+  for (const event of state.riskOverrideEvents) {
+    if (event.liveStageId === previousStageId) keepInStage(event.tradeId)
+  }
+  for (const review of state.weeklyReviews) {
+    if (review.liveStageId !== previousStageId) continue
+    for (const id of weeklyReviewTradeReferences(review).keys()) keepInStage(id)
+  }
+  for (const trade of state.trades) {
+    if (trade.tradeKind === 'case' && typeof trade.liveStageId === 'string' &&
+        trade.liveStageId !== targetStageId && !affected.has(trade.id)) keepInStage(trade.sourceTradeId)
+  }
+  for (const id of retained) {
+    keepInStage(sourceByCase.get(id))
+    for (const child of casesBySource.get(id) ?? []) keepInStage(child)
+  }
   // 预览凭据表达成员集合，交易列表的展示顺序独立保留。
   return [...affected].sort()
 }
@@ -232,10 +254,7 @@ function affectedTradesForBoundaryShift(
  * 为“完整周被旧迁移边界切开”的周复盘生成唯一、可解释的推荐修复。
  * 只移动边界夹缝内且没有历史来源约束的记录，不根据模糊文本或 ID 猜测。
  */
-export function recommendStageBoundaryRepair(
-  state: StageOwnershipRepairState,
-  entityId: string,
-): RecommendedStageBoundaryRepair | null {
+function planStageBoundaryRepair<T extends StageOwnershipRepairState>(state: T, entityId: string) {
   const review = state.weeklyReviews.find((candidate) => candidate.id === entityId)
   if (
     !review ||
@@ -259,7 +278,7 @@ export function recommendStageBoundaryRepair(
     ))
   ) return null
 
-  return {
+  const recommendation: RecommendedStageBoundaryRepair = {
     entityType: 'weekly-review',
     entityId: review.id,
     expectedFingerprint: fingerprint(review),
@@ -279,19 +298,6 @@ export function recommendStageBoundaryRepair(
       target.startsOn,
     ),
   }
-}
-
-export function applyRecommendedStageBoundaryRepair<T extends StageOwnershipRepairState>(
-  state: T,
-  recommendation: RecommendedStageBoundaryRepair,
-): T {
-  const latest = recommendStageBoundaryRepair(state, recommendation.entityId)
-  if (!latest || JSON.stringify(latest) !== JSON.stringify(recommendation)) {
-    throw new StageOwnershipRepairError(
-      'recommended-repair-unavailable',
-      '推荐设置所依据的阶段或记录已经变化，请刷新后重新核对',
-    )
-  }
   const affectedTradeIds = new Set(recommendation.affectedTradeIds)
   const boundaryState = {
     ...state,
@@ -310,24 +316,39 @@ export function applyRecommendedStageBoundaryRepair<T extends StageOwnershipRepa
         : trade
     )),
   }
-  assertValidLiveStageState({
-    liveStages: boundaryState.liveStages,
-    currentLiveStageId: boundaryState.currentLiveStageId,
-  })
-  const assigned = assignPendingStageOwnership(boundaryState, {
-    entityType: 'weekly-review',
-    entityId: recommendation.entityId,
-    liveStageId: recommendation.targetStageId,
-    expectedFingerprint: recommendation.expectedFingerprint,
-  }) as T
-  return {
-    ...assigned,
-    weeklyReviews: assigned.weeklyReviews.map((review) => {
-      if (review.id !== recommendation.entityId) return review
-      const { legacyStageBoundaryOverlap: _legacyStageBoundaryOverlap, ...normalized } = review
+  try {
+    const assigned = assignPendingStageOwnership(boundaryState, {
+      entityType: 'weekly-review',
+      entityId: review.id,
+      liveStageId: target.id,
+      expectedFingerprint: recommendation.expectedFingerprint,
+    })
+    const weeklyReviews = assigned.weeklyReviews.map(item => {
+      if (item.id !== review.id) return item
+      const { legacyStageBoundaryOverlap: _overlap, ...normalized } = item
       return normalized
-    }),
+    })
+    return { recommendation, state: { ...assigned, weeklyReviews } }
+  } catch (error) {
+    if (error instanceof StageOwnershipRepairError) return null
+    throw error
   }
+}
+
+export function recommendStageBoundaryRepair(state: StageOwnershipRepairState, entityId: string): RecommendedStageBoundaryRepair | null {
+  return planStageBoundaryRepair(state, entityId)?.recommendation ?? null
+}
+
+export function applyRecommendedStageBoundaryRepair<T extends StageOwnershipRepairState>(
+  state: T, recommendation: RecommendedStageBoundaryRepair,
+): T {
+  const plan = planStageBoundaryRepair(state, recommendation.entityId)
+  if (!plan || JSON.stringify(plan.recommendation) !== JSON.stringify(recommendation)) {
+    throw new StageOwnershipRepairError(
+      'recommended-repair-unavailable', '推荐设置所依据的阶段或记录已经变化，请刷新后重新核对',
+    )
+  }
+  return plan.state
 }
 
 function tradeEntityType(trade: Trade): StageOwnershipEntityType | null {
@@ -826,12 +847,11 @@ function validateRelationshipGraph(
             }
           }
         }
-        const frozenTradeIds = weeklyReviewFrozenTradeIds(review)
-        for (const tradeId of [...weeklyReviewMarkedTradeIds(review), ...frozenTradeIds]) {
+        for (const [tradeId, evidence] of weeklyReviewTradeReferences(review)) {
           requireTradeReferenceOrFrozenIdentity(
             tradesById.get(tradeId),
             targetId,
-            frozenTradeIds.has(tradeId),
+            evidence === 'frozen',
             '周复盘引用交易',
           )
         }
