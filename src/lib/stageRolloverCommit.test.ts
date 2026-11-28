@@ -389,3 +389,42 @@ export async function testDesktopLifecycleInvokesChecksAtEveryRequiredBoundary()
   assert(app.includes('disablePersistWrites'), '不确定或已提交但发布失败时 App 必须关闭 renderer 持久化')
   assert(manager.includes('notifyStageManagementOpened'), 'stage management must request an immediate due check when opened')
 }
+
+export async function testRetiredStageRolloverStopsBeforeWriteRecoveryOrPublication() {
+  for (const phase of ['flush', 'commit', 'lost-reply', 'recovery', 'publish-read'] as const) {
+    const document = new AbortController()
+    const events: string[] = []
+    const interrupt = () => document.abort(new Error('主进程要求重新打开'))
+    const options = {
+      signal: document.signal,
+      captureLatest: eligibleCapture,
+      flushBeforeCommit: async () => { if (phase === 'flush') interrupt() },
+      commitDurably: async () => {
+        events.push('commit')
+        if (phase === 'commit' || phase === 'lost-reply') interrupt()
+        if (phase === 'lost-reply' || phase === 'recovery') throw new Error('回执丢失')
+        return { ok: true as const, publish: authoritativePublish }
+      },
+      recoverAfterCommitError: async () => {
+        events.push('recover')
+        interrupt()
+        throw new Error('读回中断')
+      },
+      publish: () => reconcileCommittedStageRollover(authoritativePublish, {
+        signal: document.signal,
+        reloadAuthoritativeSnapshot: async () => {
+          events.push('read')
+          if (phase === 'publish-read') interrupt()
+          return { ...eligibleSnapshotForReload(), ...authoritativePublish }
+        },
+        publishDurableSnapshot: () => { events.push('publish') },
+      }),
+      postpone: async () => { events.push('postpone') },
+      enterRecoveryRequired: () => { events.push('second-recovery') },
+    }
+    const result = await executeDueStageRollover(options)
+    assert(result.kind === 'interrupted', '阶段交接不得把撤销后的回执计为成功或另发恢复要求')
+    const expected = { flush: '', commit: 'commit', 'lost-reply': 'commit', recovery: 'commit,recover', 'publish-read': 'commit,read' }
+    assert(events.join(',') === expected[phase], phase + ': ' + events.join(','))
+  }
+}

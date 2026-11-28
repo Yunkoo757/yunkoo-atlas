@@ -5,6 +5,7 @@ import {
   type StageRolloverState,
 } from '@/lib/stageRollover'
 import { lockStorageCutoverInteraction } from '@/storage/cutover'
+import { storageDocumentSignal } from '@/storage/persist'
 import type { PersistedSnapshot } from '@/storage/types'
 import type {
   StageRolloverCommitInput,
@@ -26,6 +27,7 @@ export interface StageRolloverCapture {
 }
 
 export interface ExecuteDueStageRolloverDependencies {
+  signal?: AbortSignal
   captureLatest(): StageRolloverCapture
   flushBeforeCommit(): Promise<void>
   commitDurably(input: StageRolloverCommitInput): Promise<StageRolloverCommitResult>
@@ -33,10 +35,11 @@ export interface ExecuteDueStageRolloverDependencies {
   publish(state: StageRolloverPublishState): Promise<void> | void
   postpone(scheduled: ScheduledStageRollover): Promise<void>
   enterRecoveryRequired?(message: string): void
-  lockInteraction?: () => () => void
+  lockInteraction?: (signal: AbortSignal) => () => void
 }
 
 export type StageRolloverExecutionResult =
+  | { kind: 'interrupted' }
   | { kind: 'not-scheduled' }
   | { kind: 'not-due' }
   | { kind: 'postponed'; blockers: string[] }
@@ -48,6 +51,7 @@ export type StageRolloverExecutionResult =
     }
 
 export interface ReconcileCommittedStageRolloverDependencies {
+  signal?: AbortSignal
   reloadAuthoritativeSnapshot(): Promise<PersistedSnapshot | null>
   publishDurableSnapshot(
     snapshot: PersistedSnapshot,
@@ -144,7 +148,10 @@ export async function reconcileCommittedStageRollover(
   publish: StageRolloverPublishState,
   dependencies: ReconcileCommittedStageRolloverDependencies,
 ): Promise<void> {
+  const signal = dependencies.signal ?? storageDocumentSignal
+  signal.throwIfAborted()
   const snapshot = await dependencies.reloadAuthoritativeSnapshot()
+  signal.throwIfAborted()
   if (!snapshot || !snapshotMatchesPublish(snapshot, publish)) {
     throw new Error('阶段切换后的权威状态无法确认')
   }
@@ -177,20 +184,29 @@ export function createStageRolloverCheck(
 export async function executeDueStageRollover(
   dependencies: ExecuteDueStageRolloverDependencies,
 ): Promise<StageRolloverExecutionResult> {
+  const signal = dependencies.signal ?? storageDocumentSignal
+  const interrupted = { kind: 'interrupted' } as const
+  function failure(reason: Extract<StageRolloverExecutionResult, { kind: 'failed' }>['reason'], message: string): StageRolloverExecutionResult {
+    if (signal.aborted) return interrupted
+    if (reason === 'recovery-required') dependencies.enterRecoveryRequired?.(message)
+    return { kind: 'failed', reason, message }
+  }
+  if (signal.aborted) return interrupted
   const initial = dependencies.captureLatest()
   if (!initial.state.scheduledStageRollover) return { kind: 'not-scheduled' }
   if (inspectDueStageRollover(initial.state, initial.currentTradingDayKey).kind === 'not-due') {
     return { kind: 'not-due' }
   }
 
-  const unlock = (dependencies.lockInteraction ?? lockStorageCutoverInteraction)()
+  const unlock = (dependencies.lockInteraction ?? lockStorageCutoverInteraction)(signal)
   try {
     try {
       await dependencies.flushBeforeCommit()
     } catch {
-      return { kind: 'failed', reason: 'write-failed', message: '切换前资料保存失败' }
+      return failure('write-failed', '切换前资料保存失败')
     }
 
+    if (signal.aborted) return interrupted
     const latest = dependencies.captureLatest()
     if (!latest.state.scheduledStageRollover) return { kind: 'not-scheduled' }
     const inspection = inspectDueStageRollover(latest.state, latest.currentTradingDayKey)
@@ -200,8 +216,9 @@ export async function executeDueStageRollover(
       try {
         await dependencies.postpone(postponed)
       } catch {
-        return { kind: 'failed', reason: 'write-failed', message: '阶段切换顺延保存失败' }
+        return failure('write-failed', '阶段切换顺延保存失败')
       }
+      if (signal.aborted) return interrupted
       return { kind: 'postponed', blockers: inspection.blockers.map((item) => item.code) }
     }
 
@@ -213,35 +230,24 @@ export async function executeDueStageRollover(
     try {
       committed = await dependencies.commitDurably(commitInput)
     } catch {
+      if (signal.aborted) return interrupted
       if (!dependencies.recoverAfterCommitError) {
-        return { kind: 'failed', reason: 'write-failed', message: '阶段切换提交失败' }
+        return failure('write-failed', '阶段切换提交失败')
       }
       try {
         committed = await dependencies.recoverAfterCommitError(commitInput)
       } catch {
-        const message = '无法重新读取阶段写入结果，已停止继续保存，请重新打开应用检查资料库'
-        dependencies.enterRecoveryRequired?.(message)
-        return {
-          kind: 'failed',
-          reason: 'recovery-required',
-          message,
-        }
+        return failure('recovery-required', '无法重新读取阶段写入结果，已停止继续保存，请重新打开应用检查资料库')
       }
     }
-    if (!committed.ok) {
-      if (committed.reason === 'recovery-required') {
-        dependencies.enterRecoveryRequired?.(committed.message)
-      }
-      return { kind: 'failed', reason: committed.reason, message: committed.message }
-    }
+    if (signal.aborted) return interrupted
+    if (!committed.ok) return failure(committed.reason, committed.message)
     try {
       await dependencies.publish(committed.publish)
     } catch {
-      const message = '阶段已保存，但界面无法与磁盘真相对齐；已停止继续保存，请重新加载应用'
-      dependencies.enterRecoveryRequired?.(message)
-      return { kind: 'failed', reason: 'recovery-required', message }
+      return failure('recovery-required', '阶段已保存，但界面无法与磁盘真相对齐；已停止继续保存，请重新加载应用')
     }
-    return { kind: 'committed' }
+    return signal.aborted ? interrupted : { kind: 'committed' }
   } finally {
     unlock()
   }

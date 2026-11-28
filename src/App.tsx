@@ -16,7 +16,7 @@ import { useStore } from './store/useStore'
 import { useShortcutStore } from './store/shortcutStore'
 import { isStorageHydrated, publishDurableStoreRefresh } from './storage/bootstrap'
 import { getStorage } from './storage/provider'
-import { disablePersistWrites, flushPersistNow, hasPendingChanges, setPreFlushCallback, suspendPersist } from './storage/persist'
+import { disablePersistWrites, flushPersistNow, hasPendingChanges, setPreFlushCallback, storageDocumentSignal, suspendPersist } from './storage/persist'
 import { flushNoteDraftsToStore, hasPendingNoteDrafts } from './storage/noteDrafts'
 import { flushStorageBeforeCutover, lockStorageCutoverInteraction } from './storage/cutover'
 import { waitForPendingStorageOperations } from './storage/pendingOperations'
@@ -107,21 +107,22 @@ const checkDueStageRollover = createStageRolloverCheck(async () => {
       try {
         await flushPersistNow()
       } catch (error) {
+        storageDocumentSignal.throwIfAborted()
         useStore.setState({ scheduledStageRollover: previous })
         try { await flushPersistNow() } catch { /* 保留旧 UI 状态并由错误提示要求用户重试。 */ }
         throw error
       }
     },
-    publish: (authoritative) => reconcileCommittedStageRollover(authoritative, {
-      reloadAuthoritativeSnapshot: () => getStorage().loadSnapshot(),
-      publishDurableSnapshot: async (snapshot, publish) => {
-        const { applySnapshotToStore } = await import('./lib/snapshotStore')
-        publishDurableStoreRefresh(() => {
+    publish: async (authoritative) => {
+      const { applySnapshotToStore } = await import('./lib/snapshotStore')
+      await reconcileCommittedStageRollover(authoritative, {
+        reloadAuthoritativeSnapshot: () => getStorage().loadSnapshot(),
+        publishDurableSnapshot: (snapshot, publish) => publishDurableStoreRefresh(() => {
           applySnapshotToStore(snapshot)
           useStore.getState().publishCommittedStageRollover(publish)
-        })
-      },
-    }),
+        }),
+      })
+    },
     enterRecoveryRequired: (message) => {
       disablePersistWrites()
       notifyStorageRecoveryRequired(message)
