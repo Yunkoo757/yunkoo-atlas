@@ -4,7 +4,7 @@ import { toast } from '@/lib/toast'
 import { syncReviewCaseSourceNotes } from '@/lib/reviewCaseSources'
 import { previewHistoricalRiskBackfill, historicalRiskFingerprint, type HistoricalRiskInput, type HistoricalRiskPreview } from '@/lib/historicalRiskBackfill'
 import { hasSameBacktestRules, isBacktestProject, type BacktestProject } from '@/lib/backtestProjects'
-import { create, type StoreApi } from 'zustand'
+import { create, type StoreApi, type UseBoundStore } from 'zustand'
 import {
   isReviewCompleted,
   type Trade,
@@ -485,7 +485,7 @@ const initialStage = createInitialLiveStage(
   'live-stage-initial',
 )
 
-export const useStore = create<State>()((set, get) => ({
+export const useStore: UseBoundStore<StoreApi<State>> = create<State>()((set, get, store) => ({
       trades: [],
       liveStages: [initialStage],
       currentLiveStageId: initialStage.id,
@@ -558,13 +558,13 @@ export const useStore = create<State>()((set, get) => ({
       },
       cleanupCopiedCloseDates: async (tradeIds, dependencies) => {
         const maintenance = await import('./copiedCloseDateCleanup')
-        return maintenance.cleanupCopiedCloseDates(tradeIds, dependencies)
+        return maintenance.cleanupCopiedCloseDates(store, tradeIds, dependencies)
       },
       undoCopiedCloseDateCleanup: async (actionId, dependencies) => {
         const action = get().undoStack.find(candidate => candidate.actionId === actionId)
         if (!action) return { kind: 'stale-action' }
         const maintenance = await import('./copiedCloseDateCleanup')
-        return maintenance.undoCopiedCloseDateCleanup(action, dependencies)
+        return maintenance.undoCopiedCloseDateCleanup(store, action, dependencies)
       },
       starredIds: [],
       subscribedIds: [],

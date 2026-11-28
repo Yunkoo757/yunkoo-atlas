@@ -14,7 +14,9 @@ import { getJournalBridge } from '@/storage/runtime'
 import type { PersistedSnapshot } from '@/storage/types'
 import { useShortcutStore } from './shortcutStore'
 import { appendBoundedHistory, createStoreUndoAction } from './tradeHistory'
-import { useStore } from './useStore'
+import type { useStore } from './useStore'
+
+type CleanupStore = Pick<typeof useStore, 'getState' | 'setState'>
 
 const cleanupLabel = '清空污染平仓日'
 
@@ -46,17 +48,18 @@ function desktopDependencies(
   }
 }
 
-function captureLatest() {
-  const state = useStore.getState()
+function captureLatest(store: CleanupStore) {
+  const state = store.getState()
   return { trades: state.trades, snapshot: pickPersisted(state, useShortcutStore.getState().bindings) }
 }
 
 /** 发布失败时只同步本流程已经耐久提交的交易，并保留会话内其他撤销历史。 */
 export function recoverCopiedCloseDateCleanupToStore(
+  store: CleanupStore,
   snapshot: PersistedSnapshot,
   action: UndoAction,
 ): void {
-  useStore.setState((state) => ({
+  store.setState((state) => ({
     trades: [...snapshot.trades],
     undoStack: state.undoStack.some((candidate) => candidate.actionId === action.actionId)
       ? state.undoStack
@@ -67,10 +70,11 @@ export function recoverCopiedCloseDateCleanupToStore(
 
 /** 撤销发布失败时按耐久结果完成同一 action 的栈迁移，不执行整库切换 reset。 */
 function recoverCopiedCloseDateUndoToStore(
+  store: CleanupStore,
   snapshot: PersistedSnapshot,
   action: UndoAction,
 ): void {
-  useStore.setState((state) => ({
+  store.setState((state) => ({
     trades: [...snapshot.trades],
     undoStack: state.undoStack.filter((candidate) => candidate.actionId !== action.actionId),
     redoStack: state.redoStack.some((candidate) => candidate.actionId === action.actionId)
@@ -80,19 +84,20 @@ function recoverCopiedCloseDateUndoToStore(
 }
 
 export async function cleanupCopiedCloseDates(
+  store: CleanupStore,
   tradeIds: readonly string[],
   dependencies?: ImportDataHealthStoreDependencies,
 ): Promise<CommitCopiedCloseDateCleanupResult & { actionId?: string }> {
   let action: UndoAction | undefined
   const storage = dependencies ?? desktopDependencies('清理', snapshot => {
     if (!action) throw new Error('耐久清理缺少可撤销 action')
-    recoverCopiedCloseDateCleanupToStore(snapshot, action)
+    recoverCopiedCloseDateCleanupToStore(store, snapshot, action)
   })
   const result = await commitCopiedCloseDateCleanupThroughBoundary({
     cleanup: {
       tradeIds,
-      tradingDayStartHour: useStore.getState().display.tradingDayStartHour,
-      captureLatest,
+      tradingDayStartHour: store.getState().display.tradingDayStartHour,
+      captureLatest: () => captureLatest(store),
       persistSnapshot: async (snapshot, { before, after }) => {
         const prepared = createStoreUndoAction(cleanupLabel, before, after)
         if (!prepared) throw new Error('清理候选没有产生可撤销字段变化')
@@ -102,7 +107,7 @@ export async function cleanupCopiedCloseDates(
       publish: trades => {
         const committed = action
         if (!committed) throw new Error('清理候选缺少已提交的可撤销 action')
-        useStore.setState(state => ({
+        store.setState(state => ({
           trades,
           undoStack: appendBoundedHistory(state.undoStack, committed),
           redoStack: [],
@@ -115,17 +120,18 @@ export async function cleanupCopiedCloseDates(
 }
 
 export async function undoCopiedCloseDateCleanup(
+  store: CleanupStore,
   action: UndoAction,
   dependencies?: ImportDataHealthStoreDependencies,
 ): Promise<CommitCopiedCloseDateUndoResult> {
   if (action.label !== cleanupLabel) return { kind: 'stale-action' }
-  const storage = dependencies ?? desktopDependencies('撤销', snapshot => recoverCopiedCloseDateUndoToStore(snapshot, action))
+  const storage = dependencies ?? desktopDependencies('撤销', snapshot => recoverCopiedCloseDateUndoToStore(store, snapshot, action))
   return commitCopiedCloseDateUndoThroughBoundary({
     undo: {
       action,
-      captureLatest,
+      captureLatest: () => captureLatest(store),
       persistSnapshot: storage.persistSnapshot,
-      publish: trades => useStore.setState(state => ({
+      publish: trades => store.setState(state => ({
         trades,
         undoStack: state.undoStack.filter(candidate => candidate.actionId !== action.actionId),
         redoStack: appendBoundedHistory(state.redoStack, action),

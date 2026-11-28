@@ -184,7 +184,7 @@ export function reachableModuleGraph(graph, entryPoints) {
   return result
 }
 
-export function findEagerCycles(graph) {
+export function findRuntimeCycles(graph) {
   const done = new Set()
   const visiting = new Set()
   const chain = []
@@ -197,7 +197,8 @@ export function findEagerCycles(graph) {
     if (done.has(file)) return
     chain.push(file)
     visiting.add(file)
-    for (const target of graph[file].eager) walk(target)
+    const { eager, lazy } = graph[file]
+    for (const target of [...eager, ...lazy]) walk(target)
     visiting.delete(file)
     chain.pop()
     done.add(file)

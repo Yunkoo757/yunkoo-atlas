@@ -6,7 +6,7 @@ import { discoverBrowserTests, discoverQualityNodeTests, discoverUnitTestEntries
 import { executionReportPath, hashFile } from './quality-execution.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
 import { decodeRepositoryText, isRepositoryText } from './repository-text.mjs'
-import { runtimeDependencyGraph, reachableModuleGraph, websiteDependencyGraph, journalBridgeDeclarationOwners, findEagerCycles, firstForbiddenPath, importsTarget, importsWithinTarget } from './governance-imports.mjs'
+import { runtimeDependencyGraph, reachableModuleGraph, websiteDependencyGraph, journalBridgeDeclarationOwners, findRuntimeCycles, firstForbiddenPath, importsTarget, importsWithinTarget } from './governance-imports.mjs'
 import {
   findForbiddenLegacyRuntimeMatches,
   isExecutableProductionSource,
@@ -174,7 +174,7 @@ async function main() {
   }
   const storeCapture = firstForbiddenPath(graph, 'src/storage/persist.ts', ['src/store/useStore', 'src/store/shortcutStore'])
   if (storeCapture) failures.push(`持久化会话必须由调用方提供快照：${storeCapture.join(' → ')}`)
-  for (const cycle of findEagerCycles(graph)) failures.push(`运行时循环依赖：${cycle.join(' → ')}`)
+  for (const cycle of findRuntimeCycles(graph)) failures.push(`运行时循环依赖：${cycle.join(' → ')}`)
   for (const entry of [editor, ...trainer]) {
     const violation = firstForbiddenPath(graph, entry, forbiddenPureTargets)
     if (violation) failures.push(`独立工具依赖 Atlas 会话或主进程：${violation.join(' → ')}`)

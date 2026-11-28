@@ -385,7 +385,7 @@ export async function testPublishFailureRecoveryPreservesHistoryAndKeepsCleanupD
           ...successfulStoreBoundary([]),
           recoverDurableSnapshot: (next) => {
             assert(cleanupAction, 'durable commit 前必须已准备好稳定的清理 action')
-            recoverCopiedCloseDateCleanupToStore(next, cleanupAction)
+            recoverCopiedCloseDateCleanupToStore(useStore, next, cleanupAction)
           },
         },
       })
