@@ -1,5 +1,5 @@
 import { canonicalImportValue } from '@/lib/importMerge'
-import { stableImportedTradeId } from '@/lib/importTradeIdentity'
+import { resolveImportedTrades, stableImportedTradeId, verifyImportAssets } from '@/lib/importTradeIdentity'
 import { sha256Hex } from '@/lib/sha256'
 import { createWeeklyReview, type WeeklyReview } from '@/data/weeklyReviews'
 import type { Trade } from '@/data/trades'
@@ -1206,4 +1206,60 @@ export async function testLocalEditDuringLegacyPhotoVerificationAbortsBeforeWrit
     useStore.setState(previous, true)
     Reflect.deleteProperty(globalThis, 'window')
   }
+}
+
+export async function testLegacyCaseImportUsesTheCurrentSourceNoteBeforeTheFirstCommit(): Promise<void> {
+  const previous = useStore.getState()
+  const base = { ...createEmptyPersistedSnapshot(), strategies: [strategy] }
+  const source: Trade = { ...trade('source-cached', 'EURUSD'), tradeKind: 'live', liveStageId: base.currentLiveStageId, note: '来源已移除原图' }
+  const child: Trade = {
+    ...source, id: 'child-cached', ref: 'CASE-CACHED', tradeKind: 'case', caseType: 'mistake', note: '案例独立结论',
+    sourceTradeId: source.id, sourceNoteHtml: '<img src="journal-asset://outdated">', decisionImageId: 'outdated',
+  }
+  const payload = { ...base, version: 15, trades: [child, source], assets: [{ id: 'outdated', mime: 'image/png', data: 'YQ==' }] }
+  const writes: PersistedSnapshot[] = []
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { journalBridge: {
+    isElectron: true, saveSnapshot: async () => true, getAssetBytes: async () => null,
+    commitImport: async (snapshot: PersistedSnapshot) => { writes.push(snapshot); return true },
+  } } })
+  useStore.setState(base)
+  enablePersistWrites()
+  try {
+    await applyImport(payload)
+    await applyImport(payload)
+    for (const snapshot of writes) {
+      const stored = snapshot.trades.find(t => t.id === child.id)!
+      assert(snapshot.trades.length === 2 && stored.sourceNoteHtml === source.note && !stored.decisionImageId &&
+        stored.note === child.note, '首次耐久候选与重放应使用原交易的已保存正文，同时保留案例独立结论')
+    }
+    assert(writes.length === 2, '无并发时每次只提交一次')
+  } finally {
+    disablePersistWrites()
+    useStore.setState(previous, true)
+    Reflect.deleteProperty(globalThis, 'window')
+  }
+}
+
+export async function testCaseImportReusesOnlyVerifiedImagesFromALocalSource(): Promise<void> {
+  const photo = (id: string) => `<img src="journal-asset://${id}">`
+  const parent = { ...trade('owner', 'EURUSD'), note: photo('disk') }
+  const child: Trade = {
+    ...trade('child', 'EURUSD'), tradeKind: 'case', sourceTradeId: parent.id,
+    sourceNoteHtml: photo('transfer'), note: photo('transfer'), decisionImageId: 'transfer',
+  }
+  const match = (data: string) => verifyImportAssets(
+    [{ id: 'transfer', mime: 'image/png', data }],
+    async id => id === 'disk' ? { id, mime: 'image/png', data: 'YQ==' } : null,
+  )
+  const first = await resolveImportedTrades([parent], [child], 'backup', match('YQ=='))
+  const saved = first.trades[1]!
+  assert(saved.note === parent.note && saved.sourceNoteHtml === parent.note && saved.decisionImageId === 'disk',
+    '来源和案例共用原图时，正文和选择应一起沿用已核对的本地编号')
+  const repeat = await resolveImportedTrades(first.trades, [child], 'backup', match('YQ=='))
+  assert(repeat.trades.length === 2 && repeat.trades[1] === saved, '重放同一部分备份应沿用本地案例')
+  const different = await resolveImportedTrades([parent], [child], 'other', match('Yg=='))
+  assert(different.trades[1]!.note === child.note && different.trades[1]!.decisionImageId === 'transfer',
+    '来源位置相同但字节不同，独立正文中选定的原图仍须保留')
+  const missing = await resolveImportedTrades([], [child], 'absent', match('YQ=='))
+  assert(missing.trades[0] === child, '来源已删除时仍须保留案例及最后一份来源快照')
 }

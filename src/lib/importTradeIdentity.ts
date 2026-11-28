@@ -3,6 +3,7 @@ import { isSafeAssetId } from '@/storage/assetId'
 import type { ExportAssetRecord } from '@/storage/types'
 import { collectAssetIdsFromHtml, remapHtmlAssetIds } from '@/storage/snapshotRichText'
 import { mapTradeRichText, tradeRichTextEntries } from '@/storage/tradeRichText'
+import { syncReviewCaseSourceNote } from '@/lib/reviewCaseSources'
 import { OperationalError } from '@/lib/operationalError'
 import { canonicalRiskJson, stableRiskHash } from '@/lib/riskFingerprint'
 
@@ -50,6 +51,13 @@ function stableTradeIdentity(trade: Trade): Record<string, string> | null {
   }
 }
 
+/** 正文与来源快照共用同一组编号。完整正文比较仍会检查顺序、重复引用和标签。 */
+function correspondingAssets(from: readonly string[], to: readonly string[]) {
+  const incoming = collectAssetIdsFromHtml(from)
+  const local = collectAssetIdsFromHtml(to)
+  return incoming.length === local.length ? new Map(incoming.map((id, i) => [id, local[i]!])) : undefined
+}
+
 /**
  * 有创建证据时允许同一交易更新正文。无创建证据时，所有字段都须相同；
  * 只有经逐字节核对的附件才可以用本地编号代入比较。
@@ -62,12 +70,9 @@ export async function matchImportedTrade(
   const right = stableTradeIdentity(incoming)
   if (left && right) return canonicalRiskJson(left) === canonicalRiskJson(right) ? 'same-origin' : 'different'
 
-  const sourceIds = verifyAsset ? collectAssetIdsFromHtml(tradeRichTextEntries(incoming)) : []
-  if (!verifyAsset || !sourceIds.length) return canonicalRiskJson(local) === canonicalRiskJson(incoming) ? 'identical' : 'different'
-  const localIds = collectAssetIdsFromHtml(tradeRichTextEntries(local))
-  if (sourceIds.length !== localIds.length) return 'different'
-  // 按首次出现位置一一对应，重复引用和图片顺序仍须通过完整正文比较。
-  const targets = new Map(sourceIds.map((id, index) => [id, localIds[index]!]))
+  if (!verifyAsset) return canonicalRiskJson(local) === canonicalRiskJson(incoming) ? 'identical' : 'different'
+  const targets = correspondingAssets(tradeRichTextEntries(incoming), tradeRichTextEntries(local))
+  if (!targets) return 'different'
   const mapped = mapTradeRichText(incoming, html => remapHtmlAssetIds(html, id => targets.get(id)!))
   if (mapped.decisionImageId) mapped.decisionImageId = targets.get(mapped.decisionImageId) ?? mapped.decisionImageId
   if (canonicalRiskJson(local) !== canonicalRiskJson(mapped)) return 'different'
@@ -93,12 +98,58 @@ export async function resolveImportedTrades(
   const sourceById = new Map(incoming.map(trade => [trade.id, trade]))
   const resolved = new Map<string, Trade>()
 
-  async function place(trade: Trade, sourceId: string | undefined): Promise<Trade> {
-    const candidate = withSource(trade, sourceId)
+  // 派生编号已有同源记录时沿用本地编辑；直接命中原编号则写入本批候选。
+  function storedSource(originalId: string, row: Trade) {
+    return row.id === originalId ? row : localById.get(row.id) ?? row
+  }
+
+  function effectiveSource(id: string | undefined) {
+    if (!id) return undefined
+    const row = resolved.get(id)
+    return row ? storedSource(id, row) : localById.get(id)
+  }
+
+  async function projectCase(trade: Trade, source: Trade | undefined, originalSource: Trade | undefined) {
+    const synced = syncReviewCaseSourceNote(trade, source)
+    if (synced === trade) return trade
+    const inputNote = originalSource?.note ?? trade.sourceNoteHtml ?? ''
+    const outputNote = synced.sourceNoteHtml!
+    const used = new Set(collectAssetIdsFromHtml([trade.note]))
+    if (trade.decisionImageId) used.add(trade.decisionImageId)
+    const remap = new Map<string, string>()
+    if (verifyAsset && used.size && inputNote !== outputNote) {
+      const pairs = correspondingAssets([inputNote], [outputNote])
+      if (pairs && remapHtmlAssetIds(inputNote, id => pairs.get(id)!) === outputNote) {
+        for (const [id, target] of pairs) {
+          if (id !== target && used.has(id) && await verifyAsset(id, target)) remap.set(id, target)
+        }
+      }
+    }
+    const note = remap.size ? remapHtmlAssetIds(trade.note, id => remap.get(id) ?? id) : trade.note
+    const selected = trade.decisionImageId
+    if (!selected) return { ...synced, note }
+    const target = remap.get(selected) ?? selected
+    return { ...synced, note, decisionImageId: collectAssetIdsFromHtml([note, outputNote]).includes(target) ? target : null }
+  }
+
+  function assetVerifier(source: Trade | undefined) {
+    if (!verifyAsset || !source || source.tradeKind === 'case' || source !== localById.get(source.id)) return verifyAsset
+    // 本地来源正文带入的引用来自同一资料库。其他附件仍必须与暂存字节核对。
+    const localIds = new Set(collectAssetIdsFromHtml([source.note]))
+    const verify = verifyAsset
+    return async (from: string, to: string) => (from === to && localIds.has(from)) || await verify(from, to)
+  }
+
+  async function place(trade: Trade, source: Trade | undefined): Promise<Trade> {
+    const originalSource = trade.sourceTradeId ? sourceById.get(trade.sourceTradeId) : undefined
+    const candidate = await projectCase(withSource(trade, source?.id ?? trade.sourceTradeId), source, originalSource)
     const local = localById.get(trade.id)
     if (!local) return candidate
-    const match = await matchImportedTrade(local, candidate, verifyAsset)
-    if (match === 'identical') return local
+    const match = await matchImportedTrade(local, candidate, candidate.tradeKind === 'case' ? assetVerifier(source) : verifyAsset)
+    if (match === 'identical') {
+      const refreshed = candidate.tradeKind === 'case' && source && source.tradeKind !== 'case' && candidate.sourceNoteHtml !== local.sourceNoteHtml
+      return refreshed ? candidate : local
+    }
     if (match === 'same-origin') return candidate
     return { ...candidate, id: stableImportedTradeId(digest, trade.id) }
   }
@@ -109,21 +160,25 @@ export async function resolveImportedTrades(
     const anchor = cycle[cycle.length - 1]!
     let unique: Trade[] | undefined
     for (const guess of [anchor.id, stableImportedTradeId(digest, anchor.id)]) {
-      let sourceId = guess
+      let source = storedSource(anchor.id, { ...anchor, id: guess })
       const trial: Trade[] = []
       for (const trade of cycle) {
-        const candidate = await place(trade, sourceId)
+        const candidate = await place(trade, source)
         trial.push(candidate)
-        sourceId = candidate.id
+        source = storedSource(trade.id, candidate)
       }
-      if (sourceId !== guess) continue
+      if (source.id !== guess) continue
       if (trial.every((row, index) => row.id === cycle[index]!.id)) return trial
       if (unique) { unique = undefined; break }
       unique = trial
     }
     if (unique) return unique
     const ids = cycle.map(t => localById.has(t.id) ? stableImportedTradeId(digest, t.id) : t.id)
-    return cycle.map((t, index) => ({ ...t, id: ids[index]!, sourceTradeId: ids[(index + ids.length - 1) % ids.length]! }))
+    const rows = cycle.map((t, index) => ({ ...t, id: ids[index]!, sourceTradeId: ids[(index + ids.length - 1) % ids.length]! }))
+    return Promise.all(rows.map((row, index) => {
+      const parent = (index + rows.length - 1) % rows.length
+      return projectCase(row, storedSource(cycle[parent]!.id, rows[parent]!), cycle[parent])
+    }))
   }
 
   for (const initial of incoming) {
@@ -144,8 +199,7 @@ export async function resolveImportedTrades(
       trade = trade.sourceTradeId === undefined ? undefined : sourceById.get(trade.sourceTradeId)
     }
     for (const member of chain.reverse()) {
-      const source = member.sourceTradeId
-      resolved.set(member.id, await place(member, source === undefined ? undefined : resolved.get(source)?.id ?? source))
+      resolved.set(member.id, await place(member, effectiveSource(member.sourceTradeId)))
     }
   }
 
@@ -162,8 +216,11 @@ export async function resolveImportedTrades(
     tradeIds.set(source.id, row.id)
     const occupant = localById.get(row.id)
     if (!occupant || source.id === row.id) merged.set(row.id, row)
-    else if (await matchImportedTrade(occupant, row, verifyAsset) === 'different') {
-      throw new Error(`导入冲突：稳定导入交易 ID ${row.id} 已被其他交易占用。`)
+    else {
+      const owner = effectiveSource(source.sourceTradeId)
+      if (await matchImportedTrade(occupant, row, row.tradeKind === 'case' ? assetVerifier(owner) : verifyAsset) === 'different') {
+        throw new Error(`导入冲突：稳定导入交易 ID ${row.id} 已被其他交易占用。`)
+      }
     }
   }
   return { tradeIds, rewritten, trades: [...merged.values()] }
