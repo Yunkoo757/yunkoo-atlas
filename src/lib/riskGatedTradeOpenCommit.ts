@@ -24,9 +24,7 @@ import {
   flushStorageBeforeCutover,
   lockStorageCutoverInteraction,
 } from '@/storage/cutover'
-import {
-  suspendPersist,
-} from '@/storage/persist'
+import { storageDocumentSignal, suspendPersist } from '@/storage/persist'
 import { getStorage } from '@/storage/provider'
 import type { PersistedSnapshot } from '@/storage/types'
 import { getCurrentLiveStage } from '@/lib/liveStages'
@@ -258,14 +256,15 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
   input: CommitRiskGatedTradeOpenInput<State>,
 ): Promise<RiskGatedTradeOpenCommitResult> {
   const reason = normalizeRiskOverrideReason(input.reason)
-  const unlockInteraction = lockStorageCutoverInteraction()
+  const isCurrent = () => !storageDocumentSignal.aborted && input.isCurrentSession?.() !== false
+  if (!isCurrent()) return { kind: 'cancelled', reason: 'target-no-longer-eligible' }
+  const unlockInteraction = lockStorageCutoverInteraction(storageDocumentSignal)
   let pause: PersistencePause | undefined
   let durablyCommitted = false
   try {
-    if (input.isCurrentSession?.() === false) return { kind: 'cancelled', reason: 'target-no-longer-eligible' }
     await flushStorageBeforeCutover()
     pause = suspendPersist()
-    if (input.isCurrentSession?.() === false) return { kind: 'cancelled', reason: 'target-no-longer-eligible' }
+    if (!isCurrent()) return { kind: 'cancelled', reason: 'target-no-longer-eligible' }
     const baseline = input.captureLatestState()
     const validation = validateOpenCapture(input.request, baseline)
     if (validation.kind === 'cancelled') return validation
@@ -281,7 +280,7 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
     const storage = input.storage ?? getStorage()
     if (isRevisionedStorageAdapter(storage)) {
       const envelope = await storage.loadSnapshotEnvelope()
-      if (input.isCurrentSession?.() === false) return { kind: 'cancelled', reason: 'target-no-longer-eligible' }
+      if (!isCurrent()) return { kind: 'cancelled', reason: 'target-no-longer-eligible' }
       if (!canonicalJsonEqual(envelope.snapshot, baseline.snapshot)) {
         return { kind: 'needs-reconfirmation' }
       }
@@ -306,7 +305,7 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
       await storage.commitImport(committedSnapshot, [])
     }
     durablyCommitted = true
-    if (input.isCurrentSession?.() === false) {
+    if (!isCurrent()) {
       return { kind: 'committed' }
     }
 
@@ -333,7 +332,7 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
   } finally {
     try {
       if (pause) {
-        if (input.isCurrentSession?.() === false) pause.resume({ flushNow: false })
+        if (!isCurrent()) pause.resume({ flushNow: false })
         else if (durablyCommitted) pause.discardAndResume()
         else pause.resume()
       }

@@ -1,6 +1,7 @@
 import { normalizeRiskOverrideReason } from '@/data/riskManagement'
 import { assertValidLiveStageState } from '@/lib/liveStages'
 import { getTradingDayKey } from '@/lib/periods'
+import { storageDocumentSignal } from '@/storage/persist'
 import type { RiskGatedTradeOpenCommitResult } from '@/lib/riskGatedTradeOpenCommit'
 import type { StorePendingTradeOpenRequest, useStore } from './useStore'
 
@@ -8,6 +9,10 @@ import type { StorePendingTradeOpenRequest, useStore } from './useStore'
 export function createRiskGateActions(store: Pick<typeof useStore, 'getState' | 'setState'>) {
   const { getState: get, setState: set } = store
   const confirmations = new WeakMap<StorePendingTradeOpenRequest, Promise<RiskGatedTradeOpenCommitResult>>()
+
+  function isActiveLibrary(session: number): boolean {
+    return !storageDocumentSignal.aborted && get().librarySession === session
+  }
 
   async function commit(
     request: StorePendingTradeOpenRequest,
@@ -19,7 +24,7 @@ export function createRiskGateActions(store: Pick<typeof useStore, 'getState' | 
       import('@/storage/snapshotProjection'),
       import('@/store/shortcutStore'),
     ])
-    if (get().pendingTradeOpenRequest !== request || get().librarySession !== librarySession) {
+    if (get().pendingTradeOpenRequest !== request || !isActiveLibrary(librarySession)) {
       return { kind: 'cancelled', reason: 'target-no-longer-eligible' }
     }
     const result = await commitRiskGatedTradeOpen({
@@ -49,7 +54,7 @@ export function createRiskGateActions(store: Pick<typeof useStore, 'getState' | 
         return pickPersisted(get(), useShortcutStore.getState().bindings)
       },
     })
-    if (get().pendingTradeOpenRequest !== request || get().librarySession !== librarySession) return result
+    if (get().pendingTradeOpenRequest !== request || !isActiveLibrary(librarySession)) return result
     if (result.kind === 'cancelled') {
       set({ pendingTradeOpenRequest: null })
     } else if (result.kind === 'needs-reconfirmation') {
@@ -77,9 +82,9 @@ export function createRiskGateActions(store: Pick<typeof useStore, 'getState' | 
     async rehydrateRiskGateFromStorage(): Promise<void> {
       const session = get().librarySession
       const { getStorage } = await import('@/storage/provider')
-      if (get().librarySession !== session) return
+      if (!isActiveLibrary(session)) return
       const snapshot = await getStorage().loadSnapshot()
-      if (get().librarySession !== session) return
+      if (!isActiveLibrary(session)) return
       if (!snapshot) throw new Error('存储中没有可恢复的风险开仓快照')
       assertValidLiveStageState(snapshot)
       set({
