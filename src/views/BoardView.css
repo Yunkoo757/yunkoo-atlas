@@ -200,7 +200,21 @@
 }
 
 .bd-card-result[data-value-state='conflict'] {
-  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--diagnostic-text);
+}
+
+.bd-card-conflict {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--sp-1);
+  border-radius: var(--radius-4);
+  background: var(--diagnostic-bg);
+  color: var(--diagnostic-text);
+  font-size: var(--type-chip-size);
+  line-height: var(--type-chip-line-height);
 }
 
 .bd-category-badge,

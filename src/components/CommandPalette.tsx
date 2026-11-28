@@ -35,6 +35,7 @@ import {
   suggestSavedViewName,
 } from '@/lib/savedTradeViews'
 import { Button } from '@/components/ui/Button'
+import { Kbd } from '@/components/ui/Kbd'
 import { OverflowTooltip } from '@/components/ui/Tooltip'
 import { CALENDAR_PERIODS, PERIOD_LABELS } from '@/lib/periods'
 import { STATUS_META, type TradeStatus } from '@/data/trades'
@@ -61,6 +62,7 @@ interface Cmd {
   icon: React.ReactNode
   label: string
   hint?: string
+  shortcut?: string
   date?: string
   source?: string
   keywords?: string
@@ -219,17 +221,17 @@ function CommandPaletteDialog({
     const tradeCommandHref = (target: Parameters<typeof tradeWorkspaceCommandHref>[0]) =>
       tradeWorkspaceCommandHref(target, { pathname, search }, display.workspaceMemory?.trade)
     const viewNav: Cmd[] = [
-      { id: 'n-backtests', group: '导航', icon: <BacktestNavIcon size={ICON_MD} />, label: '回测项目', keywords: 'backtest 历史 固定规则 项目', hint: shortcutHint('nav.backtests'), run: go('/backtests') },
-      { id: 'n-quick-notes', group: '导航', icon: <NoteNavIcon size={ICON_MD} />, label: '随记', keywords: '笔记 灵感 杂谈 notebook', hint: shortcutHint('nav.quickNotes'), run: go('/notes') },
-      { id: 'n-list', group: '导航', icon: <PRIMARY_NAV_ICONS.trades size={ICON_MD} />, label: PRIMARY_NAV_LABELS.trades, hint: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies, null, { pathname, search })) },
-      { id: 'n-review-cases', group: '导航', icon: <PRIMARY_NAV_ICONS.reviewCases size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewCases, hint: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
-      { id: 'n-weekly-review', group: '导航', icon: <PRIMARY_NAV_ICONS.weeklyReview size={ICON_MD} />, label: PRIMARY_NAV_LABELS.weeklyReview, keywords: '每周 周总结 复盘', hint: shortcutHint('nav.weeklyReview'), run: go(`/weekly-review${sharedTradeSearch}`) },
-      { id: 'n-review-session', group: '导航', icon: <PRIMARY_NAV_ICONS.reviewSession size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewSession, keywords: '随机 抽卡 复盘', hint: shortcutHint('nav.reviewSession'), run: go('/review-session') },
-      { id: 'n-dash', group: '导航', icon: <PRIMARY_NAV_ICONS.dashboard size={ICON_MD} />, label: PRIMARY_NAV_LABELS.dashboard, hint: shortcutHint('nav.dashboard'), run: go(`/dashboard${sharedTradeSearch}`) },
-      { id: 'n-active', group: '交易日志', icon: <Clock size={ICON_MD} />, label: '显示进行中交易', hint: shortcutHint('nav.active'), run: go(tradeCommandHref('active')) },
-      { id: 'n-fav', group: '交易日志', icon: <Star size={ICON_MD} />, label: '显示星标交易', hint: shortcutHint('nav.favorites'), run: go(tradeCommandHref('starred')) },
-      { id: 'n-missed', group: '交易日志', icon: <Ban size={ICON_MD} />, label: '显示错过机会', hint: shortcutHint('nav.missed'), run: go(tradeCommandHref('missed')) },
-      { id: 'n-sim', group: '交易日志', icon: <FlaskConical size={ICON_MD} />, label: '切换到模拟盘记录', hint: shortcutHint('nav.sim'), run: go(tradeCommandHref('paper')) },
+      { id: 'n-backtests', group: '导航', icon: <BacktestNavIcon size={ICON_MD} />, label: '回测项目', keywords: 'backtest 历史 固定规则 项目', shortcut: shortcutHint('nav.backtests'), run: go('/backtests') },
+      { id: 'n-quick-notes', group: '导航', icon: <NoteNavIcon size={ICON_MD} />, label: '随记', keywords: '笔记 灵感 杂谈 notebook', shortcut: shortcutHint('nav.quickNotes'), run: go('/notes') },
+      { id: 'n-list', group: '导航', icon: <PRIMARY_NAV_ICONS.trades size={ICON_MD} />, label: PRIMARY_NAV_LABELS.trades, shortcut: shortcutHint('nav.list'), run: go(resolveShortcutWorkspaceHref('trade', display, strategies, null, { pathname, search })) },
+      { id: 'n-review-cases', group: '导航', icon: <PRIMARY_NAV_ICONS.reviewCases size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewCases, shortcut: shortcutHint('nav.reviewCases'), run: go(resolveShortcutWorkspaceHref('case', display, strategies)) },
+      { id: 'n-weekly-review', group: '导航', icon: <PRIMARY_NAV_ICONS.weeklyReview size={ICON_MD} />, label: PRIMARY_NAV_LABELS.weeklyReview, keywords: '每周 周总结 复盘', shortcut: shortcutHint('nav.weeklyReview'), run: go(`/weekly-review${sharedTradeSearch}`) },
+      { id: 'n-review-session', group: '导航', icon: <PRIMARY_NAV_ICONS.reviewSession size={ICON_MD} />, label: PRIMARY_NAV_LABELS.reviewSession, keywords: '随机 抽卡 复盘', shortcut: shortcutHint('nav.reviewSession'), run: go('/review-session') },
+      { id: 'n-dash', group: '导航', icon: <PRIMARY_NAV_ICONS.dashboard size={ICON_MD} />, label: PRIMARY_NAV_LABELS.dashboard, shortcut: shortcutHint('nav.dashboard'), run: go(`/dashboard${sharedTradeSearch}`) },
+      { id: 'n-active', group: '交易日志', icon: <Clock size={ICON_MD} />, label: '显示进行中交易', shortcut: shortcutHint('nav.active'), run: go(tradeCommandHref('active')) },
+      { id: 'n-fav', group: '交易日志', icon: <Star size={ICON_MD} />, label: '显示星标交易', shortcut: shortcutHint('nav.favorites'), run: go(tradeCommandHref('starred')) },
+      { id: 'n-missed', group: '交易日志', icon: <Ban size={ICON_MD} />, label: '显示错过机会', shortcut: shortcutHint('nav.missed'), run: go(tradeCommandHref('missed')) },
+      { id: 'n-sim', group: '交易日志', icon: <FlaskConical size={ICON_MD} />, label: '切换到模拟盘记录', shortcut: shortcutHint('nav.sim'), run: go(tradeCommandHref('paper')) },
     ]
     const periodNav: Cmd[] = CALENDAR_PERIODS.map((slug) => ({
       id: 'n-period-' + slug,
@@ -240,7 +242,7 @@ function CommandPaletteDialog({
       run: go(`/period/${slug}${tradeHomeSearch(sharedTradeSearch)}`),
     }))
     const settingsNav: Cmd[] = [
-      { id: 'n-strat', group: '设置', icon: <SETTINGS_SECTIONS.strategies.icon size={ICON_MD} aria-hidden />, label: '管理策略', keywords: '设置', hint: shortcutHint('nav.strategies'), run: go(SETTINGS_SECTIONS.strategies.to) },
+      { id: 'n-strat', group: '设置', icon: <SETTINGS_SECTIONS.strategies.icon size={ICON_MD} aria-hidden />, label: '管理策略', keywords: '设置', shortcut: shortcutHint('nav.strategies'), run: go(SETTINGS_SECTIONS.strategies.to) },
       { id: 'n-settings', group: '设置', icon: <SETTINGS_SECTIONS.shortcuts.icon size={ICON_MD} aria-hidden />, label: '键盘快捷键', keywords: '设置', run: go(SETTINGS_SECTIONS.shortcuts.to) },
       {
         id: 'a-io',
@@ -260,9 +262,9 @@ function CommandPaletteDialog({
       }))
     const createAction = resolveCreateRecordAction(pathname, search, trades)
     const actions: Cmd[] = [
-      ...(!creationArchived ? [{ id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: createAction.label, hint: shortcutHint(createAction.actionId), run: () => { requestClose(); createRecordForContext(pathname, search, navigate) } }] : []),
-      ...(createAction.kind === 'case' ? [] : [{ id: 'a-new-case', group: '操作', icon: <CaseLibraryNavIcon size={ICON_MD} />, label: '新建案例', hint: shortcutHint('global.newCase'), run: () => { requestClose(); openComposer(null, 'case') } }]),
-      { id: 'a-fullscreen', group: '操作', icon: <Maximize2 size={ICON_MD} />, label: '切换应用全屏', hint: shortcutHint('global.toggleFullscreen'), run: () => {
+      ...(!creationArchived ? [{ id: 'a-new', group: '操作', icon: <Plus size={ICON_MD} />, label: createAction.label, shortcut: shortcutHint(createAction.actionId), run: () => { requestClose(); createRecordForContext(pathname, search, navigate) } }] : []),
+      ...(createAction.kind === 'case' ? [] : [{ id: 'a-new-case', group: '操作', icon: <CaseLibraryNavIcon size={ICON_MD} />, label: '新建案例', shortcut: shortcutHint('global.newCase'), run: () => { requestClose(); openComposer(null, 'case') } }]),
+      { id: 'a-fullscreen', group: '操作', icon: <Maximize2 size={ICON_MD} />, label: '切换应用全屏', shortcut: shortcutHint('global.toggleFullscreen'), run: () => {
         requestClose()
         const bridge = window.journalBridge
         if (bridge?.toggleFullscreen) void bridge.toggleFullscreen()
@@ -349,7 +351,7 @@ function CommandPaletteDialog({
     }
 
     const fixedCommands = [...contextActions, ...viewNav, ...periodNav, ...settingsNav, ...searchableSettings, ...actions]
-      .filter((command) => matchesSearchQuery(query, command.label, command.hint, command.keywords))
+      .filter((command) => matchesSearchQuery(query, command.label, command.hint, command.shortcut, command.keywords))
     const commands = fixedCommands.slice(0, limit)
     let total = fixedCommands.length
 
@@ -682,6 +684,7 @@ function CommandPaletteDialog({
                       <span className="cmdk-item-hint">{c.hint}</span>
                     </OverflowTooltip>
                   ) : null}
+                  {c.shortcut ? <Kbd className="cmdk-item-kbd">{c.shortcut}</Kbd> : null}
                   {idx === active && (
                     <CornerDownLeft size={ICON_SM} className="cmdk-item-enter" />
                   )}

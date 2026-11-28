@@ -149,9 +149,7 @@
 }
 
 .review-template-field-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: block;
   margin-bottom: var(--sp-2);
   color: var(--text-strong);
   font-size: var(--type-section-title-size);
@@ -159,7 +157,19 @@
   line-height: var(--type-row-line-height);
 }
 
+.review-template-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.review-template-name-row .review-template-name {
+  flex: 1;
+  min-width: 0;
+}
+
 .review-template-delete {
+  flex: 0 0 auto;
   --icon-color-rest: var(--text-tertiary);
   --icon-color-hover: var(--neg);
 }

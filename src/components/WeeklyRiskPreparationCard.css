@@ -98,8 +98,8 @@
 
 .risk-preparation-fields {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--sp-2);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-3);
 }
 
 .risk-preparation-form label {
@@ -121,13 +121,15 @@
 }
 
 .risk-preparation-inline-input { position: relative; }
-.risk-preparation-inline-input input { padding-right: 27px; }
+.risk-preparation-inline-input input { padding-right: 28px; }
+.risk-preparation-inline-input.is-wide-unit input { padding-right: 44px; }
 .risk-preparation-inline-input small {
   position: absolute;
   top: 50%;
   right: var(--field-padding-inline);
   color: var(--text-content-metadata);
   font-size: var(--type-metadata-size);
+  pointer-events: none;
   transform: translateY(-50%);
 }
 

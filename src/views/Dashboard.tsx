@@ -340,11 +340,17 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
                     <Metric
                       label="净盈亏"
                       value={stats.pnlCount ? fmtMoney(stats.totalPnl, PERFORMANCE_REPORT_CURRENCY, privacyMode) : '—'}
+                      tone={privacyMode || stats.pnlCount === 0 || stats.totalPnl === 0 ? undefined : stats.totalPnl > 0 ? 'positive' : 'negative'}
                       to={performanceDrilldownHref}
                       primary
                     />
                     <Metric label="胜率" value={rateLabel(stats.winRate)} to={performanceDrilldownHref} />
-                    <Metric label="平均 R" value={averageRLabel(stats.averageR)} to={performanceDrilldownHref} />
+                    <Metric
+                      label="平均 R"
+                      value={averageRLabel(stats.averageR)}
+                      tone={stats.averageR === null || stats.averageR === 0 ? undefined : stats.averageR > 0 ? 'positive' : 'negative'}
+                      to={performanceDrilldownHref}
+                    />
                   </div>
                   <EquityChart curve={stats.curve} privacyMode={privacyMode} onOpenTrade={openTrade} />
                 </>
@@ -477,12 +483,24 @@ export function Dashboard({ header }: { header?: ReactNode } = {}) {
   )
 }
 
-function Metric({ label, value, to, primary = false }: { label: string; value: string; to: string; primary?: boolean }) {
+function Metric({
+  label,
+  value,
+  tone,
+  to,
+  primary = false,
+}: {
+  label: string
+  value: string
+  tone?: 'positive' | 'negative'
+  to: string
+  primary?: boolean
+}) {
   const numberRef = useValueMotion<HTMLElement>(value)
   return (
     <Link className={primary ? 'db-card is-primary' : 'db-card'} to={to} data-kpi-drilldown>
       <span className="db-card-label">{label}{primary && <small>{PERFORMANCE_REPORT_CURRENCY}</small>}</span>
-      <strong ref={numberRef} className="db-card-value">{value}</strong>
+      <strong ref={numberRef} className="db-card-value" data-tone={tone}>{value}</strong>
     </Link>
   )
 }
@@ -492,5 +510,5 @@ function rateLabel(value: number | null): string {
 }
 
 function averageRLabel(value: number | null): string {
-  return value === null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(2)}`
+  return value === null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(2)}R`
 }

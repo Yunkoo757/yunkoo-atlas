@@ -188,14 +188,18 @@ export function WeeklyRiskPreparationCard({
         <div className="risk-preparation-fields">
           <label>
             <span>资金基准</span>
-            <input
-              type={privacyMode ? 'password' : 'number'}
-              min="0.01"
-              step="0.01"
-              value={draft.capitalBase ?? ''}
-              onChange={(event) => updateDraft({ capitalBase: event.target.value ? Number(event.target.value) : null })}
-              required
-            />
+            <span className="risk-preparation-inline-input is-wide-unit">
+              <input
+                type={privacyMode ? 'password' : 'number'}
+                min="0.01"
+                step="0.01"
+                placeholder="例如 10000"
+                value={draft.capitalBase ?? ''}
+                onChange={(event) => updateDraft({ capitalBase: event.target.value ? Number(event.target.value) : null })}
+                required
+              />
+              <small>USD</small>
+            </span>
           </label>
           <label>
             <span>单笔风险比例</span>
@@ -209,6 +213,26 @@ export function WeeklyRiskPreparationCard({
                 required
               />
               <small>%</small>
+            </span>
+          </label>
+          <label>
+            <span>1R 金额</span>
+            <span className="risk-preparation-inline-input is-wide-unit">
+              <input
+                aria-label="1R 金额"
+                type={privacyMode ? 'password' : 'number'}
+                min="0.01"
+                step="0.01"
+                placeholder="自动计算"
+                value={draft.riskAmount ?? ''}
+                onChange={(event) => {
+                  const next = withRiskAmount(draft, event.target.value ? Number(event.target.value) : null)
+                  setDraft(next)
+                  setError('')
+                }}
+                required
+              />
+              <small>USD</small>
             </span>
           </label>
           {(['dailyLossLimitR', 'weeklyLossLimitR'] as const).map((key, index) => (
@@ -265,24 +289,6 @@ export function WeeklyRiskPreparationCard({
             />
           </label>
           <div className="risk-preparation-actions">
-            <span className="risk-preparation-risk-amount">
-              <label>
-                <span>1R 金额</span>
-                <input
-                  aria-label="1R 金额"
-                  type={privacyMode ? 'password' : 'number'}
-                  min="0.01"
-                  step="0.01"
-                  value={draft.riskAmount ?? ''}
-                  onChange={(event) => {
-                    const next = withRiskAmount(draft, event.target.value ? Number(event.target.value) : null)
-                    setDraft(next)
-                    setError('')
-                  }}
-                  required
-                />
-              </label>
-            </span>
             {reviewed ? (
               <Button
                 variant="ghost"

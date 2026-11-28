@@ -4,6 +4,7 @@ import { ICON_2XL, ICON_SM, ICON_XL, ICON_MD } from '@/icons/iconSize'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, X } from '@/icons/appIcons'
+import { DisclosureIcon } from '@/icons/StateIcons'
 import { strategySelectOption } from '@/components/StrategyIcon'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { Select } from '@/components/ui/Select'
@@ -599,85 +600,6 @@ export function TradeComposer() {
             </div>
           ) : null}
 
-          {showMore ? <div className="composer-parameter-grid">
-            {activeKind === 'backtest' && status !== 'missed' && backtestParticipation}
-            {isTradeQuickNew && activeKind !== 'backtest' ? (
-              <div className="composer-essential-field">
-                <span className="composer-essential-label">状态</span>
-                <Select
-                  value={status}
-                  onValueChange={(value) => setStatus(value as Extract<TradeStatus, 'planned' | 'missed'>)}
-                  ariaLabel="记录状态"
-                  options={[
-                    { value: 'planned', label: '计划中' },
-                    { value: 'missed', label: '错过机会' },
-                  ]}
-                />
-              </div>
-            ) : null}
-            <div className="composer-essential-field">
-              <span className="composer-essential-label">波段级别</span>
-              <Select
-                value={timeframe || DEFAULT_TIMEFRAME}
-                onValueChange={setTimeframe}
-                ariaLabel="参与波段级别"
-                options={TIMEFRAME_PRESETS.map((preset) => ({
-                  value: preset,
-                  label: preset,
-                }))}
-              />
-            </div>
-            <div className="composer-essential-field">
-              <span className="composer-essential-label">交易时段</span>
-              <Select
-                value={session}
-                onValueChange={setSession}
-                ariaLabel="交易时段"
-                placeholder="未设置"
-                options={[
-                  { value: '', label: '未设置' },
-                  ...SESSION_PRESETS.map((preset) => ({
-                    value: preset.value,
-                    label: preset.label,
-                  })),
-                ]}
-              />
-            </div>
-            {activeKind !== 'backtest' && !requestedMonth && <div className="composer-essential-field composer-date-field">
-              <span className="composer-essential-label">交易日期</span>
-              <DatePicker
-                value={openedAt}
-                onValueChange={setOpenedAt}
-                ariaLabel="交易日期"
-                required
-              />
-            </div>}
-            {isTradeQuickNew ? <>
-              {numberField('entry', '入场价', entry, setEntry)}
-              {numberField('size', '仓位', size, setSize)}
-              {numberField('stopLoss', '止损价', stopLoss, setStopLoss)}
-            </> : null}
-            {activeKind === 'case' ? (
-              <div className="composer-essential-field">
-                <span className="composer-essential-label">案例类型</span>
-                <Select
-                  value={caseType}
-                  onValueChange={(value) => {
-                    const nextCaseType = value as CaseType
-                    if (nextCaseType === caseType) return
-                    caseTypeDirtyRef.current = true
-                    setCaseType(nextCaseType)
-                  }}
-                  ariaLabel="案例类型"
-                  options={CASE_TYPES.map((value) => ({
-                    value,
-                    label: CASE_TYPE_META[value].label,
-                  }))}
-                />
-              </div>
-            ) : null}
-          </div> : null}
-
           {activeKind !== 'backtest' && (
             <div className={isTradeQuickNew ? 'composer-archive-row composer-archive-row-paired' : 'composer-archive-row'}>
               {isTradeQuickNew && (
@@ -755,10 +677,96 @@ export function TradeComposer() {
             )}
           </div>
           {isNew ? (
-            <Button type="button" variant="ghost" className="composer-more-toggle" onClick={() => setShowMore((value) => !value)}>
+            <Button
+              type="button"
+              variant="ghost"
+              className="composer-more-toggle"
+              aria-expanded={showMore}
+              onClick={() => setShowMore((value) => !value)}
+            >
               {showMore ? '收起更多信息' : '更多信息'}
+              <DisclosureIcon size={ICON_SM} expanded={showMore} />
             </Button>
           ) : null}
+
+          {showMore ? <div className="composer-parameter-grid">
+            {activeKind === 'backtest' && status !== 'missed' && backtestParticipation}
+            {isTradeQuickNew && activeKind !== 'backtest' ? (
+              <div className="composer-essential-field">
+                <span className="composer-essential-label">状态</span>
+                <Select
+                  value={status}
+                  onValueChange={(value) => setStatus(value as Extract<TradeStatus, 'planned' | 'missed'>)}
+                  ariaLabel="记录状态"
+                  options={[
+                    { value: 'planned', label: '计划中' },
+                    { value: 'missed', label: '错过机会' },
+                  ]}
+                />
+              </div>
+            ) : null}
+            <div className="composer-essential-field">
+              <span className="composer-essential-label">波段级别</span>
+              <Select
+                value={timeframe || DEFAULT_TIMEFRAME}
+                onValueChange={setTimeframe}
+                ariaLabel="参与波段级别"
+                options={TIMEFRAME_PRESETS.map((preset) => ({
+                  value: preset,
+                  label: preset,
+                }))}
+              />
+            </div>
+            <div className="composer-essential-field">
+              <span className="composer-essential-label">交易时段</span>
+              <Select
+                value={session}
+                onValueChange={setSession}
+                ariaLabel="交易时段"
+                placeholder="未设置"
+                options={[
+                  { value: '', label: '未设置' },
+                  ...SESSION_PRESETS.map((preset) => ({
+                    value: preset.value,
+                    label: preset.label,
+                  })),
+                ]}
+              />
+            </div>
+            {activeKind === 'case' ? (
+              <div className="composer-essential-field">
+                <span className="composer-essential-label">案例类型</span>
+                <Select
+                  value={caseType}
+                  onValueChange={(value) => {
+                    const nextCaseType = value as CaseType
+                    if (nextCaseType === caseType) return
+                    caseTypeDirtyRef.current = true
+                    setCaseType(nextCaseType)
+                  }}
+                  ariaLabel="案例类型"
+                  options={CASE_TYPES.map((value) => ({
+                    value,
+                    label: CASE_TYPE_META[value].label,
+                  }))}
+                />
+              </div>
+            ) : null}
+            {activeKind !== 'backtest' && !requestedMonth && <div className="composer-essential-field composer-date-field">
+              <span className="composer-essential-label">交易日期</span>
+              <DatePicker
+                value={openedAt}
+                onValueChange={setOpenedAt}
+                ariaLabel="交易日期"
+                required
+              />
+            </div>}
+            {isTradeQuickNew ? <>
+              {numberField('entry', '入场价', entry, setEntry)}
+              {numberField('size', '仓位', size, setSize)}
+              {numberField('stopLoss', '止损价', stopLoss, setStopLoss)}
+            </> : null}
+          </div> : null}
     </ModalShell>
     {discardConfirmOpen ? (
       <ModalShell

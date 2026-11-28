@@ -38,7 +38,7 @@ import { CaseDecisionImageModal } from '@/components/CaseDecisionImageModal'
 import { matchesReviewCaseScope } from '@/lib/reviewCaseScope'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { TagEditor } from '@/components/TagEditor'
-import { StatusIcon, ConvictionIcon, SideTag } from '@/components/StatusIcon'
+import { StatusIcon, ConvictionIcon } from '@/components/StatusIcon'
 import { SymbolIcon } from '@/components/SymbolIcon'
 import { StrategyLabel, strategySelectOption } from '@/components/StrategyIcon'
 import { UserAvatar } from '@/components/UserAvatar'
@@ -931,6 +931,12 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
               <span>{trade.side === 'long' ? '做多' : '做空'}</span>
               <span>{resolveTimeframe(trade.timeframe)}</span>
               <span>{STATUS_META[trade.status].label}</span>
+              <span>{getStrategyName(strategies, trade.strategyId)}</span>
+              {trade.rMultiple != null && trade.status !== 'planned' && trade.status !== 'open' && (
+                <span className={`dv-reading-r is-${tradeMetricTone(trade.status, trade.rMultiple)}`}>
+                  {fmtR(trade.rMultiple)}
+                </span>
+              )}
               <span>{TRADE_KIND_META[trade.tradeKind].label}</span>
               {trade.ref && <span className="dv-record-ref">{trade.ref}</span>}
             </div>
@@ -1243,8 +1249,9 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
               ]}
               trigger={
                 <PropTrigger label="方向">
-                  <SideTag side={trade.side} />
-                  <span>{trade.side === 'long' ? '做多' : '做空'}</span>
+                  <span className={`dv-prop-chip is-side is-${trade.side}`}>
+                    {trade.side === 'long' ? '做多' : '做空'}
+                  </span>
                 </PropTrigger>
               }
             />
@@ -1269,6 +1276,26 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
                   >
                     {resolveTimeframe(trade.timeframe)}
                   </span>
+                </PropTrigger>
+              }
+            />
+            <Menu
+              value={trade.strategyId}
+              onSelect={(v) => {
+                if (v === '__manage_strategies__') {
+                  navigate('/settings/strategies')
+                  return
+                }
+                setStrategy(trade.id, v)
+              }}
+              options={[
+                ...strategies.map(strategySelectOption),
+                { type: 'separator' },
+                { value: '__manage_strategies__', label: '管理策略…' },
+              ]}
+              trigger={
+                <PropTrigger label="策略">
+                  <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
                 </PropTrigger>
               }
             />
@@ -1438,7 +1465,7 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
             )}
           </Section>
 
-          <Section title="标签" defaultOpen={false}>
+          <Section title={`标签${trade.tags.length ? ` · ${trade.tags.length}` : ''}`} defaultOpen={false}>
             <TagEditor
               tags={trade.tags}
               suggestions={tagPresets}
@@ -1467,22 +1494,6 @@ function TradeDetail({ toolbarHost, librarySession }: DetailViewProps & { librar
                 })
               }
             />
-          </Section>
-
-          <Section title="策略" defaultOpen={false}>
-            <Menu
-              value={trade.strategyId}
-              onSelect={(v) => setStrategy(trade.id, v)}
-              options={strategies.map(strategySelectOption)}
-              trigger={
-                <button className="dv-pitem dv-pitem-ghost">
-                  <StrategyLabel strategyId={trade.strategyId} strategies={strategies} />
-                </button>
-              }
-            />
-            <Link to="/settings/strategies" className="dv-strategy-manage">
-              管理策略…
-            </Link>
           </Section>
 
 

@@ -1,6 +1,9 @@
 import { HistoricalRiskBackfillPanel } from './HistoricalRiskBackfillPanel'
 import { useMemo } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { ArrowLeft } from '@/icons/appIcons'
+import { ICON_SM } from '@/icons/iconSize'
+import { DisclosureIcon } from '@/icons/StateIcons'
 import { useLocalDateKey } from '@/hooks/useLocalDateKey'
 import { useTradeReturnAnchor } from '@/hooks/useTradeReturnAnchor'
 import { useRiskDataIssues } from '@/hooks/useRiskDataIssues'
@@ -92,7 +95,10 @@ function RepairGroup({ group, expanded, onOpen }: {
         onClick={() => onOpen(group.key)}
       >
         <span>{description}{group.retained ? (group.bucket === 'priority' ? ' · 影响风险判断' : ' · 影响统计完整度') : ''}</span>
-        <small>{group.items.length} 项</small>
+        <span className="risk-repair-group-meta">
+          <small>{group.items.length} 项</small>
+          <DisclosureIcon size={ICON_SM} expanded={expanded} />
+        </span>
       </button>
       {expanded ? (
         <div className="risk-repair-group-items">
@@ -164,7 +170,10 @@ export function RiskDataRepairView() {
     <div className="settings-page settings-page--reading risk-data-repair-view" data-risk-data-repair-view>
       <div className="settings-page-head risk-repair-hero">
         <div>
-          <Link className="risk-repair-back" to="/settings/risk">返回风险管理</Link>
+          <Link className="risk-repair-back" to="/settings/risk">
+            <ArrowLeft size={ICON_SM} aria-hidden />
+            返回风险管理
+          </Link>
           <h1 className="settings-page-title" tabIndex={-1}>风险数据修复</h1>
           {queue.counts.total > 0 ? <div className="risk-repair-counts" data-risk-repair-counts aria-label="风险数据缺口摘要">
             {queue.actionableCount > 0 && <span>待处理 {queue.actionableCount} 项</span>}

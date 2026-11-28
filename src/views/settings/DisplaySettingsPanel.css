@@ -128,6 +128,7 @@
 }
 
 .display-settings-section > .ui-segmented { max-width: 100%; flex-wrap: wrap; }
+.display-trading-day-select { width: 228px; flex: 0 0 auto; }
 .display-settings-choice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-4); }
 .display-settings-choice .display-section-head { flex: 1; min-width: 0; margin: 0; }
 .display-settings-choice .display-sort-direction { flex-basis: 100%; margin: 0; }

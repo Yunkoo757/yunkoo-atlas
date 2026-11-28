@@ -20,7 +20,10 @@ function formatChord(c: KeyChord): string {
   if (c.mod) parts.push(IS_MAC ? '⌘' : 'Ctrl')
   if (c.alt) parts.push(IS_MAC ? '⌥' : 'Alt')
   if (c.shift) parts.push(IS_MAC ? '⇧' : 'Shift')
-  const key = c.key.length === 1 ? c.key.toUpperCase() : (KEY_LABELS[c.key] ?? c.key)
+  const key =
+    c.key.length === 1 || /^f\d{1,2}$/i.test(c.key)
+      ? c.key.toUpperCase()
+      : (KEY_LABELS[c.key] ?? c.key)
   parts.push(key)
   return parts.join(IS_MAC ? '' : '+')
 }

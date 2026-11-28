@@ -464,7 +464,7 @@ export function DataIOContent({
               <div className="dio-task-meta">结构化数据，不含个人资料与快捷键</div>
             </div>
             <button type="button" className="dio-btn" onClick={onExportJson}>
-              <span>下载 JSON</span>
+              <span>导出 JSON</span>
             </button>
           </div>
         </div>
@@ -492,7 +492,7 @@ export function DataIOContent({
           <div className="dio-task">
             <Upload size={ICON_LG} className="dio-task-icon" />
             <div className="dio-task-copy">
-              <div className="dio-task-title">Yunkoo JSON</div>
+              <div className="dio-task-title">Trader Atlas JSON</div>
               <div className="dio-task-meta">合并交易、策略、标签与嵌入图片到当前资料库</div>
             </div>
             <button type="button" className="dio-btn" disabled={dataBusy} onClick={() => fileRef.current?.click()}>

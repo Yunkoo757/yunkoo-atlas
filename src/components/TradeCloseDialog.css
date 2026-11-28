@@ -41,6 +41,29 @@
   font-variant-numeric: var(--numeric-tabular);
 }
 
+.trade-close-inline-input {
+  position: relative;
+  display: block;
+}
+
+.trade-close-inline-input input {
+  padding-right: 28px;
+}
+
+.trade-close-inline-input.is-wide-unit input {
+  padding-right: 44px;
+}
+
+.trade-close-inline-input small {
+  position: absolute;
+  top: 50%;
+  right: var(--field-padding-inline);
+  color: var(--text-content-metadata);
+  font-size: var(--type-metadata-size);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
 .trade-close-field [aria-invalid='true'] {
   border-color: var(--danger);
 }

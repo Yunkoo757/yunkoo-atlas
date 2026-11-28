@@ -1,6 +1,7 @@
 .wr-toolbar { position: relative; z-index: var(--z-content-overlay); flex: 0 0 var(--header-h); min-height: var(--header-h); display: flex; align-items: center; gap: var(--sp-3); padding-inline: var(--sp-4); border-bottom: 1px solid var(--border-subtle); }
 .wr-toolbar-label { flex: 0 0 auto; color: var(--text-strong); font-size: var(--type-toolbar-title-size); font-weight: var(--type-toolbar-title-weight); line-height: var(--type-toolbar-title-line-height); }
 .wr-week-navigation { display: flex; flex-shrink: 0; gap: var(--sp-1); }
+.wr-week-navigation .ui-icon-btn { background: transparent; border: 0; box-shadow: none; border-radius: var(--radius-6); }
 .wr-record-picker { position: relative; min-width: 0; }
 .wr-record-picker > summary { min-height: var(--control-height); display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); border-radius: var(--radius-6); color: var(--text-primary); font-size: var(--type-row-size); cursor: pointer; list-style: none; }
 .wr-record-picker > summary::-webkit-details-marker { display: none; }
@@ -13,14 +14,16 @@
 .wr-document-status { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--text-tertiary); font-size: var(--type-metadata-size); white-space: nowrap; }
 .wr-shell { min-height: 0; flex: 1; display: flex; overflow: hidden; background: var(--surface-pane); }
 .wr-history { padding: var(--sp-2); }
-.wr-history-title { padding: 0 9px 10px; color: var(--text-tertiary); font-size: var(--type-metadata-size); font-weight: var(--font-weight-semibold); }
+.wr-history-title { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); padding: 0 9px 10px; color: var(--text-tertiary); font-size: var(--type-metadata-size); font-weight: var(--font-weight-semibold); }
 .wr-history button { width: 100%; min-height: 44px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--space-row-gap); padding: var(--sp-1) var(--sp-2); border: 0; border-radius: var(--radius-6); background: transparent; color: var(--text-content-supporting); font: inherit; font-size: var(--type-row-size); text-align: left; cursor: pointer; }
+.wr-history button.is-single-stage { min-height: 36px; }
 .wr-history button:hover,
 .wr-history button[data-arrow-current] { background: var(--surface-menu-hover); color: var(--text-primary); }
 .wr-history button.is-active { background: var(--bg-selected); color: var(--text-primary); }
 .wr-history-week { grid-column: 1; color: inherit; font-size: var(--type-row-size); font-weight: var(--type-row-weight); white-space: nowrap; }
-.wr-history-stage { grid-column: 1; color: var(--text-content-metadata); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); overflow-wrap: anywhere; }
+.wr-history-stage { grid-column: 1; color: var(--text-content-metadata); font-size: var(--type-metadata-size); font-weight: var(--font-weight-normal); line-height: var(--type-metadata-line-height); overflow-wrap: anywhere; }
 .wr-history-state { grid-column: 2; grid-row: 1 / span 2; color: var(--text-content-metadata); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); white-space: nowrap; }
+.wr-history button.is-single-stage .wr-history-state { grid-row: 1; }
 .wr-history button[data-review-week-state='completed'] .wr-history-state { color: var(--status-completed); }
 .wr-main {
   flex: 1;
@@ -459,9 +462,7 @@ p.wr-previous-criteria { margin-block-start: var(--space-row-gap); }
 
 @media (max-width: 1099px) {
   .wr-toolbar-label { display: none; }
-  .wr-record-picker > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--sp-2); }
-  .wr-record-picker > summary small { grid-area: 2 / 1; max-width: none; }
-  .wr-record-picker > summary svg { grid-area: 1 / 2 / span 2; }
+  .wr-record-picker > summary small { max-width: 96px; }
   .wr-content,.wr-year { width: min(var(--page-rail-reading), calc(100% - 2 * var(--page-inset-compact))); }
 }
 [data-weekly-section],[data-weekly-field] { scroll-margin-block: var(--sp-4); }

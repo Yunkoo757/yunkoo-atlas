@@ -127,7 +127,9 @@ export function RDistributionChart({ buckets }: { buckets: DashboardRBucket[] })
           <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
           <XAxis
             dataKey="label"
-            ticks={['<-3', '0~0.5', '≥10']}
+            ticks={['<-3', '-1~-0.5', '0~0.5', '1~2', '3~5', '≥10']}
+            interval="preserveStartEnd"
+            minTickGap={12}
             tick={AXIS_TICK}
             axisLine={false}
             tickLine={false}

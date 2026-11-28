@@ -73,14 +73,15 @@ export function ReviewTemplatesPanel() {
 
       <section className="review-pin-setting" aria-labelledby="review-pin-setting-title">
         <div>
-          <h2 id="review-pin-setting-title">详情页开头</h2>
+          <h2 id="review-pin-setting-title">复盘开头提示</h2>
+          <p>固定后，盘面摘要等开头提示始终留在正文上方。</p>
         </div>
         <SegmentedControl
-          label="详情页开头显示方式"
+          label="复盘开头提示显示方式"
           role="radiogroup"
           size="md"
           value={reviewContextPinned ? 'pinned' : 'unpinned'}
-          options={[{ value: 'pinned', label: '全部固定' }, { value: 'unpinned', label: '全部不固定' }]}
+          options={[{ value: 'pinned', label: '固定在顶部' }, { value: 'unpinned', label: '随正文滚动' }]}
           onChange={(value) => setDisplay({ reviewContextPinned: value === 'pinned' })}
         />
       </section>
@@ -152,8 +153,22 @@ export function ReviewTemplatesPanel() {
           </nav>
 
           <section className="review-template-editor" aria-label={`编辑${selected.name}`}>
-            <div className="review-template-field-head">
-              <label htmlFor="review-template-name">模板名称</label>
+            <label className="review-template-field-head" htmlFor="review-template-name">
+              模板名称
+            </label>
+            <div className="review-template-name-row">
+              <input
+                id="review-template-name"
+                className="review-template-name"
+                value={nameDraft?.id === selected.id ? nameDraft.value : selected.name}
+                maxLength={40}
+                onChange={(event) => {
+                  const name = event.target.value
+                  setNameDraft({ id: selected.id, value: name })
+                  if (name.trim()) updateTemplate(selected.id, { name })
+                }}
+                onBlur={() => setNameDraft(null)}
+              />
               <IconButton
                 className="review-template-delete"
                 label={`删除模板「${selected.name}」`}
@@ -163,18 +178,6 @@ export function ReviewTemplatesPanel() {
                 <Trash2 size={ICON_SM} aria-hidden />
               </IconButton>
             </div>
-            <input
-              id="review-template-name"
-              className="review-template-name"
-              value={nameDraft?.id === selected.id ? nameDraft.value : selected.name}
-              maxLength={40}
-              onChange={(event) => {
-                const name = event.target.value
-                setNameDraft({ id: selected.id, value: name })
-                if (name.trim()) updateTemplate(selected.id, { name })
-              }}
-              onBlur={() => setNameDraft(null)}
-            />
 
             <label className="review-template-content-label" htmlFor="review-template-content">
               起稿内容

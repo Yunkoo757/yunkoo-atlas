@@ -656,6 +656,7 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
   const changeTab = (nextTab: WeeklyReviewTab) => {
     navigationIntent.invalidate()
     if (nextTab === tab) return
+    closeHistoryPicker()
     replaceRouteState(selectedWeek, nextTab, selectedReviewId)
   }
 
@@ -693,7 +694,13 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
     <>
       <header className="wr-toolbar">
         {!windowToolbar && <span className="wr-toolbar-label">周期复盘</span>}
-        <details className="wr-record-picker" ref={historyPickerRef} onKeyDown={navigateHistoryRows}>
+        {tab === 'year' ? (
+          <Button id="weekly-review-tab-review" variant="ghost" size="sm" className="wr-toolbar-back" onClick={() => changeTab('review')}>
+            <ChevronLeft size={ICON_MD} aria-hidden />
+            本周复盘
+          </Button>
+        ) : null}
+        <details className="wr-record-picker" hidden={tab === 'year'} ref={historyPickerRef} onKeyDown={navigateHistoryRows}>
           <summary aria-label={`选择复盘记录：${selectedWeek.slice(0, 4)}年 · ${formatWeeklyReviewRange(selectedWeek)}，${reviewStageName}`}>
             <span>{selectedWeek.slice(0, 4)}年 · {formatWeeklyReviewRange(selectedWeek)}</span>
             <small>{reviewStageName}</small>
@@ -707,10 +714,20 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
               onBlur={() => setHistoryCursor(null)}
               onPointerMove={() => setHistoryCursor(null)}
             >
-                <div className="wr-history-title">复盘记录</div>
+                <div className="wr-history-title">
+                  <span>复盘记录</span>
+                  {!allStages && <small className="wr-history-stage">{reviewStageName}</small>}
+                </div>
                 {historyItems.map((item) => {
                   const stageName = liveStages.find((stage) => stage.id === item.liveStageId)?.name ?? '未知阶段'
-                  const stateLabel = item.review?.status === 'completed' ? '已完成' : item.review ? '草稿' : '待补做'
+                  const isCurrentThisWeek = item.week === currentWeek && item.liveStageId === currentLiveStageId
+                  const stateLabel = item.review?.status === 'completed'
+                    ? '已完成'
+                    : item.review
+                      ? '草稿'
+                      : isCurrentThisWeek
+                        ? '待填写'
+                        : '待补做'
                   const isActive = selectedReviewId
                     ? item.routeId === selectedReviewId
                     : item.week === selectedWeek && item.liveStageId === reviewLiveStageId
@@ -718,7 +735,7 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
                     <button
                       key={item.key}
                       type="button"
-                      className={isActive ? 'is-active' : ''}
+                      className={(isActive ? 'is-active' : '') + (allStages ? '' : ' is-single-stage')}
                       data-arrow-current={item.key === historyCursor || undefined}
                       data-review-week={item.week}
                       data-review-id={item.review?.id ?? ''}
@@ -729,7 +746,7 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
                       onClick={() => void changeReview(item)}
                     >
                       <span className="wr-history-week">{weekLabel(item.week, currentWeek, item.liveStageId === currentLiveStageId)}</span>
-                      <small className="wr-history-stage">{stageName}</small>
+                      {allStages && <small className="wr-history-stage">{stageName}</small>}
                       <span className="wr-history-state">{stateLabel}</span>
                     </button>
                   )
@@ -746,10 +763,11 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
 
         <div className="wr-document-actions">
           <SaveStatusIndicator />
-          <nav className="wr-view-switch" aria-label="周期复盘视图">
-            {tab === 'year' ? <Button id="weekly-review-tab-review" variant="ghost" size="sm" onClick={() => changeTab('review')}><ChevronLeft size={ICON_MD} />本周复盘</Button> : null}
-            {tab === 'review' ? <Button id="weekly-review-tab-year" variant="ghost" size="sm" onClick={() => changeTab('year')}>年度趋势</Button> : null}
-          </nav>
+          {tab === 'review' ? (
+            <nav className="wr-view-switch" aria-label="周期复盘视图">
+              <Button id="weekly-review-tab-year" variant="ghost" size="sm" onClick={() => changeTab('year')}>年度趋势</Button>
+            </nav>
+          ) : null}
           {tab === 'review' ? <>
             <span className="wr-document-status" aria-label={locked ? '周复盘已完成' : `周复盘必填项已完成 ${completion.completedCount} / ${WEEKLY_REQUIRED_COUNT}`}>
               {locked ? <><Check size={ICON_MD} aria-hidden />已完成</> : completion.completedCount ? `已填 ${completion.completedCount}/${WEEKLY_REQUIRED_COUNT}` : '待填写'}

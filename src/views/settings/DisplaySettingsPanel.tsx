@@ -2,6 +2,7 @@ import { ICON_SM } from '@/icons/iconSize'
 import { CheckMark } from '@/icons/StateIcons'
 import { useEffect, useState } from 'react'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import { Select } from '@/components/ui/Select'
 import { useStore } from '@/store/useStore'
 import type { DisplayPrefs } from '@/lib/tradeFilters'
 import { TRADING_DAY_START_HOUR_OPTIONS } from '@/lib/periods'
@@ -224,47 +225,11 @@ export function DisplaySettingsPanel() {
           />
         </section>
 
-        {electron ? (
-          <section className="display-settings-section" data-auto-launch-setting>
-            <div className="display-settings-section-heading display-section-head">
-              <h2>应用行为</h2>
-            </div>
-            <ToggleRow
-              label="开机自动启动"
-              checked={autoLaunchState?.enabled ?? false}
-              disabled={autoLaunchBusy || !autoLaunchState || !autoLaunchState.supported || Boolean(autoLaunchState.error)}
-              onChange={(checked) => void applyAutoLaunch(checked)}
-            />
-            {autoLaunchState?.error ? (
-              <div className="display-setting-feedback">
-                <p className="display-settings-hint" role="status">{autoLaunchState.error}</p>
-                <button
-                  type="button"
-                  className="ui-btn ui-btn-bordered"
-                  disabled={autoLaunchBusy}
-                  onClick={() => void loadAutoLaunchState()}
-                >
-                  重试读取
-                </button>
-              </div>
-            ) : null}
-          </section>
-        ) : null}
-
-
         <ChoiceSection
           title="列表密度"
           options={LIST_DENSITY_OPTS}
           value={display.listRowDensity}
           onChange={(value) => setDisplay({ listRowDensity: value })}
-        />
-
-        <ChoiceSection
-          title="交易日开始于"
-          hint="该时刻前计入前一交易日；统计中的周、月仍按日历计算。"
-          options={TRADING_DAY_OPTS}
-          value={display.tradingDayStartHour}
-          onChange={(value) => setDisplay({ tradingDayStartHour: value })}
         />
 
         <ChoiceSection
@@ -293,6 +258,53 @@ export function DisplaySettingsPanel() {
           value={display.sortDirection}
           onChange={(sortDirection) => setDisplay({ sortDirection })}
         />
+
+        <section className="display-settings-section display-settings-choice">
+          <div className="display-section-head">
+            <h2>交易日开始于</h2>
+            <p>该时刻前计入前一交易日；统计中的周、月仍按日历计算。</p>
+          </div>
+          <Select
+            className="display-trading-day-select"
+            ariaLabel="交易日开始于"
+            value={String(display.tradingDayStartHour)}
+            options={TRADING_DAY_OPTS.map((option) => ({
+              value: String(option.value),
+              label: `${option.label} · ${option.description}`,
+            }))}
+            onValueChange={(next) => {
+              const option = TRADING_DAY_OPTS.find((item) => String(item.value) === next)
+              if (option) setDisplay({ tradingDayStartHour: option.value })
+            }}
+          />
+        </section>
+
+        {electron ? (
+          <section className="display-settings-section" data-auto-launch-setting>
+            <div className="display-settings-section-heading display-section-head">
+              <h2>应用行为</h2>
+            </div>
+            <ToggleRow
+              label="开机自动启动"
+              checked={autoLaunchState?.enabled ?? false}
+              disabled={autoLaunchBusy || !autoLaunchState || !autoLaunchState.supported || Boolean(autoLaunchState.error)}
+              onChange={(checked) => void applyAutoLaunch(checked)}
+            />
+            {autoLaunchState?.error ? (
+              <div className="display-setting-feedback">
+                <p className="display-settings-hint" role="status">{autoLaunchState.error}</p>
+                <button
+                  type="button"
+                  className="ui-btn ui-btn-bordered"
+                  disabled={autoLaunchBusy}
+                  onClick={() => void loadAutoLaunchState()}
+                >
+                  重试读取
+                </button>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         {electron ? (
           <section className="display-settings-section">

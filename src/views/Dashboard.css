@@ -82,6 +82,8 @@
   font-feature-settings: "tnum" 1, "kern" 1;
   overflow-wrap: anywhere;
 }
+.db-card-value[data-tone="positive"] { color: var(--result-positive); }
+.db-card-value[data-tone="negative"] { color: var(--result-negative); }
 .db-card.is-primary .db-card-value { font-size: var(--font-size-title2); }
 .db-card:hover .db-card-label { color: var(--text-strong); }
 
@@ -128,10 +130,11 @@
 .db-curve-tip-meta { color: var(--text-muted); }
 
 .db-report-context {
+  position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: var(--sp-2) var(--sp-3);
+  gap: var(--sp-1);
   min-height: var(--control-height-sm);
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
@@ -143,7 +146,18 @@
   gap: var(--sp-1);
   min-height: var(--control-height-sm);
 }
+.db-report-context:has(> .performance-data-notice) > p {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+}
+.db-report-context > .performance-data-notice {
+  width: 100%;
+}
 .db-report-context > .performance-data-notice > summary { margin-inline-start: auto; }
+.db-report-context > .performance-data-notice > .performance-data-notice-body {
+  margin-inline-start: 0;
+}
 
 .db-data-health {
   display: flex;
@@ -320,7 +334,7 @@
 }
 @container dashboard (max-width: 480px) {
   .db-cards { grid-template-columns: minmax(0, 1fr) repeat(2, minmax(0, 22%)); gap: var(--sp-2); }
-  .db-report-context { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
+  .db-report-context:has(> .performance-data-notice) > p { position: static; }
   .db-report-context > .performance-data-notice > summary { margin-inline-start: 0; }
   .db-week-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

@@ -40,7 +40,7 @@ input.composer-input-quick {
   gap: var(--sp-3);
 }
 
-.composer-parameter-grid .composer-date-field { grid-column: span 2; }
+.composer-parameter-grid .composer-date-field { grid-column: 1 / -1; }
 
 .composer-archive-row {
   display: grid;

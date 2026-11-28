@@ -32,6 +32,8 @@ import { Menu } from '@/components/Menu'
 import { ModalShell } from '@/components/ui/ModalShell'
 import { Select } from '@/components/ui/Select'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
+import { SymbolIcon } from '@/components/SymbolIcon'
+import type { SymbolIconsMap } from '@/lib/symbolIcons'
 import { fmtDate, fmtMoney, fmtR } from '@/lib/format'
 import { useBusinessDateAnchor } from '@/hooks/useLocalDateKey'
 import { useDecisionImage } from '@/hooks/useDecisionImage'
@@ -248,6 +250,7 @@ export function ReviewSessionView() {
   const liveStages = useStore((state) => state.liveStages)
   const currentLiveStageId = useStore((state) => state.currentLiveStageId)
   const strategies = useStore((state) => state.strategies)
+  const symbolIcons = useStore((state) => state.symbolIcons)
   const starredIds = useStore((state) => state.starredIds)
   const subscribedIds = useStore((state) => state.subscribedIds)
   const reviewPoolPresets = useStore((state) => state.reviewPoolPresets)
@@ -784,10 +787,12 @@ export function ReviewSessionView() {
         {!session.decisionPractice && <Button onClick={() => openSettings(session.filters)}>调整范围</Button>}
         <Button onClick={() => clearActiveSession(session.decisionPractice ? filters : reviewFiltersForNextRound(session))}>结束本轮</Button>
       </>}>
-        <Button size="sm" className="review-session-back" onClick={exitReviewSession}>
-          <ChevronLeft size={ICON_MD} aria-hidden />
-          {hasRound ? '退出复盘' : '返回交易日志'}
-        </Button>
+        {hasRound && !roundEnded && (
+          <Button size="sm" className="review-session-back" onClick={exitReviewSession}>
+            <ChevronLeft size={ICON_MD} aria-hidden />
+            暂离复盘
+          </Button>
+        )}
         {session?.decisionPractice && <span className="review-session-practice-label">先判断</span>}
       </Toolbar>
 
@@ -825,6 +830,7 @@ export function ReviewSessionView() {
         <DecisionPracticeCard
           key={current.id}
           trade={current}
+          symbolIcons={symbolIcons}
           onReveal={() => {
             focusAfterTransitionRef.current = true
             setSession({ ...session, revealedDecisionId: current.id })
@@ -836,6 +842,7 @@ export function ReviewSessionView() {
       ) : (
         <ReviewSessionItem
           trade={current}
+          symbolIcons={symbolIcons}
           strategyName={getStrategyName(strategies, current.strategyId)}
           note={resolvedNote.tradeId === current.id ? resolvedNote : EMPTY_NOTE_STATE}
           onRetryNote={() => setNoteLoadAttempt(value => value + 1)}
@@ -928,6 +935,10 @@ function ReviewSessionStart({
   const emptyHint = globalCandidateCount === 0
     ? '先返回交易日志补充内容，或新建交易。'
     : '全局仍有候选内容，可以调整复盘设置或管理复盘池。'
+  const activeScopeParts = [reviewStageSourceLabel(filters.stageSource)]
+  if (filters.includeCases && filters.reviewTiming === 'due') activeScopeParts.push('到期案例')
+  if (filters.requireContent) activeScopeParts.push('仅含有效图文')
+  const activeScopeLabel = activeScopeParts.join(' · ')
 
   return (
     <section className="review-session-start" data-review-session-start-focus tabIndex={-1}>
@@ -956,7 +967,7 @@ function ReviewSessionStart({
       <div className="review-session-start-footer">
         <div>
           <span className="review-session-available-count">{poolSize > 0 ? `可随机复盘 ${poolSize} 条` : emptyMessage}</span>
-          <span>{poolSize > 0 ? reviewStageSourceLabel(filters.stageSource) : emptyHint}</span>
+          <span>{poolSize > 0 ? activeScopeLabel : emptyHint}</span>
         </div>
         <div className="review-session-start-actions">
           {poolSize > 0 ? (
@@ -1255,8 +1266,9 @@ function ReviewSessionAssessmentButton({
   )
 }
 
-function DecisionPracticeCard({ trade, onReveal, onSkip, onBack, backLabel }: {
+function DecisionPracticeCard({ trade, symbolIcons, onReveal, onSkip, onBack, backLabel }: {
   trade: Trade
+  symbolIcons: SymbolIconsMap
   onReveal: () => void
   onSkip: () => void
   onBack?: () => void
@@ -1272,7 +1284,10 @@ function DecisionPracticeCard({ trade, onReveal, onSkip, onBack, backLabel }: {
     <section className="review-session-stage" data-review-session-focus tabIndex={-1}>
       <article className="review-session-workspace" aria-label="决策时点盘面">
         <header className="review-session-item-header">
-          <h1>{trade.symbol}</h1>
+          <div className="review-session-item-primary">
+            <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_XL} />
+            <h1>{trade.symbol}</h1>
+          </div>
           <p className="review-session-decision-prompt">当下会怎么做？依据是什么？</p>
         </header>
         <div className="review-session-decision-board">
@@ -1307,6 +1322,7 @@ function DecisionPracticeCard({ trade, onReveal, onSkip, onBack, backLabel }: {
 
 function ReviewSessionItem({
   trade,
+  symbolIcons,
   strategyName,
   note,
   onRetryNote,
@@ -1321,6 +1337,7 @@ function ReviewSessionItem({
   originLabel,
 }: {
   trade: Trade
+  symbolIcons: SymbolIconsMap
   strategyName: string
   note: ResolvedNoteState
   onRetryNote: () => void
@@ -1347,14 +1364,15 @@ function ReviewSessionItem({
       <article className="review-session-workspace" aria-label={`${trade.symbol} 随机复盘`}>
         <header className="review-session-item-header">
           <div className="review-session-item-primary">
-            <Chip size="sm" variant="soft">{TRADE_KIND_META[trade.tradeKind].label}</Chip>
-            <span className="review-session-origin">来源 · {originLabel}</span>
+            <SymbolIcon symbol={trade.symbol} overrides={symbolIcons} size={ICON_XL} />
             <h1>{trade.symbol}</h1>
             <Chip size="sm" variant="outline">
               {trade.tradeKind === 'case'
                 ? REVIEW_CATEGORY_META[trade.reviewCategory].label
                 : STATUS_META[trade.status].label}
             </Chip>
+            <Chip size="sm" variant="soft">{TRADE_KIND_META[trade.tradeKind].label}</Chip>
+            <span className="review-session-origin">来源 · {originLabel}</span>
           </div>
           <div className="review-session-summary" aria-label="当前记录摘要">
             <span className="review-session-card-ref">{trade.ref}</span>
@@ -1408,7 +1426,7 @@ function ReviewSessionItem({
         ) : (
           <footer className="review-session-assessment is-account-trade">
             <div>
-              <span>账户交易不记录案例掌握度</span>
+              <span>交易记录不计入掌握度，可提炼为案例反复练习</span>
             </div>
             <div className="review-session-assessment-actions review-session-account-actions">
               {onBack && <Button type="button" className="review-session-skip" variant="ghost" aria-label={backShortcut.ariaLabel} aria-keyshortcuts={backShortcut.hint ?? undefined} onClick={onBack}>{backLabel} {backShortcut.hint ? <Kbd>{backShortcut.hint}</Kbd> : null}</Button>}

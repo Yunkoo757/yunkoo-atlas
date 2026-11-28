@@ -68,8 +68,8 @@ export const SYMBOL_ICON_PRESETS: SymbolIconPreset[] = [
   glyphPreset('gold', '黄金', 'Au', 'var(--instrument-gold)', 'gold-au'),
   glyphPreset('eur', '欧元', '€', 'var(--instrument-euro)', 'euro'),
   glyphPreset('gbp', '英镑', '£', 'var(--instrument-sterling)', 'sterling'),
-  glyphPreset('btc', 'Bitcoin', '₿', 'var(--instrument-bitcoin)', 'bitcoin'),
-  glyphPreset('eth', 'Ethereum', 'ETH', 'var(--instrument-ether)', 'eth-diamond'),
+  glyphPreset('btc', '比特币', '₿', 'var(--instrument-bitcoin)', 'bitcoin'),
+  glyphPreset('eth', '以太坊', 'ETH', 'var(--instrument-ether)', 'eth-diamond'),
 ]
 
 const LEGACY_SYMBOL_ICON_PRESETS: SymbolIconPreset[] = [

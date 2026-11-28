@@ -134,6 +134,13 @@
   margin-right: var(--sp-2);
   color: var(--text-tertiary);
 }
+.dv-reading-r {
+  font-variant-numeric: var(--numeric-tabular);
+  font-weight: var(--font-weight-medium);
+}
+.dv-reading-r.is-positive { color: var(--result-positive); }
+.dv-reading-r.is-negative { color: var(--result-negative); }
+.dv-reading-r.is-opportunity { color: var(--result-opportunity); }
 .dv-supplementary-field,
 .dv-supplementary-field > .menu-root { display: block; width: 100%; }
 .dv-summary {
@@ -311,6 +318,17 @@
 .dv-review-actions .ui-btn:hover:not(:disabled) {
   color: var(--text-primary);
   background: transparent;
+}
+.dv-review-actions .dv-review-complete-action {
+  margin-inline-start: calc(-1 * var(--sp-2));
+  padding-inline: var(--sp-2);
+  border-radius: var(--radius-6);
+  color: var(--text-content-supporting);
+  font-weight: var(--font-weight-medium);
+}
+.dv-review-actions .dv-review-complete-action:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--surface-control-hover);
 }
 .dv-review-complete-meta > svg {
   color: var(--pos);
@@ -773,6 +791,14 @@
 .dv-prop-chip.is-neutral {
   color: var(--text-secondary);
   background: transparent;
+}
+.dv-prop-chip.is-side.is-long {
+  color: var(--direction-long-text);
+  font-weight: var(--font-weight-medium);
+}
+.dv-prop-chip.is-side.is-short {
+  color: var(--direction-short-text);
+  font-weight: var(--font-weight-medium);
 }
 .dv-prop-chip.is-category {
   color: var(--text-secondary);

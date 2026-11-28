@@ -417,11 +417,17 @@ function BoardColumnBody({
                     {t.symbol}
                   </span>
                   <SideTag side={t.side} quiet />
-                  {result.r.state !== 'not-applicable' ? <span
-                    className="bd-card-result"
-                    data-value-state={result.r.state}
-                    data-value-sign={result.r.state === 'value' ? tradeMetricTone(t.status, t.rMultiple) : undefined}
-                  >{result.r.text}</span> : null}
+                  {result.r.state !== 'not-applicable' ? (
+                    <span
+                      className="bd-card-result"
+                      data-value-state={result.r.state}
+                      data-value-sign={result.r.state === 'value' ? tradeMetricTone(t.status, t.rMultiple) : undefined}
+                      title={result.integrity === 'conflict' ? result.accessibleSummary : undefined}
+                    >
+                      {result.integrity === 'conflict' && <span className="bd-card-conflict">冲突</span>}
+                      {result.r.text}
+                    </span>
+                  ) : null}
                 </div>
                 <div className="bd-card-strategy">
                   <StrategyLabel strategyId={t.strategyId} strategies={strategies} size={ICON_SM} variant="nav" />

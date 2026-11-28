@@ -4,6 +4,7 @@ import { STATUS_META, type Trade, type TradeStatus } from '@/data/trades'
 import { StatusIcon } from '@/components/StatusIcon'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { pnlToStatus } from '@/lib/tradeCalc'
+import { isExecutedClosed } from '@/lib/tradeStatus'
 import {
   prepareTradeClose,
   type CloseOutcome,
@@ -97,16 +98,19 @@ export function TradeCloseDialog() {
 
   if (!request || !trade || !previewResult) return null
 
+  const isEditingResult = isExecutedClosed(trade.status)
+  const cashUnit = trade.cashCurrency ?? 'USD'
+
   const commitClose = (status: CloseOutcome, patch: Partial<Trade>) => {
     const previousActionId = useStore.getState().undoStack.at(-1)?.actionId
     completeTradeClose(trade.id, status, patch)
     const latestActionId = useStore.getState().undoStack.at(-1)?.actionId
     const actionId = latestActionId !== previousActionId ? latestActionId : undefined
-    toast(`${trade.ref} 已平仓，已加入待复盘`, {
+    toast(isEditingResult ? `${trade.ref} 交易结果已更新` : `${trade.ref} 已平仓，已加入待复盘`, {
       tone: 'success',
       actionLabel: '撤销',
       onAction: () => {
-        if (actionId && useStore.getState().undo(actionId)) toast('已撤销平仓', { tone: 'success' })
+        if (actionId && useStore.getState().undo(actionId)) toast(isEditingResult ? '已撤销结果修改' : '已撤销平仓', { tone: 'success' })
         else toast('目标交易之后已变化，无法安全撤销', { tone: 'warning' })
       },
     })
@@ -159,7 +163,7 @@ export function TradeCloseDialog() {
 
   return (
     <ModalShell
-      title="完成平仓"
+      title={isEditingResult ? '修正交易结果' : '完成平仓'}
       description={`${trade.symbol} · ${trade.ref}`}
       size="compact"
       panelClassName="trade-close-dialog"
@@ -169,7 +173,9 @@ export function TradeCloseDialog() {
       footer={(
         <>
           <Button variant="ghost" size="lg" onClick={cancelTradeClose}>取消</Button>
-          <DialogSaveButton type="submit" form="trade-close-form" disabled={!preview}>保存并待复盘</DialogSaveButton>
+          <DialogSaveButton type="submit" form="trade-close-form" disabled={!preview}>
+            {isEditingResult ? '保存结果' : '保存并待复盘'}
+          </DialogSaveButton>
         </>
       )}
     >
@@ -195,29 +201,35 @@ export function TradeCloseDialog() {
           </div>
           <label className="trade-close-field">
             <span>盈亏金额</span>
-            <input
-              aria-label="盈亏金额"
-              type={privacyMode ? 'password' : 'text'}
-              autoComplete="off"
-              inputMode="decimal"
-              aria-describedby="trade-close-summary"
-              aria-invalid={pnlInvalid || undefined}
-              value={pnl}
-              onChange={(event) => setPnl(event.target.value)}
-              placeholder={outcome === 'breakeven' ? '例如 -2.5' : '例如 500'}
-            />
+            <span className="trade-close-inline-input is-wide-unit">
+              <input
+                aria-label="盈亏金额"
+                type={privacyMode ? 'password' : 'text'}
+                autoComplete="off"
+                inputMode="decimal"
+                aria-describedby="trade-close-summary"
+                aria-invalid={pnlInvalid || undefined}
+                value={pnl}
+                onChange={(event) => setPnl(event.target.value)}
+                placeholder={outcome === 'breakeven' ? '例如 -2.5' : '例如 500'}
+              />
+              <small>{cashUnit}</small>
+            </span>
           </label>
           <label className="trade-close-field">
             <span>R 倍数</span>
-            <input
-              aria-label="R 倍数"
-              inputMode="decimal"
-              aria-describedby="trade-close-summary"
-              aria-invalid={rInvalid || undefined}
-              value={rMultiple}
-              onChange={(event) => setRMultiple(event.target.value)}
-              placeholder={outcome === 'breakeven' ? '例如 -0.02' : '例如 1.5'}
-            />
+            <span className="trade-close-inline-input">
+              <input
+                aria-label="R 倍数"
+                inputMode="decimal"
+                aria-describedby="trade-close-summary"
+                aria-invalid={rInvalid || undefined}
+                value={rMultiple}
+                onChange={(event) => setRMultiple(event.target.value)}
+                placeholder={outcome === 'breakeven' ? '例如 -0.02' : '例如 1.5'}
+              />
+              <small>R</small>
+            </span>
           </label>
         </div>
         <p
