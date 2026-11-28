@@ -43,7 +43,16 @@ export async function testAttachmentImportAndDesktopInstanceSafetyAreWiredAtBoun
   ])
 
   assert(importExport.includes('isSafeAssetId(v.id)'), 'JSON 解析层必须拒绝危险附件 ID')
-  assert(ipc.includes('assertSafeAssetId(a.id)'), 'IPC 边界必须再次验证附件 ID')
+  const decoder = ipc.match(/function decodeImportedAsset\([\s\S]*?\n}/)?.[0] ?? ''
+  assert(decoder.includes('assertSafeAssetId(asset.id)'), 'IPC 解码器必须再次验证附件 ID')
+  for (const channel of ['storage:importAssets', 'storage:commitImport']) {
+    const start = ipc.indexOf(`ipcMain.handle('${channel}'`)
+    const handler = ipc.slice(start, ipc.indexOf('ipcMain.handle(', start + 1))
+    assert(start >= 0 && handler.includes('payload.assets.map(decodeImportedAsset)'), `${channel} 必须逐项校验附件`)
+    if (channel === 'storage:importAssets') {
+      assert(handler.includes('lib.importAssets(') && !handler.includes('lib.importAsset('), '附件列表必须经整批存储入口提交')
+    }
+  }
   assert(storage.includes('assertSafeAssetId(id)'), '存储层必须独立验证附件 ID')
   assert(storage.includes('path.relative(resolvedRoot, resolvedTarget)'), '附件落盘前必须验证目标仍在附件目录内')
 

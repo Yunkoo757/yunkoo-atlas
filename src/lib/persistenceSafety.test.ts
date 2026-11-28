@@ -110,14 +110,14 @@ export async function testStorageHealthOnlyReportsMeasuredAttachmentData(): Prom
 export async function testDesktopAttachmentWritesUseTheAtomicFileBoundary(): Promise<void> {
   const source = await fs.readFile('electron/library/storage.ts', 'utf8')
   const saveAsset = source.match(/async saveAssetAsync\([\s\S]*?\n  }/)?.[0] ?? ''
-  const importAsset = source.match(/importAsset\([\s\S]*?\n  }/)?.[0] ?? ''
+  const importData = source.match(/private commitImportedData\([\s\S]*?\n  }/)?.[0] ?? ''
   const materialize = source.match(/private materializeAttachmentCandidate\([\s\S]*?\n  }/)?.[0] ?? ''
 
   assert(materialize.includes('writeFileAtomicallySync('), '共享附件候选必须先持久化临时文件再替换正式文件')
   assert(saveAsset.includes("materializeAttachmentCandidate('save-asset'"), '桌面新增附件必须使用共享原子候选边界')
-  assert(importAsset.includes("materializeAttachmentCandidate('import-asset'"), '桌面导入附件必须使用共享原子候选边界')
+  assert(importData.includes("materializeAttachmentCandidate('import-asset'"), '桌面导入附件必须使用共享原子候选边界')
   assert(!saveAsset.includes('fs.writeFileSync(filePath'), '新增附件不得直接半写正式文件')
-  assert(!importAsset.includes('fs.writeFileSync(filePath'), '导入附件不得直接半写正式文件')
+  assert(!importData.includes('fs.writeFileSync(filePath'), '导入附件不得直接半写正式文件')
 }
 
 export async function testAutomaticBackupFailuresReachTheVisibleWorkspace(): Promise<void> {

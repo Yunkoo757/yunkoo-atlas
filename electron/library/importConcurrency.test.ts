@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import initSqlJs from 'sql.js'
-import { LibraryStorage } from './storage'
+import { LibraryStorage, StaleLibraryStorageError } from './storage'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 
 function snapshot(label: string) {
@@ -59,8 +59,10 @@ export async function testSnapshotWritersCompareTheRevisionOfTheDurableCandidate
       assert.throws(() => stale.saveSnapshot(snapshot('old snapshot'), 1), /版本/)
       await assert.rejects(stale.commitImport(snapshot('old import'), [], { expectedSnapshotRevision: 1 }), /版本/)
       assert.deepEqual(fs.readFileSync(writer.getPaths().dbFile), previous)
-      await stale.commitImport(snapshot('new import'), [])
-      assert.equal(stale.getSnapshotRevision(), 3)
+      await assert.rejects(stale.commitImport(snapshot('old unconditional import'), []), StaleLibraryStorageError)
+      assert.deepEqual(fs.readFileSync(writer.getPaths().dbFile), previous)
+      await writer.commitImport(snapshot('new import'), [])
+      assert.equal(writer.getSnapshotRevision(), 3)
     } finally { stale.release() }
   })
 }
