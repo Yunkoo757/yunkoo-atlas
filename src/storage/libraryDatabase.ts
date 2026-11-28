@@ -1,6 +1,7 @@
 import type { Database } from 'sql.js'
 import { decodeSnapshotRevision, SNAPSHOT_REVISION_KEY } from './snapshotRevision'
 import { SCHEMA_VERSION } from './types'
+import { rejectFutureManifestVersion } from './manifestCompatibility'
 import { isSafeAssetId } from './assetId'
 
 /** Physical layout shared by the three writers that create new desktop databases. */
@@ -55,6 +56,7 @@ export function validateLibraryAssetIndex(records: Iterable<{ id: string; fileNa
 
 /** 旧资料库可能保留 v1-v7 清单；数据库内版本才是已保存快照的版本。 */
 export function resolveSnapshotVersion(snapshot: unknown, databaseVersion: number | null, manifestVersion: number): number {
+  rejectFutureManifestVersion(manifestVersion)
   if (databaseVersion !== null) {
     if (!Number.isInteger(databaseVersion) || databaseVersion < 1 || databaseVersion > SCHEMA_VERSION) {
       throw new Error('数据库版本无效或来自更新版本，请使用支持该资料库版本的 Atlas')

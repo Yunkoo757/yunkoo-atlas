@@ -131,6 +131,25 @@ try{
   window.showDirectoryPicker=async({mode})=>mode==='read'&&!window.testReadOutput?handle(sourceFiles,'',true):handle(output)
  },{files})
  await page.goto(pathToFileURL(path.join(editorOutput,'index.html')).href)
+ for (const viaRecovery of [false, true]) {
+   await page.evaluate(({ schemaVersion, viaRecovery }) => {
+     const encode = value => new TextEncoder().encode(JSON.stringify(value))
+     const manifest = { schemaVersion }
+     if (viaRecovery) {
+       window.testSource.delete('manifest.json')
+       window.testSource.set('editor-export-state.json', encode({ format: 'atlas-editor-export-v1', manifest }))
+     } else {
+       window.testSource.set('manifest.json', encode(manifest))
+     }
+   }, { schemaVersion: SCHEMA_VERSION + 1, viaRecovery })
+   await page.locator('#open').click()
+   await page.waitForFunction(() => !document.querySelector('#open').disabled)
+   assert.match(await page.locator('#message').innerText(), /更新版本/, '当前数据库版本不能覆盖未来的清单版本')
+ }
+ await page.evaluate(original => {
+   window.testSource.delete('editor-export-state.json')
+   window.testSource.set('manifest.json', new Uint8Array(original))
+ }, files['manifest.json'])
  await page.locator('#open').click();await page.waitForFunction(()=>document.querySelector('#source').textContent.includes('测试源'))
  await page.locator('#check').click();await page.waitForFunction(()=>document.querySelector('#message').textContent.includes('校验通过'))
  // A copy that Desktop cannot open must never be advertised as a completed library.

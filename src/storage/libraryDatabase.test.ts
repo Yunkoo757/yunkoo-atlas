@@ -1,6 +1,15 @@
 import { SCHEMA_VERSION } from './types'
 import { resolveSnapshotVersion } from './libraryDatabase'
 
+export function testSnapshotVersionAlwaysRejectsAFutureManifest() {
+  for (const databaseVersion of [null, SCHEMA_VERSION]) {
+    let message = ''
+    try { resolveSnapshotVersion({}, databaseVersion, SCHEMA_VERSION + 1) }
+    catch (error) { message = String(error) }
+    if (!message.includes('更新版本')) throw new Error('未来清单不能当成当前数据库或无版本旧库读取')
+  }
+}
+
 export function testSnapshotVersionUsesPersistedVersionAndRejectsInvalidMetadata() {
   if (resolveSnapshotVersion({}, SCHEMA_VERSION, 5) !== SCHEMA_VERSION) throw new Error('旧清单覆盖了数据库版本')
   if (resolveSnapshotVersion({}, null, 5) !== 5) throw new Error('真正的旧快照必须保留原解码方式')

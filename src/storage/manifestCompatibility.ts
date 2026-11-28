@@ -12,9 +12,14 @@ export function assertCompatibleManifest(value: LibraryManifest): void {
   ) {
     throw new Error('交易库清单无效或缺少必要字段')
   }
-  if (Number(manifest.schemaVersion) > SCHEMA_VERSION) {
+  rejectFutureManifestVersion(Number(manifest.schemaVersion))
+}
+
+/** 已知的 SQLite 版本不能降级由未来客户端声明的资料库格式。 */
+export function rejectFutureManifestVersion(version: number): void {
+  if (version > SCHEMA_VERSION) {
     throw new Error(
-      `该交易库来自更新版本（v${manifest.schemaVersion}），当前版本仅支持至 v${SCHEMA_VERSION}`,
+      `该交易库来自更新版本（v${version}），当前版本仅支持至 v${SCHEMA_VERSION}`,
     )
   }
 }
