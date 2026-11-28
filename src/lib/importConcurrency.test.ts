@@ -1,3 +1,4 @@
+import { createWeeklyReview, type WeeklyReview } from '@/data/weeklyReviews'
 import type { Trade } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
@@ -407,6 +408,7 @@ export async function testCompletedReviewConflictRejectsBeforeCommitWithoutParti
 
 interface ConcurrentImmutableRiskScenario {
   label: string
+  importedReview?: WeeklyReview
   mutate: (current: PersistedSnapshot) => string | number
   readSnapshot: (snapshot: PersistedSnapshot) => string | number | undefined
   readStore: () => string | number | undefined
@@ -467,7 +469,7 @@ async function runConcurrentImmutableRiskScenario(
         ...item,
         note: '<img src="data:image/png;base64,aW5saW5l">',
       })),
-      weeklyReviews: [],
+      weeklyReviews: scenario.importedReview ? [scenario.importedReview] : [],
       quickNotes: [],
       assets: [],
     })
@@ -550,6 +552,24 @@ export async function testConcurrentImmutableRiskChangesCompensateBeforeRejectin
     },
     readSnapshot: (snapshot) => snapshot.riskOverrideEvents[0]?.reason,
     readStore: () => useStore.getState().riskOverrideEvents[0]?.reason,
+  })
+}
+
+export async function testConcurrentWeeklyCompletionCompensatesBeforeRejectingImport(): Promise<void> {
+  const baseline = fullFixtureWithTradeIdentity()
+  const review: WeeklyReview = {
+    ...createWeeklyReview('2026-08-03', baseline.currentLiveStageId, new Date('2026-08-09T08:00:00.000Z')),
+    status: 'completed', completedAt: '2026-08-09T08:00:00.000Z',
+  }
+  const completedAt = '2026-08-09T09:00:00.000Z'
+  await runConcurrentImmutableRiskScenario({
+    label: '周复盘冻结事实', importedReview: review,
+    mutate: current => {
+      useStore.setState({ weeklyReviews: [...current.weeklyReviews!, { ...review, completedAt }] })
+      return completedAt
+    },
+    readSnapshot: state => state.weeklyReviews?.find(item => item.id === review.id)?.completedAt ?? undefined,
+    readStore: () => useStore.getState().weeklyReviews.find(item => item.id === review.id)?.completedAt ?? undefined,
   })
 }
 

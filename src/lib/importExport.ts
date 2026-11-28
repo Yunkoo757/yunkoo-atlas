@@ -696,6 +696,7 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
   const prepared = prepareImportPayloadForCommit(payload)
   const unlockInteraction = lockStorageCutoverInteraction()
   let pause: PersistencePause | undefined
+  let unpublishedCommit = false
   try {
     await flushStorageBeforeCutover()
     pause = suspendPersist()
@@ -713,11 +714,13 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
       )
       const snapshot = buildImportSnapshot(revision, prepared.payload, payloadDigest, payload)
       await storage.commitImport(snapshot, prepared.assets, { pruneUnreferenced: true })
+      unpublishedCommit = true
 
       const latest = capturePersistedStateRevision()
       if (hasSamePersistedStateRevision(revision, latest)) {
         // 读取、合并与 setState 之间没有 await；不会再让用户事件插入并被整体快照覆盖。
         applySnapshotToStore(snapshot)
+        unpublishedCommit = false
         break
       }
       const tradeConflict = findConcurrentImportedTradeConflict(importedTradeBaseline, latest)
@@ -726,28 +729,19 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
         latest.state,
         prepared.payload,
       )
-      if (tradeConflict || immutableRiskConflict) {
-        // 正常界面在整段提交期间已被冻结；这里是防御性补偿，确保异常后台修改时
-        // 磁盘也恢复到最新本地状态，并由 commitImport 清理本批未引用附件。
-        const localSnapshot = buildPortableSnapshotFromState(
-          latest.state,
-          latest.shortcutBindings,
+      if (immutableRiskConflict && !tradeConflict) {
+        throw new OperationalError(
+          'import-immutable-entity-conflict',
+          `导入已取消：检测到${immutableRiskConflict.label} ${immutableRiskConflict.id} 在等待期间出现同 ID 异内容的本地更新；最新本地内容已保留，请重新导入。`,
         )
-        await storage.commitImport(localSnapshot, prepared.assets, { pruneUnreferenced: true })
-        if (immutableRiskConflict && !tradeConflict) {
-          throw new OperationalError(
-            'import-immutable-entity-conflict',
-            `导入已取消：检测到${immutableRiskConflict.label} ${immutableRiskConflict.id} 在等待期间出现同 ID 异内容的本地更新；最新本地内容已保留，请重新导入。`,
-          )
-        }
-        if (tradeConflict?.stableId) {
-          throw new Error(
-            `导入已取消：稳定导入交易 ID ${tradeConflict.id} 在等待期间被其他交易占用；最新本地内容已保留，请重新导入。`,
-          )
-        }
+      }
+      if (tradeConflict?.stableId) {
         throw new Error(
-          '导入已取消：检测到相同交易存在等待期间的本地编辑，本地内容已保留，请重新导入。',
+          `导入已取消：稳定导入交易 ID ${tradeConflict.id} 在等待期间被其他交易占用；最新本地内容已保留，请重新导入。`,
         )
+      }
+      if (tradeConflict) {
+        throw new Error('导入已取消：检测到相同交易存在等待期间的本地编辑，本地内容已保留，请重新导入。')
       }
       revision = latest
     }
@@ -756,6 +750,14 @@ export async function applyImport(payload: ExportPayload): Promise<{ summary: st
     if (prepared.assets.length > 0) parts.push(`${prepared.assets.length} 个附件`)
     parts.push('保留当前实盘阶段与历史阶段')
     return { summary: `已导入 ${parts.join('、')}` }
+  } catch (error) {
+    if (unpublishedCommit) {
+      // 上次候选已写盘，冲突、重算或重试写入失败都须恢复最新本地快照与附件。
+      const latest = capturePersistedStateRevision()
+      const localSnapshot = buildPortableSnapshotFromState(latest.state, latest.shortcutBindings)
+      await storage.commitImport(localSnapshot, prepared.assets, { pruneUnreferenced: true })
+    }
+    throw error
   } finally {
     try {
       await pause?.resumeAndFlush()
