@@ -9,6 +9,11 @@ export function isCalendarDay(value: unknown): value is string {
   return parseCalendarDay(value) !== null
 }
 
+export function calendarDayFromParts(year: string, month: string, day: string): string | null {
+  const key = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+  return isCalendarDay(key) ? key : null
+}
+
 export function formatCalendarDay(utcDate: Date): string {
   const iso = utcDate.toISOString()
   return iso.slice(0, iso.indexOf('T'))

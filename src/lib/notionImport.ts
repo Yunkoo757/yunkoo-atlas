@@ -1,3 +1,4 @@
+import { calendarDayFromParts } from '@/lib/calendarDay'
 /**
  * Notion 导出 → Trader Atlas Trade 转换器（完整版）
  *
@@ -209,35 +210,21 @@ export function parseNotionDate(raw: string): string | null {
   const v = raw.trim()
   if (!v) return null
   const timeSuffix = '(?:(?:T| )(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|[+-](?:[01]\\d|2[0-3]):?[0-5]\\d)?)?'
-  const normalizedCalendarDate = (year: string, month: string, day: string): string | null => {
-    const y = Number(year)
-    const m = Number(month)
-    const d = Number(day)
-    const parsed = new Date(0)
-    parsed.setUTCHours(0, 0, 0, 0)
-    parsed.setUTCFullYear(y, m - 1, d)
-    if (
-      parsed.getUTCFullYear() !== y ||
-      parsed.getUTCMonth() !== m - 1 ||
-      parsed.getUTCDate() !== d
-    ) return null
-    return `${year.padStart(4, '0')}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
-  }
   const isoMatch = v.match(new RegExp(`^(\\d{4})-(\\d{1,2})-(\\d{1,2})${timeSuffix}$`))
   if (isoMatch) {
-    return normalizedCalendarDate(isoMatch[1], isoMatch[2], isoMatch[3])
+    return calendarDayFromParts(isoMatch[1], isoMatch[2], isoMatch[3])
   }
   const slashMatch = v.match(new RegExp(`^(\\d{4})/(\\d{1,2})/(\\d{1,2})${timeSuffix}$`))
   if (slashMatch) {
-    return normalizedCalendarDate(slashMatch[1], slashMatch[2], slashMatch[3])
+    return calendarDayFromParts(slashMatch[1], slashMatch[2], slashMatch[3])
   }
   const monthFirstMatch = v.match(new RegExp(`^(\\d{1,2})/(\\d{1,2})/(\\d{4})${timeSuffix}$`))
   if (monthFirstMatch) {
-    return normalizedCalendarDate(monthFirstMatch[3], monthFirstMatch[1], monthFirstMatch[2])
+    return calendarDayFromParts(monthFirstMatch[3], monthFirstMatch[1], monthFirstMatch[2])
   }
   const cnMatch = v.match(new RegExp(`^(\\d{4})年(\\d{1,2})月(\\d{1,2})日${timeSuffix}$`))
   if (cnMatch) {
-    return normalizedCalendarDate(cnMatch[1], cnMatch[2], cnMatch[3])
+    return calendarDayFromParts(cnMatch[1], cnMatch[2], cnMatch[3])
   }
   return null
 }

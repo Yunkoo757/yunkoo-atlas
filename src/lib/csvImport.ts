@@ -2,7 +2,8 @@ import type { Trade, TradeStatus, TradeSide, Conviction, TradeKind, ReviewCatego
 import { normalizeTimeframe, resolveTimeframe } from '@/data/trades'
 import type { Strategy } from '@/data/strategies'
 import { calcRFromPrices } from '@/lib/tradeCalc'
-import { formatYmd } from '@/lib/periods'
+import { recordDisplayDay } from '@/lib/periods'
+import { calendarDayFromParts } from '@/lib/calendarDay'
 
 export interface CsvParseResult {
   headers: string[]
@@ -227,23 +228,19 @@ function parseDate(val: string): string | null {
     /^(\d{1,2})-(\d{1,2})-(\d{4})$/,       // 6-10-2026
     /^(\d{4})年(\d{1,2})月(\d{1,2})日$/,   // 2026年6月10日
   ]
-  for (const fmt of formats) {
-    const m = v.match(fmt)
-    if (m) {
-      const y = parseInt(m[1] ?? '', 10)
-      const mo = parseInt(m[2] ?? '', 10)
-      const d = parseInt(m[3] ?? '', 10)
-      if (y > 1990 && y < 2100 && mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-        return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-      }
-    }
+  const [dateText] = v.split(/[T\s]/i, 1)
+  for (const format of formats) {
+    const match = format.exec(dateText)
+    if (!match) continue
+    const [, first, second, third] = match
+    const day = first.length === 4
+      ? calendarDayFromParts(first, second, third)
+      : calendarDayFromParts(third, first, second)
+    if (day === null || dateText === v) return day
+    break
   }
-  // 尝试原生 Date 解析（ISO 8601 等）
-  const d = new Date(v)
-  if (!isNaN(d.getTime())) {
-    return formatYmd(d)
-  }
-  return null
+  // 带时间和旧文件中的其他日期写法，沿用设备本地显示日。
+  return recordDisplayDay(v)
 }
 
 function parseTags(val: string): string[] {
