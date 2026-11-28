@@ -1,3 +1,5 @@
+import type { SnapshotEnvelope } from '../../src/storage/adapter'
+import { OperationalError } from '../../src/lib/operationalError'
 import { getTradingDayKey } from '../../src/lib/periods'
 import {
   buildStageRolloverCandidate,
@@ -14,8 +16,8 @@ import type {
 } from '../../src/types/journalBridge'
 
 export interface StageRolloverCommitStorage {
-  loadSnapshot(): PersistedSnapshot | null
-  saveSnapshot(snapshot: PersistedSnapshot): void | {
+  loadSnapshotEnvelope(): SnapshotEnvelope
+  saveSnapshot(snapshot: PersistedSnapshot, expectedRevision: number): void | {
     kind: 'committed' | 'committed-after-write-error'
   }
 }
@@ -115,14 +117,15 @@ export async function commitDueStageRollover<TStorage extends StageRolloverCommi
   if (!isCommitInput(input)) return failure('stale', '阶段切换请求无效')
 
   const { storage } = dependencies
-  let current: PersistedSnapshot | null
+  let baseline: SnapshotEnvelope
   try {
-    current = storage.loadSnapshot()
+    baseline = storage.loadSnapshotEnvelope()
   } catch (error) {
     dependencies.reportError('stage-rollover-reload-failed', error)
     return failure('write-failed', '无法读取当前阶段状态')
   }
 
+  const current = baseline.snapshot
   if (
     !current ||
     current.currentLiveStageId !== input.expectedCurrentStageId ||
@@ -181,11 +184,11 @@ export async function commitDueStageRollover<TStorage extends StageRolloverCommi
   }
 
   try {
-    const receipt = storage.saveSnapshot(candidate)
+    const receipt = storage.saveSnapshot(candidate, baseline.revision)
     if (receipt?.kind === 'committed-after-write-error') {
       let authoritative: PersistedSnapshot | null
       try {
-        authoritative = storage.loadSnapshot()
+        authoritative = storage.loadSnapshotEnvelope().snapshot
         if (!authoritative) throw new Error('committed snapshot missing after atomic recovery')
         dependencies.validateSnapshot(authoritative)
         if (!sameSnapshot(authoritative, candidate)) {
@@ -202,6 +205,9 @@ export async function commitDueStageRollover<TStorage extends StageRolloverCommi
     }
   } catch (error) {
     dependencies.reportError('stage-rollover-write-failed', error)
+    if (error instanceof OperationalError && error.code === 'storage-revision-conflict') {
+      return failure('recovery-required', '资料库已被更新，阶段切换已取消。请重新打开资料库以载入最新记录')
+    }
     if (snapshotSaveErrorOutcome(error) === 'indeterminate') {
       return failure(
         'recovery-required',

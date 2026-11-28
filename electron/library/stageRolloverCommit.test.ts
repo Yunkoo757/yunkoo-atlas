@@ -1,5 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import os from 'node:os'
+import { LibraryStorage } from './storage'
+import { createVerifiedBackup } from './backup'
 import type { Trade } from '../../src/data/trades'
 import type { ScheduledStageRollover } from '../../src/lib/liveStages'
 import { applySnapshotToStore } from '../../src/lib/snapshotStore'
@@ -109,10 +112,10 @@ function createHarness(
   const backupSnapshots: PersistedSnapshot[] = []
   let durableCurrent = current
   const storage: StageRolloverCommitStorage = {
-    loadSnapshot: () => {
+    loadSnapshotEnvelope: () => {
       events.push('reload')
       if (failures.reload) throw new Error('D:\\private\\journal.db')
-      return durableCurrent ? structuredClone(durableCurrent) : null
+      return { snapshot: durableCurrent ? structuredClone(durableCurrent) : null, revision: saved.length }
     },
     saveSnapshot: (candidate) => {
       events.push('save')
@@ -135,7 +138,7 @@ function createHarness(
     createVerifiedBackup: async (received) => {
       events.push('backup')
       assert(received === storage, 'backup must use the same storage reloaded inside the exclusive gate')
-      const snapshot = received.loadSnapshot()
+      const { snapshot } = received.loadSnapshotEnvelope()
       if (snapshot) backupSnapshots.push(structuredClone(snapshot))
       if (failures.backup) return null
       events.push('verify')
@@ -209,6 +212,46 @@ export async function testConcurrentNonStageFieldsArePreservedFromReloadedSnapsh
   assert(harness.backupSnapshots[0]?.tagPresets?.[0] === '主进程并发新增', 'backup must come from the reloaded current library')
   assert(!('snapshot' in result.publish), 'publish result must not expose the private library snapshot')
   assert(!('path' in result.publish) && !('backupPath' in result.publish), 'publish result must not expose storage paths')
+}
+
+export async function testStageRolloverPreservesAConcurrentDiskWriteAfterBackup() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-stage-revision-'))
+  const active = new LibraryStorage(root)
+  const editor = new LibraryStorage(root, { allowCreate: false })
+  const reader = new LibraryStorage(root, { allowCreate: false })
+  try {
+    await active.open()
+    active.saveSnapshot(eligibleSnapshot())
+    await editor.open()
+    const result = await commitDueStageRollover(commitInput(), {
+      ...createHarness().deps,
+      storage: active,
+      createVerifiedBackup: async storage => {
+        const backup = await createVerifiedBackup(storage)
+        assert(backup?.status === 'verified', '隔离测试需要真实的已验证备份')
+        const { revision, snapshot } = editor.loadSnapshotEnvelope()
+        assert(snapshot, '独立编辑必须读取同一份阶段预约')
+        editor.saveSnapshot({ ...snapshot, tagPresets: ['备份期间写入'] }, revision)
+        return backup
+      },
+    })
+    await reader.open()
+    const disk = reader.loadSnapshotEnvelope()
+    assert(disk.snapshot?.tagPresets?.[0] === '备份期间写入', '阶段写入覆盖了另一实例的编辑')
+    assert(disk.revision === 2 && disk.snapshot.currentLiveStageId === commitInput().expectedCurrentStageId, '过期阶段提交不得推进修订或切换阶段')
+    assert(JSON.stringify(disk.snapshot.scheduledStageRollover) === JSON.stringify(scheduled), '原阶段预约应完整保留')
+    assert(!result.ok && result.reason === 'recovery-required', '过期实例需重新打开以载入磁盘版本')
+    const retried = await commitDueStageRollover(commitInput(), {
+      ...createHarness().deps, storage: reader, createVerifiedBackup,
+    })
+    assert(retried.ok && reader.getSnapshotRevision() === 3, '重开后可按新修订完成原预约')
+    assert(reader.loadSnapshot()?.tagPresets?.[0] === '备份期间写入', '重试须保留另一实例的标签')
+  } finally {
+    reader.release()
+    editor.release()
+    active.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
 }
 
 export async function testFullScheduledStateIsPartOfStaleCheck(): Promise<void> {
