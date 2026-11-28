@@ -6,6 +6,7 @@ import initSqlJs from 'sql.js'
 import { DEFAULT_SYMBOL_CATALOG } from '../../src/lib/symbolIconCodec'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import { createVerifiedBackup, deleteBackupAtPath, listBackups, restoreBackupAtPath, rotateBackups, verifyBackupAtPath, writeLibraryBackup } from './backup'
+import { LibraryAutoBackup } from './autoBackup'
 import { restoreLibraryBackup } from './backupRestore'
 import { LibraryOperationGate } from './sessionGate'
 import { LibraryStorage, SnapshotSaveError } from './storage'
@@ -16,7 +17,8 @@ async function isolatedSession() {
   const first = new LibraryStorage(root)
   let active: LibraryStorage | null = first
   const events: string[] = []
-  const session: Parameters<typeof restoreLibraryBackup>[1] = {
+  const autoBackup = new LibraryAutoBackup(gate, () => assert.fail('隔离恢复期间自动备份失败'))
+  const session = {
     withExclusiveWriter: work => gate.runExclusive(() => {
       assert.ok(active)
       return work(active)
@@ -24,22 +26,25 @@ async function isolatedSession() {
     close(current) {
       assert.ok(gate.isExclusive())
       assert.equal(current, active)
+      autoBackup.stop()
       current.close()
       active = null
       events.push('close')
     },
-    async reopen() {
+    async reopen(safetyBackupPath?: string) {
       assert.ok(gate.isExclusive(), '重开与接管写入路由都必须在原请求持锁期间完成')
       assert.equal(active, null)
       const next = new LibraryStorage(root, { allowCreate: false })
       await next.open()
+      autoBackup.start(next, safetyBackupPath)
       active = next
       events.push('reopen')
       return next
     },
     notifyRecoveryRequired(state) { events.push(state.code) },
-  }
+  } satisfies Parameters<typeof restoreLibraryBackup>[1]
   function dispose() {
+    autoBackup.stop()
     active?.release()
     fs.rmSync(root, { recursive: true, force: true })
   }
@@ -62,11 +67,11 @@ export async function testBusyBackupRestoreCannotAdoptAnotherRequestsWriterOrCla
     assert.ok(selected)
     f.first.saveSnapshot({ ...saved, tagPresets: ['before restore'] })
     const reopen = f.session.reopen
-    f.session.reopen = async () => {
+    f.session.reopen = async (...args) => {
       const other = await restoreLibraryBackup(selected, f.session)
       assert.equal(other.ok, false)
       assert.equal(other.committed, false)
-      return reopen()
+      return reopen(...args)
     }
     const result = await restoreLibraryBackup(selected, f.session)
     assert.ok(result.ok)
@@ -166,10 +171,10 @@ export async function testBackupRestoreReopensUnderTheSameGateAfterCutoverFailur
     assert.ok(selected)
     const reopen = f.session.reopen
     let attempts = 0
-    f.session.reopen = async () => {
+    f.session.reopen = async (...args) => {
       assert.equal(f.gate.isExclusive(), true)
       if (++attempts === 1) throw new Error('readback interrupted')
-      return reopen()
+      return reopen(...args)
     }
     const result = await restoreLibraryBackup(selected, f.session)
     assert.deepEqual(result, { ok: false, committed: true, error: 'readback interrupted' })
@@ -187,8 +192,8 @@ export async function testRestoringAnEmptyBackupBroadcastsIndeterminateSnapshotW
     assert.ok(empty)
     f.first.saveSnapshot(createEmptyPersistedSnapshot())
     const reopen = f.session.reopen
-    f.session.reopen = async () => {
-      const next = await reopen()
+    f.session.reopen = async (...args) => {
+      const next = await reopen(...args)
       next.saveSnapshot = () => { throw new SnapshotSaveError('indeterminate', new Error('disk state unknown')) }
       return next
     }
@@ -271,6 +276,40 @@ export async function testRotatingBackupRetainsCurrentSnapshotAfterClockMovesBac
     assert.ok(restored.ok)
     assert.deepEqual(restored.snapshot.tagPresets, ['current'])
   } finally { f.dispose() }
+}
+
+export async function testRestoreRetainsItsVerifiedSafetyCopyAcrossReopenAndRetry() {
+  for (const interrupt of [false, true]) {
+    const f = await isolatedSession()
+    try {
+      const historical = { ...createEmptyPersistedSnapshot(), tagPresets: ['historical'] }
+      f.first.saveSnapshot(historical)
+      let source = ''
+      for (let day = 1; day <= 7; day++) {
+        const file = writeLibraryBackup(f.first, Date.UTC(2100, 0, day))
+        assert.ok(file)
+        assert.equal((await verifyBackupAtPath(f.root, file)).status, 'verified')
+        source = file
+      }
+      f.first.saveSnapshot({ ...historical, tagPresets: ['before-restore'] })
+      const reopen = f.session.reopen
+      let attempts = 0
+      f.session.reopen = async (...args) => {
+        if (++attempts === 1 && interrupt) throw Error('隔离重开中断')
+        return reopen(...args)
+      }
+      const result = await restoreLibraryBackup(source, f.session)
+      assert.equal(result.ok, !interrupt)
+      assert.deepEqual(f.active()?.loadSnapshot()?.tagPresets, ['historical'])
+      const retained = listBackups(f.active()!)
+      assert.equal(retained.length, 7)
+      const safety = retained.find(row => !row.name.startsWith('journal-2100-'))
+      assert.ok(safety && safety.verification?.status === 'verified', '成功或补偿重开都须保留恢复前的安全副本')
+      const undo = await restoreLibraryBackup(safety, f.session)
+      assert.ok(undo.ok)
+      assert.deepEqual(undo.snapshot.tagPresets, ['before-restore'])
+    } finally { f.dispose() }
+  }
 }
 
 export async function testCreatedBackupReportsItsOwnDiskVerificationAndPreservesRetentionPolicy() {

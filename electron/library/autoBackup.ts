@@ -11,7 +11,7 @@ export class LibraryAutoBackup {
   constructor(private readonly gate: LibraryOperationGate, private readonly onFailure: () => void) {}
 
   /** 校验候选目录。调用返回的函数才接管定时器并轮换备份。 */
-  prepare(storage: LibraryStorage): () => void {
+  prepare(storage: LibraryStorage, preserve?: string): () => void {
     const { backups } = ensureLibraryDirs(storage.getLibraryPath())
     return () => {
       if (this.active?.storage === storage) return
@@ -20,12 +20,12 @@ export class LibraryAutoBackup {
       }, BACKUP_INTERVAL_MS)
       this.stop()
       this.active = { storage, timer }
-      rotateBackups(backups)
+      rotateBackups(backups, { preserve })
     }
   }
 
-  start(storage: LibraryStorage): void {
-    if (this.active?.storage !== storage) this.prepare(storage)()
+  start(storage: LibraryStorage, preserve?: string): void {
+    if (this.active?.storage !== storage) this.prepare(storage, preserve)()
   }
 
   stop(): boolean {

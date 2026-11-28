@@ -3,10 +3,9 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import initSqlJs from 'sql.js'
 import { _electron as electron } from 'playwright'
 
-import { verifyCutoverReceipts, verifyStaleBackupConfirmation } from './fixtures/native-library-cutover.mjs'
+import { readSnapshotFile, verifyCutoverReceipts, verifyStaleBackupConfirmation } from './fixtures/native-library-cutover.mjs'
 import { readGitProvenance } from './git-provenance.mjs'
 import {
   assertRepositoryProvenanceUnchanged,
@@ -58,21 +57,6 @@ async function waitForQaState(application, predicate, message, timeoutMs = 15_00
     await new Promise((resolve) => setTimeout(resolve, 25))
   }
   throw new Error(message)
-}
-
-async function readDurableSnapshot(libraryPath) {
-  const SQL = await initSqlJs({
-    locateFile: (file) => path.join(root, 'node_modules', 'sql.js', 'dist', file),
-  })
-  const database = new SQL.Database(fs.readFileSync(path.join(libraryPath, 'journal.db')))
-  try {
-    const result = database.exec("SELECT value FROM meta WHERE key = 'snapshot'")
-    const value = result[0]?.values[0]?.[0]
-    assert(typeof value === 'string', '退出后 journal.db 必须保留 snapshot')
-    return JSON.parse(value)
-  } finally {
-    database.close()
-  }
 }
 
 function verifyOperationRevisions(userData, kind, startStage, status, before, after) {
@@ -454,7 +438,7 @@ try {
 
 if (!primaryError) {
   try {
-    const durable = await readDurableSnapshot(libraryPath)
+    const durable = await readSnapshotFile(path.join(libraryPath, 'journal.db'))
     assert(
       durable.tagPresets?.[0] === 'post-recovery-follow-up',
       '进程关闭后 raw journal.db 必须保留 recovery 后续写入',

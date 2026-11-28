@@ -190,7 +190,7 @@ async function ensureStorage(): Promise<LibraryStorage> {
   if (exitPreparation) throw new Error('应用正在安全退出，交易库已停止接受新操作')
   if (storage) return storage
   if (!openingStorage) {
-    openingStorage = openConfiguredStorage('startup').finally(() => {
+    openingStorage = openConfiguredStorage().finally(() => {
       openingStorage = null
     })
   }
@@ -239,7 +239,7 @@ export async function commitStorageExit(
       async () => {
         await current.open()
         storage = current
-        if (restartAutoBackup) autoBackup.start(current)
+        if (restartAutoBackup) autoBackup.start(current, prepared.backupPath)
       },
     )
   }, signal)
@@ -306,15 +306,15 @@ function closeStorageForRestore(current: LibraryStorage): void {
   storage = null
 }
 
-async function openConfiguredStorage(mode: 'startup' | 'restore'): Promise<LibraryStorage> {
+async function openConfiguredStorage(safetyBackupPath?: string): Promise<LibraryStorage> {
   const location = await getValidatedLibraryLocation()
   if (location.kind === 'unset') throw new Error('尚未配置交易库，请先选择或创建交易库目录')
   if (location.kind !== 'ready') throw libraryLocationError(location)
   const candidate = createRuntimeLibraryStorage(location.resolvedPath, { ensureDirectories: false, allowCreate: false })
   await openValidatedLibraryCandidate(candidate, location.verifiedLibraryId)
   try {
-    ensureLibraryDirs(location.resolvedPath)
-    if (mode === 'restore') autoBackup.start(candidate)
+    if (safetyBackupPath) autoBackup.start(candidate, safetyBackupPath)
+    else ensureLibraryDirs(location.resolvedPath)
     storage = candidate
     return candidate
   } catch (error) {
@@ -323,12 +323,12 @@ async function openConfiguredStorage(mode: 'startup' | 'restore'): Promise<Libra
   }
 }
 
-async function reopenAfterRestoreFailure(): Promise<LibraryStorage> {
+async function reopenAfterRestoreFailure(safetyBackupPath: string): Promise<LibraryStorage> {
   try {
-    return await openConfiguredStorage('restore')
+    return await openConfiguredStorage(safetyBackupPath)
   } catch (firstError) {
     safeConsoleError('backup-reopen-first-attempt-failed', firstError)
-    return openConfiguredStorage('restore')
+    return openConfiguredStorage(safetyBackupPath)
   }
 }
 
@@ -854,6 +854,7 @@ export function registerLibraryIpc(): void {
       revisionBefore: readLogRevision(activeStorage),
     })
     let replacementCommitted = false
+    let safetyBackupPath: string | undefined
     try {
       const safety = await createVerifiedRestorePoint(activeStorage)
       if (!safety.ok) {
@@ -862,24 +863,26 @@ export function registerLibraryIpc(): void {
         return { ok: false as const, committed: false, error: safety.error }
       }
       const libraryPath = activeStorage.getLibraryPath()
+      safetyBackupPath = safety.path
       entry.state = 'consumed'
       closeStorageForRestore(activeStorage)
       await installPreparedLibraryAtPath(libraryPath, entry.stagedLibraryRoot)
       replacementCommitted = true
-      const reopened = await openConfiguredStorage('restore')
+      const reopened = await openConfiguredStorage(safety.path)
       const envelope = reopened.loadSnapshotEnvelope()
       entry.dispose()
       operation.success({ stage: 'committed', revisionAfter: envelope.revision })
       return { ok: true as const, committed: true as const, ...envelope, writerGrant: writers.grant(event, reopened) }
     } catch (error) {
       operation.failure(error, { stage: 'commit' })
-      if (entry.state === 'consumed') {
+      const restorePoint = safetyBackupPath
+      if (restorePoint) {
         let writerGrant: WriterGrant | undefined
         const failure = await recoverPreparedImportCommitFailure({
           error,
           replacementCommitted,
           currentStorage: () => storage,
-          reopen: reopenAfterRestoreFailure,
+          reopen: () => reopenAfterRestoreFailure(restorePoint),
           resumeRolledBackWriter: reopened => { writerGrant = writers.grant(event, reopened) },
           invalidatePreview: entry.dispose,
           reportFailure: cause => safeConsoleError('journal-prepared-import-commit-failed', cause),

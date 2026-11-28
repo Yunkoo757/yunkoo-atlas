@@ -1,24 +1,23 @@
 import type { BackupReference, BackupRestoreResult, StorageRecoveryRequiredState } from '../../src/types/journalBridge'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import { safeConsoleError } from '../diagnosticSanitizer'
-import { createVerifiedBackup, rotateBackups, selectedBackupFile, withVerifiedBackup } from './backup'
-import { getLibraryPaths } from './paths'
+import { createVerifiedBackup, selectedBackupFile, withVerifiedBackup } from './backup'
 import type { LibraryStorage } from './storage'
 import { withStorageRecoveryNotification } from './storageRecovery'
 
 export async function createVerifiedRestorePoint(current: LibraryStorage): Promise<
-  { ok: true } | { ok: false; error: string }
+  { ok: true; path: string } | { ok: false; error: string }
 > {
   const backup = await createVerifiedBackup(current)
   if (!backup) return { ok: false, error: '无法创建恢复前安全备份' }
   if (backup.status !== 'verified') return { ok: false, error: backup.error ?? '恢复前安全备份验证失败' }
-  return { ok: true }
+  return { ok: true, path: backup.path }
 }
 
 interface BackupRestoreSession {
   withExclusiveWriter(work: (current: LibraryStorage) => Promise<RestoreReceipt>): Promise<RestoreReceipt>
   close(current: LibraryStorage): void
-  reopen(): Promise<LibraryStorage>
+  reopen(safetyBackupPath: string): Promise<LibraryStorage>
   notifyRecoveryRequired(state: StorageRecoveryRequiredState): void
 }
 
@@ -44,8 +43,7 @@ export async function restoreLibraryBackup(reference: BackupReference, session: 
         let reopened: LibraryStorage | undefined
         try {
           install(clean)
-          reopened = await session.reopen()
-          rotateBackups(getLibraryPaths(libraryPath).backups)
+          reopened = await session.reopen(safety.path)
           let envelope = reopened.loadSnapshotEnvelope()
           if (!envelope.snapshot && verification.emptyLibrary) {
             reopened.saveSnapshot(createEmptyPersistedSnapshot())
@@ -56,7 +54,7 @@ export async function restoreLibraryBackup(reference: BackupReference, session: 
         } finally {
           if (!reopened) {
             // 持锁重开并重建自动备份；写入资格由已确认的恢复结果决定。
-            try { await session.reopen() }
+            try { await session.reopen(safety.path) }
             catch (error) { safeConsoleError('backup-reopen-after-restore-failed', error) }
           }
         }

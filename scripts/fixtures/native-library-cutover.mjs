@@ -2,6 +2,25 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
+import initSqlJs from 'sql.js'
+
+export async function readSnapshotFile(filePath) {
+  const SQL = await initSqlJs({ locateFile: file => path.resolve('node_modules', 'sql.js', 'dist', file) })
+  const database = new SQL.Database(fs.readFileSync(filePath))
+  try {
+    const value = database.exec("SELECT value FROM meta WHERE key = 'snapshot'")[0]?.values[0]?.[0]
+    assert.equal(typeof value, 'string', '原始 SQLite 文件须包含交易快照')
+    return JSON.parse(value)
+  } finally {
+    database.close()
+  }
+}
+
+function copyBackupAs(source, destination) {
+  for (const suffix of ['', '.meta.json', '.manifest.json']) {
+    fs.copyFileSync(source + suffix, destination + suffix, fs.constants.COPYFILE_EXCL)
+  }
+}
 
 async function verifyRejectedSwitchPreservesBackups(page, libraryPath, candidatePath, userDataPath, candidateBackup) {
   const activeBackup = await page.evaluate(() => window.journalBridge.createBackup())
@@ -12,9 +31,7 @@ async function verifyRejectedSwitchPreservesBackups(page, libraryPath, candidate
     for (let day = 1; names.size < 9; day++) {
       const name = `journal-2025-01-${String(day).padStart(2, '0')}-00-00-00-000Z.db`
       if (names.has(name)) continue
-      for (const suffix of ['', '.meta.json', '.manifest.json']) {
-        fs.copyFileSync(sample + suffix, path.join(dir, name + suffix), fs.constants.COPYFILE_EXCL)
-      }
+      copyBackupAs(sample, path.join(dir, name))
       names.add(name)
     }
     return [...names].sort()
@@ -150,6 +167,53 @@ export async function verifyStaleBackupConfirmation(page) {
   await page.waitForFunction(() => location.hash === '#/list' && !document.querySelector('.data-settings'))
 }
 
+async function verifyRestoreSafetyCopies(page, sample) {
+  const dir = path.dirname(sample)
+  const listFiles = () => fs.readdirSync(dir).filter(name => name.endsWith('.db'))
+  const previous = await page.evaluate(() => window.journalBridge.loadSnapshot())
+  let source = sample
+  for (const kind of ['sqlite', 'archive']) {
+    for (let day = 1; day <= 7; day++) {
+      const file = path.join(dir, `journal-2100-01-0${day}-00-00-00-000Z.db`)
+      if (!fs.existsSync(file)) copyBackupAs(source, file)
+      source = file
+    }
+    const before = new Set(listFiles())
+    const marker = `before-${kind}-cutover`
+    await page.evaluate(async ({ kind, name, marker }) => {
+      const bridge = window.journalBridge
+      await bridge.saveSnapshot({ ...await bridge.loadSnapshot(), tagPresets: [marker] })
+      if (kind === 'sqlite') {
+        const listed = (await bridge.listBackups()).find(item => item.name === name)
+        if (!listed) throw new Error('创建回执未出现在原库备份列表')
+        const restored = await bridge.restoreBackup(listed)
+        if (!restored.ok || restored.snapshot.tagPresets[0] !== 'post-recovery-follow-up') throw new Error('备份恢复回执与快照不符')
+        await bridge.saveSnapshot(restored.snapshot)
+        for (const operation of [() => bridge.deleteBackup(listed), () => bridge.verifyBackup(listed)]) {
+          try { await operation() } catch (error) {
+            if (String(error).includes('备份列表已过期')) continue
+            throw error
+          }
+          throw new Error('同目录重开后接受了旧列表的备份操作')
+        }
+      } else {
+        const prepared = await bridge.prepareJournalImport('receipt-check')
+        if (!prepared.ok) throw new Error('隔离恢复归档应可预检')
+        const journal = await bridge.commitPreparedJournalImport(prepared.preview.token)
+        if (!journal.ok || journal.snapshot.tagPresets[0] !== 'before-storage-recovery') throw new Error('归档恢复回执与快照不符')
+      }
+    }, { kind, name: path.basename(sample), marker })
+    const retained = listFiles()
+    assert.equal(retained.length, 7)
+    const created = retained.filter(name => !before.has(name))
+    assert.equal(created.length, 1, '恢复前的安全副本须保留在轮换后的七份文件中')
+    const file = path.join(dir, created[0])
+    assert.equal(JSON.parse(fs.readFileSync(file + '.meta.json', 'utf8')).verification.status, 'verified')
+    assert.deepEqual((await readSnapshotFile(file)).tagPresets, [marker])
+  }
+  await page.evaluate(snapshot => window.journalBridge.saveSnapshot(snapshot), previous)
+}
+
 export async function verifyCutoverReceipts({ application, page: workspace, libraryPath, candidatePath, userDataPath }) {
   // 界面阶段已完成真实恢复和接续保存。创建同一主进程的专用窗口，使旧界面的
   // beforeunload 自动保存与直接 IPC 验收相互独立。窗口仍加载相同受信入口与生产 preload。
@@ -218,9 +282,8 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
   const { verification } = JSON.parse(fs.readFileSync(backup.path + '.meta.json', 'utf8'))
   assert.equal(verification.status, backup.status)
   assert.equal(verification.checkedAt, backup.checkedAt)
-  const { candidateBackup, ...receipts } = await page.evaluate(async ({ libraryPath, candidatePath, backupName }) => {
-    const listed = (await window.journalBridge.listBackups()).find(item => item.name === backupName)
-    if (!listed) throw new Error('创建回执未出现在原库备份列表')
+  await verifyRestoreSafetyCopies(page, backup.path)
+  const { candidateBackup, ...receipts } = await page.evaluate(async ({ libraryPath, candidatePath }) => {
     const bridge = window.journalBridge
     const previous = await bridge.loadSnapshot()
     const stale = await bridge.commitStageRollover({
@@ -228,25 +291,6 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
       expectedRollover: { id: 'obsolete', requestedAt: '2026-08-30', effectiveWeekStart: '2026-08-31', postponedCount: 0 },
     })
     if (stale.ok || stale.reason !== 'stale') throw new Error('旧阶段请求须返回原有的拒绝原因')
-    await bridge.saveSnapshot({ ...previous, tagPresets: ['before-backup-cutover'] })
-    const restored = await bridge.restoreBackup(listed)
-    if (!restored.ok || restored.snapshot.tagPresets[0] !== 'post-recovery-follow-up') throw new Error('备份恢复回执与快照不符')
-    await bridge.saveSnapshot(restored.snapshot)
-    // 同路径恢复已重开实例，旧列表中的同名项不可继续操作。
-    for (const operation of [() => bridge.deleteBackup(listed), () => bridge.verifyBackup(listed)]) {
-      try { await operation() } catch (error) {
-        if (String(error).includes('备份列表已过期')) continue
-        throw error
-      }
-      throw new Error('同目录重开后接受了旧列表的备份操作')
-    }
-
-    const prepared = await bridge.prepareJournalImport('receipt-check')
-    if (!prepared.ok) throw new Error('隔离恢复归档应可预检')
-    const journal = await bridge.commitPreparedJournalImport(prepared.preview.token)
-    if (!journal.ok || journal.snapshot.tagPresets[0] !== 'before-storage-recovery') throw new Error('归档恢复回执与快照不符')
-    await bridge.saveSnapshot(previous)
-
     const activate = async (root, mode) => {
       const candidate = await bridge.prepareLibrarySwitch(root, mode)
       if (!candidate.ok) throw new Error('无法准备隔离资料库')
@@ -262,7 +306,7 @@ export async function verifyCutoverReceipts({ application, page: workspace, libr
     if (original?.tagPresets[0] !== 'post-recovery-follow-up') throw new Error('切回原库后必须读到原快照')
     await bridge.saveSnapshot(original)
     return { candidateBackup, staleStage: stale.reason, backup: true, archive: true, create: true, reopen: true }
-  }, { libraryPath, candidatePath, backupName: path.basename(backup.path) })
+  }, { libraryPath, candidatePath })
   const staleSourceRejected = await page.evaluate(async ({ libraryPath, candidatePath }) => {
     const bridge = window.journalBridge
     const ready = await bridge.prepareLibrarySwitch(candidatePath, 'open')
