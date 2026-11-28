@@ -5,7 +5,8 @@ import { DEFAULT_DISPLAY } from '../../src/lib/tradeFilters'
 import type { PersistedSnapshot } from '../../src/storage/types'
 import { LibraryStorage, SnapshotSaveError } from './storage'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
-import type { Database } from 'sql.js'
+import initSqlJs, { type Database } from 'sql.js'
+import { SCHEMA_VERSION } from '../../src/storage/types'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -632,5 +633,51 @@ export async function testMigratedInlineImageKeepsItsNativeMimeAndExtension(): P
   } finally {
     storage.close()
     fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
+export async function testImportIntoHistoricalDesktopDatabasePreservesCurrentStageAfterReopen(): Promise<void> {
+  const SQL = await initSqlJs({ locateFile: () => path.resolve('node_modules/sql.js/dist/sql-wasm.wasm') })
+  for (const oldVersion of ['7', null]) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-isolated-legacy-import-'))
+    const storage = new LibraryStorage(root)
+    try {
+      await storage.open()
+      const manifest = { ...storage.readManifest(), schemaVersion: 7 }
+      storage.writeManifest(manifest)
+      const file = storage.getPaths().dbFile
+      storage.release()
+      const oldDatabase = new SQL.Database(fs.readFileSync(file))
+      try {
+        if (oldVersion === null) oldDatabase.run("DELETE FROM meta WHERE key='schemaVersion'")
+        else oldDatabase.run("UPDATE meta SET value = ? WHERE key='schemaVersion'", [oldVersion])
+        fs.writeFileSync(file, oldDatabase.export())
+      } finally {
+        oldDatabase.close()
+      }
+
+      await storage.open()
+      const candidate = snapshot('current-format')
+      candidate.currentLiveStageId = 'preserved-stage'
+      candidate.liveStages = [{ ...candidate.liveStages[0], id: candidate.currentLiveStageId }]
+      await storage.commitImport(candidate, [], { requireEmptySnapshot: true })
+      storage.release()
+      await storage.open()
+      const restored = storage.loadSnapshot()
+      assert(restored?.currentLiveStageId === candidate.currentLiveStageId,
+        `重开时须保留手工阶段，原库版本 ${oldVersion}，实际阶段 ${restored?.currentLiveStageId}`)
+      const durable = new SQL.Database(fs.readFileSync(file))
+      try {
+        assert(durable.exec("SELECT value FROM meta WHERE key='schemaVersion'")[0]?.values[0][0] === String(SCHEMA_VERSION),
+          '新快照及其格式版本须在同一候选内保存')
+      } finally {
+        durable.close()
+      }
+      assert(storage.getSnapshotRevision() === 1 && storage.readManifest().schemaVersion === 7,
+        '更新快照版本时须保留清单身份和单次提交修订')
+    } finally {
+      storage.release()
+      fs.rmSync(root, { recursive: true, force: true })
+    }
   }
 }

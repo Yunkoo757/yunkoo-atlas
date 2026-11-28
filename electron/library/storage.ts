@@ -159,6 +159,15 @@ function advanceSnapshotRevision(db: Database, expected?: number): void {
   )
 }
 
+function writeDatabaseSnapshot(db: Database, snapshot: PersistedSnapshot, expectedRevision?: number): void {
+  advanceSnapshotRevision(db, expectedRevision)
+  db.run(
+    `INSERT INTO meta (key, value) VALUES (?, ?), (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    [SNAPSHOT_KEY, JSON.stringify(snapshot), DATABASE_SCHEMA_KEY, String(SCHEMA_VERSION)],
+  )
+}
+
 function readAssetFileName(db: Database, id: string): string | null {
   const stmt = db.prepare('SELECT file_name FROM assets WHERE id = ?')
   try {
@@ -881,19 +890,7 @@ export class LibraryStorage {
   saveSnapshot(snapshot: PersistedSnapshot, expectedRevision?: number): SnapshotSaveResult {
     snapshot = stripRetiredSnapshotDomains(snapshot)
     assertValidPersistedSnapshot(snapshot, 'Library snapshot')
-    const prepared = this.prepareDatabaseCandidate((candidateDb) => {
-      advanceSnapshotRevision(candidateDb, expectedRevision)
-      candidateDb.run(
-        `INSERT INTO meta (key, value) VALUES (?, ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-        [SNAPSHOT_KEY, JSON.stringify(snapshot)],
-      )
-      candidateDb.run(
-        `INSERT INTO meta (key, value) VALUES (?, ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-        [DATABASE_SCHEMA_KEY, String(SCHEMA_VERSION)],
-      )
-    })
+    const prepared = this.prepareDatabaseCandidate(db => writeDatabaseSnapshot(db, snapshot, expectedRevision))
     return this.commitDatabaseCandidate('snapshot', prepared, {
       beforeReplace: this.beforeSnapshotAtomicReplace ?? this.beforeAtomicReplace,
       afterReplace: this.afterSnapshotAtomicReplace,
@@ -1489,7 +1486,7 @@ export class LibraryStorage {
           const existing = candidateDb.exec('SELECT 1 FROM meta WHERE key = ?', [SNAPSHOT_KEY])
           assertEmptyMigrationTarget(existing.length > 0)
         }
-        advanceSnapshotRevision(candidateDb, options?.expectedSnapshotRevision)
+        writeDatabaseSnapshot(candidateDb, snapshot, options?.expectedSnapshotRevision)
         for (const asset of assets) {
           assertSafeAssetId(asset.id)
           const inlineImage = asset.inlineImage === true
@@ -1548,11 +1545,6 @@ export class LibraryStorage {
             [asset.id, mime, fileName, expectedBytes.byteLength, this.now().toISOString()],
           )
         }
-        candidateDb.run(
-          `INSERT INTO meta (key, value) VALUES (?, ?)
-           ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-          [SNAPSHOT_KEY, JSON.stringify(snapshot)],
-        )
         candidateDb.run('COMMIT')
       } catch (error) {
         try { candidateDb.run('ROLLBACK') } catch { /* transaction may already be closed */ }
