@@ -51,7 +51,31 @@ async function verifyInitializationCannotReplaceAnExistingSnapshot(): Promise<vo
   }
 }
 
+async function verifyChangedLegacySourceSurvives(oldValue: string | null): Promise<void> {
+  await deleteDatabase()
+  const target = new IndexedDbStorageAdapter()
+  const newer = JSON.stringify({ state: { strategies: [], trades: [], display: { tradingDayStartHour: 8 } } })
+  if (oldValue === null) localStorage.removeItem(LEGACY_LOCAL_STORAGE_KEY)
+  else localStorage.setItem(LEGACY_LOCAL_STORAGE_KEY, oldValue)
+  try {
+    await target.open()
+    const commit = target.commitImport.bind(target)
+    target.commitImport = async (...args) => {
+      await commit(...args)
+      localStorage.setItem(LEGACY_LOCAL_STORAGE_KEY, newer)
+    }
+    assert(await migrateFromLocalStorageIfNeeded(target), '已提交的初始化须返回成功')
+    assert(await target.getSnapshotRevision() === 1, '来源后续变化不得回滚已提交快照')
+    assert(localStorage.getItem(LEGACY_LOCAL_STORAGE_KEY) === newer, '收尾只能清理本次已经迁入的旧资料')
+  } finally {
+    target.close()
+    localStorage.removeItem(LEGACY_LOCAL_STORAGE_KEY)
+  }
+}
+
 async function run(): Promise<void> {
+  await verifyChangedLegacySourceSurvives(null)
+  await verifyChangedLegacySourceSurvives(JSON.stringify({ state: { trades: [], strategies: [] } }))
   await verifyInitializationCannotReplaceAnExistingSnapshot()
   await deleteDatabase()
   const trade: Trade = {

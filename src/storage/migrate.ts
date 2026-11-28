@@ -20,7 +20,7 @@ interface ZustandPersistEnvelope {
   }
 }
 
-function parseLegacyLocalStorage(): PersistedSnapshot | null {
+function readLegacyLocalStorage(): { raw: string; snapshot: PersistedSnapshot } | null {
   try {
     const raw = localStorage.getItem(LEGACY_LOCAL_STORAGE_KEY)
     if (raw === null) return null
@@ -29,7 +29,7 @@ function parseLegacyLocalStorage(): PersistedSnapshot | null {
     if (!s || typeof s !== 'object' || Array.isArray(s)) {
       throw new Error('legacy state is missing or invalid')
     }
-    return decodeCanonicalSnapshot(
+    const snapshot = decodeCanonicalSnapshot(
       {
         trades: s.trades ?? [],
         strategies: s.strategies,
@@ -40,6 +40,7 @@ function parseLegacyLocalStorage(): PersistedSnapshot | null {
       },
       { version: 8, label: 'legacy localStorage snapshot' },
     )
+    return { raw, snapshot }
   } catch (cause) {
     throw Object.assign(new Error('旧版交易资料无法解析或格式无效，已停止迁移并保留原始数据。'), { cause })
   }
@@ -106,14 +107,17 @@ export async function migrateFromLocalStorageIfNeeded(
   signal?.throwIfAborted()
   if (existing) return false
 
-  const snapshot = parseLegacyLocalStorage() ?? createNewLibrarySnapshot()
+  const source = readLegacyLocalStorage()
+  const snapshot = source?.snapshot ?? createNewLibrarySnapshot()
   await commitLegacySnapshot(adapter, snapshot, [], signal)
   signal?.throwIfAborted()
 
-  try {
-    localStorage.removeItem(LEGACY_LOCAL_STORAGE_KEY)
-  } catch {
-    /* ignore */
+  if (source) {
+    try {
+      if (localStorage.getItem(LEGACY_LOCAL_STORAGE_KEY) === source.raw) {
+        localStorage.removeItem(LEGACY_LOCAL_STORAGE_KEY)
+      }
+    } catch { /* 目标已提交，来源清理失败时保留旧资料。 */ }
   }
 
   return true
