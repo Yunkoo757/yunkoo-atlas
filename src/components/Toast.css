@@ -1,12 +1,13 @@
 .toast-host {
   position: fixed;
-  right: var(--toast-inset);
+  inset-inline: 0;
   bottom: var(--toast-inset);
+  margin-inline: auto;
   z-index: var(--z-toast);
   display: flex;
   width: min(var(--toast-max-width), calc(100% - 2 * var(--toast-inset)));
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   gap: var(--sp-2);
   pointer-events: none;
 }

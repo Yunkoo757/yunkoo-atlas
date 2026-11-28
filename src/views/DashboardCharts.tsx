@@ -119,6 +119,10 @@ export function EquityChart({
   )
 }
 
+function formatRRangeTick(label: string) {
+  return label.replace('~', ' ~ ')
+}
+
 export function RDistributionChart({ buckets }: { buckets: DashboardRBucket[] }) {
   return (
     <div className="db-chart db-distribution-chart" aria-hidden="true">
@@ -128,6 +132,7 @@ export function RDistributionChart({ buckets }: { buckets: DashboardRBucket[] })
           <XAxis
             dataKey="label"
             ticks={['<-3', '-1~-0.5', '0~0.5', '1~2', '3~5', '≥10']}
+            tickFormatter={formatRRangeTick}
             interval="preserveStartEnd"
             minTickGap={12}
             tick={AXIS_TICK}
@@ -151,7 +156,7 @@ export function RDistributionChart({ buckets }: { buckets: DashboardRBucket[] })
               const bucket = payload[0].payload as DashboardRBucket
               return (
                 <div className="db-chart-tip db-bin-tip">
-                  <span>{bucket.label} R</span>
+                  <span>{formatRRangeTick(bucket.label)} R</span>
                   <strong>{bucket.n} 笔</strong>
                 </div>
               )

@@ -5,7 +5,8 @@
   justify-content: center;
   gap: var(--space-control-gap);
   height: 100%;
-  padding: var(--sp-8);
+  min-height: 100%;
+  padding: var(--sp-8) var(--sp-8) 12vh;
   text-align: center;
   animation: fadeIn var(--dur-slow) var(--ease-out) both;
 }

@@ -1,9 +1,13 @@
 .st-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--sp-4);
-  margin-bottom: var(--sp-6);
+  margin-bottom: var(--sp-5);
+}
+
+.st-head .settings-page-title {
+  margin-bottom: 0;
 }
 
 .st-add-button {
@@ -13,24 +17,25 @@
 .st-list {
   display: flex;
   flex-direction: column;
-  gap: 0;
   max-width: var(--settings-content-width);
 }
 
 .st-row {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
-  min-height: 56px;
-  padding: var(--sp-2) var(--sp-2);
+  gap: var(--sp-3);
+  min-height: 54px;
+  padding: var(--sp-3) var(--sp-4);
   border: 0;
   border-bottom: 1px solid var(--border-subtle);
-  border-radius: 0;
   background: transparent;
   transition: background var(--dur-fast) var(--ease-out);
 }
+.st-row:last-child {
+  border-bottom: 0;
+}
 .st-row:hover {
-  background: var(--bg-hover);
+  background: var(--surface-row-hover);
 }
 
 .st-row-main {
@@ -54,8 +59,10 @@
 
 .st-row-meta {
   font-size: var(--type-metadata-size);
-  color: var(--text-tertiary);
+  color: var(--text-muted);
+  font-variant-numeric: var(--numeric-tabular);
 }
+
 .st-row-actions {
   display: flex;
   align-items: center;

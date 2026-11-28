@@ -26,6 +26,30 @@ export const SETTINGS_SECTIONS = {
 
 export const SETTINGS_NAV = Object.values(SETTINGS_SECTIONS)
 
+export const SETTINGS_NAV_GROUPS = [
+  {
+    id: 'preferences',
+    label: '偏好',
+    items: [SETTINGS_SECTIONS.profile, SETTINGS_SECTIONS.display, SETTINGS_SECTIONS.shortcuts],
+  },
+  {
+    id: 'trading',
+    label: '交易',
+    items: [
+      SETTINGS_SECTIONS.strategies,
+      SETTINGS_SECTIONS.risk,
+      SETTINGS_SECTIONS.tags,
+      SETTINGS_SECTIONS.symbols,
+      SETTINGS_SECTIONS.reviewTemplates,
+    ],
+  },
+  {
+    id: 'system',
+    label: '系统',
+    items: [SETTINGS_SECTIONS.data, SETTINGS_SECTIONS.updates],
+  },
+] as const
+
 export function findSettingsSection(pathname: string) {
   return SETTINGS_NAV.find(({ to }) => pathname === to || pathname.startsWith(to + '/'))
 }

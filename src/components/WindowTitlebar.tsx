@@ -73,7 +73,7 @@ function useWindowLocation() {
     listPage,
     ownsHeading: listPage || ['dashboard', 'backtests', 'notes', 'trade-trash', 'import-data-health'].includes(section ?? ''),
     recordRoute: section === 'trade',
-    moduleRoot: section === 'review-cases' || section === 'settings' || section === 'notes' || (!item && (journal || !!page || section === 'backtests')),
+    moduleRoot: section === 'review-cases' || section === 'settings' || section === 'notes' || section === 'trade-trash' || section === 'import-data-health' || (!item && (journal || !!page || section === 'backtests')),
     Icon: strategy ? getStrategyIcon(strategy.icon) : page?.icon ?? sectionIcons[section ?? ''] ?? Layers,
   }
 }

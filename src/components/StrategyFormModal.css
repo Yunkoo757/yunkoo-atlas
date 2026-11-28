@@ -57,8 +57,8 @@
 }
 .sfm-icon-opt.is-on {
   color: var(--text-primary);
-  background: var(--surface-control-active);
-  border-color: var(--text-content-context);
+  background: var(--accent-bg);
+  border-color: var(--accent);
 }
 
 .sfm-color-grid {
@@ -89,13 +89,16 @@
 }
 
 .sfm-preview {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: var(--space-row-gap);
+  width: fit-content;
+  max-width: 100%;
   margin-top: var(--sp-1);
   padding: var(--sp-2) var(--sp-3);
+  border: 1px dashed var(--border-subtle);
   border-radius: var(--radius-8);
-  background: var(--bg-elevated);
+  background: var(--surface-inset);
   color: var(--text-content-supporting);
   font-size: var(--type-row-size);
   font-weight: var(--font-weight-medium);

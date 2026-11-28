@@ -499,12 +499,12 @@ export function TradeComposer() {
       onChange={setSide}
     />
   </div>
-  const numberField = (key: string, label: string, value: string, change: (value: string) => void) => {
+  const numberField = (key: string, label: string, value: string, change: (value: string) => void, placeholder = '—') => {
     const invalid = invalidNumber === key
     const id = `composer-number-${key}`
     return <div className="composer-essential-field">
       <label className="composer-essential-label" htmlFor={id}>{label}</label>
-      <input id={id} inputMode="decimal" value={value} placeholder="可选" aria-invalid={invalid || undefined}
+      <input id={id} inputMode="decimal" value={value} placeholder={placeholder} aria-invalid={invalid || undefined}
         aria-describedby={invalid ? id + '-error' : undefined} onChange={event => { change(event.target.value); if (invalid) setInvalidNumber(null) }} />
       {invalid && <span id={id + '-error'} className="composer-validation" role="alert">请输入有效数字</span>}
     </div>
@@ -762,9 +762,9 @@ export function TradeComposer() {
               />
             </div>}
             {isTradeQuickNew ? <>
-              {numberField('entry', '入场价', entry, setEntry)}
-              {numberField('size', '仓位', size, setSize)}
-              {numberField('stopLoss', '止损价', stopLoss, setStopLoss)}
+              {numberField('entry', '入场价', entry, setEntry, '价格')}
+              {numberField('size', '仓位', size, setSize, '数量')}
+              {numberField('stopLoss', '止损价', stopLoss, setStopLoss, '止损价')}
             </> : null}
           </div> : null}
     </ModalShell>

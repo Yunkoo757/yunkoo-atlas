@@ -303,7 +303,7 @@ function TradeTrashWorkspace({ librarySession }: { librarySession: number }) {
         {trashTrades.length === 0 ? (
           <EmptyState
             title="回收站为空"
-            variant="filtered"
+            variant="first-use"
             hint="记录可在 30 天内恢复，期满后将在启动时自动清理。"
           />
         ) : (

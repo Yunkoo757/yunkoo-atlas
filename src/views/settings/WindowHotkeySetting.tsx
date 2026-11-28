@@ -162,77 +162,85 @@ export function WindowHotkeySetting({
   const bindingLabel = formatBinding(state?.binding)
   return (
     <section
-      className="window-hotkey-setting"
+      className="settings-group window-hotkey-setting"
       data-window-hotkey-setting
       data-registered={state?.registered ? 'true' : 'false'}
       aria-labelledby={headingId}
     >
-      <div className="window-hotkey-heading">
-        <div>
-          <h2 id={headingId} className="settings-section-title">系统</h2>
-        </div>
-        {(!state?.registered || state.errorCode || loadError) ? <span
-          className={`window-hotkey-status${state?.registered ? ' is-registered' : ''}`}
-          role="status"
-          aria-live="polite"
-        >
-          <span className="window-hotkey-status-dot" aria-hidden="true" />
-          {loadError
-            ? '读取失败'
-            : state
-              ? state.errorCode === 'invalid-config'
-                ? '配置无效，已回退 F2'
-                : state.errorCode === 'registration-unavailable'
-                  ? '快捷键当前不可用'
-                  : state.registered ? '已注册' : '当前未注册'
-              : '正在读取'}
-        </span> : null}
+      <div className="settings-group-head window-hotkey-heading">
+        <h2 id={headingId} className="settings-section-title">系统</h2>
+        {(!state?.registered || state.errorCode || loadError) ? (
+          <span
+            className={`window-hotkey-status${state?.registered ? ' is-registered' : ''}`}
+            role="status"
+            aria-live="polite"
+          >
+            <span className="window-hotkey-status-dot" aria-hidden="true" />
+            {loadError
+              ? '读取失败'
+              : state
+                ? state.errorCode === 'invalid-config'
+                  ? '配置无效，已回退 F2'
+                  : state.errorCode === 'registration-unavailable'
+                    ? '快捷键当前不可用'
+                    : state.registered ? '已注册' : '当前未注册'
+                : '正在读取'}
+          </span>
+        ) : null}
       </div>
-      {loadError ? (
-        <button type="button" className="ui-btn ui-btn-bordered" onClick={() => { void loadState() }}>
-          重试读取
-        </button>
-      ) : null}
-      <div className="window-hotkey-row">
-        <span className="window-hotkey-copy">
-          <span className="window-hotkey-label">显示/隐藏应用</span>
-          <span className="window-hotkey-hint">在其他应用中也可使用</span>
-        </span>
-        <div className="window-hotkey-controls">
-          <button
-            type="button"
-            className="shortcuts-capture window-hotkey-capture"
-            data-window-hotkey-capture
-            aria-label={recording
-              ? '显示/隐藏应用，等待输入新系统快捷键'
-              : `显示/隐藏应用，当前系统快捷键 ${bindingLabel}，点击修改`}
-            aria-pressed={recording}
-            disabled={busy || !state}
-            onClick={() => setRecording((current) => !current)}
-            onBlur={() => {
-              if (recording) setRecording(false)
-            }}
-          >
-            {recording ? (
-              <span className="shortcuts-recording">
-                <span className="shortcuts-recording-dot" />
-                等待输入
-              </span>
-            ) : (
-              <ShortcutKeycaps binding={state?.binding ?? null} />
-            )}
-          </button>
-          {(!state?.registered || bindingLabel.toLowerCase() !== 'f2' || findWindowHotkeyConflicts(DEFAULT_WINDOW_HOTKEY, bindings).length > 0) ? <button
-            type="button"
-            className="ui-btn ui-btn-bordered window-hotkey-reset"
-            disabled={busy || !state}
-            onClick={() => {
-              setRecording(false)
-              void applyResetCandidate()
-            }}
-          >
-            恢复默认
-          </button> : null}
+
+      <div className="settings-card">
+        {loadError ? (
+          <div className="settings-row window-hotkey-retry-row">
+            <span className="settings-row-desc">无法读取系统快捷键状态</span>
+            <button type="button" className="ui-btn ui-btn-bordered ui-btn-sm" onClick={() => { void loadState() }}>
+              重试读取
+            </button>
+          </div>
+        ) : null}
+        <div className="settings-row window-hotkey-row">
+          <span className="window-hotkey-copy">
+            <span className="window-hotkey-label">显示/隐藏应用</span>
+            <span className="window-hotkey-hint">在其他应用中也可使用</span>
+          </span>
+          <div className="window-hotkey-controls">
+            <button
+              type="button"
+              className="shortcuts-capture window-hotkey-capture"
+              data-window-hotkey-capture
+              aria-label={recording
+                ? '显示/隐藏应用，等待输入新系统快捷键'
+                : `显示/隐藏应用，当前系统快捷键 ${bindingLabel}，点击修改`}
+              aria-pressed={recording}
+              disabled={busy || !state}
+              onClick={() => setRecording((current) => !current)}
+              onBlur={() => {
+                if (recording) setRecording(false)
+              }}
+            >
+              {recording ? (
+                <span className="shortcuts-recording">
+                  <span className="shortcuts-recording-dot" />
+                  等待输入
+                </span>
+              ) : (
+                <ShortcutKeycaps binding={state?.binding ?? null} />
+              )}
+            </button>
+            {(!state?.registered || bindingLabel.toLowerCase() !== 'f2' || findWindowHotkeyConflicts(DEFAULT_WINDOW_HOTKEY, bindings).length > 0) ? (
+              <button
+                type="button"
+                className="ui-btn ui-btn-bordered ui-btn-sm window-hotkey-reset"
+                disabled={busy || !state}
+                onClick={() => {
+                  setRecording(false)
+                  void applyResetCandidate()
+                }}
+              >
+                恢复默认
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
 

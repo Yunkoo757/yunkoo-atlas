@@ -51,21 +51,38 @@ export function DataOrganizationPanel({ day, onCompleted }: { day: string; onCom
     finally { setBusy(false) }
   }
   if (!isElectron()) return null
-  return <section className="settings-page-section data-organization-section">
-    <h2 className="settings-section-title">数据整理</h2>
-    <p className="data-organization-muted">迁移实盘日志、重新开始实盘记录，或删除周复盘。执行前自动备份并验证，案例和附件保留。</p>
-    <Button variant="bordered" onClick={() => { setMigrate(false); setReset(false); setWeekly([]); setOpen(true); setCompletedBackup(null); resetPreview() }}>整理数据</Button>
+  return <section className="settings-group data-organization-section" aria-labelledby="data-organization-title">
+    <div className="settings-group-head">
+      <h2 id="data-organization-title" className="settings-section-title">数据整理</h2>
+    </div>
+    <div className="settings-card">
+      <div className="settings-row">
+        <div className="settings-row-copy">
+          <span className="settings-row-title">整理历史与阶段</span>
+          <span className="settings-row-desc">迁移实盘、重置阶段或清理周复盘</span>
+        </div>
+        <div className="settings-row-control">
+          <Button variant="bordered" size="sm" onClick={() => { setMigrate(false); setReset(false); setWeekly([]); setOpen(true); setCompletedBackup(null); resetPreview() }}>整理数据</Button>
+        </div>
+      </div>
+    </div>
     {open && <ModalShell title={completedBackup ? '整理完成' : preview ? '确认整理范围' : '数据整理'} size={completedBackup ? 'compact' : 'default'} busy={busy} onClose={() => { if (!busy) setOpen(false) }}
       footer={completedBackup ? <Button variant="bordered" onClick={() => setOpen(false)}>关闭</Button> : preview ? <>
         <Button variant="bordered" disabled={busy} onClick={resetPreview}>返回调整</Button>
         <Button variant="danger-solid" busy={busy} onClick={() => void execute()}>备份并执行整理</Button>
-      </> : <Button variant="primary" busy={busy} disabled={!migrate && !reset && !weekly.length} onClick={() => void showPreview()}>预览影响</Button>}>
+      </> : <>
+        <Button variant="bordered" disabled={busy} onClick={() => setOpen(false)}>取消</Button>
+        <Button variant="primary" busy={busy} disabled={!migrate && !reset && !weekly.length} onClick={() => void showPreview()}>预览影响</Button>
+      </>}>
       <div className="data-organization-options">
         {completedBackup ? <section className="data-organization-complete">
           <p role="status">整理完成。整理前备份已验证，可在「自动备份」中恢复。</p>
           <details><DisclosureSummary>查看恢复备份位置</DisclosureSummary><p>{completedBackup}</p></details>
         </section> : !preview ? <>
-        <Button className="data-organization-shortcut" size="sm" variant="bordered" disabled={busy} onClick={() => { setMigrate(true); setReset(true); resetPreview() }}>重新开始实盘记录</Button>
+        <div className="data-organization-preset">
+          <span className="data-organization-preset-label">快捷预设</span>
+          <Button className="data-organization-shortcut" size="sm" variant="bordered" disabled={busy} onClick={() => { setMigrate(true); setReset(true); resetPreview() }}>重新开始实盘记录</Button>
+        </div>
         <div className="data-organization-group"><label><input type="checkbox" checked={migrate} disabled={busy} onChange={e => { setMigrate(e.target.checked); resetPreview() }} />实盘日志全部移至模拟盘（{live.length} 条）</label>
         <p className="data-organization-muted">保留原代号、正文、截图、标签和策略。{live.some(t => t.deletedAt) && '回收站中的实盘记录也会转换类型。'}</p></div>
         <div className="data-organization-group"><label><input type="checkbox" checked={reset} disabled={busy} onChange={e => { setReset(e.target.checked); resetPreview() }} />清空旧实盘阶段（{stages.length} 个），建立空白当前阶段</label>

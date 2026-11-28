@@ -440,7 +440,7 @@ function QuickNotesWorkspace({ librarySession }: { librarySession: number }) {
       {deleteTarget ? (
         <ModalShell
           title="删除这条随记？"
-          description={`将永久删除“${deleteTarget.title}”及其中的截图。`}
+          description={`将永久删除「${deleteTarget.title}」及其中的截图`}
           size="compact"
           onClose={() => setDeleteTarget(null)}
           footer={(

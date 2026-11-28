@@ -1,5 +1,3 @@
-import { ICON_SM } from '@/icons/iconSize'
-import { CheckMark } from '@/icons/StateIcons'
 import { useEffect, useState } from 'react'
 import { SegmentedControl } from '@/components/ui/SegmentedControl'
 import { Select } from '@/components/ui/Select'
@@ -51,8 +49,8 @@ const LIST_DENSITY_OPTS: {
   label: string
   description: string
 }[] = [
-  { value: 'compact', label: '紧凑', description: '同屏显示更多交易与案例' },
-  { value: 'comfortable', label: '舒展', description: '增加行间留白，更易逐行浏览' },
+  { value: 'compact', label: '紧凑', description: '同屏显示更多记录' },
+  { value: 'comfortable', label: '舒展', description: '增加行间留白' },
 ]
 
 const WINDOWS_CLOSE_OPTIONS: {
@@ -60,9 +58,9 @@ const WINDOWS_CLOSE_OPTIONS: {
   label: string
   description: string
 }[] = [
-  { value: 'ask', label: '每次询问', description: '每次点击关闭按钮时选择隐藏或退出' },
-  { value: 'tray', label: '隐藏主窗口', description: '软件继续运行，保留当前页面并自动保存' },
-  { value: 'quit', label: '彻底退出', description: '安全保存完成后结束 Trader Atlas' },
+  { value: 'ask', label: '每次询问', description: '关闭时选择隐藏或退出' },
+  { value: 'tray', label: '隐藏窗口', description: '保持后台运行并保留当前页面' },
+  { value: 'quit', label: '彻底退出', description: '保存完成后退出应用' },
 ]
 
 export function DisplaySettingsPanel() {
@@ -188,7 +186,7 @@ export function DisplaySettingsPanel() {
   const currentSizeLabel = windowState
     ? windowState.isMaximized
       ? '当前：最大化'
-      : `当前：${windowState.width} × ${windowState.height}`
+      : `当前 ${windowState.width} × ${windowState.height}`
     : ''
 
   const applyWindowsClosePreference = async (preference: WindowsClosePreference) => {
@@ -197,16 +195,26 @@ export function DisplaySettingsPanel() {
     setWindowsClosePreference(saved)
   }
 
+  const activeTradingDayOption = TRADING_DAY_OPTS.find(
+    (option) => option.value === display.tradingDayStartHour,
+  )
+  const sortOptions = getSortOptions(display.sortBy, display.sortDirection)
+  const activeSortDesc = sortOptions.find((option) => option.value === display.sortBy)?.description
+  const activeCloseDesc = WINDOWS_CLOSE_OPTIONS.find(
+    (option) => option.value === windowsClosePreference,
+  )?.description
+
   return (
     <div className="settings-page settings-page--form display-settings">
       <div className="settings-page-head">
-        <h1 className="settings-page-title">显示偏好</h1>
+        <h1 className="settings-page-title">显示</h1>
       </div>
-      <div className="display-settings-card">
-        <section className="display-settings-section">
-          <div className="display-section-head">
-            <h2>显示内容</h2>
-          </div>
+
+      <section className="settings-group" aria-labelledby="display-list-group">
+        <div className="settings-group-head display-section-head">
+          <h2 id="display-list-group" className="settings-section-title">交易列表</h2>
+        </div>
+        <div className="settings-card display-settings-card">
           <ToggleRow
             label="只看未结束交易"
             checked={display.hideClosed}
@@ -223,144 +231,150 @@ export function DisplaySettingsPanel() {
             checked={display.privacyMode}
             onChange={(v) => setDisplay({ privacyMode: v })}
           />
-        </section>
-
-        <ChoiceSection
-          title="列表密度"
-          options={LIST_DENSITY_OPTS}
-          value={display.listRowDensity}
-          onChange={(value) => setDisplay({ listRowDensity: value })}
-        />
-
-        <ChoiceSection
-          title="分组方式"
-          options={GROUP_OPTS}
-          value={groupMode}
-          onChange={setGroupMode}
-        />
-
-        <ChoiceSection
-          title="默认排序"
-          options={getSortOptions(display.sortBy, display.sortDirection)}
-          value={display.sortBy}
-          onChange={(value) => {
-            setDisplay({
-              sortBy: value,
-              sortDirection: value === display.sortBy ? display.sortDirection : 'desc',
-              ...(value === 'date' ? {} : { groupByDate: false, groupByStrategy: false }),
-            })
-          }}
-        />
-
-        <ChoiceSection
-          title="排序方向"
-          options={[{ value: 'asc', label: '升序', description: '从低到高' }, { value: 'desc', label: '降序', description: '从高到低' }]}
-          value={display.sortDirection}
-          onChange={(sortDirection) => setDisplay({ sortDirection })}
-        />
-
-        <section className="display-settings-section display-settings-choice">
-          <div className="display-section-head">
-            <h2>交易日开始于</h2>
-            <p>该时刻前计入前一交易日；统计中的周、月仍按日历计算。</p>
-          </div>
-          <Select
-            className="display-trading-day-select"
-            ariaLabel="交易日开始于"
-            value={String(display.tradingDayStartHour)}
-            options={TRADING_DAY_OPTS.map((option) => ({
-              value: String(option.value),
-              label: `${option.label} · ${option.description}`,
-            }))}
-            onValueChange={(next) => {
-              const option = TRADING_DAY_OPTS.find((item) => String(item.value) === next)
-              if (option) setDisplay({ tradingDayStartHour: option.value })
+          <ChoiceRow
+            title="列表密度"
+            options={LIST_DENSITY_OPTS}
+            value={display.listRowDensity}
+            onChange={(value) => setDisplay({ listRowDensity: value })}
+          />
+          <ChoiceRow
+            title="分组方式"
+            options={GROUP_OPTS}
+            value={groupMode}
+            onChange={setGroupMode}
+          />
+          <ChoiceRow
+            title="默认排序"
+            description={activeSortDesc}
+            options={sortOptions}
+            value={display.sortBy}
+            onChange={(value) => {
+              setDisplay({
+                sortBy: value,
+                sortDirection: value === display.sortBy ? display.sortDirection : 'desc',
+                ...(value === 'date' ? {} : { groupByDate: false, groupByStrategy: false }),
+              })
             }}
           />
-        </section>
+          <ChoiceRow
+            title="排序方向"
+            options={[
+              { value: 'asc', label: '升序', description: '从低到高' },
+              { value: 'desc', label: '降序', description: '从高到低' },
+            ]}
+            value={display.sortDirection}
+            onChange={(sortDirection) => setDisplay({ sortDirection })}
+          />
+        </div>
+      </section>
 
-        {electron ? (
-          <section className="display-settings-section" data-auto-launch-setting>
-            <div className="display-settings-section-heading display-section-head">
-              <h2>应用行为</h2>
+      <section className="settings-group" aria-labelledby="display-time-group">
+        <div className="settings-group-head display-section-head">
+          <h2 id="display-time-group" className="settings-section-title">交易日口径</h2>
+        </div>
+        <div className="settings-card display-settings-card">
+          <div className="settings-row">
+            <div className="settings-row-copy">
+              <span className="settings-row-title">交易日开始于</span>
+              <span className="settings-row-desc">
+                {activeTradingDayOption ? `${activeTradingDayOption.description} · ` : ''}该时刻前计入前一交易日
+              </span>
             </div>
-            <ToggleRow
-              label="开机自动启动"
-              checked={autoLaunchState?.enabled ?? false}
-              disabled={autoLaunchBusy || !autoLaunchState || !autoLaunchState.supported || Boolean(autoLaunchState.error)}
-              onChange={(checked) => void applyAutoLaunch(checked)}
-            />
-            {autoLaunchState?.error ? (
-              <div className="display-setting-feedback">
-                <p className="display-settings-hint" role="status">{autoLaunchState.error}</p>
-                <button
-                  type="button"
-                  className="ui-btn ui-btn-bordered"
-                  disabled={autoLaunchBusy}
-                  onClick={() => void loadAutoLaunchState()}
-                >
-                  重试读取
-                </button>
+            <div className="settings-row-control">
+              <Select
+                className="display-trading-day-select"
+                ariaLabel="交易日开始于"
+                value={String(display.tradingDayStartHour)}
+                options={TRADING_DAY_OPTS.map((option) => ({
+                  value: String(option.value),
+                  label: option.label,
+                }))}
+                onValueChange={(next) => {
+                  const option = TRADING_DAY_OPTS.find((item) => String(item.value) === next)
+                  if (option) setDisplay({ tradingDayStartHour: option.value })
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {electron ? (
+        <section className="settings-group" aria-labelledby="display-desktop-group">
+          <div className="settings-group-head display-section-head">
+            <h2 id="display-desktop-group" className="settings-section-title">桌面窗口</h2>
+          </div>
+          <div className="settings-card display-settings-card">
+            <div className="display-auto-launch-row" data-auto-launch-setting>
+              <ToggleRow
+                label="开机自动启动"
+                checked={autoLaunchState?.enabled ?? false}
+                disabled={autoLaunchBusy || !autoLaunchState || !autoLaunchState.supported || Boolean(autoLaunchState.error)}
+                onChange={(checked) => void applyAutoLaunch(checked)}
+              />
+              {autoLaunchState?.error ? (
+                <div className="display-setting-feedback">
+                  <p className="display-settings-hint" role="status">{autoLaunchState.error}</p>
+                  <button
+                    type="button"
+                    className="ui-btn ui-btn-bordered ui-btn-sm"
+                    disabled={autoLaunchBusy}
+                    onClick={() => void loadAutoLaunchState()}
+                  >
+                    重试读取
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="settings-row display-window-preset-row">
+              <div className="settings-row-copy">
+                <span className="settings-row-title">主窗口尺寸</span>
+                {currentSizeLabel ? <span className="settings-row-desc">{currentSizeLabel}</span> : null}
               </div>
-            ) : null}
-          </section>
-        ) : null}
+              <div className="display-preset-pills" role="radiogroup" aria-label="主窗口尺寸预置">
+                {WINDOW_SIZE_PRESETS.map((preset) => {
+                  const selected = windowState?.presetId === preset.id
+                  return (
+                    <label key={preset.id} className={'display-preset-pill' + (selected ? ' is-selected' : '')}>
+                      <input
+                        type="radio"
+                        name="window-size-preset"
+                        value={preset.id}
+                        checked={selected}
+                        aria-label={preset.label}
+                        onChange={() => void applyWindowPreset(preset.id)}
+                      />
+                      <span>{preset.label}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
 
-        {electron ? (
-          <section className="display-settings-section">
-            <div className="display-section-head">
-              <h2>主窗口尺寸</h2>
-              <p>
-                {currentSizeLabel ? ` ${currentSizeLabel}` : ''}
+            {windowMessage ? (
+              <p className="display-settings-hint" role="status">
+                {windowMessage}
               </p>
-            </div>
-            <div className="display-choice-list" role="radiogroup" aria-label="主窗口尺寸预置">
-              {WINDOW_SIZE_PRESETS.map((preset) => {
-                const selected = windowState?.presetId === preset.id
-                return (
-                  <label key={preset.id} className={'display-choice' + (selected ? ' is-selected' : '')}>
-                    <input
-                      type="radio"
-                      name="window-size-preset"
-                      value={preset.id}
-                      checked={selected}
-                      aria-label={preset.label}
-                      onChange={() => void applyWindowPreset(preset.id)}
-                    />
-                    <span className="display-row-copy">
-                      <span className="display-row-title">{preset.label}</span>
-                      {selected ? <span className="display-row-desc">{preset.description}</span> : null}
-                    </span>
-                    <span className="display-choice-check">
-                      <CheckMark checked={selected} size={ICON_SM} />
-                    </span>
-                  </label>
-                )
-              })}
-            </div>
+            ) : null}
+
             <ToggleRow
               label="锁定窗口大小"
               description="尺寸预置仍可使用"
               checked={windowState?.resizable === false}
               onChange={(locked) => void applyWindowResizeLock(locked)}
             />
-            {windowMessage ? (
-              <p className="display-settings-hint" role="status">
-                {windowMessage}
-              </p>
-            ) : null}
-          </section>
-        ) : null}
 
-        {electron ? (
-          <ChoiceSection
-            title="关闭主窗口"
-            options={WINDOWS_CLOSE_OPTIONS}
-            value={windowsClosePreference}
-            onChange={(preference) => void applyWindowsClosePreference(preference)}
-          />
-        ) : null}
-      </div>
+            <ChoiceRow
+              title="关闭主窗口"
+              description={activeCloseDesc}
+              options={WINDOWS_CLOSE_OPTIONS}
+              value={windowsClosePreference}
+              onChange={(preference) => void applyWindowsClosePreference(preference)}
+            />
+          </div>
+        </section>
+      ) : null}
     </div>
   )
 }
@@ -381,15 +395,15 @@ function ToggleRow({
   return (
     <button
       type="button"
-      className="display-toggle"
+      className="settings-row display-toggle"
       role="switch"
       aria-checked={checked}
       disabled={disabled}
       onClick={() => onChange(!checked)}
     >
-      <span className="display-row-copy">
-        <span className="display-row-title">{label}</span>
-        {description ? <span className="display-row-desc">{description}</span> : null}
+      <span className="settings-row-copy display-row-copy">
+        <span className="settings-row-title display-row-title">{label}</span>
+        {description ? <span className="settings-row-desc display-row-desc">{description}</span> : null}
       </span>
       <span className={'display-switch' + (checked ? ' is-on' : '')}>
         <span className="display-switch-knob" />
@@ -398,32 +412,36 @@ function ToggleRow({
   )
 }
 
-function ChoiceSection<T extends string | number>({
+function ChoiceRow<T extends string | number>({
   title,
-  hint,
+  description,
   options,
   value,
   onChange,
 }: {
   title: string
-  hint?: string
+  description?: string
   options: { value: T; label: string; description: string }[]
   value: T
   onChange: (value: T) => void
 }) {
   return (
-    <section className="display-settings-section display-settings-choice">
-      <div className="display-section-head">
-        <h2>{title}</h2>
-        {hint ? <p>{hint}</p> : null}
+    <div className="settings-row display-choice-row">
+      <div className="settings-row-copy">
+        <span className="settings-row-title">{title}</span>
+        {description ? <span className="settings-row-desc">{description}</span> : null}
       </div>
-      <SegmentedControl label={title} value={String(value)}
-        options={options.map((option) => ({ value: String(option.value), label: option.label }))}
-        onChange={(next) => { const option = options.find((item) => String(item.value) === next); if (option) onChange(option.value) }} />
-      {title === '默认排序' || title === '关闭主窗口'
-        ? <p className="display-sort-direction">{options.find((option) => option.value === value)?.description}</p>
-        : null}
-
-    </section>
+      <div className="settings-row-control">
+        <SegmentedControl
+          label={title}
+          value={String(value)}
+          options={options.map((option) => ({ value: String(option.value), label: option.label }))}
+          onChange={(next) => {
+            const option = options.find((item) => String(item.value) === next)
+            if (option) onChange(option.value)
+          }}
+        />
+      </div>
+    </div>
   )
 }

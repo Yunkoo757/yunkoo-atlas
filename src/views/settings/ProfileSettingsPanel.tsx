@@ -80,131 +80,141 @@ function ProfileSettingsForm({ librarySession }: { librarySession: number }) {
     }
   }
 
-  const hasCustom = profile.customAvatarDataUrl ? true : false
-  const activePresetId = getAvatarPreset(profile.avatarId).id
+  const hasCustom = Boolean(profile.customAvatarDataUrl)
+  const activePreset = getAvatarPreset(profile.avatarId)
+  const activePresetId = activePreset.id
+  const canResetAvatar = Boolean(profile.avatarId || hasCustom)
 
   return (
     <div className="settings-page settings-page--form profile-settings">
       <div className="settings-page-head">
-        <h1 className="settings-page-title">个人资料</h1>
+        <h1 className="settings-page-title">资料</h1>
       </div>
 
-      {/* 预览 */}
-      <div className="profile-preview">
-        <UserAvatar className="profile-preview-avatar" />
-        <span className="profile-preview-name">{profile.displayName}</span>
-      </div>
+      <section className="settings-group" aria-label="基本信息">
+        <div className="settings-card">
+          <div className="settings-row profile-identity-row">
+            <div className="profile-identity-main">
+              <UserAvatar className="profile-preview-avatar" />
+              <div className="profile-identity-copy">
+                <span className="profile-preview-name">{profile.displayName}</span>
+                <span className="settings-row-desc">
+                  {hasCustom ? '自定义图片' : activePreset.label}
+                </span>
+              </div>
+            </div>
+            <div className="settings-row-control">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="profile-file-input"
+                onChange={handleFileChange}
+              />
+              <Button
+                variant="bordered"
+                size="sm"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+              >
+                <Upload size={ICON_SM} />
+                <span>{uploading ? '处理中…' : '上传图片'}</span>
+              </Button>
+              {hasCustom ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAvatar(null)}
+                >
+                  <X size={ICON_SM} />
+                  <span>移除</span>
+                </Button>
+              ) : canResetAvatar ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAvatar(null)}
+                >
+                  恢复默认
+                </Button>
+              ) : null}
+            </div>
+          </div>
 
-      {/* 名称 */}
-      <section className="profile-section">
-        <h2 className="profile-section-title">显示名称</h2>
-        <div className="profile-name-row">
-          <input
-            type="text"
-            className="profile-name-input"
-            aria-label="显示名称"
-            value={nameValue}
-            readOnly={savingName}
-            aria-describedby={nameError ? nameErrorId : undefined}
-            onChange={(e) => {
-              setSaved(false)
-              setNameError('')
-              setNameDraft(e.target.value === profile.displayName ? null : e.target.value)
-            }}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !isComposingKey(e.nativeEvent)) void handleNameSave() }}
-            placeholder="输入名称…"
-            maxLength={24}
-          />
-          <Button
-            variant="primary"
-            busy={savingName}
-            onClick={() => void handleNameSave()}
-            disabled={!nameValue.trim() || nameValue.trim() === profile.displayName}
-          >
-            {savingName && <LoadingIndicator size={ICON_SM} />}
-            {saved && <Check size={ICON_SM} aria-hidden />}
-            {savingName ? '保存中…' : saved ? '已保存' : nameError ? '重试' : '保存'}
-          </Button>
-        </div>
-        {nameError && (
-          <InlineStatus compact className="profile-name-error" tone="error" title={<span id={nameErrorId}>{nameError}</span>} />
-        )}
-      </section>
+          {avatarError && (
+            <div className="profile-inline-feedback">
+              <InlineStatus compact tone="error" title={avatarError} />
+            </div>
+          )}
 
-      {/* 自定义图片上传 */}
-      <section className="profile-section">
-        <h2 className="profile-section-title">自定义头像</h2>
-        <p className="profile-section-hint">
-          上传图片将自动裁剪为正方形并缩放到 128×128。
-        </p>
-        <div className="profile-upload-row">
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={handleFileChange}
-          />
-          <button
-            type="button"
-            className="dio-btn"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-          >
-            <Upload size={ICON_SM} />
-            <span>{uploading ? '处理中…' : '上传图片'}</span>
-          </button>
-          {hasCustom && (
-            <button
-              type="button"
-              className="dio-btn"
-              onClick={() => setAvatar(null)}
-            >
-              <X size={ICON_SM} />
-              <span>移除自定义头像</span>
-            </button>
+          <div className="settings-row profile-name-setting">
+            <div className="settings-row-copy">
+              <span className="settings-row-title">显示名称</span>
+            </div>
+            <div className="profile-name-row">
+              <input
+                type="text"
+                className="profile-name-input"
+                aria-label="显示名称"
+                value={nameValue}
+                readOnly={savingName}
+                aria-describedby={nameError ? nameErrorId : undefined}
+                onChange={(e) => {
+                  setSaved(false)
+                  setNameError('')
+                  setNameDraft(e.target.value === profile.displayName ? null : e.target.value)
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !isComposingKey(e.nativeEvent)) void handleNameSave() }}
+                placeholder="输入名称…"
+                maxLength={24}
+              />
+              <Button
+                variant="primary"
+                size="sm"
+                busy={savingName}
+                onClick={() => void handleNameSave()}
+                disabled={!nameValue.trim() || nameValue.trim() === profile.displayName}
+              >
+                {savingName && <LoadingIndicator size={ICON_SM} />}
+                {saved && <Check size={ICON_SM} aria-hidden />}
+                {savingName ? '保存中…' : saved ? '已保存' : nameError ? '重试' : '保存'}
+              </Button>
+            </div>
+          </div>
+
+          {nameError && (
+            <div className="profile-inline-feedback">
+              <InlineStatus compact tone="error" title={<span id={nameErrorId}>{nameError}</span>} />
+            </div>
           )}
         </div>
-        {avatarError && <InlineStatus compact tone="error" title={avatarError} />}
-        {hasCustom && (
-          <p className="profile-custom-hint">
-            当前使用自定义图片。选择下方预置头像将替换自定义图片。
-          </p>
-        )}
       </section>
 
-      {/* 预置头像选择 */}
-      <section className="profile-section">
-        <h2 className="profile-section-title">头像风格</h2>
-        <div className="profile-avatar-grid">
-          {AVATAR_PRESETS.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              className={
-                'profile-avatar-item' +
-                (!hasCustom && activePresetId === a.id ? ' is-selected' : '')
-              }
-              aria-label={a.label}
-              aria-pressed={!hasCustom && activePresetId === a.id}
-              onClick={() => setAvatar(a.id)}
-            >
-              <span className="profile-avatar-art"><PresetAvatarGraphic presetId={a.id} /></span>
-              <span className="profile-avatar-label">{a.label}</span>
-            </button>
-          ))}
+      <section className="settings-group" aria-labelledby="profile-presets-title">
+        <div className="settings-group-head">
+          <h2 id="profile-presets-title" className="settings-section-title">预置头像</h2>
         </div>
-        {(profile.avatarId || hasCustom) && (
-          <button
-            type="button"
-            className="profile-reset-avatar"
-            onClick={() => setAvatar(null)}
-          >
-            恢复默认头像
-          </button>
-        )}
+        <div className="settings-card settings-card-padded">
+          <div className="profile-avatar-grid">
+            {AVATAR_PRESETS.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                className={
+                  'profile-avatar-item' +
+                  (!hasCustom && activePresetId === a.id ? ' is-selected' : '')
+                }
+                aria-label={a.label}
+                aria-pressed={!hasCustom && activePresetId === a.id}
+                onClick={() => setAvatar(a.id)}
+              >
+                <span className="profile-avatar-art"><PresetAvatarGraphic presetId={a.id} /></span>
+                <span className="profile-avatar-label">{a.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
-
     </div>
   )
 }

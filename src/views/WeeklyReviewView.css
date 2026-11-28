@@ -11,7 +11,7 @@
 .wr-record-picker > summary svg { flex-shrink: 0; color: var(--text-tertiary); }
 .wr-record-popup { position: absolute; top: calc(100% + var(--sp-3)); inset-inline-start: 0; width: 340px; max-height: min(70vh, 480px); overflow-y: auto; white-space: normal; }
 .wr-document-actions { display: flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; margin-left: auto; }
-.wr-document-status { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--text-tertiary); font-size: var(--type-metadata-size); white-space: nowrap; }
+.wr-document-status { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 2px var(--sp-2); border-radius: var(--radius-full); background: var(--surface-control); color: var(--text-secondary); font-size: var(--type-chip-size); line-height: var(--type-chip-line-height); white-space: nowrap; }
 .wr-shell { min-height: 0; flex: 1; display: flex; overflow: hidden; background: var(--surface-pane); }
 .wr-history { padding: var(--sp-2); }
 .wr-history-title { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); padding: 0 9px 10px; color: var(--text-tertiary); font-size: var(--type-metadata-size); font-weight: var(--font-weight-semibold); }
@@ -220,7 +220,7 @@
 }
 .wr-missed-summary p { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--space-row-gap); }
 
-.wr-previous { border-block-start: 1px solid var(--border-subtle); }
+.wr-previous { border-block-start: 1px solid var(--border-subtle); padding-block-start: var(--sp-3); }
 .wr-previous-content {
   display: grid;
   gap: var(--sp-3);
@@ -439,7 +439,7 @@ p.wr-previous-criteria { margin-block-start: var(--space-row-gap); }
   font-size: var(--type-row-size);
   line-height: var(--type-row-line-height);
 }
-.wr-year-empty { padding-block: var(--sp-4); border-block-start: 1px solid var(--border-subtle); }
+.wr-year-empty { display: flex; flex-direction: column; min-height: 44vh; border-block-start: 1px solid var(--border-subtle); }
 .wr-year-rhythm-head { margin-block-end: var(--space-row-gap); }
 .wr-heatmap { display: grid; grid-template-columns: repeat(var(--week-count), minmax(8px, 1fr)); gap: 3px; }
 .wr-heatmap i { min-width: 0; aspect-ratio: 1; border: 1px solid var(--border-subtle); border-radius: var(--radius-4); background: var(--bg-elevated); }

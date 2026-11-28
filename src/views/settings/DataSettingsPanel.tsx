@@ -1,7 +1,7 @@
 import { fmtBytes } from '@/lib/format'
 import { BackupRestoreFlushError, restoreLibraryBackup } from '@/lib/libraryRestore'
 import { flushPersistNow } from '@/storage/persist'
-import { ICON_LG, ICON_SM } from '@/icons/iconSize'
+import { ICON_SM } from '@/icons/iconSize'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
@@ -28,7 +28,6 @@ import {
   presentBackupHealth,
   type BackupListState,
 } from '@/lib/backupHealthPresentation'
-
 
 function reportDataSettingsFailure(operation: string, error: unknown): void {
   console.warn(`[DataSettings] ${operation}`, error)
@@ -284,205 +283,242 @@ export function DataSettingsPanel({
     }
   }
 
+  const hasAttachmentAttention = Boolean(
+    health && (
+      health.storage.attachmentStats.missingCount > 0 ||
+      health.storage.inventory.orphan.length > 0 ||
+      health.storage.inventory.foreign.length > 0 ||
+      health.storage.inventory.temp.length > 0
+    ),
+  )
+
   return (
-    <div className="settings-page settings-page--reading data-settings">
+    <div className="settings-page settings-page--form data-settings">
       <div className="settings-page-head">
         <h1 className="settings-page-title">数据</h1>
       </div>
-      {electron && (
-        <section className="settings-page-section">
-          <div className="settings-page-head">
-            <h2 className="settings-section-title">自动备份</h2>
-          </div>
 
-          <div className={`backup-health-status is-${backupHealth.tone}`} role={backupListState === 'error' ? 'alert' : 'status'}>
-            <div>
-              <strong>{backupHealth.title}</strong>
-              {backupHealth.detail ? <span>{backupHealth.detail}</span> : null}
-              {backupHealth.latest?.verification?.checkedAt ? <small>最近验证：{fmtBackupTime(backupHealth.latest.verification.checkedAt)}</small> : null}
-              {backupHealth.lastVerified && backupHealth.lastVerified.name !== backupHealth.latest?.name ? <small>最后可用备份：{fmtBackupTime(backupHealth.lastVerified.timestamp)}</small> : null}
+      {/* 资料库概览与实盘阶段 */}
+      <section className="settings-group" aria-labelledby="data-overview-title">
+        <div className="settings-group-head">
+          <h2 id="data-overview-title" className="settings-section-title">资料概况</h2>
+          <Button variant="ghost" size="sm" onClick={refreshHealth}>
+            刷新
+          </Button>
+        </div>
+
+        <div className="settings-card">
+          {healthError && (
+            <div className="data-attention-row is-danger" role="alert">
+              <AlertCircle size={ICON_SM} />
+              <span>
+                <strong>无法读取资料概况</strong>
+                <small>{healthError}</small>
+              </span>
             </div>
-            {backupHealth.action === 'retry-load' ? <button type="button" className="dio-btn" onClick={() => void refreshBackups()}>重试读取</button> : null}
-            {backupHealth.action === 'verify-latest' && backupHealth.latest ? <button type="button" className="dio-btn" disabled={verifying !== null} onClick={() => void handleVerify(backupHealth.latest!)}>验证最新备份</button> : null}
+          )}
+
+          {health && (
+            <div className="storage-summary" aria-label="资料库概况">
+              <span><Database size={ICON_SM} /><strong>{health.storage.tradeCount}</strong> 笔交易</span>
+              <span><Image size={ICON_SM} /><strong>{health.storage.attachmentStats.count}</strong> 张图片 · {health.storage.attachmentStats.formattedSize}</span>
+              {electron ? <span><HardDrive size={ICON_SM} /><strong>{health.backupCount}</strong> 份备份 · {fmtBytes(health.backupTotalSize)}</span> : null}
+            </div>
+          )}
+
+          <div className="settings-row">
+            <LivePerformanceCycleControl onManage={() => setStageManagerOpen(true)} />
           </div>
 
-          <div className="data-actions-row">
-            <button
-              className="dio-btn"
-              onClick={handleCreateBackup}
-              disabled={backing}
-            >
-              <Save size={ICON_SM} />
-              <span>{backing ? '备份并验证中…' : backupHealth.action === 'create' ? backups.length ? '重新备份并验证' : '创建并验证备份' : '立即备份'}</span>
-            </button>
+          <StageOwnershipHealthEntry />
+          <StageOwnershipAutoRepair />
+
+          {hasAttachmentAttention && health ? (
+            <div className="data-attention-row">
+              <AlertCircle size={ICON_SM} />
+              <span>
+                <strong>附件需要整理</strong>
+                <small>
+                  {[
+                    health.storage.attachmentStats.missingCount > 0 ? `${health.storage.attachmentStats.missingCount} 张缺失或损坏` : '',
+                    health.storage.inventory.orphan.length > 0 ? `${health.storage.inventory.orphan.length} 张未被引用` : '',
+                    health.storage.inventory.foreign.length > 0 ? `${health.storage.inventory.foreign.length} 个未知项` : '',
+                    health.storage.inventory.temp.length > 0 ? `${health.storage.inventory.temp.length} 个临时项` : '',
+                  ].filter(Boolean).join(' · ')}
+                </small>
+              </span>
+            </div>
+          ) : null}
+
+          <AssetPurgeControl
+            hasOrphans={Boolean(health?.storage.inventory.orphan.length)}
+            commitEnabled={assetPurgeCommitEnabled}
+            refreshHealth={refreshHealth}
+          />
+        </div>
+      </section>
+
+      {/* 自动备份 */}
+      {electron && (
+        <section className="settings-group" aria-labelledby="data-backup-title">
+          <div className="settings-group-head">
+            <h2 id="data-backup-title" className="settings-section-title">自动备份</h2>
           </div>
 
-          {backups.length > 0 && (
-            <details className="data-maintenance-disclosure">
-              <DisclosureSummary>查看备份 <span>{backups.length}</span></DisclosureSummary>
-              <div className="data-maintenance-actions">
+          <div className="settings-card">
+            <div className={`backup-health-status is-${backupHealth.tone}`} role={backupListState === 'error' ? 'alert' : 'status'}>
+              <div className="backup-health-copy">
+                <span className="backup-health-title-row">
+                  <span className="backup-health-dot" aria-hidden="true" />
+                  <strong>{backupHealth.title}</strong>
+                </span>
+                {backupHealth.detail ? <span>{backupHealth.detail}</span> : null}
+                {backupHealth.latest?.verification?.checkedAt ? (
+                  <small>最近验证：{fmtBackupTime(backupHealth.latest.verification.checkedAt)}</small>
+                ) : null}
+                {backupHealth.lastVerified && backupHealth.lastVerified.name !== backupHealth.latest?.name ? (
+                  <small>最后可用备份：{fmtBackupTime(backupHealth.lastVerified.timestamp)}</small>
+                ) : null}
+              </div>
+              <div className="backup-health-actions">
+                {backupHealth.action === 'retry-load' ? (
+                  <button type="button" className="dio-btn" onClick={() => void refreshBackups()}>
+                    重试读取
+                  </button>
+                ) : null}
+                {backupHealth.action === 'verify-latest' && backupHealth.latest ? (
+                  <button type="button" className="dio-btn" disabled={verifying !== null} onClick={() => void handleVerify(backupHealth.latest!)}>
+                    验证最新备份
+                  </button>
+                ) : null}
                 <button
+                  type="button"
                   className="dio-btn"
-                  onClick={handleVerifyAll}
-                  disabled={verifying !== null || restoring !== null}
+                  onClick={handleCreateBackup}
+                  disabled={backing}
                 >
-                  <CheckCircle size={ICON_SM} />
-                  <span>{verifying === 'all' ? '验证中…' : '验证全部'}</span>
+                  <Save size={ICON_SM} />
+                  <span>
+                    {backing
+                      ? '备份中…'
+                      : backupHealth.action === 'create'
+                        ? backups.length ? '重新备份' : '创建备份'
+                        : '立即备份'}
+                  </span>
                 </button>
               </div>
-              <div className="backup-list">
-                {backups.map((b) => (
-                <div key={b.name} className="backup-row">
-                  <Clock size={ICON_SM} className="backup-icon" />
-                  <span className="backup-time">{fmtBackupTime(b.timestamp)}</span>
-                  <span className="backup-meta">
-                    {b.tradeCount != null ? `${b.tradeCount} 笔交易` : ''}
-                    {b.strategyCount != null ? ` · ${b.strategyCount} 策略` : ''}
-                    {b.attachmentCount != null ? ` · ${b.attachmentCount} 附件` : ''}
-                  </span>
-                  <span className="backup-size">{fmtBytes(b.size)}</span>
-                  {b.verification?.status === 'verified' && (
-                    <Tooltip
-                      content={`最近验证：${fmtBackupTime(b.verification.checkedAt)}`}
-                      label={`已验证，${fmtBackupTime(b.verification.checkedAt)}`}
-                    >
-                      <span className="backup-verification is-verified">
-                        <CheckCircle size={ICON_SM} />
-                        已验证
-                      </span>
-                    </Tooltip>
-                  )}
-                  {b.verification?.status === 'invalid' && (
-                    <Tooltip
-                      content={b.verification.error ?? '备份验证失败'}
-                      label={`验证失败：${b.verification.error ?? '未知原因'}`}
-                    >
-                      <span className="backup-verification is-invalid">
-                        <AlertCircle size={ICON_SM} />
-                        验证失败
-                      </span>
-                    </Tooltip>
-                  )}
-                  {!b.verification && <span className="backup-verification">未验证</span>}
-                  <div className="backup-actions">
+            </div>
+
+            {backups.length > 0 && (
+              <details className="settings-card-disclosure data-maintenance-disclosure">
+                <DisclosureSummary>备份历史 <span>{backups.length}</span></DisclosureSummary>
+                <div className="data-backup-history-body">
+                  <div className="data-maintenance-actions">
+                    <span className="data-path-note">保存在资料库 <code>backups/</code></span>
                     <button
+                      type="button"
                       className="dio-btn"
-                      onClick={() => handleVerify(b)}
+                      onClick={handleVerifyAll}
                       disabled={verifying !== null || restoring !== null}
                     >
                       <CheckCircle size={ICON_SM} />
-                      <span>{verifying === b.name ? '验证中…' : '验证'}</span>
+                      <span>{verifying === 'all' ? '验证中…' : '验证全部'}</span>
                     </button>
-                    <button
-                      className="dio-btn"
-                      onClick={() => setConfirmRequest({ kind: 'restore', backup: b })}
-                      disabled={verifying !== null || restoring !== null || b.verification?.status !== 'verified'}
-                    >
-                      <RotateCcw size={ICON_SM} />
-                      <span>{restoring === b.name ? '恢复中…' : '恢复'}</span>
-                    </button>
-                    <Tooltip content="删除备份" label="删除此备份">
-                      <button
-                        className="dio-btn dio-btn-warn"
-                        aria-label="删除此备份"
-                        onClick={() => setConfirmRequest({ kind: 'delete', backup: b })}
-                        disabled={restoring !== null}
-                      >
-                        <Trash2 size={ICON_SM} />
-                      </button>
-                    </Tooltip>
+                  </div>
+                  <div className="backup-list">
+                    {backups.map((b) => (
+                      <div key={b.name} className="backup-row">
+                        <Clock size={ICON_SM} className="backup-icon" />
+                        <span className="backup-time">{fmtBackupTime(b.timestamp)}</span>
+                        <span className="backup-meta">
+                          {b.tradeCount != null ? `${b.tradeCount} 笔` : ''}
+                          {b.strategyCount != null ? ` · ${b.strategyCount} 策略` : ''}
+                          {b.attachmentCount != null ? ` · ${b.attachmentCount} 附件` : ''}
+                        </span>
+                        <span className="backup-size">{fmtBytes(b.size)}</span>
+                        {b.verification?.status === 'verified' && (
+                          <Tooltip
+                            content={`最近验证：${fmtBackupTime(b.verification.checkedAt)}`}
+                            label={`已验证，${fmtBackupTime(b.verification.checkedAt)}`}
+                          >
+                            <span className="backup-verification is-verified">
+                              <CheckCircle size={ICON_SM} />
+                              已验证
+                            </span>
+                          </Tooltip>
+                        )}
+                        {b.verification?.status === 'invalid' && (
+                          <Tooltip
+                            content={b.verification.error ?? '备份验证失败'}
+                            label={`验证失败：${b.verification.error ?? '未知原因'}`}
+                          >
+                            <span className="backup-verification is-invalid">
+                              <AlertCircle size={ICON_SM} />
+                              失败
+                            </span>
+                          </Tooltip>
+                        )}
+                        {!b.verification && <span className="backup-verification">未验证</span>}
+                        <div className="backup-actions">
+                          <button
+                            type="button"
+                            className="dio-btn"
+                            onClick={() => handleVerify(b)}
+                            disabled={verifying !== null || restoring !== null}
+                          >
+                            <span>{verifying === b.name ? '验证中…' : '验证'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="dio-btn"
+                            onClick={() => setConfirmRequest({ kind: 'restore', backup: b })}
+                            disabled={verifying !== null || restoring !== null || b.verification?.status !== 'verified'}
+                          >
+                            <span>{restoring === b.name ? '恢复中…' : '恢复'}</span>
+                          </button>
+                          <Tooltip content="删除备份" label="删除此备份">
+                            <button
+                              type="button"
+                              className="dio-btn dio-btn-warn"
+                              aria-label="删除此备份"
+                              onClick={() => setConfirmRequest({ kind: 'delete', backup: b })}
+                              disabled={restoring !== null}
+                            >
+                              <Trash2 size={ICON_SM} />
+                            </button>
+                          </Tooltip>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                ))}
-              </div>
-              <p className="data-path-note">
-                备份保存在资料库的 <code>backups/</code> 目录。
-              </p>
-            </details>
-          )}
+              </details>
+            )}
+          </div>
         </section>
       )}
+
       <DataIOContent
         onLibraryChanged={() => {
           void refreshBackups()
           void refreshHealth()
         }}
       />
-      <DataOrganizationPanel day={currentTradingDayKey} onCompleted={() => { void refreshBackups(); void refreshHealth() }} />
-      <section className="settings-page-section">
-        <div className="settings-page-head">
-          <h2 className="settings-section-title">实盘阶段</h2>
-        </div>
-        <LivePerformanceCycleControl onManage={() => setStageManagerOpen(true)} />
-      </section>
+
+      <DataOrganizationPanel
+        day={currentTradingDayKey}
+        onCompleted={() => {
+          void refreshBackups()
+          void refreshHealth()
+        }}
+      />
+
       {stageManagerOpen ? (
         <LiveStageManager
           currentTradingDayKey={currentTradingDayKey}
           onClose={() => setStageManagerOpen(false)}
         />
       ) : null}
-
-      {/* 存储健康面板 */}
-      <section className="settings-page-section">
-        <div className="settings-page-head">
-          <h2 className="settings-section-title">资料概况</h2>
-        </div>
-
-        <StageOwnershipHealthEntry />
-        <StageOwnershipAutoRepair />
-
-        {healthError && (
-          <div className="data-attention-row is-danger" role="alert">
-            <AlertCircle size={ICON_SM} />
-            <span>
-              <strong>无法读取资料概况</strong>
-              <small>{healthError}</small>
-            </span>
-          </div>
-        )}
-
-        {health && (
-          <div className="storage-summary" aria-label="资料库概况">
-            <span><Database size={ICON_SM} /><strong>{health.storage.tradeCount}</strong> 笔交易</span>
-            <span><Image size={ICON_SM} /><strong>{health.storage.attachmentStats.count}</strong> 张图片 · {health.storage.attachmentStats.formattedSize}</span>
-            {electron ? <span><HardDrive size={ICON_SM} /><strong>{health.backupCount}</strong> 份备份 · {fmtBytes(health.backupTotalSize)}</span> : null}
-          </div>
-        )}
-
-        {health && (
-          health.storage.attachmentStats.missingCount > 0 ||
-          health.storage.inventory.orphan.length > 0 ||
-          health.storage.inventory.foreign.length > 0 ||
-          health.storage.inventory.temp.length > 0
-        ) ? (
-          <div className="data-attention-row">
-            <AlertCircle size={ICON_SM} />
-            <span>
-              <strong>附件需要整理</strong>
-              <small>
-                {[
-                  health.storage.attachmentStats.missingCount > 0 ? `${health.storage.attachmentStats.missingCount} 张缺失或损坏` : '',
-                  health.storage.inventory.orphan.length > 0 ? `${health.storage.inventory.orphan.length} 张未被引用` : '',
-                  health.storage.inventory.foreign.length > 0 ? `${health.storage.inventory.foreign.length} 个未知项` : '',
-                  health.storage.inventory.temp.length > 0 ? `${health.storage.inventory.temp.length} 个临时项` : '',
-                ].filter(Boolean).join(' · ')}
-              </small>
-            </span>
-          </div>
-        ) : null}
-
-        <button
-          className="dio-btn data-refresh-action"
-          onClick={refreshHealth}
-        >
-          刷新
-        </button>
-        <AssetPurgeControl
-          hasOrphans={Boolean(health?.storage.inventory.orphan.length)}
-          commitEnabled={assetPurgeCommitEnabled}
-          refreshHealth={refreshHealth}
-        />
-      </section>
 
       {confirmRequest ? (
         <ModalShell

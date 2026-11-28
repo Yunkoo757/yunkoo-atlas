@@ -43,9 +43,9 @@
   overflow: visible;
 }
 .sb-header .menu-root {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
-  max-width: calc(100% - 60px);
+  max-width: none;
 }
 .sb-header .menu-trigger {
   display: inline-flex;

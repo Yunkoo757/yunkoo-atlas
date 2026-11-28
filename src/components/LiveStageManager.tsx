@@ -222,7 +222,7 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
   return (
     <ModalShell
       title="开启新实盘阶段"
-      description="预约下一交易周开启新阶段。"
+      description="预约下一交易周开启新阶段"
       size="wide"
       busy={busy}
       onClose={onClose}
@@ -243,7 +243,7 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
       <div className="live-stage-manager" data-live-stage-manager>
         <section className="live-stage-manager-hero">
           <div>
-            <span className="live-stage-manager-eyebrow">当前阶段：{currentStage.name}</span>
+            <span className="live-stage-manager-eyebrow">{currentStage.name === '当前阶段' ? '当前生效' : `当前阶段：${currentStage.name}`}</span>
             <strong>始于 {fmtDate(currentStage.startsOn)}</strong>
           </div>
           <div className="live-stage-manager-date">
@@ -269,7 +269,7 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
               : <CheckCircle size={ICON_MD} aria-hidden />}
             <div>
               <h3 id="live-stage-blockers-title">当前生效条件</h3>
-              <p>{blockers.length > 0 ? '先处理持仓交易。' : '以下内容不会阻止切换。'}</p>
+              <p>{blockers.length > 0 ? '先处理持仓交易' : '以下内容不会阻止切换'}</p>
             </div>
           </div>
           <div className="live-stage-manager-blockers" aria-label="当前阶段切换阻断项">
@@ -304,7 +304,7 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
             <Pencil size={ICON_MD} aria-hidden />
             <div>
               <h3 id="live-stage-names-title">阶段名称</h3>
-              <p>当前与历史阶段都可自由命名；重命名只改变名称。</p>
+              <p>支持自定义各阶段名称</p>
             </div>
           </div>
           <div className="live-stage-manager-names">
@@ -312,7 +312,7 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
               <div className={`live-stage-manager-name-row${editingStageId === stage.id ? ' is-editing' : ''}`} key={stage.id}>
                 <div>
                   <span>{stage.name}</span>
-                  <small>{stage.status === 'current' ? '当前阶段' : '历史阶段'} · {fmtDate(stage.startsOn)}{stage.endsOn ? ` — ${fmtDate(stage.endsOn)}` : ' 至今'}</small>
+                  <small>{stage.name === '当前阶段' || stage.name === '历史阶段' ? '' : `${stage.status === 'current' ? '当前阶段' : '历史阶段'} · `}{fmtDate(stage.startsOn)}{stage.endsOn ? ` — ${fmtDate(stage.endsOn)}` : ' 至今'}</small>
                 </div>
                 {editingStageId === stage.id ? <>
                 <input
@@ -341,7 +341,7 @@ export function LiveStageManager({ currentTradingDayKey, onClose }: LiveStageMan
                   restoreRenameFocus(stage.id)
                 }}>取消</Button>
                 {renameError ? <p className="live-stage-name-error" id="stage-rename-error" role="alert">{renameError}</p> : null}
-                </> : <Button size="sm" disabled={busy} data-stage-rename={stage.id} aria-label={`重命名：${stage.name}`} onClick={() => { setRenameError(''); setEditingStageId(stage.id) }}>重命名</Button>}
+                </> : <Button size="sm" variant="bordered" disabled={busy} data-stage-rename={stage.id} aria-label={`重命名：${stage.name}`} onClick={() => { setRenameError(''); setEditingStageId(stage.id) }}>重命名</Button>}
               </div>
             ))}
           </div>

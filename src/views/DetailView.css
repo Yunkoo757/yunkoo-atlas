@@ -709,7 +709,9 @@
   background: var(--surface-control-hover);
 }
 .dv-section-chev { color: var(--text-quaternary); }
-.dv-section.is-open > .dv-section-head { margin-bottom: var(--sp-1); }
+.dv-section:not(.is-open) > .dv-section-head { color: var(--text-tertiary); }
+.dv-section:not(.is-open) > .dv-section-head:hover { color: var(--text-secondary); }
+.dv-section.is-open > .dv-section-head { margin-bottom: var(--sp-1); color: var(--text-primary); }
 .dv-section-body {
   display: flex;
   flex-direction: column;

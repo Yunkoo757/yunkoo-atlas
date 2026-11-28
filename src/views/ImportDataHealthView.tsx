@@ -89,7 +89,6 @@ export function ImportDataHealthView() {
     <>
       <Topbar
         title="导入数据健康"
-        subtitle="核对历史导入日期"
         showDisplay={false}
       />
       <main className="idh-view">

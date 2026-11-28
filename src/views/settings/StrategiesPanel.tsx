@@ -1,4 +1,4 @@
-import { ICON_MD } from '@/icons/iconSize'
+import { ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Pencil, Trash2, ChevronRight } from '@/icons/appIcons'
@@ -78,18 +78,16 @@ export function StrategiesPanel() {
 
   return (
     <>
-      <div className="settings-page settings-page--reading strategies-panel">
+      <div className="settings-page settings-page--form strategies-panel">
         <div className="settings-page-head st-head">
-          <div>
-            <h1 className="settings-page-title">交易策略</h1>
-          </div>
-          <button type="button" className="ui-btn ui-btn-bordered st-add-button" onClick={openCreate}>
-            <Plus size={ICON_MD} />
+          <h1 className="settings-page-title">策略</h1>
+          <button type="button" className="ui-btn ui-btn-bordered ui-btn-sm st-add-button" onClick={openCreate}>
+            <Plus size={ICON_SM} />
             <span>新建策略</span>
           </button>
         </div>
 
-        <div className="st-list">
+        <div className="settings-card st-list">
           {rows.map((s) => (
             <div className="st-row" key={s.id}>
               <StrategyIcon icon={s.icon} color={s.color} size={ICON_MD} />
@@ -102,7 +100,7 @@ export function StrategiesPanel() {
               <div className="st-row-actions">
                 <Tooltip content="编辑" label={`编辑 ${s.name}`}>
                   <button type="button" className="st-act" aria-label={`编辑 ${s.name}`} onClick={() => openEdit(s)}>
-                    <Pencil size={ICON_MD} />
+                    <Pencil size={ICON_SM} />
                   </button>
                 </Tooltip>
                 <Tooltip content="删除" label={`删除 ${s.name}`}>
@@ -116,12 +114,12 @@ export function StrategiesPanel() {
                     }}
                     disabled={strategies.length <= 1}
                   >
-                    <Trash2 size={ICON_MD} />
+                    <Trash2 size={ICON_SM} />
                   </button>
                 </Tooltip>
                 <Tooltip content="查看交易" label={`查看 ${s.name} 交易`}>
                   <Link to={`/strategy/${s.id}`} className="st-act" aria-label={`查看 ${s.name} 交易`}>
-                    <ChevronRight size={ICON_MD} />
+                    <ChevronRight size={ICON_SM} />
                   </Link>
                 </Tooltip>
               </div>

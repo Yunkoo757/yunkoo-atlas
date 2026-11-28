@@ -75,8 +75,10 @@
 
 .review-session-presets {
   margin: 0;
-  padding: 0;
-  border: 0;
+  padding: var(--sp-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-10);
+  background: var(--surface-elevated);
 }
 
 .review-session-preset-list {
@@ -558,9 +560,9 @@
   display: flex;
   min-height: 0;
   flex: 1;
-  align-items: center;
-  padding: 18px;
-  overflow: auto;
+  align-items: stretch;
+  padding: var(--sp-3) var(--sp-5) var(--sp-4);
+  overflow: hidden;
 }
 
 .review-session-stage:focus-visible,
@@ -573,10 +575,10 @@
 .review-session-workspace {
   display: flex;
   width: min(1080px, 100%);
+  height: min(100%, 920px);
   min-height: 0;
-  max-height: 100%;
-  margin: 0 auto;
-  flex: 0 1 auto;
+  margin: auto;
+  flex: 1 1 auto;
   flex-direction: column;
   overflow: hidden;
   border: 0;
@@ -604,9 +606,8 @@
 
 .review-session-decision-board {
   display: grid;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-height: 0;
-  height: min(58vh, 620px);
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   padding: var(--sp-4) var(--sp-5);
 }
@@ -705,29 +706,42 @@
 .review-session-summary .is-positive { color: var(--result-positive); }
 .review-session-summary .is-negative { color: var(--result-negative); }
 .review-session-summary .is-opportunity { color: var(--result-opportunity); }
-.review-session-summary .ui-btn { margin-left: auto; }
+
+.review-session-summary-actions {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
 
 .review-session-reading {
-  max-height: min(62vh, 720px);
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
 .review-session-reading-controls {
-  display: flex;
+  display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  justify-content: flex-end;
   gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-5) 0;
 }
 
 .review-session-content {
   display: grid;
-  min-height: 0;
-  flex: 0 1 auto;
+  align-content: start;
   gap: var(--sp-5);
   padding: var(--sp-5);
+}
+
+.review-session-content.is-text-only {
+  padding: var(--sp-6) var(--sp-5);
+}
+
+.review-session-content.is-text-only .review-session-note-copy {
+  max-width: var(--page-rail-reading);
 }
 
 .review-session-content.has-split-content {
@@ -785,7 +799,7 @@ button.review-session-gallery-slot.is-ready {
 }
 
 .review-session-gallery.is-multiple .review-session-gallery-slot {
-  height: clamp(220px, 31vh, 360px);
+  height: clamp(240px, 34vh, 380px);
 }
 
 .review-session-gallery.is-large {
@@ -851,7 +865,7 @@ button.review-session-gallery-slot.is-ready {
 .review-session-note-state {
   display: flex;
   min-height: 140px;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   gap: var(--sp-2);
@@ -865,14 +879,13 @@ button.review-session-gallery-slot.is-ready {
 .review-session-assessment {
   display: flex;
   flex: 0 0 auto;
+  min-height: 76px;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-5);
-  position: sticky;
-  bottom: 0;
-  z-index: var(--z-content-raised);
-  padding: 13px var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
   border-top: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
   background: var(--surface-elevated);
 }
 
@@ -893,9 +906,22 @@ button.review-session-gallery-slot.is-ready {
 .review-session-assessment-actions {
   flex-wrap: wrap;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: flex-end;
-  gap: 7px;
+  gap: var(--sp-2);
+}
+
+.review-session-nav-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding-inline-start: var(--sp-2);
+  border-inline-start: 1px solid var(--border-subtle);
+}
+
+.review-session-skip {
+  min-width: 92px;
+  justify-content: center;
 }
 
 .review-session-assessment-option {
@@ -1003,9 +1029,11 @@ button.review-session-gallery-slot.is-ready {
 }
 
 @media (max-width: 1024px) {
+  .review-session-stage { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
   .review-session-summary { flex-wrap: wrap; }
   .review-session-item-primary { flex-wrap: wrap; }
   .review-session-assessment { align-items: flex-start; flex-direction: column; gap: 10px; }
   .review-session-assessment-actions { width: 100%; }
-  .review-session-assessment-actions button { flex: 1; }
+  .review-session-assessment-actions > button { flex: 1; }
+  .review-session-nav-actions { margin-inline-start: auto; padding-inline-start: 0; border-inline-start: 0; }
 }

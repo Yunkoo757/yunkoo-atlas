@@ -61,18 +61,53 @@ export function UpdatesSettingsPanel() {
   return (
     <div className="settings-page settings-page--form update-settings">
       <div className="settings-page-head">
-        <h1 className="settings-page-title">软件更新</h1>
+        <h1 className="settings-page-title">更新</h1>
       </div>
 
-      <section className="update-section" aria-labelledby="update-version-title">
+      <section className="settings-card update-section" aria-labelledby="update-version-title">
         <div className="update-section-head">
-          <div>
-            <h2 id="update-version-title">当前版本</h2>
-            <p>Trader Atlas {state.currentVersion}</p>
+          <div className="update-version-copy">
+            <h2 id="update-version-title">Trader Atlas {state.currentVersion}</h2>
+            {UPDATE_STATUS_TONES[state.phase]
+              ? <InlineStatus tone={UPDATE_STATUS_TONES[state.phase]} compact title={statusLabel(state)} />
+              : <p role="status">{statusLabel(state)}</p>}
           </div>
-          {UPDATE_STATUS_TONES[state.phase]
-            ? <InlineStatus tone={UPDATE_STATUS_TONES[state.phase]} compact title={statusLabel(state)} />
-            : <p role="status">{statusLabel(state)}</p>}
+
+          <div className="update-actions">
+            {state.phase === 'available' ? (
+              <button
+                type="button"
+                className="dio-btn dio-btn-primary"
+                onClick={() => void getJournalBridge()?.downloadUpdate()}
+              >
+                <Download size={ICON_SM} />
+                下载更新
+              </button>
+            ) : state.phase === 'downloading' ? null : state.phase === 'downloaded' ? (
+              <button
+                type="button"
+                className="dio-btn dio-btn-primary"
+                onClick={() => void getJournalBridge()?.installUpdate()}
+              >
+                <RotateCcw size={ICON_SM} />
+                备份并重启更新
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="dio-btn"
+                disabled={!electron || busy}
+                onClick={() => void getJournalBridge()?.checkForUpdates()}
+              >
+                {state.phase === 'checking' ? (
+                  <LoadingIndicator size={ICON_SM} aria-hidden />
+                ) : (
+                  <RotateCcw size={ICON_SM} />
+                )}
+                {state.phase === 'checking' ? '检查中…' : '检查更新'}
+              </button>
+            )}
+          </div>
         </div>
 
         {state.phase === 'downloading' && (
@@ -82,38 +117,7 @@ export function UpdatesSettingsPanel() {
             </div>
           </div>
         )}
-
-        <div className="update-actions">
-          {state.phase === 'available' ? (
-            <button
-              className="dio-btn dio-btn-primary"
-              onClick={() => void getJournalBridge()?.downloadUpdate()}
-            >
-              <Download size={ICON_SM} />
-              下载更新
-            </button>
-          ) : state.phase === 'downloading' ? null : state.phase === 'downloaded' ? (
-            <button className="dio-btn dio-btn-primary" onClick={() => void getJournalBridge()?.installUpdate()}>
-              <RotateCcw size={ICON_SM} />
-              备份并重启更新
-            </button>
-          ) : (
-            <button
-              className="dio-btn"
-              disabled={!electron || busy}
-              onClick={() => void getJournalBridge()?.checkForUpdates()}
-            >
-              {state.phase === 'checking' ? (
-                <LoadingIndicator size={ICON_SM} aria-hidden />
-              ) : (
-                <RotateCcw size={ICON_SM} />
-              )}
-              {state.phase === 'checking' ? '检查中…' : '检查更新'}
-            </button>
-          )}
-        </div>
       </section>
-
     </div>
   )
 }

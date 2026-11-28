@@ -30,8 +30,8 @@
 
 .risk-repair-action { justify-self: end; }
 
-.risk-repair-groups { border-top: 1px solid var(--border-subtle); }
-.risk-repair-group { border-bottom: 1px solid var(--border-subtle); }
+.risk-repair-groups { border-top: 0; }
+.risk-repair-group + .risk-repair-group { border-top: 1px solid var(--border-subtle); }
 
 .risk-repair-group-toggle {
   width: 100%;
@@ -40,7 +40,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-  padding: var(--sp-2) 0;
+  padding: var(--sp-2) var(--sp-4);
   border: 0;
   background: transparent;
   color: var(--text-primary);
@@ -49,6 +49,7 @@
   font-weight: var(--font-weight-medium);
   text-align: left;
   cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 .risk-repair-group-meta {
@@ -59,16 +60,16 @@
   color: var(--text-muted);
 }
 .risk-repair-group-toggle small { color: var(--text-muted); font-size: var(--type-caption-size); font-weight: var(--font-weight-normal); font-variant-numeric: var(--numeric-tabular); }
-.risk-repair-group-toggle:hover { color: var(--accent-readable); }
-.risk-repair-group-items { border-top: 1px solid var(--border-subtle); }
+.risk-repair-group-toggle:hover { background: var(--surface-row-hover); color: var(--text-strong); }
+.risk-repair-group-items { border-top: 1px solid var(--border-subtle); background: var(--bg-inset); }
 
 .risk-repair-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--sp-4);
-  min-height: 72px;
-  padding: var(--sp-3) 0;
+  min-height: 64px;
+  padding: var(--sp-3) var(--sp-4);
 }
 
 .risk-repair-row + .risk-repair-row { border-top: 1px solid var(--border-subtle); }
@@ -82,7 +83,7 @@
 .risk-repair-row p { margin: var(--sp-1) 0 0; color: var(--text-muted); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); overflow-wrap: anywhere; }
 .risk-repair-retained-note { display: block; margin-top: var(--sp-1); color: var(--text-tertiary); font-size: var(--type-metadata-size); line-height: var(--type-metadata-line-height); }
 
-.risk-repair-complete { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-4); min-height: 48px; padding: var(--sp-3) 0; border-block: 1px solid var(--border-subtle); }
+.risk-repair-complete { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-4); min-height: 52px; padding: var(--sp-3) var(--sp-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-8); background: var(--surface-elevated); }
 .risk-repair-complete strong { color: var(--pos); font-size: var(--type-row-size); }
 .risk-repair-complete span { color: var(--text-muted); font-size: var(--type-metadata-size); }
 

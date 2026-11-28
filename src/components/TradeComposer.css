@@ -38,6 +38,8 @@ input.composer-input-quick {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .composer-parameter-grid .composer-date-field { grid-column: 1 / -1; }

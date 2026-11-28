@@ -3,17 +3,19 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-4);
-  margin-bottom: var(--space-section-gap);
+  margin-bottom: var(--sp-5);
 }
 
-.shortcuts-search { margin-bottom: var(--space-section-gap); }
+.shortcuts-search {
+  margin-bottom: var(--sp-6);
+}
 
 .shortcuts-panel-head .settings-page-title {
   margin-bottom: 0;
 }
 
 .window-hotkey-setting {
-  margin-bottom: var(--space-section-gap);
+  margin-bottom: var(--sp-6);
 }
 
 .window-hotkey-heading,
@@ -31,9 +33,7 @@
 }
 
 .window-hotkey-heading {
-  align-items: flex-start;
   gap: var(--sp-4);
-  margin-bottom: var(--space-row-gap);
 }
 
 .window-hotkey-status {
@@ -41,7 +41,6 @@
   align-items: center;
   gap: var(--sp-2);
   flex: 0 0 auto;
-  min-height: var(--control-height);
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
 }
@@ -57,27 +56,21 @@
   background: var(--success);
 }
 
-.window-hotkey-row {
-  gap: var(--sp-5);
-  min-height: 44px;
-  padding-block: var(--space-row-gap);
-  border-top: 1px solid var(--border-subtle);
-}
-
 .window-hotkey-copy {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-1);
+  gap: 2px;
   min-width: 0;
 }
 
 .window-hotkey-label {
   color: var(--text-primary);
   font-size: var(--type-row-size);
+  font-weight: var(--font-weight-medium);
 }
 
 .window-hotkey-hint {
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   font-size: var(--type-metadata-size);
   font-weight: var(--type-metadata-weight);
   line-height: var(--type-metadata-line-height);
@@ -90,7 +83,7 @@
 
 .window-hotkey-capture {
   border-color: var(--border-subtle);
-  background: var(--bg-elevated);
+  background: var(--bg-inset);
 }
 
 .window-hotkey-reset {
@@ -123,12 +116,19 @@
 }
 
 .shortcuts-section {
-  margin-bottom: var(--space-section-gap);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-6);
+}
+
+.shortcuts-section:last-child {
+  margin-bottom: 0;
 }
 
 /* 分组标签——非内容区域标题，故意弱于 .settings-section-title */
 .shortcuts-group-label {
-  margin: 0 var(--sp-2) var(--sp-2);
+  margin: 0 2px;
   color: var(--text-tertiary);
   font-size: var(--type-metadata-size);
   font-weight: var(--font-weight-medium);
@@ -136,18 +136,25 @@
 }
 
 .shortcuts-table {
-  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8);
+  overflow: hidden;
 }
 
 .shortcuts-row {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) auto;
   align-items: center;
-  gap: var(--sp-5);
+  gap: var(--sp-4);
   min-height: 44px;
-  padding: 0 var(--sp-1) 0 var(--sp-2);
+  padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-4);
   border-bottom: 1px solid var(--border-subtle);
   transition: background var(--dur-fast) var(--ease-out);
+}
+
+.shortcuts-row:last-child {
+  border-bottom: 0;
 }
 
 .shortcuts-row:hover,
@@ -188,7 +195,7 @@
 button.shortcuts-capture:hover:not(:disabled) {
   color: var(--text-primary);
   border-color: var(--border-default);
-  background: var(--bg-elevated);
+  background: var(--bg-inset);
 }
 
 button.shortcuts-capture[aria-pressed='true'] {
@@ -257,12 +264,11 @@ button.shortcuts-capture:disabled {
 }
 
 .shortcuts-actions {
+  order: -1;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 2px;
-  width: 54px;
-  min-width: 54px;
   opacity: 0;
   transition: opacity var(--dur-fast) var(--ease-out);
 }

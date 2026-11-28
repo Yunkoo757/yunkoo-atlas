@@ -414,8 +414,8 @@ export function StageOwnershipRepairView() {
                       <details className="stage-ownership-impact">
                         <summary>查看影响</summary>
                         <p>
-                          “{recommendation.targetStageName}”开始日调整为 {recommendation.targetStageStartAfter}，
-                          “{recommendation.previousStageName}”截止日调整为 {recommendation.previousStageEndAfter}。
+                          「{recommendation.targetStageName}」开始日调整为 {recommendation.targetStageStartAfter}，
+                          「{recommendation.previousStageName}」截止日调整为 {recommendation.previousStageEndAfter}。
                         </p>
                         <span>有历史来源约束的案例保持原阶段。</span>
                       </details>

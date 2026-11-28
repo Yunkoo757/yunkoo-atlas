@@ -242,14 +242,14 @@ function CommandPaletteDialog({
       run: go(`/period/${slug}${tradeHomeSearch(sharedTradeSearch)}`),
     }))
     const settingsNav: Cmd[] = [
-      { id: 'n-strat', group: '设置', icon: <SETTINGS_SECTIONS.strategies.icon size={ICON_MD} aria-hidden />, label: '管理策略', keywords: '设置', shortcut: shortcutHint('nav.strategies'), run: go(SETTINGS_SECTIONS.strategies.to) },
-      { id: 'n-settings', group: '设置', icon: <SETTINGS_SECTIONS.shortcuts.icon size={ICON_MD} aria-hidden />, label: '键盘快捷键', keywords: '设置', run: go(SETTINGS_SECTIONS.shortcuts.to) },
+      { id: 'n-strat', group: '设置', icon: <SETTINGS_SECTIONS.strategies.icon size={ICON_MD} aria-hidden />, label: SETTINGS_SECTIONS.strategies.label, keywords: '设置 管理策略 strategies', shortcut: shortcutHint('nav.strategies'), run: go(SETTINGS_SECTIONS.strategies.to) },
+      { id: 'n-settings', group: '设置', icon: <SETTINGS_SECTIONS.shortcuts.icon size={ICON_MD} aria-hidden />, label: SETTINGS_SECTIONS.shortcuts.label, keywords: '设置 键盘快捷键 shortcuts', run: go(SETTINGS_SECTIONS.shortcuts.to) },
       {
         id: 'a-io',
         group: '设置',
         icon: <SETTINGS_SECTIONS.data.icon size={ICON_MD} aria-hidden />,
-        label: '导入/导出数据',
-        keywords: '设置 备份 恢复 backup export import',
+        label: SETTINGS_SECTIONS.data.label,
+        keywords: '设置 导入 导出 备份 恢复 backup export import',
         run: go(SETTINGS_SECTIONS.data.to),
       },
     ]
@@ -617,7 +617,7 @@ function CommandPaletteDialog({
             aria-expanded="true"
             aria-controls={listboxId}
             aria-activedescendant={activeOptionId}
-            placeholder="搜索交易、日期（如 202405）、跳转视图…"
+            placeholder="搜索交易、日期或命令…"
             value={q}
             onChange={(e) => updateQuery(e.target.value)}
             aria-invalid={dateQuery.kind === 'invalid' && !queryPending || undefined}
@@ -684,7 +684,20 @@ function CommandPaletteDialog({
                       <span className="cmdk-item-hint">{c.hint}</span>
                     </OverflowTooltip>
                   ) : null}
-                  {c.shortcut ? <Kbd className="cmdk-item-kbd">{c.shortcut}</Kbd> : null}
+                  {c.shortcut ? (
+                    <span className="cmdk-item-kbd-group">
+                      {c.shortcut.split(/\s+/).flatMap((part) => {
+                        const tokens = part.match(/^[⌘⇧⌥⌃]+(?=.+$)/)
+                          ? [...part.match(/^[⌘⇧⌥⌃]+/)![0], part.replace(/^[⌘⇧⌥⌃]+/, '')]
+                          : part.includes('+') && part.length > 1
+                            ? part.split('+')
+                            : [part]
+                        return tokens
+                      }).map((token, tokenIdx) => (
+                        <Kbd key={tokenIdx} className="cmdk-item-kbd">{token}</Kbd>
+                      ))}
+                    </span>
+                  ) : null}
                   {idx === active && (
                     <CornerDownLeft size={ICON_SM} className="cmdk-item-enter" />
                   )}

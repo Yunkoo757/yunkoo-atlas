@@ -21,6 +21,8 @@
 .trash-search { flex: 0 1 220px; min-width: 0; }
 
 .trash-content {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
   overflow-y: auto;

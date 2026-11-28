@@ -1359,6 +1359,16 @@ function ReviewSessionItem({
     trade.tradeKind === 'case' ? '跳过' : '下一条',
   )
   const backShortcut = useShortcutHint('reviewSession.back', backLabel)
+  const presentation = useMemo(() => splitReviewNoteHtml(note.html), [note.html])
+  const [galleryLayout, setGalleryLayout] = useState<'large' | 'compare'>('compare')
+  const [showNotes, setShowNotes] = useState(true)
+  const notesId = useId()
+  const hasBody = hasEffectiveReviewContent(presentation.bodyHtml)
+  const showLayoutControls =
+    (note.status === 'ready' || note.status === 'missing') &&
+    presentation.images.length > 0 &&
+    (presentation.images.length > 1 || hasBody)
+
   return (
     <section className="review-session-stage" data-review-session-focus tabIndex={-1}>
       <article className="review-session-workspace" aria-label={`${trade.symbol} 随机复盘`}>
@@ -1381,11 +1391,46 @@ function ReviewSessionItem({
             <span>{fmtDate(trade.recordedAt ?? trade.openedAt)}</span>
             <span className={`is-${rTone}`}>{fmtR(trade.rMultiple)}</span>
             {trade.pnl != null ? <span className={`is-${pnlTone}`}>{formatTradeCashPnl(trade, legacyCashCurrencyAssumption, privacyMode)}</span> : null}
-            <Button type="button" variant="bordered" onClick={onOpenDetail}>打开详情</Button>
+            <div className="review-session-summary-actions">
+              {showLayoutControls ? (
+                <div className="review-session-reading-controls" aria-label="阅读布局">
+                  {presentation.images.length > 1 ? (
+                    <SegmentedControl
+                      label="截图布局"
+                      value={galleryLayout}
+                      onChange={setGalleryLayout}
+                      options={[
+                        { value: 'large', label: '单图大图' },
+                        { value: 'compare', label: '两图对照' },
+                      ]}
+                    />
+                  ) : null}
+                  {hasBody ? (
+                    <Button
+                      size="sm"
+                      aria-controls={notesId}
+                      aria-expanded={showNotes}
+                      onClick={() => setShowNotes((value) => !value)}
+                    >
+                      {showNotes ? '收起说明' : '显示说明'}
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+              <Button type="button" variant="bordered" size="sm" onClick={onOpenDetail}>打开详情</Button>
+            </div>
           </div>
         </header>
 
-        <ReviewSessionNote note={note} onRetry={onRetryNote} />
+        <ReviewSessionNote
+          note={note}
+          presentation={presentation}
+          hasBody={hasBody}
+          galleryLayout={galleryLayout}
+          showNotes={showNotes}
+          notesId={notesId}
+          onRetry={onRetryNote}
+        />
 
         {trade.tradeKind === 'case' ? (
           <footer className="review-session-assessment">
@@ -1401,26 +1446,28 @@ function ReviewSessionItem({
                   onAssess={onAssess}
                 />
               ))}
-              <Button
-                type="button"
-                className="review-session-skip" variant="ghost"
-                aria-label={skipShortcut.ariaLabel}
-                aria-keyshortcuts={skipShortcut.hint ?? undefined}
-                onClick={onSkip}
-              >
-                跳过 {skipShortcut.hint ? <Kbd>{skipShortcut.hint}</Kbd> : null}
-              </Button>
-              {onBack ? (
+              <div className="review-session-nav-actions">
+                {onBack ? (
+                  <Button
+                    type="button"
+                    className="review-session-back-step" variant="ghost"
+                    aria-label={backShortcut.ariaLabel}
+                    aria-keyshortcuts={backShortcut.hint ?? undefined}
+                    onClick={onBack}
+                  >
+                    {backLabel} {backShortcut.hint ? <Kbd>{backShortcut.hint}</Kbd> : null}
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   className="review-session-skip" variant="ghost"
-                  aria-label={backShortcut.ariaLabel}
-                  aria-keyshortcuts={backShortcut.hint ?? undefined}
-                  onClick={onBack}
+                  aria-label={skipShortcut.ariaLabel}
+                  aria-keyshortcuts={skipShortcut.hint ?? undefined}
+                  onClick={onSkip}
                 >
-                  {backLabel} {backShortcut.hint ? <Kbd>{backShortcut.hint}</Kbd> : null}
+                  跳过 {skipShortcut.hint ? <Kbd>{skipShortcut.hint}</Kbd> : null}
                 </Button>
-              ) : null}
+              </div>
             </div>
           </footer>
         ) : (
@@ -1429,17 +1476,29 @@ function ReviewSessionItem({
               <span>交易记录不计入掌握度，可提炼为案例反复练习</span>
             </div>
             <div className="review-session-assessment-actions review-session-account-actions">
-              {onBack && <Button type="button" className="review-session-skip" variant="ghost" aria-label={backShortcut.ariaLabel} aria-keyshortcuts={backShortcut.hint ?? undefined} onClick={onBack}>{backLabel} {backShortcut.hint ? <Kbd>{backShortcut.hint}</Kbd> : null}</Button>}
               <Button type="button" variant="bordered" onClick={onExtractCase}>提炼为案例</Button>
-              <Button
-                type="button"
-                className="review-session-skip" variant="ghost"
-                aria-label={skipShortcut.ariaLabel}
-                aria-keyshortcuts={skipShortcut.hint ?? undefined}
-                onClick={onSkip}
-              >
-                下一条 {skipShortcut.hint ? <Kbd>{skipShortcut.hint}</Kbd> : null}
-              </Button>
+              <div className="review-session-nav-actions">
+                {onBack ? (
+                  <Button
+                    type="button"
+                    className="review-session-back-step" variant="ghost"
+                    aria-label={backShortcut.ariaLabel}
+                    aria-keyshortcuts={backShortcut.hint ?? undefined}
+                    onClick={onBack}
+                  >
+                    {backLabel} {backShortcut.hint ? <Kbd>{backShortcut.hint}</Kbd> : null}
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  className="review-session-skip" variant="ghost"
+                  aria-label={skipShortcut.ariaLabel}
+                  aria-keyshortcuts={skipShortcut.hint ?? undefined}
+                  onClick={onSkip}
+                >
+                  下一条 {skipShortcut.hint ? <Kbd>{skipShortcut.hint}</Kbd> : null}
+                </Button>
+              </div>
             </div>
           </footer>
         )}
@@ -1448,17 +1507,28 @@ function ReviewSessionItem({
   )
 }
 
-function ReviewSessionNote({ note, onRetry }: { note: ResolvedNoteState; onRetry: () => void }) {
-  const presentation = useMemo(() => splitReviewNoteHtml(note.html), [note.html])
-  const [galleryLayout, setGalleryLayout] = useState<'large' | 'compare'>('compare')
-  const [showNotes, setShowNotes] = useState(true)
-  const notesId = useId()
+function ReviewSessionNote({
+  note,
+  presentation,
+  hasBody,
+  galleryLayout,
+  showNotes,
+  notesId,
+  onRetry,
+}: {
+  note: ResolvedNoteState
+  presentation: ReviewNotePresentation
+  hasBody: boolean
+  galleryLayout: 'large' | 'compare'
+  showNotes: boolean
+  notesId: string
+  onRetry: () => void
+}) {
   const [settledImages, setSettledImages] = useState<{
     tradeId: string | null
     status: 'idle' | 'loading' | 'ready'
     slots: ReviewImageSlot[]
   }>({ tradeId: null, status: 'idle', slots: [] })
-  const hasBody = hasEffectiveReviewContent(presentation.bodyHtml)
   const imagesReady = settledImages.tradeId === note.tradeId && settledImages.status === 'ready'
 
   useEffect(() => {
@@ -1495,32 +1565,14 @@ function ReviewSessionNote({ note, onRetry }: { note: ResolvedNoteState; onRetry
         title={note.status === 'error' ? '图文暂时无法读取' : '部分图片未载入'}
         action={<Button size="sm" onClick={onRetry}>重新载入</Button>}
       />}
-      {presentation.images.length > 0 && (presentation.images.length > 1 || hasBody) ? (
-        <div className="review-session-reading-controls" aria-label="阅读布局">
-          {presentation.images.length > 1 ? (
-            <SegmentedControl
-              label="截图布局"
-              value={galleryLayout}
-              onChange={setGalleryLayout}
-              options={[
-                { value: 'large', label: '单图大图' },
-                { value: 'compare', label: '两图对照' },
-              ]}
-            />
-          ) : null}
-          {hasBody ? (
-            <Button
-              size="sm"
-              aria-controls={notesId}
-              aria-expanded={showNotes}
-              onClick={() => setShowNotes((value) => !value)}
-            >
-              {showNotes ? '收起说明' : '显示说明'}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-    <section className={`review-session-reading review-session-content${hasBody && showNotes && presentation.images.length > 0 ? ' has-split-content' : ''}`} aria-label="完整复盘内容">
+      <section
+        className={
+          'review-session-reading review-session-content' +
+          (hasBody && showNotes && presentation.images.length > 0 ? ' has-split-content' : '') +
+          (presentation.images.length === 0 && hasBody ? ' is-text-only' : '')
+        }
+        aria-label="完整复盘内容"
+      >
       {presentation.images.length > 0 ? (
         <div
           className={`review-session-gallery is-${presentation.images.length === 1 ? 'single' : 'multiple'} is-${galleryLayout}`}

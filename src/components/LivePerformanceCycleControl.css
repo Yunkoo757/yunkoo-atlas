@@ -1,36 +1,49 @@
 .live-performance-cycle-control {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: var(--sp-2);
+  justify-content: space-between;
+  gap: var(--sp-4);
+  width: 100%;
   min-width: 0;
 }
 
 .live-performance-cycle-current {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-control-gap);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
   color: var(--text-muted);
   font-size: var(--type-metadata-size);
-  white-space: nowrap;
 }
 
 .live-performance-cycle-current > span {
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   font-size: var(--type-metadata-size);
+  line-height: var(--type-metadata-line-height);
 }
 
 .live-performance-cycle-current strong {
   min-width: 0;
   overflow: hidden;
-  color: var(--text-strong);
+  color: var(--text-primary);
   font-family: var(--font-ui);
-  font-size: var(--type-body-size);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--type-row-size);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--type-row-line-height);
   font-variant-numeric: var(--numeric-tabular);
   font-feature-settings: "tnum" 1, "kern" 1;
   text-overflow: ellipsis;
+}
+
+.live-performance-cycle-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 0 0 auto;
+}
+
+.live-performance-cycle-action {
+  text-decoration: none;
 }
 
 .live-performance-cycle-select {
@@ -38,27 +51,13 @@
   width: 126px;
 }
 
-.live-performance-cycle-action {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 var(--sp-1);
-  border: 0;
-  border-radius: var(--radius-4);
-  color: var(--text-muted);
-  font-family: var(--font-ui);
-  font-size: var(--type-metadata-size);
-  font-weight: var(--font-weight-medium);
-  line-height: var(--type-metadata-line-height);
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.live-performance-cycle-action:hover {
-  color: var(--text-strong);
-  background: var(--bg-hover);
-}
-
 .live-performance-cycle-control.is-empty {
   flex: 0 0 auto;
+}
+
+@media (max-width: 1099px) {
+  .live-performance-cycle-control {
+    flex-wrap: wrap;
+    gap: var(--sp-2) var(--sp-4);
+  }
 }

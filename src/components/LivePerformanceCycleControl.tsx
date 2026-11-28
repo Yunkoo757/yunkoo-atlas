@@ -17,26 +17,30 @@ export function LivePerformanceCycleControl({
   const currentStage = getCurrentLiveStage(liveStages, currentLiveStageId)
   return (
     <div className="live-performance-cycle-control">
-      <span className="live-performance-cycle-current">
+      <div className="live-performance-cycle-current">
         <strong>{currentStage.name}</strong>
-        <span>始于 {fmtDate(currentStage.startsOn)}</span>
-        {scheduled ? <span>· 已预约 {fmtDate(scheduled.effectiveWeekStart)}</span> : null}
-      </span>
-      <Link
-        to="/list?kind=live&range=all&liveStage=current"
-        className="live-performance-cycle-action"
-        data-current-live-trade-link
-      >
-        查看当前实盘
-      </Link>
-      <button
-        type="button"
-        className="live-performance-cycle-action"
-        aria-haspopup="dialog"
-        onClick={onManage}
-      >
-        开启新实盘阶段
-      </button>
+        <span>
+          始于 {fmtDate(currentStage.startsOn)}
+          {scheduled ? ` · 已预约 ${fmtDate(scheduled.effectiveWeekStart)}` : ''}
+        </span>
+      </div>
+      <div className="live-performance-cycle-actions">
+        <Link
+          to="/list?kind=live&range=all&liveStage=current"
+          className="ui-btn ui-btn-ghost ui-btn-sm live-performance-cycle-action"
+          data-current-live-trade-link
+        >
+          查看当前实盘
+        </Link>
+        <button
+          type="button"
+          className="ui-btn ui-btn-bordered ui-btn-sm"
+          aria-haspopup="dialog"
+          onClick={onManage}
+        >
+          开启新实盘阶段
+        </button>
+      </div>
     </div>
   )
 }

@@ -138,6 +138,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.cmdk-item-kbd-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
 .cmdk-item-kbd {
   flex-shrink: 0;
 }

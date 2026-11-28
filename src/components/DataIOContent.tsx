@@ -3,7 +3,7 @@ import { switchActiveLibrary } from '@/lib/librarySwitch'
 import { commitPreparedJournalArchive, restoreWebJournalArchive } from '@/lib/libraryRestore'
 import { DisclosureSummary } from '@/components/ui/DisclosureSummary'
 import { Button } from '@/components/ui/Button'
-import { ICON_LG, ICON_MD } from '@/icons/iconSize'
+import { ICON_LG, ICON_MD, ICON_SM } from '@/icons/iconSize'
 import { useEffect, useRef, useState } from 'react'
 import {
   Download,
@@ -378,158 +378,165 @@ export function DataIOContent({
     }
   }
 
+  const libraryName = libraryPath?.split(/[\\/]/).filter(Boolean).at(-1) || '当前资料库'
+
   return (
     <div className="dio-content">
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".json,application/json"
+        className="dio-file-input"
+        onChange={onFileChange}
+      />
+      {!electron && (
+        <input
+          ref={archiveFileRef}
+          type="file"
+          accept=".journal.zip,.zip,application/zip"
+          className="dio-file-input"
+          onChange={onWebArchiveChange}
+        />
+      )}
+
       {electron && (
-        <section className="dio-section dio-section-muted">
-          <h2 className="dio-section-title">本地资料库</h2>
-          {libraryPath ? (
-            <details className="dio-disclosure"><DisclosureSummary>{libraryPath.split(/[\\/]/).filter(Boolean).at(-1) || '当前资料库'}</DisclosureSummary><p className="dio-desc dio-mono">{libraryPath}</p></details>
-          ) : (
-            <p className="dio-desc">正在读取资料库路径…</p>
-          )}
-          <div className="dio-lib-actions">
-            <button
-              type="button"
-              className="dio-btn"
-              disabled={dataBusy}
-              onClick={() => void onSwitchLibrary('open')}
-            >
-              <FolderOpen size={ICON_MD} />
-              <span>{libraryBusy ? '切换中…' : '打开其他资料库…'}</span>
-            </button>
-            <button
-              type="button"
-              className="dio-btn"
-              disabled={dataBusy}
-              onClick={() => void onSwitchLibrary('create')}
-            >
-              <Plus size={ICON_MD} />
-              <span>在此新建资料库…</span>
-            </button>
+        <section className="settings-group" aria-labelledby="dio-local-library-title">
+          <div className="settings-group-head">
+            <h2 id="dio-local-library-title" className="dio-section-title">本地资料库</h2>
+          </div>
+          <div className="settings-card">
+            <div className="settings-row dio-library-row">
+              <div className="settings-row-copy">
+                <span className="settings-row-title">{libraryName}</span>
+                <span className="settings-row-desc dio-mono" title={libraryPath ?? undefined}>
+                  {libraryPath ?? '正在读取路径…'}
+                </span>
+              </div>
+              <div className="settings-row-control">
+                <button
+                  type="button"
+                  className="dio-btn"
+                  disabled={dataBusy}
+                  onClick={() => void onSwitchLibrary('open')}
+                >
+                  <FolderOpen size={ICON_SM} />
+                  <span>{libraryBusy ? '切换中…' : '打开其他资料库…'}</span>
+                </button>
+                <button
+                  type="button"
+                  className="dio-btn"
+                  disabled={dataBusy}
+                  onClick={() => void onSwitchLibrary('create')}
+                >
+                  <Plus size={ICON_SM} />
+                  <span>新建…</span>
+                </button>
+              </div>
+            </div>
+            <details className="settings-card-disclosure">
+              <DisclosureSummary>保存说明</DisclosureSummary>
+              <div className="dio-note">
+                <p>资料库保存交易、截图、策略、标签、随记与周复盘；本机配置仅保存{electron ? '更新令牌、窗口位置、资料库路径与复盘轮次' : '当前复盘轮次'}。</p>
+              </div>
+            </details>
           </div>
         </section>
       )}
 
-      <details className="dio-disclosure">
-        <DisclosureSummary>保存说明</DisclosureSummary>
-        <div className="dio-task-list">
-          <div className="dio-task">
-            <Database size={ICON_LG} className="dio-task-icon" />
-            <div className="dio-task-copy">
-              <div className="dio-task-title">自动保存到当前资料库</div>
-              <div className="dio-task-meta">交易、案例、策略、设置与笔记图片</div>
+      <section className="settings-group dio-group" aria-labelledby="dio-export-title">
+        <div className="settings-group-head">
+          <h2 id="dio-export-title" className="dio-group-title">导出与恢复</h2>
+        </div>
+        <div className="settings-card">
+          <div className="dio-task-list">
+            <div className="dio-task">
+              <Package size={ICON_MD} className="dio-task-icon" />
+              <div className="dio-task-copy">
+                <div className="dio-task-title">完整备份</div>
+                <div className="dio-task-meta">全部数据与原始图片</div>
+              </div>
+              <button type="button" className="dio-btn" onClick={onExportZip}>
+                <span>导出 .journal.zip</span>
+              </button>
+            </div>
+
+            <div className="dio-task">
+              <Download size={ICON_MD} className="dio-task-icon" />
+              <div className="dio-task-copy">
+                <div className="dio-task-title">JSON 副本</div>
+                <div className="dio-task-meta">结构化交易数据</div>
+              </div>
+              <button type="button" className="dio-btn" onClick={onExportJson}>
+                <span>导出 JSON</span>
+              </button>
+            </div>
+
+            <div className="dio-task">
+              <Archive size={ICON_MD} className="dio-task-icon" />
+              <div className="dio-task-copy">
+                <div className="dio-task-title">从归档恢复</div>
+                <div className="dio-task-meta">.journal.zip 完整备份</div>
+              </div>
+              <button
+                type="button"
+                ref={archiveTriggerRef}
+                className="dio-btn"
+                disabled={dataBusy}
+                onClick={electron ? onImportZip : () => archiveFileRef.current?.click()}
+              >
+                <span>{archivePreparing ? '检查中…' : '选择归档…'}</span>
+              </button>
             </div>
           </div>
-          {electron && (
-            <div className="dio-task">
-              <Shield size={ICON_LG} className="dio-task-icon" />
-              <div className="dio-task-copy">
-                <div className="dio-task-title">自动备份</div>
-                <div className="dio-task-meta">每 15 分钟及退出前保存</div>
+
+          <details className="settings-card-disclosure">
+            <DisclosureSummary>导入其他来源</DisclosureSummary>
+            <div className="dio-task-list">
+              <div className="dio-task">
+                <Upload size={ICON_MD} className="dio-task-icon" />
+                <div className="dio-task-copy">
+                  <div className="dio-task-title">Trader Atlas JSON</div>
+                  <div className="dio-task-meta">合并交易、策略与嵌入图片</div>
+                </div>
+                <button type="button" className="dio-btn" disabled={dataBusy} onClick={() => fileRef.current?.click()}>
+                  <span>选择文件</span>
+                </button>
+              </div>
+              <div className="dio-task">
+                <FileSpreadsheet size={ICON_MD} className="dio-task-icon" />
+                <div className="dio-task-copy">
+                  <div className="dio-task-title">CSV 交易日志</div>
+                  <div className="dio-task-meta">自动识别中英文列名</div>
+                </div>
+                <button type="button" className="dio-btn" disabled={dataBusy} onClick={() => setCsvOpen(true)}>
+                  <span>导入 CSV</span>
+                </button>
+              </div>
+              <div className="dio-task">
+                <BookOpen size={ICON_MD} className="dio-task-icon" />
+                <div className="dio-task-copy">
+                  <div className="dio-task-title">Notion</div>
+                  <div className="dio-task-meta">导入数据库、正文与截图</div>
+                </div>
+                <button type="button" className="dio-btn" disabled={dataBusy} onClick={() => setNotionOpen(true)}>
+                  <span>从 Notion 导入</span>
+                </button>
               </div>
             </div>
-          )}
-          <div className="dio-task">
-            <LockKeyhole size={ICON_LG} className="dio-task-icon" />
-            <div className="dio-task-copy">
-              <div className="dio-task-title">{electron ? '仅保留在这台电脑' : '仅保留在当前浏览器'}</div>
-              <div className="dio-task-meta">{electron ? '更新令牌、窗口位置、资料库路径与复盘轮次' : '当前复盘轮次'}</div>
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <section className="dio-group" aria-labelledby="dio-export-title">
-        <div className="dio-group-head">
-          <h2 id="dio-export-title" className="dio-group-title">
-            备份与导出
-          </h2>
-        </div>
-        <div className="dio-task-list">
-          <div className="dio-task dio-task-primary">
-            <Package size={ICON_LG} className="dio-task-icon" />
-            <div className="dio-task-copy">
-              <div className="dio-task-title">完整备份</div>
-              <div className="dio-task-meta">全部数据与原始图片 · 推荐</div>
-            </div>
-            <button type="button" className="dio-btn" onClick={onExportZip}>
-              <span>导出 .journal.zip</span>
-            </button>
-          </div>
-          <div className="dio-task">
-            <Download size={ICON_LG} className="dio-task-icon" />
-            <div className="dio-task-copy">
-              <div className="dio-task-title">JSON 数据副本</div>
-              <div className="dio-task-meta">结构化数据，不含个人资料与快捷键</div>
-            </div>
-            <button type="button" className="dio-btn" onClick={onExportJson}>
-              <span>导出 JSON</span>
-            </button>
-          </div>
+          </details>
         </div>
       </section>
 
-      <details className="dio-group dio-disclosure">
-        <DisclosureSummary id="dio-import-title" className="dio-group-title">导入与迁移</DisclosureSummary>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".json,application/json"
-          className="dio-file-input"
-          onChange={onFileChange}
-        />
-        {!electron && (
-          <input
-            ref={archiveFileRef}
-            type="file"
-            accept=".journal.zip,.zip,application/zip"
-            className="dio-file-input"
-            onChange={onWebArchiveChange}
-          />
-        )}
-        <div className="dio-task-list">
-          <div className="dio-task">
-            <Upload size={ICON_LG} className="dio-task-icon" />
-            <div className="dio-task-copy">
-              <div className="dio-task-title">Trader Atlas JSON</div>
-              <div className="dio-task-meta">合并交易、策略、标签与嵌入图片到当前资料库</div>
-            </div>
-            <button type="button" className="dio-btn" disabled={dataBusy} onClick={() => fileRef.current?.click()}>
-              <span>选择文件</span>
-            </button>
-          </div>
-          <div className="dio-task">
-            <FileSpreadsheet size={ICON_LG} className="dio-task-icon" />
-            <div className="dio-task-copy">
-              <div className="dio-task-title">其他交易日志</div>
-              <div className="dio-task-meta">导入 CSV，自动识别中英文列名</div>
-            </div>
-            <button type="button" className="dio-btn" disabled={dataBusy} onClick={() => setCsvOpen(true)}>
-              <span>导入 CSV</span>
-            </button>
-          </div>
-          <div className="dio-task">
-            <BookOpen size={ICON_LG} className="dio-task-icon" />
-            <div className="dio-task-copy">
-              <div className="dio-task-title">Notion</div>
-              <div className="dio-task-meta">导入数据库、页面正文与截图</div>
-            </div>
-            <button type="button" className="dio-btn" disabled={dataBusy} onClick={() => setNotionOpen(true)}>
-              <span>从 Notion 导入</span>
-            </button>
-          </div>
+      <section className="settings-group" aria-labelledby="dio-dup-title">
+        <div className="settings-group-head">
+          <h2 id="dio-dup-title" className="dio-group-title">维护工具</h2>
         </div>
-      </details>
-
-      <details className="dio-group dio-disclosure">
-        <DisclosureSummary id="dio-dup-title" className="dio-group-title">重复检测</DisclosureSummary>
-        <div className="dio-task-list">
+        <div className="settings-card">
           <div className="dio-task">
-            <Search size={ICON_LG} className="dio-task-icon" />
+            <Search size={ICON_MD} className="dio-task-icon" />
             <div className="dio-task-copy">
-              <div className="dio-task-title">扫描资料库内重复</div>
-              <div className="dio-task-meta">对照笔记正文与截图指纹</div>
+              <div className="dio-task-title">重复检测</div>
+              <div className="dio-task-meta">对照正文与截图指纹扫描重复记录</div>
             </div>
             <button
               type="button"
@@ -540,86 +547,90 @@ export function DataIOContent({
               <span>{dupScanning ? '扫描中…' : '开始扫描'}</span>
             </button>
           </div>
-        </div>
-        {dupGroups && (
-          <div className="dio-dup-panel">
-            {dupGroups.length === 0 ? (
-              <p className="dio-desc">没有发现明显重复。</p>
-            ) : (
-              <>
-                <p className="dio-desc">
-                  共 {dupGroups.length} 组。清理时保留较新的一条，其余移入回收站。
-                </p>
-                <ul className="dio-dup-list">
-                  {dupGroups.slice(0, 12).map((group) => {
-                    const members = group.memberIds
-                      .map((id) => trades.find((trade) => trade.id === id))
-                      .filter(Boolean)
-                    return (
-                      <li key={group.id}>
-                        <span className="dio-dup-reason">{duplicateReasonLabel(group.reason)}</span>
-                        <span>
-                          保留 {members.find((m) => m?.id === group.keepId)?.ref ?? '—'}，另有{' '}
-                          {group.memberIds.length - 1} 条：
-                          {members
-                            .filter((m) => m?.id !== group.keepId)
-                            .map((m) => m?.ref)
-                            .join('、')}
-                        </span>
-                      </li>
-                    )
-                  })}
-                </ul>
-                {dupGroups.length > 12 && (
-                  <p className="dio-desc">另有 {dupGroups.length - 12} 组未展开显示。</p>
-                )}
-                <button
-                  type="button"
-                  className="dio-btn dio-btn-warn"
-                  onClick={onCleanDuplicates}
-                  disabled={dupCleaning}
-                >
-                  <Trash2 size={ICON_MD} />
-                  <span>
-                    {dupCleaning
-                      ? '清理中…'
-                      : `清理 ${dupGroups.reduce((n, g) => n + g.memberIds.length - 1, 0)} 条重复`}
-                  </span>
-                </button>
-              </>
-            )}
-          </div>
-        )}
-      </details>
 
-      <section className="dio-group" aria-labelledby="dio-restore-title">
-        <div className="dio-group-head">
-          <h2 id="dio-restore-title" className="dio-group-title">
-            恢复资料库
-          </h2>
-          <p className="dio-group-desc">
-            从完整备份恢复数据与附件
-          </p>
-        </div>
-        <div className="dio-task-list">
-          <div className="dio-task">
-            <Archive size={ICON_LG} className="dio-task-icon" />
-            <div className="dio-task-copy">
-              <div className="dio-task-title">选择归档文件</div>
-              <div className="dio-task-meta">.journal.zip 完整备份</div>
+          {dupGroups && (
+            <div className="dio-dup-panel">
+              {dupGroups.length === 0 ? (
+                <p className="dio-desc">没有发现明显重复。</p>
+              ) : (
+                <>
+                  <p className="dio-desc">
+                    共 {dupGroups.length} 组。清理时保留较新的一条，其余移入回收站。
+                  </p>
+                  <ul className="dio-dup-list">
+                    {dupGroups.slice(0, 12).map((group) => {
+                      const members = group.memberIds
+                        .map((id) => trades.find((trade) => trade.id === id))
+                        .filter(Boolean)
+                      return (
+                        <li key={group.id}>
+                          <span className="dio-dup-reason">{duplicateReasonLabel(group.reason)}</span>
+                          <span>
+                            保留 {members.find((m) => m?.id === group.keepId)?.ref ?? '—'}，另有{' '}
+                            {group.memberIds.length - 1} 条：
+                            {members
+                              .filter((m) => m?.id !== group.keepId)
+                              .map((m) => m?.ref)
+                              .join('、')}
+                          </span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  {dupGroups.length > 12 && (
+                    <p className="dio-desc">另有 {dupGroups.length - 12} 组未展开显示。</p>
+                  )}
+                  <div className="dio-dup-actions">
+                    <button
+                      type="button"
+                      className="dio-btn dio-btn-warn"
+                      onClick={onCleanDuplicates}
+                      disabled={dupCleaning}
+                    >
+                      <Trash2 size={ICON_SM} />
+                      <span>
+                        {dupCleaning
+                          ? '清理中…'
+                          : `清理 ${dupGroups.reduce((n, g) => n + g.memberIds.length - 1, 0)} 条重复`}
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
-            <button
-              type="button"
-              ref={archiveTriggerRef}
-              className="dio-btn"
-              disabled={dataBusy}
-              onClick={electron ? onImportZip : () => archiveFileRef.current?.click()}
-            >
-              <span>{archivePreparing ? '正在检查归档…' : '选择 .journal.zip'}</span>
-            </button>
-          </div>
+          )}
+
+          <details className="settings-card-disclosure">
+            <DisclosureSummary>保存机制说明</DisclosureSummary>
+            <div className="dio-task-list">
+              <div className="dio-task">
+                <Database size={ICON_MD} className="dio-task-icon" />
+                <div className="dio-task-copy">
+                  <div className="dio-task-title">实时写入当前资料库</div>
+                  <div className="dio-task-meta">交易、案例、策略、设置与原图</div>
+                </div>
+              </div>
+              {electron && (
+                <div className="dio-task">
+                  <Shield size={ICON_MD} className="dio-task-icon" />
+                  <div className="dio-task-copy">
+                    <div className="dio-task-title">自动备份</div>
+                    <div className="dio-task-meta">每 15 分钟及退出前自动验证保存</div>
+                  </div>
+                </div>
+              )}
+              <div className="dio-task">
+                <LockKeyhole size={ICON_MD} className="dio-task-icon" />
+                <div className="dio-task-copy">
+                  <div className="dio-task-title">{electron ? '仅留存本机' : '仅留存当前浏览器'}</div>
+                  <div className="dio-task-meta">{electron ? '窗口位置、资料库路径与复盘进度' : '当前复盘进度'}</div>
+                </div>
+              </div>
+            </div>
+          </details>
         </div>
       </section>
+
       <CsvImportModal open={csvOpen} onClose={() => setCsvOpen(false)} />
       <NotionImportModal open={notionOpen} onClose={() => setNotionOpen(false)} />
       {pendingLibrarySwitch ? (

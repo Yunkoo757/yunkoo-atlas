@@ -269,8 +269,8 @@ export function ReviewPoolManagerModal({
     </ModalShell>
     {deleteTarget ? (
       <ModalShell
-        title={`删除复盘池“${deleteTarget.name}”？`}
-        description="此复盘池的筛选配置将被永久删除，池中的交易和案例仍可在原处查看。"
+        title={`删除复盘池「${deleteTarget.name}」？`}
+        description="此复盘池的筛选配置将被永久删除，池中的交易和案例仍可在原处查看"
         size="compact"
         onClose={() => setDeleteTarget(null)}
         footer={(

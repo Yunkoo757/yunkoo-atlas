@@ -118,12 +118,14 @@ function RepairBucket({ title, description, groups, activeGroup, onOpen }: {
 }) {
   if (groups.length === 0) return null
   return (
-    <section className="settings-page-section risk-repair-bucket">
-      <div className="settings-page-head">
-        <h2 className="settings-section-title">{title}</h2>
-        {description ? <p className="settings-section-desc">{description}</p> : null}
+    <section className="settings-group risk-repair-bucket">
+      <div className="settings-group-head">
+        <div>
+          <h2 className="settings-section-title">{title}</h2>
+          {description ? <p className="settings-section-desc">{description}</p> : null}
+        </div>
       </div>
-      <div className="risk-repair-groups">
+      <div className="settings-card risk-repair-groups">
         {groups.map((group) => (
           <RepairGroup key={group.key} group={group} expanded={activeGroup?.key === group.key} onOpen={onOpen} />
         ))}
@@ -167,7 +169,7 @@ export function RiskDataRepairView() {
   const completenessGroups = queue.groups.filter((group) => group.bucket === 'completeness' && !group.retained)
 
   return (
-    <div className="settings-page settings-page--reading risk-data-repair-view" data-risk-data-repair-view>
+    <div className="settings-page settings-page--form risk-data-repair-view" data-risk-data-repair-view>
       <div className="settings-page-head risk-repair-hero">
         <div>
           <Link className="risk-repair-back" to="/settings/risk">

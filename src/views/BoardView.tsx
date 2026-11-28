@@ -429,15 +429,19 @@ function BoardColumnBody({
                     </span>
                   ) : null}
                 </div>
-                <div className="bd-card-strategy">
-                  <StrategyLabel strategyId={t.strategyId} strategies={strategies} size={ICON_SM} variant="nav" />
-                </div>
-                <div className="bd-case-tags">
+                <div className="bd-card-footer">
+                  <div className="bd-card-strategy">
+                    <StrategyLabel strategyId={t.strategyId} strategies={strategies} size={ICON_SM} variant="nav" />
+                  </div>
                   <span className="bd-case-tag bd-card-timeframe">
                     {resolveTimeframe(t.timeframe)}
                   </span>
-                  {isReviewCaseView && <BoardCardTags errors={t.mistakeTags} tags={t.tags} />}
                 </div>
+                {isReviewCaseView && (t.mistakeTags.length > 0 || t.tags.length > 0) ? (
+                  <div className="bd-case-tags">
+                    <BoardCardTags errors={t.mistakeTags} tags={t.tags} />
+                  </div>
+                ) : null}
               </article>
             </div>
           )

@@ -102,7 +102,12 @@ export function AssetPurgeControl({ hasOrphans, commitEnabled = rendererAllowsAs
   return (
     <>
       {hasOrphans ? (
-        <div className="data-actions-row is-top">
+        <div className="data-actions-row">
+          <p className="data-support-note">
+            {commitEnabled
+              ? '清理当前资料库中未被任何内容引用的孤立附件'
+              : '当前已关闭永久清理，仅支持候选预览与恢复归档导出'}
+          </p>
           <button
             type="button"
             ref={trigger}
@@ -113,11 +118,6 @@ export function AssetPurgeControl({ hasOrphans, commitEnabled = rendererAllowsAs
             <Trash2 size={ICON_SM} />
             <span>{busy ? '扫描中…' : '清理孤立附件'}</span>
           </button>
-          <p className="data-support-note">
-            {commitEnabled
-              ? '只处理当前资料库中未被任何内容引用的附件；恢复归档可按需导出。'
-              : '当前已关闭永久清理，只提供候选预览和恢复归档导出。'}
-          </p>
         </div>
       ) : null}
       {preview ? (

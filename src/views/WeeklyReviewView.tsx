@@ -17,6 +17,7 @@ import {
   useNavigate,
 } from 'react-router-dom'
 import { Editor } from '@/editor/Editor'
+import { EmptyState } from '@/components/EmptyState'
 import { NoteLoadRecovery } from '@/components/NoteLoadRecovery'
 import {
   Check,
@@ -799,7 +800,7 @@ function WeeklyReviewWorkspace({ header, librarySession }: WeeklyReviewProps & {
                     />
                   </div>
                 </header>
-                <YearTrend period={period} reviews={scopedYearReviews} data={trendData} />
+                <YearTrend period={period} reviews={scopedYearReviews} data={trendData} onReturnToReview={() => changeTab('review')} />
               </div>
             </div>
           ) : (
@@ -1152,7 +1153,7 @@ function TagGroup({ tone, title, options, selected, onChange, counts }: { tone: 
   )
 }
 
-function YearTrend({ period, reviews, data }: { period: ReturnType<typeof weeklyReviewYear>; reviews: WeeklyReview[]; data: ReturnType<typeof buildWeeklyReviewTrend> }) {
+function YearTrend({ period, reviews, data, onReturnToReview }: { period: ReturnType<typeof weeklyReviewYear>; reviews: WeeklyReview[]; data: ReturnType<typeof buildWeeklyReviewTrend>; onReturnToReview: () => void }) {
   const completed = reviews.filter((review) => review.status === 'completed')
   const averages = completed.map(weeklyReviewScoreAverage).filter((score): score is number => score !== null)
   const average = averages.length ? averages.reduce((sum, score) => sum + score, 0) / averages.length : null
@@ -1163,8 +1164,12 @@ function YearTrend({ period, reviews, data }: { period: ReturnType<typeof weekly
     return (
       <div className="wr-year-body">
         <section className="wr-year-empty" aria-label="年度趋势尚未开始">
-          <h2 className="wr-subheading">还没有完成的周复盘</h2>
-          <p>完成一篇周复盘后，这里会记录你的年度进度。</p>
+          <EmptyState
+            variant="first-use"
+            title="还没有完成的周复盘"
+            hint="完成一篇周复盘后，这里会记录你的年度进度。"
+            action={<Button variant="primary" onClick={onReturnToReview}>前往本周复盘</Button>}
+          />
         </section>
       </div>
     )
