@@ -42,13 +42,16 @@ export function UpdatesSettingsPanel() {
   useEffect(() => {
     if (!electron) return
     const bridge = getJournalBridge()!
-    let active = true
-    void bridge.getUpdateState().then((nextState) => {
-      if (active) setState(nextState)
+    let acceptInitialState = true
+    const unsubscribe = bridge.onUpdateState(nextState => {
+      acceptInitialState = false
+      setState(nextState)
     })
-    const unsubscribe = bridge.onUpdateState((nextState) => setState(nextState))
+    void bridge.getUpdateState().then(nextState => {
+      if (acceptInitialState) setState(nextState)
+    })
     return () => {
-      active = false
+      acceptInitialState = false
       unsubscribe()
     }
   }, [electron])
