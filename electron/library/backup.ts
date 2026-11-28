@@ -194,7 +194,7 @@ export function createBackup(storage: LibraryStorage, options: BackupOptions = {
     safeConsoleError('backup-create-failed', err)
     return null
   }
-  if (backup && options.rotate) rotateBackups(storage.getPaths().backups)
+  if (backup && options.rotate) rotateBackups(storage.getPaths().backups, { preserve: backup })
   return backup
 }
 
@@ -225,11 +225,7 @@ export function selectedBackupFile(storage: LibraryStorage, reference: BackupRef
 export function listBackups(storage: LibraryStorage): BackupInfo[] {
   const { backups } = storage.getPaths()
   const lifecycleId = storage.getLifecycleId()
-  if (!fs.existsSync(backups)) return []
-
-  return fs
-    .readdirSync(backups)
-    .filter((f) => f.startsWith('journal-') && f.endsWith('.db'))
+  return backupDbFiles(backups)
     .map((f) => {
       const fp = path.join(backups, f)
       const stat = fs.statSync(fp)
@@ -384,75 +380,41 @@ export function restoreBackupAtPath(
   }
 }
 
+interface BackupRetention {
+  preserve?: string
+  maxCount?: number
+  maxTotalSize?: number
+}
+
 export function rotateBackups(
   backupsDir: string,
-  maxCount: number = DEFAULT_MAX_BACKUPS,
-  maxTotalSize: number = DEFAULT_MAX_TOTAL_SIZE,
+  { preserve, maxCount = DEFAULT_MAX_BACKUPS, maxTotalSize = DEFAULT_MAX_TOTAL_SIZE }: BackupRetention = {},
 ): void {
   try {
-    if (!fs.existsSync(backupsDir)) return
-    const files = fs
-      .readdirSync(backupsDir)
-      .filter((f) => f.startsWith('journal-') && f.endsWith('.db'))
-      .map((f) => {
-        const fp = path.join(backupsDir, f)
-        const meta = tryReadBackupMeta(fp)
-        return {
-          name: f,
-          path: fp,
-          timestamp: parseTimestampFromName(f) || 0,
-          tradeCount: typeof meta?.tradeCount === 'number' ? meta.tradeCount : -1,
-          verified: meta?.verification?.status === 'verified',
-        }
-      })
-      .sort((a, b) => b.timestamp - a.timestamp) // 最新在前
+    const files = backupDbFiles(backupsDir).map(name => {
+      const file = path.join(backupsDir, name)
+      const meta = tryReadBackupMeta(file)
+      return {
+        path: file,
+        timestamp: parseTimestampFromName(name) || 0,
+        nonEmpty: typeof meta?.tradeCount === 'number' && meta.tradeCount > 0,
+        verified: meta?.verification?.status === 'verified',
+      }
+    }).sort((a, b) => b.timestamp - a.timestamp)
 
-    // 优先保留有交易的备份，避免空库备份把好备份挤掉
-    const keep = new Set<string>()
-    const newestPath = files[0]?.path
-    if (newestPath) keep.add(newestPath)
-    const verifiedNonEmpty = files
-      .filter((file) => file.path !== newestPath && file.verified && file.tradeCount > 0)
-      .sort((a, b) => b.timestamp - a.timestamp)
-    const nonEmpty = files
-      .filter((file) => file.path !== newestPath && !file.verified && file.tradeCount > 0)
-      .sort((a, b) => b.timestamp - a.timestamp)
-    const verifiedEmptyOrUnknown = files
-      .filter((file) => file.path !== newestPath && file.verified && file.tradeCount <= 0)
-      .sort((a, b) => b.timestamp - a.timestamp)
-    const emptyOrUnknown = files
-      .filter((file) => file.path !== newestPath && !file.verified && file.tradeCount <= 0)
-      .sort((a, b) => b.timestamp - a.timestamp)
-    for (const file of [...verifiedNonEmpty, ...nonEmpty, ...verifiedEmptyOrUnknown, ...emptyOrUnknown]) {
-      if (keep.size >= Math.max(1, maxCount)) break
-      keep.add(file.path)
-    }
-
-    const toDelete = new Set<string>()
-    for (const file of files) {
-      if (!keep.has(file.path)) toDelete.add(file.path)
-    }
-
-    for (const p of toDelete) {
-      deleteBackupFiles(p)
-      keep.delete(p)
-    }
+    // 写入时保留本次回执；启动轮换没有回执，按原有规则保留日期最新的一份。
+    const protectedFile = files.find(file => file.path === preserve) ?? files[0]
+    const candidates = files.filter(file => file !== protectedFile).sort((a, b) =>
+      Number(b.nonEmpty) - Number(a.nonEmpty) ||
+      Number(b.verified) - Number(a.verified) ||
+      b.timestamp - a.timestamp,
+    )
+    const slots = Math.max(0, Math.ceil(maxCount) - 1)
+    for (const file of candidates.slice(slots)) deleteBackupFiles(file.path)
     pruneBackupAssetVault(backupsDir)
 
-    // 总容量包含数据库、清单、元数据与去重附件；超限时先删空备份，再删最旧备份。
-    const capacityCandidates = files
-      .filter(
-        (file) =>
-          keep.has(file.path) && file.path !== newestPath && fs.existsSync(file.path),
-      )
-      .sort((left, right) => {
-        const leftEmpty = left.tradeCount <= 0
-        const rightEmpty = right.tradeCount <= 0
-        if (leftEmpty !== rightEmpty) return leftEmpty ? -1 : 1
-        if (left.verified !== right.verified) return left.verified ? 1 : -1
-        return left.timestamp - right.timestamp
-      })
-    for (const file of capacityCandidates) {
+    // 总容量包含数据库、清单、元数据与去重附件。按同一优先级从末尾回收。
+    for (const file of candidates.slice(0, slots).reverse()) {
       if (backupTotalSize(backupsDir) <= maxTotalSize) break
       deleteBackupFiles(file.path)
       pruneBackupAssetVault(backupsDir)

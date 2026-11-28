@@ -5,7 +5,7 @@ import path from 'node:path'
 import initSqlJs from 'sql.js'
 import { DEFAULT_SYMBOL_CATALOG } from '../../src/lib/symbolIconCodec'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
-import { createVerifiedBackup, deleteBackupAtPath, listBackups, restoreBackupAtPath, verifyBackupAtPath, writeLibraryBackup } from './backup'
+import { createVerifiedBackup, deleteBackupAtPath, listBackups, restoreBackupAtPath, rotateBackups, verifyBackupAtPath, writeLibraryBackup } from './backup'
 import { restoreLibraryBackup } from './backupRestore'
 import { LibraryOperationGate } from './sessionGate'
 import { LibraryStorage, SnapshotSaveError } from './storage'
@@ -250,6 +250,26 @@ export async function testBackupWithMatchingChecksumAndUnreadableRevisionCannotR
     assert.deepEqual(fs.readFileSync(file), before)
     assert.equal(f.active()?.getSnapshotRevision(), 2)
     assert.deepEqual(f.active()?.loadSnapshot()?.tagPresets, ['active'])
+  } finally { f.dispose() }
+}
+
+export async function testRotatingBackupRetainsCurrentSnapshotAfterClockMovesBack() {
+  const f = await isolatedSession()
+  try {
+    f.first.saveSnapshot({ ...createEmptyPersistedSnapshot(), tagPresets: ['previous'] })
+    for (let day = 1; day <= 7; day++) {
+      assert.ok(writeLibraryBackup(f.first, Date.UTC(2100, 0, day)))
+    }
+    f.first.saveSnapshot({ ...createEmptyPersistedSnapshot(), tagPresets: ['current'] })
+    const manual = await createVerifiedBackup(f.first, { rotate: true })
+    assert.equal(manual?.status, 'verified', '轮换后刚创建的恢复点必须仍可校验')
+    assert.ok(manual && fs.existsSync(manual.path))
+    assert.equal(listBackups(f.first).length, 7)
+    rotateBackups(f.first.getPaths().backups, { preserve: manual.path, maxTotalSize: 1 })
+    assert.deepEqual(listBackups(f.first).map(backup => backup.name), [path.basename(manual.path)])
+    const restored = await restoreLibraryBackup(manual.path, f.session)
+    assert.ok(restored.ok)
+    assert.deepEqual(restored.snapshot.tagPresets, ['current'])
   } finally { f.dispose() }
 }
 

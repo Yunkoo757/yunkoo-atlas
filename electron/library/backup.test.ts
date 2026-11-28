@@ -457,7 +457,7 @@ export function testBackupRotationKeepsLatestRestorePointAndItsAttachments(): vo
     writeLibraryBackup(counts, Date.UTC(2026, 6, 13, 10, 0, 0))
 
     const backups = path.join(root, 'backups')
-    rotateBackups(backups, 1, 1024 * 1024)
+    rotateBackups(backups, { maxCount: 1, maxTotalSize: 1024 * 1024 })
     const dbFiles = fs.readdirSync(backups).filter((name) => name.endsWith('.db'))
     assert(dbFiles.length === 1 && dbFiles[0]!.includes('10-00-00'), '轮换应保留最新恢复点')
     const vaultFiles = fs.readdirSync(path.join(backups, 'assets'))
@@ -488,7 +488,7 @@ export function testBackupRotationPrefersAUserVerifiedRestorePoint(): void {
     meta.verification = { status: 'verified', checkedAt: Date.UTC(2026, 6, 13, 8, 5, 0) }
     fs.writeFileSync(verified + '.meta.json', JSON.stringify(meta), 'utf8')
 
-    rotateBackups(path.join(root, 'backups'), 2)
+    rotateBackups(path.join(root, 'backups'), { maxCount: 2 })
 
     assert(fs.existsSync(newest), '轮换必须保留最新恢复点')
     assert(fs.existsSync(verified), '剩余名额必须优先保留已经验证的恢复点')
@@ -519,7 +519,7 @@ export function testBackupRotationKeepsANonEmptyRestorePointAheadOfVerifiedEmpty
       fs.writeFileSync(backup + '.meta.json', JSON.stringify(meta), 'utf8')
     }
 
-    rotateBackups(path.join(root, 'backups'), 2)
+    rotateBackups(path.join(root, 'backups'), { maxCount: 2 })
 
     assert(fs.existsSync(newestEmpty), '轮换仍应保留最新恢复点')
     assert(fs.existsSync(nonEmpty), '空库恢复点不得挤掉最后一个非空恢复点')
@@ -587,7 +587,7 @@ export function testBackupRotationNeverDeletesTheOnlyLatestRestorePoint(): void 
     )
 
     const backups = path.join(root, 'backups')
-    rotateBackups(backups, 7, 1)
+    rotateBackups(backups, { maxCount: 7, maxTotalSize: 1 })
     assert(
       fs.readdirSync(backups).filter((name) => name.endsWith('.db')).length === 1,
       '即使单份图片超过容量建议值，也必须保留最新恢复点',

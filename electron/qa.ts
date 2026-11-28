@@ -272,7 +272,7 @@ export async function runElectronQa(): Promise<QaCheck[]> {
         'utf8',
       )
     }
-    rotateBackups(rotationDir, 2, 1024)
+    rotateBackups(rotationDir, { maxCount: 2, maxTotalSize: 1024 })
     record(
       'backup rotation preserves non-empty history before empty copies',
       fs.existsSync(path.join(rotationDir, oldNonEmpty)) &&
