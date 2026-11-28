@@ -9,6 +9,9 @@ import { getIndexedDbAdapter } from '@/storage/indexedDbAdapter'
 import { decodeCanonicalSnapshot } from '@/storage/snapshotCodec'
 import { createNewLibrarySnapshot } from '@/storage/emptySnapshot'
 
+type MigrationTarget = Pick<StorageAdapter, 'loadSnapshot' | 'commitImport'>
+type BrowserMigrationSource = MigrationTarget & Pick<StorageAdapter, 'open' | 'getAssetForExport'>
+
 interface ZustandPersistEnvelope {
   state?: {
     trades?: PersistedSnapshot['trades']
@@ -81,7 +84,7 @@ export async function externalizeSnapshotNotes(
 }
 
 async function commitLegacySnapshot(
-  adapter: StorageAdapter,
+  adapter: Pick<MigrationTarget, 'commitImport'>,
   snapshot: PersistedSnapshot,
   assets: LibraryImportAsset[],
   signal?: AbortSignal,
@@ -99,7 +102,7 @@ async function commitLegacySnapshot(
 }
 
 export async function migrateFromLocalStorageIfNeeded(
-  adapter: StorageAdapter,
+  adapter: MigrationTarget,
   signal?: AbortSignal,
 ): Promise<boolean> {
   signal?.throwIfAborted()
@@ -125,8 +128,8 @@ export async function migrateFromLocalStorageIfNeeded(
 
 /** Electron 首次启动：从 IndexedDB（或种子数据）迁入本地库文件夹 */
 export async function migrateElectronLibraryIfNeeded(
-  adapter: StorageAdapter,
-  indexedDbAdapter: StorageAdapter = getIndexedDbAdapter(),
+  adapter: MigrationTarget,
+  indexedDbAdapter: BrowserMigrationSource = getIndexedDbAdapter(),
   signal?: AbortSignal,
 ): Promise<boolean> {
   signal?.throwIfAborted()

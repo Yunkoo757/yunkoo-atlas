@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
-import type { StorageAdapter } from './adapter'
 import type { PersistedSnapshot } from './types'
 import { LEGACY_LOCAL_STORAGE_KEY } from './legacyIdentity'
 import { migrateFromLocalStorageIfNeeded } from './migrate'
 
+type MigrationTarget = Parameters<typeof migrateFromLocalStorageIfNeeded>[0]
+
 async function isolatedLegacy(raw: string | null, run: (context: {
-  adapter: StorageAdapter
+  adapter: MigrationTarget
   saved: PersistedSnapshot[]
   legacy: Map<string, string>
 }) => Promise<void>) {
@@ -17,11 +18,10 @@ async function isolatedLegacy(raw: string | null, run: (context: {
     removeItem: (key: string) => { legacy.delete(key) },
   } })
   const saved: PersistedSnapshot[] = []
-  const adapter = {
+  const adapter: MigrationTarget = {
     loadSnapshot: async () => null,
-    saveSnapshot: async (value: PersistedSnapshot) => { saved.push(value) },
-    saveAsset: async () => { assert.fail('验证失败前不能写入附件') },
-  } as unknown as StorageAdapter
+    commitImport: async (value, assets) => { assert.equal(assets.length, 0); saved.push(value) },
+  }
   try { await run({ adapter, saved, legacy }) } finally {
     if (previous) Object.defineProperty(globalThis, 'localStorage', previous)
     else Reflect.deleteProperty(globalThis, 'localStorage')
@@ -48,7 +48,7 @@ export async function testAbsentLegacyDataStillInitializesTheDefaultSnapshot() {
 export async function testValidLegacyDataRemainsWhenTheDestinationSaveFails() {
   const raw = '{"state":{"trades":[],"strategies":[]}}'
   await isolatedLegacy(raw, async ({ adapter, legacy }) => {
-    adapter.saveSnapshot = async () => { throw new Error('disk unavailable') }
+    adapter.commitImport = async () => { throw new Error('disk unavailable') }
     await assert.rejects(migrateFromLocalStorageIfNeeded(adapter), /disk unavailable/)
     assert.equal(legacy.get(LEGACY_LOCAL_STORAGE_KEY), raw)
   })

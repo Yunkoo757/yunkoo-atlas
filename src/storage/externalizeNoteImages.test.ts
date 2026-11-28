@@ -21,22 +21,12 @@ function savedImage(label: string, id: number): string {
 
 function memoryAdapter(beforeSave?: (index: number) => Promise<void>) {
   const calls: Array<{ blob: Blob; mime: string }> = []
-  const unexpected = async (): Promise<never> => { throw new Error('此回归只允许内存 saveAsset') }
-  const adapter: StorageAdapter = {
-    open: unexpected,
-    getManifest: unexpected,
-    loadSnapshot: unexpected,
-    saveSnapshot: unexpected,
+  const adapter: Pick<StorageAdapter, 'saveAsset'> = {
     async saveAsset(blob, mime) {
       const index = calls.push({ blob, mime })
       await beforeSave?.(index)
       return `isolated-asset-${index}`
     },
-    getAssetObjectUrl: unexpected,
-    getAssetForExport: unexpected,
-    getAssetStats: unexpected,
-    importAssets: unexpected,
-    commitImport: unexpected,
   }
   return {
     adapter,

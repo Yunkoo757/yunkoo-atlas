@@ -43,7 +43,6 @@ import {
   suspendPersist,
 } from '@/storage/persist'
 import { migrateFromLocalStorageIfNeeded } from '@/storage/migrate'
-import type { StorageAdapter } from '@/storage/adapter'
 import type { PersistedSnapshot } from '@/storage/types'
 import {
   noteDraftKey,
@@ -640,20 +639,13 @@ export async function testFirstInstallSnapshotPersistsApprovedDefaultProfile(): 
   })
   try {
     let saved: PersistedSnapshot | null = null
-    const adapter: StorageAdapter = {
-      open: async () => undefined,
-      getManifest: async () => { throw new Error('本测试不读取 manifest') },
+    const migrated = await migrateFromLocalStorageIfNeeded({
       loadSnapshot: async () => null,
-      saveSnapshot: async (snapshot) => { saved = snapshot },
-      saveAsset: async () => { throw new Error('空库不应写入附件') },
-      getAssetObjectUrl: async () => null,
-      getAssetForExport: async () => null,
-      getAssetStats: async () => ({ count: 0, totalBytes: 0, missingCount: 0 }),
-      importAssets: async () => undefined,
-      commitImport: async () => undefined,
-    }
-
-    const migrated = await migrateFromLocalStorageIfNeeded(adapter)
+      commitImport: async (candidate, assets) => {
+        assert(assets.length === 0, '默认资料库不应生成附件')
+        saved = candidate
+      },
+    })
     assert(migrated, '首次安装应生成并保存初始快照')
     if (saved === null) throw new Error('首次安装应写入可读取的初始快照')
     const snapshot: PersistedSnapshot = saved

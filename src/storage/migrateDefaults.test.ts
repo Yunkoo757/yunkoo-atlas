@@ -10,7 +10,7 @@ import {
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { DEFAULT_SYMBOL_CATALOG } from '@/lib/symbolIcons'
 import { snapshotToRuntimeState } from '@/storage/snapshotToRuntimeState'
-import type { LibraryImportAsset, StorageAdapter } from '@/storage/adapter'
+import type { LibraryImportAsset } from '@/storage/adapter'
 import {
   migrateElectronLibraryIfNeeded,
   migrateFromLocalStorageIfNeeded,
@@ -18,7 +18,6 @@ import {
 import { LEGACY_LOCAL_STORAGE_KEY } from '@/storage/legacyIdentity'
 import type {
   ExportAssetRecord,
-  LibraryManifest,
   PersistedSnapshot,
 } from '@/storage/types'
 import { useStore } from '@/store/useStore'
@@ -51,29 +50,19 @@ function snapshotWithEmptyTrades(
   }
 }
 
-class MemoryAdapter implements StorageAdapter {
+class MemoryAdapter {
   opened = 0
   saves = 0
 
   constructor(public snapshot: PersistedSnapshot | null) {}
 
   async open(): Promise<void> { this.opened += 1 }
-  async getManifest(): Promise<LibraryManifest> {
-    return { schemaVersion: 6, libraryId: 'test', createdAt: '2026-07-16' }
-  }
   async loadSnapshot(): Promise<PersistedSnapshot | null> { return this.snapshot }
-  async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {
+  async getAssetForExport(_id: string): Promise<ExportAssetRecord | null> { return null }
+  async commitImport(snapshot: PersistedSnapshot, _assets: LibraryImportAsset[]): Promise<void> {
     this.saves += 1
     this.snapshot = snapshot
   }
-  async saveAsset(): Promise<string> { throw new Error('空交易快照不应写附件') }
-  async getAssetObjectUrl(): Promise<string | null> { return null }
-  async getAssetForExport(_id: string): Promise<ExportAssetRecord | null> { return null }
-  async getAssetStats(): Promise<{ count: number; totalBytes: number; missingCount: number }> {
-    return { count: 0, totalBytes: 0, missingCount: 0 }
-  }
-  async importAssets(): Promise<void> {}
-  async commitImport(snapshot: PersistedSnapshot, _assets: LibraryImportAsset[]): Promise<void> { await this.saveSnapshot(snapshot) }
 }
 
 export function testNewLibraryDefaultsAreNeutralAndReferenceSafe(): void {
