@@ -123,7 +123,7 @@ export function writeLibraryBackup(
   now: number = Date.now(),
   options: { emptyLibrary?: boolean } = {},
 ): string | null {
-  const { backups, dbFile, manifestFile, attachments } = ensureLibraryDirs(storage.getLibraryPath())
+  const { backups, dbFile, attachments } = ensureLibraryDirs(storage.getLibraryPath())
   if (!fs.existsSync(dbFile)) return null
 
   let timestamp = now
@@ -135,9 +135,7 @@ export function writeLibraryBackup(
   try {
     const data = storage.captureLibraryExport('backup')
     writeFileAtomicallySync(dest, data.databaseBytes)
-    if (fs.existsSync(manifestFile)) {
-      fs.copyFileSync(manifestFile, backupManifestPath(dest))
-    }
+    writeFileAtomicallySync(backupManifestPath(dest), data.manifestBytes)
 
     // 只打包 assets 表声明的文件；Windows 延迟 GC 残留的孤儿不得进入恢复点。
     const attachmentFiles = listDeclaredAttachmentFiles(
@@ -160,9 +158,7 @@ export function writeLibraryBackup(
       attachmentCount: attachmentEntries.length,
       librarySizeBytes: fs.statSync(dest).size,
       databaseSha256: sha256File(dest),
-      ...(fs.existsSync(backupManifestPath(dest))
-        ? { manifestSha256: sha256File(backupManifestPath(dest)) }
-        : {}),
+      manifestSha256: sha256File(backupManifestPath(dest)),
       attachmentEntries,
       ...(options.emptyLibrary ? { emptyLibrary: true as const } : {}),
     }
@@ -183,7 +179,6 @@ interface BackupOptions {
 export function createBackup(storage: LibraryStorage, options: BackupOptions = {}): string | null {
   let backup: string | null
   try {
-    storage.readManifest()
     backup = writeLibraryBackup(storage, Date.now(), options)
   } catch (err) {
     safeConsoleError('backup-create-failed', err)
@@ -199,7 +194,8 @@ export async function createVerifiedBackup(
 ): Promise<CreatedBackupVerification | null> {
   const file = createBackup(storage, options)
   if (!file) return null
-  const verification = await verifyBackupAtPath(storage.getLibraryPath(), file, storage.readManifest().libraryId)
+  const target = storage.getOpenedTarget()
+  const verification = await verifyBackupAtPath(target.libraryPath, file, target.libraryId)
   return { ...verification, path: file }
 }
 

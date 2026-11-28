@@ -47,7 +47,6 @@ export async function exportJournalZip(
     `.${path.basename(destinationFile)}.${process.pid}.${randomUUID()}.tmp`,
   )
 
-  readCompatibleLibraryManifest(paths.manifestFile)
   const databaseStat = fs.lstatSync(paths.dbFile)
   if (databaseStat.isSymbolicLink() || !databaseStat.isFile()) {
     throw new Error('当前资料库数据库不是普通文件，无法安全导出')
@@ -69,7 +68,7 @@ export async function exportJournalZip(
     const archive = new ZipArchive({ zlib: { level: 9 } })
     const completed = pipeline(archive, output)
 
-    archive.file(paths.manifestFile, { name: 'manifest.json' })
+    archive.append(data.manifestBytes, { name: 'manifest.json' })
     archive.append(data.databaseBytes, { name: 'journal.db' })
 
     for (const { fileName, attachmentFile } of archiveAttachments) {

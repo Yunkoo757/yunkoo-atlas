@@ -1,6 +1,6 @@
 import { assertEmptyMigrationTarget, StorageRevisionConflictError, type LibraryImportOptions } from '../../src/storage/adapter'
 import { AssetPurgePreviews } from '../../src/storage/assetPurgePreviews'
-import { assertLibraryIdentity, readCompatibleLibraryManifest, type LibraryTarget } from './libraryIdentity'
+import { assertLibraryIdentity, parseCompatibleLibraryManifest, readCompatibleLibraryManifest, type LibraryTarget } from './libraryIdentity'
 import { nextSnapshotRevision, SNAPSHOT_REVISION_KEY } from '../../src/storage/snapshotRevision'
 import { CREATE_LIBRARY_TABLES_SQL, readDatabaseSnapshotRevision, resolveSnapshotVersion, isPortableAssetFileName, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import { stripRetiredSnapshotDomains } from '../../src/storage/retiredSnapshotDomains'
@@ -46,8 +46,14 @@ type ImportedAsset = Omit<LibraryImportAsset, 'data'> & { buffer: Buffer }
 type SnapshotImportOptions = LibraryImportOptions & { expectedSnapshotRevision?: number }
 
 interface LibraryExport {
+  manifestBytes: Buffer
   databaseBytes: Buffer
   attachments: Array<{ fileName: string; byteSize: number }>
+}
+
+interface LibraryBackupExport extends LibraryExport {
+  tradeCount: number
+  strategyCount: number
 }
 
 interface PreparedDatabaseCandidate {
@@ -564,18 +570,22 @@ export class LibraryStorage {
   }
 
   /** 数据库、附件索引及备份统计均取自同一磁盘候选。读取不会推进活动库的修订。 */
-  captureLibraryExport(format: 'backup'): LibraryExport & { tradeCount: number; strategyCount: number }
+  captureLibraryExport(format: 'backup'): LibraryBackupExport
   captureLibraryExport(format: 'archive'): LibraryExport
-  captureLibraryExport(format: 'backup' | 'archive') {
+  captureLibraryExport(format: 'backup' | 'archive'): LibraryExport | LibraryBackupExport {
+    this.requireDb()
+    const manifestBytes = fs.readFileSync(this.paths.manifestFile)
+    const manifest = parseCompatibleLibraryManifest(manifestBytes.toString('utf8'), this.getOpenedTarget().libraryId)
     let changed = false
     const prepared = this.prepareDatabaseCandidate(candidate => { changed = stripRetiredSnapshotDomainsInDatabase(candidate) })
     try {
       const data = {
+        manifestBytes,
         databaseBytes: changed ? prepared.candidateBytes : prepared.previousDiskBytes,
         attachments: this.readCommittedAttachmentRows(prepared.candidateDb),
       }
       if (format === 'archive') return data
-      const snapshot = this.loadDatabaseSnapshot(prepared.candidateDb)
+      const snapshot = this.loadDatabaseSnapshot(prepared.candidateDb, manifest.schemaVersion)
       return { ...data, tradeCount: snapshot?.trades.length ?? 0, strategyCount: snapshot?.strategies.length ?? 0 }
     } finally {
       this.closeDetachedDatabaseBestEffort(prepared.candidateDb)
@@ -838,11 +848,11 @@ export class LibraryStorage {
     return this.loadDatabaseSnapshot(this.requireDb())
   }
 
-  private loadDatabaseSnapshot(db: Database): PersistedSnapshot | null {
+  private loadDatabaseSnapshot(db: Database, capturedManifestVersion?: number): PersistedSnapshot | null {
     const value = readDatabaseMeta(db, SNAPSHOT_KEY)
     if (value === null) return null
     const snapshot: unknown = JSON.parse(value)
-    const manifestVersion = this.readManifest().schemaVersion
+    const manifestVersion = capturedManifestVersion ?? this.readManifest().schemaVersion
     const schema = readDatabaseMeta(db, DATABASE_SCHEMA_KEY)
     const databaseVersion = schema === null ? null : Number(schema)
     if (databaseVersion !== null && (!Number.isInteger(databaseVersion) || databaseVersion < 1)) {

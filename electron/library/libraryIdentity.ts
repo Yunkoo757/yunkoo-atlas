@@ -19,7 +19,10 @@ export function assertLibraryIdentity(actual: unknown, expected?: string): void 
 }
 
 export function readCompatibleLibraryManifest(file: string, expectedLibraryId?: string): LibraryManifest {
-  const text = fs.readFileSync(file, 'utf8')
+  return parseCompatibleLibraryManifest(fs.readFileSync(file, 'utf8'), expectedLibraryId)
+}
+
+export function parseCompatibleLibraryManifest(text: string, expectedLibraryId?: string): LibraryManifest {
   let manifest: LibraryManifest
   try { manifest = JSON.parse(text) }
   catch { throw new Error('资料库清单 manifest.json 不是有效的 JSON') }

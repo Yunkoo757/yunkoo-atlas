@@ -1183,6 +1183,36 @@ export async function testBackupAndArchiveCaptureAnotherWritersCommittedAttachme
   }
 }
 
+export async function testDesktopExportsOnlyTheCapturedManifestOfTheOpenedLibrary(): Promise<void> {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-export-manifest-'))
+  const storage = new LibraryStorage(path.join(root, 'source'))
+  const zipPath = path.join(root, 'export.journal.zip')
+  try {
+    await storage.open()
+    storage.saveSnapshot(emptySnapshot())
+    const manifest = storage.readManifest()
+    const file = storage.getPaths().manifestFile
+    const original = Buffer.from(JSON.stringify({ ...manifest, note: '保留原始格式' }, null, 4) + '\n')
+    fs.writeFileSync(file, original)
+    const exporting = exportJournalZip(storage, zipPath)
+    storage.writeManifest({ ...manifest, libraryId: 'other-isolated-test-library' })
+    await exporting
+    const accepted = fs.readFileSync(zipPath)
+    const zip = await JSZip.loadAsync(accepted)
+    assert((await zip.file('manifest.json')!.async('nodebuffer')).equals(original), '归档必须保留身份校验时的清单原始字节')
+
+    let rejected = false
+    try { await exportJournalZip(storage, zipPath) } catch { rejected = true }
+    assert(rejected && fs.readFileSync(zipPath).equals(accepted), '开库身份已不匹配时应保留原导出')
+    let refusedBackup = false
+    try { writeLibraryBackup(storage) } catch { refusedBackup = true }
+    assert(refusedBackup && fs.readdirSync(storage.getPaths().backups).length === 0, '另一身份的清单不得生成备份')
+  } finally {
+    storage.release()
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+}
+
 export async function testDesktopExportOmitsUncommittedAttachmentFiles(): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-journal-export-orphan-'))
   const sourceRoot = path.join(root, 'source')

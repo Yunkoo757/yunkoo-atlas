@@ -28,6 +28,9 @@ function backupFixture(root: string, describe: () => { tradeCount: number; strat
     captureLibraryExport() {
       const { tradeCount, strategyCount, files } = describe()
       return {
+        manifestBytes: fs.existsSync(path.join(root, 'manifest.json'))
+          ? fs.readFileSync(path.join(root, 'manifest.json'))
+          : Buffer.from(JSON.stringify({ libraryId: 'isolated-backup-test', schemaVersion: SCHEMA_VERSION })),
         databaseBytes: fs.readFileSync(path.join(root, 'journal.db')),
         attachments: files.map(fileName => ({ fileName, byteSize: fs.statSync(path.join(root, 'attachments', fileName)).size })),
         tradeCount,
