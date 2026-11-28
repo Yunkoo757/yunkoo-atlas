@@ -1374,3 +1374,30 @@ export async function testLegacyManifestWithCurrentRiskSnapshotRoundTrips(): Pro
     fs.rmSync(root, { recursive: true, force: true })
   }
 }
+
+export async function testExactArchiveRejectsUnreadableRevisionBeforeReplacingAnActiveLibrary() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atlas-isolated-archive-revision-'))
+  const target = new LibraryStorage(path.join(root, 'target'))
+  try {
+    await target.open()
+    target.saveSnapshot({ ...emptySnapshot(), tagPresets: ['current'] })
+    const original = libraryChecksum(target.getLibraryPath())
+    const SQL = await initSqlJs({ locateFile: () => path.resolve('node_modules/sql.js/dist/sql-wasm.wasm') })
+    const db = new SQL.Database(target.exportSnapshotDatabaseBytes())
+    const zip = new JSZip()
+    try {
+      db.run("UPDATE meta SET value='invalid' WHERE key='snapshotRevision'")
+      zip.file('journal.db', db.export())
+    } finally { db.close() }
+    zip.file('manifest.json', JSON.stringify(target.readManifest()))
+    const archive = path.join(root, 'candidate.journal.zip')
+    fs.writeFileSync(archive, await zip.generateAsync({ type: 'nodebuffer' }))
+    target.release()
+    const failure = await importJournalZipToPath(target.getLibraryPath(), archive).then(() => null, (error: unknown) => error)
+    assert(failure instanceof Error && /snapshotRevision/.test(failure.message), '归档预检必须拒绝无效修订')
+    assert(libraryChecksum(target.getLibraryPath()) === original, '拒绝的归档须保留原库字节和附件')
+    await target.open()
+    assert(target.loadSnapshotEnvelope().snapshot?.tagPresets?.[0] === 'current' && target.getSnapshotRevision() === 1,
+      '拒绝后原库可重开并取得正确修订')
+  } finally { target.release(); fs.rmSync(root, { recursive: true, force: true }) }
+}

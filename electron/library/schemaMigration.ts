@@ -5,6 +5,7 @@ import path from 'node:path'
 import type { Database } from 'sql.js'
 import type { LibraryManifest } from '../../src/storage/types'
 import { SCHEMA_VERSION } from '../../src/storage/types'
+import { readDatabaseSnapshotRevision } from '../../src/storage/libraryDatabase'
 import { decodeCanonicalSnapshot } from '../../src/storage/snapshotCodec'
 import { createLegacyStageMigrationOptions } from '../../src/lib/stageMigration'
 import { fsyncDirectorySync, fsyncFileSync, writeFileAtomicallySync } from './atomicFile'
@@ -340,6 +341,7 @@ export function assertOpenedPairVersion(
       `Electron library 恢复错误：manifest v${manifest.schemaVersion} 与预期 v${expectedVersion} 不一致`,
     )
   }
+  readDatabaseSnapshotRevision(db)
   const snapshot = readSnapshot(db)
   if (snapshot === null) {
     if (options.requireSnapshot) throw new Error('v8 Electron library 缺少 meta.snapshot，无法迁移')

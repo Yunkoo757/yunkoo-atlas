@@ -1,5 +1,5 @@
 import { assertRecoveryManifestIdentity } from './libraryIdentity'
-import { CREATE_LIBRARY_TABLES_SQL, resolveSnapshotVersion, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
+import { CREATE_LIBRARY_TABLES_SQL, readDatabaseSnapshotRevision, resolveSnapshotVersion, validateLibraryAssetIndex } from '../../src/storage/libraryDatabase'
 import { sha256File } from './fileChecksum'
 import { crc32 } from '../../src/lib/crc32'
 import { retiredSnapshotDatabaseBytes } from './retiredSnapshotDatabase'
@@ -543,6 +543,7 @@ export async function validateLibraryDatabaseFile(
       throw new Error('database is missing required tables')
     }
 
+    readDatabaseSnapshotRevision(db)
     const snapshotRows = db.exec("SELECT value FROM meta WHERE key = 'snapshot'")
     const snapshotText = snapshotRows[0]?.values[0]?.[0]
     let snapshot: PersistedSnapshot | null = null

@@ -518,6 +518,8 @@ export class LibraryStorage {
       const openedManifest = this.readManifest(expectedLibraryId)
       if (openedManifest.schemaVersion >= 8) {
         assertOpenedPairVersion(this.db, openedManifest, SCHEMA_VERSION)
+      } else {
+        readDatabaseSnapshotRevision(this.db)
       }
       // 启动恢复会移动或删除附件，必须先拒绝 Windows/macOS 上会共享
       // 同一物理路径的 legacy 大小写碰撞。

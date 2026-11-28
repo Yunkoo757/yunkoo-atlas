@@ -1017,3 +1017,35 @@ export async function testRecoveryPreparationRejectsCorruptDatabaseBeforeMarker(
     fs.writeFileSync(dbFile, Buffer.from('corrupt recovery database'))
   })
 }
+
+export async function testSchemaMigrationDoesNotCommitOrDiscardRecoveryForUnreadableRevisions() {
+  const SQL = await sqlRuntime()
+  for (const interrupted of [false, true]) {
+    const library = await createV8LibraryFixture()
+    const storage = new LibraryStorage(library.path)
+    try {
+      if (interrupted) await assertInjectedCrash(library, 'after-manifest-replace')
+      const dbFile = path.join(library.path, 'journal.db')
+      const db = new SQL.Database(fs.readFileSync(dbFile))
+      try {
+        db.run("INSERT OR REPLACE INTO meta(key,value) VALUES ('snapshotRevision','invalid')")
+        fs.writeFileSync(dbFile, db.export())
+      } finally { db.close() }
+      const damagedBytes = fs.readFileSync(dbFile)
+      if (interrupted) {
+        await storage.open()
+        const envelope = storage.loadSnapshotEnvelope()
+        assert(envelope.revision === 0 && envelope.snapshot?.profile?.displayName === '合同用户',
+          '新文件对的修订损坏时须恢复原 v8 文件对，再完成迁移')
+        assert(!fs.existsSync(path.join(library.path, SCHEMA_MIGRATION_MARKER_FILE)), '恢复完成后应清理标记')
+      } else {
+        const error = await storage.open().then(() => null, (cause: unknown) => cause)
+        assert(error instanceof Error && /snapshotRevision/.test(error.message), 'v8 修订损坏必须在迁移前拒绝')
+        assert(fs.readFileSync(dbFile).equals(damagedBytes), '拒绝迁移须保留旧数据库字节')
+        assert(fs.readFileSync(path.join(library.path, 'manifest.json')).equals(library.originalManifest),
+          '拒绝迁移须保留旧清单')
+        assert(!fs.existsSync(path.join(library.path, SCHEMA_MIGRATION_MARKER_FILE)), '候选无效不能留下迁移标记')
+      }
+    } finally { storage.release(); fs.rmSync(library.path, { recursive: true, force: true }) }
+  }
+}

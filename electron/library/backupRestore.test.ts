@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import initSqlJs from 'sql.js'
 import { DEFAULT_SYMBOL_CATALOG } from '../../src/lib/symbolIconCodec'
 import { createEmptyPersistedSnapshot } from '../../src/storage/emptySnapshot'
 import { writeLibraryBackup } from './backup'
@@ -161,4 +162,34 @@ export async function testVerifiedEmptyBackupReturnsTheSnapshotPersistedForTheNe
     nextLaunch?.release()
     f.dispose()
   }
+}
+
+export async function testBackupWithMatchingChecksumAndUnreadableRevisionCannotReplaceActiveLibrary() {
+  const f = await isolatedSession()
+  try {
+    f.first.saveSnapshot({ ...createEmptyPersistedSnapshot(), tagPresets: ['backup'] })
+    const SQL = await initSqlJs({ locateFile: () => path.resolve('node_modules/sql.js/dist/sql-wasm.wasm') })
+    const source = new SQL.Database(f.first.exportSnapshotDatabaseBytes())
+    let selected: string | null
+    try {
+      source.run("UPDATE meta SET value='invalid' WHERE key='snapshotRevision'")
+      selected = writeLibraryBackup({
+        getLibraryPath: () => f.root,
+        getCounts: () => f.first.getCounts(),
+        listCommittedAttachmentFileNames: () => f.first.listCommittedAttachmentFileNames(),
+        exportSnapshotDatabaseBytes: () => Buffer.from(source.export()),
+      }, Date.UTC(2024, 0, 1))
+    } finally { source.close() }
+    assert.ok(selected)
+    f.first.saveSnapshot({ ...createEmptyPersistedSnapshot(), tagPresets: ['active'] })
+    const file = f.first.getPaths().dbFile
+    const before = fs.readFileSync(file)
+    const result = await restoreLibraryBackup(selected, f.session)
+    assert.equal(result.ok, false)
+    assert.equal(result.committed, false, '修订不可读取的恢复点必须在替换活动库前拒绝')
+    assert.deepEqual(f.events, [])
+    assert.deepEqual(fs.readFileSync(file), before)
+    assert.equal(f.active()?.getSnapshotRevision(), 2)
+    assert.deepEqual(f.active()?.loadSnapshot()?.tagPresets, ['active'])
+  } finally { f.dispose() }
 }
