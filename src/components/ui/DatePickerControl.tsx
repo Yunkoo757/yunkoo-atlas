@@ -1,3 +1,4 @@
+import { formatCalendarDay } from '@/lib/calendarDay'
 import { restoreFocusAfterClose } from '@/lib/restoreFocus'
 import { ICON_MD } from '@/icons/iconSize'
 import {
@@ -18,7 +19,7 @@ import { Calendar, ChevronDown, ChevronLeft, ChevronRight } from '@/icons/appIco
 import { FieldTrigger } from '@/components/ui/FieldTrigger'
 import { PopoverSurface } from '@/components/ui/PopoverSurface'
 import { useModalPortalRoot } from '@/components/ui/ModalShell'
-import { addDays, addMonthsClamped, calendarDate, parseYmd, toYmd, yearPageStart } from './datePickerCalendar'
+import { addDays, addMonthsClamped, calendarDate, parsePickerDay, todayInCalendar, yearPageStart } from './datePickerCalendar'
 import './DatePicker.css'
 
 type CalendarDay = {
@@ -30,19 +31,19 @@ type CalendarDay = {
 }
 
 function buildCalendarDays(viewDate: Date): CalendarDay[] {
-  const first = calendarDate(viewDate.getFullYear(), viewDate.getMonth())
-  const mondayOffset = (first.getDay() + 6) % 7
-  const start = calendarDate(first.getFullYear(), first.getMonth(), 1 - mondayOffset)
-  const today = toYmd(new Date())
+  const first = calendarDate(viewDate.getUTCFullYear(), viewDate.getUTCMonth())
+  const mondayOffset = (first.getUTCDay() + 6) % 7
+  const start = calendarDate(first.getUTCFullYear(), first.getUTCMonth(), 1 - mondayOffset)
+  const today = formatCalendarDay(todayInCalendar())
 
   return Array.from({ length: 42 }, (_, index) => {
     const date = addDays(start, index)
-    const value = toYmd(date)
+    const value = formatCalendarDay(date)
     return {
       key: value,
       value,
-      day: date.getDate(),
-      currentMonth: date.getMonth() === viewDate.getMonth(),
+      day: date.getUTCDate(),
+      currentMonth: date.getUTCMonth() === viewDate.getUTCMonth(),
       today: value === today,
     }
   })
@@ -89,10 +90,10 @@ export const DatePicker = forwardRef<
   const [open, setOpen] = useState(false)
   const popoverExitRef = useExitClone<HTMLDivElement>(open)
   const registerModalPortalRoot = useModalPortalRoot()
-  const [viewDate, setViewDate] = useState(() => parseYmd(value) ?? new Date())
-  const [activeDayKey, setActiveDayKey] = useState(() => toYmd(parseYmd(value) ?? new Date()))
+  const [viewDate, setViewDate] = useState(() => parsePickerDay(value) ?? todayInCalendar())
+  const [activeDayKey, setActiveDayKey] = useState(() => formatCalendarDay(parsePickerDay(value) ?? todayInCalendar()))
   const [mode, setMode] = useState<'days' | 'months' | 'years'>('days')
-  const [yearStart, setYearStart] = useState(() => yearPageStart(viewDate.getFullYear()))
+  const [yearStart, setYearStart] = useState(() => yearPageStart(viewDate.getUTCFullYear()))
   const [yearInput, setYearInput] = useState('')
   const [yearError, setYearError] = useState(false)
   const [position, setPosition] = useState({ left: 0, top: 0, placement: 'bottom' as 'top' | 'bottom' })
@@ -138,35 +139,35 @@ export const DatePicker = forwardRef<
 
   const openPicker = () => {
     if (disabled) return
-    const activeDate = parseYmd(value) ?? parseYmd(`${initialMonth}-01`) ?? new Date()
+    const activeDate = parsePickerDay(value) ?? parsePickerDay(`${initialMonth}-01`) ?? todayInCalendar()
     setViewDate(activeDate)
-    setActiveDayKey(toYmd(activeDate))
+    setActiveDayKey(formatCalendarDay(activeDate))
     setMode('days')
     setYearError(false)
     changeOpen(true)
   }
 
   const changeMonth = (offset: number) => {
-    const current = parseYmd(activeDayKey) ?? viewDate
+    const current = parsePickerDay(activeDayKey) ?? viewDate
     const next = addMonthsClamped(current, offset)
     moveActiveDate(next)
   }
 
   const moveActiveDate = (next: Date) => {
-    if (next.getFullYear() < 1 || next.getFullYear() > 9999) return
-    setActiveDayKey(toYmd(next))
+    if (next.getUTCFullYear() < 1 || next.getUTCFullYear() > 9999) return
+    setActiveDayKey(formatCalendarDay(next))
     setViewDate(next)
   }
 
   const showYears = () => {
-    setYearStart(yearPageStart(viewDate.getFullYear()))
-    setYearInput(String(viewDate.getFullYear()))
+    setYearStart(yearPageStart(viewDate.getUTCFullYear()))
+    setYearInput(String(viewDate.getUTCFullYear()))
     setYearError(false)
     setMode('years')
   }
 
   const chooseYear = (year: number) => {
-    moveActiveDate(addMonthsClamped(viewDate, (year - viewDate.getFullYear()) * 12))
+    moveActiveDate(addMonthsClamped(viewDate, (year - viewDate.getUTCFullYear()) * 12))
     setMode('months')
   }
 
@@ -197,15 +198,15 @@ export const DatePicker = forwardRef<
   }
 
   const handleCalendarKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const active = parseYmd(activeDayKey)
+    const active = parsePickerDay(activeDayKey)
     if (!active) return
     let next: Date | null = null
     if (event.key === 'ArrowLeft') next = addDays(active, -1)
     else if (event.key === 'ArrowRight') next = addDays(active, 1)
     else if (event.key === 'ArrowUp') next = addDays(active, -7)
     else if (event.key === 'ArrowDown') next = addDays(active, 7)
-    else if (event.key === 'Home') next = addDays(active, -((active.getDay() + 6) % 7))
-    else if (event.key === 'End') next = addDays(active, 6 - ((active.getDay() + 6) % 7))
+    else if (event.key === 'Home') next = addDays(active, -((active.getUTCDay() + 6) % 7))
+    else if (event.key === 'End') next = addDays(active, 6 - ((active.getUTCDay() + 6) % 7))
     else if (event.key === 'PageUp') next = addMonthsClamped(active, event.shiftKey ? -12 : -1)
     else if (event.key === 'PageDown') next = addMonthsClamped(active, event.shiftKey ? 12 : 1)
     else if (event.key === 'Enter' || event.key === ' ') {
@@ -285,7 +286,7 @@ export const DatePicker = forwardRef<
     left: position.left,
     top: position.top,
   }
-  const formattedValue = parseYmd(value)
+  const formattedValue = parsePickerDay(value)
   // 紧凑触发器（如 Composer 三列）放不下「2026年7月21日」会把「日」挤换行；用 ISO 日期单行展示。
   const displayValue = formattedValue
     ? value
@@ -331,13 +332,13 @@ export const DatePicker = forwardRef<
           <div className="ui-date-head">
             {mode === 'years' ? <strong aria-live="polite">{yearStart}–{yearStart + 11}年</strong> : (
               <button type="button" className="ui-date-heading" aria-label="选择年份和月份" onClick={showYears}>
-                {viewDate.getFullYear()}年{mode === 'days' ? `${viewDate.getMonth() + 1}月` : ''}
+                {viewDate.getUTCFullYear()}年{mode === 'days' ? `${viewDate.getUTCMonth() + 1}月` : ''}
                 <ChevronDown size={ICON_MD} aria-hidden />
               </button>
             )}
             <div>
-              <button type="button" aria-label={mode === 'years' ? '上一组年份' : mode === 'months' ? '上一年' : '上个月'} disabled={mode === 'years' ? yearStart === 1 : viewDate.getFullYear() === 1 && (mode === 'months' || viewDate.getMonth() === 0)} onClick={() => changePeriod(-1)}><ChevronLeft size={ICON_MD} /></button>
-              <button type="button" aria-label={mode === 'years' ? '下一组年份' : mode === 'months' ? '下一年' : '下个月'} disabled={mode === 'years' ? yearStart === 9988 : viewDate.getFullYear() === 9999 && (mode === 'months' || viewDate.getMonth() === 11)} onClick={() => changePeriod(1)}><ChevronRight size={ICON_MD} /></button>
+              <button type="button" aria-label={mode === 'years' ? '上一组年份' : mode === 'months' ? '上一年' : '上个月'} disabled={mode === 'years' ? yearStart === 1 : viewDate.getUTCFullYear() === 1 && (mode === 'months' || viewDate.getUTCMonth() === 0)} onClick={() => changePeriod(-1)}><ChevronLeft size={ICON_MD} /></button>
+              <button type="button" aria-label={mode === 'years' ? '下一组年份' : mode === 'months' ? '下一年' : '下个月'} disabled={mode === 'years' ? yearStart === 9988 : viewDate.getUTCFullYear() === 9999 && (mode === 'months' || viewDate.getUTCMonth() === 11)} onClick={() => changePeriod(1)}><ChevronRight size={ICON_MD} /></button>
             </div>
           </div>
           {mode === 'years' && (
@@ -354,9 +355,9 @@ export const DatePicker = forwardRef<
           {mode !== 'days' && (
             <div className="ui-date-period-grid" role="group" aria-label={mode === 'years' ? '选择年份' : '选择月份'} onKeyDown={handlePeriodKeys}>
               {Array.from({ length: 12 }, (_, index) => mode === 'years' ? (
-                <button type="button" key={yearStart + index} aria-pressed={yearStart + index === viewDate.getFullYear()} onClick={() => chooseYear(yearStart + index)}>{yearStart + index}年</button>
+                <button type="button" key={yearStart + index} aria-pressed={yearStart + index === viewDate.getUTCFullYear()} onClick={() => chooseYear(yearStart + index)}>{yearStart + index}年</button>
               ) : (
-                <button type="button" key={index} aria-pressed={index === viewDate.getMonth()} onClick={() => { moveActiveDate(addMonthsClamped(viewDate, index - viewDate.getMonth())); setMode('days') }}>{index + 1}月</button>
+                <button type="button" key={index} aria-pressed={index === viewDate.getUTCMonth()} onClick={() => { moveActiveDate(addMonthsClamped(viewDate, index - viewDate.getUTCMonth())); setMode('days') }}>{index + 1}月</button>
               ))}
             </div>
           )}
@@ -373,7 +374,7 @@ export const DatePicker = forwardRef<
                 aria-label={day.value}
                 aria-selected={day.value === value}
                 data-day-key={day.key}
-                disabled={!parseYmd(day.value)}
+                disabled={!parsePickerDay(day.value)}
                 tabIndex={day.key === activeDayKey ? 0 : -1}
                 className={`${day.currentMonth ? '' : 'is-outside'}${day.today ? ' is-today' : ''}`}
                 onClick={() => selectDate(day.value)}
@@ -388,7 +389,7 @@ export const DatePicker = forwardRef<
             {allowClear && (
               <button type="button" onClick={() => selectDate('')}>清除</button>
             )}
-            <button type="button" className="ui-date-today" onClick={() => selectDate(toYmd(new Date()))}>今天</button>
+            <button type="button" className="ui-date-today" onClick={() => selectDate(formatCalendarDay(todayInCalendar()))}>今天</button>
           </div>
         </PopoverSurface>,
         document.body,

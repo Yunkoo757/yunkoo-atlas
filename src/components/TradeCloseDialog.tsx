@@ -14,7 +14,7 @@ import { toast } from '@/lib/toast'
 import { useStore } from '@/store/useStore'
 import { getTradingDayKey } from '@/lib/periods'
 import { closedTradingDayKeyFromClosedAt } from '@/lib/riskBudget'
-import { parseYmd } from '@/components/ui/datePickerCalendar'
+import { isCalendarDay } from '@/lib/calendarDay'
 import { DialogSaveButton } from '@/components/ui/DialogSaveButton'
 import { Button } from '@/components/ui/Button'
 import { ModalShell } from '@/components/ui/ModalShell'
@@ -128,7 +128,7 @@ export function TradeCloseDialog() {
   // 日历只展示日期；历史平仓时刻在用户实际重选日期前保持原值。
   const parsedDay = closedTradingDayKeyFromClosedAt(closedAt, tradingDayStartHour)
   const frozenDay = trade.closedTradingDayKey
-  const displayDay = parsedDay && trade.closedAt === closedAt && closedAt.includes('T') && frozenDay && parseYmd(frozenDay)
+  const displayDay = parsedDay && trade.closedAt === closedAt && closedAt.includes('T') && isCalendarDay(frozenDay)
     ? frozenDay
     : parsedDay
   const preview = previewResult.ok && displayDay ? previewResult : null
