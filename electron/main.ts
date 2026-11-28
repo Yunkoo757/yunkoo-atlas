@@ -482,11 +482,15 @@ const quitCoordinator = new QuitCoordinator({
   reportSuccess: reportExitSuccess,
   reportError: reportExitError,
   commitExit(resolveIntent: () => QuitIntent, signal: AbortSignal, deadlineAt: number) {
-    return commitStorageExit(signal, deadlineAt, async () => {
-      const intent = resolveIntent()
+    return commitStorageExit(signal, deadlineAt, async retainUpdateBackup => {
       try {
         await disposeLifecycleServices()
         assertExitWithinDeadline(signal, deadlineAt)
+        const intent = resolveIntent()
+        if (intent === 'quit-and-install') {
+          retainUpdateBackup()
+          assertExitWithinDeadline(signal, deadlineAt)
+        }
         gracefulExitAuthorized = true
         await waitForElectronTerminal(intent, signal, deadlineAt, () => {
           if (intent === 'quit-and-install') performDownloadedUpdateInstall()

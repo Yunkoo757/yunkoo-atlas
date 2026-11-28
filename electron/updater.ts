@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import updaterPackage from 'electron-updater'
+import type { QuitResult } from './quitCoordinator'
 import type { ProgressInfo, UpdateInfo } from 'electron-updater'
 import {
   redactUpdateError,
@@ -125,7 +126,7 @@ export function performDownloadedUpdateInstall(): void {
 }
 
 export function registerAppUpdater(
-  requestExit: (intent: 'quit-and-install') => Promise<{ ok: boolean }>,
+  requestExit: (intent: 'quit-and-install') => Promise<QuitResult>,
 ): void {
   if (registered) return
   registered = true
@@ -155,7 +156,8 @@ export function registerAppUpdater(
   })
   ipcMain.handle('update:install', async () => {
     if (state.phase !== 'downloaded') return false
-    return (await requestExit('quit-and-install')).ok
+    const result = await requestExit('quit-and-install')
+    return result.ok && result.intent === 'quit-and-install'
   })
 }
 

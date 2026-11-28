@@ -5,8 +5,6 @@ import { LoadingIndicator } from '@/icons/LoadingIndicator'
 import { ICON_SM } from '@/icons/iconSize'
 import { getJournalBridge, isElectron } from '@/storage/runtime'
 import type { AppUpdateState } from '@/lib/appUpdate'
-import { toast } from '@/lib/toast'
-import { flushPersistNow } from '@/storage/persist'
 import './UpdatesSettingsPanel.css'
 
 const FALLBACK_STATE: AppUpdateState = {
@@ -57,23 +55,6 @@ export function UpdatesSettingsPanel() {
 
   const busy = state.phase === 'checking' || state.phase === 'downloading'
 
-  const installUpdate = async () => {
-    if (!electron) return
-    await flushPersistNow()
-    const bridge = getJournalBridge()!
-    const backup = await bridge.createVerifiedBackup()
-    if (!backup) {
-      toast('无法创建更新前备份，已取消安装', { tone: 'error' })
-      return
-    }
-    if (backup.status !== 'verified') {
-      toast(backup.error ?? '更新前备份验证失败，已取消安装', { tone: 'error' })
-      return
-    }
-    // 安装会走关闭保存回执（正在安全保存 / 已安全保存），不再弹 toast，避免底部双条重叠
-    await bridge.installUpdate()
-  }
-
   return (
     <div className="settings-page settings-page--form update-settings">
       <div className="settings-page-head">
@@ -109,7 +90,7 @@ export function UpdatesSettingsPanel() {
               下载更新
             </button>
           ) : state.phase === 'downloading' ? null : state.phase === 'downloaded' ? (
-            <button className="dio-btn dio-btn-primary" onClick={() => void installUpdate()}>
+            <button className="dio-btn dio-btn-primary" onClick={() => void getJournalBridge()?.installUpdate()}>
               <RotateCcw size={ICON_SM} />
               备份并重启更新
             </button>

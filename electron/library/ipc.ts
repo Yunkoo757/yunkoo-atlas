@@ -29,6 +29,7 @@ import {
   deleteBackupAtPath,
   getBackupStatsAtPath,
   listBackups,
+  rotateBackups,
   selectedBackupFile,
   verifyBackupAtPath,
 } from './backup'
@@ -69,7 +70,7 @@ import {
 
 let storage: LibraryStorage | null = null
 let openingStorage: Promise<LibraryStorage> | null = null
-let exitPreparedStorage: LibraryStorage | null = null
+let exitPreparation: { storage: LibraryStorage; backupPath: string } | null = null
 const operationGate = new LibraryOperationGate()
 const writers = new LibraryWriterSessions()
 
@@ -186,7 +187,7 @@ function registerStorageRecoveryQaController(): void {
 }
 
 async function ensureStorage(): Promise<LibraryStorage> {
-  if (exitPreparedStorage) throw new Error('应用正在安全退出，交易库已停止接受新操作')
+  if (exitPreparation) throw new Error('应用正在安全退出，交易库已停止接受新操作')
   if (storage) return storage
   if (!openingStorage) {
     openingStorage = openConfiguredStorage('startup').finally(() => {
@@ -201,42 +202,40 @@ export async function createVerifiedExitBackup(signal?: AbortSignal): Promise<vo
     if (signal?.aborted) throw new Error('退出协调等待超时，已取消退出')
     const current = storage ?? (openingStorage ? await openingStorage : null)
     if (!current) return
-    exitPreparedStorage = current
-    try {
-      const allowEmptySnapshot = current.loadSnapshot() === null
-      const backup = await createVerifiedBackup(current, { emptyLibrary: allowEmptySnapshot })
-      if (!backup) throw new Error('无法创建退出前恢复点')
-      if (backup.status !== 'verified') {
-        throw new Error(backup.error ?? '退出前恢复点验证失败')
-      }
-    } catch (error) {
-      exitPreparedStorage = null
-      throw error
-    }
+    const backup = await createVerifiedBackup(current, { emptyLibrary: current.loadSnapshot() === null })
+    if (!backup) throw new Error('无法创建退出前恢复点')
+    if (backup.status !== 'verified') throw new Error(backup.error ?? '退出前恢复点验证失败')
+    if (signal?.aborted) throw new Error('退出协调等待超时，已取消退出')
+    exitPreparation = { storage: current, backupPath: backup.path }
   }, signal)
 }
 
 export async function commitStorageExit(
   signal: AbortSignal,
   deadlineAt: number,
-  finalize: () => Promise<void> | void,
+  finalize: (retainUpdateBackup: () => void) => Promise<void> | void,
 ): Promise<void> {
   await operationGate.runExclusive(async () => {
     assertExitWithinDeadline(signal, deadlineAt)
-    const current = exitPreparedStorage
-    if (!current) {
-      await finalize()
+    const prepared = exitPreparation
+    const retainUpdateBackup = () => {
+      if (!prepared || !fs.existsSync(prepared.backupPath)) throw new Error('缺少已验证的更新前备份，已取消安装')
+      rotateBackups(prepared.storage.getPaths().backups, { preserve: prepared.backupPath })
+    }
+    if (!prepared) {
+      await finalize(retainUpdateBackup)
       return
     }
+    const current = prepared.storage
     let restartAutoBackup = false
     await releaseThenFinalizeWithRollback(
       () => {
         restartAutoBackup = autoBackup.stop()
         if (storage === current) storage = null
-        exitPreparedStorage = null
+        exitPreparation = null
         current.release()
       },
-      finalize,
+      () => finalize(retainUpdateBackup),
       async () => {
         await current.open()
         storage = current
@@ -247,7 +246,7 @@ export async function commitStorageExit(
 }
 
 export function cancelStorageExitPreparation(): void {
-  exitPreparedStorage = null
+  exitPreparation = null
 }
 
 function withStorage<T>(operation: (lib: LibraryStorage) => T | Promise<T>): Promise<T> {
@@ -437,7 +436,7 @@ async function recoverActiveStorageLifecycle(
   if (
     storageRecoveryInProgress ||
     switchRequests.busy ||
-    exitPreparedStorage !== null
+    exitPreparation !== null
   ) {
     return { ok: false, code: 'busy', message: '交易库正在切换、恢复或退出，请稍后重试' }
   }
