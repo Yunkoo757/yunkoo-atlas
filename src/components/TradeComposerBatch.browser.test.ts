@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 import { waitFor } from '../test/browserTiming'
 import { createElement, Fragment } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
@@ -303,11 +304,7 @@ async function run(): Promise<void> {
     useStore.setState(originalState)
     staleComposer.close()
     winner.close()
-    await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.deleteDatabase(databaseName)
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
-    })
+    await deleteTestDatabase(databaseName)
   }
 }
 

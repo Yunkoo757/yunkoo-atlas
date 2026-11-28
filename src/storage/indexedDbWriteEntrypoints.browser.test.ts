@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import {
   IndexedDbStorageAdapter,
@@ -40,17 +41,8 @@ function snapshot(name: string, assetIds: readonly string[] = []): PersistedSnap
   }
 }
 
-async function deleteDatabase(): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(DB_NAME)
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
-    request.onblocked = () => reject(new Error('测试数据库仍被占用'))
-  })
-}
-
 async function verifyPendingWritesAfterClose(): Promise<void> {
-  await deleteDatabase()
+  await deleteTestDatabase(DB_NAME)
   const adapter = new IndexedDbStorageAdapter()
   await adapter.open()
   await adapter.saveSnapshot(snapshot('old-library'))
@@ -75,7 +67,7 @@ async function verifyPendingWritesAfterClose(): Promise<void> {
     await started
     const saving = observe(adapter.saveSnapshot(snapshot('stale-save')))
     adapter.close()
-    await deleteDatabase()
+    await deleteTestDatabase(DB_NAME)
     const replacement = new IndexedDbStorageAdapter()
     await replacement.open()
     await replacement.saveSnapshot(snapshot('replacement'))
@@ -98,7 +90,7 @@ async function verifyPendingWritesAfterClose(): Promise<void> {
 }
 
 async function verifyOpenAndVersionChangeLifetime(): Promise<void> {
-  await deleteDatabase()
+  await deleteTestDatabase(DB_NAME)
   const adapter = new IndexedDbStorageAdapter()
   const pending = adapter.open().then(() => 'opened', (error: Error) => error.name)
   adapter.close()
@@ -110,7 +102,7 @@ async function verifyOpenAndVersionChangeLifetime(): Promise<void> {
     const staged = await adapter.saveAsset(new Blob(['staged']), 'image/png')
     await adapter.open()
     assert(await adapter.getAssetForExport(staged), '同库重新打开应保留准备中的附件')
-    await deleteDatabase()
+    await deleteTestDatabase(DB_NAME)
     await adapter.open()
     assert(await adapter.getAssetForExport(staged) === null, '原生删除和重新建库须释放前一库的准备附件')
   } finally {
@@ -121,7 +113,7 @@ async function verifyOpenAndVersionChangeLifetime(): Promise<void> {
 async function run(): Promise<void> {
   await verifyPendingWritesAfterClose()
   await verifyOpenAndVersionChangeLifetime()
-  await deleteDatabase()
+  await deleteTestDatabase(DB_NAME)
   const writer = new IndexedDbStorageAdapter()
   const observer = new IndexedDbStorageAdapter()
   await writer.open()

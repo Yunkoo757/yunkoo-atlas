@@ -1,3 +1,5 @@
+import { deleteTestDatabase } from '../src/test/deleteTestDatabase.ts'
+import { BROWSER_DATABASE_NAME } from '../src/storage/storageIdentity.ts'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { arch, cpus, platform, release, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -110,10 +112,10 @@ async function waitForDashboard(page) {
 
 async function writeSnapshotToIsolatedIndexedDb(page, snapshotJson, fixtureChecksum, assetIds) {
   await page.evaluate(
-    async ({ json, checksum, referencedAssetIds }) => {
+    async ({ json, checksum, referencedAssetIds, databaseName }) => {
       const snapshot = JSON.parse(json)
       const db = await new Promise((resolveDb, reject) => {
-        const request = indexedDB.open('trader-atlas-v3', 1)
+        const request = indexedDB.open(databaseName, 1)
         request.onupgradeneeded = () => {
           const nextDb = request.result
           if (!nextDb.objectStoreNames.contains('snapshot')) nextDb.createObjectStore('snapshot')
@@ -154,14 +156,14 @@ async function writeSnapshotToIsolatedIndexedDb(page, snapshotJson, fixtureCheck
       })
       db.close()
     },
-    { json: snapshotJson, checksum: fixtureChecksum, referencedAssetIds: assetIds },
+    { json: snapshotJson, checksum: fixtureChecksum, referencedAssetIds: assetIds, databaseName: BROWSER_DATABASE_NAME },
   )
 }
 
 async function readFixtureChecksum(page) {
-  return page.evaluate(async () => {
+  return page.evaluate(async databaseName => {
     const db = await new Promise((resolveDb, reject) => {
-      const request = indexedDB.open('trader-atlas-v3', 1)
+      const request = indexedDB.open(databaseName, 1)
       request.onsuccess = () => resolveDb(request.result)
       request.onerror = () => reject(request.error)
     })
@@ -172,18 +174,7 @@ async function readFixtureChecksum(page) {
     })
     db.close()
     return checksum
-  })
-}
-
-async function deleteIsolatedDatabase(page) {
-  await page.evaluate(async () => {
-    await new Promise((resolveDelete) => {
-      const request = indexedDB.deleteDatabase('trader-atlas-v3')
-      request.onsuccess = resolveDelete
-      request.onerror = resolveDelete
-      request.onblocked = resolveDelete
-    })
-  }).catch(() => {})
+  }, BROWSER_DATABASE_NAME)
 }
 
 async function measureReload(page) {
@@ -224,9 +215,9 @@ async function measureRangeSwitch(page, rangeName) {
 }
 
 async function measureSnapshotSave(page) {
-  return page.evaluate(async () => {
+  return page.evaluate(async databaseName => {
     const db = await new Promise((resolveDb, reject) => {
-      const request = indexedDB.open('trader-atlas-v3', 1)
+      const request = indexedDB.open(databaseName, 1)
       request.onsuccess = () => resolveDb(request.result)
       request.onerror = () => reject(request.error)
     })
@@ -246,7 +237,7 @@ async function measureSnapshotSave(page) {
     const elapsed = performance.now() - startedAt
     db.close()
     return elapsed
-  })
+  }, BROWSER_DATABASE_NAME)
 }
 
 async function measureRepeated(operation, { warmups, runs }) {
@@ -454,7 +445,7 @@ export async function runDashboard10kQa({
         waitUntil: 'domcontentloaded',
         timeout: 10_000,
       }).catch(() => {})
-      await deleteIsolatedDatabase(page)
+      await page.evaluate(deleteTestDatabase, BROWSER_DATABASE_NAME).catch(() => {})
     }
     await context?.close().catch(() => {})
     await browser?.close().catch(() => {})

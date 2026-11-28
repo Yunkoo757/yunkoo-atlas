@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 import JSZip from 'jszip'
 
 import { parseWebJournalArchive } from '@/lib/webJournalArchive'
@@ -123,12 +124,7 @@ window.runWebZipBenchmark = async () => {
   } finally {
     window.clearInterval(sampler)
     adapter.close()
-    await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.deleteDatabase(databaseName)
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
-      request.onblocked = () => reject(new Error('Web ZIP heap benchmark 清理被阻塞'))
-    })
+    await deleteTestDatabase(databaseName)
     await caches.delete(CACHE_NAME)
   }
 }

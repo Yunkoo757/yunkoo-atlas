@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 import { createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { SaveStatusIndicator } from '@/components/SaveStatusIndicator'
@@ -310,11 +311,6 @@ window.runWebPersistenceBenchmark = async (input) => {
     stale?.close()
     adapter.close()
     uiAdapter.close()
-    await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.deleteDatabase(databaseName)
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
-      request.onblocked = () => reject(new Error('性能基准 IndexedDB 清理被阻塞'))
-    })
+    await deleteTestDatabase(databaseName)
   }
 }

@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 export {}
 
 declare global {
@@ -17,15 +18,6 @@ interface ContextResponse {
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-function deleteDatabase(name: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(name)
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
-    request.onblocked = () => reject(new Error(`删除测试数据库被阻塞：${name}`))
-  })
 }
 
 async function createContext(id: string, databaseName: string): Promise<{
@@ -69,7 +61,7 @@ async function createContext(id: string, databaseName: string): Promise<{
 
 async function run(): Promise<void> {
   const databaseName = `trader-atlas-web4-${crypto.randomUUID()}`
-  await deleteDatabase(databaseName)
+  await deleteTestDatabase(databaseName)
   const first = await createContext('first', databaseName)
   const second = await createContext('second', databaseName)
 
@@ -123,7 +115,7 @@ async function run(): Promise<void> {
     await Promise.allSettled([first.send('close'), second.send('close')])
     first.frame.remove()
     second.frame.remove()
-    await deleteDatabase(databaseName)
+    await deleteTestDatabase(databaseName)
   }
 }
 

@@ -1,3 +1,5 @@
+import { deleteTestDatabase } from '../src/test/deleteTestDatabase.ts'
+import { BROWSER_DATABASE_NAME } from '../src/storage/storageIdentity.ts'
 import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import {
@@ -226,15 +228,10 @@ export function ensureRuntimeOutput(outputRoot, runtime, { preserveExisting = fa
 }
 
 export async function seedBrowserDatabase(page, seed) {
-  await page.evaluate(async ({ payload, schemaVersion }) => {
-    await new Promise((resolveDelete) => {
-      const request = indexedDB.deleteDatabase('trader-atlas-v3')
-      request.onsuccess = resolveDelete
-      request.onerror = resolveDelete
-      request.onblocked = resolveDelete
-    })
+  await page.evaluate(deleteTestDatabase, BROWSER_DATABASE_NAME)
+  await page.evaluate(async ({ payload, schemaVersion, databaseName }) => {
     const database = await new Promise((resolveDatabase, reject) => {
-      const request = indexedDB.open('trader-atlas-v3', 1)
+      const request = indexedDB.open(databaseName, 1)
       request.onupgradeneeded = () => {
         const next = request.result
         if (!next.objectStoreNames.contains('snapshot')) next.createObjectStore('snapshot')
@@ -259,7 +256,7 @@ export async function seedBrowserDatabase(page, seed) {
       transaction.onabort = () => reject(transaction.error)
     })
     database.close()
-  }, { payload: seed.snapshot, schemaVersion: seed.schemaVersion })
+  }, { payload: seed.snapshot, schemaVersion: seed.schemaVersion, databaseName: BROWSER_DATABASE_NAME })
 }
 
 export async function waitForVisualSettlement(page, readySelector) {

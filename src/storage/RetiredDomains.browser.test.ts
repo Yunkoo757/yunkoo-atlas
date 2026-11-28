@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 import { IndexedDbStorageAdapter } from './indexedDbAdapter'
 import { createFullPersistedSnapshotFixture } from './fixtures/fullPersistedSnapshot'
 
@@ -57,11 +58,7 @@ async function run(): Promise<void> {
     assert(await storage.getAssetForExport('retired-only-image'), '导入prune不能顺带删除非本批历史图片')
   } finally {
     storage.close()
-    await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.deleteDatabase(name)
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
-    })
+    await deleteTestDatabase(name)
   }
 }
 

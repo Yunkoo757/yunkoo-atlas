@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import {
   IndexedDbStorageAdapter,
@@ -46,27 +47,6 @@ function snapshot(displayName: string, assetId?: string): PersistedSnapshot {
   }
 }
 
-async function deleteDatabase(): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    let settled = false
-    const timeout = window.setTimeout(() => {
-      if (settled) return
-      settled = true
-      reject(new Error('测试数据库持续被占用'))
-    }, 2_000)
-    const finish = (callback: () => void) => {
-      if (settled) return
-      settled = true
-      window.clearTimeout(timeout)
-      callback()
-    }
-    const request = indexedDB.deleteDatabase(DB_NAME)
-    request.onsuccess = () => finish(resolve)
-    request.onerror = () => finish(() => reject(request.error))
-    request.onblocked = () => undefined
-  })
-}
-
 async function holdDatabaseOpenBriefly(): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME)
@@ -79,7 +59,7 @@ async function holdDatabaseOpenBriefly(): Promise<void> {
 }
 
 async function seedLegacySnapshotWithoutRevision(assetId?: string): Promise<void> {
-  await deleteDatabase()
+  await deleteTestDatabase(DB_NAME)
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, 1)
     request.onupgradeneeded = () => {
@@ -97,7 +77,7 @@ async function seedLegacySnapshotWithoutRevision(assetId?: string): Promise<void
 }
 
 async function seedCurrentCorruptSnapshot(): Promise<void> {
-  await deleteDatabase()
+  await deleteTestDatabase(DB_NAME)
   const corrupt = createFullPersistedSnapshotFixture() as unknown as Record<string, unknown>
   const trades = corrupt.trades as Array<Record<string, unknown>>
   trades[0] = { ...trades[0], entry: null }
@@ -232,7 +212,7 @@ async function expectConflict(
 }
 
 async function verifyConcurrentManifestCreation(schemaVersion: number): Promise<void> {
-  await deleteDatabase()
+  await deleteTestDatabase(DB_NAME)
   const manifest = { schemaVersion, libraryId: 'confirmed-library', createdAt: '2024-01-01T00:00:00.000Z' }
   const original = IDBDatabase.prototype.transaction
   let committedFirst = false

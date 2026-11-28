@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 import { canonicalContractJson } from '@/storage/fixtures/fullPersistedSnapshot'
 import {
   createFullPersistedSnapshotFixture,
@@ -18,15 +19,6 @@ const REVISION_KEY = 'snapshotRevision'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-function deleteDatabase(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(DATABASE_NAME)
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
-    request.onblocked = () => reject(new Error('Release 0 测试数据库仍被占用'))
-  })
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -148,7 +140,7 @@ function makeAssets(prefix: string): ExportAssetRecord[] {
 }
 
 async function run(): Promise<void> {
-  await deleteDatabase()
+  await deleteTestDatabase(DATABASE_NAME)
   const db = await openDatabase()
   try {
     const oldSnapshot = Object.fromEntries(PERSISTED_SNAPSHOT_FIELDS.map((field) => [
@@ -212,7 +204,7 @@ async function run(): Promise<void> {
     assert(await readCompatibleRevision(db) === 0, 'Release 0 失败替换后兼容 revision 必须保持 0')
   } finally {
     db.close()
-    await deleteDatabase()
+    await deleteTestDatabase(DATABASE_NAME)
   }
 }
 

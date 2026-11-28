@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
 import type { Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
@@ -16,17 +17,8 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
-async function deleteDatabase(): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(BROWSER_DATABASE_NAME)
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
-    request.onblocked = () => reject(new Error('测试数据库仍被占用'))
-  })
-}
-
 async function verifyInitializationCannotReplaceAnExistingSnapshot(): Promise<void> {
-  await deleteDatabase()
+  await deleteTestDatabase(BROWSER_DATABASE_NAME)
   const target = new IndexedDbStorageAdapter()
   const peer = new IndexedDbStorageAdapter()
   const source = JSON.stringify({ state: { trades: [], strategies: [] } })
@@ -52,7 +44,7 @@ async function verifyInitializationCannotReplaceAnExistingSnapshot(): Promise<vo
 }
 
 async function verifyChangedLegacySourceSurvives(oldValue: string | null): Promise<void> {
-  await deleteDatabase()
+  await deleteTestDatabase(BROWSER_DATABASE_NAME)
   const target = new IndexedDbStorageAdapter()
   const newer = JSON.stringify({ state: { strategies: [], trades: [], display: { tradingDayStartHour: 8 } } })
   if (oldValue === null) localStorage.removeItem(LEGACY_LOCAL_STORAGE_KEY)
@@ -77,7 +69,7 @@ async function run(): Promise<void> {
   await verifyChangedLegacySourceSurvives(null)
   await verifyChangedLegacySourceSurvives(JSON.stringify({ state: { trades: [], strategies: [] } }))
   await verifyInitializationCannotReplaceAnExistingSnapshot()
-  await deleteDatabase()
+  await deleteTestDatabase(BROWSER_DATABASE_NAME)
   const trade: Trade = {
     id: 'legacy-terminal-live',
     ref: 'TRD-LEGACY-CLOSED',
@@ -140,7 +132,7 @@ async function run(): Promise<void> {
   } finally {
     adapter.close()
     localStorage.removeItem(LEGACY_LOCAL_STORAGE_KEY)
-    await deleteDatabase()
+    await deleteTestDatabase(BROWSER_DATABASE_NAME)
   }
 }
 

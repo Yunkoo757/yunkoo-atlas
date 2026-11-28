@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 import { SCHEMA_VERSION } from './types'
 import { IndexedDbStorageAdapter } from './indexedDbAdapter'
 import { migrateLegacyBrowserIdentity } from './legacyIdentity'
@@ -13,15 +14,6 @@ const LEGACY_DATABASE_NAME = 'linear-journal-v3'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-function deleteDatabase(name: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(name)
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
-    request.onblocked = () => reject(new Error(`数据库仍被占用：${name}`))
-  })
 }
 
 function seedDatabase(
@@ -67,8 +59,8 @@ function readValue<T>(name: string, storeName: string, key: IDBValidKey): Promis
 }
 
 async function resetDatabases(): Promise<void> {
-  await deleteDatabase(LEGACY_DATABASE_NAME)
-  await deleteDatabase(BROWSER_DATABASE_NAME)
+  await deleteTestDatabase(LEGACY_DATABASE_NAME)
+  await deleteTestDatabase(BROWSER_DATABASE_NAME)
 }
 
 async function verifyChangesDuringMigration(side: 'source' | 'target'): Promise<void> {
@@ -149,7 +141,7 @@ async function verifyBlockedRepair(entry: 'adapter' | 'migration'): Promise<void
   } finally {
     adapter.close()
   }
-  await deleteDatabase(BROWSER_DATABASE_NAME)
+  await deleteTestDatabase(BROWSER_DATABASE_NAME)
 }
 
 async function verifyAbortedSourceRead(allStores: boolean): Promise<void> {

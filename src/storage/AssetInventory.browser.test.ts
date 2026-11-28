@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 import { IndexedDbStorageAdapter } from '@/storage/indexedDbAdapter'
 import { assetUrl } from '@/storage/assets'
 import { createFullPersistedSnapshotFixture } from '@/storage/fixtures/fullPersistedSnapshot'
@@ -26,14 +27,6 @@ function seedRawAsset(databaseName: string, value: Record<string, unknown>): Pro
       }
       tx.onerror = () => reject(tx.error)
     }
-  })
-}
-
-function deleteDatabase(databaseName: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(databaseName)
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
   })
 }
 
@@ -72,7 +65,7 @@ async function run(): Promise<void> {
     assert(state('../foreign') === 'foreign', '非法附件 ID 必须隔离为 foreign')
   } finally {
     storage.close()
-    await deleteDatabase(databaseName)
+    await deleteTestDatabase(databaseName)
   }
 }
 

@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
 import { OperationalError } from '@/lib/operationalError'
 import { createEmptyPersistedSnapshot } from '@/storage/emptySnapshot'
@@ -32,15 +33,6 @@ function snapshot(name: string, assetIds: readonly string[]): PersistedSnapshot 
   }
 }
 
-async function deleteDatabase(): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(DB_NAME)
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
-    request.onblocked = () => reject(new Error('测试数据库仍被占用'))
-  })
-}
-
 async function deleteStoredAsset(id: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME)
@@ -70,7 +62,7 @@ async function expectMissingAssetRejection(operation: Promise<unknown>, message:
 }
 
 async function run(): Promise<void> {
-  await deleteDatabase()
+  await deleteTestDatabase(DB_NAME)
   const adapter = new IndexedDbStorageAdapter()
   await adapter.open()
   try {
@@ -99,7 +91,7 @@ async function run(): Promise<void> {
     )
   } finally {
     adapter.close()
-    await deleteDatabase()
+    await deleteTestDatabase(DB_NAME)
   }
 }
 

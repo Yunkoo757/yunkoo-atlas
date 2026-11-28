@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 import { initializeWebWriterOwnership, resetWebWriteGuardForTests } from '@/storage/webWriteGuard'
 import type { Trade } from '@/data/trades'
 import { DEFAULT_DISPLAY } from '@/lib/tradeFilters'
@@ -21,12 +22,7 @@ declare global {
 const BROWSER_DB_NAME = 'trader-atlas-v3'
 
 async function seedIncompleteHigherVersionDatabase(): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(BROWSER_DB_NAME)
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
-    request.onblocked = () => reject(new Error('测试数据库仍被占用'))
-  })
+  await deleteTestDatabase(BROWSER_DB_NAME)
   await new Promise<void>((resolve, reject) => {
     const request = indexedDB.open(BROWSER_DB_NAME, 3)
     request.onupgradeneeded = () => {

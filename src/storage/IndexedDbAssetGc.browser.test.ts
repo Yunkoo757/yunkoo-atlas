@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 import {
   IndexedDbStorageAdapter,
   StorageRevisionConflictError,
@@ -45,14 +46,6 @@ function seedRawAsset(databaseName: string, id: string, body: string): Promise<v
   })
 }
 
-function deleteDatabase(databaseName: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(databaseName)
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
-  })
-}
-
 async function createFixture(databaseName: string): Promise<{
   storage: IndexedDbStorageAdapter
   liveId: string
@@ -83,7 +76,7 @@ async function testExplicitKillSwitchAndRecoveryAuthorizationAreEnforced(): Prom
     assert(await fingerprint(storage) === before, '边界开关拒绝必须零删除')
   } finally {
     storage.close()
-    await deleteDatabase(databaseName)
+    await deleteTestDatabase(databaseName)
   }
 }
 
@@ -122,7 +115,7 @@ async function testStalePreviewDeletesNothing(): Promise<void> {
   } finally {
     storage.close()
     winner.close()
-    await deleteDatabase(databaseName)
+    await deleteTestDatabase(databaseName)
   }
 }
 
@@ -138,7 +131,7 @@ async function testRecoveryArchiveIsOptional(): Promise<void> {
     assert(await storage.getAssetForExport(liveId), '可选归档路径必须保留仍被引用的附件')
   } finally {
     storage.close()
-    await deleteDatabase(databaseName)
+    await deleteTestDatabase(databaseName)
   }
 }
 
@@ -277,7 +270,7 @@ async function testDeleteFailureRollsBackAndSuccessRevokesCache(): Promise<void>
     assert(atob((await storage.getAssetForExport('orphan-b'))!.data) === 'orphan-b', '恢复归档必须逐字节找回 orphan-b')
   } finally {
     storage.close()
-    await deleteDatabase(databaseName)
+    await deleteTestDatabase(databaseName)
   }
 }
 
@@ -315,7 +308,7 @@ async function testSourceSnapshotAssetIsNotAnOrphan(): Promise<void> {
     )
   } finally {
     storage.close()
-    await deleteDatabase(databaseName)
+    await deleteTestDatabase(databaseName)
   }
 }
 

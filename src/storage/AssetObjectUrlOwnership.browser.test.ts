@@ -1,3 +1,4 @@
+import { deleteTestDatabase } from '@/test/deleteTestDatabase'
 import { AssetObjectUrlScope } from './assetObjectUrls'
 import { IndexedDbStorageAdapter } from './indexedDbAdapter'
 import { ElectronStorageAdapter } from './electronAdapter'
@@ -48,7 +49,7 @@ async function run() {
     await verify(idb, ids, () => idb.clearObjectUrlCache())
   } finally {
     idb.close()
-    await new Promise<void>((resolve, reject) => { const request = indexedDB.deleteDatabase(name); request.onsuccess = () => resolve(); request.onerror = () => reject(request.error) })
+    await deleteTestDatabase(name)
   }
   const previous = window.journalBridge
   try {

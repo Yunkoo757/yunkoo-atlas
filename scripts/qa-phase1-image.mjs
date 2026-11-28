@@ -13,12 +13,6 @@ const context = await browser.newContext({
 })
 const page = await context.newPage()
 await page.goto(BASE, { waitUntil: 'domcontentloaded' })
-await page.evaluate(() => new Promise((resolve) => {
-  const request = indexedDB.deleteDatabase('trader-atlas-v3')
-  request.onsuccess = () => resolve()
-  request.onerror = () => resolve()
-  request.onblocked = () => resolve()
-}))
 async function selectValue(trigger, value) {
   await trigger.click()
   await page.locator(`.ui-select-option[data-value="${value}"]`).click()
