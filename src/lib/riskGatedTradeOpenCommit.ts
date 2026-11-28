@@ -1,5 +1,5 @@
 import type { PersistencePause } from '@/storage/persistenceController'
-import { canonicalRiskJson } from '@/lib/riskFingerprint'
+import { canonicalJsonEqual } from '@/lib/riskFingerprint'
 import { plainDataEqual } from '@/lib/plainData'
 import { cloneRiskOutcome, normalizeRiskOverrideReason } from '@/data/riskManagement'
 import type {
@@ -138,22 +138,13 @@ function reconcileOpenedTrade(current: Trade, source: Trade, opened: Trade): Tra
   }
 }
 
+const RISK_CAPTURE_KEYS = [
+  'trades', 'currentLiveStageId', 'riskPolicyVersions', 'monthlyRiskLimits', 'riskOverrideEvents',
+] as const
+
 function stateMatchesSnapshot(state: RiskGateCommitState, snapshot: PersistedSnapshot): boolean {
-  return canonicalRiskJson({
-    trades: state.trades,
-    currentLiveStageId: state.currentLiveStageId,
-    riskPolicyVersions: state.riskPolicyVersions,
-    monthlyRiskLimits: state.monthlyRiskLimits,
-    riskOverrideEvents: state.riskOverrideEvents,
-    tradingDayStartHour: state.display.tradingDayStartHour,
-  }) === canonicalRiskJson({
-    trades: snapshot.trades,
-    currentLiveStageId: snapshot.currentLiveStageId,
-    riskPolicyVersions: snapshot.riskPolicyVersions,
-    monthlyRiskLimits: snapshot.monthlyRiskLimits,
-    riskOverrideEvents: snapshot.riskOverrideEvents,
-    tradingDayStartHour: snapshot.display.tradingDayStartHour,
-  })
+  return canonicalJsonEqual(state.display.tradingDayStartHour, snapshot.display.tradingDayStartHour) &&
+    RISK_CAPTURE_KEYS.every(key => canonicalJsonEqual(state[key], snapshot[key]))
 }
 
 function validateOpenCapture<State extends RiskGateCommitState>(
@@ -291,7 +282,7 @@ export async function commitRiskGatedTradeOpen<State extends RiskGateCommitState
     if (isRevisionedStorageAdapter(storage)) {
       const envelope = await storage.loadSnapshotEnvelope()
       if (input.isCurrentSession?.() === false) return { kind: 'cancelled', reason: 'target-no-longer-eligible' }
-      if (canonicalRiskJson(envelope.snapshot) !== canonicalRiskJson(baseline.snapshot)) {
+      if (!canonicalJsonEqual(envelope.snapshot, baseline.snapshot)) {
         return { kind: 'needs-reconfirmation' }
       }
       const current = input.captureLatestState()

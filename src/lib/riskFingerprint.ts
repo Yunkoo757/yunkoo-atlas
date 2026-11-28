@@ -14,6 +14,10 @@ export function canonicalRiskJson(value: unknown): string {
   return JSON.stringify(canonicalize(value))
 }
 
+export function canonicalJsonEqual(left: unknown, right: unknown): boolean {
+  return left === right || canonicalRiskJson(left) === canonicalRiskJson(right)
+}
+
 /** 历史身份按 UTF-16 码元计算；更新编码会改变已导入交易的 ID。 */
 export function stableRiskHash(value: string): string {
   let hash = 0xcbf29ce484222325n

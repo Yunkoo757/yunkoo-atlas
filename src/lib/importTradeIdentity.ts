@@ -5,7 +5,7 @@ import { collectAssetIdsFromHtml, remapHtmlAssetIds } from '@/storage/snapshotRi
 import { mapTradeRichText, tradeRichTextEntries } from '@/storage/tradeRichText'
 import { syncReviewCaseSourceNote } from '@/lib/reviewCaseSources'
 import { OperationalError } from '@/lib/operationalError'
-import { canonicalRiskJson, stableRiskHash } from '@/lib/riskFingerprint'
+import { canonicalJsonEqual, stableRiskHash } from '@/lib/riskFingerprint'
 
 export type VerifyImportAsset = (incomingId: string, localId: string) => Promise<boolean>
 
@@ -68,14 +68,14 @@ export async function matchImportedTrade(
   if (local.backtestProjectId !== incoming.backtestProjectId) return 'different'
   const left = stableTradeIdentity(local)
   const right = stableTradeIdentity(incoming)
-  if (left && right) return canonicalRiskJson(left) === canonicalRiskJson(right) ? 'same-origin' : 'different'
+  if (left && right) return canonicalJsonEqual(left, right) ? 'same-origin' : 'different'
 
-  if (!verifyAsset) return canonicalRiskJson(local) === canonicalRiskJson(incoming) ? 'identical' : 'different'
+  if (!verifyAsset) return canonicalJsonEqual(local, incoming) ? 'identical' : 'different'
   const targets = correspondingAssets(tradeRichTextEntries(incoming), tradeRichTextEntries(local))
   if (!targets) return 'different'
   const mapped = mapTradeRichText(incoming, html => remapHtmlAssetIds(html, id => targets.get(id)!))
   if (mapped.decisionImageId) mapped.decisionImageId = targets.get(mapped.decisionImageId) ?? mapped.decisionImageId
-  if (canonicalRiskJson(local) !== canonicalRiskJson(mapped)) return 'different'
+  if (!canonicalJsonEqual(local, mapped)) return 'different'
   for (const [id, target] of targets) {
     if (!await verifyAsset(id, target)) return 'different'
   }

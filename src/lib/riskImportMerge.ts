@@ -1,6 +1,6 @@
 import { resolveImportedTrades, type VerifyImportAsset } from '@/lib/importTradeIdentity'
 import { updateWeeklyReviewMarks } from '@/data/weeklyReviewTradeReferences'
-import { canonicalRiskJson } from '@/lib/riskFingerprint'
+import { canonicalJsonEqual } from '@/lib/riskFingerprint'
 import { stripRetiredSnapshotDomains } from '@/storage/retiredSnapshotDomains'
 import { normalizeWeeklyReviews } from '@/data/weeklyReviews'
 import type { RiskOverrideEvent } from '@/data/riskManagement'
@@ -20,7 +20,7 @@ function mergeImmutableById<T extends { id: string }>(
       byId.set(item.id, item)
       continue
     }
-    if (canonicalRiskJson(local) !== canonicalRiskJson(item)) {
+    if (!canonicalJsonEqual(local, item)) {
       throw new OperationalError(
         'import-immutable-entity-conflict',
         `导入冲突：${label} ${item.id} 与当前资料库中的同 ID 记录内容不同。`,
@@ -76,7 +76,7 @@ function mergeWeeklyReviews(
     if (local.status === 'completed') {
       if (
         importedReview.status === 'completed' &&
-        canonicalRiskJson(completedReviewFrozenTuple(local)) !== canonicalRiskJson(completedReviewFrozenTuple(importedReview))
+        !canonicalJsonEqual(completedReviewFrozenTuple(local), completedReviewFrozenTuple(importedReview))
       ) {
         throw new OperationalError(
           'import-immutable-entity-conflict',
@@ -122,7 +122,7 @@ function rewriteEvent(
   const target = tradesById.get(mappedId ?? event.tradeId)
   const targetIdentity = target && identitySummary(target)
   const canResolveUnmapped = !mappedId && targetIdentity &&
-    canonicalRiskJson(targetIdentity) === canonicalRiskJson(event.tradeIdentityAtDecision)
+    canonicalJsonEqual(targetIdentity, event.tradeIdentityAtDecision)
   if (!targetIdentity || (!mappedId && !canResolveUnmapped)) {
     return { ...event, linkState: 'unresolved' }
   }

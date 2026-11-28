@@ -101,6 +101,26 @@ function electronAdapter(commit: (snapshot: PersistedSnapshot) => Promise<void>)
   } as unknown as StorageAdapter
 }
 
+export async function testRiskCaptureSkipsSharedTradeBodiesButChecksDetachedPolicies(): Promise<void> {
+  const original = baseline()
+  const request = pending(original)
+  const history = original.trades[1]!
+  let noteReads = 0
+  original.trades = [{ ...history, get note() { noteReads++; return history.note } }]
+  const snapshot = { ...original, riskPolicyVersions: structuredClone(original.riskPolicyVersions) }
+  const check = () => commitRiskGatedTradeOpen({
+    request, reason: '',
+    captureLatestState: () => ({ state: original, snapshot, currentTradingDayKey: '2026-07-27' }),
+    storage: electronAdapter(async () => { throw new Error('已移除的目标不得写盘') }),
+    publish: () => { throw new Error('已移除的目标不得发布') },
+  })
+  const removed = await check()
+  assert(removed.kind === 'cancelled' && removed.reason === 'target-missing', '等值但已复制的规则仍匹配')
+  assert(noteReads === 0, '相同的交易集合不应为比较快照逐笔读取正文')
+  snapshot.riskPolicyVersions[0]!.dailyLossLimitR += 1
+  assert((await check()).kind === 'needs-reconfirmation', '独立快照的风险限额发生变化必须重新核对')
+}
+
 export async function testTradingDaySettingsSnapshotMismatchRequiresReconfirmation(): Promise<void> {
   const original = baseline()
   const state = {
