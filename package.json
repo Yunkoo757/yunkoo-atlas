@@ -9,7 +9,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "typecheck": "tsc -b --pretty false && tsc -p tsconfig.electron.json --pretty false",
-    "test": "pnpm test:hooks && pnpm test:identity && node scripts/run-quality-node-tests.mjs && node scripts/run-regression-tests.mjs && node scripts/check-governance.mjs --require-execution",
+    "test": "node scripts/run-quality-node-tests.mjs && node scripts/run-regression-tests.mjs && node scripts/check-governance.mjs --require-execution",
     "test:hooks": "node --test scripts/check-staged-text.test.mjs",
     "check:staged": "node scripts/check-staged-text.mjs",
     "hooks:install": "node scripts/install-hooks.mjs",

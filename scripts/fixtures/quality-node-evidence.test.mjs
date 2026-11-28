@@ -18,9 +18,11 @@ test('Node 质量证据只登记实际执行的测试，失败或跳过后移除
   try {
     fs.mkdirSync(path.join(root, 'scripts', 'fixtures'), { recursive: true })
     fs.writeFileSync(path.join(root, '.gitignore'), 'test-results/\n')
-    for (const name of ['release-command', 'release-artifacts', 'test-discovery']) {
-      fs.writeFileSync(path.join(root, 'scripts', name + '.test.mjs'), "import test from 'node:test'; test('entry', () => {})")
+    fs.mkdirSync(path.join(root, 'execution-trainer', 'test'), { recursive: true })
+    for (const file of ['scripts/new-command.test.mjs', 'execution-trainer/test/model.test.mjs']) {
+      fs.writeFileSync(path.join(root, file), "import test from 'node:test'; test('entry', () => {})")
     }
+    fs.writeFileSync(path.join(root, 'execution-trainer/test/open-demo.mjs'), "throw Error('manual desktop entry')")
     fs.writeFileSync(path.join(root, fixture), [
       "import test from 'node:test'",
       "if (false) test('never executed', () => {})",
@@ -31,6 +33,10 @@ test('Node 质量证据只登记实际执行的测试，失败或跳过后移除
     const result = execute()
     assert.equal(result.status, 0, result.stdout + result.stderr)
     const evidence = JSON.parse(fs.readFileSync(report, 'utf8'))
+    for (const file of ['scripts/new-command.test.mjs', 'execution-trainer/test/model.test.mjs']) {
+      assert.equal(evidence.executedTests[file + '#entry'], evidence.executedFiles[file])
+      assert.match(evidence.executedFiles[file], /^[0-9a-f]{64}$/)
+    }
     const expectedSource = await readGitProvenance(root)
     for (const [key, value] of Object.entries(expectedSource)) assert.equal(evidence[key], value, key)
     assert.deepEqual(Object.keys(evidence.executedTests).filter(id => id.startsWith(fixture)), [

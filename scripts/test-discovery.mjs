@@ -39,14 +39,14 @@ export async function discoverUnitTestEntries(root) {
 }
 
 export async function discoverQualityNodeTests(root) {
-  const fixtures = await fs.readdir(path.join(root, 'scripts/fixtures'), { withFileTypes: true })
-  return [
-    'scripts/release-command.test.mjs',
-    'scripts/release-artifacts.test.mjs',
-    'scripts/test-discovery.test.mjs',
-    ...fixtures.filter(file => file.isFile() && file.name.endsWith('.test.mjs'))
-      .map(file => `scripts/fixtures/${file.name}`).sort(),
-  ]
+  const entries = []
+  for (const directory of ['scripts', 'scripts/fixtures', 'execution-trainer/test']) {
+    const files = await fs.readdir(path.join(root, directory), { withFileTypes: true })
+    for (const file of files) {
+      if (file.isFile() && file.name.endsWith('.test.mjs')) entries.push(`${directory}/${file.name}`)
+    }
+  }
+  return entries.sort()
 }
 
 function collectPromiseKeys(source, target) {

@@ -68,7 +68,7 @@ TRADER_ATLAS_LIBRARY="$atlas_review_root/library" VITE_DEV_SERVER_URL='' \
 - 查看生效来源：`git config --show-origin --get core.hooksPath`。
 - 手动复核暂存内容：`pnpm check:staged`。未暂存文件不在其检查范围；工作区改好后需要重新暂存对应文件。
 - 编码失败：用 UTF-8 无 BOM 重新保存报告中的文件，确认中文未损坏，再重新暂存并检查。不要用 Hook 自动转码来猜测历史编码。
-- 新克隆需要重新安装；Git Hooks 是本地反馈，不是远端强制门禁。`pnpm test:hooks` 已接入 `pnpm test`，用于检验 Hook 本身的行为，不能证明所有提交文件合规。
+- 新克隆需要重新安装；Git Hooks 是本地反馈，不是远端强制门禁。`pnpm test` 的 Node 质量阶段按文件名发现 Hook、工程脚本和执行训练器单测，将实际执行的用例写入质量报告。`pnpm test:hooks` 可单独验证 Hook 行为。
 - 移除本项目接线前先确认当前值仍为 `.githooks`，再执行 `git config --local --unset core.hooksPath`；不删除他人 Hook 文件。
 
 当前没有项目级 Codex/Claude 生命周期 Hook；`.claude/settings.local.json` 只是本机已有权限设置。不要为凑流程新增每次工具调用的提醒、强制停顿或全量测试。需要生命周期 Hook 时，先定义可确定判断的事件、失败条件和退出方式，再核对 [官方 Hooks 文档](https://learn.chatgpt.com/docs/hooks)；Git Hook 与 Agent Hook 不能混称。
