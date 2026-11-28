@@ -240,13 +240,14 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     const db = await openJournalDatabase(indexedDB, this.databaseName, () =>
       new DOMException('IndexedDB repair blocked by another tab', 'InvalidStateError'))
     db.onversionchange = () => db.close()
-    this.db = db
-    const manifest = await idbGet<LibraryManifest>(this.db, STORE_META, 'manifest')
-    if (!manifest) {
-      await initializeMissingManifest(this.db)
-      return
+    try {
+      assertCompatibleManifest(await readOrInitializeManifest(db))
+    } catch (error) {
+      db.close()
+      throw error
     }
-    assertCompatibleManifest(manifest)
+    this.db?.close()
+    this.db = db
   }
 
   private requireDb(): IDBDatabase {
@@ -840,20 +841,31 @@ function idbGetAll<T>(db: IDBDatabase, store: string): Promise<T[]> {
   })
 }
 
-function initializeMissingManifest(db: IDBDatabase): Promise<LibraryManifest> {
+async function readOrInitializeManifest(db: IDBDatabase): Promise<LibraryManifest> {
+  const existing = await idbGet<LibraryManifest>(db, STORE_META, 'manifest')
+  if (existing !== undefined) return existing
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction([STORE_SNAPSHOT, STORE_META], 'readwrite')
-    const snapshotRequest = tx.objectStore(STORE_SNAPSHOT).get('main')
-    let created: LibraryManifest | null = null
-    snapshotRequest.onsuccess = () => {
-      created = {
-        schemaVersion: snapshotRequest.result === undefined ? SCHEMA_VERSION : 1,
-        libraryId: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
+    const meta = tx.objectStore(STORE_META)
+    const current = meta.get('manifest')
+    let manifest: LibraryManifest
+    current.onsuccess = () => {
+      if (current.result !== undefined) {
+        manifest = current.result
+        return
       }
-      tx.objectStore(STORE_META).put(created, 'manifest')
+      const snapshot = tx.objectStore(STORE_SNAPSHOT).get('main')
+      snapshot.onsuccess = () => {
+        manifest = {
+          schemaVersion: snapshot.result === undefined ? SCHEMA_VERSION : 1,
+          libraryId: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+        }
+        meta.put(manifest, 'manifest')
+      }
     }
-    tx.oncomplete = () => resolve(created!)
+    tx.oncomplete = () => resolve(manifest)
     tx.onerror = () => reject(tx.error ?? new Error('IndexedDB manifest initialization failed'))
     tx.onabort = () => reject(tx.error ?? new Error('IndexedDB manifest initialization aborted'))
   })

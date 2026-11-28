@@ -232,7 +232,46 @@ async function expectConflict(
   assert(error.actualRevision === actualRevision, '冲突必须携带当前 actual revision')
 }
 
+async function verifyConcurrentManifestCreation(schemaVersion: number): Promise<void> {
+  await deleteDatabase()
+  const manifest = { schemaVersion, libraryId: 'confirmed-library', createdAt: '2024-01-01T00:00:00.000Z' }
+  const original = IDBDatabase.prototype.transaction
+  let committedFirst = false
+  IDBDatabase.prototype.transaction = function (stores, mode, options) {
+    if (this.name === DB_NAME && mode === 'readwrite' && !committedFirst) {
+      committedFirst = true
+      const other = original.call(this, 'meta', 'readwrite').objectStore('meta')
+      other.put(manifest, 'manifest')
+      other.put(42, 'snapshotRevision')
+    }
+    return original.call(this, stores, mode, options)
+  }
+  const adapter = new IndexedDbStorageAdapter()
+  let failure: unknown
+  try {
+    try { await adapter.open() } catch (error) { failure = error }
+  } finally {
+    IDBDatabase.prototype.transaction = original
+  }
+  try {
+    assert(committedFirst, '清单预检后应执行独立的先行提交')
+    assert(JSON.stringify(await readRawValue('meta', 'manifest')) === JSON.stringify(manifest), '先提交的清单身份、版本和时间必须完整保留')
+    assert(await readRawValue('meta', 'snapshotRevision') === 42, '清单初始化不能改变已有版本')
+    if (schemaVersion === SCHEMA_VERSION) {
+      assert(!failure && (await adapter.getManifest()).libraryId === manifest.libraryId, '打开方应采用已有的库身份')
+    } else {
+      assert(failure instanceof Error && failure.message.includes('更新版本'), '未来版本的先行提交须保持原有拒绝语义')
+      const readable = await adapter.getManifest().then(() => true, () => false)
+      assert(!readable, '拒绝打开的初始连接不应被暴露给后续操作')
+    }
+  } finally {
+    adapter.close()
+  }
+}
+
 async function run(): Promise<void> {
+  await verifyConcurrentManifestCreation(SCHEMA_VERSION)
+  await verifyConcurrentManifestCreation(SCHEMA_VERSION + 1)
   await holdDatabaseOpenBriefly()
   await seedCurrentCorruptSnapshot()
   const corrupt = new IndexedDbStorageAdapter()
