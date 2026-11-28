@@ -9,6 +9,7 @@ import { SCHEMA_VERSION } from '@/storage/types'
 import { useStore } from '@/store/useStore'
 import { filterStageCases } from '@/lib/stageArchive'
 import { mergeImportPayload } from '@/lib/importMerge'
+import { stableImportedTradeId } from '@/lib/riskImportMerge'
 import { getDetailNavigation } from '@/shortcuts/listNav'
 import { isAccountTrade } from '@/lib/tradeKind'
 import { buildBacktestAnalysisPackage } from '@/lib/backtestExport'
@@ -72,6 +73,31 @@ export function testBacktestMergeRemapsProjectCollisionsIdempotently(): void {
   assert(Boolean(importedRecord), '成员必须跟随新项目ID')
   const repeated = mergeImportPayload(merged, imported, 'backtest-collision')
   assert(repeated.backtestProjects?.length === 2 && repeated.trades.length === 4, '重复导入不得增殖')
+}
+
+export function testBacktestMergePreservesLocalEditsAndRefusesAnOccupiedTarget(): void {
+  const local = snapshot(), digest = 'project-ownership'
+  const incoming = { ...project, name: '导入项目', rules: '导入的固定规则' }
+  const payload = { ...snapshot(), version: SCHEMA_VERSION, backtestProjects: [incoming] }
+  const target = stableImportedTradeId(digest, 'backtest-project:' + project.id)
+  const edited = { ...incoming, id: target, name: '导入后本地改名', targetCount: 180 }
+  const repeat = mergeImportPayload({ ...local, backtestProjects: [project, edited] }, payload, digest)
+  assert(repeat.backtestProjects?.length === 2 && repeat.backtestProjects[1]?.name === edited.name && repeat.backtestProjects[1]?.targetCount === 180,
+    '重复导入应沿用同一规则的历史副本并保留本地改名和目标')
+  const assertRejected = (run: () => unknown) => {
+    let error = ''
+    try { run() } catch (cause) { error = String(cause) }
+    assert(error.includes(target), '导入候选不得把样本交给其他项目，应报告有冲突的目标 ID')
+  }
+  for (const different of [
+    { ...edited, rules: '另一套规则' }, { ...edited, symbol: 'EURUSD' },
+    { ...edited, startedAt: '2025-01-02' }, { ...edited, createdAt: '2026-11-01T00:00:00.000Z' },
+  ]) {
+    assertRejected(() => mergeImportPayload({ ...local, backtestProjects: [project, different] }, payload, digest))
+  }
+  for (const backtestProjects of [[incoming, edited], [edited, incoming]]) {
+    assertRejected(() => mergeImportPayload(local, { ...payload, backtestProjects }, digest))
+  }
 }
 
 export function testBacktestDetailAndNewRecordKeepProjectContext(): void {

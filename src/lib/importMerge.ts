@@ -8,12 +8,13 @@ import { mergeTagPresets } from '@/lib/tags'
 import { normalizeDisplay } from '@/lib/tradeFilters'
 import { assignTradeStage, normalizeTrades } from '@/lib/tradeKind'
 import type { ExportPayload, ImportIdentityPayload, PersistedSlice } from '@/lib/importTypes'
-import { mergeRiskImport } from '@/lib/riskImportMerge'
+import { mergeRiskImport, stableImportedTradeId } from '@/lib/riskImportMerge'
 import { getCurrentLiveStage, type LiveStage } from '@/lib/liveStages'
 import { isUsableRiskPolicy } from '@/lib/activeRiskPolicy'
 import type { Trade } from '@/data/trades'
 import type { ReviewPoolPreset } from '@/lib/reviewPools'
-import { stableImportedTradeId } from '@/lib/riskImportMerge'
+import { hasSameBacktestRules, type BacktestProject } from '@/lib/backtestProjects'
+import { OperationalError } from '@/lib/operationalError'
 
 function mergeReviewPoolPresets(
   current: readonly ReviewPoolPreset[],
@@ -163,21 +164,38 @@ export function canonicalImportValue(value: unknown): string {
   })
 }
 
+function mergeBacktestProjects(current: BacktestProject[], imported: BacktestProject[], digest: string) {
+  const local = new Map(current.map(project => [project.id, project]))
+  const projects = [...current]
+  const idMap = new Map<string, string>()
+  const targets = new Set<string>()
+  for (const project of imported) {
+    const existing = local.get(project.id)
+    const id = existing && canonicalImportValue(existing) !== canonicalImportValue(project)
+      ? stableImportedTradeId(digest, 'backtest-project:' + project.id)
+      : project.id
+    const occupant = local.get(id)
+    const occupiedByOtherProject = id !== project.id && occupant &&
+      (occupant.createdAt !== project.createdAt || !hasSameBacktestRules(occupant, project))
+    if (targets.has(id) || occupiedByOtherProject) {
+      throw new OperationalError('import-immutable-entity-conflict', '导入冲突：回测项目编号 ' + id + ' 已被其他项目或不同的固定规则占用。')
+    }
+    targets.add(id)
+    idMap.set(project.id, id)
+    if (!occupant) projects.push({ ...project, id })
+  }
+  return { projects, idMap }
+}
+
 export function mergeImportPayload(
   current: PersistedSlice,
   payload: ExportPayload,
   payloadDigest = canonicalImportValue(payload),
   identityPayload: ImportIdentityPayload = payload,
 ): PersistedSlice {
-  const projects = new Map((current.backtestProjects ?? []).map(project => [project.id, project]))
-  const projectIdMap = new Map<string, string>()
-  for (const project of payload.backtestProjects ?? []) {
-    const existing = projects.get(project.id)
-    const id = existing && canonicalImportValue(existing) !== canonicalImportValue(project)
-      ? stableImportedTradeId(payloadDigest, `backtest-project:${project.id}`) : project.id
-    projectIdMap.set(project.id, id)
-    if (!projects.has(id)) projects.set(id, { ...project, id })
-  }
+  const { projects, idMap: projectIdMap } = mergeBacktestProjects(
+    current.backtestProjects ?? [], payload.backtestProjects ?? [], payloadDigest,
+  )
   const remapProjects = (trades: ExportPayload['trades']) => trades.map(trade => trade.backtestProjectId
     ? { ...trade, backtestProjectId: projectIdMap.get(trade.backtestProjectId) ?? trade.backtestProjectId } as Trade : trade)
   payload = { ...payload, trades: remapProjects(payload.trades) }
@@ -227,7 +245,7 @@ export function mergeImportPayload(
     payloadDigest,
   )
   return {
-    backtestProjects: [...projects.values()],
+    backtestProjects: projects,
     strategies,
     trades: normalizeTrades(riskMerged.trades),
     liveStages: current.liveStages.map((stage) => ({ ...stage })),

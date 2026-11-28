@@ -16,6 +16,11 @@ export interface BacktestProject {
   updatedAt: string
 }
 
+/** 首笔样本锁定的测试条件；项目名称、目标和归档状态仍可调整。 */
+export function hasSameBacktestRules(left: BacktestProject, right: BacktestProject): boolean {
+  return left.symbol === right.symbol && left.startedAt === right.startedAt && left.rules === right.rules
+}
+
 export function projectPath(id: string): string {
   return `/backtests/${encodeURIComponent(id)}`
 }

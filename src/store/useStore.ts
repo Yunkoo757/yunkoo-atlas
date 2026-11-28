@@ -3,8 +3,7 @@ import type { ComposerGroup } from '@/lib/createRecordAction'
 import { toast } from '@/lib/toast'
 import { syncReviewCaseSourceNotes } from '@/lib/reviewCaseSources'
 import { previewHistoricalRiskBackfill, historicalRiskFingerprint, type HistoricalRiskInput, type HistoricalRiskPreview } from '@/lib/historicalRiskBackfill'
-import type { BacktestProject } from '@/lib/backtestProjects'
-import { isBacktestProject } from '@/lib/backtestProjects'
+import { hasSameBacktestRules, isBacktestProject, type BacktestProject } from '@/lib/backtestProjects'
 import { create, type StoreApi } from 'zustand'
 import {
   isReviewCompleted,
@@ -517,7 +516,7 @@ export const useStore = create<State>()((set, get) => ({
         if (!isBacktestProject(project)) return
         set(state => {
           const previous = state.backtestProjects.find(item => item.id === project.id)
-          if (previous && state.trades.some(trade => trade.backtestProjectId === project.id) && (previous.symbol !== project.symbol || previous.startedAt !== project.startedAt || previous.rules !== project.rules)) return state
+          if (previous && !hasSameBacktestRules(previous, project) && state.trades.some(trade => trade.backtestProjectId === project.id)) return state
           return { backtestProjects: previous ? state.backtestProjects.map(item => item.id === project.id ? project : item) : [...state.backtestProjects, project] }
         })
       },
