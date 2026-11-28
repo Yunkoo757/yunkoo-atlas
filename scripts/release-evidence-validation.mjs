@@ -68,15 +68,6 @@ export function blobBridgeCoveragePassed(value) {
     value.oldTabsRefreshedOrClosed === true
 }
 
-export function fullQaPassed(value) {
-  const expectedCommands = [
-    'qa:ci', 'qa', 'build:app', 'qa:dashboard-10k', 'qa:electron',
-  ]
-  return value?.version === 1 && value.mode === 'full' && value.status === 'pass' &&
-    Array.isArray(value.commands) && value.commands.length === expectedCommands.length &&
-    expectedCommands.every((command, index) => value.commands[index] === command)
-}
-
 export function persistenceReleaseGatePassed(value) {
   try {
     if (value?.version !== 1 || value.status !== 'pass' || !Array.isArray(value.regressions) || value.regressions.length !== 0) return false

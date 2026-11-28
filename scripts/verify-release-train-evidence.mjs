@@ -10,13 +10,13 @@ import {
   blobBridgeCoveragePassed,
   detectBlobReleaseMode,
   forcedKillPassed,
-  fullQaPassed,
   generationDecisionPassed,
   generationRawPassed,
   jsonCompatibilityPassed,
   persistenceReleaseGatePassed,
   releaseTrainDrillsPassed,
 } from './release-evidence-validation.mjs'
+import { fullQaPassed } from './release-qa-plan.mjs'
 import { assetLifecyclePassed, electronSafetyPassed } from './platform-regression.mjs'
 
 const root = process.cwd()

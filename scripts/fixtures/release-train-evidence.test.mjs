@@ -12,13 +12,13 @@ import {
   EXPECTED_FINAL_CHECK_NAMES,
   finalQualityManifestPassed,
   forcedKillPassed,
-  fullQaPassed,
   generationDecisionPassed,
   generationRawPassed,
   jsonCompatibilityPassed,
   persistenceReleaseGatePassed,
   releaseTrainDrillsPassed,
 } from '../release-evidence-validation.mjs'
+import { fullQaPassed } from '../release-qa-plan.mjs'
 import { assetLifecyclePassed, electronSafetyPassed } from '../platform-regression.mjs'
 import { PERSISTENCE_BASELINE_METRICS } from '../persistence-baseline.mjs'
 import { CUTOVER_FAULT_POINTS, MiB } from '../spikes/electron-generation/generation-prototype.mjs'
@@ -88,7 +88,7 @@ test('QA 与性能最小伪造报告不能通过最终 manifest', () => {
     status: 'pass',
     mode: 'full',
     commands: ['qa:ci', 'qa', 'build:app', 'qa:dashboard-10k', 'qa:electron'],
-  }), true)
+  }), false)
 
   const metrics = Object.fromEntries(PERSISTENCE_BASELINE_METRICS.map((metric) => [metric, 1]))
   const samples = new Array(30).fill(1)

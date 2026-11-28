@@ -1,4 +1,5 @@
 import test from 'node:test'
+import { fullQaPassed } from '../release-qa-plan.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
@@ -110,6 +111,7 @@ test('并行验收只访问各自工作树，完整与冒烟报告记录实际�
       ...(mode === 'full' ? ['qa:dashboard-10k'] : []), 'qa:electron',
     ])
     assert.deepEqual(report.commands, executed)
+    assert.equal(fullQaPassed(report), mode === 'full', '独立聚合器必须能复验本次完整运行的报告')
     assert.equal(report.status, 'pass')
     assert.equal(report.workingTreeDirty, false)
     assert.equal(report.sourceIdentity, 'git-tree:' + report.gitTree)
