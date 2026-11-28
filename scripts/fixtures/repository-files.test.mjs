@@ -62,22 +62,24 @@ test('源码指纹可读取文件和目录互换的工作树', async t => {
   assert.notEqual((await readGitProvenance(root)).sourceIdentity, directory.sourceIdentity)
 })
 
-test('链接的目标路径及普通文件的执行位属于本地源码身份', { skip: process.platform === 'win32' }, async t => {
-  const { root, commit } = repository(t)
-  const a = path.join(root, 'a')
-  fs.writeFileSync(a, 'identical')
-  fs.writeFileSync(path.join(root, 'b'), 'identical')
-  commit()
-  const link = path.join(root, 'alias')
-  fs.symlinkSync('a', link)
-  const first = await readGitProvenance(root)
-  fs.unlinkSync(link)
-  fs.symlinkSync('b', link)
-  const second = await readGitProvenance(root)
-  assert.notEqual(first.sourceIdentity, second.sourceIdentity)
-  fs.chmodSync(a, 0o755)
-  assert.notEqual(second.sourceIdentity, (await readGitProvenance(root)).sourceIdentity)
-})
+if (process.platform !== 'win32') {
+  test('文件符号链接的目标路径及普通文件的执行位属于本地源码身份', async t => {
+    const { root, commit } = repository(t)
+    const a = path.join(root, 'a')
+    fs.writeFileSync(a, 'identical')
+    fs.writeFileSync(path.join(root, 'b'), 'identical')
+    commit()
+    const link = path.join(root, 'alias')
+    fs.symlinkSync('a', link)
+    const first = await readGitProvenance(root)
+    fs.unlinkSync(link)
+    fs.symlinkSync('b', link)
+    const second = await readGitProvenance(root)
+    assert.notEqual(first.sourceIdentity, second.sourceIdentity)
+    fs.chmodSync(a, 0o755)
+    assert.notEqual(second.sourceIdentity, (await readGitProvenance(root)).sourceIdentity)
+  })
+}
 
 test('跟踪目录被目录链接替换时只识别该链接，原目录下的文件已经移除', async t => {
   const { root, area, commit } = repository(t)
@@ -90,8 +92,16 @@ test('跟踪目录被目录链接替换时只识别该链接，原目录下的�
   const target = path.join(external, 'record.ts')
   fs.writeFileSync(target, 'outside')
   fs.rmSync(source, { recursive: true })
+  // Windows 的目录联接无需创建文件符号链接的权限。
   fs.symlinkSync(external, source, 'junction')
   const linked = await readGitProvenance(root)
   fs.appendFileSync(target, 'other changes')
   assert.deepEqual(await readGitProvenance(root), linked)
+
+  const replacement = path.join(area, 'replacement')
+  fs.mkdirSync(replacement)
+  fs.copyFileSync(target, path.join(replacement, 'record.ts'))
+  fs.rmSync(source)
+  fs.symlinkSync(replacement, source, 'junction')
+  assert.notEqual((await readGitProvenance(root)).sourceIdentity, linked.sourceIdentity)
 })
