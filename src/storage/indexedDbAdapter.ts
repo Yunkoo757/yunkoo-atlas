@@ -212,6 +212,7 @@ function base64ToBlob(base64: string, mime: string): Blob {
 
 export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   private db: IDBDatabase | null = null
+  private lifetime = new AbortController()
   private objectUrls = new AssetObjectUrlCache()
   private preparedAssets = new Map<string, AssetRecord>()
   private mutationTail: Promise<void> = Promise.resolve()
@@ -233,20 +234,30 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   async open(): Promise<void> {
+    const { signal } = this.lifetime
     if (this.databaseName === BROWSER_DATABASE_NAME) {
-      await migrateLegacyBrowserIdentity(indexedDB)
+      await migrateLegacyBrowserIdentity(indexedDB, signal)
+      signal.throwIfAborted()
     }
     const db = await openJournalDatabase(indexedDB, this.databaseName, () =>
       new DOMException('IndexedDB repair blocked by another tab', 'InvalidStateError'))
-    db.onversionchange = () => db.close()
+    db.onclose = () => {
+      if (this.db === db) this.close()
+    }
+    db.onversionchange = () => {
+      db.close()
+      if (!signal.aborted) this.close()
+    }
     try {
+      signal.throwIfAborted()
       assertCompatibleManifest(await readOrInitializeManifest(db))
+      signal.throwIfAborted()
     } catch (error) {
       db.close()
       throw error
     }
-    this.db?.close()
-    this.db = db
+    if (this.db) db.close()
+    else this.db = db
   }
 
   private requireDb(): IDBDatabase {
@@ -262,6 +273,9 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   close(): void {
+    this.lifetime.abort()
+    this.lifetime = new AbortController()
+    this.mutationTail = Promise.resolve()
     this.clearObjectUrlCache()
     this.preparedAssets.clear()
     this.referencedAssetIdsAtRevision = null
@@ -303,18 +317,22 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   async loadSnapshotEnvelope(): Promise<SnapshotEnvelope> {
+    const { signal } = this.lifetime
     const db = this.requireDb()
     let stored = await this.readStoredSnapshot(db)
+    signal.throwIfAborted()
     if (stored.manifest.schemaVersion < SCHEMA_VERSION) {
       const snapshot = stored.snapshot ?? createEmptyPersistedSnapshot()
       try {
         const { revision } = await this.enqueueLibraryMutation({
           expectedRevision: stored.revision, snapshot, reason: 'migration',
-        }, true)
+        }, signal, true)
+        signal.throwIfAborted()
         return { revision, snapshot }
       } catch (error) {
         if (!(error instanceof StorageRevisionConflictError)) throw error
         stored = await this.readStoredSnapshot(db)
+        signal.throwIfAborted()
         if (stored.manifest.schemaVersion < SCHEMA_VERSION) throw error
       }
     }
@@ -327,13 +345,16 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
 
   private enqueueLibraryMutation(
     input: RevisionedLibraryMutation | Omit<RevisionedLibraryMutation, 'expectedRevision'>,
+    signal = this.lifetime.signal,
     migratingOnRead = false,
   ): Promise<{ revision: number }> {
     const operation = this.mutationTail.then(async () => {
+      signal.throwIfAborted()
       if (!migratingOnRead) assertWebWriteAllowed()
       try {
         let references = this.referencedAssetIdsAtRevision
         const actualRevision = await this.getSnapshotRevision()
+        signal.throwIfAborted()
         const expectedRevision = 'expectedRevision' in input
           ? input.expectedRevision
           : references?.revision ?? actualRevision
@@ -347,8 +368,9 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
           }
           references = stored
         }
-        return await this.runLibraryMutation({ ...input, expectedRevision }, references.ids)
+        return await this.runLibraryMutation({ ...input, expectedRevision }, references.ids, signal)
       } catch (error) {
+        signal.throwIfAborted()
         if (!migratingOnRead && error instanceof StorageRevisionConflictError) reportWebRevisionConflict(error)
         throw error
       }
@@ -360,8 +382,10 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   private async runLibraryMutation(
     input: RevisionedLibraryMutation,
     previouslyReferencedIds: ReadonlySet<string>,
+    signal: AbortSignal,
   ): Promise<{ revision: number }> {
     const prepared = await prepareIndexedDbMutation(input)
+    signal.throwIfAborted()
     const db = this.requireDb()
     return new Promise((resolve, reject) => {
       const tx = db.transaction([STORE_SNAPSHOT, STORE_ASSETS, STORE_META], 'readwrite')
@@ -461,6 +485,11 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       )
       tx.oncomplete = () => {
         stopped = true
+        if (signal.aborted) {
+          // 已启动的原库事务可以正常提交，回执只属于原调用方。
+          resolve({ revision: nextRevision })
+          return
+        }
         this.referencedAssetIdsAtRevision = {
           revision: nextRevision,
           ids: new Set(prepared.referencedIds),
@@ -485,6 +514,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   async saveSnapshot(snapshot: PersistedSnapshot): Promise<void> {
+    const { signal } = this.lifetime
     snapshot = stripRetiredSnapshotDomains(snapshot)
     let assetPuts: AssetRecord[] = []
     if (this.preparedAssets.size > 0) {
@@ -495,7 +525,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
       snapshot,
       assetPuts,
       reason: 'autosave',
-    })
+    }, signal)
   }
 
   async saveAsset(blob: Blob, mime: string): Promise<string> {
@@ -598,9 +628,12 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   async previewAssetPurge(): Promise<AssetPurgePreview> {
+    const { signal } = this.lifetime
     const envelope = await this.loadSnapshotEnvelope()
     if (!envelope.snapshot) throw new Error('当前资料库尚无可校验的持久化快照')
-    const inventory = buildAssetInventory(envelope.snapshot, await this.listAssetRecords())
+    const records = await this.listAssetRecords()
+    signal.throwIfAborted()
+    const inventory = buildAssetInventory(envelope.snapshot, records)
     return this.assetPurgePreviews.create(envelope.revision, inventory.orphan, envelope.snapshot)
   }
 
@@ -642,6 +675,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
   }
 
   async commitAssetPurge(preview: AssetPurgePreview, authorization?: string): Promise<AssetPurgeResult> {
+    const { signal } = this.lifetime
     const operation = beginWebOperation('gc', {
       operationId: preview.operationId,
       actionId: preview.operationId,
@@ -670,7 +704,9 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
         operation.success({ stage: 'committed', revisionAfter: result.revision })
         return { revision: result.revision, deletedIds: [...prepared.candidateIds] }
       } finally {
-        for (const id of prepared.candidateIds) this.purgingAssetIds.delete(id)
+        if (!signal.aborted) {
+          for (const id of prepared.candidateIds) this.purgingAssetIds.delete(id)
+        }
       }
     } catch (error) {
       operation.failure(error, { stage: 'commit' })
@@ -708,6 +744,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     assets: ExportAssetRecord[],
     options?: { pruneUnreferenced?: boolean },
   ): Promise<void> {
+    const { signal } = this.lifetime
     snapshot = stripRetiredSnapshotDomains(snapshot)
     const revisionBefore = await this.getSnapshotRevision()
     const operation = beginWebOperation('import', {
@@ -736,7 +773,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
           ? assets.filter((asset) => !referencedAssetIds.has(asset.id)).map((asset) => asset.id)
           : undefined,
         reason: 'import',
-      })
+      }, signal)
       operation.success({ stage: 'committed', revisionAfter: result.revision })
     } catch (error) {
       operation.failure(error, { stage: 'commit' })
@@ -754,6 +791,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
     assets: ExportAssetRecord[],
     recoveryOrphanAssetIds: readonly string[] = [],
   ): Promise<void> {
+    const { signal } = this.lifetime
     snapshot = stripRetiredSnapshotDomains(snapshot)
     const revisionBefore = await this.getSnapshotRevision()
     const operation = beginWebOperation('archive', {
@@ -780,7 +818,7 @@ export class IndexedDbStorageAdapter implements RevisionedStorageAdapter {
         assetMode: 'replace',
         allowedUnreferencedAssetPuts: recoveryOrphanAssetIds,
         reason: 'restore',
-      })
+      }, signal)
       operation.success({ stage: 'committed', revisionAfter: result.revision })
     } catch (error) {
       operation.failure(error, { stage: 'commit' })

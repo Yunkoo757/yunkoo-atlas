@@ -49,7 +49,78 @@ async function deleteDatabase(): Promise<void> {
   })
 }
 
+async function verifyPendingWritesAfterClose(): Promise<void> {
+  await deleteDatabase()
+  const adapter = new IndexedDbStorageAdapter()
+  await adapter.open()
+  await adapter.saveSnapshot(snapshot('old-library'))
+  const oldId = 'old-library-image'
+  const scheduler = (globalThis as unknown as { scheduler: { yield(): Promise<void> } }).scheduler
+  const original = scheduler.yield
+  let resume!: () => void
+  let paused!: () => void
+  const gate = new Promise<void>((resolve) => { resume = resolve })
+  const started = new Promise<void>((resolve) => { paused = resolve })
+  scheduler.yield = () => {
+    scheduler.yield = original
+    paused()
+    return gate
+  }
+  const observe = (promise: Promise<unknown>) => promise.then(() => 'committed', (error: Error) => error.name)
+  const committing = observe(adapter.commitLibraryMutation({
+    expectedRevision: 1, snapshot: snapshot('stale-commit', [oldId]), reason: 'autosave',
+    assetPuts: [{ id: oldId, mime: 'image/png', blob: new Blob(['old']) }],
+  }))
+  try {
+    await started
+    const saving = observe(adapter.saveSnapshot(snapshot('stale-save')))
+    adapter.close()
+    await deleteDatabase()
+    const replacement = new IndexedDbStorageAdapter()
+    await replacement.open()
+    await replacement.saveSnapshot(snapshot('replacement'))
+    replacement.close()
+    await adapter.open()
+    resume()
+    const outcomes = await Promise.all([saving, committing])
+    const current = await adapter.loadSnapshotEnvelope()
+    assert(current.revision === 1 && current.snapshot?.profile?.displayName === 'replacement',
+      `上一个库的在途保存不能覆盖新库，实际修订 ${current.revision}，内容 ${current.snapshot?.profile?.displayName}，回执 ${outcomes.join(',')}`)
+    assert(outcomes.every(outcome => outcome === 'AbortError'), '关闭前的写入应向原调用方返回取消')
+    assert(await adapter.getAssetForExport(oldId) === null, '旧库准备附件不得出现在重开后的资料库')
+    await adapter.saveSnapshot(snapshot('new-edit'))
+    assert(await adapter.getSnapshotRevision() === 2, '新库应能继续保存')
+  } finally {
+    resume()
+    scheduler.yield = original
+    adapter.close()
+  }
+}
+
+async function verifyOpenAndVersionChangeLifetime(): Promise<void> {
+  await deleteDatabase()
+  const adapter = new IndexedDbStorageAdapter()
+  const pending = adapter.open().then(() => 'opened', (error: Error) => error.name)
+  adapter.close()
+  assert(await pending === 'AbortError', '显式关闭应取消尚未完成的打开')
+  const readable = await adapter.getManifest().then(() => true, () => false)
+  assert(!readable, '关闭后迟到的连接不能重新发布')
+  await adapter.open()
+  try {
+    const staged = await adapter.saveAsset(new Blob(['staged']), 'image/png')
+    await adapter.open()
+    assert(await adapter.getAssetForExport(staged), '同库重新打开应保留准备中的附件')
+    await deleteDatabase()
+    await adapter.open()
+    assert(await adapter.getAssetForExport(staged) === null, '原生删除和重新建库须释放前一库的准备附件')
+  } finally {
+    adapter.close()
+  }
+}
+
 async function run(): Promise<void> {
+  await verifyPendingWritesAfterClose()
+  await verifyOpenAndVersionChangeLifetime()
   await deleteDatabase()
   const writer = new IndexedDbStorageAdapter()
   const observer = new IndexedDbStorageAdapter()

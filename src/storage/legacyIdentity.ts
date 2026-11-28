@@ -91,7 +91,9 @@ async function copyToEmptyTarget(
 
 export async function migrateLegacyBrowserIdentity(
   factory: IDBFactory,
+  signal?: AbortSignal,
 ): Promise<MigrationResult> {
+  signal?.throwIfAborted()
   if (!(await databaseExists(factory, LEGACY_BROWSER_DATABASE_NAME))) return 'unavailable'
 
   const source = await openExistingDatabase(factory, LEGACY_BROWSER_DATABASE_NAME)
@@ -103,11 +105,13 @@ export async function migrateLegacyBrowserIdentity(
     const sourceSnapshot = await readMainSnapshot(source)
     if (sourceSnapshot === undefined) return 'unavailable'
 
+    signal?.throwIfAborted()
     target = await openJournalDatabase(factory, BROWSER_DATABASE_NAME, () => new Error('Target database repair is blocked'))
     if (await readMainSnapshot(target) !== undefined) return 'skipped'
 
     const entries = await readSourceEntries(source)
     if (!entries.snapshot.some(entry => entry.key === 'main' && entry.value !== undefined)) return 'unavailable'
+    signal?.throwIfAborted()
     return await copyToEmptyTarget(target, entries)
   } finally {
     target?.close()

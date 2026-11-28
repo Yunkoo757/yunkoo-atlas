@@ -182,7 +182,32 @@ async function verifyAbortedSourceRead(allStores: boolean): Promise<void> {
     '重试后目标附件和版本应与来源一致')
 }
 
+async function verifyCancelledCopy(): Promise<void> {
+  await resetDatabases()
+  await seedDatabase(LEGACY_DATABASE_NAME, 'legacy')
+  const controller = new AbortController()
+  const original = IDBDatabase.prototype.transaction
+  IDBDatabase.prototype.transaction = function cancelAfterScan(stores, mode, options) {
+    const tx = original.call(this, stores, mode, options)
+    if (this.name === LEGACY_DATABASE_NAME && Array.isArray(stores) && mode === 'readonly') {
+      tx.addEventListener('complete', () => controller.abort(), { once: true })
+    }
+    return tx
+  }
+  try {
+    const result = await migrateLegacyBrowserIdentity(indexedDB, controller.signal)
+      .then(() => 'copied', (error: Error) => error.name)
+    assert(result === 'AbortError', '关闭期间结束的扫描不能发起目标写入')
+    assert(await readValue(BROWSER_DATABASE_NAME, 'snapshot', 'main') === undefined, '取消后目标快照应保持空白')
+    assert(await readValue(BROWSER_DATABASE_NAME, 'assets', 'asset-1') === undefined, '取消后目标附件应保持空白')
+    assert(await readValue(BROWSER_DATABASE_NAME, 'meta', 'snapshotRevision') === undefined, '取消后目标版本应保持空白')
+  } finally {
+    IDBDatabase.prototype.transaction = original
+  }
+}
+
 async function run(): Promise<void> {
+  await verifyCancelledCopy()
   await verifyAbortedSourceRead(false)
   await verifyAbortedSourceRead(true)
   await resetDatabases()
